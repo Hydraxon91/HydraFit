@@ -56,7 +56,7 @@ While executing an approved chunk:
 - **Utilize Project Helpers:** Always prioritize using existing project utilities (e.g., a shared `FatigueCalculator`, an existing repository interface, a shared date/time helper in `:core:domain`) over inventing local custom logic.
 - **Strategy Pattern Discipline:** Never add a fourth `WorkoutPlannerEngine` implementation, or logic that bypasses the interface, without explicit instruction. All three engines (Deterministic, Gemini API, Local LLM) must remain interchangeable via the same interface and swappable only through Koin DI.
 - **Extensibility Guardrails:** HydraFit is designed so new features (e.g., a future food/macro tracker) arrive as new modules, not edits to existing ones. Never introduce a dependency between two `feature/*` modules. If two features need to share something, propose moving it into `core/domain` (as an interface) or `core/userdata` (as shared data) and ask first.
-- **Feature Registration, Not Hardcoding:** Do not hardcode feature lists, navigation destinations, or Koin bindings for individual features in `androidApp` or `shared`. Each feature module registers its own Koin module and nav graph; the app shell (`shared`) only aggregates them, so every platform app stays thin.
+- **Feature Registration, Not Hardcoding:** Each feature module exports its own Koin module, route, and nav graph; the app shell (`shared`) aggregates those exports in a single explicit list at its composition root (`Koin.kt` / `App.kt`). Do not inline a feature's destinations, screens, or bindings in `androidApp` or `shared`, and do not add feature-specific logic there. Adding a feature should mean adding its exported entry to that aggregation list, never editing another feature.
 - **No Speculative Abstractions:** Extensibility means clean seams, not unused frameworks. Do not build plugin systems, generic "feature interfaces," or placeholder modules for features that don't exist yet. If in doubt, ask.
 - **Migration Discipline:** Any change to a SQLDelight `.sq` schema requires a matching `.sqm` migration in the same change. Never edit an already-released schema in place — additive migrations only unless explicitly approved.
 
@@ -139,7 +139,7 @@ Tech stack:
 - **SQLDelight** — typed, multiplatform-tested local database
 - **Ktor** — HTTP client for the Gemini API engine
 - **Koin** — dependency injection, enabling engine strategy swaps
-- **Google MediaPipe LLM Inference** — on-device Gemma model execution (experimental engine)
+- **Google LiteRT-LM** (`litertlm-android`) — on-device Gemma model execution (experimental engine; MediaPipe's mobile LLM Inference was deprecated)
 - **GitHub Actions** — CI/CD (lint, unit tests, debug APK build/publish)
 
 ## Architecture
@@ -150,14 +150,16 @@ HydraFit/
 ├── shared/                # Shared app shell (commonMain + platform source sets): root Composable, navigation host, Koin startup, feature registration aggregation — no feature or domain logic
 ├── core/
 │   ├── domain/             # KMP module (commonMain only): models, use cases, WorkoutPlannerEngine interface — no platform APIs
-│   ├── userdata/           # Shared user profile, body metrics, goals, unit preferences — used by any feature, owned by none
+│   ├── userdata/           # Shared user profile, body metrics, goals, unit preferences, settings — used by any feature, owned by none
 │   ├── database/           # SQLDelight schema (.sq files), versioned .sqm migrations, generated queries, repository implementations
-│   └── network/            # Ktor client setup, Gemini API DTOs, response_schema definitions
+│   ├── network/            # Ktor client setup, Gemini API DTOs, response_schema definitions
+│   └── llm/                # On-device text generation (LiteRT-LM), model management, local planner engine
 ├── feature/
 │   ├── equipment/          # Equipment Profiler UI + ViewModels
 │   ├── splitbuilder/       # Adaptive Weekly Split Builder UI + ViewModels
 │   ├── fatigueheatmap/     # Muscle Fatigue Heatmap UI + ViewModels
-│   └── logger/             # Offline Workout Logger UI + ViewModels
+│   ├── logger/             # Offline Workout Logger UI + ViewModels
+│   └── settings/           # Planner engine, API key, and on-device model settings UI + ViewModels
 └── .github/workflows/      # CI/CD pipeline definitions
 ```
 
