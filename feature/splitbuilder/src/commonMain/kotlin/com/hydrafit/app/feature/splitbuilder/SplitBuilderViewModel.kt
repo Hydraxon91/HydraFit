@@ -4,32 +4,22 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
-import com.hydrafit.app.core.domain.engine.PlanRequest
-import com.hydrafit.app.core.domain.engine.PlannerEngineId
-import com.hydrafit.app.core.domain.equipment.EquipmentTag
-import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
-import com.hydrafit.app.core.domain.fatigue.LoggedSet
-import com.hydrafit.app.core.domain.time.TimeProvider
-import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
-import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
+import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
+import com.hydrafit.app.core.domain.engine.WorkoutPlanInputs
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class SplitBuilderViewModel(
+    private val observeWorkoutPlanInputs: ObserveWorkoutPlanInputsUseCase,
     private val generateWeeklySplit: GenerateWeeklySplitUseCase,
-    private val equipmentSelectionRepository: EquipmentSelectionRepository,
-    private val workoutLogRepository: WorkoutLogRepository,
-    private val calculateMuscleFatigue: CalculateMuscleFatigueUseCase,
     private val exerciseCatalog: ExerciseCatalog,
-    private val timeProvider: TimeProvider,
     private val enginePreference: EnginePreferenceRepository
 ) : ViewModel() {
 
@@ -37,30 +27,12 @@ class SplitBuilderViewModel(
     val state: StateFlow<SplitBuilderUiState> = _state.asStateFlow()
 
     private val setsPerExercise = MutableStateFlow(SplitBuilderUiState().setsPerExercise)
-    private var lastInputs: PlanInputs? = null
+    private val refreshRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     init {
         viewModelScope.launch {
-            combine(
-                equipmentSelectionRepository.selectedFlow(),
-                enginePreference.engineFlow(),
-                enginePreference.daysPerWeekFlow(),
-                workoutLogRepository.loggedSetsFlow(),
-                setsPerExercise
-            ) { equipment, engine, daysPerWeek, loggedSets, sets ->
-                PlanInputs(
-                    availableEquipment = equipment,
-                    requestedEngine = engine,
-                    daysPerWeek = daysPerWeek,
-                    loggedSets = loggedSets,
-                    setsPerExercise = sets
-                )
-            }
-                .distinctUntilChanged()
-                .collectLatest { inputs ->
-                    lastInputs = inputs
-                    generate(inputs)
-                }
+            observeWorkoutPlanInputs(setsPerExercise, refreshRequests)
+                .collectLatest { inputs -> generate(inputs) }
         }
     }
 
@@ -75,28 +47,21 @@ class SplitBuilderViewModel(
     }
 
     fun refresh() {
-        val inputs = lastInputs ?: return
-        viewModelScope.launch { generate(inputs) }
+        refreshRequests.tryEmit(Unit)
     }
 
-    private suspend fun generate(inputs: PlanInputs) {
+    private suspend fun generate(inputs: WorkoutPlanInputs) {
+        val request = inputs.request
         _state.update {
             it.copy(
                 isLoading = true,
                 hasError = false,
-                daysPerWeek = inputs.daysPerWeek,
+                daysPerWeek = request.daysPerWeek,
+                setsPerExercise = request.setsPerExercise,
                 requestedEngine = inputs.requestedEngine
             )
         }
         try {
-            val nowMillis = timeProvider.nowMillis()
-            val request = PlanRequest(
-                daysPerWeek = inputs.daysPerWeek,
-                availableEquipment = inputs.availableEquipment,
-                muscleFatigue = calculateMuscleFatigue(inputs.loggedSets, nowMillis),
-                nowMillis = nowMillis,
-                setsPerExercise = inputs.setsPerExercise
-            )
             val plan = generateWeeklySplit(request)
             val names = exerciseCatalog.all().associate { it.id to it.name }
             _state.update {
@@ -108,12 +73,4 @@ class SplitBuilderViewModel(
             _state.update { it.copy(plan = null, isLoading = false, hasError = true) }
         }
     }
-
-    private data class PlanInputs(
-        val availableEquipment: Set<EquipmentTag>,
-        val requestedEngine: PlannerEngineId,
-        val daysPerWeek: Int,
-        val loggedSets: List<LoggedSet>,
-        val setsPerExercise: Int
-    )
 }

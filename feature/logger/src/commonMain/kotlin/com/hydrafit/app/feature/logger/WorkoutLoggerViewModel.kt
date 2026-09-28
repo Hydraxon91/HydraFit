@@ -4,39 +4,28 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
-import com.hydrafit.app.core.domain.engine.PlanRequest
-import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
 import com.hydrafit.app.core.domain.engine.WorkoutDay
-import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.engine.WorkoutPlanInputs
 import com.hydrafit.app.core.domain.equipment.Exercise
-import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
-import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.dayOfWeek
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
-import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
-import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
-import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class WorkoutLoggerViewModel(
     private val logWorkoutSet: LogWorkoutSetUseCase,
     private val getWorkoutLog: GetWorkoutLogUseCase,
+    private val observeWorkoutPlanInputs: ObserveWorkoutPlanInputsUseCase,
     private val generateWeeklySplit: GenerateWeeklySplitUseCase,
-    private val equipmentSelectionRepository: EquipmentSelectionRepository,
-    private val enginePreference: EnginePreferenceRepository,
-    private val workoutLogRepository: WorkoutLogRepository,
-    private val calculateMuscleFatigue: CalculateMuscleFatigueUseCase,
     private val exerciseCatalog: ExerciseCatalog,
     private val timeProvider: TimeProvider
 ) : ViewModel() {
@@ -61,20 +50,7 @@ class WorkoutLoggerViewModel(
             refreshRecentSets()
         }
         viewModelScope.launch {
-            combine(
-                equipmentSelectionRepository.selectedFlow(),
-                enginePreference.engineFlow(),
-                enginePreference.daysPerWeekFlow(),
-                workoutLogRepository.loggedSetsFlow()
-            ) { equipment, engine, daysPerWeek, loggedSets ->
-                TodayInputs(
-                    availableEquipment = equipment,
-                    requestedEngine = engine,
-                    daysPerWeek = daysPerWeek,
-                    loggedSets = loggedSets
-                )
-            }
-                .distinctUntilChanged()
+            observeWorkoutPlanInputs()
                 .collectLatest { updateTodayPlan(it) }
         }
     }
@@ -117,16 +93,9 @@ class WorkoutLoggerViewModel(
         }
     }
 
-    private suspend fun updateTodayPlan(inputs: TodayInputs) {
+    private suspend fun updateTodayPlan(inputs: WorkoutPlanInputs) {
         val today = try {
-            val nowMillis = timeProvider.nowMillis()
-            val request = PlanRequest(
-                daysPerWeek = inputs.daysPerWeek,
-                availableEquipment = inputs.availableEquipment,
-                muscleFatigue = calculateMuscleFatigue(inputs.loggedSets, nowMillis),
-                nowMillis = nowMillis
-            )
-            generateWeeklySplit(request).dayFor(dayOfWeek(nowMillis))
+            generateWeeklySplit(inputs.request).dayFor(dayOfWeek(inputs.request.nowMillis))
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (_: Exception) {
@@ -166,11 +135,4 @@ class WorkoutLoggerViewModel(
             }
         _state.update { it.copy(recentSets = rows) }
     }
-
-    private data class TodayInputs(
-        val availableEquipment: Set<EquipmentTag>,
-        val requestedEngine: PlannerEngineId,
-        val daysPerWeek: Int,
-        val loggedSets: List<LoggedSet>
-    )
 }

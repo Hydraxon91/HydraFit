@@ -3,8 +3,11 @@ package com.hydrafit.app.feature.logger
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
+import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
+import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngineProvider
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
@@ -30,6 +33,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -155,19 +159,30 @@ class WorkoutLoggerViewModelTest {
         daysPerWeek: Int = 4,
         equipmentRepository: FakeEquipmentSelectionRepository =
             FakeEquipmentSelectionRepository(availableEquipment)
-    ) = WorkoutLoggerViewModel(
-        logWorkoutSet = LogWorkoutSetUseCase(repository),
-        getWorkoutLog = GetWorkoutLogUseCase(repository),
-        generateWeeklySplit = GenerateWeeklySplitUseCase(
-            WorkoutPlannerEngineProvider { DeterministicWorkoutPlannerEngine(FakeExerciseCatalog) }
-        ),
-        equipmentSelectionRepository = equipmentRepository,
-        enginePreference = FakeEnginePreferenceRepository(daysPerWeek),
-        workoutLogRepository = repository,
-        calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
-        exerciseCatalog = FakeExerciseCatalog,
-        timeProvider = TimeProvider { timeMillis }
-    )
+    ): WorkoutLoggerViewModel {
+        val preference = FakeEnginePreferenceRepository(daysPerWeek)
+        val timeProvider = TimeProvider { timeMillis }
+        return WorkoutLoggerViewModel(
+            logWorkoutSet = LogWorkoutSetUseCase(repository),
+            getWorkoutLog = GetWorkoutLogUseCase(repository),
+            observeWorkoutPlanInputs = ObserveWorkoutPlanInputsUseCase(
+                sources = FakeWorkoutPlanSourcesRepository(
+                    equipment = equipmentRepository,
+                    preference = preference,
+                    workoutLog = repository
+                ),
+                calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+                timeProvider = timeProvider
+            ),
+            generateWeeklySplit = GenerateWeeklySplitUseCase(
+                WorkoutPlannerEngineProvider {
+                    DeterministicWorkoutPlannerEngine(FakeExerciseCatalog)
+                }
+            ),
+            exerciseCatalog = FakeExerciseCatalog,
+            timeProvider = timeProvider
+        )
+    }
 
     private object FakeExerciseCatalog : ExerciseCatalog {
         override suspend fun all(): List<Exercise> = listOf(
@@ -228,6 +243,26 @@ class WorkoutLoggerViewModelTest {
         override fun daysPerWeekFlow(): Flow<Int> = flowOf(daysPerWeek)
 
         override suspend fun setDaysPerWeek(daysPerWeek: Int) = Unit
+    }
+
+    private class FakeWorkoutPlanSourcesRepository(
+        private val equipment: EquipmentSelectionRepository,
+        private val preference: EnginePreferenceRepository,
+        private val workoutLog: WorkoutLogRepository
+    ) : WorkoutPlanSourcesRepository {
+        override fun observe(): Flow<WorkoutPlanSources> = combine(
+            equipment.selectedFlow(),
+            preference.engineFlow(),
+            preference.daysPerWeekFlow(),
+            workoutLog.loggedSetsFlow()
+        ) { availableEquipment, selectedEngine, daysPerWeek, loggedSets ->
+            WorkoutPlanSources(
+                availableEquipment = availableEquipment,
+                selectedEngine = selectedEngine,
+                daysPerWeek = daysPerWeek,
+                loggedSets = loggedSets
+            )
+        }
     }
 
     private class FakeWorkoutLogRepository : WorkoutLogRepository {

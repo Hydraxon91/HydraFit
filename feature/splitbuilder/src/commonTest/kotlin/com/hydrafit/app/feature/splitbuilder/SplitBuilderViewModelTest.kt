@@ -3,8 +3,11 @@ package com.hydrafit.app.feature.splitbuilder
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
+import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
+import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngineProvider
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
@@ -32,6 +35,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -92,16 +96,21 @@ class SplitBuilderViewModelTest {
 
     @Test
     fun reportsErrorInsteadOfCrashingWhenTheEngineFails() = runTest(dispatcher) {
+        val equipment = FakeEquipmentSelectionRepository(emptySet())
+        val preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC)
+        val workoutLog = FakeWorkoutLogRepository()
+        val sources = FakeWorkoutPlanSourcesRepository(equipment, preference, workoutLog)
         val viewModel = SplitBuilderViewModel(
+            observeWorkoutPlanInputs = ObserveWorkoutPlanInputsUseCase(
+                sources = sources,
+                calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+                timeProvider = TimeProvider { 0L }
+            ),
             generateWeeklySplit = GenerateWeeklySplitUseCase(
                 WorkoutPlannerEngineProvider { throw IllegalStateException("engine boom") }
             ),
-            equipmentSelectionRepository = FakeEquipmentSelectionRepository(emptySet()),
-            workoutLogRepository = FakeWorkoutLogRepository(),
-            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
             exerciseCatalog = FakeExerciseCatalog(),
-            timeProvider = TimeProvider { 0L },
-            enginePreference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC)
+            enginePreference = preference
         )
         advanceUntilIdle()
 
@@ -257,19 +266,45 @@ class SplitBuilderViewModelTest {
         workoutLogRepository: FakeWorkoutLogRepository = FakeWorkoutLogRepository()
     ): SplitBuilderViewModel {
         val catalog = FakeExerciseCatalog()
+        val sources = FakeWorkoutPlanSourcesRepository(
+            equipment = equipmentRepository,
+            preference = preference,
+            workoutLog = workoutLogRepository
+        )
         return SplitBuilderViewModel(
+            observeWorkoutPlanInputs = ObserveWorkoutPlanInputsUseCase(
+                sources = sources,
+                calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+                timeProvider = TimeProvider { 0L }
+            ),
             generateWeeklySplit = GenerateWeeklySplitUseCase(
                 WorkoutPlannerEngineProvider {
                     engine ?: DeterministicWorkoutPlannerEngine(catalog)
                 }
             ),
-            equipmentSelectionRepository = equipmentRepository,
-            workoutLogRepository = workoutLogRepository,
-            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
             exerciseCatalog = catalog,
-            timeProvider = TimeProvider { 0L },
             enginePreference = preference
         )
+    }
+
+    private class FakeWorkoutPlanSourcesRepository(
+        private val equipment: EquipmentSelectionRepository,
+        private val preference: EnginePreferenceRepository,
+        private val workoutLog: WorkoutLogRepository
+    ) : WorkoutPlanSourcesRepository {
+        override fun observe(): Flow<WorkoutPlanSources> = combine(
+            equipment.selectedFlow(),
+            preference.engineFlow(),
+            preference.daysPerWeekFlow(),
+            workoutLog.loggedSetsFlow()
+        ) { availableEquipment, selectedEngine, daysPerWeek, loggedSets ->
+            WorkoutPlanSources(
+                availableEquipment = availableEquipment,
+                selectedEngine = selectedEngine,
+                daysPerWeek = daysPerWeek,
+                loggedSets = loggedSets
+            )
+        }
     }
 
     private class FakeExerciseCatalog : ExerciseCatalog {
