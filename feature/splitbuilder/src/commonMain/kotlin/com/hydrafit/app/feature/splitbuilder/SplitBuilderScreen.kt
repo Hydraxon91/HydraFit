@@ -138,6 +138,12 @@ fun SplitBuilderScreen(
                 text = stringResource(errorText),
                 style = MaterialTheme.typography.bodyMedium
             )
+            state.errorDetail?.let { detail ->
+                Text(
+                    text = detail,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
             Button(onClick = onRetry) {
                 Text(stringResource(Res.string.split_retry))
             }

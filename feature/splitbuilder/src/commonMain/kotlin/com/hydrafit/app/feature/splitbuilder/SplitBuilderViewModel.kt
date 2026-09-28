@@ -58,6 +58,7 @@ class SplitBuilderViewModel(
                 isLoading = true,
                 hasError = false,
                 isTransientError = false,
+                errorDetail = null,
                 daysPerWeek = request.daysPerWeek,
                 setsPerExercise = request.setsPerExercise,
                 requestedEngine = inputs.requestedEngine
@@ -77,12 +78,19 @@ class SplitBuilderViewModel(
                     plan = null,
                     isLoading = false,
                     hasError = true,
-                    isTransientError = failure.transient
+                    isTransientError = failure.transient,
+                    errorDetail = failure.message
                 )
             }
-        } catch (_: Exception) {
+        } catch (failure: Exception) {
             _state.update {
-                it.copy(plan = null, isLoading = false, hasError = true, isTransientError = false)
+                it.copy(
+                    plan = null,
+                    isLoading = false,
+                    hasError = true,
+                    isTransientError = false,
+                    errorDetail = failure.message
+                )
             }
         }
     }

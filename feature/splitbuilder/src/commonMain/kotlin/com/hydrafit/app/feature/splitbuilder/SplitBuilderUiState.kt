@@ -11,7 +11,8 @@ data class SplitBuilderUiState(
     val requestedEngine: PlannerEngineId? = null,
     val isLoading: Boolean = true,
     val hasError: Boolean = false,
-    val isTransientError: Boolean = false
+    val isTransientError: Boolean = false,
+    val errorDetail: String? = null
 ) {
     val usedFallbackEngine: Boolean
         get() = plan != null && requestedEngine != null && plan.engine != requestedEngine
