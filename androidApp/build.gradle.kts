@@ -20,11 +20,11 @@ dependencies {
 }
 
 android {
-    namespace = "org.example.project"
+    namespace = "com.hydrafit.app"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "org.example.project"
+        applicationId = "com.hydrafit.app"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
