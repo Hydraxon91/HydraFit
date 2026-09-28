@@ -25,6 +25,7 @@ kotlin {
         commonMain.dependencies {
             implementation(project(":core:domain"))
             implementation(libs.sqldelight.runtime)
+            implementation(libs.koin.core)
         }
         androidMain.dependencies {
             implementation(libs.sqldelight.androidDriver)
