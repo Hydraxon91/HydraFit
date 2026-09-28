@@ -21,11 +21,11 @@
 - Domain use cases and the `WorkoutPlannerEngine` binding live in `:shared`'s `domainModule` (the composition root), not in `:core:domain`.
 - Screens are aggregated in `:shared` via `navigation-compose`, with each feature exposing its route and `NavGraphBuilder` extension.
 - `koin-test` `verify()` guards the aggregated module graph (currently marked `@KoinExperimentalAPI`).
+- `:core:navigation` exposes `FeatureDestination`; each feature self-registers its route, localized label, and nav graph, and `:shared` only aggregates the list.
+- The Offline Workout Logger persists sets via `WorkoutLogRepository`, and the fatigue heatmap reflects them (verified on the emulator).
 
 ## Open Questions / Later
 
 - Decide whether to add a desktop target.
 - Build the MediaPipe/Gemma engine last; it requires a physical device.
 - Add Ktor (Gemini engine) and MockK when their chunks start (versions already approved).
-- Replace the enumerated bottom-nav destination list in `:shared` with a proper per-feature registration seam once a fourth screen exists.
-- Split builder currently shows `exerciseId` names sourced from the catalog; add a workout logger UI to feed real logged sets.
