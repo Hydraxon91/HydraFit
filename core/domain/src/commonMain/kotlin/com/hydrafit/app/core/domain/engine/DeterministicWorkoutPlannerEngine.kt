@@ -1,6 +1,8 @@
 package com.hydrafit.app.core.domain.engine
 
+import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 
 class DeterministicWorkoutPlannerEngine(private val catalog: ExerciseCatalog) :
@@ -15,6 +17,9 @@ class DeterministicWorkoutPlannerEngine(private val catalog: ExerciseCatalog) :
         require(request.daysPerWeek in MIN_DAYS..MAX_DAYS) {
             "daysPerWeek must be between $MIN_DAYS and $MAX_DAYS"
         }
+        require(request.setsPerExercise in MIN_SETS..MAX_SETS) {
+            "setsPerExercise must be between $MIN_SETS and $MAX_SETS"
+        }
 
         val focusCycle =
             focusCycleFor(resolveSplitType(request.splitPreference, request.daysPerWeek))
@@ -25,7 +30,12 @@ class DeterministicWorkoutPlannerEngine(private val catalog: ExerciseCatalog) :
             WorkoutDay(
                 dayIndex = index,
                 focus = focus,
-                exercises = selectExercises(focus, availableExercises, request.muscleFatigue)
+                exercises = selectExercises(
+                    templateFor(focus, index),
+                    availableExercises,
+                    request.muscleFatigue,
+                    request.setsPerExercise
+                )
             )
         }
 
@@ -33,24 +43,87 @@ class DeterministicWorkoutPlannerEngine(private val catalog: ExerciseCatalog) :
     }
 
     private fun selectExercises(
-        focus: SplitFocus,
+        template: List<MovementPattern>,
         exercises: List<Exercise>,
-        fatigue: Map<MuscleGroup, Double>
+        fatigue: Map<MuscleGroup, Double>,
+        setsPerExercise: Int
     ): List<PlannedExercise> {
-        val focusMuscles = musclesFor(focus)
-        return exercises
-            .filter { exercise -> exercise.primaryMuscles.any { it in focusMuscles } }
-            .sortedWith(
-                compareBy(
-                    { exercise ->
-                        exercise.primaryMuscles.minOfOrNull { fatigue[it] ?: 0.0 } ?: 0.0
-                    },
-                    { exercise -> exercise.id }
+        val used = mutableSetOf<String>()
+        val picks = mutableListOf<PlannedExercise>()
+
+        for (pattern in template) {
+            val candidate = exercises
+                .filter { it.movementPattern == pattern && it.id !in used }
+                .minWithOrNull(
+                    compareBy(
+                        { equipmentRank(it) },
+                        { fatigueOf(it, fatigue) },
+                        { it.id }
+                    )
                 )
+                ?: continue
+
+            val soreness = fatigueOf(candidate, fatigue)
+            if (soreness >= FATIGUE_SKIP_THRESHOLD) continue
+
+            used += candidate.id
+            picks += PlannedExercise(
+                exerciseId = candidate.id,
+                sets = (setsPerExercise - if (soreness >= FATIGUE_REDUCE_THRESHOLD) 1 else 0)
+                    .coerceAtLeast(1),
+                reps = if (candidate.movementPattern.isCompound) COMPOUND_REPS else ISOLATION_REPS
             )
-            .take(MAX_EXERCISES_PER_DAY)
-            .map { PlannedExercise(exerciseId = it.id, sets = DEFAULT_SETS, reps = DEFAULT_REPS) }
+        }
+
+        return picks
     }
+
+    private fun fatigueOf(exercise: Exercise, fatigue: Map<MuscleGroup, Double>): Double =
+        exercise.primaryMuscles.maxOfOrNull { fatigue[it] ?: 0.0 } ?: 0.0
+
+    /** Prefers barbell > dumbbell > machine/kettlebell > band > pull-up bar > bodyweight. */
+    private fun equipmentRank(exercise: Exercise): Int = exercise.requiredEquipment
+        .filterNot { it == EquipmentTag.BODYWEIGHT }
+        .minOfOrNull { EQUIPMENT_RANK[it] ?: Int.MAX_VALUE }
+        ?: Int.MAX_VALUE
+
+    private fun templateFor(focus: SplitFocus, dayIndex: Int): List<MovementPattern> =
+        when (focus) {
+            SplitFocus.PUSH -> listOf(
+                MovementPattern.HORIZONTAL_PUSH,
+                MovementPattern.VERTICAL_PUSH,
+                MovementPattern.TRICEPS_ISOLATION,
+                MovementPattern.SHOULDER_ISOLATION
+            )
+            SplitFocus.PULL -> listOf(
+                MovementPattern.VERTICAL_PULL,
+                MovementPattern.HORIZONTAL_PULL,
+                MovementPattern.BICEPS_ISOLATION
+            )
+            SplitFocus.LEGS -> listOf(
+                MovementPattern.SQUAT,
+                MovementPattern.HINGE,
+                MovementPattern.LEG_ISOLATION,
+                MovementPattern.CALF_RAISE,
+                MovementPattern.CORE
+            )
+            SplitFocus.UPPER -> listOf(
+                MovementPattern.HORIZONTAL_PUSH,
+                MovementPattern.HORIZONTAL_PULL,
+                MovementPattern.VERTICAL_PUSH,
+                MovementPattern.VERTICAL_PULL,
+                MovementPattern.BICEPS_ISOLATION,
+                MovementPattern.TRICEPS_ISOLATION
+            )
+            SplitFocus.LOWER -> listOf(
+                MovementPattern.SQUAT,
+                MovementPattern.HINGE,
+                MovementPattern.LEG_ISOLATION,
+                MovementPattern.CALF_RAISE,
+                MovementPattern.CORE
+            )
+            SplitFocus.FULL_BODY -> FULL_BODY_TEMPLATES[dayIndex % FULL_BODY_TEMPLATES.size]
+        }
 
     private fun resolveSplitType(preference: SplitType, daysPerWeek: Int): SplitType =
         when (preference) {
@@ -69,37 +142,47 @@ class DeterministicWorkoutPlannerEngine(private val catalog: ExerciseCatalog) :
         SplitType.AUTO -> listOf(SplitFocus.FULL_BODY)
     }
 
-    private fun musclesFor(focus: SplitFocus): Set<MuscleGroup> = when (focus) {
-        SplitFocus.PUSH -> setOf(MuscleGroup.CHEST, MuscleGroup.SHOULDERS, MuscleGroup.TRICEPS)
-        SplitFocus.PULL -> setOf(MuscleGroup.BACK, MuscleGroup.BICEPS)
-        SplitFocus.LEGS -> setOf(
-            MuscleGroup.QUADS,
-            MuscleGroup.HAMSTRINGS,
-            MuscleGroup.GLUTES,
-            MuscleGroup.CALVES
-        )
-        SplitFocus.UPPER -> setOf(
-            MuscleGroup.CHEST,
-            MuscleGroup.BACK,
-            MuscleGroup.SHOULDERS,
-            MuscleGroup.BICEPS,
-            MuscleGroup.TRICEPS
-        )
-        SplitFocus.LOWER -> setOf(
-            MuscleGroup.QUADS,
-            MuscleGroup.HAMSTRINGS,
-            MuscleGroup.GLUTES,
-            MuscleGroup.CALVES,
-            MuscleGroup.CORE
-        )
-        SplitFocus.FULL_BODY -> MuscleGroup.entries.toSet()
-    }
-
     companion object {
         const val MIN_DAYS = 2
         const val MAX_DAYS = 6
+        const val MIN_SETS = 1
+        const val MAX_SETS = 8
         const val DEFAULT_SETS = 3
-        const val DEFAULT_REPS = 10
-        const val MAX_EXERCISES_PER_DAY = 5
+        const val COMPOUND_REPS = 6
+        const val ISOLATION_REPS = 12
+        const val FATIGUE_REDUCE_THRESHOLD = 0.5
+        const val FATIGUE_SKIP_THRESHOLD = 0.85
+
+        private val FULL_BODY_TEMPLATES = listOf(
+            listOf(
+                MovementPattern.SQUAT,
+                MovementPattern.HORIZONTAL_PUSH,
+                MovementPattern.HORIZONTAL_PULL,
+                MovementPattern.CORE
+            ),
+            listOf(
+                MovementPattern.HINGE,
+                MovementPattern.VERTICAL_PUSH,
+                MovementPattern.VERTICAL_PULL,
+                MovementPattern.CALF_RAISE
+            ),
+            listOf(
+                MovementPattern.LUNGE,
+                MovementPattern.HORIZONTAL_PUSH,
+                MovementPattern.HORIZONTAL_PULL,
+                MovementPattern.BICEPS_ISOLATION
+            )
+        )
+
+        private val EQUIPMENT_RANK = mapOf(
+            EquipmentTag.BARBELL to 0,
+            EquipmentTag.DUMBBELL to 1,
+            EquipmentTag.CABLE_MACHINE to 2,
+            EquipmentTag.KETTLEBELL to 3,
+            EquipmentTag.RESISTANCE_BAND to 4,
+            EquipmentTag.PULL_UP_BAR to 5,
+            EquipmentTag.BENCH to 6,
+            EquipmentTag.BODYWEIGHT to 7
+        )
     }
 }
