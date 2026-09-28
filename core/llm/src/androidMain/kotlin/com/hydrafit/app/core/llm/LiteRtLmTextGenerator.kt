@@ -6,17 +6,15 @@ import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
-import java.io.File
 
 class LiteRtLmTextGenerator(
     private val context: Context,
-    private val modelAssetPath: String = ON_DEVICE_LLM_ASSET
+    private val modelManager: AndroidOnDeviceModelManager
 ) : OnDeviceTextGenerator {
 
     private var conversation: Conversation? = null
 
-    override fun isAvailable(): Boolean =
-        runCatching { context.assets.open(modelAssetPath).close() }.isSuccess
+    override fun isAvailable(): Boolean = modelManager.isInstalled()
 
     override fun generate(prompt: String): String {
         val active = conversation ?: createConversation().also { conversation = it }
@@ -28,26 +26,12 @@ class LiteRtLmTextGenerator(
 
     private fun createConversation(): Conversation {
         val engineConfig = EngineConfig(
-            modelPath = ensureModelFile().absolutePath,
+            modelPath = modelManager.modelPath(),
             backend = Backend.CPU(),
             cacheDir = context.cacheDir.path
         )
         val engine = Engine(engineConfig)
         engine.initialize()
         return engine.createConversation()
-    }
-
-    private fun ensureModelFile(): File {
-        val target = File(context.filesDir, MODEL_FILE_NAME)
-        if (!target.exists()) {
-            context.assets.open(modelAssetPath).use { input ->
-                target.outputStream().use { output -> input.copyTo(output) }
-            }
-        }
-        return target
-    }
-
-    private companion object {
-        const val MODEL_FILE_NAME = "on_device_llm.litertlm"
     }
 }
