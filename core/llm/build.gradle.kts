@@ -25,7 +25,7 @@ kotlin {
             implementation(project(":core:domain"))
         }
         androidMain.dependencies {
-            implementation(libs.mediapipe.tasksGenai)
+            implementation(libs.litertlm.android)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
