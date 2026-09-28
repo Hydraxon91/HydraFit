@@ -70,7 +70,6 @@ class GeminiWorkoutPlannerEngine(
                 GeminiContent(role = "user", parts = listOf(GeminiPart(prompt)))
             ),
             generationConfig = GeminiGenerationConfig(
-                temperature = 0.4,
                 responseSchema = planSchema()
             )
         )

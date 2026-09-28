@@ -11,7 +11,6 @@ data class GeminiPart(val text: String)
 @Serializable
 data class GeminiGenerationConfig(
     val responseMimeType: String = "application/json",
-    val temperature: Double? = null,
     val responseSchema: GeminiSchema? = null
 )
 
