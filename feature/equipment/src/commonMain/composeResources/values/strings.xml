@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="equipment_profiler_title">Equipment</string>
+    <string name="equipment_tag_barbell">Barbell</string>
+    <string name="equipment_tag_dumbbell">Dumbbells</string>
+    <string name="equipment_tag_kettlebell">Kettlebell</string>
+    <string name="equipment_tag_bench">Bench</string>
+    <string name="equipment_tag_pull_up_bar">Pull-up bar</string>
+    <string name="equipment_tag_resistance_band">Resistance bands</string>
+    <string name="equipment_tag_cable_machine">Cable machine</string>
+    <string name="equipment_tag_bodyweight">Bodyweight</string>
+</resources>
