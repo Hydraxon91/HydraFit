@@ -8,6 +8,7 @@
   - **Done when:** each file has its own docs commit.
 
 - [ ] Verify the scaffold baseline and toolchain compatibility.
+  - AGP 9.4.1 has been verified to exist.
   - If the baseline build fails, stop and report; do not change versions without approval.
   - **Done when:** `./gradlew :androidApp:assembleDebug` succeeds and the AGP/Kotlin compatibility question is resolved.
 
