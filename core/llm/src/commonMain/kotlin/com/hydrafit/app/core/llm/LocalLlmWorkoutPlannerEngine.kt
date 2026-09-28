@@ -58,7 +58,7 @@ class LocalLlmWorkoutPlannerEngine(
         }
         val exerciseIds = catalog.all()
             .filter { it.isAvailableWith(request.availableEquipment) }
-            .joinToString(", ") { it.id }
+            .map { it.id }
 
         val sets = request.setsPerExercise
         return buildString {
@@ -69,7 +69,11 @@ class LocalLlmWorkoutPlannerEngine(
             appendLine("Each day has a \"focus\" and 4 to 6 \"exercises\".")
             appendLine("Available equipment: $equipment")
             appendLine("Muscle fatigue (0.0-1.0): $fatigue")
-            appendLine("Choose ONLY exerciseId values from this list: $exerciseIds")
+            appendLine(
+                "Use ONLY the exerciseId values below, copied exactly " +
+                    "(no prefix, no suffix, never invent an id):"
+            )
+            exerciseIds.forEach { id -> appendLine("- $id") }
             appendLine(
                 "Use one focus value per day from: PUSH, PULL, LEGS, UPPER, LOWER, FULL_BODY"
             )

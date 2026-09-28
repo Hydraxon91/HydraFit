@@ -10,7 +10,6 @@ import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.LogSeverity
 import com.google.ai.edge.litertlm.Message
-import com.google.ai.edge.litertlm.NoRepeatNgramConfig
 import com.google.ai.edge.litertlm.ResponseFormat
 import com.google.ai.edge.litertlm.SamplerConfig
 import java.io.File
@@ -34,6 +33,7 @@ class LiteRtLmTextGenerator(
 
     @Synchronized
     override fun generate(prompt: String, jsonSchema: String?): String = try {
+        Log.d(TAG, "On-device prompt (${prompt.length} chars): ${prompt.take(MAX_LOGGED_CHARS)}")
         val conversation = activeEngine().createConversation(conversationConfig())
         try {
             val text = readText(send(conversation, prompt, jsonSchema))
@@ -50,9 +50,10 @@ class LiteRtLmTextGenerator(
     private fun send(conversation: Conversation, prompt: String, jsonSchema: String?): Message {
         if (jsonSchema == null || !constrainedSupported) return conversation.sendMessage(prompt)
         return try {
+            // Deliberately no no-repeat-ngram constraint: it also blocks n-grams from the prompt,
+            // and the model must be able to repeat the exercise ids it is told to copy.
             conversation.sendMessage(
                 text = prompt,
-                noRepeatNgramConfig = NoRepeatNgramConfig(NO_REPEAT_NGRAM_SIZE),
                 responseFormat = ResponseFormat.json(jsonSchema)
             )
         } catch (failure: Exception) {
@@ -111,7 +112,6 @@ class LiteRtLmTextGenerator(
     private companion object {
         const val TAG = "LiteRtLmTextGenerator"
         const val MAX_LOGGED_CHARS = 4_000
-        const val NO_REPEAT_NGRAM_SIZE = 3
         const val SAMPLER_TOP_K = 40
         const val SAMPLER_TOP_P = 0.95
         const val SAMPLER_TEMPERATURE = 0.2
