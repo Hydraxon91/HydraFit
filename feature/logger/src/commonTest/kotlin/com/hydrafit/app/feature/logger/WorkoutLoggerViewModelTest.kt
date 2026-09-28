@@ -134,18 +134,34 @@ class WorkoutLoggerViewModelTest {
         )
     }
 
+    @Test
+    fun reprioritizesExercisesWhenEquipmentChanges() = runTest(dispatcher) {
+        val equipment = FakeEquipmentSelectionRepository(emptySet())
+        val viewModel = viewModel(equipmentRepository = equipment)
+        advanceUntilIdle()
+
+        assertEquals("Back Squat", viewModel.state.value.exercises.first().name)
+
+        equipment.setSelected(setOf(EquipmentTag.BARBELL))
+        advanceUntilIdle()
+
+        assertEquals("Bench Press", viewModel.state.value.exercises.first().name)
+    }
+
     private fun viewModel(
         repository: WorkoutLogRepository = FakeWorkoutLogRepository(),
         timeMillis: Long = 1_000L,
         availableEquipment: Set<EquipmentTag> = emptySet(),
-        daysPerWeek: Int = 4
+        daysPerWeek: Int = 4,
+        equipmentRepository: FakeEquipmentSelectionRepository =
+            FakeEquipmentSelectionRepository(availableEquipment)
     ) = WorkoutLoggerViewModel(
         logWorkoutSet = LogWorkoutSetUseCase(repository),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
         generateWeeklySplit = GenerateWeeklySplitUseCase(
             WorkoutPlannerEngineProvider { DeterministicWorkoutPlannerEngine(FakeExerciseCatalog) }
         ),
-        equipmentSelectionRepository = FakeEquipmentSelectionRepository(availableEquipment),
+        equipmentSelectionRepository = equipmentRepository,
         enginePreference = FakeEnginePreferenceRepository(daysPerWeek),
         workoutLogRepository = repository,
         calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),

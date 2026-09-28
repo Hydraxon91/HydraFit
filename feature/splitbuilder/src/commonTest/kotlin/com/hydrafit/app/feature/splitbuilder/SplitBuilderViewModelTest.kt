@@ -13,6 +13,8 @@ import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.fatigue.MuscleInvolvement
+import com.hydrafit.app.core.domain.fatigue.MuscleTarget
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
@@ -30,7 +32,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -96,7 +97,7 @@ class SplitBuilderViewModelTest {
                 WorkoutPlannerEngineProvider { throw IllegalStateException("engine boom") }
             ),
             equipmentSelectionRepository = FakeEquipmentSelectionRepository(emptySet()),
-            workoutLogRepository = FakeWorkoutLogRepository,
+            workoutLogRepository = FakeWorkoutLogRepository(),
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
             exerciseCatalog = FakeExerciseCatalog(),
             timeProvider = TimeProvider { 0L },
@@ -188,6 +189,57 @@ class SplitBuilderViewModelTest {
     }
 
     @Test
+    fun regeneratesWhenEnginePreferenceChanges() = runTest(dispatcher) {
+        val preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC)
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            preference = preference
+        )
+        advanceUntilIdle()
+
+        preference.setEngine(PlannerEngineId.LOCAL_LLM)
+        advanceUntilIdle()
+
+        assertEquals(PlannerEngineId.LOCAL_LLM, viewModel.state.value.requestedEngine)
+        assertTrue(viewModel.state.value.usedFallbackEngine)
+    }
+
+    @Test
+    fun regeneratesWhenLoggedSetsChange() = runTest(dispatcher) {
+        val workoutLog = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            workoutLogRepository = workoutLog
+        )
+        advanceUntilIdle()
+
+        val initialSets = viewModel.state.value.plan!!.days
+            .flatMap { it.exercises }
+            .filter { it.exerciseId == "goblet-squat" }
+            .map { it.sets }
+        assertTrue(initialSets.isNotEmpty())
+        assertTrue(initialSets.all { it == 3 })
+
+        workoutLog.setLoggedSets(
+            List(12) {
+                LoggedSet(
+                    timestampMillis = 0L,
+                    targets = listOf(MuscleTarget(MuscleGroup.QUADS, MuscleInvolvement.PRIMARY)),
+                    isWarmup = false
+                )
+            }
+        )
+        advanceUntilIdle()
+
+        val fatiguedSets = viewModel.state.value.plan!!.days
+            .flatMap { it.exercises }
+            .filter { it.exerciseId == "goblet-squat" }
+            .map { it.sets }
+        assertTrue(fatiguedSets.isNotEmpty())
+        assertTrue(fatiguedSets.all { it == 2 })
+    }
+
+    @Test
     fun doesNotFlagFallbackWhenRequestedEngineIsUsed() = runTest(dispatcher) {
         val viewModel = viewModel(availableEquipment = setOf(EquipmentTag.DUMBBELL))
         advanceUntilIdle()
@@ -201,7 +253,8 @@ class SplitBuilderViewModelTest {
         preference: FakeEnginePreferenceRepository =
             FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC),
         equipmentRepository: EquipmentSelectionRepository =
-            FakeEquipmentSelectionRepository(availableEquipment)
+            FakeEquipmentSelectionRepository(availableEquipment),
+        workoutLogRepository: FakeWorkoutLogRepository = FakeWorkoutLogRepository()
     ): SplitBuilderViewModel {
         val catalog = FakeExerciseCatalog()
         return SplitBuilderViewModel(
@@ -211,7 +264,7 @@ class SplitBuilderViewModelTest {
                 }
             ),
             equipmentSelectionRepository = equipmentRepository,
-            workoutLogRepository = FakeWorkoutLogRepository,
+            workoutLogRepository = workoutLogRepository,
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
             exerciseCatalog = catalog,
             timeProvider = TimeProvider { 0L },
@@ -247,7 +300,7 @@ class SplitBuilderViewModelTest {
         private val engineState = MutableStateFlow(engine)
         private val daysState = MutableStateFlow(storedDaysPerWeek)
 
-        override suspend fun selectedEngine(): PlannerEngineId = engine
+        override suspend fun selectedEngine(): PlannerEngineId = engineState.value
 
         override fun engineFlow(): Flow<PlannerEngineId> = engineState.asStateFlow()
 
@@ -278,14 +331,20 @@ class SplitBuilderViewModelTest {
         }
     }
 
-    private object FakeWorkoutLogRepository : WorkoutLogRepository {
+    private class FakeWorkoutLogRepository : WorkoutLogRepository {
+        private val loggedState = MutableStateFlow(emptyList<LoggedSet>())
+
+        fun setLoggedSets(sets: List<LoggedSet>) {
+            loggedState.value = sets
+        }
+
         override suspend fun add(set: WorkoutSet) = Unit
 
         override suspend fun all(): List<WorkoutSet> = emptyList()
 
-        override suspend fun loggedSets(): List<LoggedSet> = emptyList()
+        override suspend fun loggedSets(): List<LoggedSet> = loggedState.value
 
-        override fun loggedSetsFlow(): Flow<List<LoggedSet>> = flowOf(emptyList())
+        override fun loggedSetsFlow(): Flow<List<LoggedSet>> = loggedState.asStateFlow()
 
         override suspend fun clear() = Unit
     }
