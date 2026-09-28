@@ -9,6 +9,7 @@ import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,20 +39,26 @@ class SplitBuilderViewModel(
 
     fun refresh() {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true) }
-            val nowMillis = timeProvider.nowMillis()
-            val request = PlanRequest(
-                daysPerWeek = _state.value.daysPerWeek,
-                availableEquipment = equipmentSelectionRepository.selected(),
-                muscleFatigue = calculateMuscleFatigue(
-                    workoutLogRepository.loggedSets(),
-                    nowMillis
-                ),
-                nowMillis = nowMillis
-            )
-            val plan = generateWeeklySplit(request)
-            val names = exerciseCatalog.all().associate { it.id to it.name }
-            _state.update { it.copy(plan = plan, exerciseNames = names, isLoading = false) }
+            _state.update { it.copy(isLoading = true, hasError = false) }
+            try {
+                val nowMillis = timeProvider.nowMillis()
+                val request = PlanRequest(
+                    daysPerWeek = _state.value.daysPerWeek,
+                    availableEquipment = equipmentSelectionRepository.selected(),
+                    muscleFatigue = calculateMuscleFatigue(
+                        workoutLogRepository.loggedSets(),
+                        nowMillis
+                    ),
+                    nowMillis = nowMillis
+                )
+                val plan = generateWeeklySplit(request)
+                val names = exerciseCatalog.all().associate { it.id to it.name }
+                _state.update { it.copy(plan = plan, exerciseNames = names, isLoading = false) }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                _state.update { it.copy(isLoading = false, hasError = true) }
+            }
         }
     }
 }

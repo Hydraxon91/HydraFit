@@ -6,5 +6,6 @@ data class SplitBuilderUiState(
     val daysPerWeek: Int = 4,
     val plan: WeeklyPlan? = null,
     val exerciseNames: Map<String, String> = emptyMap(),
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val hasError: Boolean = false
 )

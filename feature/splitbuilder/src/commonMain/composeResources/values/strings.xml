@@ -10,4 +10,6 @@
     <string name="focus_upper">Upper</string>
     <string name="focus_lower">Lower</string>
     <string name="focus_full_body">Full body</string>
+    <string name="split_error">Couldn\'t build the plan. Check your connection or API key and try again.</string>
+    <string name="split_retry">Retry</string>
 </resources>

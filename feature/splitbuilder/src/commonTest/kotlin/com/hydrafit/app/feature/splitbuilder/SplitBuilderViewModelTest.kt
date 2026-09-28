@@ -18,6 +18,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -77,6 +78,24 @@ class SplitBuilderViewModelTest {
         val days = viewModel.state.value.plan!!.days
         assertEquals(4, days.size)
         assertTrue(days.all { it.exercises.isEmpty() })
+    }
+
+    @Test
+    fun reportsErrorInsteadOfCrashingWhenTheEngineFails() = runTest(dispatcher) {
+        val viewModel = SplitBuilderViewModel(
+            generateWeeklySplit = GenerateWeeklySplitUseCase(
+                WorkoutPlannerEngineProvider { throw IllegalStateException("engine boom") }
+            ),
+            equipmentSelectionRepository = FakeEquipmentSelectionRepository(emptySet()),
+            workoutLogRepository = FakeWorkoutLogRepository,
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            exerciseCatalog = FakeExerciseCatalog(),
+            timeProvider = TimeProvider { 0L }
+        )
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.hasError)
+        assertFalse(viewModel.state.value.isLoading)
     }
 
     private fun viewModel(availableEquipment: Set<EquipmentTag>): SplitBuilderViewModel {

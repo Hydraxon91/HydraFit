@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,6 +32,8 @@ import hydrafit.feature.splitbuilder.generated.resources.nav_label
 import hydrafit.feature.splitbuilder.generated.resources.split_builder_title
 import hydrafit.feature.splitbuilder.generated.resources.split_day
 import hydrafit.feature.splitbuilder.generated.resources.split_days_label
+import hydrafit.feature.splitbuilder.generated.resources.split_error
+import hydrafit.feature.splitbuilder.generated.resources.split_retry
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -58,6 +61,7 @@ fun SplitBuilderRoute(
     SplitBuilderScreen(
         state = state,
         onDaysPerWeekSelected = viewModel::onDaysPerWeekSelected,
+        onRetry = viewModel::refresh,
         modifier = modifier
     )
 }
@@ -66,6 +70,7 @@ fun SplitBuilderRoute(
 fun SplitBuilderScreen(
     state: SplitBuilderUiState,
     onDaysPerWeekSelected: (Int) -> Unit,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -88,6 +93,15 @@ fun SplitBuilderScreen(
                     onClick = { onDaysPerWeekSelected(days) },
                     label = { Text(days.toString()) }
                 )
+            }
+        }
+        if (state.hasError) {
+            Text(
+                text = stringResource(Res.string.split_error),
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Button(onClick = onRetry) {
+                Text(stringResource(Res.string.split_retry))
             }
         }
         state.plan?.days?.forEach { day ->
