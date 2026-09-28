@@ -4,13 +4,13 @@ import android.content.Context
 import android.net.Uri
 import java.io.File
 
-class AndroidOnDeviceModelManager(private val context: Context) : OnDeviceModelManager {
+class AndroidOnDeviceModelManager(private val context: Context) {
 
     private val modelFile = File(context.filesDir, MODEL_FILE_NAME)
 
-    override fun isInstalled(): Boolean = modelFile.exists() && modelFile.length() > 0
+    fun isInstalled(): Boolean = modelFile.exists() && modelFile.length() > 0
 
-    override fun remove() {
+    fun remove() {
         if (modelFile.exists()) {
             modelFile.delete()
         }
