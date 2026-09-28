@@ -22,3 +22,4 @@
 - Build the MediaPipe/Gemma engine last; it requires a physical device.
 - Implement the fatigue heatmap using the approved formula.
 - Add Koin, Ktor, and MockK when their chunks start (versions already approved).
+- Add `koin-test` (`checkModules`/`verify`) when the first feature injects dependencies.
