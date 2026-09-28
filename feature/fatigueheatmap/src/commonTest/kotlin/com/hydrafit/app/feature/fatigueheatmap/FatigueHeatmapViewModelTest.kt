@@ -16,6 +16,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -82,6 +84,8 @@ class FatigueHeatmapViewModelTest {
         override suspend fun all(): List<WorkoutSet> = emptyList()
 
         override suspend fun loggedSets(): List<LoggedSet> = sets
+
+        override fun loggedSetsFlow(): Flow<List<LoggedSet>> = flowOf(sets)
 
         override suspend fun clear() = Unit
     }

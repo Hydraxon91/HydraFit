@@ -12,6 +12,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -164,12 +166,24 @@ class SettingsViewModelTest {
         }
     }
 
-    private class FakeEnginePreferenceRepository(var stored: PlannerEngineId) :
-        EnginePreferenceRepository {
+    private class FakeEnginePreferenceRepository(
+        var stored: PlannerEngineId,
+        var storedDaysPerWeek: Int = 4
+    ) : EnginePreferenceRepository {
         override suspend fun selectedEngine(): PlannerEngineId = stored
+
+        override fun engineFlow(): Flow<PlannerEngineId> = flowOf(stored)
 
         override suspend fun setEngine(engine: PlannerEngineId) {
             stored = engine
+        }
+
+        override suspend fun selectedDaysPerWeek(): Int = storedDaysPerWeek
+
+        override fun daysPerWeekFlow(): Flow<Int> = flowOf(storedDaysPerWeek)
+
+        override suspend fun setDaysPerWeek(daysPerWeek: Int) {
+            storedDaysPerWeek = daysPerWeek
         }
     }
 

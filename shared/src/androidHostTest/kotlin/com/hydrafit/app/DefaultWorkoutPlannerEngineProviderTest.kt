@@ -8,6 +8,8 @@ import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import kotlin.test.Test
 import kotlin.test.assertSame
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 
 class DefaultWorkoutPlannerEngineProviderTest {
@@ -62,6 +64,14 @@ class DefaultWorkoutPlannerEngineProviderTest {
         EnginePreferenceRepository {
         override suspend fun selectedEngine(): PlannerEngineId = selected
 
+        override fun engineFlow(): Flow<PlannerEngineId> = flowOf(selected)
+
         override suspend fun setEngine(engine: PlannerEngineId) = Unit
+
+        override suspend fun selectedDaysPerWeek(): Int = 4
+
+        override fun daysPerWeekFlow(): Flow<Int> = flowOf(4)
+
+        override suspend fun setDaysPerWeek(daysPerWeek: Int) = Unit
     }
 }

@@ -10,6 +10,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -72,6 +74,8 @@ class EquipmentProfilerViewModelTest {
         var stored: Set<EquipmentTag> = initial
 
         override suspend fun selected(): Set<EquipmentTag> = stored
+
+        override fun selectedFlow(): Flow<Set<EquipmentTag>> = flowOf(stored)
 
         override suspend fun setSelected(tags: Set<EquipmentTag>) {
             stored = tags
