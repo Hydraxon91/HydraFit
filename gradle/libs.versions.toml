@@ -15,6 +15,7 @@ junit = "4.13.2"
 koin = "4.2.2"
 kotlin = "2.4.20"
 ktor = "3.6.0"
+mediapipe = "0.10.35"
 mockk = "1.14.11"
 serialization = "1.11.0"
 ktlint = "14.2.0"
@@ -58,6 +59,7 @@ ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
 ktor-serialization-kotlinxJson = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+mediapipe-tasksGenai = { module = "com.google.mediapipe:tasks-genai", version.ref = "mediapipe" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
