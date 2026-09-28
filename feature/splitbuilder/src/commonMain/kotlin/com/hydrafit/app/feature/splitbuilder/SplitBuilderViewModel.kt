@@ -55,6 +55,7 @@ class SplitBuilderViewModel(
         val request = inputs.request
         _state.update {
             it.copy(
+                plan = null,
                 isLoading = true,
                 hasError = false,
                 isTransientError = false,

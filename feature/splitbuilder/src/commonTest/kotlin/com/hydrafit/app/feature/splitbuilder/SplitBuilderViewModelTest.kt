@@ -5,8 +5,10 @@ import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
 import com.hydrafit.app.core.domain.engine.PlanGenerationException
+import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
@@ -31,6 +33,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -40,6 +43,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
@@ -280,6 +284,40 @@ class SplitBuilderViewModelTest {
         advanceUntilIdle()
 
         assertFalse(viewModel.state.value.usedFallbackEngine)
+    }
+
+    @Test
+    fun clearsThePreviousFallbackPlanWhileRegenerating() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        var calls = 0
+        val engine = object : WorkoutPlannerEngine {
+            override val id: PlannerEngineId = PlannerEngineId.DETERMINISTIC
+
+            override suspend fun generatePlan(request: PlanRequest): WeeklyPlan {
+                calls++
+                if (calls > 1) gate.await()
+                return DeterministicWorkoutPlannerEngine(FakeExerciseCatalog())
+                    .generatePlan(request)
+            }
+        }
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = engine,
+            preference = FakeEnginePreferenceRepository(PlannerEngineId.LOCAL_LLM)
+        )
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.usedFallbackEngine)
+
+        viewModel.onSetsPerExerciseChanged(4)
+        runCurrent()
+
+        assertTrue(viewModel.state.value.isLoading)
+        assertNull(viewModel.state.value.plan)
+        assertFalse(viewModel.state.value.usedFallbackEngine)
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertFalse(viewModel.state.value.isLoading)
     }
 
     private fun viewModel(
