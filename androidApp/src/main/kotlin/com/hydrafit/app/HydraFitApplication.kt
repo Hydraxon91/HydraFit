@@ -5,6 +5,6 @@ import android.app.Application
 class HydraFitApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        initKoin(this)
+        initKoin(this, BuildConfig.GEMINI_API_KEY)
     }
 }

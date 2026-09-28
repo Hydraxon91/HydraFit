@@ -1,0 +1,10 @@
+# Copy to local.properties (gitignored) and fill in locally. Never commit real secrets.
+
+# Gemini API Engine
+GEMINI_API_KEY=your_google_ai_studio_key_here
+
+# Release signing (only needed for release builds)
+RELEASE_KEYSTORE_PATH=/path/to/keystore.jks
+RELEASE_KEYSTORE_PASSWORD=changeme
+RELEASE_KEY_ALIAS=hydrafit
+RELEASE_KEY_PASSWORD=changeme
