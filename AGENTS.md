@@ -36,7 +36,7 @@
 - **Utilize Project Helpers:** Always prioritize using existing project utilities (e.g., a shared `FatigueCalculator`, an existing repository interface, a shared date/time helper in `:core:domain`) over inventing local custom logic.
 - **Strategy Pattern Discipline:** Never add a fourth `WorkoutPlannerEngine` implementation, or logic that bypasses the interface, without explicit instruction. All three engines (Deterministic, Gemini API, Local LLM) must remain interchangeable via the same interface and swappable only through Koin DI.
 - **Extensibility Guardrails:** HydraFit is designed so new features (e.g., a future food/macro tracker) arrive as new modules, not edits to existing ones. Never introduce a dependency between two `feature/*` modules. If two features need to share something, propose moving it into `core/domain` (as an interface) or `core/userdata` (as shared data) and ask first.
-- **Feature Registration, Not Hardcoding:** Do not hardcode feature lists, navigation destinations, or Koin bindings for individual features in `composeApp`. Each feature module registers its own Koin module and nav graph; the app shell only aggregates them.
+- **Feature Registration, Not Hardcoding:** Do not hardcode feature lists, navigation destinations, or Koin bindings for individual features in `androidApp` or `shared`. Each feature module registers its own Koin module and nav graph; the app shell (`shared`) only aggregates them, so every platform app stays thin.
 - **No Speculative Abstractions:** Extensibility means clean seams, not unused frameworks. Do not build plugin systems, generic "feature interfaces," or placeholder modules for features that don't exist yet. If in doubt, ask.
 - **Migration Discipline:** Any change to a SQLDelight `.sq` schema requires a matching `.sqm` migration in the same change. Never edit an already-released schema in place — additive migrations only unless explicitly approved.
 
@@ -87,7 +87,7 @@ The repository will enforce a staged GitHub Actions pipeline. Any changes you ma
      - `lint` — ktlint/detekt static analysis (no dependencies; starts immediately)
      - `unit-tests` — runs `:core:domain`, `:core:userdata`, `:core:database`, and `:feature:*` unit tests via `./gradlew test` (no dependencies; starts immediately)
    - **Stage 2 (Build-dependent):**
-     - `assemble-debug-apk` — runs after `lint` and `unit-tests` both pass; builds via `./gradlew :composeApp:assembleDebug`; automatically skipped if Stage 1 fails, to save build minutes.
+     - `assemble-debug-apk` — runs after `lint` and `unit-tests` both pass; builds via `./gradlew :androidApp:assembleDebug`; automatically skipped if Stage 1 fails, to save build minutes.
    - **Stage 3 (Artifact publish):**
      - `upload-apk-artifact` — uploads the debug APK as a GitHub Actions workflow artifact, downloadable from the Actions tab on every push/PR, no release tag required.
 
@@ -124,7 +124,8 @@ Tech stack:
 
 ```
 HydraFit/
-├── composeApp/            # androidMain / iosMain / commonMain — thin platform entry points only
+├── androidApp/            # Android entry point only: Application class, MainActivity, manifest — no feature or domain logic
+├── shared/                # Shared app shell (commonMain + platform source sets): root Composable, navigation host, Koin startup, feature registration aggregation — no feature or domain logic
 ├── core/
 │   ├── domain/             # Pure Kotlin: models, use cases, WorkoutPlannerEngine interface — zero Android deps
 │   ├── userdata/           # Shared user profile, body metrics, goals, unit preferences — used by any feature, owned by none
@@ -150,7 +151,7 @@ HydraFit/
 ### Local Development
 ```bash
 # Build the Android debug APK
-./gradlew :composeApp:assembleDebug
+./gradlew :androidApp:assembleDebug
 
 # Run unit tests across all modules
 ./gradlew test
@@ -188,7 +189,7 @@ RELEASE_KEY_PASSWORD=changeme
 
 ```bash
 # Build debug APK
-./gradlew :composeApp:assembleDebug
+./gradlew :androidApp:assembleDebug
 
 # Run all unit tests, redirect output
 ./gradlew test > test-output.log 2>&1
@@ -203,6 +204,11 @@ RELEASE_KEY_PASSWORD=changeme
 ```
 
 ## Project Structure & Conventions
+
+### `androidApp/` and `shared/`
+- `androidApp` is the Android entry point only (Application class, `MainActivity`, manifest, Android-specific wiring). It hosts the shared UI from `shared`.
+- `shared` is the app shell: root Composable, navigation host, Koin startup, and aggregation of each feature's registered Koin module and nav graph. It contains no feature, domain, or data logic — if code could live in a `core/*` or `feature/*` module, it goes there.
+- Neither module may grow into a dumping ground. New logic gets a home in a `core/*` or `feature/*` module, and if none fits, ask first.
 
 ### `core/domain/`
 - **Use cases** — one class per user action/query (e.g., `GenerateWeeklySplitUseCase`, `CalculateMuscleFatigueUseCase`), each with a single public `invoke`/`execute` entry point.
@@ -225,7 +231,7 @@ RELEASE_KEY_PASSWORD=changeme
 ### `feature/*`
 - Each feature module owns its Composables, ViewModels, and feature-specific state classes.
 - Feature modules depend on `core/domain` and `core/userdata` only — never directly on `core/database` or `core/network`, and **never on another `feature/*` module**.
-- Each feature module exposes its own Koin module and navigation graph, which `composeApp` aggregates. A new feature (e.g., `feature/nutrition/`) should be addable without editing existing feature modules.
+- Each feature module exposes its own Koin module and navigation graph, which `shared` aggregates. A new feature (e.g., `feature/nutrition/`) should be addable without editing existing feature modules.
 
 ## PR Template
 
@@ -246,7 +252,7 @@ Every PR description should follow this format (template at `.github/PULL_REQUES
 
 - [ ] Unit tests pass (`./gradlew test`)
 - [ ] Lint passes (`./gradlew ktlintCheck`)
-- [ ] Debug APK builds cleanly (`./gradlew :composeApp:assembleDebug`)
+- [ ] Debug APK builds cleanly (`./gradlew :androidApp:assembleDebug`)
 - [ ] Manual smoke test on emulator/device (if applicable)
 
 ## Checklist

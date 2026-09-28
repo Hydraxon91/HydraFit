@@ -1,4 +1,4 @@
-rootProject.name = "KotlinProject"
+rootProject.name = "HydraFit"
 
 pluginManagement {
     repositories {
