@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="nav_label">Log</string>
+    <string name="logger_title">Log workout</string>
+    <string name="logger_reps_label">Reps</string>
+    <string name="logger_weight_label">Weight (kg)</string>
+    <string name="logger_warmup">Warm-up set</string>
+    <string name="logger_log_button">Log set</string>
+    <string name="logger_recent">Recent sets</string>
+    <string name="logger_warmup_suffix">(warm-up)</string>
+    <string name="logger_weight_none">-</string>
+</resources>
