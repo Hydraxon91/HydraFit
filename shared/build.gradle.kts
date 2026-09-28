@@ -46,8 +46,10 @@ kotlin {
         }
         commonMain.dependencies {
             implementation(project(":core:domain"))
+            implementation(project(":core:userdata"))
             implementation(project(":core:navigation"))
             implementation(project(":core:database"))
+            implementation(project(":core:network"))
             implementation(project(":feature:equipment"))
             implementation(project(":feature:fatigueheatmap"))
             implementation(project(":feature:splitbuilder"))
@@ -70,6 +72,7 @@ kotlin {
         }
         getByName("androidHostTest").dependencies {
             implementation(libs.koin.test)
+            implementation(libs.kotlinx.coroutines.test)
         }
     }
 }
