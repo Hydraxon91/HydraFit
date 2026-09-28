@@ -40,6 +40,7 @@ kotlin {
         getByName("androidHostTest").dependencies {
             implementation(libs.sqldelight.sqliteDriver)
             implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.koin.test)
         }
     }
 }

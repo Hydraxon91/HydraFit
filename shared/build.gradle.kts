@@ -48,9 +48,12 @@ kotlin {
             implementation(project(":core:domain"))
             implementation(project(":core:database"))
             implementation(project(":feature:equipment"))
+            implementation(project(":feature:fatigueheatmap"))
+            implementation(project(":feature:splitbuilder"))
             implementation(libs.koin.core)
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
+            implementation(libs.navigation.compose)
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
@@ -62,6 +65,9 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+        }
+        getByName("androidHostTest").dependencies {
+            implementation(libs.koin.test)
         }
     }
 }
