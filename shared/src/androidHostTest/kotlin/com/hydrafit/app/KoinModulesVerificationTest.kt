@@ -3,6 +3,7 @@ package com.hydrafit.app
 import com.hydrafit.app.core.database.DatabaseDriverFactory
 import com.hydrafit.app.core.database.databaseModule
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.feature.equipment.equipmentModule
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapModule
 import com.hydrafit.app.feature.logger.loggerModule
@@ -30,6 +31,12 @@ class KoinModulesVerificationTest {
 
     @Test
     fun allModulesResolve() {
-        allModules.verify(extraTypes = listOf(DatabaseDriverFactory::class, TimeProvider::class))
+        allModules.verify(
+            extraTypes = listOf(
+                DatabaseDriverFactory::class,
+                TimeProvider::class,
+                OnDeviceTextGenerator::class
+            )
+        )
     }
 }

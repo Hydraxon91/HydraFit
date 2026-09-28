@@ -3,6 +3,8 @@ package com.hydrafit.app
 import com.hydrafit.app.core.database.DatabaseDriverFactory
 import com.hydrafit.app.core.database.NativeDatabaseDriverFactory
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.llm.OnDeviceTextGenerator
+import com.hydrafit.app.core.llm.UnsupportedOnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -18,4 +20,5 @@ fun iosDatabaseModule(): Module = module {
             NSProcessInfo.processInfo.environment["GEMINI_API_KEY"] as? String ?: ""
         }
     }
+    single<OnDeviceTextGenerator> { UnsupportedOnDeviceTextGenerator() }
 }

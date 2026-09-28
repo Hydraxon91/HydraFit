@@ -14,6 +14,7 @@ class DefaultWorkoutPlannerEngineProviderTest {
 
     private val deterministic = FakeEngine(PlannerEngineId.DETERMINISTIC)
     private val gemini = FakeEngine(PlannerEngineId.GEMINI_API)
+    private val localLlm = FakeEngine(PlannerEngineId.LOCAL_LLM)
 
     @Test
     fun usesDeterministicWhenThatIsSelected() = runTest {
@@ -36,11 +37,19 @@ class DefaultWorkoutPlannerEngineProviderTest {
         assertSame(deterministic, provider.get())
     }
 
+    @Test
+    fun usesTheOnDeviceEngineWhenSelected() = runTest {
+        val provider = provider(selected = PlannerEngineId.LOCAL_LLM, apiKey = "")
+
+        assertSame(localLlm, provider.get())
+    }
+
     private fun provider(selected: PlannerEngineId, apiKey: String) =
         DefaultWorkoutPlannerEngineProvider(
             preference = FakeEnginePreferenceRepository(selected),
             deterministic = deterministic,
             gemini = gemini,
+            localLlm = localLlm,
             apiKeyProvider = ApiKeyProvider { apiKey }
         )
 

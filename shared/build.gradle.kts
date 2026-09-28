@@ -50,6 +50,7 @@ kotlin {
             implementation(project(":core:navigation"))
             implementation(project(":core:database"))
             implementation(project(":core:network"))
+            implementation(project(":core:llm"))
             implementation(project(":feature:equipment"))
             implementation(project(":feature:fatigueheatmap"))
             implementation(project(":feature:splitbuilder"))
