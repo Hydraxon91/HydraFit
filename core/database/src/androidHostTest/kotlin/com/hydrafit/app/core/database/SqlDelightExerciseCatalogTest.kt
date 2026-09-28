@@ -3,6 +3,7 @@ package com.hydrafit.app.core.database
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -42,7 +43,8 @@ class SqlDelightExerciseCatalogTest {
             name = "Bench Press",
             equipment = setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH),
             primary = setOf(MuscleGroup.CHEST),
-            secondary = setOf(MuscleGroup.TRICEPS, MuscleGroup.SHOULDERS)
+            secondary = setOf(MuscleGroup.TRICEPS, MuscleGroup.SHOULDERS),
+            pattern = MovementPattern.HORIZONTAL_PUSH
         )
 
         val exercise = catalog.all().single()
@@ -52,6 +54,7 @@ class SqlDelightExerciseCatalogTest {
         assertEquals(setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH), exercise.requiredEquipment)
         assertEquals(setOf(MuscleGroup.CHEST), exercise.primaryMuscles)
         assertEquals(setOf(MuscleGroup.TRICEPS, MuscleGroup.SHOULDERS), exercise.secondaryMuscles)
+        assertEquals(MovementPattern.HORIZONTAL_PUSH, exercise.movementPattern)
     }
 
     @Test
@@ -85,14 +88,16 @@ class SqlDelightExerciseCatalogTest {
         name: String,
         equipment: Set<EquipmentTag>,
         primary: Set<MuscleGroup>,
-        secondary: Set<MuscleGroup>
+        secondary: Set<MuscleGroup>,
+        pattern: MovementPattern = MovementPattern.CORE
     ) {
         database.exerciseQueries.insert(
             id = id,
             name = name,
             requiredEquipment = encodeEquipment(equipment),
             primaryMuscles = encodeMuscles(primary),
-            secondaryMuscles = encodeMuscles(secondary)
+            secondaryMuscles = encodeMuscles(secondary),
+            movementPattern = pattern.name
         )
     }
 }

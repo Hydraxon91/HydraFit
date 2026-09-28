@@ -7,6 +7,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 class SqlDelightEnginePreferenceRepositoryTest {
@@ -45,8 +46,27 @@ class SqlDelightEnginePreferenceRepositoryTest {
     }
 
     @Test
+    fun engineFlowEmitsTheStoredEngine() = runTest {
+        assertEquals(PlannerEngineId.DETERMINISTIC, repository.engineFlow().first())
+
+        repository.setEngine(PlannerEngineId.GEMINI_API)
+
+        assertEquals(PlannerEngineId.GEMINI_API, repository.engineFlow().first())
+    }
+
+    @Test
+    fun daysPerWeekFlowDefaultsToFour() = runTest {
+        assertEquals(4, repository.daysPerWeekFlow().first())
+
+        repository.setDaysPerWeek(5)
+
+        assertEquals(5, repository.daysPerWeekFlow().first())
+    }
+
+    @Test
     fun fallsBackToDeterministicForUnknownStoredValue() = runTest {
-        database.plannerEngineQueries.upsertEngine("NOT_AN_ENGINE")
+        database.plannerEngineQueries.insertIgnoreRow(PlannerEngineId.DETERMINISTIC.name)
+        database.plannerEngineQueries.updateEngine("NOT_AN_ENGINE")
 
         assertEquals(PlannerEngineId.DETERMINISTIC, repository.selectedEngine())
     }

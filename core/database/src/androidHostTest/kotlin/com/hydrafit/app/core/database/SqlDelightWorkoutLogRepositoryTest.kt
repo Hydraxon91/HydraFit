@@ -10,6 +10,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 class SqlDelightWorkoutLogRepositoryTest {
@@ -91,6 +92,17 @@ class SqlDelightWorkoutLogRepositoryTest {
         repository.add(set(exerciseId = "does-not-exist", performedAt = 1))
 
         assertTrue(repository.loggedSets().isEmpty())
+    }
+
+    @Test
+    fun loggedSetsFlowEmitsMappedSets() = runTest {
+        repository.add(set(exerciseId = "barbell-bench-press", performedAt = 1))
+
+        val logged = repository.loggedSetsFlow().first().single()
+
+        val byMuscle = logged.targets.associate { it.muscle to it.involvement }
+        assertEquals(MuscleInvolvement.PRIMARY, byMuscle[MuscleGroup.CHEST])
+        assertEquals(1L, logged.timestampMillis)
     }
 
     @Test

@@ -49,6 +49,26 @@ class SeedExerciseCatalogTest {
     }
 
     @Test
+    fun backfillsMovementPatternsForExistingRows() = runTest {
+        val bench = DefaultExercises.all.first { it.id == "barbell-bench-press" }
+        database.exerciseQueries.insert(
+            id = bench.id,
+            name = bench.name,
+            requiredEquipment = encodeEquipment(bench.requiredEquipment),
+            primaryMuscles = encodeMuscles(bench.primaryMuscles),
+            secondaryMuscles = encodeMuscles(bench.secondaryMuscles),
+            movementPattern = "CORE"
+        )
+
+        SeedExerciseCatalog(database).seed()
+
+        val seeded = SqlDelightExerciseCatalog(database)
+            .all()
+            .first { it.id == "barbell-bench-press" }
+        assertEquals(bench.movementPattern, seeded.movementPattern)
+    }
+
+    @Test
     fun seededExercisePreservesMusclesAndEquipment() = runTest {
         SeedExerciseCatalog(database).seed()
 

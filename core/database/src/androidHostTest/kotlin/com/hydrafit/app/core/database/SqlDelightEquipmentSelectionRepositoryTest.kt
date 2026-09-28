@@ -8,6 +8,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 class SqlDelightEquipmentSelectionRepositoryTest {
@@ -42,6 +43,15 @@ class SqlDelightEquipmentSelectionRepositoryTest {
         repository.setSelected(setOf(EquipmentTag.KETTLEBELL))
 
         assertEquals(setOf(EquipmentTag.KETTLEBELL), repository.selected())
+    }
+
+    @Test
+    fun selectedFlowEmitsTheCurrentSelection() = runTest {
+        assertEquals(emptySet(), repository.selectedFlow().first())
+
+        repository.setSelected(setOf(EquipmentTag.BARBELL))
+
+        assertEquals(setOf(EquipmentTag.BARBELL), repository.selectedFlow().first())
     }
 
     @Test
