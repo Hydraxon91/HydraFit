@@ -23,9 +23,13 @@
 - `koin-test` `verify()` guards the aggregated module graph (currently marked `@KoinExperimentalAPI`).
 - `:core:navigation` exposes `FeatureDestination`; each feature self-registers its route, localized label, and nav graph, and `:shared` only aggregates the list.
 - The Offline Workout Logger persists sets via `WorkoutLogRepository`, and the fatigue heatmap reflects them (verified on the emulator).
+- `:core:network` hosts the Ktor client and `GeminiWorkoutPlannerEngine` (structured JSON output); the Gemini API key is injected via `ApiKeyProvider` (Android `BuildConfig`, iOS environment) and never committed.
+- The active engine is persisted (`plannerEngine`, schema v4 + `3.sqm`); the provider falls back to the Deterministic engine when the Gemini key is blank.
+- CI compiles iOS on a `macos-latest` job alongside the Linux lint/test/assemble pipeline.
 
 ## Open Questions / Later
 
-- Decide whether to add a desktop target.
+- Desktop target remains deferred (Android-first).
 - Build the MediaPipe/Gemma engine last; it requires a physical device.
-- Add Ktor (Gemini engine) and MockK when their chunks start (versions already approved).
+- Add a Settings UI to switch engines (the persisted preference and provider already exist).
+- Use MockK when a chunk needs it (approved version, not yet used).
