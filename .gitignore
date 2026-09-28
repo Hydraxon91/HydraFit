@@ -34,3 +34,7 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# On-device LLM models (large binaries, provided locally)
+*.task
+*.litertlm
