@@ -60,21 +60,36 @@ class GeminiWorkoutPlannerEngine(
                 return parseWeeklyPlan(text, PlannerEngineId.GEMINI_API)
             }
 
+            val body = runCatching { response.bodyAsText() }.getOrDefault("")
             val transient = response.status.isTransient()
             if (!transient || attempt >= MAX_RETRIES) {
                 throw PlanGenerationException(
                     transient = transient,
-                    message = "Gemini request failed with status ${response.status}"
+                    message = failureMessage(response.status, body)
                 )
             }
 
-            delay(retryDelayMillis(response, attempt))
+            delay(retryDelayMillis(response, body, attempt))
             attempt++
         }
     }
 
-    private suspend fun retryDelayMillis(response: HttpResponse, attempt: Int): Long {
-        val body = runCatching { response.bodyAsText() }.getOrDefault("")
+    private fun failureMessage(status: HttpStatusCode, body: String): String {
+        val detail = backendErrorMessage(body)
+        val base = "Gemini request failed with status ${status.value}"
+        return if (detail.isNullOrBlank()) base else "$base: $detail"
+    }
+
+    private fun backendErrorMessage(body: String): String? = runCatching {
+        geminiJson.parseToJsonElement(body)
+            .jsonObject["error"]
+            ?.jsonObject
+            ?.get("message")
+            ?.jsonPrimitive
+            ?.contentOrNull
+    }.getOrNull()
+
+    private fun retryDelayMillis(response: HttpResponse, body: String, attempt: Int): Long {
         val hint = response.headers[HttpHeaders.RetryAfter]?.toRetryDelayMillis()
             ?: retryDelayFromBody(body)
             ?: backoffMillis(attempt)

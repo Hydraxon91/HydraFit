@@ -135,6 +135,10 @@ class GeminiWorkoutPlannerEngineTest {
 
         assertEquals(1, calls)
         assertFalse(failure.transient)
+        assertTrue(
+            failure.message!!.contains("high demand"),
+            "the backend error message should be surfaced"
+        )
     }
 
     @Test
