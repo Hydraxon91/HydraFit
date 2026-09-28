@@ -31,6 +31,9 @@
 - The local LLM engine falls back to the Deterministic engine on `OutOfMemoryError`/errors and when no model is present; it is hidden in Settings unless a model is bundled. iOS is unsupported for now (LiteRT-LM is Swift/SPM, not Kotlin/Native).
 - On-device model binaries are never committed (`*.task`/`*.litertlm` gitignored); provide one at `core/llm/src/androidMain/assets/models/on_device_llm.litertlm`.
 - The Gemini API key can be entered in-app; it is stored via `ApiKeyStore` (Android Keystore-backed AES/GCM) and takes precedence over the build-time key. iOS uses a no-op store until the iOS app ships.
+- The Gemini engine targets `gemini-3.8-flash` and omits sampling parameters (removed in Gemini 3.x); `INTERNET` is declared in the manifest.
+- Plan generation failures are caught at the ViewModel boundary and surfaced as an error with a Retry action (no crash).
+- The on-device model is imported in-app (Android file picker → `filesDir/on_device_llm.litertlm`); Settings shows the engine entry greyed out until a model is imported, plus a Gemma Terms link. iOS shows a note.
 - Weekly-plan JSON parsing is shared in `:core:domain` (`parseWeeklyPlan`), used by both the Gemini and local LLM engines.
 
 ## Open Questions / Later
@@ -38,4 +41,6 @@
 - Desktop target remains deferred (Android-first).
 - Verify the local LLM engine end-to-end on a physical device with a bundled Gemma model.
 - Implement a Keychain-backed `ApiKeyStore` when the iOS app ships (currently a no-op on iOS).
+- Regenerate the weekly plan when the active engine changes (the Plan ViewModel currently persists its last plan across engine switches).
+- Consider a short retry/backoff for transient Gemini 5xx responses (503 "high demand").
 - Use MockK when a chunk needs it (approved version, not yet used).
