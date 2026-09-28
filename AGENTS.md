@@ -14,10 +14,29 @@
 2. Explain your reasoning.
 3. The only acceptable confirmation is an explicit 'y', 'yes', or direct written approval from the user. Do not treat follow-up questions, clarifications, or silence as implied consent to proceed with the proposed action.
 
+An approved work chunk pre-authorizes only the specific actions it enumerates; the individually gated items listed under Approved Work Chunks still require separate approval.
+
+## Approved Work Chunks (Batched Execution)
+
+The user may approve a **work chunk**: an ordered, explicitly listed set of steps (from `PLANS.md` or stated in chat). A chunk replaces per-step check-ins with a single end-of-chunk review.
+
+While executing an approved chunk:
+
+1. Perform the listed steps in order, without pausing for confirmation between them.
+2. After each step, verify it compiles/tests (run the relevant Gradle task) before moving on.
+3. **If a step fails, diagnose the root cause and try to fix it.** If the fix is within the chunk's scope, apply it and re-verify. If you are stuck, or the fix needs something outside the chunk, stop and report with evidence — do not commit failing work unless asked.
+4. Do not expand scope, refactor unrelated code, or touch anything not enumerated in the chunk.
+5. At the end of the chunk (or when stopped on an unresolved failure), report results, show `git status` / `git diff --stat`, and propose the chunk's commits (one atomic commit per logical change, each with a message). Then **wait for one explicit "yes"** before committing.
+6. Do not start the next chunk until instructed.
+
+**Covered by an approved chunk** (when enumerated): creating/editing files, creating modules and registering them in `settings.gradle.kts`, and running builds/tests.
+
+**Still individually gated, even inside a chunk:** file deletions, large refactors, dependency additions/upgrades/downgrades, new `local.properties`/`BuildConfig`/secret keys, CI/CD or signing changes, `git push`, and anything not listed in the chunk.
+
 ## External Infrastructure & Integration Locks
 
 - **Do Not Change Core Architecture Decisions:** Never migrate, switch, or replace SQLDelight, Koin, Ktor, or Compose Multiplatform for an alternative (e.g., swapping SQLDelight for Room KMP, or Koin for Hilt/manual DI) under any circumstances — even if you believe a build failure is caused by one of these libraries. If a library-related error occurs, stop immediately, report the error, and await manual instruction.
-- **No Stealth Infrastructure Changes:** Any proposed changes to CI/CD workflows, Gradle configuration, signing setup, or the module graph must be explicitly highlighted in your plan. If a plan involves changing where the app is built, signed, or published, you must call this out as a "Major Infrastructure Change" and await explicit confirmation.
+- **No Stealth Infrastructure Changes:** Any proposed changes to CI/CD workflows, Gradle configuration, signing setup, or the module graph must be explicitly highlighted in your plan. If a plan involves changing where the app is built, signed, or published, you must call this out as a "Major Infrastructure Change" and await explicit confirmation. Module-graph changes explicitly enumerated in an approved work chunk are covered by that chunk's approval.
 - **No Unrequested Cloud/LLM Provider Changes:** Do not swap the Gemini API for another LLM provider, and do not change the on-device model (e.g., swapping Gemma for another MediaPipe-compatible model) without explicit instruction.
 
 ### Dependency & Ecosystem Lock
@@ -50,9 +69,9 @@
 
 - **Load relevant module skills first thing in every session**, if any are configured for this project (e.g., a `hydrafit-domain` or `hydrafit-database` skill covering module conventions, SQLDelight query patterns, and the fatigue formula).
 - **Avoid over-deliberation.** Plan once, then act. Do not re-plan or second-guess a chosen approach more than once before executing, unless new information (e.g. a build error) genuinely changes the picture.
-- **Stop after completing the requested task.** Summarize what you did and what you found, then wait for the next instruction. Do not move on to a new task — commits, cleanup, further refactors, starting the next item on a todo list — unless explicitly asked, even if it seems like the obvious next step.
+- **Stop after completing the requested task.** Summarize what you did and what you found, then wait for the next instruction. Do not move on to a new task — commits, cleanup, further refactors, starting the next item on a todo list — unless explicitly asked, even if it seems like the obvious next step. An approved work chunk counts as one task: finish all its steps, then stop — do not begin the next chunk.
 - **Reserve deep reasoning for genuinely ambiguous or destructive decisions** (see confirmation rule above), not for routine refactors or migrations with a clear precedent already in this codebase.
-- **Never generate a whole feature/module in one shot.** Work file-by-file or component-by-component as instructed, even within an approved plan — check in after logical chunks (e.g., after the domain model, before the SQLDelight queries, before the ViewModel).
+- **Never generate a whole feature/module in one shot.** Work file-by-file or component-by-component, and never dump monolithic files. Within an approved work chunk, do not pause for check-ins between steps — the chunk boundary is the check-in point (see Approved Work Chunks).
 
 ## Unit Testing Standards
 
@@ -69,8 +88,8 @@
 
 ## Commit Discipline
 
-- **Always ask before committing or pushing, full stop — no exceptions.** This applies to code changes too, not just housekeeping files. Before running `git commit` or `git push`, show what you're about to commit (`git status` / `git diff --stat` and the proposed commit message) and wait for confirmation. Do not commit as an automatic last step of finishing a task, even if the fix is small and confirmed working.
-- **Commit immediately after each individual fix or feature slice is done and verified — don't batch multiple changes into one commit-at-the-end.** If a session involves building 3 separate use cases, that's 3 separate commit proposals at 3 separate points, not one summary commit after everything is done.
+- **Always ask before committing or pushing, full stop — no exceptions.** This applies to code changes too, not just housekeeping files. Before running `git commit` or `git push`, show what you're about to commit (`git status` / `git diff --stat` and the proposed commit messages) and wait for confirmation. Outside a chunk, one yes covers one commit. At the end of an approved work chunk, you may propose all of the chunk's commits together and wait for a single explicit "yes". Pushing always requires its own approval.
+- **One commit per logical change — never bundle unrelated changes into a single commit.** Outside a chunk, commit each slice as it is verified. Inside a chunk, stage and propose the commits together at the end, but still one commit per logical change. Keep them atomic either way.
 - **A commit should touch the smallest number of files possible for the one change it represents.** If the file list includes anything not directly required for the one change being committed (e.g. an unrelated formatting change, a file touched while investigating but not actually modified for the fix), stop and either revert that unrelated change or ask whether it should be a separate commit.
 - **Keep commits atomic.** Each commit should represent one logical change — not a grab-bag of everything done in a session. If a task naturally splits into unrelated parts (e.g. "add fatigue use case" + "fix unrelated typo in build.gradle.kts" + "bump a lint suppression"), commit them separately, even if they happened back-to-back in the same session.
 - **Commit message should describe the one thing, not summarize everything.** If it's hard to write a single clear sentence for what changed, that's a sign the commit should be split.
