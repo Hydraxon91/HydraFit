@@ -27,14 +27,15 @@
 - The active engine is persisted (`plannerEngine`, schema v4 + `3.sqm`); the provider falls back to the Deterministic engine when the Gemini key is blank.
 - CI compiles iOS on a `macos-latest` job alongside the Linux lint/test/assemble pipeline.
 - A Settings feature (fifth tab) switches the active planner engine, listing only available engines (Gemini hidden until an API key is configured).
-- `:core:llm` hosts `LocalLlmWorkoutPlannerEngine` over Google MediaPipe LLM Inference (`tasks-genai`), behind an `OnDeviceTextGenerator` abstraction: Android uses MediaPipe, iOS is an unsupported stub.
-- The local LLM engine falls back to the Deterministic engine on `OutOfMemoryError`/errors and when no model is present; it is hidden in Settings unless a model is bundled.
-- On-device model binaries are never committed (`*.task`/`*.litertlm` gitignored); provide one at `core/llm/src/androidMain/assets/models/on_device_llm.task`.
+- `:core:llm` hosts `LocalLlmWorkoutPlannerEngine` over **LiteRT-LM** (`litertlm-android`), behind an `OnDeviceTextGenerator` abstraction. MediaPipe's LLM Inference was migrated away from because Google deprecated its mobile implementations.
+- The local LLM engine falls back to the Deterministic engine on `OutOfMemoryError`/errors and when no model is present; it is hidden in Settings unless a model is bundled. iOS is unsupported for now (LiteRT-LM is Swift/SPM, not Kotlin/Native).
+- On-device model binaries are never committed (`*.task`/`*.litertlm` gitignored); provide one at `core/llm/src/androidMain/assets/models/on_device_llm.litertlm`.
+- The Gemini API key can be entered in-app; it is stored via `ApiKeyStore` (Android Keystore-backed AES/GCM) and takes precedence over the build-time key. iOS uses a no-op store until the iOS app ships.
 - Weekly-plan JSON parsing is shared in `:core:domain` (`parseWeeklyPlan`), used by both the Gemini and local LLM engines.
 
 ## Open Questions / Later
 
 - Desktop target remains deferred (Android-first).
 - Verify the local LLM engine end-to-end on a physical device with a bundled Gemma model.
-- MediaPipe's GenAI task is deprecated upstream in favour of LiteRT-LM; revisit only on explicit instruction.
+- Implement a Keychain-backed `ApiKeyStore` when the iOS app ships (currently a no-op on iOS).
 - Use MockK when a chunk needs it (approved version, not yet used).
