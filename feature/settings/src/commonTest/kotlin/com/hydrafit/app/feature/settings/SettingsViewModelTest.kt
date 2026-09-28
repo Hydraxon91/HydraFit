@@ -2,6 +2,7 @@ package com.hydrafit.app.feature.settings
 
 import com.hydrafit.app.core.domain.engine.EngineAvailability
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -66,7 +67,8 @@ class SettingsViewModelTest {
             preference = repository,
             availability = FakeEngineAvailability(
                 listOf(PlannerEngineId.DETERMINISTIC, PlannerEngineId.GEMINI_API)
-            )
+            ),
+            apiKeyStore = FakeApiKeyStore()
         )
         advanceUntilIdle()
 
@@ -88,11 +90,79 @@ class SettingsViewModelTest {
         assertEquals(PlannerEngineId.DETERMINISTIC, viewModel.state.value.selectedEngine)
     }
 
+    @Test
+    fun savingAnApiKeyStoresItAndClearsTheInput() = runTest(dispatcher) {
+        val store = FakeApiKeyStore()
+        val viewModel = SettingsViewModel(
+            preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC),
+            availability = FakeEngineAvailability(listOf(PlannerEngineId.DETERMINISTIC)),
+            apiKeyStore = store
+        )
+        advanceUntilIdle()
+
+        viewModel.onApiKeyChanged("  secret-key  ")
+        viewModel.saveApiKey()
+        advanceUntilIdle()
+
+        assertEquals("secret-key", store.value)
+        assertEquals("", viewModel.state.value.apiKeyInput)
+        assertTrue(viewModel.state.value.apiKeyConfigured)
+    }
+
+    @Test
+    fun blankApiKeyIsNotSaved() = runTest(dispatcher) {
+        val store = FakeApiKeyStore()
+        val viewModel = SettingsViewModel(
+            preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC),
+            availability = FakeEngineAvailability(listOf(PlannerEngineId.DETERMINISTIC)),
+            apiKeyStore = store
+        )
+        advanceUntilIdle()
+
+        viewModel.onApiKeyChanged("   ")
+        viewModel.saveApiKey()
+        advanceUntilIdle()
+
+        assertEquals(null, store.value)
+        assertFalse(viewModel.state.value.apiKeyConfigured)
+    }
+
+    @Test
+    fun clearingTheApiKeyRemovesIt() = runTest(dispatcher) {
+        val store = FakeApiKeyStore(value = "existing")
+        val viewModel = SettingsViewModel(
+            preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC),
+            availability = FakeEngineAvailability(listOf(PlannerEngineId.DETERMINISTIC)),
+            apiKeyStore = store
+        )
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.apiKeyConfigured)
+
+        viewModel.clearApiKey()
+        advanceUntilIdle()
+
+        assertEquals(null, store.value)
+        assertFalse(viewModel.state.value.apiKeyConfigured)
+    }
+
     private fun viewModel(available: List<PlannerEngineId>, stored: PlannerEngineId) =
         SettingsViewModel(
             preference = FakeEnginePreferenceRepository(stored),
-            availability = FakeEngineAvailability(available)
+            availability = FakeEngineAvailability(available),
+            apiKeyStore = FakeApiKeyStore()
         )
+
+    private class FakeApiKeyStore(var value: String? = null) : ApiKeyStore {
+        override fun load(): String? = value
+
+        override fun save(apiKey: String) {
+            value = apiKey
+        }
+
+        override fun clear() {
+            value = null
+        }
+    }
 
     private class FakeEnginePreferenceRepository(var stored: PlannerEngineId) :
         EnginePreferenceRepository {
