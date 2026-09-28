@@ -1,0 +1,15 @@
+CREATE TABLE selected_equipment (
+    tag TEXT NOT NULL PRIMARY KEY
+);
+
+selectAllSelected:
+SELECT tag FROM selected_equipment ORDER BY tag;
+
+insertSelected:
+INSERT OR REPLACE INTO selected_equipment(tag) VALUES (?);
+
+deleteSelected:
+DELETE FROM selected_equipment WHERE tag = ?;
+
+deleteAllSelected:
+DELETE FROM selected_equipment;

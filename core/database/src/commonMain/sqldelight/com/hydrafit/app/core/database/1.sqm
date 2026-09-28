@@ -1,0 +1,3 @@
+CREATE TABLE selected_equipment (
+    tag TEXT NOT NULL PRIMARY KEY
+);
