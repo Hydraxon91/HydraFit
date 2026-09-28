@@ -4,15 +4,6 @@
 
 ## Checklist
 
-- [ ] Add empty `:core:userdata`, `:core:database`, and `:core:network` modules.
-  - **Done when:** each module compiles and its dependencies follow the approved architecture.
-
-- [ ] Add empty `:feature:equipment`, `:feature:splitbuilder`, `:feature:fatigueheatmap`, and `:feature:logger` modules.
-  - **Done when:** each module compiles without depending on another feature or directly on database/network modules.
-
-- [ ] Wire the module dependency graph and shared app shell.
-  - **Done when:** dependencies follow the documented direction, `:shared` is the app shell, and `:androidApp` remains thin.
-
 - [ ] Rename wizard defaults to HydraFit.
   - Update the Android label, iOS product name, bundle ID to `com.hydrafit.app`, and related Xcode references.
   - **Done when:** those app-facing names and identifiers consistently use HydraFit and the intended bundle ID.
