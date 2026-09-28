@@ -61,6 +61,7 @@ class KoinModulesVerificationTest {
     private object FakeOnDeviceTextGenerator : OnDeviceTextGenerator {
         override fun isAvailable(): Boolean = false
 
-        override fun generate(prompt: String): String = error("Not used by graph verification")
+        override fun generate(prompt: String, jsonSchema: String?): String =
+            error("Not used by graph verification")
     }
 }

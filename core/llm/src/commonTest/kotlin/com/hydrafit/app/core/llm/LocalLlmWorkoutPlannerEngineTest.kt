@@ -13,6 +13,7 @@ import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
 class LocalLlmWorkoutPlannerEngineTest {
@@ -41,6 +42,15 @@ class LocalLlmWorkoutPlannerEngineTest {
         assertEquals(DeterministicWorkoutPlannerEngine.COMPOUND_REPS, compound.reps)
         assertEquals(5, isolation.sets)
         assertEquals(DeterministicWorkoutPlannerEngine.ISOLATION_REPS, isolation.reps)
+    }
+
+    @Test
+    fun requestsJsonConstrainedOutput() = runTest {
+        val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
+
+        engine(generator).generatePlan(request())
+
+        assertTrue(requireNotNull(generator.lastSchema).contains("days"))
     }
 
     @Test
@@ -142,10 +152,14 @@ class LocalLlmWorkoutPlannerEngineTest {
         var generateCalls: Int = 0
             private set
 
+        var lastSchema: String? = null
+            private set
+
         override fun isAvailable(): Boolean = available
 
-        override fun generate(prompt: String): String {
+        override fun generate(prompt: String, jsonSchema: String?): String {
             generateCalls++
+            lastSchema = jsonSchema
             failure?.invoke()
             return responses[(generateCalls - 1).coerceAtMost(responses.lastIndex)]
         }

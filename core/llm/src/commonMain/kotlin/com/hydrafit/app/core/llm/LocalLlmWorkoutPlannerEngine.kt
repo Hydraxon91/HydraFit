@@ -29,7 +29,7 @@ class LocalLlmWorkoutPlannerEngine(
             val plan = try {
                 // Loading the model and generating are blocking, so keep them off the main thread.
                 val output = withContext(Dispatchers.Default) {
-                    generator.generate(prompt(request))
+                    generator.generate(prompt(request), PLAN_SCHEMA)
                 }
                 sanitizedPlan(parseWeeklyPlan(output, PlannerEngineId.LOCAL_LLM), request)
             } catch (outOfMemory: OutOfMemoryError) {
@@ -86,11 +86,14 @@ class LocalLlmWorkoutPlannerEngine(
 
         val sets = request.setsPerExercise
         return buildString {
-            appendLine("You are a strength coach. Reply with JSON only, no markdown, no prose.")
-            appendLine("Build a plan with exactly ${request.daysPerWeek} days.")
+            appendLine("You are a strength coach. Reply with one JSON object only.")
+            appendLine("Do not use markdown, prose, or nested \"days\" inside a day.")
+            appendLine("Top level: {\"days\":[<day>, <day>, ...]}.")
+            appendLine("Build exactly ${request.daysPerWeek} days.")
+            appendLine("Each day has a \"focus\" and 4 to 6 \"exercises\".")
             appendLine("Available equipment: $equipment")
             appendLine("Muscle fatigue (0.0-1.0): $fatigue")
-            appendLine("Give every day 4 to 6 different exercises from this list: $exerciseIds")
+            appendLine("Choose ONLY exerciseId values from this list: $exerciseIds")
             appendLine(
                 "Use one focus value per day from: PUSH, PULL, LEGS, UPPER, LOWER, FULL_BODY"
             )
@@ -111,5 +114,39 @@ class LocalLlmWorkoutPlannerEngine(
     private companion object {
         const val MIN_EXERCISES_PER_DAY = 2
         const val MAX_ATTEMPTS = 2
+
+        val PLAN_SCHEMA = """
+            {
+              "type": "object",
+              "properties": {
+                "days": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "focus": {
+                        "type": "string",
+                        "enum": ["PUSH", "PULL", "LEGS", "UPPER", "LOWER", "FULL_BODY"]
+                      },
+                      "exercises": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "exerciseId": {"type": "string"},
+                            "sets": {"type": "integer"},
+                            "reps": {"type": "integer"}
+                          },
+                          "required": ["exerciseId", "sets", "reps"]
+                        }
+                      }
+                    },
+                    "required": ["focus", "exercises"]
+                  }
+                }
+              },
+              "required": ["days"]
+            }
+        """.trimIndent()
     }
 }
