@@ -1,5 +1,7 @@
 package com.hydrafit.app.feature.logger
 
+import com.hydrafit.app.core.domain.engine.SplitFocus
+
 data class ExerciseOption(val id: String, val name: String)
 
 data class LoggedSetRow(
@@ -15,7 +17,8 @@ data class WorkoutLoggerUiState(
     val reps: String = "",
     val weightKg: String = "",
     val isWarmup: Boolean = false,
-    val recentSets: List<LoggedSetRow> = emptyList()
+    val recentSets: List<LoggedSetRow> = emptyList(),
+    val todayFocus: SplitFocus? = null
 ) {
     val canLog: Boolean
         get() = selectedExerciseId != null && (reps.toIntOrNull() ?: 0) > 0

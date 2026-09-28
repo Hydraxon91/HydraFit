@@ -6,6 +6,13 @@
     <string name="logger_weight_label">Weight (kg)</string>
     <string name="logger_warmup">Warm-up set</string>
     <string name="logger_log_button">Log set</string>
+    <string name="logger_today">Today: %1$s</string>
+    <string name="focus_push">Push</string>
+    <string name="focus_pull">Pull</string>
+    <string name="focus_legs">Legs</string>
+    <string name="focus_upper">Upper</string>
+    <string name="focus_lower">Lower</string>
+    <string name="focus_full_body">Full body</string>
     <string name="logger_recent">Recent sets</string>
     <string name="logger_warmup_suffix">(warm-up)</string>
     <string name="logger_weight_none">-</string>

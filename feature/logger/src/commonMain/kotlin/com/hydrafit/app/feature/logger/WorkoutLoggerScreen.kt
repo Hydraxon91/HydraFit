@@ -27,17 +27,26 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
+import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.navigation.FeatureDestination
 import hydrafit.feature.logger.generated.resources.Res
+import hydrafit.feature.logger.generated.resources.focus_full_body
+import hydrafit.feature.logger.generated.resources.focus_legs
+import hydrafit.feature.logger.generated.resources.focus_lower
+import hydrafit.feature.logger.generated.resources.focus_pull
+import hydrafit.feature.logger.generated.resources.focus_push
+import hydrafit.feature.logger.generated.resources.focus_upper
 import hydrafit.feature.logger.generated.resources.logger_log_button
 import hydrafit.feature.logger.generated.resources.logger_recent
 import hydrafit.feature.logger.generated.resources.logger_reps_label
 import hydrafit.feature.logger.generated.resources.logger_title
+import hydrafit.feature.logger.generated.resources.logger_today
 import hydrafit.feature.logger.generated.resources.logger_warmup
 import hydrafit.feature.logger.generated.resources.logger_warmup_suffix
 import hydrafit.feature.logger.generated.resources.logger_weight_label
 import hydrafit.feature.logger.generated.resources.logger_weight_none
 import hydrafit.feature.logger.generated.resources.nav_label
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -91,6 +100,15 @@ fun WorkoutLoggerScreen(
             text = stringResource(Res.string.logger_title),
             style = MaterialTheme.typography.headlineSmall
         )
+        state.todayFocus?.let { focus ->
+            Text(
+                text = stringResource(
+                    Res.string.logger_today,
+                    stringResource(focus.labelResource())
+                ),
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
@@ -158,4 +176,13 @@ fun WorkoutLoggerScreen(
             }
         }
     }
+}
+
+private fun SplitFocus.labelResource(): StringResource = when (this) {
+    SplitFocus.PUSH -> Res.string.focus_push
+    SplitFocus.PULL -> Res.string.focus_pull
+    SplitFocus.LEGS -> Res.string.focus_legs
+    SplitFocus.UPPER -> Res.string.focus_upper
+    SplitFocus.LOWER -> Res.string.focus_lower
+    SplitFocus.FULL_BODY -> Res.string.focus_full_body
 }
