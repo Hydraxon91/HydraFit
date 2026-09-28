@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.network
 
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
@@ -19,6 +20,7 @@ import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
@@ -82,10 +84,57 @@ class GeminiWorkoutPlannerEngineTest {
     }
 
     @Test
-    fun failsOnNonSuccessStatus() = runTest {
-        val mockEngine = MockEngine { respond("boom", HttpStatusCode.InternalServerError) }
+    fun retriesTransientFailuresThenSucceeds() = runTest {
+        var calls = 0
+        val mockEngine = MockEngine {
+            calls++
+            if (calls < 3) {
+                respond(
+                    geminiError(),
+                    HttpStatusCode.ServiceUnavailable,
+                    jsonHeaders()
+                )
+            } else {
+                respond(envelope(PLAN_JSON), HttpStatusCode.OK, jsonHeaders())
+            }
+        }
 
-        assertFailsWith<IllegalStateException> { engine(mockEngine).generatePlan(request()) }
+        val plan = engine(mockEngine).generatePlan(request())
+
+        assertEquals(3, calls)
+        assertEquals(PlannerEngineId.GEMINI_API, plan.engine)
+    }
+
+    @Test
+    fun givesUpAfterMaxRetriesWithATransientFailure() = runTest {
+        var calls = 0
+        val mockEngine = MockEngine {
+            calls++
+            respond(geminiError(), HttpStatusCode.ServiceUnavailable, jsonHeaders())
+        }
+
+        val failure = assertFailsWith<PlanGenerationException> {
+            engine(mockEngine).generatePlan(request())
+        }
+
+        assertEquals(3, calls)
+        assertTrue(failure.transient)
+    }
+
+    @Test
+    fun doesNotRetryClientErrors() = runTest {
+        var calls = 0
+        val mockEngine = MockEngine {
+            calls++
+            respond(geminiError(), HttpStatusCode.BadRequest, jsonHeaders())
+        }
+
+        val failure = assertFailsWith<PlanGenerationException> {
+            engine(mockEngine).generatePlan(request())
+        }
+
+        assertEquals(1, calls)
+        assertFalse(failure.transient)
     }
 
     @Test
@@ -122,6 +171,10 @@ class GeminiWorkoutPlannerEngineTest {
 
     private fun jsonHeaders() =
         headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+
+    private fun geminiError(): String =
+        """{"error":{"code":503,"message":"high demand","status":"UNAVAILABLE",""" +
+            """"details":[{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"1s"}]}}"""
 
     private fun request() = PlanRequest(
         daysPerWeek = 3,

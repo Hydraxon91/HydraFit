@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.network
 
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
@@ -12,9 +13,19 @@ import io.ktor.client.call.body
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlin.random.Random
+import kotlinx.coroutines.delay
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 class GeminiWorkoutPlannerEngine(
     private val httpClient: HttpClient,
@@ -28,26 +39,76 @@ class GeminiWorkoutPlannerEngine(
     override suspend fun generatePlan(request: PlanRequest): WeeklyPlan {
         val apiKey = apiKeyProvider.geminiApiKey()
         require(apiKey.isNotBlank()) { "Gemini API key is not configured" }
+        val payload = buildRequest(request)
+        val url = "${config.baseUrl}/models/${config.model}:generateContent"
 
-        val response = httpClient.post("${config.baseUrl}/models/${config.model}:generateContent") {
-            header("x-goog-api-key", apiKey)
-            contentType(ContentType.Application.Json)
-            setBody(buildRequest(request))
+        var attempt = 0
+        while (true) {
+            val response = httpClient.post(url) {
+                header("x-goog-api-key", apiKey)
+                contentType(ContentType.Application.Json)
+                setBody(payload)
+            }
+            if (response.status.isSuccess()) {
+                val text = response.body<GeminiResponse>()
+                    .candidates.firstOrNull()
+                    ?.content
+                    ?.parts
+                    ?.firstOrNull()
+                    ?.text
+                    ?: error("Gemini response contained no content")
+                return parseWeeklyPlan(text, PlannerEngineId.GEMINI_API)
+            }
+
+            val transient = response.status.isTransient()
+            if (!transient || attempt >= MAX_RETRIES) {
+                throw PlanGenerationException(
+                    transient = transient,
+                    message = "Gemini request failed with status ${response.status}"
+                )
+            }
+
+            delay(retryDelayMillis(response, attempt))
+            attempt++
         }
-        check(response.status.isSuccess()) {
-            "Gemini request failed with status ${response.status}"
-        }
-
-        val text = response.body<GeminiResponse>()
-            .candidates.firstOrNull()
-            ?.content
-            ?.parts
-            ?.firstOrNull()
-            ?.text
-            ?: error("Gemini response contained no content")
-
-        return parseWeeklyPlan(text, PlannerEngineId.GEMINI_API)
     }
+
+    private suspend fun retryDelayMillis(response: HttpResponse, attempt: Int): Long {
+        val body = runCatching { response.bodyAsText() }.getOrDefault("")
+        val hint = response.headers[HttpHeaders.RetryAfter]?.toRetryDelayMillis()
+            ?: retryDelayFromBody(body)
+            ?: backoffMillis(attempt)
+        return hint.coerceIn(0L, MAX_BACKOFF_MILLIS)
+    }
+
+    private fun backoffMillis(attempt: Int): Long {
+        val exponential = (BASE_BACKOFF_MILLIS shl attempt).coerceAtMost(MAX_BACKOFF_MILLIS)
+        val half = exponential / 2
+        return half + Random.nextLong(half + 1)
+    }
+
+    private fun retryDelayFromBody(body: String): Long? = runCatching {
+        val details = geminiJson.parseToJsonElement(body)
+            .jsonObject["error"]
+            ?.jsonObject
+            ?.get("details")
+            ?.jsonArray
+            ?: return@runCatching null
+        details.firstNotNullOfOrNull { element ->
+            val detail = element.jsonObject
+            val type = detail["@type"]?.jsonPrimitive?.contentOrNull
+            if (type?.endsWith("RetryInfo") == true) {
+                detail["retryDelay"]?.jsonPrimitive?.contentOrNull?.toRetryDelayMillis()
+            } else {
+                null
+            }
+        }
+    }.getOrNull()
+
+    private fun String.toRetryDelayMillis(): Long? =
+        removeSuffix("s").toDoubleOrNull()?.let { seconds -> (seconds * 1000).toLong() }
+
+    private fun HttpStatusCode.isTransient(): Boolean = value in TRANSIENT_STATUS_CODES
 
     private suspend fun buildRequest(request: PlanRequest): GeminiRequest {
         val equipment = request.availableEquipment.joinToString(", ") { it.name }
@@ -108,4 +169,12 @@ class GeminiWorkoutPlannerEngine(
         ),
         required = listOf("days")
     )
+
+    private companion object {
+        const val MAX_RETRIES = 2
+        const val BASE_BACKOFF_MILLIS = 1_000L
+        const val MAX_BACKOFF_MILLIS = 8_000L
+
+        val TRANSIENT_STATUS_CODES = setOf(408, 429, 500, 502, 503, 504)
+    }
 }
