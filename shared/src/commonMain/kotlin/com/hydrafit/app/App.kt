@@ -16,8 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import org.jetbrains.compose.resources.painterResource
 
-import kotlinproject.shared.generated.resources.Res
-import kotlinproject.shared.generated.resources.compose_multiplatform
+import hydrafit.shared.generated.resources.Res
+import hydrafit.shared.generated.resources.compose_multiplatform
 
 @Composable
 @Preview
