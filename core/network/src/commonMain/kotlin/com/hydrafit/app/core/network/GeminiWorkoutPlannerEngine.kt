@@ -6,6 +6,7 @@ import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
+import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.parseWeeklyPlan
 import io.ktor.client.HttpClient
@@ -31,7 +32,9 @@ class GeminiWorkoutPlannerEngine(
     private val httpClient: HttpClient,
     private val config: GeminiConfig,
     private val catalog: ExerciseCatalog,
-    private val apiKeyProvider: ApiKeyProvider
+    private val apiKeyProvider: ApiKeyProvider,
+    private val sanitizer: WeeklyPlanSanitizer,
+    private val fallback: WorkoutPlannerEngine
 ) : WorkoutPlannerEngine {
 
     override val id: PlannerEngineId = PlannerEngineId.GEMINI_API
@@ -57,7 +60,8 @@ class GeminiWorkoutPlannerEngine(
                     ?.firstOrNull()
                     ?.text
                     ?: error("Gemini response contained no content")
-                return parseWeeklyPlan(text, PlannerEngineId.GEMINI_API)
+                val plan = parseWeeklyPlan(text, PlannerEngineId.GEMINI_API)
+                return sanitizer.sanitize(plan, request) ?: fallback.generatePlan(request)
             }
 
             val body = runCatching { response.bodyAsText() }.getOrDefault("")
@@ -137,9 +141,13 @@ class GeminiWorkoutPlannerEngine(
         val prompt = buildString {
             appendLine("You are a strength coach. Build a weekly workout plan.")
             appendLine("Days per week: ${request.daysPerWeek}")
+            appendLine("Split preference: ${request.splitPreference.name}")
             appendLine("Available equipment: $equipment")
             appendLine("Current muscle fatigue (0.0-1.0): $fatigue")
             appendLine("Choose ONLY exerciseId values from this list: $exerciseIds")
+            appendLine("Give every day 4 to 6 exercises.")
+            appendLine("Use exactly ${request.setsPerExercise} sets for every exercise.")
+            appendLine("Use 6 reps for compound lifts and 12 reps for isolation exercises.")
             appendLine("Prefer exercises whose muscles are less fatigued.")
         }
 
@@ -148,16 +156,18 @@ class GeminiWorkoutPlannerEngine(
                 GeminiContent(role = "user", parts = listOf(GeminiPart(prompt)))
             ),
             generationConfig = GeminiGenerationConfig(
-                responseSchema = planSchema()
+                responseSchema = planSchema(request)
             )
         )
     }
 
-    private fun planSchema(): GeminiSchema = GeminiSchema(
+    private fun planSchema(request: PlanRequest): GeminiSchema = GeminiSchema(
         type = "OBJECT",
         properties = mapOf(
             "days" to GeminiSchema(
                 type = "ARRAY",
+                minItems = request.daysPerWeek,
+                maxItems = request.daysPerWeek,
                 items = GeminiSchema(
                     type = "OBJECT",
                     properties = mapOf(
@@ -167,6 +177,8 @@ class GeminiWorkoutPlannerEngine(
                         ),
                         "exercises" to GeminiSchema(
                             type = "ARRAY",
+                            minItems = MIN_DAY_EXERCISES,
+                            maxItems = MAX_DAY_EXERCISES,
                             items = GeminiSchema(
                                 type = "OBJECT",
                                 properties = mapOf(
@@ -189,6 +201,8 @@ class GeminiWorkoutPlannerEngine(
         const val MAX_RETRIES = 2
         const val BASE_BACKOFF_MILLIS = 1_000L
         const val MAX_BACKOFF_MILLIS = 8_000L
+        const val MIN_DAY_EXERCISES = 4
+        const val MAX_DAY_EXERCISES = 6
 
         val TRANSIENT_STATUS_CODES = setOf(408, 429, 500, 502, 503, 504)
     }

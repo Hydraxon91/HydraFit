@@ -21,7 +21,9 @@ data class GeminiSchema(
     val properties: Map<String, GeminiSchema>? = null,
     val required: List<String>? = null,
     val items: GeminiSchema? = null,
-    val enum: List<String>? = null
+    val enum: List<String>? = null,
+    val minItems: Int? = null,
+    val maxItems: Int? = null
 )
 
 @Serializable

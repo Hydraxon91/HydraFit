@@ -1,12 +1,17 @@
 package com.hydrafit.app.core.network
 
+import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.engine.WeeklyPlan
+import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
+import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.mock.MockEngine
@@ -29,32 +34,48 @@ class GeminiWorkoutPlannerEngineTest {
 
     @Test
     fun mapsStructuredResponseToWeeklyPlan() = runTest {
-        val plan = engine(respondEnvelope()).generatePlan(request())
+        val plan = engine(respondEnvelope(VALID_PLAN)).generatePlan(request())
 
         assertEquals(PlannerEngineId.GEMINI_API, plan.engine)
-        assertEquals(1, plan.days.size)
-        assertEquals(SplitFocus.PUSH, plan.days.single().focus)
-        val planned = plan.days.single().exercises.single()
-        assertEquals("bench-press", planned.exerciseId)
-        assertEquals(3, planned.sets)
-        assertEquals(8, planned.reps)
+        assertEquals(3, plan.days.size)
+        assertEquals(SplitFocus.PUSH, plan.days.first().focus)
+        assertEquals("bench-press", plan.days.first().exercises.first().exerciseId)
     }
 
     @Test
-    fun sendsApiKeyHeaderAndStructuredOutputSchema() = runTest {
+    fun sendsApiKeyHeaderStructuredSchemaAndPlanningInputs() = runTest {
         var captured: HttpRequestData? = null
         val mockEngine = MockEngine { request ->
             captured = request
-            respond(envelope(PLAN_JSON), HttpStatusCode.OK, jsonHeaders())
+            respond(envelope(VALID_PLAN), HttpStatusCode.OK, jsonHeaders())
         }
 
-        engine(mockEngine).generatePlan(request())
+        engine(mockEngine).generatePlan(request(setsPerExercise = 5))
 
         val requestData = requireNotNull(captured)
         assertEquals("test-key", requestData.headers["x-goog-api-key"])
         val bodyText = (requestData.body as TextContent).text
         assertTrue(bodyText.contains("responseSchema"), "structured output schema should be sent")
         assertTrue(bodyText.contains("bench-press"), "catalog ids should be offered to the model")
+        assertTrue(bodyText.contains("Split preference: AUTO"), "split preference should be sent")
+        assertTrue(bodyText.contains("Use exactly 5 sets"), "set count should be sent")
+    }
+
+    @Test
+    fun boundsArrayLengthsInTheSchema() = runTest {
+        var captured: HttpRequestData? = null
+        val mockEngine = MockEngine { request ->
+            captured = request
+            respond(envelope(VALID_PLAN), HttpStatusCode.OK, jsonHeaders())
+        }
+
+        engine(mockEngine).generatePlan(request(daysPerWeek = 3))
+
+        val bodyText = (requireNotNull(captured).body as TextContent).text
+        assertTrue(bodyText.contains("\"minItems\":3"), "days should be bounded to 3")
+        assertTrue(bodyText.contains("\"maxItems\":3"), "days should be bounded to 3")
+        assertTrue(bodyText.contains("\"minItems\":4"), "exercises per day should have a floor")
+        assertTrue(bodyText.contains("\"maxItems\":6"), "exercises per day should have a ceiling")
     }
 
     @Test
@@ -63,7 +84,7 @@ class GeminiWorkoutPlannerEngineTest {
         var captured: HttpRequestData? = null
         val mockEngine = MockEngine { request ->
             captured = request
-            respond(envelope(PLAN_JSON), HttpStatusCode.OK, jsonHeaders())
+            respond(envelope(VALID_PLAN), HttpStatusCode.OK, jsonHeaders())
         }
         val planner = engine(mockEngine, apiKeyProvider = ApiKeyProvider { apiKey })
 
@@ -78,7 +99,7 @@ class GeminiWorkoutPlannerEngineTest {
 
     @Test
     fun rejectsMissingApiKey() = runTest {
-        val engine = engine(respondEnvelope(), apiKey = "")
+        val engine = engine(respondEnvelope(VALID_PLAN), apiKey = "")
 
         assertFailsWith<IllegalArgumentException> { engine.generatePlan(request()) }
     }
@@ -89,13 +110,9 @@ class GeminiWorkoutPlannerEngineTest {
         val mockEngine = MockEngine {
             calls++
             if (calls < 3) {
-                respond(
-                    geminiError(),
-                    HttpStatusCode.ServiceUnavailable,
-                    jsonHeaders()
-                )
+                respond(geminiError(), HttpStatusCode.ServiceUnavailable, jsonHeaders())
             } else {
-                respond(envelope(PLAN_JSON), HttpStatusCode.OK, jsonHeaders())
+                respond(envelope(VALID_PLAN), HttpStatusCode.OK, jsonHeaders())
             }
         }
 
@@ -148,6 +165,39 @@ class GeminiWorkoutPlannerEngineTest {
         assertFailsWith<IllegalStateException> { engine.generatePlan(request()) }
     }
 
+    @Test
+    fun fallsBackWhenThePlanHasTooFewDays() = runTest {
+        val shortPlan = planJson(List(2) { DAY })
+
+        val plan = engine(respondEnvelope(shortPlan)).generatePlan(request(daysPerWeek = 3))
+
+        assertEquals(PlannerEngineId.DETERMINISTIC, plan.engine)
+    }
+
+    @Test
+    fun dropsExercisesThatNeedUnavailableEquipmentAndFallsBack() = runTest {
+        val plan = planJson(
+            listOf(
+                DAY,
+                DAY,
+                listOf("bench-press", "dumbbell-curl")
+            )
+        )
+
+        val result = engine(respondEnvelope(plan)).generatePlan(request(daysPerWeek = 3))
+
+        assertEquals(PlannerEngineId.DETERMINISTIC, result.engine)
+    }
+
+    @Test
+    fun appliesRequestedSetsAndCompoundIsolationReps() = runTest {
+        val plan = engine(respondEnvelope(VALID_PLAN)).generatePlan(request(setsPerExercise = 5))
+
+        val planned = plan.days.first().exercises.first { it.exerciseId == "bench-press" }
+        assertEquals(5, planned.sets)
+        assertEquals(DeterministicWorkoutPlannerEngine.COMPOUND_REPS, planned.reps)
+    }
+
     private fun engine(
         engine: HttpClientEngine,
         apiKey: String = "test-key",
@@ -156,10 +206,12 @@ class GeminiWorkoutPlannerEngineTest {
         httpClient = createGeminiHttpClient(engine),
         config = GeminiConfig(),
         catalog = FakeCatalog,
-        apiKeyProvider = apiKeyProvider
+        apiKeyProvider = apiKeyProvider,
+        sanitizer = WeeklyPlanSanitizer(FakeCatalog),
+        fallback = FallbackEngine
     )
 
-    private fun respondEnvelope() = respondRaw(envelope(PLAN_JSON))
+    private fun respondEnvelope(plan: String) = respondRaw(envelope(plan))
 
     private fun respondRaw(body: String) = MockEngine {
         respond(body, HttpStatusCode.OK, jsonHeaders())
@@ -180,26 +232,51 @@ class GeminiWorkoutPlannerEngineTest {
         """{"error":{"code":503,"message":"high demand","status":"UNAVAILABLE",""" +
             """"details":[{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"1s"}]}}"""
 
-    private fun request() = PlanRequest(
-        daysPerWeek = 3,
+    private fun request(daysPerWeek: Int = 3, setsPerExercise: Int = 3) = PlanRequest(
+        daysPerWeek = daysPerWeek,
         availableEquipment = setOf(EquipmentTag.BARBELL),
         muscleFatigue = emptyMap(),
-        nowMillis = 0L
+        nowMillis = 0L,
+        setsPerExercise = setsPerExercise
     )
+
+    private object FallbackEngine : WorkoutPlannerEngine {
+        override val id: PlannerEngineId = PlannerEngineId.DETERMINISTIC
+
+        override suspend fun generatePlan(request: PlanRequest): WeeklyPlan =
+            WeeklyPlan(engine = PlannerEngineId.DETERMINISTIC, days = emptyList())
+    }
 
     private object FakeCatalog : ExerciseCatalog {
         override suspend fun all(): List<Exercise> = listOf(
-            Exercise(
-                id = "bench-press",
-                name = "Bench Press",
-                requiredEquipment = setOf(EquipmentTag.BARBELL),
-                primaryMuscles = setOf(MuscleGroup.CHEST)
-            )
+            exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, EquipmentTag.BARBELL),
+            exercise("overhead-press", MovementPattern.VERTICAL_PUSH, EquipmentTag.BARBELL),
+            exercise("dumbbell-curl", MovementPattern.BICEPS_ISOLATION, EquipmentTag.DUMBBELL)
         )
+
+        private fun exercise(id: String, pattern: MovementPattern, equipment: EquipmentTag) =
+            Exercise(
+                id = id,
+                name = id,
+                requiredEquipment = setOf(equipment),
+                primaryMuscles = setOf(MuscleGroup.CHEST),
+                movementPattern = pattern
+            )
     }
 
     private companion object {
-        const val PLAN_JSON =
-            """{"days":[{"focus":"PUSH","exercises":[{"exerciseId":"bench-press","sets":3,"reps":8}]}]}"""
+        val DAY = listOf("bench-press", "overhead-press")
+        val VALID_PLAN = planJson(List(3) { DAY })
+
+        fun planJson(days: List<List<String>>): String = days.joinToString(
+            prefix = """{"days":[""",
+            postfix = "]}",
+            separator = ","
+        ) { exercises ->
+            val items = exercises.joinToString(",") {
+                """{"exerciseId":"$it","sets":3,"reps":8}"""
+            }
+            """{"focus":"PUSH","exercises":[$items]}"""
+        }
     }
 }
