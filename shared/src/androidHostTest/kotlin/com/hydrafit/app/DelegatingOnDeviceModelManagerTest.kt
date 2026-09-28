@@ -1,15 +1,17 @@
 package com.hydrafit.app
 
+import com.hydrafit.app.core.llm.InsufficientStorageException
+import com.hydrafit.app.core.llm.ModelSourceUnreadableException
+import com.hydrafit.app.core.userdata.llm.ModelUpdateResult
 import kotlin.test.Test
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
+import kotlin.test.assertEquals
 
 class DelegatingOnDeviceModelManagerTest {
 
     @Test
     fun reportsInstalledStateFromTheDelegate() {
-        assertTrue(manager(installed = true).isInstalled())
-        assertFalse(manager(installed = false).isInstalled())
+        assertEquals(true, manager(installed = true).isInstalled())
+        assertEquals(false, manager(installed = false).isInstalled())
     }
 
     @Test
@@ -21,30 +23,41 @@ class DelegatingOnDeviceModelManagerTest {
             onRemove = {}
         )
 
-        assertTrue(manager.installFrom("content://model.litertlm"))
-        assertTrue(received == "content://model.litertlm")
+        assertEquals(ModelUpdateResult.SUCCESS, manager.installFrom("content://model.litertlm"))
+        assertEquals("content://model.litertlm", received)
     }
 
     @Test
-    fun reportsInstallFailureInsteadOfCrashing() {
+    fun mapsInsufficientStorageFailures() {
         val manager = DelegatingOnDeviceModelManager(
             installedCheck = { false },
-            onInstall = { error("copy failed") },
+            onInstall = { throw InsufficientStorageException("full") },
             onRemove = {}
         )
 
-        assertFalse(manager.installFrom("content://model.litertlm"))
+        assertEquals(ModelUpdateResult.INSUFFICIENT_STORAGE, manager.installFrom("content://m"))
     }
 
     @Test
-    fun reportsRemoveFailureInsteadOfCrashing() {
+    fun mapsUnreadableSourceFailures() {
+        val manager = DelegatingOnDeviceModelManager(
+            installedCheck = { false },
+            onInstall = { throw ModelSourceUnreadableException("gone") },
+            onRemove = {}
+        )
+
+        assertEquals(ModelUpdateResult.UNREADABLE_SOURCE, manager.installFrom("content://m"))
+    }
+
+    @Test
+    fun mapsUnknownFailures() {
         val manager = DelegatingOnDeviceModelManager(
             installedCheck = { true },
             onInstall = {},
             onRemove = { error("delete failed") }
         )
 
-        assertFalse(manager.remove())
+        assertEquals(ModelUpdateResult.FAILED, manager.remove())
     }
 
     private fun manager(installed: Boolean) = DelegatingOnDeviceModelManager(

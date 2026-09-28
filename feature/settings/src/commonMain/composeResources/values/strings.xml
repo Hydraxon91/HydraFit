@@ -18,5 +18,7 @@
     <string name="settings_model_remove">Remove model</string>
     <string name="settings_model_installed">Model installed.</string>
     <string name="settings_model_action_failed">Couldn’t update the on-device model. Please try again.</string>
+    <string name="settings_model_error_storage">Not enough free storage to import the model. Remove the current model or free up space, then try again.</string>
+    <string name="settings_model_error_unreadable">Couldn’t read the selected model file. It may be empty or corrupt — download it again and retry.</string>
     <string name="settings_model_terms">Gemma Terms of Use</string>
 </resources>

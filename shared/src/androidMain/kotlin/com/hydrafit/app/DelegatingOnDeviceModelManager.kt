@@ -1,10 +1,13 @@
 package com.hydrafit.app
 
+import com.hydrafit.app.core.llm.InsufficientStorageException
+import com.hydrafit.app.core.llm.ModelSourceUnreadableException
+import com.hydrafit.app.core.userdata.llm.ModelUpdateResult
 import com.hydrafit.app.core.userdata.llm.OnDeviceModelManager
 
 /**
  * Adapts a platform model manager (constructed in platform DI) to the neutral
- * [OnDeviceModelManager] port and reports failures as a boolean instead of a crash.
+ * [OnDeviceModelManager] port, mapping failures to a reason.
  */
 class DelegatingOnDeviceModelManager(
     private val installedCheck: () -> Boolean,
@@ -14,7 +17,19 @@ class DelegatingOnDeviceModelManager(
 
     override fun isInstalled(): Boolean = installedCheck()
 
-    override fun installFrom(source: String): Boolean = runCatching { onInstall(source) }.isSuccess
+    override fun installFrom(source: String): ModelUpdateResult =
+        runCatching { onInstall(source) }.toUpdateResult()
 
-    override fun remove(): Boolean = runCatching { onRemove() }.isSuccess
+    override fun remove(): ModelUpdateResult = runCatching { onRemove() }.toUpdateResult()
+
+    private fun Result<Unit>.toUpdateResult(): ModelUpdateResult = fold(
+        onSuccess = { ModelUpdateResult.SUCCESS },
+        onFailure = { failure ->
+            when (failure) {
+                is InsufficientStorageException -> ModelUpdateResult.INSUFFICIENT_STORAGE
+                is ModelSourceUnreadableException -> ModelUpdateResult.UNREADABLE_SOURCE
+                else -> ModelUpdateResult.FAILED
+            }
+        }
+    )
 }

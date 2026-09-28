@@ -22,10 +22,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.hydrafit.app.core.userdata.llm.ModelUpdateResult
 import com.hydrafit.app.core.userdata.llm.OnDeviceModelManager
 import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.settings_local_llm_unavailable
 import hydrafit.feature.settings.generated.resources.settings_model_action_failed
+import hydrafit.feature.settings.generated.resources.settings_model_error_storage
+import hydrafit.feature.settings.generated.resources.settings_model_error_unreadable
 import hydrafit.feature.settings.generated.resources.settings_model_import
 import hydrafit.feature.settings.generated.resources.settings_model_installed
 import hydrafit.feature.settings.generated.resources.settings_model_remove
@@ -34,6 +37,7 @@ import hydrafit.feature.settings.generated.resources.settings_model_terms
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 
@@ -46,13 +50,12 @@ actual fun OnDeviceModelSection(
     val context = LocalContext.current
     val manager = koinInject<OnDeviceModelManager>()
     val scope = rememberCoroutineScope()
-    var actionFailed by remember { mutableStateOf(false) }
+    var failure by remember { mutableStateOf<ModelUpdateResult?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             scope.launch {
-                actionFailed = !withContext(Dispatchers.IO) {
-                    manager.installFrom(uri.toString())
-                }
+                failure = withContext(Dispatchers.IO) { manager.installFrom(uri.toString()) }
+                    .takeIf { it != ModelUpdateResult.SUCCESS }
                 onModelChanged()
             }
         }
@@ -75,7 +78,8 @@ actual fun OnDeviceModelSection(
             if (installed) {
                 OutlinedButton(onClick = {
                     scope.launch {
-                        actionFailed = !withContext(Dispatchers.IO) { manager.remove() }
+                        failure = withContext(Dispatchers.IO) { manager.remove() }
+                            .takeIf { it != ModelUpdateResult.SUCCESS }
                         onModelChanged()
                     }
                 }) {
@@ -83,16 +87,16 @@ actual fun OnDeviceModelSection(
                 }
             } else {
                 Button(onClick = {
-                    actionFailed = false
+                    failure = null
                     picker.launch(arrayOf("*/*"))
                 }) {
                     Text(stringResource(Res.string.settings_model_import))
                 }
             }
         }
-        if (actionFailed) {
+        failure?.let { result ->
             Text(
-                text = stringResource(Res.string.settings_model_action_failed),
+                text = stringResource(result.messageResource()),
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall
             )
@@ -101,6 +105,12 @@ actual fun OnDeviceModelSection(
             Text(stringResource(Res.string.settings_model_terms))
         }
     }
+}
+
+private fun ModelUpdateResult.messageResource(): StringResource = when (this) {
+    ModelUpdateResult.INSUFFICIENT_STORAGE -> Res.string.settings_model_error_storage
+    ModelUpdateResult.UNREADABLE_SOURCE -> Res.string.settings_model_error_unreadable
+    else -> Res.string.settings_model_action_failed
 }
 
 private fun Context.openGemmaTerms() {
