@@ -3,10 +3,13 @@ package com.hydrafit.app.feature.splitbuilder
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
+import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngineProvider
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
@@ -14,14 +17,20 @@ import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
+import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -90,25 +99,123 @@ class SplitBuilderViewModelTest {
             workoutLogRepository = FakeWorkoutLogRepository,
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
             exerciseCatalog = FakeExerciseCatalog(),
-            timeProvider = TimeProvider { 0L }
+            timeProvider = TimeProvider { 0L },
+            enginePreference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC)
         )
         advanceUntilIdle()
 
         assertTrue(viewModel.state.value.hasError)
         assertFalse(viewModel.state.value.isLoading)
+        assertNull(viewModel.state.value.plan)
     }
 
-    private fun viewModel(availableEquipment: Set<EquipmentTag>): SplitBuilderViewModel {
+    @Test
+    fun flagsWhenTheRequestedEngineFellBack() = runTest(dispatcher) {
+        val catalog = FakeExerciseCatalog()
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = DeterministicWorkoutPlannerEngine(catalog),
+            preference = FakeEnginePreferenceRepository(PlannerEngineId.LOCAL_LLM)
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.state.value
+        assertEquals(PlannerEngineId.LOCAL_LLM, state.requestedEngine)
+        assertEquals(PlannerEngineId.DETERMINISTIC, state.plan?.engine)
+        assertTrue(state.usedFallbackEngine)
+    }
+
+    @Test
+    fun loadsDaysPerWeekFromPreference() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            preference = FakeEnginePreferenceRepository(
+                PlannerEngineId.DETERMINISTIC,
+                storedDaysPerWeek = 5
+            )
+        )
+        advanceUntilIdle()
+
+        assertEquals(5, viewModel.state.value.daysPerWeek)
+        assertEquals(5, viewModel.state.value.plan?.days?.size)
+    }
+
+    @Test
+    fun persistsDaysPerWeekWhenChanged() = runTest(dispatcher) {
+        val preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC)
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            preference = preference
+        )
+        advanceUntilIdle()
+
+        viewModel.onDaysPerWeekSelected(3)
+        advanceUntilIdle()
+
+        assertEquals(3, preference.storedDaysPerWeek)
+    }
+
+    @Test
+    fun appliesSelectedSetCountToThePlan() = runTest(dispatcher) {
+        val viewModel = viewModel(availableEquipment = setOf(EquipmentTag.DUMBBELL))
+        advanceUntilIdle()
+
+        viewModel.onSetsPerExerciseChanged(5)
+        advanceUntilIdle()
+
+        val sets = viewModel.state.value.plan!!.days
+            .flatMap { it.exercises }
+            .map { it.sets }
+        assertTrue(sets.isNotEmpty())
+        assertTrue(sets.all { it == 5 })
+    }
+
+    @Test
+    fun regeneratesWhenEquipmentChanges() = runTest(dispatcher) {
+        val equipment = FakeEquipmentSelectionRepository(emptySet())
+        val viewModel = viewModel(availableEquipment = emptySet(), equipmentRepository = equipment)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.plan!!.days.all { it.exercises.isEmpty() })
+
+        equipment.setSelected(setOf(EquipmentTag.DUMBBELL))
+        advanceUntilIdle()
+
+        val ids = viewModel.state.value.plan!!.days
+            .flatMap { day -> day.exercises.map { it.exerciseId } }
+            .toSet()
+        assertEquals(setOf("goblet-squat"), ids)
+    }
+
+    @Test
+    fun doesNotFlagFallbackWhenRequestedEngineIsUsed() = runTest(dispatcher) {
+        val viewModel = viewModel(availableEquipment = setOf(EquipmentTag.DUMBBELL))
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.usedFallbackEngine)
+    }
+
+    private fun viewModel(
+        availableEquipment: Set<EquipmentTag>,
+        engine: WorkoutPlannerEngine? = null,
+        preference: FakeEnginePreferenceRepository =
+            FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC),
+        equipmentRepository: EquipmentSelectionRepository =
+            FakeEquipmentSelectionRepository(availableEquipment)
+    ): SplitBuilderViewModel {
         val catalog = FakeExerciseCatalog()
         return SplitBuilderViewModel(
             generateWeeklySplit = GenerateWeeklySplitUseCase(
-                WorkoutPlannerEngineProvider { DeterministicWorkoutPlannerEngine(catalog) }
+                WorkoutPlannerEngineProvider {
+                    engine ?: DeterministicWorkoutPlannerEngine(catalog)
+                }
             ),
-            equipmentSelectionRepository = FakeEquipmentSelectionRepository(availableEquipment),
+            equipmentSelectionRepository = equipmentRepository,
             workoutLogRepository = FakeWorkoutLogRepository,
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
             exerciseCatalog = catalog,
-            timeProvider = TimeProvider { 0L }
+            timeProvider = TimeProvider { 0L },
+            enginePreference = preference
         )
     }
 
@@ -118,24 +225,57 @@ class SplitBuilderViewModelTest {
                 id = "goblet-squat",
                 name = "Goblet Squat",
                 requiredEquipment = setOf(EquipmentTag.DUMBBELL),
-                primaryMuscles = setOf(MuscleGroup.QUADS)
+                primaryMuscles = setOf(MuscleGroup.QUADS),
+                movementPattern = MovementPattern.SQUAT
             ),
             Exercise(
                 id = "back-squat",
                 name = "Back Squat",
                 requiredEquipment = setOf(EquipmentTag.BARBELL),
-                primaryMuscles = setOf(MuscleGroup.QUADS)
+                primaryMuscles = setOf(MuscleGroup.QUADS),
+                movementPattern = MovementPattern.SQUAT
             )
         )
 
         override suspend fun all(): List<Exercise> = exercises
     }
 
-    private class FakeEquipmentSelectionRepository(private val selected: Set<EquipmentTag>) :
-        EquipmentSelectionRepository {
-        override suspend fun selected(): Set<EquipmentTag> = selected
+    private class FakeEnginePreferenceRepository(
+        private val engine: PlannerEngineId,
+        var storedDaysPerWeek: Int = 4
+    ) : EnginePreferenceRepository {
+        private val engineState = MutableStateFlow(engine)
+        private val daysState = MutableStateFlow(storedDaysPerWeek)
 
-        override suspend fun setSelected(tags: Set<EquipmentTag>) = Unit
+        override suspend fun selectedEngine(): PlannerEngineId = engine
+
+        override fun engineFlow(): Flow<PlannerEngineId> = engineState.asStateFlow()
+
+        override suspend fun setEngine(engine: PlannerEngineId) {
+            engineState.value = engine
+        }
+
+        override suspend fun selectedDaysPerWeek(): Int = storedDaysPerWeek
+
+        override fun daysPerWeekFlow(): Flow<Int> = daysState.asStateFlow()
+
+        override suspend fun setDaysPerWeek(daysPerWeek: Int) {
+            storedDaysPerWeek = daysPerWeek
+            daysState.value = daysPerWeek
+        }
+    }
+
+    private class FakeEquipmentSelectionRepository(selected: Set<EquipmentTag>) :
+        EquipmentSelectionRepository {
+        private val state = MutableStateFlow(selected)
+
+        override suspend fun selected(): Set<EquipmentTag> = state.value
+
+        override fun selectedFlow(): Flow<Set<EquipmentTag>> = state.asStateFlow()
+
+        override suspend fun setSelected(tags: Set<EquipmentTag>) {
+            state.value = tags
+        }
     }
 
     private object FakeWorkoutLogRepository : WorkoutLogRepository {
@@ -144,6 +284,8 @@ class SplitBuilderViewModelTest {
         override suspend fun all(): List<WorkoutSet> = emptyList()
 
         override suspend fun loggedSets(): List<LoggedSet> = emptyList()
+
+        override fun loggedSetsFlow(): Flow<List<LoggedSet>> = flowOf(emptyList())
 
         override suspend fun clear() = Unit
     }
