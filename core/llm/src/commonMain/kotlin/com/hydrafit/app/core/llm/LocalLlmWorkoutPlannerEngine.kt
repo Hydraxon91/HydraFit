@@ -1,11 +1,10 @@
 package com.hydrafit.app.core.llm
 
-import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanRequest
-import com.hydrafit.app.core.domain.engine.PlannedExercise
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
+import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.parseWeeklyPlan
 import kotlin.coroutines.cancellation.CancellationException
@@ -16,6 +15,7 @@ class LocalLlmWorkoutPlannerEngine(
     private val generator: OnDeviceTextGenerator,
     private val fallback: WorkoutPlannerEngine,
     private val catalog: ExerciseCatalog,
+    private val sanitizer: WeeklyPlanSanitizer,
     private val logger: OnDevicePlannerLogger = NoopOnDevicePlannerLogger
 ) : WorkoutPlannerEngine {
 
@@ -33,7 +33,7 @@ class LocalLlmWorkoutPlannerEngine(
                 val output = withContext(Dispatchers.Default) {
                     generator.generate(prompt(request), PLAN_SCHEMA)
                 }
-                sanitizedPlan(parseWeeklyPlan(output, PlannerEngineId.LOCAL_LLM), request)
+                sanitizer.sanitize(parseWeeklyPlan(output, PlannerEngineId.LOCAL_LLM), request)
             } catch (outOfMemory: OutOfMemoryError) {
                 logger.onFallback(OnDevicePlannerFallback.OUT_OF_MEMORY, outOfMemory)
                 return fallback.generatePlan(request)
@@ -49,37 +49,6 @@ class LocalLlmWorkoutPlannerEngine(
             ?: IllegalStateException("On-device plan did not satisfy the request")
         logger.onFallback(OnDevicePlannerFallback.UNEXPECTED_FAILURE, cause)
         return fallback.generatePlan(request)
-    }
-
-    /**
-     * Small models often return a shorter or partially invented plan with copied
-     * sets/reps, so drop unknown exercises, apply the requested sets and the
-     * compound/isolation rep scheme, and reject a plan that is not a complete week.
-     */
-    private suspend fun sanitizedPlan(plan: WeeklyPlan, request: PlanRequest): WeeklyPlan? {
-        val catalogById = catalog.all().associateBy { it.id }
-        val days = plan.days.map { day ->
-            day.copy(
-                exercises = day.exercises.mapNotNull { planned ->
-                    val exercise = catalogById[planned.exerciseId] ?: return@mapNotNull null
-                    PlannedExercise(
-                        exerciseId = exercise.id,
-                        sets = request.setsPerExercise,
-                        reps = if (exercise.movementPattern.isCompound) {
-                            DeterministicWorkoutPlannerEngine.COMPOUND_REPS
-                        } else {
-                            DeterministicWorkoutPlannerEngine.ISOLATION_REPS
-                        }
-                    )
-                }
-            )
-        }
-        if (days.size < request.daysPerWeek) return null
-        if (days.any { it.exercises.size < MIN_EXERCISES_PER_DAY }) return null
-        return plan.copy(
-            days = days.take(request.daysPerWeek)
-                .mapIndexed { index, day -> day.copy(dayIndex = index) }
-        )
     }
 
     private suspend fun prompt(request: PlanRequest): String {
@@ -119,7 +88,6 @@ class LocalLlmWorkoutPlannerEngine(
     }
 
     private companion object {
-        const val MIN_EXERCISES_PER_DAY = 2
         const val MAX_ATTEMPTS = 2
 
         val PLAN_SCHEMA = """

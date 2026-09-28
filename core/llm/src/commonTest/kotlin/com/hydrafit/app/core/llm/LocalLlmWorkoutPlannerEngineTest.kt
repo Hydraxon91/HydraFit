@@ -6,6 +6,7 @@ import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
+import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
@@ -171,6 +172,7 @@ class LocalLlmWorkoutPlannerEngineTest {
         generator = generator,
         fallback = DeterministicStub,
         catalog = FakeCatalog,
+        sanitizer = WeeklyPlanSanitizer(FakeCatalog),
         logger = logger
     )
 
