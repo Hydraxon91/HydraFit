@@ -24,6 +24,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core:domain"))
+            implementation(project(":core:userdata"))
             implementation(libs.sqldelight.runtime)
             implementation(libs.koin.core)
         }
