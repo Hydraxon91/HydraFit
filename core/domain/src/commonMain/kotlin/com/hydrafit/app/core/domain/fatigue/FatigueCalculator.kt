@@ -3,9 +3,7 @@ package com.hydrafit.app.core.domain.fatigue
 import kotlin.math.pow
 import kotlin.time.Duration
 
-class FatigueCalculator(
-    private val config: FatigueConfig = FatigueConfig(),
-) {
+class FatigueCalculator(private val config: FatigueConfig = FatigueConfig()) {
     fun calculate(sets: List<LoggedSet>, nowMillis: Long): Map<MuscleGroup, Double> =
         MuscleGroup.entries.associateWith { muscle -> scoreFor(muscle, sets, nowMillis) }
 

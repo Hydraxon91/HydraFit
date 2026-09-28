@@ -89,14 +89,14 @@ class FatigueCalculatorTest {
         val ascending = listOf(
             loggedSet(MuscleGroup.CHEST, timestampMillis = T0),
             loggedSet(MuscleGroup.CHEST, timestampMillis = T0 + 2 * HOUR_MILLIS),
-            loggedSet(MuscleGroup.CHEST, timestampMillis = T0 + HOUR_MILLIS),
+            loggedSet(MuscleGroup.CHEST, timestampMillis = T0 + HOUR_MILLIS)
         )
 
         val shuffled = listOf(ascending[2], ascending[0], ascending[1])
 
         assertEquals(
             calculator.calculate(ascending, nowMillis = T0 + 3 * HOUR_MILLIS),
-            calculator.calculate(shuffled, nowMillis = T0 + 3 * HOUR_MILLIS),
+            calculator.calculate(shuffled, nowMillis = T0 + 3 * HOUR_MILLIS)
         )
     }
 
@@ -131,11 +131,11 @@ class FatigueCalculatorTest {
             muscle: MuscleGroup,
             timestampMillis: Long = T0,
             involvement: MuscleInvolvement = MuscleInvolvement.PRIMARY,
-            isWarmup: Boolean = false,
+            isWarmup: Boolean = false
         ) = LoggedSet(
             timestampMillis = timestampMillis,
             targets = listOf(MuscleTarget(muscle, involvement)),
-            isWarmup = isWarmup,
+            isWarmup = isWarmup
         )
     }
 }

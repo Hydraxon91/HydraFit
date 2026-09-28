@@ -20,7 +20,7 @@ fun App() {
         Surface(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
+                contentAlignment = Alignment.Center
             ) {
                 Text(text = stringResource(Res.string.app_name))
             }

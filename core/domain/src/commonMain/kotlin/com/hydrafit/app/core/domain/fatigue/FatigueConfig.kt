@@ -5,7 +5,7 @@ import kotlin.time.Duration.Companion.hours
 
 data class FatigueConfig(
     val referenceVolume: Double = DEFAULT_REFERENCE_VOLUME,
-    val halfLives: Map<MuscleGroup, Duration> = DEFAULT_HALF_LIVES,
+    val halfLives: Map<MuscleGroup, Duration> = DEFAULT_HALF_LIVES
 ) {
     init {
         require(referenceVolume > 0.0) { "referenceVolume must be positive" }
@@ -29,7 +29,7 @@ data class FatigueConfig(
             MuscleGroup.BICEPS to 24.hours,
             MuscleGroup.TRICEPS to 24.hours,
             MuscleGroup.CALVES to 24.hours,
-            MuscleGroup.CORE to 24.hours,
+            MuscleGroup.CORE to 24.hours
         )
     }
 }
