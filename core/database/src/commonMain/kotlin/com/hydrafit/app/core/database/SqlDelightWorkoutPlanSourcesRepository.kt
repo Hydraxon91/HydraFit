@@ -1,0 +1,31 @@
+package com.hydrafit.app.core.database
+
+import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
+import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
+import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
+import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
+import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+
+class SqlDelightWorkoutPlanSourcesRepository(
+    private val equipmentSelectionRepository: EquipmentSelectionRepository,
+    private val enginePreferenceRepository: EnginePreferenceRepository,
+    private val workoutLogRepository: WorkoutLogRepository
+) : WorkoutPlanSourcesRepository {
+
+    override fun observe(): Flow<WorkoutPlanSources> = combine(
+        equipmentSelectionRepository.selectedFlow(),
+        enginePreferenceRepository.engineFlow(),
+        enginePreferenceRepository.daysPerWeekFlow(),
+        workoutLogRepository.loggedSetsFlow()
+    ) { equipment, engine, daysPerWeek, loggedSets ->
+        WorkoutPlanSources(
+            availableEquipment = equipment,
+            selectedEngine = engine,
+            daysPerWeek = daysPerWeek,
+            loggedSets = loggedSets
+        )
+    }.distinctUntilChanged()
+}
