@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
+import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.WorkoutPlanInputs
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import kotlin.coroutines.cancellation.CancellationException
@@ -56,6 +57,7 @@ class SplitBuilderViewModel(
             it.copy(
                 isLoading = true,
                 hasError = false,
+                isTransientError = false,
                 daysPerWeek = request.daysPerWeek,
                 setsPerExercise = request.setsPerExercise,
                 requestedEngine = inputs.requestedEngine
@@ -69,8 +71,19 @@ class SplitBuilderViewModel(
             }
         } catch (cancellation: CancellationException) {
             throw cancellation
+        } catch (failure: PlanGenerationException) {
+            _state.update {
+                it.copy(
+                    plan = null,
+                    isLoading = false,
+                    hasError = true,
+                    isTransientError = failure.transient
+                )
+            }
         } catch (_: Exception) {
-            _state.update { it.copy(plan = null, isLoading = false, hasError = true) }
+            _state.update {
+                it.copy(plan = null, isLoading = false, hasError = true, isTransientError = false)
+            }
         }
     }
 }

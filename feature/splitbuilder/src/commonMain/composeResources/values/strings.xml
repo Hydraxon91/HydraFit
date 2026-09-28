@@ -18,5 +18,6 @@
     <string name="engine_label_local_llm">the on-device model</string>
     <string name="split_fallback_note">Couldn’t run %1$s — showing the built-in plan instead.</string>
     <string name="split_error">Couldn\'t build the plan. Check your connection or API key and try again.</string>
+    <string name="split_error_transient">The AI service is temporarily unavailable. Please try again in a moment.</string>
     <string name="split_retry">Retry</string>
 </resources>

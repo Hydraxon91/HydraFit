@@ -4,6 +4,7 @@ import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
+import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
@@ -117,6 +118,31 @@ class SplitBuilderViewModelTest {
         assertTrue(viewModel.state.value.hasError)
         assertFalse(viewModel.state.value.isLoading)
         assertNull(viewModel.state.value.plan)
+    }
+
+    @Test
+    fun flagsTransientErrorsSoTheUserCanRetry() = runTest(dispatcher) {
+        val equipment = FakeEquipmentSelectionRepository(emptySet())
+        val preference = FakeEnginePreferenceRepository(PlannerEngineId.GEMINI_API)
+        val workoutLog = FakeWorkoutLogRepository()
+        val viewModel = SplitBuilderViewModel(
+            observeWorkoutPlanInputs = ObserveWorkoutPlanInputsUseCase(
+                sources = FakeWorkoutPlanSourcesRepository(equipment, preference, workoutLog),
+                calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+                timeProvider = TimeProvider { 0L }
+            ),
+            generateWeeklySplit = GenerateWeeklySplitUseCase(
+                WorkoutPlannerEngineProvider {
+                    throw PlanGenerationException(transient = true, message = "503")
+                }
+            ),
+            exerciseCatalog = FakeExerciseCatalog(),
+            enginePreference = preference
+        )
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.hasError)
+        assertTrue(viewModel.state.value.isTransientError)
     }
 
     @Test

@@ -39,6 +39,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_builder_title
 import hydrafit.feature.splitbuilder.generated.resources.split_day
 import hydrafit.feature.splitbuilder.generated.resources.split_days_label
 import hydrafit.feature.splitbuilder.generated.resources.split_error
+import hydrafit.feature.splitbuilder.generated.resources.split_error_transient
 import hydrafit.feature.splitbuilder.generated.resources.split_fallback_note
 import hydrafit.feature.splitbuilder.generated.resources.split_generated_by
 import hydrafit.feature.splitbuilder.generated.resources.split_loading
@@ -128,8 +129,13 @@ fun SplitBuilderScreen(
             }
         }
         if (state.hasError) {
+            val errorText = if (state.isTransientError) {
+                Res.string.split_error_transient
+            } else {
+                Res.string.split_error
+            }
             Text(
-                text = stringResource(Res.string.split_error),
+                text = stringResource(errorText),
                 style = MaterialTheme.typography.bodyMedium
             )
             Button(onClick = onRetry) {

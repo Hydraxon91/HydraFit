@@ -10,7 +10,8 @@ data class SplitBuilderUiState(
     val exerciseNames: Map<String, String> = emptyMap(),
     val requestedEngine: PlannerEngineId? = null,
     val isLoading: Boolean = true,
-    val hasError: Boolean = false
+    val hasError: Boolean = false,
+    val isTransientError: Boolean = false
 ) {
     val usedFallbackEngine: Boolean
         get() = plan != null && requestedEngine != null && plan.engine != requestedEngine
