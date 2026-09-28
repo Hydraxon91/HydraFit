@@ -4,14 +4,6 @@
 
 ## Checklist
 
-- [ ] Commit `AGENTS.md` and `PLANS.md` as separate documentation commits.
-  - **Done when:** each file has its own docs commit.
-
-- [ ] Verify the scaffold baseline and toolchain compatibility.
-  - AGP 9.4.1 has been verified to exist.
-  - If the baseline build fails, stop and report; do not change versions without approval.
-  - **Done when:** `./gradlew :androidApp:assembleDebug` succeeds and the AGP/Kotlin compatibility question is resolved.
-
 - [ ] Create an empty `:core:domain` module with test source sets.
   - **Done when:** it is a KMP module (android + iOS targets) with all code in `commonMain` and no platform APIs, it compiles, and its test source sets are ready before domain logic is added.
 
@@ -27,9 +19,6 @@
 - [ ] Rename wizard defaults to HydraFit.
   - Update the Android label, iOS product name, bundle ID to `com.hydrafit.app`, and related Xcode references.
   - **Done when:** those app-facing names and identifiers consistently use HydraFit and the intended bundle ID.
-
-- [ ] Fix the generated Compose resource package.
-  - **Done when:** shared code imports resources from the intended HydraFit package.
 
 - [ ] Remove wizard sample UI after the new modules compile.
   - **Done when:** sample UI, `Greeting` code, and sample strings are removed while the app entry point still works.
