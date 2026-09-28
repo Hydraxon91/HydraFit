@@ -26,12 +26,13 @@ class LocalLlmWorkoutPlannerEngine(
 
         var attempt = 0
         var lastFailure: Throwable? = null
+        var prompt = prompt(request)
         while (attempt < MAX_ATTEMPTS) {
             attempt++
             val plan = try {
                 // Loading the model and generating are blocking, so keep them off the main thread.
                 val output = withContext(Dispatchers.Default) {
-                    generator.generate(prompt(request), PLAN_SCHEMA)
+                    generator.generate(prompt, PLAN_SCHEMA)
                 }
                 sanitizer.sanitize(parseWeeklyPlan(output, PlannerEngineId.LOCAL_LLM), request)
             } catch (outOfMemory: OutOfMemoryError) {
@@ -44,12 +45,18 @@ class LocalLlmWorkoutPlannerEngine(
                 null
             }
             if (plan != null) return plan
+            // Tell the model why the previous answer was rejected instead of repeating it verbatim.
+            prompt = prompt(request) + correction(request)
         }
         val cause = lastFailure
             ?: IllegalStateException("On-device plan did not satisfy the request")
         logger.onFallback(OnDevicePlannerFallback.UNEXPECTED_FAILURE, cause)
         return fallback.generatePlan(request)
     }
+
+    private fun correction(request: PlanRequest): String =
+        "\nYour previous answer was rejected. Return exactly ${request.daysPerWeek} day items, " +
+            "and give every day 4 to 6 exercises whose exerciseId appears in the list."
 
     private suspend fun prompt(request: PlanRequest): String {
         val equipment = request.availableEquipment.joinToString(", ") { it.name }
@@ -60,39 +67,46 @@ class LocalLlmWorkoutPlannerEngine(
             .filter { it.isAvailableWith(request.availableEquipment) }
 
         val sets = request.setsPerExercise
+        val days = request.daysPerWeek
         return buildString {
-            appendLine("You are a strength coach. Reply with one JSON object only.")
-            appendLine("Do not use markdown, prose, or nested \"days\" inside a day.")
-            appendLine("Top level: {\"days\":[<day>, <day>, ...]}.")
-            appendLine("Build exactly ${request.daysPerWeek} days.")
+            appendLine("You are a strength coach.")
+            appendLine("Reply with one JSON object only. No markdown. No prose.")
+            appendLine("The object has one key \"days\": a list of exactly $days day items.")
+            appendLine("Each day item has \"focus\" and \"exercises\".")
+            appendLine("\"focus\" is one of: PUSH, PULL, LEGS, UPPER, LOWER, FULL_BODY.")
+            appendLine("Each \"exercises\" list has 4 to 6 different exercise items.")
+            appendLine(
+                "Each exercise item has \"exerciseId\", \"sets\" (always $sets) and \"reps\"."
+            )
+            appendLine("Use 6 reps for compound lifts and 12 reps for isolation exercises.")
+            appendLine("Split preference: ${request.splitPreference.name}")
             appendLine("Available equipment: $equipment")
             appendLine("Muscle fatigue (0.0-1.0): $fatigue")
             appendLine(
-                "Give every day 4 to 6 different exercises chosen ONLY from this list, " +
-                    "using the exerciseId exactly as written (no prefix, never invent an id):"
+                "Every \"exerciseId\" must be copied exactly from this list. " +
+                    "Never invent an id and never add a prefix:"
             )
             availableExercises.forEach { exercise ->
                 appendLine("- ${exercise.id} (${exercise.name})")
             }
             appendLine(
-                "Use one focus value per day from: PUSH, PULL, LEGS, UPPER, LOWER, FULL_BODY"
+                "Produce exactly $days day items and 4 to 6 exercises in every day. " +
+                    "The example below only shows the shape; do not copy its counts:"
             )
-            appendLine("Use exactly $sets sets for every exercise.")
-            appendLine("Use 6 reps for compound lifts and 12 reps for isolation exercises.")
+            appendLine("""{"days":[<day>, <day>, ...]}""")
+            appendLine(DAY_SHAPE)
             appendLine(
-                "Example: " +
-                    """{"days":[{"focus":"PUSH","exercises":""" +
-                    """[{"exerciseId":"barbell-bench-press","sets":$sets,"reps":6},""" +
-                    """{"exerciseId":"overhead-press","sets":$sets,"reps":6}]},""" +
-                    """{"focus":"PULL","exercises":""" +
-                    """[{"exerciseId":"barbell-row","sets":$sets,"reps":6},""" +
-                    """{"exerciseId":"barbell-curl","sets":$sets,"reps":12}]}]}"""
+                """<exercise> = {"exerciseId":"<id from the list above>","sets":$sets,"reps":6}"""
             )
         }
     }
 
     private companion object {
         const val MAX_ATTEMPTS = 2
+
+        const val DAY_SHAPE =
+            """<day> = {"focus":"<PUSH|PULL|LEGS|UPPER|LOWER|FULL_BODY>",""" +
+                """"exercises":[<exercise>, <exercise>, ...]}"""
 
         val PLAN_SCHEMA = """
             {
