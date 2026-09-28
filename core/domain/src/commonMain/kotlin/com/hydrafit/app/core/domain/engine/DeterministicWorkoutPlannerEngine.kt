@@ -147,7 +147,7 @@ class DeterministicWorkoutPlannerEngine(private val catalog: ExerciseCatalog) :
         const val MAX_DAYS = 6
         const val MIN_SETS = 1
         const val MAX_SETS = 8
-        const val DEFAULT_SETS = 3
+        const val DEFAULT_SETS = DEFAULT_SETS_PER_EXERCISE
         const val COMPOUND_REPS = 6
         const val ISOLATION_REPS = 12
         const val FATIGUE_REDUCE_THRESHOLD = 0.5
