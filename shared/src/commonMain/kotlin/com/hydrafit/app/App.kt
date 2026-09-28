@@ -21,6 +21,7 @@ import com.hydrafit.app.feature.equipment.equipmentDestination
 import com.hydrafit.app.feature.equipment.equipmentRoute
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapDestination
 import com.hydrafit.app.feature.logger.loggerDestination
+import com.hydrafit.app.feature.settings.settingsDestination
 import com.hydrafit.app.feature.splitbuilder.splitBuilderDestination
 import org.jetbrains.compose.resources.stringResource
 
@@ -34,7 +35,8 @@ fun App() {
                 equipmentDestination,
                 fatigueHeatmapDestination,
                 splitBuilderDestination,
-                loggerDestination
+                loggerDestination,
+                settingsDestination
             )
 
             Scaffold(

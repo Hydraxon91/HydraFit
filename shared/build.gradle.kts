@@ -54,6 +54,7 @@ kotlin {
             implementation(project(":feature:fatigueheatmap"))
             implementation(project(":feature:splitbuilder"))
             implementation(project(":feature:logger"))
+            implementation(project(":feature:settings"))
             implementation(libs.koin.core)
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
