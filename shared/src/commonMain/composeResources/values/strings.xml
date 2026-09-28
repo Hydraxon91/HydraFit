@@ -1,7 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources>
     <string name="app_name">HydraFit</string>
-    <string name="nav_equipment">Equipment</string>
-    <string name="nav_fatigue">Fatigue</string>
-    <string name="nav_plan">Plan</string>
 </resources>

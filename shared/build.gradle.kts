@@ -46,10 +46,12 @@ kotlin {
         }
         commonMain.dependencies {
             implementation(project(":core:domain"))
+            implementation(project(":core:navigation"))
             implementation(project(":core:database"))
             implementation(project(":feature:equipment"))
             implementation(project(":feature:fatigueheatmap"))
             implementation(project(":feature:splitbuilder"))
+            implementation(project(":feature:logger"))
             implementation(libs.koin.core)
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
