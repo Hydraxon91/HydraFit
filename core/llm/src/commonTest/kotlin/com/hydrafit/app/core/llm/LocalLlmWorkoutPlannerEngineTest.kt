@@ -121,6 +121,40 @@ class LocalLlmWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun reportsResourceFallbackForOutOfMemory() = runTest {
+        val logger = RecordingLogger()
+        val generator = FakeGenerator(
+            available = true,
+            failure = { throw OutOfMemoryError("model too big") }
+        )
+
+        engine(generator, logger).generatePlan(request())
+
+        assertEquals(OnDevicePlannerFallback.OUT_OF_MEMORY, logger.reasons.single())
+    }
+
+    @Test
+    fun reportsUnexpectedFailureWhenEveryAttemptFails() = runTest {
+        val logger = RecordingLogger()
+        val generator = FakeGenerator(available = true, responses = listOf("I am not JSON"))
+
+        val plan = engine(generator, logger).generatePlan(request())
+
+        assertEquals(PlannerEngineId.DETERMINISTIC, plan.engine)
+        assertEquals(OnDevicePlannerFallback.UNEXPECTED_FAILURE, logger.reasons.single())
+    }
+
+    private class RecordingLogger : OnDevicePlannerLogger {
+        val reasons = mutableListOf<OnDevicePlannerFallback>()
+        val causes = mutableListOf<Throwable>()
+
+        override fun onFallback(reason: OnDevicePlannerFallback, cause: Throwable) {
+            reasons += reason
+            causes += cause
+        }
+    }
+
+    @Test
     fun fallsBackWhenOnDeviceOutputIsUnparseable() = runTest {
         val generator = FakeGenerator(available = true, responses = listOf("I am not JSON"))
 
@@ -130,10 +164,14 @@ class LocalLlmWorkoutPlannerEngineTest {
         assertEquals(2, generator.generateCalls)
     }
 
-    private fun engine(generator: OnDeviceTextGenerator) = LocalLlmWorkoutPlannerEngine(
+    private fun engine(
+        generator: OnDeviceTextGenerator,
+        logger: OnDevicePlannerLogger = NoopOnDevicePlannerLogger
+    ) = LocalLlmWorkoutPlannerEngine(
         generator = generator,
         fallback = DeterministicStub,
-        catalog = FakeCatalog
+        catalog = FakeCatalog,
+        logger = logger
     )
 
     private fun request(setsPerExercise: Int = 3) = PlanRequest(

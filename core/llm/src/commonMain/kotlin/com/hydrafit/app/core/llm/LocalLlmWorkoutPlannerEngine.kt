@@ -15,7 +15,8 @@ import kotlinx.coroutines.withContext
 class LocalLlmWorkoutPlannerEngine(
     private val generator: OnDeviceTextGenerator,
     private val fallback: WorkoutPlannerEngine,
-    private val catalog: ExerciseCatalog
+    private val catalog: ExerciseCatalog,
+    private val logger: OnDevicePlannerLogger = NoopOnDevicePlannerLogger
 ) : WorkoutPlannerEngine {
 
     override val id: PlannerEngineId = PlannerEngineId.LOCAL_LLM
@@ -24,6 +25,7 @@ class LocalLlmWorkoutPlannerEngine(
         if (!generator.isAvailable()) return fallback.generatePlan(request)
 
         var attempt = 0
+        var lastFailure: Throwable? = null
         while (attempt < MAX_ATTEMPTS) {
             attempt++
             val plan = try {
@@ -33,14 +35,19 @@ class LocalLlmWorkoutPlannerEngine(
                 }
                 sanitizedPlan(parseWeeklyPlan(output, PlannerEngineId.LOCAL_LLM), request)
             } catch (outOfMemory: OutOfMemoryError) {
+                logger.onFallback(OnDevicePlannerFallback.OUT_OF_MEMORY, outOfMemory)
                 return fallback.generatePlan(request)
             } catch (cancellation: CancellationException) {
                 throw cancellation
-            } catch (_: Exception) {
+            } catch (failure: Exception) {
+                lastFailure = failure
                 null
             }
             if (plan != null) return plan
         }
+        val cause = lastFailure
+            ?: IllegalStateException("On-device plan did not satisfy the request")
+        logger.onFallback(OnDevicePlannerFallback.UNEXPECTED_FAILURE, cause)
         return fallback.generatePlan(request)
     }
 

@@ -17,7 +17,14 @@ import org.koin.dsl.module
 val domainModule: Module = module {
     single { CalculateMuscleFatigueUseCase() }
     single { DeterministicWorkoutPlannerEngine(get()) }
-    single { LocalLlmWorkoutPlannerEngine(get(), get<DeterministicWorkoutPlannerEngine>(), get()) }
+    single {
+        LocalLlmWorkoutPlannerEngine(
+            generator = get(),
+            fallback = get<DeterministicWorkoutPlannerEngine>(),
+            catalog = get(),
+            logger = get()
+        )
+    }
     single<EngineAvailability> { DefaultEngineAvailability(get<ApiKeyProvider>(), get()) }
     single<WorkoutPlannerEngineProvider> {
         DefaultWorkoutPlannerEngineProvider(

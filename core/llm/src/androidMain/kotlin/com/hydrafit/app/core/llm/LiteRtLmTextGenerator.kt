@@ -15,30 +15,40 @@ import com.google.ai.edge.litertlm.ResponseFormat
 import com.google.ai.edge.litertlm.SamplerConfig
 import java.io.File
 
+/**
+ * LiteRT-LM keeps the full message history inside a [Conversation], and a failed native call
+ * can leave a dangling user turn behind. Reusing such a conversation makes every later call
+ * fail with "Conversation roles must alternate". So the engine is cached, but each generation
+ * gets a fresh conversation that is closed afterwards.
+ */
 class LiteRtLmTextGenerator(
     private val context: Context,
     private val modelManager: AndroidOnDeviceModelManager
 ) : OnDeviceTextGenerator {
 
-    private var conversation: Conversation? = null
+    private var engine: Engine? = null
+    private var engineKey: EngineKey? = null
+    private var constrainedSupported = true
 
     override fun isAvailable(): Boolean = modelManager.isInstalled()
 
+    @Synchronized
     override fun generate(prompt: String, jsonSchema: String?): String = try {
-        val active = conversation ?: createConversation().also { conversation = it }
-        val message = send(active, prompt, jsonSchema)
-        val text = message.contents.contents
-            .filterIsInstance<Content.Text>()
-            .joinToString(separator = "") { it.text }
-        Log.d(TAG, "On-device output (${text.length} chars): ${text.take(MAX_LOGGED_CHARS)}")
-        text
+        val conversation = activeEngine().createConversation(conversationConfig())
+        try {
+            val text = readText(send(conversation, prompt, jsonSchema))
+            Log.d(TAG, "On-device output (${text.length} chars): ${text.take(MAX_LOGGED_CHARS)}")
+            text
+        } finally {
+            conversation.close()
+        }
     } catch (failure: Throwable) {
         Log.e(TAG, "On-device generation failed", failure)
         throw failure
     }
 
     private fun send(conversation: Conversation, prompt: String, jsonSchema: String?): Message {
-        if (jsonSchema == null) return conversation.sendMessage(prompt)
+        if (jsonSchema == null || !constrainedSupported) return conversation.sendMessage(prompt)
         return try {
             conversation.sendMessage(
                 text = prompt,
@@ -46,39 +56,57 @@ class LiteRtLmTextGenerator(
                 responseFormat = ResponseFormat.json(jsonSchema)
             )
         } catch (failure: Exception) {
-            Log.w(TAG, "Constrained JSON generation unavailable; retrying without it", failure)
-            conversation.sendMessage(prompt)
+            // Never retry on the same conversation; the next attempt builds a fresh one.
+            constrainedSupported = false
+            Log.w(TAG, "Constrained JSON generation failed; disabling it for this session", failure)
+            throw failure
         }
     }
 
-    private fun createConversation(): Conversation {
+    private fun readText(message: Message): String = message.contents.contents
+        .filterIsInstance<Content.Text>()
+        .joinToString(separator = "") { it.text }
+
+    private fun activeEngine(): Engine {
+        val modelFile = File(modelManager.modelPath())
+        val key = EngineKey(modelFile.path, modelFile.length(), modelFile.lastModified())
+        val current = engine
+        if (current != null && engineKey == key) return current
+
+        current?.close()
+        constrainedSupported = true
+        val created = createEngine(key)
+        engine = created
+        engineKey = key
+        return created
+    }
+
+    private fun createEngine(key: EngineKey): Engine {
         Engine.setNativeMinLogSeverity(LogSeverity.VERBOSE)
-        val modelPath = modelManager.modelPath()
-        Log.i(
-            TAG,
-            "Initializing on-device engine (model ${File(modelPath).length()} bytes, backend CPU)"
-        )
-        val engine = Engine(
+        Log.i(TAG, "Initializing on-device engine (model ${key.size} bytes, backend CPU)")
+        val created = Engine(
             EngineConfig(
-                modelPath = modelPath,
+                modelPath = key.path,
                 backend = Backend.CPU(),
                 cacheDir = context.cacheDir.path
             )
         )
-        engine.initialize()
+        created.initialize()
         Log.i(TAG, "On-device engine initialized")
-        return engine.createConversation(
-            ConversationConfig(
-                samplerConfig = SamplerConfig(
-                    topK = SAMPLER_TOP_K,
-                    topP = SAMPLER_TOP_P,
-                    temperature = SAMPLER_TEMPERATURE,
-                    seed = SAMPLER_SEED
-                ),
-                enableResponseFormat = true
-            )
-        )
+        return created
     }
+
+    private fun conversationConfig(): ConversationConfig = ConversationConfig(
+        samplerConfig = SamplerConfig(
+            topK = SAMPLER_TOP_K,
+            topP = SAMPLER_TOP_P,
+            temperature = SAMPLER_TEMPERATURE,
+            seed = SAMPLER_SEED
+        ),
+        enableResponseFormat = true
+    )
+
+    private data class EngineKey(val path: String, val size: Long, val modified: Long)
 
     private companion object {
         const val TAG = "LiteRtLmTextGenerator"

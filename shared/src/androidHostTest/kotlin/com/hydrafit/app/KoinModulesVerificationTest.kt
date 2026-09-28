@@ -3,6 +3,8 @@ package com.hydrafit.app
 import com.hydrafit.app.core.database.DatabaseDriverFactory
 import com.hydrafit.app.core.database.databaseModule
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.llm.NoopOnDevicePlannerLogger
+import com.hydrafit.app.core.llm.OnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.network.GeminiWorkoutPlannerEngine
@@ -25,6 +27,7 @@ class KoinModulesVerificationTest {
         single<ApiKeyStore> { FakeApiKeyStore }
         single<ApiKeyProvider> { ApiKeyProvider { "test-key" } }
         single<OnDeviceTextGenerator> { FakeOnDeviceTextGenerator }
+        single<OnDevicePlannerLogger> { NoopOnDevicePlannerLogger }
     }
 
     private val allModules = module {

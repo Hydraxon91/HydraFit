@@ -6,7 +6,9 @@ import com.hydrafit.app.core.database.AndroidDatabaseDriverFactory
 import com.hydrafit.app.core.database.DatabaseDriverFactory
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.llm.AndroidOnDeviceModelManager
+import com.hydrafit.app.core.llm.AndroidOnDevicePlannerLogger
 import com.hydrafit.app.core.llm.LiteRtLmTextGenerator
+import com.hydrafit.app.core.llm.OnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.userdata.llm.OnDeviceModelManager
@@ -35,6 +37,7 @@ fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = modu
     single<OnDeviceTextGenerator> {
         LiteRtLmTextGenerator(context.applicationContext, get<AndroidOnDeviceModelManager>())
     }
+    single<OnDevicePlannerLogger> { AndroidOnDevicePlannerLogger() }
 }
 
 fun initKoin(context: Context, geminiApiKey: String) {

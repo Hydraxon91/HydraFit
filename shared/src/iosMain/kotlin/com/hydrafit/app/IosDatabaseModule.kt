@@ -3,6 +3,8 @@ package com.hydrafit.app
 import com.hydrafit.app.core.database.DatabaseDriverFactory
 import com.hydrafit.app.core.database.NativeDatabaseDriverFactory
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.llm.NoopOnDevicePlannerLogger
+import com.hydrafit.app.core.llm.OnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.core.llm.UnsupportedOnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
@@ -25,4 +27,5 @@ fun iosDatabaseModule(): Module = module {
         ApiKeyProvider { store.load()?.takeIf { it.isNotBlank() } ?: environmentKey }
     }
     single<OnDeviceTextGenerator> { UnsupportedOnDeviceTextGenerator() }
+    single<OnDevicePlannerLogger> { NoopOnDevicePlannerLogger }
 }
