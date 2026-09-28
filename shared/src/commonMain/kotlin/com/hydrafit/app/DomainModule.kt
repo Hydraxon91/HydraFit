@@ -1,6 +1,7 @@
 package com.hydrafit.app
 
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
+import com.hydrafit.app.core.domain.engine.EngineAvailability
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngineProvider
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
@@ -22,6 +23,7 @@ val domainModule: Module = module {
             apiKeyProvider = get<ApiKeyProvider>()
         )
     }
+    single<EngineAvailability> { DefaultEngineAvailability(get<ApiKeyProvider>()) }
     single { GenerateWeeklySplitUseCase(get()) }
     single { LogWorkoutSetUseCase(get()) }
     single { GetWorkoutLogUseCase(get()) }
