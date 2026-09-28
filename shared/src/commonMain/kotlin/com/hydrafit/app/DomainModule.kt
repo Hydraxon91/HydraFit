@@ -4,6 +4,7 @@ import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.EngineAvailability
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
+import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngineProvider
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
@@ -17,11 +18,13 @@ import org.koin.dsl.module
 val domainModule: Module = module {
     single { CalculateMuscleFatigueUseCase() }
     single { DeterministicWorkoutPlannerEngine(get()) }
+    single { WeeklyPlanSanitizer(get()) }
     single {
         LocalLlmWorkoutPlannerEngine(
             generator = get(),
             fallback = get<DeterministicWorkoutPlannerEngine>(),
             catalog = get(),
+            sanitizer = get(),
             logger = get()
         )
     }

@@ -1,0 +1,47 @@
+package com.hydrafit.app.core.domain.engine
+
+import com.hydrafit.app.core.domain.equipment.Exercise
+
+/**
+ * Shared guard for model-backed plans. It drops exercises that are unknown or need unselected
+ * equipment, applies the requested set count and the compound/isolation rep scheme, and rejects
+ * a plan that is not a complete week. Returns null when the plan should be discarded.
+ */
+class WeeklyPlanSanitizer(private val catalog: ExerciseCatalog) {
+
+    suspend fun sanitize(plan: WeeklyPlan, request: PlanRequest): WeeklyPlan? {
+        val usable = catalog.all()
+            .filter { it.isAvailableWith(request.availableEquipment) }
+            .associateBy { it.id }
+
+        val days = plan.days.map { day ->
+            day.copy(
+                exercises = day.exercises.mapNotNull { planned ->
+                    val exercise = usable[planned.exerciseId] ?: return@mapNotNull null
+                    PlannedExercise(
+                        exerciseId = exercise.id,
+                        sets = request.setsPerExercise,
+                        reps = repsFor(exercise)
+                    )
+                }
+            )
+        }
+
+        if (days.size < request.daysPerWeek) return null
+        if (days.any { it.exercises.size < MIN_EXERCISES_PER_DAY }) return null
+        return plan.copy(
+            days = days.take(request.daysPerWeek)
+                .mapIndexed { index, day -> day.copy(dayIndex = index) }
+        )
+    }
+
+    private fun repsFor(exercise: Exercise): Int = if (exercise.movementPattern.isCompound) {
+        DeterministicWorkoutPlannerEngine.COMPOUND_REPS
+    } else {
+        DeterministicWorkoutPlannerEngine.ISOLATION_REPS
+    }
+
+    companion object {
+        const val MIN_EXERCISES_PER_DAY = 2
+    }
+}
