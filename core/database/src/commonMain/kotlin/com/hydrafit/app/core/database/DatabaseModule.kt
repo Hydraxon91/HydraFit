@@ -7,6 +7,7 @@ import org.koin.dsl.module
 
 val databaseModule: Module = module {
     single { HydraFitDatabase(get<DatabaseDriverFactory>().createDriver()) }
+    single { SeedExerciseCatalog(get()) }
     single<ExerciseCatalog> { SqlDelightExerciseCatalog(get()) }
     single<EquipmentSelectionRepository> { SqlDelightEquipmentSelectionRepository(get()) }
 }

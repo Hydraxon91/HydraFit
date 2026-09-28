@@ -12,3 +12,7 @@ SELECT * FROM exercise ORDER BY id;
 insert:
 INSERT INTO exercise(id, name, requiredEquipment, primaryMuscles, secondaryMuscles)
 VALUES (?, ?, ?, ?, ?);
+
+insertIgnore:
+INSERT OR IGNORE INTO exercise(id, name, requiredEquipment, primaryMuscles, secondaryMuscles)
+VALUES (?, ?, ?, ?, ?);
