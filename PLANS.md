@@ -9,12 +9,12 @@
 ### A. Safety nets (do first, no production behavior change)
 
 1. **Koin verification matches the runtime graph.**
-   - Expand `shared:androidHostTest` `KoinModulesVerificationTest` to cover the modules assembled in `shared/.../Koin.kt:14-29`: add `networkModule`; keep `domainModule`, `databaseModule`, and all five feature modules.
-   - Add a test-only platform module (doubles for the Android `DatabaseDriverFactory`, `ApiKeyStore`/`ApiKeyProvider`, `TimeProvider`, `OnDeviceTextGenerator`) and resolve every ViewModel plus the Settings model-manager binding through the graph.
+   - Keep `shared:androidHostTest` `KoinModulesVerificationTest` aligned with the runtime common graph: `domainModule`, `databaseModule`, all five feature modules, and a test-only platform module (doubles for `ApiKeyStore`/`ApiKeyProvider`, `TimeProvider`, `OnDeviceTextGenerator`). `DatabaseDriverFactory` and the externally verified Gemini implementation remain `extraTypes`.
+   - Verify `networkModule` separately in `core:network:androidHostTest`: Koin's verifier traverses the `HttpClient` constructor and requires `HttpClientEngine`, which is intentionally not exposed to shared's test compile classpath. The network module's `extraTypes` document its externally supplied API-key provider, catalog, Gemini config, and Ktor engine.
    - Keep the standalone `core/database/.../DatabaseModuleVerificationTest`.
    - Koin **4.2.2**: `Module.verify()` is JVM-only; `checkModules()` is deprecated since 4.0 — use `verify()`.
    - `koin-test:4.2.2` is already test-scope in `shared`, `core:database`, `core:network`; no dependency change.
-   - Name what stays unverified: the real Android Keystore/`Context` bindings and the whole iOS/Foundation graph.
+   - Name what stays unverified: the real Android Keystore/`Context` bindings, the Settings Composable's direct Android model-manager injection, and the whole iOS/Foundation graph.
 
 2. **Characterization tests for everything about to move.**
    - Pin first: `SplitBuilderViewModel` plan inputs and day/set persistence (`SplitBuilderViewModel.kt:42-109`), engine selection/fallback (`DefaultWorkoutPlannerEngineProvider.kt:9-22`), reactions to equipment/engine/days/logged-set changes, `WorkoutLoggerViewModel` ordering and log/history behavior (`WorkoutLoggerViewModel.kt:50-168`), and Gemini error handling incl. 503/429/4xx/success (`GeminiWorkoutPlannerEngineTest.kt`).
@@ -72,7 +72,7 @@
 - The default exercise catalog is seeded idempotently (`INSERT OR IGNORE`) at Koin startup.
 - Domain use cases and the `WorkoutPlannerEngine` binding live in `:shared`'s `domainModule` (the composition root), not in `:core:domain`.
 - Screens are aggregated in `:shared` via `navigation-compose`, with each feature exposing its route and `NavGraphBuilder` extension.
-- `koin-test` `verify()` guards the aggregated module graph (currently marked `@KoinExperimentalAPI`).
+- `koin-test` `verify()` guards the shared application modules and has a separate `core:network` module verification (currently marked `@KoinExperimentalAPI`).
 - `:core:navigation` exposes `FeatureDestination`; each feature self-registers its route, localized label, and nav graph, and `:shared` only aggregates the list.
 - The Offline Workout Logger persists sets via `WorkoutLogRepository`, and the fatigue heatmap reflects them (verified on the emulator).
 - `:core:network` hosts the Ktor client and `GeminiWorkoutPlannerEngine` (structured JSON output); the Gemini API key is injected via `ApiKeyProvider` (Android `BuildConfig`, iOS environment) and never committed.
