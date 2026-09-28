@@ -27,9 +27,14 @@
 - The active engine is persisted (`plannerEngine`, schema v4 + `3.sqm`); the provider falls back to the Deterministic engine when the Gemini key is blank.
 - CI compiles iOS on a `macos-latest` job alongside the Linux lint/test/assemble pipeline.
 - A Settings feature (fifth tab) switches the active planner engine, listing only available engines (Gemini hidden until an API key is configured).
+- `:core:llm` hosts `LocalLlmWorkoutPlannerEngine` over Google MediaPipe LLM Inference (`tasks-genai`), behind an `OnDeviceTextGenerator` abstraction: Android uses MediaPipe, iOS is an unsupported stub.
+- The local LLM engine falls back to the Deterministic engine on `OutOfMemoryError`/errors and when no model is present; it is hidden in Settings unless a model is bundled.
+- On-device model binaries are never committed (`*.task`/`*.litertlm` gitignored); provide one at `core/llm/src/androidMain/assets/models/on_device_llm.task`.
+- Weekly-plan JSON parsing is shared in `:core:domain` (`parseWeeklyPlan`), used by both the Gemini and local LLM engines.
 
 ## Open Questions / Later
 
 - Desktop target remains deferred (Android-first).
-- Build the MediaPipe/Gemma engine last; it requires a physical device.
+- Verify the local LLM engine end-to-end on a physical device with a bundled Gemma model.
+- MediaPipe's GenAI task is deprecated upstream in favour of LiteRT-LM; revisit only on explicit instruction.
 - Use MockK when a chunk needs it (approved version, not yet used).
