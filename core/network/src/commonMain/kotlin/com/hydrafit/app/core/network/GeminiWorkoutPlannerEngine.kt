@@ -19,16 +19,18 @@ import io.ktor.http.isSuccess
 class GeminiWorkoutPlannerEngine(
     private val httpClient: HttpClient,
     private val config: GeminiConfig,
-    private val catalog: ExerciseCatalog
+    private val catalog: ExerciseCatalog,
+    private val apiKeyProvider: ApiKeyProvider
 ) : WorkoutPlannerEngine {
 
     override val id: PlannerEngineId = PlannerEngineId.GEMINI_API
 
     override suspend fun generatePlan(request: PlanRequest): WeeklyPlan {
-        require(config.apiKey.isNotBlank()) { "Gemini API key is not configured" }
+        val apiKey = apiKeyProvider.geminiApiKey()
+        require(apiKey.isNotBlank()) { "Gemini API key is not configured" }
 
         val response = httpClient.post("${config.baseUrl}/models/${config.model}:generateContent") {
-            header("x-goog-api-key", config.apiKey)
+            header("x-goog-api-key", apiKey)
             contentType(ContentType.Application.Json)
             setBody(buildRequest(request))
         }

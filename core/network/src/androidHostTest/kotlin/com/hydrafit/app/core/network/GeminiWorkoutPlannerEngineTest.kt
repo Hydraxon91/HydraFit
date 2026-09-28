@@ -56,6 +56,25 @@ class GeminiWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun readsApiKeyWhenSendingTheRequest() = runTest {
+        var apiKey = ""
+        var captured: HttpRequestData? = null
+        val mockEngine = MockEngine { request ->
+            captured = request
+            respond(envelope(PLAN_JSON), HttpStatusCode.OK, jsonHeaders())
+        }
+        val planner = engine(mockEngine, apiKeyProvider = ApiKeyProvider { apiKey })
+
+        apiKey = "saved-after-engine-construction"
+        planner.generatePlan(request())
+
+        assertEquals(
+            "saved-after-engine-construction",
+            requireNotNull(captured).headers["x-goog-api-key"]
+        )
+    }
+
+    @Test
     fun rejectsMissingApiKey() = runTest {
         val engine = engine(respondEnvelope(), apiKey = "")
 
@@ -76,12 +95,16 @@ class GeminiWorkoutPlannerEngineTest {
         assertFailsWith<IllegalStateException> { engine.generatePlan(request()) }
     }
 
-    private fun engine(engine: HttpClientEngine, apiKey: String = "test-key") =
-        GeminiWorkoutPlannerEngine(
-            httpClient = createGeminiHttpClient(engine),
-            config = GeminiConfig(apiKey = apiKey),
-            catalog = FakeCatalog
-        )
+    private fun engine(
+        engine: HttpClientEngine,
+        apiKey: String = "test-key",
+        apiKeyProvider: ApiKeyProvider = ApiKeyProvider { apiKey }
+    ) = GeminiWorkoutPlannerEngine(
+        httpClient = createGeminiHttpClient(engine),
+        config = GeminiConfig(),
+        catalog = FakeCatalog,
+        apiKeyProvider = apiKeyProvider
+    )
 
     private fun respondEnvelope() = respondRaw(envelope(PLAN_JSON))
 

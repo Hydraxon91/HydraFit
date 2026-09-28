@@ -6,6 +6,11 @@ import org.koin.dsl.module
 val networkModule: Module = module {
     single { createGeminiHttpClient() }
     single {
-        GeminiWorkoutPlannerEngine(get(), GeminiConfig(get<ApiKeyProvider>().geminiApiKey()), get())
+        GeminiWorkoutPlannerEngine(
+            httpClient = get(),
+            config = GeminiConfig(),
+            catalog = get(),
+            apiKeyProvider = get()
+        )
     }
 }
