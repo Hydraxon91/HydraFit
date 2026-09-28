@@ -6,7 +6,8 @@ data class SettingsUiState(
     val availableEngines: List<PlannerEngineId> = emptyList(),
     val selectedEngine: PlannerEngineId? = null,
     val apiKeyConfigured: Boolean = false,
-    val apiKeyInput: String = ""
+    val apiKeyInput: String = "",
+    val isLocalLlmInstalled: Boolean = false
 ) {
     val isGeminiAvailable: Boolean
         get() = PlannerEngineId.GEMINI_API in availableEngines

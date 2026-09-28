@@ -65,6 +65,7 @@ fun SettingsRoute(modifier: Modifier = Modifier, viewModel: SettingsViewModel = 
         onApiKeyChanged = viewModel::onApiKeyChanged,
         onSaveApiKey = viewModel::saveApiKey,
         onClearApiKey = viewModel::clearApiKey,
+        onModelChanged = viewModel::refresh,
         modifier = modifier
     )
 }
@@ -76,6 +77,7 @@ fun SettingsScreen(
     onApiKeyChanged: (String) -> Unit,
     onSaveApiKey: () -> Unit,
     onClearApiKey: () -> Unit,
+    onModelChanged: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -94,19 +96,22 @@ fun SettingsScreen(
             text = stringResource(Res.string.settings_engine_section),
             style = MaterialTheme.typography.titleMedium
         )
-        state.availableEngines.forEach { engine ->
+        PlannerEngineId.entries.forEach { engine ->
+            val enabled = engine in state.availableEngines
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .selectable(
                         selected = state.selectedEngine == engine,
+                        enabled = enabled,
                         onClick = { onEngineSelected(engine) }
                     ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 RadioButton(
                     selected = state.selectedEngine == engine,
-                    onClick = { onEngineSelected(engine) }
+                    onClick = { onEngineSelected(engine) },
+                    enabled = enabled
                 )
                 Text(stringResource(engine.labelResource()))
             }
@@ -117,6 +122,11 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall
             )
         }
+
+        OnDeviceModelSection(
+            installed = state.isLocalLlmInstalled,
+            onModelChanged = onModelChanged
+        )
 
         Text(
             text = stringResource(Res.string.settings_api_key_section),

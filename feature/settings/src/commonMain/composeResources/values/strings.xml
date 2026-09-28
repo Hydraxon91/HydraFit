@@ -12,4 +12,10 @@
     <string name="settings_api_key_save">Save</string>
     <string name="settings_api_key_clear">Clear</string>
     <string name="settings_api_key_configured">A key is saved on this device.</string>
+    <string name="settings_local_llm_unavailable">Import a .litertlm model to enable the on-device engine.</string>
+    <string name="settings_model_section">On-device model</string>
+    <string name="settings_model_import">Import model</string>
+    <string name="settings_model_remove">Remove model</string>
+    <string name="settings_model_installed">Model installed.</string>
+    <string name="settings_model_terms">Gemma Terms of Use</string>
 </resources>

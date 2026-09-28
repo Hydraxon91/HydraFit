@@ -49,7 +49,7 @@ class SettingsViewModel(
         refresh()
     }
 
-    private fun refresh() {
+    fun refresh() {
         viewModelScope.launch {
             val available = availability.availableEngines()
             val stored = preference.selectedEngine()
@@ -57,7 +57,8 @@ class SettingsViewModel(
                 it.copy(
                     availableEngines = available,
                     selectedEngine = if (stored in available) stored else available.firstOrNull(),
-                    apiKeyConfigured = !apiKeyStore.load().isNullOrBlank()
+                    apiKeyConfigured = !apiKeyStore.load().isNullOrBlank(),
+                    isLocalLlmInstalled = PlannerEngineId.LOCAL_LLM in available
                 )
             }
         }
