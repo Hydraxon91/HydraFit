@@ -2,12 +2,11 @@ package com.hydrafit.app.core.network
 
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanRequest
-import com.hydrafit.app.core.domain.engine.PlannedExercise
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
-import com.hydrafit.app.core.domain.engine.WorkoutDay
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
+import com.hydrafit.app.core.domain.engine.parseWeeklyPlan
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.header
@@ -45,7 +44,7 @@ class GeminiWorkoutPlannerEngine(
             ?.text
             ?: error("Gemini response contained no content")
 
-        return geminiJson.decodeFromString<GeminiPlanDto>(text).toWeeklyPlan()
+        return parseWeeklyPlan(text, PlannerEngineId.GEMINI_API)
     }
 
     private suspend fun buildRequest(request: PlanRequest): GeminiRequest {
@@ -108,21 +107,4 @@ class GeminiWorkoutPlannerEngine(
         ),
         required = listOf("days")
     )
-
-    private fun GeminiPlanDto.toWeeklyPlan(): WeeklyPlan = WeeklyPlan(
-        engine = PlannerEngineId.GEMINI_API,
-        days = days.mapIndexed { index, day ->
-            WorkoutDay(
-                dayIndex = index,
-                focus = parseFocus(day.focus),
-                exercises = day.exercises.map {
-                    PlannedExercise(exerciseId = it.exerciseId, sets = it.sets, reps = it.reps)
-                }
-            )
-        }
-    )
-
-    private fun parseFocus(value: String): SplitFocus =
-        SplitFocus.entries.firstOrNull { it.name.equals(value, ignoreCase = true) }
-            ?: SplitFocus.FULL_BODY
 }

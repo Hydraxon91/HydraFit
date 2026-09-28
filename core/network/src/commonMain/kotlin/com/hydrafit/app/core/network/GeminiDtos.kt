@@ -36,12 +36,3 @@ data class GeminiResponse(val candidates: List<GeminiCandidate> = emptyList())
 
 @Serializable
 data class GeminiCandidate(val content: GeminiContent? = null)
-
-@Serializable
-data class GeminiPlanDto(val days: List<GeminiDayDto> = emptyList())
-
-@Serializable
-data class GeminiDayDto(val focus: String, val exercises: List<GeminiExerciseDto> = emptyList())
-
-@Serializable
-data class GeminiExerciseDto(val exerciseId: String, val sets: Int, val reps: Int)
