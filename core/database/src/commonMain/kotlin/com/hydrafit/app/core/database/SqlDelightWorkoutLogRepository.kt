@@ -1,10 +1,15 @@
 package com.hydrafit.app.core.database
 
+import app.cash.sqldelight.coroutines.asFlow
+import app.cash.sqldelight.coroutines.mapToList
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleInvolvement
 import com.hydrafit.app.core.domain.fatigue.MuscleTarget
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet as DomainWorkoutSet
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 
 class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
     WorkoutLogRepository {
@@ -44,6 +49,24 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                 targets = targets,
                 isWarmup = row.isWarmup != 0L
             )
+        }
+    }
+
+    override fun loggedSetsFlow(): Flow<List<LoggedSet>> {
+        val exerciseRows = exerciseQueries.selectAll().asFlow().mapToList(Dispatchers.Default)
+        val setRows = setQueries.selectAllSets().asFlow().mapToList(Dispatchers.Default)
+        return combine(exerciseRows, setRows) { exercises, sets ->
+            val targetsByExercise = exercises.associate { row ->
+                row.id to targetsOf(row.primaryMuscles, row.secondaryMuscles)
+            }
+            sets.mapNotNull { row ->
+                val targets = targetsByExercise[row.exerciseId] ?: return@mapNotNull null
+                LoggedSet(
+                    timestampMillis = row.performedAt,
+                    targets = targets,
+                    isWarmup = row.isWarmup != 0L
+                )
+            }
         }
     }
 

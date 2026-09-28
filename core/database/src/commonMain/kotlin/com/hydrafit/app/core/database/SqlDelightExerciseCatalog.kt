@@ -12,7 +12,8 @@ class SqlDelightExerciseCatalog(database: HydraFitDatabase) : ExerciseCatalog {
             name = row.name,
             requiredEquipment = decodeEquipment(row.requiredEquipment),
             primaryMuscles = decodeMuscles(row.primaryMuscles),
-            secondaryMuscles = decodeMuscles(row.secondaryMuscles)
+            secondaryMuscles = decodeMuscles(row.secondaryMuscles),
+            movementPattern = decodeMovementPattern(row.movementPattern)
         )
     }
 }

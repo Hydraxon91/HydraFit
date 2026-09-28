@@ -26,6 +26,8 @@ kotlin {
             implementation(project(":core:domain"))
             implementation(project(":core:userdata"))
             implementation(libs.sqldelight.runtime)
+            implementation(libs.sqldelight.coroutinesExtensions)
+            implementation(libs.kotlinx.coroutines.core)
             implementation(libs.koin.core)
         }
         androidMain.dependencies {

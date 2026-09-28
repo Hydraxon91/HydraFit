@@ -7,7 +7,8 @@ data class Exercise(
     val name: String,
     val requiredEquipment: Set<EquipmentTag>,
     val primaryMuscles: Set<MuscleGroup>,
-    val secondaryMuscles: Set<MuscleGroup> = emptySet()
+    val secondaryMuscles: Set<MuscleGroup> = emptySet(),
+    val movementPattern: MovementPattern = MovementPattern.CORE
 ) {
     fun isAvailableWith(availableEquipment: Set<EquipmentTag>): Boolean = requiredEquipment
         .filterNot { it == EquipmentTag.BODYWEIGHT }

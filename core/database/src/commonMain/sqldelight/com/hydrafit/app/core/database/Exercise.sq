@@ -3,16 +3,20 @@ CREATE TABLE exercise (
     name TEXT NOT NULL,
     requiredEquipment TEXT NOT NULL,
     primaryMuscles TEXT NOT NULL,
-    secondaryMuscles TEXT NOT NULL
+    secondaryMuscles TEXT NOT NULL,
+    movementPattern TEXT NOT NULL
 );
 
 selectAll:
 SELECT * FROM exercise ORDER BY id;
 
 insert:
-INSERT INTO exercise(id, name, requiredEquipment, primaryMuscles, secondaryMuscles)
-VALUES (?, ?, ?, ?, ?);
+INSERT INTO exercise(id, name, requiredEquipment, primaryMuscles, secondaryMuscles, movementPattern)
+VALUES (?, ?, ?, ?, ?, ?);
 
 insertIgnore:
-INSERT OR IGNORE INTO exercise(id, name, requiredEquipment, primaryMuscles, secondaryMuscles)
-VALUES (?, ?, ?, ?, ?);
+INSERT OR IGNORE INTO exercise(id, name, requiredEquipment, primaryMuscles, secondaryMuscles, movementPattern)
+VALUES (?, ?, ?, ?, ?, ?);
+
+updateMovementPattern:
+UPDATE exercise SET movementPattern = ? WHERE id = ?;

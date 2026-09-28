@@ -9,7 +9,12 @@ class SeedExerciseCatalog(private val database: HydraFitDatabase) {
                     name = exercise.name,
                     requiredEquipment = encodeEquipment(exercise.requiredEquipment),
                     primaryMuscles = encodeMuscles(exercise.primaryMuscles),
-                    secondaryMuscles = encodeMuscles(exercise.secondaryMuscles)
+                    secondaryMuscles = encodeMuscles(exercise.secondaryMuscles),
+                    movementPattern = exercise.movementPattern.name
+                )
+                database.exerciseQueries.updateMovementPattern(
+                    movementPattern = exercise.movementPattern.name,
+                    id = exercise.id
                 )
             }
         }
