@@ -26,10 +26,10 @@
 - `:core:network` hosts the Ktor client and `GeminiWorkoutPlannerEngine` (structured JSON output); the Gemini API key is injected via `ApiKeyProvider` (Android `BuildConfig`, iOS environment) and never committed.
 - The active engine is persisted (`plannerEngine`, schema v4 + `3.sqm`); the provider falls back to the Deterministic engine when the Gemini key is blank.
 - CI compiles iOS on a `macos-latest` job alongside the Linux lint/test/assemble pipeline.
+- A Settings feature (fifth tab) switches the active planner engine, listing only available engines (Gemini hidden until an API key is configured).
 
 ## Open Questions / Later
 
 - Desktop target remains deferred (Android-first).
 - Build the MediaPipe/Gemma engine last; it requires a physical device.
-- Add a Settings UI to switch engines (the persisted preference and provider already exist).
 - Use MockK when a chunk needs it (approved version, not yet used).
