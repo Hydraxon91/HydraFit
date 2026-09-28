@@ -62,7 +62,7 @@
 - **Test the fallback paths, not just the happy path.** The Local LLM engine's `OutOfMemoryError` → Deterministic Engine fallback needs an explicit test, not just manual verification.
 - **Run tests with output redirected to a file, not chained into filters:**
   ```bash
-  ./gradlew :core:domain:testDebugUnitTest > test-output.log 2>&1
+  ./gradlew :core:domain:testAndroidHostTest > test-output.log 2>&1
   ```
   If you need a different view (failures only, full stack traces), grep/cat `test-output.log` — do not re-run the suite just to change how you're viewing the same results.
 - **Look for a shared root cause before treating failures as independent.** If several tests fail with the same underlying exception (e.g. a Koin binding missing in test setup), fix the shared cause once and re-run, rather than debugging each test in isolation.
@@ -157,7 +157,7 @@ HydraFit/
 ./gradlew test
 
 # Run unit tests for a single module
-./gradlew :core:domain:testDebugUnitTest
+./gradlew :core:domain:testAndroidHostTest
 ```
 
 ## Local Configuration (`local.properties`)
