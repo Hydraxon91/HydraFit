@@ -3,6 +3,7 @@ package com.hydrafit.app.core.database
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
+import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -12,4 +13,5 @@ val databaseModule: Module = module {
     single<ExerciseCatalog> { SqlDelightExerciseCatalog(get()) }
     single<EquipmentSelectionRepository> { SqlDelightEquipmentSelectionRepository(get()) }
     single<WorkoutLogRepository> { SqlDelightWorkoutLogRepository(get()) }
+    single<EnginePreferenceRepository> { SqlDelightEnginePreferenceRepository(get()) }
 }

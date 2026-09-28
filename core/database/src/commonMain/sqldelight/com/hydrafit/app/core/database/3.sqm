@@ -1,0 +1,4 @@
+CREATE TABLE plannerEngine (
+    id INTEGER NOT NULL PRIMARY KEY,
+    engineId TEXT NOT NULL
+);

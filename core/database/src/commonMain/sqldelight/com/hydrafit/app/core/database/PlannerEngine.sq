@@ -1,0 +1,10 @@
+CREATE TABLE plannerEngine (
+    id INTEGER NOT NULL PRIMARY KEY,
+    engineId TEXT NOT NULL
+);
+
+selectEngine:
+SELECT engineId FROM plannerEngine WHERE id = 0;
+
+upsertEngine:
+INSERT OR REPLACE INTO plannerEngine(id, engineId) VALUES (0, ?);
