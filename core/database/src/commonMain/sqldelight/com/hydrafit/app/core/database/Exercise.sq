@@ -1,0 +1,14 @@
+CREATE TABLE exercise (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    requiredEquipment TEXT NOT NULL,
+    primaryMuscles TEXT NOT NULL,
+    secondaryMuscles TEXT NOT NULL
+);
+
+selectAll:
+SELECT * FROM exercise ORDER BY id;
+
+insert:
+INSERT INTO exercise(id, name, requiredEquipment, primaryMuscles, secondaryMuscles)
+VALUES (?, ?, ?, ?, ?);
