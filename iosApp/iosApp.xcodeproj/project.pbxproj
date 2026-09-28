@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		11427CA2C8E8100DED589138 /* KotlinProject.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KotlinProject.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		11427CA2C8E8100DED589138 /* HydraFit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HydraFit.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -59,7 +59,7 @@
 		ED59CCB9EB57086A34C762AF /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				11427CA2C8E8100DED589138 /* KotlinProject.app */,
+				11427CA2C8E8100DED589138 /* HydraFit.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -87,7 +87,7 @@
 			packageProductDependencies = (
 			);
 			productName = iosApp;
-			productReference = 11427CA2C8E8100DED589138 /* KotlinProject.app */;
+			productReference = 11427CA2C8E8100DED589138 /* HydraFit.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
