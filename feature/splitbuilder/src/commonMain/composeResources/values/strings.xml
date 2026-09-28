@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="split_builder_title">Weekly plan</string>
+    <string name="split_days_label">Days per week</string>
+    <string name="split_day">Day %1$d</string>
+    <string name="focus_push">Push</string>
+    <string name="focus_pull">Pull</string>
+    <string name="focus_legs">Legs</string>
+    <string name="focus_upper">Upper</string>
+    <string name="focus_lower">Lower</string>
+    <string name="focus_full_body">Full body</string>
+</resources>
