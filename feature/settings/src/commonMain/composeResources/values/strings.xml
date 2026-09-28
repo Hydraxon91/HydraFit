@@ -5,7 +5,7 @@
     <string name="settings_engine_section">Planning engine</string>
     <string name="settings_engine_deterministic">Deterministic (offline)</string>
     <string name="settings_engine_gemini">Gemini API (cloud)</string>
-    <string name="settings_engine_local_llm">On-device (coming soon)</string>
+    <string name="settings_engine_local_llm">On-device (experimental)</string>
     <string name="settings_gemini_unavailable">Add a Gemini API key to enable the cloud engine.</string>
     <string name="settings_api_key_section">Gemini API key</string>
     <string name="settings_api_key_label">API key</string>
