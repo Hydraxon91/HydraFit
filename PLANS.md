@@ -4,9 +4,6 @@
 
 ## Checklist
 
-- [ ] Create an empty `:core:domain` module with test source sets.
-  - **Done when:** it is a KMP module (android + iOS targets) with all code in `commonMain` and no platform APIs, it compiles, and its test source sets are ready before domain logic is added.
-
 - [ ] Add empty `:core:userdata`, `:core:database`, and `:core:network` modules.
   - **Done when:** each module compiles and its dependencies follow the approved architecture.
 
