@@ -35,6 +35,25 @@ class WeeklyPlanJsonTest {
     }
 
     @Test
+    fun flattensRepeatedDaysWrappers() {
+        val nested = """
+            {"days":[{"days":[{"days":[
+              {"focus":"PUSH","exercises":[{"exerciseId":"bench-press","sets":3,"reps":6}]},
+              {"focus":"PULL","exercises":[{"exerciseId":"barbell-row","sets":3,"reps":6}]}
+            ]},
+            {"focus":"LEGS","exercises":[{"exerciseId":"back-squat","sets":3,"reps":6}]},
+            {"focus":"CORE","exercises":[{"exerciseId":"plank","sets":3,"reps":12}]}]}]}
+        """.trimIndent()
+
+        val plan = parseWeeklyPlan(nested, PlannerEngineId.LOCAL_LLM)
+
+        assertEquals(
+            listOf(SplitFocus.PUSH, SplitFocus.PULL, SplitFocus.LEGS, SplitFocus.FULL_BODY),
+            plan.days.map { it.focus }
+        )
+    }
+
+    @Test
     fun defaultsUnrecognizedFocusToFullBody() {
         val plan = parseWeeklyPlan(
             """{"days":[{"focus":"PUSH|PULL|LEGS","exercises":[]}]}""",

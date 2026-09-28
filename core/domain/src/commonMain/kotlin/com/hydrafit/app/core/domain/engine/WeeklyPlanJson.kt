@@ -2,9 +2,10 @@ package com.hydrafit.app.core.domain.engine
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-
-@Serializable
-data class WeeklyPlanDto(val days: List<PlannedDayDto> = emptyList())
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
 
 @Serializable
 data class PlannedDayDto(val focus: String, val exercises: List<PlannedExerciseDto> = emptyList())
@@ -23,10 +24,10 @@ private val planJson = Json {
 }
 
 fun parseWeeklyPlan(json: String, engine: PlannerEngineId): WeeklyPlan {
-    val dto = planJson.decodeFromString<WeeklyPlanDto>(extractJsonObject(json))
+    val root = planJson.parseToJsonElement(extractJsonObject(json))
     return WeeklyPlan(
         engine = engine,
-        days = dto.days.mapIndexed { index, day ->
+        days = collectDays(root).mapIndexed { index, day ->
             WorkoutDay(
                 dayIndex = index,
                 focus = parseSplitFocus(day.focus),
@@ -43,8 +44,25 @@ fun parseWeeklyPlan(json: String, engine: PlannerEngineId): WeeklyPlan {
 }
 
 /**
- * On-device models commonly wrap their JSON in prose or a markdown fence. Return the
- * first balanced JSON object in [text] so a lenient decoder can read it.
+ * On-device models wrap the plan in prose, a markdown fence, and sometimes repeated
+ * `{"days": [...]}` layers. Collect every day object wherever it sits, in order.
+ */
+private fun collectDays(element: JsonElement): List<PlannedDayDto> = when (element) {
+    is JsonArray -> element.flatMap(::collectDays)
+    is JsonObject -> if (element.containsKey("focus")) {
+        listOfNotNull(decodeDay(element))
+    } else {
+        element.values.flatMap(::collectDays)
+    }
+    else -> emptyList()
+}
+
+private fun decodeDay(element: JsonObject): PlannedDayDto? = runCatching {
+    planJson.decodeFromJsonElement<PlannedDayDto>(element)
+}.getOrNull()
+
+/**
+ * Return the first balanced JSON object in [text] so a lenient decoder can read it.
  */
 internal fun extractJsonObject(text: String): String {
     val start = text.indexOf('{')
