@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="fatigue_heatmap_title">Muscle fatigue</string>
+    <string name="muscle_chest">Chest</string>
+    <string name="muscle_back">Back</string>
+    <string name="muscle_shoulders">Shoulders</string>
+    <string name="muscle_biceps">Biceps</string>
+    <string name="muscle_triceps">Triceps</string>
+    <string name="muscle_quads">Quads</string>
+    <string name="muscle_hamstrings">Hamstrings</string>
+    <string name="muscle_glutes">Glutes</string>
+    <string name="muscle_calves">Calves</string>
+    <string name="muscle_core">Core</string>
+</resources>
