@@ -2,11 +2,11 @@ package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
-import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.test.runTest
 
 class SeedExerciseCatalogTest {
 
@@ -42,7 +42,10 @@ class SeedExerciseCatalogTest {
         seeder.seed()
         seeder.seed()
 
-        assertEquals(DefaultExercises.all.size, database.exerciseQueries.selectAll().executeAsList().size)
+        assertEquals(
+            DefaultExercises.all.size,
+            database.exerciseQueries.selectAll().executeAsList().size
+        )
     }
 
     @Test

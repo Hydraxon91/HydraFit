@@ -34,8 +34,20 @@ internal object DefaultExercises {
             setOf(MuscleGroup.CHEST),
             setOf(MuscleGroup.TRICEPS, MuscleGroup.SHOULDERS, MuscleGroup.CORE)
         ),
-        ex("incline-push-up", "Incline Push-up", emptySet(), setOf(MuscleGroup.CHEST), setOf(MuscleGroup.TRICEPS)),
-        ex("cable-fly", "Cable Fly", setOf(EquipmentTag.CABLE_MACHINE), setOf(MuscleGroup.CHEST), setOf(MuscleGroup.SHOULDERS)),
+        ex(
+            "incline-push-up",
+            "Incline Push-up",
+            emptySet(),
+            setOf(MuscleGroup.CHEST),
+            setOf(MuscleGroup.TRICEPS)
+        ),
+        ex(
+            "cable-fly",
+            "Cable Fly",
+            setOf(EquipmentTag.CABLE_MACHINE),
+            setOf(MuscleGroup.CHEST),
+            setOf(MuscleGroup.SHOULDERS)
+        ),
         ex(
             "band-chest-press",
             "Band Chest Press",
@@ -50,8 +62,20 @@ internal object DefaultExercises {
             setOf(MuscleGroup.CHEST, MuscleGroup.TRICEPS),
             setOf(MuscleGroup.SHOULDERS)
         ),
-        ex("barbell-row", "Barbell Row", setOf(EquipmentTag.BARBELL), setOf(MuscleGroup.BACK), setOf(MuscleGroup.BICEPS)),
-        ex("dumbbell-row", "Dumbbell Row", setOf(EquipmentTag.DUMBBELL), setOf(MuscleGroup.BACK), setOf(MuscleGroup.BICEPS)),
+        ex(
+            "barbell-row",
+            "Barbell Row",
+            setOf(EquipmentTag.BARBELL),
+            setOf(MuscleGroup.BACK),
+            setOf(MuscleGroup.BICEPS)
+        ),
+        ex(
+            "dumbbell-row",
+            "Dumbbell Row",
+            setOf(EquipmentTag.DUMBBELL),
+            setOf(MuscleGroup.BACK),
+            setOf(MuscleGroup.BICEPS)
+        ),
         ex(
             "pull-up",
             "Pull-up",
@@ -66,7 +90,13 @@ internal object DefaultExercises {
             setOf(MuscleGroup.BACK, MuscleGroup.BICEPS),
             emptySet()
         ),
-        ex("lat-pulldown", "Lat Pulldown", setOf(EquipmentTag.CABLE_MACHINE), setOf(MuscleGroup.BACK), setOf(MuscleGroup.BICEPS)),
+        ex(
+            "lat-pulldown",
+            "Lat Pulldown",
+            setOf(EquipmentTag.CABLE_MACHINE),
+            setOf(MuscleGroup.BACK),
+            setOf(MuscleGroup.BICEPS)
+        ),
         ex(
             "seated-cable-row",
             "Seated Cable Row",
@@ -74,7 +104,13 @@ internal object DefaultExercises {
             setOf(MuscleGroup.BACK),
             setOf(MuscleGroup.BICEPS)
         ),
-        ex("band-row", "Band Row", setOf(EquipmentTag.RESISTANCE_BAND), setOf(MuscleGroup.BACK), setOf(MuscleGroup.BICEPS)),
+        ex(
+            "band-row",
+            "Band Row",
+            setOf(EquipmentTag.RESISTANCE_BAND),
+            setOf(MuscleGroup.BACK),
+            setOf(MuscleGroup.BICEPS)
+        ),
         ex(
             "band-pull-apart",
             "Band Pull-Apart",
@@ -82,7 +118,13 @@ internal object DefaultExercises {
             setOf(MuscleGroup.BACK, MuscleGroup.SHOULDERS),
             emptySet()
         ),
-        ex("overhead-press", "Overhead Press", setOf(EquipmentTag.BARBELL), setOf(MuscleGroup.SHOULDERS), setOf(MuscleGroup.TRICEPS)),
+        ex(
+            "overhead-press",
+            "Overhead Press",
+            setOf(EquipmentTag.BARBELL),
+            setOf(MuscleGroup.SHOULDERS),
+            setOf(MuscleGroup.TRICEPS)
+        ),
         ex(
             "dumbbell-shoulder-press",
             "Dumbbell Shoulder Press",
@@ -90,7 +132,13 @@ internal object DefaultExercises {
             setOf(MuscleGroup.SHOULDERS),
             setOf(MuscleGroup.TRICEPS)
         ),
-        ex("lateral-raise", "Lateral Raise", setOf(EquipmentTag.DUMBBELL), setOf(MuscleGroup.SHOULDERS), emptySet()),
+        ex(
+            "lateral-raise",
+            "Lateral Raise",
+            setOf(EquipmentTag.DUMBBELL),
+            setOf(MuscleGroup.SHOULDERS),
+            emptySet()
+        ),
         ex(
             "cable-lateral-raise",
             "Cable Lateral Raise",
@@ -105,10 +153,34 @@ internal object DefaultExercises {
             setOf(MuscleGroup.SHOULDERS, MuscleGroup.BACK),
             emptySet()
         ),
-        ex("barbell-curl", "Barbell Curl", setOf(EquipmentTag.BARBELL), setOf(MuscleGroup.BICEPS), emptySet()),
-        ex("dumbbell-curl", "Dumbbell Curl", setOf(EquipmentTag.DUMBBELL), setOf(MuscleGroup.BICEPS), emptySet()),
-        ex("band-curl", "Band Curl", setOf(EquipmentTag.RESISTANCE_BAND), setOf(MuscleGroup.BICEPS), emptySet()),
-        ex("triceps-pushdown", "Triceps Pushdown", setOf(EquipmentTag.CABLE_MACHINE), setOf(MuscleGroup.TRICEPS), emptySet()),
+        ex(
+            "barbell-curl",
+            "Barbell Curl",
+            setOf(EquipmentTag.BARBELL),
+            setOf(MuscleGroup.BICEPS),
+            emptySet()
+        ),
+        ex(
+            "dumbbell-curl",
+            "Dumbbell Curl",
+            setOf(EquipmentTag.DUMBBELL),
+            setOf(MuscleGroup.BICEPS),
+            emptySet()
+        ),
+        ex(
+            "band-curl",
+            "Band Curl",
+            setOf(EquipmentTag.RESISTANCE_BAND),
+            setOf(MuscleGroup.BICEPS),
+            emptySet()
+        ),
+        ex(
+            "triceps-pushdown",
+            "Triceps Pushdown",
+            setOf(EquipmentTag.CABLE_MACHINE),
+            setOf(MuscleGroup.TRICEPS),
+            emptySet()
+        ),
         ex(
             "overhead-triceps-extension",
             "Overhead Triceps Extension",
@@ -144,7 +216,13 @@ internal object DefaultExercises {
             setOf(MuscleGroup.QUADS, MuscleGroup.GLUTES),
             setOf(MuscleGroup.CORE)
         ),
-        ex("bodyweight-squat", "Bodyweight Squat", emptySet(), setOf(MuscleGroup.QUADS, MuscleGroup.GLUTES), emptySet()),
+        ex(
+            "bodyweight-squat",
+            "Bodyweight Squat",
+            emptySet(),
+            setOf(MuscleGroup.QUADS, MuscleGroup.GLUTES),
+            emptySet()
+        ),
         ex(
             "bulgarian-split-squat",
             "Bulgarian Split Squat",
@@ -187,8 +265,20 @@ internal object DefaultExercises {
             setOf(MuscleGroup.GLUTES),
             setOf(MuscleGroup.HAMSTRINGS)
         ),
-        ex("glute-bridge", "Glute Bridge", emptySet(), setOf(MuscleGroup.GLUTES), setOf(MuscleGroup.HAMSTRINGS)),
-        ex("leg-curl", "Leg Curl", setOf(EquipmentTag.CABLE_MACHINE), setOf(MuscleGroup.HAMSTRINGS), emptySet()),
+        ex(
+            "glute-bridge",
+            "Glute Bridge",
+            emptySet(),
+            setOf(MuscleGroup.GLUTES),
+            setOf(MuscleGroup.HAMSTRINGS)
+        ),
+        ex(
+            "leg-curl",
+            "Leg Curl",
+            setOf(EquipmentTag.CABLE_MACHINE),
+            setOf(MuscleGroup.HAMSTRINGS),
+            emptySet()
+        ),
         ex(
             "kettlebell-swing",
             "Kettlebell Swing",
@@ -196,8 +286,20 @@ internal object DefaultExercises {
             setOf(MuscleGroup.GLUTES, MuscleGroup.HAMSTRINGS),
             setOf(MuscleGroup.CORE, MuscleGroup.BACK)
         ),
-        ex("standing-calf-raise", "Standing Calf Raise", setOf(EquipmentTag.DUMBBELL), setOf(MuscleGroup.CALVES), emptySet()),
-        ex("bodyweight-calf-raise", "Bodyweight Calf Raise", emptySet(), setOf(MuscleGroup.CALVES), emptySet()),
+        ex(
+            "standing-calf-raise",
+            "Standing Calf Raise",
+            setOf(EquipmentTag.DUMBBELL),
+            setOf(MuscleGroup.CALVES),
+            emptySet()
+        ),
+        ex(
+            "bodyweight-calf-raise",
+            "Bodyweight Calf Raise",
+            emptySet(),
+            setOf(MuscleGroup.CALVES),
+            emptySet()
+        ),
         ex("plank", "Plank", emptySet(), setOf(MuscleGroup.CORE), emptySet()),
         ex(
             "hanging-leg-raise",
@@ -206,7 +308,13 @@ internal object DefaultExercises {
             setOf(MuscleGroup.CORE),
             emptySet()
         ),
-        ex("cable-crunch", "Cable Crunch", setOf(EquipmentTag.CABLE_MACHINE), setOf(MuscleGroup.CORE), emptySet())
+        ex(
+            "cable-crunch",
+            "Cable Crunch",
+            setOf(EquipmentTag.CABLE_MACHINE),
+            setOf(MuscleGroup.CORE),
+            emptySet()
+        )
     )
 
     private fun ex(

@@ -6,9 +6,8 @@ import com.hydrafit.app.core.domain.fatigue.MuscleTarget
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet as DomainWorkoutSet
 
-class SqlDelightWorkoutLogRepository(
-    private val database: HydraFitDatabase
-) : WorkoutLogRepository {
+class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
+    WorkoutLogRepository {
     private val setQueries = database.workoutLogQueries
     private val exerciseQueries = database.exerciseQueries
 

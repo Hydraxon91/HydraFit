@@ -43,7 +43,10 @@ class SplitBuilderViewModel(
             val request = PlanRequest(
                 daysPerWeek = _state.value.daysPerWeek,
                 availableEquipment = equipmentSelectionRepository.selected(),
-                muscleFatigue = calculateMuscleFatigue(workoutLogRepository.loggedSets(), nowMillis),
+                muscleFatigue = calculateMuscleFatigue(
+                    workoutLogRepository.loggedSets(),
+                    nowMillis
+                ),
                 nowMillis = nowMillis
             )
             val plan = generateWeeklySplit(request)

@@ -2,9 +2,9 @@ package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
-import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.test.runTest
 
 class GenerateWeeklySplitUseCaseTest {
 

@@ -8,6 +8,12 @@ import com.hydrafit.app.core.domain.fatigue.MuscleTarget
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -15,12 +21,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class FatigueHeatmapViewModelTest {
@@ -75,7 +75,8 @@ class FatigueHeatmapViewModelTest {
         timeProvider = TimeProvider { nowMillis }
     )
 
-    private class FakeWorkoutLogRepository(private val sets: List<LoggedSet>) : WorkoutLogRepository {
+    private class FakeWorkoutLogRepository(private val sets: List<LoggedSet>) :
+        WorkoutLogRepository {
         override suspend fun add(set: WorkoutSet) = Unit
 
         override suspend fun all(): List<WorkoutSet> = emptyList()

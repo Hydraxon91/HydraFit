@@ -1,8 +1,6 @@
 package com.hydrafit.app.core.database
 
-class SeedExerciseCatalog(
-    private val database: HydraFitDatabase
-) {
+class SeedExerciseCatalog(private val database: HydraFitDatabase) {
     fun seed() {
         database.exerciseQueries.transaction {
             DefaultExercises.all.forEach { exercise ->

@@ -13,6 +13,11 @@ import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -20,11 +25,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SplitBuilderViewModelTest {
@@ -81,7 +81,9 @@ class SplitBuilderViewModelTest {
     private fun viewModel(availableEquipment: Set<EquipmentTag>): SplitBuilderViewModel {
         val catalog = FakeExerciseCatalog()
         return SplitBuilderViewModel(
-            generateWeeklySplit = GenerateWeeklySplitUseCase(DeterministicWorkoutPlannerEngine(catalog)),
+            generateWeeklySplit = GenerateWeeklySplitUseCase(
+                DeterministicWorkoutPlannerEngine(catalog)
+            ),
             equipmentSelectionRepository = FakeEquipmentSelectionRepository(availableEquipment),
             workoutLogRepository = FakeWorkoutLogRepository,
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
@@ -109,9 +111,8 @@ class SplitBuilderViewModelTest {
         override suspend fun all(): List<Exercise> = exercises
     }
 
-    private class FakeEquipmentSelectionRepository(
-        private val selected: Set<EquipmentTag>
-    ) : EquipmentSelectionRepository {
+    private class FakeEquipmentSelectionRepository(private val selected: Set<EquipmentTag>) :
+        EquipmentSelectionRepository {
         override suspend fun selected(): Set<EquipmentTag> = selected
 
         override suspend fun setSelected(tags: Set<EquipmentTag>) = Unit

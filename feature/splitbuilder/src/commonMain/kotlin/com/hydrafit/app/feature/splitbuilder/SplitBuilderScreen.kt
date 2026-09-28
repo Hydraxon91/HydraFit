@@ -33,7 +33,7 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
-const val splitBuilderRoute: String = "plan"
+val splitBuilderRoute: String = "plan"
 
 private val dayOptions = 2..6
 

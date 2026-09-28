@@ -35,7 +35,7 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
-const val fatigueHeatmapRoute: String = "fatigue"
+val fatigueHeatmapRoute: String = "fatigue"
 
 fun NavGraphBuilder.fatigueHeatmapGraph() {
     composable(fatigueHeatmapRoute) { FatigueHeatmapRoute() }
@@ -51,10 +51,7 @@ fun FatigueHeatmapRoute(
 }
 
 @Composable
-fun FatigueHeatmapScreen(
-    state: FatigueHeatmapUiState,
-    modifier: Modifier = Modifier
-) {
+fun FatigueHeatmapScreen(state: FatigueHeatmapUiState, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxSize()
