@@ -127,7 +127,7 @@ HydraFit/
 ├── androidApp/            # Android entry point only: Application class, MainActivity, manifest — no feature or domain logic
 ├── shared/                # Shared app shell (commonMain + platform source sets): root Composable, navigation host, Koin startup, feature registration aggregation — no feature or domain logic
 ├── core/
-│   ├── domain/             # Pure Kotlin: models, use cases, WorkoutPlannerEngine interface — zero Android deps
+│   ├── domain/             # KMP module (commonMain only): models, use cases, WorkoutPlannerEngine interface — no platform APIs
 │   ├── userdata/           # Shared user profile, body metrics, goals, unit preferences — used by any feature, owned by none
 │   ├── database/           # SQLDelight schema (.sq files), versioned .sqm migrations, generated queries, repository implementations
 │   └── network/            # Ktor client setup, Gemini API DTOs, response_schema definitions
@@ -139,7 +139,7 @@ HydraFit/
 └── .github/workflows/      # CI/CD pipeline definitions
 ```
 
-`core/domain` must have zero Android or platform-specific dependencies — it should compile and test as plain Kotlin/JVM.
+`core/domain` is a Kotlin Multiplatform module (android + iOS targets) with all code in `commonMain` and no platform APIs — never add Android or platform-specific APIs here.
 
 ## Quick Start
 
@@ -212,6 +212,7 @@ RELEASE_KEY_PASSWORD=changeme
 
 ### `core/domain/`
 - **Use cases** — one class per user action/query (e.g., `GenerateWeeklySplitUseCase`, `CalculateMuscleFatigueUseCase`), each with a single public `invoke`/`execute` entry point.
+- **Multiplatform, commonMain-only:** all code lives in `commonMain`; do not add platform-specific APIs (no Android/iOS imports).
 - **`WorkoutPlannerEngine` interface** — the contract all three planning strategies implement. Never add engine-specific logic outside an implementation of this interface.
 - **Repository interfaces** — prefixed with `I` or suffixed with `Repository` consistently (pick one convention on first use and stick to it); implementations live in `core/database` or `core/network`.
 

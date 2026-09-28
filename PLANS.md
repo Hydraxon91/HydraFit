@@ -13,7 +13,7 @@
   - **Done when:** `./gradlew :androidApp:assembleDebug` succeeds and the AGP/Kotlin compatibility question is resolved.
 
 - [ ] Create an empty `:core:domain` module with test source sets.
-  - **Done when:** it compiles as pure Kotlin/JVM and its test source sets are ready before domain logic is added.
+  - **Done when:** it is a KMP module (android + iOS targets) with all code in `commonMain` and no platform APIs, it compiles, and its test source sets are ready before domain logic is added.
 
 - [ ] Add empty `:core:userdata`, `:core:database`, and `:core:network` modules.
   - **Done when:** each module compiles and its dependencies follow the approved architecture.
@@ -43,7 +43,7 @@
 - Use SQLDelight for local storage.
 - Features self-register and never import each other.
 - `:shared` is the app shell; `:androidApp` stays thin.
-- Keep `:core:domain` pure Kotlin/JVM and configure its tests before adding domain logic.
+- `:core:domain` is a KMP module (android + iOS targets) with all code in `commonMain` and no platform APIs; configure its tests before adding domain logic.
 - Add modules in small, compiling steps; remove wizard sample UI only after the new modules compile.
 - Defer CI/CD until `:core:domain` has at least one passing test.
 
