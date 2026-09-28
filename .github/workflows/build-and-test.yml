@@ -46,6 +46,22 @@ jobs:
       - name: Run host unit tests
         run: ./gradlew testAndroidHostTest
 
+  ios-compile:
+    name: iOS Compile
+    runs-on: macos-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+      - name: Compile iOS targets
+        run: ./gradlew :shared:compileKotlinIosSimulatorArm64 :core:network:compileKotlinIosSimulatorArm64
+
   assemble-debug-apk:
     name: Assemble Debug APK
     needs: [ lint, unit-tests ]
