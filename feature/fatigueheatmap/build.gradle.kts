@@ -21,6 +21,10 @@ kotlin {
     }
 
     sourceSets {
+        commonMain.dependencies {
+            implementation(project(":core:domain"))
+            implementation(project(":core:userdata"))
+        }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
