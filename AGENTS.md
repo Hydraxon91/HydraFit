@@ -48,6 +48,7 @@ While executing an approved chunk:
 
 - **Strict Scope Containment:** Do not refactor, rewrite, or "clean up" working code outside the immediate scope of the assigned task. If you notice messy code or technical debt nearby, point it out to the user in chat — do not touch it "while you're in there".
 - **No Style Conversions for Aesthetics:** If existing code is functional and matches the codebase style guidelines, leave it alone. Do not change working syntax unless aligning a newly written feature to it.
+- **Oversized Constructors Are a Design Signal, Not a Formatting Problem:** If a class constructor (or a Koin `get()` chain feeding it) needs more than about 6 parameters, stop. Do not reformat the line, add a line-length or `@Suppress` lint exception, or otherwise work around the warning. Instead, report it and propose a design fix: group the dependencies by responsibility and extract use cases into `core/domain` (following the existing use-case pattern) so the class depends on fewer, more meaningful collaborators. Wait for approval before implementing. Apply judgment: if a class genuinely needs many dependencies and extraction would only add indirection (for example, a DI module that just wires many bindings, or a data holder), say so and explain instead of forcing an extraction. This is an exception to "scope containment" only in that you must flag the problem; do not refactor unrelated existing code without approval.
 
 ### Reuse Existing Architecture
 
@@ -79,6 +80,8 @@ While executing an approved chunk:
 - **New code without a corresponding test is incomplete work.** If you write a new use case or engine implementation, write its test in the same turn unless explicitly told to defer it.
 - **Domain logic must be testable without an emulator.** If you find yourself needing Android context or an emulator to test something in `:core:domain`, that's a sign the abstraction is wrong — flag it rather than working around it.
 - **Test the fallback paths, not just the happy path.** The Local LLM engine's `OutOfMemoryError` → Deterministic Engine fallback needs an explicit test, not just manual verification.
+- **Verify the Koin graph in tests, not on a device.** Koin resolves dependencies at runtime, so a missing binding or a mis-ordered `get()` chain compiles fine and crashes on first injection. Every module that registers bindings (`databaseModule`, each feature's Koin module, and the platform modules where testable) must be covered by a `koin-test` verification test (`verify()` or `checkModules`, whichever the approved Koin version supports). When you add or change a binding, a ViewModel constructor, or a module, run that verification in the same turn. A Koin change without a passing verification test is incomplete work. If verification cannot cover a binding (for example, one that needs an Android `Context`), say so and name what is left unverified instead of silently skipping it.
+- **`koin-test` is a test-scope dependency only.** Adding it to `libs.versions.toml` and the relevant module's test source set is a dependency change: propose the version and the modules it goes in, and wait for approval. Never add it to a main/production source set.
 - **Run tests with output redirected to a file, not chained into filters:**
   ```bash
   ./gradlew :core:domain:testAndroidHostTest > test-output.log 2>&1
@@ -102,18 +105,18 @@ The repository will enforce a staged GitHub Actions pipeline. Any changes you ma
 ### Pipeline Workflows
 
 1. **`build-and-test.yml` (Primary Pipeline):**
-   - **Stage 1 (Immediate parallel execution):**
-     - `lint` — ktlint/detekt static analysis (no dependencies; starts immediately)
-     - `unit-tests` — runs `:core:domain`, `:core:userdata`, `:core:database`, and `:feature:*` unit tests via `./gradlew testAndroidHostTest` (no dependencies; starts immediately)
-   - **Stage 2 (Build-dependent):**
-     - `assemble-debug-apk` — runs after `lint` and `unit-tests` both pass; builds via `./gradlew :androidApp:assembleDebug`; automatically skipped if Stage 1 fails, to save build minutes.
-   - **Stage 3 (Artifact publish):**
-     - `upload-apk-artifact` — uploads the debug APK as a GitHub Actions workflow artifact, downloadable from the Actions tab on every push/PR, no release tag required.
+    - **Stage 1 (Immediate parallel execution):**
+        - `lint` — ktlint/detekt static analysis (no dependencies; starts immediately)
+        - `unit-tests` — runs `:core:domain`, `:core:userdata`, `:core:database`, and `:feature:*` unit tests via `./gradlew testAndroidHostTest` (no dependencies; starts immediately)
+    - **Stage 2 (Build-dependent):**
+        - `assemble-debug-apk` — runs after `lint` and `unit-tests` both pass; builds via `./gradlew :androidApp:assembleDebug`; automatically skipped if Stage 1 fails, to save build minutes.
+    - **Stage 3 (Artifact publish):**
+        - `upload-apk-artifact` — uploads the debug APK as a GitHub Actions workflow artifact, downloadable from the Actions tab on every push/PR, no release tag required.
 
 2. **`release.yml` (Stretch goal, triggered on git tags):**
-   - Builds a signed release APK using a keystore stored in GitHub Actions Secrets (never committed).
-   - Attaches the signed APK to a GitHub Release.
-   - Restricted to tags matching a release pattern (e.g. `v*.*.*`).
+    - Builds a signed release APK using a keystore stored in GitHub Actions Secrets (never committed).
+    - Attaches the signed APK to a GitHub Release.
+    - Restricted to tags matching a release pattern (e.g. `v*.*.*`).
 
 ### Security & Compliance Constraints
 
@@ -251,6 +254,7 @@ RELEASE_KEY_PASSWORD=changeme
 
 ### `feature/*`
 - Each feature module owns its Composables, ViewModels, and feature-specific state classes.
+- ViewModels stay thin: they expose UI state and forward user actions to use cases in `core/domain`. Business logic does not live in ViewModels or Composables. A ViewModel needing more than about 6 constructor dependencies is a sign it has multiple responsibilities — see the oversized-constructor rule under Anti-Churn. Every ViewModel binding must also be covered by the Koin verification test (see Unit Testing Standards).
 - Feature modules depend on `core/domain` and `core/userdata` only — never directly on `core/database` or `core/network`, and **never on another `feature/*` module**.
 - Each feature module exposes its own Koin module and navigation graph, which `shared` aggregates. A new feature (e.g., `feature/nutrition/`) should be addable without editing existing feature modules.
 
