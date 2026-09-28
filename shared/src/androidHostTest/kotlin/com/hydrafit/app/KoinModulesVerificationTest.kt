@@ -6,10 +6,12 @@ import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.feature.equipment.equipmentModule
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapModule
 import com.hydrafit.app.feature.splitbuilder.splitBuilderModule
+import kotlin.test.Test
+import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.dsl.module
 import org.koin.test.verify.verify
-import kotlin.test.Test
 
+@OptIn(KoinExperimentalAPI::class)
 class KoinModulesVerificationTest {
 
     private val allModules = module {
