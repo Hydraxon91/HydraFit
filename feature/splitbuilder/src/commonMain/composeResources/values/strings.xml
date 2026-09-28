@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources>
     <string name="split_builder_title">Weekly plan</string>
+    <string name="nav_label">Plan</string>
     <string name="split_days_label">Days per week</string>
     <string name="split_day">Day %1$d</string>
     <string name="focus_push">Push</string>

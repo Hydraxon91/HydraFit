@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources>
     <string name="equipment_profiler_title">Equipment</string>
+    <string name="nav_label">Equipment</string>
     <string name="equipment_tag_barbell">Barbell</string>
     <string name="equipment_tag_dumbbell">Dumbbells</string>
     <string name="equipment_tag_kettlebell">Kettlebell</string>

@@ -34,6 +34,7 @@ kotlin {
         }
         commonMain.dependencies {
             implementation(project(":core:domain"))
+            implementation(project(":core:navigation"))
             implementation(libs.koin.core)
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)

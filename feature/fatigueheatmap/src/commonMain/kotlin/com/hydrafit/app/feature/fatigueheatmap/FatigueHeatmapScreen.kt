@@ -19,6 +19,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.navigation.FeatureDestination
 import hydrafit.feature.fatigueheatmap.generated.resources.Res
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_heatmap_title
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_back
@@ -31,11 +32,18 @@ import hydrafit.feature.fatigueheatmap.generated.resources.muscle_hamstrings
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_quads
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_shoulders
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_triceps
+import hydrafit.feature.fatigueheatmap.generated.resources.nav_label
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 val fatigueHeatmapRoute: String = "fatigue"
+
+val fatigueHeatmapDestination: FeatureDestination = FeatureDestination(
+    route = fatigueHeatmapRoute,
+    label = Res.string.nav_label,
+    graph = { fatigueHeatmapGraph() }
+)
 
 fun NavGraphBuilder.fatigueHeatmapGraph() {
     composable(fatigueHeatmapRoute) { FatigueHeatmapRoute() }

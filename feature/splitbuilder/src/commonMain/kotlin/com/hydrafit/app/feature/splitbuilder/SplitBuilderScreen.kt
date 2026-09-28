@@ -19,6 +19,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.navigation.FeatureDestination
 import hydrafit.feature.splitbuilder.generated.resources.Res
 import hydrafit.feature.splitbuilder.generated.resources.focus_full_body
 import hydrafit.feature.splitbuilder.generated.resources.focus_legs
@@ -26,6 +27,7 @@ import hydrafit.feature.splitbuilder.generated.resources.focus_lower
 import hydrafit.feature.splitbuilder.generated.resources.focus_pull
 import hydrafit.feature.splitbuilder.generated.resources.focus_push
 import hydrafit.feature.splitbuilder.generated.resources.focus_upper
+import hydrafit.feature.splitbuilder.generated.resources.nav_label
 import hydrafit.feature.splitbuilder.generated.resources.split_builder_title
 import hydrafit.feature.splitbuilder.generated.resources.split_day
 import hydrafit.feature.splitbuilder.generated.resources.split_days_label
@@ -34,6 +36,12 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 val splitBuilderRoute: String = "plan"
+
+val splitBuilderDestination: FeatureDestination = FeatureDestination(
+    route = splitBuilderRoute,
+    label = Res.string.nav_label,
+    graph = { splitBuilderGraph() }
+)
 
 private val dayOptions = 2..6
 

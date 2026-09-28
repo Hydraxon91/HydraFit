@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources>
     <string name="fatigue_heatmap_title">Muscle fatigue</string>
+    <string name="nav_label">Fatigue</string>
     <string name="muscle_chest">Chest</string>
     <string name="muscle_back">Back</string>
     <string name="muscle_shoulders">Shoulders</string>
