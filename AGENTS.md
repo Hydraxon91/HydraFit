@@ -254,6 +254,22 @@ RELEASE_KEY_PASSWORD=changeme
 - Feature modules depend on `core/domain` and `core/userdata` only — never directly on `core/database` or `core/network`, and **never on another `feature/*` module**.
 - Each feature module exposes its own Koin module and navigation graph, which `shared` aggregates. A new feature (e.g., `feature/nutrition/`) should be addable without editing existing feature modules.
 
+## Visual Verification
+
+- After UI changes, run `scripts/snap.sh` and view the screenshot before
+  reporting the change as done.
+- To exercise the UI, use `scripts/tap.sh <x> <y>` or `adb shell input`
+  (swipe, text, keyevent). Keep interactions to short flows. Wait about a
+  second after each action before capturing. Cap visual iteration at two
+  rounds, then report.
+- Allowed without asking: build, install, launch, screenshot, logcat,
+  taps/swipes/text input, `adb shell wm size`.
+- Needs my approval: `adb uninstall`, clearing app data, and any adb command
+  that touches other apps or system settings.
+- Use the emulator only, never a personal phone. If no emulator is running
+  (`adb devices` shows nothing), ask me to start it; do not boot one.
+- Test screenshots go to /tmp, never into the repo.
+
 ## PR Template
 
 Every PR description should follow this format (template at `.github/PULL_REQUEST_TEMPLATE.md`):
