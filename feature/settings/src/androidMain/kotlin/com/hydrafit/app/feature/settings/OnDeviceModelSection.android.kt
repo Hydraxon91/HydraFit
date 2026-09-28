@@ -14,13 +14,18 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.hydrafit.app.core.llm.AndroidOnDeviceModelManager
+import com.hydrafit.app.core.userdata.llm.OnDeviceModelManager
 import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.settings_local_llm_unavailable
+import hydrafit.feature.settings.generated.resources.settings_model_action_failed
 import hydrafit.feature.settings.generated.resources.settings_model_import
 import hydrafit.feature.settings.generated.resources.settings_model_installed
 import hydrafit.feature.settings.generated.resources.settings_model_remove
@@ -39,12 +44,15 @@ actual fun OnDeviceModelSection(
     modifier: Modifier
 ) {
     val context = LocalContext.current
-    val manager = koinInject<AndroidOnDeviceModelManager>()
+    val manager = koinInject<OnDeviceModelManager>()
     val scope = rememberCoroutineScope()
+    var actionFailed by remember { mutableStateOf(false) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             scope.launch {
-                runCatching { withContext(Dispatchers.IO) { manager.importFromUri(uri) } }
+                actionFailed = !withContext(Dispatchers.IO) {
+                    manager.installFrom(uri.toString())
+                }
                 onModelChanged()
             }
         }
@@ -66,16 +74,28 @@ actual fun OnDeviceModelSection(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (installed) {
                 OutlinedButton(onClick = {
-                    manager.remove()
-                    onModelChanged()
+                    scope.launch {
+                        actionFailed = !withContext(Dispatchers.IO) { manager.remove() }
+                        onModelChanged()
+                    }
                 }) {
                     Text(stringResource(Res.string.settings_model_remove))
                 }
             } else {
-                Button(onClick = { picker.launch(arrayOf("*/*")) }) {
+                Button(onClick = {
+                    actionFailed = false
+                    picker.launch(arrayOf("*/*"))
+                }) {
                     Text(stringResource(Res.string.settings_model_import))
                 }
             }
+        }
+        if (actionFailed) {
+            Text(
+                text = stringResource(Res.string.settings_model_action_failed),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
         }
         TextButton(onClick = { context.openGemmaTerms() }) {
             Text(stringResource(Res.string.settings_model_terms))

@@ -17,5 +17,6 @@
     <string name="settings_model_import">Import model</string>
     <string name="settings_model_remove">Remove model</string>
     <string name="settings_model_installed">Model installed.</string>
+    <string name="settings_model_action_failed">Couldn’t update the on-device model. Please try again.</string>
     <string name="settings_model_terms">Gemma Terms of Use</string>
 </resources>
