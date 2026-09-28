@@ -104,7 +104,7 @@ The repository will enforce a staged GitHub Actions pipeline. Any changes you ma
 1. **`build-and-test.yml` (Primary Pipeline):**
    - **Stage 1 (Immediate parallel execution):**
      - `lint` — ktlint/detekt static analysis (no dependencies; starts immediately)
-     - `unit-tests` — runs `:core:domain`, `:core:userdata`, `:core:database`, and `:feature:*` unit tests via `./gradlew test` (no dependencies; starts immediately)
+     - `unit-tests` — runs `:core:domain`, `:core:userdata`, `:core:database`, and `:feature:*` unit tests via `./gradlew testAndroidHostTest` (no dependencies; starts immediately)
    - **Stage 2 (Build-dependent):**
      - `assemble-debug-apk` — runs after `lint` and `unit-tests` both pass; builds via `./gradlew :androidApp:assembleDebug`; automatically skipped if Stage 1 fails, to save build minutes.
    - **Stage 3 (Artifact publish):**
@@ -173,7 +173,7 @@ HydraFit/
 ./gradlew :androidApp:assembleDebug
 
 # Run unit tests across all modules
-./gradlew test
+./gradlew testAndroidHostTest
 
 # Run unit tests for a single module
 ./gradlew :core:domain:testAndroidHostTest
@@ -211,7 +211,7 @@ RELEASE_KEY_PASSWORD=changeme
 ./gradlew :androidApp:assembleDebug
 
 # Run all unit tests, redirect output
-./gradlew test > test-output.log 2>&1
+./gradlew testAndroidHostTest > test-output.log 2>&1
 
 # Run lint/static analysis
 ./gradlew ktlintCheck
@@ -270,7 +270,7 @@ Every PR description should follow this format (template at `.github/PULL_REQUES
 
 <!-- How did you verify this works? -->
 
-- [ ] Unit tests pass (`./gradlew test`)
+- [ ] Unit tests pass (`./gradlew testAndroidHostTest`)
 - [ ] Lint passes (`./gradlew ktlintCheck`)
 - [ ] Debug APK builds cleanly (`./gradlew :androidApp:assembleDebug`)
 - [ ] Manual smoke test on emulator/device (if applicable)
