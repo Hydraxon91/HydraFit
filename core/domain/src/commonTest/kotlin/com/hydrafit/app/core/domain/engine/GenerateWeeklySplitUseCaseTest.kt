@@ -9,23 +9,21 @@ import kotlinx.coroutines.test.runTest
 class GenerateWeeklySplitUseCaseTest {
 
     @Test
-    fun delegatesToTheInjectedEngine() = runTest {
+    fun delegatesToTheEngineFromTheProvider() = runTest {
         val expected = WeeklyPlan(engine = PlannerEngineId.DETERMINISTIC, days = emptyList())
-        val useCase = GenerateWeeklySplitUseCase(FakeEngine(expected))
+        val useCase =
+            GenerateWeeklySplitUseCase(WorkoutPlannerEngineProvider { FakeEngine(expected) })
 
-        val actual = useCase(request())
-
-        assertEquals(expected, actual)
+        assertEquals(expected, useCase(request()))
     }
 
     @Test
     fun passesTheRequestThroughUnchanged() = runTest {
         val engine = FakeEngine(WeeklyPlan(PlannerEngineId.DETERMINISTIC, emptyList()))
-        val request = request()
 
-        GenerateWeeklySplitUseCase(engine)(request)
+        GenerateWeeklySplitUseCase(WorkoutPlannerEngineProvider { engine })(request())
 
-        assertEquals(request, engine.received)
+        assertEquals(request(), engine.received)
     }
 
     private fun request() = PlanRequest(

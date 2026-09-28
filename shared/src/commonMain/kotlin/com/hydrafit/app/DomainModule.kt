@@ -2,16 +2,26 @@ package com.hydrafit.app
 
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
-import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
+import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngineProvider
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
+import com.hydrafit.app.core.network.ApiKeyProvider
+import com.hydrafit.app.core.network.GeminiWorkoutPlannerEngine
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
 val domainModule: Module = module {
     single { CalculateMuscleFatigueUseCase() }
-    single<WorkoutPlannerEngine> { DeterministicWorkoutPlannerEngine(get()) }
+    single { DeterministicWorkoutPlannerEngine(get()) }
+    single<WorkoutPlannerEngineProvider> {
+        DefaultWorkoutPlannerEngineProvider(
+            preference = get(),
+            deterministic = get<DeterministicWorkoutPlannerEngine>(),
+            gemini = get<GeminiWorkoutPlannerEngine>(),
+            apiKeyProvider = get<ApiKeyProvider>()
+        )
+    }
     single { GenerateWeeklySplitUseCase(get()) }
     single { LogWorkoutSetUseCase(get()) }
     single { GetWorkoutLogUseCase(get()) }

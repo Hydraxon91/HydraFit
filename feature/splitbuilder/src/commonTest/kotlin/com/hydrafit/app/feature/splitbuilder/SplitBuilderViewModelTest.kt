@@ -4,6 +4,7 @@ import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngineProvider
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
@@ -82,7 +83,7 @@ class SplitBuilderViewModelTest {
         val catalog = FakeExerciseCatalog()
         return SplitBuilderViewModel(
             generateWeeklySplit = GenerateWeeklySplitUseCase(
-                DeterministicWorkoutPlannerEngine(catalog)
+                WorkoutPlannerEngineProvider { DeterministicWorkoutPlannerEngine(catalog) }
             ),
             equipmentSelectionRepository = FakeEquipmentSelectionRepository(availableEquipment),
             workoutLogRepository = FakeWorkoutLogRepository,
