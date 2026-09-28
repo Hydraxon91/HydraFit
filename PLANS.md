@@ -4,16 +4,6 @@
 
 ## Checklist
 
-- [ ] Rename wizard defaults to HydraFit.
-  - Update the Android label, iOS product name, bundle ID to `com.hydrafit.app`, and related Xcode references.
-  - **Done when:** those app-facing names and identifiers consistently use HydraFit and the intended bundle ID.
-
-- [ ] Remove wizard sample UI after the new modules compile.
-  - **Done when:** sample UI, `Greeting` code, and sample strings are removed while the app entry point still works.
-
-- [ ] Localize shared UI strings.
-  - **Done when:** English is the single baseline, and adding a language requires only a new resource file.
-
 ## Decisions Made
 
 - Use Compose Multiplatform resources for the Compose-first UI; avoid adding moko-resources unless native resource access becomes a concrete requirement.
