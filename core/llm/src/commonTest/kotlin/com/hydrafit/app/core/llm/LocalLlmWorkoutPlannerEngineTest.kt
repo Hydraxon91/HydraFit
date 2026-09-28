@@ -55,6 +55,69 @@ class LocalLlmWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun constrainsTheSchemaToTheRequestedDayAndExerciseCounts() = runTest {
+        val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
+
+        engine(generator).generatePlan(request())
+
+        val schema = requireNotNull(generator.lastSchema)
+        assertTrue(schema.contains("\"minItems\": 3"), schema)
+        assertTrue(schema.contains("\"maxItems\": 3"), schema)
+        assertTrue(schema.contains("\"minItems\": 4"), schema)
+        assertTrue(schema.contains("\"maxItems\": 6"), schema)
+    }
+
+    @Test
+    fun sizesTheDayConstraintFromTheRequest() = runTest {
+        val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
+
+        engine(generator).generatePlan(request(daysPerWeek = 5))
+
+        val schema = requireNotNull(generator.lastSchema)
+        assertTrue(schema.contains("\"minItems\": 5"), schema)
+        assertTrue(schema.contains("\"maxItems\": 5"), schema)
+    }
+
+    @Test
+    fun constrainsTheSchemaToTheListNumbers() = runTest {
+        val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
+
+        engine(generator).generatePlan(request())
+
+        val schema = requireNotNull(generator.lastSchema)
+        assertTrue(schema.contains("\"enum\": [\"1\", \"2\", \"3\", \"4\"]"), schema)
+    }
+
+    @Test
+    fun omitsTheIdEnumWhenNoExerciseMatchesTheEquipment() = runTest {
+        val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
+
+        engine(generator, catalog = DumbbellOnlyCatalog).generatePlan(request())
+
+        val schema = requireNotNull(generator.lastSchema)
+        assertTrue(schema.contains("\"exerciseId\": {\"type\": \"string\"}"), schema)
+    }
+
+    @Test
+    fun mapsOnDeviceListNumbersToCatalogIds() = runTest {
+        val generator = FakeGenerator(available = true, responses = listOf(INDEXED_PLAN))
+
+        val plan = engine(generator).generatePlan(request())
+
+        assertEquals(PlannerEngineId.LOCAL_LLM, plan.engine)
+        assertEquals("bench-press", plan.days.first().exercises.first().exerciseId)
+    }
+
+    @Test
+    fun dropsListNumbersOutsideTheCatalog() = runTest {
+        val generator = FakeGenerator(available = true, responses = listOf(OUT_OF_RANGE_PLAN))
+
+        val plan = engine(generator).generatePlan(request())
+
+        assertEquals(PlannerEngineId.DETERMINISTIC, plan.engine)
+    }
+
+    @Test
     fun trimsExtraDaysToTheRequestedCount() = runTest {
         val generator = FakeGenerator(available = true, responses = listOf(FOUR_DAY_PLAN))
 
@@ -167,17 +230,18 @@ class LocalLlmWorkoutPlannerEngineTest {
 
     private fun engine(
         generator: OnDeviceTextGenerator,
-        logger: OnDevicePlannerLogger = NoopOnDevicePlannerLogger
+        logger: OnDevicePlannerLogger = NoopOnDevicePlannerLogger,
+        catalog: ExerciseCatalog = FakeCatalog
     ) = LocalLlmWorkoutPlannerEngine(
         generator = generator,
         fallback = DeterministicStub,
-        catalog = FakeCatalog,
-        sanitizer = WeeklyPlanSanitizer(FakeCatalog),
+        catalog = catalog,
+        sanitizer = WeeklyPlanSanitizer(catalog),
         logger = logger
     )
 
-    private fun request(setsPerExercise: Int = 3) = PlanRequest(
-        daysPerWeek = 3,
+    private fun request(daysPerWeek: Int = 3, setsPerExercise: Int = 3) = PlanRequest(
+        daysPerWeek = daysPerWeek,
         availableEquipment = setOf(EquipmentTag.BARBELL),
         muscleFatigue = emptyMap(),
         nowMillis = 0L,
@@ -229,6 +293,18 @@ class LocalLlmWorkoutPlannerEngineTest {
         )
     }
 
+    private object DumbbellOnlyCatalog : ExerciseCatalog {
+        override suspend fun all(): List<Exercise> = listOf(
+            Exercise(
+                id = "dumbbell-curl",
+                name = "Dumbbell Curl",
+                requiredEquipment = setOf(EquipmentTag.DUMBBELL),
+                primaryMuscles = setOf(MuscleGroup.BICEPS),
+                movementPattern = MovementPattern.BICEPS_ISOLATION
+            )
+        )
+    }
+
     private companion object {
         private val DAY = listOf("bench-press", "overhead-press")
 
@@ -241,6 +317,14 @@ class LocalLlmWorkoutPlannerEngineTest {
         val UNKNOWN_EXERCISES_PLAN = days(
             foci = listOf("PUSH", "PULL", "LEGS"),
             exerciseIds = listOf("not-a-real-exercise")
+        )
+        val INDEXED_PLAN = days(
+            foci = listOf("PUSH", "PULL", "LEGS"),
+            exerciseIds = listOf("1", "2")
+        )
+        val OUT_OF_RANGE_PLAN = days(
+            foci = listOf("PUSH", "PULL", "LEGS"),
+            exerciseIds = listOf("99")
         )
         val MIXED_REPS_PLAN = days(
             foci = listOf("PUSH", "PULL", "LEGS"),

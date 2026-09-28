@@ -50,8 +50,6 @@ class LiteRtLmTextGenerator(
     private fun send(conversation: Conversation, prompt: String, jsonSchema: String?): Message {
         if (jsonSchema == null || !constrainedSupported) return conversation.sendMessage(prompt)
         return try {
-            // Deliberately no no-repeat-ngram constraint: it also blocks n-grams from the prompt,
-            // and the model must be able to repeat the exercise ids it is told to copy.
             conversation.sendMessage(
                 text = prompt,
                 responseFormat = ResponseFormat.json(jsonSchema)
