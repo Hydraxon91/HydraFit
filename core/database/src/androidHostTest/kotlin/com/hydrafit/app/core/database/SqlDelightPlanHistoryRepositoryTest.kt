@@ -13,6 +13,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
@@ -58,6 +59,7 @@ class SqlDelightPlanHistoryRepositoryTest {
         assertEquals(100L, latest.acceptedAtMillis)
         assertEquals(3, latest.weekNumber)
         assertEquals(2, latest.cycleNumber)
+        assertTrue(latest.id > 0)
         assertEquals(2, latest.days.size)
         val day = latest.days.first()
         assertEquals(SplitFocus.PUSH, day.focus)
@@ -107,6 +109,20 @@ class SqlDelightPlanHistoryRepositoryTest {
         repository.clear()
 
         assertNull(repository.latest())
+    }
+
+    @Test
+    fun deleteRemovesThePlanItsDaysAndEntries() = runTest {
+        repository.accept(plan(engine = PlannerEngineId.DETERMINISTIC, acceptedAt = 1L))
+        repository.accept(plan(engine = PlannerEngineId.LOCAL_LLM, acceptedAt = 2L))
+        val toDelete = requireNotNull(repository.latest())
+
+        repository.delete(toDelete.id)
+
+        assertEquals(PlannerEngineId.DETERMINISTIC, requireNotNull(repository.latest()).engine)
+        assertEquals(1, database.planHistoryQueries.selectAllPlans().executeAsList().size)
+        assertEquals(2, database.planHistoryQueries.selectAllDays().executeAsList().size)
+        assertEquals(2, database.planHistoryQueries.selectAllEntries().executeAsList().size)
     }
 
     private fun plan(

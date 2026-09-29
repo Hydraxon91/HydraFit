@@ -28,6 +28,8 @@ class GetWorkoutLogUseCaseTest {
         WorkoutLogRepository {
         override suspend fun add(set: WorkoutSet) = Unit
 
+        override suspend fun delete(id: Long) = Unit
+
         override suspend fun all(): List<WorkoutSet> = sets
 
         override fun setsFlow(): Flow<List<WorkoutSet>> = flowOf(sets)

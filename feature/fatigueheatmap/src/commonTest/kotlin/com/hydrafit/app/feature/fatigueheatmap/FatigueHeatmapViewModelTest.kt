@@ -81,6 +81,8 @@ class FatigueHeatmapViewModelTest {
         WorkoutLogRepository {
         override suspend fun add(set: WorkoutSet) = Unit
 
+        override suspend fun delete(id: Long) = Unit
+
         override suspend fun all(): List<WorkoutSet> = emptyList()
 
         override fun setsFlow(): Flow<List<WorkoutSet>> = flowOf(emptyList())

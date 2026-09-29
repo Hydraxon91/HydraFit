@@ -6,6 +6,8 @@ import kotlinx.coroutines.flow.Flow
 interface WorkoutLogRepository {
     suspend fun add(set: WorkoutSet)
 
+    suspend fun delete(id: Long)
+
     suspend fun all(): List<WorkoutSet>
 
     fun setsFlow(): Flow<List<WorkoutSet>>

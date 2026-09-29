@@ -581,6 +581,10 @@ class SplitBuilderViewModelTest {
             state.value = plan
         }
 
+        override suspend fun delete(planId: Long) {
+            if (state.value?.id == planId) state.value = null
+        }
+
         override suspend fun clear() {
             state.value = null
         }
@@ -616,6 +620,8 @@ class SplitBuilderViewModelTest {
         override suspend fun latest(): AcceptedPlan? = null
 
         override suspend fun accept(plan: AcceptedPlan) = Unit
+
+        override suspend fun delete(planId: Long) = Unit
 
         override suspend fun clear() = Unit
     }
@@ -693,6 +699,8 @@ class SplitBuilderViewModelTest {
         }
 
         override suspend fun add(set: WorkoutSet) = Unit
+
+        override suspend fun delete(id: Long) = Unit
 
         override suspend fun all(): List<WorkoutSet> = emptyList()
 

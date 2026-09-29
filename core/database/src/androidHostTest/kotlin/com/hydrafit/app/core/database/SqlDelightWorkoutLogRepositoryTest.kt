@@ -211,6 +211,17 @@ class SqlDelightWorkoutLogRepositoryTest {
         assertTrue(repository.all().isEmpty())
     }
 
+    @Test
+    fun deleteRemovesOnlyTheTargetSet() = runTest {
+        repository.add(set(exerciseId = "back-squat", performedAt = 1))
+        repository.add(set(exerciseId = "barbell-bench-press", performedAt = 2))
+        val target = repository.all().first { it.exerciseId == "back-squat" }
+
+        repository.delete(target.id)
+
+        assertEquals(listOf("barbell-bench-press"), repository.all().map { it.exerciseId })
+    }
+
     private fun set(exerciseId: String, performedAt: Long) = DomainWorkoutSet(
         exerciseId = exerciseId,
         reps = 5,

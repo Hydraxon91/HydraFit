@@ -55,6 +55,15 @@ SELECT * FROM planHistoryEntry ORDER BY dayId, position;
 selectEntriesForDay:
 SELECT * FROM planHistoryEntry WHERE dayId = ? ORDER BY position;
 
+deleteEntriesForPlan:
+DELETE FROM planHistoryEntry WHERE dayId IN (SELECT id FROM planHistoryDay WHERE planId = ?);
+
+deleteDaysForPlan:
+DELETE FROM planHistoryDay WHERE planId = ?;
+
+deletePlan:
+DELETE FROM planHistory WHERE id = ?;
+
 deleteAllEntries:
 DELETE FROM planHistoryEntry;
 

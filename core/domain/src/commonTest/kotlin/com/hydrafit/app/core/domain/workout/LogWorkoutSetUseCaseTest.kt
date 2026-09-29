@@ -31,6 +31,8 @@ class LogWorkoutSetUseCaseTest {
             sets.add(set)
         }
 
+        override suspend fun delete(id: Long) = Unit
+
         override suspend fun all(): List<WorkoutSet> = sets.toList()
 
         override fun setsFlow(): Flow<List<WorkoutSet>> = flowOf(sets.toList())

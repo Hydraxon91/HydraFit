@@ -111,6 +111,10 @@ class AcceptWeeklyPlanUseCaseTest {
             state.value = plan
         }
 
+        override suspend fun delete(planId: Long) {
+            if (state.value?.id == planId) state.value = null
+        }
+
         override suspend fun clear() {
             state.value = null
         }

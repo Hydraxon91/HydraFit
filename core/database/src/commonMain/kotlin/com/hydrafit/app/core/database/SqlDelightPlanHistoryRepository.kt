@@ -70,6 +70,14 @@ class SqlDelightPlanHistoryRepository(database: HydraFitDatabase) : PlanHistoryR
         }
     }
 
+    override suspend fun delete(planId: Long) {
+        queries.transaction {
+            queries.deleteEntriesForPlan(planId)
+            queries.deleteDaysForPlan(planId)
+            queries.deletePlan(planId)
+        }
+    }
+
     override suspend fun clear() {
         queries.transaction {
             queries.deleteAllEntries()
@@ -109,7 +117,8 @@ class SqlDelightPlanHistoryRepository(database: HydraFitDatabase) : PlanHistoryR
             acceptedAtMillis = acceptedAt,
             days = days,
             weekNumber = weekNumber.toInt(),
-            cycleNumber = cycleNumber.toInt()
+            cycleNumber = cycleNumber.toInt(),
+            id = id
         )
     }
 

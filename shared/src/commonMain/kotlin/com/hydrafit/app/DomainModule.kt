@@ -14,6 +14,7 @@ import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngineProvider
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
+import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.llm.LocalLlmWorkoutPlannerEngine
@@ -57,4 +58,5 @@ val domainModule: Module = module {
     singleOf(::ObserveAcceptedPlanUseCase)
     singleOf(::LogWorkoutSetUseCase)
     singleOf(::GetWorkoutLogUseCase)
+    singleOf(::DeleteWorkoutSetUseCase)
 }

@@ -34,6 +34,10 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
         )
     }
 
+    override suspend fun delete(id: Long) {
+        setQueries.deleteSet(id)
+    }
+
     override suspend fun all(): List<DomainWorkoutSet> =
         setQueries.selectAllSets().executeAsList().map { row -> row.toDomain() }
 

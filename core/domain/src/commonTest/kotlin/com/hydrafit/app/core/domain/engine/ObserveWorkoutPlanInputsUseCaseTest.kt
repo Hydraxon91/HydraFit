@@ -538,6 +538,8 @@ class ObserveWorkoutPlanInputsUseCaseTest {
 
         override suspend fun accept(plan: AcceptedPlan) = Unit
 
+        override suspend fun delete(planId: Long) = Unit
+
         override suspend fun clear() = Unit
     }
 }

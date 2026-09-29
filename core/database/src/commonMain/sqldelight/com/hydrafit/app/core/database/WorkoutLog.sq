@@ -17,5 +17,8 @@ VALUES (?, ?, ?, ?, ?, ?, ?);
 selectAllSets:
 SELECT * FROM workoutSet ORDER BY performedAt, id;
 
+deleteSet:
+DELETE FROM workoutSet WHERE id = ?;
+
 deleteAllSets:
 DELETE FROM workoutSet;

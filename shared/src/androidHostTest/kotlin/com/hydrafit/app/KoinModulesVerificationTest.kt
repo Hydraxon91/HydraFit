@@ -14,6 +14,7 @@ import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
@@ -103,6 +104,7 @@ class KoinModulesVerificationTest {
             assertNotNull(koin.get<ObserveAcceptedPlanUseCase>())
             assertNotNull(koin.get<LogWorkoutSetUseCase>())
             assertNotNull(koin.get<GetWorkoutLogUseCase>())
+            assertNotNull(koin.get<DeleteWorkoutSetUseCase>())
             assertNotNull(koin.get<SuggestWeightsUseCase>())
         } finally {
             koin.close()
@@ -137,6 +139,8 @@ class KoinModulesVerificationTest {
 
         override suspend fun accept(plan: AcceptedPlan) = Unit
 
+        override suspend fun delete(planId: Long) = Unit
+
         override suspend fun clear() = Unit
     }
 
@@ -146,6 +150,8 @@ class KoinModulesVerificationTest {
 
     private object FakeWorkoutLogRepository : WorkoutLogRepository {
         override suspend fun add(set: WorkoutSet) = Unit
+
+        override suspend fun delete(id: Long) = Unit
 
         override suspend fun all(): List<WorkoutSet> = emptyList()
 

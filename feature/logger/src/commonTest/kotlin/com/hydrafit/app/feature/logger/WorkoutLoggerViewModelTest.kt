@@ -277,6 +277,10 @@ class WorkoutLoggerViewModelTest {
             state.value = plan
         }
 
+        override suspend fun delete(planId: Long) {
+            if (state.value?.id == planId) state.value = null
+        }
+
         override suspend fun clear() {
             state.value = null
         }
@@ -315,11 +319,16 @@ class WorkoutLoggerViewModelTest {
         )
     }
 
-    private class FakeWorkoutLogRepository : WorkoutLogRepository {
-        private val sets = mutableListOf<WorkoutSet>()
+    private class FakeWorkoutLogRepository(initial: List<WorkoutSet> = emptyList()) :
+        WorkoutLogRepository {
+        private val sets = initial.toMutableList()
 
         override suspend fun add(set: WorkoutSet) {
             sets.add(set)
+        }
+
+        override suspend fun delete(id: Long) {
+            sets.removeAll { it.id == id }
         }
 
         override suspend fun all(): List<WorkoutSet> = sets.toList()

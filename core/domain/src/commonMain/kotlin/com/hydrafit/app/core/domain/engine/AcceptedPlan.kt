@@ -12,7 +12,9 @@ data class AcceptedPlan(
     val acceptedAtMillis: Long,
     val days: List<AcceptedDay>,
     val weekNumber: Int = 1,
-    val cycleNumber: Int = 1
+    val cycleNumber: Int = 1,
+    /** The stored history row's id; 0 for a plan that has not been persisted yet. */
+    val id: Long = 0
 ) {
     /** Spreads the plan's training days across the week, starting on Monday. */
     fun scheduledDay(dayIndex: Int): DayOfWeek? {

@@ -13,5 +13,7 @@ interface PlanHistoryRepository {
 
     suspend fun accept(plan: AcceptedPlan)
 
+    suspend fun delete(planId: Long)
+
     suspend fun clear()
 }
