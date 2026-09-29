@@ -30,6 +30,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -230,6 +231,8 @@ class WorkoutLoggerViewModelTest {
             }
 
         override fun observeLatest(): Flow<AcceptedPlan?> = state
+
+        override fun observeHistory(): Flow<List<AcceptedPlan>> = state.map { listOfNotNull(it) }
 
         override suspend fun latest(): AcceptedPlan? = state.value
 

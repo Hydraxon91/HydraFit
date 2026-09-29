@@ -1,6 +1,8 @@
 package com.hydrafit.app.feature.splitbuilder
 
 import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
+import com.hydrafit.app.core.domain.engine.AcceptedDay
+import com.hydrafit.app.core.domain.engine.AcceptedExercise
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
@@ -44,6 +46,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -124,6 +127,7 @@ class SplitBuilderViewModelTest {
                 FakeExerciseCatalog(),
                 TimeProvider { 0L }
             ),
+            planHistory = EmptyPlanHistoryRepository,
             exerciseCatalog = FakeExerciseCatalog(),
             enginePreference = preference
         )
@@ -156,6 +160,7 @@ class SplitBuilderViewModelTest {
                 FakeExerciseCatalog(),
                 TimeProvider { 0L }
             ),
+            planHistory = EmptyPlanHistoryRepository,
             exerciseCatalog = FakeExerciseCatalog(),
             enginePreference = preference
         )
@@ -369,6 +374,73 @@ class SplitBuilderViewModelTest {
         assertFalse(viewModel.state.value.isLoading)
     }
 
+    @Test
+    fun showsTheAcceptedPlanOnLaunchInsteadOfGeneratingADraft() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        history.accept(acceptedPlan())
+        var generated = 0
+        val engine = object : WorkoutPlannerEngine {
+            override val id: PlannerEngineId = PlannerEngineId.DETERMINISTIC
+
+            override suspend fun generatePlan(request: PlanRequest): WeeklyPlan {
+                generated++
+                return DeterministicWorkoutPlannerEngine(FakeExerciseCatalog())
+                    .generatePlan(request)
+            }
+        }
+
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = engine,
+            planHistory = history
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.state.value
+        assertTrue(state.isPlanAccepted)
+        assertEquals(listOf(acceptedPlan().days.size), listOf(state.plan?.days?.size))
+        assertEquals(0, generated)
+        assertEquals(1, state.history.size)
+    }
+
+    @Test
+    fun regeneratingAfterAnAcceptedPlanProducesADraft() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        history.accept(acceptedPlan())
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            planHistory = history
+        )
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.isPlanAccepted)
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.isPlanAccepted)
+        assertTrue(viewModel.state.value.plan != null)
+    }
+
+    private fun acceptedPlan() = AcceptedPlan(
+        engine = PlannerEngineId.DETERMINISTIC,
+        acceptedAtMillis = 0L,
+        days = listOf(
+            AcceptedDay(
+                dayIndex = 0,
+                focus = SplitFocus.PUSH,
+                exercises = listOf(
+                    AcceptedExercise(
+                        exerciseId = "goblet-squat",
+                        sets = 3,
+                        reps = 8,
+                        name = "Goblet Squat",
+                        movementPattern = MovementPattern.SQUAT
+                    )
+                )
+            )
+        )
+    )
+
     private fun viewModel(
         availableEquipment: Set<EquipmentTag>,
         engine: WorkoutPlannerEngine? = null,
@@ -398,6 +470,7 @@ class SplitBuilderViewModelTest {
                 }
             ),
             acceptWeeklyPlan = AcceptWeeklyPlanUseCase(planHistory, catalog, TimeProvider { 0L }),
+            planHistory = planHistory,
             exerciseCatalog = catalog,
             enginePreference = preference
         )
@@ -407,6 +480,9 @@ class SplitBuilderViewModelTest {
         private val state = MutableStateFlow<AcceptedPlan?>(null)
 
         override fun observeLatest(): Flow<AcceptedPlan?> = state.asStateFlow()
+
+        override fun observeHistory(): Flow<List<AcceptedPlan>> =
+            state.asStateFlow().map { listOfNotNull(it) }
 
         override suspend fun latest(): AcceptedPlan? = state.value
 
@@ -443,6 +519,8 @@ class SplitBuilderViewModelTest {
         private val state = MutableStateFlow<AcceptedPlan?>(null)
 
         override fun observeLatest(): Flow<AcceptedPlan?> = state.asStateFlow()
+
+        override fun observeHistory(): Flow<List<AcceptedPlan>> = flowOf(emptyList())
 
         override suspend fun latest(): AcceptedPlan? = null
 

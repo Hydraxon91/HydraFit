@@ -3,11 +3,14 @@ package com.hydrafit.app.feature.splitbuilder
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
+import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
 import com.hydrafit.app.core.domain.engine.PlanGenerationException
+import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.WorkoutPlanInputs
+import com.hydrafit.app.core.domain.engine.toWeeklyPlan
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -15,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -22,6 +26,7 @@ class SplitBuilderViewModel(
     private val observeWorkoutPlanInputs: ObserveWorkoutPlanInputsUseCase,
     private val generateWeeklySplit: GenerateWeeklySplitUseCase,
     private val acceptWeeklyPlan: AcceptWeeklyPlanUseCase,
+    private val planHistory: PlanHistoryRepository,
     private val exerciseCatalog: ExerciseCatalog,
     private val enginePreference: EnginePreferenceRepository
 ) : ViewModel() {
@@ -34,8 +39,21 @@ class SplitBuilderViewModel(
 
     init {
         viewModelScope.launch {
-            observeWorkoutPlanInputs(setsPerExercise, refreshRequests)
-                .collectLatest { inputs -> generate(inputs) }
+            planHistory.observeHistory().collectLatest { history ->
+                _state.update { it.copy(history = history) }
+            }
+        }
+        viewModelScope.launch {
+            val inputs = observeWorkoutPlanInputs(setsPerExercise, refreshRequests)
+            val accepted = planHistory.latest()
+            if (accepted == null) {
+                inputs.collectLatest { generate(it) }
+            } else {
+                // Show what the user already accepted instead of silently generating a new draft;
+                // only regenerate once an input changes or they ask for a fresh plan.
+                showAccepted(accepted)
+                inputs.drop(1).collectLatest { generate(it) }
+            }
         }
     }
 
@@ -58,6 +76,32 @@ class SplitBuilderViewModel(
         viewModelScope.launch {
             acceptWeeklyPlan(plan)
             _state.update { it.copy(isPlanAccepted = true) }
+        }
+    }
+
+    fun onViewAcceptedPlan(accepted: AcceptedPlan) {
+        viewModelScope.launch { showAccepted(accepted) }
+    }
+
+    private suspend fun showAccepted(accepted: AcceptedPlan) {
+        val snapshotNames = accepted.days
+            .flatMap { day -> day.exercises }
+            .associate { it.exerciseId to it.name }
+        val catalogNames = exerciseCatalog.all().associate { it.id to it.name }
+        _state.update {
+            it.copy(
+                plan = accepted.toWeeklyPlan(),
+                exerciseNames = snapshotNames + catalogNames,
+                isLoading = false,
+                isPlanAccepted = true,
+                hasError = false,
+                isTransientError = false,
+                errorDetail = null,
+                requestedEngine = accepted.engine,
+                daysPerWeek = accepted.days.size,
+                setsPerExercise = accepted.days.firstOrNull()?.exercises?.firstOrNull()?.sets
+                    ?: it.setsPerExercise
+            )
         }
     }
 

@@ -6,6 +6,9 @@ import kotlinx.coroutines.flow.Flow
 interface PlanHistoryRepository {
     fun observeLatest(): Flow<AcceptedPlan?>
 
+    /** Every accepted plan, newest first. */
+    fun observeHistory(): Flow<List<AcceptedPlan>>
+
     suspend fun latest(): AcceptedPlan?
 
     suspend fun accept(plan: AcceptedPlan)

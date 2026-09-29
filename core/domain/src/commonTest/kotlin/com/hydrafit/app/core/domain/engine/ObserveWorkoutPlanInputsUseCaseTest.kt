@@ -216,6 +216,8 @@ class ObserveWorkoutPlanInputsUseCaseTest {
         PlanHistoryRepository {
         override fun observeLatest() = flowOf(accepted)
 
+        override fun observeHistory() = flowOf(listOfNotNull(accepted))
+
         override suspend fun latest(): AcceptedPlan? = accepted
 
         override suspend fun accept(plan: AcceptedPlan) = Unit

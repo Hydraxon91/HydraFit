@@ -25,6 +25,15 @@ class SqlDelightPlanHistoryRepository(database: HydraFitDatabase) : PlanHistoryR
         }
     }
 
+    override fun observeHistory(): Flow<List<AcceptedPlan>> {
+        val plans = queries.selectAllPlans().asFlow().mapToList(Dispatchers.Default)
+        val days = queries.selectAllDays().asFlow().mapToList(Dispatchers.Default)
+        val entries = queries.selectAllEntries().asFlow().mapToList(Dispatchers.Default)
+        return combine(plans, days, entries) { planRows, allDays, allEntries ->
+            planRows.map { it.toAcceptedPlan(allDays, allEntries) }
+        }
+    }
+
     override suspend fun latest(): AcceptedPlan? {
         val plan = queries.selectLatestPlan().executeAsOneOrNull() ?: return null
         return plan.toAcceptedPlan(

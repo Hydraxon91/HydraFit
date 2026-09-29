@@ -37,3 +37,22 @@ data class AcceptedExercise(
     val movementPattern: MovementPattern,
     val suggestedWeightKg: Double? = null
 )
+
+/** Renders a stored plan with the same shape the live (draft) plan uses. */
+fun AcceptedPlan.toWeeklyPlan(): WeeklyPlan = WeeklyPlan(
+    engine = engine,
+    days = days.map { day ->
+        WorkoutDay(
+            dayIndex = day.dayIndex,
+            focus = day.focus,
+            exercises = day.exercises.map { exercise ->
+                PlannedExercise(
+                    exerciseId = exercise.exerciseId,
+                    sets = exercise.sets,
+                    reps = exercise.reps,
+                    suggestedWeightKg = exercise.suggestedWeightKg
+                )
+            }
+        )
+    }
+)

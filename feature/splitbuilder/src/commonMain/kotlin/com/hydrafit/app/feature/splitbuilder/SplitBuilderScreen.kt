@@ -1,9 +1,11 @@
 package com.hydrafit.app.feature.splitbuilder
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.rememberScrollState
@@ -21,8 +23,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
+import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.time.isoDateUtc
 import com.hydrafit.app.core.navigation.FeatureDestination
 import hydrafit.feature.splitbuilder.generated.resources.Res
 import hydrafit.feature.splitbuilder.generated.resources.engine_label_deterministic
@@ -43,8 +47,11 @@ import hydrafit.feature.splitbuilder.generated.resources.split_error
 import hydrafit.feature.splitbuilder.generated.resources.split_error_transient
 import hydrafit.feature.splitbuilder.generated.resources.split_fallback_note
 import hydrafit.feature.splitbuilder.generated.resources.split_generated_by
+import hydrafit.feature.splitbuilder.generated.resources.split_history
+import hydrafit.feature.splitbuilder.generated.resources.split_history_entry
 import hydrafit.feature.splitbuilder.generated.resources.split_loading
 import hydrafit.feature.splitbuilder.generated.resources.split_plan_accepted
+import hydrafit.feature.splitbuilder.generated.resources.split_regenerate
 import hydrafit.feature.splitbuilder.generated.resources.split_retry
 import hydrafit.feature.splitbuilder.generated.resources.split_sets_label
 import hydrafit.feature.splitbuilder.generated.resources.split_suggested_weight
@@ -78,6 +85,8 @@ fun SplitBuilderRoute(
         onDaysPerWeekSelected = viewModel::onDaysPerWeekSelected,
         onSetsPerExerciseChanged = viewModel::onSetsPerExerciseChanged,
         onAcceptPlan = viewModel::onAcceptPlan,
+        onRegenerate = viewModel::refresh,
+        onViewAcceptedPlan = viewModel::onViewAcceptedPlan,
         onRetry = viewModel::refresh,
         modifier = modifier
     )
@@ -89,6 +98,8 @@ fun SplitBuilderScreen(
     onDaysPerWeekSelected: (Int) -> Unit,
     onSetsPerExerciseChanged: (Int) -> Unit,
     onAcceptPlan: () -> Unit,
+    onRegenerate: () -> Unit,
+    onViewAcceptedPlan: (AcceptedPlan) -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -171,6 +182,9 @@ fun SplitBuilderScreen(
                     Text(stringResource(Res.string.split_accept_plan))
                 }
             }
+            Button(onClick = onRegenerate) {
+                Text(stringResource(Res.string.split_regenerate))
+            }
             if (state.usedFallbackEngine) {
                 state.requestedEngine?.let { requested ->
                     Text(
@@ -200,6 +214,27 @@ fun SplitBuilderScreen(
                         Text(text = "$name  ${exercise.sets} x ${exercise.reps}$weight")
                     }
                 }
+            }
+        }
+        if (state.history.isNotEmpty()) {
+            Text(
+                text = stringResource(Res.string.split_history),
+                style = MaterialTheme.typography.titleMedium
+            )
+            state.history.forEach { accepted ->
+                val summary = stringResource(
+                    Res.string.split_history_entry,
+                    isoDateUtc(accepted.acceptedAtMillis),
+                    stringResource(accepted.engine.labelResource()),
+                    accepted.days.size
+                )
+                Text(
+                    text = summary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onViewAcceptedPlan(accepted) },
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
         }
     }

@@ -10,6 +10,7 @@ val splitBuilderModule: Module = module {
             observeWorkoutPlanInputs = get(),
             generateWeeklySplit = get(),
             acceptWeeklyPlan = get(),
+            planHistory = get(),
             exerciseCatalog = get(),
             enginePreference = get()
         )

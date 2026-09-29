@@ -79,6 +79,19 @@ class SqlDelightPlanHistoryRepositoryTest {
     }
 
     @Test
+    fun observeHistoryEmitsPlansNewestFirst() = runTest {
+        repository.accept(plan(engine = PlannerEngineId.DETERMINISTIC, acceptedAt = 1L))
+        repository.accept(plan(engine = PlannerEngineId.LOCAL_LLM, acceptedAt = 2L))
+
+        val history = repository.observeHistory().first()
+
+        assertEquals(
+            listOf(PlannerEngineId.LOCAL_LLM, PlannerEngineId.DETERMINISTIC),
+            history.map { it.engine }
+        )
+    }
+
+    @Test
     fun clearRemovesTheHistory() = runTest {
         repository.accept(plan(engine = PlannerEngineId.DETERMINISTIC, acceptedAt = 1L))
 

@@ -34,6 +34,9 @@ SELECT last_insert_rowid();
 selectLatestPlan:
 SELECT * FROM planHistory ORDER BY id DESC LIMIT 1;
 
+selectAllPlans:
+SELECT * FROM planHistory ORDER BY id DESC;
+
 insertDay:
 INSERT INTO planHistoryDay(planId, dayIndex, focus) VALUES (?, ?, ?);
 

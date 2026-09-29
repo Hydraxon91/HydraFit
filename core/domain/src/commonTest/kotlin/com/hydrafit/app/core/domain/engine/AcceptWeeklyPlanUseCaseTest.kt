@@ -11,6 +11,7 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 
 class AcceptWeeklyPlanUseCaseTest {
@@ -97,6 +98,8 @@ class AcceptWeeklyPlanUseCaseTest {
             }
 
         override fun observeLatest(): Flow<AcceptedPlan?> = state
+
+        override fun observeHistory(): Flow<List<AcceptedPlan>> = state.map { listOfNotNull(it) }
 
         override suspend fun latest(): AcceptedPlan? = state.value
 
