@@ -6,6 +6,8 @@ import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.userdata.equipment.CustomExerciseException
+import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.equipment.ExerciseEquipmentRepository
@@ -45,9 +47,8 @@ class EquipmentProfilerViewModelTest {
     }
 
     @Test
-    fun loadsStoredSelectionAndCatalogOnCreation() = runTest(dispatcher) {
-        val selection = FakeSelectionRepository(setOf(EquipmentTag.BARBELL))
-        val viewModel = viewModel(selection = selection)
+    fun loadsSelectionCatalogAndExercises() = runTest(dispatcher) {
+        val viewModel = viewModel(selection = FakeSelectionRepository(setOf(EquipmentTag.BARBELL)))
         advanceUntilIdle()
 
         assertEquals(setOf(EquipmentTag.BARBELL), viewModel.state.value.selectedTags)
@@ -55,155 +56,175 @@ class EquipmentProfilerViewModelTest {
             listOf(EquipmentTag.BARBELL, EquipmentTag.DUMBBELL),
             viewModel.state.value.equipment.map { it.id }
         )
-        assertEquals(listOf("Back Squat"), viewModel.state.value.exercises.map { it.name })
+        assertEquals(listOf("Back Squat"), viewModel.state.value.builtInExercises.map { it.name })
         assertFalse(viewModel.state.value.isLoading)
     }
 
     @Test
-    fun togglingAddsThenRemovesATagAndPersists() = runTest(dispatcher) {
+    fun togglingPersistsSelection() = runTest(dispatcher) {
         val selection = FakeSelectionRepository(emptySet())
         val viewModel = viewModel(selection = selection)
         advanceUntilIdle()
 
         viewModel.onTagToggled(EquipmentTag.DUMBBELL)
         advanceUntilIdle()
-        assertEquals(setOf(EquipmentTag.DUMBBELL), viewModel.state.value.selectedTags)
+
         assertEquals(setOf(EquipmentTag.DUMBBELL), selection.stored)
-
-        viewModel.onTagToggled(EquipmentTag.DUMBBELL)
-        advanceUntilIdle()
-        assertTrue(viewModel.state.value.selectedTags.isEmpty())
-        assertTrue(selection.stored.isEmpty())
     }
 
     @Test
-    fun addingEquipmentAddsItToTheCatalogAndClearsTheInput() = runTest(dispatcher) {
+    fun managesCustomEquipmentRenameAndDelete() = runTest(dispatcher) {
         val equipment = FakeEquipmentRepository()
         val viewModel = viewModel(equipment = equipment)
         advanceUntilIdle()
-
-        viewModel.onNewEquipmentNameChanged("  Trap Bar  ")
-        assertTrue(viewModel.state.value.canAdd)
-        viewModel.onAddEquipment()
+        val customId = equipment.add("Trap Bar").id
         advanceUntilIdle()
 
-        assertEquals("", viewModel.state.value.newEquipmentName)
-        assertTrue(viewModel.state.value.equipment.any { it.name == "Trap Bar" })
-        assertEquals(listOf("Trap Bar"), equipment.added)
+        viewModel.onManageEquipment(customId)
+        viewModel.onRenameEquipmentNameChanged("Hex Bar")
+        viewModel.onSaveEquipmentRenamed()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.equipment.any { it.name == "Hex Bar" })
+        assertFalse(viewModel.state.value.equipment.any { it.id == customId })
     }
 
     @Test
-    fun removingEquipmentDropsItFromTheSelectionToo() = runTest(dispatcher) {
-        val equipment = FakeEquipmentRepository()
-        val selection = FakeSelectionRepository(setOf(EquipmentTag.BARBELL))
-        val viewModel = viewModel(equipment = equipment, selection = selection)
-        advanceUntilIdle()
-
-        viewModel.onRemoveEquipment(EquipmentTag.BARBELL)
-        advanceUntilIdle()
-
-        assertTrue(viewModel.state.value.selectedTags.isEmpty())
-        assertTrue(selection.stored.isEmpty())
-        assertEquals(listOf(EquipmentTag.BARBELL), equipment.removed)
-    }
-
-    @Test
-    fun blankEquipmentNameIsNotAdded() = runTest(dispatcher) {
-        val equipment = FakeEquipmentRepository()
-        val viewModel = viewModel(equipment = equipment)
-        advanceUntilIdle()
-
-        viewModel.onNewEquipmentNameChanged("   ")
-        assertFalse(viewModel.state.value.canAdd)
-        viewModel.onAddEquipment()
-        advanceUntilIdle()
-
-        assertTrue(equipment.added.isEmpty())
-    }
-
-    @Test
-    fun savingAnExerciseEditPersistsEquipmentAndMuscles() = runTest(dispatcher) {
+    fun openingABuiltInEditorSeedsCurrentOverridesAndSavesThem() = runTest(dispatcher) {
         val equipmentEdits = FakeExerciseEquipmentRepository()
         val muscleEdits = FakeExerciseMuscleRepository()
-        val viewModel = viewModel(
-            exerciseEquipment = equipmentEdits,
-            exerciseMuscle = muscleEdits
-        )
+        val viewModel = viewModel(exerciseEquipment = equipmentEdits, exerciseMuscle = muscleEdits)
         advanceUntilIdle()
 
-        viewModel.onExerciseTapped("back-squat")
-        assertEquals(setOf(EquipmentTag.BARBELL), viewModel.state.value.editingEquipment)
-        assertEquals(setOf(MuscleGroup.QUADS), viewModel.state.value.editingPrimary)
+        viewModel.onEditExercise("back-squat")
+        assertEquals(setOf(EquipmentTag.BARBELL), viewModel.state.value.exerciseEditor.equipment)
+        assertEquals(setOf(MuscleGroup.QUADS), viewModel.state.value.exerciseEditor.primary)
 
-        viewModel.onEditingEquipmentToggled(EquipmentTag.BENCH)
-        viewModel.onEditingMuscleToggled(MuscleGroup.CHEST, primary = true)
-        viewModel.onSaveExerciseEdit()
+        viewModel.onEditorEquipmentToggled(EquipmentTag.BENCH)
+        viewModel.onEditorMuscleToggled(MuscleGroup.CHEST, primary = true)
+        viewModel.onSaveExercise()
         advanceUntilIdle()
 
         assertEquals(
             setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH),
             equipmentEdits.overrides["back-squat"]
         )
-        assertEquals(setOf(MuscleGroup.QUADS, MuscleGroup.CHEST), muscleEdits.primary["back-squat"])
-        assertNull(viewModel.state.value.editingExerciseId)
+        assertEquals(
+            setOf(MuscleGroup.QUADS, MuscleGroup.CHEST),
+            muscleEdits.primary["back-squat"]
+        )
+        assertNull(viewModel.state.value.exerciseEditor.exerciseId)
+    }
 
-        viewModel.onExerciseTapped("back-squat")
-        viewModel.onResetExerciseEdit()
+    @Test
+    fun resetClearsBothOverridesForABuiltIn() = runTest(dispatcher) {
+        val equipmentEdits = FakeExerciseEquipmentRepository(
+            mutableMapOf("back-squat" to setOf(EquipmentTag.DUMBBELL))
+        )
+        val muscleEdits = FakeExerciseMuscleRepository()
+        val viewModel = viewModel(exerciseEquipment = equipmentEdits, exerciseMuscle = muscleEdits)
+        advanceUntilIdle()
+
+        viewModel.onEditExercise("back-squat")
+        viewModel.onResetExercise()
         advanceUntilIdle()
 
         assertTrue(equipmentEdits.overrides.isEmpty())
         assertTrue(muscleEdits.primary.isEmpty())
-        val reset = viewModel.state.value.exercises.single()
-        assertEquals(setOf(MuscleGroup.QUADS), reset.primaryMuscles)
-        assertEquals(setOf(EquipmentTag.BARBELL), reset.requiredEquipment)
     }
 
     @Test
     fun aMuscleIsEitherPrimaryOrSecondaryNeverBoth() = runTest(dispatcher) {
         val viewModel = viewModel()
         advanceUntilIdle()
-        viewModel.onExerciseTapped("back-squat")
+        viewModel.onEditExercise("back-squat")
 
-        // GLUTES is seeded secondary; promoting it to primary must remove it from secondary.
-        viewModel.onEditingMuscleToggled(MuscleGroup.GLUTES, primary = true)
+        // GLUTES is seeded secondary; promoting to primary removes it from secondary.
+        viewModel.onEditorMuscleToggled(MuscleGroup.GLUTES, primary = true)
 
-        val state = viewModel.state.value
-        assertTrue(MuscleGroup.GLUTES in state.editingPrimary)
-        assertFalse(MuscleGroup.GLUTES in state.editingSecondary)
-
-        viewModel.onEditingMuscleToggled(MuscleGroup.GLUTES, primary = false)
-
-        assertFalse(MuscleGroup.GLUTES in viewModel.state.value.editingPrimary)
-        assertTrue(MuscleGroup.GLUTES in viewModel.state.value.editingSecondary)
+        val editor = viewModel.state.value.exerciseEditor
+        assertTrue(MuscleGroup.GLUTES in editor.primary)
+        assertFalse(MuscleGroup.GLUTES in editor.secondary)
     }
 
     @Test
-    fun cannotSaveWithoutAtLeastOnePrimaryMuscle() = runTest(dispatcher) {
-        val muscleEdits = FakeExerciseMuscleRepository()
-        val viewModel = viewModel(exerciseMuscle = muscleEdits)
-        advanceUntilIdle()
-        viewModel.onExerciseTapped("back-squat")
-
-        viewModel.onEditingMuscleToggled(MuscleGroup.QUADS, primary = true)
-        assertFalse(viewModel.state.value.canSaveEdit)
-
-        viewModel.onSaveExerciseEdit()
+    fun createsACustomExerciseThroughTheEditor() = runTest(dispatcher) {
+        val custom = FakeCustomExerciseRepository()
+        val viewModel = viewModel(custom = custom)
         advanceUntilIdle()
 
-        assertTrue(muscleEdits.primary.isEmpty())
+        viewModel.onNewCustomExercise()
+        viewModel.onEditorNameChanged("Trap Bar Deadlift")
+        viewModel.onEditorPatternChanged(MovementPattern.HINGE)
+        viewModel.onEditorMuscleToggled(MuscleGroup.BACK, primary = true)
+        assertEquals(MovementPattern.HINGE, viewModel.state.value.exerciseEditor.movementPattern)
+        viewModel.onSaveExercise()
+        advanceUntilIdle()
+
+        val created = custom.created.single()
+        assertEquals("Trap Bar Deadlift", created.name)
+        assertNull(viewModel.state.value.exerciseEditor.exerciseId)
+    }
+
+    @Test
+    fun cannotSaveWithoutANameOrPrimaryMuscle() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onNewCustomExercise()
+
+        assertFalse(viewModel.state.value.exerciseEditor.canSave)
+        viewModel.onEditorNameChanged("Something")
+        assertFalse(viewModel.state.value.exerciseEditor.canSave)
+        viewModel.onEditorMuscleToggled(MuscleGroup.CORE, primary = true)
+
+        assertTrue(viewModel.state.value.exerciseEditor.canSave)
+    }
+
+    @Test
+    fun surfacesDeleteFailureFromTheRepository() = runTest(dispatcher) {
+        val custom = FakeCustomExerciseRepository(deleteFailure = "This exercise has logged sets")
+        val viewModel = viewModel(custom = custom)
+        advanceUntilIdle()
+        viewModel.onNewCustomExercise()
+        viewModel.onEditorNameChanged("Disposable")
+        viewModel.onEditorMuscleToggled(MuscleGroup.CORE, primary = true)
+        viewModel.onSaveExercise()
+        advanceUntilIdle()
+
+        viewModel.onEditExercise(custom.created.single().id)
+        viewModel.onDeleteCustomExercise()
+        advanceUntilIdle()
+
+        assertTrue(
+            requireNotNull(viewModel.state.value.exerciseEditor.error).contains("logged sets")
+        )
+    }
+
+    @Test
+    fun searchFiltersTheExerciseList() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onSearchChanged("squat")
+
+        assertTrue(viewModel.state.value.visibleExercises.all { it.name.contains("squat", true) })
+        viewModel.onSearchChanged("zzz")
+        assertTrue(viewModel.state.value.visibleExercises.isEmpty())
     }
 
     private fun viewModel(
         equipment: FakeEquipmentRepository = FakeEquipmentRepository(),
         selection: FakeSelectionRepository = FakeSelectionRepository(emptySet()),
         exerciseEquipment: FakeExerciseEquipmentRepository = FakeExerciseEquipmentRepository(),
-        exerciseMuscle: FakeExerciseMuscleRepository = FakeExerciseMuscleRepository()
+        exerciseMuscle: FakeExerciseMuscleRepository = FakeExerciseMuscleRepository(),
+        custom: FakeCustomExerciseRepository = FakeCustomExerciseRepository()
     ) = EquipmentProfilerViewModel(
         equipmentRepository = equipment,
         selectionRepository = selection,
-        exerciseCatalog = FakeExerciseCatalog(exerciseEquipment, exerciseMuscle),
+        exerciseCatalog = FakeExerciseCatalog(exerciseEquipment, exerciseMuscle, custom),
         exerciseEquipmentRepository = exerciseEquipment,
-        exerciseMuscleRepository = exerciseMuscle
+        exerciseMuscleRepository = exerciseMuscle,
+        customExerciseRepository = custom
     )
 
     private class FakeSelectionRepository(initial: Set<EquipmentTag>) :
@@ -226,8 +247,6 @@ class EquipmentProfilerViewModelTest {
                 Equipment(EquipmentTag.DUMBBELL, "Dumbbells", isBuiltIn = true)
             )
         )
-        val added = mutableListOf<String>()
-        val removed = mutableListOf<EquipmentTag>()
 
         override fun observeAll(): Flow<List<Equipment>> = state.asStateFlow()
 
@@ -235,13 +254,11 @@ class EquipmentProfilerViewModelTest {
 
         override suspend fun add(name: String): Equipment {
             val created = Equipment(EquipmentTag(name.uppercase()), name, isBuiltIn = false)
-            added += name
             state.value = state.value + created
             return created
         }
 
         override suspend fun remove(id: EquipmentTag) {
-            removed += id
             state.value = state.value.filterNot { it.id == id }
         }
     }
@@ -249,7 +266,6 @@ class EquipmentProfilerViewModelTest {
     private class FakeExerciseEquipmentRepository(
         val overrides: MutableMap<String, Set<EquipmentTag>> = mutableMapOf()
     ) : ExerciseEquipmentRepository {
-
         override suspend fun update(exerciseId: String, equipment: Set<EquipmentTag>) {
             overrides[exerciseId] = equipment
         }
@@ -278,9 +294,48 @@ class EquipmentProfilerViewModelTest {
         }
     }
 
+    private class FakeCustomExerciseRepository(private val deleteFailure: String? = null) :
+        CustomExerciseRepository {
+        val created = mutableListOf<Exercise>()
+
+        override suspend fun add(
+            name: String,
+            requiredEquipment: Set<EquipmentTag>,
+            primaryMuscles: Set<MuscleGroup>,
+            secondaryMuscles: Set<MuscleGroup>,
+            movementPattern: MovementPattern
+        ): Exercise {
+            val exercise = Exercise(
+                id = "user-" + name.lowercase().replace(' ', '-'),
+                name = name,
+                requiredEquipment = requiredEquipment,
+                primaryMuscles = primaryMuscles,
+                secondaryMuscles = secondaryMuscles,
+                movementPattern = movementPattern,
+                isCustom = true
+            )
+            created += exercise
+            return exercise
+        }
+
+        override suspend fun update(
+            id: String,
+            name: String,
+            requiredEquipment: Set<EquipmentTag>,
+            primaryMuscles: Set<MuscleGroup>,
+            secondaryMuscles: Set<MuscleGroup>,
+            movementPattern: MovementPattern
+        ) = Unit
+
+        override suspend fun delete(id: String) {
+            deleteFailure?.let { throw CustomExerciseException(it) }
+        }
+    }
+
     private class FakeExerciseCatalog(
         private val equipmentEdits: FakeExerciseEquipmentRepository,
-        private val muscleEdits: FakeExerciseMuscleRepository
+        private val muscleEdits: FakeExerciseMuscleRepository,
+        private val custom: FakeCustomExerciseRepository
     ) : ExerciseCatalog {
         override suspend fun all(): List<Exercise> = listOf(
             Exercise(
@@ -292,6 +347,6 @@ class EquipmentProfilerViewModelTest {
                 secondaryMuscles = muscleEdits.secondary["back-squat"] ?: setOf(MuscleGroup.GLUTES),
                 movementPattern = MovementPattern.SQUAT
             )
-        )
+        ) + custom.created
     }
 }

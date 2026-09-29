@@ -4,7 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.userdata.equipment.CustomExerciseException
+import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.equipment.ExerciseEquipmentRepository
@@ -21,7 +24,8 @@ class EquipmentProfilerViewModel(
     private val selectionRepository: EquipmentSelectionRepository,
     private val exerciseCatalog: ExerciseCatalog,
     private val exerciseEquipmentRepository: ExerciseEquipmentRepository,
-    private val exerciseMuscleRepository: ExerciseMuscleRepository
+    private val exerciseMuscleRepository: ExerciseMuscleRepository,
+    private val customExerciseRepository: CustomExerciseRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(EquipmentProfilerUiState())
@@ -37,9 +41,7 @@ class EquipmentProfilerViewModel(
                 _state.update { it.copy(equipment = equipment) }
             }
         }
-        viewModelScope.launch {
-            _state.update { it.copy(exercises = exerciseCatalog.all()) }
-        }
+        viewModelScope.launch { refreshExercises() }
     }
 
     fun onTagToggled(tag: EquipmentTag) {
@@ -63,96 +65,218 @@ class EquipmentProfilerViewModel(
         }
     }
 
-    fun onRemoveEquipment(tag: EquipmentTag) {
-        val updated = _state.value.selectedTags - tag
+    fun onManageEquipment(tag: EquipmentTag) {
+        val equipment = _state.value.equipment.firstOrNull { it.id == tag } ?: return
+        _state.update { it.copy(equipmentEditor = EquipmentEditorState(tag, equipment.name)) }
+    }
+
+    fun onRenameEquipmentNameChanged(value: String) {
+        _state.update { it.copy(equipmentEditor = it.equipmentEditor.copy(name = value)) }
+    }
+
+    fun onSaveEquipmentRenamed() {
+        val editor = _state.value.equipmentEditor
+        val tag = editor.tag ?: return
+        val name = editor.name.trim()
+        if (name.isEmpty()) return
         viewModelScope.launch {
             equipmentRepository.remove(tag)
-            selectionRepository.setSelected(updated)
-            _state.update { it.copy(selectedTags = updated) }
+            equipmentRepository.add(name)
+            val updatedSelection = _state.value.selectedTags - tag
+            selectionRepository.setSelected(updatedSelection)
+            _state.update {
+                it.copy(
+                    selectedTags = updatedSelection,
+                    equipmentEditor = EquipmentEditorState()
+                )
+            }
         }
     }
 
-    fun onExerciseTapped(exerciseId: String) {
-        val current = _state.value
-        if (current.editingExerciseId == exerciseId) {
-            _state.update { it.copy(editingExerciseId = null).clearEdit() }
-            return
+    fun onDeleteEquipment() {
+        val tag = _state.value.equipmentEditor.tag ?: return
+        viewModelScope.launch {
+            equipmentRepository.remove(tag)
+            val updatedSelection = _state.value.selectedTags - tag
+            selectionRepository.setSelected(updatedSelection)
+            _state.update {
+                it.copy(
+                    selectedTags = updatedSelection,
+                    equipmentEditor = EquipmentEditorState()
+                )
+            }
         }
-        val exercise = current.exercises.firstOrNull { it.id == exerciseId } ?: return
+    }
+
+    fun onDismissEquipmentEditor() {
+        _state.update { it.copy(equipmentEditor = EquipmentEditorState()) }
+    }
+
+    fun onSearchChanged(value: String) {
+        _state.update { it.copy(search = value) }
+    }
+
+    fun onEditExercise(exerciseId: String) {
+        val exercise = _state.value.exercises.firstOrNull { it.id == exerciseId } ?: return
         _state.update {
             it.copy(
-                editingExerciseId = exerciseId,
-                editingEquipment = exercise.requiredEquipment,
-                editingPrimary = exercise.primaryMuscles,
-                editingSecondary = exercise.secondaryMuscles
+                exerciseEditor = ExerciseEditorState(
+                    exerciseId = exercise.id,
+                    isCustom = exercise.isCustom,
+                    name = exercise.name,
+                    movementPattern = exercise.movementPattern,
+                    equipment = exercise.requiredEquipment,
+                    primary = exercise.primaryMuscles,
+                    secondary = exercise.secondaryMuscles
+                )
             )
         }
     }
 
-    fun onEditingEquipmentToggled(tag: EquipmentTag) {
+    fun onNewCustomExercise() {
+        _state.update {
+            it.copy(exerciseEditor = ExerciseEditorState(isCustom = true, isNew = true))
+        }
+    }
+
+    fun onEditorNameChanged(value: String) {
+        _state.update {
+            it.copy(exerciseEditor = it.exerciseEditor.copy(name = value, error = null))
+        }
+    }
+
+    fun onEditorPatternChanged(pattern: MovementPattern) {
+        _state.update {
+            it.copy(exerciseEditor = it.exerciseEditor.copy(movementPattern = pattern))
+        }
+    }
+
+    fun onEditorEquipmentToggled(tag: EquipmentTag) {
         _state.update { current ->
-            val updated = if (tag in current.editingEquipment) {
-                current.editingEquipment - tag
+            val editor = current.exerciseEditor
+            val updated = if (tag in editor.equipment) {
+                editor.equipment - tag
             } else {
-                current.editingEquipment + tag
+                editor.equipment + tag
             }
-            current.copy(editingEquipment = updated)
+            current.copy(exerciseEditor = editor.copy(equipment = updated))
         }
     }
 
     /** A muscle is either primary or secondary, never both, to avoid double fatigue weighting. */
-    fun onEditingMuscleToggled(muscle: MuscleGroup, primary: Boolean) {
+    fun onEditorMuscleToggled(muscle: MuscleGroup, primary: Boolean) {
         _state.update { current ->
+            val editor = current.exerciseEditor
             if (primary) {
                 current.copy(
-                    editingPrimary = current.editingPrimary.toggle(muscle),
-                    editingSecondary = current.editingSecondary - muscle
+                    exerciseEditor = editor.copy(
+                        primary = editor.primary.toggle(muscle),
+                        secondary = editor.secondary - muscle
+                    )
                 )
             } else {
                 current.copy(
-                    editingSecondary = current.editingSecondary.toggle(muscle),
-                    editingPrimary = current.editingPrimary - muscle
+                    exerciseEditor = editor.copy(
+                        secondary = editor.secondary.toggle(muscle),
+                        primary = editor.primary - muscle
+                    )
                 )
             }
         }
     }
 
-    fun onSaveExerciseEdit() {
-        val current = _state.value
-        val exerciseId = current.editingExerciseId ?: return
-        if (!current.canSaveEdit) return
+    fun onSaveExercise() {
+        val editor = _state.value.exerciseEditor
+        if (!editor.isOpen) return
+        if (editor.isNew) {
+            if (editor.name.isBlank() || editor.primary.isEmpty()) return
+            viewModelScope.launch { persistNew(editor) }
+            return
+        }
+        val exerciseId = editor.exerciseId ?: return
         viewModelScope.launch {
-            exerciseEquipmentRepository.update(exerciseId, current.editingEquipment)
-            exerciseMuscleRepository.update(
-                exerciseId,
-                current.editingPrimary,
-                current.editingSecondary
-            )
-            refreshExercises()
+            try {
+                if (editor.isCustom) {
+                    customExerciseRepository.update(
+                        id = exerciseId,
+                        name = editor.name,
+                        requiredEquipment = editor.equipment,
+                        primaryMuscles = editor.primary,
+                        secondaryMuscles = editor.secondary,
+                        movementPattern = editor.movementPattern
+                    )
+                } else {
+                    writeBuiltInOverrides(exerciseId, editor)
+                }
+                closeEditorAndRefresh()
+            } catch (failure: CustomExerciseException) {
+                _state.update {
+                    it.copy(exerciseEditor = it.exerciseEditor.copy(error = failure.message))
+                }
+            }
         }
     }
 
-    fun onResetExerciseEdit() {
-        val exerciseId = _state.value.editingExerciseId ?: return
+    private suspend fun persistNew(editor: ExerciseEditorState) {
+        try {
+            val created = customExerciseRepository.add(
+                name = editor.name,
+                requiredEquipment = editor.equipment,
+                primaryMuscles = editor.primary,
+                secondaryMuscles = editor.secondary,
+                movementPattern = editor.movementPattern
+            )
+            closeEditorAndRefresh(created.id)
+        } catch (failure: CustomExerciseException) {
+            _state.update {
+                it.copy(exerciseEditor = it.exerciseEditor.copy(error = failure.message))
+            }
+        }
+    }
+
+    private suspend fun writeBuiltInOverrides(exerciseId: String, editor: ExerciseEditorState) {
+        exerciseEquipmentRepository.update(exerciseId, editor.equipment)
+        exerciseMuscleRepository.update(exerciseId, editor.primary, editor.secondary)
+    }
+
+    fun onResetExercise() {
+        val exerciseId = _state.value.exerciseEditor.exerciseId ?: return
         viewModelScope.launch {
             exerciseEquipmentRepository.reset(exerciseId)
             exerciseMuscleRepository.reset(exerciseId)
-            refreshExercises()
+            closeEditorAndRefresh()
+        }
+    }
+
+    fun onDeleteCustomExercise() {
+        val editor = _state.value.exerciseEditor
+        val exerciseId = editor.exerciseId ?: return
+        if (!editor.isCustom) return
+        viewModelScope.launch {
+            try {
+                customExerciseRepository.delete(exerciseId)
+                closeEditorAndRefresh()
+            } catch (failure: CustomExerciseException) {
+                _state.update {
+                    it.copy(exerciseEditor = it.exerciseEditor.copy(error = failure.message))
+                }
+            }
+        }
+    }
+
+    fun onDismissExerciseEditor() {
+        _state.update { it.copy(exerciseEditor = ExerciseEditorState()) }
+    }
+
+    private suspend fun closeEditorAndRefresh(highlightId: String? = null) {
+        _state.update {
+            it.copy(exercises = exerciseCatalog.all(), exerciseEditor = ExerciseEditorState())
         }
     }
 
     private suspend fun refreshExercises() {
-        _state.update {
-            it.copy(exercises = exerciseCatalog.all()).clearEdit()
-        }
+        _state.update { it.copy(exercises = exerciseCatalog.all()) }
     }
-
-    private fun EquipmentProfilerUiState.clearEdit(): EquipmentProfilerUiState = copy(
-        editingExerciseId = null,
-        editingEquipment = emptySet(),
-        editingPrimary = emptySet(),
-        editingSecondary = emptySet()
-    )
 
     private fun Set<MuscleGroup>.toggle(muscle: MuscleGroup): Set<MuscleGroup> =
         if (muscle in this) this - muscle else this + muscle
