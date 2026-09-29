@@ -3,9 +3,11 @@ package com.hydrafit.app.feature.settings
 import com.hydrafit.app.core.domain.engine.EngineAvailability
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.TrainingGoal
+import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import com.hydrafit.app.core.userdata.settings.TrainingGoalRepository
+import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -73,7 +75,8 @@ class SettingsViewModelTest {
                 listOf(PlannerEngineId.DETERMINISTIC, PlannerEngineId.GEMINI_API)
             ),
             apiKeyStore = FakeApiKeyStore(),
-            trainingGoalRepository = FakeTrainingGoalRepository()
+            trainingGoalRepository = FakeTrainingGoalRepository(),
+            weightUnitRepository = FakeWeightUnitRepository()
         )
         advanceUntilIdle()
 
@@ -91,7 +94,8 @@ class SettingsViewModelTest {
             preference = preference,
             availability = FakeEngineAvailability(listOf(PlannerEngineId.DETERMINISTIC)),
             apiKeyStore = FakeApiKeyStore(),
-            trainingGoalRepository = FakeTrainingGoalRepository()
+            trainingGoalRepository = FakeTrainingGoalRepository(),
+            weightUnitRepository = FakeWeightUnitRepository()
         )
         advanceUntilIdle()
         assertFalse(viewModel.state.value.workoutDataSharingEnabled)
@@ -110,7 +114,8 @@ class SettingsViewModelTest {
             preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC),
             availability = FakeEngineAvailability(listOf(PlannerEngineId.DETERMINISTIC)),
             apiKeyStore = FakeApiKeyStore(),
-            trainingGoalRepository = goals
+            trainingGoalRepository = goals,
+            weightUnitRepository = FakeWeightUnitRepository()
         )
         advanceUntilIdle()
 
@@ -139,7 +144,8 @@ class SettingsViewModelTest {
             preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC),
             availability = FakeEngineAvailability(listOf(PlannerEngineId.DETERMINISTIC)),
             apiKeyStore = store,
-            trainingGoalRepository = FakeTrainingGoalRepository()
+            trainingGoalRepository = FakeTrainingGoalRepository(),
+            weightUnitRepository = FakeWeightUnitRepository()
         )
         advanceUntilIdle()
 
@@ -159,7 +165,8 @@ class SettingsViewModelTest {
             preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC),
             availability = FakeEngineAvailability(listOf(PlannerEngineId.DETERMINISTIC)),
             apiKeyStore = store,
-            trainingGoalRepository = FakeTrainingGoalRepository()
+            trainingGoalRepository = FakeTrainingGoalRepository(),
+            weightUnitRepository = FakeWeightUnitRepository()
         )
         advanceUntilIdle()
 
@@ -178,7 +185,8 @@ class SettingsViewModelTest {
             preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC),
             availability = FakeEngineAvailability(listOf(PlannerEngineId.DETERMINISTIC)),
             apiKeyStore = store,
-            trainingGoalRepository = FakeTrainingGoalRepository()
+            trainingGoalRepository = FakeTrainingGoalRepository(),
+            weightUnitRepository = FakeWeightUnitRepository()
         )
         advanceUntilIdle()
         assertTrue(viewModel.state.value.apiKeyConfigured)
@@ -195,7 +203,8 @@ class SettingsViewModelTest {
             preference = FakeEnginePreferenceRepository(stored),
             availability = FakeEngineAvailability(available),
             apiKeyStore = FakeApiKeyStore(),
-            trainingGoalRepository = FakeTrainingGoalRepository()
+            trainingGoalRepository = FakeTrainingGoalRepository(),
+            weightUnitRepository = FakeWeightUnitRepository()
         )
 
     private class FakeApiKeyStore(var value: String? = null) : ApiKeyStore {
@@ -253,6 +262,17 @@ class SettingsViewModelTest {
 
         override suspend fun setGoal(goal: TrainingGoal) {
             stored = goal
+        }
+    }
+
+    private class FakeWeightUnitRepository(var stored: WeightUnit = WeightUnit.KG) :
+        WeightUnitRepository {
+        override suspend fun selectedUnit(): WeightUnit = stored
+
+        override fun unitFlow(): Flow<WeightUnit> = flowOf(stored)
+
+        override suspend fun setUnit(unit: WeightUnit) {
+            stored = unit
         }
     }
 }

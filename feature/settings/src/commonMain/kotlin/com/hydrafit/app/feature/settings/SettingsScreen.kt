@@ -28,6 +28,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.TrainingGoal
+import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.navigation.FeatureDestination
 import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.nav_label
@@ -49,6 +50,9 @@ import hydrafit.feature.settings.generated.resources.settings_goal_strength
 import hydrafit.feature.settings.generated.resources.settings_share_data
 import hydrafit.feature.settings.generated.resources.settings_share_data_description
 import hydrafit.feature.settings.generated.resources.settings_title
+import hydrafit.feature.settings.generated.resources.settings_unit_kg
+import hydrafit.feature.settings.generated.resources.settings_unit_lb
+import hydrafit.feature.settings.generated.resources.settings_unit_section
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -72,6 +76,7 @@ fun SettingsRoute(modifier: Modifier = Modifier, viewModel: SettingsViewModel = 
         state = state,
         onEngineSelected = viewModel::onEngineSelected,
         onGoalSelected = viewModel::onGoalSelected,
+        onWeightUnitSelected = viewModel::onWeightUnitSelected,
         onWorkoutDataSharingToggled = viewModel::onWorkoutDataSharingToggled,
         onApiKeyChanged = viewModel::onApiKeyChanged,
         onSaveApiKey = viewModel::saveApiKey,
@@ -86,6 +91,7 @@ fun SettingsScreen(
     state: SettingsUiState,
     onEngineSelected: (PlannerEngineId) -> Unit,
     onGoalSelected: (TrainingGoal) -> Unit,
+    onWeightUnitSelected: (WeightUnit) -> Unit,
     onWorkoutDataSharingToggled: (Boolean) -> Unit,
     onApiKeyChanged: (String) -> Unit,
     onSaveApiKey: () -> Unit,
@@ -151,6 +157,28 @@ fun SettingsScreen(
             text = stringResource(Res.string.settings_share_data_description),
             style = MaterialTheme.typography.bodySmall
         )
+
+        Text(
+            text = stringResource(Res.string.settings_unit_section),
+            style = MaterialTheme.typography.titleMedium
+        )
+        WeightUnit.entries.forEach { unit ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .selectable(
+                        selected = state.weightUnit == unit,
+                        onClick = { onWeightUnitSelected(unit) }
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = state.weightUnit == unit,
+                    onClick = { onWeightUnitSelected(unit) }
+                )
+                Text(stringResource(unit.labelResource()))
+            }
+        }
 
         Text(
             text = stringResource(Res.string.settings_goal_section),
@@ -221,4 +249,9 @@ private fun TrainingGoal.labelResource(): StringResource = when (this) {
     TrainingGoal.STRENGTH -> Res.string.settings_goal_strength
     TrainingGoal.HYPERTROPHY -> Res.string.settings_goal_hypertrophy
     TrainingGoal.ENDURANCE -> Res.string.settings_goal_endurance
+}
+
+private fun WeightUnit.labelResource(): StringResource = when (this) {
+    WeightUnit.KG -> Res.string.settings_unit_kg
+    WeightUnit.LB -> Res.string.settings_unit_lb
 }

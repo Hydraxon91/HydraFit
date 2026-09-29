@@ -27,7 +27,10 @@ import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.time.isoDateUtc
+import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.navigation.FeatureDestination
+import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import hydrafit.feature.splitbuilder.generated.resources.Res
 import hydrafit.feature.splitbuilder.generated.resources.engine_label_deterministic
 import hydrafit.feature.splitbuilder.generated.resources.engine_label_gemini
@@ -58,6 +61,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_sets_label
 import hydrafit.feature.splitbuilder.generated.resources.split_suggested_weight
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 val splitBuilderRoute: String = "plan"
@@ -81,8 +85,11 @@ fun SplitBuilderRoute(
     viewModel: SplitBuilderViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val weightUnit by koinInject<WeightUnitRepository>().unitFlow()
+        .collectAsStateWithLifecycle(initialValue = WeightUnit.KG)
     SplitBuilderScreen(
         state = state,
+        weightUnit = weightUnit,
         onDaysPerWeekSelected = viewModel::onDaysPerWeekSelected,
         onSetsPerExerciseChanged = viewModel::onSetsPerExerciseChanged,
         onAccessorySetsPerExerciseChanged = viewModel::onAccessorySetsPerExerciseChanged,
@@ -97,6 +104,7 @@ fun SplitBuilderRoute(
 @Composable
 fun SplitBuilderScreen(
     state: SplitBuilderUiState,
+    weightUnit: WeightUnit,
     onDaysPerWeekSelected: (Int) -> Unit,
     onSetsPerExerciseChanged: (Int) -> Unit,
     onAccessorySetsPerExerciseChanged: (Int) -> Unit,
@@ -221,7 +229,8 @@ fun SplitBuilderScreen(
                         val weight = exercise.suggestedWeightKg?.let { kg ->
                             "  ·  " + stringResource(
                                 Res.string.split_suggested_weight,
-                                formatWeightKg(kg)
+                                formatWeight(weightUnit.kilogramsToDisplay(kg)),
+                                weightUnit.label
                             )
                         }.orEmpty()
                         Text(text = "$name  ${exercise.sets} x ${exercise.reps}$weight")
@@ -267,6 +276,3 @@ private fun SplitFocus.labelResource(): StringResource = when (this) {
     SplitFocus.LOWER -> Res.string.focus_lower
     SplitFocus.FULL_BODY -> Res.string.focus_full_body
 }
-
-private fun formatWeightKg(weightKg: Double): String =
-    if (weightKg % 1.0 == 0.0) weightKg.toInt().toString() else weightKg.toString()

@@ -9,9 +9,12 @@ import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.dayOfWeek
+import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutSet
+import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,7 +27,8 @@ class WorkoutLoggerViewModel(
     private val getWorkoutLog: GetWorkoutLogUseCase,
     private val observeAcceptedPlan: ObserveAcceptedPlanUseCase,
     private val exerciseCatalog: ExerciseCatalog,
-    private val timeProvider: TimeProvider
+    private val timeProvider: TimeProvider,
+    private val weightUnitRepository: WeightUnitRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(WorkoutLoggerUiState())
@@ -33,6 +37,7 @@ class WorkoutLoggerViewModel(
     private var exercises: List<Exercise> = emptyList()
     private var exerciseNames: Map<String, String> = emptyMap()
     private var acceptedToday: AcceptedDay? = null
+    private var suggestedWeightKgByExercise: Map<String, Double> = emptyMap()
 
     init {
         viewModelScope.launch {
@@ -48,10 +53,21 @@ class WorkoutLoggerViewModel(
         viewModelScope.launch {
             observeAcceptedPlan().collectLatest { plan -> updateTodayPlan(plan) }
         }
+        viewModelScope.launch {
+            weightUnitRepository.unitFlow().collectLatest { unit ->
+                _state.update { it.copy(weightUnit = unit) }
+            }
+        }
     }
 
     fun onExerciseSelected(exerciseId: String) {
-        _state.update { it.copy(selectedExerciseId = exerciseId) }
+        _state.update {
+            it.copy(
+                selectedExerciseId = exerciseId,
+                weightInput = suggestedInputFor(exerciseId, it.weightUnit),
+                reps = suggestedRepsFor(exerciseId) ?: it.reps
+            )
+        }
     }
 
     fun onRepsChanged(value: String) {
@@ -59,7 +75,9 @@ class WorkoutLoggerViewModel(
     }
 
     fun onWeightChanged(value: String) {
-        _state.update { it.copy(weightKg = value.filter { char -> char.isDigit() || char == '.' }) }
+        _state.update {
+            it.copy(weightInput = value.filter { char -> char.isDigit() || char == '.' })
+        }
     }
 
     fun onWarmupToggled(isWarmup: Boolean) {
@@ -71,7 +89,8 @@ class WorkoutLoggerViewModel(
         val exerciseId = current.selectedExerciseId ?: return
         val reps = current.reps.toIntOrNull() ?: return
         if (reps <= 0) return
-        val weightKg = current.weightKg.toDoubleOrNull()
+        val weightKg = current.weightInput.toDoubleOrNull()
+            ?.let { current.weightUnit.displayToKilograms(it) }
 
         viewModelScope.launch {
             logWorkoutSet(
@@ -83,20 +102,41 @@ class WorkoutLoggerViewModel(
                     isWarmup = current.isWarmup
                 )
             )
-            _state.update { it.copy(reps = "", weightKg = "", isWarmup = false) }
+            _state.update { it.copy(reps = "", weightInput = "", isWarmup = false) }
             refreshRecentSets()
         }
     }
 
     private fun updateTodayPlan(plan: AcceptedPlan?) {
         acceptedToday = plan?.dayFor(dayOfWeek(timeProvider.nowMillis()))
+        suggestedWeightKgByExercise = acceptedToday?.exercises
+            ?.mapNotNull { exercise ->
+                exercise.suggestedWeightKg?.let { exercise.exerciseId to it }
+            }
+            ?.toMap()
+            .orEmpty()
         _state.update { current ->
             current.copy(
                 exercises = prioritizedByToday(exercises, acceptedToday),
-                todayFocus = acceptedToday?.focus
+                todayFocus = acceptedToday?.focus,
+                reps = current.reps,
+                weightInput = current.selectedExerciseId
+                    ?.let { suggestedInputFor(it, current.weightUnit) }
+                    ?: current.weightInput
             )
         }
     }
+
+    /** Prefills the weight field with the accepted plan's suggestion, in the display unit. */
+    private fun suggestedInputFor(exerciseId: String, unit: WeightUnit): String =
+        suggestedWeightKgByExercise[exerciseId]
+            ?.let { formatWeight(unit.kilogramsToDisplay(it)) }
+            .orEmpty()
+
+    private fun suggestedRepsFor(exerciseId: String): String? = acceptedToday?.exercises
+        ?.firstOrNull { it.exerciseId == exerciseId }
+        ?.reps
+        ?.toString()
 
     private fun prioritizedByToday(
         exercises: List<Exercise>,

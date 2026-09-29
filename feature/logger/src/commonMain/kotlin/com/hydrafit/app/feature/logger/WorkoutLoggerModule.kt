@@ -11,7 +11,8 @@ val loggerModule: Module = module {
             getWorkoutLog = get(),
             observeAcceptedPlan = get(),
             exerciseCatalog = get(),
-            timeProvider = get()
+            timeProvider = get(),
+            weightUnitRepository = get()
         )
     }
 }

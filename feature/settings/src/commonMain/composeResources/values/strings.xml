@@ -13,6 +13,9 @@
     <string name="settings_goal_endurance">Endurance</string>
     <string name="settings_share_data">Share workout data with AI engines</string>
     <string name="settings_share_data_description">Lets the AI planners see your recent weights and suggest a working weight. Off by default.</string>
+    <string name="settings_unit_section">Weight unit</string>
+    <string name="settings_unit_kg">Kilograms (kg)</string>
+    <string name="settings_unit_lb">Pounds (lb)</string>
     <string name="settings_gemini_unavailable">Add a Gemini API key to enable the cloud engine.</string>
     <string name="settings_api_key_section">Gemini API key</string>
     <string name="settings_api_key_label">API key</string>

@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.navigation.FeatureDestination
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.focus_full_body
@@ -148,9 +149,11 @@ fun WorkoutLoggerScreen(
         }
         item {
             OutlinedTextField(
-                value = state.weightKg,
+                value = state.weightInput,
                 onValueChange = onWeightChanged,
-                label = { Text(stringResource(Res.string.logger_weight_label)) },
+                label = {
+                    Text(stringResource(Res.string.logger_weight_label, state.weightUnit.label))
+                },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth()
@@ -177,8 +180,9 @@ fun WorkoutLoggerScreen(
             )
         }
         items(state.recentSets) { row ->
-            val weight =
-                row.weightKg?.toString() ?: stringResource(Res.string.logger_weight_none)
+            val weight = row.weightKg
+                ?.let { formatWeight(state.weightUnit.kilogramsToDisplay(it)) }
+                ?: stringResource(Res.string.logger_weight_none)
             val warmupSuffix = if (row.isWarmup) {
                 " " + stringResource(Res.string.logger_warmup_suffix)
             } else {

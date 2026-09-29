@@ -14,10 +14,12 @@ import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
+import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -87,7 +89,7 @@ class WorkoutLoggerViewModelTest {
         assertEquals(100.0, row.weightKg)
         assertFalse(row.isWarmup)
         assertEquals("", viewModel.state.value.reps)
-        assertEquals("", viewModel.state.value.weightKg)
+        assertEquals("", viewModel.state.value.weightInput)
     }
 
     @Test
@@ -174,6 +176,37 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun convertsPoundsToKilogramsWhenLogging() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository, weightUnit = WeightUnit.LB)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("225")
+        viewModel.log()
+        advanceUntilIdle()
+
+        // 225 lb / 2.2046 = 102.06 kg
+        assertEquals(102.06, repository.all().single().weightKg!!, absoluteTolerance = 0.05)
+    }
+
+    @Test
+    fun prefillsTheWeightFromTheAcceptedPlanSuggestionInTheDisplayUnit() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0),
+            weightUnit = WeightUnit.LB
+        )
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+
+        // 100 kg -> 220.46 lb, shown to one decimal
+        assertEquals("220.5", viewModel.state.value.weightInput)
+    }
+
+    @Test
     fun reprioritizesWhenTheAcceptedPlanChanges() = runTest(dispatcher) {
         val history = FakePlanHistoryRepository(acceptedPlan(listOf("plank")))
         val viewModel = viewModel(timeMillis = MONDAY, history = history)
@@ -192,34 +225,38 @@ class WorkoutLoggerViewModelTest {
         timeMillis: Long = 1_000L,
         acceptedPlan: AcceptedPlan? = null,
         history: FakePlanHistoryRepository = FakePlanHistoryRepository(acceptedPlan),
-        catalog: ExerciseCatalog = FakeExerciseCatalog
+        catalog: ExerciseCatalog = FakeExerciseCatalog,
+        weightUnit: WeightUnit = WeightUnit.KG
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logWorkoutSet = LogWorkoutSetUseCase(repository),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
         observeAcceptedPlan = ObserveAcceptedPlanUseCase(history),
         exerciseCatalog = catalog,
-        timeProvider = TimeProvider { timeMillis }
+        timeProvider = TimeProvider { timeMillis },
+        weightUnitRepository = FakeWeightUnitRepository(weightUnit)
     )
 
-    private fun acceptedPlan(dayZeroExerciseIds: List<String>) = AcceptedPlan(
-        engine = PlannerEngineId.DETERMINISTIC,
-        acceptedAtMillis = 0L,
-        days = listOf(
-            AcceptedDay(
-                dayIndex = 0,
-                focus = SplitFocus.FULL_BODY,
-                exercises = dayZeroExerciseIds.map { id ->
-                    AcceptedExercise(
-                        exerciseId = id,
-                        sets = 3,
-                        reps = 8,
-                        name = id,
-                        movementPattern = MovementPattern.CORE
-                    )
-                }
+    private fun acceptedPlan(dayZeroExerciseIds: List<String>, suggestedWeightKg: Double? = null) =
+        AcceptedPlan(
+            engine = PlannerEngineId.DETERMINISTIC,
+            acceptedAtMillis = 0L,
+            days = listOf(
+                AcceptedDay(
+                    dayIndex = 0,
+                    focus = SplitFocus.FULL_BODY,
+                    exercises = dayZeroExerciseIds.map { id ->
+                        AcceptedExercise(
+                            exerciseId = id,
+                            sets = 3,
+                            reps = 8,
+                            name = id,
+                            movementPattern = MovementPattern.CORE,
+                            suggestedWeightKg = suggestedWeightKg
+                        )
+                    }
+                )
             )
         )
-    )
 
     private class FakePlanHistoryRepository(accepted: AcceptedPlan?) : PlanHistoryRepository {
         private val state = MutableStateFlow(accepted)
@@ -296,6 +333,14 @@ class WorkoutLoggerViewModelTest {
         override suspend fun clear() {
             sets.clear()
         }
+    }
+
+    private class FakeWeightUnitRepository(private val unit: WeightUnit) : WeightUnitRepository {
+        override suspend fun selectedUnit(): WeightUnit = unit
+
+        override fun unitFlow(): Flow<WeightUnit> = flowOf(unit)
+
+        override suspend fun setUnit(unit: WeightUnit) = Unit
     }
 
     private companion object {
