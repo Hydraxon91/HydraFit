@@ -1,0 +1,13 @@
+CREATE TABLE exerciseEdit (
+    exerciseId TEXT NOT NULL PRIMARY KEY,
+    requiredEquipment TEXT NOT NULL
+);
+
+selectAll:
+SELECT * FROM exerciseEdit;
+
+upsert:
+INSERT OR REPLACE INTO exerciseEdit(exerciseId, requiredEquipment) VALUES (?, ?);
+
+deleteById:
+DELETE FROM exerciseEdit WHERE exerciseId = ?;

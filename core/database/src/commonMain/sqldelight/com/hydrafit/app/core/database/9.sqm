@@ -1,0 +1,4 @@
+CREATE TABLE exerciseEdit (
+    exerciseId TEXT NOT NULL PRIMARY KEY,
+    requiredEquipment TEXT NOT NULL
+);

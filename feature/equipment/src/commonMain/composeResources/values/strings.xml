@@ -5,4 +5,9 @@
     <string name="equipment_add_label">Add equipment</string>
     <string name="equipment_add_button">Add</string>
     <string name="equipment_remove">Remove</string>
+    <string name="equipment_exercise_section">Exercise equipment</string>
+    <string name="equipment_edit">Edit</string>
+    <string name="equipment_edit_save">Save</string>
+    <string name="equipment_edit_reset">Reset</string>
+    <string name="equipment_bodyweight">Bodyweight only</string>
 </resources>
