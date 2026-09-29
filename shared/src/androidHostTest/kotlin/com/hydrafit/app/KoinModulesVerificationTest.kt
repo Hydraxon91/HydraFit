@@ -2,12 +2,22 @@ package com.hydrafit.app
 
 import com.hydrafit.app.core.database.DatabaseDriverFactory
 import com.hydrafit.app.core.database.databaseModule
+import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
+import com.hydrafit.app.core.domain.engine.SuggestWeightsUseCase
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
+import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
+import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
+import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
+import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.llm.NoopOnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDeviceTextGenerator
@@ -67,15 +77,20 @@ class KoinModulesVerificationTest {
      * `verify()` does not reflect the constructor of lambda/`singleOf` definitions, so a missing
      * collaborator (e.g. `ProgressWeightsUseCase`) can slip through and only crash on device. Boot a
      * real container over the domain graph (with fakes for the database-backed repositories) and
-     * resolve the plan-inputs use case, which is where the app previously crashed.
+     * resolve the `singleOf` use cases, so a missing binding fails here instead.
+     *
+     * `GenerateWeeklySplitUseCase` is omitted because its provider resolves the Gemini engine, which
+     * lives in `networkModule` and is not on `:shared`'s test classpath.
      */
     @Test
-    fun thePlanInputsGraphResolvesAtRuntime() {
+    fun theDomainUseCaseGraphResolvesAtRuntime() {
         val koin = koinApplication {
             modules(
                 module {
                     single<WorkoutPlanSourcesRepository> { FakeWorkoutPlanSourcesRepository }
                     single<PlanHistoryRepository> { FakePlanHistoryRepository }
+                    single<ExerciseCatalog> { FakeExerciseCatalog }
+                    single<WorkoutLogRepository> { FakeWorkoutLogRepository }
                 },
                 domainModule,
                 testPlatformModule
@@ -84,6 +99,11 @@ class KoinModulesVerificationTest {
 
         try {
             assertNotNull(koin.get<ObserveWorkoutPlanInputsUseCase>())
+            assertNotNull(koin.get<AcceptWeeklyPlanUseCase>())
+            assertNotNull(koin.get<ObserveAcceptedPlanUseCase>())
+            assertNotNull(koin.get<LogWorkoutSetUseCase>())
+            assertNotNull(koin.get<GetWorkoutLogUseCase>())
+            assertNotNull(koin.get<SuggestWeightsUseCase>())
         } finally {
             koin.close()
         }
@@ -116,6 +136,24 @@ class KoinModulesVerificationTest {
         override suspend fun latest(): AcceptedPlan? = null
 
         override suspend fun accept(plan: AcceptedPlan) = Unit
+
+        override suspend fun clear() = Unit
+    }
+
+    private object FakeExerciseCatalog : ExerciseCatalog {
+        override suspend fun all(): List<Exercise> = emptyList()
+    }
+
+    private object FakeWorkoutLogRepository : WorkoutLogRepository {
+        override suspend fun add(set: WorkoutSet) = Unit
+
+        override suspend fun all(): List<WorkoutSet> = emptyList()
+
+        override fun setsFlow(): Flow<List<WorkoutSet>> = emptyFlow()
+
+        override suspend fun loggedSets(): List<LoggedSet> = emptyList()
+
+        override fun loggedSetsFlow(): Flow<List<LoggedSet>> = emptyFlow()
 
         override suspend fun clear() = Unit
     }
