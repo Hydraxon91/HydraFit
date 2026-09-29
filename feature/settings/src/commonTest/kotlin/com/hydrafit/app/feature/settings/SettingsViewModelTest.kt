@@ -85,6 +85,25 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun togglingWorkoutDataSharingPersistsIt() = runTest(dispatcher) {
+        val preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC)
+        val viewModel = SettingsViewModel(
+            preference = preference,
+            availability = FakeEngineAvailability(listOf(PlannerEngineId.DETERMINISTIC)),
+            apiKeyStore = FakeApiKeyStore(),
+            trainingGoalRepository = FakeTrainingGoalRepository()
+        )
+        advanceUntilIdle()
+        assertFalse(viewModel.state.value.workoutDataSharingEnabled)
+
+        viewModel.onWorkoutDataSharingToggled(true)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.workoutDataSharingEnabled)
+        assertTrue(preference.shareWorkoutData)
+    }
+
+    @Test
     fun selectingATrainingGoalPersistsIt() = runTest(dispatcher) {
         val goals = FakeTrainingGoalRepository()
         val viewModel = SettingsViewModel(

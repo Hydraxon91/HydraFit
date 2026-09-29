@@ -15,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,6 +46,8 @@ import hydrafit.feature.settings.generated.resources.settings_goal_endurance
 import hydrafit.feature.settings.generated.resources.settings_goal_hypertrophy
 import hydrafit.feature.settings.generated.resources.settings_goal_section
 import hydrafit.feature.settings.generated.resources.settings_goal_strength
+import hydrafit.feature.settings.generated.resources.settings_share_data
+import hydrafit.feature.settings.generated.resources.settings_share_data_description
 import hydrafit.feature.settings.generated.resources.settings_title
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -69,6 +72,7 @@ fun SettingsRoute(modifier: Modifier = Modifier, viewModel: SettingsViewModel = 
         state = state,
         onEngineSelected = viewModel::onEngineSelected,
         onGoalSelected = viewModel::onGoalSelected,
+        onWorkoutDataSharingToggled = viewModel::onWorkoutDataSharingToggled,
         onApiKeyChanged = viewModel::onApiKeyChanged,
         onSaveApiKey = viewModel::saveApiKey,
         onClearApiKey = viewModel::clearApiKey,
@@ -82,6 +86,7 @@ fun SettingsScreen(
     state: SettingsUiState,
     onEngineSelected: (PlannerEngineId) -> Unit,
     onGoalSelected: (TrainingGoal) -> Unit,
+    onWorkoutDataSharingToggled: (Boolean) -> Unit,
     onApiKeyChanged: (String) -> Unit,
     onSaveApiKey: () -> Unit,
     onClearApiKey: () -> Unit,
@@ -130,6 +135,22 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall
             )
         }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Switch(
+                checked = state.workoutDataSharingEnabled,
+                onCheckedChange = onWorkoutDataSharingToggled
+            )
+            Text(stringResource(Res.string.settings_share_data))
+        }
+        Text(
+            text = stringResource(Res.string.settings_share_data_description),
+            style = MaterialTheme.typography.bodySmall
+        )
 
         Text(
             text = stringResource(Res.string.settings_goal_section),

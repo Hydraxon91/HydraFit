@@ -7,6 +7,7 @@ data class SettingsUiState(
     val availableEngines: List<PlannerEngineId> = emptyList(),
     val selectedEngine: PlannerEngineId? = null,
     val selectedGoal: TrainingGoal = TrainingGoal.BALANCED,
+    val workoutDataSharingEnabled: Boolean = false,
     val apiKeyConfigured: Boolean = false,
     val apiKeyInput: String = "",
     val isLocalLlmInstalled: Boolean = false

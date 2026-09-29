@@ -42,6 +42,13 @@ class SettingsViewModel(
         }
     }
 
+    fun onWorkoutDataSharingToggled(enabled: Boolean) {
+        viewModelScope.launch {
+            preference.setWorkoutDataSharingEnabled(enabled)
+            _state.update { it.copy(workoutDataSharingEnabled = enabled) }
+        }
+    }
+
     fun onApiKeyChanged(value: String) {
         _state.update { it.copy(apiKeyInput = value.trim()) }
     }
@@ -64,11 +71,13 @@ class SettingsViewModel(
             val available = availability.availableEngines()
             val stored = preference.selectedEngine()
             val goal = trainingGoalRepository.selectedGoal()
+            val shareWorkoutData = preference.isWorkoutDataSharingEnabled()
             _state.update {
                 it.copy(
                     availableEngines = available,
                     selectedEngine = if (stored in available) stored else available.firstOrNull(),
                     selectedGoal = goal,
+                    workoutDataSharingEnabled = shareWorkoutData,
                     apiKeyConfigured = !apiKeyStore.load().isNullOrBlank(),
                     isLocalLlmInstalled = PlannerEngineId.LOCAL_LLM in available
                 )
