@@ -5,5 +5,5 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val equipmentModule: Module = module {
-    viewModel { EquipmentProfilerViewModel(get(), get(), get(), get()) }
+    viewModel { EquipmentProfilerViewModel(get(), get(), get(), get(), get()) }
 }

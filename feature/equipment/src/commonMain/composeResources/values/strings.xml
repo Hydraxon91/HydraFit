@@ -10,4 +10,16 @@
     <string name="equipment_edit_save">Save</string>
     <string name="equipment_edit_reset">Reset</string>
     <string name="equipment_bodyweight">Bodyweight only</string>
+    <string name="equipment_primary_muscles">Primary muscles</string>
+    <string name="equipment_secondary_muscles">Secondary muscles</string>
+    <string name="muscle_chest">Chest</string>
+    <string name="muscle_back">Back</string>
+    <string name="muscle_shoulders">Shoulders</string>
+    <string name="muscle_biceps">Biceps</string>
+    <string name="muscle_triceps">Triceps</string>
+    <string name="muscle_quads">Quads</string>
+    <string name="muscle_hamstrings">Hamstrings</string>
+    <string name="muscle_glutes">Glutes</string>
+    <string name="muscle_calves">Calves</string>
+    <string name="muscle_core">Core</string>
 </resources>

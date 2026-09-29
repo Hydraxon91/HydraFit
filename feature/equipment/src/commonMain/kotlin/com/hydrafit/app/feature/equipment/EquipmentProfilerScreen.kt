@@ -26,6 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hydrafit.app.core.domain.equipment.Equipment
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import hydrafit.feature.equipment.generated.resources.Res
 import hydrafit.feature.equipment.generated.resources.equipment_add_button
 import hydrafit.feature.equipment.generated.resources.equipment_add_label
@@ -34,8 +35,21 @@ import hydrafit.feature.equipment.generated.resources.equipment_edit
 import hydrafit.feature.equipment.generated.resources.equipment_edit_reset
 import hydrafit.feature.equipment.generated.resources.equipment_edit_save
 import hydrafit.feature.equipment.generated.resources.equipment_exercise_section
+import hydrafit.feature.equipment.generated.resources.equipment_primary_muscles
 import hydrafit.feature.equipment.generated.resources.equipment_profiler_title
 import hydrafit.feature.equipment.generated.resources.equipment_remove
+import hydrafit.feature.equipment.generated.resources.equipment_secondary_muscles
+import hydrafit.feature.equipment.generated.resources.muscle_back
+import hydrafit.feature.equipment.generated.resources.muscle_biceps
+import hydrafit.feature.equipment.generated.resources.muscle_calves
+import hydrafit.feature.equipment.generated.resources.muscle_chest
+import hydrafit.feature.equipment.generated.resources.muscle_core
+import hydrafit.feature.equipment.generated.resources.muscle_glutes
+import hydrafit.feature.equipment.generated.resources.muscle_hamstrings
+import hydrafit.feature.equipment.generated.resources.muscle_quads
+import hydrafit.feature.equipment.generated.resources.muscle_shoulders
+import hydrafit.feature.equipment.generated.resources.muscle_triceps
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -53,8 +67,9 @@ fun EquipmentProfilerRoute(
         onRemoveEquipment = viewModel::onRemoveEquipment,
         onExerciseTapped = viewModel::onExerciseTapped,
         onEditingEquipmentToggled = viewModel::onEditingEquipmentToggled,
-        onSaveExerciseEquipment = viewModel::onSaveExerciseEquipment,
-        onResetExerciseEquipment = viewModel::onResetExerciseEquipment,
+        onEditingMuscleToggled = viewModel::onEditingMuscleToggled,
+        onSaveExerciseEdit = viewModel::onSaveExerciseEdit,
+        onResetExerciseEdit = viewModel::onResetExerciseEdit,
         modifier = modifier
     )
 }
@@ -68,8 +83,9 @@ fun EquipmentProfilerScreen(
     onRemoveEquipment: (EquipmentTag) -> Unit,
     onExerciseTapped: (String) -> Unit,
     onEditingEquipmentToggled: (EquipmentTag) -> Unit,
-    onSaveExerciseEquipment: () -> Unit,
-    onResetExerciseEquipment: () -> Unit,
+    onEditingMuscleToggled: (MuscleGroup, Boolean) -> Unit,
+    onSaveExerciseEdit: () -> Unit,
+    onResetExerciseEdit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -129,10 +145,14 @@ fun EquipmentProfilerScreen(
                 equipment = state.equipment,
                 editing = state.editingExerciseId == exercise.id,
                 editingEquipment = state.editingEquipment,
+                editingPrimary = state.editingPrimary,
+                editingSecondary = state.editingSecondary,
+                canSave = state.canSaveEdit,
                 onExerciseTapped = onExerciseTapped,
                 onEditingEquipmentToggled = onEditingEquipmentToggled,
-                onSave = onSaveExerciseEquipment,
-                onReset = onResetExerciseEquipment
+                onEditingMuscleToggled = onEditingMuscleToggled,
+                onSave = onSaveExerciseEdit,
+                onReset = onResetExerciseEdit
             )
         }
     }
@@ -145,8 +165,12 @@ private fun ExerciseEquipmentRow(
     equipment: List<Equipment>,
     editing: Boolean,
     editingEquipment: Set<EquipmentTag>,
+    editingPrimary: Set<MuscleGroup>,
+    editingSecondary: Set<MuscleGroup>,
+    canSave: Boolean,
     onExerciseTapped: (String) -> Unit,
     onEditingEquipmentToggled: (EquipmentTag) -> Unit,
+    onEditingMuscleToggled: (MuscleGroup, Boolean) -> Unit,
     onSave: () -> Unit,
     onReset: () -> Unit
 ) {
@@ -155,6 +179,10 @@ private fun ExerciseEquipmentRow(
         Text(
             text = exercise.requiredEquipment.joinToString { it.displayName }
                 .ifEmpty { stringResource(Res.string.equipment_bodyweight) },
+            style = MaterialTheme.typography.bodySmall
+        )
+        Text(
+            text = muscleNames(exercise.primaryMuscles),
             style = MaterialTheme.typography.bodySmall
         )
         if (editing) {
@@ -167,8 +195,26 @@ private fun ExerciseEquipmentRow(
                     )
                 }
             }
+            Text(
+                text = stringResource(Res.string.equipment_primary_muscles),
+                style = MaterialTheme.typography.labelMedium
+            )
+            MuscleChipRow(
+                selected = editingPrimary,
+                onToggle = { onEditingMuscleToggled(it, true) }
+            )
+            Text(
+                text = stringResource(Res.string.equipment_secondary_muscles),
+                style = MaterialTheme.typography.labelMedium
+            )
+            MuscleChipRow(
+                selected = editingSecondary,
+                onToggle = { onEditingMuscleToggled(it, false) }
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onSave) { Text(stringResource(Res.string.equipment_edit_save)) }
+                Button(onClick = onSave, enabled = canSave) {
+                    Text(stringResource(Res.string.equipment_edit_save))
+                }
                 TextButton(onClick = onReset) {
                     Text(stringResource(Res.string.equipment_edit_reset))
                 }
@@ -179,4 +225,38 @@ private fun ExerciseEquipmentRow(
             }
         }
     }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MuscleChipRow(selected: Set<MuscleGroup>, onToggle: (MuscleGroup) -> Unit) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        MuscleGroup.entries.forEach { muscle ->
+            FilterChip(
+                selected = muscle in selected,
+                onClick = { onToggle(muscle) },
+                label = { Text(stringResource(muscle.labelResource())) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun muscleNames(muscles: Set<MuscleGroup>): String {
+    val labels = mutableListOf<String>()
+    muscles.forEach { muscle -> labels += stringResource(muscle.labelResource()) }
+    return labels.joinToString(", ")
+}
+
+private fun MuscleGroup.labelResource(): StringResource = when (this) {
+    MuscleGroup.CHEST -> Res.string.muscle_chest
+    MuscleGroup.BACK -> Res.string.muscle_back
+    MuscleGroup.SHOULDERS -> Res.string.muscle_shoulders
+    MuscleGroup.BICEPS -> Res.string.muscle_biceps
+    MuscleGroup.TRICEPS -> Res.string.muscle_triceps
+    MuscleGroup.QUADS -> Res.string.muscle_quads
+    MuscleGroup.HAMSTRINGS -> Res.string.muscle_hamstrings
+    MuscleGroup.GLUTES -> Res.string.muscle_glutes
+    MuscleGroup.CALVES -> Res.string.muscle_calves
+    MuscleGroup.CORE -> Res.string.muscle_core
 }
