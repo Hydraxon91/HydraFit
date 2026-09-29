@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.rememberScrollState
@@ -15,6 +14,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -48,6 +48,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_accessory_sets_la
 import hydrafit.feature.splitbuilder.generated.resources.split_builder_title
 import hydrafit.feature.splitbuilder.generated.resources.split_day
 import hydrafit.feature.splitbuilder.generated.resources.split_days_label
+import hydrafit.feature.splitbuilder.generated.resources.split_delete_plan
 import hydrafit.feature.splitbuilder.generated.resources.split_deload_week
 import hydrafit.feature.splitbuilder.generated.resources.split_error
 import hydrafit.feature.splitbuilder.generated.resources.split_error_transient
@@ -99,6 +100,7 @@ fun SplitBuilderRoute(
         onAcceptPlan = viewModel::onAcceptPlan,
         onRegenerate = viewModel::refresh,
         onViewAcceptedPlan = viewModel::onViewAcceptedPlan,
+        onDeletePlan = viewModel::onDeletePlan,
         onRetry = viewModel::refresh,
         modifier = modifier
     )
@@ -114,6 +116,7 @@ fun SplitBuilderScreen(
     onAcceptPlan: () -> Unit,
     onRegenerate: () -> Unit,
     onViewAcceptedPlan: (AcceptedPlan) -> Unit,
+    onDeletePlan: (AcceptedPlan) -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -269,13 +272,18 @@ fun SplitBuilderScreen(
                     accepted.days.size,
                     accepted.weekNumber
                 )
-                Text(
-                    text = summary,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onViewAcceptedPlan(accepted) },
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = summary,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onViewAcceptedPlan(accepted) },
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    TextButton(onClick = { onDeletePlan(accepted) }) {
+                        Text(stringResource(Res.string.split_delete_plan))
+                    }
+                }
             }
         }
     }

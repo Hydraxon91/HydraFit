@@ -503,6 +503,20 @@ class SplitBuilderViewModelTest {
         assertTrue(viewModel.state.value.canRegenerate)
     }
 
+    @Test
+    fun deletesAPlanFromHistory() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        val viewModel = viewModel(availableEquipment = emptySet(), planHistory = history)
+        val plan = acceptedPlan().copy(id = 5L)
+        history.accept(plan)
+        advanceUntilIdle()
+
+        viewModel.onDeletePlan(plan)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.history.isEmpty())
+    }
+
     private fun acceptedPlan() = AcceptedPlan(
         engine = PlannerEngineId.DETERMINISTIC,
         acceptedAtMillis = 0L,

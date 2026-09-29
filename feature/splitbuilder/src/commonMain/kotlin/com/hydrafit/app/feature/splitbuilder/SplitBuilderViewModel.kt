@@ -100,6 +100,19 @@ class SplitBuilderViewModel(
         viewModelScope.launch { showAccepted(accepted) }
     }
 
+    fun onDeletePlan(accepted: AcceptedPlan) {
+        viewModelScope.launch {
+            val wasLatest = _state.value.history.firstOrNull()?.id == accepted.id
+            planHistory.delete(accepted.id)
+            if (wasLatest) {
+                // The deleted plan was the active week; clear the shown plan and regenerate so the
+                // screen reflects the rewound week instead of a plan that no longer exists.
+                _state.update { it.copy(plan = null, isPlanAccepted = false) }
+                refresh()
+            }
+        }
+    }
+
     private suspend fun showAccepted(accepted: AcceptedPlan) {
         val snapshotNames = accepted.days
             .flatMap { day -> day.exercises }

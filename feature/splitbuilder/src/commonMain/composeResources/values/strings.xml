@@ -26,6 +26,7 @@
     <string name="split_regenerate">Regenerate</string>
     <string name="split_history">Plan history</string>
     <string name="split_history_entry">%1$s · %2$s · %3$d days · Week %4$d</string>
+    <string name="split_delete_plan">Delete</string>
     <string name="split_error">Couldn’t build the plan. Check your connection or API key and try again.</string>
     <string name="split_error_transient">The AI service is temporarily unavailable. Please try again in a moment.</string>
     <string name="split_retry">Retry</string>
