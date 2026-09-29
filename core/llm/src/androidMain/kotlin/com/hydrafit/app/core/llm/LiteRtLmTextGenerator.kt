@@ -24,7 +24,8 @@ import java.io.File
  */
 class LiteRtLmTextGenerator(
     private val context: Context,
-    private val modelManager: AndroidOnDeviceModelManager
+    private val modelManager: AndroidOnDeviceModelManager,
+    private val sampler: OnDeviceSampler = OnDeviceSampler()
 ) : OnDeviceTextGenerator {
 
     private var engine: Engine? = null
@@ -142,10 +143,11 @@ class LiteRtLmTextGenerator(
 
     private fun conversationConfig(): ConversationConfig = ConversationConfig(
         samplerConfig = SamplerConfig(
-            topK = SAMPLER_TOP_K,
-            topP = SAMPLER_TOP_P,
-            temperature = SAMPLER_TEMPERATURE,
-            seed = SAMPLER_SEED
+            topK = sampler.topK,
+            topP = sampler.topP,
+            temperature = sampler.temperature,
+            // A fresh seed per generation so repeated generations are not identical.
+            seed = sampler.randomSeed()
         ),
         enableResponseFormat = true
     )
@@ -155,9 +157,5 @@ class LiteRtLmTextGenerator(
     private companion object {
         const val TAG = "LiteRtLmTextGenerator"
         const val MAX_LOGGED_CHARS = 4_000
-        const val SAMPLER_TOP_K = 40
-        const val SAMPLER_TOP_P = 0.95
-        const val SAMPLER_TEMPERATURE = 0.2
-        const val SAMPLER_SEED = 0
     }
 }
