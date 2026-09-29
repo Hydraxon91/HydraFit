@@ -9,6 +9,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -113,6 +114,72 @@ class SqlDelightWorkoutLogRepositoryTest {
 
         assertEquals("back-squat", emitted.exerciseId)
         assertEquals(50.0, emitted.weightKg)
+    }
+
+    @Test
+    fun addStoresTheExerciseMuscleSnapshot() = runTest {
+        repository.add(set(exerciseId = "barbell-bench-press", performedAt = 1))
+
+        val row = database.workoutLogQueries.selectAllSets().executeAsList().single()
+
+        assertTrue(requireNotNull(row.primaryMuscles).contains("CHEST"))
+        assertTrue(requireNotNull(row.secondaryMuscles).contains("TRICEPS"))
+    }
+
+    @Test
+    fun usesStoredTargetsEvenWhenTheExerciseIsNoLongerInTheCatalog() = runTest {
+        database.workoutLogQueries.insertSet(
+            exerciseId = "ghost",
+            reps = 5,
+            weightKg = 50.0,
+            performedAt = 1,
+            isWarmup = 0,
+            primaryMuscles = "CHEST",
+            secondaryMuscles = "TRICEPS"
+        )
+
+        val logged = repository.loggedSets().single()
+
+        val byMuscle = logged.targets.associate { it.muscle to it.involvement }
+        assertEquals(MuscleInvolvement.PRIMARY, byMuscle[MuscleGroup.CHEST])
+        assertEquals(MuscleInvolvement.SECONDARY, byMuscle[MuscleGroup.TRICEPS])
+    }
+
+    @Test
+    fun fallsBackToTheCatalogForLegacyRowsWithoutASnapshot() = runTest {
+        database.workoutLogQueries.insertSet(
+            exerciseId = "barbell-bench-press",
+            reps = 5,
+            weightKg = 50.0,
+            performedAt = 1,
+            isWarmup = 0,
+            primaryMuscles = null,
+            secondaryMuscles = null
+        )
+
+        val logged = repository.loggedSets().single()
+
+        val byMuscle = logged.targets.associate { it.muscle to it.involvement }
+        assertEquals(MuscleInvolvement.PRIMARY, byMuscle[MuscleGroup.CHEST])
+    }
+
+    @Test
+    fun keepsTheLoggedSnapshotWhenTheExerciseMusclesAreLaterEdited() = runTest {
+        repository.add(set(exerciseId = "barbell-bench-press", performedAt = 1))
+
+        // Simulate a later catalog edit to the same, still-existing exercise.
+        driver.execute(
+            identifier = null,
+            sql = "UPDATE exercise SET primaryMuscles = 'QUADS', secondaryMuscles = '' " +
+                "WHERE id = 'barbell-bench-press'",
+            parameters = 0
+        )
+
+        val logged = repository.loggedSets().single()
+
+        val byMuscle = logged.targets.associate { it.muscle to it.involvement }
+        assertEquals(MuscleInvolvement.PRIMARY, byMuscle[MuscleGroup.CHEST])
+        assertNull(byMuscle[MuscleGroup.QUADS])
     }
 
     @Test

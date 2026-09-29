@@ -10,6 +10,9 @@ CREATE TABLE exercise (
 selectAll:
 SELECT * FROM exercise ORDER BY id;
 
+selectById:
+SELECT * FROM exercise WHERE id = ?;
+
 insert:
 INSERT INTO exercise(id, name, requiredEquipment, primaryMuscles, secondaryMuscles, movementPattern)
 VALUES (?, ?, ?, ?, ?, ?);

@@ -11,8 +11,8 @@ CREATE TABLE workoutSet (
 );
 
 insertSet:
-INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup)
-VALUES (?, ?, ?, ?, ?);
+INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, primaryMuscles, secondaryMuscles)
+VALUES (?, ?, ?, ?, ?, ?, ?);
 
 selectAllSets:
 SELECT * FROM workoutSet ORDER BY performedAt, id;

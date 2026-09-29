@@ -18,12 +18,16 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
     private val exerciseQueries = database.exerciseQueries
 
     override suspend fun add(set: DomainWorkoutSet) {
+        // Snapshot the exercise's muscles at log time so later catalog edits can't rewrite history.
+        val exercise = exerciseQueries.selectById(set.exerciseId).executeAsOneOrNull()
         setQueries.insertSet(
             exerciseId = set.exerciseId,
             reps = set.reps.toLong(),
             weightKg = set.weightKg,
             performedAt = set.performedAtMillis,
-            isWarmup = if (set.isWarmup) 1L else 0L
+            isWarmup = if (set.isWarmup) 1L else 0L,
+            primaryMuscles = exercise?.primaryMuscles,
+            secondaryMuscles = exercise?.secondaryMuscles
         )
     }
 
@@ -49,7 +53,8 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
             row.id to targetsOf(row.primaryMuscles, row.secondaryMuscles)
         }
         return setQueries.selectAllSets().executeAsList().mapNotNull { row ->
-            val targets = targetsByExercise[row.exerciseId] ?: return@mapNotNull null
+            val targets = row.targets() ?: targetsByExercise[row.exerciseId]
+                ?: return@mapNotNull null
             LoggedSet(
                 timestampMillis = row.performedAt,
                 targets = targets,
@@ -66,7 +71,8 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                 row.id to targetsOf(row.primaryMuscles, row.secondaryMuscles)
             }
             sets.mapNotNull { row ->
-                val targets = targetsByExercise[row.exerciseId] ?: return@mapNotNull null
+                val targets = row.targets() ?: targetsByExercise[row.exerciseId]
+                    ?: return@mapNotNull null
                 LoggedSet(
                     timestampMillis = row.performedAt,
                     targets = targets,
@@ -79,6 +85,10 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
     override suspend fun clear() {
         setQueries.deleteAllSets()
     }
+
+    /** Muscle targets stored on the set at log time, or null for legacy rows logged before the snapshot existed. */
+    private fun com.hydrafit.app.core.database.WorkoutSet.targets(): List<MuscleTarget>? =
+        primaryMuscles?.let { targetsOf(it, secondaryMuscles.orEmpty()) }
 
     private fun targetsOf(primary: String, secondary: String): List<MuscleTarget> =
         decodeMuscles(primary).map { MuscleTarget(it, MuscleInvolvement.PRIMARY) } +
