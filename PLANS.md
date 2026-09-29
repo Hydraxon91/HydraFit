@@ -79,13 +79,13 @@
 
 - [ ] **Custom exercises — Chunk A (data).** `isCustom INTEGER NOT NULL DEFAULT 0` on `exercise` (schema v13 + `12.sqm`); `Exercise.isCustom`; `CustomExerciseRepository` port (`add`/`update`/`delete`) + `SqlDelightCustomExerciseRepository`; `insertCustom`/`updateCustom`/`deleteById` queries; catalog maps `isCustom`. Hard delete is **guarded** — blocked when any `workoutSet` references the exercise. Id scheme `user-<slug>` (immutable; numeric suffix on collision). Validation: non-empty unique name (vs all exercises), `>=1` primary muscle, equipment ids must exist, movement pattern from the enum. Tests: CRUD, id slugging/collision, validation, delete guard, seed-doesn't-clobber, custom-muscle snapshot on log.
 - [ ] **Custom exercises — Chunk B (UI + Equipment page readability).** Compact inventory via a `FlowRow` of toggle chips; **manage-equipment dialog** (rename + delete) for custom equipment; compact exercise rows (name + one-line `Equipment · Primary` summary) with an **Edit dialog** instead of inline expansion; custom exercises get their own subsection with **Add**, plus Edit/Delete in the dialog; optional search/filter over the exercise list. Built-in name/pattern stays **locked** in this chunk (see deferred below).
-- [ ] **Custom exercises — Chunk C (deferred).** Allow editing a built-in exercise's **name and movementPattern** (unified `exerciseOverride(exerciseId PK, name, requiredEquipment, primaryMuscles, secondaryMuscles, movementPattern)` — all nullable — replacing the two current override tables; schema v14 migration merges them; consolidate `ExerciseEquipmentRepository`+`ExerciseMuscleRepository` into one `ExerciseOverrideRepository`; add the fields to the editor dialog). Moderate refactor; not started.
+- [x] **Custom exercises — Chunk C (unified overrides).** Replaced `exerciseEdit` + `exerciseMuscleEdit` with a single nullable `exerciseOverride(exerciseId PK, name, requiredEquipment, primaryMuscles, secondaryMuscles, movementPattern)` (schema v14 + `13.sqm`, which merges and drops the old tables). One `ExerciseOverrideRepository` replaces the two ports; `SqlDelightExerciseCatalog` overlays all five fields; `SqlDelightWorkoutLogRepository.add` snapshots the override-aware muscles. The Equipment editor dialog now edits a built-in's **name and movement pattern** too. Migration test proves v13 override rows survive into v14; reset restores the seed.
 
 ### Decisions to confirm (mega-plan)
 
 - Custom exercise delete: hard delete with guard — **decided and applied** (Chunk A).
 - Editor UI: dialog overlay (not inline expansion) — **decided and applied** (Chunk B).
-- Built-in name/pattern editing: **deferred to Chunk C** above.
+- Built-in name/pattern editing: **implemented** (Chunk C above).
 - Manage-equipment dialog: rename + delete for custom equipment — **included in Chunk B**.
 
 - Item 1–2 (settled, applied): brand-new equipment ids are allowed with a flat custom rank; v1 slice = dynamic equipment inventory + exercise-equipment overrides; `requiredEquipment` stays a CSV.
@@ -95,7 +95,6 @@
 
 ### Deferred (mega-plan)
 
-- Custom exercises Chunk C — editing a built-in exercise's name/movementPattern via a unified override table (schema v14). Tracked above.
 - True progressive overload / automatic volume or weight increases — separate from rotation; Item 6 weights stay advisory.
 - Settings/navigation redesign — use a coherent "Planning" section in existing Settings for goal + engine + Gemini consent; keep equipment/exercise management in the Equipment tab.
 - Local-model same-week focus-sequence prompt improvement (tracked above), not the same feature as Item 7a.
