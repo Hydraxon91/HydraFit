@@ -64,6 +64,21 @@ class SqlDelightEnginePreferenceRepositoryTest {
     }
 
     @Test
+    fun workoutDataSharingDefaultsToOffAndPersists() = runTest {
+        assertEquals(false, repository.isWorkoutDataSharingEnabled())
+        assertEquals(false, repository.workoutDataSharingFlow().first())
+
+        repository.setWorkoutDataSharingEnabled(true)
+
+        assertEquals(true, repository.isWorkoutDataSharingEnabled())
+        assertEquals(true, repository.workoutDataSharingFlow().first())
+        assertEquals(
+            true,
+            SqlDelightEnginePreferenceRepository(database).isWorkoutDataSharingEnabled()
+        )
+    }
+
+    @Test
     fun fallsBackToDeterministicForUnknownStoredValue() = runTest {
         database.plannerEngineQueries.insertIgnoreRow(PlannerEngineId.DETERMINISTIC.name)
         database.plannerEngineQueries.updateEngine("NOT_AN_ENGINE")

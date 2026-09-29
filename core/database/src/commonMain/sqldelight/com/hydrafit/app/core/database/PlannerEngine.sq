@@ -15,6 +15,9 @@ SELECT daysPerWeek FROM plannerEngine WHERE id = 0;
 selectTrainingGoal:
 SELECT trainingGoal FROM plannerEngine WHERE id = 0;
 
+selectShareWorkoutData:
+SELECT shareWorkoutData FROM plannerEngine WHERE id = 0;
+
 insertIgnoreRow:
 INSERT OR IGNORE INTO plannerEngine(id, engineId) VALUES (0, ?);
 
@@ -26,3 +29,6 @@ UPDATE plannerEngine SET daysPerWeek = ? WHERE id = 0;
 
 updateTrainingGoal:
 UPDATE plannerEngine SET trainingGoal = ? WHERE id = 0;
+
+updateShareWorkoutData:
+UPDATE plannerEngine SET shareWorkoutData = ? WHERE id = 0;

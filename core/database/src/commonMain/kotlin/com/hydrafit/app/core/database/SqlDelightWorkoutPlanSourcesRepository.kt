@@ -20,12 +20,15 @@ class SqlDelightWorkoutPlanSourcesRepository(
     override fun observe(): Flow<WorkoutPlanSources> {
         val loggedSets = workoutLogRepository.loggedSetsFlow()
         val loggedWorkoutSets = workoutLogRepository.setsFlow()
+        val sharing = enginePreferenceRepository.workoutDataSharingFlow()
         return combine(
             equipmentSelectionRepository.selectedFlow(),
             enginePreferenceRepository.engineFlow(),
             enginePreferenceRepository.daysPerWeekFlow(),
             trainingGoalRepository.goalFlow(),
-            combine(loggedSets, loggedWorkoutSets) { sets, workoutSets -> sets to workoutSets }
+            combine(loggedSets, loggedWorkoutSets, sharing) { sets, workoutSets, enabled ->
+                Triple(sets, workoutSets, enabled)
+            }
         ) { equipment, engine, daysPerWeek, goal, logged ->
             WorkoutPlanSources(
                 availableEquipment = equipment,
@@ -33,7 +36,8 @@ class SqlDelightWorkoutPlanSourcesRepository(
                 daysPerWeek = daysPerWeek,
                 loggedSets = logged.first,
                 goal = goal,
-                loggedWorkoutSets = logged.second
+                loggedWorkoutSets = logged.second,
+                workoutDataSharingEnabled = logged.third
             )
         }.distinctUntilChanged()
     }

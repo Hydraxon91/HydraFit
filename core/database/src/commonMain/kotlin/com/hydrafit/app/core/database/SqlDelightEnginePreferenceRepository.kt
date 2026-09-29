@@ -42,6 +42,19 @@ class SqlDelightEnginePreferenceRepository(database: HydraFitDatabase) :
         queries.updateDaysPerWeek(daysPerWeek.coerceIn(MIN_DAYS, MAX_DAYS).toLong())
     }
 
+    override suspend fun isWorkoutDataSharingEnabled(): Boolean =
+        queries.selectShareWorkoutData().executeAsOneOrNull()?.let { it != 0L } ?: false
+
+    override fun workoutDataSharingFlow(): Flow<Boolean> = queries.selectShareWorkoutData()
+        .asFlow()
+        .mapToOneOrNull(Dispatchers.Default)
+        .map { stored -> stored?.let { it != 0L } ?: false }
+
+    override suspend fun setWorkoutDataSharingEnabled(enabled: Boolean) {
+        queries.insertIgnoreRow(DEFAULT_ENGINE.name)
+        queries.updateShareWorkoutData(if (enabled) 1L else 0L)
+    }
+
     private fun String.toEngineId(): PlannerEngineId =
         PlannerEngineId.entries.firstOrNull { it.name == this } ?: DEFAULT_ENGINE
 

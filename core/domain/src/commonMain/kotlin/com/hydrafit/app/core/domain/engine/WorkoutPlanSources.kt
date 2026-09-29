@@ -11,7 +11,8 @@ data class WorkoutPlanSources(
     val daysPerWeek: Int,
     val loggedSets: List<LoggedSet>,
     val goal: TrainingGoal = TrainingGoal.BALANCED,
-    val loggedWorkoutSets: List<WorkoutSet> = emptyList()
+    val loggedWorkoutSets: List<WorkoutSet> = emptyList(),
+    val workoutDataSharingEnabled: Boolean = false
 )
 
 interface WorkoutPlanSourcesRepository {

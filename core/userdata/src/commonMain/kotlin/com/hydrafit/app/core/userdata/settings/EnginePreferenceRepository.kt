@@ -15,4 +15,10 @@ interface EnginePreferenceRepository {
     fun daysPerWeekFlow(): Flow<Int>
 
     suspend fun setDaysPerWeek(daysPerWeek: Int)
+
+    suspend fun isWorkoutDataSharingEnabled(): Boolean
+
+    fun workoutDataSharingFlow(): Flow<Boolean>
+
+    suspend fun setWorkoutDataSharingEnabled(enabled: Boolean)
 }

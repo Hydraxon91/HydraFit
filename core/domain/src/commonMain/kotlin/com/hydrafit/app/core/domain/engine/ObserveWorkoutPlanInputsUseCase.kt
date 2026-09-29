@@ -14,7 +14,8 @@ class ObserveWorkoutPlanInputsUseCase(
     private val calculateMuscleFatigue: CalculateMuscleFatigueUseCase,
     private val timeProvider: TimeProvider,
     private val planHistoryRepository: PlanHistoryRepository,
-    private val suggestWeights: SuggestWeightsUseCase = SuggestWeightsUseCase()
+    private val suggestWeights: SuggestWeightsUseCase = SuggestWeightsUseCase(),
+    private val buildRecentWeights: BuildRecentWeightsUseCase = BuildRecentWeightsUseCase()
 ) {
     operator fun invoke(
         setsPerExercise: Flow<Int?> = flowOf(null),
@@ -40,7 +41,13 @@ class ObserveWorkoutPlanInputsUseCase(
                 goal = current.goal,
                 setsPerExercise = sets ?: current.goal.defaultSets,
                 recentExerciseIdsByPattern = recentExerciseIdsByPattern,
-                suggestedWeightsKg = suggestWeights(current.loggedWorkoutSets, current.goal)
+                suggestedWeightsKg = suggestWeights(current.loggedWorkoutSets, current.goal),
+                includeWorkoutData = current.workoutDataSharingEnabled,
+                recentWeights = if (current.workoutDataSharingEnabled) {
+                    buildRecentWeights(current.loggedWorkoutSets)
+                } else {
+                    emptyList()
+                }
             ),
             requestedEngine = current.selectedEngine
         )

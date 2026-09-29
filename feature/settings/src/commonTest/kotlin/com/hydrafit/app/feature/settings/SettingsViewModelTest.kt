@@ -193,7 +193,8 @@ class SettingsViewModelTest {
 
     private class FakeEnginePreferenceRepository(
         var stored: PlannerEngineId,
-        var storedDaysPerWeek: Int = 4
+        var storedDaysPerWeek: Int = 4,
+        var shareWorkoutData: Boolean = false
     ) : EnginePreferenceRepository {
         override suspend fun selectedEngine(): PlannerEngineId = stored
 
@@ -209,6 +210,14 @@ class SettingsViewModelTest {
 
         override suspend fun setDaysPerWeek(daysPerWeek: Int) {
             storedDaysPerWeek = daysPerWeek
+        }
+
+        override suspend fun isWorkoutDataSharingEnabled(): Boolean = shareWorkoutData
+
+        override fun workoutDataSharingFlow(): Flow<Boolean> = flowOf(shareWorkoutData)
+
+        override suspend fun setWorkoutDataSharingEnabled(enabled: Boolean) {
+            shareWorkoutData = enabled
         }
     }
 

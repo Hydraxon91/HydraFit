@@ -7,6 +7,7 @@ import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -199,6 +200,41 @@ class ObserveWorkoutPlanInputsUseCaseTest {
         val request = useCase().first().request
 
         assertEquals(102.5, request.suggestedWeightsKg["bench-press"])
+    }
+
+    @Test
+    fun sharesRecentWeightsOnlyWhenSharingIsEnabled() = runTest {
+        fun sources(enabled: Boolean) = FakeWorkoutPlanSourcesRepository(
+            WorkoutPlanSources(
+                availableEquipment = setOf(EquipmentTag.BARBELL),
+                selectedEngine = PlannerEngineId.DETERMINISTIC,
+                daysPerWeek = 3,
+                loggedSets = emptyList(),
+                workoutDataSharingEnabled = enabled,
+                loggedWorkoutSets = listOf(
+                    WorkoutSet(
+                        exerciseId = "bench-press",
+                        reps = 5,
+                        weightKg = 100.0,
+                        performedAtMillis = 1L
+                    )
+                )
+            )
+        )
+        fun useCase(sources: WorkoutPlanSourcesRepository) = ObserveWorkoutPlanInputsUseCase(
+            sources = sources,
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { 0L },
+            planHistoryRepository = FakePlanHistoryRepository()
+        )
+
+        val off = useCase(sources(false))().first().request
+        assertFalse(off.includeWorkoutData)
+        assertTrue(off.recentWeights.isEmpty())
+
+        val on = useCase(sources(true))().first().request
+        assertTrue(on.includeWorkoutData)
+        assertEquals(listOf("bench-press"), on.recentWeights.map { it.exerciseId })
     }
 
     private class FakeWorkoutPlanSourcesRepository(initial: WorkoutPlanSources) :

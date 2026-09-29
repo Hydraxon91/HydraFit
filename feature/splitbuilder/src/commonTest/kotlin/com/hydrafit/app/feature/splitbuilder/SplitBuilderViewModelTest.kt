@@ -573,6 +573,12 @@ class SplitBuilderViewModelTest {
             storedDaysPerWeek = daysPerWeek
             daysState.value = daysPerWeek
         }
+
+        override suspend fun isWorkoutDataSharingEnabled(): Boolean = false
+
+        override fun workoutDataSharingFlow(): Flow<Boolean> = flowOf(false)
+
+        override suspend fun setWorkoutDataSharingEnabled(enabled: Boolean) = Unit
     }
 
     private class FakeEquipmentSelectionRepository(selected: Set<EquipmentTag>) :

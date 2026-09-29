@@ -73,5 +73,11 @@ class DefaultWorkoutPlannerEngineProviderTest {
         override fun daysPerWeekFlow(): Flow<Int> = flowOf(4)
 
         override suspend fun setDaysPerWeek(daysPerWeek: Int) = Unit
+
+        override suspend fun isWorkoutDataSharingEnabled(): Boolean = false
+
+        override fun workoutDataSharingFlow(): Flow<Boolean> = flowOf(false)
+
+        override suspend fun setWorkoutDataSharingEnabled(enabled: Boolean) = Unit
     }
 }
