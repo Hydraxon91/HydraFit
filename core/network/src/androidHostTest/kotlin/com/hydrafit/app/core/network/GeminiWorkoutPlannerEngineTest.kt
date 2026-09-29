@@ -9,6 +9,7 @@ import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
+import com.hydrafit.app.core.domain.engine.WeightHistoryEntry
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
@@ -236,6 +237,40 @@ class GeminiWorkoutPlannerEngineTest {
         assertEquals(DeterministicWorkoutPlannerEngine.COMPOUND_REPS, planned.reps)
     }
 
+    @Test
+    fun omitsWorkoutDataUnlessSharingIsEnabled() = runTest {
+        var captured: HttpRequestData? = null
+        val mockEngine = MockEngine { request ->
+            captured = request
+            respond(envelope(VALID_PLAN), HttpStatusCode.OK, jsonHeaders())
+        }
+
+        engine(mockEngine).generatePlan(request())
+
+        val bodyText = (requireNotNull(captured).body as TextContent).text
+        assertFalse(bodyText.contains("Recent working weights"), bodyText)
+    }
+
+    @Test
+    fun sendsRecentWeightsWhenSharingIsEnabled() = runTest {
+        var captured: HttpRequestData? = null
+        val mockEngine = MockEngine { request ->
+            captured = request
+            respond(envelope(VALID_PLAN), HttpStatusCode.OK, jsonHeaders())
+        }
+
+        engine(mockEngine).generatePlan(
+            request(
+                includeWorkoutData = true,
+                recentWeights = listOf(WeightHistoryEntry("bench-press", 0L, 100.0, 5))
+            )
+        )
+
+        val bodyText = (requireNotNull(captured).body as TextContent).text
+        assertTrue(bodyText.contains("Recent working weights"), bodyText)
+        assertTrue(bodyText.contains("bench-press"), bodyText)
+    }
+
     private fun engine(
         engine: HttpClientEngine,
         apiKey: String = "test-key",
@@ -274,7 +309,9 @@ class GeminiWorkoutPlannerEngineTest {
         daysPerWeek: Int = 3,
         goal: TrainingGoal = TrainingGoal.BALANCED,
         setsPerExercise: Int = goal.defaultSets,
-        recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap()
+        recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
+        includeWorkoutData: Boolean = false,
+        recentWeights: List<WeightHistoryEntry> = emptyList()
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
         availableEquipment = setOf(EquipmentTag.BARBELL),
@@ -282,7 +319,9 @@ class GeminiWorkoutPlannerEngineTest {
         nowMillis = 0L,
         goal = goal,
         setsPerExercise = setsPerExercise,
-        recentExerciseIdsByPattern = recentExerciseIdsByPattern
+        recentExerciseIdsByPattern = recentExerciseIdsByPattern,
+        includeWorkoutData = includeWorkoutData,
+        recentWeights = recentWeights
     )
 
     private object FallbackEngine : WorkoutPlannerEngine {

@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.parseWeeklyPlan
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.time.isoDateUtc
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -132,6 +133,15 @@ class LocalLlmWorkoutPlannerEngine(
                 appendLine(
                     "Avoid reusing these list numbers unless no other suitable exercise exists: " +
                         recentlyUsedNumbers.joinToString(", ")
+                )
+            }
+            if (request.includeWorkoutData && request.recentWeights.isNotEmpty()) {
+                val weights = request.recentWeights.joinToString("; ") {
+                    "${it.exerciseId} ${isoDateUtc(it.performedAtMillis)}: " +
+                        "${it.weightKg}kg x ${it.reps}"
+                }
+                appendLine(
+                    "Recent working weights (suggest a sensible weight for each exercise): $weights"
                 )
             }
             appendLine(

@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
+import com.hydrafit.app.core.domain.engine.WeightHistoryEntry
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
@@ -15,6 +16,7 @@ import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
@@ -65,6 +67,29 @@ class LocalLlmWorkoutPlannerEngineTest {
         assertTrue(prompt.contains("Training goal: STRENGTH"), prompt)
         assertTrue(prompt.contains("Use 5 reps for compound lifts"), prompt)
         assertTrue(prompt.contains("8 reps for isolation exercises"), prompt)
+    }
+
+    @Test
+    fun omitsWorkoutDataUnlessEnabled() = runTest {
+        val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
+
+        engine(generator).generatePlan(request())
+
+        assertFalse(requireNotNull(generator.lastPrompt).contains("Recent working weights"))
+    }
+
+    @Test
+    fun sendsRecentWeightsWhenEnabled() = runTest {
+        val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
+
+        engine(generator).generatePlan(
+            request(
+                includeWorkoutData = true,
+                recentWeights = listOf(WeightHistoryEntry("barbell-row", 0L, 50.0, 8))
+            )
+        )
+
+        assertTrue(requireNotNull(generator.lastPrompt).contains("Recent working weights"))
     }
 
     @Test
@@ -278,7 +303,9 @@ class LocalLlmWorkoutPlannerEngineTest {
         daysPerWeek: Int = 3,
         goal: TrainingGoal = TrainingGoal.BALANCED,
         setsPerExercise: Int = goal.defaultSets,
-        recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap()
+        recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
+        includeWorkoutData: Boolean = false,
+        recentWeights: List<WeightHistoryEntry> = emptyList()
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
         availableEquipment = setOf(EquipmentTag.BARBELL),
@@ -286,7 +313,9 @@ class LocalLlmWorkoutPlannerEngineTest {
         nowMillis = 0L,
         goal = goal,
         setsPerExercise = setsPerExercise,
-        recentExerciseIdsByPattern = recentExerciseIdsByPattern
+        recentExerciseIdsByPattern = recentExerciseIdsByPattern,
+        includeWorkoutData = includeWorkoutData,
+        recentWeights = recentWeights
     )
 
     private class FakeGenerator(

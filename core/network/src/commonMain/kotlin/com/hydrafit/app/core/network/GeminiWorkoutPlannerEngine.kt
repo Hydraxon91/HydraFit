@@ -9,6 +9,7 @@ import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.parseWeeklyPlan
+import com.hydrafit.app.core.domain.time.isoDateUtc
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.header
@@ -163,6 +164,16 @@ class GeminiWorkoutPlannerEngine(
                 appendLine(
                     "Used in the previous accepted week (prefer a different exercise for the " +
                         "same movement pattern when an equally suitable option exists): $history"
+                )
+            }
+            if (request.includeWorkoutData && request.recentWeights.isNotEmpty()) {
+                val weights = request.recentWeights.joinToString("; ") {
+                    "${it.exerciseId} ${isoDateUtc(it.performedAtMillis)}: " +
+                        "${it.weightKg}kg x ${it.reps}"
+                }
+                appendLine(
+                    "Recent working weights (use them to suggest a sensible weight for each " +
+                        "exercise): $weights"
                 )
             }
         }
