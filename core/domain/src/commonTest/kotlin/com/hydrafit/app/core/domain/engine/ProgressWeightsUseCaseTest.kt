@@ -134,6 +134,18 @@ class ProgressWeightsUseCaseTest {
     }
 
     @Test
+    fun pausesIncrementsWhenRequested() {
+        val result = useCase(
+            baseline = mapOf("bench-press" to 80.0),
+            prescriptions = prescription,
+            sets = (6 downTo 1).flatMap { completed(day = it) },
+            pauseIncrements = true
+        )
+
+        assertEquals(80.0, result.getValue("bench-press"))
+    }
+
+    @Test
     fun omitsExercisesWithoutABaseline() {
         val result = useCase(
             baseline = emptyMap(),

@@ -373,6 +373,60 @@ class ObserveWorkoutPlanInputsUseCaseTest {
     }
 
     @Test
+    fun pausesProgressionWhenTheLatestAcceptedPlanIsADeloadWeek() = runTest {
+        val accepted = AcceptedPlan(
+            engine = PlannerEngineId.DETERMINISTIC,
+            acceptedAtMillis = 1L,
+            weekNumber = 4,
+            days = listOf(
+                AcceptedDay(
+                    dayIndex = 0,
+                    focus = SplitFocus.PUSH,
+                    exercises = listOf(
+                        AcceptedExercise(
+                            exerciseId = "bench-press",
+                            sets = 3,
+                            reps = 8,
+                            name = "Bench Press",
+                            movementPattern = MovementPattern.HORIZONTAL_PUSH,
+                            suggestedWeightKg = 100.0
+                        )
+                    )
+                )
+            )
+        )
+        val completedDays = (3 downTo 1).flatMap { day ->
+            List(3) {
+                WorkoutSet(
+                    exerciseId = "bench-press",
+                    reps = 8,
+                    weightKg = 100.0,
+                    performedAtMillis = day.toLong() * 24L * 60L * 60L * 1000L
+                )
+            }
+        }
+        val useCase = ObserveWorkoutPlanInputsUseCase(
+            sources = FakeWorkoutPlanSourcesRepository(
+                WorkoutPlanSources(
+                    availableEquipment = setOf(EquipmentTag.BARBELL),
+                    selectedEngine = PlannerEngineId.DETERMINISTIC,
+                    daysPerWeek = 3,
+                    loggedSets = emptyList(),
+                    loggedWorkoutSets = completedDays
+                )
+            ),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { 0L },
+            planHistoryRepository = FakePlanHistoryRepository(accepted)
+        )
+
+        val request = useCase().first().request
+
+        // No +2.5 increment during the deload week: baseline 1RM 126.667 unchanged.
+        assertEquals(126.66666666666666, request.suggestedWeightsKg["bench-press"])
+    }
+
+    @Test
     fun defaultsAccessorySetsFromTheGoalAndOverridesWithThePicker() = runTest {
         val useCase = ObserveWorkoutPlanInputsUseCase(
             sources = FakeWorkoutPlanSourcesRepository(

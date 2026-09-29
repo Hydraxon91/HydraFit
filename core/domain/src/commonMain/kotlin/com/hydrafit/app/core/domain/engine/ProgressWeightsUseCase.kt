@@ -10,14 +10,20 @@ data class Prescription(val exerciseId: String, val sets: Int, val reps: Int, va
  * earns increments, a streak of missed sessions gives them back, and the result never drops below
  * the baseline. Sessions are judged per calendar day against the accepted plan's prescription, so
  * only weighted work counts — a bodyweight or blank-weight day is ignored, not counted as a miss.
+ *
+ * Increments are paused while the latest accepted plan is a deload week, so intentionally light
+ * deload targets do not earn a progression bump.
  */
 class ProgressWeightsUseCase(private val config: ProgressionConfig = ProgressionConfig()) {
 
     operator fun invoke(
         baseline: Map<String, Double>,
         prescriptions: Map<String, Prescription>,
-        sets: List<WorkoutSet>
+        sets: List<WorkoutSet>,
+        pauseIncrements: Boolean = false
     ): Map<String, Double> {
+        if (pauseIncrements) return baseline
+
         val byExercise = sets
             .filter { !it.isWarmup && (it.weightKg ?: 0.0) > 0.0 }
             .groupBy { it.exerciseId }

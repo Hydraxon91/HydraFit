@@ -56,7 +56,10 @@ class ObserveWorkoutPlanInputsUseCase(
                 suggestedWeightsKg = progressWeights(
                     baseline = suggestWeights(current.loggedWorkoutSets),
                     prescriptions = prescriptionsFrom(latestPlan),
-                    sets = current.loggedWorkoutSets
+                    sets = current.loggedWorkoutSets,
+                    pauseIncrements = latestPlan?.let {
+                        periodization.isDeload(it.weekNumber)
+                    } ?: false
                 ),
                 includeWorkoutData = current.workoutDataSharingEnabled,
                 recentWeights = if (current.workoutDataSharingEnabled) {
