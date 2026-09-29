@@ -24,6 +24,8 @@ class AcceptWeeklyPlanUseCaseTest {
         useCase(
             WeeklyPlan(
                 engine = PlannerEngineId.GEMINI_API,
+                weekNumber = 3,
+                cycleNumber = 2,
                 days = listOf(
                     WorkoutDay(
                         dayIndex = 0,
@@ -44,6 +46,8 @@ class AcceptWeeklyPlanUseCaseTest {
         val accepted = requireNotNull(repository.stored)
         assertEquals(PlannerEngineId.GEMINI_API, accepted.engine)
         assertEquals(42L, accepted.acceptedAtMillis)
+        assertEquals(3, accepted.weekNumber)
+        assertEquals(2, accepted.cycleNumber)
         val exercise = accepted.days.single().exercises.single()
         assertEquals("bench-press", exercise.exerciseId)
         assertEquals("Bench Press", exercise.name)

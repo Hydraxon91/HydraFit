@@ -19,6 +19,8 @@ class AcceptWeeklyPlanUseCase(
             AcceptedPlan(
                 engine = plan.engine,
                 acceptedAtMillis = timeProvider.nowMillis(),
+                weekNumber = plan.weekNumber,
+                cycleNumber = plan.cycleNumber,
                 days = plan.days.map { day ->
                     AcceptedDay(
                         dayIndex = day.dayIndex,

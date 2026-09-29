@@ -16,7 +16,8 @@ class ObserveWorkoutPlanInputsUseCase(
     private val planHistoryRepository: PlanHistoryRepository,
     private val suggestWeights: SuggestWeightsUseCase = SuggestWeightsUseCase(),
     private val buildRecentWeights: BuildRecentWeightsUseCase = BuildRecentWeightsUseCase(),
-    private val progressWeights: ProgressWeightsUseCase = ProgressWeightsUseCase()
+    private val progressWeights: ProgressWeightsUseCase = ProgressWeightsUseCase(),
+    private val periodization: PeriodizationConfig = PeriodizationConfig()
 ) {
     operator fun invoke(
         setsPerExercise: Flow<Int?> = flowOf(null),
@@ -30,6 +31,7 @@ class ObserveWorkoutPlanInputsUseCase(
     ) { current, sets, accessorySets, _ ->
         val nowMillis = timeProvider.nowMillis()
         val latestPlan = planHistoryRepository.latest()
+        val (weekNumber, cycleNumber) = nextPeriodization(latestPlan)
         // Accessory slots are exempt from week-over-week rotation: only compound patterns rotate.
         val recentExerciseIdsByPattern = latestPlan
             ?.days
@@ -61,10 +63,20 @@ class ObserveWorkoutPlanInputsUseCase(
                     buildRecentWeights(current.loggedWorkoutSets)
                 } else {
                     emptyList()
-                }
+                },
+                weekNumber = weekNumber,
+                cycleNumber = cycleNumber
             ),
             requestedEngine = current.selectedEngine
         )
+    }
+
+    /** The next week to generate: advances the accepted plan's week, or starts at 1/1 with none. */
+    private fun nextPeriodization(latest: AcceptedPlan?): Pair<Int, Int> {
+        if (latest == null) return 1 to 1
+        val week = periodization.nextWeek(latest.weekNumber)
+        val cycle = if (week == 1) latest.cycleNumber + 1 else latest.cycleNumber
+        return week to cycle
     }
 
     /** The weight each exercise was prescribed in the most recent accepted plan. */

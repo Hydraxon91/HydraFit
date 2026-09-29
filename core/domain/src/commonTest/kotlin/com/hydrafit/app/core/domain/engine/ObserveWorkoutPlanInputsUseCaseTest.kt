@@ -49,6 +49,86 @@ class ObserveWorkoutPlanInputsUseCaseTest {
     }
 
     @Test
+    fun startsAtWeekOneWithoutAnAcceptedPlan() = runTest {
+        val useCase = ObserveWorkoutPlanInputsUseCase(
+            sources = FakeWorkoutPlanSourcesRepository(
+                WorkoutPlanSources(
+                    availableEquipment = setOf(EquipmentTag.BARBELL),
+                    selectedEngine = PlannerEngineId.DETERMINISTIC,
+                    daysPerWeek = 3,
+                    loggedSets = emptyList()
+                )
+            ),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { 0L },
+            planHistoryRepository = FakePlanHistoryRepository()
+        )
+
+        val request = useCase().first().request
+
+        assertEquals(1, request.weekNumber)
+        assertEquals(1, request.cycleNumber)
+    }
+
+    @Test
+    fun advancesTheWeekAfterAnAcceptedPlan() = runTest {
+        val accepted = AcceptedPlan(
+            engine = PlannerEngineId.DETERMINISTIC,
+            acceptedAtMillis = 1L,
+            weekNumber = 2,
+            cycleNumber = 1,
+            days = emptyList()
+        )
+        val useCase = ObserveWorkoutPlanInputsUseCase(
+            sources = FakeWorkoutPlanSourcesRepository(
+                WorkoutPlanSources(
+                    availableEquipment = setOf(EquipmentTag.BARBELL),
+                    selectedEngine = PlannerEngineId.DETERMINISTIC,
+                    daysPerWeek = 3,
+                    loggedSets = emptyList()
+                )
+            ),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { 0L },
+            planHistoryRepository = FakePlanHistoryRepository(accepted)
+        )
+
+        val request = useCase().first().request
+
+        assertEquals(3, request.weekNumber)
+        assertEquals(1, request.cycleNumber)
+    }
+
+    @Test
+    fun wrapsToTheNextCycleAfterTheDeloadWeek() = runTest {
+        val accepted = AcceptedPlan(
+            engine = PlannerEngineId.DETERMINISTIC,
+            acceptedAtMillis = 1L,
+            weekNumber = 4,
+            cycleNumber = 1,
+            days = emptyList()
+        )
+        val useCase = ObserveWorkoutPlanInputsUseCase(
+            sources = FakeWorkoutPlanSourcesRepository(
+                WorkoutPlanSources(
+                    availableEquipment = setOf(EquipmentTag.BARBELL),
+                    selectedEngine = PlannerEngineId.DETERMINISTIC,
+                    daysPerWeek = 3,
+                    loggedSets = emptyList()
+                )
+            ),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { 0L },
+            planHistoryRepository = FakePlanHistoryRepository(accepted)
+        )
+
+        val request = useCase().first().request
+
+        assertEquals(1, request.weekNumber)
+        assertEquals(2, request.cycleNumber)
+    }
+
+    @Test
     fun manualSetCountOverridesTheGoalDefault() = runTest {
         val sources = FakeWorkoutPlanSourcesRepository(
             WorkoutPlanSources(
