@@ -15,5 +15,6 @@
     <string name="focus_full_body">Full body</string>
     <string name="logger_recent">Recent sets</string>
     <string name="logger_warmup_suffix">(warm-up)</string>
+    <string name="logger_delete_set">Delete</string>
     <string name="logger_weight_none">-</string>
 </resources>

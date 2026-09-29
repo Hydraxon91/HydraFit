@@ -17,6 +17,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -36,6 +37,7 @@ import hydrafit.feature.logger.generated.resources.focus_lower
 import hydrafit.feature.logger.generated.resources.focus_pull
 import hydrafit.feature.logger.generated.resources.focus_push
 import hydrafit.feature.logger.generated.resources.focus_upper
+import hydrafit.feature.logger.generated.resources.logger_delete_set
 import hydrafit.feature.logger.generated.resources.logger_log_button
 import hydrafit.feature.logger.generated.resources.logger_recent
 import hydrafit.feature.logger.generated.resources.logger_reps_label
@@ -75,6 +77,7 @@ fun WorkoutLoggerRoute(
         onWeightChanged = viewModel::onWeightChanged,
         onWarmupToggled = viewModel::onWarmupToggled,
         onLog = viewModel::log,
+        onDeleteSet = viewModel::deleteSet,
         modifier = modifier
     )
 }
@@ -87,6 +90,7 @@ fun WorkoutLoggerScreen(
     onWeightChanged: (String) -> Unit,
     onWarmupToggled: (Boolean) -> Unit,
     onLog: () -> Unit,
+    onDeleteSet: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // One scroll container for the whole screen: a fixed-height picker inside a non-scrolling
@@ -180,15 +184,26 @@ fun WorkoutLoggerScreen(
             )
         }
         items(state.recentSets) { row ->
+            val unit = state.weightUnit
             val weight = row.weightKg
-                ?.let { formatWeight(state.weightUnit.kilogramsToDisplay(it)) }
+                ?.let { kg ->
+                    formatWeight(unit.kilogramsToDisplay(kg)) + " " + unit.label
+                }
                 ?: stringResource(Res.string.logger_weight_none)
             val warmupSuffix = if (row.isWarmup) {
                 " " + stringResource(Res.string.logger_warmup_suffix)
             } else {
                 ""
             }
-            Text(text = "${row.exerciseName}  ${row.reps} x $weight$warmupSuffix")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "${row.exerciseName}  ${row.reps} x $weight$warmupSuffix",
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = { onDeleteSet(row.id) }) {
+                    Text(stringResource(Res.string.logger_delete_set))
+                }
+            }
         }
     }
 }

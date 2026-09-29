@@ -6,6 +6,7 @@ import com.hydrafit.app.core.domain.unit.WeightUnit
 data class ExerciseOption(val id: String, val name: String)
 
 data class LoggedSetRow(
+    val id: Long,
     val exerciseName: String,
     val reps: Int,
     val weightKg: Double?,

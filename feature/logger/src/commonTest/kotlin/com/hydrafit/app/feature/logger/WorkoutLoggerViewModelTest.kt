@@ -15,6 +15,7 @@ import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
@@ -220,6 +221,36 @@ class WorkoutLoggerViewModelTest {
         assertEquals("Bench Press", viewModel.state.value.exercises.first().name)
     }
 
+    @Test
+    fun deletesALoggedSet() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = 5,
+                    weightKg = 100.0,
+                    performedAtMillis = 1L
+                ),
+                WorkoutSet(
+                    id = 2L,
+                    exerciseId = "bench-press",
+                    reps = 8,
+                    weightKg = 60.0,
+                    performedAtMillis = 2L
+                )
+            )
+        )
+        val viewModel = viewModel(repository = repository)
+        advanceUntilIdle()
+        assertEquals(2, viewModel.state.value.recentSets.size)
+
+        viewModel.deleteSet(1L)
+        advanceUntilIdle()
+
+        assertEquals(listOf(2L), viewModel.state.value.recentSets.map { it.id })
+    }
+
     private fun viewModel(
         repository: WorkoutLogRepository = FakeWorkoutLogRepository(),
         timeMillis: Long = 1_000L,
@@ -230,6 +261,7 @@ class WorkoutLoggerViewModelTest {
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logWorkoutSet = LogWorkoutSetUseCase(repository),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
+        deleteWorkoutSet = DeleteWorkoutSetUseCase(repository),
         observeAcceptedPlan = ObserveAcceptedPlanUseCase(history),
         exerciseCatalog = catalog,
         timeProvider = TimeProvider { timeMillis },

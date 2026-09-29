@@ -11,6 +11,7 @@ import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.dayOfWeek
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
+import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutSet
@@ -25,6 +26,7 @@ import kotlinx.coroutines.launch
 class WorkoutLoggerViewModel(
     private val logWorkoutSet: LogWorkoutSetUseCase,
     private val getWorkoutLog: GetWorkoutLogUseCase,
+    private val deleteWorkoutSet: DeleteWorkoutSetUseCase,
     private val observeAcceptedPlan: ObserveAcceptedPlanUseCase,
     private val exerciseCatalog: ExerciseCatalog,
     private val timeProvider: TimeProvider,
@@ -82,6 +84,13 @@ class WorkoutLoggerViewModel(
 
     fun onWarmupToggled(isWarmup: Boolean) {
         _state.update { it.copy(isWarmup = isWarmup) }
+    }
+
+    fun deleteSet(id: Long) {
+        viewModelScope.launch {
+            deleteWorkoutSet(id)
+            refreshRecentSets()
+        }
     }
 
     fun log() {
@@ -156,6 +165,7 @@ class WorkoutLoggerViewModel(
             .sortedByDescending { it.performedAtMillis }
             .map { set ->
                 LoggedSetRow(
+                    id = set.id,
                     exerciseName = exerciseNames[set.exerciseId] ?: set.exerciseId,
                     reps = set.reps,
                     weightKg = set.weightKg,
