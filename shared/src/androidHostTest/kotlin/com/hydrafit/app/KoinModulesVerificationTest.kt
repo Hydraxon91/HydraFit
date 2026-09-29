@@ -2,6 +2,11 @@ package com.hydrafit.app
 
 import com.hydrafit.app.core.database.DatabaseDriverFactory
 import com.hydrafit.app.core.database.databaseModule
+import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
+import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
+import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
+import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.llm.NoopOnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDevicePlannerLogger
@@ -15,7 +20,12 @@ import com.hydrafit.app.feature.logger.loggerModule
 import com.hydrafit.app.feature.settings.settingsModule
 import com.hydrafit.app.feature.splitbuilder.splitBuilderModule
 import kotlin.test.Test
+import kotlin.test.assertNotNull
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOf
 import org.koin.core.annotation.KoinExperimentalAPI
+import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 import org.koin.test.verify.verify
 
@@ -53,6 +63,32 @@ class KoinModulesVerificationTest {
         )
     }
 
+    /**
+     * `verify()` does not reflect the constructor of lambda/`singleOf` definitions, so a missing
+     * collaborator (e.g. `ProgressWeightsUseCase`) can slip through and only crash on device. Boot a
+     * real container over the domain graph (with fakes for the database-backed repositories) and
+     * resolve the plan-inputs use case, which is where the app previously crashed.
+     */
+    @Test
+    fun thePlanInputsGraphResolvesAtRuntime() {
+        val koin = koinApplication {
+            modules(
+                module {
+                    single<WorkoutPlanSourcesRepository> { FakeWorkoutPlanSourcesRepository }
+                    single<PlanHistoryRepository> { FakePlanHistoryRepository }
+                },
+                domainModule,
+                testPlatformModule
+            )
+        }.koin
+
+        try {
+            assertNotNull(koin.get<ObserveWorkoutPlanInputsUseCase>())
+        } finally {
+            koin.close()
+        }
+    }
+
     private object FakeApiKeyStore : ApiKeyStore {
         override fun load(): String? = "test-key"
 
@@ -66,5 +102,21 @@ class KoinModulesVerificationTest {
 
         override fun generate(prompt: String, jsonSchema: String?): String =
             error("Not used by graph verification")
+    }
+
+    private object FakeWorkoutPlanSourcesRepository : WorkoutPlanSourcesRepository {
+        override fun observe(): Flow<WorkoutPlanSources> = emptyFlow()
+    }
+
+    private object FakePlanHistoryRepository : PlanHistoryRepository {
+        override fun observeLatest(): Flow<AcceptedPlan?> = flowOf(null)
+
+        override fun observeHistory(): Flow<List<AcceptedPlan>> = flowOf(emptyList())
+
+        override suspend fun latest(): AcceptedPlan? = null
+
+        override suspend fun accept(plan: AcceptedPlan) = Unit
+
+        override suspend fun clear() = Unit
     }
 }
