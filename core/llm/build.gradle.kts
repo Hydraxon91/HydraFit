@@ -23,6 +23,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core:domain"))
+            implementation(project(":core:userdata"))
         }
         androidMain.dependencies {
             implementation(libs.litertlm.android)

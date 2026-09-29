@@ -9,6 +9,12 @@ package com.hydrafit.app.core.userdata.llm
 interface OnDeviceModelManager {
     fun isInstalled(): Boolean
 
+    /**
+     * The hardware the installed model was built for, so the UI can show what is loaded and the
+     * engine can order its backends. Defaults to [OnDeviceModelTarget.CPU_GPU] when unknown.
+     */
+    fun modelTarget(): OnDeviceModelTarget = OnDeviceModelTarget.CPU_GPU
+
     fun installFrom(source: String): ModelUpdateResult
 
     fun remove(): ModelUpdateResult

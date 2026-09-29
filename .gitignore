@@ -38,3 +38,6 @@ google-services.json
 # On-device LLM models (large binaries, provided locally)
 *.task
 *.litertlm
+
+# Qualcomm QNN/AI-Runtime libraries for NPU acceleration (vendor binaries, provided locally)
+core/llm/src/androidMain/jniLibs/

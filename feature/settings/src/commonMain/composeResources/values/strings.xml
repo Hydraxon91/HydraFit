@@ -24,6 +24,8 @@
     <string name="settings_model_import">Import model</string>
     <string name="settings_model_remove">Remove model</string>
     <string name="settings_model_installed">Model installed.</string>
+    <string name="settings_model_target_npu">NPU build (hardware accelerated)</string>
+    <string name="settings_model_target_cpu_gpu">CPU/GPU build</string>
     <string name="settings_model_action_failed">Couldn’t update the on-device model. Please try again.</string>
     <string name="settings_model_error_storage">Not enough free storage to import the model. Remove the current model or free up space, then try again.</string>
     <string name="settings_model_error_unreadable">Couldn’t read the selected model file. It may be empty or corrupt — download it again and retry.</string>

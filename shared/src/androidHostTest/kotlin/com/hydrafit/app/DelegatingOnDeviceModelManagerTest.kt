@@ -3,6 +3,7 @@ package com.hydrafit.app
 import com.hydrafit.app.core.llm.InsufficientStorageException
 import com.hydrafit.app.core.llm.ModelSourceUnreadableException
 import com.hydrafit.app.core.userdata.llm.ModelUpdateResult
+import com.hydrafit.app.core.userdata.llm.OnDeviceModelTarget
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -19,6 +20,7 @@ class DelegatingOnDeviceModelManagerTest {
         var received: String? = null
         val manager = DelegatingOnDeviceModelManager(
             installedCheck = { false },
+            targetCheck = { OnDeviceModelTarget.CPU_GPU },
             onInstall = { source -> received = source },
             onRemove = {}
         )
@@ -31,6 +33,7 @@ class DelegatingOnDeviceModelManagerTest {
     fun mapsInsufficientStorageFailures() {
         val manager = DelegatingOnDeviceModelManager(
             installedCheck = { false },
+            targetCheck = { OnDeviceModelTarget.CPU_GPU },
             onInstall = { throw InsufficientStorageException("full") },
             onRemove = {}
         )
@@ -42,6 +45,7 @@ class DelegatingOnDeviceModelManagerTest {
     fun mapsUnreadableSourceFailures() {
         val manager = DelegatingOnDeviceModelManager(
             installedCheck = { false },
+            targetCheck = { OnDeviceModelTarget.CPU_GPU },
             onInstall = { throw ModelSourceUnreadableException("gone") },
             onRemove = {}
         )
@@ -50,9 +54,22 @@ class DelegatingOnDeviceModelManagerTest {
     }
 
     @Test
+    fun forwardsTheModelTarget() {
+        val manager = DelegatingOnDeviceModelManager(
+            installedCheck = { true },
+            targetCheck = { OnDeviceModelTarget.NPU },
+            onInstall = {},
+            onRemove = {}
+        )
+
+        assertEquals(OnDeviceModelTarget.NPU, manager.modelTarget())
+    }
+
+    @Test
     fun mapsUnknownFailures() {
         val manager = DelegatingOnDeviceModelManager(
             installedCheck = { true },
+            targetCheck = { OnDeviceModelTarget.CPU_GPU },
             onInstall = {},
             onRemove = { error("delete failed") }
         )
@@ -62,6 +79,7 @@ class DelegatingOnDeviceModelManagerTest {
 
     private fun manager(installed: Boolean) = DelegatingOnDeviceModelManager(
         installedCheck = { installed },
+        targetCheck = { OnDeviceModelTarget.CPU_GPU },
         onInstall = {},
         onRemove = {}
     )

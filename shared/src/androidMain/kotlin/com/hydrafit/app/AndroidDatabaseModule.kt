@@ -30,6 +30,7 @@ fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = modu
         val manager = get<AndroidOnDeviceModelManager>()
         DelegatingOnDeviceModelManager(
             installedCheck = manager::isInstalled,
+            targetCheck = manager::modelTarget,
             onInstall = { source -> manager.importFromUri(Uri.parse(source)) },
             onRemove = manager::remove
         )

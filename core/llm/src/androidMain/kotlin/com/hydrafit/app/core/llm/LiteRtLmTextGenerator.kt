@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.llm
 
 import android.content.Context
+import android.system.Os
 import android.util.Log
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
@@ -12,6 +13,7 @@ import com.google.ai.edge.litertlm.LogSeverity
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.ResponseFormat
 import com.google.ai.edge.litertlm.SamplerConfig
+import com.hydrafit.app.core.userdata.llm.OnDeviceModelTarget
 import java.io.File
 
 /**
@@ -80,19 +82,62 @@ class LiteRtLmTextGenerator(
         return created
     }
 
+    /**
+     * Tries the backends best suited to the installed model in order and returns the first engine
+     * that initializes. NPU packs prefer NPU then GPU then CPU; the portable pack skips NPU (it has
+     * no NPU graphs). This matters because NPU initialization can still fail on a target SoC when
+     * the bundled runtime is mismatched, so a graceful chain keeps the engine usable.
+     */
     private fun createEngine(key: EngineKey): Engine {
         Engine.setNativeMinLogSeverity(LogSeverity.VERBOSE)
-        Log.i(TAG, "Initializing on-device engine (model ${key.size} bytes, backend CPU)")
+        var lastFailure: Throwable? = null
+        for (backend in backendChain(modelManager.modelTarget())) {
+            try {
+                return initializeEngine(key, backend)
+            } catch (failure: Throwable) {
+                lastFailure = failure
+                Log.w(TAG, "Backend ${backend.name} failed to initialize", failure)
+            }
+        }
+        throw lastFailure ?: IllegalStateException("No LiteRT-LM backend could be initialized")
+    }
+
+    private fun initializeEngine(key: EngineKey, backend: Backend): Engine {
+        Log.i(TAG, "Initializing on-device engine (model ${key.size} bytes, ${backend.name})")
+        if (backend is Backend.NPU) configureNpuLibraryPath()
         val created = Engine(
             EngineConfig(
                 modelPath = key.path,
-                backend = Backend.CPU(),
+                backend = backend,
                 cacheDir = context.cacheDir.path
             )
         )
-        created.initialize()
-        Log.i(TAG, "On-device engine initialized")
+        try {
+            created.initialize()
+        } catch (failure: Throwable) {
+            runCatching { created.close() }
+            throw failure
+        }
+        Log.i(TAG, "On-device engine initialized on ${backend.name}")
         return created
+    }
+
+    /** Resolves the Qualcomm NPU runtime libraries bundled in the app's native library directory. */
+    private fun configureNpuLibraryPath() {
+        val nativeLibraryDir = context.applicationInfo.nativeLibraryDir
+        runCatching {
+            Os.setenv("LD_LIBRARY_PATH", nativeLibraryDir, true)
+            Os.setenv("ADSP_LIBRARY_PATH", nativeLibraryDir, true)
+        }.onFailure { Log.w(TAG, "Could not set the NPU library path", it) }
+    }
+
+    private fun backendChain(target: OnDeviceModelTarget): List<Backend> = when (target) {
+        OnDeviceModelTarget.NPU -> listOf(
+            Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir),
+            Backend.GPU(),
+            Backend.CPU()
+        )
+        OnDeviceModelTarget.CPU_GPU -> listOf(Backend.GPU(), Backend.CPU())
     }
 
     private fun conversationConfig(): ConversationConfig = ConversationConfig(

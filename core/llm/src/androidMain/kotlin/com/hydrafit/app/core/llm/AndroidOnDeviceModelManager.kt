@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
+import com.hydrafit.app.core.userdata.llm.OnDeviceModelTarget
 import java.io.File
 import java.io.IOException
 
@@ -11,13 +12,20 @@ class AndroidOnDeviceModelManager(private val context: Context) {
 
     private val modelFile = File(context.filesDir, MODEL_FILE_NAME)
     private val tempFile = File(context.filesDir, "$MODEL_FILE_NAME.tmp")
+    private val targetFile = File(context.filesDir, MODEL_TARGET_FILE_NAME)
 
     fun isInstalled(): Boolean = modelFile.exists() && modelFile.length() > 0
+
+    /** The hardware the installed model was built for; defaults to the portable pack. */
+    fun modelTarget(): OnDeviceModelTarget = runCatching {
+        targetFile.readText().trim().let { name -> OnDeviceModelTarget.valueOf(name) }
+    }.getOrDefault(OnDeviceModelTarget.CPU_GPU)
 
     fun remove() {
         runLogged("remove") {
             modelFile.delete()
             tempFile.delete()
+            targetFile.delete()
         }
     }
 
@@ -39,11 +47,12 @@ class AndroidOnDeviceModelManager(private val context: Context) {
             )
         }
 
+        val modelTarget = OnDeviceModelTargetClassifier.classify(queryDisplayName(uri))
         val input = openInput(uri)
         tempFile.delete()
         input.use { source ->
             try {
-                tempFile.outputStream().use { target -> source.copyTo(target) }
+                tempFile.outputStream().use { sink -> source.copyTo(sink) }
             } catch (failure: IOException) {
                 tempFile.delete()
                 throw failure.toImportFailure()
@@ -59,6 +68,14 @@ class AndroidOnDeviceModelManager(private val context: Context) {
             tempFile.delete()
             throw IOException("Could not store the imported model")
         }
+        writeTarget(modelTarget)
+    }
+
+    private fun writeTarget(target: OnDeviceModelTarget) {
+        // A failure to persist the target only means the engine prefers the portable pack; the
+        // model itself is still usable, so this must not fail the import.
+        runCatching { targetFile.writeText(target.name) }
+            .onFailure { Log.w(TAG, "Could not persist the model target", it) }
     }
 
     fun modelPath(): String = modelFile.absolutePath
@@ -96,6 +113,12 @@ class AndroidOnDeviceModelManager(private val context: Context) {
             ?.use { cursor -> if (cursor.moveToFirst()) cursor.getLong(0) else null }
     }.getOrNull()
 
+    private fun queryDisplayName(uri: Uri): String? = runCatching {
+        context.contentResolver
+            .query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+    }.getOrNull()
+
     private fun IOException.toImportFailure(): Exception = when {
         message?.contains("ENOSPC", ignoreCase = true) == true ||
             message?.contains("No space left", ignoreCase = true) == true ->
@@ -106,6 +129,7 @@ class AndroidOnDeviceModelManager(private val context: Context) {
 
     companion object {
         const val MODEL_FILE_NAME = "on_device_llm.litertlm"
+        const val MODEL_TARGET_FILE_NAME = "on_device_llm.target"
         private const val TAG = "OnDeviceModel"
     }
 }

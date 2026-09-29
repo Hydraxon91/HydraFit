@@ -11,6 +11,19 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
+        <!-- GPU (OpenCL) and Qualcomm NPU runtimes used by the on-device LLM engine. Optional so
+             the app still installs and runs on CPU-only devices. -->
+        <uses-native-library
+            android:name="libvndksupport.so"
+            android:required="false" />
+        <uses-native-library
+            android:name="libOpenCL.so"
+            android:required="false" />
+        <uses-native-library
+            android:name="libcdsprpc.so"
+            android:required="false" />
+
         <activity
             android:exported="true"
             android:name=".MainActivity">

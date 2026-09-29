@@ -4,6 +4,7 @@ import com.hydrafit.app.core.llm.InsufficientStorageException
 import com.hydrafit.app.core.llm.ModelSourceUnreadableException
 import com.hydrafit.app.core.userdata.llm.ModelUpdateResult
 import com.hydrafit.app.core.userdata.llm.OnDeviceModelManager
+import com.hydrafit.app.core.userdata.llm.OnDeviceModelTarget
 
 /**
  * Adapts a platform model manager (constructed in platform DI) to the neutral
@@ -11,11 +12,14 @@ import com.hydrafit.app.core.userdata.llm.OnDeviceModelManager
  */
 class DelegatingOnDeviceModelManager(
     private val installedCheck: () -> Boolean,
+    private val targetCheck: () -> OnDeviceModelTarget,
     private val onInstall: (String) -> Unit,
     private val onRemove: () -> Unit
 ) : OnDeviceModelManager {
 
     override fun isInstalled(): Boolean = installedCheck()
+
+    override fun modelTarget(): OnDeviceModelTarget = targetCheck()
 
     override fun installFrom(source: String): ModelUpdateResult =
         runCatching { onInstall(source) }.toUpdateResult()

@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.hydrafit.app.core.userdata.llm.ModelUpdateResult
 import com.hydrafit.app.core.userdata.llm.OnDeviceModelManager
+import com.hydrafit.app.core.userdata.llm.OnDeviceModelTarget
 import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.settings_local_llm_unavailable
 import hydrafit.feature.settings.generated.resources.settings_model_action_failed
@@ -33,6 +34,8 @@ import hydrafit.feature.settings.generated.resources.settings_model_import
 import hydrafit.feature.settings.generated.resources.settings_model_installed
 import hydrafit.feature.settings.generated.resources.settings_model_remove
 import hydrafit.feature.settings.generated.resources.settings_model_section
+import hydrafit.feature.settings.generated.resources.settings_model_target_cpu_gpu
+import hydrafit.feature.settings.generated.resources.settings_model_target_npu
 import hydrafit.feature.settings.generated.resources.settings_model_terms
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -51,11 +54,13 @@ actual fun OnDeviceModelSection(
     val manager = koinInject<OnDeviceModelManager>()
     val scope = rememberCoroutineScope()
     var failure by remember { mutableStateOf<ModelUpdateResult?>(null) }
+    var target by remember { mutableStateOf(manager.modelTarget()) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             scope.launch {
                 failure = withContext(Dispatchers.IO) { manager.installFrom(uri.toString()) }
                     .takeIf { it != ModelUpdateResult.SUCCESS }
+                target = manager.modelTarget()
                 onModelChanged()
             }
         }
@@ -68,7 +73,8 @@ actual fun OnDeviceModelSection(
         )
         Text(
             text = if (installed) {
-                stringResource(Res.string.settings_model_installed)
+                stringResource(Res.string.settings_model_installed) + " " +
+                    stringResource(target.messageResource())
             } else {
                 stringResource(Res.string.settings_local_llm_unavailable)
             },
@@ -80,6 +86,7 @@ actual fun OnDeviceModelSection(
                     scope.launch {
                         failure = withContext(Dispatchers.IO) { manager.remove() }
                             .takeIf { it != ModelUpdateResult.SUCCESS }
+                        target = manager.modelTarget()
                         onModelChanged()
                     }
                 }) {
@@ -111,6 +118,11 @@ private fun ModelUpdateResult.messageResource(): StringResource = when (this) {
     ModelUpdateResult.INSUFFICIENT_STORAGE -> Res.string.settings_model_error_storage
     ModelUpdateResult.UNREADABLE_SOURCE -> Res.string.settings_model_error_unreadable
     else -> Res.string.settings_model_action_failed
+}
+
+private fun OnDeviceModelTarget.messageResource(): StringResource = when (this) {
+    OnDeviceModelTarget.NPU -> Res.string.settings_model_target_npu
+    OnDeviceModelTarget.CPU_GPU -> Res.string.settings_model_target_cpu_gpu
 }
 
 private fun Context.openGemmaTerms() {
