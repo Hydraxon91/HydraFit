@@ -83,6 +83,8 @@ class FatigueHeatmapViewModelTest {
 
         override suspend fun all(): List<WorkoutSet> = emptyList()
 
+        override fun setsFlow(): Flow<List<WorkoutSet>> = flowOf(emptyList())
+
         override suspend fun loggedSets(): List<LoggedSet> = sets
 
         override fun loggedSetsFlow(): Flow<List<LoggedSet>> = flowOf(sets)

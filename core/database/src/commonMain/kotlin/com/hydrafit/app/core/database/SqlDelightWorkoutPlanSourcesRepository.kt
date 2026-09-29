@@ -17,19 +17,24 @@ class SqlDelightWorkoutPlanSourcesRepository(
     private val trainingGoalRepository: TrainingGoalRepository
 ) : WorkoutPlanSourcesRepository {
 
-    override fun observe(): Flow<WorkoutPlanSources> = combine(
-        equipmentSelectionRepository.selectedFlow(),
-        enginePreferenceRepository.engineFlow(),
-        enginePreferenceRepository.daysPerWeekFlow(),
-        trainingGoalRepository.goalFlow(),
-        workoutLogRepository.loggedSetsFlow()
-    ) { equipment, engine, daysPerWeek, goal, loggedSets ->
-        WorkoutPlanSources(
-            availableEquipment = equipment,
-            selectedEngine = engine,
-            daysPerWeek = daysPerWeek,
-            loggedSets = loggedSets,
-            goal = goal
-        )
-    }.distinctUntilChanged()
+    override fun observe(): Flow<WorkoutPlanSources> {
+        val loggedSets = workoutLogRepository.loggedSetsFlow()
+        val loggedWorkoutSets = workoutLogRepository.setsFlow()
+        return combine(
+            equipmentSelectionRepository.selectedFlow(),
+            enginePreferenceRepository.engineFlow(),
+            enginePreferenceRepository.daysPerWeekFlow(),
+            trainingGoalRepository.goalFlow(),
+            combine(loggedSets, loggedWorkoutSets) { sets, workoutSets -> sets to workoutSets }
+        ) { equipment, engine, daysPerWeek, goal, logged ->
+            WorkoutPlanSources(
+                availableEquipment = equipment,
+                selectedEngine = engine,
+                daysPerWeek = daysPerWeek,
+                loggedSets = logged.first,
+                goal = goal,
+                loggedWorkoutSets = logged.second
+            )
+        }.distinctUntilChanged()
+    }
 }

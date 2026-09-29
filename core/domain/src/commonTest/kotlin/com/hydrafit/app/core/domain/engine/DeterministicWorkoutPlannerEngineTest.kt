@@ -388,6 +388,25 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun copiesSuggestedWeightsFromTheRequest() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                split = SplitType.PUSH_PULL_LEGS,
+                suggestedWeightsKg = mapOf("bench-press" to 82.5)
+            ),
+            listOf(
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST),
+                exercise("push-up", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST)
+            )
+        )
+
+        val push = plan.days.first { it.focus == SplitFocus.PUSH }.exercises
+        val benchPress = push.single { it.exerciseId == "bench-press" }
+        assertEquals(82.5, benchPress.suggestedWeightKg)
+    }
+
+    @Test
     fun isDeterministicForTheSameInput() {
         val exercises = catalog()
         val request = request(
@@ -426,7 +445,8 @@ class DeterministicWorkoutPlannerEngineTest {
         split: SplitType = SplitType.AUTO,
         goal: TrainingGoal = TrainingGoal.BALANCED,
         setsPerExercise: Int = goal.defaultSets,
-        recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap()
+        recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
+        suggestedWeightsKg: Map<String, Double> = emptyMap()
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
         availableEquipment = equipment,
@@ -435,7 +455,8 @@ class DeterministicWorkoutPlannerEngineTest {
         nowMillis = 0L,
         goal = goal,
         setsPerExercise = setsPerExercise,
-        recentExerciseIdsByPattern = recentExerciseIdsByPattern
+        recentExerciseIdsByPattern = recentExerciseIdsByPattern,
+        suggestedWeightsKg = suggestedWeightsKg
     )
 
     private fun exercise(

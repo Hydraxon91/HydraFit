@@ -2,6 +2,7 @@ package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
+import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlinx.coroutines.flow.Flow
 
 data class WorkoutPlanSources(
@@ -9,7 +10,8 @@ data class WorkoutPlanSources(
     val selectedEngine: PlannerEngineId,
     val daysPerWeek: Int,
     val loggedSets: List<LoggedSet>,
-    val goal: TrainingGoal = TrainingGoal.BALANCED
+    val goal: TrainingGoal = TrainingGoal.BALANCED,
+    val loggedWorkoutSets: List<WorkoutSet> = emptyList()
 )
 
 interface WorkoutPlanSourcesRepository {

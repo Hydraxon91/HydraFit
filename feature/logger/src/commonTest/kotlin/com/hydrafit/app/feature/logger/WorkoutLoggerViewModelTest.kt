@@ -284,6 +284,8 @@ class WorkoutLoggerViewModelTest {
 
         override suspend fun all(): List<WorkoutSet> = sets.toList()
 
+        override fun setsFlow(): Flow<List<WorkoutSet>> = flowOf(sets.toList())
+
         override suspend fun loggedSets(): List<LoggedSet> = emptyList()
 
         override fun loggedSetsFlow(): Flow<List<LoggedSet>> = flowOf(emptyList())

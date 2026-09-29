@@ -8,6 +8,8 @@ interface WorkoutLogRepository {
 
     suspend fun all(): List<WorkoutSet>
 
+    fun setsFlow(): Flow<List<WorkoutSet>>
+
     suspend fun loggedSets(): List<LoggedSet>
 
     fun loggedSetsFlow(): Flow<List<LoggedSet>>

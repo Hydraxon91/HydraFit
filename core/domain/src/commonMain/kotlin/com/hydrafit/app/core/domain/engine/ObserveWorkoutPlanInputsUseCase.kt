@@ -13,7 +13,8 @@ class ObserveWorkoutPlanInputsUseCase(
     private val sources: WorkoutPlanSourcesRepository,
     private val calculateMuscleFatigue: CalculateMuscleFatigueUseCase,
     private val timeProvider: TimeProvider,
-    private val planHistoryRepository: PlanHistoryRepository
+    private val planHistoryRepository: PlanHistoryRepository,
+    private val suggestWeights: SuggestWeightsUseCase = SuggestWeightsUseCase()
 ) {
     operator fun invoke(
         setsPerExercise: Flow<Int?> = flowOf(null),
@@ -38,7 +39,8 @@ class ObserveWorkoutPlanInputsUseCase(
                 nowMillis = nowMillis,
                 goal = current.goal,
                 setsPerExercise = sets ?: current.goal.defaultSets,
-                recentExerciseIdsByPattern = recentExerciseIdsByPattern
+                recentExerciseIdsByPattern = recentExerciseIdsByPattern,
+                suggestedWeightsKg = suggestWeights(current.loggedWorkoutSets, current.goal)
             ),
             requestedEngine = current.selectedEngine
         )

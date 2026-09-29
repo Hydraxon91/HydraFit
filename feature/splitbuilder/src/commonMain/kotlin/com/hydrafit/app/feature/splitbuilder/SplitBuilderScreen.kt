@@ -47,6 +47,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_loading
 import hydrafit.feature.splitbuilder.generated.resources.split_plan_accepted
 import hydrafit.feature.splitbuilder.generated.resources.split_retry
 import hydrafit.feature.splitbuilder.generated.resources.split_sets_label
+import hydrafit.feature.splitbuilder.generated.resources.split_suggested_weight
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -190,7 +191,13 @@ fun SplitBuilderScreen(
                     )
                     day.exercises.forEach { exercise ->
                         val name = state.exerciseNames[exercise.exerciseId] ?: exercise.exerciseId
-                        Text(text = "$name  ${exercise.sets} x ${exercise.reps}")
+                        val weight = exercise.suggestedWeightKg?.let { kg ->
+                            "  ·  " + stringResource(
+                                Res.string.split_suggested_weight,
+                                formatWeightKg(kg)
+                            )
+                        }.orEmpty()
+                        Text(text = "$name  ${exercise.sets} x ${exercise.reps}$weight")
                     }
                 }
             }
@@ -212,3 +219,6 @@ private fun SplitFocus.labelResource(): StringResource = when (this) {
     SplitFocus.LOWER -> Res.string.focus_lower
     SplitFocus.FULL_BODY -> Res.string.focus_full_body
 }
+
+private fun formatWeightKg(weightKg: Double): String =
+    if (weightKg % 1.0 == 0.0) weightKg.toInt().toString() else weightKg.toString()

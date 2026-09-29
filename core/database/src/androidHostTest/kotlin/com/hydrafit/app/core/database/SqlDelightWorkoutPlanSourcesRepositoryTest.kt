@@ -63,5 +63,6 @@ class SqlDelightWorkoutPlanSourcesRepositoryTest {
         assertEquals(5, result.daysPerWeek)
         assertEquals(TrainingGoal.HYPERTROPHY, result.goal)
         assertEquals(100L, result.loggedSets.single().timestampMillis)
+        assertEquals(80.0, result.loggedWorkoutSets.single().weightKg)
     }
 }

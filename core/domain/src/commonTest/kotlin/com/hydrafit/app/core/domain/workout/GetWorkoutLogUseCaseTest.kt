@@ -30,6 +30,8 @@ class GetWorkoutLogUseCaseTest {
 
         override suspend fun all(): List<WorkoutSet> = sets
 
+        override fun setsFlow(): Flow<List<WorkoutSet>> = flowOf(sets)
+
         override suspend fun loggedSets(): List<LoggedSet> = emptyList()
 
         override fun loggedSetsFlow(): Flow<List<LoggedSet>> = flowOf(emptyList())

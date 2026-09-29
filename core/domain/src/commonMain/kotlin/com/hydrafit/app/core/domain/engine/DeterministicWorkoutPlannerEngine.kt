@@ -36,7 +36,8 @@ class DeterministicWorkoutPlannerEngine(private val catalog: ExerciseCatalog) :
                     request.muscleFatigue,
                     request.setsPerExercise,
                     request.goal,
-                    request.recentExerciseIdsByPattern
+                    request.recentExerciseIdsByPattern,
+                    request.suggestedWeightsKg
                 )
             )
         }
@@ -50,7 +51,8 @@ class DeterministicWorkoutPlannerEngine(private val catalog: ExerciseCatalog) :
         fatigue: Map<MuscleGroup, Double>,
         setsPerExercise: Int,
         goal: TrainingGoal,
-        recentExerciseIdsByPattern: Map<MovementPattern, Set<String>>
+        recentExerciseIdsByPattern: Map<MovementPattern, Set<String>>,
+        suggestedWeightsKg: Map<String, Double>
     ): List<PlannedExercise> {
         val used = mutableSetOf<String>()
         val picks = mutableListOf<PlannedExercise>()
@@ -82,7 +84,8 @@ class DeterministicWorkoutPlannerEngine(private val catalog: ExerciseCatalog) :
                     goal.compoundReps
                 } else {
                     goal.isolationReps
-                }
+                },
+                suggestedWeightKg = suggestedWeightsKg[candidate.id]
             )
         }
 

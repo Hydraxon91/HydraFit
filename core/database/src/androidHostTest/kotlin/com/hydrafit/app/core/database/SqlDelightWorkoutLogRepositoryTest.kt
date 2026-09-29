@@ -106,6 +106,16 @@ class SqlDelightWorkoutLogRepositoryTest {
     }
 
     @Test
+    fun setsFlowEmitsStoredSetsWithWeights() = runTest {
+        repository.add(set(exerciseId = "back-squat", performedAt = 1))
+
+        val emitted = repository.setsFlow().first().single()
+
+        assertEquals("back-squat", emitted.exerciseId)
+        assertEquals(50.0, emitted.weightKg)
+    }
+
+    @Test
     fun clearRemovesAllSets() = runTest {
         repository.add(set(exerciseId = "back-squat", performedAt = 1))
 

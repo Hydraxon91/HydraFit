@@ -4,6 +4,7 @@ import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -167,6 +168,37 @@ class ObserveWorkoutPlanInputsUseCaseTest {
             setOf("bench-press"),
             request.recentExerciseIdsByPattern[MovementPattern.HORIZONTAL_PUSH]
         )
+    }
+
+    @Test
+    fun suggestsWeightsFromLoggedSetsAndTheGoal() = runTest {
+        val sources = FakeWorkoutPlanSourcesRepository(
+            WorkoutPlanSources(
+                availableEquipment = setOf(EquipmentTag.BARBELL),
+                selectedEngine = PlannerEngineId.DETERMINISTIC,
+                daysPerWeek = 3,
+                loggedSets = emptyList(),
+                goal = TrainingGoal.STRENGTH,
+                loggedWorkoutSets = listOf(
+                    WorkoutSet(
+                        exerciseId = "bench-press",
+                        reps = 5,
+                        weightKg = 100.0,
+                        performedAtMillis = 1L
+                    )
+                )
+            )
+        )
+        val useCase = ObserveWorkoutPlanInputsUseCase(
+            sources = sources,
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { 0L },
+            planHistoryRepository = FakePlanHistoryRepository()
+        )
+
+        val request = useCase().first().request
+
+        assertEquals(102.5, request.suggestedWeightsKg["bench-press"])
     }
 
     private class FakeWorkoutPlanSourcesRepository(initial: WorkoutPlanSources) :

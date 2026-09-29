@@ -43,6 +43,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -519,6 +520,8 @@ class SplitBuilderViewModelTest {
         override suspend fun add(set: WorkoutSet) = Unit
 
         override suspend fun all(): List<WorkoutSet> = emptyList()
+
+        override fun setsFlow(): Flow<List<WorkoutSet>> = flowOf(emptyList())
 
         override suspend fun loggedSets(): List<LoggedSet> = loggedState.value
 
