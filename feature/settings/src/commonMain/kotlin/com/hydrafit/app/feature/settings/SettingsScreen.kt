@@ -26,6 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.navigation.FeatureDestination
 import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.nav_label
@@ -39,6 +40,11 @@ import hydrafit.feature.settings.generated.resources.settings_engine_gemini
 import hydrafit.feature.settings.generated.resources.settings_engine_local_llm
 import hydrafit.feature.settings.generated.resources.settings_engine_section
 import hydrafit.feature.settings.generated.resources.settings_gemini_unavailable
+import hydrafit.feature.settings.generated.resources.settings_goal_balanced
+import hydrafit.feature.settings.generated.resources.settings_goal_endurance
+import hydrafit.feature.settings.generated.resources.settings_goal_hypertrophy
+import hydrafit.feature.settings.generated.resources.settings_goal_section
+import hydrafit.feature.settings.generated.resources.settings_goal_strength
 import hydrafit.feature.settings.generated.resources.settings_title
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -62,6 +68,7 @@ fun SettingsRoute(modifier: Modifier = Modifier, viewModel: SettingsViewModel = 
     SettingsScreen(
         state = state,
         onEngineSelected = viewModel::onEngineSelected,
+        onGoalSelected = viewModel::onGoalSelected,
         onApiKeyChanged = viewModel::onApiKeyChanged,
         onSaveApiKey = viewModel::saveApiKey,
         onClearApiKey = viewModel::clearApiKey,
@@ -74,6 +81,7 @@ fun SettingsRoute(modifier: Modifier = Modifier, viewModel: SettingsViewModel = 
 fun SettingsScreen(
     state: SettingsUiState,
     onEngineSelected: (PlannerEngineId) -> Unit,
+    onGoalSelected: (TrainingGoal) -> Unit,
     onApiKeyChanged: (String) -> Unit,
     onSaveApiKey: () -> Unit,
     onClearApiKey: () -> Unit,
@@ -123,6 +131,28 @@ fun SettingsScreen(
             )
         }
 
+        Text(
+            text = stringResource(Res.string.settings_goal_section),
+            style = MaterialTheme.typography.titleMedium
+        )
+        TrainingGoal.entries.forEach { goal ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .selectable(
+                        selected = state.selectedGoal == goal,
+                        onClick = { onGoalSelected(goal) }
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = state.selectedGoal == goal,
+                    onClick = { onGoalSelected(goal) }
+                )
+                Text(stringResource(goal.labelResource()))
+            }
+        }
+
         OnDeviceModelSection(
             installed = state.isLocalLlmInstalled,
             onModelChanged = onModelChanged
@@ -163,4 +193,11 @@ private fun PlannerEngineId.labelResource(): StringResource = when (this) {
     PlannerEngineId.DETERMINISTIC -> Res.string.settings_engine_deterministic
     PlannerEngineId.GEMINI_API -> Res.string.settings_engine_gemini
     PlannerEngineId.LOCAL_LLM -> Res.string.settings_engine_local_llm
+}
+
+private fun TrainingGoal.labelResource(): StringResource = when (this) {
+    TrainingGoal.BALANCED -> Res.string.settings_goal_balanced
+    TrainingGoal.STRENGTH -> Res.string.settings_goal_strength
+    TrainingGoal.HYPERTROPHY -> Res.string.settings_goal_hypertrophy
+    TrainingGoal.ENDURANCE -> Res.string.settings_goal_endurance
 }

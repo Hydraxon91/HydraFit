@@ -103,7 +103,11 @@ class LocalLlmWorkoutPlannerEngine(
             appendLine(
                 "Each exercise item has \"exerciseId\", \"sets\" (always $sets) and \"reps\"."
             )
-            appendLine("Use 6 reps for compound lifts and 12 reps for isolation exercises.")
+            appendLine("Training goal: ${request.goal.name}")
+            appendLine(
+                "Use ${request.goal.compoundReps} reps for compound lifts and " +
+                    "${request.goal.isolationReps} reps for isolation exercises."
+            )
             appendLine("Split preference: ${request.splitPreference.name}")
             appendLine("Available equipment: $equipment")
             appendLine("Muscle fatigue (0.0-1.0): $fatigue")

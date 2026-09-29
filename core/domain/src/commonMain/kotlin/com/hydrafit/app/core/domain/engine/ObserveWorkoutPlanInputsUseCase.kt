@@ -15,7 +15,7 @@ class ObserveWorkoutPlanInputsUseCase(
     private val timeProvider: TimeProvider
 ) {
     operator fun invoke(
-        setsPerExercise: Flow<Int> = flowOf(DEFAULT_SETS_PER_EXERCISE),
+        setsPerExercise: Flow<Int?> = flowOf(null),
         refreshRequests: Flow<Unit> = emptyFlow()
     ): Flow<WorkoutPlanInputs> = combine(
         sources.observe().distinctUntilChanged(),
@@ -29,7 +29,8 @@ class ObserveWorkoutPlanInputsUseCase(
                 availableEquipment = current.availableEquipment,
                 muscleFatigue = calculateMuscleFatigue(current.loggedSets, nowMillis),
                 nowMillis = nowMillis,
-                setsPerExercise = sets
+                goal = current.goal,
+                setsPerExercise = sets ?: current.goal.defaultSets
             ),
             requestedEngine = current.selectedEngine
         )

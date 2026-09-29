@@ -21,7 +21,7 @@ class WeeklyPlanSanitizer(private val catalog: ExerciseCatalog) {
                     PlannedExercise(
                         exerciseId = exercise.id,
                         sets = request.setsPerExercise,
-                        reps = repsFor(exercise)
+                        reps = repsFor(exercise, request.goal)
                     )
                 }
             )
@@ -35,11 +35,8 @@ class WeeklyPlanSanitizer(private val catalog: ExerciseCatalog) {
         )
     }
 
-    private fun repsFor(exercise: Exercise): Int = if (exercise.movementPattern.isCompound) {
-        DeterministicWorkoutPlannerEngine.COMPOUND_REPS
-    } else {
-        DeterministicWorkoutPlannerEngine.ISOLATION_REPS
-    }
+    private fun repsFor(exercise: Exercise, goal: TrainingGoal): Int =
+        if (exercise.movementPattern.isCompound) goal.compoundReps else goal.isolationReps
 
     companion object {
         const val MIN_EXERCISES_PER_DAY = 2

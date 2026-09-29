@@ -28,6 +28,19 @@ class WeeklyPlanSanitizerTest {
     }
 
     @Test
+    fun appliesTheSelectedGoalsTargetsToModelPlans() = runTest {
+        val plan = planOf(listOf("bench-press", "lateral-raise"))
+
+        val sanitized = sanitizer.sanitize(plan, request(goal = TrainingGoal.STRENGTH))!!
+        val exercises = sanitized.days.single().exercises.associateBy { it.exerciseId }
+
+        assertEquals(TrainingGoal.STRENGTH.defaultSets, exercises.getValue("bench-press").sets)
+        assertEquals(TrainingGoal.STRENGTH.compoundReps, exercises.getValue("bench-press").reps)
+        assertEquals(TrainingGoal.STRENGTH.defaultSets, exercises.getValue("lateral-raise").sets)
+        assertEquals(TrainingGoal.STRENGTH.isolationReps, exercises.getValue("lateral-raise").reps)
+    }
+
+    @Test
     fun dropsUnknownExercises() = runTest {
         val plan = planOf(listOf("bench-press", "lateral-raise", "not-a-real-id"))
 
@@ -92,11 +105,16 @@ class WeeklyPlanSanitizerTest {
         exercises = exerciseIds.map { PlannedExercise(it, sets = 3, reps = 8) }
     )
 
-    private fun request(daysPerWeek: Int = 1, setsPerExercise: Int = 3) = PlanRequest(
+    private fun request(
+        daysPerWeek: Int = 1,
+        goal: TrainingGoal = TrainingGoal.BALANCED,
+        setsPerExercise: Int = goal.defaultSets
+    ) = PlanRequest(
         daysPerWeek = daysPerWeek,
         availableEquipment = setOf(EquipmentTag.BARBELL),
         muscleFatigue = emptyMap(),
         nowMillis = 0L,
+        goal = goal,
         setsPerExercise = setsPerExercise
     )
 

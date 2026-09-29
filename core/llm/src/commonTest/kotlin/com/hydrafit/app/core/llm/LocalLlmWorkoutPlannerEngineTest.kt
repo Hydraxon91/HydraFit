@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
@@ -52,6 +53,18 @@ class LocalLlmWorkoutPlannerEngineTest {
         engine(generator).generatePlan(request())
 
         assertTrue(requireNotNull(generator.lastSchema).contains("days"))
+    }
+
+    @Test
+    fun includesGoalAndGoalSpecificRepTargetsInThePrompt() = runTest {
+        val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
+
+        engine(generator).generatePlan(request(goal = TrainingGoal.STRENGTH))
+
+        val prompt = requireNotNull(generator.lastPrompt)
+        assertTrue(prompt.contains("Training goal: STRENGTH"), prompt)
+        assertTrue(prompt.contains("Use 5 reps for compound lifts"), prompt)
+        assertTrue(prompt.contains("8 reps for isolation exercises"), prompt)
     }
 
     @Test
@@ -240,11 +253,16 @@ class LocalLlmWorkoutPlannerEngineTest {
         logger = logger
     )
 
-    private fun request(daysPerWeek: Int = 3, setsPerExercise: Int = 3) = PlanRequest(
+    private fun request(
+        daysPerWeek: Int = 3,
+        goal: TrainingGoal = TrainingGoal.BALANCED,
+        setsPerExercise: Int = goal.defaultSets
+    ) = PlanRequest(
         daysPerWeek = daysPerWeek,
         availableEquipment = setOf(EquipmentTag.BARBELL),
         muscleFatigue = emptyMap(),
         nowMillis = 0L,
+        goal = goal,
         setsPerExercise = setsPerExercise
     )
 
@@ -258,12 +276,15 @@ class LocalLlmWorkoutPlannerEngineTest {
 
         var lastSchema: String? = null
             private set
+        var lastPrompt: String? = null
+            private set
 
         override fun isAvailable(): Boolean = available
 
         override fun generate(prompt: String, jsonSchema: String?): String {
             generateCalls++
             lastSchema = jsonSchema
+            lastPrompt = prompt
             failure?.invoke()
             return responses[(generateCalls - 1).coerceAtMost(responses.lastIndex)]
         }

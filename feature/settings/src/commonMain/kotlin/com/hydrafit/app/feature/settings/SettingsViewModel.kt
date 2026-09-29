@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.EngineAvailability
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
+import com.hydrafit.app.core.userdata.settings.TrainingGoalRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,7 +17,8 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(
     private val preference: EnginePreferenceRepository,
     private val availability: EngineAvailability,
-    private val apiKeyStore: ApiKeyStore
+    private val apiKeyStore: ApiKeyStore,
+    private val trainingGoalRepository: TrainingGoalRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState())
@@ -29,6 +32,13 @@ class SettingsViewModel(
         viewModelScope.launch {
             preference.setEngine(engine)
             refresh()
+        }
+    }
+
+    fun onGoalSelected(goal: TrainingGoal) {
+        viewModelScope.launch {
+            trainingGoalRepository.setGoal(goal)
+            _state.update { it.copy(selectedGoal = goal) }
         }
     }
 
@@ -53,10 +63,12 @@ class SettingsViewModel(
         viewModelScope.launch {
             val available = availability.availableEngines()
             val stored = preference.selectedEngine()
+            val goal = trainingGoalRepository.selectedGoal()
             _state.update {
                 it.copy(
                     availableEngines = available,
                     selectedEngine = if (stored in available) stored else available.firstOrNull(),
+                    selectedGoal = goal,
                     apiKeyConfigured = !apiKeyStore.load().isNullOrBlank(),
                     isLocalLlmInstalled = PlannerEngineId.LOCAL_LLM in available
                 )

@@ -6,6 +6,7 @@ import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
@@ -59,6 +60,22 @@ class GeminiWorkoutPlannerEngineTest {
         assertTrue(bodyText.contains("bench-press"), "catalog ids should be offered to the model")
         assertTrue(bodyText.contains("Split preference: AUTO"), "split preference should be sent")
         assertTrue(bodyText.contains("Use exactly 5 sets"), "set count should be sent")
+    }
+
+    @Test
+    fun sendsGoalSpecificRepTargets() = runTest {
+        var captured: HttpRequestData? = null
+        val mockEngine = MockEngine { request ->
+            captured = request
+            respond(envelope(VALID_PLAN), HttpStatusCode.OK, jsonHeaders())
+        }
+
+        engine(mockEngine).generatePlan(request(goal = TrainingGoal.ENDURANCE))
+
+        val bodyText = (requireNotNull(captured).body as TextContent).text
+        assertTrue(bodyText.contains("Training goal: ENDURANCE"), bodyText)
+        assertTrue(bodyText.contains("Use 15 reps for compound lifts"), bodyText)
+        assertTrue(bodyText.contains("15 reps for isolation exercises"), bodyText)
     }
 
     @Test
@@ -232,11 +249,16 @@ class GeminiWorkoutPlannerEngineTest {
         """{"error":{"code":503,"message":"high demand","status":"UNAVAILABLE",""" +
             """"details":[{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"1s"}]}}"""
 
-    private fun request(daysPerWeek: Int = 3, setsPerExercise: Int = 3) = PlanRequest(
+    private fun request(
+        daysPerWeek: Int = 3,
+        goal: TrainingGoal = TrainingGoal.BALANCED,
+        setsPerExercise: Int = goal.defaultSets
+    ) = PlanRequest(
         daysPerWeek = daysPerWeek,
         availableEquipment = setOf(EquipmentTag.BARBELL),
         muscleFatigue = emptyMap(),
         nowMillis = 0L,
+        goal = goal,
         setsPerExercise = setsPerExercise
     )
 

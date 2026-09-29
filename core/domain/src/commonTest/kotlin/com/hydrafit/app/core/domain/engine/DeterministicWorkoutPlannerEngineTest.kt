@@ -328,6 +328,27 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun appliesGoalSpecificRepTargetsAndDefaultSets() {
+        TrainingGoal.entries.forEach { goal ->
+            val plan = engine.plan(
+                request(daysPerWeek = 3, split = SplitType.PUSH_PULL_LEGS, goal = goal),
+                listOf(
+                    exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST),
+                    exercise("pushdown", MovementPattern.TRICEPS_ISOLATION, MuscleGroup.TRICEPS)
+                )
+            )
+            val push = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.associateBy {
+                it.exerciseId
+            }
+
+            assertEquals(goal.defaultSets, push.getValue("bench-press").sets)
+            assertEquals(goal.compoundReps, push.getValue("bench-press").reps)
+            assertEquals(goal.defaultSets, push.getValue("pushdown").sets)
+            assertEquals(goal.isolationReps, push.getValue("pushdown").reps)
+        }
+    }
+
+    @Test
     fun isDeterministicForTheSameInput() {
         val exercises = catalog()
         val request = request(daysPerWeek = 4, equipment = everything)
@@ -358,13 +379,15 @@ class DeterministicWorkoutPlannerEngineTest {
         equipment: Set<EquipmentTag> = emptySet(),
         fatigue: Map<MuscleGroup, Double> = emptyMap(),
         split: SplitType = SplitType.AUTO,
-        setsPerExercise: Int = DeterministicWorkoutPlannerEngine.DEFAULT_SETS
+        goal: TrainingGoal = TrainingGoal.BALANCED,
+        setsPerExercise: Int = goal.defaultSets
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
         availableEquipment = equipment,
         muscleFatigue = fatigue,
         splitPreference = split,
         nowMillis = 0L,
+        goal = goal,
         setsPerExercise = setsPerExercise
     )
 

@@ -10,6 +10,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
@@ -18,6 +20,52 @@ import kotlinx.coroutines.test.runTest
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ObserveWorkoutPlanInputsUseCaseTest {
+
+    @Test
+    fun usesTheGoalDefaultSetsWhenThereIsNoManualOverride() = runTest {
+        val sources = FakeWorkoutPlanSourcesRepository(
+            WorkoutPlanSources(
+                availableEquipment = setOf(EquipmentTag.BARBELL),
+                selectedEngine = PlannerEngineId.DETERMINISTIC,
+                daysPerWeek = 4,
+                loggedSets = emptyList(),
+                goal = TrainingGoal.STRENGTH
+            )
+        )
+        val useCase = ObserveWorkoutPlanInputsUseCase(
+            sources = sources,
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { 100L }
+        )
+
+        val inputs = useCase().first()
+
+        assertEquals(TrainingGoal.STRENGTH, inputs.request.goal)
+        assertEquals(TrainingGoal.STRENGTH.defaultSets, inputs.request.setsPerExercise)
+    }
+
+    @Test
+    fun manualSetCountOverridesTheGoalDefault() = runTest {
+        val sources = FakeWorkoutPlanSourcesRepository(
+            WorkoutPlanSources(
+                availableEquipment = setOf(EquipmentTag.BARBELL),
+                selectedEngine = PlannerEngineId.DETERMINISTIC,
+                daysPerWeek = 4,
+                loggedSets = emptyList(),
+                goal = TrainingGoal.STRENGTH
+            )
+        )
+        val useCase = ObserveWorkoutPlanInputsUseCase(
+            sources = sources,
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { 100L }
+        )
+
+        val inputs = useCase(setsPerExercise = flowOf(6)).first()
+
+        assertEquals(TrainingGoal.STRENGTH, inputs.request.goal)
+        assertEquals(6, inputs.request.setsPerExercise)
+    }
 
     @Test
     fun emitsRequestsWhenSourcesSetCountOrRefreshChanges() = runTest {

@@ -11,5 +11,6 @@ data class PlanRequest(
     val muscleFatigue: Map<MuscleGroup, Double>,
     val splitPreference: SplitType = SplitType.AUTO,
     val nowMillis: Long,
-    val setsPerExercise: Int = DEFAULT_SETS_PER_EXERCISE
+    val goal: TrainingGoal = TrainingGoal.BALANCED,
+    val setsPerExercise: Int = goal.defaultSets
 )

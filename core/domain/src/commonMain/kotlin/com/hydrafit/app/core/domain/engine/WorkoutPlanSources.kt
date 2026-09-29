@@ -8,7 +8,8 @@ data class WorkoutPlanSources(
     val availableEquipment: Set<EquipmentTag>,
     val selectedEngine: PlannerEngineId,
     val daysPerWeek: Int,
-    val loggedSets: List<LoggedSet>
+    val loggedSets: List<LoggedSet>,
+    val goal: TrainingGoal = TrainingGoal.BALANCED
 )
 
 interface WorkoutPlanSourcesRepository {

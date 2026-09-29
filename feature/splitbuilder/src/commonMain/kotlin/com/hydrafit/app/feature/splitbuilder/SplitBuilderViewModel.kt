@@ -27,7 +27,7 @@ class SplitBuilderViewModel(
     private val _state = MutableStateFlow(SplitBuilderUiState())
     val state: StateFlow<SplitBuilderUiState> = _state.asStateFlow()
 
-    private val setsPerExercise = MutableStateFlow(SplitBuilderUiState().setsPerExercise)
+    private val setsPerExercise = MutableStateFlow<Int?>(null)
     private val refreshRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     init {

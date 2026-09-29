@@ -1,0 +1,2 @@
+ALTER TABLE plannerEngine
+ADD COLUMN trainingGoal TEXT NOT NULL DEFAULT 'BALANCED';

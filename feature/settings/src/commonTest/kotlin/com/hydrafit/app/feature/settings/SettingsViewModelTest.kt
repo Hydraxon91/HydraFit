@@ -2,8 +2,10 @@ package com.hydrafit.app.feature.settings
 
 import com.hydrafit.app.core.domain.engine.EngineAvailability
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
+import com.hydrafit.app.core.userdata.settings.TrainingGoalRepository
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -70,7 +72,8 @@ class SettingsViewModelTest {
             availability = FakeEngineAvailability(
                 listOf(PlannerEngineId.DETERMINISTIC, PlannerEngineId.GEMINI_API)
             ),
-            apiKeyStore = FakeApiKeyStore()
+            apiKeyStore = FakeApiKeyStore(),
+            trainingGoalRepository = FakeTrainingGoalRepository()
         )
         advanceUntilIdle()
 
@@ -79,6 +82,24 @@ class SettingsViewModelTest {
 
         assertEquals(PlannerEngineId.GEMINI_API, repository.stored)
         assertEquals(PlannerEngineId.GEMINI_API, viewModel.state.value.selectedEngine)
+    }
+
+    @Test
+    fun selectingATrainingGoalPersistsIt() = runTest(dispatcher) {
+        val goals = FakeTrainingGoalRepository()
+        val viewModel = SettingsViewModel(
+            preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC),
+            availability = FakeEngineAvailability(listOf(PlannerEngineId.DETERMINISTIC)),
+            apiKeyStore = FakeApiKeyStore(),
+            trainingGoalRepository = goals
+        )
+        advanceUntilIdle()
+
+        viewModel.onGoalSelected(TrainingGoal.STRENGTH)
+        advanceUntilIdle()
+
+        assertEquals(TrainingGoal.STRENGTH, goals.stored)
+        assertEquals(TrainingGoal.STRENGTH, viewModel.state.value.selectedGoal)
     }
 
     @Test
@@ -98,7 +119,8 @@ class SettingsViewModelTest {
         val viewModel = SettingsViewModel(
             preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC),
             availability = FakeEngineAvailability(listOf(PlannerEngineId.DETERMINISTIC)),
-            apiKeyStore = store
+            apiKeyStore = store,
+            trainingGoalRepository = FakeTrainingGoalRepository()
         )
         advanceUntilIdle()
 
@@ -117,7 +139,8 @@ class SettingsViewModelTest {
         val viewModel = SettingsViewModel(
             preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC),
             availability = FakeEngineAvailability(listOf(PlannerEngineId.DETERMINISTIC)),
-            apiKeyStore = store
+            apiKeyStore = store,
+            trainingGoalRepository = FakeTrainingGoalRepository()
         )
         advanceUntilIdle()
 
@@ -135,7 +158,8 @@ class SettingsViewModelTest {
         val viewModel = SettingsViewModel(
             preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC),
             availability = FakeEngineAvailability(listOf(PlannerEngineId.DETERMINISTIC)),
-            apiKeyStore = store
+            apiKeyStore = store,
+            trainingGoalRepository = FakeTrainingGoalRepository()
         )
         advanceUntilIdle()
         assertTrue(viewModel.state.value.apiKeyConfigured)
@@ -151,7 +175,8 @@ class SettingsViewModelTest {
         SettingsViewModel(
             preference = FakeEnginePreferenceRepository(stored),
             availability = FakeEngineAvailability(available),
-            apiKeyStore = FakeApiKeyStore()
+            apiKeyStore = FakeApiKeyStore(),
+            trainingGoalRepository = FakeTrainingGoalRepository()
         )
 
     private class FakeApiKeyStore(var value: String? = null) : ApiKeyStore {
@@ -190,5 +215,16 @@ class SettingsViewModelTest {
     private class FakeEngineAvailability(private val engines: List<PlannerEngineId>) :
         EngineAvailability {
         override fun availableEngines(): List<PlannerEngineId> = engines
+    }
+
+    private class FakeTrainingGoalRepository(var stored: TrainingGoal = TrainingGoal.BALANCED) :
+        TrainingGoalRepository {
+        override suspend fun selectedGoal(): TrainingGoal = stored
+
+        override fun goalFlow(): Flow<TrainingGoal> = flowOf(stored)
+
+        override suspend fun setGoal(goal: TrainingGoal) {
+            stored = goal
+        }
     }
 }

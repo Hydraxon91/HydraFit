@@ -142,12 +142,16 @@ class GeminiWorkoutPlannerEngine(
             appendLine("You are a strength coach. Build a weekly workout plan.")
             appendLine("Days per week: ${request.daysPerWeek}")
             appendLine("Split preference: ${request.splitPreference.name}")
+            appendLine("Training goal: ${request.goal.name}")
             appendLine("Available equipment: $equipment")
             appendLine("Current muscle fatigue (0.0-1.0): $fatigue")
             appendLine("Choose ONLY exerciseId values from this list: $exerciseIds")
             appendLine("Give every day 4 to 6 exercises.")
             appendLine("Use exactly ${request.setsPerExercise} sets for every exercise.")
-            appendLine("Use 6 reps for compound lifts and 12 reps for isolation exercises.")
+            appendLine(
+                "Use ${request.goal.compoundReps} reps for compound lifts and " +
+                    "${request.goal.isolationReps} reps for isolation exercises."
+            )
             appendLine("Prefer exercises whose muscles are less fatigued.")
         }
 

@@ -1,7 +1,8 @@
 CREATE TABLE plannerEngine (
     id INTEGER NOT NULL PRIMARY KEY,
     engineId TEXT NOT NULL,
-    daysPerWeek INTEGER NOT NULL DEFAULT 4
+    daysPerWeek INTEGER NOT NULL DEFAULT 4,
+    trainingGoal TEXT NOT NULL DEFAULT 'BALANCED'
 );
 
 selectEngine:
@@ -9,6 +10,9 @@ SELECT engineId FROM plannerEngine WHERE id = 0;
 
 selectDaysPerWeek:
 SELECT daysPerWeek FROM plannerEngine WHERE id = 0;
+
+selectTrainingGoal:
+SELECT trainingGoal FROM plannerEngine WHERE id = 0;
 
 insertIgnoreRow:
 INSERT OR IGNORE INTO plannerEngine(id, engineId) VALUES (0, ?);
@@ -18,3 +22,6 @@ UPDATE plannerEngine SET engineId = ? WHERE id = 0;
 
 updateDaysPerWeek:
 UPDATE plannerEngine SET daysPerWeek = ? WHERE id = 0;
+
+updateTrainingGoal:
+UPDATE plannerEngine SET trainingGoal = ? WHERE id = 0;

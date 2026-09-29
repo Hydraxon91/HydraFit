@@ -34,7 +34,8 @@ class DeterministicWorkoutPlannerEngine(private val catalog: ExerciseCatalog) :
                     templateFor(focus, index),
                     availableExercises,
                     request.muscleFatigue,
-                    request.setsPerExercise
+                    request.setsPerExercise,
+                    request.goal
                 )
             )
         }
@@ -46,7 +47,8 @@ class DeterministicWorkoutPlannerEngine(private val catalog: ExerciseCatalog) :
         template: List<MovementPattern>,
         exercises: List<Exercise>,
         fatigue: Map<MuscleGroup, Double>,
-        setsPerExercise: Int
+        setsPerExercise: Int,
+        goal: TrainingGoal
     ): List<PlannedExercise> {
         val used = mutableSetOf<String>()
         val picks = mutableListOf<PlannedExercise>()
@@ -73,7 +75,11 @@ class DeterministicWorkoutPlannerEngine(private val catalog: ExerciseCatalog) :
                 exerciseId = candidate.id,
                 sets = (setsPerExercise - if (soreness >= FATIGUE_REDUCE_THRESHOLD) 1 else 0)
                     .coerceAtLeast(1),
-                reps = if (candidate.movementPattern.isCompound) COMPOUND_REPS else ISOLATION_REPS
+                reps = if (candidate.movementPattern.isCompound) {
+                    goal.compoundReps
+                } else {
+                    goal.isolationReps
+                }
             )
         }
 
