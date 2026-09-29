@@ -236,6 +236,33 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun prefersAFreshAlternativeOverASorePreferredEquipment() {
+        val exercises = listOf(
+            exercise(
+                "barbell-bench-press",
+                MovementPattern.HORIZONTAL_PUSH,
+                MuscleGroup.CHEST,
+                setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH)
+            ),
+            exercise("push-up", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.SHOULDERS)
+        )
+
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                split = SplitType.PUSH_PULL_LEGS,
+                equipment = everything,
+                fatigue = mapOf(MuscleGroup.CHEST to 0.6)
+            ),
+            exercises
+        )
+
+        val pushIds = plan.days.first { it.focus == SplitFocus.PUSH }
+            .exercises.map { it.exerciseId }
+        assertEquals(listOf("push-up"), pushIds)
+    }
+
+    @Test
     fun skipsExercisesAboveTheFatigueSkipThreshold() {
         val plan = engine.plan(
             request(

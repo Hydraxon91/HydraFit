@@ -54,10 +54,12 @@ class DeterministicWorkoutPlannerEngine(private val catalog: ExerciseCatalog) :
         for (pattern in template) {
             val candidate = exercises
                 .filter { it.movementPattern == pattern && it.id !in used }
+                // Recovery comes first: a fresh less-preferred exercise outranks a sore preferred
+                // one. Equipment preference only breaks ties between equally fresh candidates.
                 .minWithOrNull(
                     compareBy(
-                        { equipmentRank(it) },
                         { fatigueOf(it, fatigue) },
+                        { equipmentRank(it) },
                         { it.id }
                     )
                 )
