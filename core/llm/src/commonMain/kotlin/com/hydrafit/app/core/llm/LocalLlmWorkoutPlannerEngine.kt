@@ -90,6 +90,14 @@ class LocalLlmWorkoutPlannerEngine(
         }
     )
 
+    private fun progressedWeights(request: PlanRequest): String = if (!request.includeWorkoutData) {
+        ""
+    } else {
+        request.suggestedWeightsKg.entries
+            .sortedBy { it.key }
+            .joinToString("; ") { "${it.key}: ${it.value}kg" }
+    }
+
     private fun prompt(request: PlanRequest, availableExercises: List<Exercise>): String {
         val equipment = request.availableEquipment.joinToString(", ") { it.displayName }
         val fatigue = request.muscleFatigue.entries.joinToString(", ") {
@@ -149,6 +157,16 @@ class LocalLlmWorkoutPlannerEngine(
                 )
                 appendLine(
                     "Also give every exercise a \"suggestedWeightKg\" number based on that history."
+                )
+            }
+            val progressed = progressedWeights(request)
+            if (progressed.isNotEmpty()) {
+                appendLine(
+                    "Progressed starting weights by list number (already adjusted for " +
+                        "progressive overload): $progressed"
+                )
+                appendLine(
+                    "Use these as \"suggestedWeightKg\" unless the history clearly disagrees."
                 )
             }
             appendLine(

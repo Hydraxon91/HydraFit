@@ -179,6 +179,16 @@ class GeminiWorkoutPlannerEngine(
                     "Give every exercise a \"suggestedWeightKg\" number based on that history."
                 )
             }
+            val progressed = progressedWeights(request)
+            if (progressed.isNotEmpty()) {
+                appendLine(
+                    "Progressed starting weights (already adjusted for progressive overload): " +
+                        progressed
+                )
+                appendLine(
+                    "Use these as \"suggestedWeightKg\" unless the history clearly disagrees."
+                )
+            }
         }
 
         return GeminiRequest(
@@ -189,6 +199,13 @@ class GeminiWorkoutPlannerEngine(
                 responseSchema = planSchema(request)
             )
         )
+    }
+
+    private fun progressedWeights(request: PlanRequest): String {
+        if (!request.includeWorkoutData) return ""
+        return request.suggestedWeightsKg.entries
+            .sortedBy { it.key }
+            .joinToString("; ") { "${it.key}: ${it.value}kg" }
     }
 
     private fun planSchema(request: PlanRequest): GeminiSchema = GeminiSchema(

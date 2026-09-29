@@ -237,6 +237,61 @@ class ObserveWorkoutPlanInputsUseCaseTest {
         assertEquals(listOf("bench-press"), on.recentWeights.map { it.exerciseId })
     }
 
+    @Test
+    fun progressesTheSuggestedWeightWhenTheAcceptedPrescriptionIsCompleted() = runTest {
+        val accepted = AcceptedPlan(
+            engine = PlannerEngineId.DETERMINISTIC,
+            acceptedAtMillis = 1L,
+            days = listOf(
+                AcceptedDay(
+                    dayIndex = 0,
+                    focus = SplitFocus.PUSH,
+                    exercises = listOf(
+                        AcceptedExercise(
+                            exerciseId = "bench-press",
+                            sets = 3,
+                            reps = 8,
+                            name = "Bench Press",
+                            movementPattern = MovementPattern.HORIZONTAL_PUSH,
+                            suggestedWeightKg = 100.0
+                        )
+                    )
+                )
+            )
+        )
+        val completedDays = (3 downTo 1).flatMap { day ->
+            List(3) {
+                WorkoutSet(
+                    exerciseId = "bench-press",
+                    reps = 8,
+                    weightKg = 100.0,
+                    performedAtMillis = day.toLong() * 24L * 60L * 60L * 1000L
+                )
+            }
+        }
+        val sources = FakeWorkoutPlanSourcesRepository(
+            WorkoutPlanSources(
+                availableEquipment = setOf(EquipmentTag.BARBELL),
+                selectedEngine = PlannerEngineId.DETERMINISTIC,
+                daysPerWeek = 3,
+                loggedSets = emptyList(),
+                loggedWorkoutSets = completedDays
+            )
+        )
+        val useCase = ObserveWorkoutPlanInputsUseCase(
+            sources = sources,
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { 0L },
+            planHistoryRepository = FakePlanHistoryRepository(accepted)
+        )
+
+        val request = useCase().first().request
+
+        // Baseline 1RM estimate 100x8 -> 126.667 * 0.70 = 88.667 -> 87.5 rounded to 2.5,
+        // then +2.5 after three completed sessions.
+        assertEquals(90.0, request.suggestedWeightsKg["bench-press"])
+    }
+
     private class FakeWorkoutPlanSourcesRepository(initial: WorkoutPlanSources) :
         WorkoutPlanSourcesRepository {
         private val state = MutableStateFlow(initial)

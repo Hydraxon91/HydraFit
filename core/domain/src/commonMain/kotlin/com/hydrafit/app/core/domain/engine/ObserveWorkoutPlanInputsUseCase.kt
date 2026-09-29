@@ -15,7 +15,8 @@ class ObserveWorkoutPlanInputsUseCase(
     private val timeProvider: TimeProvider,
     private val planHistoryRepository: PlanHistoryRepository,
     private val suggestWeights: SuggestWeightsUseCase = SuggestWeightsUseCase(),
-    private val buildRecentWeights: BuildRecentWeightsUseCase = BuildRecentWeightsUseCase()
+    private val buildRecentWeights: BuildRecentWeightsUseCase = BuildRecentWeightsUseCase(),
+    private val progressWeights: ProgressWeightsUseCase = ProgressWeightsUseCase()
 ) {
     operator fun invoke(
         setsPerExercise: Flow<Int?> = flowOf(null),
@@ -26,7 +27,8 @@ class ObserveWorkoutPlanInputsUseCase(
         refreshRequests.onStart { emit(Unit) }
     ) { current, sets, _ ->
         val nowMillis = timeProvider.nowMillis()
-        val recentExerciseIdsByPattern = planHistoryRepository.latest()
+        val latestPlan = planHistoryRepository.latest()
+        val recentExerciseIdsByPattern = latestPlan
             ?.days
             ?.flatMap { day -> day.exercises.map { it.movementPattern to it.exerciseId } }
             ?.groupBy({ it.first }, { it.second })
@@ -41,7 +43,11 @@ class ObserveWorkoutPlanInputsUseCase(
                 goal = current.goal,
                 setsPerExercise = sets ?: current.goal.defaultSets,
                 recentExerciseIdsByPattern = recentExerciseIdsByPattern,
-                suggestedWeightsKg = suggestWeights(current.loggedWorkoutSets, current.goal),
+                suggestedWeightsKg = progressWeights(
+                    baseline = suggestWeights(current.loggedWorkoutSets, current.goal),
+                    prescriptions = prescriptionsFrom(latestPlan),
+                    sets = current.loggedWorkoutSets
+                ),
                 includeWorkoutData = current.workoutDataSharingEnabled,
                 recentWeights = if (current.workoutDataSharingEnabled) {
                     buildRecentWeights(current.loggedWorkoutSets)
@@ -52,4 +58,20 @@ class ObserveWorkoutPlanInputsUseCase(
             requestedEngine = current.selectedEngine
         )
     }
+
+    /** The weight each exercise was prescribed in the most recent accepted plan. */
+    private fun prescriptionsFrom(plan: AcceptedPlan?): Map<String, Prescription> = plan
+        ?.days
+        ?.flatMap { it.exercises }
+        ?.mapNotNull { exercise ->
+            val weight = exercise.suggestedWeightKg ?: return@mapNotNull null
+            exercise.exerciseId to Prescription(
+                exerciseId = exercise.exerciseId,
+                sets = exercise.sets,
+                reps = exercise.reps,
+                weightKg = weight
+            )
+        }
+        ?.toMap()
+        .orEmpty()
 }

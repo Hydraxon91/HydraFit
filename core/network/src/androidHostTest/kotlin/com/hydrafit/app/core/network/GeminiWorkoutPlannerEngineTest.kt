@@ -273,6 +273,31 @@ class GeminiWorkoutPlannerEngineTest {
         assertTrue(bodyText.contains("suggestedWeightKg"), bodyText)
     }
 
+    @Test
+    fun sendsProgressedWeightsOnlyWhenSharingIsEnabled() = runTest {
+        var captured: HttpRequestData? = null
+        val mockEngine = MockEngine { request ->
+            captured = request
+            respond(envelope(VALID_PLAN), HttpStatusCode.OK, jsonHeaders())
+        }
+
+        engine(mockEngine).generatePlan(
+            request(suggestedWeightsKg = mapOf("bench-press" to 90.0))
+        )
+        val off = (requireNotNull(captured).body as TextContent).text
+        assertFalse(off.contains("Progressed starting weights"), off)
+
+        engine(mockEngine).generatePlan(
+            request(
+                includeWorkoutData = true,
+                suggestedWeightsKg = mapOf("bench-press" to 90.0)
+            )
+        )
+        val on = (requireNotNull(captured).body as TextContent).text
+        assertTrue(on.contains("Progressed starting weights"), on)
+        assertTrue(on.contains("bench-press: 90.0kg"), on)
+    }
+
     private fun engine(
         engine: HttpClientEngine,
         apiKey: String = "test-key",
@@ -312,6 +337,7 @@ class GeminiWorkoutPlannerEngineTest {
         goal: TrainingGoal = TrainingGoal.BALANCED,
         setsPerExercise: Int = goal.defaultSets,
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
+        suggestedWeightsKg: Map<String, Double> = emptyMap(),
         includeWorkoutData: Boolean = false,
         recentWeights: List<WeightHistoryEntry> = emptyList()
     ) = PlanRequest(
@@ -322,6 +348,7 @@ class GeminiWorkoutPlannerEngineTest {
         goal = goal,
         setsPerExercise = setsPerExercise,
         recentExerciseIdsByPattern = recentExerciseIdsByPattern,
+        suggestedWeightsKg = suggestedWeightsKg,
         includeWorkoutData = includeWorkoutData,
         recentWeights = recentWeights
     )

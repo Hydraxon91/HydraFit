@@ -95,6 +95,24 @@ class LocalLlmWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun sendsProgressedWeightsOnlyWhenEnabled() = runTest {
+        val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
+
+        engine(generator).generatePlan(request(suggestedWeightsKg = mapOf("barbell-row" to 52.5)))
+        assertFalse(requireNotNull(generator.lastPrompt).contains("Progressed starting weights"))
+
+        engine(generator).generatePlan(
+            request(
+                includeWorkoutData = true,
+                suggestedWeightsKg = mapOf("barbell-row" to 52.5)
+            )
+        )
+        val prompt = requireNotNull(generator.lastPrompt)
+        assertTrue(prompt.contains("Progressed starting weights"))
+        assertTrue(prompt.contains("barbell-row: 52.5kg"))
+    }
+
+    @Test
     fun warnsTheModelAboutRecentlyUsedListNumbers() = runTest {
         val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
 
@@ -306,6 +324,7 @@ class LocalLlmWorkoutPlannerEngineTest {
         goal: TrainingGoal = TrainingGoal.BALANCED,
         setsPerExercise: Int = goal.defaultSets,
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
+        suggestedWeightsKg: Map<String, Double> = emptyMap(),
         includeWorkoutData: Boolean = false,
         recentWeights: List<WeightHistoryEntry> = emptyList()
     ) = PlanRequest(
@@ -316,6 +335,7 @@ class LocalLlmWorkoutPlannerEngineTest {
         goal = goal,
         setsPerExercise = setsPerExercise,
         recentExerciseIdsByPattern = recentExerciseIdsByPattern,
+        suggestedWeightsKg = suggestedWeightsKg,
         includeWorkoutData = includeWorkoutData,
         recentWeights = recentWeights
     )
