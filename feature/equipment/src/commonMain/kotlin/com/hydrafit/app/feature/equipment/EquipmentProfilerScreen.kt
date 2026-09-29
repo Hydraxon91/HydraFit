@@ -363,9 +363,7 @@ private fun ExerciseEditorDialog(
                     label = { Text(stringResource(Res.string.equipment_name_label)) },
                     singleLine = true
                 )
-                if (state.isCustom) {
-                    MovementPatternPicker(state.movementPattern, onPatternChanged)
-                }
+                MovementPatternPicker(state.movementPattern, onPatternChanged)
                 Text(
                     text = stringResource(Res.string.equipment_primary_muscles),
                     style = MaterialTheme.typography.labelMedium

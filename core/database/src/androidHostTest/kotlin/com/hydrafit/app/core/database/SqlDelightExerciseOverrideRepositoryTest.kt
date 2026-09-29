@@ -3,6 +3,7 @@ package com.hydrafit.app.core.database
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -10,11 +11,11 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.test.runTest
 
-class SqlDelightExerciseMuscleRepositoryTest {
+class SqlDelightExerciseOverrideRepositoryTest {
 
     private lateinit var driver: SqlDriver
     private lateinit var database: HydraFitDatabase
-    private lateinit var repository: SqlDelightExerciseMuscleRepository
+    private lateinit var repository: SqlDelightExerciseOverrideRepository
     private lateinit var catalog: SqlDelightExerciseCatalog
 
     @BeforeTest
@@ -23,7 +24,7 @@ class SqlDelightExerciseMuscleRepositoryTest {
         HydraFitDatabase.Schema.create(driver)
         database = HydraFitDatabase(driver)
         SeedExerciseCatalog(database).seed()
-        repository = SqlDelightExerciseMuscleRepository(database)
+        repository = SqlDelightExerciseOverrideRepository(database)
         catalog = SqlDelightExerciseCatalog(database)
     }
 
@@ -33,42 +34,47 @@ class SqlDelightExerciseMuscleRepositoryTest {
     }
 
     @Test
-    fun overrideReplacesTheSeededMusclesAndResetRestoresThem() = runTest {
-        val seeded = catalog.exercise("back-squat")
-        assertEquals(setOf(MuscleGroup.QUADS, MuscleGroup.GLUTES), seeded.primaryMuscles)
-
+    fun overlaysNamePatternEquipmentAndMusclesAndResetRestoresAll() = runTest {
         repository.update(
             exerciseId = "back-squat",
+            name = "Low-Bar Back Squat",
+            requiredEquipment = setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH),
             primaryMuscles = setOf(MuscleGroup.CHEST),
-            secondaryMuscles = setOf(MuscleGroup.TRICEPS)
+            secondaryMuscles = setOf(MuscleGroup.TRICEPS),
+            movementPattern = MovementPattern.HINGE
         )
 
         val edited = catalog.exercise("back-squat")
+        assertEquals("Low-Bar Back Squat", edited.name)
+        assertEquals(setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH), edited.requiredEquipment)
         assertEquals(setOf(MuscleGroup.CHEST), edited.primaryMuscles)
         assertEquals(setOf(MuscleGroup.TRICEPS), edited.secondaryMuscles)
+        assertEquals(MovementPattern.HINGE, edited.movementPattern)
 
         repository.reset("back-squat")
 
         val reset = catalog.exercise("back-squat")
+        assertEquals("Back Squat", reset.name)
+        assertEquals(setOf(EquipmentTag.BARBELL), reset.requiredEquipment)
         assertEquals(setOf(MuscleGroup.QUADS, MuscleGroup.GLUTES), reset.primaryMuscles)
-        assertEquals(setOf(MuscleGroup.HAMSTRINGS, MuscleGroup.CORE), reset.secondaryMuscles)
+        assertEquals(MovementPattern.SQUAT, reset.movementPattern)
     }
 
     @Test
-    fun muscleAndEquipmentOverridesCoexist() = runTest {
-        SqlDelightExerciseEquipmentRepository(database)
-            .update("back-squat", setOf(EquipmentTag.DUMBBELL))
+    fun aNameOnlyOverrideKeepsTheSeededEquipmentAndMuscles() = runTest {
         repository.update(
             exerciseId = "back-squat",
-            primaryMuscles = setOf(MuscleGroup.CHEST),
-            secondaryMuscles = emptySet()
+            name = "Renamed Only",
+            requiredEquipment = setOf(EquipmentTag.BARBELL),
+            primaryMuscles = setOf(MuscleGroup.QUADS, MuscleGroup.GLUTES),
+            secondaryMuscles = setOf(MuscleGroup.HAMSTRINGS, MuscleGroup.CORE),
+            movementPattern = MovementPattern.SQUAT
         )
 
-        val exercise = catalog.exercise("back-squat")
+        val edited = catalog.exercise("back-squat")
 
-        assertEquals(setOf(EquipmentTag.DUMBBELL), exercise.requiredEquipment)
-        assertEquals(setOf(MuscleGroup.CHEST), exercise.primaryMuscles)
-        assertEquals(emptySet(), exercise.secondaryMuscles)
+        assertEquals("Renamed Only", edited.name)
+        assertEquals(setOf(EquipmentTag.BARBELL), edited.requiredEquipment)
     }
 
     private suspend fun SqlDelightExerciseCatalog.exercise(id: String) = all().first { it.id == id }

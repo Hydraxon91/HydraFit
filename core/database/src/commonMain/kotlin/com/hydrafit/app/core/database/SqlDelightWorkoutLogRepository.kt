@@ -16,21 +16,21 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
     WorkoutLogRepository {
     private val setQueries = database.workoutLogQueries
     private val exerciseQueries = database.exerciseQueries
-    private val muscleEditQueries = database.exerciseMuscleEditQueries
+    private val overrideQueries = database.exerciseOverrideQueries
 
     override suspend fun add(set: DomainWorkoutSet) {
         // Snapshot the exercise's effective (override-aware) muscles at log time so later catalog
         // edits can't rewrite history.
         val seed = exerciseQueries.selectById(set.exerciseId).executeAsOneOrNull()
-        val edit = muscleEditQueries.selectById(set.exerciseId).executeAsOneOrNull()
+        val override = overrideQueries.selectById(set.exerciseId).executeAsOneOrNull()
         setQueries.insertSet(
             exerciseId = set.exerciseId,
             reps = set.reps.toLong(),
             weightKg = set.weightKg,
             performedAt = set.performedAtMillis,
             isWarmup = if (set.isWarmup) 1L else 0L,
-            primaryMuscles = edit?.primaryMuscles ?: seed?.primaryMuscles,
-            secondaryMuscles = edit?.secondaryMuscles ?: seed?.secondaryMuscles
+            primaryMuscles = override?.primaryMuscles ?: seed?.primaryMuscles,
+            secondaryMuscles = override?.secondaryMuscles ?: seed?.secondaryMuscles
         )
     }
 

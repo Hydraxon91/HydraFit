@@ -2,6 +2,7 @@ package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.fatigue.MuscleInvolvement
 import com.hydrafit.app.core.domain.workout.WorkoutSet as DomainWorkoutSet
@@ -165,10 +166,13 @@ class SqlDelightWorkoutLogRepositoryTest {
 
     @Test
     fun snapshotsTheOverriddenMusclesWhenLogging() = runTest {
-        SqlDelightExerciseMuscleRepository(database).update(
+        SqlDelightExerciseOverrideRepository(database).update(
             exerciseId = "barbell-bench-press",
+            name = null,
+            requiredEquipment = setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH),
             primaryMuscles = setOf(MuscleGroup.BACK),
-            secondaryMuscles = emptySet()
+            secondaryMuscles = emptySet(),
+            movementPattern = null
         )
 
         repository.add(set(exerciseId = "barbell-bench-press", performedAt = 1))

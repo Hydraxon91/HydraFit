@@ -10,8 +10,7 @@ import com.hydrafit.app.core.userdata.equipment.CustomExerciseException
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
-import com.hydrafit.app.core.userdata.equipment.ExerciseEquipmentRepository
-import com.hydrafit.app.core.userdata.equipment.ExerciseMuscleRepository
+import com.hydrafit.app.core.userdata.equipment.ExerciseOverrideRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,8 +22,7 @@ class EquipmentProfilerViewModel(
     private val equipmentRepository: EquipmentRepository,
     private val selectionRepository: EquipmentSelectionRepository,
     private val exerciseCatalog: ExerciseCatalog,
-    private val exerciseEquipmentRepository: ExerciseEquipmentRepository,
-    private val exerciseMuscleRepository: ExerciseMuscleRepository,
+    private val exerciseOverrideRepository: ExerciseOverrideRepository,
     private val customExerciseRepository: CustomExerciseRepository
 ) : ViewModel() {
 
@@ -235,15 +233,20 @@ class EquipmentProfilerViewModel(
     }
 
     private suspend fun writeBuiltInOverrides(exerciseId: String, editor: ExerciseEditorState) {
-        exerciseEquipmentRepository.update(exerciseId, editor.equipment)
-        exerciseMuscleRepository.update(exerciseId, editor.primary, editor.secondary)
+        exerciseOverrideRepository.update(
+            exerciseId = exerciseId,
+            name = editor.name,
+            requiredEquipment = editor.equipment,
+            primaryMuscles = editor.primary,
+            secondaryMuscles = editor.secondary,
+            movementPattern = editor.movementPattern
+        )
     }
 
     fun onResetExercise() {
         val exerciseId = _state.value.exerciseEditor.exerciseId ?: return
         viewModelScope.launch {
-            exerciseEquipmentRepository.reset(exerciseId)
-            exerciseMuscleRepository.reset(exerciseId)
+            exerciseOverrideRepository.reset(exerciseId)
             closeEditorAndRefresh()
         }
     }

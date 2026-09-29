@@ -10,8 +10,7 @@ import com.hydrafit.app.core.userdata.equipment.CustomExerciseException
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
-import com.hydrafit.app.core.userdata.equipment.ExerciseEquipmentRepository
-import com.hydrafit.app.core.userdata.equipment.ExerciseMuscleRepository
+import com.hydrafit.app.core.userdata.equipment.ExerciseOverrideRepository
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -91,46 +90,46 @@ class EquipmentProfilerViewModelTest {
 
     @Test
     fun openingABuiltInEditorSeedsCurrentOverridesAndSavesThem() = runTest(dispatcher) {
-        val equipmentEdits = FakeExerciseEquipmentRepository()
-        val muscleEdits = FakeExerciseMuscleRepository()
-        val viewModel = viewModel(exerciseEquipment = equipmentEdits, exerciseMuscle = muscleEdits)
+        val overrides = FakeExerciseOverrideRepository()
+        val viewModel = viewModel(overrides = overrides)
         advanceUntilIdle()
 
         viewModel.onEditExercise("back-squat")
         assertEquals(setOf(EquipmentTag.BARBELL), viewModel.state.value.exerciseEditor.equipment)
         assertEquals(setOf(MuscleGroup.QUADS), viewModel.state.value.exerciseEditor.primary)
 
+        viewModel.onEditorNameChanged("Back Squat (Low Bar)")
         viewModel.onEditorEquipmentToggled(EquipmentTag.BENCH)
         viewModel.onEditorMuscleToggled(MuscleGroup.CHEST, primary = true)
         viewModel.onSaveExercise()
         advanceUntilIdle()
 
-        assertEquals(
-            setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH),
-            equipmentEdits.overrides["back-squat"]
-        )
-        assertEquals(
-            setOf(MuscleGroup.QUADS, MuscleGroup.CHEST),
-            muscleEdits.primary["back-squat"]
-        )
+        val stored = requireNotNull(overrides.overrides["back-squat"])
+        assertEquals("Back Squat (Low Bar)", stored.name)
+        assertEquals(setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH), stored.equipment)
+        assertEquals(setOf(MuscleGroup.QUADS, MuscleGroup.CHEST), stored.primary)
         assertNull(viewModel.state.value.exerciseEditor.exerciseId)
     }
 
     @Test
-    fun resetClearsBothOverridesForABuiltIn() = runTest(dispatcher) {
-        val equipmentEdits = FakeExerciseEquipmentRepository(
-            mutableMapOf("back-squat" to setOf(EquipmentTag.DUMBBELL))
+    fun resetClearsBuiltInOverrides() = runTest(dispatcher) {
+        val overrides = FakeExerciseOverrideRepository()
+        overrides.update(
+            "back-squat",
+            "Renamed",
+            setOf(EquipmentTag.DUMBBELL),
+            setOf(MuscleGroup.QUADS),
+            emptySet(),
+            MovementPattern.SQUAT
         )
-        val muscleEdits = FakeExerciseMuscleRepository()
-        val viewModel = viewModel(exerciseEquipment = equipmentEdits, exerciseMuscle = muscleEdits)
+        val viewModel = viewModel(overrides = overrides)
         advanceUntilIdle()
 
         viewModel.onEditExercise("back-squat")
         viewModel.onResetExercise()
         advanceUntilIdle()
 
-        assertTrue(equipmentEdits.overrides.isEmpty())
-        assertTrue(muscleEdits.primary.isEmpty())
+        assertTrue(overrides.overrides.isEmpty())
     }
 
     @Test
@@ -215,15 +214,13 @@ class EquipmentProfilerViewModelTest {
     private fun viewModel(
         equipment: FakeEquipmentRepository = FakeEquipmentRepository(),
         selection: FakeSelectionRepository = FakeSelectionRepository(emptySet()),
-        exerciseEquipment: FakeExerciseEquipmentRepository = FakeExerciseEquipmentRepository(),
-        exerciseMuscle: FakeExerciseMuscleRepository = FakeExerciseMuscleRepository(),
+        overrides: FakeExerciseOverrideRepository = FakeExerciseOverrideRepository(),
         custom: FakeCustomExerciseRepository = FakeCustomExerciseRepository()
     ) = EquipmentProfilerViewModel(
         equipmentRepository = equipment,
         selectionRepository = selection,
-        exerciseCatalog = FakeExerciseCatalog(exerciseEquipment, exerciseMuscle, custom),
-        exerciseEquipmentRepository = exerciseEquipment,
-        exerciseMuscleRepository = exerciseMuscle,
+        exerciseCatalog = FakeExerciseCatalog(overrides, custom),
+        exerciseOverrideRepository = overrides,
         customExerciseRepository = custom
     )
 
@@ -263,34 +260,36 @@ class EquipmentProfilerViewModelTest {
         }
     }
 
-    private class FakeExerciseEquipmentRepository(
-        val overrides: MutableMap<String, Set<EquipmentTag>> = mutableMapOf()
-    ) : ExerciseEquipmentRepository {
-        override suspend fun update(exerciseId: String, equipment: Set<EquipmentTag>) {
-            overrides[exerciseId] = equipment
+    private data class StoredOverride(
+        val name: String?,
+        val equipment: Set<EquipmentTag>,
+        val primary: Set<MuscleGroup>,
+        val secondary: Set<MuscleGroup>,
+        val pattern: MovementPattern?
+    )
+
+    private class FakeExerciseOverrideRepository : ExerciseOverrideRepository {
+        val overrides = mutableMapOf<String, StoredOverride>()
+
+        override suspend fun update(
+            exerciseId: String,
+            name: String?,
+            requiredEquipment: Set<EquipmentTag>,
+            primaryMuscles: Set<MuscleGroup>,
+            secondaryMuscles: Set<MuscleGroup>,
+            movementPattern: MovementPattern?
+        ) {
+            overrides[exerciseId] = StoredOverride(
+                name = name,
+                equipment = requiredEquipment,
+                primary = primaryMuscles,
+                secondary = secondaryMuscles,
+                pattern = movementPattern
+            )
         }
 
         override suspend fun reset(exerciseId: String) {
             overrides.remove(exerciseId)
-        }
-    }
-
-    private class FakeExerciseMuscleRepository : ExerciseMuscleRepository {
-        val primary = mutableMapOf<String, Set<MuscleGroup>>()
-        val secondary = mutableMapOf<String, Set<MuscleGroup>>()
-
-        override suspend fun update(
-            exerciseId: String,
-            primaryMuscles: Set<MuscleGroup>,
-            secondaryMuscles: Set<MuscleGroup>
-        ) {
-            primary[exerciseId] = primaryMuscles
-            secondary[exerciseId] = secondaryMuscles
-        }
-
-        override suspend fun reset(exerciseId: String) {
-            primary.remove(exerciseId)
-            secondary.remove(exerciseId)
         }
     }
 
@@ -333,20 +332,21 @@ class EquipmentProfilerViewModelTest {
     }
 
     private class FakeExerciseCatalog(
-        private val equipmentEdits: FakeExerciseEquipmentRepository,
-        private val muscleEdits: FakeExerciseMuscleRepository,
+        private val overrides: FakeExerciseOverrideRepository,
         private val custom: FakeCustomExerciseRepository
     ) : ExerciseCatalog {
-        override suspend fun all(): List<Exercise> = listOf(
-            Exercise(
-                id = "back-squat",
-                name = "Back Squat",
-                requiredEquipment = equipmentEdits.overrides["back-squat"]
-                    ?: setOf(EquipmentTag.BARBELL),
-                primaryMuscles = muscleEdits.primary["back-squat"] ?: setOf(MuscleGroup.QUADS),
-                secondaryMuscles = muscleEdits.secondary["back-squat"] ?: setOf(MuscleGroup.GLUTES),
-                movementPattern = MovementPattern.SQUAT
-            )
-        ) + custom.created
+        override suspend fun all(): List<Exercise> {
+            val override = overrides.overrides["back-squat"]
+            return listOf(
+                Exercise(
+                    id = "back-squat",
+                    name = override?.name ?: "Back Squat",
+                    requiredEquipment = override?.equipment ?: setOf(EquipmentTag.BARBELL),
+                    primaryMuscles = override?.primary ?: setOf(MuscleGroup.QUADS),
+                    secondaryMuscles = override?.secondary ?: setOf(MuscleGroup.GLUTES),
+                    movementPattern = override?.pattern ?: MovementPattern.SQUAT
+                )
+            ) + custom.created
+        }
     }
 }

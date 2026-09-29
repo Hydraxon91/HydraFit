@@ -1,0 +1,26 @@
+CREATE TABLE exerciseOverride (
+    exerciseId TEXT NOT NULL PRIMARY KEY,
+    name TEXT,
+    requiredEquipment TEXT,
+    primaryMuscles TEXT,
+    secondaryMuscles TEXT,
+    movementPattern TEXT
+);
+
+INSERT INTO exerciseOverride(exerciseId, requiredEquipment)
+SELECT exerciseId, requiredEquipment FROM exerciseEdit;
+
+UPDATE exerciseOverride
+SET primaryMuscles = (
+        SELECT primaryMuscles FROM exerciseMuscleEdit WHERE exerciseMuscleEdit.exerciseId = exerciseOverride.exerciseId
+    ),
+    secondaryMuscles = (
+        SELECT secondaryMuscles FROM exerciseMuscleEdit WHERE exerciseMuscleEdit.exerciseId = exerciseOverride.exerciseId
+    )
+WHERE exerciseId IN (SELECT exerciseId FROM exerciseMuscleEdit);
+
+INSERT OR IGNORE INTO exerciseOverride(exerciseId, primaryMuscles, secondaryMuscles)
+SELECT exerciseId, primaryMuscles, secondaryMuscles FROM exerciseMuscleEdit;
+
+DROP TABLE exerciseEdit;
+DROP TABLE exerciseMuscleEdit;

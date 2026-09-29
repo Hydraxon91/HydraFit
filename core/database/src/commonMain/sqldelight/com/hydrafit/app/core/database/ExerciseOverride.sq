@@ -1,0 +1,23 @@
+CREATE TABLE exerciseOverride (
+    exerciseId TEXT NOT NULL PRIMARY KEY,
+    name TEXT,
+    requiredEquipment TEXT,
+    primaryMuscles TEXT,
+    secondaryMuscles TEXT,
+    movementPattern TEXT
+);
+
+selectAll:
+SELECT * FROM exerciseOverride;
+
+selectById:
+SELECT * FROM exerciseOverride WHERE exerciseId = ?;
+
+upsert:
+INSERT OR REPLACE INTO exerciseOverride(
+    exerciseId, name, requiredEquipment, primaryMuscles, secondaryMuscles, movementPattern
+)
+VALUES (?, ?, ?, ?, ?, ?);
+
+deleteById:
+DELETE FROM exerciseOverride WHERE exerciseId = ?;
