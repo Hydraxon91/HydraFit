@@ -3,6 +3,7 @@ package com.hydrafit.app.feature.settings
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.hydrafit.app.core.userdata.llm.ModelUpdateResult
+import com.hydrafit.app.core.userdata.llm.NpuDeviceDetector
 import com.hydrafit.app.core.userdata.llm.OnDeviceModelManager
 import com.hydrafit.app.core.userdata.llm.OnDeviceModelTarget
 import hydrafit.feature.settings.generated.resources.Res
@@ -32,6 +34,8 @@ import hydrafit.feature.settings.generated.resources.settings_model_error_storag
 import hydrafit.feature.settings.generated.resources.settings_model_error_unreadable
 import hydrafit.feature.settings.generated.resources.settings_model_import
 import hydrafit.feature.settings.generated.resources.settings_model_installed
+import hydrafit.feature.settings.generated.resources.settings_model_npu_hint
+import hydrafit.feature.settings.generated.resources.settings_model_npu_link
 import hydrafit.feature.settings.generated.resources.settings_model_remove
 import hydrafit.feature.settings.generated.resources.settings_model_section
 import hydrafit.feature.settings.generated.resources.settings_model_target_cpu_gpu
@@ -108,6 +112,15 @@ actual fun OnDeviceModelSection(
                 style = MaterialTheme.typography.bodySmall
             )
         }
+        if (!installed && NpuDeviceDetector.isNpuCapable(socModel(), Build.HARDWARE, Build.BOARD)) {
+            Text(
+                text = stringResource(Res.string.settings_model_npu_hint),
+                style = MaterialTheme.typography.bodySmall
+            )
+            TextButton(onClick = { context.openNpuModelPage() }) {
+                Text(stringResource(Res.string.settings_model_npu_link))
+            }
+        }
         TextButton(onClick = { context.openGemmaTerms() }) {
             Text(stringResource(Res.string.settings_model_terms))
         }
@@ -123,6 +136,21 @@ private fun ModelUpdateResult.messageResource(): StringResource = when (this) {
 private fun OnDeviceModelTarget.messageResource(): StringResource = when (this) {
     OnDeviceModelTarget.NPU -> Res.string.settings_model_target_npu
     OnDeviceModelTarget.CPU_GPU -> Res.string.settings_model_target_cpu_gpu
+}
+
+private fun socModel(): String? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    Build.SOC_MODEL
+} else {
+    null
+}
+
+private fun Context.openNpuModelPage() {
+    startActivity(
+        Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("https://huggingface.co/litert-community/Gemma3-1B-IT")
+        )
+    )
 }
 
 private fun Context.openGemmaTerms() {
