@@ -1,0 +1,115 @@
+package com.hydrafit.app.core.domain.engine
+
+import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.time.TimeProvider
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+
+class AcceptWeeklyPlanUseCaseTest {
+
+    @Test
+    fun snapshotsExerciseNamesAndMovementPatternsFromTheCatalog() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val useCase = AcceptWeeklyPlanUseCase(repository, FakeCatalog, TimeProvider { 42L })
+
+        useCase(
+            WeeklyPlan(
+                engine = PlannerEngineId.GEMINI_API,
+                days = listOf(
+                    WorkoutDay(
+                        dayIndex = 0,
+                        focus = SplitFocus.PUSH,
+                        exercises = listOf(PlannedExercise("bench-press", sets = 4, reps = 8))
+                    )
+                )
+            )
+        )
+
+        val accepted = requireNotNull(repository.stored)
+        assertEquals(PlannerEngineId.GEMINI_API, accepted.engine)
+        assertEquals(42L, accepted.acceptedAtMillis)
+        val exercise = accepted.days.single().exercises.single()
+        assertEquals("bench-press", exercise.exerciseId)
+        assertEquals("Bench Press", exercise.name)
+        assertEquals(4, exercise.sets)
+        assertEquals(8, exercise.reps)
+        assertEquals(MovementPattern.HORIZONTAL_PUSH, exercise.movementPattern)
+    }
+
+    @Test
+    fun fallsBackToTheIdWhenTheExerciseIsNotInTheCatalog() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val useCase = AcceptWeeklyPlanUseCase(repository, FakeCatalog, TimeProvider { 0L })
+
+        useCase(
+            WeeklyPlan(
+                engine = PlannerEngineId.LOCAL_LLM,
+                days = listOf(
+                    WorkoutDay(
+                        dayIndex = 0,
+                        focus = SplitFocus.PUSH,
+                        exercises = listOf(PlannedExercise("ghost", sets = 3, reps = 10))
+                    )
+                )
+            )
+        )
+
+        val exercise = requireNotNull(repository.stored).days.single().exercises.single()
+        assertEquals("ghost", exercise.name)
+        assertEquals(MovementPattern.CORE, exercise.movementPattern)
+    }
+
+    @Test
+    fun observeExposesTheLatestAcceptedPlan() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val useCase = ObserveAcceptedPlanUseCase(repository)
+
+        assertTrue(useCase().first() == null)
+
+        repository.stored = AcceptedPlan(PlannerEngineId.DETERMINISTIC, 1L, emptyList())
+
+        assertEquals(1L, requireNotNull(useCase().first()).acceptedAtMillis)
+    }
+
+    private class FakePlanHistoryRepository : PlanHistoryRepository {
+        private val state = MutableStateFlow<AcceptedPlan?>(null)
+
+        var stored: AcceptedPlan?
+            get() = state.value
+            set(value) {
+                state.value = value
+            }
+
+        override fun observeLatest(): Flow<AcceptedPlan?> = state
+
+        override suspend fun latest(): AcceptedPlan? = state.value
+
+        override suspend fun accept(plan: AcceptedPlan) {
+            state.value = plan
+        }
+
+        override suspend fun clear() {
+            state.value = null
+        }
+    }
+
+    private object FakeCatalog : ExerciseCatalog {
+        override suspend fun all(): List<Exercise> = listOf(
+            Exercise(
+                id = "bench-press",
+                name = "Bench Press",
+                requiredEquipment = setOf(EquipmentTag.BARBELL),
+                primaryMuscles = setOf(MuscleGroup.CHEST),
+                movementPattern = MovementPattern.HORIZONTAL_PUSH
+            )
+        )
+    }
+}

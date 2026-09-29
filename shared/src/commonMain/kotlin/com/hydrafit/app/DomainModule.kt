@@ -1,8 +1,10 @@
 package com.hydrafit.app
 
+import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.EngineAvailability
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
+import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngineProvider
@@ -40,6 +42,8 @@ val domainModule: Module = module {
     }
     single { GenerateWeeklySplitUseCase(get()) }
     single { ObserveWorkoutPlanInputsUseCase(get(), get(), get()) }
+    single { AcceptWeeklyPlanUseCase(get(), get(), get()) }
+    single { ObserveAcceptedPlanUseCase(get()) }
     single { LogWorkoutSetUseCase(get()) }
     single { GetWorkoutLogUseCase(get()) }
 }
