@@ -74,7 +74,7 @@
 - Verify the local LLM engine end-to-end on a physical device with a bundled Gemma model.
 - Implement a Keychain-backed `ApiKeyStore` when the iOS app ships (currently a no-op on iOS).
 - Use MockK when a chunk needs it (approved version, not yet used).
-- Local AI quality: **focus-sequence + variety guard implemented** (see "Local AI repetition quality" below) — the per-day focus schedule, the schema focus pin, and the deterministic `PlanVarietyEnforcer` (day/duplicate/cross-day-compound dedupe) are in. **Still open:** a token-level variety guard (repetition penalty / no-repeat n-gram) and offering a stronger pack (Gemma 3n-E2B, or the `_sm8750` NPU build for speed) when present. The "three PULL days" symptom is same-plan focus collapse, distinct from Item 7a's cross-week exercise rotation.
+- Local AI quality: **focus-sequence + variety guard implemented** (see "Local AI repetition quality" below) — the per-day focus schedule, the schema focus pin, and the deterministic `PlanVarietyEnforcer` (day/duplicate/cross-day-compound dedupe) are in. **Token-level variety implemented** (see below): per-generation random seed + raised temperature. **Still open:** offering a stronger pack (Gemma 3n-E2B) — NPU guidance hint shipped, but the Qualcomm QNN libs stay unbundled to keep the repo MIT-clean. The "three PULL days" symptom is same-plan focus collapse, distinct from Item 7a's cross-week exercise rotation.
 
 ### Custom exercises (approved plan)
 
@@ -133,8 +133,12 @@
 - **Logger prefill:** selecting an exercise prefills the weight field from the accepted plan's `suggestedWeightKg` (converted to the display unit) and the reps from the plan, so the user logs against the prescription.
 - **Coupling:** the unit is presentational, read straight from the repository in the `SplitBuilderRoute` composable and the Logger VM; plan generation, storage, and the engines are unit-agnostic. No engine/Koin-graph semantics changed (only new bindings + a constructor param with the existing pattern).
 
-### Deferred (mega-plan)
+### Local AI token-level variety + NPU guidance (approved, implemented)
 
+- **Token-level variety.** The LiteRT-LM 0.16.1 Kotlin API exposes only `topK`/`topP`/`temperature`/`seed` in `SamplerConfig` — **no repetition penalty or no-repeat n-gram**, so the originally-sketched token guard is unavailable. Instead the generator now randomizes the seed **per generation** (it was fixed at `0`, which made every regeneration identical) and raises temperature from `0.2` to `0.6`; constrained JSON keeps structure valid and `PlanVarietyEnforcer` remains the hard guarantee. New pure `OnDeviceSampler` (`:core:llm`) is testable on the host; the native path is unchanged otherwise.
+- **NPU guidance (MIT-safe).** On an NPU-capable device the Settings model section shows a hint + link to the HuggingFace pack when no NPU model is installed. `NpuDeviceDetector` (`:core:userdata`) checks `Build.SOC_MODEL` (API 31+) falling back to `Build.HARDWARE`/`Build.BOARD` for `sm8750`/`8 elite`. **No Qualcomm QNN binaries are bundled** — they are proprietary and would compromise the repo's licensing; NPU acceleration still requires the documented manual jniLibs drop-in, and an NPU model falls back to GPU/CPU until then. In-app pack download and stronger-pack bundling remain out of scope.
+
+### Deferred (mega-plan)
 - **Week-counter / cycle system.** Investigated: there is **no week concept anywhere** today — `planHistory` is `id, engineId, acceptedAt`; rotation uses only the latest accepted plan; progressive overload uses day-based streaks over all logged sets. A *label-only* version (explicit `weekNumber` on `AcceptedPlan` + history UI, schema v15 + `.sqm`) is largely cosmetic and buys nothing functional; genuinely useful version requires periodization decisions (deload weeks, planned volume progression, scheduled PR re-tests) — a much larger design + implementation, roughly Chunk A+B combined. **Independent of accessory sets (no coupling)**: rotation reads `latest()`, progression reads day streaks, neither needs a week index. Deferred; revisit if periodization becomes a goal.
 - Settings/navigation redesign — use a coherent "Planning" section in existing Settings for goal + engine + Gemini consent; keep equipment/exercise management in the Equipment tab.
 - Local-model same-week focus-sequence prompt improvement (tracked above), not the same feature as Item 7a.
