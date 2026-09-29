@@ -2,12 +2,11 @@ package com.hydrafit.app.feature.logger
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -89,91 +88,103 @@ fun WorkoutLoggerScreen(
     onLog: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    // One scroll container for the whole screen: a fixed-height picker inside a non-scrolling
+    // parent used to push the form and the recent-sets list off short viewports.
+    LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .safeContentPadding()
-            .padding(16.dp),
+            .safeContentPadding(),
+        contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(
-            text = stringResource(Res.string.logger_title),
-            style = MaterialTheme.typography.headlineSmall
-        )
-        state.todayFocus?.let { focus ->
+        item {
             Text(
-                text = stringResource(
-                    Res.string.logger_today,
-                    stringResource(focus.labelResource())
-                ),
+                text = stringResource(Res.string.logger_title),
+                style = MaterialTheme.typography.headlineSmall
+            )
+        }
+        state.todayFocus?.let { focus ->
+            item {
+                Text(
+                    text = stringResource(
+                        Res.string.logger_today,
+                        stringResource(focus.labelResource())
+                    ),
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+        }
+        item {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+            ) {
+                items(state.exercises, key = { it.id }) { exercise ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onExerciseSelected(exercise.id) },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = state.selectedExerciseId == exercise.id,
+                            onClick = { onExerciseSelected(exercise.id) }
+                        )
+                        Text(exercise.name)
+                    }
+                }
+            }
+        }
+        item {
+            OutlinedTextField(
+                value = state.reps,
+                onValueChange = onRepsChanged,
+                label = { Text(stringResource(Res.string.logger_reps_label)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        item {
+            OutlinedTextField(
+                value = state.weightKg,
+                onValueChange = onWeightChanged,
+                label = { Text(stringResource(Res.string.logger_weight_label)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        item {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Switch(checked = state.isWarmup, onCheckedChange = onWarmupToggled)
+                Text(stringResource(Res.string.logger_warmup))
+            }
+        }
+        item {
+            Button(onClick = onLog, enabled = state.canLog) {
+                Text(stringResource(Res.string.logger_log_button))
+            }
+        }
+        item {
+            Text(
+                text = stringResource(Res.string.logger_recent),
                 style = MaterialTheme.typography.titleMedium
             )
         }
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(180.dp)
-        ) {
-            items(state.exercises, key = { it.id }) { exercise ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onExerciseSelected(exercise.id) },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = state.selectedExerciseId == exercise.id,
-                        onClick = { onExerciseSelected(exercise.id) }
-                    )
-                    Text(exercise.name)
-                }
+        items(state.recentSets) { row ->
+            val weight =
+                row.weightKg?.toString() ?: stringResource(Res.string.logger_weight_none)
+            val warmupSuffix = if (row.isWarmup) {
+                " " + stringResource(Res.string.logger_warmup_suffix)
+            } else {
+                ""
             }
-        }
-        OutlinedTextField(
-            value = state.reps,
-            onValueChange = onRepsChanged,
-            label = { Text(stringResource(Res.string.logger_reps_label)) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth()
-        )
-        OutlinedTextField(
-            value = state.weightKg,
-            onValueChange = onWeightChanged,
-            label = { Text(stringResource(Res.string.logger_weight_label)) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            modifier = Modifier.fillMaxWidth()
-        )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Switch(checked = state.isWarmup, onCheckedChange = onWarmupToggled)
-            Text(stringResource(Res.string.logger_warmup))
-        }
-        Button(onClick = onLog, enabled = state.canLog) {
-            Text(stringResource(Res.string.logger_log_button))
-        }
-        Text(
-            text = stringResource(Res.string.logger_recent),
-            style = MaterialTheme.typography.titleMedium
-        )
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-        ) {
-            items(state.recentSets) { row ->
-                val weight =
-                    row.weightKg?.toString() ?: stringResource(Res.string.logger_weight_none)
-                val warmupSuffix = if (row.isWarmup) {
-                    " " + stringResource(Res.string.logger_warmup_suffix)
-                } else {
-                    ""
-                }
-                Text(text = "${row.exerciseName}  ${row.reps} x $weight$warmupSuffix")
-            }
+            Text(text = "${row.exerciseName}  ${row.reps} x $weight$warmupSuffix")
         }
     }
 }
