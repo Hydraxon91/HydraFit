@@ -41,7 +41,7 @@ val domainModule: Module = module {
         )
     }
     single { GenerateWeeklySplitUseCase(get()) }
-    single { ObserveWorkoutPlanInputsUseCase(get(), get(), get()) }
+    single { ObserveWorkoutPlanInputsUseCase(get(), get(), get(), get()) }
     single { AcceptWeeklyPlanUseCase(get(), get(), get()) }
     single { ObserveAcceptedPlanUseCase(get()) }
     single { LogWorkoutSetUseCase(get()) }

@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.time.TimeProvider
 import kotlin.test.Test
@@ -35,7 +36,8 @@ class ObserveWorkoutPlanInputsUseCaseTest {
         val useCase = ObserveWorkoutPlanInputsUseCase(
             sources = sources,
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
-            timeProvider = TimeProvider { 100L }
+            timeProvider = TimeProvider { 100L },
+            planHistoryRepository = FakePlanHistoryRepository()
         )
 
         val inputs = useCase().first()
@@ -58,7 +60,8 @@ class ObserveWorkoutPlanInputsUseCaseTest {
         val useCase = ObserveWorkoutPlanInputsUseCase(
             sources = sources,
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
-            timeProvider = TimeProvider { 100L }
+            timeProvider = TimeProvider { 100L },
+            planHistoryRepository = FakePlanHistoryRepository()
         )
 
         val inputs = useCase(setsPerExercise = flowOf(6)).first()
@@ -82,7 +85,8 @@ class ObserveWorkoutPlanInputsUseCaseTest {
         val useCase = ObserveWorkoutPlanInputsUseCase(
             sources = sources,
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
-            timeProvider = TimeProvider { nowMillis }
+            timeProvider = TimeProvider { nowMillis },
+            planHistoryRepository = FakePlanHistoryRepository()
         )
         val emitted = mutableListOf<WorkoutPlanInputs>()
 
@@ -121,6 +125,50 @@ class ObserveWorkoutPlanInputsUseCaseTest {
         assertTrue(emitted.all { it.request.availableEquipment == setOf(EquipmentTag.BARBELL) })
     }
 
+    @Test
+    fun addsPreviousAcceptedSelectionsToTheRequest() = runTest {
+        val accepted = AcceptedPlan(
+            engine = PlannerEngineId.DETERMINISTIC,
+            acceptedAtMillis = 1L,
+            days = listOf(
+                AcceptedDay(
+                    dayIndex = 0,
+                    focus = SplitFocus.PUSH,
+                    exercises = listOf(
+                        AcceptedExercise(
+                            exerciseId = "bench-press",
+                            sets = 3,
+                            reps = 8,
+                            name = "Bench Press",
+                            movementPattern = MovementPattern.HORIZONTAL_PUSH
+                        )
+                    )
+                )
+            )
+        )
+        val history = FakePlanHistoryRepository(accepted)
+        val useCase = ObserveWorkoutPlanInputsUseCase(
+            sources = FakeWorkoutPlanSourcesRepository(
+                WorkoutPlanSources(
+                    availableEquipment = setOf(EquipmentTag.BARBELL),
+                    selectedEngine = PlannerEngineId.DETERMINISTIC,
+                    daysPerWeek = 3,
+                    loggedSets = emptyList()
+                )
+            ),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { 0L },
+            planHistoryRepository = history
+        )
+
+        val request = useCase().first().request
+
+        assertEquals(
+            setOf("bench-press"),
+            request.recentExerciseIdsByPattern[MovementPattern.HORIZONTAL_PUSH]
+        )
+    }
+
     private class FakeWorkoutPlanSourcesRepository(initial: WorkoutPlanSources) :
         WorkoutPlanSourcesRepository {
         private val state = MutableStateFlow(initial)
@@ -130,5 +178,16 @@ class ObserveWorkoutPlanInputsUseCaseTest {
         fun update(sources: WorkoutPlanSources) {
             state.value = sources
         }
+    }
+
+    private class FakePlanHistoryRepository(private val accepted: AcceptedPlan? = null) :
+        PlanHistoryRepository {
+        override fun observeLatest() = flowOf(accepted)
+
+        override suspend fun latest(): AcceptedPlan? = accepted
+
+        override suspend fun accept(plan: AcceptedPlan) = Unit
+
+        override suspend fun clear() = Unit
     }
 }

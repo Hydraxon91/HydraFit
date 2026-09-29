@@ -112,7 +112,8 @@ class SplitBuilderViewModelTest {
             observeWorkoutPlanInputs = ObserveWorkoutPlanInputsUseCase(
                 sources = sources,
                 calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
-                timeProvider = TimeProvider { 0L }
+                timeProvider = TimeProvider { 0L },
+                planHistoryRepository = EmptyPlanHistoryRepository
             ),
             generateWeeklySplit = GenerateWeeklySplitUseCase(
                 WorkoutPlannerEngineProvider { throw IllegalStateException("engine boom") }
@@ -141,7 +142,8 @@ class SplitBuilderViewModelTest {
             observeWorkoutPlanInputs = ObserveWorkoutPlanInputsUseCase(
                 sources = FakeWorkoutPlanSourcesRepository(equipment, preference, workoutLog),
                 calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
-                timeProvider = TimeProvider { 0L }
+                timeProvider = TimeProvider { 0L },
+                planHistoryRepository = EmptyPlanHistoryRepository
             ),
             generateWeeklySplit = GenerateWeeklySplitUseCase(
                 WorkoutPlannerEngineProvider {
@@ -386,7 +388,8 @@ class SplitBuilderViewModelTest {
             observeWorkoutPlanInputs = ObserveWorkoutPlanInputsUseCase(
                 sources = sources,
                 calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
-                timeProvider = TimeProvider { 0L }
+                timeProvider = TimeProvider { 0L },
+                planHistoryRepository = EmptyPlanHistoryRepository
             ),
             generateWeeklySplit = GenerateWeeklySplitUseCase(
                 WorkoutPlannerEngineProvider {
@@ -433,6 +436,18 @@ class SplitBuilderViewModelTest {
                 loggedSets = loggedSets
             )
         }
+    }
+
+    private object EmptyPlanHistoryRepository : PlanHistoryRepository {
+        private val state = MutableStateFlow<AcceptedPlan?>(null)
+
+        override fun observeLatest(): Flow<AcceptedPlan?> = state.asStateFlow()
+
+        override suspend fun latest(): AcceptedPlan? = null
+
+        override suspend fun accept(plan: AcceptedPlan) = Unit
+
+        override suspend fun clear() = Unit
     }
 
     private class FakeExerciseCatalog : ExerciseCatalog {

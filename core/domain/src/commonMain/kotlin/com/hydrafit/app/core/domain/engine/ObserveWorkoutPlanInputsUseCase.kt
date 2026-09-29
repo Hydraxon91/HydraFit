@@ -12,7 +12,8 @@ import kotlinx.coroutines.flow.onStart
 class ObserveWorkoutPlanInputsUseCase(
     private val sources: WorkoutPlanSourcesRepository,
     private val calculateMuscleFatigue: CalculateMuscleFatigueUseCase,
-    private val timeProvider: TimeProvider
+    private val timeProvider: TimeProvider,
+    private val planHistoryRepository: PlanHistoryRepository
 ) {
     operator fun invoke(
         setsPerExercise: Flow<Int?> = flowOf(null),
@@ -23,6 +24,12 @@ class ObserveWorkoutPlanInputsUseCase(
         refreshRequests.onStart { emit(Unit) }
     ) { current, sets, _ ->
         val nowMillis = timeProvider.nowMillis()
+        val recentExerciseIdsByPattern = planHistoryRepository.latest()
+            ?.days
+            ?.flatMap { day -> day.exercises.map { it.movementPattern to it.exerciseId } }
+            ?.groupBy({ it.first }, { it.second })
+            ?.mapValues { (_, ids) -> ids.toSet() }
+            .orEmpty()
         WorkoutPlanInputs(
             request = PlanRequest(
                 daysPerWeek = current.daysPerWeek,
@@ -30,7 +37,8 @@ class ObserveWorkoutPlanInputsUseCase(
                 muscleFatigue = calculateMuscleFatigue(current.loggedSets, nowMillis),
                 nowMillis = nowMillis,
                 goal = current.goal,
-                setsPerExercise = sets ?: current.goal.defaultSets
+                setsPerExercise = sets ?: current.goal.defaultSets,
+                recentExerciseIdsByPattern = recentExerciseIdsByPattern
             ),
             requestedEngine = current.selectedEngine
         )

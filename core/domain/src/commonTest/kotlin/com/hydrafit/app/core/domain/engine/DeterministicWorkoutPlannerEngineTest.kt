@@ -263,6 +263,45 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun rotatesAwayFromThePreviousAcceptedExerciseWhenAnEquivalentExists() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                split = SplitType.PUSH_PULL_LEGS,
+                recentExerciseIdsByPattern = mapOf(
+                    MovementPattern.HORIZONTAL_PUSH to setOf("bench-press")
+                )
+            ),
+            listOf(
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST),
+                exercise("push-up", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST)
+            )
+        )
+
+        val pushIds = plan.days.first { it.focus == SplitFocus.PUSH }
+            .exercises.map { it.exerciseId }
+        assertEquals(listOf("push-up"), pushIds)
+    }
+
+    @Test
+    fun repeatsThePreviousExerciseWhenNoEquivalentAlternativeExists() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                split = SplitType.PUSH_PULL_LEGS,
+                recentExerciseIdsByPattern = mapOf(
+                    MovementPattern.HORIZONTAL_PUSH to setOf("bench-press")
+                )
+            ),
+            listOf(exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST))
+        )
+
+        val pushIds = plan.days.first { it.focus == SplitFocus.PUSH }
+            .exercises.map { it.exerciseId }
+        assertEquals(listOf("bench-press"), pushIds)
+    }
+
+    @Test
     fun skipsExercisesAboveTheFatigueSkipThreshold() {
         val plan = engine.plan(
             request(
@@ -351,7 +390,13 @@ class DeterministicWorkoutPlannerEngineTest {
     @Test
     fun isDeterministicForTheSameInput() {
         val exercises = catalog()
-        val request = request(daysPerWeek = 4, equipment = everything)
+        val request = request(
+            daysPerWeek = 4,
+            equipment = everything,
+            recentExerciseIdsByPattern = mapOf(
+                MovementPattern.HORIZONTAL_PUSH to setOf("bench-press")
+            )
+        )
 
         assertEquals(engine.plan(request, exercises), engine.plan(request, exercises))
     }
@@ -380,7 +425,8 @@ class DeterministicWorkoutPlannerEngineTest {
         fatigue: Map<MuscleGroup, Double> = emptyMap(),
         split: SplitType = SplitType.AUTO,
         goal: TrainingGoal = TrainingGoal.BALANCED,
-        setsPerExercise: Int = goal.defaultSets
+        setsPerExercise: Int = goal.defaultSets,
+        recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap()
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
         availableEquipment = equipment,
@@ -388,7 +434,8 @@ class DeterministicWorkoutPlannerEngineTest {
         splitPreference = split,
         nowMillis = 0L,
         goal = goal,
-        setsPerExercise = setsPerExercise
+        setsPerExercise = setsPerExercise,
+        recentExerciseIdsByPattern = recentExerciseIdsByPattern
     )
 
     private fun exercise(

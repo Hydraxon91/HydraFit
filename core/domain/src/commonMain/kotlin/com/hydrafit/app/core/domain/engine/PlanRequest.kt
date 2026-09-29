@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 
 const val DEFAULT_SETS_PER_EXERCISE = 3
@@ -12,5 +13,6 @@ data class PlanRequest(
     val splitPreference: SplitType = SplitType.AUTO,
     val nowMillis: Long,
     val goal: TrainingGoal = TrainingGoal.BALANCED,
-    val setsPerExercise: Int = goal.defaultSets
+    val setsPerExercise: Int = goal.defaultSets,
+    val recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap()
 )
