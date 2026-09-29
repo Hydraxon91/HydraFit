@@ -4,15 +4,19 @@ import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
 import com.hydrafit.app.core.domain.engine.AcceptedDay
 import com.hydrafit.app.core.domain.engine.AcceptedExercise
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.BuildRecentWeightsUseCase
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
+import com.hydrafit.app.core.domain.engine.PeriodizationConfig
 import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.ProgressWeightsUseCase
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.engine.SuggestWeightsUseCase
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
@@ -113,12 +117,7 @@ class SplitBuilderViewModelTest {
         val workoutLog = FakeWorkoutLogRepository()
         val sources = FakeWorkoutPlanSourcesRepository(equipment, preference, workoutLog)
         val viewModel = SplitBuilderViewModel(
-            observeWorkoutPlanInputs = ObserveWorkoutPlanInputsUseCase(
-                sources = sources,
-                calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
-                timeProvider = TimeProvider { 0L },
-                planHistoryRepository = EmptyPlanHistoryRepository
-            ),
+            observeWorkoutPlanInputs = observeInputs(sources = sources),
             generateWeeklySplit = GenerateWeeklySplitUseCase(
                 WorkoutPlannerEngineProvider { throw IllegalStateException("engine boom") }
             ),
@@ -144,11 +143,8 @@ class SplitBuilderViewModelTest {
         val preference = FakeEnginePreferenceRepository(PlannerEngineId.GEMINI_API)
         val workoutLog = FakeWorkoutLogRepository()
         val viewModel = SplitBuilderViewModel(
-            observeWorkoutPlanInputs = ObserveWorkoutPlanInputsUseCase(
-                sources = FakeWorkoutPlanSourcesRepository(equipment, preference, workoutLog),
-                calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
-                timeProvider = TimeProvider { 0L },
-                planHistoryRepository = EmptyPlanHistoryRepository
+            observeWorkoutPlanInputs = observeInputs(
+                sources = FakeWorkoutPlanSourcesRepository(equipment, preference, workoutLog)
             ),
             generateWeeklySplit = GenerateWeeklySplitUseCase(
                 WorkoutPlannerEngineProvider {
@@ -544,12 +540,7 @@ class SplitBuilderViewModelTest {
             workoutLog = workoutLogRepository
         )
         return SplitBuilderViewModel(
-            observeWorkoutPlanInputs = ObserveWorkoutPlanInputsUseCase(
-                sources = sources,
-                calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
-                timeProvider = TimeProvider { 0L },
-                planHistoryRepository = EmptyPlanHistoryRepository
-            ),
+            observeWorkoutPlanInputs = observeInputs(sources = sources),
             generateWeeklySplit = GenerateWeeklySplitUseCase(
                 WorkoutPlannerEngineProvider {
                     engine ?: DeterministicWorkoutPlannerEngine(catalog)
@@ -561,6 +552,20 @@ class SplitBuilderViewModelTest {
             enginePreference = preference
         )
     }
+
+    private fun observeInputs(
+        sources: WorkoutPlanSourcesRepository,
+        planHistoryRepository: PlanHistoryRepository = EmptyPlanHistoryRepository
+    ) = ObserveWorkoutPlanInputsUseCase(
+        sources = sources,
+        calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+        timeProvider = TimeProvider { 0L },
+        planHistoryRepository = planHistoryRepository,
+        suggestWeights = SuggestWeightsUseCase(),
+        buildRecentWeights = BuildRecentWeightsUseCase(),
+        progressWeights = ProgressWeightsUseCase(),
+        periodization = PeriodizationConfig()
+    )
 
     private class FakePlanHistoryRepository : PlanHistoryRepository {
         private val state = MutableStateFlow<AcceptedPlan?>(null)

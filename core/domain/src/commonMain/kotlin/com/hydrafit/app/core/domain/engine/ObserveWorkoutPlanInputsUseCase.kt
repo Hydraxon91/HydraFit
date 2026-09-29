@@ -14,10 +14,10 @@ class ObserveWorkoutPlanInputsUseCase(
     private val calculateMuscleFatigue: CalculateMuscleFatigueUseCase,
     private val timeProvider: TimeProvider,
     private val planHistoryRepository: PlanHistoryRepository,
-    private val suggestWeights: SuggestWeightsUseCase = SuggestWeightsUseCase(),
-    private val buildRecentWeights: BuildRecentWeightsUseCase = BuildRecentWeightsUseCase(),
-    private val progressWeights: ProgressWeightsUseCase = ProgressWeightsUseCase(),
-    private val periodization: PeriodizationConfig = PeriodizationConfig()
+    private val suggestWeights: SuggestWeightsUseCase,
+    private val buildRecentWeights: BuildRecentWeightsUseCase,
+    private val progressWeights: ProgressWeightsUseCase,
+    private val periodization: PeriodizationConfig
 ) {
     operator fun invoke(
         setsPerExercise: Flow<Int?> = flowOf(null),

@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
 import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
 import com.hydrafit.app.core.domain.engine.PeriodizationConfig
+import com.hydrafit.app.core.domain.engine.ProgressWeightsUseCase
 import com.hydrafit.app.core.domain.engine.SuggestWeightsUseCase
 import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
@@ -19,6 +20,7 @@ import com.hydrafit.app.core.llm.LocalLlmWorkoutPlannerEngine
 import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.network.GeminiWorkoutPlannerEngine
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
 val domainModule: Module = module {
@@ -49,7 +51,8 @@ val domainModule: Module = module {
     single { PeriodizationConfig() }
     single { SuggestWeightsUseCase(get()) }
     single { BuildRecentWeightsUseCase() }
-    single { ObserveWorkoutPlanInputsUseCase(get(), get(), get(), get(), get(), get(), get()) }
+    single { ProgressWeightsUseCase() }
+    singleOf(::ObserveWorkoutPlanInputsUseCase)
     single { AcceptWeeklyPlanUseCase(get(), get(), get()) }
     single { ObserveAcceptedPlanUseCase(get()) }
     single { LogWorkoutSetUseCase(get()) }

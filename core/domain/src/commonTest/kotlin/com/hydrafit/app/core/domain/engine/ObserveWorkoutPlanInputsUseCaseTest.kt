@@ -35,7 +35,7 @@ class ObserveWorkoutPlanInputsUseCaseTest {
                 goal = TrainingGoal.STRENGTH
             )
         )
-        val useCase = ObserveWorkoutPlanInputsUseCase(
+        val useCase = useCase(
             sources = sources,
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
             timeProvider = TimeProvider { 100L },
@@ -50,7 +50,7 @@ class ObserveWorkoutPlanInputsUseCaseTest {
 
     @Test
     fun startsAtWeekOneWithoutAnAcceptedPlan() = runTest {
-        val useCase = ObserveWorkoutPlanInputsUseCase(
+        val useCase = useCase(
             sources = FakeWorkoutPlanSourcesRepository(
                 WorkoutPlanSources(
                     availableEquipment = setOf(EquipmentTag.BARBELL),
@@ -79,7 +79,7 @@ class ObserveWorkoutPlanInputsUseCaseTest {
             cycleNumber = 1,
             days = emptyList()
         )
-        val useCase = ObserveWorkoutPlanInputsUseCase(
+        val useCase = useCase(
             sources = FakeWorkoutPlanSourcesRepository(
                 WorkoutPlanSources(
                     availableEquipment = setOf(EquipmentTag.BARBELL),
@@ -108,7 +108,7 @@ class ObserveWorkoutPlanInputsUseCaseTest {
             cycleNumber = 1,
             days = emptyList()
         )
-        val useCase = ObserveWorkoutPlanInputsUseCase(
+        val useCase = useCase(
             sources = FakeWorkoutPlanSourcesRepository(
                 WorkoutPlanSources(
                     availableEquipment = setOf(EquipmentTag.BARBELL),
@@ -139,7 +139,7 @@ class ObserveWorkoutPlanInputsUseCaseTest {
                 goal = TrainingGoal.STRENGTH
             )
         )
-        val useCase = ObserveWorkoutPlanInputsUseCase(
+        val useCase = useCase(
             sources = sources,
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
             timeProvider = TimeProvider { 100L },
@@ -164,7 +164,7 @@ class ObserveWorkoutPlanInputsUseCaseTest {
         val sets = MutableStateFlow(2)
         val refresh = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
         var nowMillis = 100L
-        val useCase = ObserveWorkoutPlanInputsUseCase(
+        val useCase = useCase(
             sources = sources,
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
             timeProvider = TimeProvider { nowMillis },
@@ -229,7 +229,7 @@ class ObserveWorkoutPlanInputsUseCaseTest {
             )
         )
         val history = FakePlanHistoryRepository(accepted)
-        val useCase = ObserveWorkoutPlanInputsUseCase(
+        val useCase = useCase(
             sources = FakeWorkoutPlanSourcesRepository(
                 WorkoutPlanSources(
                     availableEquipment = setOf(EquipmentTag.BARBELL),
@@ -270,7 +270,7 @@ class ObserveWorkoutPlanInputsUseCaseTest {
                 )
             )
         )
-        val useCase = ObserveWorkoutPlanInputsUseCase(
+        val useCase = useCase(
             sources = sources,
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
             timeProvider = TimeProvider { 0L },
@@ -302,7 +302,7 @@ class ObserveWorkoutPlanInputsUseCaseTest {
                 )
             )
         )
-        fun useCase(sources: WorkoutPlanSourcesRepository) = ObserveWorkoutPlanInputsUseCase(
+        fun useCase(sources: WorkoutPlanSourcesRepository) = useCase(
             sources = sources,
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
             timeProvider = TimeProvider { 0L },
@@ -359,7 +359,7 @@ class ObserveWorkoutPlanInputsUseCaseTest {
                 loggedWorkoutSets = completedDays
             )
         )
-        val useCase = ObserveWorkoutPlanInputsUseCase(
+        val useCase = useCase(
             sources = sources,
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
             timeProvider = TimeProvider { 0L },
@@ -405,7 +405,7 @@ class ObserveWorkoutPlanInputsUseCaseTest {
                 )
             }
         }
-        val useCase = ObserveWorkoutPlanInputsUseCase(
+        val useCase = useCase(
             sources = FakeWorkoutPlanSourcesRepository(
                 WorkoutPlanSources(
                     availableEquipment = setOf(EquipmentTag.BARBELL),
@@ -428,7 +428,7 @@ class ObserveWorkoutPlanInputsUseCaseTest {
 
     @Test
     fun defaultsAccessorySetsFromTheGoalAndOverridesWithThePicker() = runTest {
-        val useCase = ObserveWorkoutPlanInputsUseCase(
+        val useCase = useCase(
             sources = FakeWorkoutPlanSourcesRepository(
                 WorkoutPlanSources(
                     availableEquipment = setOf(EquipmentTag.BARBELL),
@@ -478,7 +478,7 @@ class ObserveWorkoutPlanInputsUseCaseTest {
                 )
             )
         )
-        val useCase = ObserveWorkoutPlanInputsUseCase(
+        val useCase = useCase(
             sources = FakeWorkoutPlanSourcesRepository(
                 WorkoutPlanSources(
                     availableEquipment = setOf(EquipmentTag.BARBELL),
@@ -500,6 +500,22 @@ class ObserveWorkoutPlanInputsUseCaseTest {
         )
         assertTrue(request.recentExerciseIdsByPattern.keys.none { !it.isCompound })
     }
+
+    private fun useCase(
+        sources: WorkoutPlanSourcesRepository,
+        calculateMuscleFatigue: CalculateMuscleFatigueUseCase = CalculateMuscleFatigueUseCase(),
+        timeProvider: TimeProvider = TimeProvider { 0L },
+        planHistoryRepository: PlanHistoryRepository = FakePlanHistoryRepository()
+    ) = ObserveWorkoutPlanInputsUseCase(
+        sources = sources,
+        calculateMuscleFatigue = calculateMuscleFatigue,
+        timeProvider = timeProvider,
+        planHistoryRepository = planHistoryRepository,
+        suggestWeights = SuggestWeightsUseCase(),
+        buildRecentWeights = BuildRecentWeightsUseCase(),
+        progressWeights = ProgressWeightsUseCase(),
+        periodization = PeriodizationConfig()
+    )
 
     private class FakeWorkoutPlanSourcesRepository(initial: WorkoutPlanSources) :
         WorkoutPlanSourcesRepository {
