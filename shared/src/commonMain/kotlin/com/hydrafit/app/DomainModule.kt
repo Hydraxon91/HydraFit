@@ -46,15 +46,15 @@ val domainModule: Module = module {
             apiKeyProvider = get<ApiKeyProvider>()
         )
     }
-    single { GenerateWeeklySplitUseCase(get()) }
+    singleOf(::GenerateWeeklySplitUseCase)
     single { SuggestedWeightConfig() }
     single { PeriodizationConfig() }
-    single { SuggestWeightsUseCase(get()) }
+    singleOf(::SuggestWeightsUseCase)
     single { BuildRecentWeightsUseCase() }
     single { ProgressWeightsUseCase() }
     singleOf(::ObserveWorkoutPlanInputsUseCase)
-    single { AcceptWeeklyPlanUseCase(get(), get(), get()) }
-    single { ObserveAcceptedPlanUseCase(get()) }
-    single { LogWorkoutSetUseCase(get()) }
-    single { GetWorkoutLogUseCase(get()) }
+    singleOf(::AcceptWeeklyPlanUseCase)
+    singleOf(::ObserveAcceptedPlanUseCase)
+    singleOf(::LogWorkoutSetUseCase)
+    singleOf(::GetWorkoutLogUseCase)
 }
