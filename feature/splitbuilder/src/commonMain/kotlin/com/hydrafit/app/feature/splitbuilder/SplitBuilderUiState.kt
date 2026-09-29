@@ -10,6 +10,7 @@ data class SplitBuilderUiState(
     val exerciseNames: Map<String, String> = emptyMap(),
     val requestedEngine: PlannerEngineId? = null,
     val isLoading: Boolean = true,
+    val isPlanAccepted: Boolean = false,
     val hasError: Boolean = false,
     val isTransientError: Boolean = false,
     val errorDetail: String? = null

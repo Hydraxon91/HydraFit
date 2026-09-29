@@ -2,6 +2,7 @@ package com.hydrafit.app.feature.splitbuilder
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
@@ -20,6 +21,7 @@ import kotlinx.coroutines.launch
 class SplitBuilderViewModel(
     private val observeWorkoutPlanInputs: ObserveWorkoutPlanInputsUseCase,
     private val generateWeeklySplit: GenerateWeeklySplitUseCase,
+    private val acceptWeeklyPlan: AcceptWeeklyPlanUseCase,
     private val exerciseCatalog: ExerciseCatalog,
     private val enginePreference: EnginePreferenceRepository
 ) : ViewModel() {
@@ -51,12 +53,21 @@ class SplitBuilderViewModel(
         refreshRequests.tryEmit(Unit)
     }
 
+    fun onAcceptPlan() {
+        val plan = _state.value.plan ?: return
+        viewModelScope.launch {
+            acceptWeeklyPlan(plan)
+            _state.update { it.copy(isPlanAccepted = true) }
+        }
+    }
+
     private suspend fun generate(inputs: WorkoutPlanInputs) {
         val request = inputs.request
         _state.update {
             it.copy(
                 plan = null,
                 isLoading = true,
+                isPlanAccepted = false,
                 hasError = false,
                 isTransientError = false,
                 errorDetail = null,

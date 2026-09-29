@@ -35,6 +35,7 @@ import hydrafit.feature.splitbuilder.generated.resources.focus_pull
 import hydrafit.feature.splitbuilder.generated.resources.focus_push
 import hydrafit.feature.splitbuilder.generated.resources.focus_upper
 import hydrafit.feature.splitbuilder.generated.resources.nav_label
+import hydrafit.feature.splitbuilder.generated.resources.split_accept_plan
 import hydrafit.feature.splitbuilder.generated.resources.split_builder_title
 import hydrafit.feature.splitbuilder.generated.resources.split_day
 import hydrafit.feature.splitbuilder.generated.resources.split_days_label
@@ -43,6 +44,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_error_transient
 import hydrafit.feature.splitbuilder.generated.resources.split_fallback_note
 import hydrafit.feature.splitbuilder.generated.resources.split_generated_by
 import hydrafit.feature.splitbuilder.generated.resources.split_loading
+import hydrafit.feature.splitbuilder.generated.resources.split_plan_accepted
 import hydrafit.feature.splitbuilder.generated.resources.split_retry
 import hydrafit.feature.splitbuilder.generated.resources.split_sets_label
 import org.jetbrains.compose.resources.StringResource
@@ -74,6 +76,7 @@ fun SplitBuilderRoute(
         state = state,
         onDaysPerWeekSelected = viewModel::onDaysPerWeekSelected,
         onSetsPerExerciseChanged = viewModel::onSetsPerExerciseChanged,
+        onAcceptPlan = viewModel::onAcceptPlan,
         onRetry = viewModel::refresh,
         modifier = modifier
     )
@@ -84,6 +87,7 @@ fun SplitBuilderScreen(
     state: SplitBuilderUiState,
     onDaysPerWeekSelected: (Int) -> Unit,
     onSetsPerExerciseChanged: (Int) -> Unit,
+    onAcceptPlan: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -156,6 +160,16 @@ fun SplitBuilderScreen(
                 ),
                 style = MaterialTheme.typography.labelLarge
             )
+            if (state.isPlanAccepted) {
+                Text(
+                    text = stringResource(Res.string.split_plan_accepted),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            } else {
+                Button(onClick = onAcceptPlan) {
+                    Text(stringResource(Res.string.split_accept_plan))
+                }
+            }
             if (state.usedFallbackEngine) {
                 state.requestedEngine?.let { requested ->
                     Text(
