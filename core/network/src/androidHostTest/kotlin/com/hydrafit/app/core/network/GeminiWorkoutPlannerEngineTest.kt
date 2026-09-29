@@ -79,6 +79,27 @@ class GeminiWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun sendsRecentAcceptedSelectionsToSteerRotation() = runTest {
+        var captured: HttpRequestData? = null
+        val mockEngine = MockEngine { request ->
+            captured = request
+            respond(envelope(VALID_PLAN), HttpStatusCode.OK, jsonHeaders())
+        }
+
+        engine(mockEngine).generatePlan(
+            request(
+                recentExerciseIdsByPattern = mapOf(
+                    MovementPattern.HORIZONTAL_PUSH to setOf("bench-press")
+                )
+            )
+        )
+
+        val bodyText = (requireNotNull(captured).body as TextContent).text
+        assertTrue(bodyText.contains("previous accepted week"), bodyText)
+        assertTrue(bodyText.contains("HORIZONTAL_PUSH: bench-press"), bodyText)
+    }
+
+    @Test
     fun boundsArrayLengthsInTheSchema() = runTest {
         var captured: HttpRequestData? = null
         val mockEngine = MockEngine { request ->
@@ -252,14 +273,16 @@ class GeminiWorkoutPlannerEngineTest {
     private fun request(
         daysPerWeek: Int = 3,
         goal: TrainingGoal = TrainingGoal.BALANCED,
-        setsPerExercise: Int = goal.defaultSets
+        setsPerExercise: Int = goal.defaultSets,
+        recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap()
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
         availableEquipment = setOf(EquipmentTag.BARBELL),
         muscleFatigue = emptyMap(),
         nowMillis = 0L,
         goal = goal,
-        setsPerExercise = setsPerExercise
+        setsPerExercise = setsPerExercise,
+        recentExerciseIdsByPattern = recentExerciseIdsByPattern
     )
 
     private object FallbackEngine : WorkoutPlannerEngine {

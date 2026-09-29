@@ -119,6 +119,21 @@ class LocalLlmWorkoutPlannerEngine(
                 "\"exerciseId\" is that number written as a string, for example \"1\". " +
                     "Never invent a number and never repeat one inside a day."
             )
+            val recentlyUsedNumbers = request.recentExerciseIdsByPattern.values
+                .flatten()
+                .mapNotNull { id ->
+                    availableExercises.indexOfFirst { it.id == id }
+                        .takeIf { it >= 0 }
+                        ?.plus(1)
+                }
+                .distinct()
+                .sorted()
+            if (recentlyUsedNumbers.isNotEmpty()) {
+                appendLine(
+                    "Avoid reusing these list numbers unless no other suitable exercise exists: " +
+                        recentlyUsedNumbers.joinToString(", ")
+                )
+            }
             appendLine(
                 "Produce exactly $days day items and 4 to 6 exercises in every day. " +
                     "The example below only shows the shape; do not copy its counts:"

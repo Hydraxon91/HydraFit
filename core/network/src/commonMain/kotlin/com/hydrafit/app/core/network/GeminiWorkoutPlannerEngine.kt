@@ -153,6 +153,18 @@ class GeminiWorkoutPlannerEngine(
                     "${request.goal.isolationReps} reps for isolation exercises."
             )
             appendLine("Prefer exercises whose muscles are less fatigued.")
+            val recentlyUsed = request.recentExerciseIdsByPattern
+            if (recentlyUsed.isNotEmpty()) {
+                val history = recentlyUsed.entries
+                    .sortedBy { it.key.name }
+                    .joinToString("; ") { (pattern, ids) ->
+                        "${pattern.name}: ${ids.sorted().joinToString(", ")}"
+                    }
+                appendLine(
+                    "Used in the previous accepted week (prefer a different exercise for the " +
+                        "same movement pattern when an equally suitable option exists): $history"
+                )
+            }
         }
 
         return GeminiRequest(

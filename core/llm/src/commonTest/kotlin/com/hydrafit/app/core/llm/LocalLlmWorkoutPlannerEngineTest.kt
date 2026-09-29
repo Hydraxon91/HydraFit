@@ -68,6 +68,27 @@ class LocalLlmWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun warnsTheModelAboutRecentlyUsedListNumbers() = runTest {
+        val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
+
+        engine(generator).generatePlan(
+            request(
+                recentExerciseIdsByPattern = mapOf(
+                    MovementPattern.HORIZONTAL_PULL to setOf("barbell-row")
+                )
+            )
+        )
+
+        val prompt = requireNotNull(generator.lastPrompt)
+        assertTrue(
+            prompt.contains(
+                "Avoid reusing these list numbers unless no other suitable exercise exists: 3"
+            ),
+            prompt
+        )
+    }
+
+    @Test
     fun constrainsTheSchemaToTheRequestedDayAndExerciseCounts() = runTest {
         val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
 
@@ -256,14 +277,16 @@ class LocalLlmWorkoutPlannerEngineTest {
     private fun request(
         daysPerWeek: Int = 3,
         goal: TrainingGoal = TrainingGoal.BALANCED,
-        setsPerExercise: Int = goal.defaultSets
+        setsPerExercise: Int = goal.defaultSets,
+        recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap()
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
         availableEquipment = setOf(EquipmentTag.BARBELL),
         muscleFatigue = emptyMap(),
         nowMillis = 0L,
         goal = goal,
-        setsPerExercise = setsPerExercise
+        setsPerExercise = setsPerExercise,
+        recentExerciseIdsByPattern = recentExerciseIdsByPattern
     )
 
     private class FakeGenerator(
