@@ -91,7 +91,12 @@ class WeeklyPlanSanitizerTest {
     fun trimsExtraDaysAndReindexes() = runTest {
         val plan = WeeklyPlan(
             engine = PlannerEngineId.GEMINI_API,
-            days = List(4) { index -> dayOf(index, listOf("bench-press", "lateral-raise")) }
+            days = listOf(
+                dayOf(0, listOf("bench-press", "lateral-raise"), SplitFocus.PUSH),
+                dayOf(1, listOf("overhead-press", "lateral-raise"), SplitFocus.PULL),
+                dayOf(2, listOf("barbell-row", "lateral-raise"), SplitFocus.LEGS),
+                dayOf(3, listOf("bench-press", "lateral-raise"), SplitFocus.UPPER)
+            )
         )
 
         val sanitized = sanitizer.sanitize(plan, request(daysPerWeek = 3))!!
@@ -140,9 +145,13 @@ class WeeklyPlanSanitizerTest {
         days = listOf(dayOf(0, exerciseIds))
     )
 
-    private fun dayOf(index: Int, exerciseIds: List<String>) = WorkoutDay(
+    private fun dayOf(
+        index: Int,
+        exerciseIds: List<String>,
+        focus: SplitFocus = SplitFocus.FULL_BODY
+    ) = WorkoutDay(
         dayIndex = index,
-        focus = SplitFocus.FULL_BODY,
+        focus = focus,
         exercises = exerciseIds.map { PlannedExercise(it, sets = 3, reps = 8) }
     )
 
@@ -166,6 +175,8 @@ class WeeklyPlanSanitizerTest {
     private object FakeCatalog : ExerciseCatalog {
         override suspend fun all(): List<Exercise> = listOf(
             exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, EquipmentTag.BARBELL),
+            exercise("overhead-press", MovementPattern.VERTICAL_PUSH, EquipmentTag.BARBELL),
+            exercise("barbell-row", MovementPattern.HORIZONTAL_PULL, EquipmentTag.BARBELL),
             exercise("lateral-raise", MovementPattern.SHOULDER_ISOLATION, EquipmentTag.BARBELL),
             exercise("dumbbell-curl", MovementPattern.BICEPS_ISOLATION, EquipmentTag.DUMBBELL)
         )

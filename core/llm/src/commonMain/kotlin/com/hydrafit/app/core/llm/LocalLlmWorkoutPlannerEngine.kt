@@ -3,6 +3,8 @@ package com.hydrafit.app.core.llm
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.engine.SplitResolver
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
@@ -29,11 +31,15 @@ class LocalLlmWorkoutPlannerEngine(
         val availableExercises = catalog.all()
             .filter { it.isAvailableWith(request.availableEquipment) }
         val availableIds = availableExercises.map { it.id }
+        val focusSequence = SplitResolver.focusSequence(
+            request.splitPreference,
+            request.daysPerWeek
+        )
         var attempt = 0
         var lastFailure: Throwable? = null
-        var prompt = prompt(request, availableExercises)
+        var prompt = prompt(request, availableExercises, focusSequence)
         val schema = planSchema(
-            request.daysPerWeek,
+            focusSequence,
             availableExercises.size,
             request.includeWorkoutData
         )
@@ -57,7 +63,7 @@ class LocalLlmWorkoutPlannerEngine(
             }
             if (plan != null) return plan
             // Tell the model why the previous answer was rejected instead of repeating it verbatim.
-            prompt = prompt(request, availableExercises) + correction(request)
+            prompt = prompt(request, availableExercises, focusSequence) + correction(request)
         }
         val cause = lastFailure
             ?: IllegalStateException("On-device plan did not satisfy the request")
@@ -98,7 +104,11 @@ class LocalLlmWorkoutPlannerEngine(
             .joinToString("; ") { "${it.key}: ${it.value}kg" }
     }
 
-    private fun prompt(request: PlanRequest, availableExercises: List<Exercise>): String {
+    private fun prompt(
+        request: PlanRequest,
+        availableExercises: List<Exercise>,
+        focusSequence: List<SplitFocus>
+    ): String {
         val equipment = request.availableEquipment.joinToString(", ") { it.displayName }
         val fatigue = request.muscleFatigue.entries.joinToString(", ") {
             "${it.key.name}=${it.value}"
@@ -112,7 +122,10 @@ class LocalLlmWorkoutPlannerEngine(
             appendLine("Reply with one JSON object only. No markdown. No prose.")
             appendLine("The object has one key \"days\": a list of exactly $days day items.")
             appendLine("Each day item has \"focus\" and \"exercises\".")
-            appendLine("\"focus\" is one of: PUSH, PULL, LEGS, UPPER, LOWER, FULL_BODY.")
+            appendLine("Use these focuses, one per day, in this exact order:")
+            focusSequence.forEachIndexed { index, focus ->
+                appendLine("Day ${index + 1}: ${focus.name}")
+            }
             appendLine("Each \"exercises\" list has 4 to 6 different exercise items.")
             appendLine(
                 "Each exercise item has \"exerciseId\", \"sets\" and \"reps\". " +
@@ -127,7 +140,6 @@ class LocalLlmWorkoutPlannerEngine(
                     "about $compoundVolume total reps for compound lifts and " +
                     "$accessoryVolume for accessory exercises."
             )
-            appendLine("Split preference: ${request.splitPreference.name}")
             appendLine("Available equipment: $equipment")
             appendLine("Muscle fatigue (0.0-1.0): $fatigue")
             appendLine("Choose every exercise by its number from this list:")
@@ -137,6 +149,10 @@ class LocalLlmWorkoutPlannerEngine(
             appendLine(
                 "\"exerciseId\" is that number written as a string, for example \"1\". " +
                     "Never invent a number and never repeat one inside a day."
+            )
+            appendLine(
+                "Give each day a different focus from the schedule above, and do not reuse a " +
+                    "compound lift across days; isolation exercises may repeat."
             )
             val recentlyUsedNumbers = request.recentExerciseIdsByPattern.values
                 .flatten()
@@ -198,11 +214,17 @@ class LocalLlmWorkoutPlannerEngine(
 
         /**
          * Constrained decoding compiles this schema into a grammar. `minItems`/`maxItems` force the
-         * requested day and exercise counts, and the `enum` of list numbers makes a value outside
-         * the prompt's list impossible. Numbers keep the grammar small enough to stay fast; an
-         * empty catalog keeps a plain string so the enum stays valid.
+         * requested day and exercise counts, each day's `focus` enum pins it to the resolved split
+         * (so the model cannot repeat one focus all week), and the `enum` of list numbers makes a
+         * value outside the prompt's list impossible. Numbers keep the grammar small enough to stay
+         * fast; an empty catalog keeps a plain string so the enum stays valid.
          */
-        fun planSchema(days: Int, exerciseCount: Int, includeSuggestedWeight: Boolean): String {
+        fun planSchema(
+            focusSequence: List<SplitFocus>,
+            exerciseCount: Int,
+            includeSuggestedWeight: Boolean
+        ): String {
+            val days = focusSequence.size
             val idSchema = if (exerciseCount <= 0) {
                 """{"type": "string"}"""
             } else {
@@ -215,6 +237,9 @@ class LocalLlmWorkoutPlannerEngine(
             } else {
                 ""
             }
+            val daySchemas = focusSequence.joinToString(",\n                      ") { focus ->
+                daySchema(focus.name, idSchema, weightField)
+            }
             return """
                 {
                   "type": "object",
@@ -224,28 +249,9 @@ class LocalLlmWorkoutPlannerEngine(
                       "minItems": $days,
                       "maxItems": $days,
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "focus": {
-                            "type": "string",
-                            "enum": ["PUSH", "PULL", "LEGS", "UPPER", "LOWER", "FULL_BODY"]
-                          },
-                          "exercises": {
-                            "type": "array",
-                            "minItems": $MIN_EXERCISES_PER_DAY,
-                            "maxItems": $MAX_EXERCISES_PER_DAY,
-                            "items": {
-                              "type": "object",
-                              "properties": {
-                                "exerciseId": $idSchema,
-                                "sets": {"type": "integer"},
-                                "reps": {"type": "integer"}$weightField
-                              },
-                              "required": ["exerciseId", "sets", "reps"]
-                            }
-                          }
-                        },
-                        "required": ["focus", "exercises"]
+                        "anyOf": [
+                      $daySchemas
+                        ]
                       }
                     }
                   },
@@ -253,5 +259,29 @@ class LocalLlmWorkoutPlannerEngine(
                 }
             """.trimIndent()
         }
+
+        private fun daySchema(focus: String, idSchema: String, weightField: String): String = """
+            {
+              "type": "object",
+              "properties": {
+                "focus": {"type": "string", "enum": ["$focus"]},
+                "exercises": {
+                  "type": "array",
+                  "minItems": $MIN_EXERCISES_PER_DAY,
+                  "maxItems": $MAX_EXERCISES_PER_DAY,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "exerciseId": $idSchema,
+                      "sets": {"type": "integer"},
+                      "reps": {"type": "integer"}$weightField
+                    },
+                    "required": ["exerciseId", "sets", "reps"]
+                  }
+                }
+              },
+              "required": ["focus", "exercises"]
+            }
+        """.trimIndent()
     }
 }

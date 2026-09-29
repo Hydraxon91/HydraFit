@@ -60,7 +60,7 @@ class GeminiWorkoutPlannerEngineTest {
         val bodyText = (requestData.body as TextContent).text
         assertTrue(bodyText.contains("responseSchema"), "structured output schema should be sent")
         assertTrue(bodyText.contains("bench-press"), "catalog ids should be offered to the model")
-        assertTrue(bodyText.contains("Split preference: AUTO"), "split preference should be sent")
+        assertTrue(bodyText.contains("Day 1: "), "per-day focus schedule should be sent")
         assertTrue(
             bodyText.contains("5 sets for compound lifts"),
             "compound set count should be sent"
@@ -215,7 +215,12 @@ class GeminiWorkoutPlannerEngineTest {
 
     @Test
     fun fallsBackWhenThePlanHasTooFewDays() = runTest {
-        val shortPlan = planJson(List(2) { DAY })
+        val shortPlan = planJson(
+            listOf(
+                "PUSH" to listOf("bench-press", "barbell-curl"),
+                "PULL" to listOf("barbell-row", "barbell-curl")
+            )
+        )
 
         val plan = engine(respondEnvelope(shortPlan)).generatePlan(request(daysPerWeek = 3))
 
@@ -226,9 +231,9 @@ class GeminiWorkoutPlannerEngineTest {
     fun dropsExercisesThatNeedUnavailableEquipmentAndFallsBack() = runTest {
         val plan = planJson(
             listOf(
-                DAY,
-                DAY,
-                listOf("bench-press", "dumbbell-curl")
+                "PUSH" to listOf("bench-press", "barbell-curl"),
+                "PULL" to listOf("barbell-row", "barbell-curl"),
+                "LEGS" to listOf("bench-press", "dumbbell-curl")
             )
         )
 
@@ -376,6 +381,8 @@ class GeminiWorkoutPlannerEngineTest {
         override suspend fun all(): List<Exercise> = listOf(
             exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, EquipmentTag.BARBELL),
             exercise("overhead-press", MovementPattern.VERTICAL_PUSH, EquipmentTag.BARBELL),
+            exercise("barbell-row", MovementPattern.HORIZONTAL_PULL, EquipmentTag.BARBELL),
+            exercise("barbell-curl", MovementPattern.BICEPS_ISOLATION, EquipmentTag.BARBELL),
             exercise("dumbbell-curl", MovementPattern.BICEPS_ISOLATION, EquipmentTag.DUMBBELL)
         )
 
@@ -390,18 +397,25 @@ class GeminiWorkoutPlannerEngineTest {
     }
 
     private companion object {
-        val DAY = listOf("bench-press", "overhead-press")
-        val VALID_PLAN = planJson(List(3) { DAY })
+        // Distinct foci, and each day pairs a distinct compound with the same (reusable) accessory.
+        val DAY = listOf("bench-press", "barbell-curl")
+        val VALID_PLAN = planJson(
+            listOf(
+                "PUSH" to listOf("bench-press", "barbell-curl"),
+                "PULL" to listOf("barbell-row", "barbell-curl"),
+                "LEGS" to listOf("overhead-press", "barbell-curl")
+            )
+        )
 
-        fun planJson(days: List<List<String>>): String = days.joinToString(
+        fun planJson(days: List<Pair<String, List<String>>>): String = days.joinToString(
             prefix = """{"days":[""",
             postfix = "]}",
             separator = ","
-        ) { exercises ->
+        ) { (focus, exercises) ->
             val items = exercises.joinToString(",") {
                 """{"exerciseId":"$it","sets":3,"reps":8}"""
             }
-            """{"focus":"PUSH","exercises":[$items]}"""
+            """{"focus":"$focus","exercises":[$items]}"""
         }
     }
 }

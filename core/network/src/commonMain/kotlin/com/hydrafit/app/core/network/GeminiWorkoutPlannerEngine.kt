@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.engine.SplitResolver
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
@@ -138,16 +139,27 @@ class GeminiWorkoutPlannerEngine(
         val exerciseIds = catalog.all()
             .filter { it.isAvailableWith(request.availableEquipment) }
             .joinToString(", ") { it.id }
+        val focusSequence = SplitResolver.focusSequence(
+            request.splitPreference,
+            request.daysPerWeek
+        )
 
         val prompt = buildString {
             appendLine("You are a strength coach. Build a weekly workout plan.")
             appendLine("Days per week: ${request.daysPerWeek}")
-            appendLine("Split preference: ${request.splitPreference.name}")
+            appendLine("Use these focuses, one per day, in this exact order:")
+            focusSequence.forEachIndexed { index, focus ->
+                appendLine("Day ${index + 1}: ${focus.name}")
+            }
             appendLine("Training goal: ${request.goal.name}")
             appendLine("Available equipment: $equipment")
             appendLine("Current muscle fatigue (0.0-1.0): $fatigue")
             appendLine("Choose ONLY exerciseId values from this list: $exerciseIds")
             appendLine("Give every day 4 to 6 exercises.")
+            appendLine(
+                "Give each day a different focus from the schedule above, and do not reuse a " +
+                    "compound lift across days; isolation exercises may repeat."
+            )
             appendLine(
                 "Use ${request.setsPerExercise} sets for compound lifts and " +
                     "${request.accessorySetsPerExercise} sets for accessory exercises."

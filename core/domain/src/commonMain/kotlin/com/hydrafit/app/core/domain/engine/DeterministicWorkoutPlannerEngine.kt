@@ -25,7 +25,9 @@ class DeterministicWorkoutPlannerEngine(
         }
 
         val focusCycle =
-            focusCycleFor(resolveSplitType(request.splitPreference, request.daysPerWeek))
+            SplitResolver.focusCycle(
+                SplitResolver.resolveSplitType(request.splitPreference, request.daysPerWeek)
+            )
         val availableExercises = exercises.filter { it.isAvailableWith(request.availableEquipment) }
 
         val days = List(request.daysPerWeek) { index ->
@@ -147,23 +149,6 @@ class DeterministicWorkoutPlannerEngine(
             )
             SplitFocus.FULL_BODY -> FULL_BODY_TEMPLATES[dayIndex % FULL_BODY_TEMPLATES.size]
         }
-
-    private fun resolveSplitType(preference: SplitType, daysPerWeek: Int): SplitType =
-        when (preference) {
-            SplitType.AUTO -> when (daysPerWeek) {
-                2, 3 -> SplitType.FULL_BODY
-                4 -> SplitType.UPPER_LOWER
-                else -> SplitType.PUSH_PULL_LEGS
-            }
-            else -> preference
-        }
-
-    private fun focusCycleFor(splitType: SplitType): List<SplitFocus> = when (splitType) {
-        SplitType.FULL_BODY -> listOf(SplitFocus.FULL_BODY)
-        SplitType.UPPER_LOWER -> listOf(SplitFocus.UPPER, SplitFocus.LOWER)
-        SplitType.PUSH_PULL_LEGS -> listOf(SplitFocus.PUSH, SplitFocus.PULL, SplitFocus.LEGS)
-        SplitType.AUTO -> listOf(SplitFocus.FULL_BODY)
-    }
 
     companion object {
         const val MIN_DAYS = 2

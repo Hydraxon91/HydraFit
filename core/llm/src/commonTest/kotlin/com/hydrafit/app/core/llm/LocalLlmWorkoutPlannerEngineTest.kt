@@ -4,6 +4,7 @@ import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.engine.SplitType
 import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
@@ -62,6 +63,34 @@ class LocalLlmWorkoutPlannerEngineTest {
         val prompt = requireNotNull(generator.lastPrompt)
         assertTrue(prompt.contains("5 sets for compound lifts"), prompt)
         assertTrue(prompt.contains("2 sets for accessory exercises"), prompt)
+    }
+
+    @Test
+    fun includesThePerDayFocusScheduleInThePrompt() = runTest {
+        val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
+
+        engine(generator).generatePlan(
+            request(daysPerWeek = 3, splitPreference = SplitType.PUSH_PULL_LEGS)
+        )
+
+        val prompt = requireNotNull(generator.lastPrompt)
+        assertTrue(prompt.contains("Day 1: PUSH"), prompt)
+        assertTrue(prompt.contains("Day 2: PULL"), prompt)
+        assertTrue(prompt.contains("Day 3: LEGS"), prompt)
+    }
+
+    @Test
+    fun pinsEachDayToItsResolvedFocusInTheSchema() = runTest {
+        val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
+
+        engine(generator).generatePlan(
+            request(daysPerWeek = 3, splitPreference = SplitType.PUSH_PULL_LEGS)
+        )
+
+        val schema = requireNotNull(generator.lastSchema)
+        assertTrue(schema.contains("\"enum\": [\"PUSH\"]"), schema)
+        assertTrue(schema.contains("\"enum\": [\"PULL\"]"), schema)
+        assertTrue(schema.contains("\"enum\": [\"LEGS\"]"), schema)
     }
 
     @Test
@@ -339,6 +368,7 @@ class LocalLlmWorkoutPlannerEngineTest {
     private fun request(
         daysPerWeek: Int = 3,
         goal: TrainingGoal = TrainingGoal.BALANCED,
+        splitPreference: SplitType = SplitType.AUTO,
         setsPerExercise: Int = goal.defaultSets,
         accessorySetsPerExercise: Int = goal.accessorySets,
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
@@ -349,6 +379,7 @@ class LocalLlmWorkoutPlannerEngineTest {
         daysPerWeek = daysPerWeek,
         availableEquipment = setOf(EquipmentTag.BARBELL),
         muscleFatigue = emptyMap(),
+        splitPreference = splitPreference,
         nowMillis = 0L,
         goal = goal,
         setsPerExercise = setsPerExercise,
@@ -420,37 +451,62 @@ class LocalLlmWorkoutPlannerEngineTest {
     }
 
     private companion object {
-        private val DAY = listOf("bench-press", "overhead-press")
-
-        val THREE_DAY_PLAN = days(foci = listOf("PUSH", "PULL", "LEGS"), exerciseIds = DAY)
-        val FOUR_DAY_PLAN = days(
-            foci = listOf("PUSH", "PULL", "LEGS", "UPPER"),
-            exerciseIds = DAY
+        // Distinct compounds per day, with the reusable accessory repeated across days.
+        val THREE_DAY_PLAN = days(
+            listOf(
+                "PUSH" to listOf("bench-press", "barbell-curl"),
+                "PULL" to listOf("barbell-row", "barbell-curl"),
+                "LEGS" to listOf("overhead-press", "barbell-curl")
+            )
         )
-        val ONE_DAY_PLAN = days(foci = listOf("PUSH"), exerciseIds = DAY)
+        val FOUR_DAY_PLAN = days(
+            listOf(
+                "PUSH" to listOf("bench-press", "barbell-curl"),
+                "PULL" to listOf("barbell-row", "barbell-curl"),
+                "LEGS" to listOf("overhead-press", "barbell-curl"),
+                "UPPER" to listOf("bench-press", "barbell-curl")
+            )
+        )
+        val ONE_DAY_PLAN = days(
+            listOf("PUSH" to listOf("bench-press", "barbell-curl"))
+        )
         val UNKNOWN_EXERCISES_PLAN = days(
-            foci = listOf("PUSH", "PULL", "LEGS"),
-            exerciseIds = listOf("not-a-real-exercise")
+            listOf(
+                "PUSH" to listOf("not-a-real-exercise"),
+                "PULL" to listOf("not-a-real-exercise"),
+                "LEGS" to listOf("not-a-real-exercise")
+            )
         )
         val INDEXED_PLAN = days(
-            foci = listOf("PUSH", "PULL", "LEGS"),
-            exerciseIds = listOf("1", "2")
+            listOf(
+                "PUSH" to listOf("1", "4"),
+                "PULL" to listOf("3", "4"),
+                "LEGS" to listOf("2", "4")
+            )
         )
         val OUT_OF_RANGE_PLAN = days(
-            foci = listOf("PUSH", "PULL", "LEGS"),
-            exerciseIds = listOf("99")
+            listOf(
+                "PUSH" to listOf("99"),
+                "PULL" to listOf("99"),
+                "LEGS" to listOf("99")
+            )
         )
         val MIXED_REPS_PLAN = days(
-            foci = listOf("PUSH", "PULL", "LEGS"),
-            exerciseIds = listOf("bench-press", "barbell-curl")
+            listOf(
+                "PUSH" to listOf("bench-press", "barbell-curl"),
+                "PULL" to listOf("barbell-row", "barbell-curl"),
+                "LEGS" to listOf("overhead-press", "barbell-curl")
+            )
         )
 
-        private fun days(foci: List<String>, exerciseIds: List<String>): String {
-            val exercises = exerciseIds.joinToString(",") {
-                """{"exerciseId":"$it","sets":3,"reps":8}"""
+        private fun days(days: List<Pair<String, List<String>>>): String {
+            val entries = days.joinToString(",") { (focus, exerciseIds) ->
+                val exercises = exerciseIds.joinToString(",") {
+                    """{"exerciseId":"$it","sets":3,"reps":8}"""
+                }
+                """{"focus":"$focus","exercises":[$exercises]}"""
             }
-            val days = foci.joinToString(",") { """{"focus":"$it","exercises":[$exercises]}""" }
-            return """{"days":[$days]}"""
+            return """{"days":[$entries]}"""
         }
     }
 }

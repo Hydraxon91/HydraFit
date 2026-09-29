@@ -9,7 +9,8 @@ import com.hydrafit.app.core.domain.equipment.Exercise
  */
 class WeeklyPlanSanitizer(
     private val catalog: ExerciseCatalog,
-    private val volumeAwareReps: VolumeAwareReps = VolumeAwareReps()
+    private val volumeAwareReps: VolumeAwareReps = VolumeAwareReps(),
+    private val varietyEnforcer: PlanVarietyEnforcer = PlanVarietyEnforcer()
 ) {
 
     suspend fun sanitize(plan: WeeklyPlan, request: PlanRequest): WeeklyPlan? {
@@ -40,10 +41,13 @@ class WeeklyPlanSanitizer(
 
         if (days.size < request.daysPerWeek) return null
         if (days.any { it.exercises.size < MIN_EXERCISES_PER_DAY }) return null
-        return plan.copy(
+        val trimmed = plan.copy(
             days = days.take(request.daysPerWeek)
                 .mapIndexed { index, day -> day.copy(dayIndex = index) }
         )
+        return varietyEnforcer.enforce(trimmed, request) { id ->
+            usable[id]?.movementPattern?.isCompound ?: true
+        }
     }
 
     private fun setsFor(exercise: Exercise, request: PlanRequest): Int =
