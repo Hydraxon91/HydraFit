@@ -74,7 +74,7 @@
 - Verify the local LLM engine end-to-end on a physical device with a bundled Gemma model.
 - Implement a Keychain-backed `ApiKeyStore` when the iOS app ships (currently a no-op on iOS).
 - Use MockK when a chunk needs it (approved version, not yet used).
-- Local AI improvements (on-device output is valid but poor): the 1B model repeats itself — e.g. a 3-day request produced pull days twice in a row, and earlier runs filled a day with one repeated exercise. Candidate improvements to evaluate, in rough order: derive a per-day focus sequence from the requested `SplitType` (mirroring `DeterministicWorkoutPlannerEngine.resolveSplitType`) and pass it in the prompt instead of leaving the split to the model; add a variety guard (repetition penalty or no-repeat n-gram — now safe because `exerciseId` is a small bounded-number enum, unlike the earlier catalog-id list); post-process duplicate days/exercises; and offer a stronger pack (Gemma 3n-E2B, or the `_sm8750` NPU build for speed) when present. Note: the "three PULL days" symptom is same-plan focus collapse, distinct from Item 7a's cross-week exercise rotation.
+- Local AI quality: **focus-sequence + variety guard implemented** (see "Local AI repetition quality" below) — the per-day focus schedule, the schema focus pin, and the deterministic `PlanVarietyEnforcer` (day/duplicate/cross-day-compound dedupe) are in. **Still open:** a token-level variety guard (repetition penalty / no-repeat n-gram) and offering a stronger pack (Gemma 3n-E2B, or the `_sm8750` NPU build for speed) when present. The "three PULL days" symptom is same-plan focus collapse, distinct from Item 7a's cross-week exercise rotation.
 
 ### Custom exercises (approved plan)
 
@@ -114,6 +114,16 @@
 - **Default-anchor effect** (compound, old → NSCA×0.9): Balanced 70% → 76.5%; Strength 87.5% → 78.3%; Hypertrophy 72.5% → 72.0%; Endurance 57.5% → 58.5%. `TrainingGoal` now only owns sets + rep ranges; intensity follows reps.
 - **Interactions:** progressive-overload prescriptions read the accepted-plan snapshot's `suggestedWeightKg` (the rep-adjusted working weight) — consistent, no change; `ProgressWeightsUseCase` now increments the 1RM baseline. Item 3 fatigue reads logged sets only — clean. The engine/sanitizer gained constructor params with defaults, so the existing Koin `get()` bindings are unchanged (no verification impact). No schema/migration.
 - **Tests:** new `VolumeAwareRepsTest` (defaults, direction, accessory volume, clamps) and `SuggestedWeightConfigTest` (curve × buffer, monotonicity, clamping); `SuggestWeightsUseCase` tests switch to 1RM semantics; Deterministic tests cover 1RM→working-weight derivation, heavier-for-fewer-sets, and no-1RM → no weight; sanitizer/Gemini/local assertions updated to volume-aware reps and the new prompt guidance. Verified on `emulator-5554`: sets picker 4→6 moved compound slots from `4 x 5` to `6 x 3` (STRENGTH).
+
+### Local AI repetition quality (approved, implemented)
+
+> Problem: the on-device 1B model produced valid-but-repetitive weeks — e.g. three PULL days in a row, or one exercise repeated within a day.
+
+- **Shared `SplitResolver` (`:core:domain`).** Extracted the split resolution (`resolveSplitType`, `focusCycle`, and a new `focusSequence`) out of the Deterministic engine so all engines agree on the week's foci. Deterministic behavior is unchanged (it now calls the shared object).
+- **Per-day focus in the AI prompts.** Both Gemini and local prompts now state an explicit "Day N: FOCUS" schedule derived from `SplitResolver.focusSequence`, replacing the open "Split preference" line, plus a reminder to keep each day distinct and not reuse a compound lift across days.
+- **Local schema pins each day's focus.** The local `planSchema` now takes the focus sequence and emits a per-day `anyOf` object whose `focus` enum is exactly that day's resolved focus, so the constrained grammar cannot repeat one focus all week or emit a wrong focus. (Gemini keeps the full focus enum; its `GeminiSchema` has no `anyOf`, and the strong model follows the prompt — the shared enforcer below is the guarantee.)
+- **`PlanVarietyEnforcer` (`:core:domain`).** Pure, deterministic post-processor applied inside the shared `WeeklyPlanSanitizer` (so it covers both Gemini and local): drops duplicate exercises within a day, drops days that repeat a focus, and prevents a **compound** exercise from repeating across days (accessory/isolation repeats stay allowed — they are exempt from rotation). Returns null when the survivors no longer meet the request (too few days, or a day below the min exercise count), which falls back to Deterministic.
+- **Interactions:** no schema/migration/constructor changes → Koin verification unaffected; the Deterministic engine output is unchanged. New tests: `SplitResolverTest`, `PlanVarietyEnforcerTest`, local prompt/schema focus tests, and updated sanitizer/Gemini fixtures to be realistic (distinct foci, no cross-day compound reuse).
 
 ### Deferred (mega-plan)
 
