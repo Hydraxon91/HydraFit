@@ -10,6 +10,7 @@ import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.equipment.ExerciseOverrideRepository
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import com.hydrafit.app.core.userdata.settings.TrainingGoalRepository
+import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -25,6 +26,7 @@ val databaseModule: Module = module {
     single<WorkoutLogRepository> { SqlDelightWorkoutLogRepository(get()) }
     single<EnginePreferenceRepository> { SqlDelightEnginePreferenceRepository(get()) }
     single<TrainingGoalRepository> { SqlDelightTrainingGoalRepository(get()) }
+    single<WeightUnitRepository> { SqlDelightWeightUnitRepository(get()) }
     single<PlanHistoryRepository> { SqlDelightPlanHistoryRepository(get()) }
     single<WorkoutPlanSourcesRepository> {
         SqlDelightWorkoutPlanSourcesRepository(get(), get(), get(), get())

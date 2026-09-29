@@ -83,7 +83,11 @@ class ExerciseOverrideMigrationTest {
             "CREATE TABLE exerciseEdit (exerciseId TEXT NOT NULL PRIMARY KEY, " +
                 "requiredEquipment TEXT NOT NULL)",
             "CREATE TABLE exerciseMuscleEdit (exerciseId TEXT NOT NULL PRIMARY KEY, " +
-                "primaryMuscles TEXT NOT NULL, secondaryMuscles TEXT NOT NULL)"
+                "primaryMuscles TEXT NOT NULL, secondaryMuscles TEXT NOT NULL)",
+            "CREATE TABLE plannerEngine (id INTEGER NOT NULL PRIMARY KEY, " +
+                "engineId TEXT NOT NULL, daysPerWeek INTEGER NOT NULL DEFAULT 4, " +
+                "trainingGoal TEXT NOT NULL DEFAULT 'BALANCED', " +
+                "shareWorkoutData INTEGER NOT NULL DEFAULT 0)"
         )
         statements.forEach { driver.execute(identifier = null, sql = it, parameters = 0) }
         return driver

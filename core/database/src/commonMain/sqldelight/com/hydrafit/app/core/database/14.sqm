@@ -1,0 +1,1 @@
+ALTER TABLE plannerEngine ADD COLUMN weightUnit TEXT NOT NULL DEFAULT 'KG';
