@@ -77,6 +77,17 @@ class WeeklyPlanJsonTest {
     }
 
     @Test
+    fun parsesASuggestedWeight() {
+        val plan = parseWeeklyPlan(
+            """{"days":[{"focus":"PUSH","exercises":""" +
+                """[{"exerciseId":"bench-press","sets":3,"reps":8,"suggestedWeightKg":82.5}]}]}""",
+            PlannerEngineId.GEMINI_API
+        )
+
+        assertEquals(82.5, plan.days.single().exercises.single().suggestedWeightKg)
+    }
+
+    @Test
     fun rejectsTextWithoutAJsonObject() {
         assertFailsWith<IllegalArgumentException> {
             parseWeeklyPlan("I am not JSON", PlannerEngineId.LOCAL_LLM)

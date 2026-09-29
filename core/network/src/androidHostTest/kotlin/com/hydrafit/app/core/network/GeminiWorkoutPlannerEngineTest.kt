@@ -249,6 +249,7 @@ class GeminiWorkoutPlannerEngineTest {
 
         val bodyText = (requireNotNull(captured).body as TextContent).text
         assertFalse(bodyText.contains("Recent working weights"), bodyText)
+        assertFalse(bodyText.contains("suggestedWeightKg"), bodyText)
     }
 
     @Test
@@ -269,6 +270,7 @@ class GeminiWorkoutPlannerEngineTest {
         val bodyText = (requireNotNull(captured).body as TextContent).text
         assertTrue(bodyText.contains("Recent working weights"), bodyText)
         assertTrue(bodyText.contains("bench-press"), bodyText)
+        assertTrue(bodyText.contains("suggestedWeightKg"), bodyText)
     }
 
     private fun engine(

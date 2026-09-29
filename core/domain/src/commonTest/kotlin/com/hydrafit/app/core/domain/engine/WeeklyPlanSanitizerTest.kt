@@ -7,6 +7,7 @@ import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
 class WeeklyPlanSanitizerTest {
@@ -94,6 +95,41 @@ class WeeklyPlanSanitizerTest {
         assertEquals(listOf(0, 1, 2), sanitized.days.map { it.dayIndex })
     }
 
+    @Test
+    fun carriesAValidatedSuggestedWeightOnlyWhenSharingIsOn() = runTest {
+        val plan = WeeklyPlan(
+            engine = PlannerEngineId.GEMINI_API,
+            days = listOf(
+                WorkoutDay(
+                    dayIndex = 0,
+                    focus = SplitFocus.FULL_BODY,
+                    exercises = listOf(
+                        PlannedExercise(
+                            exerciseId = "bench-press",
+                            sets = 3,
+                            reps = 8,
+                            suggestedWeightKg = 82.5
+                        ),
+                        PlannedExercise(
+                            exerciseId = "lateral-raise",
+                            sets = 3,
+                            reps = 12,
+                            suggestedWeightKg = 99_999.0
+                        )
+                    )
+                )
+            )
+        )
+
+        val off = sanitizer.sanitize(plan, request())!!
+        assertTrue(off.days.single().exercises.all { it.suggestedWeightKg == null })
+
+        val on = sanitizer.sanitize(plan, request(includeWorkoutData = true))!!
+        val byId = on.days.single().exercises.associateBy { it.exerciseId }
+        assertEquals(82.5, byId.getValue("bench-press").suggestedWeightKg)
+        assertNull(byId.getValue("lateral-raise").suggestedWeightKg)
+    }
+
     private fun planOf(exerciseIds: List<String>) = WeeklyPlan(
         engine = PlannerEngineId.LOCAL_LLM,
         days = listOf(dayOf(0, exerciseIds))
@@ -108,14 +144,16 @@ class WeeklyPlanSanitizerTest {
     private fun request(
         daysPerWeek: Int = 1,
         goal: TrainingGoal = TrainingGoal.BALANCED,
-        setsPerExercise: Int = goal.defaultSets
+        setsPerExercise: Int = goal.defaultSets,
+        includeWorkoutData: Boolean = false
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
         availableEquipment = setOf(EquipmentTag.BARBELL),
         muscleFatigue = emptyMap(),
         nowMillis = 0L,
         goal = goal,
-        setsPerExercise = setsPerExercise
+        setsPerExercise = setsPerExercise,
+        includeWorkoutData = includeWorkoutData
     )
 
     private object FakeCatalog : ExerciseCatalog {

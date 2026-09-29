@@ -11,7 +11,12 @@ import kotlinx.serialization.json.decodeFromJsonElement
 data class PlannedDayDto(val focus: String, val exercises: List<PlannedExerciseDto> = emptyList())
 
 @Serializable
-data class PlannedExerciseDto(val exerciseId: String, val sets: Int, val reps: Int)
+data class PlannedExerciseDto(
+    val exerciseId: String,
+    val sets: Int,
+    val reps: Int,
+    val suggestedWeightKg: Double? = null
+)
 
 private const val MIN_SETS = 1
 private const val MAX_SETS = 10
@@ -35,7 +40,8 @@ fun parseWeeklyPlan(json: String, engine: PlannerEngineId): WeeklyPlan {
                     PlannedExercise(
                         exerciseId = exercise.exerciseId,
                         sets = exercise.sets.coerceIn(MIN_SETS, MAX_SETS),
-                        reps = exercise.reps.coerceIn(MIN_REPS, MAX_REPS)
+                        reps = exercise.reps.coerceIn(MIN_REPS, MAX_REPS),
+                        suggestedWeightKg = exercise.suggestedWeightKg
                     )
                 }
             )

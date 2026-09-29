@@ -21,7 +21,10 @@ class WeeklyPlanSanitizer(private val catalog: ExerciseCatalog) {
                     PlannedExercise(
                         exerciseId = exercise.id,
                         sets = request.setsPerExercise,
-                        reps = repsFor(exercise, request.goal)
+                        reps = repsFor(exercise, request.goal),
+                        suggestedWeightKg = planned.suggestedWeightKg?.takeIf {
+                            request.includeWorkoutData && it > 0.0 && it <= MAX_SUGGESTED_WEIGHT_KG
+                        }
                     )
                 }
             )
@@ -40,5 +43,6 @@ class WeeklyPlanSanitizer(private val catalog: ExerciseCatalog) {
 
     companion object {
         const val MIN_EXERCISES_PER_DAY = 2
+        const val MAX_SUGGESTED_WEIGHT_KG = 1_000.0
     }
 }

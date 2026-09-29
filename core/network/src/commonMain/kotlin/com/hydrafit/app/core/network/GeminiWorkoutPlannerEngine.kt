@@ -175,6 +175,9 @@ class GeminiWorkoutPlannerEngine(
                     "Recent working weights (use them to suggest a sensible weight for each " +
                         "exercise): $weights"
                 )
+                appendLine(
+                    "Give every exercise a \"suggestedWeightKg\" number based on that history."
+                )
             }
         }
 
@@ -208,11 +211,7 @@ class GeminiWorkoutPlannerEngine(
                             maxItems = MAX_DAY_EXERCISES,
                             items = GeminiSchema(
                                 type = "OBJECT",
-                                properties = mapOf(
-                                    "exerciseId" to GeminiSchema(type = "STRING"),
-                                    "sets" to GeminiSchema(type = "INTEGER"),
-                                    "reps" to GeminiSchema(type = "INTEGER")
-                                ),
+                                properties = exerciseSchemaProperties(request),
                                 required = listOf("exerciseId", "sets", "reps")
                             )
                         )
@@ -223,6 +222,16 @@ class GeminiWorkoutPlannerEngine(
         ),
         required = listOf("days")
     )
+
+    private fun exerciseSchemaProperties(request: PlanRequest): Map<String, GeminiSchema> =
+        buildMap {
+            put("exerciseId", GeminiSchema(type = "STRING"))
+            put("sets", GeminiSchema(type = "INTEGER"))
+            put("reps", GeminiSchema(type = "INTEGER"))
+            if (request.includeWorkoutData) {
+                put("suggestedWeightKg", GeminiSchema(type = "NUMBER"))
+            }
+        }
 
     private companion object {
         const val MAX_RETRIES = 2

@@ -76,6 +76,7 @@ class LocalLlmWorkoutPlannerEngineTest {
         engine(generator).generatePlan(request())
 
         assertFalse(requireNotNull(generator.lastPrompt).contains("Recent working weights"))
+        assertFalse(requireNotNull(generator.lastSchema).contains("suggestedWeightKg"))
     }
 
     @Test
@@ -90,6 +91,7 @@ class LocalLlmWorkoutPlannerEngineTest {
         )
 
         assertTrue(requireNotNull(generator.lastPrompt).contains("Recent working weights"))
+        assertTrue(requireNotNull(generator.lastSchema).contains("suggestedWeightKg"))
     }
 
     @Test

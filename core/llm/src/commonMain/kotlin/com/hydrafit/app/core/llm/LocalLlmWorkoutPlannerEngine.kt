@@ -32,7 +32,11 @@ class LocalLlmWorkoutPlannerEngine(
         var attempt = 0
         var lastFailure: Throwable? = null
         var prompt = prompt(request, availableExercises)
-        val schema = planSchema(request.daysPerWeek, availableExercises.size)
+        val schema = planSchema(
+            request.daysPerWeek,
+            availableExercises.size,
+            request.includeWorkoutData
+        )
         while (attempt < MAX_ATTEMPTS) {
             attempt++
             val plan = try {
@@ -143,6 +147,9 @@ class LocalLlmWorkoutPlannerEngine(
                 appendLine(
                     "Recent working weights (suggest a sensible weight for each exercise): $weights"
                 )
+                appendLine(
+                    "Also give every exercise a \"suggestedWeightKg\" number based on that history."
+                )
             }
             appendLine(
                 "Produce exactly $days day items and 4 to 6 exercises in every day. " +
@@ -171,12 +178,18 @@ class LocalLlmWorkoutPlannerEngine(
          * the prompt's list impossible. Numbers keep the grammar small enough to stay fast; an
          * empty catalog keeps a plain string so the enum stays valid.
          */
-        fun planSchema(days: Int, exerciseCount: Int): String {
+        fun planSchema(days: Int, exerciseCount: Int, includeSuggestedWeight: Boolean): String {
             val idSchema = if (exerciseCount <= 0) {
                 """{"type": "string"}"""
             } else {
                 val numbers = (1..exerciseCount).joinToString(", ") { "\"$it\"" }
                 """{"type": "string", "enum": [$numbers]}"""
+            }
+            val weightField = if (includeSuggestedWeight) {
+                """,
+                                "suggestedWeightKg": {"type": "number"}"""
+            } else {
+                ""
             }
             return """
                 {
@@ -202,7 +215,7 @@ class LocalLlmWorkoutPlannerEngine(
                               "properties": {
                                 "exerciseId": $idSchema,
                                 "sets": {"type": "integer"},
-                                "reps": {"type": "integer"}
+                                "reps": {"type": "integer"}$weightField
                               },
                               "required": ["exerciseId", "sets", "reps"]
                             }
