@@ -47,6 +47,50 @@ class WeeklyPlanSanitizerTest {
     }
 
     @Test
+    fun deloadWeekScalesSetsAndModelWeights() = runTest {
+        val plan = WeeklyPlan(
+            engine = PlannerEngineId.GEMINI_API,
+            days = listOf(
+                WorkoutDay(
+                    dayIndex = 0,
+                    focus = SplitFocus.FULL_BODY,
+                    exercises = listOf(
+                        PlannedExercise(
+                            exerciseId = "bench-press",
+                            sets = 3,
+                            reps = 8,
+                            suggestedWeightKg = 100.0
+                        ),
+                        PlannedExercise("lateral-raise", sets = 3, reps = 8)
+                    )
+                )
+            )
+        )
+
+        val sanitized = sanitizer.sanitize(
+            plan,
+            request(setsPerExercise = 4, includeWorkoutData = true, isDeload = true)
+        )!!
+
+        val compound = sanitized.days.single().exercises.first { it.exerciseId == "bench-press" }
+        // 4 sets x 0.7 = 2.8 -> 3 sets
+        assertEquals(3, compound.sets)
+        // model weight 100 x 0.8 = 80
+        assertEquals(80.0, compound.suggestedWeightKg)
+    }
+
+    @Test
+    fun carriesTheWeekAndCycleOntoThePlan() = runTest {
+        val sanitized = sanitizer.sanitize(
+            planOf(listOf("bench-press", "lateral-raise")),
+            request().copy(weekNumber = 3, cycleNumber = 2)
+        )!!
+
+        assertEquals(3, sanitized.weekNumber)
+        assertEquals(2, sanitized.cycleNumber)
+    }
+
+    @Test
     fun dropsUnknownExercises() = runTest {
         val plan = planOf(listOf("bench-press", "lateral-raise", "not-a-real-id"))
 
@@ -160,7 +204,8 @@ class WeeklyPlanSanitizerTest {
         goal: TrainingGoal = TrainingGoal.BALANCED,
         setsPerExercise: Int = goal.defaultSets,
         accessorySetsPerExercise: Int = goal.accessorySets,
-        includeWorkoutData: Boolean = false
+        includeWorkoutData: Boolean = false,
+        isDeload: Boolean = false
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
         availableEquipment = setOf(EquipmentTag.BARBELL),
@@ -169,7 +214,8 @@ class WeeklyPlanSanitizerTest {
         goal = goal,
         setsPerExercise = setsPerExercise,
         accessorySetsPerExercise = accessorySetsPerExercise,
-        includeWorkoutData = includeWorkoutData
+        includeWorkoutData = includeWorkoutData,
+        isDeload = isDeload
     )
 
     private object FakeCatalog : ExerciseCatalog {

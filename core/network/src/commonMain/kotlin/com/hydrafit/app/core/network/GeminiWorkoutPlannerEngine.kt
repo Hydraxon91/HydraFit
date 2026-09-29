@@ -154,6 +154,12 @@ class GeminiWorkoutPlannerEngine(
             appendLine("Training goal: ${request.goal.name}")
             appendLine("Available equipment: $equipment")
             appendLine("Current muscle fatigue (0.0-1.0): $fatigue")
+            if (request.isDeload) {
+                appendLine(
+                    "This is a deload week: use fewer sets and roughly 80% of the normal working " +
+                        "weight to allow recovery."
+                )
+            }
             appendLine("Choose ONLY exerciseId values from this list: $exerciseIds")
             appendLine("Give every day 4 to 6 exercises.")
             appendLine(

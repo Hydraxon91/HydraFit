@@ -463,6 +463,45 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun deloadWeekReducesSetsAndWeight() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                split = SplitType.PUSH_PULL_LEGS,
+                setsPerExercise = 4,
+                suggestedWeightsKg = mapOf("bench-press" to 100.0),
+                isDeload = true
+            ),
+            listOf(exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST))
+        )
+
+        val benchPress = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.single()
+
+        // 4 sets x 0.7 = 2.8 -> 3 sets; reps via volume-aware for 3 sets -> 6 (compound volume 18/3)
+        assertEquals(3, benchPress.sets)
+        // 100 x intensity(6 reps) x 0.8 = 100 x 0.765 x 0.8 = 61.2 -> nearest 2.5 = 60.0
+        assertEquals(60.0, benchPress.suggestedWeightKg)
+    }
+
+    @Test
+    fun nonDeloadWeekIsUnchanged() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                split = SplitType.PUSH_PULL_LEGS,
+                setsPerExercise = 4,
+                suggestedWeightsKg = mapOf("bench-press" to 100.0)
+            ),
+            listOf(exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST))
+        )
+
+        val benchPress = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.single()
+        assertEquals(4, benchPress.sets)
+        // 100 x intensity(5 reps) = 100 x 0.87 x 0.9 = 78.3 -> nearest 2.5 = 77.5
+        assertEquals(77.5, benchPress.suggestedWeightKg)
+    }
+
+    @Test
     fun isDeterministicForTheSameInput() {
         val exercises = catalog()
         val request = request(
@@ -503,7 +542,8 @@ class DeterministicWorkoutPlannerEngineTest {
         setsPerExercise: Int = goal.defaultSets,
         accessorySetsPerExercise: Int = goal.accessorySets,
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
-        suggestedWeightsKg: Map<String, Double> = emptyMap()
+        suggestedWeightsKg: Map<String, Double> = emptyMap(),
+        isDeload: Boolean = false
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
         availableEquipment = equipment,
@@ -514,7 +554,8 @@ class DeterministicWorkoutPlannerEngineTest {
         setsPerExercise = setsPerExercise,
         accessorySetsPerExercise = accessorySetsPerExercise,
         recentExerciseIdsByPattern = recentExerciseIdsByPattern,
-        suggestedWeightsKg = suggestedWeightsKg
+        suggestedWeightsKg = suggestedWeightsKg,
+        isDeload = isDeload
     )
 
     private fun exercise(

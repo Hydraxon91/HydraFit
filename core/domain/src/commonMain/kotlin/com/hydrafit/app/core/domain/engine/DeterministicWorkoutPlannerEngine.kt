@@ -4,11 +4,13 @@ import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import kotlin.math.roundToInt
 
 class DeterministicWorkoutPlannerEngine(
     private val catalog: ExerciseCatalog,
     private val volumeAwareReps: VolumeAwareReps = VolumeAwareReps(),
-    private val weightConfig: SuggestedWeightConfig = SuggestedWeightConfig()
+    private val weightConfig: SuggestedWeightConfig = SuggestedWeightConfig(),
+    private val periodization: PeriodizationConfig = PeriodizationConfig()
 ) : WorkoutPlannerEngine {
 
     override val id: PlannerEngineId = PlannerEngineId.DETERMINISTIC
@@ -29,6 +31,7 @@ class DeterministicWorkoutPlannerEngine(
                 SplitResolver.resolveSplitType(request.splitPreference, request.daysPerWeek)
             )
         val availableExercises = exercises.filter { it.isAvailableWith(request.availableEquipment) }
+        val isDeload = request.isDeload
 
         val days = List(request.daysPerWeek) { index ->
             val focus = focusCycle[index % focusCycle.size]
@@ -43,12 +46,18 @@ class DeterministicWorkoutPlannerEngine(
                     request.accessorySetsPerExercise,
                     request.goal,
                     request.recentExerciseIdsByPattern,
-                    request.suggestedWeightsKg
+                    request.suggestedWeightsKg,
+                    isDeload
                 )
             )
         }
 
-        return WeeklyPlan(engine = id, days = days)
+        return WeeklyPlan(
+            engine = id,
+            days = days,
+            weekNumber = request.weekNumber,
+            cycleNumber = request.cycleNumber
+        )
     }
 
     private fun selectExercises(
@@ -59,7 +68,8 @@ class DeterministicWorkoutPlannerEngine(
         accessorySetsPerExercise: Int,
         goal: TrainingGoal,
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>>,
-        suggestedWeightsKg: Map<String, Double>
+        suggestedWeightsKg: Map<String, Double>,
+        isDeload: Boolean
     ): List<PlannedExercise> {
         val used = mutableSetOf<String>()
         val picks = mutableListOf<PlannedExercise>()
@@ -84,7 +94,12 @@ class DeterministicWorkoutPlannerEngine(
 
             val isCompound = candidate.movementPattern.isCompound
             val baseSets = if (isCompound) setsPerExercise else accessorySetsPerExercise
-            val sets = (baseSets - if (soreness >= FATIGUE_REDUCE_THRESHOLD) 1 else 0)
+            val deloadedSets = if (isDeload) {
+                (baseSets * periodization.deloadVolumeScale).roundToInt().coerceAtLeast(1)
+            } else {
+                baseSets
+            }
+            val sets = (deloadedSets - if (soreness >= FATIGUE_REDUCE_THRESHOLD) 1 else 0)
                 .coerceAtLeast(1)
             val reps = volumeAwareReps.repsFor(goal, isCompound, sets)
             used += candidate.id
@@ -94,7 +109,7 @@ class DeterministicWorkoutPlannerEngine(
                 reps = reps,
                 suggestedWeightKg = suggestedWeightsKg[candidate.id]?.let { oneRepMax ->
                     weightConfig.roundToIncrement(
-                        oneRepMax * weightConfig.intensityForReps(reps)
+                        oneRepMax * weightConfig.intensityForReps(reps) * intensityScale(isDeload)
                     )
                 }
             )
@@ -102,6 +117,9 @@ class DeterministicWorkoutPlannerEngine(
 
         return picks
     }
+
+    private fun intensityScale(isDeload: Boolean): Double =
+        if (isDeload) periodization.deloadIntensityScale else 1.0
 
     private fun fatigueOf(exercise: Exercise, fatigue: Map<MuscleGroup, Double>): Double =
         exercise.primaryMuscles.maxOfOrNull { fatigue[it] ?: 0.0 } ?: 0.0

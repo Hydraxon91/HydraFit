@@ -94,6 +94,15 @@ class LocalLlmWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun mentionsTheDeloadWeekInThePrompt() = runTest {
+        val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
+
+        engine(generator).generatePlan(request(isDeload = true))
+
+        assertTrue(requireNotNull(generator.lastPrompt).contains("deload week"))
+    }
+
+    @Test
     fun requestsJsonConstrainedOutput() = runTest {
         val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
 
@@ -374,6 +383,7 @@ class LocalLlmWorkoutPlannerEngineTest {
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
         suggestedWeightsKg: Map<String, Double> = emptyMap(),
         includeWorkoutData: Boolean = false,
+        isDeload: Boolean = false,
         recentWeights: List<WeightHistoryEntry> = emptyList()
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
@@ -387,6 +397,7 @@ class LocalLlmWorkoutPlannerEngineTest {
         recentExerciseIdsByPattern = recentExerciseIdsByPattern,
         suggestedWeightsKg = suggestedWeightsKg,
         includeWorkoutData = includeWorkoutData,
+        isDeload = isDeload,
         recentWeights = recentWeights
     )
 

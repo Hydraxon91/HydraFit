@@ -89,6 +89,20 @@ class GeminiWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun mentionsTheDeloadWeekInThePrompt() = runTest {
+        var captured: HttpRequestData? = null
+        val mockEngine = MockEngine { request ->
+            captured = request
+            respond(envelope(VALID_PLAN), HttpStatusCode.OK, jsonHeaders())
+        }
+
+        engine(mockEngine).generatePlan(request(isDeload = true))
+
+        val bodyText = (requireNotNull(captured).body as TextContent).text
+        assertTrue(bodyText.contains("deload week"), bodyText)
+    }
+
+    @Test
     fun sendsRecentAcceptedSelectionsToSteerRotation() = runTest {
         var captured: HttpRequestData? = null
         val mockEngine = MockEngine { request ->
@@ -355,6 +369,7 @@ class GeminiWorkoutPlannerEngineTest {
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
         suggestedWeightsKg: Map<String, Double> = emptyMap(),
         includeWorkoutData: Boolean = false,
+        isDeload: Boolean = false,
         recentWeights: List<WeightHistoryEntry> = emptyList()
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
@@ -367,6 +382,7 @@ class GeminiWorkoutPlannerEngineTest {
         recentExerciseIdsByPattern = recentExerciseIdsByPattern,
         suggestedWeightsKg = suggestedWeightsKg,
         includeWorkoutData = includeWorkoutData,
+        isDeload = isDeload,
         recentWeights = recentWeights
     )
 

@@ -133,6 +133,12 @@ class LocalLlmWorkoutPlannerEngine(
                     "exercises."
             )
             appendLine("Training goal: ${request.goal.name}")
+            if (request.isDeload) {
+                appendLine(
+                    "This is a deload week: use fewer sets and roughly 80% of the normal working " +
+                        "weight to allow recovery."
+                )
+            }
             val compoundVolume = request.goal.defaultSets * request.goal.compoundReps
             val accessoryVolume = request.goal.accessorySets * request.goal.isolationReps
             appendLine(

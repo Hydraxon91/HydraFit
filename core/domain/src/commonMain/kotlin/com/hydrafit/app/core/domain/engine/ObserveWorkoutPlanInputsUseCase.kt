@@ -65,7 +65,8 @@ class ObserveWorkoutPlanInputsUseCase(
                     emptyList()
                 },
                 weekNumber = weekNumber,
-                cycleNumber = cycleNumber
+                cycleNumber = cycleNumber,
+                isDeload = periodization.isDeload(weekNumber)
             ),
             requestedEngine = current.selectedEngine
         )

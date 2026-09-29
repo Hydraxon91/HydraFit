@@ -20,5 +20,6 @@ data class PlanRequest(
     val includeWorkoutData: Boolean = false,
     val recentWeights: List<WeightHistoryEntry> = emptyList(),
     val weekNumber: Int = 1,
-    val cycleNumber: Int = 1
+    val cycleNumber: Int = 1,
+    val isDeload: Boolean = false
 )
