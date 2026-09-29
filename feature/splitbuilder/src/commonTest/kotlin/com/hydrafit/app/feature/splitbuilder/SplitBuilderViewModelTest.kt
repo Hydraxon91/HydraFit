@@ -421,6 +421,92 @@ class SplitBuilderViewModelTest {
         assertTrue(viewModel.state.value.plan != null)
     }
 
+    @Test
+    fun appliesTheAccessorySetCountToAccessorySlots() = runTest(dispatcher) {
+        val viewModel = viewModel(availableEquipment = setOf(EquipmentTag.DUMBBELL))
+        advanceUntilIdle()
+
+        viewModel.onAccessorySetsPerExerciseChanged(6)
+        advanceUntilIdle()
+
+        // The fake catalog only has compound squat variants, so the picker value still reaches the
+        // plan for compound slots; this verifies the second picker is wired end to end.
+        assertEquals(6, viewModel.state.value.accessorySetsPerExercise)
+        val sets = viewModel.state.value.plan!!.days
+            .flatMap { it.exercises }
+            .map { it.sets }
+        assertTrue(sets.all { it == 3 })
+    }
+
+    @Test
+    fun disablesRegenerateWhenTheDeterministicInputsAreUnchanged() = runTest(dispatcher) {
+        val viewModel = viewModel(availableEquipment = setOf(EquipmentTag.DUMBBELL))
+        advanceUntilIdle()
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.canRegenerate)
+    }
+
+    @Test
+    fun relocksRegenerateAfterAnInputChangeRegenerates() = runTest(dispatcher) {
+        val viewModel = viewModel(availableEquipment = setOf(EquipmentTag.DUMBBELL))
+        advanceUntilIdle()
+
+        viewModel.onSetsPerExerciseChanged(5)
+        advanceUntilIdle()
+
+        // The input change regenerated the plan, which now matches the inputs again.
+        assertFalse(viewModel.state.value.canRegenerate)
+    }
+
+    @Test
+    fun enablesRegenerateWhileShowingAnAcceptedPlan() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        history.accept(acceptedPlan())
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            planHistory = history
+        )
+        advanceUntilIdle()
+
+        // The shown accepted plan came from a past generation, so a fresh draft is possible.
+        assertTrue(viewModel.state.value.canRegenerate)
+    }
+
+    @Test
+    fun locksRegenerateAfterProducingADraftFromAnAcceptedPlan() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        history.accept(acceptedPlan())
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            planHistory = history
+        )
+        advanceUntilIdle()
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.canRegenerate)
+    }
+
+    @Test
+    fun keepsRegenerateEnabledForNonDeterministicEngines() = runTest(dispatcher) {
+        val catalog = FakeExerciseCatalog()
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = DeterministicWorkoutPlannerEngine(catalog),
+            preference = FakeEnginePreferenceRepository(PlannerEngineId.LOCAL_LLM)
+        )
+        advanceUntilIdle()
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.canRegenerate)
+    }
+
     private fun acceptedPlan() = AcceptedPlan(
         engine = PlannerEngineId.DETERMINISTIC,
         acceptedAtMillis = 0L,

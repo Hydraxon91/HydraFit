@@ -4,6 +4,7 @@
     <string name="nav_label">Plan</string>
     <string name="split_days_label">Days per week</string>
     <string name="split_sets_label">Sets per exercise</string>
+    <string name="split_accessory_sets_label">Accessory sets per exercise</string>
     <string name="split_suggested_weight">~%1$s kg</string>
     <string name="split_day">Day %1$d</string>
     <string name="focus_push">Push</string>

@@ -40,6 +40,7 @@ import hydrafit.feature.splitbuilder.generated.resources.focus_push
 import hydrafit.feature.splitbuilder.generated.resources.focus_upper
 import hydrafit.feature.splitbuilder.generated.resources.nav_label
 import hydrafit.feature.splitbuilder.generated.resources.split_accept_plan
+import hydrafit.feature.splitbuilder.generated.resources.split_accessory_sets_label
 import hydrafit.feature.splitbuilder.generated.resources.split_builder_title
 import hydrafit.feature.splitbuilder.generated.resources.split_day
 import hydrafit.feature.splitbuilder.generated.resources.split_days_label
@@ -84,6 +85,7 @@ fun SplitBuilderRoute(
         state = state,
         onDaysPerWeekSelected = viewModel::onDaysPerWeekSelected,
         onSetsPerExerciseChanged = viewModel::onSetsPerExerciseChanged,
+        onAccessorySetsPerExerciseChanged = viewModel::onAccessorySetsPerExerciseChanged,
         onAcceptPlan = viewModel::onAcceptPlan,
         onRegenerate = viewModel::refresh,
         onViewAcceptedPlan = viewModel::onViewAcceptedPlan,
@@ -97,6 +99,7 @@ fun SplitBuilderScreen(
     state: SplitBuilderUiState,
     onDaysPerWeekSelected: (Int) -> Unit,
     onSetsPerExerciseChanged: (Int) -> Unit,
+    onAccessorySetsPerExerciseChanged: (Int) -> Unit,
     onAcceptPlan: () -> Unit,
     onRegenerate: () -> Unit,
     onViewAcceptedPlan: (AcceptedPlan) -> Unit,
@@ -131,6 +134,16 @@ fun SplitBuilderScreen(
                 FilterChip(
                     selected = state.setsPerExercise == sets,
                     onClick = { onSetsPerExerciseChanged(sets) },
+                    label = { Text(sets.toString()) }
+                )
+            }
+        }
+        Text(text = stringResource(Res.string.split_accessory_sets_label))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            setOptions.forEach { sets ->
+                FilterChip(
+                    selected = state.accessorySetsPerExercise == sets,
+                    onClick = { onAccessorySetsPerExerciseChanged(sets) },
                     label = { Text(sets.toString()) }
                 )
             }
@@ -182,7 +195,7 @@ fun SplitBuilderScreen(
                     Text(stringResource(Res.string.split_accept_plan))
                 }
             }
-            Button(onClick = onRegenerate) {
+            Button(onClick = onRegenerate, enabled = state.canRegenerate) {
                 Text(stringResource(Res.string.split_regenerate))
             }
             if (state.usedFallbackEngine) {
