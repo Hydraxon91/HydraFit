@@ -27,7 +27,14 @@ class AcceptWeeklyPlanUseCaseTest {
                     WorkoutDay(
                         dayIndex = 0,
                         focus = SplitFocus.PUSH,
-                        exercises = listOf(PlannedExercise("bench-press", sets = 4, reps = 8))
+                        exercises = listOf(
+                            PlannedExercise(
+                                exerciseId = "bench-press",
+                                sets = 4,
+                                reps = 8,
+                                suggestedWeightKg = 82.5
+                            )
+                        )
                     )
                 )
             )
@@ -42,6 +49,7 @@ class AcceptWeeklyPlanUseCaseTest {
         assertEquals(4, exercise.sets)
         assertEquals(8, exercise.reps)
         assertEquals(MovementPattern.HORIZONTAL_PUSH, exercise.movementPattern)
+        assertEquals(82.5, exercise.suggestedWeightKg)
     }
 
     @Test

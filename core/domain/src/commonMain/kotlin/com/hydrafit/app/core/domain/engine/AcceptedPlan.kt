@@ -34,5 +34,6 @@ data class AcceptedExercise(
     val sets: Int,
     val reps: Int,
     val name: String,
-    val movementPattern: MovementPattern
+    val movementPattern: MovementPattern,
+    val suggestedWeightKg: Double? = null
 )

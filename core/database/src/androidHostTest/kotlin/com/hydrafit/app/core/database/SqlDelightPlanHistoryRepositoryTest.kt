@@ -55,6 +55,7 @@ class SqlDelightPlanHistoryRepositoryTest {
         assertEquals(listOf("bench-press", "overhead-press"), day.exercises.map { it.exerciseId })
         assertEquals("Barbell Bench Press", day.exercises.first().name)
         assertEquals(MovementPattern.HORIZONTAL_PUSH, day.exercises.first().movementPattern)
+        assertEquals(82.5, day.exercises.first().suggestedWeightKg)
         assertEquals(SplitFocus.LEGS, latest.days.last().focus)
         assertEquals(emptyList(), latest.days.last().exercises)
     }
@@ -94,8 +95,18 @@ class SqlDelightPlanHistoryRepositoryTest {
                 dayIndex = 0,
                 focus = SplitFocus.PUSH,
                 exercises = listOf(
-                    exercise("bench-press", "Barbell Bench Press", MovementPattern.HORIZONTAL_PUSH),
-                    exercise("overhead-press", "Overhead Press", MovementPattern.VERTICAL_PUSH)
+                    exercise(
+                        id = "bench-press",
+                        name = "Barbell Bench Press",
+                        pattern = MovementPattern.HORIZONTAL_PUSH,
+                        suggestedWeightKg = 82.5
+                    ),
+                    exercise(
+                        id = "overhead-press",
+                        name = "Overhead Press",
+                        pattern = MovementPattern.VERTICAL_PUSH,
+                        suggestedWeightKg = null
+                    )
                 )
             ),
             AcceptedDay(
@@ -106,11 +117,17 @@ class SqlDelightPlanHistoryRepositoryTest {
         )
     )
 
-    private fun exercise(id: String, name: String, pattern: MovementPattern) = AcceptedExercise(
+    private fun exercise(
+        id: String,
+        name: String,
+        pattern: MovementPattern,
+        suggestedWeightKg: Double?
+    ) = AcceptedExercise(
         exerciseId = id,
         sets = 3,
         reps = 8,
         name = name,
-        movementPattern = pattern
+        movementPattern = pattern,
+        suggestedWeightKg = suggestedWeightKg
     )
 }

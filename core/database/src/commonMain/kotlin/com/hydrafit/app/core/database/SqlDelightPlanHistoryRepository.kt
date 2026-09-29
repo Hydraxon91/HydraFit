@@ -48,7 +48,8 @@ class SqlDelightPlanHistoryRepository(database: HydraFitDatabase) : PlanHistoryR
                         sets = exercise.sets.toLong(),
                         reps = exercise.reps.toLong(),
                         exerciseName = exercise.name,
-                        movementPattern = exercise.movementPattern.name
+                        movementPattern = exercise.movementPattern.name,
+                        suggestedWeightKg = exercise.suggestedWeightKg
                     )
                 }
             }
@@ -83,7 +84,8 @@ class SqlDelightPlanHistoryRepository(database: HydraFitDatabase) : PlanHistoryR
                                 sets = row.sets.toInt(),
                                 reps = row.reps.toInt(),
                                 name = row.exerciseName,
-                                movementPattern = decodeMovementPattern(row.movementPattern)
+                                movementPattern = decodeMovementPattern(row.movementPattern),
+                                suggestedWeightKg = row.suggestedWeightKg
                             )
                         }
                 )

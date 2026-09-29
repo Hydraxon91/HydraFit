@@ -21,6 +21,7 @@ CREATE TABLE planHistoryEntry (
     reps INTEGER NOT NULL,
     exerciseName TEXT NOT NULL,
     movementPattern TEXT NOT NULL,
+    suggestedWeightKg REAL,
     FOREIGN KEY (dayId) REFERENCES planHistoryDay(id)
 );
 
@@ -40,8 +41,8 @@ selectAllDays:
 SELECT * FROM planHistoryDay ORDER BY planId, dayIndex;
 
 insertEntry:
-INSERT INTO planHistoryEntry(dayId, position, exerciseId, sets, reps, exerciseName, movementPattern)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT INTO planHistoryEntry(dayId, position, exerciseId, sets, reps, exerciseName, movementPattern, suggestedWeightKg)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 selectAllEntries:
 SELECT * FROM planHistoryEntry ORDER BY dayId, position;
