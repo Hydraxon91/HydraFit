@@ -164,6 +164,22 @@ class SqlDelightWorkoutLogRepositoryTest {
     }
 
     @Test
+    fun snapshotsTheOverriddenMusclesWhenLogging() = runTest {
+        SqlDelightExerciseMuscleRepository(database).update(
+            exerciseId = "barbell-bench-press",
+            primaryMuscles = setOf(MuscleGroup.BACK),
+            secondaryMuscles = emptySet()
+        )
+
+        repository.add(set(exerciseId = "barbell-bench-press", performedAt = 1))
+
+        val logged = repository.loggedSets().single()
+        val byMuscle = logged.targets.associate { it.muscle to it.involvement }
+        assertEquals(MuscleInvolvement.PRIMARY, byMuscle[MuscleGroup.BACK])
+        assertNull(byMuscle[MuscleGroup.CHEST])
+    }
+
+    @Test
     fun keepsTheLoggedSnapshotWhenTheExerciseMusclesAreLaterEdited() = runTest {
         repository.add(set(exerciseId = "barbell-bench-press", performedAt = 1))
 
