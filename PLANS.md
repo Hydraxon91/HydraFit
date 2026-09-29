@@ -125,9 +125,17 @@
 - **`PlanVarietyEnforcer` (`:core:domain`).** Pure, deterministic post-processor applied inside the shared `WeeklyPlanSanitizer` (so it covers both Gemini and local): drops duplicate exercises within a day, drops days that repeat a focus, and prevents a **compound** exercise from repeating across days (accessory/isolation repeats stay allowed — they are exempt from rotation). Returns null when the survivors no longer meet the request (too few days, or a day below the min exercise count), which falls back to Deterministic.
 - **Interactions:** no schema/migration/constructor changes → Koin verification unaffected; the Deterministic engine output is unchanged. New tests: `SplitResolverTest`, `PlanVarietyEnforcerTest`, local prompt/schema focus tests, and updated sanitizer/Gemini fixtures to be realistic (distinct foci, no cross-day compound reuse).
 
+### Weight units + Logger prefill (approved, implemented)
+
+- **`WeightUnit` (kg/lb) in `:core:domain`** with `kilogramsToDisplay`/`displayToKilograms`, per-unit rounding, and a shared `formatWeight`. Weights are still **always stored in kilograms**; the unit is display/entry only.
+- **Persistence:** `plannerEngine.weightUnit` (schema v15 + `14.sqm`) via `WeightUnitRepository` (`:core:userdata` port, `SqlDelightWeightUnitRepository` impl). Unknown stored values fall back to KG. Settings gained a "Weight unit" toggle.
+- **Display + entry:** the Plan screen shows the suggested weight in the chosen unit (`split_suggested_weight` now takes the unit label); the Logger's weight label shows the unit (`Weight (lb)`) and converts the entered value back to kg on log; recent sets render in the chosen unit.
+- **Logger prefill:** selecting an exercise prefills the weight field from the accepted plan's `suggestedWeightKg` (converted to the display unit) and the reps from the plan, so the user logs against the prescription.
+- **Coupling:** the unit is presentational, read straight from the repository in the `SplitBuilderRoute` composable and the Logger VM; plan generation, storage, and the engines are unit-agnostic. No engine/Koin-graph semantics changed (only new bindings + a constructor param with the existing pattern).
+
 ### Deferred (mega-plan)
 
 - **Week-counter / cycle system.** Investigated: there is **no week concept anywhere** today — `planHistory` is `id, engineId, acceptedAt`; rotation uses only the latest accepted plan; progressive overload uses day-based streaks over all logged sets. A *label-only* version (explicit `weekNumber` on `AcceptedPlan` + history UI, schema v15 + `.sqm`) is largely cosmetic and buys nothing functional; genuinely useful version requires periodization decisions (deload weeks, planned volume progression, scheduled PR re-tests) — a much larger design + implementation, roughly Chunk A+B combined. **Independent of accessory sets (no coupling)**: rotation reads `latest()`, progression reads day streaks, neither needs a week index. Deferred; revisit if periodization becomes a goal.
 - Settings/navigation redesign — use a coherent "Planning" section in existing Settings for goal + engine + Gemini consent; keep equipment/exercise management in the Equipment tab.
 - Local-model same-week focus-sequence prompt improvement (tracked above), not the same feature as Item 7a.
-- Unit (lb) support for suggested weights and Logger weight prefill — deferred from Item 8.
+- Unit (lb) support for suggested weights and Logger weight prefill — **implemented**: see "Weight units + Logger prefill" below.
