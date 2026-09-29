@@ -166,6 +166,19 @@
 - **UI.** A "Your lifts / Personal records" section (Settings, or the Equipment tab) to enter/edit/clear a best set per exercise; optionally an onboarding prompt listing the common compounds (squat, bench, deadlift, overhead press, row).
 - **Interactions.** Progressive overload increments the seeded baseline unchanged; a later logged set supersedes the manual PR via the `max`. No effect on fatigue (PRs are not logged sets).
 
+### Local time, day rollover & break detection (proposed)
+
+> Today the "day" is a UTC epoch-day (`dayOfWeek`, the `performedAtMillis / MILLIS_PER_DAY` session buckets) and the Logger computes the current day only when the accepted-plan flow emits, so "today's focus" can be wrong for local users and goes stale across midnight.
+
+- **Local-time day helper.** `TimeProvider` (`:core:domain`) should expose the local UTC offset (or a zoned clock), and `dayOfWeek` / the session buckets in `ProgressWeightsUseCase` and `BuildRecentWeightsUseCase` should use **local** days. Affects today-focus, progression streaks, and recent-weight days. **Decision needed:** where the offset comes from (platform `expect/actual` on `TimeProvider`), and whether stored timestamps stay UTC (recommended) with only display/bucketing converted.
+- **Day-change tick.** The Logger recomputes `dayFor(dayOfWeek(now))` only on VM init and `observeAcceptedPlan()` emissions (WorkoutLoggerViewModel.kt:110), so it shows yesterday's focus if left open past midnight. Add a day-change tick (a flow that emits when the local day changes) or recompute on `ON_RESUME` so focus/prefill refresh.
+- **Break / gap detection (optional).** Because the week is accept-ordinal, a long layoff resumes at "Week N+1" with fatigue already decayed to near-zero. Consider detecting the gap since the last accepted plan and either restarting the cycle at Week 1 or prompting "you've been away — start a new cycle / deload?". Would run before the next `ObserveWorkoutPlanInputsUseCase` build.
+
+### Log tab: recent-set context & unit suffix (proposed)
+
+- **Unit suffix on recent sets.** The recent-set row renders `{name}  {reps} x {weight}` with no unit (WorkoutLoggerScreen.kt:191). Append the selected `state.weightUnit.label` (`kg`/`lb`) after the number, matching the weight field label. Small, presentational, no schema change.
+- **Week/cycle + day on recent sets.** Show which week and day each logged set belonged to. `workoutSet` stores no week/day, so decide: (a) **derive** it at display time by matching the set's timestamp to the accepted plan active then (no schema change, but depends on plan history being intact), or (b) **snapshot** `weekNumber`/`cycleNumber`/`dayIndex` (or focus) onto `workoutSet` at log time (new schema version + `.sqm`, migration). Recommend (b) for stability once plan-history editing (above) can delete/rewrite plans, since deriving would re-map old sets.
+
 ### Deferred (mega-plan)
 - **Week-counter / cycle system — implemented.** Moved out of Deferred; see "Week-cycle / periodization" above (schema v16, not the v15 sketched here).
 - Settings/navigation redesign — use a coherent "Planning" section in existing Settings for goal + engine + Gemini consent; keep equipment/exercise management in the Equipment tab.
