@@ -120,9 +120,12 @@ class LocalLlmWorkoutPlannerEngine(
                     "exercises."
             )
             appendLine("Training goal: ${request.goal.name}")
+            val compoundVolume = request.goal.defaultSets * request.goal.compoundReps
+            val accessoryVolume = request.goal.accessorySets * request.goal.isolationReps
             appendLine(
-                "Use ${request.goal.compoundReps} reps for compound lifts and " +
-                    "${request.goal.isolationReps} reps for isolation exercises."
+                "Scale reps to keep volume steady: fewer sets mean more reps per set. Aim for " +
+                    "about $compoundVolume total reps for compound lifts and " +
+                    "$accessoryVolume for accessory exercises."
             )
             appendLine("Split preference: ${request.splitPreference.name}")
             appendLine("Available equipment: $equipment")

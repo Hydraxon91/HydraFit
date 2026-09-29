@@ -1,6 +1,5 @@
 package com.hydrafit.app.core.network
 
-import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanRequest
@@ -84,8 +83,9 @@ class GeminiWorkoutPlannerEngineTest {
 
         val bodyText = (requireNotNull(captured).body as TextContent).text
         assertTrue(bodyText.contains("Training goal: ENDURANCE"), bodyText)
-        assertTrue(bodyText.contains("Use 15 reps for compound lifts"), bodyText)
-        assertTrue(bodyText.contains("15 reps for isolation exercises"), bodyText)
+        assertTrue(bodyText.contains("Scale reps to keep volume steady"), bodyText)
+        // Endurance compound volume 2 x 15 = 30 total reps
+        assertTrue(bodyText.contains("about 30 total reps for compound lifts"), bodyText)
     }
 
     @Test
@@ -238,12 +238,13 @@ class GeminiWorkoutPlannerEngineTest {
     }
 
     @Test
-    fun appliesRequestedSetsAndCompoundIsolationReps() = runTest {
+    fun appliesRequestedSetsAndVolumeAwareReps() = runTest {
         val plan = engine(respondEnvelope(VALID_PLAN)).generatePlan(request(setsPerExercise = 5))
 
         val planned = plan.days.first().exercises.first { it.exerciseId == "bench-press" }
         assertEquals(5, planned.sets)
-        assertEquals(DeterministicWorkoutPlannerEngine.COMPOUND_REPS, planned.reps)
+        // Balanced compound volume 3 x 6 = 18 -> 18/5 = 3.6 -> 4 reps
+        assertEquals(4, planned.reps)
     }
 
     @Test

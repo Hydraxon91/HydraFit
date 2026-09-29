@@ -52,7 +52,7 @@ class ObserveWorkoutPlanInputsUseCase(
                 accessorySetsPerExercise = accessorySets ?: current.goal.accessorySets,
                 recentExerciseIdsByPattern = recentExerciseIdsByPattern,
                 suggestedWeightsKg = progressWeights(
-                    baseline = suggestWeights(current.loggedWorkoutSets, current.goal),
+                    baseline = suggestWeights(current.loggedWorkoutSets),
                     prescriptions = prescriptionsFrom(latestPlan),
                     sets = current.loggedWorkoutSets
                 ),

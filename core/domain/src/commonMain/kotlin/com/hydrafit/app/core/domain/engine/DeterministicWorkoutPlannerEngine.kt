@@ -5,8 +5,11 @@ import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 
-class DeterministicWorkoutPlannerEngine(private val catalog: ExerciseCatalog) :
-    WorkoutPlannerEngine {
+class DeterministicWorkoutPlannerEngine(
+    private val catalog: ExerciseCatalog,
+    private val volumeAwareReps: VolumeAwareReps = VolumeAwareReps(),
+    private val weightConfig: SuggestedWeightConfig = SuggestedWeightConfig()
+) : WorkoutPlannerEngine {
 
     override val id: PlannerEngineId = PlannerEngineId.DETERMINISTIC
 
@@ -77,22 +80,21 @@ class DeterministicWorkoutPlannerEngine(private val catalog: ExerciseCatalog) :
             val soreness = fatigueOf(candidate, fatigue)
             if (soreness >= FATIGUE_SKIP_THRESHOLD) continue
 
-            val baseSets = if (candidate.movementPattern.isCompound) {
-                setsPerExercise
-            } else {
-                accessorySetsPerExercise
-            }
+            val isCompound = candidate.movementPattern.isCompound
+            val baseSets = if (isCompound) setsPerExercise else accessorySetsPerExercise
+            val sets = (baseSets - if (soreness >= FATIGUE_REDUCE_THRESHOLD) 1 else 0)
+                .coerceAtLeast(1)
+            val reps = volumeAwareReps.repsFor(goal, isCompound, sets)
             used += candidate.id
             picks += PlannedExercise(
                 exerciseId = candidate.id,
-                sets = (baseSets - if (soreness >= FATIGUE_REDUCE_THRESHOLD) 1 else 0)
-                    .coerceAtLeast(1),
-                reps = if (candidate.movementPattern.isCompound) {
-                    goal.compoundReps
-                } else {
-                    goal.isolationReps
-                },
-                suggestedWeightKg = suggestedWeightsKg[candidate.id]
+                sets = sets,
+                reps = reps,
+                suggestedWeightKg = suggestedWeightsKg[candidate.id]?.let { oneRepMax ->
+                    weightConfig.roundToIncrement(
+                        oneRepMax * weightConfig.intensityForReps(reps)
+                    )
+                }
             )
         }
 

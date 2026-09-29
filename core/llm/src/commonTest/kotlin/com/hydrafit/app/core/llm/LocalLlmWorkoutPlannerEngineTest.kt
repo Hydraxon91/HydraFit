@@ -1,6 +1,5 @@
 package com.hydrafit.app.core.llm
 
-import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
@@ -35,7 +34,7 @@ class LocalLlmWorkoutPlannerEngineTest {
     }
 
     @Test
-    fun appliesRequestedSetsAndCompoundIsolationReps() = runTest {
+    fun appliesRequestedSetsAndVolumeAwareReps() = runTest {
         val generator = FakeGenerator(available = true, responses = listOf(MIXED_REPS_PLAN))
 
         val plan = engine(generator).generatePlan(
@@ -45,9 +44,11 @@ class LocalLlmWorkoutPlannerEngineTest {
         val isolation = plan.days.first().exercises.first { it.exerciseId == "barbell-curl" }
 
         assertEquals(5, compound.sets)
-        assertEquals(DeterministicWorkoutPlannerEngine.COMPOUND_REPS, compound.reps)
+        // Balanced compound volume 3 x 6 = 18 -> 18/5 = 3.6 -> 4 reps
+        assertEquals(4, compound.reps)
         assertEquals(2, isolation.sets)
-        assertEquals(DeterministicWorkoutPlannerEngine.ISOLATION_REPS, isolation.reps)
+        // Balanced accessory volume 2 x 12 = 24 -> 24/2 = 12 reps
+        assertEquals(12, isolation.reps)
     }
 
     @Test
@@ -80,8 +81,9 @@ class LocalLlmWorkoutPlannerEngineTest {
 
         val prompt = requireNotNull(generator.lastPrompt)
         assertTrue(prompt.contains("Training goal: STRENGTH"), prompt)
-        assertTrue(prompt.contains("Use 5 reps for compound lifts"), prompt)
-        assertTrue(prompt.contains("8 reps for isolation exercises"), prompt)
+        assertTrue(prompt.contains("Scale reps to keep volume steady"), prompt)
+        // Strength compound volume 4 x 5 = 20 total reps
+        assertTrue(prompt.contains("about 20 total reps for compound lifts"), prompt)
     }
 
     @Test

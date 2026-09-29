@@ -152,9 +152,12 @@ class GeminiWorkoutPlannerEngine(
                 "Use ${request.setsPerExercise} sets for compound lifts and " +
                     "${request.accessorySetsPerExercise} sets for accessory exercises."
             )
+            val compoundVolume = request.goal.defaultSets * request.goal.compoundReps
+            val accessoryVolume = request.goal.accessorySets * request.goal.isolationReps
             appendLine(
-                "Use ${request.goal.compoundReps} reps for compound lifts and " +
-                    "${request.goal.isolationReps} reps for isolation exercises."
+                "Scale reps to keep volume steady: fewer sets mean more reps per set. Aim for " +
+                    "about $compoundVolume total reps for compound lifts and " +
+                    "$accessoryVolume for accessory exercises."
             )
             appendLine("Prefer exercises whose muscles are less fatigued.")
             val recentlyUsed = request.recentExerciseIdsByPattern

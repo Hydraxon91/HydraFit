@@ -172,7 +172,7 @@ class ObserveWorkoutPlanInputsUseCaseTest {
     }
 
     @Test
-    fun suggestsWeightsFromLoggedSetsAndTheGoal() = runTest {
+    fun estimatesTheOneRepMaxFromLoggedSets() = runTest {
         val sources = FakeWorkoutPlanSourcesRepository(
             WorkoutPlanSources(
                 availableEquipment = setOf(EquipmentTag.BARBELL),
@@ -199,7 +199,8 @@ class ObserveWorkoutPlanInputsUseCaseTest {
 
         val request = useCase().first().request
 
-        assertEquals(102.5, request.suggestedWeightsKg["bench-press"])
+        // 100kg x 5 -> Epley 1RM 116.666...
+        assertEquals(116.66666666666667, request.suggestedWeightsKg["bench-press"])
     }
 
     @Test
@@ -287,9 +288,8 @@ class ObserveWorkoutPlanInputsUseCaseTest {
 
         val request = useCase().first().request
 
-        // Baseline 1RM estimate 100x8 -> 126.667 * 0.70 = 88.667 -> 87.5 rounded to 2.5,
-        // then +2.5 after three completed sessions.
-        assertEquals(90.0, request.suggestedWeightsKg["bench-press"])
+        // Baseline 1RM estimate 100x8 -> 126.667, then +2.5 after three completed sessions.
+        assertEquals(129.16666666666666, request.suggestedWeightsKg["bench-press"])
     }
 
     @Test

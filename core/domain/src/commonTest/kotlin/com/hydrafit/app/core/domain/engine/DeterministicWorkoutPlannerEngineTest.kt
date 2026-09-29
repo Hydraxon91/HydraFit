@@ -410,7 +410,7 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
-    fun copiesSuggestedWeightsFromTheRequest() {
+    fun derivesTheWorkingWeightFromTheOneRepMaxAtThePlannedReps() {
         val plan = engine.plan(
             request(
                 daysPerWeek = 3,
@@ -423,9 +423,43 @@ class DeterministicWorkoutPlannerEngineTest {
             )
         )
 
-        val push = plan.days.first { it.focus == SplitFocus.PUSH }.exercises
-        val benchPress = push.single { it.exerciseId == "bench-press" }
+        val benchPress = plan.days.first { it.focus == SplitFocus.PUSH }
+            .exercises.single { it.exerciseId == "bench-press" }
+
+        // Balanced compound at the default 3 sets -> 6 reps -> NSCA 85% x 0.9 buffer = 76.5%
+        // 82.5 x 0.765 = 63.1125 -> nearest 2.5 = 62.5
+        assertEquals(6, benchPress.reps)
+        assertEquals(62.5, benchPress.suggestedWeightKg)
+    }
+
+    @Test
+    fun heavierWeightForFewerSetsWhenTheRepsDrop() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                split = SplitType.PUSH_PULL_LEGS,
+                setsPerExercise = 6,
+                suggestedWeightsKg = mapOf("bench-press" to 100.0)
+            ),
+            listOf(exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST))
+        )
+
+        val benchPress = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.single()
+
+        // 6 sets -> 3 reps -> NSCA 93% x 0.9 = 83.7% -> 100 x 0.837 = 83.7 -> nearest 2.5 = 82.5
+        assertEquals(3, benchPress.reps)
         assertEquals(82.5, benchPress.suggestedWeightKg)
+    }
+
+    @Test
+    fun omitsTheWeightWhenTheRequestHasNoOneRepMax() {
+        val plan = engine.plan(
+            request(daysPerWeek = 3, split = SplitType.PUSH_PULL_LEGS),
+            listOf(exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST))
+        )
+
+        val benchPress = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.single()
+        assertEquals(null, benchPress.suggestedWeightKg)
     }
 
     @Test

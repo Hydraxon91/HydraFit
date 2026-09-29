@@ -10,23 +10,13 @@ class SuggestWeightsUseCaseTest {
     private val useCase = SuggestWeightsUseCase()
 
     @Test
-    fun estimatesOneRepMaxAndAppliesTheGoalIntensity() {
+    fun estimatesOneRepMaxWithTheEpleyFormula() {
         val sets = listOf(set("bench-press", reps = 5, weightKg = 100.0))
 
-        // 100kg x 5 -> 100 * (1 + 5/30) = 116.667 -> 87.5% = 102.083 -> nearest 2.5 = 102.5
-        val result = useCase(sets, TrainingGoal.STRENGTH)
+        // 100kg x 5 -> 100 * (1 + 5/30) = 116.666...
+        val result = useCase(sets)
 
-        assertEquals(102.5, result.getValue("bench-press"))
-    }
-
-    @Test
-    fun enduranceSuggestsLessThanStrengthForTheSameRecord() {
-        val sets = listOf(set("bench-press", reps = 5, weightKg = 100.0))
-
-        val strength = useCase(sets, TrainingGoal.STRENGTH).getValue("bench-press")
-        val endurance = useCase(sets, TrainingGoal.ENDURANCE).getValue("bench-press")
-
-        assertTrue(endurance < strength, "endurance $endurance should be below strength $strength")
+        assertEquals(116.66666666666667, result.getValue("bench-press"))
     }
 
     @Test
@@ -36,10 +26,10 @@ class SuggestWeightsUseCaseTest {
             set("squat", reps = 1, weightKg = 110.0)
         )
 
-        // 100x5 -> 116.667 beats 110x1 -> 113.667; 70% -> 81.667 -> nearest 2.5 = 82.5
-        val result = useCase(sets, TrainingGoal.BALANCED)
+        // 100x5 -> 116.666 beats 110x1 -> 113.666
+        val result = useCase(sets)
 
-        assertEquals(82.5, result.getValue("squat"))
+        assertEquals(116.66666666666667, result.getValue("squat"))
     }
 
     @Test
@@ -52,29 +42,26 @@ class SuggestWeightsUseCaseTest {
             set("bench-press", reps = 5, weightKg = 100.0)
         )
 
-        val result = useCase(sets, TrainingGoal.STRENGTH)
+        val result = useCase(sets)
 
-        assertEquals(102.5, result.getValue("bench-press"))
+        assertEquals(116.66666666666667, result.getValue("bench-press"))
     }
 
     @Test
     fun omitsExercisesWithoutAUsableRecord() {
         val sets = listOf(set("bench-press", reps = 5, weightKg = null))
 
-        val result = useCase(sets, TrainingGoal.STRENGTH)
+        val result = useCase(sets)
 
         assertTrue(result.isEmpty())
     }
 
     @Test
-    fun roundsToTheConfiguredIncrement() {
-        val coarse = SuggestWeightsUseCase(SuggestedWeightConfig(roundToKg = 5.0))
+    fun honorsTheConfiguredMaxRepsForEstimate() {
+        val narrow = SuggestWeightsUseCase(SuggestedWeightConfig(maxRepsForEstimate = 3))
         val sets = listOf(set("bench-press", reps = 5, weightKg = 100.0))
 
-        // 116.667 * 0.875 = 102.083 -> nearest 5 = 100.0
-        val result = coarse(sets, TrainingGoal.STRENGTH)
-
-        assertEquals(100.0, result.getValue("bench-press"))
+        assertTrue(narrow(sets).isEmpty())
     }
 
     private fun set(exerciseId: String, reps: Int, weightKg: Double?, isWarmup: Boolean = false) =

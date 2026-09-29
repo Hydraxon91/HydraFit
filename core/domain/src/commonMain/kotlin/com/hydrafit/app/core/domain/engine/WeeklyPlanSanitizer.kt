@@ -7,7 +7,10 @@ import com.hydrafit.app.core.domain.equipment.Exercise
  * equipment, applies the requested set count and the compound/isolation rep scheme, and rejects
  * a plan that is not a complete week. Returns null when the plan should be discarded.
  */
-class WeeklyPlanSanitizer(private val catalog: ExerciseCatalog) {
+class WeeklyPlanSanitizer(
+    private val catalog: ExerciseCatalog,
+    private val volumeAwareReps: VolumeAwareReps = VolumeAwareReps()
+) {
 
     suspend fun sanitize(plan: WeeklyPlan, request: PlanRequest): WeeklyPlan? {
         val usable = catalog.all()
@@ -18,10 +21,15 @@ class WeeklyPlanSanitizer(private val catalog: ExerciseCatalog) {
             day.copy(
                 exercises = day.exercises.mapNotNull { planned ->
                     val exercise = usable[planned.exerciseId] ?: return@mapNotNull null
+                    val sets = setsFor(exercise, request)
                     PlannedExercise(
                         exerciseId = exercise.id,
-                        sets = setsFor(exercise, request),
-                        reps = repsFor(exercise, request.goal),
+                        sets = sets,
+                        reps = volumeAwareReps.repsFor(
+                            request.goal,
+                            exercise.movementPattern.isCompound,
+                            sets
+                        ),
                         suggestedWeightKg = planned.suggestedWeightKg?.takeIf {
                             request.includeWorkoutData && it > 0.0 && it <= MAX_SUGGESTED_WEIGHT_KG
                         }
@@ -44,9 +52,6 @@ class WeeklyPlanSanitizer(private val catalog: ExerciseCatalog) {
         } else {
             request.accessorySetsPerExercise
         }
-
-    private fun repsFor(exercise: Exercise, goal: TrainingGoal): Int =
-        if (exercise.movementPattern.isCompound) goal.compoundReps else goal.isolationReps
 
     companion object {
         const val MIN_EXERCISES_PER_DAY = 2
