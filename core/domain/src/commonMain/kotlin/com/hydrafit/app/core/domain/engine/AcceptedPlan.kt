@@ -10,7 +10,9 @@ import com.hydrafit.app.core.domain.time.DayOfWeek
 data class AcceptedPlan(
     val engine: PlannerEngineId,
     val acceptedAtMillis: Long,
-    val days: List<AcceptedDay>
+    val days: List<AcceptedDay>,
+    val weekNumber: Int = 1,
+    val cycleNumber: Int = 1
 ) {
     /** Spreads the plan's training days across the week, starting on Monday. */
     fun scheduledDay(dayIndex: Int): DayOfWeek? {
@@ -41,6 +43,8 @@ data class AcceptedExercise(
 /** Renders a stored plan with the same shape the live (draft) plan uses. */
 fun AcceptedPlan.toWeeklyPlan(): WeeklyPlan = WeeklyPlan(
     engine = engine,
+    weekNumber = weekNumber,
+    cycleNumber = cycleNumber,
     days = days.map { day ->
         WorkoutDay(
             dayIndex = day.dayIndex,

@@ -43,12 +43,21 @@ class SqlDelightPlanHistoryRepositoryTest {
 
     @Test
     fun persistsAnAcceptedPlanAndReadsItBack() = runTest {
-        repository.accept(plan(engine = PlannerEngineId.GEMINI_API, acceptedAt = 100L))
+        repository.accept(
+            plan(
+                engine = PlannerEngineId.GEMINI_API,
+                acceptedAt = 100L,
+                weekNumber = 3,
+                cycleNumber = 2
+            )
+        )
 
         val latest = requireNotNull(repository.latest())
 
         assertEquals(PlannerEngineId.GEMINI_API, latest.engine)
         assertEquals(100L, latest.acceptedAtMillis)
+        assertEquals(3, latest.weekNumber)
+        assertEquals(2, latest.cycleNumber)
         assertEquals(2, latest.days.size)
         val day = latest.days.first()
         assertEquals(SplitFocus.PUSH, day.focus)
@@ -100,9 +109,16 @@ class SqlDelightPlanHistoryRepositoryTest {
         assertNull(repository.latest())
     }
 
-    private fun plan(engine: PlannerEngineId, acceptedAt: Long) = AcceptedPlan(
+    private fun plan(
+        engine: PlannerEngineId,
+        acceptedAt: Long,
+        weekNumber: Int = 1,
+        cycleNumber: Int = 1
+    ) = AcceptedPlan(
         engine = engine,
         acceptedAtMillis = acceptedAt,
+        weekNumber = weekNumber,
+        cycleNumber = cycleNumber,
         days = listOf(
             AcceptedDay(
                 dayIndex = 0,

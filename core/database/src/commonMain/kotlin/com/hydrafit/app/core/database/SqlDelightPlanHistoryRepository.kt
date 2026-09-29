@@ -44,7 +44,12 @@ class SqlDelightPlanHistoryRepository(database: HydraFitDatabase) : PlanHistoryR
 
     override suspend fun accept(plan: AcceptedPlan) {
         queries.transaction {
-            queries.insertPlan(plan.engine.name, plan.acceptedAtMillis, 1, 1)
+            queries.insertPlan(
+                plan.engine.name,
+                plan.acceptedAtMillis,
+                plan.weekNumber.toLong(),
+                plan.cycleNumber.toLong()
+            )
             val planId = queries.lastInsertedPlanId().executeAsOne()
             plan.days.forEach { day ->
                 queries.insertDay(planId, day.dayIndex.toLong(), day.focus.name)
@@ -102,7 +107,9 @@ class SqlDelightPlanHistoryRepository(database: HydraFitDatabase) : PlanHistoryR
         return AcceptedPlan(
             engine = engineId.toEngineId(),
             acceptedAtMillis = acceptedAt,
-            days = days
+            days = days,
+            weekNumber = weekNumber.toInt(),
+            cycleNumber = cycleNumber.toInt()
         )
     }
 

@@ -2,7 +2,12 @@ package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.time.DayOfWeek
 
-data class WeeklyPlan(val engine: PlannerEngineId, val days: List<WorkoutDay>) {
+data class WeeklyPlan(
+    val engine: PlannerEngineId,
+    val days: List<WorkoutDay>,
+    val weekNumber: Int = 1,
+    val cycleNumber: Int = 1
+) {
     /** Spreads the plan's training days across the week, starting on Monday. */
     fun scheduledDay(dayIndex: Int): DayOfWeek? {
         if (days.isEmpty() || dayIndex !in days.indices) return null

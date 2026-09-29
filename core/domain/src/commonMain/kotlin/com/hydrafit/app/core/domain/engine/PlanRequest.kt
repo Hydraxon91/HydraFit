@@ -18,5 +18,7 @@ data class PlanRequest(
     val recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
     val suggestedWeightsKg: Map<String, Double> = emptyMap(),
     val includeWorkoutData: Boolean = false,
-    val recentWeights: List<WeightHistoryEntry> = emptyList()
+    val recentWeights: List<WeightHistoryEntry> = emptyList(),
+    val weekNumber: Int = 1,
+    val cycleNumber: Int = 1
 )
