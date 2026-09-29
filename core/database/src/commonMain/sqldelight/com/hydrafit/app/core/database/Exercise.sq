@@ -4,7 +4,8 @@ CREATE TABLE exercise (
     requiredEquipment TEXT NOT NULL,
     primaryMuscles TEXT NOT NULL,
     secondaryMuscles TEXT NOT NULL,
-    movementPattern TEXT NOT NULL
+    movementPattern TEXT NOT NULL,
+    isCustom INTEGER NOT NULL DEFAULT 0
 );
 
 selectAll:
@@ -20,6 +21,21 @@ VALUES (?, ?, ?, ?, ?, ?);
 insertIgnore:
 INSERT OR IGNORE INTO exercise(id, name, requiredEquipment, primaryMuscles, secondaryMuscles, movementPattern)
 VALUES (?, ?, ?, ?, ?, ?);
+
+insertCustom:
+INSERT INTO exercise(id, name, requiredEquipment, primaryMuscles, secondaryMuscles, movementPattern, isCustom)
+VALUES (?, ?, ?, ?, ?, ?, 1);
+
+updateCustom:
+UPDATE exercise
+SET name = ?, requiredEquipment = ?, primaryMuscles = ?, secondaryMuscles = ?, movementPattern = ?
+WHERE id = ? AND isCustom = 1;
+
+deleteById:
+DELETE FROM exercise WHERE id = ? AND isCustom = 1;
+
+countSetsForExercise:
+SELECT COUNT(*) FROM workoutSet WHERE exerciseId = ?;
 
 updateMovementPattern:
 UPDATE exercise SET movementPattern = ? WHERE id = ?;
