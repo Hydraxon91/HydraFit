@@ -1,0 +1,59 @@
+CREATE TABLE planHistory (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    engineId TEXT NOT NULL,
+    acceptedAt INTEGER NOT NULL
+);
+
+CREATE TABLE planHistoryDay (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    planId INTEGER NOT NULL,
+    dayIndex INTEGER NOT NULL,
+    focus TEXT NOT NULL,
+    FOREIGN KEY (planId) REFERENCES planHistory(id)
+);
+
+CREATE TABLE planHistoryEntry (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    dayId INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    exerciseId TEXT NOT NULL,
+    sets INTEGER NOT NULL,
+    reps INTEGER NOT NULL,
+    exerciseName TEXT NOT NULL,
+    movementPattern TEXT NOT NULL,
+    FOREIGN KEY (dayId) REFERENCES planHistoryDay(id)
+);
+
+insertPlan:
+INSERT INTO planHistory(engineId, acceptedAt) VALUES (?, ?);
+
+lastInsertedPlanId:
+SELECT last_insert_rowid();
+
+selectLatestPlan:
+SELECT * FROM planHistory ORDER BY id DESC LIMIT 1;
+
+insertDay:
+INSERT INTO planHistoryDay(planId, dayIndex, focus) VALUES (?, ?, ?);
+
+selectAllDays:
+SELECT * FROM planHistoryDay ORDER BY planId, dayIndex;
+
+insertEntry:
+INSERT INTO planHistoryEntry(dayId, position, exerciseId, sets, reps, exerciseName, movementPattern)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+selectAllEntries:
+SELECT * FROM planHistoryEntry ORDER BY dayId, position;
+
+selectEntriesForDay:
+SELECT * FROM planHistoryEntry WHERE dayId = ? ORDER BY position;
+
+deleteAllEntries:
+DELETE FROM planHistoryEntry;
+
+deleteAllDays:
+DELETE FROM planHistoryDay;
+
+deleteAllPlans:
+DELETE FROM planHistory;
