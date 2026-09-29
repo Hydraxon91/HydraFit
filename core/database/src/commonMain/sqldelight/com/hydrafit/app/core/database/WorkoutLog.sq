@@ -5,6 +5,8 @@ CREATE TABLE workoutSet (
     weightKg REAL,
     performedAt INTEGER NOT NULL,
     isWarmup INTEGER NOT NULL DEFAULT 0,
+    primaryMuscles TEXT,
+    secondaryMuscles TEXT,
     FOREIGN KEY (exerciseId) REFERENCES exercise(id)
 );
 

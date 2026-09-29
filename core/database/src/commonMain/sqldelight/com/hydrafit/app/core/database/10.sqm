@@ -1,0 +1,3 @@
+ALTER TABLE workoutSet ADD COLUMN primaryMuscles TEXT;
+ALTER TABLE workoutSet ADD COLUMN secondaryMuscles TEXT;
+ALTER TABLE plannerEngine ADD COLUMN shareWorkoutData INTEGER NOT NULL DEFAULT 0;
