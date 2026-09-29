@@ -24,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.PeriodizationConfig
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.time.isoDateUtc
@@ -47,6 +48,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_accessory_sets_la
 import hydrafit.feature.splitbuilder.generated.resources.split_builder_title
 import hydrafit.feature.splitbuilder.generated.resources.split_day
 import hydrafit.feature.splitbuilder.generated.resources.split_days_label
+import hydrafit.feature.splitbuilder.generated.resources.split_deload_week
 import hydrafit.feature.splitbuilder.generated.resources.split_error
 import hydrafit.feature.splitbuilder.generated.resources.split_error_transient
 import hydrafit.feature.splitbuilder.generated.resources.split_fallback_note
@@ -59,6 +61,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_regenerate
 import hydrafit.feature.splitbuilder.generated.resources.split_retry
 import hydrafit.feature.splitbuilder.generated.resources.split_sets_label
 import hydrafit.feature.splitbuilder.generated.resources.split_suggested_weight
+import hydrafit.feature.splitbuilder.generated.resources.split_week
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
@@ -188,6 +191,21 @@ fun SplitBuilderScreen(
         state.plan?.let { plan ->
             Text(
                 text = stringResource(
+                    Res.string.split_week,
+                    plan.weekNumber,
+                    plan.cycleNumber
+                ),
+                style = MaterialTheme.typography.titleSmall
+            )
+            if (PeriodizationConfig().isDeload(plan.weekNumber)) {
+                Text(
+                    text = stringResource(Res.string.split_deload_week),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+            }
+            Text(
+                text = stringResource(
                     Res.string.split_generated_by,
                     stringResource(plan.engine.labelResource())
                 ),
@@ -248,7 +266,8 @@ fun SplitBuilderScreen(
                     Res.string.split_history_entry,
                     isoDateUtc(accepted.acceptedAtMillis),
                     stringResource(accepted.engine.labelResource()),
-                    accepted.days.size
+                    accepted.days.size,
+                    accepted.weekNumber
                 )
                 Text(
                     text = summary,
