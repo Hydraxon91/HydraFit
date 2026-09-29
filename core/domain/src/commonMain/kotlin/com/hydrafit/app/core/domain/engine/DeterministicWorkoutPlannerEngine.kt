@@ -35,6 +35,7 @@ class DeterministicWorkoutPlannerEngine(private val catalog: ExerciseCatalog) :
                     availableExercises,
                     request.muscleFatigue,
                     request.setsPerExercise,
+                    request.accessorySetsPerExercise,
                     request.goal,
                     request.recentExerciseIdsByPattern,
                     request.suggestedWeightsKg
@@ -50,6 +51,7 @@ class DeterministicWorkoutPlannerEngine(private val catalog: ExerciseCatalog) :
         exercises: List<Exercise>,
         fatigue: Map<MuscleGroup, Double>,
         setsPerExercise: Int,
+        accessorySetsPerExercise: Int,
         goal: TrainingGoal,
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>>,
         suggestedWeightsKg: Map<String, Double>
@@ -75,10 +77,15 @@ class DeterministicWorkoutPlannerEngine(private val catalog: ExerciseCatalog) :
             val soreness = fatigueOf(candidate, fatigue)
             if (soreness >= FATIGUE_SKIP_THRESHOLD) continue
 
+            val baseSets = if (candidate.movementPattern.isCompound) {
+                setsPerExercise
+            } else {
+                accessorySetsPerExercise
+            }
             used += candidate.id
             picks += PlannedExercise(
                 exerciseId = candidate.id,
-                sets = (setsPerExercise - if (soreness >= FATIGUE_REDUCE_THRESHOLD) 1 else 0)
+                sets = (baseSets - if (soreness >= FATIGUE_REDUCE_THRESHOLD) 1 else 0)
                     .coerceAtLeast(1),
                 reps = if (candidate.movementPattern.isCompound) {
                     goal.compoundReps

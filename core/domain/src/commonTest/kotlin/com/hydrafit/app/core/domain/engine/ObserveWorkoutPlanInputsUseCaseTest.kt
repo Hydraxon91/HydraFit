@@ -292,6 +292,81 @@ class ObserveWorkoutPlanInputsUseCaseTest {
         assertEquals(90.0, request.suggestedWeightsKg["bench-press"])
     }
 
+    @Test
+    fun defaultsAccessorySetsFromTheGoalAndOverridesWithThePicker() = runTest {
+        val useCase = ObserveWorkoutPlanInputsUseCase(
+            sources = FakeWorkoutPlanSourcesRepository(
+                WorkoutPlanSources(
+                    availableEquipment = setOf(EquipmentTag.BARBELL),
+                    selectedEngine = PlannerEngineId.DETERMINISTIC,
+                    daysPerWeek = 4,
+                    loggedSets = emptyList(),
+                    goal = TrainingGoal.STRENGTH
+                )
+            ),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { 0L },
+            planHistoryRepository = FakePlanHistoryRepository()
+        )
+
+        val default = useCase().first().request
+        assertEquals(TrainingGoal.STRENGTH.accessorySets, default.accessorySetsPerExercise)
+
+        val overridden = useCase(accessorySetsPerExercise = flowOf(5)).first().request
+        assertEquals(5, overridden.accessorySetsPerExercise)
+    }
+
+    @Test
+    fun rotationHistoryIncludesCompoundPatternsOnly() = runTest {
+        val accepted = AcceptedPlan(
+            engine = PlannerEngineId.DETERMINISTIC,
+            acceptedAtMillis = 1L,
+            days = listOf(
+                AcceptedDay(
+                    dayIndex = 0,
+                    focus = SplitFocus.PUSH,
+                    exercises = listOf(
+                        AcceptedExercise(
+                            exerciseId = "bench-press",
+                            sets = 3,
+                            reps = 8,
+                            name = "Bench Press",
+                            movementPattern = MovementPattern.HORIZONTAL_PUSH
+                        ),
+                        AcceptedExercise(
+                            exerciseId = "pushdown",
+                            sets = 2,
+                            reps = 12,
+                            name = "Pushdown",
+                            movementPattern = MovementPattern.TRICEPS_ISOLATION
+                        )
+                    )
+                )
+            )
+        )
+        val useCase = ObserveWorkoutPlanInputsUseCase(
+            sources = FakeWorkoutPlanSourcesRepository(
+                WorkoutPlanSources(
+                    availableEquipment = setOf(EquipmentTag.BARBELL),
+                    selectedEngine = PlannerEngineId.DETERMINISTIC,
+                    daysPerWeek = 3,
+                    loggedSets = emptyList()
+                )
+            ),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { 0L },
+            planHistoryRepository = FakePlanHistoryRepository(accepted)
+        )
+
+        val request = useCase().first().request
+
+        assertEquals(
+            setOf("bench-press"),
+            request.recentExerciseIdsByPattern[MovementPattern.HORIZONTAL_PUSH]
+        )
+        assertTrue(request.recentExerciseIdsByPattern.keys.none { !it.isCompound })
+    }
+
     private class FakeWorkoutPlanSourcesRepository(initial: WorkoutPlanSources) :
         WorkoutPlanSourcesRepository {
         private val state = MutableStateFlow(initial)

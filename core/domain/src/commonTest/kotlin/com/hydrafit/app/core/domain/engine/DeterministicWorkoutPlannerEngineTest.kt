@@ -382,9 +382,31 @@ class DeterministicWorkoutPlannerEngineTest {
 
             assertEquals(goal.defaultSets, push.getValue("bench-press").sets)
             assertEquals(goal.compoundReps, push.getValue("bench-press").reps)
-            assertEquals(goal.defaultSets, push.getValue("pushdown").sets)
+            assertEquals(goal.accessorySets, push.getValue("pushdown").sets)
             assertEquals(goal.isolationReps, push.getValue("pushdown").reps)
         }
+    }
+
+    @Test
+    fun usesTheAccessorySetCountForAccessorySlotsOnly() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                split = SplitType.PUSH_PULL_LEGS,
+                setsPerExercise = 5,
+                accessorySetsPerExercise = 2
+            ),
+            listOf(
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST),
+                exercise("pushdown", MovementPattern.TRICEPS_ISOLATION, MuscleGroup.TRICEPS)
+            )
+        )
+        val push = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.associateBy {
+            it.exerciseId
+        }
+
+        assertEquals(5, push.getValue("bench-press").sets)
+        assertEquals(2, push.getValue("pushdown").sets)
     }
 
     @Test
@@ -445,6 +467,7 @@ class DeterministicWorkoutPlannerEngineTest {
         split: SplitType = SplitType.AUTO,
         goal: TrainingGoal = TrainingGoal.BALANCED,
         setsPerExercise: Int = goal.defaultSets,
+        accessorySetsPerExercise: Int = goal.accessorySets,
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
         suggestedWeightsKg: Map<String, Double> = emptyMap()
     ) = PlanRequest(
@@ -455,6 +478,7 @@ class DeterministicWorkoutPlannerEngineTest {
         nowMillis = 0L,
         goal = goal,
         setsPerExercise = setsPerExercise,
+        accessorySetsPerExercise = accessorySetsPerExercise,
         recentExerciseIdsByPattern = recentExerciseIdsByPattern,
         suggestedWeightsKg = suggestedWeightsKg
     )

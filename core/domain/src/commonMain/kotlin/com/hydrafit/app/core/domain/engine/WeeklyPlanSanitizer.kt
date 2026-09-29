@@ -20,7 +20,7 @@ class WeeklyPlanSanitizer(private val catalog: ExerciseCatalog) {
                     val exercise = usable[planned.exerciseId] ?: return@mapNotNull null
                     PlannedExercise(
                         exerciseId = exercise.id,
-                        sets = request.setsPerExercise,
+                        sets = setsFor(exercise, request),
                         reps = repsFor(exercise, request.goal),
                         suggestedWeightKg = planned.suggestedWeightKg?.takeIf {
                             request.includeWorkoutData && it > 0.0 && it <= MAX_SUGGESTED_WEIGHT_KG
@@ -37,6 +37,13 @@ class WeeklyPlanSanitizer(private val catalog: ExerciseCatalog) {
                 .mapIndexed { index, day -> day.copy(dayIndex = index) }
         )
     }
+
+    private fun setsFor(exercise: Exercise, request: PlanRequest): Int =
+        if (exercise.movementPattern.isCompound) {
+            request.setsPerExercise
+        } else {
+            request.accessorySetsPerExercise
+        }
 
     private fun repsFor(exercise: Exercise, goal: TrainingGoal): Int =
         if (exercise.movementPattern.isCompound) goal.compoundReps else goal.isolationReps

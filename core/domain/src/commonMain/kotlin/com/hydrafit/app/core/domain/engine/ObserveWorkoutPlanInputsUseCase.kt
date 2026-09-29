@@ -20,17 +20,24 @@ class ObserveWorkoutPlanInputsUseCase(
 ) {
     operator fun invoke(
         setsPerExercise: Flow<Int?> = flowOf(null),
+        accessorySetsPerExercise: Flow<Int?> = flowOf(null),
         refreshRequests: Flow<Unit> = emptyFlow()
     ): Flow<WorkoutPlanInputs> = combine(
         sources.observe().distinctUntilChanged(),
         setsPerExercise.distinctUntilChanged(),
+        accessorySetsPerExercise.distinctUntilChanged(),
         refreshRequests.onStart { emit(Unit) }
-    ) { current, sets, _ ->
+    ) { current, sets, accessorySets, _ ->
         val nowMillis = timeProvider.nowMillis()
         val latestPlan = planHistoryRepository.latest()
+        // Accessory slots are exempt from week-over-week rotation: only compound patterns rotate.
         val recentExerciseIdsByPattern = latestPlan
             ?.days
-            ?.flatMap { day -> day.exercises.map { it.movementPattern to it.exerciseId } }
+            ?.flatMap { day ->
+                day.exercises
+                    .filter { it.movementPattern.isCompound }
+                    .map { it.movementPattern to it.exerciseId }
+            }
             ?.groupBy({ it.first }, { it.second })
             ?.mapValues { (_, ids) -> ids.toSet() }
             .orEmpty()
@@ -42,6 +49,7 @@ class ObserveWorkoutPlanInputsUseCase(
                 nowMillis = nowMillis,
                 goal = current.goal,
                 setsPerExercise = sets ?: current.goal.defaultSets,
+                accessorySetsPerExercise = accessorySets ?: current.goal.accessorySets,
                 recentExerciseIdsByPattern = recentExerciseIdsByPattern,
                 suggestedWeightsKg = progressWeights(
                     baseline = suggestWeights(current.loggedWorkoutSets, current.goal),

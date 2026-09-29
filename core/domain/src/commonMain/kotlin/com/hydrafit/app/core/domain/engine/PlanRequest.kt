@@ -14,6 +14,7 @@ data class PlanRequest(
     val nowMillis: Long,
     val goal: TrainingGoal = TrainingGoal.BALANCED,
     val setsPerExercise: Int = goal.defaultSets,
+    val accessorySetsPerExercise: Int = goal.accessorySets,
     val recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
     val suggestedWeightsKg: Map<String, Double> = emptyMap(),
     val includeWorkoutData: Boolean = false,

@@ -38,14 +38,29 @@ class LocalLlmWorkoutPlannerEngineTest {
     fun appliesRequestedSetsAndCompoundIsolationReps() = runTest {
         val generator = FakeGenerator(available = true, responses = listOf(MIXED_REPS_PLAN))
 
-        val plan = engine(generator).generatePlan(request(setsPerExercise = 5))
+        val plan = engine(generator).generatePlan(
+            request(setsPerExercise = 5, accessorySetsPerExercise = 2)
+        )
         val compound = plan.days.first().exercises.first { it.exerciseId == "bench-press" }
         val isolation = plan.days.first().exercises.first { it.exerciseId == "barbell-curl" }
 
         assertEquals(5, compound.sets)
         assertEquals(DeterministicWorkoutPlannerEngine.COMPOUND_REPS, compound.reps)
-        assertEquals(5, isolation.sets)
+        assertEquals(2, isolation.sets)
         assertEquals(DeterministicWorkoutPlannerEngine.ISOLATION_REPS, isolation.reps)
+    }
+
+    @Test
+    fun includesCompoundAndAccessorySetGuidanceInThePrompt() = runTest {
+        val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
+
+        engine(generator).generatePlan(
+            request(setsPerExercise = 5, accessorySetsPerExercise = 2)
+        )
+
+        val prompt = requireNotNull(generator.lastPrompt)
+        assertTrue(prompt.contains("5 sets for compound lifts"), prompt)
+        assertTrue(prompt.contains("2 sets for accessory exercises"), prompt)
     }
 
     @Test
@@ -323,6 +338,7 @@ class LocalLlmWorkoutPlannerEngineTest {
         daysPerWeek: Int = 3,
         goal: TrainingGoal = TrainingGoal.BALANCED,
         setsPerExercise: Int = goal.defaultSets,
+        accessorySetsPerExercise: Int = goal.accessorySets,
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
         suggestedWeightsKg: Map<String, Double> = emptyMap(),
         includeWorkoutData: Boolean = false,
@@ -334,6 +350,7 @@ class LocalLlmWorkoutPlannerEngineTest {
         nowMillis = 0L,
         goal = goal,
         setsPerExercise = setsPerExercise,
+        accessorySetsPerExercise = accessorySetsPerExercise,
         recentExerciseIdsByPattern = recentExerciseIdsByPattern,
         suggestedWeightsKg = suggestedWeightsKg,
         includeWorkoutData = includeWorkoutData,

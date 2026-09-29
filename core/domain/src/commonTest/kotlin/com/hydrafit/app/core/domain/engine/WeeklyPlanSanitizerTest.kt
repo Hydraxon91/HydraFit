@@ -18,13 +18,16 @@ class WeeklyPlanSanitizerTest {
     fun appliesRequestedSetsAndCompoundIsolationReps() = runTest {
         val plan = planOf(listOf("bench-press", "lateral-raise"))
 
-        val sanitized = sanitizer.sanitize(plan, request(setsPerExercise = 5))!!
+        val sanitized = sanitizer.sanitize(
+            plan,
+            request(setsPerExercise = 5, accessorySetsPerExercise = 2)
+        )!!
 
         val compound = sanitized.days.single().exercises.first { it.exerciseId == "bench-press" }
         val isolation = sanitized.days.single().exercises.first { it.exerciseId == "lateral-raise" }
         assertEquals(5, compound.sets)
         assertEquals(DeterministicWorkoutPlannerEngine.COMPOUND_REPS, compound.reps)
-        assertEquals(5, isolation.sets)
+        assertEquals(2, isolation.sets)
         assertEquals(DeterministicWorkoutPlannerEngine.ISOLATION_REPS, isolation.reps)
     }
 
@@ -37,7 +40,7 @@ class WeeklyPlanSanitizerTest {
 
         assertEquals(TrainingGoal.STRENGTH.defaultSets, exercises.getValue("bench-press").sets)
         assertEquals(TrainingGoal.STRENGTH.compoundReps, exercises.getValue("bench-press").reps)
-        assertEquals(TrainingGoal.STRENGTH.defaultSets, exercises.getValue("lateral-raise").sets)
+        assertEquals(TrainingGoal.STRENGTH.accessorySets, exercises.getValue("lateral-raise").sets)
         assertEquals(TrainingGoal.STRENGTH.isolationReps, exercises.getValue("lateral-raise").reps)
     }
 
@@ -145,6 +148,7 @@ class WeeklyPlanSanitizerTest {
         daysPerWeek: Int = 1,
         goal: TrainingGoal = TrainingGoal.BALANCED,
         setsPerExercise: Int = goal.defaultSets,
+        accessorySetsPerExercise: Int = goal.accessorySets,
         includeWorkoutData: Boolean = false
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
@@ -153,6 +157,7 @@ class WeeklyPlanSanitizerTest {
         nowMillis = 0L,
         goal = goal,
         setsPerExercise = setsPerExercise,
+        accessorySetsPerExercise = accessorySetsPerExercise,
         includeWorkoutData = includeWorkoutData
     )
 

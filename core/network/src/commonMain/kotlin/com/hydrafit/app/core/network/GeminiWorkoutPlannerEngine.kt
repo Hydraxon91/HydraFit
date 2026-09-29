@@ -148,7 +148,10 @@ class GeminiWorkoutPlannerEngine(
             appendLine("Current muscle fatigue (0.0-1.0): $fatigue")
             appendLine("Choose ONLY exerciseId values from this list: $exerciseIds")
             appendLine("Give every day 4 to 6 exercises.")
-            appendLine("Use exactly ${request.setsPerExercise} sets for every exercise.")
+            appendLine(
+                "Use ${request.setsPerExercise} sets for compound lifts and " +
+                    "${request.accessorySetsPerExercise} sets for accessory exercises."
+            )
             appendLine(
                 "Use ${request.goal.compoundReps} reps for compound lifts and " +
                     "${request.goal.isolationReps} reps for isolation exercises."

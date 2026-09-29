@@ -105,6 +105,7 @@ class LocalLlmWorkoutPlannerEngine(
         }
 
         val sets = request.setsPerExercise
+        val accessorySets = request.accessorySetsPerExercise
         val days = request.daysPerWeek
         return buildString {
             appendLine("You are a strength coach.")
@@ -114,7 +115,9 @@ class LocalLlmWorkoutPlannerEngine(
             appendLine("\"focus\" is one of: PUSH, PULL, LEGS, UPPER, LOWER, FULL_BODY.")
             appendLine("Each \"exercises\" list has 4 to 6 different exercise items.")
             appendLine(
-                "Each exercise item has \"exerciseId\", \"sets\" (always $sets) and \"reps\"."
+                "Each exercise item has \"exerciseId\", \"sets\" and \"reps\". " +
+                    "Use $sets sets for compound lifts and $accessorySets sets for accessory " +
+                    "exercises."
             )
             appendLine("Training goal: ${request.goal.name}")
             appendLine(

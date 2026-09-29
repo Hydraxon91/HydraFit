@@ -52,7 +52,9 @@ class GeminiWorkoutPlannerEngineTest {
             respond(envelope(VALID_PLAN), HttpStatusCode.OK, jsonHeaders())
         }
 
-        engine(mockEngine).generatePlan(request(setsPerExercise = 5))
+        engine(mockEngine).generatePlan(
+            request(setsPerExercise = 5, accessorySetsPerExercise = 2)
+        )
 
         val requestData = requireNotNull(captured)
         assertEquals("test-key", requestData.headers["x-goog-api-key"])
@@ -60,7 +62,14 @@ class GeminiWorkoutPlannerEngineTest {
         assertTrue(bodyText.contains("responseSchema"), "structured output schema should be sent")
         assertTrue(bodyText.contains("bench-press"), "catalog ids should be offered to the model")
         assertTrue(bodyText.contains("Split preference: AUTO"), "split preference should be sent")
-        assertTrue(bodyText.contains("Use exactly 5 sets"), "set count should be sent")
+        assertTrue(
+            bodyText.contains("5 sets for compound lifts"),
+            "compound set count should be sent"
+        )
+        assertTrue(
+            bodyText.contains("2 sets for accessory exercises"),
+            "accessory set count should be sent"
+        )
     }
 
     @Test
@@ -336,6 +345,7 @@ class GeminiWorkoutPlannerEngineTest {
         daysPerWeek: Int = 3,
         goal: TrainingGoal = TrainingGoal.BALANCED,
         setsPerExercise: Int = goal.defaultSets,
+        accessorySetsPerExercise: Int = goal.accessorySets,
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
         suggestedWeightsKg: Map<String, Double> = emptyMap(),
         includeWorkoutData: Boolean = false,
@@ -347,6 +357,7 @@ class GeminiWorkoutPlannerEngineTest {
         nowMillis = 0L,
         goal = goal,
         setsPerExercise = setsPerExercise,
+        accessorySetsPerExercise = accessorySetsPerExercise,
         recentExerciseIdsByPattern = recentExerciseIdsByPattern,
         suggestedWeightsKg = suggestedWeightsKg,
         includeWorkoutData = includeWorkoutData,
