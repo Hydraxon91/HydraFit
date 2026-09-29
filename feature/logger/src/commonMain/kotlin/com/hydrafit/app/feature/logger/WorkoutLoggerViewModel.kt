@@ -2,18 +2,16 @@ package com.hydrafit.app.feature.logger
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hydrafit.app.core.domain.engine.AcceptedDay
+import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
-import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
-import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
-import com.hydrafit.app.core.domain.engine.WorkoutDay
-import com.hydrafit.app.core.domain.engine.WorkoutPlanInputs
+import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.dayOfWeek
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutSet
-import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,8 +22,7 @@ import kotlinx.coroutines.launch
 class WorkoutLoggerViewModel(
     private val logWorkoutSet: LogWorkoutSetUseCase,
     private val getWorkoutLog: GetWorkoutLogUseCase,
-    private val observeWorkoutPlanInputs: ObserveWorkoutPlanInputsUseCase,
-    private val generateWeeklySplit: GenerateWeeklySplitUseCase,
+    private val observeAcceptedPlan: ObserveAcceptedPlanUseCase,
     private val exerciseCatalog: ExerciseCatalog,
     private val timeProvider: TimeProvider
 ) : ViewModel() {
@@ -35,6 +32,7 @@ class WorkoutLoggerViewModel(
 
     private var exercises: List<Exercise> = emptyList()
     private var exerciseNames: Map<String, String> = emptyMap()
+    private var acceptedToday: AcceptedDay? = null
 
     init {
         viewModelScope.launch {
@@ -42,16 +40,13 @@ class WorkoutLoggerViewModel(
             exerciseNames = exercises.associate { it.id to it.name }
             _state.update { current ->
                 current.copy(
-                    exercises = exercises
-                        .map { ExerciseOption(id = it.id, name = it.name) }
-                        .sortedBy { it.name }
+                    exercises = prioritizedByToday(exercises, acceptedToday)
                 )
             }
             refreshRecentSets()
         }
         viewModelScope.launch {
-            observeWorkoutPlanInputs()
-                .collectLatest { updateTodayPlan(it) }
+            observeAcceptedPlan().collectLatest { plan -> updateTodayPlan(plan) }
         }
     }
 
@@ -93,28 +88,22 @@ class WorkoutLoggerViewModel(
         }
     }
 
-    private suspend fun updateTodayPlan(inputs: WorkoutPlanInputs) {
-        val today = try {
-            generateWeeklySplit(inputs.request).dayFor(dayOfWeek(inputs.request.nowMillis))
-        } catch (cancellation: CancellationException) {
-            throw cancellation
-        } catch (_: Exception) {
-            null
-        }
+    private fun updateTodayPlan(plan: AcceptedPlan?) {
+        acceptedToday = plan?.dayFor(dayOfWeek(timeProvider.nowMillis()))
         _state.update { current ->
             current.copy(
-                exercises = prioritizedByToday(exercises, today),
-                todayFocus = today?.focus
+                exercises = prioritizedByToday(exercises, acceptedToday),
+                todayFocus = acceptedToday?.focus
             )
         }
     }
 
     private fun prioritizedByToday(
         exercises: List<Exercise>,
-        today: WorkoutDay?
+        today: AcceptedDay?
     ): List<ExerciseOption> {
         val priority = today?.exercises
-            ?.mapIndexed { index, planned -> planned.exerciseId to index }
+            ?.mapIndexed { index, accepted -> accepted.exerciseId to index }
             ?.toMap()
             .orEmpty()
         return exercises

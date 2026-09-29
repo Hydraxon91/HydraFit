@@ -1,18 +1,16 @@
 package com.hydrafit.app.feature.logger
 
-import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
+import com.hydrafit.app.core.domain.engine.AcceptedDay
+import com.hydrafit.app.core.domain.engine.AcceptedExercise
+import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
-import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
-import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
+import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
+import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
-import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
-import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
-import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngineProvider
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.MovementPattern
-import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.TimeProvider
@@ -20,24 +18,22 @@ import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
-import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
-import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
@@ -122,31 +118,69 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
-    fun prioritizesTodaysPlannedExercises() = runTest(dispatcher) {
+    fun showsNoTodayFocusWithoutAnAcceptedPlan() = runTest(dispatcher) {
+        val viewModel = viewModel(timeMillis = MONDAY)
+        advanceUntilIdle()
+
+        assertEquals(null, viewModel.state.value.todayFocus)
+        assertEquals(
+            listOf("Back Squat", "Bench Press", "Dumbbell Curl", "Plank"),
+            viewModel.state.value.exercises.map { it.name }
+        )
+    }
+
+    @Test
+    fun prioritizesTodaysExercisesFromTheAcceptedPlan() = runTest(dispatcher) {
         val viewModel = viewModel(
-            timeMillis = 345_600_000L,
-            availableEquipment = setOf(EquipmentTag.BARBELL),
-            daysPerWeek = 3
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(dayZeroExerciseIds = listOf("plank", "back-squat"))
         )
         advanceUntilIdle()
 
         val state = viewModel.state.value
         assertEquals(SplitFocus.FULL_BODY, state.todayFocus)
         assertEquals(
-            listOf("Back Squat", "Bench Press", "Plank", "Dumbbell Curl"),
+            listOf("Plank", "Back Squat", "Bench Press", "Dumbbell Curl"),
             state.exercises.map { it.name }
         )
     }
 
     @Test
-    fun reprioritizesExercisesWhenEquipmentChanges() = runTest(dispatcher) {
-        val equipment = FakeEquipmentSelectionRepository(emptySet())
-        val viewModel = viewModel(equipmentRepository = equipment)
+    fun appliesAcceptedPlanPriorityWhenCatalogLoadsAfterThePlan() = runTest(dispatcher) {
+        val catalogReady = CompletableDeferred<Unit>()
+        val catalog = object : ExerciseCatalog {
+            override suspend fun all(): List<Exercise> {
+                catalogReady.await()
+                return FakeExerciseCatalog.all()
+            }
+        }
+        val viewModel = viewModel(
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("plank", "back-squat")),
+            catalog = catalog
+        )
+        runCurrent()
+
+        assertEquals(SplitFocus.FULL_BODY, viewModel.state.value.todayFocus)
+
+        catalogReady.complete(Unit)
         advanceUntilIdle()
 
-        assertEquals("Back Squat", viewModel.state.value.exercises.first().name)
+        assertEquals(
+            listOf("Plank", "Back Squat", "Bench Press", "Dumbbell Curl"),
+            viewModel.state.value.exercises.map { it.name }
+        )
+    }
 
-        equipment.setSelected(setOf(EquipmentTag.BARBELL))
+    @Test
+    fun reprioritizesWhenTheAcceptedPlanChanges() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository(acceptedPlan(listOf("plank")))
+        val viewModel = viewModel(timeMillis = MONDAY, history = history)
+        advanceUntilIdle()
+
+        assertEquals("Plank", viewModel.state.value.exercises.first().name)
+
+        history.accepted = acceptedPlan(listOf("bench-press"))
         advanceUntilIdle()
 
         assertEquals("Bench Press", viewModel.state.value.exercises.first().name)
@@ -155,33 +189,57 @@ class WorkoutLoggerViewModelTest {
     private fun viewModel(
         repository: WorkoutLogRepository = FakeWorkoutLogRepository(),
         timeMillis: Long = 1_000L,
-        availableEquipment: Set<EquipmentTag> = emptySet(),
-        daysPerWeek: Int = 4,
-        equipmentRepository: FakeEquipmentSelectionRepository =
-            FakeEquipmentSelectionRepository(availableEquipment)
-    ): WorkoutLoggerViewModel {
-        val preference = FakeEnginePreferenceRepository(daysPerWeek)
-        val timeProvider = TimeProvider { timeMillis }
-        return WorkoutLoggerViewModel(
-            logWorkoutSet = LogWorkoutSetUseCase(repository),
-            getWorkoutLog = GetWorkoutLogUseCase(repository),
-            observeWorkoutPlanInputs = ObserveWorkoutPlanInputsUseCase(
-                sources = FakeWorkoutPlanSourcesRepository(
-                    equipment = equipmentRepository,
-                    preference = preference,
-                    workoutLog = repository
-                ),
-                calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
-                timeProvider = timeProvider
-            ),
-            generateWeeklySplit = GenerateWeeklySplitUseCase(
-                WorkoutPlannerEngineProvider {
-                    DeterministicWorkoutPlannerEngine(FakeExerciseCatalog)
+        acceptedPlan: AcceptedPlan? = null,
+        history: FakePlanHistoryRepository = FakePlanHistoryRepository(acceptedPlan),
+        catalog: ExerciseCatalog = FakeExerciseCatalog
+    ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
+        logWorkoutSet = LogWorkoutSetUseCase(repository),
+        getWorkoutLog = GetWorkoutLogUseCase(repository),
+        observeAcceptedPlan = ObserveAcceptedPlanUseCase(history),
+        exerciseCatalog = catalog,
+        timeProvider = TimeProvider { timeMillis }
+    )
+
+    private fun acceptedPlan(dayZeroExerciseIds: List<String>) = AcceptedPlan(
+        engine = PlannerEngineId.DETERMINISTIC,
+        acceptedAtMillis = 0L,
+        days = listOf(
+            AcceptedDay(
+                dayIndex = 0,
+                focus = SplitFocus.FULL_BODY,
+                exercises = dayZeroExerciseIds.map { id ->
+                    AcceptedExercise(
+                        exerciseId = id,
+                        sets = 3,
+                        reps = 8,
+                        name = id,
+                        movementPattern = MovementPattern.CORE
+                    )
                 }
-            ),
-            exerciseCatalog = FakeExerciseCatalog,
-            timeProvider = timeProvider
+            )
         )
+    )
+
+    private class FakePlanHistoryRepository(accepted: AcceptedPlan?) : PlanHistoryRepository {
+        private val state = MutableStateFlow(accepted)
+
+        var accepted: AcceptedPlan?
+            get() = state.value
+            set(value) {
+                state.value = value
+            }
+
+        override fun observeLatest(): Flow<AcceptedPlan?> = state
+
+        override suspend fun latest(): AcceptedPlan? = state.value
+
+        override suspend fun accept(plan: AcceptedPlan) {
+            state.value = plan
+        }
+
+        override suspend fun clear() {
+            state.value = null
+        }
     }
 
     private object FakeExerciseCatalog : ExerciseCatalog {
@@ -217,54 +275,6 @@ class WorkoutLoggerViewModelTest {
         )
     }
 
-    private class FakeEquipmentSelectionRepository(private val selected: Set<EquipmentTag>) :
-        EquipmentSelectionRepository {
-        private val state = MutableStateFlow(selected)
-
-        override suspend fun selected(): Set<EquipmentTag> = state.value
-
-        override fun selectedFlow(): Flow<Set<EquipmentTag>> = state.asStateFlow()
-
-        override suspend fun setSelected(tags: Set<EquipmentTag>) {
-            state.value = tags
-        }
-    }
-
-    private class FakeEnginePreferenceRepository(private val daysPerWeek: Int) :
-        EnginePreferenceRepository {
-        override suspend fun selectedEngine(): PlannerEngineId = PlannerEngineId.DETERMINISTIC
-
-        override fun engineFlow(): Flow<PlannerEngineId> = flowOf(PlannerEngineId.DETERMINISTIC)
-
-        override suspend fun setEngine(engine: PlannerEngineId) = Unit
-
-        override suspend fun selectedDaysPerWeek(): Int = daysPerWeek
-
-        override fun daysPerWeekFlow(): Flow<Int> = flowOf(daysPerWeek)
-
-        override suspend fun setDaysPerWeek(daysPerWeek: Int) = Unit
-    }
-
-    private class FakeWorkoutPlanSourcesRepository(
-        private val equipment: EquipmentSelectionRepository,
-        private val preference: EnginePreferenceRepository,
-        private val workoutLog: WorkoutLogRepository
-    ) : WorkoutPlanSourcesRepository {
-        override fun observe(): Flow<WorkoutPlanSources> = combine(
-            equipment.selectedFlow(),
-            preference.engineFlow(),
-            preference.daysPerWeekFlow(),
-            workoutLog.loggedSetsFlow()
-        ) { availableEquipment, selectedEngine, daysPerWeek, loggedSets ->
-            WorkoutPlanSources(
-                availableEquipment = availableEquipment,
-                selectedEngine = selectedEngine,
-                daysPerWeek = daysPerWeek,
-                loggedSets = loggedSets
-            )
-        }
-    }
-
     private class FakeWorkoutLogRepository : WorkoutLogRepository {
         private val sets = mutableListOf<WorkoutSet>()
 
@@ -281,5 +291,10 @@ class WorkoutLoggerViewModelTest {
         override suspend fun clear() {
             sets.clear()
         }
+    }
+
+    private companion object {
+        /** Epoch millis whose `dayOfWeek` is MONDAY, matching a plan's first day. */
+        const val MONDAY = 4L * 24L * 60L * 60L * 1000L
     }
 }
