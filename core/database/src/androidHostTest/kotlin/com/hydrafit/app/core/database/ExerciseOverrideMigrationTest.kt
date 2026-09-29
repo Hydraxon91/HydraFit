@@ -87,7 +87,9 @@ class ExerciseOverrideMigrationTest {
             "CREATE TABLE plannerEngine (id INTEGER NOT NULL PRIMARY KEY, " +
                 "engineId TEXT NOT NULL, daysPerWeek INTEGER NOT NULL DEFAULT 4, " +
                 "trainingGoal TEXT NOT NULL DEFAULT 'BALANCED', " +
-                "shareWorkoutData INTEGER NOT NULL DEFAULT 0)"
+                "shareWorkoutData INTEGER NOT NULL DEFAULT 0)",
+            "CREATE TABLE planHistory (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, " +
+                "engineId TEXT NOT NULL, acceptedAt INTEGER NOT NULL)"
         )
         statements.forEach { driver.execute(identifier = null, sql = it, parameters = 0) }
         return driver
