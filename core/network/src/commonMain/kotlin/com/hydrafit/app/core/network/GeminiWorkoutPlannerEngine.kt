@@ -130,7 +130,7 @@ class GeminiWorkoutPlannerEngine(
     private fun HttpStatusCode.isTransient(): Boolean = value in TRANSIENT_STATUS_CODES
 
     private suspend fun buildRequest(request: PlanRequest): GeminiRequest {
-        val equipment = request.availableEquipment.joinToString(", ") { it.name }
+        val equipment = request.availableEquipment.joinToString(", ") { it.displayName }
         val fatigue = request.muscleFatigue.entries.joinToString(", ") {
             "${it.key.name}=${it.value}"
         }

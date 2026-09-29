@@ -74,7 +74,7 @@ class SeedExerciseCatalogTest {
 
         val squat = SqlDelightExerciseCatalog(database).all().first { it.id == "back-squat" }
 
-        assertEquals(setOf("BARBELL"), squat.requiredEquipment.map { it.name }.toSet())
+        assertEquals(setOf("BARBELL"), squat.requiredEquipment.map { it.id }.toSet())
         assertEquals(setOf("QUADS", "GLUTES"), squat.primaryMuscles.map { it.name }.toSet())
     }
 }

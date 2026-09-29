@@ -13,17 +13,17 @@ class SqlDelightEquipmentSelectionRepository(database: HydraFitDatabase) :
     private val queries = database.userEquipmentQueries
 
     override suspend fun selected(): Set<EquipmentTag> =
-        queries.selectAllSelected().executeAsList().map(EquipmentTag::valueOf).toSet()
+        queries.selectAllSelected().executeAsList().map { EquipmentTag(it) }.toSet()
 
     override fun selectedFlow(): Flow<Set<EquipmentTag>> = queries.selectAllSelected()
         .asFlow()
         .mapToList(Dispatchers.Default)
-        .map { tags -> tags.map(EquipmentTag::valueOf).toSet() }
+        .map { tags -> tags.map { EquipmentTag(it) }.toSet() }
 
     override suspend fun setSelected(tags: Set<EquipmentTag>) {
         queries.transaction {
             queries.deleteAllSelected()
-            tags.sortedBy { it.name }.forEach { tag -> queries.insertSelected(tag.name) }
+            tags.sortedBy { it.id }.forEach { tag -> queries.insertSelected(tag.id) }
         }
     }
 }

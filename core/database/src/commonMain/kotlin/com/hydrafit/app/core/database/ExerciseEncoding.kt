@@ -5,10 +5,10 @@ import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 
 internal fun encodeEquipment(tags: Set<EquipmentTag>): String =
-    tags.joinToString(separator = ",") { it.name }
+    tags.joinToString(separator = ",") { it.id }
 
 internal fun decodeEquipment(value: String): Set<EquipmentTag> =
-    value.toEnumSet(EquipmentTag::valueOf)
+    if (value.isEmpty()) emptySet() else value.split(',').map { EquipmentTag(it) }.toSet()
 
 internal fun encodeMuscles(muscles: Set<MuscleGroup>): String =
     muscles.joinToString(separator = ",") { it.name }

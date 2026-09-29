@@ -98,7 +98,7 @@ class DeterministicWorkoutPlannerEngine(private val catalog: ExerciseCatalog) :
     /** Prefers barbell > dumbbell > machine/kettlebell > band > pull-up bar > bodyweight. */
     private fun equipmentRank(exercise: Exercise): Int = exercise.requiredEquipment
         .filterNot { it == EquipmentTag.BODYWEIGHT }
-        .minOfOrNull { EQUIPMENT_RANK[it] ?: Int.MAX_VALUE }
+        .minOfOrNull { EQUIPMENT_RANK[it] ?: CUSTOM_EQUIPMENT_RANK }
         ?: Int.MAX_VALUE
 
     private fun templateFor(focus: SplitFocus, dayIndex: Int): List<MovementPattern> =
@@ -166,6 +166,9 @@ class DeterministicWorkoutPlannerEngine(private val catalog: ExerciseCatalog) :
         const val ISOLATION_REPS = 12
         const val FATIGUE_REDUCE_THRESHOLD = 0.5
         const val FATIGUE_SKIP_THRESHOLD = 0.85
+
+        /** Any user-added equipment is ranked after the built-ins until it has its own preference. */
+        const val CUSTOM_EQUIPMENT_RANK = 20
 
         private val FULL_BODY_TEMPLATES = listOf(
             listOf(

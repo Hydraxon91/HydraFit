@@ -86,7 +86,7 @@ class LocalLlmWorkoutPlannerEngine(
     )
 
     private fun prompt(request: PlanRequest, availableExercises: List<Exercise>): String {
-        val equipment = request.availableEquipment.joinToString(", ") { it.name }
+        val equipment = request.availableEquipment.joinToString(", ") { it.displayName }
         val fatigue = request.muscleFatigue.entries.joinToString(", ") {
             "${it.key.name}=${it.value}"
         }
