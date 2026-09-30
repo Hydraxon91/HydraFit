@@ -1,5 +1,7 @@
 # HydraFit
 
+[![Latest release](https://img.shields.io/github/v/release/Hydraxon91/HydraFit?sort=semver&color=blue)](https://github.com/Hydraxon91/HydraFit/releases)
+
 An open-source, offline-first fitness planning app for Android (Kotlin Multiplatform + Compose Multiplatform), built around one core idea: **a workout planner that's actually deterministic, testable, and free** — no server, no subscription, and no network needed for the default planner.
 
 > **Screenshots coming soon.** The app currently runs on stock Material 3 (default color scheme, no custom theming) — a real design pass is queued. Functionality is ahead of visual polish at this stage.
@@ -56,4 +58,4 @@ MIT
 
 ## Status
 
-Actively developed, solo, as a portfolio project. Not yet published to any app store.
+Actively developed, solo, as a portfolio project. Not yet published to an app store; the current release is [v0.1.0](https://github.com/Hydraxon91/HydraFit/releases).
