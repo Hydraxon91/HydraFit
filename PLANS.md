@@ -221,7 +221,7 @@
   - *Interaction:* if Part 4 adopts a per-hand vs combined convention, "last set" prefill must record/restore that convention consistently; so this item is sequenced after the Part 4 decision.
   - *Files likely to change:* `WorkoutLoggerViewModel.kt` (and possibly a small domain use case).
 
-### Part 2 — Exercise intensity, variants, and muscle-involvement modeling (proposal)
+### Part 2 — Exercise intensity, variants, and muscle-involvement modeling (approved — implementing)
 
 > Consolidates the notes: "how intense are variants like normal vs incline bench", "integrate intensity into exercises added to the DB", "auto-calculate intensity", "more scientific seeding (bench isn't chest-only; add core/shoulders as secondary)", "add variants like hammer curl, supinated curls, etc. with muscle effects".
 
@@ -232,6 +232,24 @@
 - **More seeded variations.** Candidates worth adding (with provisional involvement under the proposed model): hammer curl (biceps + brachialis/forearm), supinated/standard vs preacher curl, incline vs flat vs decline press, close-grip vs wide-grip pulldown, sumo vs conventional deadlift, front vs back squat, seated vs standing calf raise, etc. Final values depend on the model.
 - **Future (feasibility only).** Adding muscle **subgroups** (e.g. "lats vs mid-back", "upper vs lower rectus abdominis", how a wide-grip pulldown biases different back regions than a close-grip, or ab-roll vs hanging-leg-raise vs cable-crunch for different abdominal regions) is a natural extension of the per-muscle-weight model: extend `MuscleGroup` with a parent/child hierarchy and let involvement target the finer group, aggregating to parents for display. It is a larger change (fatigue grouping, heatmap UI, seed data) and should not be bundled into the v1 involvement-weight work.
 - **Migration/cost.** Fatigue consumes involvement weights, so it needs no math change (binary → float is a widening); the heatmap labels/`MuscleGroup` enum stay. Cost: schema change for the weight map (new column or child table + `.sqm`), editor UI, reseeding, and updating the ~45 seed rows + tests. Benefit: variant-aware fatigue and more accurate seeding. The main risk is scope creep into subgroups.
+
+#### Part 2 implementation plan (approved 2026-09-30)
+
+**Decisions.**
+- **Storage: additive now, clean later.** Add a nullable `involvements TEXT` (`MUSCLE:weight` pairs) to `exercise`, `exerciseOverride`, and `workoutSet` (the snapshot). Going forward the app **reads and writes only `involvements`**; `primaryMuscles`/`secondaryMuscles` are kept as a **legacy fallback** for rows that predate the column. Precedence: explicit `involvements` wins, else derive primary→1.0 / secondary→0.5. The old columns are **not** dropped yet.
+- **Editor: tiers.** One selector per muscle: **None / Low 0.3 / Mid 0.5 / High 0.7 / Primary 1.0**. Stored as free doubles, so a slider/numeric override can be added later with **no schema change**. Saving writes `involvements` and derives the legacy tag columns (primary = weight ≥ 0.7, secondary = 0 < weight < 0.7) so display and legacy consumers stay consistent.
+- **Selection: option (b).** Order candidates by **weighted max** (`weight × fatigue`); keep the **skip (≥0.85) / reduce (≥0.5) soreness thresholds on raw fatigue of the exercise's *targeted* muscles**. **"Targeted" is defined here: muscles with involvement weight ≥ 0.7** (the High/Primary tiers). Tests must cover this behavior change explicitly.
+- **Reseed: targeted.** Fix only the clearly-wrong seed tags (e.g. barbell bench gains low-weight `SHOULDERS`/`CORE`); leave the rest at primary 1.0 / secondary 0.5. Backfill fills `involvements` **only where null** and **never touches `exerciseOverride` or custom rows**.
+- **Variants:** add hammer curl, supinated curl, preacher curl, close-grip pulldown, wide-grip pulldown, incline barbell press, decline press (weights per family).
+- **Deferred:** muscle subgroups.
+
+**Phases (each its own commit).**
+- [x] **P2.1–P2.3 Model, storage, repos, engine** — commit `faca18f`. Nullable `involvements` (`MUSCLE:weight`) on `exercise`/`exerciseOverride`/`workoutSet` (schema v19 + `18.sqm`, migration test); `MuscleTarget(muscle, weight)`; `FatigueCalculator` uses the raw weight; `Exercise.effectiveInvolvements`; catalog/repos read & write involvements; engine orders by weighted fatigue and keeps thresholds on raw targeted (≥0.7) fatigue. **Deviation:** merged into one commit because the SQL signature + `MuscleTarget` changes are compilation-coupled; committed together to keep every commit compiling.
+- [x] **P2.4 Editor tiers** — commit `3c5cd04`. `ExerciseEditorState.involvements` replaces the primary/secondary sets; chips cycle None → Low 0.3 → Mid 0.5 → High 0.7 → Primary 1.0; save derives the legacy tag columns (primary ≥ 0.7).
+- [x] **P2.5 Seed fix + backfill / P2.6 Variants** — commit `0a34366`. Barbell bench corrected (chest 1.0; shoulders/triceps 0.4; core 0.2); seven variants added (hammer/supinated/preacher curl, close/wide-grip pulldown, incline/decline press); `updateInvolvements` backfills **only where null** and never touches overrides/custom rows. Also fixed an override-precedence bug: an override with tags but no involvements now derives from its own tags, not the seed's involvements.
+- [x] **P2.7 Tests + verification** — `testAndroidHostTest`, `ktlintCheck`, `:androidApp:assembleDebug`, iOS compile green; emulator shows the tier chips (Back Squat: Quads·Primary, Glutes·Primary, Hamstrings·Mid, Core·Mid). New tests: involvements migration, weighted ordering, low-weight non-skip, catalog involvement round-trip, seed backfill + null-only guard + variants.
+
+**Follow-up — AWAITING APPROVAL (do not run).** A **contract migration** that converts every row to `involvements` (primary→1.0, secondary→0.5, including `workoutSet` snapshots) and then **drops** `primaryMuscles`/`secondaryMuscles`. It is destructive, so it needs explicit go-ahead, and I must first confirm the conversion is **lossless** (every existing row's tags map cleanly; no `involvements` already present that would be overwritten; snapshots included) before proposing it.
 
 ### Part 3 — Fixed-weight machines (proposal)
 
