@@ -111,7 +111,9 @@ class WorkoutLoggerViewModel(
                     isWarmup = current.isWarmup
                 )
             )
-            _state.update { it.copy(reps = "", weightInput = "", isWarmup = false) }
+            // Keep the reps and weight so repeated sets of the same exercise do not need retyping;
+            // only the warm-up flag resets between sets.
+            _state.update { it.copy(isWarmup = false) }
             refreshRecentSets()
         }
     }

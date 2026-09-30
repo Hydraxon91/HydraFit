@@ -89,8 +89,9 @@ class WorkoutLoggerViewModelTest {
         assertEquals(5, row.reps)
         assertEquals(100.0, row.weightKg)
         assertFalse(row.isWarmup)
-        assertEquals("", viewModel.state.value.reps)
-        assertEquals("", viewModel.state.value.weightInput)
+        // The reps and weight are kept so the next set of the same exercise does not need retyping.
+        assertEquals("5", viewModel.state.value.reps)
+        assertEquals("100", viewModel.state.value.weightInput)
     }
 
     @Test
@@ -106,6 +107,7 @@ class WorkoutLoggerViewModelTest {
         advanceUntilIdle()
 
         assertTrue(viewModel.state.value.recentSets.single().isWarmup)
+        assertFalse(viewModel.state.value.isWarmup)
     }
 
     @Test
