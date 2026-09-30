@@ -250,13 +250,13 @@
 - [x] **P2.7 Tests + verification** — `testAndroidHostTest`, `ktlintCheck`, `:androidApp:assembleDebug`, iOS compile green; emulator shows the tier chips (Back Squat: Quads·Primary, Glutes·Primary, Hamstrings·Mid, Core·Mid). New tests: involvements migration, weighted ordering, low-weight non-skip, catalog involvement round-trip, seed backfill + null-only guard + variants.
 
 **Follow-up — AWAITING APPROVAL (do not run).** A **contract migration** (schema v20 + `19.sqm`) that converts every row to `involvements` and drops `primaryMuscles`/`secondaryMuscles`.
-- **Losslessness — confirmed by construction and spot-checked.** The legacy effective mapping *is* `primary → 1.0, secondary → 0.5` (`Exercise.effectiveInvolvements`), so converting tags→weights reproduces the current behaviour exactly. A read-only scan of the `emulator-5554` DB showed: 45 seed rows all with clean, **non-overlapping** primary/secondary and **no empty-primary** row; 9 `workoutSet` rows (7 with no snapshot at all); 3 override rows — all with `involvements` NULL. So nothing collides, and no explicit weight would be overwritten. (The scan reflects a pre-variants build; **re-run against the phone DB** before executing.)
+- **Losslessness — confirmed by construction and on both real DBs.** The legacy effective mapping *is* `primary → 1.0, secondary → 0.5` (`Exercise.effectiveInvolvements`), so converting tags→weights reproduces current behaviour exactly. Read-only scans: **phone `RZCY206L53M`** (schema v16) has 51 exercises (45 seed + 6 custom), **no empty-primary** row, **no muscle in both primary and secondary**, 57 `workoutSet` rows all carrying a snapshot, and 0 overrides; `emulator-5554` (pre-variants) showed the same clean shape. Nothing collides, and no explicit weight would be overwritten.
 - **Required shape (to stay lossless):**
   1. `exercise` / `exerciseOverride`: `UPDATE ... SET involvements = <derived from that row's own tags> WHERE involvements IS NULL` — never overwrite an existing (explicit) value, and derive from the row's own tags (not the seed's).
   2. `workoutSet`: same, from the snapshot tags; leave NULL where there is no snapshot (so the catalog fallback still applies).
   3. A muscle present in **both** primary and secondary collapses to `1.0` (none exist today); an empty-primary row would become muscle-less (none exist; custom requires ≥1 primary).
   4. **Code first:** update every remaining reader of the columns (`targetsFor` fallback, `ExerciseSummaryRow` display, fingerprints) to use `involvements`, then drop the columns. Dropping is destructive and needs explicit go-ahead.
-- **Not run.** Awaiting the user's explicit approval (and the phone-DB re-check).
+- **Not run.** Awaiting the user's explicit approval.
 
 ### Part 3 — Fixed-weight machines (proposal)
 
