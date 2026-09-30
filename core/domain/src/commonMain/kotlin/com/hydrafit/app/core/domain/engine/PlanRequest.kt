@@ -17,6 +17,8 @@ data class PlanRequest(
     val accessorySetsPerExercise: Int = goal.accessorySets,
     val recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
     val suggestedWeightsKg: Map<String, Double> = emptyMap(),
+    /** Heaviest weight each piece of equipment can provide; equipment absent here is unlimited. */
+    val equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
     val includeWorkoutData: Boolean = false,
     val recentWeights: List<WeightHistoryEntry> = emptyList(),
     val weekNumber: Int = 1,

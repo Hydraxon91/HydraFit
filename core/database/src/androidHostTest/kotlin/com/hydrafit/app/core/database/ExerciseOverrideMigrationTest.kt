@@ -80,6 +80,8 @@ class ExerciseOverrideMigrationTest {
                 "requiredEquipment TEXT NOT NULL, primaryMuscles TEXT NOT NULL, " +
                 "secondaryMuscles TEXT NOT NULL, movementPattern TEXT NOT NULL, " +
                 "isCustom INTEGER NOT NULL DEFAULT 0)",
+            "CREATE TABLE equipment (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, " +
+                "isBuiltIn INTEGER NOT NULL DEFAULT 0)",
             "CREATE TABLE exerciseEdit (exerciseId TEXT NOT NULL PRIMARY KEY, " +
                 "requiredEquipment TEXT NOT NULL)",
             "CREATE TABLE exerciseMuscleEdit (exerciseId TEXT NOT NULL PRIMARY KEY, " +

@@ -37,16 +37,20 @@ class SqlDelightWorkoutPlanSourcesRepositoryTest {
         val preference = SqlDelightEnginePreferenceRepository(database)
         val goal = SqlDelightTrainingGoalRepository(database)
         val workoutLog = SqlDelightWorkoutLogRepository(database)
+        val equipmentCatalog = SqlDelightEquipmentRepository(database)
+        SeedEquipmentCatalog(database).seed()
         val sources = SqlDelightWorkoutPlanSourcesRepository(
             equipment,
             preference,
             workoutLog,
-            goal
+            goal,
+            equipmentCatalog
         )
         equipment.setSelected(setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH))
         preference.setEngine(PlannerEngineId.GEMINI_API)
         preference.setDaysPerWeek(5)
         goal.setGoal(TrainingGoal.HYPERTROPHY)
+        equipmentCatalog.setMaxWeight(EquipmentTag.CABLE_MACHINE, 100.0)
         workoutLog.add(
             WorkoutSet(
                 exerciseId = "barbell-bench-press",
@@ -64,5 +68,6 @@ class SqlDelightWorkoutPlanSourcesRepositoryTest {
         assertEquals(TrainingGoal.HYPERTROPHY, result.goal)
         assertEquals(100L, result.loggedSets.single().timestampMillis)
         assertEquals(80.0, result.loggedWorkoutSets.single().weightKg)
+        assertEquals(mapOf(EquipmentTag.CABLE_MACHINE to 100.0), result.equipmentMaxWeights)
     }
 }

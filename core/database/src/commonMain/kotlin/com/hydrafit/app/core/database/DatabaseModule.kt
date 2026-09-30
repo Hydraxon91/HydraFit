@@ -29,6 +29,6 @@ val databaseModule: Module = module {
     single<WeightUnitRepository> { SqlDelightWeightUnitRepository(get()) }
     single<PlanHistoryRepository> { SqlDelightPlanHistoryRepository(get()) }
     single<WorkoutPlanSourcesRepository> {
-        SqlDelightWorkoutPlanSourcesRepository(get(), get(), get(), get())
+        SqlDelightWorkoutPlanSourcesRepository(get(), get(), get(), get(), get())
     }
 }

@@ -32,8 +32,16 @@ class SqlDelightEquipmentRepository(database: HydraFitDatabase) : EquipmentRepos
         queries.deleteById(id.id)
     }
 
-    private fun Equipment.toModel(): EquipmentModel =
-        EquipmentModel(EquipmentTag(id), name, isBuiltIn = isBuiltIn != 0L)
+    override suspend fun setMaxWeight(id: EquipmentTag, maxWeightKg: Double?) {
+        queries.updateMaxWeight(maxWeightKg = maxWeightKg, id = id.id)
+    }
+
+    private fun Equipment.toModel(): EquipmentModel = EquipmentModel(
+        id = EquipmentTag(id),
+        name = name,
+        isBuiltIn = isBuiltIn != 0L,
+        maxWeightKg = maxWeightKg
+    )
 
     private fun String.toEquipmentId(): String =
         uppercase().map { if (it.isLetterOrDigit()) it else '_' }.joinToString("")

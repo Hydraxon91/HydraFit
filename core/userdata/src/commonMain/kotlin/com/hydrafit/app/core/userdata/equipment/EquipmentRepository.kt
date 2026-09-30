@@ -16,6 +16,9 @@ interface EquipmentRepository {
     suspend fun add(name: String): Equipment
 
     suspend fun remove(id: EquipmentTag)
+
+    /** Sets the heaviest weight this equipment can provide, or null for unlimited (plate-loaded). */
+    suspend fun setMaxWeight(id: EquipmentTag, maxWeightKg: Double?)
 }
 
 /** CRUD for user-created exercises. Built-in exercises are never created, edited, or deleted here. */

@@ -61,6 +61,7 @@ class ObserveWorkoutPlanInputsUseCase(
                         periodization.isDeload(it.weekNumber)
                     } ?: false
                 ),
+                equipmentMaxWeights = current.equipmentMaxWeights,
                 includeWorkoutData = current.workoutDataSharingEnabled,
                 recentWeights = if (current.workoutDataSharingEnabled) {
                     buildRecentWeights(current.loggedWorkoutSets)

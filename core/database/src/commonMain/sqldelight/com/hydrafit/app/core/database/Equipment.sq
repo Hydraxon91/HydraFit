@@ -1,7 +1,8 @@
 CREATE TABLE equipment (
     id TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
-    isBuiltIn INTEGER NOT NULL DEFAULT 0
+    isBuiltIn INTEGER NOT NULL DEFAULT 0,
+    maxWeightKg REAL
 );
 
 selectAll:
@@ -12,6 +13,9 @@ INSERT OR IGNORE INTO equipment(id, name, isBuiltIn) VALUES (?, ?, ?);
 
 insert:
 INSERT INTO equipment(id, name, isBuiltIn) VALUES (?, ?, ?);
+
+updateMaxWeight:
+UPDATE equipment SET maxWeightKg = ? WHERE id = ?;
 
 deleteById:
 DELETE FROM equipment WHERE id = ?;
