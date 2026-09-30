@@ -6,12 +6,15 @@ CREATE TABLE workoutSet (
     performedAt INTEGER NOT NULL,
     isWarmup INTEGER NOT NULL DEFAULT 0,
     involvements TEXT,
+    weekNumber INTEGER,
+    cycleNumber INTEGER,
+    dayIndex INTEGER,
     FOREIGN KEY (exerciseId) REFERENCES exercise(id)
 );
 
 insertSet:
-INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, involvements)
-VALUES (?, ?, ?, ?, ?, ?);
+INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber, dayIndex)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 selectAllSets:
 SELECT * FROM workoutSet ORDER BY performedAt, id;

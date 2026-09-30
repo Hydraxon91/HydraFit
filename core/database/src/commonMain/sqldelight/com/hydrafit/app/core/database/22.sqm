@@ -1,0 +1,3 @@
+ALTER TABLE workoutSet ADD COLUMN weekNumber INTEGER;
+ALTER TABLE workoutSet ADD COLUMN cycleNumber INTEGER;
+ALTER TABLE workoutSet ADD COLUMN dayIndex INTEGER;

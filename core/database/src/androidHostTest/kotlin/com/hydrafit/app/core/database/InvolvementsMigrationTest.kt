@@ -56,7 +56,8 @@ class InvolvementsMigrationTest {
             "CREATE TABLE workoutSet (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, " +
                 "exerciseId TEXT NOT NULL, reps INTEGER NOT NULL, weightKg REAL, " +
                 "performedAt INTEGER NOT NULL, isWarmup INTEGER NOT NULL DEFAULT 0, " +
-                "primaryMuscles TEXT, secondaryMuscles TEXT)"
+                "primaryMuscles TEXT, secondaryMuscles TEXT, " +
+                "weekNumber INTEGER, cycleNumber INTEGER, dayIndex INTEGER)"
         )
         statements.forEach { driver.execute(identifier = null, sql = it, parameters = 0) }
         return driver

@@ -19,7 +19,7 @@ class PersonalRecordMigrationTest {
     fun migratingFromV21CreatesThePersonalRecordTable() {
         driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
 
-        HydraFitDatabase.Schema.migrate(driver, 21, HydraFitDatabase.Schema.version)
+        HydraFitDatabase.Schema.migrate(driver, 21, 22)
 
         val records = HydraFitDatabase(driver).personalRecordQueries.selectAll().executeAsList()
 

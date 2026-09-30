@@ -28,7 +28,10 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
             weightKg = set.weightKg,
             performedAt = set.performedAtMillis,
             isWarmup = if (set.isWarmup) 1L else 0L,
-            involvements = override?.involvements ?: seed?.involvements
+            involvements = override?.involvements ?: seed?.involvements,
+            weekNumber = set.weekNumber?.toLong(),
+            cycleNumber = set.cycleNumber?.toLong(),
+            dayIndex = set.dayIndex?.toLong()
         )
     }
 
@@ -50,7 +53,10 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
         reps = reps.toInt(),
         weightKg = weightKg,
         performedAtMillis = performedAt,
-        isWarmup = isWarmup != 0L
+        isWarmup = isWarmup != 0L,
+        weekNumber = weekNumber?.toInt(),
+        cycleNumber = cycleNumber?.toInt(),
+        dayIndex = dayIndex?.toInt()
     )
 
     override suspend fun loggedSets(): List<LoggedSet> {

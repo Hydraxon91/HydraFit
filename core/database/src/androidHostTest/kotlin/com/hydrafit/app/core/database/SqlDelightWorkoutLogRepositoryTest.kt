@@ -129,6 +129,27 @@ class SqlDelightWorkoutLogRepositoryTest {
     }
 
     @Test
+    fun storesTheAcceptedPlansWeekCycleAndDay() = runTest {
+        repository.add(
+            DomainWorkoutSet(
+                exerciseId = "back-squat",
+                reps = 5,
+                weightKg = 50.0,
+                performedAtMillis = 1L,
+                weekNumber = 2,
+                cycleNumber = 1,
+                dayIndex = 3
+            )
+        )
+
+        val stored = repository.all().single()
+
+        assertEquals(2, stored.weekNumber)
+        assertEquals(1, stored.cycleNumber)
+        assertEquals(3, stored.dayIndex)
+    }
+
+    @Test
     fun usesStoredTargetsEvenWhenTheExerciseIsNoLongerInTheCatalog() = runTest {
         database.workoutLogQueries.insertSet(
             exerciseId = "ghost",
@@ -136,7 +157,10 @@ class SqlDelightWorkoutLogRepositoryTest {
             weightKg = 50.0,
             performedAt = 1,
             isWarmup = 0,
-            involvements = "CHEST:1.0,TRICEPS:0.5"
+            involvements = "CHEST:1.0,TRICEPS:0.5",
+            weekNumber = null,
+            cycleNumber = null,
+            dayIndex = null
         )
 
         val logged = repository.loggedSets().single()
@@ -154,7 +178,10 @@ class SqlDelightWorkoutLogRepositoryTest {
             weightKg = 50.0,
             performedAt = 1,
             isWarmup = 0,
-            involvements = null
+            involvements = null,
+            weekNumber = null,
+            cycleNumber = null,
+            dayIndex = null
         )
 
         val logged = repository.loggedSets().single()

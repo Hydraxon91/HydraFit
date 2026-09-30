@@ -57,6 +57,7 @@ import hydrafit.feature.logger.generated.resources.logger_planned_today
 import hydrafit.feature.logger.generated.resources.logger_recent
 import hydrafit.feature.logger.generated.resources.logger_reps_label
 import hydrafit.feature.logger.generated.resources.logger_search_label
+import hydrafit.feature.logger.generated.resources.logger_set_week_day
 import hydrafit.feature.logger.generated.resources.logger_title
 import hydrafit.feature.logger.generated.resources.logger_today
 import hydrafit.feature.logger.generated.resources.logger_warmup
@@ -296,9 +297,18 @@ fun WorkoutLoggerScreen(
             } else {
                 ""
             }
+            val weekDay = if (row.weekNumber != null && row.dayIndex != null) {
+                " · " + stringResource(
+                    Res.string.logger_set_week_day,
+                    row.weekNumber,
+                    row.dayIndex + 1
+                )
+            } else {
+                ""
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "${row.exerciseName}  ${row.reps} x $weight$warmupSuffix",
+                    text = "${row.exerciseName}  ${row.reps} x $weight$warmupSuffix$weekDay",
                     modifier = Modifier.weight(1f)
                 )
                 TextButton(onClick = { onDeleteSet(row.id) }) {

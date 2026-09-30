@@ -15,7 +15,9 @@ data class LoggedSetRow(
     val exerciseName: String,
     val reps: Int,
     val weightKg: Double?,
-    val isWarmup: Boolean
+    val isWarmup: Boolean,
+    val weekNumber: Int? = null,
+    val dayIndex: Int? = null
 )
 
 /** A planned exercise offered in the Logger; nothing here counts until it is confirmed. */

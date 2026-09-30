@@ -158,7 +158,10 @@ class WorkoutLoggerViewModel(
                     reps = reps,
                     weightKg = weightKg,
                     performedAtMillis = timeProvider.nowMillis(),
-                    isWarmup = current.isWarmup
+                    isWarmup = current.isWarmup,
+                    weekNumber = acceptedPlan?.weekNumber,
+                    cycleNumber = acceptedPlan?.cycleNumber,
+                    dayIndex = acceptedToday?.dayIndex
                 )
             )
             // Keep the reps and weight so repeated sets of the same exercise do not need retyping;
@@ -238,7 +241,10 @@ class WorkoutLoggerViewModel(
                     reps = draft.reps,
                     weightKg = draft.weightKg,
                     performedAtMillis = timeProvider.nowMillis(),
-                    isWarmup = false
+                    isWarmup = false,
+                    weekNumber = acceptedPlan?.weekNumber,
+                    cycleNumber = acceptedPlan?.cycleNumber,
+                    dayIndex = acceptedToday?.dayIndex
                 )
             )
         }
@@ -285,7 +291,9 @@ class WorkoutLoggerViewModel(
                     exerciseName = exerciseNames[set.exerciseId] ?: set.exerciseId,
                     reps = set.reps,
                     weightKg = set.weightKg,
-                    isWarmup = set.isWarmup
+                    isWarmup = set.isWarmup,
+                    weekNumber = set.weekNumber,
+                    dayIndex = set.dayIndex
                 )
             }
         _state.update { it.copy(recentSets = rows) }

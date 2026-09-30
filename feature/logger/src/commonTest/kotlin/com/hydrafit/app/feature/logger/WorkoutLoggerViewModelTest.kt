@@ -279,6 +279,24 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun stampsTheAcceptedWeeksContextOnLoggedSets() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val plan = acceptedPlan(listOf("back-squat")).copy(weekNumber = 2, cycleNumber = 1)
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY, acceptedPlan = plan)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.log()
+        advanceUntilIdle()
+
+        val set = repository.all().single()
+        assertEquals(2, set.weekNumber)
+        assertEquals(1, set.cycleNumber)
+        assertEquals(0, set.dayIndex)
+    }
+
+    @Test
     fun loggingASetPersistsItAndShowsItInHistory() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val viewModel = viewModel(repository)

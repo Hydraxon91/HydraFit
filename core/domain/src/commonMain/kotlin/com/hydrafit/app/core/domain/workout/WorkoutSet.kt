@@ -6,5 +6,9 @@ data class WorkoutSet(
     val reps: Int,
     val weightKg: Double?,
     val performedAtMillis: Long,
-    val isWarmup: Boolean = false
+    val isWarmup: Boolean = false,
+    /** The accepted plan's week/cycle and day at log time, when a plan was active. */
+    val weekNumber: Int? = null,
+    val cycleNumber: Int? = null,
+    val dayIndex: Int? = null
 )

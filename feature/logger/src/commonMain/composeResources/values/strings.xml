@@ -19,6 +19,7 @@
     <string name="logger_recent">Recent sets</string>
     <string name="logger_planned_today">Planned today</string>
     <string name="logger_confirm">Confirm</string>
+    <string name="logger_set_week_day">Week %1$d · Day %2$d</string>
     <string name="logger_confirm_all">Confirm all</string>
     <string name="logger_dismiss">Dismiss</string>
     <string name="logger_warmup_suffix">(warm-up)</string>
