@@ -243,6 +243,19 @@
 - **Migration.** Optional nullable column on `exercise` (or a small `exerciseLimit` table) + `.sqm`; seed machines with sensible defaults or leave null (unlimited).
 - **Open decisions.** Per-exercise vs per-equipment ownership; whether the ceiling is global or rep-dependent; whether hitting the cap should switch the progression signal.
 
+#### Part 3 implementation plan (approved 2026-09-30)
+
+> Decision: the ceiling lives **per equipment**, user-configurable. `maxWeightKg == null` means unlimited/plate-loaded; a number means a fixed stack cap. No progression-signal change in v1 (suggested weight is simply clamped; the engine still rounds to plate increments below the cap).
+
+- [x] **P3.1 Schema v18 + `17.sqm`.** Done (`011859e`). `equipment.maxWeightKg` (nullable) + `updateMaxWeight`; `Equipment.maxWeightKg`; `EquipmentRepository.setMaxWeight`. Migration test + sources-repo test.
+- [x] **P3.2 Plan-input threading.** Done (`011859e`). `PlanRequest.equipmentMaxWeights`; `WorkoutPlanSources.equipmentMaxWeights`; sources repo observes `EquipmentRepository`; `ObserveWorkoutPlanInputsUseCase` passes it. **Deviation:** `combine` has typed overloads only up to 5 flows, so the equipment flow is nested in an inner combine via a private `LogContext`.
+- [x] **P3.3 Clamp.** Done (`afbe6f4`). `EquipmentWeightLimit.ceilingFor`/`clamp`; applied in the Deterministic engine and `WeeklyPlanSanitizer`. Tests: `EquipmentWeightLimitTest` + engine clamp test.
+- [x] **P3.4 Equipment UI.** Done (`b0d2bf7`). "Max weight (kg, blank = unlimited)" in the Manage dialog; Manage is now offered for **all** equipment (built-ins get max-weight only; custom keeps rename/delete); editor VM test.
+- [x] **P3.5 Tests + verification.** Done. Full `testAndroidHostTest`, `ktlintCheck`, `:androidApp:assembleDebug`, iOS compile green. Emulator: v17→v18 migration over an existing DB, set Cable machine max = 100 kg via Manage, reopened shows `100`.
+  - **Deviations:** `ExerciseOverrideMigrationTest`'s v13 fixture gained the `equipment` table (it genuinely existed at v13; the new `17.sqm` alters it). This batch took **schema v18 + `17.sqm`**.
+
+> Schema note: this takes v18 + `17.sqm` (v17 + `16.sqm` was used by Part 4).
+
 ### Part 4 — Unilateral (one hand at a time) exercises (proposal)
 
 > Note: "for one-hand-at-a-time exercises like dumbbell curls, do I add per hand (10×18kg twice) or combine both hands (10×36)?"
