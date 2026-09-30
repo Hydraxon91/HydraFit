@@ -53,12 +53,15 @@ import hydrafit.feature.equipment.generated.resources.equipment_exercise_section
 import hydrafit.feature.equipment.generated.resources.equipment_manage
 import hydrafit.feature.equipment.generated.resources.equipment_max_weight
 import hydrafit.feature.equipment.generated.resources.equipment_movement_pattern
+import hydrafit.feature.equipment.generated.resources.equipment_muscles
 import hydrafit.feature.equipment.generated.resources.equipment_name_label
-import hydrafit.feature.equipment.generated.resources.equipment_primary_muscles
 import hydrafit.feature.equipment.generated.resources.equipment_profiler_title
 import hydrafit.feature.equipment.generated.resources.equipment_remove
 import hydrafit.feature.equipment.generated.resources.equipment_search_label
-import hydrafit.feature.equipment.generated.resources.equipment_secondary_muscles
+import hydrafit.feature.equipment.generated.resources.equipment_tier_high
+import hydrafit.feature.equipment.generated.resources.equipment_tier_low
+import hydrafit.feature.equipment.generated.resources.equipment_tier_mid
+import hydrafit.feature.equipment.generated.resources.equipment_tier_primary
 import hydrafit.feature.equipment.generated.resources.equipment_unilateral
 import hydrafit.feature.equipment.generated.resources.muscle_back
 import hydrafit.feature.equipment.generated.resources.muscle_biceps
@@ -112,7 +115,7 @@ fun EquipmentProfilerRoute(
         onEditorPatternChanged = viewModel::onEditorPatternChanged,
         onEditorEquipmentToggled = viewModel::onEditorEquipmentToggled,
         onEditorUnilateralToggled = viewModel::onEditorUnilateralToggled,
-        onEditorMuscleToggled = viewModel::onEditorMuscleToggled,
+        onEditorMuscleInvolvementChanged = viewModel::onEditorMuscleInvolvementChanged,
         onSaveExercise = viewModel::onSaveExercise,
         onResetExercise = viewModel::onResetExercise,
         onDeleteCustomExercise = viewModel::onDeleteCustomExercise,
@@ -140,7 +143,7 @@ fun EquipmentProfilerScreen(
     onEditorPatternChanged: (MovementPattern) -> Unit,
     onEditorEquipmentToggled: (EquipmentTag) -> Unit,
     onEditorUnilateralToggled: (Boolean) -> Unit,
-    onEditorMuscleToggled: (MuscleGroup, Boolean) -> Unit,
+    onEditorMuscleInvolvementChanged: (MuscleGroup, Double?) -> Unit,
     onSaveExercise: () -> Unit,
     onResetExercise: () -> Unit,
     onDeleteCustomExercise: () -> Unit,
@@ -218,7 +221,7 @@ fun EquipmentProfilerScreen(
             onPatternChanged = onEditorPatternChanged,
             onEquipmentToggled = onEditorEquipmentToggled,
             onUnilateralToggled = onEditorUnilateralToggled,
-            onMuscleToggled = onEditorMuscleToggled,
+            onMuscleInvolvementChanged = onEditorMuscleInvolvementChanged,
             onSave = onSaveExercise,
             onReset = onResetExercise,
             onDelete = onDeleteCustomExercise,
@@ -351,7 +354,7 @@ private fun ExerciseEditorDialog(
     onPatternChanged: (MovementPattern) -> Unit,
     onEquipmentToggled: (EquipmentTag) -> Unit,
     onUnilateralToggled: (Boolean) -> Unit,
-    onMuscleToggled: (MuscleGroup, Boolean) -> Unit,
+    onMuscleInvolvementChanged: (MuscleGroup, Double?) -> Unit,
     onSave: () -> Unit,
     onReset: () -> Unit,
     onDelete: () -> Unit,
@@ -401,20 +404,12 @@ private fun ExerciseEditorDialog(
                 )
                 MovementPatternPicker(state.movementPattern, onPatternChanged)
                 Text(
-                    text = stringResource(Res.string.equipment_primary_muscles),
+                    text = stringResource(Res.string.equipment_muscles),
                     style = MaterialTheme.typography.labelMedium
                 )
-                MuscleChipRow(
-                    selected = state.primary,
-                    onToggle = { onMuscleToggled(it, true) }
-                )
-                Text(
-                    text = stringResource(Res.string.equipment_secondary_muscles),
-                    style = MaterialTheme.typography.labelMedium
-                )
-                MuscleChipRow(
-                    selected = state.secondary,
-                    onToggle = { onMuscleToggled(it, false) }
+                MuscleTierRow(
+                    involvements = state.involvements,
+                    onCycle = onMuscleInvolvementChanged
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Switch(
@@ -486,16 +481,49 @@ private fun MovementPatternPicker(selected: MovementPattern, onChange: (Movement
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun MuscleChipRow(selected: Set<MuscleGroup>, onToggle: (MuscleGroup) -> Unit) {
+private fun MuscleTierRow(
+    involvements: Map<MuscleGroup, Double>,
+    onCycle: (MuscleGroup, Double?) -> Unit
+) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         MuscleGroup.entries.forEach { muscle ->
+            val weight = involvements[muscle]
             FilterChip(
-                selected = muscle in selected,
-                onClick = { onToggle(muscle) },
-                label = { Text(stringResource(muscle.labelResource())) }
+                selected = weight != null,
+                onClick = { onCycle(muscle, nextInvolvementTier(weight)) },
+                label = {
+                    val name = stringResource(muscle.labelResource())
+                    Text(
+                        if (weight == null) {
+                            name
+                        } else {
+                            "$name · ${stringResource(involvementTierLabel(weight))}"
+                        }
+                    )
+                }
             )
         }
     }
+}
+
+/** The tier values a chip cycles through, cheapest first. */
+private val INVOLVEMENT_TIERS = listOf(0.3, 0.5, 0.7, 1.0)
+
+private fun nextInvolvementTier(current: Double?): Double? {
+    if (current == null) return INVOLVEMENT_TIERS.first()
+    val index = INVOLVEMENT_TIERS.indexOfFirst { it == current }
+    return if (index == -1 || index == INVOLVEMENT_TIERS.lastIndex) {
+        null
+    } else {
+        INVOLVEMENT_TIERS[index + 1]
+    }
+}
+
+private fun involvementTierLabel(weight: Double): StringResource = when (weight) {
+    0.3 -> Res.string.equipment_tier_low
+    0.5 -> Res.string.equipment_tier_mid
+    0.7 -> Res.string.equipment_tier_high
+    else -> Res.string.equipment_tier_primary
 }
 
 @Composable

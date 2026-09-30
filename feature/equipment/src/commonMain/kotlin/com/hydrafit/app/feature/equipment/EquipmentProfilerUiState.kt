@@ -14,8 +14,8 @@ data class ExerciseEditorState(
     val name: String = "",
     val movementPattern: MovementPattern = MovementPattern.CORE,
     val equipment: Set<EquipmentTag> = emptySet(),
-    val primary: Set<MuscleGroup> = emptySet(),
-    val secondary: Set<MuscleGroup> = emptySet(),
+    /** Per-muscle involvement weights in (0.0, 1.0]; a muscle absent here is not involved. */
+    val involvements: Map<MuscleGroup, Double> = emptyMap(),
     val isUnilateral: Boolean = false,
     val error: String? = null
 ) {
@@ -23,7 +23,18 @@ data class ExerciseEditorState(
         get() = isNew || exerciseId != null
 
     val canSave: Boolean
-        get() = name.isNotBlank() && primary.isNotEmpty()
+        get() = name.isNotBlank() && involvements.isNotEmpty()
+
+    /** Muscles at the "primary" tier or above, kept in sync for the legacy tag columns. */
+    val primaryMuscles: Set<MuscleGroup>
+        get() = involvements.filterValues { it >= PRIMARY_THRESHOLD }.keys
+
+    val secondaryMuscles: Set<MuscleGroup>
+        get() = involvements.filterValues { it < PRIMARY_THRESHOLD }.keys
+
+    companion object {
+        const val PRIMARY_THRESHOLD = 0.7
+    }
 }
 
 /** The equipment item currently open in the manage dialog (rename/delete + max weight). */

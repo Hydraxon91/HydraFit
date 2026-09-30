@@ -114,11 +114,14 @@ class EquipmentProfilerViewModelTest {
 
         viewModel.onEditExercise("back-squat")
         assertEquals(setOf(EquipmentTag.BARBELL), viewModel.state.value.exerciseEditor.equipment)
-        assertEquals(setOf(MuscleGroup.QUADS), viewModel.state.value.exerciseEditor.primary)
+        assertEquals(
+            setOf(MuscleGroup.QUADS),
+            viewModel.state.value.exerciseEditor.primaryMuscles
+        )
 
         viewModel.onEditorNameChanged("Back Squat (Low Bar)")
         viewModel.onEditorEquipmentToggled(EquipmentTag.BENCH)
-        viewModel.onEditorMuscleToggled(MuscleGroup.CHEST, primary = true)
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.CHEST, 1.0)
         viewModel.onSaveExercise()
         advanceUntilIdle()
 
@@ -154,7 +157,7 @@ class EquipmentProfilerViewModelTest {
 
         viewModel.onNewCustomExercise()
         viewModel.onEditorNameChanged("My Row")
-        viewModel.onEditorMuscleToggled(MuscleGroup.BACK, primary = true)
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.BACK, 1.0)
         viewModel.onEditorUnilateralToggled(true)
         viewModel.onSaveExercise()
         advanceUntilIdle()
@@ -183,17 +186,22 @@ class EquipmentProfilerViewModelTest {
     }
 
     @Test
-    fun aMuscleIsEitherPrimaryOrSecondaryNeverBoth() = runTest(dispatcher) {
+    fun aMuscleHoldsASingleInvolvementWeight() = runTest(dispatcher) {
         val viewModel = viewModel()
         advanceUntilIdle()
         viewModel.onEditExercise("back-squat")
 
-        // GLUTES is seeded secondary; promoting to primary removes it from secondary.
-        viewModel.onEditorMuscleToggled(MuscleGroup.GLUTES, primary = true)
+        // GLUTES is seeded secondary (0.5); raising it to the primary tier (1.0) replaces the value.
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.GLUTES, 1.0)
 
         val editor = viewModel.state.value.exerciseEditor
-        assertTrue(MuscleGroup.GLUTES in editor.primary)
-        assertFalse(MuscleGroup.GLUTES in editor.secondary)
+        assertEquals(1.0, editor.involvements.getValue(MuscleGroup.GLUTES))
+        assertTrue(MuscleGroup.GLUTES in editor.primaryMuscles)
+        assertFalse(MuscleGroup.GLUTES in editor.secondaryMuscles)
+
+        // Clearing removes the muscle entirely.
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.GLUTES, null)
+        assertFalse(MuscleGroup.GLUTES in viewModel.state.value.exerciseEditor.involvements)
     }
 
     @Test
@@ -205,7 +213,7 @@ class EquipmentProfilerViewModelTest {
         viewModel.onNewCustomExercise()
         viewModel.onEditorNameChanged("Trap Bar Deadlift")
         viewModel.onEditorPatternChanged(MovementPattern.HINGE)
-        viewModel.onEditorMuscleToggled(MuscleGroup.BACK, primary = true)
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.BACK, 1.0)
         assertEquals(MovementPattern.HINGE, viewModel.state.value.exerciseEditor.movementPattern)
         viewModel.onSaveExercise()
         advanceUntilIdle()
@@ -224,7 +232,7 @@ class EquipmentProfilerViewModelTest {
         assertFalse(viewModel.state.value.exerciseEditor.canSave)
         viewModel.onEditorNameChanged("Something")
         assertFalse(viewModel.state.value.exerciseEditor.canSave)
-        viewModel.onEditorMuscleToggled(MuscleGroup.CORE, primary = true)
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.CORE, 1.0)
 
         assertTrue(viewModel.state.value.exerciseEditor.canSave)
     }
@@ -236,7 +244,7 @@ class EquipmentProfilerViewModelTest {
         advanceUntilIdle()
         viewModel.onNewCustomExercise()
         viewModel.onEditorNameChanged("Disposable")
-        viewModel.onEditorMuscleToggled(MuscleGroup.CORE, primary = true)
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.CORE, 1.0)
         viewModel.onSaveExercise()
         advanceUntilIdle()
 

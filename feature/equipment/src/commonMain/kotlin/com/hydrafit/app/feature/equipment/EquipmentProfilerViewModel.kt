@@ -148,8 +148,7 @@ class EquipmentProfilerViewModel(
                     name = exercise.name,
                     movementPattern = exercise.movementPattern,
                     equipment = exercise.requiredEquipment,
-                    primary = exercise.primaryMuscles,
-                    secondary = exercise.secondaryMuscles,
+                    involvements = exercise.effectiveInvolvements,
                     isUnilateral = exercise.isUnilateral
                 )
             )
@@ -192,25 +191,13 @@ class EquipmentProfilerViewModel(
         }
     }
 
-    /** A muscle is either primary or secondary, never both, to avoid double fatigue weighting. */
-    fun onEditorMuscleToggled(muscle: MuscleGroup, primary: Boolean) {
+    /** Sets one muscle's involvement weight, or removes it when [weight] is null. */
+    fun onEditorMuscleInvolvementChanged(muscle: MuscleGroup, weight: Double?) {
         _state.update { current ->
             val editor = current.exerciseEditor
-            if (primary) {
-                current.copy(
-                    exerciseEditor = editor.copy(
-                        primary = editor.primary.toggle(muscle),
-                        secondary = editor.secondary - muscle
-                    )
-                )
-            } else {
-                current.copy(
-                    exerciseEditor = editor.copy(
-                        secondary = editor.secondary.toggle(muscle),
-                        primary = editor.primary - muscle
-                    )
-                )
-            }
+            val updated = editor.involvements.toMutableMap()
+            if (weight == null) updated.remove(muscle) else updated[muscle] = weight
+            current.copy(exerciseEditor = editor.copy(involvements = updated, error = null))
         }
     }
 
@@ -218,7 +205,7 @@ class EquipmentProfilerViewModel(
         val editor = _state.value.exerciseEditor
         if (!editor.isOpen) return
         if (editor.isNew) {
-            if (editor.name.isBlank() || editor.primary.isEmpty()) return
+            if (editor.name.isBlank() || editor.involvements.isEmpty()) return
             viewModelScope.launch { persistNew(editor) }
             return
         }
@@ -230,10 +217,11 @@ class EquipmentProfilerViewModel(
                         id = exerciseId,
                         name = editor.name,
                         requiredEquipment = editor.equipment,
-                        primaryMuscles = editor.primary,
-                        secondaryMuscles = editor.secondary,
+                        primaryMuscles = editor.primaryMuscles,
+                        secondaryMuscles = editor.secondaryMuscles,
                         movementPattern = editor.movementPattern,
-                        isUnilateral = editor.isUnilateral
+                        isUnilateral = editor.isUnilateral,
+                        involvements = editor.involvements
                     )
                 } else {
                     writeBuiltInOverrides(exerciseId, editor)
@@ -252,10 +240,11 @@ class EquipmentProfilerViewModel(
             val created = customExerciseRepository.add(
                 name = editor.name,
                 requiredEquipment = editor.equipment,
-                primaryMuscles = editor.primary,
-                secondaryMuscles = editor.secondary,
+                primaryMuscles = editor.primaryMuscles,
+                secondaryMuscles = editor.secondaryMuscles,
                 movementPattern = editor.movementPattern,
-                isUnilateral = editor.isUnilateral
+                isUnilateral = editor.isUnilateral,
+                involvements = editor.involvements
             )
             closeEditorAndRefresh(created.id)
         } catch (failure: CustomExerciseException) {
@@ -270,10 +259,11 @@ class EquipmentProfilerViewModel(
             exerciseId = exerciseId,
             name = editor.name,
             requiredEquipment = editor.equipment,
-            primaryMuscles = editor.primary,
-            secondaryMuscles = editor.secondary,
+            primaryMuscles = editor.primaryMuscles,
+            secondaryMuscles = editor.secondaryMuscles,
             movementPattern = editor.movementPattern,
-            unilateral = editor.isUnilateral
+            unilateral = editor.isUnilateral,
+            involvements = editor.involvements
         )
     }
 
@@ -314,7 +304,4 @@ class EquipmentProfilerViewModel(
     private suspend fun refreshExercises() {
         _state.update { it.copy(exercises = exerciseCatalog.all()) }
     }
-
-    private fun Set<MuscleGroup>.toggle(muscle: MuscleGroup): Set<MuscleGroup> =
-        if (muscle in this) this - muscle else this + muscle
 }

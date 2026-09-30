@@ -19,6 +19,11 @@
     <string name="equipment_bodyweight">Bodyweight only</string>
     <string name="equipment_primary_muscles">Primary muscles</string>
     <string name="equipment_secondary_muscles">Secondary muscles</string>
+    <string name="equipment_muscles">Muscles</string>
+    <string name="equipment_tier_low">Low</string>
+    <string name="equipment_tier_mid">Mid</string>
+    <string name="equipment_tier_high">High</string>
+    <string name="equipment_tier_primary">Primary</string>
     <string name="equipment_equipment_section">Equipment</string>
     <string name="equipment_unilateral">Unilateral (per hand)</string>
     <string name="equipment_movement_pattern">Movement pattern</string>
