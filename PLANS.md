@@ -166,7 +166,7 @@
 - **UI.** A "Your lifts / Personal records" section (Settings, or the Equipment tab) to enter/edit/clear a best set per exercise; optionally an onboarding prompt listing the common compounds (squat, bench, deadlift, overhead press, row).
 - **Interactions.** Progressive overload increments the seeded baseline unchanged; a later logged set supersedes the manual PR via the `max`. No effect on fatigue (PRs are not logged sets).
 
-### Local time, day rollover & break detection (proposed — see "Open work proposals C")
+### Local time, day rollover & break detection (implemented — see "Open work proposals C")
 
 > Today the "day" is a UTC epoch-day (`dayOfWeek`, the `performedAtMillis / MILLIS_PER_DAY` session buckets) and the Logger computes the current day only when the accepted-plan flow emits, so "today's focus" can be wrong for local users and goes stale across midnight.
 
@@ -353,7 +353,7 @@ A migration that converts every row to `involvements` and drops `primaryMuscles`
 **Open decisions:** default exercise list; per-hand entry for unilateral lifts; whether the manual PR also seeds the progression baseline (it would, via the same 1RM).
 
 ### C. Local time, day rollover & break detection
-**Status:** PROPOSED — **no schema change** (stored timestamps stay UTC).
+**Status:** DONE for local time + rollover — no schema change (stored timestamps stay UTC); commit `7d735e9`. **Break/gap detection remains deferred** (it was the optional step).
 **Goal:** "today" is the user's **local** day, refreshes across midnight, and a long layoff is handled sensibly.
 **Approach:**
 - `TimeProvider` gains the local UTC offset (or `localDayStartMillis` / `localDayOfWeek`); add platform `expect/actual` (Android `TimeZone`/`Calendar`, iOS `NSTimeZone`).
