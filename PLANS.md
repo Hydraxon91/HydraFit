@@ -174,10 +174,10 @@
 - **Day-change tick.** The Logger recomputes `dayFor(dayOfWeek(now))` only on VM init and `observeAcceptedPlan()` emissions (WorkoutLoggerViewModel.kt:110), so it shows yesterday's focus if left open past midnight. Add a day-change tick (a flow that emits when the local day changes) or recompute on `ON_RESUME` so focus/prefill refresh.
 - **Break / gap detection (optional).** Because the week is accept-ordinal, a long layoff resumes at "Week N+1" with fatigue already decayed to near-zero. Consider detecting the gap since the last accepted plan and either restarting the cycle at Week 1 or prompting "you've been away — start a new cycle / deload?". Would run before the next `ObserveWorkoutPlanInputsUseCase` build.
 
-### Log tab: recent-set day context (proposed — see "Open work proposals D")
+### Log tab: recent-set day context (implemented — see "Open work proposals D")
 
 - [x] **Unit suffix on recent sets.** The recent-set row now appends the selected unit (`state.weightUnit.label` = `kg`/`lb`) after the weight, matching the weight field label. Presentational, no schema change.
-- **Week/cycle + day on recent sets.** Show which week and day each logged set belonged to. `workoutSet` stores no week/day, so decide: (a) **derive** it at display time by matching the set's timestamp to the accepted plan active then (no schema change, but depends on plan history being intact), or (b) **snapshot** `weekNumber`/`cycleNumber`/`dayIndex` (or focus) onto `workoutSet` at log time (new schema version + `.sqm`, migration). Recommend (b) for stability now that plan-history editing (above) can delete/rewrite plans, since deriving would re-map old sets.
+- [x] **Week/cycle + day on recent sets.** Done (`1366623`). Snapshotted: `workoutSet` gained nullable `weekNumber`/`cycleNumber`/`dayIndex` (schema v23 + `22.sqm`), filled from the latest accepted plan at log time; the recent-sets row renders `Week N · Day M` and legacy rows show nothing.
 
 ### Deferred (mega-plan)
 - **Signed release pipeline (deferred by decision).** A `release.yml` workflow on `v*.*.*` tags that builds a signed release APK (keystore via GitHub Actions Secrets) and attaches it to a GitHub Release, plus a `signingConfig` in `androidApp/build.gradle.kts` reading `RELEASE_KEYSTORE_*` from `local.properties` (local) and env (CI). **Not scaffolded yet** — `v0.1.0` ships a manually attached debug APK and the user generates/uploads the keystore separately. Revisit once the app is further along.
@@ -366,7 +366,7 @@ A migration that converts every row to `involvements` and drops `primaryMuscles`
 **Open decisions:** offset source per platform; whether break detection ships in v1.
 
 ### D. Log tab: week/cycle + day context on recent sets
-**Status:** PROPOSED — schema **v23 + `22.sqm`** (after B; renumber as needed). The unit suffix already shipped.
+**Status:** DONE — schema **v23 + `22.sqm`**; commit `1366623`. The unit suffix had already shipped.
 **Goal:** each recent-set row shows the week/day it belonged to.
 **Approach (snapshot, recommended):** add nullable `weekNumber`, `cycleNumber`, `dayIndex` (or `focus`) to `workoutSet`; `SqlDelightWorkoutLogRepository.add` fills them from the latest accepted plan; `LoggedSetRow` + the Log screen render "Week N · Day M"; legacy rows show nothing.
 **Phases:** D1 schema+repo snapshot (+migration test); D2 UI row; D3 tests.
