@@ -17,6 +17,7 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -63,6 +64,23 @@ class FatigueHeatmapViewModelTest {
         assertEquals(0.5, decayed.scoreOf(MuscleGroup.CHEST), 1e-9)
     }
 
+    @Test
+    fun updatesWhenNewSetsAreLogged() = runTest(dispatcher) {
+        val sets = MutableStateFlow<List<LoggedSet>>(emptyList())
+        val viewModel = FatigueHeatmapViewModel(
+            workoutLogRepository = FlowingWorkoutLogRepository(sets),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { 0L }
+        )
+        advanceUntilIdle()
+        assertEquals(0.0, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+
+        sets.value = List(24) { chestSet(timestampMillis = 0L) }
+        advanceUntilIdle()
+
+        assertEquals(1.0, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+    }
+
     private fun FatigueHeatmapViewModel.scoreOf(muscle: MuscleGroup): Double =
         state.value.entries.first { it.muscle == muscle }.score
 
@@ -90,6 +108,23 @@ class FatigueHeatmapViewModelTest {
         override suspend fun loggedSets(): List<LoggedSet> = sets
 
         override fun loggedSetsFlow(): Flow<List<LoggedSet>> = flowOf(sets)
+
+        override suspend fun clear() = Unit
+    }
+
+    private class FlowingWorkoutLogRepository(private val sets: MutableStateFlow<List<LoggedSet>>) :
+        WorkoutLogRepository {
+        override suspend fun add(set: WorkoutSet) = Unit
+
+        override suspend fun delete(id: Long) = Unit
+
+        override suspend fun all(): List<WorkoutSet> = emptyList()
+
+        override fun setsFlow(): Flow<List<WorkoutSet>> = flowOf(emptyList())
+
+        override suspend fun loggedSets(): List<LoggedSet> = sets.value
+
+        override fun loggedSetsFlow(): Flow<List<LoggedSet>> = sets
 
         override suspend fun clear() = Unit
     }

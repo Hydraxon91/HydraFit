@@ -22,17 +22,16 @@ class FatigueHeatmapViewModel(
     val state: StateFlow<FatigueHeatmapUiState> = _state.asStateFlow()
 
     init {
-        refresh()
-    }
-
-    fun refresh() {
+        // Observe the log instead of reading it once: the ViewModel is retained across tab
+        // switches, so a one-shot read would only refresh after the process is recreated.
         viewModelScope.launch {
-            val sets = workoutLogRepository.loggedSets()
-            val scores = calculateMuscleFatigue(sets, timeProvider.nowMillis())
-            val entries = MuscleGroup.entries.map { muscle ->
-                MuscleFatigueEntry(muscle = muscle, score = scores[muscle] ?: 0.0)
+            workoutLogRepository.loggedSetsFlow().collect { sets ->
+                val scores = calculateMuscleFatigue(sets, timeProvider.nowMillis())
+                val entries = MuscleGroup.entries.map { muscle ->
+                    MuscleFatigueEntry(muscle = muscle, score = scores[muscle] ?: 0.0)
+                }
+                _state.update { it.copy(entries = entries, isLoading = false) }
             }
-            _state.update { it.copy(entries = entries, isLoading = false) }
         }
     }
 }
