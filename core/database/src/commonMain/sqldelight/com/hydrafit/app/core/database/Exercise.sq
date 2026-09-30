@@ -38,7 +38,7 @@ updateIsUnilateral:
 UPDATE exercise SET isUnilateral = ? WHERE id = ?;
 
 updateInvolvements:
-UPDATE exercise SET involvements = ? WHERE id = ?;
+UPDATE exercise SET involvements = ? WHERE id = ? AND involvements IS NULL;
 
 deleteById:
 DELETE FROM exercise WHERE id = ? AND isCustom = 1;

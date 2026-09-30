@@ -22,6 +22,10 @@ internal fun encodeInvolvements(involvements: Map<MuscleGroup, Double>): String?
     .joinToString(separator = ",") { "${it.key.name}:${it.value}" }
     .takeIf { it.isNotEmpty() }
 
+/** Derives involvement weights from the legacy tag strings (primary 1.0 / secondary 0.5). */
+internal fun involvementsFromTags(primary: String, secondary: String): Map<MuscleGroup, Double> =
+    decodeMuscles(primary).associateWith { 1.0 } + decodeMuscles(secondary).associateWith { 0.5 }
+
 internal fun decodeInvolvements(value: String?): Map<MuscleGroup, Double> {
     if (value.isNullOrEmpty()) return emptyMap()
     return value.split(',').mapNotNull { entry ->

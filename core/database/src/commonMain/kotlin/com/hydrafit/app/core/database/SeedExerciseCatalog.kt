@@ -20,6 +20,13 @@ class SeedExerciseCatalog(private val database: HydraFitDatabase) {
                     isUnilateral = if (exercise.isUnilateral) 1L else 0L,
                     id = exercise.id
                 )
+                // Fill involvement weights only where they are missing, so a user's edit is kept.
+                encodeInvolvements(exercise.involvements)?.let { encoded ->
+                    database.exerciseQueries.updateInvolvements(
+                        involvements = encoded,
+                        id = exercise.id
+                    )
+                }
             }
         }
     }

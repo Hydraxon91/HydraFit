@@ -31,7 +31,18 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
             isWarmup = if (set.isWarmup) 1L else 0L,
             primaryMuscles = override?.primaryMuscles ?: seed?.primaryMuscles,
             secondaryMuscles = override?.secondaryMuscles ?: seed?.secondaryMuscles,
-            involvements = override?.involvements ?: seed?.involvements
+            involvements = if (override != null) {
+                encodeInvolvements(
+                    decodeInvolvements(override.involvements).ifEmpty {
+                        involvementsFromTags(
+                            override.primaryMuscles.orEmpty(),
+                            override.secondaryMuscles.orEmpty()
+                        )
+                    }
+                )
+            } else {
+                seed?.involvements
+            }
         )
     }
 

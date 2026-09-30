@@ -13,7 +13,13 @@ internal object DefaultExercises {
             setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH),
             setOf(MuscleGroup.CHEST),
             setOf(MuscleGroup.TRICEPS, MuscleGroup.SHOULDERS),
-            MovementPattern.HORIZONTAL_PUSH
+            MovementPattern.HORIZONTAL_PUSH,
+            involvements = mapOf(
+                MuscleGroup.CHEST to 1.0,
+                MuscleGroup.SHOULDERS to 0.4,
+                MuscleGroup.TRICEPS to 0.4,
+                MuscleGroup.CORE to 0.2
+            )
         ),
         ex(
             "dumbbell-bench-press",
@@ -369,6 +375,79 @@ internal object DefaultExercises {
             setOf(MuscleGroup.CORE),
             emptySet(),
             MovementPattern.CORE
+        ),
+        ex(
+            "hammer-curl",
+            "Hammer Curl",
+            setOf(EquipmentTag.DUMBBELL),
+            setOf(MuscleGroup.BICEPS),
+            emptySet(),
+            MovementPattern.BICEPS_ISOLATION,
+            isUnilateral = true,
+            involvements = mapOf(MuscleGroup.BICEPS to 1.0)
+        ),
+        ex(
+            "supinated-curl",
+            "Supinated Curl",
+            setOf(EquipmentTag.DUMBBELL),
+            setOf(MuscleGroup.BICEPS),
+            emptySet(),
+            MovementPattern.BICEPS_ISOLATION,
+            isUnilateral = true,
+            involvements = mapOf(MuscleGroup.BICEPS to 1.0)
+        ),
+        ex(
+            "preacher-curl",
+            "Preacher Curl",
+            setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH),
+            setOf(MuscleGroup.BICEPS),
+            emptySet(),
+            MovementPattern.BICEPS_ISOLATION,
+            involvements = mapOf(MuscleGroup.BICEPS to 1.0)
+        ),
+        ex(
+            "close-grip-pulldown",
+            "Close-Grip Pulldown",
+            setOf(EquipmentTag.CABLE_MACHINE),
+            setOf(MuscleGroup.BACK),
+            setOf(MuscleGroup.BICEPS),
+            MovementPattern.VERTICAL_PULL,
+            involvements = mapOf(MuscleGroup.BACK to 1.0, MuscleGroup.BICEPS to 0.4)
+        ),
+        ex(
+            "wide-grip-pulldown",
+            "Wide-Grip Pulldown",
+            setOf(EquipmentTag.CABLE_MACHINE),
+            setOf(MuscleGroup.BACK),
+            setOf(MuscleGroup.BICEPS),
+            MovementPattern.VERTICAL_PULL,
+            involvements = mapOf(MuscleGroup.BACK to 1.0, MuscleGroup.BICEPS to 0.3)
+        ),
+        ex(
+            "incline-barbell-press",
+            "Incline Barbell Press",
+            setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH),
+            setOf(MuscleGroup.CHEST),
+            setOf(MuscleGroup.SHOULDERS, MuscleGroup.TRICEPS),
+            MovementPattern.HORIZONTAL_PUSH,
+            involvements = mapOf(
+                MuscleGroup.CHEST to 1.0,
+                MuscleGroup.SHOULDERS to 0.5,
+                MuscleGroup.TRICEPS to 0.4
+            )
+        ),
+        ex(
+            "decline-barbell-press",
+            "Decline Barbell Press",
+            setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH),
+            setOf(MuscleGroup.CHEST),
+            setOf(MuscleGroup.TRICEPS, MuscleGroup.SHOULDERS),
+            MovementPattern.HORIZONTAL_PUSH,
+            involvements = mapOf(
+                MuscleGroup.CHEST to 1.0,
+                MuscleGroup.TRICEPS to 0.4,
+                MuscleGroup.SHOULDERS to 0.2
+            )
         )
     )
 
@@ -379,7 +458,8 @@ internal object DefaultExercises {
         primary: Set<MuscleGroup>,
         secondary: Set<MuscleGroup>,
         pattern: MovementPattern,
-        isUnilateral: Boolean = false
+        isUnilateral: Boolean = false,
+        involvements: Map<MuscleGroup, Double> = emptyMap()
     ) = Exercise(
         id = id,
         name = name,
@@ -387,6 +467,7 @@ internal object DefaultExercises {
         primaryMuscles = primary,
         secondaryMuscles = secondary,
         movementPattern = pattern,
-        isUnilateral = isUnilateral
+        isUnilateral = isUnilateral,
+        involvements = involvements
     )
 }

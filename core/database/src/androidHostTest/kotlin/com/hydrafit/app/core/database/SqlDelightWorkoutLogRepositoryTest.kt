@@ -79,7 +79,8 @@ class SqlDelightWorkoutLogRepositoryTest {
 
     @Test
     fun mapsSetsToFatigueLoggedSetsUsingPrimaryAndSecondaryMuscles() = runTest {
-        repository.add(set(exerciseId = "barbell-bench-press", performedAt = 1))
+        // Dumbbell bench has no explicit involvement weights, so it exercises the legacy fallback.
+        repository.add(set(exerciseId = "dumbbell-bench-press", performedAt = 1))
 
         val logged = repository.loggedSets().single()
 

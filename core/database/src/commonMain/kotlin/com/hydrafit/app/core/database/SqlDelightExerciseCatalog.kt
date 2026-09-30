@@ -39,6 +39,19 @@ class SqlDelightExerciseCatalog(database: HydraFitDatabase) : ExerciseCatalog {
         movementPattern = decodeMovementPattern(override?.movementPattern ?: movementPattern),
         isCustom = isCustom != 0L,
         isUnilateral = override?.isUnilateral?.let { it != 0L } ?: (isUnilateral != 0L),
-        involvements = decodeInvolvements(override?.involvements ?: involvements)
+        // An override replaces the whole row: if it has no involvements, derive them from its own
+        // tags (not the seed's involvements).
+        involvements = if (override != null) {
+            decodeInvolvements(override.involvements).ifEmpty {
+                involvementsFromTags(
+                    override.primaryMuscles.orEmpty(),
+                    override.secondaryMuscles.orEmpty()
+                )
+            }
+        } else {
+            decodeInvolvements(involvements).ifEmpty {
+                involvementsFromTags(primaryMuscles, secondaryMuscles)
+            }
+        }
     )
 }
