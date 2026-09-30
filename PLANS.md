@@ -200,7 +200,7 @@
   - *Files likely to change:* `feature/logger/.../WorkoutLoggerUiState.kt`, `WorkoutLoggerViewModel.kt`, `WorkoutLoggerScreen.kt`, logger `strings.xml` (`logger_search_label`).
   - *Tests to add:* `WorkoutLoggerViewModelTest` — filtering is case-insensitive; blank search restores the full list; selection still works while filtered.
 
-- [ ] **2. "Next" IME action on the reps field.** Status: **TODO**.
+- [x] **2. "Next" IME action on the reps field.** Status: **DONE** — commit `cc82daa`. No deviations: `ImeAction.Next` + `KeyboardActions(onNext)` on reps moves focus to the weight field via a `FocusRequester`; verified by compile/lint (focus behavior has no unit test).
   - *Current status (confirmed):* the reps field sets only `keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)`; there is no `imeAction`, `keyboardActions`, `FocusRequester`, or `focusManager` anywhere in `feature/logger` (grep confirmed).
   - *Root cause:* the form was never wired for IME traversal.
   - *Planned approach:* `ImeAction.Next` + `KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })` on the reps field, with a `FocusRequester` on the weight field so "Next" lands on it.
