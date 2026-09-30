@@ -209,7 +209,8 @@ class WorkoutLoggerViewModel(
                     id = it.id,
                     name = it.name,
                     isBodyweight = it.requiredEquipment.isEmpty() ||
-                        EquipmentTag.BODYWEIGHT in it.requiredEquipment
+                        EquipmentTag.BODYWEIGHT in it.requiredEquipment,
+                    isUnilateral = it.isUnilateral
                 )
             }
             .sortedWith(compareBy({ priority[it.id] ?: Int.MAX_VALUE }, { it.name }))

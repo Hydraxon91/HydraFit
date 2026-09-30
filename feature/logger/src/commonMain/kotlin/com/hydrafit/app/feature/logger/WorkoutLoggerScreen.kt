@@ -47,6 +47,7 @@ import hydrafit.feature.logger.generated.resources.focus_upper
 import hydrafit.feature.logger.generated.resources.logger_add_weight
 import hydrafit.feature.logger.generated.resources.logger_delete_set
 import hydrafit.feature.logger.generated.resources.logger_log_button
+import hydrafit.feature.logger.generated.resources.logger_per_hand
 import hydrafit.feature.logger.generated.resources.logger_recent
 import hydrafit.feature.logger.generated.resources.logger_reps_label
 import hydrafit.feature.logger.generated.resources.logger_search_label
@@ -200,6 +201,14 @@ fun WorkoutLoggerScreen(
                 TextButton(onClick = onRevealWeight) {
                     Text(stringResource(Res.string.logger_add_weight))
                 }
+            }
+        }
+        if (state.selectedExerciseIsUnilateral) {
+            item {
+                Text(
+                    text = stringResource(Res.string.logger_per_hand),
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
         item {

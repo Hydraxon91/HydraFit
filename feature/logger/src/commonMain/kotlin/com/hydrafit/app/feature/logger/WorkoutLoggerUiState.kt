@@ -3,7 +3,12 @@ package com.hydrafit.app.feature.logger
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.unit.WeightUnit
 
-data class ExerciseOption(val id: String, val name: String, val isBodyweight: Boolean)
+data class ExerciseOption(
+    val id: String,
+    val name: String,
+    val isBodyweight: Boolean,
+    val isUnilateral: Boolean = false
+)
 
 data class LoggedSetRow(
     val id: Long,
@@ -35,6 +40,10 @@ data class WorkoutLoggerUiState(
     val showWeightField: Boolean
         get() = weightRevealed ||
             exercises.firstOrNull { it.id == selectedExerciseId }?.isBodyweight != true
+
+    /** True when the selected exercise is one-side-at-a-time, so the entered weight is per hand. */
+    val selectedExerciseIsUnilateral: Boolean
+        get() = exercises.firstOrNull { it.id == selectedExerciseId }?.isUnilateral == true
 
     /** Exercises matching the picker search, or all of them when the search is blank. */
     val visibleExercises: List<ExerciseOption>

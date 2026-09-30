@@ -180,6 +180,29 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun flagsUnilateralExercisesAsPerHand() = runTest(dispatcher) {
+        val unilateral = Exercise(
+            id = "hammer-curl",
+            name = "Hammer Curl",
+            requiredEquipment = setOf(EquipmentTag.DUMBBELL),
+            primaryMuscles = setOf(MuscleGroup.BICEPS),
+            movementPattern = MovementPattern.BICEPS_ISOLATION,
+            isUnilateral = true
+        )
+        val reactive = object : ExerciseCatalog {
+            override suspend fun all(): List<Exercise> = listOf(unilateral)
+
+            override fun observeAll(): Flow<List<Exercise>> = flowOf(listOf(unilateral))
+        }
+        val viewModel = viewModel(catalog = reactive)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("hammer-curl")
+
+        assertTrue(viewModel.state.value.selectedExerciseIsUnilateral)
+    }
+
+    @Test
     fun loggingASetPersistsItAndShowsItInHistory() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val viewModel = viewModel(repository)
