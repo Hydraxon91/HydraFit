@@ -89,6 +89,24 @@ class EquipmentProfilerViewModelTest {
     }
 
     @Test
+    fun setsAMaxWeightOnABuiltInEquipment() = runTest(dispatcher) {
+        val equipment = FakeEquipmentRepository()
+        val viewModel = viewModel(equipment = equipment)
+        advanceUntilIdle()
+
+        viewModel.onManageEquipment(EquipmentTag.DUMBBELL)
+        assertTrue(viewModel.state.value.equipmentEditor.isBuiltIn)
+        viewModel.onMaxWeightChanged("100")
+        viewModel.onSaveEquipmentRenamed()
+        advanceUntilIdle()
+
+        assertEquals(
+            100.0,
+            equipment.all().first { it.id == EquipmentTag.DUMBBELL }.maxWeightKg
+        )
+    }
+
+    @Test
     fun openingABuiltInEditorSeedsCurrentOverridesAndSavesThem() = runTest(dispatcher) {
         val overrides = FakeExerciseOverrideRepository()
         val viewModel = viewModel(overrides = overrides)
@@ -289,6 +307,12 @@ class EquipmentProfilerViewModelTest {
 
         override suspend fun remove(id: EquipmentTag) {
             state.value = state.value.filterNot { it.id == id }
+        }
+
+        override suspend fun setMaxWeight(id: EquipmentTag, maxWeightKg: Double?) {
+            state.value = state.value.map {
+                if (it.id == id) it.copy(maxWeightKg = maxWeightKg) else it
+            }
         }
     }
 

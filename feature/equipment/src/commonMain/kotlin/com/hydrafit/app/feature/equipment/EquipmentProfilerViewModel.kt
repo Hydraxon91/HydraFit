@@ -6,6 +6,7 @@ import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseException
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
@@ -65,29 +66,52 @@ class EquipmentProfilerViewModel(
 
     fun onManageEquipment(tag: EquipmentTag) {
         val equipment = _state.value.equipment.firstOrNull { it.id == tag } ?: return
-        _state.update { it.copy(equipmentEditor = EquipmentEditorState(tag, equipment.name)) }
+        _state.update {
+            it.copy(
+                equipmentEditor = EquipmentEditorState(
+                    tag = tag,
+                    name = equipment.name,
+                    isBuiltIn = equipment.isBuiltIn,
+                    maxWeightInput = equipment.maxWeightKg?.let { kg -> formatWeight(kg) }.orEmpty()
+                )
+            )
+        }
     }
 
     fun onRenameEquipmentNameChanged(value: String) {
         _state.update { it.copy(equipmentEditor = it.equipmentEditor.copy(name = value)) }
     }
 
+    fun onMaxWeightChanged(value: String) {
+        _state.update {
+            it.copy(
+                equipmentEditor = it.equipmentEditor.copy(
+                    maxWeightInput = value.filter { char -> char.isDigit() || char == '.' }
+                )
+            )
+        }
+    }
+
     fun onSaveEquipmentRenamed() {
         val editor = _state.value.equipmentEditor
         val tag = editor.tag ?: return
+        val rawMax = editor.maxWeightInput.trim()
+        if (rawMax.isNotEmpty() && rawMax.toDoubleOrNull() == null) return
+        val maxWeight = rawMax.takeIf { it.isNotEmpty() }?.toDouble()
         val name = editor.name.trim()
-        if (name.isEmpty()) return
+        if (!editor.isBuiltIn && name.isEmpty()) return
         viewModelScope.launch {
-            equipmentRepository.remove(tag)
-            equipmentRepository.add(name)
-            val updatedSelection = _state.value.selectedTags - tag
-            selectionRepository.setSelected(updatedSelection)
-            _state.update {
-                it.copy(
-                    selectedTags = updatedSelection,
-                    equipmentEditor = EquipmentEditorState()
-                )
+            if (editor.isBuiltIn) {
+                equipmentRepository.setMaxWeight(tag, maxWeight)
+            } else {
+                equipmentRepository.remove(tag)
+                val created = equipmentRepository.add(name)
+                equipmentRepository.setMaxWeight(created.id, maxWeight)
+                val updatedSelection = _state.value.selectedTags - tag
+                selectionRepository.setSelected(updatedSelection)
+                _state.update { it.copy(selectedTags = updatedSelection) }
             }
+            _state.update { it.copy(equipmentEditor = EquipmentEditorState()) }
         }
     }
 

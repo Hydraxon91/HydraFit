@@ -26,8 +26,13 @@ data class ExerciseEditorState(
         get() = name.isNotBlank() && primary.isNotEmpty()
 }
 
-/** The equipment item currently open in the manage dialog (rename/delete). */
-data class EquipmentEditorState(val tag: EquipmentTag? = null, val name: String = "") {
+/** The equipment item currently open in the manage dialog (rename/delete + max weight). */
+data class EquipmentEditorState(
+    val tag: EquipmentTag? = null,
+    val name: String = "",
+    val isBuiltIn: Boolean = false,
+    val maxWeightInput: String = ""
+) {
     val isOpen: Boolean
         get() = tag != null
 }

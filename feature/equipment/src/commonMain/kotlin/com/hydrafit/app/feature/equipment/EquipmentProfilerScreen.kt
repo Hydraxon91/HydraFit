@@ -51,6 +51,7 @@ import hydrafit.feature.equipment.generated.resources.equipment_edit_save
 import hydrafit.feature.equipment.generated.resources.equipment_equipment_section
 import hydrafit.feature.equipment.generated.resources.equipment_exercise_section
 import hydrafit.feature.equipment.generated.resources.equipment_manage
+import hydrafit.feature.equipment.generated.resources.equipment_max_weight
 import hydrafit.feature.equipment.generated.resources.equipment_movement_pattern
 import hydrafit.feature.equipment.generated.resources.equipment_name_label
 import hydrafit.feature.equipment.generated.resources.equipment_primary_muscles
@@ -100,6 +101,7 @@ fun EquipmentProfilerRoute(
         onAddEquipment = viewModel::onAddEquipment,
         onManageEquipment = viewModel::onManageEquipment,
         onRenameEquipmentNameChanged = viewModel::onRenameEquipmentNameChanged,
+        onMaxWeightChanged = viewModel::onMaxWeightChanged,
         onSaveEquipmentRenamed = viewModel::onSaveEquipmentRenamed,
         onDeleteEquipment = viewModel::onDeleteEquipment,
         onDismissEquipmentEditor = viewModel::onDismissEquipmentEditor,
@@ -127,6 +129,7 @@ fun EquipmentProfilerScreen(
     onAddEquipment: () -> Unit,
     onManageEquipment: (EquipmentTag) -> Unit,
     onRenameEquipmentNameChanged: (String) -> Unit,
+    onMaxWeightChanged: (String) -> Unit,
     onSaveEquipmentRenamed: () -> Unit,
     onDeleteEquipment: () -> Unit,
     onDismissEquipmentEditor: () -> Unit,
@@ -201,6 +204,7 @@ fun EquipmentProfilerScreen(
         EquipmentEditorDialog(
             state = state.equipmentEditor,
             onNameChanged = onRenameEquipmentNameChanged,
+            onMaxWeightChanged = onMaxWeightChanged,
             onSave = onSaveEquipmentRenamed,
             onDelete = onDeleteEquipment,
             onDismiss = onDismissEquipmentEditor
@@ -243,10 +247,8 @@ private fun InventorySection(
                     onClick = { onTagToggled(equipment.id) },
                     label = { Text(equipment.name) }
                 )
-                if (!equipment.isBuiltIn) {
-                    TextButton(onClick = { onManageEquipment(equipment.id) }) {
-                        Text(stringResource(Res.string.equipment_manage))
-                    }
+                TextButton(onClick = { onManageEquipment(equipment.id) }) {
+                    Text(stringResource(Res.string.equipment_manage))
                 }
             }
         }
@@ -293,6 +295,7 @@ private fun ExerciseSummaryRow(exercise: Exercise, onEdit: (String) -> Unit) {
 private fun EquipmentEditorDialog(
     state: EquipmentEditorState,
     onNameChanged: (String) -> Unit,
+    onMaxWeightChanged: (String) -> Unit,
     onSave: () -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit
@@ -300,22 +303,35 @@ private fun EquipmentEditorDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            Button(onClick = onSave, enabled = state.name.isNotBlank()) {
+            Button(
+                onClick = onSave,
+                enabled = state.isBuiltIn || state.name.isNotBlank()
+            ) {
                 Text(stringResource(Res.string.equipment_edit_save))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDelete) {
-                Text(stringResource(Res.string.equipment_delete))
+            if (!state.isBuiltIn) {
+                TextButton(onClick = onDelete) {
+                    Text(stringResource(Res.string.equipment_delete))
+                }
             }
         },
         title = { Text(stringResource(Res.string.equipment_manage)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!state.isBuiltIn) {
+                    OutlinedTextField(
+                        value = state.name,
+                        onValueChange = onNameChanged,
+                        label = { Text(stringResource(Res.string.equipment_name_label)) },
+                        singleLine = true
+                    )
+                }
                 OutlinedTextField(
-                    value = state.name,
-                    onValueChange = onNameChanged,
-                    label = { Text(stringResource(Res.string.equipment_name_label)) },
+                    value = state.maxWeightInput,
+                    onValueChange = onMaxWeightChanged,
+                    label = { Text(stringResource(Res.string.equipment_max_weight)) },
                     singleLine = true
                 )
                 TextButton(onClick = onDismiss) {

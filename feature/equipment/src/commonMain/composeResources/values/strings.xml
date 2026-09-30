@@ -8,6 +8,7 @@
     <string name="equipment_manage">Manage</string>
     <string name="equipment_delete">Delete</string>
     <string name="equipment_name_label">Name</string>
+    <string name="equipment_max_weight">Max weight (kg, blank = unlimited)</string>
     <string name="equipment_search_label">Search exercises</string>
     <string name="equipment_exercise_section">Exercise catalog</string>
     <string name="equipment_custom_section">Custom exercises</string>
