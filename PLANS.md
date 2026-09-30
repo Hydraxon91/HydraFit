@@ -185,3 +185,86 @@
 - Settings/navigation redesign — use a coherent "Planning" section in existing Settings for goal + engine + Gemini consent; keep equipment/exercise management in the Equipment tab.
 - Local-model same-week focus-sequence prompt improvement (tracked above), not the same feature as Item 7a.
 - Unit (lb) support for suggested weights and Logger weight prefill — **implemented**: see "Weight units + Logger prefill" below.
+
+## 2026-09-30 — Real-use feedback batch (Parts 1–4)
+
+> Source: notes from real use on the phone. Phase 1 recorded these only; nothing below is implemented.
+> Part 1 items are each their own commit (Phase 2, gated on "go"); Parts 2–4 are investigation + proposal only.
+
+### Part 1 — Small fixes (each its own commit)
+
+- [x] **1. Search in the Logger exercise picker.** Status: **DONE** — commit `5afc511`. No deviations: search field above the picker filters `state.visibleExercises` case-insensitively; blank restores the full list; test `filtersTheExercisePickerBySearchCaseInsensitively` added.
+  - *Current status (confirmed):* the picker is a plain 180dp inner `LazyColumn` of every exercise (`WorkoutLoggerScreen.kt:122-143`); `WorkoutLoggerUiState` has no search field and `WorkoutLoggerViewModel` has no filter. The Equipment tab already has the pattern to mirror (`EquipmentProfilerScreen.kt` search field + `EquipmentProfilerUiState.visibleExercises`).
+  - *Root cause:* feature never implemented (not a regression).
+  - *Planned approach:* add `exerciseSearch: String` to `WorkoutLoggerUiState` with an `onSearchChanged` action; filter `state.exercises` by name (case-insensitive) for the picker only, preserving the today-priority ordering; show the search field above the picker.
+  - *Files likely to change:* `feature/logger/.../WorkoutLoggerUiState.kt`, `WorkoutLoggerViewModel.kt`, `WorkoutLoggerScreen.kt`, logger `strings.xml` (`logger_search_label`).
+  - *Tests to add:* `WorkoutLoggerViewModelTest` — filtering is case-insensitive; blank search restores the full list; selection still works while filtered.
+
+- [ ] **2. "Next" IME action on the reps field.** Status: **TODO**.
+  - *Current status (confirmed):* the reps field sets only `keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)`; there is no `imeAction`, `keyboardActions`, `FocusRequester`, or `focusManager` anywhere in `feature/logger` (grep confirmed).
+  - *Root cause:* the form was never wired for IME traversal.
+  - *Planned approach:* `ImeAction.Next` + `KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })` on the reps field, with a `FocusRequester` on the weight field so "Next" lands on it.
+  - *Files likely to change:* `WorkoutLoggerScreen.kt` only.
+  - *Tests:* none practical (focus behavior); verify on the emulator with a screenshot/keyboard.
+
+- [ ] **3. Logger exercise list does not refresh after adding a custom exercise.** Status: **TODO**.
+  - *Current status (confirmed):* `WorkoutLoggerViewModel.init` loads `exerciseCatalog.all()` **once** (`WorkoutLoggerViewModel.kt:46`); `ExerciseCatalog.all()` is a one-shot `suspend` (`ExerciseCatalog.kt:5-7`) with no observable variant. `SqlDelightCustomExerciseRepository.add/delete` write the DB but emit nothing. Because the Logger ViewModel is retained across tab switches, adding a custom exercise in the Equipment tab never re-runs `all()`, so the list is stale until the process is restarted.
+  - *Root cause:* same class of bug as the recent fatigue staleness — a non-reactive catalog read combined with a retained ViewModel.
+  - *Planned approach:* add a reactive read to the catalog — `suspend fun all()` stays (engines/one-shot callers) and add `fun observeAll(): Flow<List<Exercise>>` implemented in `SqlDelightExerciseCatalog` (`selectAll` + `exerciseOverride` `.asFlow()` combined, same overlay as `all()`), then collect it in the Logger VM. (Alternative considered: observe `CustomExerciseRepository`/`ExerciseOverrideRepository` flows directly in the Logger — rejected, it couples the Logger to userdata ports it doesn't otherwise need, and a reactive catalog benefits every consumer.)
+  - *Blast radius:* interface change touches ~11 `ExerciseCatalog` fakes/anonymous implementations across `core:domain`, `core:network`, `core:llm`, `feature:equipment`, `feature:splitbuilder`, `feature:logger`, `shared` tests.
+  - *Files likely to change:* `core/domain/.../ExerciseCatalog.kt`, `core/database/.../SqlDelightExerciseCatalog.kt`, `WorkoutLoggerViewModel.kt`, plus every fake.
+  - *Tests to add:* VM test that a second `observeAll()` emission updates `state.exercises`; `SqlDelightExerciseCatalogTest` that `observeAll()` re-emits after an insert.
+
+- [ ] **4. Prefill reps + weight from the last logged set of the selected exercise.** Status: **BLOCKED — awaiting user decision** (priority vs. plan suggestion; interaction with Part 4).
+  - *Current status (confirmed):* `onExerciseSelected` prefills `weightInput` from the accepted plan's `suggestedWeightKg` and `reps` from the plan's planned reps, else keeps the current reps (`WorkoutLoggerViewModel.kt:65-79`); the last logged set is not consulted.
+  - *Planned approach (pending):* on selection, look up the most recent `WorkoutSet` for that exercise (via `GetWorkoutLogUseCase`/`loggedSetsFlow`) and prefill reps + weight (converted to the display unit). Undecided: does last-set win over the plan suggestion, or only fill when there is no plan suggestion.
+  - *Interaction:* if Part 4 adopts a per-hand vs combined convention, "last set" prefill must record/restore that convention consistently; so this item is sequenced after the Part 4 decision.
+  - *Files likely to change:* `WorkoutLoggerViewModel.kt` (and possibly a small domain use case).
+
+### Part 2 — Exercise intensity, variants, and muscle-involvement modeling (proposal)
+
+> Consolidates the notes: "how intense are variants like normal vs incline bench", "integrate intensity into exercises added to the DB", "auto-calculate intensity", "more scientific seeding (bench isn't chest-only; add core/shoulders as secondary)", "add variants like hammer curl, supinated curls, etc. with muscle effects".
+
+- **Current model.** Muscle tagging is **binary**: `MuscleInvolvement` is `PRIMARY(1.0)` / `SECONDARY(0.5)` (`MuscleInvolvement.kt`). Each `Exercise` has `primaryMuscles: Set<MuscleGroup>` and `secondaryMuscles: Set<MuscleGroup>` (disjoint, enforced by the editor). `FatigueCalculator` reads the per-set muscle targets and sums the involvement weight per muscle, then decays. The planner's *exercise selection* uses `movementPattern`; the *suggested weight* uses a per-exercise Epley 1RM from logged sets — it does **not** use muscle involvement at all. There is no "intensity/variant" concept and no per-exercise difficulty term.
+- **Proposed model (recommendation).** Replace the binary enum with a **per-muscle involvement weight in 0.0–1.0** stored as a small map (`exerciseId` → `MuscleGroup` → weight). This subsumes primary/secondary (1.0/0.5 defaults) and lets variants differ (e.g. incline bench: upper chest higher, front delt higher). Keep it as an editable per-exercise map in the Equipment editor. Richer **muscle subgroups** (upper/mid chest, lats/mid-back, ab regions) are a second, larger axis — defer; weights alone solve most of the stated problem and fold cleanly into the same storage later if the `MuscleGroup` enum is extended.
+- **Automatic intensity estimation.** Honest take: there is **no reliable automatic** derivation from name/equipment/pattern for v1. Biomechanical involvement is not recoverable from the catalog fields, and a heuristic would encode the same editorial judgement as manual tagging while hiding it. Recommendation: ship **manual tagging with better defaults** — when adding a variant of a known family (e.g. "Incline Barbell Bench"), seed it from the closest existing exercise's involvement as a starting point, then let the user adjust. Revisit auto-estimation only if a large labeled dataset appears.
+- **Better default seeding (gated on the model decision).** Review the ~45 seeded exercises' muscle tags against biomechanics and correct them (documented examples: barbell bench `CHEST` primary is fine but should add `SHOULDERS`/`CORE` secondary; incline vs flat differences, etc.). **Blocked until the model from point 1 is chosen so seed data is only redone once.**
+- **More seeded variations.** Candidates worth adding (with provisional involvement under the proposed model): hammer curl (biceps + brachialis/forearm), supinated/standard vs preacher curl, incline vs flat vs decline press, close-grip vs wide-grip pulldown, sumo vs conventional deadlift, front vs back squat, seated vs standing calf raise, etc. Final values depend on the model.
+- **Future (feasibility only).** Adding muscle **subgroups** (e.g. "lats vs mid-back", "upper vs lower rectus abdominis", how a wide-grip pulldown biases different back regions than a close-grip, or ab-roll vs hanging-leg-raise vs cable-crunch for different abdominal regions) is a natural extension of the per-muscle-weight model: extend `MuscleGroup` with a parent/child hierarchy and let involvement target the finer group, aggregating to parents for display. It is a larger change (fatigue grouping, heatmap UI, seed data) and should not be bundled into the v1 involvement-weight work.
+- **Migration/cost.** Fatigue consumes involvement weights, so it needs no math change (binary → float is a widening); the heatmap labels/`MuscleGroup` enum stay. Cost: schema change for the weight map (new column or child table + `.sqm`), editor UI, reseeding, and updating the ~45 seed rows + tests. Benefit: variant-aware fatigue and more accurate seeding. The main risk is scope creep into subgroups.
+
+### Part 3 — Fixed-weight machines (proposal)
+
+- **Current model (confirmed).** There is **no weight-ceiling concept** anywhere: `Exercise` has no max weight, the `equipment` table is `(id, name, isBuiltIn)`, and `SuggestedWeightConfig`/engines never clamp against a machine limit. A machine that maxes at 100 kg can receive a 120 kg suggestion.
+- **Proposed model.** Add a per-exercise (or per-equipment) **`maxWeightKg` optional ceiling**, and a **plate-loaded vs fixed-stack** marker:
+  - Recommendation: store the ceiling **per exercise** (a fly machine's limit is a property of that machine/exercise, not of "cable machine" globally), editable in the Equipment editor, with an optional default inherited from an equipment-level default when a machine family shares a stack.
+  - Suggested weight (Deterministic `SuggestedWeightConfig.roundToIncrement` path and the AI sanitizer clamp) is clamped to `maxWeightKg`; the Plan/Logger UI shows a "machine max" hint when clamped.
+  - Progression must not increment past the ceiling (once at max, progression is bodyweight/reps or flagged as capped).
+- **Migration.** Optional nullable column on `exercise` (or a small `exerciseLimit` table) + `.sqm`; seed machines with sensible defaults or leave null (unlimited).
+- **Open decisions.** Per-exercise vs per-equipment ownership; whether the ceiling is global or rep-dependent; whether hitting the cap should switch the progression signal.
+
+### Part 4 — Unilateral (one hand at a time) exercises (proposal)
+
+> Note: "for one-hand-at-a-time exercises like dumbbell curls, do I add per hand (10×18kg twice) or combine both hands (10×36)?"
+
+- **Current model (confirmed).** A logged set stores a single `weightKg: Double?` (`WorkoutSet`). Fatigue **ignores weight entirely** (sets × involvement only), so the convention does not affect fatigue. Volume/tonnage totals **do not exist** yet. Progression compares logged weight against the accepted plan's prescribed weight per set (`ProgressWeightsUseCase.isCompleted`) and the suggested weight is a per-exercise Epley 1RM from logged weight — so both progression and suggestions are **per-logged-value**, not per-hand or combined-aware. Last-set prefill (Part 1 item 4) reads the same stored value.
+- **Recommendation.** Standardize on **per-hand weight** (log the dumbbell you actually held: 18 kg, not 36 kg), because that is what is written on the dumbbell and what most lifting apps (Strong, Hevy, etc.) record, and it is the least error-prone to enter. Pair it with a **`unilateral: Boolean` flag** in the catalog so the Logger can label it ("per hand") and future tonnage can double it for totals if desired. Combined weight is rejected: users cannot see "36 kg" on any dumbbell and it invites double-count mistakes.
+- **Logger UX.** A convention + a label is likely enough for v1 (no per-side set splitting); a "per side / both sides" toggle is a possible follow-up but adds UI and edge cases. Decide whether one logged set means "one set performed on each side" (most common) and document it.
+- **Effects.** Fatigue: none. Suggested weight/progression: self-consistent if the user always logs per-hand (the 1RM and the prescription stay in per-hand units); beware mixing conventions in historical data. Existing logged data: no migration needed if the convention is applied going forward, but old combined-weight rows for unilateral lifts would skew 1RM/progression — a one-time data note may be warranted.
+- **Cost/benefit.** Full data-model change (per-side records) is expensive and unnecessary for v1; a `unilateral` flag + a documented per-hand convention is cheap and fixes the ambiguity.
+
+### Questions for the user
+
+1. **Part 1 item 4 (the blocker):** should last-set prefill **override** the accepted plan's suggested weight/reps, or only apply when the plan has **no** suggestion for that exercise?
+2. **Part 2:** adopt the per-muscle **involvement-weight** model (0.0–1.0) for v1, or keep binary and only improve seed tags? And is manual tagging with seeded defaults acceptable (vs. wanting auto-estimation)?
+3. **Part 3:** should the fixed-weight ceiling live **per exercise** or **per equipment** (user-configurable in the Equipment tab)?
+4. **Part 4:** confirm **per-hand weight** as the standard, and whether to add a `unilateral` catalog flag and/or a Logger per-side toggle.
+5. Confirm ordering: Part 1 items 1–3 first (Phase 2), item 4 after your answer, Parts 2–4 as separate approvals.
+
+### Answers (2026-09-30)
+
+1. **Part 1 item 4:** last-set prefill applies **only when the plan has no suggestion** for that exercise (plan suggestion wins when present). Unblocked.
+2. **Part 2:** adopt the **per-muscle involvement-weight (0.0–1.0)** model; **manual tagging with seeded defaults is acceptable** (no auto-estimation for v1).
+3. **Part 3:** the fixed-weight ceiling lives **per equipment** (user-configurable in the Equipment tab).
+4. **Part 4:** standard is **per-hand weight** (existing proposal); catalog `unilateral` flag / Logger per-side toggle still open.
+5. Ordering confirmed: Part 1 items 1–4 (Phase 2), Parts 2–4 as separate approvals.
