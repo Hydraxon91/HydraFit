@@ -80,7 +80,7 @@
 
 - [x] **Delete a logged set (fat-finger guard).** `WorkoutLog.sq` gained `deleteSet(id)`; `WorkoutLogRepository.delete(id)` (+ `SqlDelightWorkoutLogRepository`) and a `DeleteWorkoutSetUseCase`; `LoggedSetRow` carries the set `id`; the Log tab's recent-set rows gained a Delete action. Removing a row fixes fatigue/heatmap automatically (they read logged sets). **Hard delete, no schema change**; per-set edit and Undo remain follow-ups. Tests: repo delete, use case, ViewModel delete. Verified on `emulator-5554`.
 - [x] **Delete a plan from plan history.** `PlanHistory.sq` gained `deleteEntriesForPlan`/`deleteDaysForPlan`/`deletePlan`; `PlanHistoryRepository.delete(planId)` (transactional) and `AcceptedPlan.id` (the stored row id); the Plan tab's history rows gained a Delete action. Deleting the latest plan **rewinds** the accept-ordinal week and regenerates. No schema change. Tests: repo cascade delete (+ `id` round-trip), ViewModel delete. Verified on `emulator-5554`.
-- [ ] **Auto-add the planned exercises to the Logger — decided: confirmed drafts.** The Logger follows the accepted plan's scheduled day but each exercise is entered by hand; auto-populate today's planned exercises as **draft rows that must be confirmed**, so drafts never count toward fatigue/heatmap/logged sets. Requires a draft-vs-logged distinction in the Logger UI/state. Not implemented yet.
+- [ ] **Auto-add the planned exercises to the Logger — decided: confirmed drafts** (see "Open work proposals A"). The Logger follows the accepted plan's scheduled day but each exercise is entered by hand; auto-populate today's planned exercises as **draft rows that must be confirmed**, so drafts never count toward fatigue/heatmap/logged sets. Requires a draft-vs-logged distinction in the Logger UI/state. Not implemented yet.
 - **Related limitation.** Deterministic progression keys off the accepted-plan prescription and completed-session streaks; repeated set failures are only coarsely captured (`failureStreak = 3 → −1`), and a mis-planned/deleted week can't correct it. Still open.
 
 ### Custom exercises (approved plan)
@@ -156,17 +156,17 @@
 - **UI.** SplitBuilder shows "Week N · Cycle M" plus a "Deload week" label; history entries include the week.
 - **Koin fix.** The plan-inputs graph had been resolving `ProgressWeightsUseCase` from a Kotlin constructor default while the binding used a positional `get()` chain; adding `PeriodizationConfig` grew the chain to 7 and forced a real lookup of an unbound type, crashing the Plan screen with `NoDefinitionFoundException`. Fixed by binding `ProgressWeightsUseCase` and switching to `singleOf(::ObserveWorkoutPlanInputsUseCase)` with the collaborator defaults removed, so a missing binding fails loudly. A runtime-resolution Koin test (`KoinModulesVerificationTest.thePlanInputsGraphResolvesAtRuntime`) guards this where `verify()` does not reflect lambda/`singleOf` definitions.
 
-### Manual PRs / new-user weight seeding (proposed)
+### Manual PRs / new-user weight seeding (proposed — see "Open work proposals B")
 
 > Gap: `SuggestWeightsUseCase` derives a 1RM only from logged sets, so a brand-new user (no `workoutSet` rows) gets no suggested weights and progressive overload has no baseline. There is no manual PR entry, onboarding, or `personalRecord` storage today.
 
-- **Storage.** Schema v17 + `16.sqm`: `personalRecord(exerciseId TEXT PRIMARY KEY, weightKg REAL NOT NULL, reps INTEGER NOT NULL, updatedAt INTEGER NOT NULL)` — one best set per exercise. `PersonalRecordRepository` port (`:core:userdata`) with `observe(): Flow<Map<String, Double>>` (exerciseId → Epley 1RM), `set(exerciseId, weightKg, reps)`, `clear(exerciseId)`; `SqlDelightPersonalRecordRepository` in `:core:database`.
-- **Wiring (no new domain dependency).** Add `personalRecords` to `WorkoutPlanSources` and have `SqlDelightWorkoutPlanSourcesRepository` combine the new flow, so `ObserveWorkoutPlanInputsUseCase` receives manual PRs through the existing bundle and keeps its 8-arg constructor. Baseline per exercise = `max(logged-set Epley 1RM, manual PR 1RM)`.
+- **Storage.** Next free migration (currently `21.sqm`, schema **v22**): `personalRecord(exerciseId TEXT PRIMARY KEY, weightKg REAL NOT NULL, reps INTEGER NOT NULL, updatedAt INTEGER NOT NULL)` — one best set per exercise. `PersonalRecordRepository` port (`:core:userdata`) with `observe(): Flow<Map<String, Double>>` (exerciseId → Epley 1RM), `set(exerciseId, weightKg, reps)`, `clear(exerciseId)`; `SqlDelightPersonalRecordRepository` in `:core:database`.
+- **Wiring (no new domain dependency).** Add `personalRecords` to `WorkoutPlanSources` and have `SqlDelightWorkoutPlanSourcesRepository` combine the new flow, so `ObserveWorkoutPlanInputsUseCase` receives manual PRs through the existing bundle and its constructor is unchanged. Baseline per exercise = `max(logged-set Epley 1RM, manual PR 1RM)`.
 - **Pure logic.** Reuse the Epley conversion (`weight × (1 + reps/30)`, reps ≤ `maxRepsForEstimate`) for manual entries — either extract a shared `estimatedOneRepMax` helper or feed PRs through `SuggestWeightsUseCase`.
 - **UI.** A "Your lifts / Personal records" section (Settings, or the Equipment tab) to enter/edit/clear a best set per exercise; optionally an onboarding prompt listing the common compounds (squat, bench, deadlift, overhead press, row).
 - **Interactions.** Progressive overload increments the seeded baseline unchanged; a later logged set supersedes the manual PR via the `max`. No effect on fatigue (PRs are not logged sets).
 
-### Local time, day rollover & break detection (proposed)
+### Local time, day rollover & break detection (proposed — see "Open work proposals C")
 
 > Today the "day" is a UTC epoch-day (`dayOfWeek`, the `performedAtMillis / MILLIS_PER_DAY` session buckets) and the Logger computes the current day only when the accepted-plan flow emits, so "today's focus" can be wrong for local users and goes stale across midnight.
 
@@ -174,7 +174,7 @@
 - **Day-change tick.** The Logger recomputes `dayFor(dayOfWeek(now))` only on VM init and `observeAcceptedPlan()` emissions (WorkoutLoggerViewModel.kt:110), so it shows yesterday's focus if left open past midnight. Add a day-change tick (a flow that emits when the local day changes) or recompute on `ON_RESUME` so focus/prefill refresh.
 - **Break / gap detection (optional).** Because the week is accept-ordinal, a long layoff resumes at "Week N+1" with fatigue already decayed to near-zero. Consider detecting the gap since the last accepted plan and either restarting the cycle at Week 1 or prompting "you've been away — start a new cycle / deload?". Would run before the next `ObserveWorkoutPlanInputsUseCase` build.
 
-### Log tab: recent-set day context (proposed)
+### Log tab: recent-set day context (proposed — see "Open work proposals D")
 
 - [x] **Unit suffix on recent sets.** The recent-set row now appends the selected unit (`state.weightUnit.label` = `kg`/`lb`) after the weight, matching the weight field label. Presentational, no schema change.
 - **Week/cycle + day on recent sets.** Show which week and day each logged set belonged to. `workoutSet` stores no week/day, so decide: (a) **derive** it at display time by matching the set's timestamp to the accepted plan active then (no schema change, but depends on plan history being intact), or (b) **snapshot** `weekNumber`/`cycleNumber`/`dayIndex` (or focus) onto `workoutSet` at log time (new schema version + `.sqm`, migration). Recommend (b) for stability now that plan-history editing (above) can delete/rewrite plans, since deriving would re-map old sets.
@@ -188,8 +188,7 @@
 
 ## 2026-09-30 — Real-use feedback batch (Parts 1–4)
 
-> Source: notes from real use on the phone. Phase 1 recorded these only; nothing below is implemented.
-> Part 1 items are each their own commit (Phase 2, gated on "go"); Parts 2–4 are investigation + proposal only.
+> Source: notes from real use on the phone. **Parts 1–4 are implemented:** Part 1 (Logger fixes), Part 2 (per-muscle involvement weights + variants), Part 3 (per-equipment max weight), Part 4 (unilateral flag). The items still to implement are listed under "Open work proposals" at the end of this document.
 
 ### Part 1 — Small fixes (each its own commit)
 
@@ -221,7 +220,7 @@
   - *Interaction:* if Part 4 adopts a per-hand vs combined convention, "last set" prefill must record/restore that convention consistently; so this item is sequenced after the Part 4 decision.
   - *Files likely to change:* `WorkoutLoggerViewModel.kt` (and possibly a small domain use case).
 
-### Part 2 — Exercise intensity, variants, and muscle-involvement modeling (approved — implementing)
+### Part 2 — Exercise intensity, variants, and muscle-involvement modeling (implemented)
 
 > Consolidates the notes: "how intense are variants like normal vs incline bench", "integrate intensity into exercises added to the DB", "auto-calculate intensity", "more scientific seeding (bench isn't chest-only; add core/shoulders as secondary)", "add variants like hammer curl, supinated curls, etc. with muscle effects".
 
@@ -249,7 +248,9 @@
 - [x] **P2.5 Seed fix + backfill / P2.6 Variants** — commit `0a34366`. Barbell bench corrected (chest 1.0; shoulders/triceps 0.4; core 0.2); seven variants added (hammer/supinated/preacher curl, close/wide-grip pulldown, incline/decline press); `updateInvolvements` backfills **only where null** and never touches overrides/custom rows. Also fixed an override-precedence bug: an override with tags but no involvements now derives from its own tags, not the seed's involvements.
 - [x] **P2.7 Tests + verification** — `testAndroidHostTest`, `ktlintCheck`, `:androidApp:assembleDebug`, iOS compile green; emulator shows the tier chips (Back Squat: Quads·Primary, Glutes·Primary, Hamstrings·Mid, Core·Mid). New tests: involvements migration, weighted ordering, low-weight non-skip, catalog involvement round-trip, seed backfill + null-only guard + variants.
 
-**Follow-up — AWAITING APPROVAL (do not run).** A **contract migration** (schema v20 + `19.sqm`) that converts every row to `involvements` and drops `primaryMuscles`/`secondaryMuscles`.
+#### Contract migration (implemented)
+
+A migration that converts every row to `involvements` and drops `primaryMuscles`/`secondaryMuscles`.
 - **Losslessness — confirmed by construction and on both real DBs.** The legacy effective mapping *is* `primary → 1.0, secondary → 0.5` (`Exercise.effectiveInvolvements`), so converting tags→weights reproduces current behaviour exactly. Read-only scans: **phone `RZCY206L53M`** (schema v16) has 51 exercises (45 seed + 6 custom), **no empty-primary** row, **no muscle in both primary and secondary**, 57 `workoutSet` rows all carrying a snapshot, and 0 overrides; `emulator-5554` (pre-variants) showed the same clean shape. Nothing collides, and no explicit weight would be overwritten.
 - **Required shape (to stay lossless):**
   1. `exercise` / `exerciseOverride`: `UPDATE ... SET involvements = <derived from that row's own tags> WHERE involvements IS NULL` — never overwrite an existing (explicit) value, and derive from the row's own tags (not the seed's).
@@ -260,7 +261,7 @@
 - [x] **Column drop done** — schema v21 + `20.sqm`, commit `59832fd`. Each table is rebuilt without `primaryMuscles`/`secondaryMuscles` (table-rebuild because `minSdk 24` predates SQLite 3.35's `DROP COLUMN`); repos/ports now read & write `involvements` only and the catalog derives the display tags (≥ 0.7 = primary). Verified on `emulator-5554`: the full v16→v21 chain runs, the tag columns are gone from all three tables, and 52 exercises + 9 logged sets survive.
 - **Behavioural note:** the null-only conversion runs before the seed, so an **existing** DB keeps legacy-equivalent weights (e.g. bench `CHEST:1.0, SHOULDERS:0.5, TRICEPS:0.5`) rather than the corrected seed values (`SHOULDERS:0.4…`); a **fresh** install gets the corrected seed. Deliberate — existing data is never overwritten — but worth knowing if the improved seeding is expected for existing users.
 
-### Part 3 — Fixed-weight machines (proposal)
+### Part 3 — Fixed-weight machines (implemented)
 
 - **Current model (confirmed).** There is **no weight-ceiling concept** anywhere: `Exercise` has no max weight, the `equipment` table is `(id, name, isBuiltIn)`, and `SuggestedWeightConfig`/engines never clamp against a machine limit. A machine that maxes at 100 kg can receive a 120 kg suggestion.
 - **Proposed model.** Add a per-exercise (or per-equipment) **`maxWeightKg` optional ceiling**, and a **plate-loaded vs fixed-stack** marker:
@@ -283,7 +284,7 @@
 
 > Schema note: this takes v18 + `17.sqm` (v17 + `16.sqm` was used by Part 4).
 
-### Part 4 — Unilateral (one hand at a time) exercises (proposal)
+### Part 4 — Unilateral (one hand at a time) exercises (implemented)
 
 > Note: "for one-hand-at-a-time exercises like dumbbell curls, do I add per hand (10×18kg twice) or combine both hands (10×36)?"
 
@@ -304,9 +305,7 @@
 - [x] **P4.5 Equipment editor.** Done (`12235db`). "Unilateral (per hand)" switch in the editor, threaded for both built-in and custom paths.
 - [x] **P4.6 Logger label.** Done (`042d5a4`). "Per hand" hint under the weight field when the selected exercise is unilateral; logging unchanged (stored value is per-hand).
 - [x] **P4.7 Tests + verification.** Done. New tests: `ExerciseUnilateralMigrationTest` (v16→v17), seed `marksUnilateralBuiltIns…`, custom-repo `persistsTheUnilateralFlagAndCanFlipIt`, editor `seedsAndSavesTheUnilateralFlag`, logger `flagsUnilateralExercisesAsPerHand`. Full `testAndroidHostTest`, `ktlintCheck`, `:androidApp:assembleDebug`, iOS compile green; emulator: migration ran over a v16 DB, editor switch on for Dumbbell Curl, Logger shows "Per hand".
-  - Deviations: (a) `PlanHistoryMigrationTest` is now scoped to `migrate(driver, 15, 16)` because its v15 fixture only builds the planHistory tables and would fail on 16.sqm; the new `ExerciseUnilateralMigrationTest` covers 16→17. (b) **This batch took schema v17 + `16.sqm`**, so the earlier "Manual PRs" sketch (also v17/`16.sqm`) becomes **v18 + `17.sqm`** if implemented.
-
-> Note: this takes the next schema number (v17 + `16.sqm`). The earlier "Manual PRs" proposal also sketched v17/`16.sqm`; if that lands later it becomes v18 + `17.sqm`. Reconcile at implementation time.
+  - Deviations: (a) `PlanHistoryMigrationTest` is scoped to `migrate(driver, 15, 16)` because its v15 fixture only builds the planHistory tables and would fail on 16.sqm; `ExerciseUnilateralMigrationTest` covers 16→17. (b) This batch took schema v17 + `16.sqm`; after Parts 2–3 and the contract migration the DB is now at **v21**.
 
 ### Questions for the user
 
@@ -323,3 +322,54 @@
 3. **Part 3:** the fixed-weight ceiling lives **per equipment** (user-configurable in the Equipment tab).
 4. **Part 4:** standard is **per-hand weight** (existing proposal); catalog `unilateral` flag / Logger per-side toggle still open.
 5. Ordering confirmed: Part 1 items 1–4 (Phase 2), Parts 2–4 as separate approvals.
+
+## Open work proposals (2026-09-30) — not yet implemented
+
+> Everything still to do that is not in the Deferred / Open-Questions-Later lists. Each is an executable plan awaiting a "go"; ordered smallest/lowest-risk first.
+
+### A. Auto-add planned exercises to the Logger as confirmed drafts
+**Status:** PROPOSED — **no schema change**.
+**Goal:** today's accepted-plan exercises appear as draft rows; the user confirms (individually or all) to log them, so nothing counts toward fatigue/heatmap/logged sets until confirmed.
+**Approach (state-only drafts):**
+- Add `draftSets: List<DraftSet(exerciseId, name, reps, weightKg, isConfirmed)>` to `WorkoutLoggerUiState`.
+- Seed it from `acceptedToday.exercises` whenever the accepted-plan flow emits, using the plan's `reps`/`suggestedWeightKg`.
+- UI: a "Planned today" section with Confirm / Confirm all / Dismiss. Confirming logs via the existing `logWorkoutSet` path; drafts are never persisted until confirmed. Clear drafts on confirm or when the plan changes.
+**Phases:** A1 state+model; A2 seed from the accepted day; A3 UI (confirm/confirm-all/dismiss); A4 tests.
+**Files:** `feature/logger/.../WorkoutLoggerUiState.kt`, `WorkoutLoggerViewModel.kt`, `WorkoutLoggerScreen.kt`, logger `strings.xml`, `WorkoutLoggerViewModelTest.kt`.
+**Tests:** drafts seeded from the accepted day; confirming logs and removes; dismissing removes without logging; no plan → no drafts; confirm-all logs N sets.
+**Open decisions:** one draft per planned **exercise** vs per planned **set**; per-row vs bulk-only confirm; draft weight from the plan suggestion vs the last-set prefill.
+
+### B. Manual PRs / new-user weight seeding
+**Status:** PROPOSED — schema **v22 + `21.sqm`** (renumber if another migration lands first).
+**Goal:** a new user can enter current best lifts so suggested weights and progressive overload have a baseline (today there is none until sets are logged).
+**Approach:**
+- `personalRecord(exerciseId PK, weightKg, reps, updatedAt)`; `PersonalRecordRepository` (`:core:userdata`) with `observe(): Flow<Map<String, Double>>` (exerciseId → Epley 1RM), `set(...)`, `clear(...)`; `SqlDelightPersonalRecordRepository` in `:core:database`.
+- Add `personalRecords: Map<String, Double>` to `WorkoutPlanSources` (data, not a new dependency); the sources repo combines the flow.
+- `ObserveWorkoutPlanInputsUseCase` baseline = `max(logged-set Epley 1RM, manual PR)` per exercise — extract the private `estimatedOneRepMax(weight, reps)` from `SuggestWeightsUseCase` into a shared helper.
+- UI: a "Your lifts" section (Settings or Equipment tab) to enter/edit/clear a best set per exercise; seed the list with common compounds but allow any exercise.
+**Phases:** B1 schema+repo+port (+migration test); B2 `WorkoutPlanSources` + merge logic (+tests); B3 UI + VM; B4 verification.
+**Files:** `core/database/.../PersonalRecord.sq` (+`21.sqm`, `DatabaseModule.kt`), `core/userdata/.../PersonalRecordRepository.kt`, `core/domain/.../WorkoutPlanSources.kt`, `ObserveWorkoutPlanInputsUseCase.kt`, `SuggestWeightsUseCase.kt`, `SqlDelightWorkoutPlanSourcesRepository.kt`, settings/equipment UI.
+**Tests:** repo round-trip; baseline = max(manual, logged); no data → unchanged; migration test.
+**Open decisions:** default exercise list; per-hand entry for unilateral lifts; whether the manual PR also seeds the progression baseline (it would, via the same 1RM).
+
+### C. Local time, day rollover & break detection
+**Status:** PROPOSED — **no schema change** (stored timestamps stay UTC).
+**Goal:** "today" is the user's **local** day, refreshes across midnight, and a long layoff is handled sensibly.
+**Approach:**
+- `TimeProvider` gains the local UTC offset (or `localDayStartMillis` / `localDayOfWeek`); add platform `expect/actual` (Android `TimeZone`/`Calendar`, iOS `NSTimeZone`).
+- `dayOfWeek` and the `performedAtMillis / MILLIS_PER_DAY` session buckets (`ProgressWeightsUseCase`, `BuildRecentWeightsUseCase`) use the local offset; stored millis stay UTC, only bucketing/display change.
+- Logger: a day-change tick (or recompute on `ON_RESUME`) so focus/prefill refresh across midnight.
+- *(Optional)* break/gap detection: if the gap since the latest accepted plan exceeds a threshold, prompt to start a new cycle / deload.
+**Phases:** C1 domain helper + platform offset (+tests); C2 local buckets for today-focus/progression/recent-weights (+tests); C3 Logger day-change tick; C4 optional break detection.
+**Files:** `core/domain/.../time/` (`DayOfWeek.kt`, `TimeProvider.kt`), `shared/src/androidMain` + `iosMain` platform modules, `ProgressWeightsUseCase.kt`, `BuildRecentWeightsUseCase.kt`, `WorkoutLoggerViewModel.kt`.
+**Tests:** local bucketing at UTC±offsets (incl. negative); rollover tick emits once per local day.
+**Open decisions:** offset source per platform; whether break detection ships in v1.
+
+### D. Log tab: week/cycle + day context on recent sets
+**Status:** PROPOSED — schema **v23 + `22.sqm`** (after B; renumber as needed). The unit suffix already shipped.
+**Goal:** each recent-set row shows the week/day it belonged to.
+**Approach (snapshot, recommended):** add nullable `weekNumber`, `cycleNumber`, `dayIndex` (or `focus`) to `workoutSet`; `SqlDelightWorkoutLogRepository.add` fills them from the latest accepted plan; `LoggedSetRow` + the Log screen render "Week N · Day M"; legacy rows show nothing.
+**Phases:** D1 schema+repo snapshot (+migration test); D2 UI row; D3 tests.
+**Files:** `core/database/.../WorkoutLog.sq` (+`22.sqm`), `SqlDelightWorkoutLogRepository.kt`, `feature/logger/.../WorkoutLoggerUiState.kt`, `WorkoutLoggerViewModel.kt`, `WorkoutLoggerScreen.kt`, strings.
+**Tests:** snapshot written from the accepted plan; null when none; row formats correctly.
+**Open decisions:** snapshot (recommended) vs derive-by-timestamp; show focus vs day index.
