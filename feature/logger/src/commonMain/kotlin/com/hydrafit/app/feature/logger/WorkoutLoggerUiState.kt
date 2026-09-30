@@ -3,7 +3,7 @@ package com.hydrafit.app.feature.logger
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.unit.WeightUnit
 
-data class ExerciseOption(val id: String, val name: String)
+data class ExerciseOption(val id: String, val name: String, val isBodyweight: Boolean)
 
 data class LoggedSetRow(
     val id: Long,
@@ -21,8 +21,17 @@ data class WorkoutLoggerUiState(
     val isWarmup: Boolean = false,
     val recentSets: List<LoggedSetRow> = emptyList(),
     val todayFocus: SplitFocus? = null,
-    val weightUnit: WeightUnit = WeightUnit.KG
+    val weightUnit: WeightUnit = WeightUnit.KG,
+    val weightRevealed: Boolean = false
 ) {
     val canLog: Boolean
         get() = selectedExerciseId != null && (reps.toIntOrNull() ?: 0) > 0
+
+    /**
+     * Whether the weight field is shown: always for weighted exercises, and for bodyweight
+     * exercises only once the user reveals it to log a weighted variant.
+     */
+    val showWeightField: Boolean
+        get() = weightRevealed ||
+            exercises.firstOrNull { it.id == selectedExerciseId }?.isBodyweight != true
 }

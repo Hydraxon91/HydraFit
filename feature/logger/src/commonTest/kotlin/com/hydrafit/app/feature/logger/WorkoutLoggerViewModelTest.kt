@@ -111,6 +111,66 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun hidesTheWeightFieldForBodyweightExercisesUntilRevealed() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("plank")
+        assertFalse(viewModel.state.value.showWeightField)
+
+        viewModel.onRevealWeight()
+        assertTrue(viewModel.state.value.showWeightField)
+    }
+
+    @Test
+    fun neverLogsAWeightForAHiddenBodyweightField() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("plank")
+        viewModel.onRepsChanged("10")
+        viewModel.onWeightChanged("50")
+        viewModel.log()
+        advanceUntilIdle()
+
+        assertEquals(null, repository.all().single().weightKg)
+    }
+
+    @Test
+    fun logsAWeightWhenABodyweightExerciseIsRevealed() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("plank")
+        viewModel.onRevealWeight()
+        viewModel.onRepsChanged("10")
+        viewModel.onWeightChanged("10")
+        viewModel.log()
+        advanceUntilIdle()
+
+        assertEquals(10.0, repository.all().single().weightKg)
+    }
+
+    @Test
+    fun prefillsARevealedBodyweightWeightFromTheAcceptedPlan() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("plank"), suggestedWeightKg = 42.0)
+        )
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("plank")
+        assertFalse(viewModel.state.value.showWeightField)
+        assertEquals("42", viewModel.state.value.weightInput)
+
+        viewModel.onRevealWeight()
+        assertTrue(viewModel.state.value.showWeightField)
+        assertEquals("42", viewModel.state.value.weightInput)
+    }
+
+    @Test
     fun ignoresInvalidInput() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val viewModel = viewModel(repository)

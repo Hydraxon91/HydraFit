@@ -6,6 +6,7 @@ import com.hydrafit.app.core.domain.engine.AcceptedDay
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
+import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.dayOfWeek
@@ -67,9 +68,16 @@ class WorkoutLoggerViewModel(
             it.copy(
                 selectedExerciseId = exerciseId,
                 weightInput = suggestedInputFor(exerciseId, it.weightUnit),
-                reps = suggestedRepsFor(exerciseId) ?: it.reps
+                reps = suggestedRepsFor(exerciseId) ?: it.reps,
+                // Bodyweight exercises hide the weight field again on each selection.
+                weightRevealed = false
             )
         }
+    }
+
+    /** Reveals the weight field for a bodyweight exercise so a weighted variant can be logged. */
+    fun onRevealWeight() {
+        _state.update { it.copy(weightRevealed = true) }
     }
 
     fun onRepsChanged(value: String) {
@@ -98,8 +106,14 @@ class WorkoutLoggerViewModel(
         val exerciseId = current.selectedExerciseId ?: return
         val reps = current.reps.toIntOrNull() ?: return
         if (reps <= 0) return
-        val weightKg = current.weightInput.toDoubleOrNull()
-            ?.let { current.weightUnit.displayToKilograms(it) }
+        // A hidden weight field (bodyweight exercise not revealed) never logs a weight, even if a
+        // value was retained from a previous exercise.
+        val weightKg = if (current.showWeightField) {
+            current.weightInput.toDoubleOrNull()
+                ?.let { current.weightUnit.displayToKilograms(it) }
+        } else {
+            null
+        }
 
         viewModelScope.launch {
             logWorkoutSet(
@@ -158,7 +172,14 @@ class WorkoutLoggerViewModel(
             ?.toMap()
             .orEmpty()
         return exercises
-            .map { ExerciseOption(id = it.id, name = it.name) }
+            .map {
+                ExerciseOption(
+                    id = it.id,
+                    name = it.name,
+                    isBodyweight = it.requiredEquipment.isEmpty() ||
+                        EquipmentTag.BODYWEIGHT in it.requiredEquipment
+                )
+            }
             .sortedWith(compareBy({ priority[it.id] ?: Int.MAX_VALUE }, { it.name }))
     }
 

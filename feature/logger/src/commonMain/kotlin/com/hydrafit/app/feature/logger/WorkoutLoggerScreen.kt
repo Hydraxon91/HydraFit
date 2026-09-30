@@ -37,6 +37,7 @@ import hydrafit.feature.logger.generated.resources.focus_lower
 import hydrafit.feature.logger.generated.resources.focus_pull
 import hydrafit.feature.logger.generated.resources.focus_push
 import hydrafit.feature.logger.generated.resources.focus_upper
+import hydrafit.feature.logger.generated.resources.logger_add_weight
 import hydrafit.feature.logger.generated.resources.logger_delete_set
 import hydrafit.feature.logger.generated.resources.logger_log_button
 import hydrafit.feature.logger.generated.resources.logger_recent
@@ -78,6 +79,7 @@ fun WorkoutLoggerRoute(
         onWarmupToggled = viewModel::onWarmupToggled,
         onLog = viewModel::log,
         onDeleteSet = viewModel::deleteSet,
+        onRevealWeight = viewModel::onRevealWeight,
         modifier = modifier
     )
 }
@@ -91,6 +93,7 @@ fun WorkoutLoggerScreen(
     onWarmupToggled: (Boolean) -> Unit,
     onLog: () -> Unit,
     onDeleteSet: (Long) -> Unit,
+    onRevealWeight: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     // One scroll container for the whole screen: a fixed-height picker inside a non-scrolling
@@ -152,16 +155,22 @@ fun WorkoutLoggerScreen(
             )
         }
         item {
-            OutlinedTextField(
-                value = state.weightInput,
-                onValueChange = onWeightChanged,
-                label = {
-                    Text(stringResource(Res.string.logger_weight_label, state.weightUnit.label))
-                },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (state.showWeightField) {
+                OutlinedTextField(
+                    value = state.weightInput,
+                    onValueChange = onWeightChanged,
+                    label = {
+                        Text(stringResource(Res.string.logger_weight_label, state.weightUnit.label))
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else {
+                TextButton(onClick = onRevealWeight) {
+                    Text(stringResource(Res.string.logger_add_weight))
+                }
+            }
         }
         item {
             Row(
