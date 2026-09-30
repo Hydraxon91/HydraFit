@@ -1,7 +1,12 @@
 package com.hydrafit.app.core.database
 
+import app.cash.sqldelight.coroutines.asFlow
+import app.cash.sqldelight.coroutines.mapToList
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.equipment.Exercise
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 
 class SqlDelightExerciseCatalog(database: HydraFitDatabase) : ExerciseCatalog {
     private val queries = database.exerciseQueries
@@ -11,24 +16,27 @@ class SqlDelightExerciseCatalog(database: HydraFitDatabase) : ExerciseCatalog {
         val overrides = overrideQueries.selectAll().executeAsList()
             .associateBy { it.exerciseId }
         return queries.selectAll().executeAsList().map { row ->
-            val override = overrides[row.id]
-            Exercise(
-                id = row.id,
-                name = override?.name ?: row.name,
-                requiredEquipment = decodeEquipment(
-                    override?.requiredEquipment ?: row.requiredEquipment
-                ),
-                primaryMuscles = decodeMuscles(
-                    override?.primaryMuscles ?: row.primaryMuscles
-                ),
-                secondaryMuscles = decodeMuscles(
-                    override?.secondaryMuscles ?: row.secondaryMuscles
-                ),
-                movementPattern = decodeMovementPattern(
-                    override?.movementPattern ?: row.movementPattern
-                ),
-                isCustom = row.isCustom != 0L
-            )
+            row.toDomain(overrides[row.id])
         }
     }
+
+    override fun observeAll(): Flow<List<Exercise>> = combine(
+        queries.selectAll().asFlow().mapToList(Dispatchers.Default),
+        overrideQueries.selectAll().asFlow().mapToList(Dispatchers.Default)
+    ) { rows, overrideRows ->
+        val overrides = overrideRows.associateBy { it.exerciseId }
+        rows.map { row -> row.toDomain(overrides[row.id]) }
+    }
+
+    private fun com.hydrafit.app.core.database.Exercise.toDomain(
+        override: ExerciseOverride?
+    ): Exercise = Exercise(
+        id = id,
+        name = override?.name ?: name,
+        requiredEquipment = decodeEquipment(override?.requiredEquipment ?: requiredEquipment),
+        primaryMuscles = decodeMuscles(override?.primaryMuscles ?: primaryMuscles),
+        secondaryMuscles = decodeMuscles(override?.secondaryMuscles ?: secondaryMuscles),
+        movementPattern = decodeMovementPattern(override?.movementPattern ?: movementPattern),
+        isCustom = isCustom != 0L
+    )
 }

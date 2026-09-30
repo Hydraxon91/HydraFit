@@ -44,14 +44,17 @@ class WorkoutLoggerViewModel(
 
     init {
         viewModelScope.launch {
-            exercises = exerciseCatalog.all()
-            exerciseNames = exercises.associate { it.id to it.name }
-            _state.update { current ->
-                current.copy(
-                    exercises = prioritizedByToday(exercises, acceptedToday)
-                )
+            // Observe the catalog so a newly added/edited custom exercise appears without a restart.
+            exerciseCatalog.observeAll().collect { catalog ->
+                exercises = catalog
+                exerciseNames = catalog.associate { it.id to it.name }
+                _state.update { current ->
+                    current.copy(
+                        exercises = prioritizedByToday(catalog, acceptedToday)
+                    )
+                }
+                refreshRecentSets()
             }
-            refreshRecentSets()
         }
         viewModelScope.launch {
             observeAcceptedPlan().collectLatest { plan -> updateTodayPlan(plan) }

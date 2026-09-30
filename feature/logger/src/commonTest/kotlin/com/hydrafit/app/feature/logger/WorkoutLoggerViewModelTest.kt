@@ -87,6 +87,43 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun refreshesTheExerciseListWhenTheCatalogChanges() = runTest(dispatcher) {
+        val catalog = MutableStateFlow(
+            listOf(
+                Exercise(
+                    id = "back-squat",
+                    name = "Back Squat",
+                    requiredEquipment = emptySet(),
+                    primaryMuscles = setOf(MuscleGroup.QUADS),
+                    movementPattern = MovementPattern.SQUAT
+                )
+            )
+        )
+        val reactive = object : ExerciseCatalog {
+            override suspend fun all(): List<Exercise> = catalog.value
+
+            override fun observeAll(): Flow<List<Exercise>> = catalog
+        }
+        val viewModel = viewModel(catalog = reactive)
+        advanceUntilIdle()
+        assertEquals(listOf("Back Squat"), viewModel.state.value.exercises.map { it.name })
+
+        catalog.value = catalog.value + Exercise(
+            id = "hammer-curl",
+            name = "Hammer Curl",
+            requiredEquipment = setOf(EquipmentTag.DUMBBELL),
+            primaryMuscles = setOf(MuscleGroup.BICEPS),
+            movementPattern = MovementPattern.BICEPS_ISOLATION
+        )
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("Back Squat", "Hammer Curl"),
+            viewModel.state.value.exercises.map { it.name }
+        )
+    }
+
+    @Test
     fun loggingASetPersistsItAndShowsItInHistory() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val viewModel = viewModel(repository)

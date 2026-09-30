@@ -10,6 +10,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 class SqlDelightExerciseCatalogTest {
@@ -81,6 +82,30 @@ class SqlDelightExerciseCatalogTest {
         val ids = catalog.all().map { it.id }
 
         assertEquals(listOf("a-exercise", "b-exercise"), ids)
+    }
+
+    @Test
+    fun observeAllAppliesExerciseOverrides() = runTest {
+        insert(
+            id = "bench-press",
+            name = "Bench Press",
+            equipment = setOf(EquipmentTag.BARBELL),
+            primary = setOf(MuscleGroup.CHEST),
+            secondary = emptySet()
+        )
+        SqlDelightExerciseOverrideRepository(database).update(
+            exerciseId = "bench-press",
+            name = "Flat Bench",
+            requiredEquipment = setOf(EquipmentTag.BARBELL),
+            primaryMuscles = setOf(MuscleGroup.CHEST, MuscleGroup.SHOULDERS),
+            secondaryMuscles = emptySet(),
+            movementPattern = MovementPattern.HORIZONTAL_PUSH
+        )
+
+        val exercise = catalog.observeAll().first().single()
+
+        assertEquals("Flat Bench", exercise.name)
+        assertEquals(setOf(MuscleGroup.CHEST, MuscleGroup.SHOULDERS), exercise.primaryMuscles)
     }
 
     private fun insert(
