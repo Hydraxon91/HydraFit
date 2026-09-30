@@ -29,7 +29,8 @@ interface CustomExerciseRepository {
         primaryMuscles: Set<MuscleGroup>,
         secondaryMuscles: Set<MuscleGroup>,
         movementPattern: MovementPattern,
-        isUnilateral: Boolean = false
+        isUnilateral: Boolean = false,
+        involvements: Map<MuscleGroup, Double> = emptyMap()
     ): Exercise
 
     suspend fun update(
@@ -39,7 +40,8 @@ interface CustomExerciseRepository {
         primaryMuscles: Set<MuscleGroup>,
         secondaryMuscles: Set<MuscleGroup>,
         movementPattern: MovementPattern,
-        isUnilateral: Boolean = false
+        isUnilateral: Boolean = false,
+        involvements: Map<MuscleGroup, Double> = emptyMap()
     )
 
     suspend fun delete(id: String)

@@ -83,10 +83,10 @@ class SqlDelightWorkoutLogRepositoryTest {
 
         val logged = repository.loggedSets().single()
 
-        val byMuscle = logged.targets.associate { it.muscle to it.involvement }
-        assertEquals(MuscleInvolvement.PRIMARY, byMuscle[MuscleGroup.CHEST])
-        assertEquals(MuscleInvolvement.SECONDARY, byMuscle[MuscleGroup.TRICEPS])
-        assertEquals(MuscleInvolvement.SECONDARY, byMuscle[MuscleGroup.SHOULDERS])
+        val byMuscle = logged.targets.associate { it.muscle to it.weight }
+        assertEquals(MuscleInvolvement.PRIMARY.volumeWeight, byMuscle[MuscleGroup.CHEST])
+        assertEquals(MuscleInvolvement.SECONDARY.volumeWeight, byMuscle[MuscleGroup.TRICEPS])
+        assertEquals(MuscleInvolvement.SECONDARY.volumeWeight, byMuscle[MuscleGroup.SHOULDERS])
     }
 
     @Test
@@ -102,8 +102,8 @@ class SqlDelightWorkoutLogRepositoryTest {
 
         val logged = repository.loggedSetsFlow().first().single()
 
-        val byMuscle = logged.targets.associate { it.muscle to it.involvement }
-        assertEquals(MuscleInvolvement.PRIMARY, byMuscle[MuscleGroup.CHEST])
+        val byMuscle = logged.targets.associate { it.muscle to it.weight }
+        assertEquals(MuscleInvolvement.PRIMARY.volumeWeight, byMuscle[MuscleGroup.CHEST])
         assertEquals(1L, logged.timestampMillis)
     }
 
@@ -136,14 +136,15 @@ class SqlDelightWorkoutLogRepositoryTest {
             performedAt = 1,
             isWarmup = 0,
             primaryMuscles = "CHEST",
-            secondaryMuscles = "TRICEPS"
+            secondaryMuscles = "TRICEPS",
+            involvements = null
         )
 
         val logged = repository.loggedSets().single()
 
-        val byMuscle = logged.targets.associate { it.muscle to it.involvement }
-        assertEquals(MuscleInvolvement.PRIMARY, byMuscle[MuscleGroup.CHEST])
-        assertEquals(MuscleInvolvement.SECONDARY, byMuscle[MuscleGroup.TRICEPS])
+        val byMuscle = logged.targets.associate { it.muscle to it.weight }
+        assertEquals(MuscleInvolvement.PRIMARY.volumeWeight, byMuscle[MuscleGroup.CHEST])
+        assertEquals(MuscleInvolvement.SECONDARY.volumeWeight, byMuscle[MuscleGroup.TRICEPS])
     }
 
     @Test
@@ -155,13 +156,14 @@ class SqlDelightWorkoutLogRepositoryTest {
             performedAt = 1,
             isWarmup = 0,
             primaryMuscles = null,
-            secondaryMuscles = null
+            secondaryMuscles = null,
+            involvements = null
         )
 
         val logged = repository.loggedSets().single()
 
-        val byMuscle = logged.targets.associate { it.muscle to it.involvement }
-        assertEquals(MuscleInvolvement.PRIMARY, byMuscle[MuscleGroup.CHEST])
+        val byMuscle = logged.targets.associate { it.muscle to it.weight }
+        assertEquals(MuscleInvolvement.PRIMARY.volumeWeight, byMuscle[MuscleGroup.CHEST])
     }
 
     @Test
@@ -178,8 +180,8 @@ class SqlDelightWorkoutLogRepositoryTest {
         repository.add(set(exerciseId = "barbell-bench-press", performedAt = 1))
 
         val logged = repository.loggedSets().single()
-        val byMuscle = logged.targets.associate { it.muscle to it.involvement }
-        assertEquals(MuscleInvolvement.PRIMARY, byMuscle[MuscleGroup.BACK])
+        val byMuscle = logged.targets.associate { it.muscle to it.weight }
+        assertEquals(MuscleInvolvement.PRIMARY.volumeWeight, byMuscle[MuscleGroup.BACK])
         assertNull(byMuscle[MuscleGroup.CHEST])
     }
 
@@ -197,8 +199,8 @@ class SqlDelightWorkoutLogRepositoryTest {
 
         val logged = repository.loggedSets().single()
 
-        val byMuscle = logged.targets.associate { it.muscle to it.involvement }
-        assertEquals(MuscleInvolvement.PRIMARY, byMuscle[MuscleGroup.CHEST])
+        val byMuscle = logged.targets.associate { it.muscle to it.weight }
+        assertEquals(MuscleInvolvement.PRIMARY.volumeWeight, byMuscle[MuscleGroup.CHEST])
         assertNull(byMuscle[MuscleGroup.QUADS])
     }
 

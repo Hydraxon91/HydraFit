@@ -6,7 +6,8 @@ CREATE TABLE exercise (
     secondaryMuscles TEXT NOT NULL,
     movementPattern TEXT NOT NULL,
     isCustom INTEGER NOT NULL DEFAULT 0,
-    isUnilateral INTEGER NOT NULL DEFAULT 0
+    isUnilateral INTEGER NOT NULL DEFAULT 0,
+    involvements TEXT
 );
 
 selectAll:
@@ -24,17 +25,20 @@ INSERT OR IGNORE INTO exercise(id, name, requiredEquipment, primaryMuscles, seco
 VALUES (?, ?, ?, ?, ?, ?);
 
 insertCustom:
-INSERT INTO exercise(id, name, requiredEquipment, primaryMuscles, secondaryMuscles, movementPattern, isCustom, isUnilateral)
-VALUES (?, ?, ?, ?, ?, ?, 1, ?);
+INSERT INTO exercise(id, name, requiredEquipment, primaryMuscles, secondaryMuscles, movementPattern, isCustom, isUnilateral, involvements)
+VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?);
 
 updateCustom:
 UPDATE exercise
 SET name = ?, requiredEquipment = ?, primaryMuscles = ?, secondaryMuscles = ?, movementPattern = ?,
-    isUnilateral = ?
+    isUnilateral = ?, involvements = ?
 WHERE id = ? AND isCustom = 1;
 
 updateIsUnilateral:
 UPDATE exercise SET isUnilateral = ? WHERE id = ?;
+
+updateInvolvements:
+UPDATE exercise SET involvements = ? WHERE id = ?;
 
 deleteById:
 DELETE FROM exercise WHERE id = ? AND isCustom = 1;

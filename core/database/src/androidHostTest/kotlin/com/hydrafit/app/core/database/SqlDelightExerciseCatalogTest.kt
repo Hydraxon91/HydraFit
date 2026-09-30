@@ -108,6 +108,34 @@ class SqlDelightExerciseCatalogTest {
         assertEquals(setOf(MuscleGroup.CHEST, MuscleGroup.SHOULDERS), exercise.primaryMuscles)
     }
 
+    @Test
+    fun readsInvolvementWeightsFromAnOverride() = runTest {
+        insert(
+            id = "bench",
+            name = "Bench",
+            equipment = setOf(EquipmentTag.BARBELL),
+            primary = setOf(MuscleGroup.CHEST),
+            secondary = emptySet()
+        )
+        SqlDelightExerciseOverrideRepository(database).update(
+            exerciseId = "bench",
+            name = null,
+            requiredEquipment = setOf(EquipmentTag.BARBELL),
+            primaryMuscles = setOf(MuscleGroup.CHEST),
+            secondaryMuscles = setOf(MuscleGroup.SHOULDERS),
+            movementPattern = null,
+            involvements = mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.SHOULDERS to 0.4)
+        )
+
+        val exercise = catalog.all().single { it.id == "bench" }
+
+        assertEquals(
+            mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.SHOULDERS to 0.4),
+            exercise.involvements
+        )
+        assertEquals(0.4, exercise.effectiveInvolvements.getValue(MuscleGroup.SHOULDERS))
+    }
+
     private fun insert(
         id: String,
         name: String,

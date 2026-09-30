@@ -479,6 +479,65 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun ordersCandidatesByWeightedFatigue() {
+        val evenlyLoaded = Exercise(
+            id = "even",
+            name = "even",
+            requiredEquipment = emptySet(),
+            primaryMuscles = setOf(MuscleGroup.CHEST),
+            movementPattern = MovementPattern.HORIZONTAL_PUSH,
+            involvements = mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.SHOULDERS to 1.0)
+        )
+        val lightlyLoaded = Exercise(
+            id = "light",
+            name = "light",
+            requiredEquipment = emptySet(),
+            primaryMuscles = setOf(MuscleGroup.SHOULDERS),
+            movementPattern = MovementPattern.HORIZONTAL_PUSH,
+            involvements = mapOf(MuscleGroup.CHEST to 0.3)
+        )
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                split = SplitType.PUSH_PULL_LEGS,
+                fatigue = mapOf(MuscleGroup.CHEST to 0.4, MuscleGroup.SHOULDERS to 0.4)
+            ),
+            listOf(evenlyLoaded, lightlyLoaded)
+        )
+
+        val push = plan.days.first { it.focus == SplitFocus.PUSH }
+
+        // even = 0.4; light = 0.3 x 0.4 = 0.12 -> the lightly loaded option wins.
+        assertEquals("light", push.exercises.first().exerciseId)
+    }
+
+    @Test
+    fun aLowWeightMuscleDoesNotTriggerTheSorenessSkip() {
+        val exercise = Exercise(
+            id = "bench",
+            name = "bench",
+            requiredEquipment = emptySet(),
+            primaryMuscles = setOf(MuscleGroup.SHOULDERS),
+            movementPattern = MovementPattern.HORIZONTAL_PUSH,
+            involvements = mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.SHOULDERS to 0.3)
+        )
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                split = SplitType.PUSH_PULL_LEGS,
+                fatigue = mapOf(MuscleGroup.SHOULDERS to 0.9)
+            ),
+            listOf(exercise)
+        )
+
+        val push = plan.days.first { it.focus == SplitFocus.PUSH }
+
+        // A 0.3-weight shoulder is below the 0.7 "targeted" threshold, so the sore shoulder does
+        // not skip the exercise (only its 1.0 chest matters, and that is fresh).
+        assertTrue(push.exercises.any { it.exerciseId == "bench" })
+    }
+
+    @Test
     fun omitsTheWeightWhenTheRequestHasNoOneRepMax() {
         val plan = engine.plan(
             request(daysPerWeek = 3, split = SplitType.PUSH_PULL_LEGS),

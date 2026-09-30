@@ -18,7 +18,8 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
         primaryMuscles: Set<MuscleGroup>,
         secondaryMuscles: Set<MuscleGroup>,
         movementPattern: MovementPattern,
-        isUnilateral: Boolean
+        isUnilateral: Boolean,
+        involvements: Map<MuscleGroup, Double>
     ): Exercise {
         val trimmed = validate(
             id = null,
@@ -35,7 +36,8 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
             primaryMuscles = encodeMuscles(primaryMuscles),
             secondaryMuscles = encodeMuscles(secondaryMuscles),
             movementPattern = movementPattern.name,
-            isUnilateral = if (isUnilateral) 1L else 0L
+            isUnilateral = if (isUnilateral) 1L else 0L,
+            involvements = encodeInvolvements(involvements)
         )
         return Exercise(
             id = id,
@@ -45,7 +47,8 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
             secondaryMuscles = secondaryMuscles,
             movementPattern = movementPattern,
             isCustom = true,
-            isUnilateral = isUnilateral
+            isUnilateral = isUnilateral,
+            involvements = involvements
         )
     }
 
@@ -56,7 +59,8 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
         primaryMuscles: Set<MuscleGroup>,
         secondaryMuscles: Set<MuscleGroup>,
         movementPattern: MovementPattern,
-        isUnilateral: Boolean
+        isUnilateral: Boolean,
+        involvements: Map<MuscleGroup, Double>
     ) {
         val trimmed = validate(
             id = id,
@@ -72,6 +76,7 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
             secondaryMuscles = encodeMuscles(secondaryMuscles),
             movementPattern = movementPattern.name,
             isUnilateral = if (isUnilateral) 1L else 0L,
+            involvements = encodeInvolvements(involvements),
             id = id
         )
     }

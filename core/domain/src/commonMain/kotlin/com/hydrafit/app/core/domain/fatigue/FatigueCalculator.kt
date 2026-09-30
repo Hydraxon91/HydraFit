@@ -13,7 +13,7 @@ class FatigueCalculator(private val config: FatigueConfig = FatigueConfig()) {
             .mapNotNull { set ->
                 val volume = set.targets
                     .filter { it.muscle == muscle }
-                    .sumOf { it.involvement.volumeWeight }
+                    .sumOf { it.weight }
                 if (volume == 0.0) null else VolumeEvent(set.timestampMillis, volume)
             }
             .sortedBy { it.timestampMillis }

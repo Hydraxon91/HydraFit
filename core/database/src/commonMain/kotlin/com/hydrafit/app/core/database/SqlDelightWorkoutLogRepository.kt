@@ -30,7 +30,8 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
             performedAt = set.performedAtMillis,
             isWarmup = if (set.isWarmup) 1L else 0L,
             primaryMuscles = override?.primaryMuscles ?: seed?.primaryMuscles,
-            secondaryMuscles = override?.secondaryMuscles ?: seed?.secondaryMuscles
+            secondaryMuscles = override?.secondaryMuscles ?: seed?.secondaryMuscles,
+            involvements = override?.involvements ?: seed?.involvements
         )
     }
 
@@ -57,7 +58,7 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
 
     override suspend fun loggedSets(): List<LoggedSet> {
         val targetsByExercise = exerciseQueries.selectAll().executeAsList().associate { row ->
-            row.id to targetsOf(row.primaryMuscles, row.secondaryMuscles)
+            row.id to targetsFor(row.involvements, row.primaryMuscles, row.secondaryMuscles)
         }
         return setQueries.selectAllSets().executeAsList().mapNotNull { row ->
             val targets = row.targets() ?: targetsByExercise[row.exerciseId]
@@ -75,7 +76,7 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
         val setRows = setQueries.selectAllSets().asFlow().mapToList(Dispatchers.Default)
         return combine(exerciseRows, setRows) { exercises, sets ->
             val targetsByExercise = exercises.associate { row ->
-                row.id to targetsOf(row.primaryMuscles, row.secondaryMuscles)
+                row.id to targetsFor(row.involvements, row.primaryMuscles, row.secondaryMuscles)
             }
             sets.mapNotNull { row ->
                 val targets = row.targets() ?: targetsByExercise[row.exerciseId]
@@ -93,11 +94,28 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
         setQueries.deleteAllSets()
     }
 
-    /** Muscle targets stored on the set at log time, or null for legacy rows logged before the snapshot existed. */
-    private fun com.hydrafit.app.core.database.WorkoutSet.targets(): List<MuscleTarget>? =
-        primaryMuscles?.let { targetsOf(it, secondaryMuscles.orEmpty()) }
+    /** Targets stored on the set at log time, or null for legacy rows logged before the snapshot existed. */
+    private fun com.hydrafit.app.core.database.WorkoutSet.targets(): List<MuscleTarget>? {
+        if (involvements == null && primaryMuscles == null) return null
+        return targetsFor(involvements, primaryMuscles.orEmpty(), secondaryMuscles.orEmpty())
+    }
 
-    private fun targetsOf(primary: String, secondary: String): List<MuscleTarget> =
-        decodeMuscles(primary).map { MuscleTarget(it, MuscleInvolvement.PRIMARY) } +
-            decodeMuscles(secondary).map { MuscleTarget(it, MuscleInvolvement.SECONDARY) }
+    /** Prefers explicit involvement weights; falls back to the legacy primary/secondary tags. */
+    private fun targetsFor(
+        involvements: String?,
+        primary: String,
+        secondary: String
+    ): List<MuscleTarget> {
+        val decoded = decodeInvolvements(involvements)
+        if (decoded.isNotEmpty()) {
+            return decoded.map { MuscleTarget(it.key, it.value) }
+        }
+        val primaryTargets = decodeMuscles(primary).map {
+            MuscleTarget(it, MuscleInvolvement.PRIMARY.volumeWeight)
+        }
+        val secondaryTargets = decodeMuscles(secondary).map {
+            MuscleTarget(it, MuscleInvolvement.SECONDARY.volumeWeight)
+        }
+        return primaryTargets + secondaryTargets
+    }
 }

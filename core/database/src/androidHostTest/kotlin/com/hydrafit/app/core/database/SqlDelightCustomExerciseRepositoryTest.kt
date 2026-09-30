@@ -208,7 +208,7 @@ class SqlDelightCustomExerciseRepositoryTest {
         )
 
         val logged = SqlDelightWorkoutLogRepository(database).loggedSets().single()
-        val byMuscle = logged.targets.associate { it.muscle to it.involvement }
+        val byMuscle = logged.targets.associate { it.muscle to it.weight }
         assertEquals(setOf(MuscleGroup.SHOULDERS, MuscleGroup.TRICEPS), byMuscle.keys)
     }
 }

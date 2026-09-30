@@ -82,6 +82,10 @@ class ExerciseOverrideMigrationTest {
                 "isCustom INTEGER NOT NULL DEFAULT 0)",
             "CREATE TABLE equipment (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, " +
                 "isBuiltIn INTEGER NOT NULL DEFAULT 0)",
+            "CREATE TABLE workoutSet (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, " +
+                "exerciseId TEXT NOT NULL, reps INTEGER NOT NULL, weightKg REAL, " +
+                "performedAt INTEGER NOT NULL, isWarmup INTEGER NOT NULL DEFAULT 0, " +
+                "primaryMuscles TEXT, secondaryMuscles TEXT)",
             "CREATE TABLE exerciseEdit (exerciseId TEXT NOT NULL PRIMARY KEY, " +
                 "requiredEquipment TEXT NOT NULL)",
             "CREATE TABLE exerciseMuscleEdit (exerciseId TEXT NOT NULL PRIMARY KEY, " +

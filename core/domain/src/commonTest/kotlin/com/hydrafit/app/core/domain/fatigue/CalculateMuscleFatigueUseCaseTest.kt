@@ -18,7 +18,9 @@ class CalculateMuscleFatigueUseCaseTest {
         val sets = listOf(
             LoggedSet(
                 timestampMillis = 0L,
-                targets = listOf(MuscleTarget(MuscleGroup.CHEST, MuscleInvolvement.PRIMARY))
+                targets = listOf(
+                    MuscleTarget(MuscleGroup.CHEST, MuscleInvolvement.PRIMARY.volumeWeight)
+                )
             )
         )
 

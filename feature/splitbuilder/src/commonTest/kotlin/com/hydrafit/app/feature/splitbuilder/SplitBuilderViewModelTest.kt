@@ -280,7 +280,9 @@ class SplitBuilderViewModelTest {
             List(12) {
                 LoggedSet(
                     timestampMillis = 0L,
-                    targets = listOf(MuscleTarget(MuscleGroup.QUADS, MuscleInvolvement.PRIMARY)),
+                    targets = listOf(
+                        MuscleTarget(MuscleGroup.QUADS, MuscleInvolvement.PRIMARY.volumeWeight)
+                    ),
                     isWarmup = false
                 )
             }

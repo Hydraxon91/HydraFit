@@ -1,0 +1,3 @@
+ALTER TABLE exercise ADD COLUMN involvements TEXT;
+ALTER TABLE exerciseOverride ADD COLUMN involvements TEXT;
+ALTER TABLE workoutSet ADD COLUMN involvements TEXT;

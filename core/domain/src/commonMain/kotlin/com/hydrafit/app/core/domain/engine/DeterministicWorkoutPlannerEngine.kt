@@ -83,7 +83,7 @@ class DeterministicWorkoutPlannerEngine(
                 // one. Equipment preference only breaks ties between equally fresh candidates.
                 .minWithOrNull(
                     compareBy(
-                        { fatigueOf(it, fatigue) },
+                        { weightedFatigue(it, fatigue) },
                         { it.id in recentExerciseIdsByPattern[pattern].orEmpty() },
                         { equipmentRank(it) },
                         { it.id }
@@ -91,7 +91,7 @@ class DeterministicWorkoutPlannerEngine(
                 )
                 ?: continue
 
-            val soreness = fatigueOf(candidate, fatigue)
+            val soreness = targetedFatigue(candidate, fatigue)
             if (soreness >= FATIGUE_SKIP_THRESHOLD) continue
 
             val isCompound = candidate.movementPattern.isCompound
@@ -127,8 +127,25 @@ class DeterministicWorkoutPlannerEngine(
     private fun intensityScale(isDeload: Boolean): Double =
         if (isDeload) periodization.deloadIntensityScale else 1.0
 
-    private fun fatigueOf(exercise: Exercise, fatigue: Map<MuscleGroup, Double>): Double =
-        exercise.primaryMuscles.maxOfOrNull { fatigue[it] ?: 0.0 } ?: 0.0
+    /**
+     * Candidate ordering score: how sore the exercise leaves you, scaled by how strongly it loads
+     * each muscle. A 0.4-weighted stabiliser at high fatigue counts less than a 1.0 primary.
+     */
+    private fun weightedFatigue(exercise: Exercise, fatigue: Map<MuscleGroup, Double>): Double =
+        exercise.effectiveInvolvements.maxOfOrNull { (muscle, weight) ->
+            weight * (fatigue[muscle] ?: 0.0)
+        } ?: 0.0
+
+    /**
+     * The raw fatigue of the muscles the exercise actually targets (weight ≥ [TARGETED_THRESHOLD]),
+     * used for the skip/reduce decision so a low-weight stabiliser can't veto an exercise.
+     */
+    private fun targetedFatigue(exercise: Exercise, fatigue: Map<MuscleGroup, Double>): Double =
+        exercise.effectiveInvolvements
+            .filterValues { it >= TARGETED_THRESHOLD }
+            .keys
+            .maxOfOrNull { fatigue[it] ?: 0.0 }
+            ?: 0.0
 
     /** Prefers barbell > dumbbell > machine/kettlebell > band > pull-up bar > bodyweight. */
     private fun equipmentRank(exercise: Exercise): Int = exercise.requiredEquipment
@@ -184,6 +201,9 @@ class DeterministicWorkoutPlannerEngine(
         const val ISOLATION_REPS = 12
         const val FATIGUE_REDUCE_THRESHOLD = 0.5
         const val FATIGUE_SKIP_THRESHOLD = 0.85
+
+        /** A muscle counts as "targeted" for soreness thresholds at this involvement weight or above. */
+        const val TARGETED_THRESHOLD = 0.7
 
         /** Any user-added equipment is ranked after the built-ins until it has its own preference. */
         const val CUSTOM_EQUIPMENT_RANK = 20

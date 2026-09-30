@@ -86,7 +86,9 @@ class FatigueHeatmapViewModelTest {
 
     private fun chestSet(timestampMillis: Long) = LoggedSet(
         timestampMillis = timestampMillis,
-        targets = listOf(MuscleTarget(MuscleGroup.CHEST, MuscleInvolvement.PRIMARY))
+        targets = listOf(
+            MuscleTarget(MuscleGroup.CHEST, MuscleInvolvement.PRIMARY.volumeWeight)
+        )
     )
 
     private fun viewModel(sets: List<LoggedSet>, nowMillis: Long) = FatigueHeatmapViewModel(

@@ -322,7 +322,8 @@ class EquipmentProfilerViewModelTest {
         val primary: Set<MuscleGroup>,
         val secondary: Set<MuscleGroup>,
         val pattern: MovementPattern?,
-        val unilateral: Boolean?
+        val unilateral: Boolean?,
+        val involvements: Map<MuscleGroup, Double>?
     )
 
     private class FakeExerciseOverrideRepository : ExerciseOverrideRepository {
@@ -335,7 +336,8 @@ class EquipmentProfilerViewModelTest {
             primaryMuscles: Set<MuscleGroup>,
             secondaryMuscles: Set<MuscleGroup>,
             movementPattern: MovementPattern?,
-            unilateral: Boolean?
+            unilateral: Boolean?,
+            involvements: Map<MuscleGroup, Double>?
         ) {
             overrides[exerciseId] = StoredOverride(
                 name = name,
@@ -343,7 +345,8 @@ class EquipmentProfilerViewModelTest {
                 primary = primaryMuscles,
                 secondary = secondaryMuscles,
                 pattern = movementPattern,
-                unilateral = unilateral
+                unilateral = unilateral,
+                involvements = involvements
             )
         }
 
@@ -362,7 +365,8 @@ class EquipmentProfilerViewModelTest {
             primaryMuscles: Set<MuscleGroup>,
             secondaryMuscles: Set<MuscleGroup>,
             movementPattern: MovementPattern,
-            isUnilateral: Boolean
+            isUnilateral: Boolean,
+            involvements: Map<MuscleGroup, Double>
         ): Exercise {
             val exercise = Exercise(
                 id = "user-" + name.lowercase().replace(' ', '-'),
@@ -372,7 +376,8 @@ class EquipmentProfilerViewModelTest {
                 secondaryMuscles = secondaryMuscles,
                 movementPattern = movementPattern,
                 isCustom = true,
-                isUnilateral = isUnilateral
+                isUnilateral = isUnilateral,
+                involvements = involvements
             )
             created += exercise
             return exercise
@@ -385,7 +390,8 @@ class EquipmentProfilerViewModelTest {
             primaryMuscles: Set<MuscleGroup>,
             secondaryMuscles: Set<MuscleGroup>,
             movementPattern: MovementPattern,
-            isUnilateral: Boolean
+            isUnilateral: Boolean,
+            involvements: Map<MuscleGroup, Double>
         ) = Unit
 
         override suspend fun delete(id: String) {

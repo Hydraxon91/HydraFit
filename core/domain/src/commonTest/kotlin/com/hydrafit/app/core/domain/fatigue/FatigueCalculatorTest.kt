@@ -56,7 +56,7 @@ class FatigueCalculatorTest {
     @Test
     fun secondaryInvolvementCountsHalf() {
         val sets = List(24) {
-            loggedSet(MuscleGroup.SHOULDERS, involvement = MuscleInvolvement.SECONDARY)
+            loggedSet(MuscleGroup.SHOULDERS, weight = MuscleInvolvement.SECONDARY.volumeWeight)
         }
 
         val score = calculator.calculate(sets, nowMillis = T0).getValue(MuscleGroup.SHOULDERS)
@@ -130,11 +130,11 @@ class FatigueCalculatorTest {
         fun loggedSet(
             muscle: MuscleGroup,
             timestampMillis: Long = T0,
-            involvement: MuscleInvolvement = MuscleInvolvement.PRIMARY,
+            weight: Double = MuscleInvolvement.PRIMARY.volumeWeight,
             isWarmup: Boolean = false
         ) = LoggedSet(
             timestampMillis = timestampMillis,
-            targets = listOf(MuscleTarget(muscle, involvement)),
+            targets = listOf(MuscleTarget(muscle, weight)),
             isWarmup = isWarmup
         )
     }

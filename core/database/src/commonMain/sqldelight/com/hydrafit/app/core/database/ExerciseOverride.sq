@@ -5,7 +5,8 @@ CREATE TABLE exerciseOverride (
     primaryMuscles TEXT,
     secondaryMuscles TEXT,
     movementPattern TEXT,
-    isUnilateral INTEGER
+    isUnilateral INTEGER,
+    involvements TEXT
 );
 
 selectAll:
@@ -17,9 +18,9 @@ SELECT * FROM exerciseOverride WHERE exerciseId = ?;
 upsert:
 INSERT OR REPLACE INTO exerciseOverride(
     exerciseId, name, requiredEquipment, primaryMuscles, secondaryMuscles, movementPattern,
-    isUnilateral
+    isUnilateral, involvements
 )
-VALUES (?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteById:
 DELETE FROM exerciseOverride WHERE exerciseId = ?;
