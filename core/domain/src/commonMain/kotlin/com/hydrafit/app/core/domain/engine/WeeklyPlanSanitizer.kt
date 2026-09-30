@@ -41,7 +41,17 @@ class WeeklyPlanSanitizer(
                                     it <= MAX_SUGGESTED_WEIGHT_KG
                             }
                             ?.let { weight ->
-                                weight * if (isDeload) periodization.deloadIntensityScale else 1.0
+                                EquipmentWeightLimit.clamp(
+                                    weight * if (isDeload) {
+                                        periodization.deloadIntensityScale
+                                    } else {
+                                        1.0
+                                    },
+                                    EquipmentWeightLimit.ceilingFor(
+                                        exercise,
+                                        request.equipmentMaxWeights
+                                    )
+                                )
                             }
                     )
                 }

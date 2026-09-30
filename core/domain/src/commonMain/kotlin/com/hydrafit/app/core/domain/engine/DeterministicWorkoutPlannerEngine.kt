@@ -47,6 +47,7 @@ class DeterministicWorkoutPlannerEngine(
                     request.goal,
                     request.recentExerciseIdsByPattern,
                     request.suggestedWeightsKg,
+                    request.equipmentMaxWeights,
                     isDeload
                 )
             )
@@ -69,6 +70,7 @@ class DeterministicWorkoutPlannerEngine(
         goal: TrainingGoal,
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>>,
         suggestedWeightsKg: Map<String, Double>,
+        equipmentMaxWeights: Map<EquipmentTag, Double>,
         isDeload: Boolean
     ): List<PlannedExercise> {
         val used = mutableSetOf<String>()
@@ -108,8 +110,12 @@ class DeterministicWorkoutPlannerEngine(
                 sets = sets,
                 reps = reps,
                 suggestedWeightKg = suggestedWeightsKg[candidate.id]?.let { oneRepMax ->
-                    weightConfig.roundToIncrement(
+                    val working = weightConfig.roundToIncrement(
                         oneRepMax * weightConfig.intensityForReps(reps) * intensityScale(isDeload)
+                    )
+                    EquipmentWeightLimit.clamp(
+                        working,
+                        EquipmentWeightLimit.ceilingFor(candidate, equipmentMaxWeights)
                     )
                 }
             )

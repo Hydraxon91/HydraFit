@@ -452,6 +452,33 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun clampsTheSuggestedWeightToTheEquipmentMaximum() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                split = SplitType.PUSH_PULL_LEGS,
+                equipment = setOf(EquipmentTag.CABLE_MACHINE),
+                suggestedWeightsKg = mapOf("cable-press" to 200.0),
+                equipmentMaxWeights = mapOf(EquipmentTag.CABLE_MACHINE to 100.0)
+            ),
+            listOf(
+                exercise(
+                    "cable-press",
+                    MovementPattern.HORIZONTAL_PUSH,
+                    MuscleGroup.CHEST,
+                    setOf(EquipmentTag.CABLE_MACHINE)
+                )
+            )
+        )
+
+        val press = plan.days.first { it.focus == SplitFocus.PUSH }
+            .exercises.single { it.exerciseId == "cable-press" }
+
+        // 200 -> 152.5 before the cap; the machine maxes at 100 kg.
+        assertEquals(100.0, press.suggestedWeightKg)
+    }
+
+    @Test
     fun omitsTheWeightWhenTheRequestHasNoOneRepMax() {
         val plan = engine.plan(
             request(daysPerWeek = 3, split = SplitType.PUSH_PULL_LEGS),
@@ -543,6 +570,7 @@ class DeterministicWorkoutPlannerEngineTest {
         accessorySetsPerExercise: Int = goal.accessorySets,
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
         suggestedWeightsKg: Map<String, Double> = emptyMap(),
+        equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
         isDeload: Boolean = false
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
@@ -555,6 +583,7 @@ class DeterministicWorkoutPlannerEngineTest {
         accessorySetsPerExercise = accessorySetsPerExercise,
         recentExerciseIdsByPattern = recentExerciseIdsByPattern,
         suggestedWeightsKg = suggestedWeightsKg,
+        equipmentMaxWeights = equipmentMaxWeights,
         isDeload = isDeload
     )
 
