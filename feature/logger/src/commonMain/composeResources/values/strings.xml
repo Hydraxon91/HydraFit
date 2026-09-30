@@ -17,6 +17,10 @@
     <string name="focus_lower">Lower</string>
     <string name="focus_full_body">Full body</string>
     <string name="logger_recent">Recent sets</string>
+    <string name="logger_planned_today">Planned today</string>
+    <string name="logger_confirm">Confirm</string>
+    <string name="logger_confirm_all">Confirm all</string>
+    <string name="logger_dismiss">Dismiss</string>
     <string name="logger_warmup_suffix">(warm-up)</string>
     <string name="logger_delete_set">Delete</string>
     <string name="logger_weight_none">-</string>

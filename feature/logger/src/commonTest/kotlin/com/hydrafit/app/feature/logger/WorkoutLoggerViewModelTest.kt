@@ -203,6 +203,82 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun draftsTodaysPlannedExercises() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        advanceUntilIdle()
+
+        val draft = viewModel.state.value.draftSets.single()
+
+        assertEquals("back-squat", draft.exerciseId)
+        assertEquals(3, draft.sets)
+        assertEquals(8, draft.reps)
+        assertEquals(100.0, draft.weightKg)
+    }
+
+    @Test
+    fun confirmingADraftLogsItsSetsAndRemovesIt() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        advanceUntilIdle()
+        val draft = viewModel.state.value.draftSets.single()
+
+        viewModel.confirmDraft(draft)
+        advanceUntilIdle()
+
+        assertEquals(3, repository.all().size)
+        assertTrue(viewModel.state.value.draftSets.isEmpty())
+    }
+
+    @Test
+    fun dismissingADraftLogsNothing() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        advanceUntilIdle()
+
+        viewModel.dismissDraft(viewModel.state.value.draftSets.single())
+        advanceUntilIdle()
+
+        assertTrue(repository.all().isEmpty())
+        assertTrue(viewModel.state.value.draftSets.isEmpty())
+    }
+
+    @Test
+    fun confirmAllDraftsLogsEverything() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat", "bench-press"))
+        )
+        advanceUntilIdle()
+
+        viewModel.confirmAllDrafts()
+        advanceUntilIdle()
+
+        assertEquals(6, repository.all().size)
+        assertTrue(viewModel.state.value.draftSets.isEmpty())
+    }
+
+    @Test
+    fun hasNoDraftsWithoutAnAcceptedPlan() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.draftSets.isEmpty())
+    }
+
+    @Test
     fun loggingASetPersistsItAndShowsItInHistory() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val viewModel = viewModel(repository)

@@ -45,9 +45,13 @@ import hydrafit.feature.logger.generated.resources.focus_pull
 import hydrafit.feature.logger.generated.resources.focus_push
 import hydrafit.feature.logger.generated.resources.focus_upper
 import hydrafit.feature.logger.generated.resources.logger_add_weight
+import hydrafit.feature.logger.generated.resources.logger_confirm
+import hydrafit.feature.logger.generated.resources.logger_confirm_all
 import hydrafit.feature.logger.generated.resources.logger_delete_set
+import hydrafit.feature.logger.generated.resources.logger_dismiss
 import hydrafit.feature.logger.generated.resources.logger_log_button
 import hydrafit.feature.logger.generated.resources.logger_per_hand
+import hydrafit.feature.logger.generated.resources.logger_planned_today
 import hydrafit.feature.logger.generated.resources.logger_recent
 import hydrafit.feature.logger.generated.resources.logger_reps_label
 import hydrafit.feature.logger.generated.resources.logger_search_label
@@ -90,6 +94,9 @@ fun WorkoutLoggerRoute(
         onLog = viewModel::log,
         onDeleteSet = viewModel::deleteSet,
         onRevealWeight = viewModel::onRevealWeight,
+        onConfirmDraft = viewModel::confirmDraft,
+        onConfirmAllDrafts = viewModel::confirmAllDrafts,
+        onDismissDraft = viewModel::dismissDraft,
         modifier = modifier
     )
 }
@@ -105,6 +112,9 @@ fun WorkoutLoggerScreen(
     onLog: () -> Unit,
     onDeleteSet: (Long) -> Unit,
     onRevealWeight: () -> Unit,
+    onConfirmDraft: (DraftSet) -> Unit,
+    onConfirmAllDrafts: () -> Unit,
+    onDismissDraft: (DraftSet) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val focusManager = LocalFocusManager.current
@@ -223,6 +233,46 @@ fun WorkoutLoggerScreen(
         item {
             Button(onClick = onLog, enabled = state.canLog) {
                 Text(stringResource(Res.string.logger_log_button))
+            }
+        }
+        if (state.draftSets.isNotEmpty()) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = stringResource(Res.string.logger_planned_today),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    TextButton(onClick = onConfirmAllDrafts) {
+                        Text(stringResource(Res.string.logger_confirm_all))
+                    }
+                }
+            }
+            items(state.draftSets) { draft ->
+                val weight = draft.weightKg
+                    ?.let {
+                        formatWeight(state.weightUnit.kilogramsToDisplay(it)) +
+                            " " + state.weightUnit.label
+                    }
+                    ?: stringResource(Res.string.logger_weight_none)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "${draft.name}  ${draft.sets} x ${draft.reps} · ~$weight",
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = { onConfirmDraft(draft) }) {
+                        Text(stringResource(Res.string.logger_confirm))
+                    }
+                    TextButton(onClick = { onDismissDraft(draft) }) {
+                        Text(stringResource(Res.string.logger_dismiss))
+                    }
+                }
             }
         }
         item {

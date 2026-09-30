@@ -176,10 +176,59 @@ class WorkoutLoggerViewModel(
             current.copy(
                 exercises = prioritizedByToday(exercises, acceptedToday),
                 todayFocus = acceptedToday?.focus,
+                // Today's planned exercises become drafts the user must confirm before they count.
+                draftSets = acceptedToday?.exercises.orEmpty().map { exercise ->
+                    DraftSet(
+                        exerciseId = exercise.exerciseId,
+                        name = exercise.name,
+                        sets = exercise.sets,
+                        reps = exercise.reps,
+                        weightKg = exercise.suggestedWeightKg
+                    )
+                },
                 reps = current.reps,
                 weightInput = current.selectedExerciseId
                     ?.let { suggestedInputFor(it, current.weightUnit) }
                     ?: current.weightInput
+            )
+        }
+    }
+
+    /** Logs every set of a draft and removes it from the pending list. */
+    fun confirmDraft(draft: DraftSet) {
+        viewModelScope.launch {
+            logDraft(draft)
+            _state.update { it.copy(draftSets = it.draftSets - draft) }
+            refreshRecentSets()
+        }
+    }
+
+    /** Logs every pending draft and clears the list. */
+    fun confirmAllDrafts() {
+        val drafts = _state.value.draftSets
+        if (drafts.isEmpty()) return
+        viewModelScope.launch {
+            drafts.forEach { logDraft(it) }
+            _state.update { it.copy(draftSets = emptyList()) }
+            refreshRecentSets()
+        }
+    }
+
+    /** Removes a draft without logging anything. */
+    fun dismissDraft(draft: DraftSet) {
+        _state.update { it.copy(draftSets = it.draftSets - draft) }
+    }
+
+    private suspend fun logDraft(draft: DraftSet) {
+        repeat(draft.sets.coerceAtLeast(1)) {
+            logWorkoutSet(
+                WorkoutSet(
+                    exerciseId = draft.exerciseId,
+                    reps = draft.reps,
+                    weightKg = draft.weightKg,
+                    performedAtMillis = timeProvider.nowMillis(),
+                    isWarmup = false
+                )
             )
         }
     }

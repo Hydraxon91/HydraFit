@@ -18,6 +18,15 @@ data class LoggedSetRow(
     val isWarmup: Boolean
 )
 
+/** A planned exercise offered in the Logger; nothing here counts until it is confirmed. */
+data class DraftSet(
+    val exerciseId: String,
+    val name: String,
+    val sets: Int,
+    val reps: Int,
+    val weightKg: Double?
+)
+
 data class WorkoutLoggerUiState(
     val exercises: List<ExerciseOption> = emptyList(),
     val exerciseSearch: String = "",
@@ -26,6 +35,7 @@ data class WorkoutLoggerUiState(
     val weightInput: String = "",
     val isWarmup: Boolean = false,
     val recentSets: List<LoggedSetRow> = emptyList(),
+    val draftSets: List<DraftSet> = emptyList(),
     val todayFocus: SplitFocus? = null,
     val weightUnit: WeightUnit = WeightUnit.KG,
     val weightRevealed: Boolean = false
