@@ -156,7 +156,7 @@
 - **UI.** SplitBuilder shows "Week N · Cycle M" plus a "Deload week" label; history entries include the week.
 - **Koin fix.** The plan-inputs graph had been resolving `ProgressWeightsUseCase` from a Kotlin constructor default while the binding used a positional `get()` chain; adding `PeriodizationConfig` grew the chain to 7 and forced a real lookup of an unbound type, crashing the Plan screen with `NoDefinitionFoundException`. Fixed by binding `ProgressWeightsUseCase` and switching to `singleOf(::ObserveWorkoutPlanInputsUseCase)` with the collaborator defaults removed, so a missing binding fails loudly. A runtime-resolution Koin test (`KoinModulesVerificationTest.thePlanInputsGraphResolvesAtRuntime`) guards this where `verify()` does not reflect lambda/`singleOf` definitions.
 
-### Manual PRs / new-user weight seeding (proposed — see "Open work proposals B")
+### Manual PRs / new-user weight seeding (implemented — see "Open work proposals B")
 
 > Gap: `SuggestWeightsUseCase` derives a 1RM only from logged sets, so a brand-new user (no `workoutSet` rows) gets no suggested weights and progressive overload has no baseline. There is no manual PR entry, onboarding, or `personalRecord` storage today.
 
@@ -340,7 +340,7 @@ A migration that converts every row to `involvements` and drops `primaryMuscles`
 **Open decisions:** one draft per planned **exercise** vs per planned **set**; per-row vs bulk-only confirm; draft weight from the plan suggestion vs the last-set prefill.
 
 ### B. Manual PRs / new-user weight seeding
-**Status:** PROPOSED — schema **v22 + `21.sqm`** (renumber if another migration lands first).
+**Status:** DONE — schema **v22 + `21.sqm`**; commit `9ff8f36`.
 **Goal:** a new user can enter current best lifts so suggested weights and progressive overload have a baseline (today there is none until sets are logged).
 **Approach:**
 - `personalRecord(exerciseId PK, weightKg, reps, updatedAt)`; `PersonalRecordRepository` (`:core:userdata`) with `observe(): Flow<Map<String, Double>>` (exerciseId → Epley 1RM), `set(...)`, `clear(...)`; `SqlDelightPersonalRecordRepository` in `:core:database`.
