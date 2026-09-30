@@ -87,6 +87,62 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun prefillsFromTheLastLoggedSetWhenThePlanHasNoSuggestion() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = 4,
+                    weightKg = 70.0,
+                    performedAtMillis = 1L
+                ),
+                WorkoutSet(
+                    id = 2L,
+                    exerciseId = "back-squat",
+                    reps = 5,
+                    weightKg = 80.0,
+                    performedAtMillis = 2L
+                )
+            )
+        )
+        val viewModel = viewModel(repository = repository)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+
+        assertEquals("80", viewModel.state.value.weightInput)
+        assertEquals("5", viewModel.state.value.reps)
+    }
+
+    @Test
+    fun planSuggestionWinsOverTheLastLoggedSet() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = 5,
+                    weightKg = 80.0,
+                    performedAtMillis = 1L
+                )
+            )
+        )
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+
+        assertEquals("100", viewModel.state.value.weightInput)
+    }
+
+    @Test
     fun refreshesTheExerciseListWhenTheCatalogChanges() = runTest(dispatcher) {
         val catalog = MutableStateFlow(
             listOf(

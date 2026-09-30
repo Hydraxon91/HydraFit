@@ -67,13 +67,38 @@ class WorkoutLoggerViewModel(
     }
 
     fun onExerciseSelected(exerciseId: String) {
+        val unit = _state.value.weightUnit
+        val planWeight = suggestedInputFor(exerciseId, unit)
+        val planReps = suggestedRepsFor(exerciseId)
         _state.update {
             it.copy(
                 selectedExerciseId = exerciseId,
-                weightInput = suggestedInputFor(exerciseId, it.weightUnit),
-                reps = suggestedRepsFor(exerciseId) ?: it.reps,
+                weightInput = planWeight,
+                reps = planReps ?: it.reps,
                 // Bodyweight exercises hide the weight field again on each selection.
                 weightRevealed = false
+            )
+        }
+        // The accepted plan's suggestion wins; only fall back to the last logged set when the plan
+        // has no suggestion for this exercise.
+        if (planWeight.isBlank()) {
+            viewModelScope.launch { prefillFromLastSet(exerciseId, unit) }
+        }
+    }
+
+    /** Fills reps and weight from the most recent non-warmup set logged for this exercise. */
+    private suspend fun prefillFromLastSet(exerciseId: String, unit: WeightUnit) {
+        val last = getWorkoutLog()
+            .filter { it.exerciseId == exerciseId && !it.isWarmup }
+            .maxByOrNull { it.performedAtMillis }
+            ?: return
+        _state.update { current ->
+            if (current.selectedExerciseId != exerciseId) return@update current
+            current.copy(
+                weightInput = last.weightKg
+                    ?.let { formatWeight(unit.kilogramsToDisplay(it)) }
+                    .orEmpty(),
+                reps = last.reps.toString()
             )
         }
     }
