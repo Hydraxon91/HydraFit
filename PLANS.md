@@ -180,6 +180,7 @@
 - **Week/cycle + day on recent sets.** Show which week and day each logged set belonged to. `workoutSet` stores no week/day, so decide: (a) **derive** it at display time by matching the set's timestamp to the accepted plan active then (no schema change, but depends on plan history being intact), or (b) **snapshot** `weekNumber`/`cycleNumber`/`dayIndex` (or focus) onto `workoutSet` at log time (new schema version + `.sqm`, migration). Recommend (b) for stability now that plan-history editing (above) can delete/rewrite plans, since deriving would re-map old sets.
 
 ### Deferred (mega-plan)
+- **Signed release pipeline (deferred by decision).** A `release.yml` workflow on `v*.*.*` tags that builds a signed release APK (keystore via GitHub Actions Secrets) and attaches it to a GitHub Release, plus a `signingConfig` in `androidApp/build.gradle.kts` reading `RELEASE_KEYSTORE_*` from `local.properties` (local) and env (CI). **Not scaffolded yet** — `v0.1.0` ships a manually attached debug APK and the user generates/uploads the keystore separately. Revisit once the app is further along.
 - **Week-counter / cycle system — implemented.** Moved out of Deferred; see "Week-cycle / periodization" above (schema v16, not the v15 sketched here).
 - Settings/navigation redesign — use a coherent "Planning" section in existing Settings for goal + engine + Gemini consent; keep equipment/exercise management in the Equipment tab.
 - Local-model same-week focus-sequence prompt improvement (tracked above), not the same feature as Item 7a.
