@@ -13,11 +13,8 @@ class SuggestWeightsUseCase(private val config: SuggestedWeightConfig = Suggeste
         val weight = set.weightKg
         if (set.isWarmup || weight == null || weight <= 0.0) return@mapNotNull null
         if (set.reps !in 1..config.maxRepsForEstimate) return@mapNotNull null
-        set.exerciseId to estimatedOneRepMax(weight, set.reps)
+        set.exerciseId to OneRepMax.estimate(weight, set.reps)
     }
         .groupBy({ it.first }, { it.second })
         .mapValues { (_, estimates) -> estimates.max() }
-
-    private fun estimatedOneRepMax(weightKg: Double, reps: Int): Double =
-        weightKg * (1.0 + reps / 30.0)
 }

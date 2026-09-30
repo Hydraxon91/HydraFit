@@ -38,6 +38,7 @@ import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.unit.formatWeight
 import hydrafit.feature.equipment.generated.resources.Res
 import hydrafit.feature.equipment.generated.resources.equipment_add_button
 import hydrafit.feature.equipment.generated.resources.equipment_add_exercise
@@ -55,6 +56,10 @@ import hydrafit.feature.equipment.generated.resources.equipment_max_weight
 import hydrafit.feature.equipment.generated.resources.equipment_movement_pattern
 import hydrafit.feature.equipment.generated.resources.equipment_muscles
 import hydrafit.feature.equipment.generated.resources.equipment_name_label
+import hydrafit.feature.equipment.generated.resources.equipment_personal_records
+import hydrafit.feature.equipment.generated.resources.equipment_pr_exercise
+import hydrafit.feature.equipment.generated.resources.equipment_pr_reps
+import hydrafit.feature.equipment.generated.resources.equipment_pr_weight
 import hydrafit.feature.equipment.generated.resources.equipment_profiler_title
 import hydrafit.feature.equipment.generated.resources.equipment_remove
 import hydrafit.feature.equipment.generated.resources.equipment_search_label
@@ -120,6 +125,13 @@ fun EquipmentProfilerRoute(
         onResetExercise = viewModel::onResetExercise,
         onDeleteCustomExercise = viewModel::onDeleteCustomExercise,
         onDismissExerciseEditor = viewModel::onDismissExerciseEditor,
+        onNewPersonalRecord = viewModel::onNewPersonalRecord,
+        onPersonalRecordExerciseSelected = viewModel::onPersonalRecordExerciseSelected,
+        onPersonalRecordWeightChanged = viewModel::onPersonalRecordWeightChanged,
+        onPersonalRecordRepsChanged = viewModel::onPersonalRecordRepsChanged,
+        onSavePersonalRecord = viewModel::onSavePersonalRecord,
+        onClearPersonalRecord = viewModel::onClearPersonalRecord,
+        onDismissPersonalRecordEditor = viewModel::onDismissPersonalRecordEditor,
         modifier = modifier
     )
 }
@@ -148,6 +160,13 @@ fun EquipmentProfilerScreen(
     onResetExercise: () -> Unit,
     onDeleteCustomExercise: () -> Unit,
     onDismissExerciseEditor: () -> Unit,
+    onNewPersonalRecord: () -> Unit,
+    onPersonalRecordExerciseSelected: (String) -> Unit,
+    onPersonalRecordWeightChanged: (String) -> Unit,
+    onPersonalRecordRepsChanged: (String) -> Unit,
+    onSavePersonalRecord: () -> Unit,
+    onClearPersonalRecord: (String) -> Unit,
+    onDismissPersonalRecordEditor: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -201,6 +220,37 @@ fun EquipmentProfilerScreen(
         state.builtInExercises.forEach { exercise ->
             ExerciseSummaryRow(exercise, onEditExercise)
         }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = stringResource(Res.string.equipment_personal_records),
+                style = MaterialTheme.typography.titleMedium
+            )
+            TextButton(onClick = onNewPersonalRecord) {
+                Text(stringResource(Res.string.equipment_add_button))
+            }
+        }
+        state.personalRecords.forEach { record ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = record.exerciseName, style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = "${formatWeight(record.weightKg)} kg × ${record.reps}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                TextButton(onClick = { onClearPersonalRecord(record.exerciseId) }) {
+                    Text(stringResource(Res.string.equipment_remove))
+                }
+            }
+        }
     }
 
     if (state.equipmentEditor.isOpen) {
@@ -228,6 +278,93 @@ fun EquipmentProfilerScreen(
             onDismiss = onDismissExerciseEditor
         )
     }
+    if (state.personalRecordEditor.isOpen) {
+        PersonalRecordDialog(
+            state = state.personalRecordEditor,
+            exercises = state.exercises,
+            onExerciseSelected = onPersonalRecordExerciseSelected,
+            onWeightChanged = onPersonalRecordWeightChanged,
+            onRepsChanged = onPersonalRecordRepsChanged,
+            onSave = onSavePersonalRecord,
+            onDismiss = onDismissPersonalRecordEditor
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PersonalRecordDialog(
+    state: PersonalRecordEditorState,
+    exercises: List<Exercise>,
+    onExerciseSelected: (String) -> Unit,
+    onWeightChanged: (String) -> Unit,
+    onRepsChanged: (String) -> Unit,
+    onSave: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selected = exercises.firstOrNull { it.id == state.exerciseId }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Button(
+                onClick = onSave,
+                enabled = state.exerciseId != null &&
+                    (state.weightInput.toDoubleOrNull() ?: 0.0) > 0.0 &&
+                    (state.repsInput.toIntOrNull() ?: 0) > 0
+            ) {
+                Text(stringResource(Res.string.equipment_edit_save))
+            }
+        },
+        title = { Text(stringResource(Res.string.equipment_personal_records)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = selected?.name.orEmpty(),
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text(stringResource(Res.string.equipment_pr_exercise)) },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        exercises.forEach { exercise ->
+                            DropdownMenuItem(
+                                text = { Text(exercise.name) },
+                                onClick = {
+                                    onExerciseSelected(exercise.id)
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = state.weightInput,
+                    onValueChange = onWeightChanged,
+                    label = { Text(stringResource(Res.string.equipment_pr_weight)) },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = state.repsInput,
+                    onValueChange = onRepsChanged,
+                    label = { Text(stringResource(Res.string.equipment_pr_reps)) },
+                    singleLine = true
+                )
+            }
+        }
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)

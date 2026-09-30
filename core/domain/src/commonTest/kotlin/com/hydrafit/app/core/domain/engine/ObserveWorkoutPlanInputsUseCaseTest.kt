@@ -284,6 +284,62 @@ class ObserveWorkoutPlanInputsUseCaseTest {
     }
 
     @Test
+    fun manualPersonalRecordsSeedTheBaselineWithoutLoggedSets() = runTest {
+        val sources = FakeWorkoutPlanSourcesRepository(
+            WorkoutPlanSources(
+                availableEquipment = setOf(EquipmentTag.BARBELL),
+                selectedEngine = PlannerEngineId.DETERMINISTIC,
+                daysPerWeek = 3,
+                loggedSets = emptyList(),
+                personalRecords = listOf(PersonalRecord("bench-press", 100.0, 5))
+            )
+        )
+        val useCase = useCase(
+            sources = sources,
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { 0L },
+            planHistoryRepository = FakePlanHistoryRepository()
+        )
+
+        val request = useCase().first().request
+
+        // 100kg x 5 -> Epley 1RM 116.666..., with no logged sets.
+        assertEquals(116.66666666666667, request.suggestedWeightsKg["bench-press"])
+    }
+
+    @Test
+    fun heavierLoggedSetsSupersedeAManualPersonalRecord() = runTest {
+        val sources = FakeWorkoutPlanSourcesRepository(
+            WorkoutPlanSources(
+                availableEquipment = setOf(EquipmentTag.BARBELL),
+                selectedEngine = PlannerEngineId.DETERMINISTIC,
+                daysPerWeek = 3,
+                loggedSets = emptyList(),
+                personalRecords = listOf(PersonalRecord("bench-press", 100.0, 5)),
+                loggedWorkoutSets = listOf(
+                    WorkoutSet(
+                        exerciseId = "bench-press",
+                        reps = 5,
+                        weightKg = 120.0,
+                        performedAtMillis = 1L
+                    )
+                )
+            )
+        )
+        val useCase = useCase(
+            sources = sources,
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { 0L },
+            planHistoryRepository = FakePlanHistoryRepository()
+        )
+
+        val request = useCase().first().request
+
+        // 120 x 5 -> 140 beats the manual 116.67.
+        assertEquals(140.0, request.suggestedWeightsKg["bench-press"])
+    }
+
+    @Test
     fun sharesRecentWeightsOnlyWhenSharingIsEnabled() = runTest {
         fun sources(enabled: Boolean) = FakeWorkoutPlanSourcesRepository(
             WorkoutPlanSources(

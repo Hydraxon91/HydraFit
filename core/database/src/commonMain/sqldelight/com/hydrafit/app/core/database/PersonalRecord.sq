@@ -1,0 +1,16 @@
+CREATE TABLE personalRecord (
+    exerciseId TEXT NOT NULL PRIMARY KEY,
+    weightKg REAL NOT NULL,
+    reps INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL
+);
+
+selectAll:
+SELECT * FROM personalRecord ORDER BY exerciseId;
+
+upsert:
+INSERT OR REPLACE INTO personalRecord(exerciseId, weightKg, reps, updatedAt)
+VALUES (?, ?, ?, ?);
+
+deleteById:
+DELETE FROM personalRecord WHERE exerciseId = ?;

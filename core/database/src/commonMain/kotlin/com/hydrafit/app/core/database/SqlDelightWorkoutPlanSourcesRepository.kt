@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.database
 
+import com.hydrafit.app.core.domain.engine.PersonalRecord
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
@@ -8,6 +9,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
+import com.hydrafit.app.core.userdata.equipment.PersonalRecordRepository
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import com.hydrafit.app.core.userdata.settings.TrainingGoalRepository
 import kotlinx.coroutines.flow.Flow
@@ -19,7 +21,8 @@ class SqlDelightWorkoutPlanSourcesRepository(
     private val enginePreferenceRepository: EnginePreferenceRepository,
     private val workoutLogRepository: WorkoutLogRepository,
     private val trainingGoalRepository: TrainingGoalRepository,
-    private val equipmentRepository: EquipmentRepository
+    private val equipmentRepository: EquipmentRepository,
+    private val personalRecordRepository: PersonalRecordRepository
 ) : WorkoutPlanSourcesRepository {
 
     override fun observe(): Flow<WorkoutPlanSources> {
@@ -30,15 +33,17 @@ class SqlDelightWorkoutPlanSourcesRepository(
             loggedSets,
             loggedWorkoutSets,
             sharing,
-            equipmentRepository.observeAll()
-        ) { sets, workoutSets, enabled, inventory ->
+            equipmentRepository.observeAll(),
+            personalRecordRepository.observe()
+        ) { sets, workoutSets, enabled, inventory, records ->
             LogContext(
                 loggedSets = sets,
                 loggedWorkoutSets = workoutSets,
                 sharingEnabled = enabled,
                 equipmentMaxWeights = inventory.mapNotNull { item ->
                     item.maxWeightKg?.let { item.id to it }
-                }.toMap()
+                }.toMap(),
+                personalRecords = records
             )
         }
         return combine(
@@ -56,7 +61,8 @@ class SqlDelightWorkoutPlanSourcesRepository(
                 goal = goal,
                 loggedWorkoutSets = context.loggedWorkoutSets,
                 workoutDataSharingEnabled = context.sharingEnabled,
-                equipmentMaxWeights = context.equipmentMaxWeights
+                equipmentMaxWeights = context.equipmentMaxWeights,
+                personalRecords = context.personalRecords
             )
         }.distinctUntilChanged()
     }
@@ -65,6 +71,7 @@ class SqlDelightWorkoutPlanSourcesRepository(
         val loggedSets: List<LoggedSet>,
         val loggedWorkoutSets: List<WorkoutSet>,
         val sharingEnabled: Boolean,
-        val equipmentMaxWeights: Map<EquipmentTag, Double>
+        val equipmentMaxWeights: Map<EquipmentTag, Double>,
+        val personalRecords: List<PersonalRecord>
     )
 }

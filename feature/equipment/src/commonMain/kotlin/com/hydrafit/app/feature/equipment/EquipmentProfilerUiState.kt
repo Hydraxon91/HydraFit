@@ -37,6 +37,25 @@ data class ExerciseEditorState(
     }
 }
 
+/** A saved best set shown in the Personal records list (name resolved for display). */
+data class PersonalRecordRow(
+    val exerciseId: String,
+    val exerciseName: String,
+    val weightKg: Double,
+    val reps: Int
+)
+
+/** The personal-record dialog: which exercise, and the entered best set. */
+data class PersonalRecordEditorState(
+    val open: Boolean = false,
+    val exerciseId: String? = null,
+    val weightInput: String = "",
+    val repsInput: String = ""
+) {
+    val isOpen: Boolean
+        get() = open
+}
+
 /** The equipment item currently open in the manage dialog (rename/delete + max weight). */
 data class EquipmentEditorState(
     val tag: EquipmentTag? = null,
@@ -56,6 +75,8 @@ data class EquipmentProfilerUiState(
     val search: String = "",
     val exerciseEditor: ExerciseEditorState = ExerciseEditorState(),
     val equipmentEditor: EquipmentEditorState = EquipmentEditorState(),
+    val personalRecords: List<PersonalRecordRow> = emptyList(),
+    val personalRecordEditor: PersonalRecordEditorState = PersonalRecordEditorState(),
     val isLoading: Boolean = true
 ) {
     val canAdd: Boolean

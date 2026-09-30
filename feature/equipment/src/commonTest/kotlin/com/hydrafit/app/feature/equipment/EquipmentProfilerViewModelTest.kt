@@ -1,6 +1,7 @@
 package com.hydrafit.app.feature.equipment
 
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.PersonalRecord
 import com.hydrafit.app.core.domain.equipment.Equipment
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
@@ -11,6 +12,7 @@ import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.equipment.ExerciseOverrideRepository
+import com.hydrafit.app.core.userdata.equipment.PersonalRecordRepository
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -269,18 +271,58 @@ class EquipmentProfilerViewModelTest {
         assertTrue(viewModel.state.value.visibleExercises.isEmpty())
     }
 
+    @Test
+    fun savesAndClearsAPersonalRecord() = runTest(dispatcher) {
+        val records = FakePersonalRecordRepository()
+        val viewModel = viewModel(records = records)
+        advanceUntilIdle()
+
+        viewModel.onNewPersonalRecord()
+        viewModel.onPersonalRecordExerciseSelected("back-squat")
+        viewModel.onPersonalRecordWeightChanged("120")
+        viewModel.onPersonalRecordRepsChanged("5")
+        viewModel.onSavePersonalRecord()
+        advanceUntilIdle()
+
+        val row = viewModel.state.value.personalRecords.single()
+        assertEquals("Back Squat", row.exerciseName)
+        assertEquals(120.0, row.weightKg)
+        assertEquals(5, row.reps)
+
+        viewModel.onClearPersonalRecord("back-squat")
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.personalRecords.isEmpty())
+    }
+
     private fun viewModel(
         equipment: FakeEquipmentRepository = FakeEquipmentRepository(),
         selection: FakeSelectionRepository = FakeSelectionRepository(emptySet()),
         overrides: FakeExerciseOverrideRepository = FakeExerciseOverrideRepository(),
-        custom: FakeCustomExerciseRepository = FakeCustomExerciseRepository()
+        custom: FakeCustomExerciseRepository = FakeCustomExerciseRepository(),
+        records: FakePersonalRecordRepository = FakePersonalRecordRepository()
     ) = EquipmentProfilerViewModel(
         equipmentRepository = equipment,
         selectionRepository = selection,
         exerciseCatalog = FakeExerciseCatalog(overrides, custom),
         exerciseOverrideRepository = overrides,
-        customExerciseRepository = custom
+        customExerciseRepository = custom,
+        personalRecordRepository = records
     )
+
+    private class FakePersonalRecordRepository : PersonalRecordRepository {
+        private val state = MutableStateFlow<List<PersonalRecord>>(emptyList())
+
+        override fun observe(): Flow<List<PersonalRecord>> = state.asStateFlow()
+
+        override suspend fun set(record: PersonalRecord) {
+            state.value = state.value.filterNot { it.exerciseId == record.exerciseId } + record
+        }
+
+        override suspend fun clear(exerciseId: String) {
+            state.value = state.value.filterNot { it.exerciseId == exerciseId }
+        }
+    }
 
     private class FakeSelectionRepository(initial: Set<EquipmentTag>) :
         EquipmentSelectionRepository {

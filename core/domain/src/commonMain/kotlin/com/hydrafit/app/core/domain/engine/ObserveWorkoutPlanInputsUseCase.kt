@@ -32,6 +32,14 @@ class ObserveWorkoutPlanInputsUseCase(
         val nowMillis = timeProvider.nowMillis()
         val latestPlan = planHistoryRepository.latest()
         val (weekNumber, cycleNumber) = nextPeriodization(latestPlan)
+        // A logged set's Epley 1RM, lifted to at least any manually entered personal record.
+        val baseline = suggestWeights(current.loggedWorkoutSets).toMutableMap()
+        current.personalRecords.forEach { record ->
+            baseline[record.exerciseId] = maxOf(
+                baseline[record.exerciseId] ?: 0.0,
+                OneRepMax.estimate(record.weightKg, record.reps)
+            )
+        }
         // Accessory slots are exempt from week-over-week rotation: only compound patterns rotate.
         val recentExerciseIdsByPattern = latestPlan
             ?.days
@@ -54,7 +62,7 @@ class ObserveWorkoutPlanInputsUseCase(
                 accessorySetsPerExercise = accessorySets ?: current.goal.accessorySets,
                 recentExerciseIdsByPattern = recentExerciseIdsByPattern,
                 suggestedWeightsKg = progressWeights(
-                    baseline = suggestWeights(current.loggedWorkoutSets),
+                    baseline = baseline,
                     prescriptions = prescriptionsFrom(latestPlan),
                     sets = current.loggedWorkoutSets,
                     pauseIncrements = latestPlan?.let {

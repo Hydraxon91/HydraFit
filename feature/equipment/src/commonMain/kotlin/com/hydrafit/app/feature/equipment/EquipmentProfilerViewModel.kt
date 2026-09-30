@@ -3,6 +3,7 @@ package com.hydrafit.app.feature.equipment
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.PersonalRecord
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
@@ -12,6 +13,7 @@ import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.equipment.ExerciseOverrideRepository
+import com.hydrafit.app.core.userdata.equipment.PersonalRecordRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,11 +26,14 @@ class EquipmentProfilerViewModel(
     private val selectionRepository: EquipmentSelectionRepository,
     private val exerciseCatalog: ExerciseCatalog,
     private val exerciseOverrideRepository: ExerciseOverrideRepository,
-    private val customExerciseRepository: CustomExerciseRepository
+    private val customExerciseRepository: CustomExerciseRepository,
+    private val personalRecordRepository: PersonalRecordRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(EquipmentProfilerUiState())
     val state: StateFlow<EquipmentProfilerUiState> = _state.asStateFlow()
+
+    private var personalRecords: List<PersonalRecord> = emptyList()
 
     init {
         viewModelScope.launch {
@@ -41,6 +46,88 @@ class EquipmentProfilerViewModel(
             }
         }
         viewModelScope.launch { refreshExercises() }
+        viewModelScope.launch {
+            personalRecordRepository.observe().collectLatest { records ->
+                personalRecords = records
+                updatePersonalRecordRows()
+            }
+        }
+    }
+
+    fun onNewPersonalRecord() {
+        _state.update { it.copy(personalRecordEditor = PersonalRecordEditorState(open = true)) }
+    }
+
+    fun onPersonalRecordExerciseSelected(exerciseId: String) {
+        val existing = personalRecords.firstOrNull { it.exerciseId == exerciseId }
+        _state.update {
+            it.copy(
+                personalRecordEditor = PersonalRecordEditorState(
+                    open = true,
+                    exerciseId = exerciseId,
+                    weightInput = existing?.weightKg?.let { kg -> formatWeight(kg) }.orEmpty(),
+                    repsInput = existing?.reps?.toString().orEmpty()
+                )
+            )
+        }
+    }
+
+    fun onPersonalRecordWeightChanged(value: String) {
+        _state.update {
+            it.copy(
+                personalRecordEditor = it.personalRecordEditor.copy(
+                    weightInput = value.filter { char -> char.isDigit() || char == '.' }
+                )
+            )
+        }
+    }
+
+    fun onPersonalRecordRepsChanged(value: String) {
+        _state.update {
+            it.copy(
+                personalRecordEditor = it.personalRecordEditor.copy(
+                    repsInput = value.filter(Char::isDigit)
+                )
+            )
+        }
+    }
+
+    fun onSavePersonalRecord() {
+        val editor = _state.value.personalRecordEditor
+        val exerciseId = editor.exerciseId ?: return
+        val weightKg = editor.weightInput.toDoubleOrNull() ?: return
+        val reps = editor.repsInput.toIntOrNull() ?: return
+        if (weightKg <= 0.0 || reps <= 0) return
+        viewModelScope.launch {
+            personalRecordRepository.set(PersonalRecord(exerciseId, weightKg, reps))
+            _state.update { it.copy(personalRecordEditor = PersonalRecordEditorState()) }
+        }
+    }
+
+    fun onClearPersonalRecord(exerciseId: String) {
+        viewModelScope.launch {
+            personalRecordRepository.clear(exerciseId)
+            _state.update { it.copy(personalRecordEditor = PersonalRecordEditorState()) }
+        }
+    }
+
+    fun onDismissPersonalRecordEditor() {
+        _state.update { it.copy(personalRecordEditor = PersonalRecordEditorState()) }
+    }
+
+    private fun updatePersonalRecordRows() {
+        val names = _state.value.exercises.associate { it.id to it.name }
+        val rows = personalRecords
+            .map { record ->
+                PersonalRecordRow(
+                    exerciseId = record.exerciseId,
+                    exerciseName = names[record.exerciseId] ?: record.exerciseId,
+                    weightKg = record.weightKg,
+                    reps = record.reps
+                )
+            }
+            .sortedBy { it.exerciseName }
+        _state.update { it.copy(personalRecords = rows) }
     }
 
     fun onTagToggled(tag: EquipmentTag) {
@@ -293,9 +380,11 @@ class EquipmentProfilerViewModel(
         _state.update {
             it.copy(exercises = exerciseCatalog.all(), exerciseEditor = ExerciseEditorState())
         }
+        updatePersonalRecordRows()
     }
 
     private suspend fun refreshExercises() {
         _state.update { it.copy(exercises = exerciseCatalog.all()) }
+        updatePersonalRecordRows()
     }
 }

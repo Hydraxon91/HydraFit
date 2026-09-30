@@ -13,7 +13,8 @@ data class WorkoutPlanSources(
     val goal: TrainingGoal = TrainingGoal.BALANCED,
     val loggedWorkoutSets: List<WorkoutSet> = emptyList(),
     val workoutDataSharingEnabled: Boolean = false,
-    val equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap()
+    val equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
+    val personalRecords: List<PersonalRecord> = emptyList()
 )
 
 interface WorkoutPlanSourcesRepository {
