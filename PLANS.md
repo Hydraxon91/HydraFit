@@ -253,6 +253,21 @@
 - **Effects.** Fatigue: none. Suggested weight/progression: self-consistent if the user always logs per-hand (the 1RM and the prescription stay in per-hand units); beware mixing conventions in historical data. Existing logged data: no migration needed if the convention is applied going forward, but old combined-weight rows for unilateral lifts would skew 1RM/progression — a one-time data note may be warranted.
 - **Cost/benefit.** Full data-model change (per-side records) is expensive and unnecessary for v1; a `unilateral` flag + a documented per-hand convention is cheap and fixes the ambiguity.
 
+#### Part 4 implementation plan (approved 2026-09-30)
+
+> Scope: `unilateral` catalog flag (built-in + custom, editable) + a "per hand" label. **No** per-side toggle and **no** per-set side records. Per-hand convention documented only.
+
+- [x] **P4.1 Schema v17 + `16.sqm`.** Done (`03f49b0`). Adds `exercise.isUnilateral` (default 0) and nullable `exerciseOverride.isUnilateral`.
+- [x] **P4.2 Domain + catalog.** Done (`03f49b0`). `Exercise.isUnilateral`; catalog overlay `override?.isUnilateral ?: row.isUnilateral`.
+- [x] **P4.3 Repositories.** Done (`03f49b0`). Interface methods gained the flag (defaults on the interface); impls + equipment fakes updated.
+- [x] **P4.4 Seed.** Done (`03f49b0`). `dumbbell-curl`, `dumbbell-row`, `bulgarian-split-squat` marked unilateral; `SeedExerciseCatalog` writes **and** backfills via `updateIsUnilateral`. NOTE: the earlier reseed review in Part 2 will supersede these hand-picked defaults.
+- [x] **P4.5 Equipment editor.** Done (`12235db`). "Unilateral (per hand)" switch in the editor, threaded for both built-in and custom paths.
+- [x] **P4.6 Logger label.** Done (`042d5a4`). "Per hand" hint under the weight field when the selected exercise is unilateral; logging unchanged (stored value is per-hand).
+- [x] **P4.7 Tests + verification.** Done. New tests: `ExerciseUnilateralMigrationTest` (v16→v17), seed `marksUnilateralBuiltIns…`, custom-repo `persistsTheUnilateralFlagAndCanFlipIt`, editor `seedsAndSavesTheUnilateralFlag`, logger `flagsUnilateralExercisesAsPerHand`. Full `testAndroidHostTest`, `ktlintCheck`, `:androidApp:assembleDebug`, iOS compile green; emulator: migration ran over a v16 DB, editor switch on for Dumbbell Curl, Logger shows "Per hand".
+  - Deviations: (a) `PlanHistoryMigrationTest` is now scoped to `migrate(driver, 15, 16)` because its v15 fixture only builds the planHistory tables and would fail on 16.sqm; the new `ExerciseUnilateralMigrationTest` covers 16→17. (b) **This batch took schema v17 + `16.sqm`**, so the earlier "Manual PRs" sketch (also v17/`16.sqm`) becomes **v18 + `17.sqm`** if implemented.
+
+> Note: this takes the next schema number (v17 + `16.sqm`). The earlier "Manual PRs" proposal also sketched v17/`16.sqm`; if that lands later it becomes v18 + `17.sqm`. Reconcile at implementation time.
+
 ### Questions for the user
 
 1. **Part 1 item 4 (the blocker):** should last-set prefill **override** the accepted plan's suggested weight/reps, or only apply when the plan has **no** suggestion for that exercise?
