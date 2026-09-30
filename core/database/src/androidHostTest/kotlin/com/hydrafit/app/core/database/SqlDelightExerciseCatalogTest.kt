@@ -97,9 +97,8 @@ class SqlDelightExerciseCatalogTest {
             exerciseId = "bench-press",
             name = "Flat Bench",
             requiredEquipment = setOf(EquipmentTag.BARBELL),
-            primaryMuscles = setOf(MuscleGroup.CHEST, MuscleGroup.SHOULDERS),
-            secondaryMuscles = emptySet(),
-            movementPattern = MovementPattern.HORIZONTAL_PUSH
+            movementPattern = MovementPattern.HORIZONTAL_PUSH,
+            involvements = mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.SHOULDERS to 0.7)
         )
 
         val exercise = catalog.observeAll().first().single()
@@ -121,8 +120,6 @@ class SqlDelightExerciseCatalogTest {
             exerciseId = "bench",
             name = null,
             requiredEquipment = setOf(EquipmentTag.BARBELL),
-            primaryMuscles = setOf(MuscleGroup.CHEST),
-            secondaryMuscles = setOf(MuscleGroup.SHOULDERS),
             movementPattern = null,
             involvements = mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.SHOULDERS to 0.4)
         )
@@ -148,9 +145,13 @@ class SqlDelightExerciseCatalogTest {
             id = id,
             name = name,
             requiredEquipment = encodeEquipment(equipment),
-            primaryMuscles = encodeMuscles(primary),
-            secondaryMuscles = encodeMuscles(secondary),
             movementPattern = pattern.name
+        )
+        database.exerciseQueries.updateInvolvements(
+            involvements = encodeInvolvements(
+                primary.associateWith { 1.0 } + secondary.associateWith { 0.5 }
+            ),
+            id = id
         )
     }
 }

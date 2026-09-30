@@ -30,28 +30,23 @@ class SqlDelightExerciseCatalog(database: HydraFitDatabase) : ExerciseCatalog {
 
     private fun com.hydrafit.app.core.database.Exercise.toDomain(
         override: ExerciseOverride?
-    ): Exercise = Exercise(
-        id = id,
-        name = override?.name ?: name,
-        requiredEquipment = decodeEquipment(override?.requiredEquipment ?: requiredEquipment),
-        primaryMuscles = decodeMuscles(override?.primaryMuscles ?: primaryMuscles),
-        secondaryMuscles = decodeMuscles(override?.secondaryMuscles ?: secondaryMuscles),
-        movementPattern = decodeMovementPattern(override?.movementPattern ?: movementPattern),
-        isCustom = isCustom != 0L,
-        isUnilateral = override?.isUnilateral?.let { it != 0L } ?: (isUnilateral != 0L),
-        // An override replaces the whole row: if it has no involvements, derive them from its own
-        // tags (not the seed's involvements).
-        involvements = if (override != null) {
-            decodeInvolvements(override.involvements).ifEmpty {
-                involvementsFromTags(
-                    override.primaryMuscles.orEmpty(),
-                    override.secondaryMuscles.orEmpty()
-                )
-            }
-        } else {
-            decodeInvolvements(involvements).ifEmpty {
-                involvementsFromTags(primaryMuscles, secondaryMuscles)
-            }
-        }
-    )
+    ): Exercise {
+        val resolved = decodeInvolvements(override?.involvements ?: involvements)
+        return Exercise(
+            id = id,
+            name = override?.name ?: name,
+            requiredEquipment = decodeEquipment(override?.requiredEquipment ?: requiredEquipment),
+            primaryMuscles = resolved.filterValues { it >= PRIMARY_THRESHOLD }.keys,
+            secondaryMuscles = resolved.filterValues { it < PRIMARY_THRESHOLD }.keys,
+            movementPattern = decodeMovementPattern(override?.movementPattern ?: movementPattern),
+            isCustom = isCustom != 0L,
+            isUnilateral = override?.isUnilateral?.let { it != 0L } ?: (isUnilateral != 0L),
+            involvements = resolved
+        )
+    }
+
+    private companion object {
+        /** Involvement weight at or above which a muscle counts as a "primary" (display tag). */
+        const val PRIMARY_THRESHOLD = 0.7
+    }
 }

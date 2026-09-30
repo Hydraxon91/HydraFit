@@ -13,21 +13,17 @@ class SqlDelightExerciseOverrideRepository(database: HydraFitDatabase) :
         exerciseId: String,
         name: String?,
         requiredEquipment: Set<EquipmentTag>,
-        primaryMuscles: Set<MuscleGroup>,
-        secondaryMuscles: Set<MuscleGroup>,
         movementPattern: MovementPattern?,
         unilateral: Boolean?,
-        involvements: Map<MuscleGroup, Double>?
+        involvements: Map<MuscleGroup, Double>
     ) {
         queries.upsert(
             exerciseId = exerciseId,
             name = name,
             requiredEquipment = encodeEquipment(requiredEquipment),
-            primaryMuscles = encodeMuscles(primaryMuscles),
-            secondaryMuscles = encodeMuscles(secondaryMuscles),
             movementPattern = movementPattern?.name,
             isUnilateral = unilateral?.let { if (it) 1L else 0L },
-            involvements = encodeInvolvements(involvements.orEmpty())
+            involvements = encodeInvolvements(involvements)
         )
     }
 

@@ -128,7 +128,8 @@ class EquipmentProfilerViewModelTest {
         val stored = requireNotNull(overrides.overrides["back-squat"])
         assertEquals("Back Squat (Low Bar)", stored.name)
         assertEquals(setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH), stored.equipment)
-        assertEquals(setOf(MuscleGroup.QUADS, MuscleGroup.CHEST), stored.primary)
+        assertEquals(1.0, stored.involvements[MuscleGroup.QUADS])
+        assertEquals(1.0, stored.involvements[MuscleGroup.CHEST])
         assertNull(viewModel.state.value.exerciseEditor.exerciseId)
     }
 
@@ -136,13 +137,12 @@ class EquipmentProfilerViewModelTest {
     fun seedsAndSavesTheUnilateralFlag() = runTest(dispatcher) {
         val overrides = FakeExerciseOverrideRepository()
         overrides.update(
-            "back-squat",
-            null,
-            setOf(EquipmentTag.BARBELL),
-            setOf(MuscleGroup.QUADS),
-            setOf(MuscleGroup.GLUTES),
-            MovementPattern.SQUAT,
-            unilateral = true
+            exerciseId = "back-squat",
+            name = null,
+            requiredEquipment = setOf(EquipmentTag.BARBELL),
+            movementPattern = MovementPattern.SQUAT,
+            unilateral = true,
+            involvements = mapOf(MuscleGroup.QUADS to 1.0, MuscleGroup.GLUTES to 1.0)
         )
         val custom = FakeCustomExerciseRepository()
         val viewModel = viewModel(overrides = overrides, custom = custom)
@@ -168,12 +168,12 @@ class EquipmentProfilerViewModelTest {
     fun resetClearsBuiltInOverrides() = runTest(dispatcher) {
         val overrides = FakeExerciseOverrideRepository()
         overrides.update(
-            "back-squat",
-            "Renamed",
-            setOf(EquipmentTag.DUMBBELL),
-            setOf(MuscleGroup.QUADS),
-            emptySet(),
-            MovementPattern.SQUAT
+            exerciseId = "back-squat",
+            name = "Renamed",
+            requiredEquipment = setOf(EquipmentTag.DUMBBELL),
+            movementPattern = MovementPattern.SQUAT,
+            unilateral = null,
+            involvements = mapOf(MuscleGroup.QUADS to 1.0)
         )
         val viewModel = viewModel(overrides = overrides)
         advanceUntilIdle()
@@ -327,11 +327,9 @@ class EquipmentProfilerViewModelTest {
     private data class StoredOverride(
         val name: String?,
         val equipment: Set<EquipmentTag>,
-        val primary: Set<MuscleGroup>,
-        val secondary: Set<MuscleGroup>,
         val pattern: MovementPattern?,
         val unilateral: Boolean?,
-        val involvements: Map<MuscleGroup, Double>?
+        val involvements: Map<MuscleGroup, Double>
     )
 
     private class FakeExerciseOverrideRepository : ExerciseOverrideRepository {
@@ -341,17 +339,13 @@ class EquipmentProfilerViewModelTest {
             exerciseId: String,
             name: String?,
             requiredEquipment: Set<EquipmentTag>,
-            primaryMuscles: Set<MuscleGroup>,
-            secondaryMuscles: Set<MuscleGroup>,
             movementPattern: MovementPattern?,
             unilateral: Boolean?,
-            involvements: Map<MuscleGroup, Double>?
+            involvements: Map<MuscleGroup, Double>
         ) {
             overrides[exerciseId] = StoredOverride(
                 name = name,
                 equipment = requiredEquipment,
-                primary = primaryMuscles,
-                secondary = secondaryMuscles,
                 pattern = movementPattern,
                 unilateral = unilateral,
                 involvements = involvements
@@ -370,18 +364,16 @@ class EquipmentProfilerViewModelTest {
         override suspend fun add(
             name: String,
             requiredEquipment: Set<EquipmentTag>,
-            primaryMuscles: Set<MuscleGroup>,
-            secondaryMuscles: Set<MuscleGroup>,
+            involvements: Map<MuscleGroup, Double>,
             movementPattern: MovementPattern,
-            isUnilateral: Boolean,
-            involvements: Map<MuscleGroup, Double>
+            isUnilateral: Boolean
         ): Exercise {
             val exercise = Exercise(
                 id = "user-" + name.lowercase().replace(' ', '-'),
                 name = name,
                 requiredEquipment = requiredEquipment,
-                primaryMuscles = primaryMuscles,
-                secondaryMuscles = secondaryMuscles,
+                primaryMuscles = involvements.filterValues { it >= 0.7 }.keys,
+                secondaryMuscles = involvements.filterValues { it < 0.7 }.keys,
                 movementPattern = movementPattern,
                 isCustom = true,
                 isUnilateral = isUnilateral,
@@ -395,11 +387,9 @@ class EquipmentProfilerViewModelTest {
             id: String,
             name: String,
             requiredEquipment: Set<EquipmentTag>,
-            primaryMuscles: Set<MuscleGroup>,
-            secondaryMuscles: Set<MuscleGroup>,
+            involvements: Map<MuscleGroup, Double>,
             movementPattern: MovementPattern,
-            isUnilateral: Boolean,
-            involvements: Map<MuscleGroup, Double>
+            isUnilateral: Boolean
         ) = Unit
 
         override suspend fun delete(id: String) {
@@ -418,10 +408,13 @@ class EquipmentProfilerViewModelTest {
                     id = "back-squat",
                     name = override?.name ?: "Back Squat",
                     requiredEquipment = override?.equipment ?: setOf(EquipmentTag.BARBELL),
-                    primaryMuscles = override?.primary ?: setOf(MuscleGroup.QUADS),
-                    secondaryMuscles = override?.secondary ?: setOf(MuscleGroup.GLUTES),
+                    primaryMuscles = override?.involvements?.filterValues { it >= 0.7 }?.keys
+                        ?: setOf(MuscleGroup.QUADS),
+                    secondaryMuscles = override?.involvements?.filterValues { it < 0.7 }?.keys
+                        ?: setOf(MuscleGroup.GLUTES),
                     movementPattern = override?.pattern ?: MovementPattern.SQUAT,
-                    isUnilateral = override?.unilateral ?: false
+                    isUnilateral = override?.unilateral ?: false,
+                    involvements = override?.involvements ?: emptyMap()
                 )
             ) + custom.created
         }

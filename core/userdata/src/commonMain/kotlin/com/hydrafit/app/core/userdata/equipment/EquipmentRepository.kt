@@ -26,22 +26,18 @@ interface CustomExerciseRepository {
     suspend fun add(
         name: String,
         requiredEquipment: Set<EquipmentTag>,
-        primaryMuscles: Set<MuscleGroup>,
-        secondaryMuscles: Set<MuscleGroup>,
+        involvements: Map<MuscleGroup, Double>,
         movementPattern: MovementPattern,
-        isUnilateral: Boolean = false,
-        involvements: Map<MuscleGroup, Double> = emptyMap()
+        isUnilateral: Boolean = false
     ): Exercise
 
     suspend fun update(
         id: String,
         name: String,
         requiredEquipment: Set<EquipmentTag>,
-        primaryMuscles: Set<MuscleGroup>,
-        secondaryMuscles: Set<MuscleGroup>,
+        involvements: Map<MuscleGroup, Double>,
         movementPattern: MovementPattern,
-        isUnilateral: Boolean = false,
-        involvements: Map<MuscleGroup, Double> = emptyMap()
+        isUnilateral: Boolean = false
     )
 
     suspend fun delete(id: String)

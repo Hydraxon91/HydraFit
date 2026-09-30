@@ -124,8 +124,8 @@ class SqlDelightWorkoutLogRepositoryTest {
 
         val row = database.workoutLogQueries.selectAllSets().executeAsList().single()
 
-        assertTrue(requireNotNull(row.primaryMuscles).contains("CHEST"))
-        assertTrue(requireNotNull(row.secondaryMuscles).contains("TRICEPS"))
+        assertTrue(requireNotNull(row.involvements).contains("CHEST:1.0"))
+        assertTrue(requireNotNull(row.involvements).contains("TRICEPS"))
     }
 
     @Test
@@ -136,9 +136,7 @@ class SqlDelightWorkoutLogRepositoryTest {
             weightKg = 50.0,
             performedAt = 1,
             isWarmup = 0,
-            primaryMuscles = "CHEST",
-            secondaryMuscles = "TRICEPS",
-            involvements = null
+            involvements = "CHEST:1.0,TRICEPS:0.5"
         )
 
         val logged = repository.loggedSets().single()
@@ -156,8 +154,6 @@ class SqlDelightWorkoutLogRepositoryTest {
             weightKg = 50.0,
             performedAt = 1,
             isWarmup = 0,
-            primaryMuscles = null,
-            secondaryMuscles = null,
             involvements = null
         )
 
@@ -173,9 +169,8 @@ class SqlDelightWorkoutLogRepositoryTest {
             exerciseId = "barbell-bench-press",
             name = null,
             requiredEquipment = setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH),
-            primaryMuscles = setOf(MuscleGroup.BACK),
-            secondaryMuscles = emptySet(),
-            movementPattern = null
+            movementPattern = null,
+            involvements = mapOf(MuscleGroup.BACK to 1.0)
         )
 
         repository.add(set(exerciseId = "barbell-bench-press", performedAt = 1))
@@ -193,7 +188,7 @@ class SqlDelightWorkoutLogRepositoryTest {
         // Simulate a later catalog edit to the same, still-existing exercise.
         driver.execute(
             identifier = null,
-            sql = "UPDATE exercise SET primaryMuscles = 'QUADS', secondaryMuscles = '' " +
+            sql = "UPDATE exercise SET involvements = 'QUADS:1.0' " +
                 "WHERE id = 'barbell-bench-press'",
             parameters = 0
         )

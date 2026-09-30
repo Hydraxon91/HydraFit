@@ -8,8 +8,6 @@ class SeedExerciseCatalog(private val database: HydraFitDatabase) {
                     id = exercise.id,
                     name = exercise.name,
                     requiredEquipment = encodeEquipment(exercise.requiredEquipment),
-                    primaryMuscles = encodeMuscles(exercise.primaryMuscles),
-                    secondaryMuscles = encodeMuscles(exercise.secondaryMuscles),
                     movementPattern = exercise.movementPattern.name
                 )
                 database.exerciseQueries.updateMovementPattern(
@@ -20,8 +18,9 @@ class SeedExerciseCatalog(private val database: HydraFitDatabase) {
                     isUnilateral = if (exercise.isUnilateral) 1L else 0L,
                     id = exercise.id
                 )
-                // Fill involvement weights only where they are missing, so a user's edit is kept.
-                encodeInvolvements(exercise.involvements)?.let { encoded ->
+                // Always write involvement weights (explicit, or derived from the authored tags)
+                // but only where missing, so a user's edit is kept.
+                encodeInvolvements(exercise.effectiveInvolvements)?.let { encoded ->
                     database.exerciseQueries.updateInvolvements(
                         involvements = encoded,
                         id = exercise.id

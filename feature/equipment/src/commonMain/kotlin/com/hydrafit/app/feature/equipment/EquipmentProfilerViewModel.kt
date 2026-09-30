@@ -217,11 +217,9 @@ class EquipmentProfilerViewModel(
                         id = exerciseId,
                         name = editor.name,
                         requiredEquipment = editor.equipment,
-                        primaryMuscles = editor.primaryMuscles,
-                        secondaryMuscles = editor.secondaryMuscles,
+                        involvements = editor.involvements,
                         movementPattern = editor.movementPattern,
-                        isUnilateral = editor.isUnilateral,
-                        involvements = editor.involvements
+                        isUnilateral = editor.isUnilateral
                     )
                 } else {
                     writeBuiltInOverrides(exerciseId, editor)
@@ -240,11 +238,9 @@ class EquipmentProfilerViewModel(
             val created = customExerciseRepository.add(
                 name = editor.name,
                 requiredEquipment = editor.equipment,
-                primaryMuscles = editor.primaryMuscles,
-                secondaryMuscles = editor.secondaryMuscles,
+                involvements = editor.involvements,
                 movementPattern = editor.movementPattern,
-                isUnilateral = editor.isUnilateral,
-                involvements = editor.involvements
+                isUnilateral = editor.isUnilateral
             )
             closeEditorAndRefresh(created.id)
         } catch (failure: CustomExerciseException) {
@@ -259,8 +255,6 @@ class EquipmentProfilerViewModel(
             exerciseId = exerciseId,
             name = editor.name,
             requiredEquipment = editor.equipment,
-            primaryMuscles = editor.primaryMuscles,
-            secondaryMuscles = editor.secondaryMuscles,
             movementPattern = editor.movementPattern,
             unilateral = editor.isUnilateral,
             involvements = editor.involvements

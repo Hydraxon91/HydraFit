@@ -39,9 +39,8 @@ class SqlDelightExerciseOverrideRepositoryTest {
             exerciseId = "back-squat",
             name = "Low-Bar Back Squat",
             requiredEquipment = setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH),
-            primaryMuscles = setOf(MuscleGroup.CHEST),
-            secondaryMuscles = setOf(MuscleGroup.TRICEPS),
-            movementPattern = MovementPattern.HINGE
+            movementPattern = MovementPattern.HINGE,
+            involvements = mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.TRICEPS to 0.5)
         )
 
         val edited = catalog.exercise("back-squat")
@@ -66,9 +65,13 @@ class SqlDelightExerciseOverrideRepositoryTest {
             exerciseId = "back-squat",
             name = "Renamed Only",
             requiredEquipment = setOf(EquipmentTag.BARBELL),
-            primaryMuscles = setOf(MuscleGroup.QUADS, MuscleGroup.GLUTES),
-            secondaryMuscles = setOf(MuscleGroup.HAMSTRINGS, MuscleGroup.CORE),
-            movementPattern = MovementPattern.SQUAT
+            movementPattern = MovementPattern.SQUAT,
+            involvements = mapOf(
+                MuscleGroup.QUADS to 1.0,
+                MuscleGroup.GLUTES to 1.0,
+                MuscleGroup.HAMSTRINGS to 0.5,
+                MuscleGroup.CORE to 0.5
+            )
         )
 
         val edited = catalog.exercise("back-squat")

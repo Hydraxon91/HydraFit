@@ -2,8 +2,6 @@ CREATE TABLE exercise (
     id TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
     requiredEquipment TEXT NOT NULL,
-    primaryMuscles TEXT NOT NULL,
-    secondaryMuscles TEXT NOT NULL,
     movementPattern TEXT NOT NULL,
     isCustom INTEGER NOT NULL DEFAULT 0,
     isUnilateral INTEGER NOT NULL DEFAULT 0,
@@ -17,21 +15,20 @@ selectById:
 SELECT * FROM exercise WHERE id = ?;
 
 insert:
-INSERT INTO exercise(id, name, requiredEquipment, primaryMuscles, secondaryMuscles, movementPattern)
-VALUES (?, ?, ?, ?, ?, ?);
+INSERT INTO exercise(id, name, requiredEquipment, movementPattern)
+VALUES (?, ?, ?, ?);
 
 insertIgnore:
-INSERT OR IGNORE INTO exercise(id, name, requiredEquipment, primaryMuscles, secondaryMuscles, movementPattern)
-VALUES (?, ?, ?, ?, ?, ?);
+INSERT OR IGNORE INTO exercise(id, name, requiredEquipment, movementPattern)
+VALUES (?, ?, ?, ?);
 
 insertCustom:
-INSERT INTO exercise(id, name, requiredEquipment, primaryMuscles, secondaryMuscles, movementPattern, isCustom, isUnilateral, involvements)
-VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?);
+INSERT INTO exercise(id, name, requiredEquipment, movementPattern, isCustom, isUnilateral, involvements)
+VALUES (?, ?, ?, ?, 1, ?, ?);
 
 updateCustom:
 UPDATE exercise
-SET name = ?, requiredEquipment = ?, primaryMuscles = ?, secondaryMuscles = ?, movementPattern = ?,
-    isUnilateral = ?, involvements = ?
+SET name = ?, requiredEquipment = ?, movementPattern = ?, isUnilateral = ?, involvements = ?
 WHERE id = ? AND isCustom = 1;
 
 updateIsUnilateral:

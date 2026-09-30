@@ -58,8 +58,6 @@ class SeedExerciseCatalogTest {
             id = bench.id,
             name = bench.name,
             requiredEquipment = encodeEquipment(bench.requiredEquipment),
-            primaryMuscles = encodeMuscles(bench.primaryMuscles),
-            secondaryMuscles = encodeMuscles(bench.secondaryMuscles),
             movementPattern = "CORE"
         )
 
@@ -88,8 +86,6 @@ class SeedExerciseCatalogTest {
             id = bench.id,
             name = bench.name,
             requiredEquipment = encodeEquipment(bench.requiredEquipment),
-            primaryMuscles = encodeMuscles(bench.primaryMuscles),
-            secondaryMuscles = encodeMuscles(bench.secondaryMuscles),
             movementPattern = bench.movementPattern.name
         )
 

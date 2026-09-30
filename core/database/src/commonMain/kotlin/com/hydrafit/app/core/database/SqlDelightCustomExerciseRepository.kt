@@ -15,26 +15,21 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
     override suspend fun add(
         name: String,
         requiredEquipment: Set<EquipmentTag>,
-        primaryMuscles: Set<MuscleGroup>,
-        secondaryMuscles: Set<MuscleGroup>,
+        involvements: Map<MuscleGroup, Double>,
         movementPattern: MovementPattern,
-        isUnilateral: Boolean,
-        involvements: Map<MuscleGroup, Double>
+        isUnilateral: Boolean
     ): Exercise {
         val trimmed = validate(
             id = null,
             name = name,
             requiredEquipment = requiredEquipment,
-            primaryMuscles = primaryMuscles,
-            secondaryMuscles = secondaryMuscles
+            involvements = involvements
         )
         val id = uniqueId(trimmed)
         queries.insertCustom(
             id = id,
             name = trimmed,
             requiredEquipment = encodeEquipment(requiredEquipment),
-            primaryMuscles = encodeMuscles(primaryMuscles),
-            secondaryMuscles = encodeMuscles(secondaryMuscles),
             movementPattern = movementPattern.name,
             isUnilateral = if (isUnilateral) 1L else 0L,
             involvements = encodeInvolvements(involvements)
@@ -43,8 +38,8 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
             id = id,
             name = trimmed,
             requiredEquipment = requiredEquipment,
-            primaryMuscles = primaryMuscles,
-            secondaryMuscles = secondaryMuscles,
+            primaryMuscles = involvements.filterValues { it >= PRIMARY_THRESHOLD }.keys,
+            secondaryMuscles = involvements.filterValues { it < PRIMARY_THRESHOLD }.keys,
             movementPattern = movementPattern,
             isCustom = true,
             isUnilateral = isUnilateral,
@@ -56,24 +51,19 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
         id: String,
         name: String,
         requiredEquipment: Set<EquipmentTag>,
-        primaryMuscles: Set<MuscleGroup>,
-        secondaryMuscles: Set<MuscleGroup>,
+        involvements: Map<MuscleGroup, Double>,
         movementPattern: MovementPattern,
-        isUnilateral: Boolean,
-        involvements: Map<MuscleGroup, Double>
+        isUnilateral: Boolean
     ) {
         val trimmed = validate(
             id = id,
             name = name,
             requiredEquipment = requiredEquipment,
-            primaryMuscles = primaryMuscles,
-            secondaryMuscles = secondaryMuscles
+            involvements = involvements
         )
         queries.updateCustom(
             name = trimmed,
             requiredEquipment = encodeEquipment(requiredEquipment),
-            primaryMuscles = encodeMuscles(primaryMuscles),
-            secondaryMuscles = encodeMuscles(secondaryMuscles),
             movementPattern = movementPattern.name,
             isUnilateral = if (isUnilateral) 1L else 0L,
             involvements = encodeInvolvements(involvements),
@@ -93,16 +83,12 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
         id: String?,
         name: String,
         requiredEquipment: Set<EquipmentTag>,
-        primaryMuscles: Set<MuscleGroup>,
-        secondaryMuscles: Set<MuscleGroup>
+        involvements: Map<MuscleGroup, Double>
     ): String {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) throw CustomExerciseException("Name must not be blank")
-        if (primaryMuscles.isEmpty()) {
-            throw CustomExerciseException("Pick at least one primary muscle")
-        }
-        if (primaryMuscles.any { it in secondaryMuscles }) {
-            throw CustomExerciseException("A muscle can't be both primary and secondary")
+        if (involvements.isEmpty()) {
+            throw CustomExerciseException("Pick at least one muscle")
         }
         val existingIds = equipmentQueries.selectAll().executeAsList().map { it.id }.toSet()
         val unknown = requiredEquipment.filterNot { it.id in existingIds }
@@ -128,5 +114,9 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
         var suffix = 2
         while ("$base-$suffix" in taken) suffix++
         return "$base-$suffix"
+    }
+
+    private companion object {
+        const val PRIMARY_THRESHOLD = 0.7
     }
 }

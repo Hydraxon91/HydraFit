@@ -37,10 +37,9 @@ class ExerciseOverrideMigrationTest {
             .associateBy { it.exerciseId }
 
         assertEquals("DUMBBELL", rows.getValue("e").requiredEquipment)
-        assertEquals("CHEST", rows.getValue("e").primaryMuscles)
-        assertEquals("TRICEPS", rows.getValue("e").secondaryMuscles)
+        assertEquals("TRICEPS:0.5,CHEST:1.0", rows.getValue("e").involvements)
         assertEquals(null, rows.getValue("f").requiredEquipment)
-        assertEquals("QUADS", rows.getValue("f").primaryMuscles)
+        assertEquals("QUADS:1.0", rows.getValue("f").involvements)
     }
 
     @Test

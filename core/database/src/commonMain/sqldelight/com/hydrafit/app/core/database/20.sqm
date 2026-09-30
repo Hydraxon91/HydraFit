@@ -1,0 +1,44 @@
+-- Drop the legacy primary/secondary tag columns by rebuilding each table (SQLite < 3.35 has no
+-- ALTER TABLE DROP COLUMN). Every row already carries involvements after 19.sqm.
+
+CREATE TABLE exercise_new (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    requiredEquipment TEXT NOT NULL,
+    movementPattern TEXT NOT NULL,
+    isCustom INTEGER NOT NULL DEFAULT 0,
+    isUnilateral INTEGER NOT NULL DEFAULT 0,
+    involvements TEXT
+);
+INSERT INTO exercise_new(id, name, requiredEquipment, movementPattern, isCustom, isUnilateral, involvements)
+SELECT id, name, requiredEquipment, movementPattern, isCustom, isUnilateral, involvements FROM exercise;
+DROP TABLE exercise;
+ALTER TABLE exercise_new RENAME TO exercise;
+
+CREATE TABLE exerciseOverride_new (
+    exerciseId TEXT NOT NULL PRIMARY KEY,
+    name TEXT,
+    requiredEquipment TEXT,
+    movementPattern TEXT,
+    isUnilateral INTEGER,
+    involvements TEXT
+);
+INSERT INTO exerciseOverride_new(exerciseId, name, requiredEquipment, movementPattern, isUnilateral, involvements)
+SELECT exerciseId, name, requiredEquipment, movementPattern, isUnilateral, involvements FROM exerciseOverride;
+DROP TABLE exerciseOverride;
+ALTER TABLE exerciseOverride_new RENAME TO exerciseOverride;
+
+CREATE TABLE workoutSet_new (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    exerciseId TEXT NOT NULL,
+    reps INTEGER NOT NULL,
+    weightKg REAL,
+    performedAt INTEGER NOT NULL,
+    isWarmup INTEGER NOT NULL DEFAULT 0,
+    involvements TEXT,
+    FOREIGN KEY (exerciseId) REFERENCES exercise(id)
+);
+INSERT INTO workoutSet_new(id, exerciseId, reps, weightKg, performedAt, isWarmup, involvements)
+SELECT id, exerciseId, reps, weightKg, performedAt, isWarmup, involvements FROM workoutSet;
+DROP TABLE workoutSet;
+ALTER TABLE workoutSet_new RENAME TO workoutSet;
