@@ -47,6 +47,7 @@ import hydrafit.feature.equipment.generated.resources.equipment_delete
 import hydrafit.feature.equipment.generated.resources.equipment_edit
 import hydrafit.feature.equipment.generated.resources.equipment_edit_reset
 import hydrafit.feature.equipment.generated.resources.equipment_edit_save
+import hydrafit.feature.equipment.generated.resources.equipment_equipment_section
 import hydrafit.feature.equipment.generated.resources.equipment_exercise_section
 import hydrafit.feature.equipment.generated.resources.equipment_manage
 import hydrafit.feature.equipment.generated.resources.equipment_movement_pattern
@@ -392,6 +393,10 @@ private fun ExerciseEditorDialog(
                 MuscleChipRow(
                     selected = state.secondary,
                     onToggle = { onMuscleToggled(it, false) }
+                )
+                Text(
+                    text = stringResource(Res.string.equipment_equipment_section),
+                    style = MaterialTheme.typography.labelMedium
                 )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     equipment.forEach { item ->
