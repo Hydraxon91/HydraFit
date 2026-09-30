@@ -19,7 +19,13 @@ import org.koin.dsl.module
 
 fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = module {
     single<DatabaseDriverFactory> { AndroidDatabaseDriverFactory(context.applicationContext) }
-    single<TimeProvider> { TimeProvider { System.currentTimeMillis() } }
+    single<TimeProvider> {
+        object : TimeProvider {
+            override fun nowMillis(): Long = System.currentTimeMillis()
+            override fun utcOffsetMillis(): Long =
+                java.util.TimeZone.getDefault().getOffset(nowMillis()).toLong()
+        }
+    }
     single<ApiKeyStore> { AndroidKeystoreApiKeyStore(context.applicationContext) }
     single<ApiKeyProvider> {
         val store = get<ApiKeyStore>()

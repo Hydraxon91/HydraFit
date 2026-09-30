@@ -19,6 +19,14 @@ fun dayOfWeek(epochMillis: Long): DayOfWeek {
     return DayOfWeek.entries[index]
 }
 
+/** The weekday in the user's local time zone given its [utcOffsetMillis]. */
+fun localDayOfWeek(epochMillis: Long, utcOffsetMillis: Long): DayOfWeek =
+    dayOfWeek(epochMillis + utcOffsetMillis)
+
+/** The local calendar-day index (epoch days shifted into local time). */
+fun localEpochDay(epochMillis: Long, utcOffsetMillis: Long): Long =
+    floorDiv(epochMillis + utcOffsetMillis, MILLIS_PER_DAY)
+
 private fun floorDiv(dividend: Long, divisor: Long): Long {
     val quotient = dividend / divisor
     val roundsTowardsZero = dividend % divisor != 0L && (dividend < 0) != (divisor < 0)

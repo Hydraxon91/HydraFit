@@ -521,6 +521,30 @@ class WorkoutLoggerViewModelTest {
         assertEquals(listOf(2L), viewModel.state.value.recentSets.map { it.id })
     }
 
+    @Test
+    fun reDerivesTodaysFocusOnResume() = runTest(dispatcher) {
+        var now = 1_000L // Thursday: the plan's Monday day has no focus.
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = WorkoutLoggerViewModel(
+            logWorkoutSet = LogWorkoutSetUseCase(repository),
+            getWorkoutLog = GetWorkoutLogUseCase(repository),
+            deleteWorkoutSet = DeleteWorkoutSetUseCase(repository),
+            observeAcceptedPlan = ObserveAcceptedPlanUseCase(
+                FakePlanHistoryRepository(acceptedPlan(listOf("plank")))
+            ),
+            exerciseCatalog = FakeExerciseCatalog,
+            timeProvider = TimeProvider { now },
+            weightUnitRepository = FakeWeightUnitRepository(WeightUnit.KG)
+        )
+        advanceUntilIdle()
+        assertEquals(null, viewModel.state.value.todayFocus)
+
+        now = MONDAY
+        viewModel.onResume()
+
+        assertEquals(SplitFocus.FULL_BODY, viewModel.state.value.todayFocus)
+    }
+
     private fun viewModel(
         repository: WorkoutLogRepository = FakeWorkoutLogRepository(),
         timeMillis: Long = 1_000L,

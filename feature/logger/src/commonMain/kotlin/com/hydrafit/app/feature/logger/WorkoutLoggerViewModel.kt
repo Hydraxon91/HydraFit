@@ -9,7 +9,7 @@ import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.time.TimeProvider
-import com.hydrafit.app.core.domain.time.dayOfWeek
+import com.hydrafit.app.core.domain.time.localDayOfWeek
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
@@ -39,6 +39,7 @@ class WorkoutLoggerViewModel(
 
     private var exercises: List<Exercise> = emptyList()
     private var exerciseNames: Map<String, String> = emptyMap()
+    private var acceptedPlan: AcceptedPlan? = null
     private var acceptedToday: AcceptedDay? = null
     private var suggestedWeightKgByExercise: Map<String, Double> = emptyMap()
 
@@ -57,7 +58,10 @@ class WorkoutLoggerViewModel(
             }
         }
         viewModelScope.launch {
-            observeAcceptedPlan().collectLatest { plan -> updateTodayPlan(plan) }
+            observeAcceptedPlan().collectLatest { plan ->
+                acceptedPlan = plan
+                updateTodayPlan(plan)
+            }
         }
         viewModelScope.launch {
             weightUnitRepository.unitFlow().collectLatest { unit ->
@@ -164,8 +168,15 @@ class WorkoutLoggerViewModel(
         }
     }
 
+    /** Recomputes today's focus/drafts, e.g. when the screen resumes after a local midnight. */
+    fun onResume() {
+        updateTodayPlan(acceptedPlan)
+    }
+
     private fun updateTodayPlan(plan: AcceptedPlan?) {
-        acceptedToday = plan?.dayFor(dayOfWeek(timeProvider.nowMillis()))
+        acceptedToday = plan?.dayFor(
+            localDayOfWeek(timeProvider.nowMillis(), timeProvider.utcOffsetMillis())
+        )
         suggestedWeightKgByExercise = acceptedToday?.exercises
             ?.mapNotNull { exercise ->
                 exercise.suggestedWeightKg?.let { exercise.exerciseId to it }

@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.domain.engine
 
+import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 
 /** The target the user was following for one exercise, taken from an accepted plan. */
@@ -20,7 +21,8 @@ class ProgressWeightsUseCase(private val config: ProgressionConfig = Progression
         baseline: Map<String, Double>,
         prescriptions: Map<String, Prescription>,
         sets: List<WorkoutSet>,
-        pauseIncrements: Boolean = false
+        pauseIncrements: Boolean = false,
+        utcOffsetMillis: Long = 0L
     ): Map<String, Double> {
         if (pauseIncrements) return baseline
 
@@ -31,14 +33,18 @@ class ProgressWeightsUseCase(private val config: ProgressionConfig = Progression
         return baseline.mapValues { (exerciseId, base) ->
             val prescription = prescriptions[exerciseId] ?: return@mapValues base
             val sessions = byExercise[exerciseId].orEmpty()
-            val increments = incrementsFor(sessions, prescription)
+            val increments = incrementsFor(sessions, prescription, utcOffsetMillis)
             base + increments * config.roundToKg
         }
     }
 
-    private fun incrementsFor(sessions: List<WorkoutSet>, prescription: Prescription): Int {
+    private fun incrementsFor(
+        sessions: List<WorkoutSet>,
+        prescription: Prescription,
+        utcOffsetMillis: Long
+    ): Int {
         val chronological = sessions
-            .groupBy { it.performedAtMillis / MILLIS_PER_DAY }
+            .groupBy { localEpochDay(it.performedAtMillis, utcOffsetMillis) }
             .entries
             .sortedBy { it.key }
             .map { (_, daySets) -> daySets.isCompleted(prescription) }
@@ -61,8 +67,4 @@ class ProgressWeightsUseCase(private val config: ProgressionConfig = Progression
         val weight = set.weightKg ?: return@count false
         set.reps >= prescription.reps && weight >= prescription.weightKg
     } >= prescription.sets
-
-    private companion object {
-        const val MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
-    }
 }

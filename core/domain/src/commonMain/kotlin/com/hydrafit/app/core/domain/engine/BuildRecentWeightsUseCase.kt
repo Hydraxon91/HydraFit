@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.domain.engine
 
+import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 
 /** A representative working set shared with the AI engines so they can see recent training. */
@@ -21,14 +22,21 @@ data class RecentWeightsConfig(val maxDatesPerExercise: Int = 2) {
  * set on each of the most recent distinct days.
  */
 class BuildRecentWeightsUseCase(private val config: RecentWeightsConfig = RecentWeightsConfig()) {
-    operator fun invoke(sets: List<WorkoutSet>): List<WeightHistoryEntry> = sets
+    operator fun invoke(
+        sets: List<WorkoutSet>,
+        utcOffsetMillis: Long = 0L
+    ): List<WeightHistoryEntry> = sets
         .filter { !it.isWarmup && (it.weightKg ?: 0.0) > 0.0 }
         .groupBy { it.exerciseId }
-        .flatMap { (exerciseId, rows) -> recentFor(exerciseId, rows) }
+        .flatMap { (exerciseId, rows) -> recentFor(exerciseId, rows, utcOffsetMillis) }
         .sortedWith(compareBy({ it.exerciseId }, { it.performedAtMillis }))
 
-    private fun recentFor(exerciseId: String, rows: List<WorkoutSet>): List<WeightHistoryEntry> =
-        rows.groupBy { it.performedAtMillis / MILLIS_PER_DAY }
+    private fun recentFor(
+        exerciseId: String,
+        rows: List<WorkoutSet>,
+        utcOffsetMillis: Long
+    ): List<WeightHistoryEntry> =
+        rows.groupBy { localEpochDay(it.performedAtMillis, utcOffsetMillis) }
             .entries
             .sortedByDescending { it.key }
             .take(config.maxDatesPerExercise)
@@ -44,8 +52,4 @@ class BuildRecentWeightsUseCase(private val config: RecentWeightsConfig = Recent
                     reps = best.reps
                 )
             }
-
-    private companion object {
-        const val MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
-    }
 }

@@ -67,12 +67,13 @@ class ObserveWorkoutPlanInputsUseCase(
                     sets = current.loggedWorkoutSets,
                     pauseIncrements = latestPlan?.let {
                         periodization.isDeload(it.weekNumber)
-                    } ?: false
+                    } ?: false,
+                    utcOffsetMillis = timeProvider.utcOffsetMillis()
                 ),
                 equipmentMaxWeights = current.equipmentMaxWeights,
                 includeWorkoutData = current.workoutDataSharingEnabled,
                 recentWeights = if (current.workoutDataSharingEnabled) {
-                    buildRecentWeights(current.loggedWorkoutSets)
+                    buildRecentWeights(current.loggedWorkoutSets, timeProvider.utcOffsetMillis())
                 } else {
                     emptyList()
                 },
