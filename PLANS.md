@@ -256,7 +256,8 @@
   2. `workoutSet`: same, from the snapshot tags; leave NULL where there is no snapshot (so the catalog fallback still applies).
   3. A muscle present in **both** primary and secondary collapses to `1.0` (none exist today); an empty-primary row would become muscle-less (none exist; custom requires ≥1 primary).
   4. **Code first:** update every remaining reader of the columns (`targetsFor` fallback, `ExerciseSummaryRow` display, fingerprints) to use `involvements`, then drop the columns. Dropping is destructive and needs explicit go-ahead.
-- **Not run.** Awaiting the user's explicit approval.
+- [x] **Conversion done** — schema v20 + `19.sqm` (commit pending). A single SQL migration derives `involvements` from the tags **where null** for `exercise`, `exerciseOverride`, and `workoutSet` (`primary → 1.0`, `secondary → 0.5`; `NULLIF('')`; primary appended last so a duplicate keeps 1.0). Test `InvolvementConversionMigrationTest` proves multi-muscle conversion, the null-only guard, and that explicit weights are untouched. **Nothing is dropped yet.**
+- [ ] **Column drop — still gated.** After v20, every row has `involvements`, so the tags are redundant. But `minSdk 24` predates SQLite 3.35, which added `ALTER TABLE DROP COLUMN`, so a plain drop would crash on older devices. The drop must be a **table-rebuild migration** (create new table without the tag columns, `INSERT ... SELECT`, drop, rename) for `exercise`, `exerciseOverride`, and `workoutSet` — noting `workoutSet.exerciseId` has an FK to `exercise`. Deferred until it can be written and tested carefully (and, once shipped, the reader fallbacks in `targetsFor`/the catalog can be deleted, making `involvements` the true single source).
 
 ### Part 3 — Fixed-weight machines (proposal)
 
