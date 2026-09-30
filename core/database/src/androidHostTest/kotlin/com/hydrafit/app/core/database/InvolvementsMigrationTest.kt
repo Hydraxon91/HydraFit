@@ -29,7 +29,8 @@ class InvolvementsMigrationTest {
                 "primaryMuscles, secondaryMuscles) VALUES ('x', 5, 50.0, 1, 0, 'CHEST', '')"
         )
 
-        HydraFitDatabase.Schema.migrate(driver, 18, HydraFitDatabase.Schema.version)
+        // Scoped to 18→19: this test asserts the columns default to null, before the v20 conversion.
+        HydraFitDatabase.Schema.migrate(driver, 18, 19)
 
         val database = HydraFitDatabase(driver)
         assertNull(database.exerciseQueries.selectById("x").executeAsOne().involvements)

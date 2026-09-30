@@ -1,0 +1,29 @@
+-- Contract conversion: derive involvements from the legacy primary/secondary tags for any row that
+-- does not already have explicit weights. primary -> 1.0, secondary -> 0.5; primary is appended
+-- last so a muscle present in both keeps the 1.0 weight.
+UPDATE exercise SET involvements = NULLIF(
+    (CASE WHEN COALESCE(secondaryMuscles, '') = ''
+        THEN '' ELSE replace(secondaryMuscles, ',', ':0.5,') || ':0.5' END) ||
+    (CASE WHEN COALESCE(primaryMuscles, '') = ''
+        THEN '' ELSE (CASE WHEN COALESCE(secondaryMuscles, '') = '' THEN '' ELSE ',' END) ||
+            replace(primaryMuscles, ',', ':1.0,') || ':1.0' END),
+    ''
+) WHERE involvements IS NULL;
+
+UPDATE exerciseOverride SET involvements = NULLIF(
+    (CASE WHEN COALESCE(secondaryMuscles, '') = ''
+        THEN '' ELSE replace(secondaryMuscles, ',', ':0.5,') || ':0.5' END) ||
+    (CASE WHEN COALESCE(primaryMuscles, '') = ''
+        THEN '' ELSE (CASE WHEN COALESCE(secondaryMuscles, '') = '' THEN '' ELSE ',' END) ||
+            replace(primaryMuscles, ',', ':1.0,') || ':1.0' END),
+    ''
+) WHERE involvements IS NULL;
+
+UPDATE workoutSet SET involvements = NULLIF(
+    (CASE WHEN COALESCE(secondaryMuscles, '') = ''
+        THEN '' ELSE replace(secondaryMuscles, ',', ':0.5,') || ':0.5' END) ||
+    (CASE WHEN COALESCE(primaryMuscles, '') = ''
+        THEN '' ELSE (CASE WHEN COALESCE(secondaryMuscles, '') = '' THEN '' ELSE ',' END) ||
+            replace(primaryMuscles, ',', ':1.0,') || ':1.0' END),
+    ''
+) WHERE involvements IS NULL;
