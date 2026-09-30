@@ -15,7 +15,8 @@ class SqlDelightExerciseOverrideRepository(database: HydraFitDatabase) :
         requiredEquipment: Set<EquipmentTag>,
         primaryMuscles: Set<MuscleGroup>,
         secondaryMuscles: Set<MuscleGroup>,
-        movementPattern: MovementPattern?
+        movementPattern: MovementPattern?,
+        unilateral: Boolean?
     ) {
         queries.upsert(
             exerciseId = exerciseId,
@@ -23,7 +24,8 @@ class SqlDelightExerciseOverrideRepository(database: HydraFitDatabase) :
             requiredEquipment = encodeEquipment(requiredEquipment),
             primaryMuscles = encodeMuscles(primaryMuscles),
             secondaryMuscles = encodeMuscles(secondaryMuscles),
-            movementPattern = movementPattern?.name
+            movementPattern = movementPattern?.name,
+            isUnilateral = unilateral?.let { if (it) 1L else 0L }
         )
     }
 

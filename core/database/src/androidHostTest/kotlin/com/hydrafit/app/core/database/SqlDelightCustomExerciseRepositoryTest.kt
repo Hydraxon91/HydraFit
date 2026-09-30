@@ -82,6 +82,32 @@ class SqlDelightCustomExerciseRepositoryTest {
     }
 
     @Test
+    fun persistsTheUnilateralFlagAndCanFlipIt() = runTest {
+        val created = repository.add(
+            name = "My Hammer Curl",
+            requiredEquipment = setOf(EquipmentTag.DUMBBELL),
+            primaryMuscles = setOf(MuscleGroup.BICEPS),
+            secondaryMuscles = emptySet(),
+            movementPattern = MovementPattern.BICEPS_ISOLATION,
+            isUnilateral = true
+        )
+        assertTrue(created.isUnilateral)
+        assertTrue(catalog.all().first { it.id == created.id }.isUnilateral)
+
+        repository.update(
+            id = created.id,
+            name = "My Hammer Curl",
+            requiredEquipment = setOf(EquipmentTag.DUMBBELL),
+            primaryMuscles = setOf(MuscleGroup.BICEPS),
+            secondaryMuscles = emptySet(),
+            movementPattern = MovementPattern.BICEPS_ISOLATION,
+            isUnilateral = false
+        )
+
+        assertTrue(catalog.all().first { it.id == created.id }.isUnilateral.not())
+    }
+
+    @Test
     fun deletingWorksOnlyWithoutLoggedSets() = runTest {
         val created = repository.add(
             name = "Disposable",

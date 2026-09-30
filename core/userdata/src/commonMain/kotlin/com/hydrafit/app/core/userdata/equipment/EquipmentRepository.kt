@@ -25,7 +25,8 @@ interface CustomExerciseRepository {
         requiredEquipment: Set<EquipmentTag>,
         primaryMuscles: Set<MuscleGroup>,
         secondaryMuscles: Set<MuscleGroup>,
-        movementPattern: MovementPattern
+        movementPattern: MovementPattern,
+        isUnilateral: Boolean = false
     ): Exercise
 
     suspend fun update(
@@ -34,7 +35,8 @@ interface CustomExerciseRepository {
         requiredEquipment: Set<EquipmentTag>,
         primaryMuscles: Set<MuscleGroup>,
         secondaryMuscles: Set<MuscleGroup>,
-        movementPattern: MovementPattern
+        movementPattern: MovementPattern,
+        isUnilateral: Boolean = false
     )
 
     suspend fun delete(id: String)

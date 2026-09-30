@@ -85,7 +85,8 @@ internal object DefaultExercises {
             setOf(EquipmentTag.DUMBBELL),
             setOf(MuscleGroup.BACK),
             setOf(MuscleGroup.BICEPS),
-            MovementPattern.HORIZONTAL_PULL
+            MovementPattern.HORIZONTAL_PULL,
+            isUnilateral = true
         ),
         ex(
             "pull-up",
@@ -189,7 +190,8 @@ internal object DefaultExercises {
             setOf(EquipmentTag.DUMBBELL),
             setOf(MuscleGroup.BICEPS),
             emptySet(),
-            MovementPattern.BICEPS_ISOLATION
+            MovementPattern.BICEPS_ISOLATION,
+            isUnilateral = true
         ),
         ex(
             "band-curl",
@@ -261,7 +263,8 @@ internal object DefaultExercises {
             setOf(EquipmentTag.DUMBBELL, EquipmentTag.BENCH),
             setOf(MuscleGroup.QUADS, MuscleGroup.GLUTES),
             setOf(MuscleGroup.HAMSTRINGS),
-            MovementPattern.LUNGE
+            MovementPattern.LUNGE,
+            isUnilateral = true
         ),
         ex(
             "leg-press",
@@ -375,13 +378,15 @@ internal object DefaultExercises {
         equipment: Set<EquipmentTag>,
         primary: Set<MuscleGroup>,
         secondary: Set<MuscleGroup>,
-        pattern: MovementPattern
+        pattern: MovementPattern,
+        isUnilateral: Boolean = false
     ) = Exercise(
         id = id,
         name = name,
         requiredEquipment = equipment,
         primaryMuscles = primary,
         secondaryMuscles = secondary,
-        movementPattern = pattern
+        movementPattern = pattern,
+        isUnilateral = isUnilateral
     )
 }

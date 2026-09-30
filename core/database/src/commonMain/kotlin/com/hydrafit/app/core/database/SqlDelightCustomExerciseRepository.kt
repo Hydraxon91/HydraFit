@@ -17,7 +17,8 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
         requiredEquipment: Set<EquipmentTag>,
         primaryMuscles: Set<MuscleGroup>,
         secondaryMuscles: Set<MuscleGroup>,
-        movementPattern: MovementPattern
+        movementPattern: MovementPattern,
+        isUnilateral: Boolean
     ): Exercise {
         val trimmed = validate(
             id = null,
@@ -33,7 +34,8 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
             requiredEquipment = encodeEquipment(requiredEquipment),
             primaryMuscles = encodeMuscles(primaryMuscles),
             secondaryMuscles = encodeMuscles(secondaryMuscles),
-            movementPattern = movementPattern.name
+            movementPattern = movementPattern.name,
+            isUnilateral = if (isUnilateral) 1L else 0L
         )
         return Exercise(
             id = id,
@@ -42,7 +44,8 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
             primaryMuscles = primaryMuscles,
             secondaryMuscles = secondaryMuscles,
             movementPattern = movementPattern,
-            isCustom = true
+            isCustom = true,
+            isUnilateral = isUnilateral
         )
     }
 
@@ -52,7 +55,8 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
         requiredEquipment: Set<EquipmentTag>,
         primaryMuscles: Set<MuscleGroup>,
         secondaryMuscles: Set<MuscleGroup>,
-        movementPattern: MovementPattern
+        movementPattern: MovementPattern,
+        isUnilateral: Boolean
     ) {
         val trimmed = validate(
             id = id,
@@ -67,6 +71,7 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
             primaryMuscles = encodeMuscles(primaryMuscles),
             secondaryMuscles = encodeMuscles(secondaryMuscles),
             movementPattern = movementPattern.name,
+            isUnilateral = if (isUnilateral) 1L else 0L,
             id = id
         )
     }

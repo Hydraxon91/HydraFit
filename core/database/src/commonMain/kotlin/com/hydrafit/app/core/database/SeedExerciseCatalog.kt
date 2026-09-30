@@ -16,6 +16,10 @@ class SeedExerciseCatalog(private val database: HydraFitDatabase) {
                     movementPattern = exercise.movementPattern.name,
                     id = exercise.id
                 )
+                database.exerciseQueries.updateIsUnilateral(
+                    isUnilateral = if (exercise.isUnilateral) 1L else 0L,
+                    id = exercise.id
+                )
             }
         }
     }

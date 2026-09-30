@@ -15,7 +15,8 @@ interface ExerciseOverrideRepository {
         requiredEquipment: Set<EquipmentTag>,
         primaryMuscles: Set<MuscleGroup>,
         secondaryMuscles: Set<MuscleGroup>,
-        movementPattern: MovementPattern?
+        movementPattern: MovementPattern?,
+        unilateral: Boolean? = null
     )
 
     suspend fun reset(exerciseId: String)

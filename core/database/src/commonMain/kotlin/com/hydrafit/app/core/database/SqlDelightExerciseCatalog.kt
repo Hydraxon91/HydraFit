@@ -37,6 +37,7 @@ class SqlDelightExerciseCatalog(database: HydraFitDatabase) : ExerciseCatalog {
         primaryMuscles = decodeMuscles(override?.primaryMuscles ?: primaryMuscles),
         secondaryMuscles = decodeMuscles(override?.secondaryMuscles ?: secondaryMuscles),
         movementPattern = decodeMovementPattern(override?.movementPattern ?: movementPattern),
-        isCustom = isCustom != 0L
+        isCustom = isCustom != 0L,
+        isUnilateral = override?.isUnilateral?.let { it != 0L } ?: (isUnilateral != 0L)
     )
 }

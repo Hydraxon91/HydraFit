@@ -24,7 +24,9 @@ class PlanHistoryMigrationTest {
             parameters = 0
         )
 
-        HydraFitDatabase.Schema.migrate(driver, 15, HydraFitDatabase.Schema.version)
+        // Scoped to 15→16: this fixture only builds the planHistory tables, so it must not run the
+        // later 16.sqm migration (which alters the exercise tables). See ExerciseUnilateralMigrationTest.
+        HydraFitDatabase.Schema.migrate(driver, 15, 16)
         val row = HydraFitDatabase(driver).planHistoryQueries.selectLatestPlan().executeAsOne()
 
         assertEquals(1L, row.weekNumber)

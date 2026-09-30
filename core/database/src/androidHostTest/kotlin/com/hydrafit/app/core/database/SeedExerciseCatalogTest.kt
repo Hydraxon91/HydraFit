@@ -6,6 +6,8 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
 class SeedExerciseCatalogTest {
@@ -76,5 +78,15 @@ class SeedExerciseCatalogTest {
 
         assertEquals(setOf("BARBELL"), squat.requiredEquipment.map { it.id }.toSet())
         assertEquals(setOf("QUADS", "GLUTES"), squat.primaryMuscles.map { it.name }.toSet())
+    }
+
+    @Test
+    fun marksUnilateralBuiltInsAndLeavesTheRestBilateral() = runTest {
+        SeedExerciseCatalog(database).seed()
+
+        val byId = SqlDelightExerciseCatalog(database).all().associateBy { it.id }
+        assertTrue(requireNotNull(byId["dumbbell-curl"]).isUnilateral)
+        assertTrue(requireNotNull(byId["bulgarian-split-squat"]).isUnilateral)
+        assertFalse(requireNotNull(byId["back-squat"]).isUnilateral)
     }
 }
