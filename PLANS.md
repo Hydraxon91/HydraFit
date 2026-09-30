@@ -80,7 +80,7 @@
 
 - [x] **Delete a logged set (fat-finger guard).** `WorkoutLog.sq` gained `deleteSet(id)`; `WorkoutLogRepository.delete(id)` (+ `SqlDelightWorkoutLogRepository`) and a `DeleteWorkoutSetUseCase`; `LoggedSetRow` carries the set `id`; the Log tab's recent-set rows gained a Delete action. Removing a row fixes fatigue/heatmap automatically (they read logged sets). **Hard delete, no schema change**; per-set edit and Undo remain follow-ups. Tests: repo delete, use case, ViewModel delete. Verified on `emulator-5554`.
 - [x] **Delete a plan from plan history.** `PlanHistory.sq` gained `deleteEntriesForPlan`/`deleteDaysForPlan`/`deletePlan`; `PlanHistoryRepository.delete(planId)` (transactional) and `AcceptedPlan.id` (the stored row id); the Plan tab's history rows gained a Delete action. Deleting the latest plan **rewinds** the accept-ordinal week and regenerates. No schema change. Tests: repo cascade delete (+ `id` round-trip), ViewModel delete. Verified on `emulator-5554`.
-- [ ] **Auto-add the planned exercises to the Logger — decided: confirmed drafts** (see "Open work proposals A"). The Logger follows the accepted plan's scheduled day but each exercise is entered by hand; auto-populate today's planned exercises as **draft rows that must be confirmed**, so drafts never count toward fatigue/heatmap/logged sets. Requires a draft-vs-logged distinction in the Logger UI/state. Not implemented yet.
+- [x] **Auto-add the planned exercises to the Logger — confirmed drafts.** DONE — commit `644376d`. Today's accepted-plan day becomes `draftSets` in the Logger state; each draft can be Confirmed (logs its sets) or Dismissed, and "Confirm all" logs every draft. Drafts live only in UI state, so they never count toward fatigue/heatmap/logged sets until confirmed. No schema change.
 - **Related limitation.** Deterministic progression keys off the accepted-plan prescription and completed-session streaks; repeated set failures are only coarsely captured (`failureStreak = 3 → −1`), and a mis-planned/deleted week can't correct it. Still open.
 
 ### Custom exercises (approved plan)
@@ -328,7 +328,7 @@ A migration that converts every row to `involvements` and drops `primaryMuscles`
 > Everything still to do that is not in the Deferred / Open-Questions-Later lists. Each is an executable plan awaiting a "go"; ordered smallest/lowest-risk first.
 
 ### A. Auto-add planned exercises to the Logger as confirmed drafts
-**Status:** PROPOSED — **no schema change**.
+**Status:** DONE — no schema change; commit `644376d`.
 **Goal:** today's accepted-plan exercises appear as draft rows; the user confirms (individually or all) to log them, so nothing counts toward fatigue/heatmap/logged sets until confirmed.
 **Approach (state-only drafts):**
 - Add `draftSets: List<DraftSet(exerciseId, name, reps, weightKg, isConfirmed)>` to `WorkoutLoggerUiState`.
