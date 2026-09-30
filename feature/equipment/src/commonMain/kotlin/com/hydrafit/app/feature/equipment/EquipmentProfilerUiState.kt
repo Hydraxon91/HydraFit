@@ -16,6 +16,7 @@ data class ExerciseEditorState(
     val equipment: Set<EquipmentTag> = emptySet(),
     val primary: Set<MuscleGroup> = emptySet(),
     val secondary: Set<MuscleGroup> = emptySet(),
+    val isUnilateral: Boolean = false,
     val error: String? = null
 ) {
     val isOpen: Boolean

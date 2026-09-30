@@ -125,7 +125,8 @@ class EquipmentProfilerViewModel(
                     movementPattern = exercise.movementPattern,
                     equipment = exercise.requiredEquipment,
                     primary = exercise.primaryMuscles,
-                    secondary = exercise.secondaryMuscles
+                    secondary = exercise.secondaryMuscles,
+                    isUnilateral = exercise.isUnilateral
                 )
             )
         }
@@ -146,6 +147,12 @@ class EquipmentProfilerViewModel(
     fun onEditorPatternChanged(pattern: MovementPattern) {
         _state.update {
             it.copy(exerciseEditor = it.exerciseEditor.copy(movementPattern = pattern))
+        }
+    }
+
+    fun onEditorUnilateralToggled(isUnilateral: Boolean) {
+        _state.update {
+            it.copy(exerciseEditor = it.exerciseEditor.copy(isUnilateral = isUnilateral))
         }
     }
 
@@ -201,7 +208,8 @@ class EquipmentProfilerViewModel(
                         requiredEquipment = editor.equipment,
                         primaryMuscles = editor.primary,
                         secondaryMuscles = editor.secondary,
-                        movementPattern = editor.movementPattern
+                        movementPattern = editor.movementPattern,
+                        isUnilateral = editor.isUnilateral
                     )
                 } else {
                     writeBuiltInOverrides(exerciseId, editor)
@@ -222,7 +230,8 @@ class EquipmentProfilerViewModel(
                 requiredEquipment = editor.equipment,
                 primaryMuscles = editor.primary,
                 secondaryMuscles = editor.secondary,
-                movementPattern = editor.movementPattern
+                movementPattern = editor.movementPattern,
+                isUnilateral = editor.isUnilateral
             )
             closeEditorAndRefresh(created.id)
         } catch (failure: CustomExerciseException) {
@@ -239,7 +248,8 @@ class EquipmentProfilerViewModel(
             requiredEquipment = editor.equipment,
             primaryMuscles = editor.primary,
             secondaryMuscles = editor.secondary,
-            movementPattern = editor.movementPattern
+            movementPattern = editor.movementPattern,
+            unilateral = editor.isUnilateral
         )
     }
 

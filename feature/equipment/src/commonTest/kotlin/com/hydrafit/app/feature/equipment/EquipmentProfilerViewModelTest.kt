@@ -112,6 +112,38 @@ class EquipmentProfilerViewModelTest {
     }
 
     @Test
+    fun seedsAndSavesTheUnilateralFlag() = runTest(dispatcher) {
+        val overrides = FakeExerciseOverrideRepository()
+        overrides.update(
+            "back-squat",
+            null,
+            setOf(EquipmentTag.BARBELL),
+            setOf(MuscleGroup.QUADS),
+            setOf(MuscleGroup.GLUTES),
+            MovementPattern.SQUAT,
+            unilateral = true
+        )
+        val custom = FakeCustomExerciseRepository()
+        val viewModel = viewModel(overrides = overrides, custom = custom)
+        advanceUntilIdle()
+
+        viewModel.onEditExercise("back-squat")
+        assertTrue(viewModel.state.value.exerciseEditor.isUnilateral)
+        viewModel.onEditorUnilateralToggled(false)
+        viewModel.onSaveExercise()
+        advanceUntilIdle()
+        assertEquals(false, overrides.overrides["back-squat"]?.unilateral)
+
+        viewModel.onNewCustomExercise()
+        viewModel.onEditorNameChanged("My Row")
+        viewModel.onEditorMuscleToggled(MuscleGroup.BACK, primary = true)
+        viewModel.onEditorUnilateralToggled(true)
+        viewModel.onSaveExercise()
+        advanceUntilIdle()
+        assertTrue(custom.created.single().isUnilateral)
+    }
+
+    @Test
     fun resetClearsBuiltInOverrides() = runTest(dispatcher) {
         val overrides = FakeExerciseOverrideRepository()
         overrides.update(
@@ -265,7 +297,8 @@ class EquipmentProfilerViewModelTest {
         val equipment: Set<EquipmentTag>,
         val primary: Set<MuscleGroup>,
         val secondary: Set<MuscleGroup>,
-        val pattern: MovementPattern?
+        val pattern: MovementPattern?,
+        val unilateral: Boolean?
     )
 
     private class FakeExerciseOverrideRepository : ExerciseOverrideRepository {
@@ -277,14 +310,16 @@ class EquipmentProfilerViewModelTest {
             requiredEquipment: Set<EquipmentTag>,
             primaryMuscles: Set<MuscleGroup>,
             secondaryMuscles: Set<MuscleGroup>,
-            movementPattern: MovementPattern?
+            movementPattern: MovementPattern?,
+            unilateral: Boolean?
         ) {
             overrides[exerciseId] = StoredOverride(
                 name = name,
                 equipment = requiredEquipment,
                 primary = primaryMuscles,
                 secondary = secondaryMuscles,
-                pattern = movementPattern
+                pattern = movementPattern,
+                unilateral = unilateral
             )
         }
 
@@ -302,7 +337,8 @@ class EquipmentProfilerViewModelTest {
             requiredEquipment: Set<EquipmentTag>,
             primaryMuscles: Set<MuscleGroup>,
             secondaryMuscles: Set<MuscleGroup>,
-            movementPattern: MovementPattern
+            movementPattern: MovementPattern,
+            isUnilateral: Boolean
         ): Exercise {
             val exercise = Exercise(
                 id = "user-" + name.lowercase().replace(' ', '-'),
@@ -311,7 +347,8 @@ class EquipmentProfilerViewModelTest {
                 primaryMuscles = primaryMuscles,
                 secondaryMuscles = secondaryMuscles,
                 movementPattern = movementPattern,
-                isCustom = true
+                isCustom = true,
+                isUnilateral = isUnilateral
             )
             created += exercise
             return exercise
@@ -323,7 +360,8 @@ class EquipmentProfilerViewModelTest {
             requiredEquipment: Set<EquipmentTag>,
             primaryMuscles: Set<MuscleGroup>,
             secondaryMuscles: Set<MuscleGroup>,
-            movementPattern: MovementPattern
+            movementPattern: MovementPattern,
+            isUnilateral: Boolean
         ) = Unit
 
         override suspend fun delete(id: String) {
@@ -344,7 +382,8 @@ class EquipmentProfilerViewModelTest {
                     requiredEquipment = override?.equipment ?: setOf(EquipmentTag.BARBELL),
                     primaryMuscles = override?.primary ?: setOf(MuscleGroup.QUADS),
                     secondaryMuscles = override?.secondary ?: setOf(MuscleGroup.GLUTES),
-                    movementPattern = override?.pattern ?: MovementPattern.SQUAT
+                    movementPattern = override?.pattern ?: MovementPattern.SQUAT,
+                    isUnilateral = override?.unilateral ?: false
                 )
             ) + custom.created
         }

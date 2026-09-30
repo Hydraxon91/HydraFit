@@ -21,6 +21,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -57,6 +58,7 @@ import hydrafit.feature.equipment.generated.resources.equipment_profiler_title
 import hydrafit.feature.equipment.generated.resources.equipment_remove
 import hydrafit.feature.equipment.generated.resources.equipment_search_label
 import hydrafit.feature.equipment.generated.resources.equipment_secondary_muscles
+import hydrafit.feature.equipment.generated.resources.equipment_unilateral
 import hydrafit.feature.equipment.generated.resources.muscle_back
 import hydrafit.feature.equipment.generated.resources.muscle_biceps
 import hydrafit.feature.equipment.generated.resources.muscle_calves
@@ -107,6 +109,7 @@ fun EquipmentProfilerRoute(
         onEditorNameChanged = viewModel::onEditorNameChanged,
         onEditorPatternChanged = viewModel::onEditorPatternChanged,
         onEditorEquipmentToggled = viewModel::onEditorEquipmentToggled,
+        onEditorUnilateralToggled = viewModel::onEditorUnilateralToggled,
         onEditorMuscleToggled = viewModel::onEditorMuscleToggled,
         onSaveExercise = viewModel::onSaveExercise,
         onResetExercise = viewModel::onResetExercise,
@@ -133,6 +136,7 @@ fun EquipmentProfilerScreen(
     onEditorNameChanged: (String) -> Unit,
     onEditorPatternChanged: (MovementPattern) -> Unit,
     onEditorEquipmentToggled: (EquipmentTag) -> Unit,
+    onEditorUnilateralToggled: (Boolean) -> Unit,
     onEditorMuscleToggled: (MuscleGroup, Boolean) -> Unit,
     onSaveExercise: () -> Unit,
     onResetExercise: () -> Unit,
@@ -209,6 +213,7 @@ fun EquipmentProfilerScreen(
             onNameChanged = onEditorNameChanged,
             onPatternChanged = onEditorPatternChanged,
             onEquipmentToggled = onEditorEquipmentToggled,
+            onUnilateralToggled = onEditorUnilateralToggled,
             onMuscleToggled = onEditorMuscleToggled,
             onSave = onSaveExercise,
             onReset = onResetExercise,
@@ -329,6 +334,7 @@ private fun ExerciseEditorDialog(
     onNameChanged: (String) -> Unit,
     onPatternChanged: (MovementPattern) -> Unit,
     onEquipmentToggled: (EquipmentTag) -> Unit,
+    onUnilateralToggled: (Boolean) -> Unit,
     onMuscleToggled: (MuscleGroup, Boolean) -> Unit,
     onSave: () -> Unit,
     onReset: () -> Unit,
@@ -394,6 +400,13 @@ private fun ExerciseEditorDialog(
                     selected = state.secondary,
                     onToggle = { onMuscleToggled(it, false) }
                 )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Switch(
+                        checked = state.isUnilateral,
+                        onCheckedChange = onUnilateralToggled
+                    )
+                    Text(stringResource(Res.string.equipment_unilateral))
+                }
                 Text(
                     text = stringResource(Res.string.equipment_equipment_section),
                     style = MaterialTheme.typography.labelMedium
