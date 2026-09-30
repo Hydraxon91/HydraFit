@@ -42,6 +42,7 @@ import hydrafit.feature.logger.generated.resources.logger_delete_set
 import hydrafit.feature.logger.generated.resources.logger_log_button
 import hydrafit.feature.logger.generated.resources.logger_recent
 import hydrafit.feature.logger.generated.resources.logger_reps_label
+import hydrafit.feature.logger.generated.resources.logger_search_label
 import hydrafit.feature.logger.generated.resources.logger_title
 import hydrafit.feature.logger.generated.resources.logger_today
 import hydrafit.feature.logger.generated.resources.logger_warmup
@@ -74,6 +75,7 @@ fun WorkoutLoggerRoute(
     WorkoutLoggerScreen(
         state = state,
         onExerciseSelected = viewModel::onExerciseSelected,
+        onExerciseSearchChanged = viewModel::onExerciseSearchChanged,
         onRepsChanged = viewModel::onRepsChanged,
         onWeightChanged = viewModel::onWeightChanged,
         onWarmupToggled = viewModel::onWarmupToggled,
@@ -88,6 +90,7 @@ fun WorkoutLoggerRoute(
 fun WorkoutLoggerScreen(
     state: WorkoutLoggerUiState,
     onExerciseSelected: (String) -> Unit,
+    onExerciseSearchChanged: (String) -> Unit,
     onRepsChanged: (String) -> Unit,
     onWeightChanged: (String) -> Unit,
     onWarmupToggled: (Boolean) -> Unit,
@@ -123,12 +126,21 @@ fun WorkoutLoggerScreen(
             }
         }
         item {
+            OutlinedTextField(
+                value = state.exerciseSearch,
+                onValueChange = onExerciseSearchChanged,
+                label = { Text(stringResource(Res.string.logger_search_label)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        item {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(180.dp)
             ) {
-                items(state.exercises, key = { it.id }) { exercise ->
+                items(state.visibleExercises, key = { it.id }) { exercise ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()

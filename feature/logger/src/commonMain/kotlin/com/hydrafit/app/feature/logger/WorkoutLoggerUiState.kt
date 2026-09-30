@@ -15,6 +15,7 @@ data class LoggedSetRow(
 
 data class WorkoutLoggerUiState(
     val exercises: List<ExerciseOption> = emptyList(),
+    val exerciseSearch: String = "",
     val selectedExerciseId: String? = null,
     val reps: String = "",
     val weightInput: String = "",
@@ -34,4 +35,12 @@ data class WorkoutLoggerUiState(
     val showWeightField: Boolean
         get() = weightRevealed ||
             exercises.firstOrNull { it.id == selectedExerciseId }?.isBodyweight != true
+
+    /** Exercises matching the picker search, or all of them when the search is blank. */
+    val visibleExercises: List<ExerciseOption>
+        get() = if (exerciseSearch.isBlank()) {
+            exercises
+        } else {
+            exercises.filter { it.name.contains(exerciseSearch.trim(), ignoreCase = true) }
+        }
 }

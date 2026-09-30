@@ -80,6 +80,10 @@ class WorkoutLoggerViewModel(
         _state.update { it.copy(weightRevealed = true) }
     }
 
+    fun onExerciseSearchChanged(value: String) {
+        _state.update { it.copy(exerciseSearch = value) }
+    }
+
     fun onRepsChanged(value: String) {
         _state.update { it.copy(reps = value.filter(Char::isDigit)) }
     }

@@ -71,6 +71,22 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun filtersTheExercisePickerBySearchCaseInsensitively() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        val all = viewModel.state.value.exercises.size
+
+        viewModel.onExerciseSearchChanged("bench")
+        assertEquals(
+            listOf("Bench Press"),
+            viewModel.state.value.visibleExercises.map { it.name }
+        )
+
+        viewModel.onExerciseSearchChanged("")
+        assertEquals(all, viewModel.state.value.visibleExercises.size)
+    }
+
+    @Test
     fun loggingASetPersistsItAndShowsItInHistory() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val viewModel = viewModel(repository)

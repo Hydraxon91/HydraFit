@@ -2,6 +2,7 @@
 <resources>
     <string name="nav_label">Log</string>
     <string name="logger_title">Log workout</string>
+    <string name="logger_search_label">Search exercises</string>
     <string name="logger_reps_label">Reps</string>
     <string name="logger_weight_label">Weight (%1$s)</string>
     <string name="logger_add_weight">Add weight</string>
