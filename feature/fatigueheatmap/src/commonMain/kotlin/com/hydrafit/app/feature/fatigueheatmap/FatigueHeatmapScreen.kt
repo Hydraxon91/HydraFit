@@ -12,9 +12,12 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
@@ -22,6 +25,8 @@ import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.navigation.FeatureDestination
 import hydrafit.feature.fatigueheatmap.generated.resources.Res
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_heatmap_title
+import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_percentage
+import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_percentage_near_limit
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_back
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_biceps
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_calves
@@ -33,6 +38,7 @@ import hydrafit.feature.fatigueheatmap.generated.resources.muscle_quads
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_shoulders
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_triceps
 import hydrafit.feature.fatigueheatmap.generated.resources.nav_label
+import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -55,6 +61,11 @@ fun FatigueHeatmapRoute(
     viewModel: FatigueHeatmapViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResume() }
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { viewModel.onPause() }
+    DisposableEffect(viewModel) {
+        onDispose { viewModel.onPause() }
+    }
     FatigueHeatmapScreen(state = state, modifier = modifier)
 }
 
@@ -79,11 +90,27 @@ fun FatigueHeatmapScreen(state: FatigueHeatmapUiState, modifier: Modifier = Modi
                     progress = { entry.score.toFloat() },
                     modifier = Modifier.fillMaxWidth()
                 )
-                Text(text = "${(entry.score * 100).toInt()}%")
+                val percentageTenths = roundedFatiguePercentage(entry.score)
+                Text(
+                    text = stringResource(
+                        fatiguePercentageResource(percentageTenths),
+                        percentageTenths / 10,
+                        percentageTenths % 10
+                    )
+                )
             }
         }
     }
 }
+
+internal fun roundedFatiguePercentage(score: Double): Int = (score * 1000).roundToInt()
+
+internal fun fatiguePercentageResource(percentageTenths: Int): StringResource =
+    if (percentageTenths >= 1000) {
+        Res.string.fatigue_percentage_near_limit
+    } else {
+        Res.string.fatigue_percentage
+    }
 
 private fun MuscleGroup.labelResource(): StringResource = when (this) {
     MuscleGroup.CHEST -> Res.string.muscle_chest
