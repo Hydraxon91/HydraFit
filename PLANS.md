@@ -284,7 +284,7 @@ The output is a **deterministic local fatigue-load index**, not a physiological 
 
 Phase B is the recommended first algorithm change. Phase C is not implemented until separately approved.
 
-### Phase A — heatmap freshness and rounding
+### Phase A — heatmap freshness and rounding — DONE (commit cf98d66)
 
 - The retained `FatigueHeatmapViewModel` recomputes only on `loggedSetsFlow()` emissions (investigation). Recompute the cached set list on `ON_RESUME` and on a 60-second timer while the screen is visible; cancel the timer when inactive. Keep reacting to new/deleted sets.
 - Display rounding: replace `(entry.score * 100).toInt()` truncation with one-decimal rounding. If a value would render `100.0%`, show a near-limit marker (e.g. `99.9+%`) so the asymptotic cap is not shown as exact saturation.
