@@ -3,6 +3,7 @@ package com.hydrafit.app.core.domain.engine
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.fatigue.FatigueConfig
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import kotlin.math.roundToInt
 
@@ -14,6 +15,8 @@ class DeterministicWorkoutPlannerEngine(
 ) : WorkoutPlannerEngine {
 
     override val id: PlannerEngineId = PlannerEngineId.DETERMINISTIC
+
+    private val fatigueConfig = FatigueConfig()
 
     override suspend fun generatePlan(request: PlanRequest): WeeklyPlan =
         plan(request, catalog.all())
@@ -92,7 +95,7 @@ class DeterministicWorkoutPlannerEngine(
                 ?: continue
 
             val soreness = targetedFatigue(candidate, fatigue)
-            if (soreness >= FATIGUE_SKIP_THRESHOLD) continue
+            if (soreness >= fatigueConfig.skipThreshold) continue
 
             val isCompound = candidate.movementPattern.isCompound
             val baseSets = if (isCompound) setsPerExercise else accessorySetsPerExercise
@@ -101,7 +104,7 @@ class DeterministicWorkoutPlannerEngine(
             } else {
                 baseSets
             }
-            val sets = (deloadedSets - if (soreness >= FATIGUE_REDUCE_THRESHOLD) 1 else 0)
+            val sets = (deloadedSets - if (soreness >= fatigueConfig.reduceThreshold) 1 else 0)
                 .coerceAtLeast(1)
             val reps = volumeAwareReps.repsFor(goal, isCompound, sets)
             used += candidate.id
@@ -137,12 +140,12 @@ class DeterministicWorkoutPlannerEngine(
         } ?: 0.0
 
     /**
-     * The raw fatigue of the muscles the exercise actually targets (weight ≥ [TARGETED_THRESHOLD]),
+     * The raw fatigue of muscles at or above [FatigueConfig.targetedInvolvementCutoff],
      * used for the skip/reduce decision so a low-weight stabiliser can't veto an exercise.
      */
     private fun targetedFatigue(exercise: Exercise, fatigue: Map<MuscleGroup, Double>): Double =
         exercise.effectiveInvolvements
-            .filterValues { it >= TARGETED_THRESHOLD }
+            .filterValues { it >= fatigueConfig.targetedInvolvementCutoff }
             .keys
             .maxOfOrNull { fatigue[it] ?: 0.0 }
             ?: 0.0
@@ -199,11 +202,6 @@ class DeterministicWorkoutPlannerEngine(
         const val DEFAULT_SETS = DEFAULT_SETS_PER_EXERCISE
         const val COMPOUND_REPS = 6
         const val ISOLATION_REPS = 12
-        const val FATIGUE_REDUCE_THRESHOLD = 0.5
-        const val FATIGUE_SKIP_THRESHOLD = 0.85
-
-        /** A muscle counts as "targeted" for soreness thresholds at this involvement weight or above. */
-        const val TARGETED_THRESHOLD = 0.7
 
         /** Any user-added equipment is ranked after the built-ins until it has its own preference. */
         const val CUSTOM_EQUIPMENT_RANK = 20

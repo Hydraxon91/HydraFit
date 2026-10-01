@@ -69,7 +69,8 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
             LoggedSet(
                 timestampMillis = row.performedAt,
                 targets = targets,
-                isWarmup = row.isWarmup != 0L
+                isWarmup = row.isWarmup != 0L,
+                reps = row.reps.toInt()
             )
         }
     }
@@ -87,7 +88,8 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                 LoggedSet(
                     timestampMillis = row.performedAt,
                     targets = targets,
-                    isWarmup = row.isWarmup != 0L
+                    isWarmup = row.isWarmup != 0L,
+                    reps = row.reps.toInt()
                 )
             }
         }

@@ -1,84 +1,88 @@
 # Muscle Fatigue Formula — Design Note
 
-Status: approved for implementation in `:core:domain`.
+Status: Phase B lean v1, implemented in `:core:domain`.
 
 ## Formula
 
-For each muscle group, given its training history ordered by time:
+Each muscle has one bounded fatigue-load index `F`, initially zero, with `0 ≤ F < 1`.
+There is no hidden raw-volume accumulator or final linear normalization.
 
-- **Per-session volume**
-  `volume(session) = Σ over working sets of muscleWeight`, where a set on an exercise whose
-  primary muscle is the group counts `1.0`, and a secondary involvement counts `0.5`.
+For chronological working sets:
 
-- **Recovery decay** with half-life `H` (real true half-life semantics):
-  `decay(Δt) = 2^(-Δt / H)`  (equivalently `e^(-ln2 · Δt / H)`).
+```text
+F *= 2^(-elapsedHours / halfLife[muscle])
+R = clamp((reps / referenceReps)^repExponent, minRepMultiplier, maxRepMultiplier)
+u = involvementWeight × R
+δ = D × ln((D + V + u) / (D + V))
+V += u
+F += (1 - F) × (1 - exp(-δ / K))
+```
 
-- **Accumulation** (superposition, not reset):
-  `raw(t) = raw(t_prev) · decay(Δt) + volume(new session)`.
+`V` is cumulative pre-discount stimulus for this muscle in the inferred session.
+It discounts later sets; `(1 - F)` independently bounds the response to remaining headroom.
+Recovery starts immediately after training, including after extreme volume: there is no
+overflow plateau. After the last working timestamp, decay `F` to `nowMillis`.
 
-- **Normalized score** (the heatmap contract):
-  `score = (raw(now) / referenceVolume).coerceIn(0.0, 1.0)`.
+The implementation uses equivalent `ln1p`/`expm1` expressions for numerical accuracy.
+The mathematical open upper bound is retained with the representable double immediately
+below one if floating-point rounding reaches one.
 
-## Answers
+## Sessions and input
 
-**1. What is "volume"?**
-A sets-based proxy: hard sets attributed to the muscle (primary `1.0`, secondary `0.5`).
-Justification: `sets × reps × weight` needs a reliable weight/1RM and breaks for bodyweight
-and band work, which the equipment profiler explicitly supports; "hard sets" is a robust,
-offline, deterministic metric that needs only what the logger already captures. Reps/weight
-can be layered in later as a per-set intensity multiplier without changing the contract.
+- Infer sessions across **all working sets**, irrespective of exercise or muscle. A gap
+  **greater than or equal to two hours** between consecutive working timestamps resets every
+  muscle's `V`, but never resets recovered `F`. Calendar midnight does not split a session.
+- Warm-ups contribute nothing and do not bridge a working-set gap.
+- At equal timestamps, sum each muscle's stimulus in canonical order and apply one dose.
+  Logarithmic doses telescope, so batching preserves the formula and is insertion-order independent.
+- Use the set's stored involvement snapshot, summing matching target weights. Catalog edits
+  do not rewrite historical snapshots.
+- `LoggedSet.reps` defaults to `FatigueConfig.DEFAULT_REFERENCE_REPS` (8) for synthetic callers.
+  Both repository mapping paths explicitly pass the existing stored reps.
+- `nowMillis` is a parameter, never a clock read. Negative elapsed intervals retain zero-decay
+  semantics. All muscle groups are returned, including zero for untrained groups.
 
-**2. How do multiple sessions accumulate?**
-Stack on decayed prior volume (superposition). A new session adds to whatever has not yet
-recovered: `raw_new = raw_old · decay(Δt) + volume_new`. Reset would discard recovery state
-and misreport fatigue after frequent training; superposition is the physically correct model
-and composes cleanly across any number of sessions.
+## Calibration
 
-**3. What is the output range?**
-A single normalized `0.0–1.0` score per muscle group. The heatmap UI binds only to this range,
-so the underlying constants can be tuned without changing the UI contract. Linear clamp is
-chosen for the first pass (simple and exactly testable); it can be swapped for a smooth
-saturation later without touching callers.
+All calibration values live in `FatigueConfig`. They are tunable model parameters,
+**not physiological measurements or facts**.
 
-**4. Fixed half-life or user-configurable?**
-Fixed per-muscle defaults now, passed in as parameters rather than hardcoded. This keeps the
-calculation pure and testable, and lets it become user-configurable later by supplying a
-different map — no signature change.
+| Parameter | Default |
+| --- | --- |
+| Capacity `K` | 6 stimulus units |
+| Diminishing scale `D` | 6 stimulus units |
+| Reference reps / exponent | 8 / 0.5 |
+| Rep multiplier range | 0.5–1.5 |
+| CHEST, BACK, QUADS, HAMSTRINGS, GLUTES half-life | 24 h |
+| SHOULDERS half-life | 21 h |
+| BICEPS, TRICEPS, CALVES, CORE half-life | 18 h |
+| Missing-muscle fallback half-life | 24 h |
+| Inferred session gap | 2 h |
+| Planner reduce / skip | 0.65 / 0.80 |
+| Targeted involvement cutoff | 0.7 |
 
-## Definition: "hard set"
+## Planner policy
 
-The model records **working sets only**. Warm-up sets are either not recorded or flagged
-(`isWarmup`) and are ignored by the calculation, so volume reflects only sets taken at or near
-working intensity.
+Order candidates by maximum `involvement × fatigue`. Reduce or skip using maximum **raw**
+fatigue among muscles with involvement ≥ 0.7: reduce one set at `F ≥ 0.65`, skip at
+`F ≥ 0.80`. Never use rounded display percentages for decisions; retain the one-set minimum.
+The shared `Map<MuscleGroup, Double>` contract remains compatible with all planner engines.
 
-## Time
+## Calibration regressions
 
-The current time is a **function parameter** (`nowMillis`), never read from the system clock
-inside the calculation. This keeps the formula pure, deterministic, and testable.
+The captured ledger fixture contains 39 working sets plus three warm-ups. With its stored
+timestamps, reps and BACK weights, peak fatigue is **82.5504%** at `1790844708670` ms;
+evaluation is **65.2960%** at `1790873936000` ms. BACK-targeting exercises are skipped at
+peak and reduced at evaluation. After 24 h without new stimulus the peak halves to 41.2752%.
 
-## Constants
+Compact sessions with involvement 1.0 and no inter-set decay yield:
 
-All constants are **tunable placeholders, not physiological facts**:
+| Prescription | Immediate | After 24 h (large muscle) |
+| --- | ---: | ---: |
+| 3 × 12 | 37.9796% | 18.9898% |
+| 6 × 5 | 44.1518% | 22.0759% |
+| 4 × 5 | 34.5141% | 17.2570% |
+| 4 × 10 | 42.7051% | 21.3525% |
 
-- `referenceVolume = 24` hard sets.
-- Half-lives: `48 h` for large groups (chest, back, quads, hamstrings, glutes); `24–36 h` for
-  smaller groups (shoulders, biceps, triceps, calves, core).
-
-They are supplied via a `FatigueConfig` parameter, so callers can override any of them.
-
-## Future Refinement
-
-**Per-muscle reference volume** is a likely follow-up: if smaller muscles look washed out on the
-heatmap because they rarely approach the global `referenceVolume`, give each group its own
-reference volume. Deferred until the heatmap exists to judge it.
-
-## Implementation Sketch
-
-- `MuscleGroup`, `MuscleInvolvement`, `MuscleTarget`, `LoggedSet`, `FatigueConfig` — pure Kotlin
-  in `:core:domain` `commonMain`, no platform APIs.
-- `FatigueCalculator` — the pure math.
-- `CalculateMuscleFatigueUseCase` — domain entry point returning `Map<MuscleGroup, Double>`
-  (0.0–1.0, every group present).
-- Unit tests with `kotlin.test`: no sets, single session normalization, clamp at 1.0, exact
-  half-life decay to 50%, two half-lives to 25%, secondary weighting, warm-up exclusion,
-  multi-session stacking, ordering independence, and `nowMillis` as the sole time source.
+Phase B requires no schema changes. Relative load, RIR/RPE, and separate compound/isolation
+recovery are deferred to Phase C; they do not enter this calculation.

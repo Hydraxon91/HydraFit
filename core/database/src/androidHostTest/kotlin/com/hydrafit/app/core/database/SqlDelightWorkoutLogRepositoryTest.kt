@@ -3,6 +3,7 @@ package com.hydrafit.app.core.database
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.fatigue.FatigueCalculator
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.fatigue.MuscleInvolvement
 import com.hydrafit.app.core.domain.workout.WorkoutSet as DomainWorkoutSet
@@ -106,6 +107,29 @@ class SqlDelightWorkoutLogRepositoryTest {
         val byMuscle = logged.targets.associate { it.muscle to it.weight }
         assertEquals(MuscleInvolvement.PRIMARY.volumeWeight, byMuscle[MuscleGroup.CHEST])
         assertEquals(1L, logged.timestampMillis)
+    }
+
+    @Test
+    fun storedRepsReachTheCalculatorThroughBothMappingPaths() = runTest {
+        repository.add(
+            DomainWorkoutSet(
+                exerciseId = "barbell-bench-press",
+                reps = 2,
+                weightKg = 50.0,
+                performedAtMillis = 1L
+            )
+        )
+
+        val calculator = FatigueCalculator()
+        for (logged in listOf(repository.loggedSets(), repository.loggedSetsFlow().first())) {
+            assertEquals(2, logged.single().reps)
+            // Two reps give R = 0.5, hence F = 0.5 / (6 + 0.5), rather than the default's 1/7.
+            assertEquals(
+                1.0 / 13.0,
+                calculator.calculate(logged, nowMillis = 1L).getValue(MuscleGroup.CHEST),
+                1e-9
+            )
+        }
     }
 
     @Test

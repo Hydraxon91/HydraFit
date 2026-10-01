@@ -3,7 +3,13 @@ package com.hydrafit.app.core.domain.engine
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.fatigue.FatigueCalculator
+import com.hydrafit.app.core.domain.fatigue.FatigueReplayFixture
+import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.fatigue.MuscleTarget
+import kotlin.math.nextDown
+import kotlin.math.nextUp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -322,7 +328,7 @@ class DeterministicWorkoutPlannerEngineTest {
             request(
                 daysPerWeek = 3,
                 split = SplitType.PUSH_PULL_LEGS,
-                fatigue = mapOf(MuscleGroup.CHEST to 0.6),
+                fatigue = mapOf(MuscleGroup.CHEST to 0.7),
                 setsPerExercise = 4
             ),
             listOf(exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST))
@@ -330,6 +336,107 @@ class DeterministicWorkoutPlannerEngineTest {
 
         val planned = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.single()
         assertEquals(3, planned.sets)
+    }
+
+    @Test
+    fun reductionAndSkipBoundariesUseUnroundedScores() {
+        for ((fatigue, expectedSets) in listOf(
+            0.65.nextDown() to 4,
+            0.65 to 3,
+            0.65.nextUp() to 3,
+            0.80.nextDown() to 3,
+            0.80 to null,
+            0.80.nextUp() to null
+        )) {
+            val plan = engine.plan(
+                request(
+                    daysPerWeek = 3,
+                    split = SplitType.PUSH_PULL_LEGS,
+                    fatigue = mapOf(MuscleGroup.CHEST to fatigue),
+                    setsPerExercise = 4
+                ),
+                listOf(exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST))
+            )
+            val picks = plan.days.first { it.focus == SplitFocus.PUSH }.exercises
+            assertEquals(expectedSets, picks.singleOrNull()?.sets, "fatigue=$fatigue")
+        }
+    }
+
+    @Test
+    fun targetedInvolvementBoundaryUsesRawMaximumFatigue() {
+        for ((weight, fatigue, expectedSets) in listOf(
+            Triple(0.7.nextDown(), 0.8, 4),
+            Triple(0.7, 0.65, 3),
+            Triple(0.7, 0.8, null)
+        )) {
+            val candidate = exercise("bench", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST)
+                .copy(
+                    involvements = mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.SHOULDERS to weight)
+                )
+            val plan = engine.plan(
+                request(
+                    daysPerWeek = 3,
+                    split = SplitType.PUSH_PULL_LEGS,
+                    fatigue = mapOf(MuscleGroup.CHEST to 0.1, MuscleGroup.SHOULDERS to fatigue),
+                    setsPerExercise = 4
+                ),
+                listOf(candidate)
+            )
+            val picks = plan.days.first { it.focus == SplitFocus.PUSH }.exercises
+            assertEquals(expectedSets, picks.singleOrNull()?.sets)
+        }
+    }
+
+    @Test
+    fun replayBackExercisesAreReducedAtEvaluationAndSkippedAtPeak() {
+        val calculator = FatigueCalculator()
+        for ((instant, expectedSets) in listOf(
+            FatigueReplayFixture.EVALUATION_MILLIS to 3,
+            FatigueReplayFixture.PEAK_MILLIS to null
+        )) {
+            val plan = engine.plan(
+                request(
+                    daysPerWeek = 3,
+                    split = SplitType.PUSH_PULL_LEGS,
+                    fatigue = calculator.calculate(FatigueReplayFixture.sets, instant),
+                    setsPerExercise = 4
+                ),
+                listOf(exercise("row", MovementPattern.HORIZONTAL_PULL, MuscleGroup.BACK))
+            )
+            val picks = plan.days.first { it.focus == SplitFocus.PULL }.exercises
+            assertEquals(expectedSets, picks.singleOrNull()?.sets)
+        }
+    }
+
+    @Test
+    fun candidateOrderingUsesTheNewNonlinearScoresAndMaximumWeightedInvolvement() {
+        val sets = List(12) {
+            LoggedSet(0L, listOf(MuscleTarget(MuscleGroup.CHEST, 1.0)), reps = 8)
+        } + List(8) {
+            LoggedSet(0L, listOf(MuscleTarget(MuscleGroup.SHOULDERS, 1.0)), reps = 8)
+        }
+        val chest = exercise("chest", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST).copy(
+            involvements = mapOf(MuscleGroup.CHEST to 0.7, MuscleGroup.SHOULDERS to 0.3)
+        )
+        val shoulders = exercise(
+            "shoulders",
+            MovementPattern.HORIZONTAL_PUSH,
+            MuscleGroup.SHOULDERS
+        ).copy(involvements = mapOf(MuscleGroup.SHOULDERS to 1.0))
+        for (candidates in listOf(listOf(chest, shoulders), listOf(shoulders, chest))) {
+            val plan = engine.plan(
+                request(
+                    daysPerWeek = 3,
+                    split = SplitType.PUSH_PULL_LEGS,
+                    fatigue = FatigueCalculator().calculate(sets, 0L)
+                ),
+                candidates
+            )
+            // New: max(0.7 × 2/3, 0.3 × 4/7) < 4/7. Linear normalization chose shoulders.
+            val picked = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.single()
+            assertEquals("chest", picked.exerciseId)
+            assertEquals(2, picked.sets)
+        }
     }
 
     @Test
