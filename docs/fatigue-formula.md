@@ -105,7 +105,7 @@ The shared `Map<MuscleGroup, Double>` contract remains compatible with all plann
 
 ## Calibration regressions
 
-The captured ledger fixture contains 39 working sets plus three warm-ups. With its stored
+The captured ledger fixture (from the archived BACK investigation, `docs/plans-archive.md`) contains 39 working sets plus three warm-ups. With its stored
 timestamps, reps and BACK weights, peak fatigue is **82.5504%** at `1790844708670` ms;
 evaluation is **65.2960%** at `1790873936000` ms. BACK-targeting exercises are skipped at
 peak and reduced at evaluation. After 24 h without new stimulus the peak halves to 41.2752%.

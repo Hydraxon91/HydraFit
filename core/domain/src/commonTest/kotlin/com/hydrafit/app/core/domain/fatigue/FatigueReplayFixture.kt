@@ -1,6 +1,9 @@
 package com.hydrafit.app.core.domain.fatigue
 
-/** Essential ledger columns from PLANS.md; 39 working sets and three excluded warm-ups. */
+/**
+ * Essential ledger columns from the archived BACK investigation (`docs/plans-archive.md`);
+ * 39 working sets and three excluded warm-ups.
+ */
 internal object FatigueReplayFixture {
     const val EVALUATION_MILLIS = 1790873936000L
     const val PEAK_MILLIS = 1790844708670L
