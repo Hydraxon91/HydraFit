@@ -6,9 +6,10 @@
 
 | Item | Status | Next action |
 | --- | --- | --- |
-| E. Align Gemini + Local LLM prompts with new planner inputs | NOT STARTED | Start E1: surface the equipment weight cap and week/deload context in both prompts. |
+| Roadmap v0.2.0 → v0.3.0 | PLANNED | Approved 2026-10-01; see the Roadmap section below. Next: Priority 1 item 1 (P1a). |
+| E (AI prompt alignment) | FOLDED | Superseded by Roadmap Priority 1 item 3. |
 | BACK work chunk 1 — heatmap freshness | DONE (`cf98d66`, Phase A) | — |
-| BACK work chunk 2 — historical workout time entry | OPEN | Approve the performed-at UX/data edits before starting. |
+| BACK work chunk 2 — historical workout time entry | FOLDED | Superseded by Roadmap Priority 1 item 2. |
 | BACK work chunk 3 — model calibration | OPEN | Calibrate against correctly timed histories; decide whether the plateau is desired. |
 | BACK work chunk 4 — literal >100% report | OPEN | Capture exact value/time/build if it recurs. |
 | Fatigue redesign — open decision 1 | RESOLVED | Phase B approved and shipped (`f15b9d9`). |
@@ -17,7 +18,7 @@
 | Fatigue redesign — open decision 4 | RESOLVED | Phase C1/C2/C3 shipped (`b0959f0`, `6bb9239`, `86ace92`). |
 | Fatigue redesign — open decision 5 | OPEN | Decide 2-hour session gap vs explicit session ids. |
 | Open Questions / Later | LATER | See section below; nothing scheduled. |
-| Deferred (release pipeline, settings/nav) | DEFERRED | See section below. |
+| Deferred (release pipeline, settings/nav) | PROMOTED | Roadmap Priority 1 item 4 and Priority 2 item 7. |
 
 ## Process
 
@@ -25,22 +26,99 @@
 - Any `.sq` schema change ships a matching `.sqm` migration in the same change; released schemas are never edited in place.
 - Item 1–2 (settled, applied): brand-new equipment ids are allowed with a flat custom rank; `requiredEquipment` stays a CSV.
 
-## Open work proposals
+## Roadmap v0.2.0 → v0.3.0 (approved 2026-10-01)
 
-### E. Align the Gemini + Local LLM prompts with the new planner inputs
-**Status:** NOT STARTED — assessment only (2026-09-30). Both AI engines compile and pass their tests and are contract-compatible, but they are not *feature-aligned*: they inherit deload/sets/equipment-cap/week stamping/variety via the shared `WeeklyPlanSanitizer` + `PlanVarietyEnforcer`, yet their prompts never tell the model about the new inputs, so the model guesses and is silently corrected afterward.
-**Goal:** the two model-backed engines *use* the same inputs the Deterministic engine already does, so a model plan needs less post-hoc correction and matches the app's rules on the first pass.
-**Approach (prompt/schema only — no dependency or infra changes):**
-- **Equipment weight ceiling → prompts.** Surface `PlanRequest.equipmentMaxWeights` in `GeminiWorkoutPlannerEngine.buildRequest` (~`:134`) and `LocalLlmWorkoutPlannerEngine.prompt` (~`:107`) so both suggest within-cap weight; the sanitizer stays as the hard safety net (`WeeklyPlanSanitizer.kt:44`).
-- **Week/cycle + deload context → prompts.** Tell both models the current `weekNumber`/`cycleNumber` and that deload is periodization-driven (they currently get only the deload instruction, not the context).
-- **De-duplicate shared prompt blocks.** `fatigue`, `progressedWeights`, the equipment line, and the recent-weights block are copy-pasted across the two engines; extract into one `:core:domain` helper so they cannot drift.
-- **Reconcile the exercise-count constants.** The AI schemas force 4–6 exercises/day while `WeeklyPlanSanitizer.MIN_EXERCISES_PER_DAY` and `PlanVarietyEnforcer.MIN_EXERCISES_PER_DAY` are `2`; pick one source of truth.
-- **Separately, verify the Gemini model id.** `GeminiConfig.model = "gemini-3.1-flash-lite"` (`GeminiConfig.kt:4`) is unverified against the live model list — a wrong id would 4xx every Gemini call. Confirm before relying on the engine.
-**Phases:** E1 equipment cap + week/deload context in both prompts; E2 shared prompt helper; E3 exercise-count constant reconciliation (+ decide whether the on-device grammar should force 2 rather than 4); E4 verify the Gemini model id; E5 tests + verification.
-**Files:** `core/network/.../GeminiWorkoutPlannerEngine.kt`, `GeminiConfig.kt`, `core/llm/.../LocalLlmWorkoutPlannerEngine.kt`, `core/domain/.../WeeklyPlanSanitizer.kt`, `PlanVarietyEnforcer.kt`, plus a new shared prompt helper in `:core/domain` (with `GeminiWorkoutPlannerEngineTest` / `LocalLlmWorkoutPlannerEngineTest`).
-**Tests:** each built prompt contains the equipment cap and week/deload context; existing OOM→deterministic and sanitizer→deterministic fallback tests stay green; sanitizer/enforcer constant change covered if the min exercise count moves.
-**Open decisions:** 4–6 everywhere vs relax the AI schemas toward 2; whether the prompt names per-equipment caps or resolves a per-exercise ceiling; whether the Gemini model id needs changing.
-**Out of scope:** re-importing/re-packaging the on-device `.litertlm` (migrations do not touch `filesDir`, so nothing we changed requires it).
+> Execute each phase as an approved work chunk: run the relevant Gradle task after every phase, keep one logical change per commit, and stop to report if a phase needs something outside its scope. Gated items (schema/`.sqm` migration, dependency changes, Koin constructor/binding changes, CI/CD or signing changes, `git push`) still need their own explicit approval even inside a chunk.
+
+### Priority 1 — pre-0.2.0
+
+#### 1. Recent Set Quick-Fill (Logger)
+**Goal:** tapping a recent set row populates the input fields with that set's exercise, reps, and weight.
+**Phases:**
+- **P1a — row data.** Add `exerciseId` and `rir` to `LoggedSetRow` (`WorkoutLoggerUiState.kt:13`); map both in `refreshRecentSets` (`WorkoutLoggerViewModel.kt:298`). `WorkoutSet` already carries them; only the mapping drops them today.
+- **P1b — fill action.** Add `onRecentSetSelected(row)` to the VM: set `selectedExerciseId`/`reps`, convert weight with `formatWeight(unit.kilogramsToDisplay(...))`, restore `isWarmup`/`rir`, and reveal the weight field when a weight exists. Reuse a private conversion helper shared with `prefillFromLastSet` (`WorkoutLoggerViewModel.kt:95`). Must bypass the accepted-plan suggestion.
+- **P1c — UI.** Thread `onRecentSetSelected` through `WorkoutLoggerRoute`/screen and add `Modifier.clickable` to the recent-set row (`WorkoutLoggerScreen.kt:311`); keep the Delete button. Add a content-description string only if needed.
+- **P1d — tests.** KG and LB fill, bodyweight (null weight) leaves the field hidden, quick-fill wins over a plan suggestion, warmup/RIR restored.
+**Files:** `feature/logger` UiState/VM/Screen/strings + `WorkoutLoggerViewModelTest.kt`.
+**Constraints:** no schema, DI, or Koin change.
+
+#### 2. Historical Entry Timestamping (Logger)
+**Goal:** an explicit performed-at date/time when logging past sets, defaulting to now for live sets; plus correction of an existing row's time through a separate affordance (tap remains quick-fill).
+**Decisions:** a backdated set keeps **today's accepted plan** snapshot for week/cycle/day; the explicit time persists until changed (a draft batch shares it).
+**Phases:**
+- **P2a — time math.** Add pure local civil→epoch helpers in `core/domain/.../time` (the `daysFromCivil` inverse of the existing private `civilFromDays` in `IsoDate.kt`, plus local→UTC using `TimeProvider.utcOffsetMillis()`), with `commonTest` tests. No `kotlinx-datetime`.
+- **P2b — state + stamping.** Add `performedAtMillis: Long?` (null = now) and `onPerformedAtChanged` to the VM; replace both `timeProvider.nowMillis()` stamp sites (`WorkoutLoggerViewModel.kt:172`, `:256`) with `current.performedAtMillis ?: timeProvider.nowMillis()`; keep week/cycle/day from today's plan.
+- **P2c — picker UI.** Add the time control/dialog (Material3 `DatePicker`/`TimePicker` if the CMP artifact exposes them, else an `AlertDialog` with fields) and localized strings. Verify picker API availability during the build.
+- **P2d — row correction (separately gated).** Add `updateSetPerformedAt` to `WorkoutLog.sq` (query only; no schema change), a repository method + impl, and a focused `CorrectWorkoutSetTimeUseCase`, bound in `domainModule` and covered by the Koin verification. Reached from the row's separate time-edit control.
+- **P2e — tests.** Historical timestamp persists and lowers decay; live logging still defaults to now; a draft batch shares the explicit time; timestamp-only correction preserves reps/weight/warmup/snapshot/rir; correction use-case and repository tests.
+**Files:** `core/domain/.../time`, `workout/WorkoutLogRepository.kt`, new use case, `core/database/.../WorkoutLog.sq` + `SqlDelightWorkoutLogRepository.kt`, `feature/logger` UiState/VM/Screen/strings, tests.
+**Constraints:** `WorkoutLoggerViewModel` currently has 7 constructor params; P2d must not simply append another — group or justify before adding (AGENTS oversized-constructor rule).
+
+#### 3. AI Planner Prompt Alignment + logger-data parity
+**Goal:** both model-backed engines use the same planner inputs the Deterministic engine does, and the AI history reflects every signal the Logger captures, so model plans need less post-hoc correction.
+**Decisions:** one shared count source of truth (prompts/schemas request 4–6, validators accept ≥2); add **RIR**, **bodyweight/weightless sets**, and the **per-set week/day snapshot** to the AI history; warm-ups stay excluded; `gemini-3.1-flash-lite` confirmed on the AI Studio rate-limit docs.
+**Phases:**
+- **P3a — shared prompt helper.** Extract the duplicated prompt blocks (equipment line, fatigue, deload instruction, volume-reps guidance, recent-weights, progressed-weights) into one `:core:domain/engine` helper, with `commonTest` coverage; both engines call it.
+- **P3b — inject missing context.** Surface `equipmentMaxWeights` (per-equipment caps) and `weekNumber`/`cycleNumber`/`isDeload` context in both prompts.
+- **P3c — logger-data parity.** Extend `WeightHistoryEntry` (nullable `weightKg`, add `rir`, `weekNumber`, `dayIndex`) and `BuildRecentWeightsUseCase` to keep bodyweight reps-only sets and carry RIR + snapshot; render them in both prompts. Warm-ups remain excluded by design.
+- **P3d — reconcile exercise counts.** Add shared constants in `:core:domain` (e.g. floor `2`, target `4`–`6`); `WeeklyPlanSanitizer`/`PlanVarietyEnforcer` use the floor, prompts/schemas the target; update the asserting tests.
+- **P3e — pin the model id.** Add a test asserting the generated URL/model id (`GeminiConfig.kt:4`, `GeminiWorkoutPlannerEngine.kt:48`).
+- **P3f — tests + verification.** New prompt-content tests (equip cap, week/cycle/deload, parity fields); existing OOM→deterministic and sanitizer→deterministic fallbacks stay green; run Koin verification if any binding changes.
+**Files:** `core/network/GeminiWorkoutPlannerEngine.kt` + test, `core/llm/LocalLlmWorkoutPlannerEngine.kt` + test, `core/domain/engine` helper + `BuildRecentWeightsUseCase.kt` + `WeightHistoryEntry`, `WeeklyPlanSanitizer.kt`, `PlanVarietyEnforcer.kt`, `GeminiConfig.kt`.
+**Out of scope:** re-importing/re-packaging the on-device `.litertlm` (migrations do not touch `filesDir`).
+
+#### 4. CI/CD Pipeline & Signing (Major Infrastructure Change — each phase gated)
+**Goal:** signed release APK on tags, a nightly build, and `local.properties`/secret-based signing.
+**Decisions:** build the full set; `versionName` from the tag, `versionCode` = GitHub run number.
+**Phases:**
+- **C1 — signing config.** Add `signingConfigs` + release `buildType` wiring in `androidApp/build.gradle.kts`, reading `RELEASE_KEYSTORE_*` from `local.properties` with a `providers.environmentVariable(...)` fallback (configuration-cache friendly); update `local.properties.template`.
+- **C2 — nightly workflow.** New `schedule:` workflow with a concurrency group distinct from `build-and-test.yml`; build/tests + debug artifact.
+- **C3 — release workflow.** `release.yml` on `v*.*.*`, `permissions: contents: write`, decode the keystore secret to a temp file, build the signed release APK, attach to a GitHub Release.
+- **C4 — version injection.** `versionName` from the tag and `versionCode` from the run number, keeping local defaults.
+- **C5 — documentation.** Document the required secrets/keys in `local.properties.template` + README.
+- **C6 — update AGENTS.md.** Once signing, nightly, and release work, record them in `AGENTS.md` (pipeline stages, secret names, version strategy) so future sessions know the release flow.
+**Files:** `.github/workflows/*`, `androidApp/build.gradle.kts`, `local.properties.template`, `README.md`, `AGENTS.md`.
+**Gating:** every phase touches CI/CD or signing and is individually gated; `git push` needs its own approval.
+
+### Priority 2 — v0.3.0
+
+#### 5. Potential PR with Safety Margin
+**Goal:** show a potential PR over the last N sets with a ~5% discount, derived-only.
+**Decisions:** surfaced in the Equipment Personal-records section.
+**Phases:**
+- **P5a — use case.** `CalculatePotentialPrUseCase` in `:core/domain/engine` (last N sets or a day window, `max(Epley) × discount`, rounded) with a config data class; `commonTest` coverage. Discount `0.95`; window `N` is an open decision.
+- **P5b — wiring.** Bind in `DomainModule` + Koin verification.
+- **P5c — UI.** Show the value beside the manual PR in `EquipmentProfilerScreen.kt`; VM/state + tests.
+**Files:** `core/domain/engine/CalculatePotentialPrUseCase.kt` + test, `shared/DomainModule.kt`, `KoinModulesVerificationTest.kt`, `feature/equipment` VM/state/screen/strings + test.
+
+#### 6. Dynamic Exercise Substitution
+**Goal:** swap one exercise inside an accepted plan, persisted in place.
+**Decisions:** target the accepted plan; add an `UPDATE` (no schema change) so the plan keeps its id/acceptedAt.
+**Phases:**
+- **P6a — candidate selection.** Extract the private ranking from `DeterministicWorkoutPlannerEngine.selectExercises` into a reusable function (same movement pattern, availability filter, equipment cap, fatigue/rotation order); tests.
+- **P6b — persistence + use case.** Add `UPDATE planHistoryEntry ... WHERE position = ?` to `PlanHistory.sq`, a repository method + impl, and a `SubstituteExerciseUseCase`; bind + Koin verify; repository/use-case tests. No schema change (columns exist).
+- **P6c — UI.** Per-row swap control + candidate dialog in `SplitBuilderScreen.kt`, strings, VM handler. Keep `SplitBuilderViewModel` within the constructor limit by grouping into one use case. Verify the swap re-emits `observeLatest()` so the Logger and next-generation inputs update.
+**Files:** `core/domain/engine/DeterministicWorkoutPlannerEngine.kt`, new use case, `PlanHistoryRepository.kt`, `core/database/.../PlanHistory.sq` + `SqlDelightPlanHistoryRepository.kt`, `feature/splitbuilder` screen/VM/state/strings + test, `shared/DomainModule.kt`, Koin verification.
+
+#### 7. Settings Consolidation
+**Goal:** a coherent "Planning" section grouping goal, engine, and AI consent.
+**Decisions:** days-per-week stays in SplitBuilder.
+**Phases:**
+- **P7a — layout + strings.** Reorder/group engine + goal + consent under a `settings_planning_section` heading in `SettingsScreen.kt`; no data, port, use case, or migration change.
+- **P7b — verify.** `SettingsViewModelTest` remains valid; manual smoke check.
+**Files:** `feature/settings/SettingsScreen.kt` + `strings.xml`.
+
+### Priority 3 — post-0.3.0
+
+#### 8. Subjective Fatigue Adjustment
+**Goal:** adjust calculated fatigue from user-reported readiness and derive an endurance scalar.
+**Open decision:** readiness input home — per-session in the Logger vs a standing setting (the latter needs a `:core:userdata` port + SQL + `24.sqm`).
+**Phases (sketch, not yet scheduled):**
+- **P8a** decide the input home and whether readiness is persisted.
+- **P8b** scale fatigue at the `CalculateMuscleFatigueUseCase`/`FatigueCalculator.calculate(sets, nowMillis)` seam; add `FatigueConfig` parameters; derive an endurance scalar from reps / the existing `repsFactor`; `FatigueCalculatorTest` / `FatigueReplayTest` coverage.
+- **P8c** wire both consumers (`ObserveWorkoutPlanInputsUseCase.kt:58`, `FatigueHeatmapViewModel.kt:59`).
+
+**Remaining open decisions:** P8 readiness input home; P5 PR window `N`; P2 picker API fallback if Material3 pickers are unavailable in the CMP artifact; P2 draft share/reset semantics.
 
 ## Open Questions / Later
 
@@ -50,11 +128,6 @@
 - Use MockK when a chunk needs it (approved version, not yet used).
 - Local AI quality: offering a stronger pack (Gemma 3n-E2B) is still open — the NPU guidance hint shipped, but the Qualcomm QNN libs stay unbundled to keep the repo MIT-clean.
 - **Progression limitation.** Deterministic progression keys off the accepted-plan prescription and completed-session streaks; repeated set failures are only coarsely captured (`failureStreak = 3 → −1`), and a mis-planned/deleted week can't correct it.
-
-## Deferred
-
-- **Signed release pipeline (deferred by decision).** A `release.yml` workflow on `v*.*.*` tags that builds a signed release APK (keystore via GitHub Actions Secrets) and attaches it to a GitHub Release, plus a `signingConfig` in `androidApp/build.gradle.kts` reading `RELEASE_KEYSTORE_*` from `local.properties` (local) and env (CI). **Not scaffolded yet** — `v0.1.0` ships a manually attached debug APK and the user generates/uploads the keystore separately. Revisit once the app is further along.
-- **Settings/navigation redesign.** Use a coherent "Planning" section in existing Settings for goal + engine + Gemini consent; keep equipment/exercise management in the Equipment tab.
 
 ## Decisions Made
 
@@ -83,7 +156,7 @@
 - The local LLM engine falls back to the Deterministic engine on `OutOfMemoryError`/errors and when no model is present; it is hidden in Settings unless a model is bundled. iOS is unsupported for now (LiteRT-LM is Swift/SPM, not Kotlin/Native).
 - On-device model binaries are never committed (`*.task`/`*.litertlm` gitignored); provide one at `core/llm/src/androidMain/assets/models/on_device_llm.litertlm`.
 - The Gemini API key can be entered in-app; it is stored via `ApiKeyStore` (Android Keystore-backed AES/GCM) and takes precedence over the build-time key. iOS uses a no-op store until the iOS app ships.
-- The Gemini engine targets `gemini-3.1-flash-lite` (highest free-tier daily quota) and omits sampling parameters (removed in Gemini 3.x); `INTERNET` is declared in the manifest. Failures surface the backend `error.message` in the Plan error state so quota/model problems are diagnosable on-device. (The model id is unverified — see open work proposal E.)
+- The Gemini engine targets `gemini-3.1-flash-lite` (highest free-tier daily quota) and omits sampling parameters (removed in Gemini 3.x); `INTERNET` is declared in the manifest. Failures surface the backend `error.message` in the Plan error state so quota/model problems are diagnosable on-device. (The model id is confirmed against the AI Studio model list; it is pinned with a URL test in Roadmap P3e.)
 - Plan generation failures are caught at the ViewModel boundary and surfaced as an error with a Retry action (no crash).
 - The on-device model is imported in-app (Android file picker → `filesDir/on_device_llm.litertlm`); Settings shows the engine entry greyed out until a model is imported, plus a Gemma Terms link. iOS shows a note.
 - Weekly-plan JSON parsing is shared in `:core:domain` (`parseWeeklyPlan`), used by both the Gemini and local LLM engines.
