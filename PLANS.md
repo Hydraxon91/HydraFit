@@ -1,6 +1,6 @@
 # HydraFit Plan
 
-> Read at session start. Keep only open work; completed items are deleted once committed (git history holds the detail). Durable technical decisions live under "Decisions Made".
+> Read at session start. Keep only open work; completed work is archived in `docs/plans-archive.md` and left as stubs here. Durable technical decisions live under "Decisions Made".
 
 ## Current status
 
