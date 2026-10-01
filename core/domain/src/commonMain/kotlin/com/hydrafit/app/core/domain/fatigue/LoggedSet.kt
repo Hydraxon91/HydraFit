@@ -6,5 +6,9 @@ data class LoggedSet(
     val isWarmup: Boolean = false,
     val reps: Int = FatigueConfig.DEFAULT_REFERENCE_REPS,
     /** Compound work recovers on a longer half-life; unknown/legacy types default to isolation. */
-    val isCompound: Boolean = false
+    val isCompound: Boolean = false,
+    /** Identifies the exercise so the relative-load reference can be found among earlier sets. */
+    val exerciseId: String? = null,
+    /** Logged working load; null/<=0 leaves the relative-load factor neutral. */
+    val weightKg: Double? = null
 )

@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.domain.fatigue
 
+import com.hydrafit.app.core.domain.engine.OneRepMax
 import kotlin.math.expm1
 import kotlin.math.ln1p
 import kotlin.math.nextDown
@@ -8,15 +9,79 @@ import kotlin.time.Duration
 
 class FatigueCalculator(private val config: FatigueConfig = FatigueConfig()) {
     fun calculate(sets: List<LoggedSet>, nowMillis: Long): Map<MuscleGroup, Double> {
-        val batches = sets.filterNot { it.isWarmup }
-            .sortedBy { it.timestampMillis }
-            .groupBy { it.timestampMillis }
+        val working = sets.filterNot { it.isWarmup }
+        val loadFactors = relativeLoadFactors(working)
+        val batches = working.mapIndexed { index, set -> LoadedSet(set, loadFactors[index]) }
+            .sortedBy { it.set.timestampMillis }
+            .groupBy { it.set.timestampMillis }
         return MuscleGroup.entries.associateWith { muscle -> scoreFor(muscle, batches, nowMillis) }
+    }
+
+    /**
+     * Relative-load factors, one per input set in input order. A set's reference is the best Epley
+     * estimate among earlier sets of the same exercise within `referenceWindow`; candidates are
+     * non-warmup sets with `weightKg > 0` and `reps <= maxReferenceReps`. The same timestamp never
+     * counts as earlier. Neutral (1.0) when the reference or the set's own weight is missing, or the
+     * set itself is incomparable (`reps > maxReferenceReps`).
+     */
+    internal fun relativeLoadFactors(sets: List<LoggedSet>): DoubleArray {
+        val factors = DoubleArray(sets.size) { 1.0 }
+        val byExercise = sets.indices
+            .filter { sets[it].exerciseId != null }
+            .groupBy { sets[it].exerciseId!! }
+        val windowMillis = config.referenceWindow.inWholeMilliseconds
+        for (indices in byExercise.values) {
+            val ordered = indices.sortedWith(compareBy({ sets[it].timestampMillis }, { it }))
+            // Monotonic deque of (timestamp, estimate) with strictly decreasing estimates, so the
+            // front is always the best in-window reference.
+            val candidates = ArrayDeque<Pair<Long, Double>>()
+            var start = 0
+            while (start < ordered.size) {
+                val timestamp = sets[ordered[start]].timestampMillis
+                val windowStart = timestamp - windowMillis
+                while (candidates.isNotEmpty() && candidates.first().first < windowStart) {
+                    candidates.removeFirst()
+                }
+                val reference = candidates.firstOrNull()?.second
+                var end = start
+                while (end < ordered.size && sets[ordered[end]].timestampMillis == timestamp) {
+                    factors[ordered[end]] = relativeLoad(sets[ordered[end]], reference)
+                    end++
+                }
+                for (position in start until end) {
+                    val set = sets[ordered[position]]
+                    val weight = set.weightKg
+                    if (
+                        !set.isWarmup &&
+                        set.reps <= config.maxReferenceReps &&
+                        weight != null &&
+                        weight > 0.0
+                    ) {
+                        val estimate = OneRepMax.estimate(weight, set.reps)
+                        while (candidates.isNotEmpty() && candidates.last().second <= estimate) {
+                            candidates.removeLast()
+                        }
+                        candidates.addLast(timestamp to estimate)
+                    }
+                }
+                start = end
+            }
+        }
+        return factors
+    }
+
+    private fun relativeLoad(set: LoggedSet, reference: Double?): Double {
+        val weight = set.weightKg
+        if (weight == null || weight <= 0.0) return 1.0
+        if (reference == null || reference <= 0.0) return 1.0
+        if (set.reps > config.maxReferenceReps) return 1.0
+        return ((weight / reference) / config.relativeLoadDivisor)
+            .coerceIn(config.relativeLoadMin, config.relativeLoadMax)
     }
 
     private fun scoreFor(
         muscle: MuscleGroup,
-        batches: Map<Long, List<LoggedSet>>,
+        batches: Map<Long, List<LoadedSet>>,
         nowMillis: Long
     ): Double {
         if (batches.isEmpty()) return 0.0
@@ -39,17 +104,18 @@ class FatigueCalculator(private val config: FatigueConfig = FatigueConfig()) {
             // same type share one dose (canonical order), preserving the Phase B path bit-for-bit
             // when every set is isolation.
             for (isCompound in COMPONENT_ORDER) {
-                val typeSets = sets.filter { it.isCompound == isCompound }
+                val typeSets = sets.filter { it.set.isCompound == isCompound }
                 if (typeSets.isEmpty()) continue
                 // The logarithmic doses telescope at a shared timestamp. Summing in canonical order
                 // avoids insertion-order-dependent floating-point differences as well.
-                val stimulus = typeSets.map { set ->
+                val stimulus = typeSets.map { loaded ->
+                    val set = loaded.set
                     val involvement = set.targets.filter { it.muscle == muscle }
                         .map { it.weight }.sorted().sum()
                     val repsFactor = (set.reps.toDouble() / config.referenceReps)
                         .pow(config.repExponent)
                         .coerceIn(config.minRepMultiplier, config.maxRepMultiplier)
-                    involvement * repsFactor
+                    involvement * repsFactor * loaded.relativeLoad
                 }.sorted().sum()
                 val dose = config.diminishingScale *
                     ln1p(stimulus / (config.diminishingScale + sessionStimulus))
@@ -72,6 +138,8 @@ class FatigueCalculator(private val config: FatigueConfig = FatigueConfig()) {
             decayFactor(nowMillis - previousMillis, compoundHalfLife)
         return (finalIsolation + finalCompound).coerceAtMost(1.0.nextDown())
     }
+
+    private data class LoadedSet(val set: LoggedSet, val relativeLoad: Double)
 
     private companion object {
         /** Deterministic order for routing mixed-type same-timestamp batches; isolation (-) first. */

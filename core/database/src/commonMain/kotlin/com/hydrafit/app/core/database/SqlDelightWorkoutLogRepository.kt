@@ -74,7 +74,9 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                 targets = targets,
                 isWarmup = row.isWarmup != 0L,
                 reps = row.reps.toInt(),
-                isCompound = compoundByExercise[row.exerciseId] ?: false
+                isCompound = compoundByExercise[row.exerciseId] ?: false,
+                exerciseId = row.exerciseId,
+                weightKg = row.weightKg
             )
         }
     }
@@ -96,7 +98,9 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                     targets = targets,
                     isWarmup = row.isWarmup != 0L,
                     reps = row.reps.toInt(),
-                    isCompound = compoundByExercise[row.exerciseId] ?: false
+                    isCompound = compoundByExercise[row.exerciseId] ?: false,
+                    exerciseId = row.exerciseId,
+                    weightKg = row.weightKg
                 )
             }
         }

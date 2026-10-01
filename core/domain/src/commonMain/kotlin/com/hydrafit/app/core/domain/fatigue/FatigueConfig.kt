@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.domain.fatigue
 
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 
 data class FatigueConfig(
@@ -17,7 +18,12 @@ data class FatigueConfig(
     val halfLives: Map<MuscleGroup, Duration> = DEFAULT_HALF_LIVES,
     val fallbackHalfLife: Duration = DEFAULT_HALF_LIFE,
     val isolationHalfLifeScale: Double = DEFAULT_ISOLATION_HALF_LIFE_SCALE,
-    val compoundHalfLifeScale: Double = DEFAULT_COMPOUND_HALF_LIFE_SCALE
+    val compoundHalfLifeScale: Double = DEFAULT_COMPOUND_HALF_LIFE_SCALE,
+    val relativeLoadDivisor: Double = DEFAULT_RELATIVE_LOAD_DIVISOR,
+    val relativeLoadMin: Double = DEFAULT_RELATIVE_LOAD_MIN,
+    val relativeLoadMax: Double = DEFAULT_RELATIVE_LOAD_MAX,
+    val referenceWindow: Duration = DEFAULT_REFERENCE_WINDOW,
+    val maxReferenceReps: Int = DEFAULT_MAX_REFERENCE_REPS
 ) {
     init {
         require(capacityScale.isFinite() && capacityScale > 0.0) {
@@ -58,6 +64,19 @@ data class FatigueConfig(
         ) {
             "compoundHalfLifeScale must be finite and at least isolationHalfLifeScale"
         }
+        require(relativeLoadDivisor.isFinite() && relativeLoadDivisor > 0.0) {
+            "relativeLoadDivisor must be positive and finite"
+        }
+        require(relativeLoadMin.isFinite() && relativeLoadMin > 0.0) {
+            "relativeLoadMin must be positive and finite"
+        }
+        require(relativeLoadMax.isFinite() && relativeLoadMax >= relativeLoadMin) {
+            "relativeLoadMax must be finite and at least relativeLoadMin"
+        }
+        require(referenceWindow.isFinite() && referenceWindow.inWholeMilliseconds > 0L) {
+            "referenceWindow must be positive and finite"
+        }
+        require(maxReferenceReps > 0) { "maxReferenceReps must be positive" }
     }
 
     fun halfLifeFor(muscle: MuscleGroup): Duration = halfLives[muscle] ?: fallbackHalfLife
@@ -74,7 +93,12 @@ data class FatigueConfig(
         const val DEFAULT_REFERENCE_REPS: Int = 8
         const val DEFAULT_ISOLATION_HALF_LIFE_SCALE: Double = 1.0
         const val DEFAULT_COMPOUND_HALF_LIFE_SCALE: Double = 1.25
+        const val DEFAULT_RELATIVE_LOAD_DIVISOR: Double = 0.70
+        const val DEFAULT_RELATIVE_LOAD_MIN: Double = 0.75
+        const val DEFAULT_RELATIVE_LOAD_MAX: Double = 1.25
+        const val DEFAULT_MAX_REFERENCE_REPS: Int = 15
 
+        val DEFAULT_REFERENCE_WINDOW: Duration = 90.days
         val DEFAULT_HALF_LIFE: Duration = 24.hours
 
         val DEFAULT_HALF_LIVES: Map<MuscleGroup, Duration> = mapOf(

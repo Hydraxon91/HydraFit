@@ -16,7 +16,8 @@ F_compound  *= 2^(-elapsedHours / halfLifeComp[muscle])
 F_isolation *= 2^(-elapsedHours / halfLifeIso[muscle])
 F = F_compound + F_isolation
 R = clamp((reps / referenceReps)^repExponent, minRepMultiplier, maxRepMultiplier)
-u = involvementWeight × R
+L = clamp((weightKg / referenceOneRepMax) / relativeLoadDivisor, relativeLoadMin, relativeLoadMax)
+u = involvementWeight × R × L
 δ = D × ln((D + V + u) / (D + V))
 V += u
 Δ = (1 - F) × (1 - exp(-δ / K))
@@ -29,6 +30,13 @@ Effective half-lives are `halfLifeIso = base × isolationHalfLifeScale` (default
 `F_compound` stays zero and the result is exactly the Phase B value. Exercise type is **derived**
 from the catalog `movementPattern.isCompound` (override-aware) and never stored; a custom exercise
 with a null pattern is treated as isolation.
+
+C2 adds the relative-load factor `L`. Its reference is the best Epley estimate
+(`OneRepMax.estimate`) among **earlier**, non-warmup sets of the same exercise with
+`reps ≤ maxReferenceReps` and `weightKg > 0`, within `referenceWindow`; the same timestamp never
+counts as earlier. `L = 1.0` when the reference or the set's own weight is missing, or when the
+set's own reps exceed `maxReferenceReps`. A heavy earlier set raises the reference and can
+therefore lower `L` for later back-off sets of the same exercise.
 
 `V` is cumulative pre-discount stimulus for this muscle in the inferred session, shared across
 both types. It discounts later sets; `(1 - F)` independently bounds the response to remaining
@@ -71,6 +79,10 @@ All calibration values live in `FatigueConfig`. They are tunable model parameter
 | Missing-muscle fallback half-life | 24 h |
 | Isolation half-life scale (C1) | × 1.0 |
 | Compound half-life scale (C1) | × 1.25 |
+| Relative-load divisor (C2) | 0.70 |
+| Relative-load clamp (C2) | 0.75–1.25 |
+| Reference window (C2) | 90 days |
+| Max reference reps (C2) | 15 |
 | Inferred session gap | 2 h |
 | Planner reduce / skip | 0.65 / 0.80 |
 | Targeted involvement cutoff | 0.7 |
@@ -93,6 +105,7 @@ the Phase B figures exactly. Tagging the same sets with the original redesign's 
 lunges, chin-ups, trap-bar deadlift, pulldowns, cable rows, shoulder press, upright rows;
 isolation: leg extension, raise combo, face pull) gives peak **83.1065%** and evaluation
 **68.4753%** — still skipped at peak and reduced at evaluation, so the 0.65/0.80 thresholds hold.
+The fixture carries no weight data, so C2 is neutral and none of these figures change.
 
 Compact sessions with involvement 1.0 and no inter-set decay yield:
 
@@ -103,7 +116,7 @@ Compact sessions with involvement 1.0 and no inter-set decay yield:
 | 4 × 5 | 34.5141% | 17.2570% |
 | 4 × 10 | 42.7051% | 21.3525% |
 
-Phase C1 (compound/isolation recovery split) needs no schema change and is implemented; it is a
-no-op for isolation sets and for rows whose exercise type is unknown. Phase C2 (relative load) and
-C3 (RIR/RPE capture with a nullable `rir` column) remain pending/deferred and do not yet enter
-this calculation.
+Phase C1 (compound/isolation recovery split) and C2 (relative load) need no schema change and are
+implemented; both are no-ops for rows whose type, weight, or reference is unknown. Phase C3
+(RIR/RPE capture with a nullable `rir` column) remains deferred and does not enter this
+calculation.

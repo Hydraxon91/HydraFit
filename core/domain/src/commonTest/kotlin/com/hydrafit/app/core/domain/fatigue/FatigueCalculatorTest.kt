@@ -1,10 +1,12 @@
 package com.hydrafit.app.core.domain.fatigue
 
+import com.hydrafit.app.core.domain.engine.OneRepMax
 import kotlin.math.ln
 import kotlin.math.pow
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 
 class FatigueCalculatorTest {
@@ -350,10 +352,139 @@ class FatigueCalculatorTest {
         assertTrue(mixed < 1.0)
     }
 
+    @Test
+    fun relativeLoadUsesOnlyEarlierSameExerciseSets() {
+        val factors = calculator.relativeLoadFactors(
+            listOf(
+                loadedSet("bench", T0, 100.0),
+                loadedSet("bench", T0 + HOUR_MILLIS, 100.0),
+                loadedSet("squat", T0 + 2 * HOUR_MILLIS, 100.0)
+            )
+        )
+
+        assertEquals(1.0, factors[0], TOLERANCE)
+        assertEquals(
+            (100.0 / OneRepMax.estimate(100.0, 5)) / 0.70,
+            factors[1],
+            TOLERANCE
+        )
+        assertEquals(1.0, factors[2], TOLERANCE)
+    }
+
+    @Test
+    fun relativeLoadIgnoresSameTimestampAndFutureSets() {
+        val factors = calculator.relativeLoadFactors(
+            listOf(
+                loadedSet("bench", T0, 100.0),
+                loadedSet("bench", T0, 90.0),
+                loadedSet("bench", T0 + HOUR_MILLIS, 90.0)
+            )
+        )
+
+        assertEquals(1.0, factors[0], TOLERANCE)
+        assertEquals(1.0, factors[1], TOLERANCE)
+        assertEquals(
+            (90.0 / OneRepMax.estimate(100.0, 5)) / 0.70,
+            factors[2],
+            TOLERANCE
+        )
+    }
+
+    @Test
+    fun relativeLoadExcludesHighRepCandidatesAndIncomparableSets() {
+        val factors = calculator.relativeLoadFactors(
+            listOf(
+                loadedSet("bench", T0, 100.0, reps = 5),
+                loadedSet("bench", T0 + HOUR_MILLIS, 100.0, reps = 20),
+                loadedSet("squat", T0, 100.0, reps = 20),
+                loadedSet("squat", T0 + HOUR_MILLIS, 100.0, reps = 5)
+            )
+        )
+
+        assertEquals(1.0, factors[0], TOLERANCE)
+        assertEquals(1.0, factors[1], TOLERANCE)
+        assertEquals(1.0, factors[3], TOLERANCE)
+    }
+
+    @Test
+    fun relativeLoadWindowExpiresReferences() {
+        val factors = calculator.relativeLoadFactors(
+            listOf(
+                loadedSet("bench", T0, 100.0),
+                loadedSet("bench", T0 + 90.days.inWholeMilliseconds - 1, 100.0),
+                loadedSet("row", T0, 100.0),
+                loadedSet("row", T0 + 90.days.inWholeMilliseconds + 1, 100.0)
+            )
+        )
+
+        assertEquals((100.0 / OneRepMax.estimate(100.0, 5)) / 0.70, factors[1], TOLERANCE)
+        assertEquals(1.0, factors[3], TOLERANCE)
+    }
+
+    @Test
+    fun relativeLoadClampsToConfiguredBounds() {
+        val factors = calculator.relativeLoadFactors(
+            listOf(
+                loadedSet("bench", T0, 100.0),
+                loadedSet("bench", T0 + HOUR_MILLIS, 10.0),
+                loadedSet("ohp", T0, 20.0),
+                loadedSet("ohp", T0 + HOUR_MILLIS, 40.0)
+            )
+        )
+
+        assertEquals(0.75, factors[1], TOLERANCE)
+        assertEquals(1.25, factors[3], TOLERANCE)
+    }
+
+    @Test
+    fun deletingAnEarlierSetChangesALaterReference() {
+        val withReference = calculator.relativeLoadFactors(
+            listOf(loadedSet("bench", T0, 100.0), loadedSet("bench", T0 + HOUR_MILLIS, 100.0))
+        )
+        val withoutReference = calculator.relativeLoadFactors(
+            listOf(loadedSet("bench", T0 + HOUR_MILLIS, 100.0))
+        )
+
+        assertTrue(withReference[1] > 1.0)
+        assertEquals(1.0, withoutReference[0], TOLERANCE)
+    }
+
+    @Test
+    fun relativeLoadWidensTheGapBetweenHeavyAndLightSets() {
+        val reference = loadedSet("bench", T0, 100.0)
+        val later = T0 + 3 * HOUR_MILLIS
+
+        val heavy = calculator.calculate(
+            listOf(reference, loadedSet("bench", later, 100.0)),
+            later
+        ).getValue(MuscleGroup.CHEST)
+        val light = calculator.calculate(
+            listOf(reference, loadedSet("bench", later, 50.0)),
+            later
+        ).getValue(MuscleGroup.CHEST)
+
+        assertTrue(heavy > light)
+    }
+
     private companion object {
         const val TOLERANCE = 1e-9
         const val HOUR_MILLIS = 60L * 60L * 1000L
         const val T0 = 0L
+
+        fun loadedSet(
+            exerciseId: String?,
+            timestampMillis: Long,
+            weightKg: Double?,
+            reps: Int = 5,
+            isWarmup: Boolean = false
+        ) = LoggedSet(
+            timestampMillis = timestampMillis,
+            targets = listOf(MuscleTarget(MuscleGroup.CHEST, 1.0)),
+            isWarmup = isWarmup,
+            reps = reps,
+            exerciseId = exerciseId,
+            weightKg = weightKg
+        )
 
         fun loggedSet(
             muscle: MuscleGroup,
