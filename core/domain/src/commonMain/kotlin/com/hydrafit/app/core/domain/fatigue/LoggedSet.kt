@@ -10,5 +10,7 @@ data class LoggedSet(
     /** Identifies the exercise so the relative-load reference can be found among earlier sets. */
     val exerciseId: String? = null,
     /** Logged working load; null/<=0 leaves the relative-load factor neutral. */
-    val weightKg: Double? = null
+    val weightKg: Double? = null,
+    /** User-entered reps in reserve; null leaves the effort factor at its neutral default. */
+    val rir: Int? = null
 )

@@ -56,6 +56,7 @@ import hydrafit.feature.logger.generated.resources.logger_per_hand
 import hydrafit.feature.logger.generated.resources.logger_planned_today
 import hydrafit.feature.logger.generated.resources.logger_recent
 import hydrafit.feature.logger.generated.resources.logger_reps_label
+import hydrafit.feature.logger.generated.resources.logger_rir_label
 import hydrafit.feature.logger.generated.resources.logger_search_label
 import hydrafit.feature.logger.generated.resources.logger_set_week_day
 import hydrafit.feature.logger.generated.resources.logger_title
@@ -94,6 +95,7 @@ fun WorkoutLoggerRoute(
         onExerciseSearchChanged = viewModel::onExerciseSearchChanged,
         onRepsChanged = viewModel::onRepsChanged,
         onWeightChanged = viewModel::onWeightChanged,
+        onRirChanged = viewModel::onRirChanged,
         onWarmupToggled = viewModel::onWarmupToggled,
         onLog = viewModel::log,
         onDeleteSet = viewModel::deleteSet,
@@ -112,6 +114,7 @@ fun WorkoutLoggerScreen(
     onExerciseSearchChanged: (String) -> Unit,
     onRepsChanged: (String) -> Unit,
     onWeightChanged: (String) -> Unit,
+    onRirChanged: (String) -> Unit,
     onWarmupToggled: (Boolean) -> Unit,
     onLog: () -> Unit,
     onDeleteSet: (Long) -> Unit,
@@ -206,7 +209,13 @@ fun WorkoutLoggerScreen(
                         Text(stringResource(Res.string.logger_weight_label, state.weightUnit.label))
                     },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                    ),
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(weightFocusRequester)
@@ -216,6 +225,20 @@ fun WorkoutLoggerScreen(
                     Text(stringResource(Res.string.logger_add_weight))
                 }
             }
+        }
+        item {
+            OutlinedTextField(
+                value = state.rir,
+                onValueChange = onRirChanged,
+                label = { Text(stringResource(Res.string.logger_rir_label)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                modifier = Modifier.fillMaxWidth()
+            )
         }
         if (state.selectedExerciseIsUnilateral) {
             item {

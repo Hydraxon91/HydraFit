@@ -576,11 +576,10 @@ different loads widens the score gap as the Phase B text predicted; deleting an 
 changes a later reference (the acknowledged limitation); fixture unchanged at `0.825504` /
 `0.652960` because its `weightKg` is null.
 
-#### C3 — optional RIR/RPE capture — DEFERRED
+#### C3 — optional RIR/RPE capture — IN PROGRESS
 
-**Status: DEFERRED.** The `rir` column, `23.sqm`, domain/DB plumbing, and Logger UI are **not
-implemented** now; C3 is left here pending real use of C1/C2. The design below is retained for
-reference only.
+**Status: IN PROGRESS.** Approved for implementation; the `rir` column, additive migration,
+domain/DB plumbing, and Logger UI are being built now.
 
 **Formula.** `E = 2^((effortNeutralRir - clamp(rir, minRir, maxRir)) / effortRirDivisor)`.
 Missing `rir` uses `defaultRir = 2.0` → `E = 1.0`; the assumed value is applied only inside the

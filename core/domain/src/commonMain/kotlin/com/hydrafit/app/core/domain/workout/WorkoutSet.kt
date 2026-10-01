@@ -10,5 +10,7 @@ data class WorkoutSet(
     /** The accepted plan's week/cycle and day at log time, when a plan was active. */
     val weekNumber: Int? = null,
     val cycleNumber: Int? = null,
-    val dayIndex: Int? = null
+    val dayIndex: Int? = null,
+    /** Optional reps in reserve (0..10); null when the user did not record effort. */
+    val rir: Int? = null
 )

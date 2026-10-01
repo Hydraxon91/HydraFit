@@ -47,6 +47,35 @@ class SqlDelightWorkoutLogRepositoryTest {
     }
 
     @Test
+    fun roundTripsRirAndLeavesItNullWhenAbsent() = runTest {
+        repository.add(
+            DomainWorkoutSet(
+                exerciseId = "barbell-bench-press",
+                reps = 5,
+                weightKg = 80.0,
+                performedAtMillis = 1,
+                rir = 3
+            )
+        )
+        repository.add(
+            DomainWorkoutSet(
+                exerciseId = "back-squat",
+                reps = 5,
+                weightKg = 100.0,
+                performedAtMillis = 2
+            )
+        )
+
+        val sets = repository.all()
+        assertEquals(3, sets.first { it.exerciseId == "barbell-bench-press" }.rir)
+        assertNull(sets.first { it.exerciseId == "back-squat" }.rir)
+
+        val logged = repository.loggedSets()
+        assertEquals(3, logged.first { it.exerciseId == "barbell-bench-press" }.rir)
+        assertNull(logged.first { it.exerciseId == "back-squat" }.rir)
+    }
+
+    @Test
     fun preservesRepsWeightAndWarmupFlag() = runTest {
         repository.add(
             DomainWorkoutSet(
@@ -184,7 +213,8 @@ class SqlDelightWorkoutLogRepositoryTest {
             involvements = "CHEST:1.0,TRICEPS:0.5",
             weekNumber = null,
             cycleNumber = null,
-            dayIndex = null
+            dayIndex = null,
+            rir = null
         )
 
         val logged = repository.loggedSets().single()
@@ -205,7 +235,8 @@ class SqlDelightWorkoutLogRepositoryTest {
             involvements = null,
             weekNumber = null,
             cycleNumber = null,
-            dayIndex = null
+            dayIndex = null,
+            rir = null
         )
 
         val logged = repository.loggedSets().single()

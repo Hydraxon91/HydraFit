@@ -466,6 +466,30 @@ class FatigueCalculatorTest {
         assertTrue(heavy > light)
     }
 
+    @Test
+    fun effortMultiplierFollowsTheRirFormula() {
+        assertEquals(1.0, calculator.effortMultiplier(null), TOLERANCE)
+        assertEquals(1.0, calculator.effortMultiplier(2), TOLERANCE)
+        assertEquals(2.0.pow(0.5), calculator.effortMultiplier(0), TOLERANCE)
+        assertEquals(0.25, calculator.effortMultiplier(10), TOLERANCE)
+        assertEquals(2.0.pow(0.5), calculator.effortMultiplier(-3), TOLERANCE)
+        assertEquals(0.25, calculator.effortMultiplier(99), TOLERANCE)
+    }
+
+    @Test
+    fun lowerRirRaisesFatigueForTheSameSet() {
+        val nearFailure = calculator.calculate(
+            listOf(loadedSet("bench", T0, 100.0).copy(rir = 0)),
+            T0
+        ).getValue(MuscleGroup.CHEST)
+        val easy = calculator.calculate(
+            listOf(loadedSet("bench", T0, 100.0).copy(rir = 10)),
+            T0
+        ).getValue(MuscleGroup.CHEST)
+
+        assertTrue(nearFailure > easy)
+    }
+
     private companion object {
         const val TOLERANCE = 1e-9
         const val HOUR_MILLIS = 60L * 60L * 1000L

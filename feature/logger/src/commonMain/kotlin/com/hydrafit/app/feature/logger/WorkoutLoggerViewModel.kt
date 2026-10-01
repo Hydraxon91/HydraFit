@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.fatigue.FatigueConfig
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.localDayOfWeek
 import com.hydrafit.app.core.domain.unit.WeightUnit
@@ -126,6 +127,17 @@ class WorkoutLoggerViewModel(
         }
     }
 
+    /** RIR is optional; non-digits are dropped and values above the maximum are ignored outright. */
+    fun onRirChanged(value: String) {
+        val digits = value.filter(Char::isDigit)
+        val withinRange = digits.toIntOrNull()
+            ?.let { it <= FatigueConfig.DEFAULT_MAX_RIR.toInt() }
+            ?: false
+        if (digits.isEmpty() || withinRange) {
+            _state.update { it.copy(rir = digits) }
+        }
+    }
+
     fun onWarmupToggled(isWarmup: Boolean) {
         _state.update { it.copy(isWarmup = isWarmup) }
     }
@@ -161,7 +173,8 @@ class WorkoutLoggerViewModel(
                     isWarmup = current.isWarmup,
                     weekNumber = acceptedPlan?.weekNumber,
                     cycleNumber = acceptedPlan?.cycleNumber,
-                    dayIndex = acceptedToday?.dayIndex
+                    dayIndex = acceptedToday?.dayIndex,
+                    rir = current.rir.toIntOrNull()
                 )
             )
             // Keep the reps and weight so repeated sets of the same exercise do not need retyping;

@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.database
 
+import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import kotlin.test.AfterTest
@@ -35,8 +36,20 @@ class InvolvementsMigrationTest {
         val database = HydraFitDatabase(driver)
         assertNull(database.exerciseQueries.selectById("x").executeAsOne().involvements)
         assertNull(database.exerciseOverrideQueries.selectById("x").executeAsOne().involvements)
-        assertNull(database.workoutLogQueries.selectAllSets().executeAsOne().involvements)
+        // Read the scoped old schema directly: the current generated workoutSet query expects the
+        // later `rir` column, which does not exist at v19.
+        assertNull(involvementsColumn())
     }
+
+    private fun involvementsColumn(): String? = driver.executeQuery(
+        identifier = null,
+        sql = "SELECT involvements FROM workoutSet",
+        mapper = { cursor ->
+            cursor.next()
+            QueryResult.Value(cursor.getString(0))
+        },
+        parameters = 0
+    ).value
 
     private fun exec(sql: String) {
         driver.execute(identifier = null, sql = sql, parameters = 0)

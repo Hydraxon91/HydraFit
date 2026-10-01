@@ -1,6 +1,7 @@
 # Muscle Fatigue Formula — Design Note
 
-Status: Phase B lean v1 plus Phase C1 (compound/isolation recovery split), implemented in `:core:domain`.
+Status: Phase B lean v1 plus Phase C (C1 compound/isolation split, C2 relative load, C3 RIR
+effort), implemented in `:core:domain`; C3's nullable `rir` column ships with migration `23.sqm`.
 
 ## Formula
 
@@ -17,7 +18,8 @@ F_isolation *= 2^(-elapsedHours / halfLifeIso[muscle])
 F = F_compound + F_isolation
 R = clamp((reps / referenceReps)^repExponent, minRepMultiplier, maxRepMultiplier)
 L = clamp((weightKg / referenceOneRepMax) / relativeLoadDivisor, relativeLoadMin, relativeLoadMax)
-u = involvementWeight × R × L
+E = 2^((effortNeutralRir - clamp(rir, minRir, maxRir)) / effortRirDivisor)
+u = involvementWeight × R × L × E
 δ = D × ln((D + V + u) / (D + V))
 V += u
 Δ = (1 - F) × (1 - exp(-δ / K))
@@ -37,6 +39,10 @@ C2 adds the relative-load factor `L`. Its reference is the best Epley estimate
 counts as earlier. `L = 1.0` when the reference or the set's own weight is missing, or when the
 set's own reps exceed `maxReferenceReps`. A heavy earlier set raises the reference and can
 therefore lower `L` for later back-off sets of the same exercise.
+
+C3 adds the effort factor `E` from reps in reserve. Missing effort uses `defaultRir = 2.0` inside
+the calculator only — the assumed value is never written to the database — and `E = 1.0` at the
+neutral 2 RIR. The stored value is a nullable `rir` (0..10); nothing is backfilled for old rows.
 
 `V` is cumulative pre-discount stimulus for this muscle in the inferred session, shared across
 both types. It discounts later sets; `(1 - F)` independently bounds the response to remaining
@@ -83,6 +89,9 @@ All calibration values live in `FatigueConfig`. They are tunable model parameter
 | Relative-load clamp (C2) | 0.75–1.25 |
 | Reference window (C2) | 90 days |
 | Max reference reps (C2) | 15 |
+| Default / neutral RIR (C3) | 2 |
+| Effort divisor (C3) | 4 |
+| RIR range (C3) | 0–10 |
 | Inferred session gap | 2 h |
 | Planner reduce / skip | 0.65 / 0.80 |
 | Targeted involvement cutoff | 0.7 |
@@ -105,7 +114,10 @@ the Phase B figures exactly. Tagging the same sets with the original redesign's 
 lunges, chin-ups, trap-bar deadlift, pulldowns, cable rows, shoulder press, upright rows;
 isolation: leg extension, raise combo, face pull) gives peak **83.1065%** and evaluation
 **68.4753%** — still skipped at peak and reduced at evaluation, so the 0.65/0.80 thresholds hold.
-The fixture carries no weight data, so C2 is neutral and none of these figures change.
+The fixture carries no weight data, so C2 is neutral and none of these figures change. It also has
+no RIR, so C3 uses the neutral 2-RIR default and the same figures. Applying a uniform RIR to the
+typed replay gives RIR 0 → peak **87.7603%** / evaluation **72.3376%**, and RIR 4 → peak
+**77.1306%** / evaluation **63.5221%**.
 
 Compact sessions with involvement 1.0 and no inter-set decay yield:
 
@@ -116,7 +128,6 @@ Compact sessions with involvement 1.0 and no inter-set decay yield:
 | 4 × 5 | 34.5141% | 17.2570% |
 | 4 × 10 | 42.7051% | 21.3525% |
 
-Phase C1 (compound/isolation recovery split) and C2 (relative load) need no schema change and are
-implemented; both are no-ops for rows whose type, weight, or reference is unknown. Phase C3
-(RIR/RPE capture with a nullable `rir` column) remains deferred and does not enter this
-calculation.
+Phase C1 (compound/isolation recovery split) and C2 (relative load) need no schema change. Phase C3
+adds one nullable `rir` column (`23.sqm`, additive, no backfill) and an effort factor; it is a
+no-op for rows without RIR (neutral 2-RIR default). All three are implemented.

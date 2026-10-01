@@ -11,7 +11,9 @@ class FatigueCalculator(private val config: FatigueConfig = FatigueConfig()) {
     fun calculate(sets: List<LoggedSet>, nowMillis: Long): Map<MuscleGroup, Double> {
         val working = sets.filterNot { it.isWarmup }
         val loadFactors = relativeLoadFactors(working)
-        val batches = working.mapIndexed { index, set -> LoadedSet(set, loadFactors[index]) }
+        val batches = working.mapIndexed { index, set ->
+            LoadedSet(set, loadFactors[index], effortMultiplier(set.rir))
+        }
             .sortedBy { it.set.timestampMillis }
             .groupBy { it.set.timestampMillis }
         return MuscleGroup.entries.associateWith { muscle -> scoreFor(muscle, batches, nowMillis) }
@@ -70,6 +72,16 @@ class FatigueCalculator(private val config: FatigueConfig = FatigueConfig()) {
         return factors
     }
 
+    /**
+     * Effort multiplier from reps in reserve. Missing effort assumes `defaultRir` (neutral at the
+     * default), and the value is clamped to `minRir..maxRir`; nothing is written back anywhere.
+     */
+    internal fun effortMultiplier(rir: Int?): Double {
+        val effectiveRir = (rir?.toDouble() ?: config.defaultRir)
+            .coerceIn(config.minRir, config.maxRir)
+        return 2.0.pow((config.effortNeutralRir - effectiveRir) / config.effortRirDivisor)
+    }
+
     private fun relativeLoad(set: LoggedSet, reference: Double?): Double {
         val weight = set.weightKg
         if (weight == null || weight <= 0.0) return 1.0
@@ -115,7 +127,7 @@ class FatigueCalculator(private val config: FatigueConfig = FatigueConfig()) {
                     val repsFactor = (set.reps.toDouble() / config.referenceReps)
                         .pow(config.repExponent)
                         .coerceIn(config.minRepMultiplier, config.maxRepMultiplier)
-                    involvement * repsFactor * loaded.relativeLoad
+                    involvement * repsFactor * loaded.relativeLoad * loaded.effort
                 }.sorted().sum()
                 val dose = config.diminishingScale *
                     ln1p(stimulus / (config.diminishingScale + sessionStimulus))
@@ -139,7 +151,7 @@ class FatigueCalculator(private val config: FatigueConfig = FatigueConfig()) {
         return (finalIsolation + finalCompound).coerceAtMost(1.0.nextDown())
     }
 
-    private data class LoadedSet(val set: LoggedSet, val relativeLoad: Double)
+    private data class LoadedSet(val set: LoggedSet, val relativeLoad: Double, val effort: Double)
 
     private companion object {
         /** Deterministic order for routing mixed-type same-timestamp batches; isolation (-) first. */

@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.database
 
+import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import kotlin.test.AfterTest
@@ -27,10 +28,22 @@ class WorkoutSetWeekDayMigrationTest {
 
         HydraFitDatabase.Schema.migrate(driver, 22, 23)
 
-        val row = HydraFitDatabase(driver).workoutLogQueries.selectAllSets().executeAsOne()
-        assertNull(row.weekNumber)
-        assertNull(row.cycleNumber)
-        assertNull(row.dayIndex)
+        // Read the scoped old schema directly: the current generated workoutSet query expects the
+        // later `rir` column, which does not exist at v23.
+        val row = driver.executeQuery(
+            identifier = null,
+            sql = "SELECT weekNumber, cycleNumber, dayIndex FROM workoutSet",
+            mapper = { cursor ->
+                cursor.next()
+                QueryResult.Value(
+                    Triple(cursor.getLong(0), cursor.getLong(1), cursor.getLong(2))
+                )
+            },
+            parameters = 0
+        ).value
+        assertNull(row.first)
+        assertNull(row.second)
+        assertNull(row.third)
     }
 
     /** The v22 shape: workoutSet has no week/cycle/day columns yet. */

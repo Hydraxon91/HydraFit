@@ -563,6 +563,41 @@ class WorkoutLoggerViewModelTest {
         assertEquals(SplitFocus.FULL_BODY, viewModel.state.value.todayFocus)
     }
 
+    @Test
+    fun logsRirWhenProvidedAndNullWhenBlank() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("100")
+        viewModel.onRirChanged("1")
+        viewModel.log()
+        advanceUntilIdle()
+        assertEquals(1, repository.all().single().rir)
+
+        viewModel.onRirChanged("")
+        viewModel.log()
+        advanceUntilIdle()
+        assertEquals(null, repository.all().last().rir)
+    }
+
+    @Test
+    fun ignoresOutOfRangeOrNonNumericRirInput() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onRirChanged("15")
+        assertEquals("", viewModel.state.value.rir)
+
+        viewModel.onRirChanged("10")
+        assertEquals("10", viewModel.state.value.rir)
+
+        viewModel.onRirChanged("1a")
+        assertEquals("1", viewModel.state.value.rir)
+    }
+
     private fun viewModel(
         repository: WorkoutLogRepository = FakeWorkoutLogRepository(),
         timeMillis: Long = 1_000L,

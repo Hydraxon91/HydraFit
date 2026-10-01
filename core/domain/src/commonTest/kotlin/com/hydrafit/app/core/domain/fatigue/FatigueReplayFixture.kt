@@ -67,6 +67,9 @@ internal object FatigueReplayFixture {
     val typedSets: List<LoggedSet> =
         rows.map { it.toLoggedSet(isCompound = it.type == SetType.COMPOUND) }
 
+    /** The typed replay with one RIR value applied to every set, for the C3 replay. */
+    fun typedSetsWithRir(rir: Int?): List<LoggedSet> = typedSets.map { it.copy(rir = rir) }
+
     private fun row(
         timestampMillis: Long,
         reps: Int,

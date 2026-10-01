@@ -34,4 +34,42 @@ class FatigueReplayTest {
         assertEquals(0.8310648, peak, 0.0000005)
         assertEquals(0.6847530, evaluation, 0.0000005)
     }
+
+    @Test
+    fun typedReplayAtRirZeroAndFour() {
+        val calculator = FatigueCalculator()
+
+        assertEquals(
+            0.8776033,
+            calculator.calculate(
+                FatigueReplayFixture.typedSetsWithRir(0),
+                FatigueReplayFixture.PEAK_MILLIS
+            ).getValue(MuscleGroup.BACK),
+            0.0000005
+        )
+        assertEquals(
+            0.7233758,
+            calculator.calculate(
+                FatigueReplayFixture.typedSetsWithRir(0),
+                FatigueReplayFixture.EVALUATION_MILLIS
+            ).getValue(MuscleGroup.BACK),
+            0.0000005
+        )
+        assertEquals(
+            0.7713062,
+            calculator.calculate(
+                FatigueReplayFixture.typedSetsWithRir(4),
+                FatigueReplayFixture.PEAK_MILLIS
+            ).getValue(MuscleGroup.BACK),
+            0.0000005
+        )
+        assertEquals(
+            0.6352209,
+            calculator.calculate(
+                FatigueReplayFixture.typedSetsWithRir(4),
+                FatigueReplayFixture.EVALUATION_MILLIS
+            ).getValue(MuscleGroup.BACK),
+            0.0000005
+        )
+    }
 }

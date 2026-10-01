@@ -23,7 +23,12 @@ data class FatigueConfig(
     val relativeLoadMin: Double = DEFAULT_RELATIVE_LOAD_MIN,
     val relativeLoadMax: Double = DEFAULT_RELATIVE_LOAD_MAX,
     val referenceWindow: Duration = DEFAULT_REFERENCE_WINDOW,
-    val maxReferenceReps: Int = DEFAULT_MAX_REFERENCE_REPS
+    val maxReferenceReps: Int = DEFAULT_MAX_REFERENCE_REPS,
+    val defaultRir: Double = DEFAULT_RIR,
+    val effortNeutralRir: Double = DEFAULT_EFFORT_NEUTRAL_RIR,
+    val effortRirDivisor: Double = DEFAULT_EFFORT_RIR_DIVISOR,
+    val minRir: Double = DEFAULT_MIN_RIR,
+    val maxRir: Double = DEFAULT_MAX_RIR
 ) {
     init {
         require(capacityScale.isFinite() && capacityScale > 0.0) {
@@ -77,6 +82,18 @@ data class FatigueConfig(
             "referenceWindow must be positive and finite"
         }
         require(maxReferenceReps > 0) { "maxReferenceReps must be positive" }
+        require(defaultRir.isFinite() && defaultRir in minRir..maxRir) {
+            "defaultRir must be finite and within minRir..maxRir"
+        }
+        require(effortNeutralRir.isFinite() && effortNeutralRir in minRir..maxRir) {
+            "effortNeutralRir must be finite and within minRir..maxRir"
+        }
+        require(effortRirDivisor.isFinite() && effortRirDivisor > 0.0) {
+            "effortRirDivisor must be positive and finite"
+        }
+        require(minRir.isFinite() && maxRir.isFinite() && maxRir > minRir) {
+            "invalid RIR range"
+        }
     }
 
     fun halfLifeFor(muscle: MuscleGroup): Duration = halfLives[muscle] ?: fallbackHalfLife
@@ -97,6 +114,11 @@ data class FatigueConfig(
         const val DEFAULT_RELATIVE_LOAD_MIN: Double = 0.75
         const val DEFAULT_RELATIVE_LOAD_MAX: Double = 1.25
         const val DEFAULT_MAX_REFERENCE_REPS: Int = 15
+        const val DEFAULT_RIR: Double = 2.0
+        const val DEFAULT_EFFORT_NEUTRAL_RIR: Double = 2.0
+        const val DEFAULT_EFFORT_RIR_DIVISOR: Double = 4.0
+        const val DEFAULT_MIN_RIR: Double = 0.0
+        const val DEFAULT_MAX_RIR: Double = 10.0
 
         val DEFAULT_REFERENCE_WINDOW: Duration = 90.days
         val DEFAULT_HALF_LIFE: Duration = 24.hours

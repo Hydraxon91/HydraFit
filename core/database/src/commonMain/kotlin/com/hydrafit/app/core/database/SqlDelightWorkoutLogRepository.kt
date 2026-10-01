@@ -31,7 +31,8 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
             involvements = override?.involvements ?: seed?.involvements,
             weekNumber = set.weekNumber?.toLong(),
             cycleNumber = set.cycleNumber?.toLong(),
-            dayIndex = set.dayIndex?.toLong()
+            dayIndex = set.dayIndex?.toLong(),
+            rir = set.rir?.toLong()
         )
     }
 
@@ -56,7 +57,8 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
         isWarmup = isWarmup != 0L,
         weekNumber = weekNumber?.toInt(),
         cycleNumber = cycleNumber?.toInt(),
-        dayIndex = dayIndex?.toInt()
+        dayIndex = dayIndex?.toInt(),
+        rir = rir?.toInt()
     )
 
     override suspend fun loggedSets(): List<LoggedSet> {
@@ -76,7 +78,8 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                 reps = row.reps.toInt(),
                 isCompound = compoundByExercise[row.exerciseId] ?: false,
                 exerciseId = row.exerciseId,
-                weightKg = row.weightKg
+                weightKg = row.weightKg,
+                rir = row.rir?.toInt()
             )
         }
     }
@@ -100,7 +103,8 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                     reps = row.reps.toInt(),
                     isCompound = compoundByExercise[row.exerciseId] ?: false,
                     exerciseId = row.exerciseId,
-                    weightKg = row.weightKg
+                    weightKg = row.weightKg,
+                    rir = row.rir?.toInt()
                 )
             }
         }

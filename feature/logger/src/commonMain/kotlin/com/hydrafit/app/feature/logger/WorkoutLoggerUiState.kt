@@ -35,6 +35,7 @@ data class WorkoutLoggerUiState(
     val selectedExerciseId: String? = null,
     val reps: String = "",
     val weightInput: String = "",
+    val rir: String = "",
     val isWarmup: Boolean = false,
     val recentSets: List<LoggedSetRow> = emptyList(),
     val draftSets: List<DraftSet> = emptyList(),
