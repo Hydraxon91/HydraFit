@@ -292,7 +292,7 @@ Phase B is the recommended first algorithm change. Phase C is not implemented un
 - Tests: advance a mutable fake clock with no repository emission and assert recomputation on resume/tick; assert the timer stops when inactive; retain new-set/delete coverage; use bounded virtual-time advancement rather than `advanceUntilIdle` on a ticker.
 - Any constructor/Koin change here must run the Koin verification test in the same change.
 
-### Phase B — lean v1 algorithm
+### Phase B — lean v1 algorithm — DONE (commit f15b9d9)
 
 Phase B uses only data already stored: timestamp, warm-up flag, reps, and the involvement snapshot (all present in `workoutSet`). It needs **no schema change**. The only structural prerequisite is enriching the domain `LoggedSet` with `reps` (mapped from the existing `workoutSet.reps` column).
 
