@@ -1,27 +1,39 @@
 # Muscle Fatigue Formula — Design Note
 
-Status: Phase B lean v1, implemented in `:core:domain`.
+Status: Phase B lean v1 plus Phase C1 (compound/isolation recovery split), implemented in `:core:domain`.
 
 ## Formula
 
-Each muscle has one bounded fatigue-load index `F`, initially zero, with `0 ≤ F < 1`.
-There is no hidden raw-volume accumulator or final linear normalization.
+Each muscle has one bounded fatigue-load index `F = F_compound + F_isolation`, initially zero,
+with `0 ≤ F < 1`. There is no hidden raw-volume accumulator or final linear normalization.
+Compound and isolation work share one session discount and one headroom; only their decay
+channels differ, so a compound set recovers on a longer half-life than an isolation set.
 
 For chronological working sets:
 
 ```text
-F *= 2^(-elapsedHours / halfLife[muscle])
+F_compound  *= 2^(-elapsedHours / halfLifeComp[muscle])
+F_isolation *= 2^(-elapsedHours / halfLifeIso[muscle])
+F = F_compound + F_isolation
 R = clamp((reps / referenceReps)^repExponent, minRepMultiplier, maxRepMultiplier)
 u = involvementWeight × R
 δ = D × ln((D + V + u) / (D + V))
 V += u
-F += (1 - F) × (1 - exp(-δ / K))
+Δ = (1 - F) × (1 - exp(-δ / K))
+F_type += Δ            // type = the set's compound/isolation channel
+F = min(F_compound + F_isolation, 1 - ulp)
 ```
 
-`V` is cumulative pre-discount stimulus for this muscle in the inferred session.
-It discounts later sets; `(1 - F)` independently bounds the response to remaining headroom.
-Recovery starts immediately after training, including after extreme volume: there is no
-overflow plateau. After the last working timestamp, decay `F` to `nowMillis`.
+Effective half-lives are `halfLifeIso = base × isolationHalfLifeScale` (default `1.0`) and
+`halfLifeComp = base × compoundHalfLifeScale` (default `1.25`). When every set is isolation,
+`F_compound` stays zero and the result is exactly the Phase B value. Exercise type is **derived**
+from the catalog `movementPattern.isCompound` (override-aware) and never stored; a custom exercise
+with a null pattern is treated as isolation.
+
+`V` is cumulative pre-discount stimulus for this muscle in the inferred session, shared across
+both types. It discounts later sets; `(1 - F)` independently bounds the response to remaining
+headroom. Recovery starts immediately after training, including after extreme volume: there is no
+overflow plateau. After the last working timestamp, decay each component to `nowMillis`.
 
 The implementation uses equivalent `ln1p`/`expm1` expressions for numerical accuracy.
 The mathematical open upper bound is retained with the representable double immediately
@@ -57,6 +69,8 @@ All calibration values live in `FatigueConfig`. They are tunable model parameter
 | SHOULDERS half-life | 21 h |
 | BICEPS, TRICEPS, CALVES, CORE half-life | 18 h |
 | Missing-muscle fallback half-life | 24 h |
+| Isolation half-life scale (C1) | × 1.0 |
+| Compound half-life scale (C1) | × 1.25 |
 | Inferred session gap | 2 h |
 | Planner reduce / skip | 0.65 / 0.80 |
 | Targeted involvement cutoff | 0.7 |
@@ -74,6 +88,11 @@ The captured ledger fixture contains 39 working sets plus three warm-ups. With i
 timestamps, reps and BACK weights, peak fatigue is **82.5504%** at `1790844708670` ms;
 evaluation is **65.2960%** at `1790873936000` ms. BACK-targeting exercises are skipped at
 peak and reduced at evaluation. After 24 h without new stimulus the peak halves to 41.2752%.
+The fixture carries no exercise type, so it is replayed as isolation (C1 no-op) and reproduces
+the Phase B figures exactly. Tagging the same sets with the original redesign's types (compound:
+lunges, chin-ups, trap-bar deadlift, pulldowns, cable rows, shoulder press, upright rows;
+isolation: leg extension, raise combo, face pull) gives peak **83.1065%** and evaluation
+**68.4753%** — still skipped at peak and reduced at evaluation, so the 0.65/0.80 thresholds hold.
 
 Compact sessions with involvement 1.0 and no inter-set decay yield:
 
@@ -84,5 +103,7 @@ Compact sessions with involvement 1.0 and no inter-set decay yield:
 | 4 × 5 | 34.5141% | 17.2570% |
 | 4 × 10 | 42.7051% | 21.3525% |
 
-Phase B requires no schema changes. Relative load, RIR/RPE, and separate compound/isolation
-recovery are deferred to Phase C; they do not enter this calculation.
+Phase C1 (compound/isolation recovery split) needs no schema change and is implemented; it is a
+no-op for isolation sets and for rows whose exercise type is unknown. Phase C2 (relative load) and
+C3 (RIR/RPE capture with a nullable `rir` column) remain pending/deferred and do not yet enter
+this calculation.

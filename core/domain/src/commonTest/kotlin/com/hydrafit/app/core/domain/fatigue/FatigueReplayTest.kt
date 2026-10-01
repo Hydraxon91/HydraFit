@@ -22,4 +22,16 @@ class FatigueReplayTest {
             0.0000005
         )
     }
+
+    @Test
+    fun typedReplayReportsCompoundIsolationFigures() {
+        val calculator = FatigueCalculator()
+        val typed = FatigueReplayFixture.typedSets
+        val peak = calculator.calculate(typed, FatigueReplayFixture.PEAK_MILLIS)
+            .getValue(MuscleGroup.BACK)
+        val evaluation = calculator.calculate(typed, FatigueReplayFixture.EVALUATION_MILLIS)
+            .getValue(MuscleGroup.BACK)
+        assertEquals(0.8310648, peak, 0.0000005)
+        assertEquals(0.6847530, evaluation, 0.0000005)
+    }
 }

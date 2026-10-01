@@ -4,5 +4,7 @@ data class LoggedSet(
     val timestampMillis: Long,
     val targets: List<MuscleTarget>,
     val isWarmup: Boolean = false,
-    val reps: Int = FatigueConfig.DEFAULT_REFERENCE_REPS
+    val reps: Int = FatigueConfig.DEFAULT_REFERENCE_REPS,
+    /** Compound work recovers on a longer half-life; unknown/legacy types default to isolation. */
+    val isCompound: Boolean = false
 )

@@ -307,6 +307,49 @@ class FatigueCalculatorTest {
         )
     }
 
+    @Test
+    fun compoundWorkRecoversSlowerThanIsolation() {
+        val isolation = List(12) { loggedSet(MuscleGroup.CHEST) }
+        val compound = List(12) { loggedSet(MuscleGroup.CHEST, isCompound = true) }
+
+        assertEquals(
+            calculator.calculate(isolation, T0).getValue(MuscleGroup.CHEST),
+            calculator.calculate(compound, T0).getValue(MuscleGroup.CHEST),
+            TOLERANCE
+        )
+        assertTrue(
+            calculator.calculate(compound, T0 + 24 * HOUR_MILLIS).getValue(MuscleGroup.CHEST) >
+                calculator.calculate(isolation, T0 + 24 * HOUR_MILLIS).getValue(MuscleGroup.CHEST)
+        )
+    }
+
+    @Test
+    fun compoundHalfLifeIsTwentyFivePercentLonger() {
+        val set = loggedSet(MuscleGroup.CHEST, isCompound = true)
+
+        val fresh = calculator.calculate(listOf(set), T0).getValue(MuscleGroup.CHEST)
+        val after30h = calculator.calculate(listOf(set), T0 + 30 * HOUR_MILLIS)
+            .getValue(MuscleGroup.CHEST)
+
+        assertEquals(fresh / 2.0, after30h, TOLERANCE)
+    }
+
+    @Test
+    fun mixedTypesShareOneBoundedHeadroom() {
+        val sets = List(12) { loggedSet(MuscleGroup.CHEST) } +
+            List(12) {
+                loggedSet(MuscleGroup.CHEST, timestampMillis = HOUR_MILLIS, isCompound = true)
+            }
+        val now = T0 + HOUR_MILLIS
+
+        val mixed = calculator.calculate(sets, now).getValue(MuscleGroup.CHEST)
+        val isolationOnly = calculator.calculate(sets.filterNot { it.isCompound }, now)
+            .getValue(MuscleGroup.CHEST)
+
+        assertTrue(mixed > isolationOnly)
+        assertTrue(mixed < 1.0)
+    }
+
     private companion object {
         const val TOLERANCE = 1e-9
         const val HOUR_MILLIS = 60L * 60L * 1000L
@@ -317,12 +360,14 @@ class FatigueCalculatorTest {
             timestampMillis: Long = T0,
             weight: Double = MuscleInvolvement.PRIMARY.volumeWeight,
             isWarmup: Boolean = false,
-            reps: Int = FatigueConfig.DEFAULT_REFERENCE_REPS
+            reps: Int = FatigueConfig.DEFAULT_REFERENCE_REPS,
+            isCompound: Boolean = false
         ) = LoggedSet(
             timestampMillis = timestampMillis,
             targets = listOf(MuscleTarget(muscle, weight)),
             isWarmup = isWarmup,
-            reps = reps
+            reps = reps,
+            isCompound = isCompound
         )
     }
 }

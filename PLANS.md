@@ -441,11 +441,181 @@ Not approved and not scheduled. Listed so Phase B does not preclude it.
 
 Phase C therefore needs at most one nullable column (`rir`) and a matching `.sqm`, and no column for exercise type. Compatibility: old RIR is unknown (not fabricated); legacy exercise type is derived, not stored.
 
+### Phase C — sub-plan (APPROVED — C1 implementing)
+
+Status: APPROVED for implementation. C1 (compound/isolation decay split) and C2 (relative load) are
+approved; **C3 (RIR/RPE capture and the `rir` column) is DEFERRED** pending real use of C1/C2.
+Implement one sub-step at a time, C1 first.
+
+Phase C applies three multiplicative/structural changes to the Phase B calculator. All three
+default to a neutral/no-op value for rows that carry no Phase C input, so the Phase B 39-set
+fixture figures (peak **82.5504 %**, evaluation **65.2960 %**) must be reproduced **exactly**
+after every sub-step until real weight, exercise-type, or RIR data is present. That invariant is
+the primary compatibility test.
+
+**Shared model shape (all sub-steps).** `u` stays the per-set stimulus that Phase B feeds into
+the diminishing-returns `δ`. Phase C multiplies two neutral-by-default factors into it:
+
+```text
+u = involvement × R × L × E
+```
+
+with `L` (relative load, C2) and `E` (effort, C3) both `= 1.0` when their inputs are absent.
+C1 additionally splits the per-muscle state into compound and isolation components.
+
+**Domain input additions.** `LoggedSet` gains four fields, appended after `reps` so every
+existing positional construction keeps compiling, all neutral by default:
+
+```text
+exerciseId: String? = null   // needed only to find same-exercise earlier references (C2)
+weightKg:   Double? = null   // null/<=0 => L = 1.0
+rir:        Int?    = null   // null => default RIR (C3)
+isCompound: Boolean = false  // false => isolation/base half-life; fixture/synthetic default
+```
+
+The database repository fills `exerciseId`, `weightKg`, and `rir` from the set row and
+`isCompound` from the resolved catalog `movementPattern.isCompound` (override-aware). A null
+movement pattern (custom exercises) resolves to `isCompound = false`, i.e. isolation. Real legacy
+rows therefore get a correctly derived type; only synthetic/domain callers (and the fixture)
+fall back to `false`. `FatigueCalculator.calculate` and the heatmap `Map<MuscleGroup, Double>`
+contract are unchanged, so **no heatmap file changes are needed**.
+
+**Calibration added to `FatigueConfig`** (no literals in the calculator). Values are proposals:
+
+| Constant | Default | Used by |
+| --- | --- | --- |
+| `isolationHalfLifeScale` | `1.0` | C1 |
+| `compoundHalfLifeScale` | `1.25` | C1 |
+| `relativeLoadDivisor` | `0.70` | C2 |
+| `relativeLoadMin` | `0.75` | C2 |
+| `relativeLoadMax` | `1.25` | C2 |
+| `referenceWindow` | `90.days` | C2 |
+| `maxReferenceReps` | `15` | C2 |
+| `defaultRir` | `2.0` | C3 |
+| `effortNeutralRir` | `2.0` | C3 |
+| `effortRirDivisor` | `4.0` | C3 |
+| `minRir` / `maxRir` | `0.0` / `10.0` | C3 |
+
+`init` gains range/finiteness guards mirroring the existing ones.
+
+#### C1 — compound/isolation recovery split
+
+**Formula (approved design).** A single per-muscle state `F = F_compound + F_isolation`, keeping
+Phase B's **shared** session stimulus `V` (diminishing returns shared across types) and **shared**
+headroom `(1 - F)`. Only the **decay channel is split**: each component decays with its own
+effective half-life.
+
+```text
+halfLifeIso(muscle)  = halfLifeFor(muscle) × isolationHalfLifeScale   // = base
+halfLifeComp(muscle) = halfLifeFor(muscle) × compoundHalfLifeScale    // = base × 1.25
+
+// at each event, before adding that event's dose:
+F_compound  *= 2^(-elapsed / halfLifeComp)
+F_isolation *= 2^(-elapsed / halfLifeIso)
+F = F_compound + F_isolation
+
+// Phase B dose on the shared V and shared headroom:
+δ = D × ln((D + V + u) / (D + V))
+Δ = (1 - F) × (1 - exp(-δ / K))
+F_compound += Δ   // if the set is compound
+F_isolation += Δ  // otherwise
+F = min(F_compound + F_isolation, 1.0.nextDown())
+V += u
+```
+
+The session gap resets `V` only; both components decay to `nowMillis` at the end. There is no fuse
+rule — the shared headroom already bounds the total in `[0, 1)`. `isolation = base` and
+`compound = base × 1.25` are confirmed. When all sets are isolation, `F_compound` stays `0` and
+the result equals Phase B **bit-for-bit**. A missing movement pattern (custom exercise) resolves to
+`isCompound = false` (isolation); the fixture/synthetic default is likewise `false`.
+
+**Files.** `FatigueConfig.kt`, `FatigueCalculator.kt`, `LoggedSet.kt`;
+`SqlDelightWorkoutLogRepository.kt` (map `exerciseId`/`isCompound`); `docs/fatigue-formula.md`.
+
+**Tests.** All-isolation list equals the Phase B result bit-for-bit; a compound-only list with the
+same timestamps retains strictly more fatigue after 24 h than an isolation-only list; a mixed-type
+run stays below 1.0 and uses the shared headroom; per-muscle effective half-lives; the 39-set
+fixture still returns `0.825504` / `0.652960`. Boundary regression tests only — the planner
+`0.65` / `0.80` thresholds are unchanged.
+
+**Informational replay (not an assertion on a new scale).** Re-run the same 39 sets after tagging
+their exercise types from the original redesign replay — compound: lunges, chin-ups, trap-bar
+deadlift, pulldowns, cable rows, shoulder press, upright rows; isolation: leg extension, raise
+combo, face pull — and report the resulting BACK peak and evaluation figures alongside the Phase B
+`82.5504 %` / `65.2960 %`. These figures are recorded for information; the fixture still has no
+weight or RIR data, so `L = 1.0` and `E` is not applied (C3 deferred).
+
+#### C2 — relative-load factor
+
+**Formula.** A set's reference is the **best eligible earlier** Epley estimate from
+`OneRepMax.estimate` for the *same exercise*: candidate sets must have `timestamp < this set's`,
+`reps ≤ maxReferenceReps`, `weightKg > 0`, be non-warmup, and fall within `[T - referenceWindow, T)`.
+`reference = max(estimate)` over candidates (never the same timestamp, never a later set).
+Then:
+
+```text
+L = clamp((weightKg / reference) / relativeLoadDivisor, relativeLoadMin, relativeLoadMax)
+```
+
+`L = 1.0` when `reference` is missing/`<= 0`, when `weightKg` is null/`<= 0`, or when the set's own
+`reps > maxReferenceReps` (“incomparable load”). **Ambiguity to confirm:** excluding candidate
+sets whose own reps exceed 15, and treating the set's own `reps > 15` as neutral, are this plan's
+reading of “incomparable.” `L` multiplies into `u` alongside `R`. Note: because the reference is
+the best **earlier** estimate, a heavy earlier set in the same session raises the reference and can
+therefore **lower `L` for later back-off sets** of the same exercise; this is intended.
+
+**Files.** `FatigueConfig.kt`, `FatigueCalculator.kt`, `LoggedSet.kt`; repository mapping for
+`weightKg`/`exerciseId`; `docs/fatigue-formula.md`.
+
+**Tests.** Reference uses only earlier same-exercise sets; same-timestamp and future sets are
+excluded; `reps > 15` candidates excluded; bodyweight/zero weight yields `L = 1.0`; window
+boundary just inside/outside 90 days; clamp at `0.75` and `1.25`; a log with equal reps but
+different loads widens the score gap as the Phase B text predicted; deleting an earlier set
+changes a later reference (the acknowledged limitation); fixture unchanged at `0.825504` /
+`0.652960` because its `weightKg` is null.
+
+#### C3 — optional RIR/RPE capture — DEFERRED
+
+**Status: DEFERRED.** The `rir` column, `23.sqm`, domain/DB plumbing, and Logger UI are **not
+implemented** now; C3 is left here pending real use of C1/C2. The design below is retained for
+reference only.
+
+**Formula.** `E = 2^((effortNeutralRir - clamp(rir, minRir, maxRir)) / effortRirDivisor)`.
+Missing `rir` uses `defaultRir = 2.0` → `E = 1.0`; the assumed value is applied only inside the
+calculator and is **not** written to the database. If the UI accepts RPE instead, it converts
+`RIR = 10 - RPE` before storing; the column holds RIR only.
+
+**Migration behavior.** Current schema version is 23 (latest migration `22.sqm`), so the new
+additive migration is **`23.sqm`** — `ALTER TABLE workoutSet ADD COLUMN rir INTEGER;` — no table
+rebuild, no backfill. `WorkoutLog.sq`'s `CREATE TABLE` gains `rir INTEGER` and `insertSet` gains
+the column/parameter. Old rows read back `NULL` → default effort; history and snapshots are never
+rewritten. `WorkoutSet` (domain/workout) and `LoggedSet` gain `rir: Int?`.
+
+**Files.** `23.sqm`, `WorkoutLog.sq`, `SqlDelightWorkoutLogRepository.kt`; `LoggedSet.kt`,
+`FatigueConfig.kt`, `FatigueCalculator.kt`; `WorkoutSet.kt`,
+`LogWorkoutSetUseCase.kt` (pass-through), Logger `WorkoutLoggerViewModel.kt` /
+`WorkoutLoggerUiState.kt` / `WorkoutLoggerScreen.kt` (+ `strings.xml`), `docs/fatigue-formula.md`.
+
+**Tests.** Missing RIR → neutral `E = 1.0`; `RIR 0 → √2`, `RIR 2 → 1.0`, `RIR 10 → 0.25`; out-of-range
+RIR clamps; the 23-migration test seeds a pre-`rir` `workoutSet`, migrates, and asserts old rows
+retain values with `rir = NULL`; repository round-trips `rir`; Logger allows blank RIR and logs
+`null`; fixture unchanged at `0.825504` / `0.652960`.
+
+#### Planner threshold impact
+
+On data with no Phase C inputs (the fixture and all existing synthetic tests) the score scale is
+identical to Phase B, so `reduceThreshold = 0.65` / `skipThreshold = 0.80` **remain unchanged and
+only boundary regression tests are added**. C1 leaves isolation sets on the base half-life and C2
+keeps `L = 1.0` whenever load data is absent, so the fixtures stay on the Phase B scale. With real
+load data `u` widens to roughly `R × [0.75, 1.25]` and the compound 30 h half-life lengthens
+persistence, so scores can rise faster and stay elevated longer; recalibration can be revisited
+once real load history exists. No threshold is changed without explicit approval.
+
 ### What changes and what breaks
 
 - Phase B is a deliberate replacement of the score semantics, so historical scores change on recompute. No persisted fatigue value needs migrating; scores are derived.
 - Nothing new is persisted in Phase B, so no migration is required.
-- Phase C, if approved, adds `rir` with a `.sqm`; existing and new columns otherwise remain.
+- Phase C's approved C1/C2 need **no schema change**; only the deferred C3 (`rir`) would add a `.sqm`.
 - The heatmap UI contract (`0..1` per muscle) and the planner’s `PlanRequest.muscleFatigue` contract are unchanged, so no engine/Koin changes are implied by the algorithm itself.
 
 ### Open decisions

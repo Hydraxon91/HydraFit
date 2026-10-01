@@ -60,9 +60,12 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
     )
 
     override suspend fun loggedSets(): List<LoggedSet> {
-        val targetsByExercise = exerciseQueries.selectAll().executeAsList().associate { row ->
+        val exercises = exerciseQueries.selectAll().executeAsList()
+        val overrides = overrideQueries.selectAll().executeAsList()
+        val targetsByExercise = exercises.associate { row ->
             row.id to targetsOf(row.involvements)
         }
+        val compoundByExercise = compoundByExercise(exercises, overrides)
         return setQueries.selectAllSets().executeAsList().mapNotNull { row ->
             val targets = row.targets() ?: targetsByExercise[row.exerciseId]
                 ?: return@mapNotNull null
@@ -70,18 +73,21 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                 timestampMillis = row.performedAt,
                 targets = targets,
                 isWarmup = row.isWarmup != 0L,
-                reps = row.reps.toInt()
+                reps = row.reps.toInt(),
+                isCompound = compoundByExercise[row.exerciseId] ?: false
             )
         }
     }
 
     override fun loggedSetsFlow(): Flow<List<LoggedSet>> {
         val exerciseRows = exerciseQueries.selectAll().asFlow().mapToList(Dispatchers.Default)
+        val overrideRows = overrideQueries.selectAll().asFlow().mapToList(Dispatchers.Default)
         val setRows = setQueries.selectAllSets().asFlow().mapToList(Dispatchers.Default)
-        return combine(exerciseRows, setRows) { exercises, sets ->
+        return combine(exerciseRows, overrideRows, setRows) { exercises, overrides, sets ->
             val targetsByExercise = exercises.associate { row ->
                 row.id to targetsOf(row.involvements)
             }
+            val compoundByExercise = compoundByExercise(exercises, overrides)
             sets.mapNotNull { row ->
                 val targets = row.targets() ?: targetsByExercise[row.exerciseId]
                     ?: return@mapNotNull null
@@ -89,9 +95,25 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                     timestampMillis = row.performedAt,
                     targets = targets,
                     isWarmup = row.isWarmup != 0L,
-                    reps = row.reps.toInt()
+                    reps = row.reps.toInt(),
+                    isCompound = compoundByExercise[row.exerciseId] ?: false
                 )
             }
+        }
+    }
+
+    /**
+     * Exercise type for the recovery split, derived (never stored) from the resolved catalog
+     * movement pattern. A custom exercise with a null pattern resolves to isolation.
+     */
+    private fun compoundByExercise(
+        exercises: List<com.hydrafit.app.core.database.Exercise>,
+        overrides: List<com.hydrafit.app.core.database.ExerciseOverride>
+    ): Map<String, Boolean> {
+        val overridePatterns = overrides.associate { it.exerciseId to it.movementPattern }
+        return exercises.associate { row ->
+            val pattern = overridePatterns[row.id] ?: row.movementPattern
+            row.id to decodeMovementPattern(pattern).isCompound
         }
     }
 

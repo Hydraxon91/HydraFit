@@ -15,7 +15,9 @@ data class FatigueConfig(
     val skipThreshold: Double = 0.80,
     val targetedInvolvementCutoff: Double = 0.7,
     val halfLives: Map<MuscleGroup, Duration> = DEFAULT_HALF_LIVES,
-    val fallbackHalfLife: Duration = DEFAULT_HALF_LIFE
+    val fallbackHalfLife: Duration = DEFAULT_HALF_LIFE,
+    val isolationHalfLifeScale: Double = DEFAULT_ISOLATION_HALF_LIFE_SCALE,
+    val compoundHalfLifeScale: Double = DEFAULT_COMPOUND_HALF_LIFE_SCALE
 ) {
     init {
         require(capacityScale.isFinite() && capacityScale > 0.0) {
@@ -48,12 +50,30 @@ data class FatigueConfig(
         ) {
             "half-lives must be positive and finite"
         }
+        require(isolationHalfLifeScale.isFinite() && isolationHalfLifeScale > 0.0) {
+            "isolationHalfLifeScale must be positive and finite"
+        }
+        require(
+            compoundHalfLifeScale.isFinite() && compoundHalfLifeScale >= isolationHalfLifeScale
+        ) {
+            "compoundHalfLifeScale must be finite and at least isolationHalfLifeScale"
+        }
     }
 
     fun halfLifeFor(muscle: MuscleGroup): Duration = halfLives[muscle] ?: fallbackHalfLife
 
+    /** Effective recovery half-life for isolation work: the base half-life, unscaled by default. */
+    fun isolationHalfLifeFor(muscle: MuscleGroup): Duration =
+        halfLifeFor(muscle) * isolationHalfLifeScale
+
+    /** Effective recovery half-life for compound work: the base half-life scaled up (slower recovery). */
+    fun compoundHalfLifeFor(muscle: MuscleGroup): Duration =
+        halfLifeFor(muscle) * compoundHalfLifeScale
+
     companion object {
         const val DEFAULT_REFERENCE_REPS: Int = 8
+        const val DEFAULT_ISOLATION_HALF_LIFE_SCALE: Double = 1.0
+        const val DEFAULT_COMPOUND_HALF_LIFE_SCALE: Double = 1.25
 
         val DEFAULT_HALF_LIFE: Duration = 24.hours
 
