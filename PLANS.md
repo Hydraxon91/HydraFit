@@ -441,12 +441,13 @@ Not approved and not scheduled. Listed so Phase B does not preclude it.
 
 Phase C therefore needs at most one nullable column (`rir`) and a matching `.sqm`, and no column for exercise type. Compatibility: old RIR is unknown (not fabricated); legacy exercise type is derived, not stored.
 
-### Phase C — sub-plan (C1 DONE — C2 next)
+### Phase C — sub-plan (C1 + C2 DONE — C3 deferred)
 
-Status: C1 (compound/isolation decay split) **DONE** in commit `b0959f0`; typed replay peak
-**83.1065 %** / evaluation **68.4753 %**, isolation no-op at **82.5504 %** / **65.2960 %**, thresholds
-unchanged. C2 (relative load) approved and next, not started. **C3 (RIR/RPE capture and the `rir`
-column) is DEFERRED** pending real use of C1/C2. Implement one sub-step at a time, C2 next.
+Status: C1 (compound/isolation decay split) **DONE** in commit `b0959f0`; C2 (causal relative-load
+factor) **DONE** in commit `6bb9239`. Replays unchanged from C1 — typed peak **83.1065 %** /
+evaluation **68.4753 %**, isolation no-op **82.5504 %** / **65.2960 %** — because the fixture has no
+weight data and `L = 1.0`. Thresholds unchanged. **C3 (RIR/RPE capture and the `rir` column) is
+DEFERRED** pending real use of C1/C2.
 
 Phase C applies three multiplicative/structural changes to the Phase B calculator. All three
 default to a neutral/no-op value for rows that carry no Phase C input, so the Phase B 39-set
