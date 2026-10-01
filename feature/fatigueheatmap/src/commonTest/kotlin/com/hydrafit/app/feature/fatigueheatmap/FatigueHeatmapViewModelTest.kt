@@ -60,12 +60,12 @@ class FatigueHeatmapViewModelTest {
 
         val fresh = viewModel(sets, nowMillis = 0L)
         runCurrent()
-        assertEquals(1.0, fresh.scoreOf(MuscleGroup.CHEST), 1e-9)
+        assertEquals(CHEST_24_FRESH, fresh.scoreOf(MuscleGroup.CHEST), 1e-9)
         assertEquals(0.0, fresh.scoreOf(MuscleGroup.QUADS), 1e-9)
 
         val decayed = viewModel(sets, nowMillis = 48L * 60L * 60L * 1000L)
         runCurrent()
-        assertEquals(0.5, decayed.scoreOf(MuscleGroup.CHEST), 1e-9)
+        assertEquals(CHEST_24_48H, decayed.scoreOf(MuscleGroup.CHEST), 1e-9)
     }
 
     @Test
@@ -82,7 +82,7 @@ class FatigueHeatmapViewModelTest {
         sets.value = List(24) { chestSet(timestampMillis = 0L) }
         runCurrent()
 
-        assertEquals(1.0, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+        assertEquals(CHEST_24_FRESH, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
     }
 
     @Test
@@ -94,7 +94,7 @@ class FatigueHeatmapViewModelTest {
             timeProvider = TimeProvider { 0L }
         )
         runCurrent()
-        assertEquals(1.0, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+        assertEquals(CHEST_24_FRESH, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
 
         sets.value = emptyList()
         runCurrent()
@@ -106,88 +106,100 @@ class FatigueHeatmapViewModelTest {
     fun resumeRefreshesWithoutRepositoryEmission() = runTest(dispatcher) {
         val clock = FakeClock()
         val viewModel = viewModel(List(24) { chestSet(0L) }, clock)
-        runCurrent()
-        assertEquals(1.0, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+        try {
+            runCurrent()
+            assertEquals(CHEST_24_FRESH, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
 
-        clock.now = 48L * 60L * 60L * 1000L
-        viewModel.onResume()
-        runCurrent()
-        assertEquals(0.5, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+            clock.now = 48L * 60L * 60L * 1000L
+            viewModel.onResume()
+            runCurrent()
+            assertEquals(CHEST_24_48H, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
 
-        viewModel.onPause()
-        clock.now *= 2
-        viewModel.onResume()
-        runCurrent()
-        assertEquals(0.25, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
-        viewModel.onPause()
+            viewModel.onPause()
+            clock.now *= 2
+            viewModel.onResume()
+            runCurrent()
+            assertEquals(CHEST_24_96H, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+        } finally {
+            viewModel.onPause()
+        }
     }
 
     @Test
     fun tickRefreshesEveryMinuteWithoutRepositoryEmission() = runTest(dispatcher) {
         val clock = FakeClock()
         val viewModel = viewModel(List(24) { chestSet(0L) }, clock)
-        runCurrent()
-        viewModel.onResume()
-        runCurrent()
+        try {
+            runCurrent()
+            viewModel.onResume()
+            runCurrent()
 
-        clock.now = 48L * 60L * 60L * 1000L
-        advanceTimeBy(59_999L)
-        runCurrent()
-        assertEquals(1.0, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
-        advanceTimeBy(1L)
-        runCurrent()
-        assertEquals(0.5, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+            clock.now = 48L * 60L * 60L * 1000L
+            advanceTimeBy(59_999L)
+            runCurrent()
+            assertEquals(CHEST_24_FRESH, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+            advanceTimeBy(1L)
+            runCurrent()
+            assertEquals(CHEST_24_48H, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
 
-        clock.now *= 2
-        advanceTimeBy(60_000L)
-        runCurrent()
-        assertEquals(0.25, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
-        viewModel.onPause()
+            clock.now *= 2
+            advanceTimeBy(60_000L)
+            runCurrent()
+            assertEquals(CHEST_24_96H, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+        } finally {
+            viewModel.onPause()
+        }
     }
 
     @Test
     fun tickerStopsWhenInactiveAndRestartsOnResume() = runTest(dispatcher) {
         val clock = FakeClock()
         val viewModel = viewModel(List(24) { chestSet(0L) }, clock)
-        runCurrent()
-        viewModel.onResume()
-        runCurrent()
-        advanceTimeBy(30_000L)
-        viewModel.onPause()
+        try {
+            runCurrent()
+            viewModel.onResume()
+            runCurrent()
+            advanceTimeBy(30_000L)
+            viewModel.onPause()
 
-        clock.now = 48L * 60L * 60L * 1000L
-        val readsWhenPaused = clock.reads
-        advanceTimeBy(180_000L)
-        runCurrent()
-        assertEquals(readsWhenPaused, clock.reads)
-        assertEquals(1.0, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+            clock.now = 48L * 60L * 60L * 1000L
+            val readsWhenPaused = clock.reads
+            advanceTimeBy(180_000L)
+            runCurrent()
+            assertEquals(readsWhenPaused, clock.reads)
+            assertEquals(CHEST_24_FRESH, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
 
-        viewModel.onResume()
-        runCurrent()
-        assertEquals(0.5, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
-        clock.now *= 2
-        advanceTimeBy(60_000L)
-        runCurrent()
-        assertEquals(0.25, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
-        viewModel.onPause()
+            viewModel.onResume()
+            runCurrent()
+            assertEquals(CHEST_24_48H, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+            clock.now *= 2
+            advanceTimeBy(60_000L)
+            runCurrent()
+            assertEquals(CHEST_24_96H, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+        } finally {
+            viewModel.onPause()
+        }
     }
 
     @Test
     fun repeatedResumeDoesNotStartDuplicateTickers() = runTest(dispatcher) {
         val clock = FakeClock()
         val viewModel = viewModel(List(24) { chestSet(0L) }, clock)
-        runCurrent()
-        viewModel.onResume()
-        runCurrent()
-        viewModel.onResume()
-        runCurrent()
-        val readsBeforeTick = clock.reads
+        try {
+            runCurrent()
+            viewModel.onResume()
+            runCurrent()
+            viewModel.onResume()
+            runCurrent()
+            val readsBeforeTick = clock.reads
 
-        advanceTimeBy(60_000L)
-        runCurrent()
+            advanceTimeBy(60_000L)
+            runCurrent()
 
-        assertEquals(readsBeforeTick + 1, clock.reads)
-        viewModel.onPause()
+            assertEquals(readsBeforeTick + 1, clock.reads)
+        } finally {
+            viewModel.onPause()
+        }
     }
 
     @Test
@@ -216,6 +228,16 @@ class FatigueHeatmapViewModelTest {
 
     private fun FatigueHeatmapViewModel.scoreOf(muscle: MuscleGroup): Double =
         state.value.entries.first { it.muscle == muscle }.score
+
+    private companion object {
+        // Phase B derivation for 24 CHEST sets at one timestamp, involvement 1.0, reps 8:
+        //   R = sqrt(8 / 8) = 1.0; batched stimulus = 24; delta = 6 * ln((6 + 24) / 6) = 6 * ln 5;
+        //   F = 1 - exp(-delta / K) with K = 6, so F = 1 - 1/5 = 0.8.
+        // CHEST half-life is 24 h, so 48 h (2 half-lives) gives 0.8 / 4 = 0.2 and 96 h gives 0.05.
+        const val CHEST_24_FRESH = 0.8
+        const val CHEST_24_48H = 0.2
+        const val CHEST_24_96H = 0.05
+    }
 
     private fun chestSet(timestampMillis: Long) = LoggedSet(
         timestampMillis = timestampMillis,
