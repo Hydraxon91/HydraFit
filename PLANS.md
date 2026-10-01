@@ -11,7 +11,10 @@
 | BACK work chunk 2 — historical workout time entry | OPEN | Approve the performed-at UX/data edits before starting. |
 | BACK work chunk 3 — model calibration | OPEN | Calibrate against correctly timed histories; decide whether the plateau is desired. |
 | BACK work chunk 4 — literal >100% report | OPEN | Capture exact value/time/build if it recurs. |
-| Fatigue redesign — open decisions 1–4 | RESOLVED | Shipped as Phases A/B/C (`cf98d66`, `f15b9d9`, `b0959f0`, `6bb9239`, `86ace92`). |
+| Fatigue redesign — open decision 1 | RESOLVED | Phase B approved and shipped (`f15b9d9`). |
+| Fatigue redesign — open decision 2 | RESOLVED | Phase A shipped (`cf98d66`). |
+| Fatigue redesign — open decision 3 | RESOLVED | Kept at 0.65 / 0.80; recalibrate once real load/RIR history exists. |
+| Fatigue redesign — open decision 4 | RESOLVED | Phase C1/C2/C3 shipped (`b0959f0`, `6bb9239`, `86ace92`). |
 | Fatigue redesign — open decision 5 | OPEN | Decide 2-hour session gap vs explicit session ids. |
 | Open Questions / Later | LATER | See section below; nothing scheduled. |
 | Deferred (release pipeline, settings/nav) | DEFERRED | See section below. |
