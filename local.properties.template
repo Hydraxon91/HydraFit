@@ -12,3 +12,13 @@ RELEASE_KEYSTORE_PATH=/path/to/keystore.jks
 RELEASE_KEYSTORE_PASSWORD=changeme
 RELEASE_KEY_ALIAS=hydrafit
 RELEASE_KEY_PASSWORD=changeme
+
+# CI (`.github/workflows/release.yml`): the keystore is supplied as the
+# `RELEASE_KEYSTORE_BASE64` GitHub Actions secret (base64-encoded keystore).
+# The workflow decodes it to a temp file and exports `RELEASE_KEYSTORE_PATH`
+# for the build, so that path is local-only and never a secret. The
+# password/alias values come from the same-named `RELEASE_KEYSTORE_PASSWORD`,
+# `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD` secrets.
+#
+# `GEMINI_API_KEY` is not currently a CI secret: no CI job calls the Gemini
+# engine, so CI builds embed an empty key.

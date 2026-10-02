@@ -33,7 +33,7 @@ HydraFit's workout planner is built as a swappable strategy behind one interface
 - **Koin** — dependency injection; the planner engines and every feature module are swapped/wired through it, with Koin-graph verification in the test suite.
 - **Ktor** — the Gemini API client.
 - **Google LiteRT-LM** — on-device model inference.
-- **GitHub Actions CI** — lint, unit tests, an iOS compile check, and a debug APK build on every push.
+- **GitHub Actions CI** — lint, unit tests, an iOS compile check, and a debug APK build on every push; a nightly build; and a signed release APK published on `v*.*.*` tags.
 
 ## Architecture, briefly
 
@@ -48,6 +48,17 @@ cd HydraFit
 ```
 
 Requires JDK 17+ and the Android SDK (Android Studio's SDK Manager is the easiest way to get both). To use the Gemini engine, add your own API key to `local.properties` (see `local.properties.template`) — never committed, and easy to get one free from [Google AI Studio](https://aistudio.google.com).
+
+## Releases
+
+Signed release APKs are built and published by `.github/workflows/release.yml` on tags matching `v*.*.*`. The version is derived at build time — `versionName` from the tag (leading `v` stripped) and `versionCode` from the GitHub Actions run number — while local builds keep the `0.1.0` / `1` defaults. A tag containing a hyphen (for example `v0.1.0-rc.1`) is published as a pre-release.
+
+Publishing requires four repository secrets (Settings → Secrets and variables → Actions):
+
+- `RELEASE_KEYSTORE_BASE64` — the base64-encoded keystore.
+- `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD` — same names as the `local.properties` keys.
+
+`release.yml` decodes the keystore into a temporary file under the runner and exports `RELEASE_KEYSTORE_PATH` for the build, so that path is local-only, not a secret. `GEMINI_API_KEY` is not currently a CI secret: no CI job calls the Gemini engine, so CI builds embed an empty key.
 
 ## Development notes
 
