@@ -6,10 +6,11 @@
 
 | Item | Status | Next action |
 | --- | --- | --- |
-| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01; see the Roadmap section below. Next: Priority 1 item 2b S4 (logger stamps session ids). Item 1 (P1a) still open. |
+| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01; see the Roadmap section below. Next: Priority 1 item 2b S5 (item 2 integration: backdated logging attaches to sessions). Item 1 (P1a) still open. |
 | Roadmap 2b S1 — explicit session ids (domain + database) | DONE (`32b6e30`) | — |
 | Roadmap 2b S2 — legacy session backfill | DONE (`00825ba`) | — |
-| Roadmap 2b S3 — fatigue reads session ids | DONE (`c377f58`) | S4 stamps ids in the logger. |
+| Roadmap 2b S3 — fatigue reads session ids | DONE (`c377f58`) | — |
+| Roadmap 2b S4 — logger stamps session ids + controls | DONE (`fd3d2bb`) | S5 integrates item 2 (backdated logging attaches to a session). |
 | E (AI prompt alignment) | FOLDED | Superseded by Roadmap Priority 1 item 3. |
 | BACK work chunk 1 — heatmap freshness | DONE (`cf98d66`, Phase A) | — |
 | BACK work chunk 2 — historical workout time entry | FOLDED | Superseded by Roadmap Priority 1 item 2. |
