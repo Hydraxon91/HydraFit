@@ -13,8 +13,10 @@ data class PlannedDayDto(val focus: String, val exercises: List<PlannedExerciseD
 @Serializable
 data class PlannedExerciseDto(
     val exerciseId: String,
-    val sets: Int,
-    val reps: Int,
+    // Defaulted so a local-LLM reply may omit them: the sanitizer applies the app's own set/rep
+    // scheme before the plan is shown, so the model does not need to emit either.
+    val sets: Int = 1,
+    val reps: Int = 1,
     val suggestedWeightKg: Double? = null
 )
 

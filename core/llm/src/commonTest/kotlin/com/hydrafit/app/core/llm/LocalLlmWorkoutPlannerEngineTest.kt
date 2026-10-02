@@ -53,16 +53,14 @@ class LocalLlmWorkoutPlannerEngineTest {
     }
 
     @Test
-    fun includesCompoundAndAccessorySetGuidanceInThePrompt() = runTest {
+    fun tellsTheModelToOmitSetsAndReps() = runTest {
         val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
 
-        engine(generator).generatePlan(
-            request(setsPerExercise = 5, accessorySetsPerExercise = 2)
-        )
+        engine(generator).generatePlan(request())
 
         val prompt = requireNotNull(generator.lastPrompt)
-        assertTrue(prompt.contains("5 sets for compound lifts"), prompt)
-        assertTrue(prompt.contains("2 sets for accessory exercises"), prompt)
+        assertTrue(prompt.contains("Do not include sets or reps"), prompt)
+        assertFalse(prompt.contains("\"sets\""), prompt)
     }
 
     @Test
@@ -371,13 +369,27 @@ class LocalLlmWorkoutPlannerEngineTest {
     }
 
     @Test
-    fun fallsBackWhenOnDeviceOutputIsUnparseable() = runTest {
+    fun fallsBackAfterOneAttemptWhenOnDeviceOutputIsUnparseable() = runTest {
         val generator = FakeGenerator(available = true, responses = listOf("I am not JSON"))
 
         val plan = engine(generator).generatePlan(request())
 
         assertEquals(PlannerEngineId.DETERMINISTIC, plan.engine)
-        assertEquals(2, generator.generateCalls)
+        // Malformed JSON will not parse better on a retry, so it must not spend a second generation.
+        assertEquals(1, generator.generateCalls)
+    }
+
+    @Test
+    fun acceptsAReplyThatOmitsSetsAndReps() = runTest {
+        val generator = FakeGenerator(available = true, responses = listOf(ID_ONLY_PLAN))
+
+        val plan = engine(generator).generatePlan(request())
+
+        assertEquals(PlannerEngineId.LOCAL_LLM, plan.engine)
+        assertEquals(3, plan.days.size)
+        val compound = plan.days.first().exercises.first { it.exerciseId == "bench-press" }
+        assertEquals(TrainingGoal.BALANCED.defaultSets, compound.sets)
+        assertEquals(TrainingGoal.BALANCED.compoundReps, compound.reps)
     }
 
     private fun engine(
@@ -533,6 +545,20 @@ class LocalLlmWorkoutPlannerEngineTest {
                 "LEGS" to listOf("overhead-press", "barbell-curl")
             )
         )
+        val ID_ONLY_PLAN = """{"days":[
+            {"focus":"PUSH","exercises":[
+                {"exerciseId":"bench-press"},
+                {"exerciseId":"barbell-curl"}
+            ]},
+            {"focus":"PULL","exercises":[
+                {"exerciseId":"barbell-row"},
+                {"exerciseId":"barbell-curl"}
+            ]},
+            {"focus":"LEGS","exercises":[
+                {"exerciseId":"overhead-press"},
+                {"exerciseId":"barbell-curl"}
+            ]}
+        ]}"""
 
         private fun days(days: List<Pair<String, List<String>>>): String {
             val entries = days.joinToString(",") { (focus, exerciseIds) ->

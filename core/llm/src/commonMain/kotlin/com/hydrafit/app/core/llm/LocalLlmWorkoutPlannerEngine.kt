@@ -47,17 +47,10 @@ class LocalLlmWorkoutPlannerEngine(
         )
         while (attempt < MAX_ATTEMPTS) {
             attempt++
-            val plan = try {
-                // Loading the model and generating are blocking, so keep them off the main thread.
-                val output = withContext(Dispatchers.Default) {
+            // Loading the model and generating are blocking, so keep them off the main thread.
+            val output = try {
+                withContext(Dispatchers.Default) {
                     generator.generate(prompt, schema)
-                }
-                val parsed = parseWeeklyPlan(output, PlannerEngineId.LOCAL_LLM)
-                val mapped = parsed.withCatalogIds(availableIds)
-                sanitizer.sanitize(mapped, request).also { sanitized ->
-                    if (sanitized == null) {
-                        lastRejection = describeRejection(mapped, request, availableIds)
-                    }
                 }
             } catch (outOfMemory: OutOfMemoryError) {
                 logger.onFallback(OnDevicePlannerFallback.OUT_OF_MEMORY, outOfMemory)
@@ -68,7 +61,25 @@ class LocalLlmWorkoutPlannerEngine(
                 lastFailure = failure
                 null
             }
-            if (plan != null) return plan
+            if (output == null) {
+                prompt = prompt(request, availableExercises, focusSequence) + correction(request)
+                continue
+            }
+
+            val parsed = try {
+                parseWeeklyPlan(output, PlannerEngineId.LOCAL_LLM)
+            } catch (malformed: IllegalArgumentException) {
+                // parseWeeklyPlan raises a kotlinx.serialization.SerializationException (an
+                // IllegalArgumentException) on truncated or syntactically invalid JSON. A retry
+                // will not parse it, and a second full generation doubles an already minutes-long
+                // wait on a phone. Fall straight back to the built-in plan.
+                lastFailure = malformed
+                break
+            }
+            val mapped = parsed.withCatalogIds(availableIds)
+            val sanitized = sanitizer.sanitize(mapped, request)
+            if (sanitized != null) return sanitized
+            lastRejection = describeRejection(mapped, request, availableIds)
             // Tell the model why the previous answer was rejected instead of repeating it verbatim.
             prompt = prompt(request, availableExercises, focusSequence) + correction(request)
         }
@@ -126,8 +137,6 @@ class LocalLlmWorkoutPlannerEngine(
         availableExercises: List<Exercise>,
         focusSequence: List<SplitFocus>
     ): String {
-        val sets = request.setsPerExercise
-        val accessorySets = request.accessorySetsPerExercise
         val days = request.daysPerWeek
         return buildString {
             appendLine("You are a strength coach.")
@@ -143,9 +152,8 @@ class LocalLlmWorkoutPlannerEngine(
                     "${PlannerExerciseCounts.TARGET_MAX_PER_DAY} different exercise items."
             )
             appendLine(
-                "Each exercise item has \"exerciseId\", \"sets\" and \"reps\". " +
-                    "Use $sets sets for compound lifts and $accessorySets sets for accessory " +
-                    "exercises."
+                "Each exercise item has only \"exerciseId\". Do not include sets or reps; " +
+                    "the app fills those in from the training goal."
             )
             appendLine("Training goal: ${request.goal.name}")
             appendLine(PlannerPromptFragments.periodizationLine(request))
@@ -204,9 +212,7 @@ class LocalLlmWorkoutPlannerEngine(
             )
             appendLine("""{"days":[<day>, <day>, ...]}""")
             appendLine(DAY_SHAPE)
-            appendLine(
-                """<exercise> = {"exerciseId":"<list number>","sets":$sets,"reps":6}"""
-            )
+            appendLine("""<exercise> = {"exerciseId":"<list number>"}""")
         }
     }
 
@@ -277,11 +283,9 @@ class LocalLlmWorkoutPlannerEngine(
                   "items": {
                     "type": "object",
                     "properties": {
-                      "exerciseId": $idSchema,
-                      "sets": {"type": "integer"},
-                      "reps": {"type": "integer"}$weightField
+                      "exerciseId": $idSchema$weightField
                     },
-                    "required": ["exerciseId", "sets", "reps"]
+                    "required": ["exerciseId"]
                   }
                 }
               },

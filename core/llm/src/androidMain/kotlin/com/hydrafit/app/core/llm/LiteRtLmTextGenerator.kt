@@ -119,6 +119,7 @@ class LiteRtLmTextGenerator(
             EngineConfig(
                 modelPath = key.path,
                 backend = backend,
+                maxNumTokens = MAX_NUM_TOKENS,
                 cacheDir = context.cacheDir.path
             )
         )
@@ -158,13 +159,24 @@ class LiteRtLmTextGenerator(
             // A fresh seed per generation so repeated generations are not identical.
             seed = sampler.randomSeed()
         ),
-        enableResponseFormat = true
+        enableResponseFormat = true,
+        // Bound the reply so a runaway generation cannot grow without limit. The plan JSON is small
+        // once sets/reps are dropped, so this is comfortably above a full week.
+        maxOutputToken = MAX_OUTPUT_TOKENS
     )
 
     private data class EngineKey(val path: String, val size: Long, val modified: Long)
 
     private companion object {
         const val TAG = "LiteRtLmTextGenerator"
+
+        /**
+         * Total context (prompt + reply). The native default is small enough that a full-week plan
+         * prompt plus its JSON reply overruns it; the model then stops mid-array and the reply is
+         * unparseable. Raising it gives the constrained grammar room to finish.
+         */
+        const val MAX_NUM_TOKENS = 4_096
+        const val MAX_OUTPUT_TOKENS = 2_048
         const val MAX_LOGGED_CHARS = 4_000
     }
 }
