@@ -47,6 +47,7 @@ import hydrafit.feature.settings.generated.resources.settings_goal_endurance
 import hydrafit.feature.settings.generated.resources.settings_goal_hypertrophy
 import hydrafit.feature.settings.generated.resources.settings_goal_section
 import hydrafit.feature.settings.generated.resources.settings_goal_strength
+import hydrafit.feature.settings.generated.resources.settings_local_llm_slow
 import hydrafit.feature.settings.generated.resources.settings_share_data
 import hydrafit.feature.settings.generated.resources.settings_share_data_description
 import hydrafit.feature.settings.generated.resources.settings_title
@@ -138,6 +139,12 @@ fun SettingsScreen(
         if (!state.isGeminiAvailable) {
             Text(
                 text = stringResource(Res.string.settings_gemini_unavailable),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        if (state.isLocalLlmInstalled) {
+            Text(
+                text = stringResource(Res.string.settings_local_llm_slow),
                 style = MaterialTheme.typography.bodySmall
             )
         }
