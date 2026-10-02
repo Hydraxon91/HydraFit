@@ -6,8 +6,9 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
-class RirMigrationTest {
+class SessionIdMigrationTest {
 
     private lateinit var driver: SqlDriver
 
@@ -17,37 +18,41 @@ class RirMigrationTest {
     }
 
     @Test
-    fun migratingFromV23DefaultsRirToNullAndRetainsValues() {
-        driver = v23Database()
+    fun migratingFromV24AddsSessionColumnAsNullAndPreservesValues() {
+        driver = v24Database()
         driver.execute(
             identifier = null,
             sql = "INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, " +
-                "involvements, weekNumber, cycleNumber, dayIndex) " +
-                "VALUES ('x', 5, 50.0, 1, 0, 'CHEST:1.0', 2, 1, 0)",
+                "involvements, weekNumber, cycleNumber, dayIndex, rir) " +
+                "VALUES ('x', 5, 50.0, 1, 0, 'CHEST:1.0', 2, 1, 0, 3)",
             parameters = 0
         )
 
-        // Migrate through the current version: later migrations add columns the generated
-        // query reads (e.g. sessionId), which a scoped 23→24 end version would not create.
-        HydraFitDatabase.Schema.migrate(driver, 23, HydraFitDatabase.Schema.version)
+        HydraFitDatabase.Schema.migrate(driver, 24, 25)
 
         val row = HydraFitDatabase(driver).workoutLogQueries.selectAllSets().executeAsOne()
-        assertNull(row.rir)
+        assertNull(row.sessionId)
         assertEquals(5L, row.reps)
         assertEquals(50.0, row.weightKg)
         assertEquals("CHEST:1.0", row.involvements)
         assertEquals(2L, row.weekNumber)
+        assertEquals(3L, row.rir)
+
+        val sessions = HydraFitDatabase(driver).workoutSessionQueries.selectAllSessions()
+            .executeAsList()
+        assertTrue(sessions.isEmpty())
     }
 
-    /** The v23 shape: workoutSet has week/cycle/day but no rir column yet. */
-    private fun v23Database(): SqlDriver {
+    /** The v24 shape: workoutSet has rir but no sessionId, and workoutSession does not exist. */
+    private fun v24Database(): SqlDriver {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         driver.execute(
             identifier = null,
             sql = "CREATE TABLE workoutSet (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, " +
                 "exerciseId TEXT NOT NULL, reps INTEGER NOT NULL, weightKg REAL, " +
                 "performedAt INTEGER NOT NULL, isWarmup INTEGER NOT NULL DEFAULT 0, " +
-                "involvements TEXT, weekNumber INTEGER, cycleNumber INTEGER, dayIndex INTEGER)",
+                "involvements TEXT, weekNumber INTEGER, cycleNumber INTEGER, dayIndex INTEGER, " +
+                "rir INTEGER)",
             parameters = 0
         )
         return driver

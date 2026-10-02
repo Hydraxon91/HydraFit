@@ -31,6 +31,8 @@ class LogWorkoutSetUseCaseTest {
             sets.add(set)
         }
 
+        override suspend fun assignSession(setId: Long, sessionId: String) = Unit
+
         override suspend fun delete(id: Long) = Unit
 
         override suspend fun all(): List<WorkoutSet> = sets.toList()

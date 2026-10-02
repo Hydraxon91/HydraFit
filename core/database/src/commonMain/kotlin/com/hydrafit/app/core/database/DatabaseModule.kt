@@ -4,6 +4,7 @@ import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
+import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
@@ -25,6 +26,7 @@ val databaseModule: Module = module {
     single<ExerciseOverrideRepository> { SqlDelightExerciseOverrideRepository(get()) }
     single<EquipmentSelectionRepository> { SqlDelightEquipmentSelectionRepository(get()) }
     single<WorkoutLogRepository> { SqlDelightWorkoutLogRepository(get()) }
+    single<WorkoutSessionRepository> { SqlDelightWorkoutSessionRepository(get()) }
     single<EnginePreferenceRepository> { SqlDelightEnginePreferenceRepository(get()) }
     single<TrainingGoalRepository> { SqlDelightTrainingGoalRepository(get()) }
     single<WeightUnitRepository> { SqlDelightWeightUnitRepository(get()) }

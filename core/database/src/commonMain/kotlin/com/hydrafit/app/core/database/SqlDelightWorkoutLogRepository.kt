@@ -32,8 +32,13 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
             weekNumber = set.weekNumber?.toLong(),
             cycleNumber = set.cycleNumber?.toLong(),
             dayIndex = set.dayIndex?.toLong(),
-            rir = set.rir?.toLong()
+            rir = set.rir?.toLong(),
+            sessionId = set.sessionId
         )
+    }
+
+    override suspend fun assignSession(setId: Long, sessionId: String) {
+        setQueries.assignSession(sessionId = sessionId, id = setId)
     }
 
     override suspend fun delete(id: Long) {
@@ -58,7 +63,8 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
         weekNumber = weekNumber?.toInt(),
         cycleNumber = cycleNumber?.toInt(),
         dayIndex = dayIndex?.toInt(),
-        rir = rir?.toInt()
+        rir = rir?.toInt(),
+        sessionId = sessionId
     )
 
     override suspend fun loggedSets(): List<LoggedSet> {
@@ -79,7 +85,8 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                 isCompound = compoundByExercise[row.exerciseId] ?: false,
                 exerciseId = row.exerciseId,
                 weightKg = row.weightKg,
-                rir = row.rir?.toInt()
+                rir = row.rir?.toInt(),
+                sessionId = row.sessionId
             )
         }
     }

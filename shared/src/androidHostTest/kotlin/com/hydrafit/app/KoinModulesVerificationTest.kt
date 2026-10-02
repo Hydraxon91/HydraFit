@@ -15,9 +15,14 @@ import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
+import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
+import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
+import com.hydrafit.app.core.domain.workout.WorkoutSession
+import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.llm.NoopOnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDevicePlannerLogger
@@ -92,6 +97,7 @@ class KoinModulesVerificationTest {
                     single<PlanHistoryRepository> { FakePlanHistoryRepository }
                     single<ExerciseCatalog> { FakeExerciseCatalog }
                     single<WorkoutLogRepository> { FakeWorkoutLogRepository }
+                    single<WorkoutSessionRepository> { FakeWorkoutSessionRepository }
                 },
                 domainModule,
                 testPlatformModule
@@ -105,6 +111,9 @@ class KoinModulesVerificationTest {
             assertNotNull(koin.get<LogWorkoutSetUseCase>())
             assertNotNull(koin.get<GetWorkoutLogUseCase>())
             assertNotNull(koin.get<DeleteWorkoutSetUseCase>())
+            assertNotNull(koin.get<StartWorkoutSessionUseCase>())
+            assertNotNull(koin.get<EndWorkoutSessionUseCase>())
+            assertNotNull(koin.get<ObserveOpenWorkoutSessionUseCase>())
             assertNotNull(koin.get<SuggestWeightsUseCase>())
         } finally {
             koin.close()
@@ -151,6 +160,8 @@ class KoinModulesVerificationTest {
     private object FakeWorkoutLogRepository : WorkoutLogRepository {
         override suspend fun add(set: WorkoutSet) = Unit
 
+        override suspend fun assignSession(setId: Long, sessionId: String) = Unit
+
         override suspend fun delete(id: Long) = Unit
 
         override suspend fun all(): List<WorkoutSet> = emptyList()
@@ -162,5 +173,17 @@ class KoinModulesVerificationTest {
         override fun loggedSetsFlow(): Flow<List<LoggedSet>> = emptyFlow()
 
         override suspend fun clear() = Unit
+    }
+
+    private object FakeWorkoutSessionRepository : WorkoutSessionRepository {
+        override suspend fun create(session: WorkoutSession) = Unit
+
+        override suspend fun end(id: String, endedAtMillis: Long) = Unit
+
+        override suspend fun open(): WorkoutSession? = null
+
+        override fun openFlow(): Flow<WorkoutSession?> = emptyFlow()
+
+        override suspend fun all(): List<WorkoutSession> = emptyList()
     }
 }

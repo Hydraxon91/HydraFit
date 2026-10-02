@@ -23,6 +23,8 @@ class DeleteWorkoutSetUseCaseTest {
 
         override suspend fun add(set: WorkoutSet) = Unit
 
+        override suspend fun assignSession(setId: Long, sessionId: String) = Unit
+
         override suspend fun delete(id: Long) {
             deletedIds.add(id)
         }

@@ -706,6 +706,8 @@ class WorkoutLoggerViewModelTest {
             sets.add(set)
         }
 
+        override suspend fun assignSession(setId: Long, sessionId: String) = Unit
+
         override suspend fun delete(id: Long) {
             sets.removeAll { it.id == id }
         }

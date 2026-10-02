@@ -1,0 +1,19 @@
+CREATE TABLE workoutSession (
+    id TEXT NOT NULL PRIMARY KEY,
+    startedAtMillis INTEGER NOT NULL,
+    endedAtMillis INTEGER,
+    localEpochDay INTEGER NOT NULL
+);
+
+insertSession:
+INSERT INTO workoutSession(id, startedAtMillis, endedAtMillis, localEpochDay)
+VALUES (?, ?, ?, ?);
+
+endSession:
+UPDATE workoutSession SET endedAtMillis = ? WHERE id = ?;
+
+selectOpenSession:
+SELECT * FROM workoutSession WHERE endedAtMillis IS NULL ORDER BY startedAtMillis DESC LIMIT 1;
+
+selectAllSessions:
+SELECT * FROM workoutSession ORDER BY startedAtMillis, id;

@@ -12,5 +12,7 @@ data class WorkoutSet(
     val cycleNumber: Int? = null,
     val dayIndex: Int? = null,
     /** Optional reps in reserve (0..10); null when the user did not record effort. */
-    val rir: Int? = null
+    val rir: Int? = null,
+    /** The explicit workout session this set belongs to; null for legacy/unsegmented rows. */
+    val sessionId: String? = null
 )

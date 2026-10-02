@@ -272,6 +272,8 @@ class FatigueHeatmapViewModelTest {
         WorkoutLogRepository {
         override suspend fun add(set: WorkoutSet) = Unit
 
+        override suspend fun assignSession(setId: Long, sessionId: String) = Unit
+
         override suspend fun delete(id: Long) = Unit
 
         override suspend fun all(): List<WorkoutSet> = emptyList()
@@ -288,6 +290,8 @@ class FatigueHeatmapViewModelTest {
     private class FlowingWorkoutLogRepository(private val sets: MutableStateFlow<List<LoggedSet>>) :
         WorkoutLogRepository {
         override suspend fun add(set: WorkoutSet) = Unit
+
+        override suspend fun assignSession(setId: Long, sessionId: String) = Unit
 
         override suspend fun delete(id: Long) = Unit
 

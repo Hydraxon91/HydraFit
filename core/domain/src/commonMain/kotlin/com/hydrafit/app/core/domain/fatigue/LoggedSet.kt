@@ -12,5 +12,7 @@ data class LoggedSet(
     /** Logged working load; null/<=0 leaves the relative-load factor neutral. */
     val weightKg: Double? = null,
     /** User-entered reps in reserve; null leaves the effort factor at its neutral default. */
-    val rir: Int? = null
+    val rir: Int? = null,
+    /** The explicit workout session this set belongs to; null for legacy/unsegmented rows. */
+    val sessionId: String? = null
 )

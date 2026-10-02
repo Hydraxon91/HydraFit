@@ -214,7 +214,8 @@ class SqlDelightWorkoutLogRepositoryTest {
             weekNumber = null,
             cycleNumber = null,
             dayIndex = null,
-            rir = null
+            rir = null,
+            sessionId = null
         )
 
         val logged = repository.loggedSets().single()
@@ -236,7 +237,8 @@ class SqlDelightWorkoutLogRepositoryTest {
             weekNumber = null,
             cycleNumber = null,
             dayIndex = null,
-            rir = null
+            rir = null,
+            sessionId = null
         )
 
         val logged = repository.loggedSets().single()
@@ -300,6 +302,46 @@ class SqlDelightWorkoutLogRepositoryTest {
         repository.delete(target.id)
 
         assertEquals(listOf("barbell-bench-press"), repository.all().map { it.exerciseId })
+    }
+
+    @Test
+    fun roundTripsSessionIdAndLeavesItNullWhenAbsent() = runTest {
+        repository.add(
+            DomainWorkoutSet(
+                exerciseId = "back-squat",
+                reps = 5,
+                weightKg = 100.0,
+                performedAtMillis = 1,
+                sessionId = "session-a"
+            )
+        )
+        repository.add(
+            DomainWorkoutSet(
+                exerciseId = "barbell-bench-press",
+                reps = 5,
+                weightKg = 50.0,
+                performedAtMillis = 2
+            )
+        )
+
+        val sets = repository.all()
+        assertEquals("session-a", sets.first { it.exerciseId == "back-squat" }.sessionId)
+        assertNull(sets.first { it.exerciseId == "barbell-bench-press" }.sessionId)
+
+        val logged = repository.loggedSets()
+        assertEquals("session-a", logged.first { it.exerciseId == "back-squat" }.sessionId)
+        assertNull(logged.first { it.exerciseId == "barbell-bench-press" }.sessionId)
+    }
+
+    @Test
+    fun assignSessionAttachesAnIdToAnExistingSet() = runTest {
+        repository.add(set(exerciseId = "back-squat", performedAt = 1))
+        val target = repository.all().single()
+
+        repository.assignSession(target.id, "session-b")
+
+        assertEquals("session-b", repository.all().single().sessionId)
+        assertEquals("session-b", repository.loggedSets().single().sessionId)
     }
 
     private fun set(exerciseId: String, performedAt: Long) = DomainWorkoutSet(

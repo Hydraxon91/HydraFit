@@ -10,15 +10,19 @@ CREATE TABLE workoutSet (
     cycleNumber INTEGER,
     dayIndex INTEGER,
     rir INTEGER,
+    sessionId TEXT,
     FOREIGN KEY (exerciseId) REFERENCES exercise(id)
 );
 
 insertSet:
-INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber, dayIndex, rir)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber, dayIndex, rir, sessionId)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 selectAllSets:
 SELECT * FROM workoutSet ORDER BY performedAt, id;
+
+assignSession:
+UPDATE workoutSet SET sessionId = ? WHERE id = ?;
 
 deleteSet:
 DELETE FROM workoutSet WHERE id = ?;
