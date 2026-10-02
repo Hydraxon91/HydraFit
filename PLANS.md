@@ -10,13 +10,13 @@
 | E (AI prompt alignment) | FOLDED | Superseded by Roadmap Priority 1 item 3. |
 | BACK work chunk 1 — heatmap freshness | DONE (`cf98d66`, Phase A) | — |
 | BACK work chunk 2 — historical workout time entry | FOLDED | Superseded by Roadmap Priority 1 item 2. |
-| BACK work chunk 3 — model calibration | OPEN | Calibrate against correctly timed histories; decide whether the plateau is desired. |
+| BACK work chunk 3 — calibrate Phase B/C constants | OPEN | Re-scoped: calibrate K=6, D=6, half-lives, and C1/C2/C3 against correctly timed histories. The plateau is resolved by the redesign; no further decision needed. |
 | BACK work chunk 4 — literal >100% report | OPEN | Capture exact value/time/build if it recurs. |
 | Fatigue redesign — open decision 1 | RESOLVED | Phase B approved and shipped (`f15b9d9`). |
 | Fatigue redesign — open decision 2 | RESOLVED | Phase A shipped (`cf98d66`). |
 | Fatigue redesign — open decision 3 | RESOLVED | Kept at 0.65 / 0.80; recalibrate once real load/RIR history exists. |
 | Fatigue redesign — open decision 4 | RESOLVED | Phase C1/C2/C3 shipped (`b0959f0`, `6bb9239`, `86ace92`). |
-| Fatigue redesign — open decision 5 | OPEN | Decide 2-hour session gap vs explicit session ids. |
+| Fatigue redesign — open decision 5 | RESOLVED | Explicit session ids for ALL logging (not only backdating); the 2h heuristic stays only as a one-time legacy backfill. See Roadmap Priority 1 item 2b. |
 | Open Questions / Later | LATER | See section below; nothing scheduled. |
 | Settings/nav consolidation | PLANNED | Roadmap Priority 2 item 7. |
 | Deferred — release pipeline & signing | DEFERRED | Roadmap "Deferred / Later" item 4; revisit when a distributable build is needed. |
@@ -55,6 +55,27 @@
 **Files:** `core/domain/.../time`, `workout/WorkoutLogRepository.kt`, new use case, `core/database/.../WorkoutLog.sq` + `SqlDelightWorkoutLogRepository.kt`, `feature/logger` UiState/VM/Screen/strings, tests.
 **Constraints:** `WorkoutLoggerViewModel` currently has 7 constructor params; P2d must not simply append another — group or justify before adding (AGENTS oversized-constructor rule).
 **Resolve before implementing (not defaulted):** P2c picker API fallback if Material3 pickers are unavailable in the CMP artifact; P2b whether a draft batch shares the explicit time or resets to now after each log; P2d whether existing-row correction ships in this release.
+**Depends on:** item 2b (explicit session ids). Backdated logging must attach to a session id; it must not fall back to wall-clock segmentation.
+
+#### 2b. Explicit Session Ids (Open decision 5 — resolved 2026-10-02)
+**Decision:** explicit session ids are the standard segmentation mechanism for **all** future logging, not only historical/backdated entries. The 2h gap heuristic is kept **only** as a one-time, idempotent backfill for pre-existing rows; runtime fatigue segmentation reads session ids only.
+**Why:** the 2h heuristic's own failure modes are real — a mid-session interruption longer than 2h is mis-split and overestimates the next block's response, and once backdating ships, approximate re-entered timestamps silently cross or miss the threshold with no visible signal. "Sometimes silently wrong" is worse than "sometimes one extra tap."
+**Design (normal, real-time logging):**
+- Persist a `workoutSession(id, startedAtMillis, endedAtMillis NULL, localEpochDay)` row and stamp `workoutSet.sessionId` on every logged set.
+- **Auto-start on the first set:** logging with no open session creates one anchored to the set's `performedAt`; no extra tap in the common case.
+- **Day rollover:** a set whose local day differs from the open session's local day auto-starts a new session and closes the prior one. This is a coarse, visible boundary and, with the auto-close below, means an open session can never span two local days.
+- **Manual controls:** "End session" closes the open session (the next set auto-starts a new one); "New session" closes the current and opens a new one immediately. Active-session state is persisted so it survives app restarts.
+- **Lazy inactivity auto-close:** an open session closes when the next set arrives more than a generous `sessionInactivityWindow` after its last set (**default 4h**, tunable), and a new session auto-starts. Evaluated only at log/open time — there is **no background timer** — and because the active session is shown in the UI, the split is visible, never silent. This replaces the old 2h runtime heuristic (which only survives as the legacy backfill).
+- **Backdated logging (item 2) reuses the same rule:** an explicit historical `performedAt` attaches to the open session when the local day matches and otherwise auto-starts a session anchored at the chosen time; the picker shows the target session plus a "new session" toggle. No backdated-only path.
+**Legacy migration:** additive `24.sqm` — `ALTER TABLE workoutSet ADD COLUMN sessionId TEXT` (SQLite `ADD COLUMN` is supported on minSdk 24) + `CREATE TABLE workoutSession`. A one-time idempotent startup backfill (same pattern as the `movementPattern` backfill) assigns session ids to null rows using the 2h gap heuristic and inserts the matching sessions. After that, only `sessionId` drives segmentation; a defensive gap fallback remains for any residual null rows.
+**Phases:**
+- **S1 — domain + database.** `WorkoutSet.sessionId`, `LoggedSet.sessionId`, `WorkoutSession` model, `WorkoutSessionRepository` + use cases, `24.sqm`, `WorkoutLog.sq`/new `WorkoutSession.sq` + repository impls; unit/migration tests; Koin verify.
+- **S2 — backfill.** Idempotent startup backfill of legacy rows via the 2h heuristic; repository/migration tests.
+- **S3 — fatigue.** `FatigueCalculator` resets the within-session stimulus `V` when `sessionId` changes (ordered by timestamp) instead of on a gap; rework the session-reset test; add a legacy-null fallback test.
+- **S4 — logger.** Active-session state + auto-start/day-rollover/End/New controls; stamp `sessionId` in `log()`/`logDraft()`; strings + `WorkoutLoggerViewModelTest`. The VM already has 7 constructor params — group the session collaborator into an existing use case rather than appending.
+- **S5 — item 2 integration.** Time picker attaches the backdated set to the chosen/opened session; tests.
+**Files:** `core/domain/.../workout/{WorkoutSet,LoggedSet,WorkoutLogRepository,WorkoutSessionRepository}.kt` + use cases; `core/database/.../{WorkoutLog.sq,WorkoutSession.sq,24.sqm,SqlDelight*Repository}.kt`; `core/domain/.../fatigue/{FatigueCalculator,LoggedSet}.kt`; `feature/logger` VM/state/screen/strings; `shared/DomainModule.kt` + `KoinModulesVerificationTest.kt`; tests.
+**Ordering:** S1–S4 can land before item 2; S5 is the item 2 integration.
 
 #### 3. AI Planner Prompt Alignment + logger-data parity
 **Goal:** both model-backed engines use the same planner inputs the Deterministic engine does, and the AI history reflects every signal the Logger captures, so model plans need less post-hoc correction.
@@ -225,6 +246,6 @@ Shipped model: a bounded per-muscle fatigue-load index `F` (`0 ≤ F < 1`) with 
 2. Approve Phase A as a separate small commit, and whether it ships before Phase B.
 3. Confirm the 0.65 / 0.80 planner thresholds, or calibrate against more histories first.
 4. Confirm Phase C stays deferred, and whether Phase C’s `rir` column (and causal-reference approach) is acceptable when it is scheduled.
-5. Whether to keep the two-hour session gap or move to explicit session ids later.
+5. **RESOLVED (2026-10-02):** move to explicit session ids for all logging; the two-hour gap stays only as a one-time legacy backfill. See Roadmap Priority 1 item 2b.
 
 **No implementation starts until the specific phase/chunk is approved.**
