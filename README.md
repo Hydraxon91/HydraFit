@@ -8,21 +8,25 @@ An open-source, offline-first fitness planning app for Android (Kotlin Multiplat
 
 ## What it does
 
-- **Equipment-aware planning** — tell it what equipment you have (a fully user-editable inventory, not a fixed list), and it plans around it.
-- **Adaptive weekly splits** — 2–6 days a week, automatically resolved from your frequency into Full Body (2–3 days), Upper-Lower (4), or Push-Pull-Legs (5–6).
-- **Muscle fatigue tracking** — a per-muscle fatigue model (each set's muscle involvement, exponentially decayed with per-muscle half-lives) that drives exercise selection, not just a visual gimmick.
-- **Progressive overload** — suggested working weights derived from your logged PRs (Epley-estimated 1RM) and training goal, with automatic progression based on how your recent sessions went.
-- **Periodization** — a 4-week training cycle with a built-in deload week, tracked per accepted plan.
-- **A fully editable exercise catalog** — edit any built-in exercise's equipment or muscle mapping, or add entirely custom exercises.
-- **Offline workout logger** — sets, reps, weight, kg/lb support, feeding straight back into fatigue and progression.
+- **Equipment-aware planning** — a fully user-editable inventory (built-in tags plus custom entries, with optional per-equipment weight ceilings); the planner only picks exercises your equipment can perform.
+- **Adaptive weekly splits** — 2–6 training days a week; frequency auto-resolves to Full Body (2–3), Upper-Lower (4), or Push-Pull-Legs (5–6), or you can choose a split explicitly.
+- **Muscle fatigue tracking** — a bounded per-muscle fatigue index: each set contributes by muscle involvement, relative load, reps, and RIR effort, decays with per-muscle half-lives, and resets at explicit session boundaries. It drives exercise selection (skip/reduce thresholds) and is shown per muscle on the heatmap, rather than being decorative.
+- **Progressive overload** — working weights start from an Epley-estimated 1RM (best logged set or a manually entered PR) and follow the evidence-based NSCA reps-to-%1RM curve with an RIR buffer; automatic increments track completed-versus-missed sessions and pause on deload weeks.
+- **Periodization** — 4-week cycles with a built-in deload week (reduced volume and load), tracked per accepted plan.
+- **A fully editable exercise catalog** — change any built-in exercise's equipment, movement pattern, per-muscle involvement, or unilateral flag (resettable), or add entirely custom exercises.
+- **Offline workout logger** — sets, reps, weight (kg or lb), RIR, warm-ups, bodyweight/weightless sets, and a per-hand hint for unilateral work, with one-tap quick-fill from recent sets.
+- **Explicit workout sessions** — sessions start automatically on your first set, roll over by day and after inactivity, and can be ended or started manually, so fatigue is segmented visibly rather than guessed.
+- **Backdated logging** — record past workouts with a date/time picker (future times rejected), choosing the session they attach to.
+- **Personal records** — store your best set per exercise to seed the weight baseline the planner uses for its suggested loads.
+- **Configurable planner & data** — pick the planner engine and training goal, choose units, toggle whether logged history is shared with the AI engines, and import/remove the optional on-device model.
 
 ## The planning engine — and an honest note on the AI parts
 
 HydraFit's workout planner is built as a swappable strategy behind one interface, with three implementations:
 
-1. **Deterministic (default, and the one worth using).** A pure, offline Kotlin algorithm — zero network calls, effectively zero latency, and fully unit-tested. Same inputs always produce the same plan, which means it's debuggable and predictable in a way that's genuinely hard to get from a model. This is where most of the actual design work in this project went: equipment ranking, fatigue-aware exercise selection, compound-vs-accessory volume, week-to-week exercise rotation, and periodization all live here.
-2. **Gemini API (cloud, optional).** Sends your equipment, fatigue, and goals to Google's Gemini API for a generated plan. It's available only once you add an API key, and sharing your logged weight history with it is gated behind an explicit, off-by-default consent toggle.
-3. **On-device LLM (experimental).** Runs a local quantized model via Google's LiteRT-LM, entirely offline, with a fallback to the Deterministic engine on any failure.
+1. **Deterministic (default, and the one worth using).** A pure, offline Kotlin algorithm — zero network calls, effectively zero latency, and fully unit-tested. Same inputs always produce the same plan, which means it's debuggable and predictable in a way that's genuinely hard to get from a model. This is where most of the actual design work in this project went: equipment ranking, session-aware fatigue, evidence-based (NSCA) load selection, compound-vs-accessory volume, week-to-week exercise rotation, and periodization all live here.
+2. **Gemini API (cloud, optional).** Sends your equipment, fatigue, and goals to Google's Gemini API for a generated plan. It's available only once you add an API key, and sharing your logged workout history with it is gated behind an explicit, off-by-default consent toggle.
+3. **On-device LLM (experimental, Android-only).** Runs a local quantized Gemma model via Google's LiteRT-LM, imported and managed in Settings, entirely offline, with a fallback to the Deterministic engine on any failure.
 
 **Honestly:** the two AI-backed engines work, but their output quality is inconsistent — they're included to demonstrate the architecture (a real strategy pattern, structured output validation, graceful fallback), not because they currently out-plan the Deterministic engine. If you just want good workout plans, the default engine is the one doing the real work.
 
@@ -62,7 +66,7 @@ Publishing requires four repository secrets (Settings → Secrets and variables 
 
 ## Development notes
 
-This project was built with heavy use of an AI coding agent ([opencode](https://opencode.ai)), directed through an explicit architecture spec and a project-local `AGENTS.md` covering commit discipline, testing standards, and scope boundaries — worth a look if you're curious how that workflow holds up on a real, evolving codebase. Every feature ships with unit tests; the domain layer is fully platform-independent and testable without an emulator.
+This project was built with heavy use of an AI coding agent ([opencode](https://opencode.ai)), directed through an explicit architecture spec and a project-local `AGENTS.md` covering commit discipline, testing standards, and scope boundaries — worth a look if you're curious how that workflow holds up on a real, evolving codebase. Domain logic ships with unit tests, and the domain layer is fully platform-independent and testable without an emulator.
 
 ## License
 MIT
