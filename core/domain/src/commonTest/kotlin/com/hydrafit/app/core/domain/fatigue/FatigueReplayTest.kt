@@ -36,6 +36,38 @@ class FatigueReplayTest {
     }
 
     @Test
+    fun backfillSessionIdsReproduceTheApprovedFigures() {
+        val calculator = FatigueCalculator()
+        val plain = FatigueReplayFixture.withBackfillSessionIds(FatigueReplayFixture.sets)
+        val typed = FatigueReplayFixture.withBackfillSessionIds(FatigueReplayFixture.typedSets)
+
+        assertEquals(
+            0.825504,
+            calculator.calculate(plain, FatigueReplayFixture.PEAK_MILLIS)
+                .getValue(MuscleGroup.BACK),
+            0.0000005
+        )
+        assertEquals(
+            0.652960,
+            calculator.calculate(plain, FatigueReplayFixture.EVALUATION_MILLIS)
+                .getValue(MuscleGroup.BACK),
+            0.0000005
+        )
+        assertEquals(
+            0.8310648,
+            calculator.calculate(typed, FatigueReplayFixture.PEAK_MILLIS)
+                .getValue(MuscleGroup.BACK),
+            0.0000005
+        )
+        assertEquals(
+            0.6847530,
+            calculator.calculate(typed, FatigueReplayFixture.EVALUATION_MILLIS)
+                .getValue(MuscleGroup.BACK),
+            0.0000005
+        )
+    }
+
+    @Test
     fun typedReplayAtRirZeroAndFour() {
         val calculator = FatigueCalculator()
 

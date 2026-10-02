@@ -73,6 +73,22 @@ internal object FatigueReplayFixture {
     /** The typed replay with one RIR value applied to every set, for the C3 replay. */
     fun typedSetsWithRir(rir: Int?): List<LoggedSet> = typedSets.map { it.copy(rir = rir) }
 
+    /**
+     * The replay rows with the two S2 backfill session ids applied: the first session's working
+     * block (a), then everything from the second session's first set onward (b, warm-ups included).
+     */
+    fun withBackfillSessionIds(sets: List<LoggedSet>): List<LoggedSet> = sets.map { set ->
+        val id = if (set.timestampMillis <= FIRST_SESSION_LAST_MILLIS) {
+            "backfill-a"
+        } else {
+            "backfill-b"
+        }
+        set.copy(sessionId = id)
+    }
+
+    /** Last performed-at of the first backfilled session; the next row begins session b. */
+    private const val FIRST_SESSION_LAST_MILLIS = 1790787542344L
+
     private fun row(
         timestampMillis: Long,
         reps: Int,

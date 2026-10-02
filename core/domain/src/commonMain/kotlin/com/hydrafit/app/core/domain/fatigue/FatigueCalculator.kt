@@ -11,11 +11,15 @@ class FatigueCalculator(private val config: FatigueConfig = FatigueConfig()) {
     fun calculate(sets: List<LoggedSet>, nowMillis: Long): Map<MuscleGroup, Double> {
         val working = sets.filterNot { it.isWarmup }
         val loadFactors = relativeLoadFactors(working)
+        // Session identity is part of the batch key: an equal-timestamp run carrying different
+        // session ids splits into separate deterministic batches (a boundary must still reset),
+        // while all-null legacy data groups exactly as it did before, by timestamp alone.
         val batches = working.mapIndexed { index, set ->
             LoadedSet(set, loadFactors[index], effortMultiplier(set.rir))
         }
             .sortedBy { it.set.timestampMillis }
-            .groupBy { it.set.timestampMillis }
+            .groupBy { it.set.timestampMillis to it.set.sessionId }
+            .map { (key, sets) -> Batch(key.first, key.second, sets) }
         return MuscleGroup.entries.associateWith { muscle -> scoreFor(muscle, batches, nowMillis) }
     }
 
@@ -91,11 +95,7 @@ class FatigueCalculator(private val config: FatigueConfig = FatigueConfig()) {
             .coerceIn(config.relativeLoadMin, config.relativeLoadMax)
     }
 
-    private fun scoreFor(
-        muscle: MuscleGroup,
-        batches: Map<Long, List<LoadedSet>>,
-        nowMillis: Long
-    ): Double {
+    private fun scoreFor(muscle: MuscleGroup, batches: List<Batch>, nowMillis: Long): Double {
         if (batches.isEmpty()) return 0.0
 
         val isolationHalfLife = config.isolationHalfLifeFor(muscle)
@@ -105,12 +105,18 @@ class FatigueCalculator(private val config: FatigueConfig = FatigueConfig()) {
         var isolationFatigue = 0.0
         var compoundFatigue = 0.0
         var sessionStimulus = 0.0
-        var previousMillis = batches.keys.first()
-        for ((timestampMillis, sets) in batches) {
+        var previousMillis = batches.first().timestampMillis
+        var previousSessionId = batches.first().sessionId
+        for ((index, batch) in batches.withIndex()) {
+            val timestampMillis = batch.timestampMillis
+            val sets = batch.sets
             val elapsed = timestampMillis - previousMillis
             isolationFatigue *= decayFactor(elapsed, isolationHalfLife)
             compoundFatigue *= decayFactor(elapsed, compoundHalfLife)
-            if (elapsed >= config.sessionGap.inWholeMilliseconds) sessionStimulus = 0.0
+            // The first batch has nothing before it, so it never triggers a reset.
+            if (index > 0 && sessionBoundary(previousSessionId, batch.sessionId, elapsed)) {
+                sessionStimulus = 0.0
+            }
 
             // The set's addition goes to the component matching its type. Equal-timestamp sets of the
             // same type share one dose (canonical order), preserving the Phase B path bit-for-bit
@@ -142,6 +148,7 @@ class FatigueCalculator(private val config: FatigueConfig = FatigueConfig()) {
                 sessionStimulus += stimulus
             }
             previousMillis = timestampMillis
+            previousSessionId = batch.sessionId
         }
 
         val finalIsolation = isolationFatigue *
@@ -153,10 +160,31 @@ class FatigueCalculator(private val config: FatigueConfig = FatigueConfig()) {
 
     private data class LoadedSet(val set: LoggedSet, val relativeLoad: Double, val effort: Double)
 
+    /** Sets sharing one timestamp and one session id are applied together as one dose. */
+    private data class Batch(
+        val timestampMillis: Long,
+        val sessionId: String?,
+        val sets: List<LoadedSet>
+    )
+
     private companion object {
         /** Deterministic order for routing mixed-type same-timestamp batches; isolation (-) first. */
         val COMPONENT_ORDER = listOf(false, true)
     }
+
+    /**
+     * Whether a new session starts between two consecutive timestamp-ordered batches. Two explicit
+     * ids reset only when they differ; a null/non-null boundary is always a boundary (a residual
+     * null row must never join an identified session); only when both batches are null does the
+     * legacy 2h `sessionGap` decide.
+     */
+    private fun sessionBoundary(previous: String?, current: String?, elapsedMillis: Long): Boolean =
+        when {
+            previous != null && current != null -> previous != current
+            previous == null && current == null ->
+                elapsedMillis >= config.sessionGap.inWholeMilliseconds
+            else -> true
+        }
 
     private fun decayFactor(elapsedMillis: Long, halfLife: Duration): Double {
         val elapsed = elapsedMillis.coerceAtLeast(0L)

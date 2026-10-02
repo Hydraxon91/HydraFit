@@ -334,6 +334,34 @@ class SqlDelightWorkoutLogRepositoryTest {
     }
 
     @Test
+    fun loggedSetsAndLoggedSetsFlowAgreeIncludingSessionId() = runTest {
+        repository.add(
+            DomainWorkoutSet(
+                exerciseId = "back-squat",
+                reps = 5,
+                weightKg = 100.0,
+                performedAtMillis = 1,
+                sessionId = "session-a"
+            )
+        )
+        repository.add(
+            DomainWorkoutSet(
+                exerciseId = "barbell-bench-press",
+                reps = 5,
+                weightKg = 50.0,
+                performedAtMillis = 2
+            )
+        )
+
+        val suspendSets = repository.loggedSets()
+        val flowSets = repository.loggedSetsFlow().first()
+
+        assertEquals(suspendSets, flowSets)
+        assertEquals("session-a", flowSets.first { it.exerciseId == "back-squat" }.sessionId)
+        assertNull(flowSets.first { it.exerciseId == "barbell-bench-press" }.sessionId)
+    }
+
+    @Test
     fun assignSessionAttachesAnIdToAnExistingSet() = runTest {
         repository.add(set(exerciseId = "back-squat", performedAt = 1))
         val target = repository.all().single()

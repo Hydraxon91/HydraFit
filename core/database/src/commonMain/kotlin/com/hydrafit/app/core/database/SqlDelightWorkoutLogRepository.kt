@@ -111,7 +111,8 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                     isCompound = compoundByExercise[row.exerciseId] ?: false,
                     exerciseId = row.exerciseId,
                     weightKg = row.weightKg,
-                    rir = row.rir?.toInt()
+                    rir = row.rir?.toInt(),
+                    sessionId = row.sessionId
                 )
             }
         }

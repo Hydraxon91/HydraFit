@@ -164,7 +164,7 @@ class FatigueCalculatorTest {
     }
 
     @Test
-    fun sessionResetsExactlyAtTheGapButNotJustBeforeIt() {
+    fun legacyNullSessionIdsFallBackToTheGap() {
         for (gap in listOf(2 * HOUR_MILLIS - 1L, 2 * HOUR_MILLIS, 2 * HOUR_MILLIS + 1L)) {
             val sets = listOf(
                 loggedSet(MuscleGroup.CHEST),
@@ -178,6 +178,81 @@ class FatigueCalculatorTest {
                 TOLERANCE
             )
         }
+    }
+
+    @Test
+    fun sessionIdChangeResetsTheDiscountRegardlessOfTheGap() {
+        val gap = HOUR_MILLIS
+        val sets = listOf(
+            loggedSet(MuscleGroup.CHEST).copy(sessionId = "session-a"),
+            loggedSet(MuscleGroup.CHEST, timestampMillis = gap).copy(sessionId = "session-b")
+        )
+        val recoveredFirst = (1.0 / 7.0) * 2.0.pow(-gap.toDouble() / (24 * HOUR_MILLIS))
+        assertEquals(
+            recoveredFirst + (1.0 - recoveredFirst) / 7.0,
+            calculator.calculate(sets, gap).getValue(MuscleGroup.CHEST),
+            TOLERANCE
+        )
+    }
+
+    @Test
+    fun sameSessionIdDoesNotResetAcrossTheLegacyGap() {
+        val gap = 24 * HOUR_MILLIS
+        val sets = listOf(
+            loggedSet(MuscleGroup.CHEST).copy(sessionId = "session-a"),
+            loggedSet(MuscleGroup.CHEST, timestampMillis = gap).copy(sessionId = "session-a")
+        )
+        val recoveredFirst = (1.0 / 7.0) * 2.0.pow(-gap.toDouble() / (24 * HOUR_MILLIS))
+        assertEquals(
+            recoveredFirst + (1.0 - recoveredFirst) / 8.0,
+            calculator.calculate(sets, gap).getValue(MuscleGroup.CHEST),
+            TOLERANCE
+        )
+    }
+
+    @Test
+    fun nullNonNullBoundaryResetsInBothDirections() {
+        val gap = HOUR_MILLIS
+        val recoveredFirst = (1.0 / 7.0) * 2.0.pow(-gap.toDouble() / (24 * HOUR_MILLIS))
+        val resetSecond = recoveredFirst + (1.0 - recoveredFirst) / 7.0
+
+        val nullThenId = listOf(
+            loggedSet(MuscleGroup.CHEST),
+            loggedSet(MuscleGroup.CHEST, timestampMillis = gap).copy(sessionId = "session-a")
+        )
+        // S2's interim rule: a later null row must not re-join the identified session.
+        val idThenNull = listOf(
+            loggedSet(MuscleGroup.CHEST).copy(sessionId = "session-a"),
+            loggedSet(MuscleGroup.CHEST, timestampMillis = gap)
+        )
+        assertEquals(
+            resetSecond,
+            calculator.calculate(nullThenId, gap).getValue(MuscleGroup.CHEST),
+            TOLERANCE
+        )
+        assertEquals(
+            resetSecond,
+            calculator.calculate(idThenNull, gap).getValue(MuscleGroup.CHEST),
+            TOLERANCE
+        )
+    }
+
+    @Test
+    fun sameTimestampDifferentSessionIdsSplitDeterministically() {
+        val split = listOf(
+            loggedSet(MuscleGroup.CHEST).copy(sessionId = "session-a"),
+            loggedSet(MuscleGroup.CHEST).copy(sessionId = "session-b")
+        )
+        val expected = 1.0 - (1.0 - 1.0 / 7.0) * (1.0 - 1.0 / 7.0)
+        assertEquals(
+            expected,
+            calculator.calculate(split, T0).getValue(MuscleGroup.CHEST),
+            TOLERANCE
+        )
+        assertEquals(
+            calculator.calculate(split, T0),
+            calculator.calculate(split.reversed(), T0)
+        )
     }
 
     @Test
