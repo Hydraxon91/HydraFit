@@ -22,6 +22,23 @@ private fun civilFromDays(daysSinceEpoch: Long): Triple<Int, Int, Int> {
     return Triple((if (month <= 2) year + 1 else year).toInt(), month.toInt(), day.toInt())
 }
 
+/**
+ * Civil date to days-since-epoch (Howard Hinnant's algorithm), the inverse of [civilFromDays].
+ *
+ * [month] must be 1..12 and [day] 1..31; an impossible day for its month (e.g. 2024-02-30) is not
+ * rejected and normalizes forward.
+ */
+fun daysFromCivil(year: Int, month: Int, day: Int): Long {
+    require(month in 1..12) { "month must be in 1..12, was $month" }
+    require(day in 1..31) { "day must be in 1..31, was $day" }
+    val y = if (month <= 2) year - 1 else year
+    val era = (if (y >= 0) y else y - 399) / 400
+    val yearOfEra = y - era * 400
+    val dayOfYear = (153 * (if (month > 2) month - 3 else month + 9) + 2) / 5 + day - 1
+    val dayOfEra = yearOfEra * 365 + yearOfEra / 4 - yearOfEra / 100 + dayOfYear
+    return era.toLong() * 146_097L + dayOfEra.toLong() - 719_468L
+}
+
 private fun floorDiv(dividend: Long, divisor: Long): Long {
     val quotient = dividend / divisor
     val roundsTowardsZero = dividend % divisor != 0L && (dividend < 0) != (divisor < 0)

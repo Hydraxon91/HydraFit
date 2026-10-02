@@ -2,6 +2,7 @@ package com.hydrafit.app.core.domain.time
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class IsoDateTest {
 
@@ -20,5 +21,45 @@ class IsoDateTest {
     fun formatsADateLateInAYear() {
         // 1999-12-31T00:00:00Z
         assertEquals("1999-12-31", isoDateUtc(946_598_400_000L))
+    }
+
+    @Test
+    fun daysFromCivilMatchesKnownEpochDays() {
+        assertEquals(0L, daysFromCivil(1970, 1, 1))
+        assertEquals(-1L, daysFromCivil(1969, 12, 31))
+        assertEquals(19_723L, daysFromCivil(2024, 1, 1))
+        assertEquals(19_782L, daysFromCivil(2024, 2, 29))
+    }
+
+    @Test
+    fun daysFromCivilRoundTripsThroughIsoDateUtc() {
+        val dates = listOf(
+            Triple(1970, 1, 1),
+            Triple(2024, 1, 1),
+            Triple(2024, 2, 29),
+            Triple(1999, 12, 31),
+            Triple(1969, 12, 31)
+        )
+        dates.forEach { (year, month, day) ->
+            val formatted = "$year-" + month.toString().padStart(2, '0') +
+                "-" + day.toString().padStart(2, '0')
+            assertEquals(formatted, isoDateUtc(daysFromCivil(year, month, day) * MILLIS_PER_DAY))
+        }
+    }
+
+    @Test
+    fun daysFromCivilRejectsAnOutOfRangeMonth() {
+        assertFailsWith<IllegalArgumentException> { daysFromCivil(2024, 0, 1) }
+        assertFailsWith<IllegalArgumentException> { daysFromCivil(2024, 13, 1) }
+    }
+
+    @Test
+    fun daysFromCivilRejectsAnOutOfRangeDay() {
+        assertFailsWith<IllegalArgumentException> { daysFromCivil(2024, 1, 0) }
+        assertFailsWith<IllegalArgumentException> { daysFromCivil(2024, 1, 32) }
+    }
+
+    private companion object {
+        const val MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
     }
 }
