@@ -113,13 +113,34 @@ class WorkoutLoggerViewModel(
         _state.update { current ->
             if (current.selectedExerciseId != exerciseId) return@update current
             current.copy(
-                weightInput = last.weightKg
-                    ?.let { formatWeight(unit.kilogramsToDisplay(it)) }
-                    .orEmpty(),
+                weightInput = weightInputFor(last.weightKg, unit),
                 reps = last.reps.toString()
             )
         }
     }
+
+    /**
+     * Quick-fills the input from a past set without applying the accepted plan's suggestion, so a
+     * tapped row reproduces exactly what was logged: exercise, reps, weight, warm-up flag, and RIR.
+     */
+    fun onRecentSetSelected(row: LoggedSetRow) {
+        val unit = _state.value.weightUnit
+        _state.update {
+            it.copy(
+                selectedExerciseId = row.exerciseId,
+                weightInput = weightInputFor(row.weightKg, unit),
+                reps = row.reps.toString(),
+                // Reveal the weight field for a bodyweight exercise only when that row had a weight.
+                weightRevealed = row.weightKg != null,
+                isWarmup = row.isWarmup,
+                rir = row.rir?.toString().orEmpty()
+            )
+        }
+    }
+
+    /** The weight input string for [weightKg] in the display unit, or blank when there is none. */
+    private fun weightInputFor(weightKg: Double?, unit: WeightUnit): String =
+        weightKg?.let { formatWeight(unit.kilogramsToDisplay(it)) }.orEmpty()
 
     /**
      * Sets the explicit time to stamp new sets with, or clears it with null to log live. Returns
@@ -399,9 +420,11 @@ class WorkoutLoggerViewModel(
             .map { set ->
                 LoggedSetRow(
                     id = set.id,
+                    exerciseId = set.exerciseId,
                     exerciseName = exerciseNames[set.exerciseId] ?: set.exerciseId,
                     reps = set.reps,
                     weightKg = set.weightKg,
+                    rir = set.rir,
                     isWarmup = set.isWarmup,
                     weekNumber = set.weekNumber,
                     dayIndex = set.dayIndex

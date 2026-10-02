@@ -152,6 +152,103 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun quickFillsEveryFieldFromARecentSet() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = 4,
+                    weightKg = 70.0,
+                    performedAtMillis = 1L,
+                    isWarmup = true,
+                    rir = 3
+                )
+            )
+        )
+        val viewModel = viewModel(repository = repository)
+        advanceUntilIdle()
+
+        viewModel.onRecentSetSelected(viewModel.state.value.recentSets.single())
+
+        val state = viewModel.state.value
+        assertEquals("back-squat", state.selectedExerciseId)
+        assertEquals("4", state.reps)
+        assertEquals("70", state.weightInput)
+        assertTrue(state.isWarmup)
+        assertEquals("3", state.rir)
+    }
+
+    @Test
+    fun quickFillsTheWeightInTheDisplayUnit() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = 5,
+                    weightKg = 100.0,
+                    performedAtMillis = 1L
+                )
+            )
+        )
+        val viewModel = viewModel(repository = repository, weightUnit = WeightUnit.LB)
+        advanceUntilIdle()
+
+        viewModel.onRecentSetSelected(viewModel.state.value.recentSets.single())
+
+        assertEquals("220.5", viewModel.state.value.weightInput)
+    }
+
+    @Test
+    fun quickFillingABodyweightSetLeavesTheWeightFieldHidden() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "plank",
+                    reps = 20,
+                    weightKg = null,
+                    performedAtMillis = 1L
+                )
+            )
+        )
+        val viewModel = viewModel(repository = repository)
+        advanceUntilIdle()
+
+        viewModel.onRecentSetSelected(viewModel.state.value.recentSets.single())
+
+        assertFalse(viewModel.state.value.showWeightField)
+        assertEquals("", viewModel.state.value.weightInput)
+    }
+
+    @Test
+    fun quickFillWinsOverTheAcceptedPlanSuggestion() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = 4,
+                    weightKg = 80.0,
+                    performedAtMillis = 1L
+                )
+            )
+        )
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        advanceUntilIdle()
+
+        viewModel.onRecentSetSelected(viewModel.state.value.recentSets.single())
+
+        assertEquals("80", viewModel.state.value.weightInput)
+        assertEquals("4", viewModel.state.value.reps)
+    }
+
+    @Test
     fun refreshesTheExerciseListWhenTheCatalogChanges() = runTest(dispatcher) {
         val catalog = MutableStateFlow(
             listOf(

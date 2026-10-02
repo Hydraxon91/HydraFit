@@ -14,9 +14,11 @@ data class ExerciseOption(
 
 data class LoggedSetRow(
     val id: Long,
+    val exerciseId: String,
     val exerciseName: String,
     val reps: Int,
     val weightKg: Double?,
+    val rir: Int? = null,
     val isWarmup: Boolean,
     val weekNumber: Int? = null,
     val dayIndex: Int? = null
