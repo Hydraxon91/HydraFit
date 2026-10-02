@@ -122,6 +122,7 @@ fun WorkoutLoggerRoute(
         onWarmupToggled = viewModel::onWarmupToggled,
         onLog = viewModel::log,
         onDeleteSet = viewModel::deleteSet,
+        onRecentSetSelected = viewModel::onRecentSetSelected,
         onRevealWeight = viewModel::onRevealWeight,
         onConfirmDraft = viewModel::confirmDraft,
         onConfirmAllDrafts = viewModel::confirmAllDrafts,
@@ -148,6 +149,7 @@ fun WorkoutLoggerScreen(
     onWarmupToggled: (Boolean) -> Unit,
     onLog: () -> Unit,
     onDeleteSet: (Long) -> Unit,
+    onRecentSetSelected: (LoggedSetRow) -> Unit,
     onRevealWeight: () -> Unit,
     onConfirmDraft: (DraftSet) -> Unit,
     onConfirmAllDrafts: () -> Unit,
@@ -414,7 +416,10 @@ fun WorkoutLoggerScreen(
             } else {
                 ""
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.clickable { onRecentSetSelected(row) }
+            ) {
                 Text(
                     text = "${row.exerciseName}  ${row.reps} x $weight$warmupSuffix$weekDay",
                     modifier = Modifier.weight(1f)
