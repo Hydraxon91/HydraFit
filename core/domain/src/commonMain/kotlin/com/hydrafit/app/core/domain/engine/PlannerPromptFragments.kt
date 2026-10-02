@@ -53,9 +53,16 @@ object PlannerPromptFragments {
     /** Recent working-weight entries, or null when sharing is off or there is no history. */
     fun recentWeightsList(request: PlanRequest): String? {
         if (!request.includeWorkoutData || request.recentWeights.isEmpty()) return null
-        return request.recentWeights.joinToString("; ") {
-            "${it.exerciseId} ${isoDateUtc(it.performedAtMillis)}: " +
-                "${it.weightKg}kg x ${it.reps}"
+        return request.recentWeights.joinToString("; ") { entry ->
+            val weight = entry.weightKg?.let { "${it}kg" } ?: "Bodyweight"
+            val rir = entry.rir?.let { " (rir $it)" } ?: ""
+            val snapshot = if (entry.weekNumber != null && entry.dayIndex != null) {
+                " (wk ${entry.weekNumber}, day ${entry.dayIndex + 1})"
+            } else {
+                ""
+            }
+            "${entry.exerciseId} ${isoDateUtc(entry.performedAtMillis)}: $weight x ${entry.reps}" +
+                rir + snapshot
         }
     }
 

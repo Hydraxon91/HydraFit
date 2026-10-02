@@ -94,6 +94,28 @@ class PlannerPromptFragmentsTest {
     }
 
     @Test
+    fun rendersBodyweightRirAndSnapshotInRecentWeights() {
+        val request = request(
+            includeWorkoutData = true,
+            recentWeights = listOf(
+                WeightHistoryEntry(
+                    exerciseId = "pull-up",
+                    performedAtMillis = 0L,
+                    weightKg = null,
+                    reps = 12,
+                    rir = 2,
+                    weekNumber = 3,
+                    dayIndex = 1
+                )
+            )
+        )
+        assertEquals(
+            "pull-up 1970-01-01: Bodyweight x 12 (rir 2) (wk 3, day 2)",
+            PlannerPromptFragments.recentWeightsList(request)
+        )
+    }
+
+    @Test
     fun recentWeightsAreAbsentWhenSharingIsOffOrEmpty() {
         assertNull(PlannerPromptFragments.recentWeightsList(request(includeWorkoutData = false)))
         assertNull(PlannerPromptFragments.recentWeightsList(request(includeWorkoutData = true)))
