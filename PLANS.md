@@ -6,7 +6,7 @@
 
 | Item | Status | Next action |
 | --- | --- | --- |
-| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01; see the Roadmap section below. Next: item 3 (AI planner prompt alignment); P2d deferred. |
+| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01; see the Roadmap section below. Next: item 3 (AI planner prompt alignment); then Priority 1.5 (release pipeline) before the v0.3.0 features; P2d deferred. |
 | Roadmap 2b S1 — explicit session ids (domain + database) | DONE (`32b6e30`) | — |
 | Roadmap 2b S2 — legacy session backfill | DONE (`00825ba`) | — |
 | Roadmap 2b S3 — fatigue reads session ids | DONE (`c377f58`) | — |
@@ -31,7 +31,7 @@
 | Open Questions / Later | LATER | See section below; nothing scheduled. |
 | Settings/nav consolidation | PLANNED | Roadmap Priority 2 item 7. |
 | RIR guidance & rough estimation | PLANNED | Roadmap Priority 3 item 9; v0.3.0 or later. |
-| Deferred — release pipeline & signing | DEFERRED | Roadmap "Deferred / Later" item 4; revisit when a distributable build is needed. |
+| Release pipeline & signing | PLANNED | Roadmap Priority 1.5 item 4; scheduled before the v0.3.0 features. Every phase individually gated. |
 
 ## Process
 
@@ -103,6 +103,23 @@
 **Files:** `core/network/GeminiWorkoutPlannerEngine.kt` + test, `core/llm/LocalLlmWorkoutPlannerEngine.kt` + test, `core/domain/engine` helper + `BuildRecentWeightsUseCase.kt` + `WeightHistoryEntry`, `WeeklyPlanSanitizer.kt`, `PlanVarietyEnforcer.kt`, `GeminiConfig.kt`.
 **Out of scope:** re-importing/re-packaging the on-device `.litertlm` (migrations do not touch `filesDir`).
 
+### Priority 1.5 — Release pipeline (do before the v0.3.0 features)
+
+#### 4. CI/CD Pipeline & Signing
+**Why now scheduled:** promoted ahead of the v0.3.0 features so a distributable build exists before new feature work starts; previously deferred for v0.1.0 (fast-path, no signing).
+**This is a Major Infrastructure Change — each phase individually gated.**
+**Goal:** signed release APK on tags, a nightly build, and `local.properties`/secret-based signing.
+**Decisions:** build the full set; `versionName` from the tag, `versionCode` = GitHub run number.
+**Phases:**
+- **C1 — signing config.** Add `signingConfigs` + release `buildType` wiring in `androidApp/build.gradle.kts`, reading `RELEASE_KEYSTORE_*` from `local.properties` with a `providers.environmentVariable(...)` fallback (configuration-cache friendly); update `local.properties.template`.
+- **C2 — nightly workflow.** New `schedule:` workflow with a concurrency group distinct from `build-and-test.yml`; build/tests + debug artifact.
+- **C3 — release workflow.** `release.yml` on `v*.*.*`, `permissions: contents: write`, decode the keystore secret to a temp file, build the signed release APK, attach to a GitHub Release.
+- **C4 — version injection.** `versionName` from the tag and `versionCode` from the run number, keeping local defaults.
+- **C5 — documentation.** Document the required secrets/keys in `local.properties.template` + README.
+- **C6 — update AGENTS.md.** Once signing, nightly, and release work, record them in `AGENTS.md` (pipeline stages, secret names, version strategy) so future sessions know the release flow.
+**Files:** `.github/workflows/*`, `androidApp/build.gradle.kts`, `local.properties.template`, `README.md`, `AGENTS.md`.
+**Gating:** every phase touches CI/CD or signing and is individually gated; `git push` needs its own approval.
+
 ### Priority 2 — v0.3.0
 
 #### 5. Potential PR with Safety Margin
@@ -159,23 +176,6 @@
 - **Item 8 (subjective fatigue):** readiness input home (Logger per-session vs standing setting).
 - **Item 9 (RIR guidance):** whether the planner owns a prescribed RIR target (changes fatigue inputs; locked replay figures), and how to present an estimate without implying measurement.
 These are repeated at the item they block and must be answered before implementation of that item.
-
-## Deferred / Later
-
-### 4. CI/CD Pipeline & Signing (deferred by decision — not a priority)
-**Why deferred:** explicitly postponed for v0.1.0 (fast-path, no signing) until the app is further along. It was listed as Priority 1 item 4 in the 2026-10-01 task message only; nothing has changed to make a distributable build urgent. Promote it into a priority when a real release/distribution need appears.
-**This is a Major Infrastructure Change — each phase individually gated.**
-**Goal:** signed release APK on tags, a nightly build, and `local.properties`/secret-based signing.
-**Decisions (for when promoted):** build the full set; `versionName` from the tag, `versionCode` = GitHub run number.
-**Phases (ready to run once promoted):**
-- **C1 — signing config.** Add `signingConfigs` + release `buildType` wiring in `androidApp/build.gradle.kts`, reading `RELEASE_KEYSTORE_*` from `local.properties` with a `providers.environmentVariable(...)` fallback (configuration-cache friendly); update `local.properties.template`.
-- **C2 — nightly workflow.** New `schedule:` workflow with a concurrency group distinct from `build-and-test.yml`; build/tests + debug artifact.
-- **C3 — release workflow.** `release.yml` on `v*.*.*`, `permissions: contents: write`, decode the keystore secret to a temp file, build the signed release APK, attach to a GitHub Release.
-- **C4 — version injection.** `versionName` from the tag and `versionCode` from the run number, keeping local defaults.
-- **C5 — documentation.** Document the required secrets/keys in `local.properties.template` + README.
-- **C6 — update AGENTS.md.** Once signing, nightly, and release work, record them in `AGENTS.md` (pipeline stages, secret names, version strategy) so future sessions know the release flow.
-**Files:** `.github/workflows/*`, `androidApp/build.gradle.kts`, `local.properties.template`, `README.md`, `AGENTS.md`.
-**Gating:** every phase touches CI/CD or signing and is individually gated; `git push` needs its own approval.
 
 ## Open Questions / Later
 
