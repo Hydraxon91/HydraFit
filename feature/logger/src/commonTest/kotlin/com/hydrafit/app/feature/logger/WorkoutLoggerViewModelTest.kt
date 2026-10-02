@@ -799,6 +799,97 @@ class WorkoutLoggerViewModelTest {
         assertEquals(existing, viewModel.state.value.activeSession)
     }
 
+    @Test
+    fun backdatedTimeStampsTheLoggedSetAndPersists() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+        val chosen = MONDAY - 2 * DAY
+
+        assertTrue(viewModel.onPerformedAtChanged(chosen))
+        assertTrue(viewModel.state.value.isBackdated)
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.log()
+        advanceUntilIdle()
+
+        assertEquals(chosen, repository.all().single().performedAtMillis)
+        // The chosen time persists until it is cleared, so the next set is still backdated.
+        assertEquals(chosen, viewModel.state.value.performedAtMillis)
+    }
+
+    @Test
+    fun clearingTheBackdatedTimeRevertsToNow() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+
+        viewModel.onPerformedAtChanged(MONDAY - DAY)
+        assertTrue(viewModel.onPerformedAtChanged(null))
+        assertNull(viewModel.state.value.performedAtMillis)
+        assertFalse(viewModel.state.value.isBackdated)
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.log()
+        advanceUntilIdle()
+
+        assertEquals(MONDAY, repository.all().single().performedAtMillis)
+    }
+
+    @Test
+    fun rejectsAFutureBackdatedTimeAndKeepsTheCurrentSelection() = runTest(dispatcher) {
+        val viewModel = viewModel(timeMillis = MONDAY)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.onPerformedAtChanged(MONDAY + 1))
+        assertNull(viewModel.state.value.performedAtMillis)
+
+        val past = MONDAY - DAY
+        assertTrue(viewModel.onPerformedAtChanged(past))
+        assertFalse(viewModel.onPerformedAtChanged(MONDAY + 1))
+        assertEquals(past, viewModel.state.value.performedAtMillis)
+    }
+
+    @Test
+    fun aDraftBatchSharesTheBackdatedTime() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"))
+        )
+        advanceUntilIdle()
+        val chosen = MONDAY - 3 * DAY
+
+        viewModel.onPerformedAtChanged(chosen)
+        viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+        advanceUntilIdle()
+
+        assertEquals(3, repository.all().size)
+        assertTrue(repository.all().all { it.performedAtMillis == chosen })
+    }
+
+    @Test
+    fun anEqualTimestampBatchDisplaysInAStableOrder() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+        val chosen = MONDAY - DAY
+
+        viewModel.onPerformedAtChanged(chosen)
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.log()
+        viewModel.log()
+        viewModel.log()
+        advanceUntilIdle()
+
+        // performedAt desc with ties kept in repository order (performedAt, id asc).
+        assertEquals(listOf(1L, 2L, 3L), viewModel.state.value.recentSets.map { it.id })
+    }
+
     private fun viewModel(
         repository: WorkoutLogRepository = FakeWorkoutLogRepository(),
         sessionRepository: WorkoutSessionRepository = FakeWorkoutSessionRepository(),
@@ -928,9 +1019,10 @@ class WorkoutLoggerViewModelTest {
     private class FakeWorkoutLogRepository(initial: List<WorkoutSet> = emptyList()) :
         WorkoutLogRepository {
         private val sets = initial.toMutableList()
+        private var nextId = (initial.maxOfOrNull { it.id } ?: 0L) + 1L
 
         override suspend fun add(set: WorkoutSet) {
-            sets.add(set)
+            sets.add(set.copy(id = nextId++))
         }
 
         override suspend fun assignSession(setId: Long, sessionId: String) = Unit

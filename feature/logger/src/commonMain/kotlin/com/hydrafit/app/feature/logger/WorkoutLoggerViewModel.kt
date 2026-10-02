@@ -114,6 +114,16 @@ class WorkoutLoggerViewModel(
         }
     }
 
+    /**
+     * Sets the explicit time to stamp new sets with, or clears it with null to log live. Returns
+     * false when a future time is rejected; the current selection is left unchanged in that case.
+     */
+    fun onPerformedAtChanged(millis: Long?): Boolean {
+        if (millis != null && millis > timeProvider.nowMillis()) return false
+        _state.update { it.copy(performedAtMillis = millis) }
+        return true
+    }
+
     /** Reveals the weight field for a bodyweight exercise so a weighted variant can be logged. */
     fun onRevealWeight() {
         _state.update { it.copy(weightRevealed = true) }
@@ -175,7 +185,7 @@ class WorkoutLoggerViewModel(
                     exerciseId = exerciseId,
                     reps = reps,
                     weightKg = weightKg,
-                    performedAtMillis = timeProvider.nowMillis(),
+                    performedAtMillis = current.performedAtMillis ?: timeProvider.nowMillis(),
                     isWarmup = current.isWarmup,
                     weekNumber = acceptedPlan?.weekNumber,
                     cycleNumber = acceptedPlan?.cycleNumber,
@@ -282,7 +292,7 @@ class WorkoutLoggerViewModel(
                     exerciseId = draft.exerciseId,
                     reps = draft.reps,
                     weightKg = draft.weightKg,
-                    performedAtMillis = timeProvider.nowMillis(),
+                    performedAtMillis = _state.value.performedAtMillis ?: timeProvider.nowMillis(),
                     isWarmup = false,
                     weekNumber = acceptedPlan?.weekNumber,
                     cycleNumber = acceptedPlan?.cycleNumber,

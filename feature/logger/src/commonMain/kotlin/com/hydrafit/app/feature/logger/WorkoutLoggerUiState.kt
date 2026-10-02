@@ -44,8 +44,14 @@ data class WorkoutLoggerUiState(
     val weightUnit: WeightUnit = WeightUnit.KG,
     val weightRevealed: Boolean = false,
     /** The persisted open session, or null when none is open; drives the End/New controls. */
-    val activeSession: WorkoutSession? = null
+    val activeSession: WorkoutSession? = null,
+    /** The explicit backdated time to stamp new sets with, or null to use the current time. */
+    val performedAtMillis: Long? = null
 ) {
+    /** True when a backdated time is set; the UI shows a "backdated" indicator. */
+    val isBackdated: Boolean
+        get() = performedAtMillis != null
+
     val canLog: Boolean
         get() = selectedExerciseId != null && (reps.toIntOrNull() ?: 0) > 0
 
