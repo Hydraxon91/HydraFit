@@ -8,10 +8,10 @@
 | --- | --- | --- |
 | Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01. Priority 1 (items 1, 2, 2b, 3) and Priority 1.5 (release pipeline item 4) complete and archived. 0.2.0 ships now; next is 0.2.1 (P2d + QA fixes), then 0.2.2 (code review + architecture), then 0.2.3 (performance review), then the v0.3.0 features (items 6–7). |
 | Release 0.2.0 | SHIPPING | Tag `v0.2.0` (signed APK via `release.yml`); delete the stale `v0.1.0-rc.1` validation release/tag. |
-| Release 0.2.1 | PLANNED | Next session: P2d + any 0.2.0 QA fixes; see "0.2.1 — next release". Scope confirmable at the plan gate. |
+| Release 0.2.1 | IN PROGRESS | Q2 (P2d) done (5898c45, 5ab6b42, a64d9cc); Q1 (QA pass) and Q3 (release/tag) remain; see "0.2.1 — next release". |
 | Release 0.2.2 — code review & architecture | PLANNED | After 0.2.1. Review pinned to `v0.2.1` (or latest commit if 0.2.1 hasn't shipped); phases R0–RF; see "0.2.2 — code review and architecture". |
 | Release 0.2.3 — performance review | PLANNED | After 0.2.2. Measure first, no optimization without a number; phases P0–PR; see "0.2.3 — performance review". |
-| Item 2 P2d — existing-row time correction | DEFERRED → 0.2.1 | Revisit in 0.2.1; see the archived item 2 design and the "0.2.1 — next release" section. |
+| Item 2 P2d — existing-row time correction | DONE | Landed in 0.2.1 as Q2 (5898c45, 5ab6b42, a64d9cc). |
 | BACK work chunk 3 — calibrate Phase B/C constants | OPEN | Calibrate K=6, D=6, half-lives, and C1/C2/C3 against correctly timed histories. The plateau is resolved by the redesign; no further decision needed. |
 | BACK work chunk 4 — literal >100% report | OPEN | Capture exact value/time/build if it recurs. |
 | Settings/nav consolidation | PLANNED | Roadmap Priority 2 item 7. |
@@ -100,8 +100,10 @@ These are repeated at the item they block and must be answered before implementa
 ### Q1 — 0.2.0 QA pass (fix only what is found)
 Run `docs/qa.md` against a clean install of the signed v0.2.0 APK. Fix any blocker as a small, isolated commit. No refactors and no scope creep. If the pass is clean, skip.
 
-### Q2 — P2d: existing-row time correction
+### Q2 — P2d: existing-row time correction — DONE (2026-10-02, commits 5898c45 / 5ab6b42 / a64d9cc)
 The deferred half of the archived item 2. Add `updateSetPerformedAt` to `WorkoutLog.sq` (query only; no schema change), a repository method + impl, and a focused `CorrectWorkoutSetTimeUseCase` bound in `domainModule`, covered by the Koin verification; reach it from a separate row affordance (tap stays quick-fill; Delete stays). **Blast radius ~15 files** — the new repository method breaks every `WorkoutLogRepository` fake (7 across 6 test files), so update them all.
+
+**Known limitation (time-only correction leaves `sessionId` in place):** a corrected set that lands between another session's sets makes the timestamp-ordered session ids alternate, which the fatigue calculator reads as extra session resets; a correction that crosses local days leaves the original session's bounds and `localEpochDay` stale. Re-segmentation stays a possible follow-up.
 
 **Decisions to put in the plan (not chosen silently):**
 - **Constructor:** `WorkoutLoggerViewModel` already has 7 params; group the log-mutation use cases rather than appending an 8th (AGENTS oversized-constructor rule).
