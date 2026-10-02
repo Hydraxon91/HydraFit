@@ -8,9 +8,10 @@
 | --- | --- | --- |
 | Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01. Priority 1 (items 1, 2, 2b, 3) and Priority 1.5 (release pipeline item 4) complete and archived. 0.2.0 ships now; next is 0.2.1 (P2d + QA fixes), then 0.2.2 (code review + architecture), then 0.2.3 (performance review), then the v0.3.0 features (items 6–7). |
 | Release 0.2.0 | SHIPPING | Tag `v0.2.0` (signed APK via `release.yml`); delete the stale `v0.1.0-rc.1` validation release/tag. |
-| Release 0.2.1 | IN PROGRESS | Q2 (P2d) done (5898c45, 5ab6b42, a64d9cc); Q4 (deterministic planner, Option C) added 2026-10-02, Q4a–Q4d done (f80b71a, c8e3c8a, 4f0ce72); Q1 (QA pass) done 2026-10-02; Q5 (local-LLM reliability) done 2026-10-02 (21cde09, 38803d2); Q6 (on-device progress + truncation recovery) done 2026-10-02 (b86ad08, b4808c6, 5981c25); Q4e and Q3 (release/tag) remain; see "0.2.1 — next release". |
+| Release 0.2.1 | IN PROGRESS | Q2 (P2d), Q1, Q4a–Q4d, Q5, Q6 done (see "0.2.1 — next release"); Q4e remains (manual, user); Q3 (release/tag) in progress; on-device LLM documented as non-functional with the follow-up parked in 0.2.4. |
 | Release 0.2.2 — code review & architecture | PLANNED | After 0.2.1. Review pinned to `v0.2.1` (or latest commit if 0.2.1 hasn't shipped); phases R0–RF; see "0.2.2 — code review and architecture". |
 | Release 0.2.3 — performance review | PLANNED | After 0.2.2. Measure first, no optimization without a number; phases P0–PR; see "0.2.3 — performance review". |
+| Release 0.2.4 — on-device planner | PLANNED | Make the on-device LLM usable (variety enforcement / constraint reliability / speed) or retire it; see "0.2.4 — on-device planner". |
 | Item 2 P2d — existing-row time correction | DONE | Landed in 0.2.1 as Q2 (5898c45, 5ab6b42, a64d9cc). |
 | Deterministic planner — volume-driven selection | IN PROGRESS | 0.2.1 addition Q4 (Option C; honor the rep band); Q4a–Q4d done (f80b71a, c8e3c8a, 4f0ce72), Q4e remains; see "0.2.1 — next release". |
 | BACK work chunk 3 — calibrate Phase B/C constants | OPEN | Calibrate K=6, D=6, half-lives, and C1/C2/C3 against correctly timed histories. The plateau is resolved by the redesign; no further decision needed. |
@@ -186,6 +187,20 @@ The phone's model keeps stopping just before the closing brackets, so `parseWeek
 **Deliverable files:** `docs/performance-0.2.3.md`; PLANS.md entries; `AGENTS.md` (measurement-derived rules only); any fixes with their migrations.
 
 **Do not start in 0.2.3:** 0.2.2 review or fixes; 0.2.1; items 6–9; BACK chunks 3–4; or any optimization without a recorded before/after measurement.
+
+## 0.2.4 — on-device planner: make it usable (or retire it)
+
+**Why:** the Android on-device engine (LiteRT-LM, `gemma3-1b-it-int4`) streams correctly and the app handles it (live token/tok-s progress, bounded budget, fallback, truncated-reply recovery), but the model does not reliably return a complete, variety-valid week. Latest phone evidence (2026-10-02): the reply came back as `{"days":[…` and parsed to `days=4/4` with 0 unknown ids, yet `PlanVarietyEnforcer` still rejected it — the model reuses the same compound exercise numbers across days, so the enforcer strips the repeats until a day falls under the floor, and the engine falls back to Deterministic. Earlier failure was a cut-off reply (mitigated by closing a truncated reply at a value boundary in `parseWeeklyPlan`). Generation is also slow (~10–20 tok/s; a week can take minutes).
+
+**Investigate / decide (do not pick silently):**
+- **Variety:** should `PlanVarietyEnforcer` repair a model week (choose substitutes) instead of rejecting it, or can the local prompt/schema make the model rotate compounds across days? The Gemini engine may benefit too.
+- **Constraint reliability:** does the async `sendMessageAsync` + `ResponseFormat.json` path enforce the schema's `minItems`/`maxItems` the same way the blocking `sendMessage` did? The day schema uses `items.anyOf` over per-day focus objects; verify whether that defeats the grammar's count enforcement.
+- **Speed:** model/pack choice (e.g. Gemma 3n-E2B, NPU packs), `maxNumTokens`/`maxOutputToken`, prompt size (the local prompt is ~4k chars), decode backend (GPU vs CPU).
+- **Product call:** if it can't be made reliable, retire the engine or keep it behind an explicit "experimental / currently not working" label, with the Deterministic fallback always on.
+
+**Deliverable:** a decision plus, if keeping it, the resulting fixes with their tests and a device re-check.
+
+**Do not start in 0.2.4 (from 0.2.1):** the on-device engine is documented as non-functional; 0.2.1 ships the progress UI (`b4808c6`/`5981c25`/`bfb19e1`) and the truncated-reply recovery (`b86ad08`) but leaves the engine falling back.
 
 ## Open Questions / Later
 
