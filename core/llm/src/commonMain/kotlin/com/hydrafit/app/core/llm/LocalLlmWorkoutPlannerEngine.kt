@@ -38,6 +38,7 @@ class LocalLlmWorkoutPlannerEngine(
         )
         var attempt = 0
         var lastFailure: Throwable? = null
+        var lastRejection: String? = null
         var prompt = prompt(request, availableExercises, focusSequence)
         val schema = planSchema(
             focusSequence,
@@ -52,7 +53,12 @@ class LocalLlmWorkoutPlannerEngine(
                     generator.generate(prompt, schema)
                 }
                 val parsed = parseWeeklyPlan(output, PlannerEngineId.LOCAL_LLM)
-                sanitizer.sanitize(parsed.withCatalogIds(availableIds), request)
+                val mapped = parsed.withCatalogIds(availableIds)
+                sanitizer.sanitize(mapped, request).also { sanitized ->
+                    if (sanitized == null) {
+                        lastRejection = describeRejection(mapped, request, availableIds)
+                    }
+                }
             } catch (outOfMemory: OutOfMemoryError) {
                 logger.onFallback(OnDevicePlannerFallback.OUT_OF_MEMORY, outOfMemory)
                 return fallback.generatePlan(request)
@@ -67,9 +73,26 @@ class LocalLlmWorkoutPlannerEngine(
             prompt = prompt(request, availableExercises, focusSequence) + correction(request)
         }
         val cause = lastFailure
-            ?: IllegalStateException("On-device plan did not satisfy the request")
+            ?: IllegalStateException(
+                "On-device plan did not satisfy the request" +
+                    (lastRejection?.let { ": $it" } ?: "")
+            )
         logger.onFallback(OnDevicePlannerFallback.UNEXPECTED_FAILURE, cause)
         return fallback.generatePlan(request)
+    }
+
+    /** A compact description of why a parsed plan was rejected, for on-device log triage. */
+    private fun describeRejection(
+        plan: WeeklyPlan,
+        request: PlanRequest,
+        availableIds: List<String>
+    ): String {
+        val known = availableIds.toHashSet()
+        val perDay = plan.days.joinToString(prefix = "[", postfix = "]") { day ->
+            val unknown = day.exercises.count { it.exerciseId !in known }
+            "${day.exercises.size}($unknown unknown)"
+        }
+        return "days=${plan.days.size}/${request.daysPerWeek}, per-day=$perDay"
     }
 
     private fun correction(request: PlanRequest): String =

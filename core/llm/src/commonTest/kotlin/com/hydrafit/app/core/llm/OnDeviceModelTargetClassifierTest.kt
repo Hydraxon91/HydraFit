@@ -16,6 +16,10 @@ class OnDeviceModelTargetClassifierTest {
             OnDeviceModelTarget.NPU,
             classify("gemma-4-E2B-it_qualcomm_sm8750.litertlm")
         )
+        assertEquals(
+            OnDeviceModelTarget.NPU,
+            classify("Gemma3-1B-IT_q4_ekv1280_sm8850.litertlm")
+        )
     }
 
     @Test

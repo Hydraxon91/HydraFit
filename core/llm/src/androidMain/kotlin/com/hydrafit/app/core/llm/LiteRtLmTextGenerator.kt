@@ -75,7 +75,16 @@ class LiteRtLmTextGenerator(
         val current = engine
         if (current != null && engineKey == key) return current
 
-        current?.close()
+        // Drop the cached engine before creating a new one. If the model changed, close the old
+        // one; if creation then fails, no stale reference survives to trip the next call (LiteRT's
+        // Engine.close() throws once the engine was never initialized or already closed).
+        engine = null
+        engineKey = null
+        if (current != null) {
+            runCatching { current.close() }
+                .onFailure { Log.w(TAG, "Could not close the previous on-device engine", it) }
+        }
+
         constrainedSupported = true
         val created = createEngine(key)
         engine = created

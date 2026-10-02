@@ -10,14 +10,15 @@ import com.hydrafit.app.core.userdata.llm.OnDeviceModelTarget
  */
 object OnDeviceModelTargetClassifier {
 
-    private val NPU_MARKERS = listOf("sm8750", "qualcomm", "npu", "tensor")
+    private val NPU_MARKERS = listOf("qualcomm", "snapdragon", "npu", "tensor")
+
+    /** Qualcomm part numbers (`sm8750`, `sm8850`, …) mark NPU builds regardless of the SoC revision. */
+    private val QUALCOMM_PART = Regex("""sm\d{4}""")
 
     fun classify(fileName: String?): OnDeviceModelTarget {
         val normalized = fileName?.lowercase().orEmpty()
-        return if (NPU_MARKERS.any { it in normalized }) {
-            OnDeviceModelTarget.NPU
-        } else {
-            OnDeviceModelTarget.CPU_GPU
-        }
+        val isNpu = NPU_MARKERS.any { it in normalized } ||
+            QUALCOMM_PART.containsMatchIn(normalized)
+        return if (isNpu) OnDeviceModelTarget.NPU else OnDeviceModelTarget.CPU_GPU
     }
 }
