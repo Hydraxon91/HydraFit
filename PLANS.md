@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01. Priority 1 (items 1, 2, 2b, 3) and Priority 1.5 (release pipeline item 4) complete and archived. 0.2.0 ships now; next is 0.2.1 (P2d + QA fixes), then 0.2.2 (code review + architecture), then 0.2.3 (performance review), then the v0.3.0 features (items 6–7). |
 | Release 0.2.0 | SHIPPING | Tag `v0.2.0` (signed APK via `release.yml`); delete the stale `v0.1.0-rc.1` validation release/tag. |
-| Release 0.2.1 | IN PROGRESS | Q2 (P2d), Q1, Q4a–Q4d, Q5, Q6 done (see "0.2.1 — next release"); Q4e remains (manual, user); Q3 (release/tag) in progress; on-device LLM documented as non-functional with the follow-up parked in 0.2.4. |
+| Release 0.2.1 | SHIPPED | Tag `v0.2.1` (signed APK via `release.yml`). Q2 (P2d), Q1, Q4a–Q4d, Q5, Q6 and Q3 (release) done. Q4e is a user-side catalog fix (not part of the shipped artifact). On-device LLM documented as non-functional; follow-up parked in 0.2.4. |
 | Release 0.2.2 — code review & architecture | PLANNED | After 0.2.1. Review pinned to `v0.2.1` (or latest commit if 0.2.1 hasn't shipped); phases R0–RF; see "0.2.2 — code review and architecture". |
 | Release 0.2.3 — performance review | PLANNED | After 0.2.2. Measure first, no optimization without a number; phases P0–PR; see "0.2.3 — performance review". |
 | Release 0.2.4 — on-device planner | PLANNED | Make the on-device LLM usable (variety enforcement / constraint reliability / speed) or retire it; see "0.2.4 — on-device planner". |
@@ -93,11 +93,14 @@ Dropped as unscientific and redundant with the existing e1RM/NSCA path; rational
 - **Item 9 (RIR guidance):** whether the planner owns a prescribed RIR target (changes fatigue inputs; locked replay figures), and how to present an estimate without implying measurement.
 These are repeated at the item they block and must be answered before implementation of that item.
 
-## 0.2.1 — next release
+## 0.2.1 — released (v0.2.1)
 
 **Goal:** a point release that lands the one deferred Priority 1 item (P2d, done), the deterministic-planner quality work (Q4), and any fixes found by the 0.2.0 QA pass. The v0.3.0 features (items 6–7) stay in the roadmap above and are **not** part of 0.2.1.
 
 **Scope decision (locked 2026-10-02):** 0.2.1 carries P2d (done) + Q4 (deterministic planner, Option C, honor the rep band) + QA fixes. Item 6 stays in v0.3.0.
+
+### Q3 — release/tag — DONE (2026-10-02)
+Cut `v0.2.1` on `main` after CI is green; `release.yml` builds the signed APK and publishes the GitHub Release. Q4e (the user-side custom-catalog corrections) is not part of the shipped artifact.
 
 ### Q1 — 0.2.0 QA pass (fix only what is found) — DONE (2026-10-02; manual fresh-app pass clean, no fixes)
 Run `docs/qa.md` against a clean install of the signed v0.2.0 APK. Fix any blocker as a small, isolated commit. No refactors and no scope creep. If the pass is clean, skip.
