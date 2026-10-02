@@ -19,6 +19,7 @@ import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.SessionConfig
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
 import com.hydrafit.app.core.llm.LocalLlmWorkoutPlannerEngine
 import com.hydrafit.app.core.network.ApiKeyProvider
@@ -60,6 +61,7 @@ val domainModule: Module = module {
     singleOf(::AcceptWeeklyPlanUseCase)
     singleOf(::ObserveAcceptedPlanUseCase)
     singleOf(::LogWorkoutSetUseCase)
+    single { SessionConfig() }
     singleOf(::GetWorkoutLogUseCase)
     singleOf(::DeleteWorkoutSetUseCase)
     singleOf(::StartWorkoutSessionUseCase)

@@ -2,6 +2,7 @@ package com.hydrafit.app.feature.logger
 
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.workout.WorkoutSession
 
 data class ExerciseOption(
     val id: String,
@@ -41,7 +42,9 @@ data class WorkoutLoggerUiState(
     val draftSets: List<DraftSet> = emptyList(),
     val todayFocus: SplitFocus? = null,
     val weightUnit: WeightUnit = WeightUnit.KG,
-    val weightRevealed: Boolean = false
+    val weightRevealed: Boolean = false,
+    /** The persisted open session, or null when none is open; drives the End/New controls. */
+    val activeSession: WorkoutSession? = null
 ) {
     val canLog: Boolean
         get() = selectedExerciseId != null && (reps.toIntOrNull() ?: 0) > 0

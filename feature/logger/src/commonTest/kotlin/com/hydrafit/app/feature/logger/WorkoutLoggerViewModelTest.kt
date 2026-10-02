@@ -16,9 +16,15 @@ import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
+import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
+import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.SessionConfig
+import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
+import com.hydrafit.app.core.domain.workout.WorkoutSession
+import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.AfterTest
@@ -26,7 +32,10 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.hours
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -544,7 +553,7 @@ class WorkoutLoggerViewModelTest {
         var now = 1_000L // Thursday: the plan's Monday day has no focus.
         val repository = FakeWorkoutLogRepository()
         val viewModel = WorkoutLoggerViewModel(
-            logWorkoutSet = LogWorkoutSetUseCase(repository),
+            logWorkoutSet = logWorkoutSetUseCase(repository, FakeWorkoutSessionRepository()),
             getWorkoutLog = GetWorkoutLogUseCase(repository),
             deleteWorkoutSet = DeleteWorkoutSetUseCase(repository),
             observeAcceptedPlan = ObserveAcceptedPlanUseCase(
@@ -559,6 +568,7 @@ class WorkoutLoggerViewModelTest {
 
         now = MONDAY
         viewModel.onResume()
+        advanceUntilIdle()
 
         assertEquals(SplitFocus.FULL_BODY, viewModel.state.value.todayFocus)
     }
@@ -598,21 +608,238 @@ class WorkoutLoggerViewModelTest {
         assertEquals("1", viewModel.state.value.rir)
     }
 
+    @Test
+    fun firstSetAutoStartsAndStampsASession() = runTest(dispatcher) {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = sessionViewModel(logs, sessions) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.log()
+        advanceUntilIdle()
+
+        val open = sessions.open()
+        assertNotNull(open)
+        assertEquals(open, viewModel.state.value.activeSession)
+        assertEquals(open.id, logs.all().single().sessionId)
+    }
+
+    @Test
+    fun aLaterSetInTheSameDayWithinTheWindowReusesTheOpenSession() = runTest(dispatcher) {
+        var now = MONDAY
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = sessionViewModel(logs, sessions) { now }
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.log()
+        advanceUntilIdle()
+        val first = sessions.open()
+
+        now = MONDAY + 1.hours.inWholeMilliseconds
+        viewModel.log()
+        advanceUntilIdle()
+
+        assertEquals(first, sessions.open())
+        assertEquals(1, sessions.all().size)
+        assertEquals(setOf(first!!.id), logs.all().map { it.sessionId }.toSet())
+    }
+
+    @Test
+    fun aSetOnADifferentLocalDayClosesThePriorAndStartsANewSession() = runTest(dispatcher) {
+        var now = MONDAY
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = sessionViewModel(logs, sessions) { now }
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.log()
+        advanceUntilIdle()
+        val first = sessions.open()!!
+
+        now = MONDAY + DAY
+        viewModel.log()
+        advanceUntilIdle()
+
+        val second = sessions.open()
+        assertNotNull(second)
+        assertTrue(first.id != second.id)
+        assertEquals(2, sessions.all().size)
+    }
+
+    @Test
+    fun aSetBeyondTheInactivityWindowClosesThePriorAndStartsANewSession() = runTest(dispatcher) {
+        var now = MONDAY
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = sessionViewModel(logs, sessions) { now }
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.log()
+        advanceUntilIdle()
+        val first = sessions.open()!!
+
+        now = MONDAY + SessionConfig().sessionInactivityWindow.inWholeMilliseconds + 1
+        viewModel.log()
+        advanceUntilIdle()
+
+        val second = sessions.open()
+        assertNotNull(second)
+        assertTrue(first.id != second.id)
+        assertEquals(2, sessions.all().size)
+    }
+
+    @Test
+    fun endSessionThenTheNextSetStartsANewSession() = runTest(dispatcher) {
+        var now = MONDAY
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = sessionViewModel(logs, sessions) { now }
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.log()
+        advanceUntilIdle()
+        val first = sessions.open()!!
+
+        viewModel.endSession()
+        advanceUntilIdle()
+        assertNull(sessions.open())
+        assertNull(viewModel.state.value.activeSession)
+
+        now = MONDAY + 1.hours.inWholeMilliseconds
+        viewModel.log()
+        advanceUntilIdle()
+
+        val second = sessions.open()
+        assertNotNull(second)
+        assertTrue(first.id != second.id)
+    }
+
+    @Test
+    fun newSessionClosesTheCurrentAndStartsAFreshOne() = runTest(dispatcher) {
+        var now = MONDAY
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = sessionViewModel(logs, sessions) { now }
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.log()
+        advanceUntilIdle()
+        val first = sessions.open()!!
+
+        now = MONDAY + 1.hours.inWholeMilliseconds
+        viewModel.newSession()
+        advanceUntilIdle()
+
+        val second = sessions.open()
+        assertNotNull(second)
+        assertTrue(first.id != second.id)
+        assertEquals(second, viewModel.state.value.activeSession)
+    }
+
+    @Test
+    fun newSessionWithNoOpenSessionStartsOne() = runTest(dispatcher) {
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = sessionViewModel(FakeWorkoutLogRepository(), sessions) { MONDAY }
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.activeSession)
+
+        viewModel.newSession()
+        advanceUntilIdle()
+
+        val open = sessions.open()
+        assertNotNull(open)
+        assertEquals(open, viewModel.state.value.activeSession)
+    }
+
+    @Test
+    fun draftSetsStampTheSameSessionAsLiveSets() = runTest(dispatcher) {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = viewModel(
+            repository = logs,
+            sessionRepository = sessions,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"))
+        )
+        advanceUntilIdle()
+
+        viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+        advanceUntilIdle()
+
+        assertEquals(3, logs.all().size)
+        assertEquals(1, sessions.all().size)
+        assertEquals(1, logs.all().map { it.sessionId }.toSet().size)
+    }
+
+    @Test
+    fun activeSessionIsRestoredFromThePersistedOpenSessionAfterRestart() = runTest(dispatcher) {
+        val sessions = FakeWorkoutSessionRepository()
+        val existing = StartWorkoutSessionUseCase(sessions)(
+            startedAtMillis = MONDAY,
+            localEpochDay = MONDAY / DAY
+        )
+
+        val viewModel = sessionViewModel(FakeWorkoutLogRepository(), sessions) { MONDAY }
+        advanceUntilIdle()
+
+        assertEquals(existing, viewModel.state.value.activeSession)
+    }
+
     private fun viewModel(
         repository: WorkoutLogRepository = FakeWorkoutLogRepository(),
+        sessionRepository: WorkoutSessionRepository = FakeWorkoutSessionRepository(),
         timeMillis: Long = 1_000L,
         acceptedPlan: AcceptedPlan? = null,
         history: FakePlanHistoryRepository = FakePlanHistoryRepository(acceptedPlan),
         catalog: ExerciseCatalog = FakeExerciseCatalog,
         weightUnit: WeightUnit = WeightUnit.KG
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
-        logWorkoutSet = LogWorkoutSetUseCase(repository),
+        logWorkoutSet = logWorkoutSetUseCase(repository, sessionRepository),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
         deleteWorkoutSet = DeleteWorkoutSetUseCase(repository),
         observeAcceptedPlan = ObserveAcceptedPlanUseCase(history),
         exerciseCatalog = catalog,
         timeProvider = TimeProvider { timeMillis },
         weightUnitRepository = FakeWeightUnitRepository(weightUnit)
+    )
+
+    private fun sessionViewModel(
+        repository: WorkoutLogRepository,
+        sessionRepository: WorkoutSessionRepository,
+        now: () -> Long
+    ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
+        logWorkoutSet = logWorkoutSetUseCase(repository, sessionRepository),
+        getWorkoutLog = GetWorkoutLogUseCase(repository),
+        deleteWorkoutSet = DeleteWorkoutSetUseCase(repository),
+        observeAcceptedPlan = ObserveAcceptedPlanUseCase(FakePlanHistoryRepository(null)),
+        exerciseCatalog = FakeExerciseCatalog,
+        timeProvider = TimeProvider { now() },
+        weightUnitRepository = FakeWeightUnitRepository(WeightUnit.KG)
+    )
+
+    private fun logWorkoutSetUseCase(
+        repository: WorkoutLogRepository,
+        sessionRepository: WorkoutSessionRepository
+    ) = LogWorkoutSetUseCase(
+        repository = repository,
+        startWorkoutSession = StartWorkoutSessionUseCase(sessionRepository),
+        endWorkoutSession = EndWorkoutSessionUseCase(sessionRepository),
+        observeOpenWorkoutSession = ObserveOpenWorkoutSessionUseCase(sessionRepository),
+        config = SessionConfig()
     )
 
     private fun acceptedPlan(dayZeroExerciseIds: List<String>, suggestedWeightKg: Double? = null) =
@@ -725,6 +952,28 @@ class WorkoutLoggerViewModelTest {
         }
     }
 
+    private class FakeWorkoutSessionRepository : WorkoutSessionRepository {
+        private val sessions = mutableListOf<WorkoutSession>()
+        private val openSession = MutableStateFlow<WorkoutSession?>(null)
+
+        override suspend fun create(session: WorkoutSession) {
+            sessions.add(session)
+            openSession.value = session
+        }
+
+        override suspend fun end(id: String, endedAtMillis: Long) {
+            val index = sessions.indexOfFirst { it.id == id }
+            if (index >= 0) sessions[index] = sessions[index].copy(endedAtMillis = endedAtMillis)
+            if (openSession.value?.id == id) openSession.value = null
+        }
+
+        override suspend fun open(): WorkoutSession? = openSession.value
+
+        override fun openFlow(): Flow<WorkoutSession?> = openSession
+
+        override suspend fun all(): List<WorkoutSession> = sessions.toList()
+    }
+
     private class FakeWeightUnitRepository(private val unit: WeightUnit) : WeightUnitRepository {
         override suspend fun selectedUnit(): WeightUnit = unit
 
@@ -736,5 +985,6 @@ class WorkoutLoggerViewModelTest {
     private companion object {
         /** Epoch millis whose `dayOfWeek` is MONDAY, matching a plan's first day. */
         const val MONDAY = 4L * 24L * 60L * 60L * 1000L
+        const val DAY = 24L * 60L * 60L * 1000L
     }
 }

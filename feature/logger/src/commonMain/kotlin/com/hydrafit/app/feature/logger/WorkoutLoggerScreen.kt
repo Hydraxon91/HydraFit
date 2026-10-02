@@ -51,13 +51,17 @@ import hydrafit.feature.logger.generated.resources.logger_confirm
 import hydrafit.feature.logger.generated.resources.logger_confirm_all
 import hydrafit.feature.logger.generated.resources.logger_delete_set
 import hydrafit.feature.logger.generated.resources.logger_dismiss
+import hydrafit.feature.logger.generated.resources.logger_end_session
 import hydrafit.feature.logger.generated.resources.logger_log_button
+import hydrafit.feature.logger.generated.resources.logger_new_session
 import hydrafit.feature.logger.generated.resources.logger_per_hand
 import hydrafit.feature.logger.generated.resources.logger_planned_today
 import hydrafit.feature.logger.generated.resources.logger_recent
 import hydrafit.feature.logger.generated.resources.logger_reps_label
 import hydrafit.feature.logger.generated.resources.logger_rir_label
 import hydrafit.feature.logger.generated.resources.logger_search_label
+import hydrafit.feature.logger.generated.resources.logger_session_active
+import hydrafit.feature.logger.generated.resources.logger_session_none
 import hydrafit.feature.logger.generated.resources.logger_set_week_day
 import hydrafit.feature.logger.generated.resources.logger_title
 import hydrafit.feature.logger.generated.resources.logger_today
@@ -103,6 +107,8 @@ fun WorkoutLoggerRoute(
         onConfirmDraft = viewModel::confirmDraft,
         onConfirmAllDrafts = viewModel::confirmAllDrafts,
         onDismissDraft = viewModel::dismissDraft,
+        onEndSession = viewModel::endSession,
+        onNewSession = viewModel::newSession,
         modifier = modifier
     )
 }
@@ -122,6 +128,8 @@ fun WorkoutLoggerScreen(
     onConfirmDraft: (DraftSet) -> Unit,
     onConfirmAllDrafts: () -> Unit,
     onDismissDraft: (DraftSet) -> Unit,
+    onEndSession: () -> Unit,
+    onNewSession: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val focusManager = LocalFocusManager.current
@@ -141,6 +149,31 @@ fun WorkoutLoggerScreen(
                 text = stringResource(Res.string.logger_title),
                 style = MaterialTheme.typography.headlineSmall
             )
+        }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = stringResource(
+                        if (state.activeSession != null) {
+                            Res.string.logger_session_active
+                        } else {
+                            Res.string.logger_session_none
+                        }
+                    )
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = onEndSession, enabled = state.activeSession != null) {
+                        Text(stringResource(Res.string.logger_end_session))
+                    }
+                    TextButton(onClick = onNewSession) {
+                        Text(stringResource(Res.string.logger_new_session))
+                    }
+                }
+            }
         }
         state.todayFocus?.let { focus ->
             item {

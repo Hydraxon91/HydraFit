@@ -69,6 +69,12 @@ class WorkoutLoggerViewModel(
                 _state.update { it.copy(weightUnit = unit) }
             }
         }
+        viewModelScope.launch {
+            // Active-session state is derived from the persisted open session, so it survives a restart.
+            logWorkoutSet.observeOpenSession().collectLatest { session ->
+                _state.update { it.copy(activeSession = session) }
+            }
+        }
     }
 
     fun onExerciseSelected(exerciseId: String) {
@@ -175,7 +181,8 @@ class WorkoutLoggerViewModel(
                     cycleNumber = acceptedPlan?.cycleNumber,
                     dayIndex = acceptedToday?.dayIndex,
                     rir = current.rir.toIntOrNull()
-                )
+                ),
+                timeProvider.utcOffsetMillis()
             )
             // Keep the reps and weight so repeated sets of the same exercise do not need retyping;
             // only the warm-up flag resets between sets.
@@ -184,9 +191,31 @@ class WorkoutLoggerViewModel(
         }
     }
 
+    /** Closes the open session; the next logged set auto-starts a new one. */
+    fun endSession() {
+        viewModelScope.launch { logWorkoutSet.endSession(timeProvider.nowMillis()) }
+    }
+
+    /** Closes the current session and immediately starts a new one. */
+    fun newSession() {
+        viewModelScope.launch {
+            logWorkoutSet.startNewSession(
+                startedAtMillis = timeProvider.nowMillis(),
+                utcOffsetMillis = timeProvider.utcOffsetMillis()
+            )
+        }
+    }
+
     /** Recomputes today's focus/drafts, e.g. when the screen resumes after a local midnight. */
     fun onResume() {
         updateTodayPlan(acceptedPlan)
+        // Opening the logger is an "open time": expire a session that rolled into a new day or went idle.
+        viewModelScope.launch {
+            logWorkoutSet.expireOpenSession(
+                nowMillis = timeProvider.nowMillis(),
+                utcOffsetMillis = timeProvider.utcOffsetMillis()
+            )
+        }
     }
 
     private fun updateTodayPlan(plan: AcceptedPlan?) {
@@ -258,7 +287,8 @@ class WorkoutLoggerViewModel(
                     weekNumber = acceptedPlan?.weekNumber,
                     cycleNumber = acceptedPlan?.cycleNumber,
                     dayIndex = acceptedToday?.dayIndex
-                )
+                ),
+                timeProvider.utcOffsetMillis()
             )
         }
     }
