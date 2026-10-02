@@ -8,11 +8,11 @@
 | --- | --- | --- |
 | Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01. Priority 1 (items 1, 2, 2b, 3) and Priority 1.5 (release pipeline item 4) complete and archived. 0.2.0 ships now; next is 0.2.1 (P2d + QA fixes), then 0.2.2 (code review + architecture), then 0.2.3 (performance review), then the v0.3.0 features (items 6–7). |
 | Release 0.2.0 | SHIPPING | Tag `v0.2.0` (signed APK via `release.yml`); delete the stale `v0.1.0-rc.1` validation release/tag. |
-| Release 0.2.1 | IN PROGRESS | Q2 (P2d) done (5898c45, 5ab6b42, a64d9cc); Q4 (deterministic planner, Option C) added 2026-10-02; Q1 (QA pass) and Q3 (release/tag) remain; see "0.2.1 — next release". |
+| Release 0.2.1 | IN PROGRESS | Q2 (P2d) done (5898c45, 5ab6b42, a64d9cc); Q4 (deterministic planner, Option C) added 2026-10-02, Q4a–Q4c done (f80b71a, c8e3c8a); Q1 (QA pass) done 2026-10-02; Q4d/Q4e and Q3 (release/tag) remain; see "0.2.1 — next release". |
 | Release 0.2.2 — code review & architecture | PLANNED | After 0.2.1. Review pinned to `v0.2.1` (or latest commit if 0.2.1 hasn't shipped); phases R0–RF; see "0.2.2 — code review and architecture". |
 | Release 0.2.3 — performance review | PLANNED | After 0.2.2. Measure first, no optimization without a number; phases P0–PR; see "0.2.3 — performance review". |
 | Item 2 P2d — existing-row time correction | DONE | Landed in 0.2.1 as Q2 (5898c45, 5ab6b42, a64d9cc). |
-| Deterministic planner — volume-driven selection | PLANNED | 0.2.1 addition Q4 (Option C; honor the rep band); see "0.2.1 — next release". |
+| Deterministic planner — volume-driven selection | IN PROGRESS | 0.2.1 addition Q4 (Option C; honor the rep band); Q4a–Q4c done (f80b71a, c8e3c8a), Q4d–Q4e remain; see "0.2.1 — next release". |
 | BACK work chunk 3 — calibrate Phase B/C constants | OPEN | Calibrate K=6, D=6, half-lives, and C1/C2/C3 against correctly timed histories. The plateau is resolved by the redesign; no further decision needed. |
 | BACK work chunk 4 — literal >100% report | OPEN | Capture exact value/time/build if it recurs. |
 | Settings/nav consolidation | PLANNED | Roadmap Priority 2 item 7. |
@@ -31,11 +31,11 @@
 
 > Execute each phase as an approved work chunk: run the relevant Gradle task after every phase, keep one logical change per commit, and stop to report if a phase needs something outside its scope. Gated items (schema/`.sqm` migration, dependency changes, Koin constructor/binding changes, CI/CD or signing changes, `git push`) still need their own explicit approval even inside a chunk.
 
-### Priority 1 — pre-0.2.0 (complete except P2d)
+### Priority 1 — pre-0.2.0 (complete)
 
-Items 1 (Recent Set Quick-Fill), 2 (Historical Entry Timestamping, except P2d), 2b (Explicit Session Ids S1–S5), and 3 (AI Planner Prompt Alignment P3a–P3f) are **DONE** and archived in [docs/plans-archive.md](docs/plans-archive.md#2026-10-02--v020-feature-cycle-release-pipeline-and-dropped-item).
+Items 1 (Recent Set Quick-Fill), 2 (Historical Entry Timestamping, including P2d), 2b (Explicit Session Ids S1–S5), and 3 (AI Planner Prompt Alignment P3a–P3f) are **DONE** and archived in [docs/plans-archive.md](docs/plans-archive.md#2026-10-02--v020-feature-cycle-release-pipeline-and-dropped-item).
 
-#### P2d. Existing-row time correction — DEFERRED (separately gated; larger than it looks)
+#### P2d. Existing-row time correction — DONE in 0.2.1 as Q2 (5898c45, 5ab6b42, a64d9cc)
 
 Add `updateSetPerformedAt` to `WorkoutLog.sq` (query only; no schema change), a repository method + impl, and a focused `CorrectWorkoutSetTimeUseCase`, bound in `domainModule` and covered by the Koin verification. Reached from the row's separate time-edit control. **Blast radius ~15 files** (the new repository method breaks every `WorkoutLogRepository` fake; the Logger VM would need an 8th constructor param, so use cases must be grouped first; the time picker is currently single-purpose; the recent-set row already uses tap + Delete, so a third affordance is required). Full design in the archive. **Constraint:** `WorkoutLoggerViewModel` already has 7 constructor params — do not simply append.
 
@@ -98,7 +98,7 @@ These are repeated at the item they block and must be answered before implementa
 
 **Scope decision (locked 2026-10-02):** 0.2.1 carries P2d (done) + Q4 (deterministic planner, Option C, honor the rep band) + QA fixes. Item 6 stays in v0.3.0.
 
-### Q1 — 0.2.0 QA pass (fix only what is found)
+### Q1 — 0.2.0 QA pass (fix only what is found) — DONE (2026-10-02; manual fresh-app pass clean, no fixes)
 Run `docs/qa.md` against a clean install of the signed v0.2.0 APK. Fix any blocker as a small, isolated commit. No refactors and no scope creep. If the pass is clean, skip.
 
 ### Q2 — P2d: existing-row time correction — DONE (2026-10-02, commits 5898c45 / 5ab6b42 / a64d9cc)
@@ -111,7 +111,7 @@ The deferred half of the archived item 2. Add `updateSetPerformedAt` to `Workout
 - **Re-segmentation:** does a time-only correction move the row to another `sessionId`, or leave it in place? (The archived P2d text flags this.)
 - **Affordance:** a third control on the recent-set row (or long-press) that opens the picker targeted at a specific row id.
 
-### Q4 — Deterministic planner: volume-driven selection (Option C) — PLANNED (approved 2026-10-02)
+### Q4 — Deterministic planner: volume-driven selection (Option C) — IN PROGRESS (Q4a–Q4c done 2026-10-02, commits f80b71a / c8e3c8a; approved 2026-10-02)
 
 **Why (read-only phone-DB evidence, 2026-10-02):** on the real device the engine is `DETERMINISTIC`, 3 days/week, goal `ENDURANCE`, with 4 sets chosen per exercise. The generated week is exactly 4 exercises/day, with three root causes:
 - **Day length is hard-coded.** `selectExercises` picks exactly one exercise per entry of the fixed 4-slot `FULL_BODY_TEMPLATES` (`DeterministicWorkoutPlannerEngine.kt:221`); `PlannerExerciseCounts` (target 4–6, floor 2) is AI-only. A fatigue-skipped slot shortens a day further.
@@ -122,9 +122,9 @@ The deferred half of the archived item 2. Add `updateSetPerformedAt` to `Workout
 **Decisions (locked 2026-10-02, not to be reopened):** Option C (volume-driven selection **and** an editor pattern guardrail); an explicit set count must change volume, **not** the goal's rep band (reps honor the band); the user's custom-exercise corrections are approved.
 
 **Phases:**
-- **Q4a — volume config + metric.** Add `WeeklyVolumeTargets` in `core/domain/.../engine` (target/MEV/MAV sets per muscle per week by `TrainingGoal`) and a pure helper that computes effective weighted sets per muscle from a plan/days. `commonTest` coverage. No schema.
-- **Q4b — volume-driven selection.** Rework `selectExercises`/`templateFor`: pick a compound for each major pattern by the largest remaining weekly deficit (fatigue-aware, compound-first, no cross-week compound repeat), then fill isolation slots for the largest remaining deficits up to `PlannerExerciseCounts.TARGET_MIN..TARGET_MAX` (never below `FLOOR_PER_DAY`; target `TARGET_MIN` when the catalog allows). Keep the `WorkoutPlannerEngine` interface and all three engines interchangeable. Update `DeterministicWorkoutPlannerEngineTest` and any golden fixtures in the same phase.
-- **Q4c — honor the rep band.** Change the `VolumeAwareReps` contract so reps stay inside the goal's compound/isolation band while sets carry volume (endurance stays high-rep even at higher sets). Keep `VolumeAwareRepsTest` + planner tests.
+- **Q4a — volume config + metric — DONE (f80b71a).** Add `WeeklyVolumeTargets` in `core/domain/.../engine` (target/MEV/MAV sets per muscle per week by `TrainingGoal`) and a pure helper that computes effective weighted sets per muscle from a plan/days. `commonTest` coverage. No schema.
+- **Q4b — volume-driven selection — DONE (c8e3c8a).** Rework `selectExercises`/`templateFor`: pick a compound for each major pattern by the largest remaining weekly deficit (fatigue-aware, compound-first, no cross-week compound repeat), then fill isolation slots for the largest remaining deficits up to `PlannerExerciseCounts.TARGET_MIN..TARGET_MAX` (never below `FLOOR_PER_DAY`; target `TARGET_MIN` when the catalog allows). Keep the `WorkoutPlannerEngine` interface and all three engines interchangeable. Update `DeterministicWorkoutPlannerEngineTest` and any golden fixtures in the same phase.
+- **Q4c — honor the rep band — DONE (c8e3c8a).** Change the `VolumeAwareReps` contract so reps stay inside the goal's compound/isolation band while sets carry volume (endurance stays high-rep even at higher sets). Keep `VolumeAwareRepsTest` + planner tests.
 - **Q4d — pattern guardrail (editor).** In `feature/equipment`, warn/suggest when a chosen `movementPattern` conflicts with the involvement profile (e.g. quads-dominant filed as a push). Advisory only, no schema, localized strings.
 - **Q4e — data fix (user catalog, not committed).** Correct `user-leg-extension` → `LEG_ISOLATION`, `user-seated-ez-bar-curl` → `BICEPS_ISOLATION`, `user-ez-bar-upright-row` → `SHOULDER_ISOLATION` (or `VERTICAL_PULL` if it is kept as a pull), and fix the `user-incline-parbell-bench-press` name typo. Done through the app editor; no repo code and no phone DB write.
 
