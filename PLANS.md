@@ -6,9 +6,10 @@
 
 | Item | Status | Next action |
 | --- | --- | --- |
-| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01; see the Roadmap section below. Next: Priority 1 item 2b S3 (fatigue reads session ids). Item 1 (P1a) still open. |
+| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01; see the Roadmap section below. Next: Priority 1 item 2b S4 (logger stamps session ids). Item 1 (P1a) still open. |
 | Roadmap 2b S1 — explicit session ids (domain + database) | DONE (`32b6e30`) | — |
-| Roadmap 2b S2 — legacy session backfill | DONE (`00825ba`) | S3: fatigue resets on `sessionId`; S4 stamps ids. |
+| Roadmap 2b S2 — legacy session backfill | DONE (`00825ba`) | — |
+| Roadmap 2b S3 — fatigue reads session ids | DONE (`c377f58`) | S4 stamps ids in the logger. |
 | E (AI prompt alignment) | FOLDED | Superseded by Roadmap Priority 1 item 3. |
 | BACK work chunk 1 — heatmap freshness | DONE (`cf98d66`, Phase A) | — |
 | BACK work chunk 2 — historical workout time entry | FOLDED | Superseded by Roadmap Priority 1 item 2. |
@@ -223,6 +224,7 @@ These are repeated at the item they block and must be answered before implementa
 - Recent-set context is **snapshotted**: `workoutSet` carries nullable `weekNumber`/`cycleNumber`/`dayIndex` (schema v23 + `22.sqm`), filled from the latest accepted plan at log time; the recent-sets row renders "Week N · Day M" and legacy rows show nothing.
 - Logged sets can be deleted (fat-finger guard) and accepted plans deleted from history; a short bounded recent-weight history is sent to the AI engines only when the off-by-default "Share workout data with AI engines" toggle is on.
 - Manual personal records seed the weight baseline: `personalRecord(exerciseId PK, weightKg, reps, updatedAt)` (schema v22 + `21.sqm`), `PersonalRecordRepository` (`:core:userdata`), `SqlDelightPersonalRecordRepository`; baseline per exercise = `max(logged-set Epley 1RM, manual PR 1RM)`.
+- Fatigue session boundaries read explicit `sessionId`s: `FatigueCalculator` groups timestamp-ordered working sets by `(timestampMillis, sessionId)` and resets the within-session stimulus on an id change, on either direction of a null/non-null boundary, and — only when both batches are null — on the legacy `sessionGap`. A same-timestamp run with differing ids is therefore split into separate deterministic batches; all-null legacy data groups exactly as before. The 2h gap now survives only as this fallback and as the S2 backfill.
 
 ## 2026-10-01 — BACK fatigue investigation — DONE (archived)
 
