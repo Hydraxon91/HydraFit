@@ -251,7 +251,7 @@ RELEASE_KEY_ALIAS=hydrafit
 RELEASE_KEY_PASSWORD=changeme
 ```
 
-> **CI/CD:** The `GEMINI_API_KEY` and release signing values above must also be added as GitHub Actions Secrets (Settings → Secrets and Actions) for CI builds that exercise the Gemini engine or produce signed release APKs.
+> **CI/CD:** Signed release builds require four GitHub Actions Secrets (Settings → Secrets and Actions): `RELEASE_KEYSTORE_BASE64` (the base64-encoded keystore) plus the same-named `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD`. `release.yml` decodes the keystore under `$RUNNER_TEMP` and exports `RELEASE_KEYSTORE_PATH` for the build, so `RELEASE_KEYSTORE_PATH` is a local-only key, not a CI secret. `GEMINI_API_KEY` is **not** currently a CI secret — no CI job calls the Gemini engine, so CI builds embed an empty key.
 
 > A `local.properties.template` (with placeholder values, no real secrets) should exist at the repo root and be kept up to date whenever a new config key is introduced.
 
