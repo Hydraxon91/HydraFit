@@ -6,8 +6,10 @@
 
 | Item | Status | Next action |
 | --- | --- | --- |
-| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01. Priority 1 (items 1, 2, 2b, 3) and Priority 1.5 (release pipeline item 4) complete and archived. Next: the v0.3.0 features (items 6–7); P2d deferred; item 5 dropped. |
-| Item 2 P2d — existing-row time correction | DEFERRED | Revisit when a row time-edit affordance is wanted; see the archived item 2 design. |
+| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01. Priority 1 (items 1, 2, 2b, 3) and Priority 1.5 (release pipeline item 4) complete and archived. 0.2.0 ships now; next is 0.2.1 (P2d + QA fixes), then the v0.3.0 features (items 6–7). |
+| Release 0.2.0 | SHIPPING | Tag `v0.2.0` (signed APK via `release.yml`); delete the stale `v0.1.0-rc.1` validation release/tag. |
+| Release 0.2.1 | PLANNED | Next session: P2d + any 0.2.0 QA fixes; see "0.2.1 — next release". Scope confirmable at the plan gate. |
+| Item 2 P2d — existing-row time correction | DEFERRED → 0.2.1 | Revisit in 0.2.1; see the archived item 2 design and the "0.2.1 — next release" section. |
 | BACK work chunk 3 — calibrate Phase B/C constants | OPEN | Calibrate K=6, D=6, half-lives, and C1/C2/C3 against correctly timed histories. The plateau is resolved by the redesign; no further decision needed. |
 | BACK work chunk 4 — literal >100% report | OPEN | Capture exact value/time/build if it recurs. |
 | Settings/nav consolidation | PLANNED | Roadmap Priority 2 item 7. |
@@ -86,6 +88,28 @@ Dropped as unscientific and redundant with the existing e1RM/NSCA path; rational
 - **Item 8 (subjective fatigue):** readiness input home (Logger per-session vs standing setting).
 - **Item 9 (RIR guidance):** whether the planner owns a prescribed RIR target (changes fatigue inputs; locked replay figures), and how to present an estimate without implying measurement.
 These are repeated at the item they block and must be answered before implementation of that item.
+
+## 0.2.1 — next release
+
+**Goal:** a small point release that lands the one deferred Priority 1 item (P2d) plus any fixes found by the 0.2.0 QA pass. The v0.3.0 features (items 6–7) stay in the roadmap above and are **not** part of 0.2.1 unless re-scoped at the plan gate.
+
+**Scope decision to confirm at the plan gate (do not pick silently):** whether 0.2.1 is a patch (P2d + QA fixes only — recommended) or also carries the first v0.3.0 feature (item 6).
+
+### Q1 — 0.2.0 QA pass (fix only what is found)
+Run `docs/qa.md` against a clean install of the signed v0.2.0 APK. Fix any blocker as a small, isolated commit. No refactors and no scope creep. If the pass is clean, skip.
+
+### Q2 — P2d: existing-row time correction
+The deferred half of the archived item 2. Add `updateSetPerformedAt` to `WorkoutLog.sq` (query only; no schema change), a repository method + impl, and a focused `CorrectWorkoutSetTimeUseCase` bound in `domainModule`, covered by the Koin verification; reach it from a separate row affordance (tap stays quick-fill; Delete stays). **Blast radius ~15 files** — the new repository method breaks every `WorkoutLogRepository` fake (7 across 6 test files), so update them all.
+
+**Decisions to put in the plan (not chosen silently):**
+- **Constructor:** `WorkoutLoggerViewModel` already has 7 params; group the log-mutation use cases rather than appending an 8th (AGENTS oversized-constructor rule).
+- **Re-segmentation:** does a time-only correction move the row to another `sessionId`, or leave it in place? (The archived P2d text flags this.)
+- **Affordance:** a third control on the recent-set row (or long-press) that opens the picker targeted at a specific row id.
+
+### Q3 — release 0.2.1
+Update `README.md` status; tag `v0.2.1`; verify the workflow publishes a signed APK with `versionName = 0.2.1`.
+
+**Do not start in 0.2.1:** items 6–7 (v0.3.0), items 8–9 (post-0.3.0), BACK chunks 3–4 (watch items), or any schema change beyond a query-only update.
 
 ## Open Questions / Later
 
