@@ -1,6 +1,7 @@
 package com.hydrafit.app.feature.logger
 
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.WorkoutSession
 
@@ -47,12 +48,28 @@ data class WorkoutLoggerUiState(
     val activeSession: WorkoutSession? = null,
     /** The explicit backdated time to stamp new sets with, or null to use the current time. */
     val performedAtMillis: Long? = null,
+    /** When true, a backdated set always starts a fresh session instead of attaching to the open one. */
+    val forceNewSession: Boolean = false,
     /** The local UTC offset, used to display and seed the backdated time picker. */
     val utcOffsetMillis: Long = 0L
 ) {
     /** True when a backdated time is set; the UI shows a "backdated" indicator. */
     val isBackdated: Boolean
         get() = performedAtMillis != null
+
+    /**
+     * The open session a backdated set would attach to, or null when logging will start a new one.
+     * Mirrors the domain attach rule: same local day and not before that session began.
+     */
+    val backdatedTargetSession: WorkoutSession?
+        get() {
+            val at = performedAtMillis ?: return null
+            if (forceNewSession) return null
+            val open = activeSession ?: return null
+            if (localEpochDay(at, utcOffsetMillis) != open.localEpochDay) return null
+            if (at < open.startedAtMillis) return null
+            return open
+        }
 
     val canLog: Boolean
         get() = selectedExerciseId != null && (reps.toIntOrNull() ?: 0) > 0

@@ -44,6 +44,12 @@ class WorkoutLoggerViewModel(
     private var acceptedToday: AcceptedDay? = null
     private var suggestedWeightKgByExercise: Map<String, Double> = emptyMap()
 
+    /**
+     * The backdated session created for the current chosen time, reused so a draft batch shares one
+     * session. Cleared whenever the chosen time or the force-new toggle changes.
+     */
+    private var resolvedBackdatedSessionId: String? = null
+
     init {
         _state.update { it.copy(utcOffsetMillis = timeProvider.utcOffsetMillis()) }
         viewModelScope.launch {
@@ -121,8 +127,18 @@ class WorkoutLoggerViewModel(
      */
     fun onPerformedAtChanged(millis: Long?): Boolean {
         if (millis != null && millis > timeProvider.nowMillis()) return false
+        resolvedBackdatedSessionId = null
         _state.update { it.copy(performedAtMillis = millis) }
         return true
+    }
+
+    /**
+     * Forces a fresh backdated session instead of attaching to the open one. Takes effect on the
+     * next log and drops any session already resolved for the previous choice.
+     */
+    fun onForceNewSessionChanged(forceNewSession: Boolean) {
+        resolvedBackdatedSessionId = null
+        _state.update { it.copy(forceNewSession = forceNewSession) }
     }
 
     /**
@@ -198,7 +214,7 @@ class WorkoutLoggerViewModel(
         }
 
         viewModelScope.launch {
-            logWorkoutSet(
+            logResolved(
                 WorkoutSet(
                     exerciseId = exerciseId,
                     reps = reps,
@@ -210,12 +226,34 @@ class WorkoutLoggerViewModel(
                     dayIndex = acceptedToday?.dayIndex,
                     rir = current.rir.toIntOrNull()
                 ),
-                timeProvider.utcOffsetMillis()
+                current
             )
             // Keep the reps and weight so repeated sets of the same exercise do not need retyping;
             // only the warm-up flag resets between sets.
             _state.update { it.copy(isWarmup = false) }
             refreshRecentSets()
+        }
+    }
+
+    /**
+     * Persists [set] into the session it belongs to. A live set auto-resolves; a backdated set
+     * attaches to the eligible open session or starts a fresh closed one, whose id is cached so a
+     * draft batch lands in the same session.
+     */
+    private suspend fun logResolved(set: WorkoutSet, current: WorkoutLoggerUiState) {
+        val utcOffsetMillis = timeProvider.utcOffsetMillis()
+        if (current.performedAtMillis == null) {
+            logWorkoutSet(set, utcOffsetMillis)
+            return
+        }
+        val cached = resolvedBackdatedSessionId
+        if (cached != null) {
+            logWorkoutSet.logInto(set, cached)
+            return
+        }
+        val session = logWorkoutSet.logBackdated(set, utcOffsetMillis, current.forceNewSession)
+        if (session.id != current.activeSession?.id) {
+            resolvedBackdatedSessionId = session.id
         }
     }
 
@@ -306,18 +344,19 @@ class WorkoutLoggerViewModel(
 
     private suspend fun logDraft(draft: DraftSet) {
         repeat(draft.sets.coerceAtLeast(1)) {
-            logWorkoutSet(
+            val current = _state.value
+            logResolved(
                 WorkoutSet(
                     exerciseId = draft.exerciseId,
                     reps = draft.reps,
                     weightKg = draft.weightKg,
-                    performedAtMillis = _state.value.performedAtMillis ?: timeProvider.nowMillis(),
+                    performedAtMillis = current.performedAtMillis ?: timeProvider.nowMillis(),
                     isWarmup = false,
                     weekNumber = acceptedPlan?.weekNumber,
                     cycleNumber = acceptedPlan?.cycleNumber,
                     dayIndex = acceptedToday?.dayIndex
                 ),
-                timeProvider.utcOffsetMillis()
+                current
             )
         }
     }

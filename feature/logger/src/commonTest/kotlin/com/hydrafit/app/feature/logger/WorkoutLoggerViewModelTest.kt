@@ -800,6 +800,131 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun backdatedLogAttachesToTheOpenSessionOnTheSameDay() = runTest(dispatcher) {
+        var now = MONDAY
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = sessionViewModel(logs, sessions) { now }
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.log()
+        advanceUntilIdle()
+        val open = sessions.open()!!
+
+        now = MONDAY + 1.hours.inWholeMilliseconds
+        assertTrue(viewModel.onPerformedAtChanged(now))
+        viewModel.log()
+        advanceUntilIdle()
+
+        assertEquals(open, sessions.open())
+        assertEquals(1, sessions.all().size)
+        assertEquals(setOf(open.id), logs.all().map { it.sessionId }.toSet())
+    }
+
+    @Test
+    fun backdatedLogOnADifferentDayKeepsTheOpenSessionActive() = runTest(dispatcher) {
+        var now = MONDAY
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = sessionViewModel(logs, sessions) { now }
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.log()
+        advanceUntilIdle()
+        val open = sessions.open()!!
+
+        val chosen = MONDAY - DAY
+        assertTrue(viewModel.onPerformedAtChanged(chosen))
+        viewModel.log()
+        advanceUntilIdle()
+
+        // The live open session is untouched and still reported as active.
+        assertEquals(open, sessions.open())
+        assertEquals(open, viewModel.state.value.activeSession)
+        val backdated = logs.all().single { it.performedAtMillis == chosen }
+        assertNotNull(backdated.sessionId)
+        assertTrue(backdated.sessionId != open.id)
+    }
+
+    @Test
+    fun forceNewSessionToggleCreatesAFreshSessionEvenWhenOneIsOpen() = runTest(dispatcher) {
+        var now = MONDAY
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = sessionViewModel(logs, sessions) { now }
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.log()
+        advanceUntilIdle()
+        val open = sessions.open()!!
+
+        now = MONDAY + 1.hours.inWholeMilliseconds
+        assertTrue(viewModel.onPerformedAtChanged(now))
+        viewModel.onForceNewSessionChanged(true)
+        viewModel.log()
+        advanceUntilIdle()
+
+        assertEquals(open, sessions.open())
+        assertEquals(2, sessions.all().size)
+        val backdated = logs.all().single { it.performedAtMillis == now }
+        assertTrue(backdated.sessionId != open.id)
+    }
+
+    @Test
+    fun backdatedTargetReflectsTheOpenSessionAndTheForceToggle() = runTest(dispatcher) {
+        var now = MONDAY
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = sessionViewModel(logs, sessions) { now }
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.log()
+        advanceUntilIdle()
+        val open = sessions.open()!!
+
+        now = MONDAY + 1.hours.inWholeMilliseconds
+        viewModel.onPerformedAtChanged(now)
+        advanceUntilIdle()
+        assertEquals(open, viewModel.state.value.backdatedTargetSession)
+
+        viewModel.onForceNewSessionChanged(true)
+        assertNull(viewModel.state.value.backdatedTargetSession)
+    }
+
+    @Test
+    fun backdatedDraftBatchSharesTheChosenTimeAndSession() = runTest(dispatcher) {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = viewModel(
+            repository = logs,
+            sessionRepository = sessions,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"))
+        )
+        advanceUntilIdle()
+        val chosen = MONDAY - 3 * DAY
+
+        viewModel.onPerformedAtChanged(chosen)
+        viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+        advanceUntilIdle()
+
+        assertEquals(3, logs.all().size)
+        assertTrue(logs.all().all { it.performedAtMillis == chosen })
+        assertEquals(1, logs.all().map { it.sessionId }.toSet().size)
+        assertEquals(1, sessions.all().size)
+        // The created backdated session is written closed at the chosen time.
+        assertEquals(chosen, sessions.all().single().endedAtMillis)
+    }
+
+    @Test
     fun backdatedTimeStampsTheLoggedSetAndPersists() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
@@ -1050,7 +1175,7 @@ class WorkoutLoggerViewModelTest {
 
         override suspend fun create(session: WorkoutSession) {
             sessions.add(session)
-            openSession.value = session
+            if (session.endedAtMillis == null) openSession.value = session
         }
 
         override suspend fun end(id: String, endedAtMillis: Long) {

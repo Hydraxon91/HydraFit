@@ -35,6 +35,53 @@ class LogWorkoutSetUseCase(
         }
     }
 
+    /**
+     * Persists a backdated set, choosing its session from the chosen time: the open session when the
+     * time is on its local day and not before it began (and [forceNewSession] is false), otherwise a
+     * new session anchored at the set's time that is written already closed. The open session is
+     * never closed or replaced. Returns the session the set was written into so a draft batch can
+     * reuse it through [logInto].
+     */
+    suspend fun logBackdated(
+        set: WorkoutSet,
+        utcOffsetMillis: Long,
+        forceNewSession: Boolean
+    ): WorkoutSession = sessionLock.withLock {
+        val target = backdatedAttachTarget(set.performedAtMillis, utcOffsetMillis, forceNewSession)
+            ?: startWorkoutSession(
+                set.performedAtMillis,
+                localEpochDay(set.performedAtMillis, utcOffsetMillis),
+                endedAtMillis = set.performedAtMillis
+            )
+        repository.add(set.copy(sessionId = target.id))
+        target
+    }
+
+    /** Persists [set] into an explicit session, bypassing auto-resolution. */
+    suspend fun logInto(set: WorkoutSet, sessionId: String) {
+        sessionLock.withLock {
+            repository.add(set.copy(sessionId = sessionId))
+        }
+    }
+
+    /**
+     * The open session a backdated set would attach to, or null when it must start a new one: the
+     * chosen time is on the open session's local day and not before that session began.
+     * [forceNewSession] always starts a new session, and a time before the open session's start is
+     * rejected so the negative gap is never read as "within the window".
+     */
+    private suspend fun backdatedAttachTarget(
+        performedAtMillis: Long,
+        utcOffsetMillis: Long,
+        forceNewSession: Boolean
+    ): WorkoutSession? {
+        if (forceNewSession) return null
+        val open = observeOpenWorkoutSession.current() ?: return null
+        if (localEpochDay(performedAtMillis, utcOffsetMillis) != open.localEpochDay) return null
+        if (performedAtMillis < open.startedAtMillis) return null
+        return open
+    }
+
     /** Closes the open session at [endedAtMillis] if one exists; the next set auto-starts a new one. */
     suspend fun endSession(endedAtMillis: Long) {
         sessionLock.withLock {

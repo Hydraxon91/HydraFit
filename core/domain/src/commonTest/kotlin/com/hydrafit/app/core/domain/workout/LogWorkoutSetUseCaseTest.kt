@@ -219,6 +219,115 @@ class LogWorkoutSetUseCaseTest {
         assertSame(first, sessions.open())
     }
 
+    @Test
+    fun backdatedOnTheSameLocalDayAttachesToTheOpenSession() = runTest {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val useCase = useCase(logs, sessions)
+
+        useCase(set(performedAtMillis = 10_000L), utcOffsetMillis = 0L)
+        val open = sessions.open()!!
+
+        val target = useCase.logBackdated(
+            set(performedAtMillis = 10_000L + 1.hours.inWholeMilliseconds),
+            utcOffsetMillis = 0L,
+            forceNewSession = false
+        )
+
+        assertEquals(open.id, target.id)
+        assertEquals(open, sessions.open())
+        assertEquals(1, sessions.all().size)
+        assertEquals(open.id, logs.all().maxByOrNull { it.performedAtMillis }!!.sessionId)
+    }
+
+    @Test
+    fun backdatedOnADifferentLocalDayCreatesAClosedSessionAnchoredAtTheChosenTime() = runTest {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val useCase = useCase(logs, sessions)
+
+        useCase(set(performedAtMillis = DAY + 1_000L), utcOffsetMillis = 0L)
+        val open = sessions.open()!!
+
+        val chosen = DAY - 1.hours.inWholeMilliseconds
+        val target = useCase.logBackdated(
+            set(performedAtMillis = chosen),
+            utcOffsetMillis = 0L,
+            forceNewSession = false
+        )
+
+        assertNotEquals(open.id, target.id)
+        assertEquals(chosen, target.startedAtMillis)
+        assertEquals(chosen, target.endedAtMillis)
+        assertEquals(0L, target.localEpochDay)
+        // The live open session is left untouched and open.
+        assertEquals(open, sessions.open())
+        assertEquals(target.id, logs.all().single { it.performedAtMillis == chosen }.sessionId)
+    }
+
+    @Test
+    fun aBackdatedTimeBeforeTheOpenSessionStartDoesNotAttach() = runTest {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val useCase = useCase(logs, sessions)
+
+        val start = 10_000L
+        useCase(set(performedAtMillis = start), utcOffsetMillis = 0L)
+        val open = sessions.open()!!
+
+        val chosen = start - 1_000L
+        val target = useCase.logBackdated(
+            set(performedAtMillis = chosen),
+            utcOffsetMillis = 0L,
+            forceNewSession = false
+        )
+
+        assertNotEquals(open.id, target.id)
+        assertEquals(chosen, target.startedAtMillis)
+        assertEquals(chosen, target.endedAtMillis)
+        assertEquals(open, sessions.open())
+    }
+
+    @Test
+    fun forceNewBackdatedSessionCreatesAFreshClosedSession() = runTest {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val useCase = useCase(logs, sessions)
+
+        val start = 10_000L
+        useCase(set(performedAtMillis = start), utcOffsetMillis = 0L)
+        val open = sessions.open()!!
+
+        val chosen = start + 1_000L
+        val target = useCase.logBackdated(
+            set(performedAtMillis = chosen),
+            utcOffsetMillis = 0L,
+            forceNewSession = true
+        )
+
+        assertNotEquals(open.id, target.id)
+        assertEquals(chosen, target.startedAtMillis)
+        assertEquals(chosen, target.endedAtMillis)
+        assertEquals(open, sessions.open())
+    }
+
+    @Test
+    fun logIntoStampsAnExplicitNonOpenSession() = runTest {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val useCase = useCase(logs, sessions)
+        val closed = StartWorkoutSessionUseCase(sessions)(
+            startedAtMillis = 1_000L,
+            localEpochDay = 0L,
+            endedAtMillis = 2_000L
+        )
+
+        useCase.logInto(set(performedAtMillis = 1_500L), closed.id)
+
+        assertEquals(closed.id, logs.all().single().sessionId)
+        assertNull(sessions.open())
+    }
+
     private fun useCase(logs: FakeWorkoutLogRepository, sessions: FakeWorkoutSessionRepository) =
         LogWorkoutSetUseCase(
             repository = logs,
@@ -265,7 +374,7 @@ class LogWorkoutSetUseCaseTest {
 
         override suspend fun create(session: WorkoutSession) {
             sessions.add(session)
-            openSession.value = session
+            if (session.endedAtMillis == null) openSession.value = session
         }
 
         override suspend fun end(id: String, endedAtMillis: Long) {

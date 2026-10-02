@@ -78,6 +78,8 @@ import hydrafit.feature.logger.generated.resources.logger_session_active
 import hydrafit.feature.logger.generated.resources.logger_session_none
 import hydrafit.feature.logger.generated.resources.logger_set_time
 import hydrafit.feature.logger.generated.resources.logger_set_week_day
+import hydrafit.feature.logger.generated.resources.logger_target_current_session
+import hydrafit.feature.logger.generated.resources.logger_target_label
 import hydrafit.feature.logger.generated.resources.logger_time_live
 import hydrafit.feature.logger.generated.resources.logger_title
 import hydrafit.feature.logger.generated.resources.logger_today
@@ -128,6 +130,7 @@ fun WorkoutLoggerRoute(
         onNewSession = viewModel::newSession,
         onBackdatedDateTimePicked = viewModel::onBackdatedDateTimePicked,
         onClearBackdated = { viewModel.onPerformedAtChanged(null) },
+        onForceNewSessionChanged = viewModel::onForceNewSessionChanged,
         nowMillis = viewModel::currentTimeMillis,
         modifier = modifier
     )
@@ -153,6 +156,7 @@ fun WorkoutLoggerScreen(
     onNewSession: () -> Unit,
     onBackdatedDateTimePicked: (Long, Int, Int) -> Boolean,
     onClearBackdated: () -> Unit,
+    onForceNewSessionChanged: (Boolean) -> Unit,
     nowMillis: () -> Long,
     modifier: Modifier = Modifier
 ) {
@@ -323,6 +327,8 @@ fun WorkoutLoggerScreen(
                 isBackdated = state.isBackdated,
                 performedAtMillis = state.performedAtMillis,
                 utcOffsetMillis = state.utcOffsetMillis,
+                attachesToOpenSession = state.backdatedTargetSession != null,
+                forceNewSession = state.forceNewSession,
                 showFutureError = futureTimeError,
                 onSetTime = {
                     futureTimeError = false
@@ -332,7 +338,8 @@ fun WorkoutLoggerScreen(
                 onUseNow = {
                     futureTimeError = false
                     onClearBackdated()
-                }
+                },
+                onForceNewSessionChanged = onForceNewSessionChanged
             )
         }
         item {
@@ -491,9 +498,12 @@ private fun BackdatedTimeControl(
     isBackdated: Boolean,
     performedAtMillis: Long?,
     utcOffsetMillis: Long,
+    attachesToOpenSession: Boolean,
+    forceNewSession: Boolean,
     showFutureError: Boolean,
     onSetTime: () -> Unit,
-    onUseNow: () -> Unit
+    onUseNow: () -> Unit,
+    onForceNewSessionChanged: (Boolean) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -522,6 +532,34 @@ private fun BackdatedTimeControl(
                     TextButton(onClick = onUseNow) {
                         Text(stringResource(Res.string.logger_use_now))
                     }
+                }
+            }
+        }
+        if (isBackdated) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = stringResource(
+                        Res.string.logger_target_label,
+                        stringResource(
+                            if (attachesToOpenSession) {
+                                Res.string.logger_target_current_session
+                            } else {
+                                Res.string.logger_new_session
+                            }
+                        )
+                    ),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(stringResource(Res.string.logger_new_session))
+                    Switch(checked = forceNewSession, onCheckedChange = onForceNewSessionChanged)
                 }
             }
         }

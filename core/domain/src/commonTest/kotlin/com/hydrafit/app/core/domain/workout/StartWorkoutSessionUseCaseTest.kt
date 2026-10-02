@@ -27,6 +27,20 @@ class StartWorkoutSessionUseCaseTest {
     }
 
     @Test
+    fun createsAClosedSessionWhenAnEndTimeIsProvided() = runTest {
+        val repository = RecordingWorkoutSessionRepository()
+
+        val session = StartWorkoutSessionUseCase(repository)(
+            startedAtMillis = 100L,
+            localEpochDay = 5L,
+            endedAtMillis = 200L
+        )
+
+        assertEquals(200L, session.endedAtMillis)
+        assertEquals(session, repository.created.single())
+    }
+
+    @Test
     fun generatesADistinctIdPerSession() = runTest {
         val repository = RecordingWorkoutSessionRepository()
         val useCase = StartWorkoutSessionUseCase(repository)
