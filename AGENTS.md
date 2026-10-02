@@ -9,25 +9,37 @@
 
 ## Session rules (apply to every task)
 
-- Gradle: every run has a hard time limit (e.g. `perl -e 'alarm 600;
-  exec @ARGV' ./gradlew ...`). Never redirect Gradle output to a file and
-  wait. If a run hangs, jstack the test executor and report; don't retry
-  blindly.
+- **Plan gate.** For any task that changes code, config, or data: give a
+  short plan first (files, decisions, any deviation from PLANS.md), then
+  wait for an explicit OK before implementing. A decision that can change
+  existing results is the user's to make, not silently chosen. This gate
+  does not apply to a PLANS.md status-line-only commit after an approved
+  phase.
+- Gradle: wrap every run in a hard time limit (e.g. `perl -e 'alarm 600;
+  exec @ARGV' ./gradlew ... > run.log 2>&1`), then read the result with
+  grep/tail afterwards; never block on a run with no timeout. If a run
+  hangs, jstack the test executor and report; don't retry blindly.
 - Verification covers downstream consumers, not just the module you
   edited: for cross-cutting or schema changes run the full host-test
   suite, ktlint, assembleDebug and iOS compile before showing a diff.
-- Phone access is read-only (`adb exec-out run-as ... cat`): never push,
-  install, launch or clear. Copies live outside the repo, are never
-  committed, and are reported as aggregates only (no individual rows).
+- Data access: a phone pull is read-only (`adb -s <serial> exec-out run-as
+  com.hydrafit.app cat databases/hydrafit.db`, plus any `-wal`/`-journal`);
+  never push, install, launch or clear. Copies live outside the repo, are
+  never committed, and are reported as aggregates only (no individual
+  rows). UI verification uses the emulator only.
+- Real-data checks: throwaway harness only (local test/script, not
+  committed, not run in CI). If the migration chain cannot upgrade the
+  copy, report it instead of patching around it; a mismatch is a bug — stop
+  and report. Delete the harness and all scratch copies afterwards;
+  nothing from the check enters the repo.
 - Keep tool output small: grep, head and line ranges; never whole files
   or full logs. Don't narrate progress or print step checklists.
 - Stop and report if ~30 tool calls pass without a plan or a result. If
   budget is nearly out, stop at a clean point with a "where I stopped /
   what remains" note instead of leaving half-edited files.
-- Flow: plan, wait for OK on deviations, implement, verify, show diff and
-  verification results, wait for approval, commit, push. Wait for CI on
-  code pushes. Pushes that change only markdown files (*.md) don't need a
-  CI wait.
+- Flow: plan → wait for OK → implement → verify → show diff and
+  verification results → wait for approval → commit → push. See Commit
+  Discipline for push and CI-wait rules.
 - PLANS.md edits are status lines only unless I approve more.
 - Ending a session or writing a starter prompt: follow
   docs/session-handoff.md.
