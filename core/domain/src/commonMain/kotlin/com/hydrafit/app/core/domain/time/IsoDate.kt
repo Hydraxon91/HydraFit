@@ -8,8 +8,8 @@ fun isoDateUtc(epochMillis: Long): String {
     return "$year-" + month.toString().padStart(2, '0') + "-" + day.toString().padStart(2, '0')
 }
 
-/** Days-since-epoch to civil date (Howard Hinnant's algorithm). */
-private fun civilFromDays(daysSinceEpoch: Long): Triple<Int, Int, Int> {
+/** Days-since-epoch to civil date (Howard Hinnant's algorithm), the inverse of [daysFromCivil]. */
+fun civilFromDays(daysSinceEpoch: Long): Triple<Int, Int, Int> {
     var z = daysSinceEpoch + 719468
     val era = (if (z >= 0) z else z - 146096) / 146097
     val dayOfEra = z - era * 146097

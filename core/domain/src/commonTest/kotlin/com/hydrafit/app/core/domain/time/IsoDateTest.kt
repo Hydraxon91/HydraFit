@@ -48,6 +48,20 @@ class IsoDateTest {
     }
 
     @Test
+    fun civilFromDaysRoundTripsThroughDaysFromCivil() {
+        val dates = listOf(
+            Triple(1970, 1, 1),
+            Triple(2024, 1, 1),
+            Triple(2024, 2, 29),
+            Triple(1999, 12, 31),
+            Triple(1969, 12, 31)
+        )
+        dates.forEach { (year, month, day) ->
+            assertEquals(Triple(year, month, day), civilFromDays(daysFromCivil(year, month, day)))
+        }
+    }
+
+    @Test
     fun daysFromCivilRejectsAnOutOfRangeMonth() {
         assertFailsWith<IllegalArgumentException> { daysFromCivil(2024, 0, 1) }
         assertFailsWith<IllegalArgumentException> { daysFromCivil(2024, 13, 1) }
