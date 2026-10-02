@@ -156,19 +156,22 @@ The repository will enforce a staged GitHub Actions pipeline. Any changes you ma
 
 ### Pipeline Workflows
 
-1. **`build-and-test.yml` (Primary Pipeline):**
-    - **Stage 1 (Immediate parallel execution):**
-        - `lint` — ktlint/detekt static analysis (no dependencies; starts immediately)
-        - `unit-tests` — runs `:core:domain`, `:core:userdata`, `:core:database`, and `:feature:*` unit tests via `./gradlew testAndroidHostTest` (no dependencies; starts immediately)
-    - **Stage 2 (Build-dependent):**
-        - `assemble-debug-apk` — runs after `lint` and `unit-tests` both pass; builds via `./gradlew :androidApp:assembleDebug`; automatically skipped if Stage 1 fails, to save build minutes.
-    - **Stage 3 (Artifact publish):**
-        - `upload-apk-artifact` — uploads the debug APK as a GitHub Actions workflow artifact, downloadable from the Actions tab on every push/PR, no release tag required.
+1. **`build-and-test.yml` (primary pipeline, on pushes/PRs to `main`):**
+    - **Stage 1 (immediate parallel execution):**
+        - `lint` — runs `./gradlew ktlintCheck` (no dependencies; starts immediately).
+        - `unit-tests` — runs `./gradlew testAndroidHostTest` across `:core:domain`, `:core:userdata`, `:core:database`, and `:feature:*` (no dependencies; starts immediately).
+        - `ios-compile` — on `macos-latest`, compiles the iOS targets (no dependencies; starts immediately).
+    - **Stage 2 (build-dependent):**
+        - `assemble-debug-apk` — runs after `lint` and `unit-tests` pass; builds `./gradlew :androidApp:assembleDebug` and uploads the `androidApp-debug-apk` artifact (14-day retention).
 
-2. **`release.yml` (Stretch goal, triggered on git tags):**
-    - Builds a signed release APK using a keystore stored in GitHub Actions Secrets (never committed).
-    - Attaches the signed APK to a GitHub Release.
-    - Restricted to tags matching a release pattern (e.g. `v*.*.*`).
+2. **`nightly.yml` (scheduled `0 3 * * *` UTC, plus manual `workflow_dispatch`):**
+    - Mirrors the primary jobs (`lint`, `unit-tests`, `ios-compile`, `assemble-debug-apk`); concurrency group `nightly-${{ github.ref }}` with `cancel-in-progress: false`.
+
+3. **`release.yml` (on `v*.*.*` tags):**
+    - `lint` and `unit-tests` gate the `build-release` job (job-scoped `permissions: contents: write`); concurrency group `release-${{ github.ref }}` with `cancel-in-progress: false`.
+    - `build-release` verifies the four `RELEASE_*` secrets are present (it fails rather than publish an unsigned APK), decodes `RELEASE_KEYSTORE_BASE64` under `$RUNNER_TEMP` and exports `RELEASE_KEYSTORE_PATH`, runs `./gradlew :androidApp:assembleRelease`, attaches the signed APK to a GitHub Release via `gh`, and deletes the decoded keystore.
+    - **Version strategy:** `versionName` comes from the tag (leading `v` stripped), `versionCode` from `GITHUB_RUN_NUMBER`; local builds keep the `0.1.0` / `1` defaults. A tag containing `-` (e.g. `v0.1.0-rc.1`) publishes a pre-release.
+    - **Required secrets:** `RELEASE_KEYSTORE_BASE64` (base64-encoded keystore) plus same-named `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD`. `GEMINI_API_KEY` is not a CI secret — no CI job calls the Gemini engine.
 
 ### Security & Compliance Constraints
 
