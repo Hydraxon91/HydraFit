@@ -6,7 +6,7 @@
 
 | Item | Status | Next action |
 | --- | --- | --- |
-| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01; see the Roadmap section below. Item 3 and Priority 1.5 item 4 (release pipeline & signing) complete. Next: the v0.3.0 features (items 5–7); P2d deferred. |
+| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01; see the Roadmap section below. Item 3 and Priority 1.5 item 4 (release pipeline & signing) complete. Next: the v0.3.0 features (items 6–7); P2d deferred; item 5 dropped. |
 | Roadmap 2b S1 — explicit session ids (domain + database) | DONE (`32b6e30`) | — |
 | Roadmap 2b S2 — legacy session backfill | DONE (`00825ba`) | — |
 | Roadmap 2b S3 — fatigue reads session ids | DONE (`c377f58`) | — |
@@ -128,15 +128,8 @@
 
 ### Priority 2 — v0.3.0
 
-#### 5. Potential PR with Safety Margin
-**Goal:** show a potential PR over the last N sets with a ~5% discount, derived-only.
-**Decisions:** surfaced in the Equipment Personal-records section.
-**Phases:**
-- **P5a — use case.** `CalculatePotentialPrUseCase` in `:core/domain/engine` (last N sets or a day window, `max(Epley) × discount`, rounded) with a config data class; `commonTest` coverage. Discount `0.95`; window `N` is an open decision.
-- **P5b — wiring.** Bind in `DomainModule` + Koin verification.
-- **P5c — UI.** Show the value beside the manual PR in `EquipmentProfilerScreen.kt`; VM/state + tests.
-**Files:** `core/domain/engine/CalculatePotentialPrUseCase.kt` + test, `shared/DomainModule.kt`, `KoinModulesVerificationTest.kt`, `feature/equipment` VM/state/screen/strings + test.
-**Resolve before implementing (not defaulted):** window definition and `N` (last N sets vs last N days), and whether the ~5% buffer is fixed or configurable.
+#### 5. Potential PR with Safety Margin — DROPPED (2026-10-02)
+**Dropped.** As specified it was `max(Epley e1RM over the last N sets) × 0.95`, which is neither evidence-based nor new information: the flat ~5% margin is uncited (loads elsewhere are grounded in the cited NSCA reps→%1RM table × RIR buffer), `max(e1RM)` is dominated by the highest-rep — least reliable — set because the estimate filter allows reps to 15, it ignores recency, and it duplicates the existing `max(logged Epley, manual PR)` baseline plus the NSCA suggested-weight path. It also conflicts with the "never present an unmeasured guess as data" principle (item 9). If an explicit estimated-1RM display is ever wanted, it should be low-rep (e.g. reps ≤ 5), unbuffered, and clearly labeled an estimate — a separate, smaller feature.
 
 #### 6. Dynamic Exercise Substitution
 **Goal:** swap one exercise inside an accepted plan, persisted in place.
@@ -178,7 +171,6 @@
 
 **Open decisions to make before each item (never silently defaulted):**
 - **Item 2 (historical time):** P2c picker API fallback; P2b batch share/reset; P2d row-correction scope.
-- **Item 5 (potential PR):** window/`N` definition; fixed vs configurable buffer.
 - **Item 8 (subjective fatigue):** readiness input home (Logger per-session vs standing setting).
 - **Item 9 (RIR guidance):** whether the planner owns a prescribed RIR target (changes fatigue inputs; locked replay figures), and how to present an estimate without implying measurement.
 These are repeated at the item they block and must be answered before implementation of that item.
