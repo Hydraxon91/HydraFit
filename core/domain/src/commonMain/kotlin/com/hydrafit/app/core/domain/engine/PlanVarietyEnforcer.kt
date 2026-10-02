@@ -5,12 +5,17 @@ package com.hydrafit.app.core.domain.engine
  * valid-but-repetitive weeks, so this enforces the rules the prompt only asks for:
  *
  * - a day never lists the same exercise twice;
- * - no two days share a focus (the model sometimes fills the week with one focus);
  * - a compound exercise is not repeated across the week (accessory/isolation work may repeat,
- *   since it is exempt from week-over-week rotation).
+ *   since it is exempt from week-over-week rotation);
+ * - the model did not collapse the week onto a single focus when the resolved split calls for more.
  *
- * Returns null when the surviving plan no longer satisfies the request (too few days, or a day left
- * with too few usable exercises), so the caller can fall back to the deterministic engine.
+ * A focus legitimately repeats across days (FULL_BODY every day, UPPER/LOWER alternating, PPL
+ * cycling), so repeated foci are allowed; only a week that provides fewer distinct foci than the
+ * split expects is rejected.
+ *
+ * Returns null when the surviving plan no longer satisfies the request (too few days, a day left
+ * with too few usable exercises, or a collapsed focus), so the caller can fall back to the
+ * deterministic engine.
  */
 class PlanVarietyEnforcer {
 
@@ -23,12 +28,13 @@ class PlanVarietyEnforcer {
         request: PlanRequest,
         isCompound: (String) -> Boolean
     ): WeeklyPlan? {
-        val seenFoci = mutableSetOf<SplitFocus>()
+        val expectedDistinctFoci = SplitResolver
+            .focusSequence(request.splitPreference, request.daysPerWeek)
+            .distinct()
         val usedCompoundIds = mutableSetOf<String>()
         val days = mutableListOf<WorkoutDay>()
 
         for (day in plan.days.sortedBy { it.dayIndex }) {
-            if (!seenFoci.add(day.focus)) continue
             val seenExercises = mutableSetOf<String>()
             val exercises = day.exercises.filter { planned ->
                 if (!seenExercises.add(planned.exerciseId)) return@filter false
@@ -40,9 +46,12 @@ class PlanVarietyEnforcer {
         }
 
         if (days.size < request.daysPerWeek) return null
-        return plan.copy(
-            days = days.take(request.daysPerWeek)
-                .mapIndexed { index, day -> day.copy(dayIndex = index) }
-        )
+        val kept = days.take(request.daysPerWeek)
+        if (expectedDistinctFoci.size > 1 &&
+            kept.map { it.focus }.distinct().size < expectedDistinctFoci.size
+        ) {
+            return null
+        }
+        return plan.copy(days = kept.mapIndexed { index, day -> day.copy(dayIndex = index) })
     }
 }

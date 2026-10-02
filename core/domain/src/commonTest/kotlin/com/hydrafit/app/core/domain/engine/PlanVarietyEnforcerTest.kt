@@ -21,17 +21,28 @@ class PlanVarietyEnforcerTest {
     }
 
     @Test
-    fun dropsDaysThatRepeatAFocus() {
+    fun keepsDaysThatLegitimatelyRepeatTheSameFocus() {
+        val plan = weekly(
+            day(0, SplitFocus.FULL_BODY, "bench", "fly"),
+            day(1, SplitFocus.FULL_BODY, "row", "fly"),
+            day(2, SplitFocus.FULL_BODY, "squat", "fly")
+        )
+
+        val enforced = requireNotNull(enforce(plan, daysPerWeek = 3))
+
+        assertEquals(3, enforced.days.size)
+        assertEquals(List(3) { SplitFocus.FULL_BODY }, enforced.days.map { it.focus })
+    }
+
+    @Test
+    fun rejectsAWeekThatCollapsesOntoOneFocus() {
         val plan = weekly(
             day(0, SplitFocus.PUSH, "bench", "fly"),
             day(1, SplitFocus.PUSH, "row", "fly"),
-            day(2, SplitFocus.LEGS, "squat", "fly")
+            day(2, SplitFocus.PUSH, "squat", "fly")
         )
 
-        val enforced = requireNotNull(enforce(plan, daysPerWeek = 2))
-
-        assertEquals(listOf(0, 1), enforced.days.map { it.dayIndex })
-        assertEquals(listOf(SplitFocus.PUSH, SplitFocus.LEGS), enforced.days.map { it.focus })
+        assertNull(enforce(plan, daysPerWeek = 3, split = SplitType.PUSH_PULL_LEGS))
     }
 
     @Test
@@ -69,13 +80,13 @@ class PlanVarietyEnforcerTest {
     }
 
     @Test
-    fun returnsNullWhenTooFewDistinctFocusDaysRemain() {
+    fun returnsNullWhenTheFocusCycleIsIncomplete() {
         val plan = weekly(
             day(0, SplitFocus.PUSH, "bench", "fly"),
             day(1, SplitFocus.PUSH, "row", "fly")
         )
 
-        assertNull(enforce(plan, daysPerWeek = 2))
+        assertNull(enforce(plan, daysPerWeek = 2, split = SplitType.UPPER_LOWER))
     }
 
     @Test
@@ -88,14 +99,18 @@ class PlanVarietyEnforcerTest {
         assertNull(enforce(plan, daysPerWeek = 2))
     }
 
-    private fun enforce(plan: WeeklyPlan, daysPerWeek: Int = plan.days.size): WeeklyPlan? =
-        enforcer.enforce(plan, request(daysPerWeek)) { it !in accessoryIds }
+    private fun enforce(
+        plan: WeeklyPlan,
+        daysPerWeek: Int = plan.days.size,
+        split: SplitType = SplitType.AUTO
+    ): WeeklyPlan? = enforcer.enforce(plan, request(daysPerWeek, split)) { it !in accessoryIds }
 
-    private fun request(daysPerWeek: Int) = PlanRequest(
+    private fun request(daysPerWeek: Int, split: SplitType = SplitType.AUTO) = PlanRequest(
         daysPerWeek = daysPerWeek,
         availableEquipment = emptySet(),
         muscleFatigue = emptyMap(),
-        nowMillis = 0L
+        nowMillis = 0L,
+        splitPreference = split
     )
 
     private fun weekly(vararg days: WorkoutDay) =
