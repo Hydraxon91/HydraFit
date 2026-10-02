@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.llm
 
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.OnDevicePlanProgressReporter
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.PlannerExerciseCounts
@@ -21,14 +22,23 @@ class LocalLlmWorkoutPlannerEngine(
     private val fallback: WorkoutPlannerEngine,
     private val catalog: ExerciseCatalog,
     private val sanitizer: WeeklyPlanSanitizer,
-    private val logger: OnDevicePlannerLogger = NoopOnDevicePlannerLogger
+    private val logger: OnDevicePlannerLogger = NoopOnDevicePlannerLogger,
+    private val progressReporter: OnDevicePlanProgressReporter = OnDevicePlanProgressReporter.Noop
 ) : WorkoutPlannerEngine {
 
     override val id: PlannerEngineId = PlannerEngineId.LOCAL_LLM
 
     override suspend fun generatePlan(request: PlanRequest): WeeklyPlan {
         if (!generator.isAvailable()) return fallback.generatePlan(request)
+        try {
+            return generateOnDevice(request)
+        } finally {
+            // Clear no matter how the attempt ends (success, fallback, OOM, cancellation).
+            progressReporter.clear()
+        }
+    }
 
+    private suspend fun generateOnDevice(request: PlanRequest): WeeklyPlan {
         val availableExercises = catalog.all()
             .filter { it.isAvailableWith(request.availableEquipment) }
         val availableIds = availableExercises.map { it.id }
@@ -50,7 +60,9 @@ class LocalLlmWorkoutPlannerEngine(
             // Loading the model and generating are blocking, so keep them off the main thread.
             val output = try {
                 withContext(Dispatchers.Default) {
-                    generator.generate(prompt, schema)
+                    generator.generate(prompt, schema) { progress ->
+                        progressReporter.report(progress)
+                    }
                 }
             } catch (outOfMemory: OutOfMemoryError) {
                 logger.onFallback(OnDevicePlannerFallback.OUT_OF_MEMORY, outOfMemory)

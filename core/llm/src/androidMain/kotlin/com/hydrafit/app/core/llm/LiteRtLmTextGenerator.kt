@@ -11,10 +11,14 @@ import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.LogSeverity
 import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.MessageCallback
 import com.google.ai.edge.litertlm.ResponseFormat
 import com.google.ai.edge.litertlm.SamplerConfig
+import com.hydrafit.app.core.domain.engine.OnDevicePlanProgress
 import com.hydrafit.app.core.userdata.llm.OnDeviceModelTarget
 import java.io.File
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * LiteRT-LM keeps the full message history inside a [Conversation], and a failed native call
@@ -35,11 +39,15 @@ class LiteRtLmTextGenerator(
     override fun isAvailable(): Boolean = modelManager.isInstalled()
 
     @Synchronized
-    override fun generate(prompt: String, jsonSchema: String?): String = try {
+    override fun generate(
+        prompt: String,
+        jsonSchema: String?,
+        onProgress: (OnDevicePlanProgress) -> Unit
+    ): String = try {
         Log.d(TAG, "On-device prompt (${prompt.length} chars): ${prompt.take(MAX_LOGGED_CHARS)}")
         val conversation = activeEngine().createConversation(conversationConfig())
         try {
-            val text = readText(send(conversation, prompt, jsonSchema))
+            val text = stream(conversation, prompt, jsonSchema, onProgress)
             Log.d(TAG, "On-device output (${text.length} chars): ${text.take(MAX_LOGGED_CHARS)}")
             text
         } finally {
@@ -50,19 +58,68 @@ class LiteRtLmTextGenerator(
         throw failure
     }
 
-    private fun send(conversation: Conversation, prompt: String, jsonSchema: String?): Message {
-        if (jsonSchema == null || !constrainedSupported) return conversation.sendMessage(prompt)
-        return try {
-            conversation.sendMessage(
-                text = prompt,
-                responseFormat = ResponseFormat.json(jsonSchema)
-            )
-        } catch (failure: Exception) {
-            // Never retry on the same conversation; the next attempt builds a fresh one.
-            constrainedSupported = false
-            Log.w(TAG, "Constrained JSON generation failed; disabling it for this session", failure)
-            throw failure
+    /**
+     * Streams the reply so the UI can show live tokens and tokens/second. The callback may deliver
+     * either running or incremental text, so the longer of the two is kept; the token count prefers
+     * the runtime counter and falls back to a character estimate while it is still zero.
+     */
+    private fun stream(
+        conversation: Conversation,
+        prompt: String,
+        jsonSchema: String?,
+        onProgress: (OnDevicePlanProgress) -> Unit
+    ): String {
+        val builder = StringBuilder()
+        val failure = AtomicReference<Throwable?>(null)
+        val done = CountDownLatch(1)
+        val startedNanos = System.nanoTime()
+        val constrained = jsonSchema != null && constrainedSupported
+        val callback = object : MessageCallback {
+            override fun onMessage(message: Message) {
+                val chunk = readText(message)
+                if (chunk.length >= builder.length) {
+                    builder.setLength(0)
+                    builder.append(chunk)
+                } else {
+                    builder.append(chunk)
+                }
+                val nativeTokens = runCatching { conversation.getTokenCount() }.getOrDefault(0)
+                val tokens = maxOf(nativeTokens, builder.length / CHARS_PER_TOKEN)
+                val seconds = (System.nanoTime() - startedNanos) / NANOS_PER_SECOND
+                onProgress(
+                    OnDevicePlanProgress(
+                        tokensGenerated = tokens,
+                        expectedTokens = MAX_OUTPUT_TOKENS,
+                        tokensPerSecond = if (seconds > 0.0) tokens / seconds else 0.0
+                    )
+                )
+            }
+
+            override fun onDone() {
+                done.countDown()
+            }
+
+            override fun onError(error: Throwable) {
+                if (constrained) {
+                    constrainedSupported = false
+                    Log.w(
+                        TAG,
+                        "Constrained JSON generation failed; disabling it for this session",
+                        error
+                    )
+                }
+                failure.set(error)
+                done.countDown()
+            }
         }
+        conversation.sendMessageAsync(
+            prompt,
+            callback,
+            responseFormat = if (constrained) ResponseFormat.json(jsonSchema!!) else null
+        )
+        done.await()
+        failure.get()?.let { throw it }
+        return builder.toString()
     }
 
     private fun readText(message: Message): String = message.contents.contents
@@ -178,5 +235,9 @@ class LiteRtLmTextGenerator(
         const val MAX_NUM_TOKENS = 4_096
         const val MAX_OUTPUT_TOKENS = 2_048
         const val MAX_LOGGED_CHARS = 4_000
+
+        /** Rough characters per token, used only while the runtime token counter reads zero. */
+        const val CHARS_PER_TOKEN = 4
+        const val NANOS_PER_SECOND = 1_000_000_000.0
     }
 }

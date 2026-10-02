@@ -1,6 +1,8 @@
 package com.hydrafit.app.core.llm
 
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.OnDevicePlanProgress
+import com.hydrafit.app.core.domain.engine.OnDevicePlanProgressReporter
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
@@ -17,7 +19,10 @@ import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.runTest
 
 class LocalLlmWorkoutPlannerEngineTest {
@@ -392,16 +397,38 @@ class LocalLlmWorkoutPlannerEngineTest {
         assertEquals(TrainingGoal.BALANCED.compoundReps, compound.reps)
     }
 
+    @Test
+    fun forwardsOnDeviceProgressAndClearsItAfterwards() = runTest {
+        val reporter = RecordingProgressReporter()
+        val progress = OnDevicePlanProgress(
+            tokensGenerated = 42,
+            expectedTokens = 2048,
+            tokensPerSecond = 7.5
+        )
+        val generator = FakeGenerator(
+            available = true,
+            responses = listOf(THREE_DAY_PLAN),
+            progress = progress
+        )
+
+        engine(generator, progressReporter = reporter).generatePlan(request())
+
+        assertEquals(listOf(progress), reporter.reported)
+        assertNull(reporter.progress.value)
+    }
+
     private fun engine(
         generator: OnDeviceTextGenerator,
         logger: OnDevicePlannerLogger = NoopOnDevicePlannerLogger,
-        catalog: ExerciseCatalog = FakeCatalog
+        catalog: ExerciseCatalog = FakeCatalog,
+        progressReporter: OnDevicePlanProgressReporter = OnDevicePlanProgressReporter.Noop
     ) = LocalLlmWorkoutPlannerEngine(
         generator = generator,
         fallback = DeterministicStub,
         catalog = catalog,
         sanitizer = WeeklyPlanSanitizer(catalog),
-        logger = logger
+        logger = logger,
+        progressReporter = progressReporter
     )
 
     private fun request(
@@ -440,7 +467,8 @@ class LocalLlmWorkoutPlannerEngineTest {
     private class FakeGenerator(
         private val available: Boolean,
         private val responses: List<String> = listOf(""),
-        private val failure: (() -> Unit)? = null
+        private val failure: (() -> Unit)? = null,
+        private val progress: OnDevicePlanProgress? = null
     ) : OnDeviceTextGenerator {
         var generateCalls: Int = 0
             private set
@@ -452,12 +480,32 @@ class LocalLlmWorkoutPlannerEngineTest {
 
         override fun isAvailable(): Boolean = available
 
-        override fun generate(prompt: String, jsonSchema: String?): String {
+        override fun generate(
+            prompt: String,
+            jsonSchema: String?,
+            onProgress: (OnDevicePlanProgress) -> Unit
+        ): String {
             generateCalls++
             lastSchema = jsonSchema
             lastPrompt = prompt
+            progress?.let(onProgress)
             failure?.invoke()
             return responses[(generateCalls - 1).coerceAtMost(responses.lastIndex)]
+        }
+    }
+
+    private class RecordingProgressReporter : OnDevicePlanProgressReporter {
+        private val state = MutableStateFlow<OnDevicePlanProgress?>(null)
+        override val progress: StateFlow<OnDevicePlanProgress?> = state
+        val reported = mutableListOf<OnDevicePlanProgress>()
+
+        override fun report(progress: OnDevicePlanProgress) {
+            reported += progress
+            state.value = progress
+        }
+
+        override fun clear() {
+            state.value = null
         }
     }
 

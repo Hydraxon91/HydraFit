@@ -2,11 +2,13 @@ package com.hydrafit.app
 
 import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
 import com.hydrafit.app.core.domain.engine.BuildRecentWeightsUseCase
+import com.hydrafit.app.core.domain.engine.DefaultOnDevicePlanProgressReporter
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.EngineAvailability
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
 import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
+import com.hydrafit.app.core.domain.engine.OnDevicePlanProgressReporter
 import com.hydrafit.app.core.domain.engine.PeriodizationConfig
 import com.hydrafit.app.core.domain.engine.ProgressWeightsUseCase
 import com.hydrafit.app.core.domain.engine.SuggestWeightsUseCase
@@ -34,13 +36,15 @@ val domainModule: Module = module {
     single { CalculateMuscleFatigueUseCase() }
     single { DeterministicWorkoutPlannerEngine(get()) }
     single { WeeklyPlanSanitizer(get()) }
+    single<OnDevicePlanProgressReporter> { DefaultOnDevicePlanProgressReporter() }
     single {
         LocalLlmWorkoutPlannerEngine(
             generator = get(),
             fallback = get<DeterministicWorkoutPlannerEngine>(),
             catalog = get(),
             sanitizer = get(),
-            logger = get()
+            logger = get(),
+            progressReporter = get()
         )
     }
     single<EngineAvailability> { DefaultEngineAvailability(get<ApiKeyProvider>(), get()) }

@@ -7,6 +7,7 @@ import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
+import com.hydrafit.app.core.domain.engine.OnDevicePlanProgress
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.SuggestWeightsUseCase
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
@@ -133,8 +134,11 @@ class KoinModulesVerificationTest {
     private object FakeOnDeviceTextGenerator : OnDeviceTextGenerator {
         override fun isAvailable(): Boolean = false
 
-        override fun generate(prompt: String, jsonSchema: String?): String =
-            error("Not used by graph verification")
+        override fun generate(
+            prompt: String,
+            jsonSchema: String?,
+            onProgress: (OnDevicePlanProgress) -> Unit
+        ): String = error("Not used by graph verification")
     }
 
     private object FakeWorkoutPlanSourcesRepository : WorkoutPlanSourcesRepository {
