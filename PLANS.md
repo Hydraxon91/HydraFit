@@ -6,7 +6,7 @@
 
 | Item | Status | Next action |
 | --- | --- | --- |
-| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01; see the Roadmap section below. Next: item 3 P3c (logger-data parity); then Priority 1.5 (release pipeline) before the v0.3.0 features; P2d deferred. |
+| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01; see the Roadmap section below. Item 3 (AI planner prompt alignment) complete. Next: Priority 1.5 item 4 (release pipeline & signing); then the v0.3.0 features (items 5–7); P2d deferred. |
 | Roadmap 2b S1 — explicit session ids (domain + database) | DONE (`32b6e30`) | — |
 | Roadmap 2b S2 — legacy session backfill | DONE (`00825ba`) | — |
 | Roadmap 2b S3 — fatigue reads session ids | DONE (`c377f58`) | — |
@@ -20,6 +20,10 @@
 | Item 2 P2e — historical timestamp lowers decay | DONE (`460db36`) | — |
 | Item 3 P3a — shared prompt helper | DONE (`02fe42c`) | — |
 | Item 3 P3b — inject missing context | DONE (`24adbd9`) | — |
+| Item 3 P3c — logger-data parity | DONE (`3ca7361`) | — |
+| Item 3 P3d — reconcile exercise counts | DONE (`c84eb7e`) | — |
+| Item 3 P3e — pin the model id | DONE (`27a79e9`) | — |
+| Item 3 P3f — tests + verification | DONE (`27a79e9`) | — |
 | E (AI prompt alignment) | FOLDED | Superseded by Roadmap Priority 1 item 3. |
 | BACK work chunk 1 — heatmap freshness | DONE (`cf98d66`, Phase A) | — |
 | BACK work chunk 2 — historical workout time entry | FOLDED | Superseded by Roadmap Priority 1 item 2. |
