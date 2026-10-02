@@ -14,6 +14,7 @@ data class ExerciseOption(
 
 data class LoggedSetRow(
     val id: Long,
+    val performedAtMillis: Long,
     val exerciseId: String,
     val exerciseName: String,
     val reps: Int,

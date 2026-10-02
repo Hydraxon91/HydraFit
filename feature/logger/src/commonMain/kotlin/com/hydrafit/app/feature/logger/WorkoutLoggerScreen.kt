@@ -63,6 +63,7 @@ import hydrafit.feature.logger.generated.resources.logger_confirm
 import hydrafit.feature.logger.generated.resources.logger_confirm_all
 import hydrafit.feature.logger.generated.resources.logger_delete_set
 import hydrafit.feature.logger.generated.resources.logger_dismiss
+import hydrafit.feature.logger.generated.resources.logger_edit_time
 import hydrafit.feature.logger.generated.resources.logger_end_session
 import hydrafit.feature.logger.generated.resources.logger_future_time_error
 import hydrafit.feature.logger.generated.resources.logger_log_button
@@ -130,6 +131,7 @@ fun WorkoutLoggerRoute(
         onEndSession = viewModel::endSession,
         onNewSession = viewModel::newSession,
         onBackdatedDateTimePicked = viewModel::onBackdatedDateTimePicked,
+        onCorrectSetTime = viewModel::correctSetTime,
         onClearBackdated = { viewModel.onPerformedAtChanged(null) },
         onForceNewSessionChanged = viewModel::onForceNewSessionChanged,
         nowMillis = viewModel::currentTimeMillis,
@@ -157,6 +159,7 @@ fun WorkoutLoggerScreen(
     onEndSession: () -> Unit,
     onNewSession: () -> Unit,
     onBackdatedDateTimePicked: (Long, Int, Int) -> Boolean,
+    onCorrectSetTime: (Long, Long, Int, Int) -> Boolean,
     onClearBackdated: () -> Unit,
     onForceNewSessionChanged: (Boolean) -> Unit,
     nowMillis: () -> Long,
@@ -168,6 +171,8 @@ fun WorkoutLoggerScreen(
     var showTimePicker by remember { mutableStateOf(false) }
     var pendingDateUtcMillis by remember { mutableStateOf<Long?>(null) }
     var futureTimeError by remember { mutableStateOf(false) }
+    // When set, the date/time picker corrects that row instead of choosing the new-log time.
+    var correctingSetId by remember { mutableStateOf<Long?>(null) }
 
     // One scroll container for the whole screen: a fixed-height picker inside a non-scrolling
     // parent used to push the form and the recent-sets list off short viewports.
@@ -335,6 +340,7 @@ fun WorkoutLoggerScreen(
                 onSetTime = {
                     futureTimeError = false
                     pendingDateUtcMillis = null
+                    correctingSetId = null
                     showDatePicker = true
                 },
                 onUseNow = {
@@ -424,6 +430,16 @@ fun WorkoutLoggerScreen(
                     text = "${row.exerciseName}  ${row.reps} x $weight$warmupSuffix$weekDay",
                     modifier = Modifier.weight(1f)
                 )
+                TextButton(
+                    onClick = {
+                        futureTimeError = false
+                        pendingDateUtcMillis = null
+                        correctingSetId = row.id
+                        showDatePicker = true
+                    }
+                ) {
+                    Text(stringResource(Res.string.logger_edit_time))
+                }
                 TextButton(onClick = { onDeleteSet(row.id) }) {
                     Text(stringResource(Res.string.logger_delete_set))
                 }
@@ -432,13 +448,19 @@ fun WorkoutLoggerScreen(
     }
 
     val backdatedAnchor = state.performedAtMillis ?: nowMillis()
+    val pickerAnchor = correctingSetId
+        ?.let { id -> state.recentSets.firstOrNull { it.id == id }?.performedAtMillis }
+        ?: backdatedAnchor
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = pendingDateUtcMillis
-                ?: localDateStartOfDayUtcMillis(backdatedAnchor, state.utcOffsetMillis)
+                ?: localDateStartOfDayUtcMillis(pickerAnchor, state.utcOffsetMillis)
         )
         DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
+            onDismissRequest = {
+                showDatePicker = false
+                correctingSetId = null
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -453,7 +475,12 @@ fun WorkoutLoggerScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
+                TextButton(
+                    onClick = {
+                        showDatePicker = false
+                        correctingSetId = null
+                    }
+                ) {
                     Text(stringResource(Res.string.logger_cancel))
                 }
             }
@@ -462,32 +489,51 @@ fun WorkoutLoggerScreen(
         }
     }
     if (showTimePicker) {
-        val anchorParts = localDateTimeParts(backdatedAnchor, state.utcOffsetMillis)
+        val anchorParts = localDateTimeParts(pickerAnchor, state.utcOffsetMillis)
         val timePickerState = rememberTimePickerState(
             initialHour = anchorParts.hour,
             initialMinute = anchorParts.minute,
             is24Hour = true
         )
         TimePickerDialog(
-            onDismissRequest = { showTimePicker = false },
+            onDismissRequest = {
+                showTimePicker = false
+                correctingSetId = null
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
                         pendingDateUtcMillis?.let { date ->
-                            futureTimeError = !onBackdatedDateTimePicked(
-                                date,
-                                timePickerState.hour,
-                                timePickerState.minute
-                            )
+                            val target = correctingSetId
+                            futureTimeError = if (target != null) {
+                                !onCorrectSetTime(
+                                    target,
+                                    date,
+                                    timePickerState.hour,
+                                    timePickerState.minute
+                                )
+                            } else {
+                                !onBackdatedDateTimePicked(
+                                    date,
+                                    timePickerState.hour,
+                                    timePickerState.minute
+                                )
+                            }
                         }
                         showTimePicker = false
+                        correctingSetId = null
                     }
                 ) {
                     Text(stringResource(Res.string.logger_confirm))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showTimePicker = false }) {
+                TextButton(
+                    onClick = {
+                        showTimePicker = false
+                        correctingSetId = null
+                    }
+                ) {
                     Text(stringResource(Res.string.logger_cancel))
                 }
             },

@@ -13,9 +13,8 @@ import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.localDayOfWeek
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
-import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
-import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
+import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,9 +25,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class WorkoutLoggerViewModel(
-    private val logWorkoutSet: LogWorkoutSetUseCase,
+    private val logMutations: WorkoutLogMutations,
     private val getWorkoutLog: GetWorkoutLogUseCase,
-    private val deleteWorkoutSet: DeleteWorkoutSetUseCase,
     private val observeAcceptedPlan: ObserveAcceptedPlanUseCase,
     private val exerciseCatalog: ExerciseCatalog,
     private val timeProvider: TimeProvider,
@@ -78,7 +76,7 @@ class WorkoutLoggerViewModel(
         }
         viewModelScope.launch {
             // Active-session state is derived from the persisted open session, so it survives a restart.
-            logWorkoutSet.observeOpenSession().collectLatest { session ->
+            logMutations.observeOpenSession().collectLatest { session ->
                 _state.update { it.copy(activeSession = session) }
             }
         }
@@ -179,6 +177,30 @@ class WorkoutLoggerViewModel(
     /** The current wall-clock time, used to seed the backdated pickers. */
     fun currentTimeMillis(): Long = timeProvider.nowMillis()
 
+    /**
+     * Applies a picked local date and wall-clock time to an existing logged set. Returns false when
+     * the resulting instant is in the future; the set is left unchanged in that case.
+     */
+    fun correctSetTime(
+        setId: Long,
+        dateStartOfDayUtcMillis: Long,
+        hour: Int,
+        minute: Int
+    ): Boolean {
+        val millis = pickedLocalDateTimeToEpochMillis(
+            dateStartOfDayUtcMillis,
+            hour,
+            minute,
+            timeProvider.utcOffsetMillis()
+        )
+        if (millis > timeProvider.nowMillis()) return false
+        viewModelScope.launch {
+            logMutations.correctTime(setId, millis)
+            refreshRecentSets()
+        }
+        return true
+    }
+
     /** Reveals the weight field for a bodyweight exercise so a weighted variant can be logged. */
     fun onRevealWeight() {
         _state.update { it.copy(weightRevealed = true) }
@@ -215,7 +237,7 @@ class WorkoutLoggerViewModel(
 
     fun deleteSet(id: Long) {
         viewModelScope.launch {
-            deleteWorkoutSet(id)
+            logMutations.delete(id)
             refreshRecentSets()
         }
     }
@@ -264,15 +286,15 @@ class WorkoutLoggerViewModel(
     private suspend fun logResolved(set: WorkoutSet, current: WorkoutLoggerUiState) {
         val utcOffsetMillis = timeProvider.utcOffsetMillis()
         if (current.performedAtMillis == null) {
-            logWorkoutSet(set, utcOffsetMillis)
+            logMutations(set, utcOffsetMillis)
             return
         }
         val cached = resolvedBackdatedSessionId
         if (cached != null) {
-            logWorkoutSet.logInto(set, cached)
+            logMutations.logInto(set, cached)
             return
         }
-        val session = logWorkoutSet.logBackdated(set, utcOffsetMillis, current.forceNewSession)
+        val session = logMutations.logBackdated(set, utcOffsetMillis, current.forceNewSession)
         if (session.id != current.activeSession?.id) {
             resolvedBackdatedSessionId = session.id
         }
@@ -280,13 +302,13 @@ class WorkoutLoggerViewModel(
 
     /** Closes the open session; the next logged set auto-starts a new one. */
     fun endSession() {
-        viewModelScope.launch { logWorkoutSet.endSession(timeProvider.nowMillis()) }
+        viewModelScope.launch { logMutations.endSession(timeProvider.nowMillis()) }
     }
 
     /** Closes the current session and immediately starts a new one. */
     fun newSession() {
         viewModelScope.launch {
-            logWorkoutSet.startNewSession(
+            logMutations.startNewSession(
                 startedAtMillis = timeProvider.nowMillis(),
                 utcOffsetMillis = timeProvider.utcOffsetMillis()
             )
@@ -299,7 +321,7 @@ class WorkoutLoggerViewModel(
         updateTodayPlan(acceptedPlan)
         // Opening the logger is an "open time": expire a session that rolled into a new day or went idle.
         viewModelScope.launch {
-            logWorkoutSet.expireOpenSession(
+            logMutations.expireOpenSession(
                 nowMillis = timeProvider.nowMillis(),
                 utcOffsetMillis = timeProvider.utcOffsetMillis()
             )
@@ -420,6 +442,7 @@ class WorkoutLoggerViewModel(
             .map { set ->
                 LoggedSetRow(
                     id = set.id,
+                    performedAtMillis = set.performedAtMillis,
                     exerciseId = set.exerciseId,
                     exerciseName = exerciseNames[set.exerciseId] ?: set.exerciseId,
                     reps = set.reps,

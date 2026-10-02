@@ -25,6 +25,7 @@
     <string name="logger_dismiss">Dismiss</string>
     <string name="logger_warmup_suffix">(warm-up)</string>
     <string name="logger_delete_set">Delete</string>
+    <string name="logger_edit_time">Edit time</string>
     <string name="logger_weight_none">-</string>
     <string name="logger_session_active">Session active</string>
     <string name="logger_session_none">No active session</string>

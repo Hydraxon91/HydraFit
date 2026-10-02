@@ -15,6 +15,7 @@ import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
@@ -22,6 +23,7 @@ import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.SessionConfig
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
@@ -646,13 +648,90 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun correctingASetTimeRoutesToTheRepository() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = 5,
+                    weightKg = 100.0,
+                    performedAtMillis = 5_000L
+                )
+            )
+        )
+        val viewModel = viewModel(repository = repository, timeMillis = 100_000_000L)
+        advanceUntilIdle()
+
+        val dateStartOfDay = localDateStartOfDayUtcMillis(5_000L, 0L)
+        val accepted = viewModel.correctSetTime(1L, dateStartOfDay, 12, 0)
+        advanceUntilIdle()
+
+        val expected = pickedLocalDateTimeToEpochMillis(dateStartOfDay, 12, 0, 0L)
+        assertTrue(accepted)
+        assertEquals(expected, repository.all().single().performedAtMillis)
+    }
+
+    @Test
+    fun reSortsRecentSetsAfterATimeCorrection() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = 5,
+                    weightKg = 100.0,
+                    performedAtMillis = 2_000L
+                ),
+                WorkoutSet(
+                    id = 2L,
+                    exerciseId = "bench-press",
+                    reps = 8,
+                    weightKg = 60.0,
+                    performedAtMillis = 1_000L
+                )
+            )
+        )
+        val viewModel = viewModel(repository = repository, timeMillis = 100_000_000L)
+        advanceUntilIdle()
+        assertEquals(listOf(1L, 2L), viewModel.state.value.recentSets.map { it.id })
+
+        viewModel.correctSetTime(1L, 0L, 0, 0)
+        advanceUntilIdle()
+
+        assertEquals(listOf(2L, 1L), viewModel.state.value.recentSets.map { it.id })
+    }
+
+    @Test
+    fun rejectsAFutureTimeOnASetCorrection() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = 5,
+                    weightKg = 100.0,
+                    performedAtMillis = 1_000L
+                )
+            )
+        )
+        val viewModel = viewModel(repository = repository, timeMillis = 5_000L)
+        advanceUntilIdle()
+
+        val accepted = viewModel.correctSetTime(1L, 0L, 0, 10)
+        advanceUntilIdle()
+
+        assertFalse(accepted)
+        assertEquals(1_000L, repository.all().single().performedAtMillis)
+    }
+
+    @Test
     fun reDerivesTodaysFocusOnResume() = runTest(dispatcher) {
         var now = 1_000L // Thursday: the plan's Monday day has no focus.
         val repository = FakeWorkoutLogRepository()
         val viewModel = WorkoutLoggerViewModel(
-            logWorkoutSet = logWorkoutSetUseCase(repository, FakeWorkoutSessionRepository()),
+            logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
             getWorkoutLog = GetWorkoutLogUseCase(repository),
-            deleteWorkoutSet = DeleteWorkoutSetUseCase(repository),
             observeAcceptedPlan = ObserveAcceptedPlanUseCase(
                 FakePlanHistoryRepository(acceptedPlan(listOf("plank")))
             ),
@@ -1121,9 +1200,8 @@ class WorkoutLoggerViewModelTest {
         catalog: ExerciseCatalog = FakeExerciseCatalog,
         weightUnit: WeightUnit = WeightUnit.KG
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
-        logWorkoutSet = logWorkoutSetUseCase(repository, sessionRepository),
+        logMutations = logMutations(repository, sessionRepository),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
-        deleteWorkoutSet = DeleteWorkoutSetUseCase(repository),
         observeAcceptedPlan = ObserveAcceptedPlanUseCase(history),
         exerciseCatalog = catalog,
         timeProvider = TimeProvider { timeMillis },
@@ -1135,24 +1213,27 @@ class WorkoutLoggerViewModelTest {
         sessionRepository: WorkoutSessionRepository,
         now: () -> Long
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
-        logWorkoutSet = logWorkoutSetUseCase(repository, sessionRepository),
+        logMutations = logMutations(repository, sessionRepository),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
-        deleteWorkoutSet = DeleteWorkoutSetUseCase(repository),
         observeAcceptedPlan = ObserveAcceptedPlanUseCase(FakePlanHistoryRepository(null)),
         exerciseCatalog = FakeExerciseCatalog,
         timeProvider = TimeProvider { now() },
         weightUnitRepository = FakeWeightUnitRepository(WeightUnit.KG)
     )
 
-    private fun logWorkoutSetUseCase(
+    private fun logMutations(
         repository: WorkoutLogRepository,
         sessionRepository: WorkoutSessionRepository
-    ) = LogWorkoutSetUseCase(
-        repository = repository,
-        startWorkoutSession = StartWorkoutSessionUseCase(sessionRepository),
-        endWorkoutSession = EndWorkoutSessionUseCase(sessionRepository),
-        observeOpenWorkoutSession = ObserveOpenWorkoutSessionUseCase(sessionRepository),
-        config = SessionConfig()
+    ) = WorkoutLogMutations(
+        logWorkoutSet = LogWorkoutSetUseCase(
+            repository = repository,
+            startWorkoutSession = StartWorkoutSessionUseCase(sessionRepository),
+            endWorkoutSession = EndWorkoutSessionUseCase(sessionRepository),
+            observeOpenWorkoutSession = ObserveOpenWorkoutSessionUseCase(sessionRepository),
+            config = SessionConfig()
+        ),
+        deleteWorkoutSet = DeleteWorkoutSetUseCase(repository),
+        correctWorkoutSetTime = CorrectWorkoutSetTimeUseCase(repository)
     )
 
     private fun acceptedPlan(dayZeroExerciseIds: List<String>, suggestedWeightKg: Double? = null) =
