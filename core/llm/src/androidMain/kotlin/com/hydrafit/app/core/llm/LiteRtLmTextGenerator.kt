@@ -81,8 +81,10 @@ class LiteRtLmTextGenerator(
         val startedNanos = System.nanoTime()
         val constrained = jsonSchema != null && constrainedSupported
 
-        fun report(nativeTokens: Int) {
-            val tokens = maxOf(nativeTokens, latestChars.get() / CHARS_PER_TOKEN)
+        // Live estimate from the streamed text: the runtime token counter is deliberately not read
+        // from inside the native callback (that re-entry stalled generation after the first chunk).
+        fun report() {
+            val tokens = latestChars.get() / CHARS_PER_TOKEN
             val seconds = (System.nanoTime() - startedNanos) / NANOS_PER_SECOND
             onProgress(
                 OnDevicePlanProgress(
@@ -94,7 +96,7 @@ class LiteRtLmTextGenerator(
         }
 
         // Show the progress line immediately; the first streamed chunk can be tens of seconds away.
-        report(nativeTokens = 0)
+        report()
 
         val heartbeat = Executors.newSingleThreadScheduledExecutor { runnable ->
             Thread(runnable, "on-device-progress").apply { isDaemon = true }
@@ -103,7 +105,7 @@ class LiteRtLmTextGenerator(
             {
                 // Reads only the character estimate, never the native conversation.
                 runCatching {
-                    report(nativeTokens = 0)
+                    report()
                     Log.d(
                         TAG,
                         "On-device progress: ${latestChars.get()} chars, " +
@@ -127,7 +129,7 @@ class LiteRtLmTextGenerator(
                     builder.append(chunk)
                 }
                 latestChars.set(builder.length)
-                report(runCatching { conversation.getTokenCount() }.getOrDefault(0))
+                report()
             }
 
             override fun onDone() {
