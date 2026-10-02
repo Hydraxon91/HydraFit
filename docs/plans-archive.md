@@ -514,3 +514,91 @@ once real load history exists. No threshold is changed without explicit approval
 - Nothing new is persisted in Phase B, so no migration is required.
 - Phase C's approved C1/C2 need **no schema change**; only the deferred C3 (`rir`) would add a `.sqm`.
 - The heatmap UI contract (`0..1` per muscle) and the planner’s `PlanRequest.muscleFatigue` contract are unchanged, so no engine/Koin changes are implied by the algorithm itself.
+
+## 2026-10-02 — v0.2.0 feature cycle, release pipeline, and dropped item
+
+Archived from PLANS.md on 2026-10-02. The v0.2.0 scope (Roadmap Priority 1) and the release
+pipeline (Priority 1.5) are complete, and item 5 was dropped. Reproduced verbatim from PLANS.md.
+The open P2d sub-phase and the v0.3.0/post-0.3.0 items remain in PLANS.md.
+
+### 1. Recent Set Quick-Fill (Logger)
+
+**Goal:** tapping a recent set row populates the input fields with that set's exercise, reps, and weight.
+**Phases:**
+- **P1a — row data.** Add `exerciseId` and `rir` to `LoggedSetRow` (`WorkoutLoggerUiState.kt:13`); map both in `refreshRecentSets` (`WorkoutLoggerViewModel.kt:298`). `WorkoutSet` already carries them; only the mapping drops them today.
+- **P1b — fill action.** Add `onRecentSetSelected(row)` to the VM: set `selectedExerciseId`/`reps`, convert weight with `formatWeight(unit.kilogramsToDisplay(...))`, restore `isWarmup`/`rir`, and reveal the weight field when a weight exists. Reuse a private conversion helper shared with `prefillFromLastSet` (`WorkoutLoggerViewModel.kt:95`). Must bypass the accepted-plan suggestion.
+- **P1c — UI.** Thread `onRecentSetSelected` through `WorkoutLoggerRoute`/screen and add `Modifier.clickable` to the recent-set row (`WorkoutLoggerScreen.kt:311`); keep the Delete button. Add a content-description string only if needed.
+- **P1d — tests.** KG and LB fill, bodyweight (null weight) leaves the field hidden, quick-fill wins over a plan suggestion, warmup/RIR restored.
+**Files:** `feature/logger` UiState/VM/Screen/strings + `WorkoutLoggerViewModelTest.kt`.
+**Constraints:** no schema, DI, or Koin change.
+
+### 2. Historical Entry Timestamping (Logger)
+
+**Goal:** an explicit performed-at date/time when logging past sets, defaulting to now for live sets; plus correction of an existing row's time through a separate affordance (tap remains quick-fill).
+**Decisions:** a backdated set keeps **today's accepted plan** snapshot for week/cycle/day; the explicit time persists until changed (a draft batch shares it).
+**Phases:**
+- **P2a — time math.** Add pure local civil→epoch helpers in `core/domain/.../time` (the `daysFromCivil` inverse of the existing private `civilFromDays` in `IsoDate.kt`, plus local→UTC using `TimeProvider.utcOffsetMillis()`), with `commonTest` tests. No `kotlinx-datetime`.
+- **P2b — state + stamping.** Add `performedAtMillis: Long?` (null = now) and `onPerformedAtChanged` to the VM; replace both `timeProvider.nowMillis()` stamp sites (`WorkoutLoggerViewModel.kt:172`, `:256`) with `current.performedAtMillis ?: timeProvider.nowMillis()`; keep week/cycle/day from today's plan.
+- **P2c — picker UI.** Add the time control/dialog (Material3 `DatePicker`/`TimePicker` if the CMP artifact exposes them, else an `AlertDialog` with validated numeric fields), the visible "backdated" indicator, and localized strings. Reject future times (the VM returns false). Verify picker API availability during the build. **P2c must not be used with real data on the phone until S5 lands:** with P2c alone a backdated time flows through the existing auto-resolve path, which can close the live open session or make a past-anchored session the open one.
+- **P2d — row correction (separately gated; larger than it looks).** Add `updateSetPerformedAt` to `WorkoutLog.sq` (query only; no schema change), a repository method + impl, and a focused `CorrectWorkoutSetTimeUseCase`, bound in `domainModule` and covered by the Koin verification. Reached from the row's separate time-edit control. **Blast radius ~15 files:** the new repository method breaks every `WorkoutLogRepository` fake (7 fakes across 6 test files: `WorkoutLoggerViewModelTest`, `SplitBuilderViewModelTest`, `LogWorkoutSetUseCaseTest`, `DeleteWorkoutSetUseCaseTest`, `GetWorkoutLogUseCaseTest`, `FatigueHeatmapViewModelTest`); `WorkoutLoggerViewModel` would gain an 8th constructor param, so the log-mutation use cases must be grouped first (AGENTS ≤6-param rule); the date/time picker state is currently single-purpose (new-log only), so it needs a target (draft time vs a specific row id); and the recent-set row already uses tap (quick-fill) plus a Delete button, so a third affordance is required. Decide whether a time-only correction re-segments the row's `sessionId` or leaves it in place.
+- **P2e — tests.** Historical timestamp persists and lowers decay; live logging still defaults to now; a draft batch shares the explicit time; timestamp-only correction preserves reps/weight/warmup/snapshot/rir; correction use-case and repository tests.
+**Files:** `core/domain/.../time`, `workout/WorkoutLogRepository.kt`, new use case, `core/database/.../WorkoutLog.sq` + `SqlDelightWorkoutLogRepository.kt`, `feature/logger` UiState/VM/Screen/strings, tests.
+**Constraints:** `WorkoutLoggerViewModel` currently has 7 constructor params; P2d must not simply append another — group or justify before adding (AGENTS oversized-constructor rule).
+**Resolve before implementing (not defaulted):** P2c picker API fallback if Material3 pickers are unavailable in the CMP artifact; P2b whether a draft batch shares the explicit time or resets to now after each log; P2d whether existing-row correction ships in this release.
+**Depends on:** item 2b (explicit session ids). Backdated logging must attach to a session id; it must not fall back to wall-clock segmentation.
+
+### 2b. Explicit Session Ids (Open decision 5 — resolved 2026-10-02)
+
+**Decision:** explicit session ids are the standard segmentation mechanism for **all** future logging, not only historical/backdated entries. The 2h gap heuristic is kept **only** as a one-time, idempotent backfill for pre-existing rows; runtime fatigue segmentation reads session ids only.
+**Why:** the 2h heuristic's own failure modes are real — a mid-session interruption longer than 2h is mis-split and overestimates the next block's response, and once backdating ships, approximate re-entered timestamps silently cross or miss the threshold with no visible signal. "Sometimes silently wrong" is worse than "sometimes one extra tap."
+**Design (normal, real-time logging):**
+- Persist a `workoutSession(id, startedAtMillis, endedAtMillis NULL, localEpochDay)` row and stamp `workoutSet.sessionId` on every logged set.
+- **Auto-start on the first set:** logging with no open session creates one anchored to the set's `performedAt`; no extra tap in the common case.
+- **Day rollover:** a set whose local day differs from the open session's local day auto-starts a new session and closes the prior one. This is a coarse, visible boundary and, with the auto-close below, means an open session can never span two local days.
+- **Manual controls:** "End session" closes the open session (the next set auto-starts a new one); "New session" closes the current and opens a new one immediately. Active-session state is persisted so it survives app restarts.
+- **Lazy inactivity auto-close:** an open session closes when the next set arrives more than a generous `sessionInactivityWindow` after its last set (**default 4h**, tunable), and a new session auto-starts. Evaluated only at log/open time — there is **no background timer** — and because the active session is shown in the UI, the split is visible, never silent. This replaces the old 2h runtime heuristic (which only survives as the legacy backfill).
+- **Backdated logging (item 2) reuses the same rule:** an explicit historical `performedAt` attaches to the open session when the local day matches and otherwise auto-starts a session anchored at the chosen time; the picker shows the target session plus a "new session" toggle. No backdated-only path.
+**Legacy migration:** additive `24.sqm` — `ALTER TABLE workoutSet ADD COLUMN sessionId TEXT` (SQLite `ADD COLUMN` is supported on minSdk 24) + `CREATE TABLE workoutSession`. A one-time idempotent startup backfill (same pattern as the `movementPattern` backfill) assigns session ids to null rows using the 2h gap heuristic and inserts the matching sessions. After that, only `sessionId` drives segmentation; a defensive gap fallback remains for any residual null rows.
+**Phases:**
+- **S1 — domain + database.** `WorkoutSet.sessionId`, `LoggedSet.sessionId`, `WorkoutSession` model, `WorkoutSessionRepository` + use cases, `24.sqm`, `WorkoutLog.sq`/new `WorkoutSession.sq` + repository impls; unit/migration tests; Koin verify.
+- **S2 — backfill.** Idempotent startup backfill of legacy rows via the 2h heuristic; repository/migration tests.
+- **S3 — fatigue.** `FatigueCalculator` resets the within-session stimulus `V` when `sessionId` changes (ordered by timestamp) instead of on a gap; rework the session-reset test; add a legacy-null fallback test.
+  - Map `sessionId` in `loggedSetsFlow()` (S1 gap), with a test that `loggedSets()` and `loggedSetsFlow()` agree.
+- **S4 — logger.** Active-session state + auto-start/day-rollover/End/New controls; stamp `sessionId` in `log()`/`logDraft()`; strings + `WorkoutLoggerViewModelTest`. The VM already has 7 constructor params — group the session collaborator into an existing use case rather than appending.
+- **S5 — item 2 integration.** Time picker attaches the backdated set to the chosen/opened session; tests. Backdated sets are written into a session that is created **closed** (`endedAtMillis` = the set's time) or reused **only if it is the already-open session on the same local day**; a backdated session must **never close or replace the live open session**. The attach/inactivity check must be defined for a chosen time **before the open session's start** (the current `performedAt - lastSetAt` gap is negative there, so it must not be mistaken for "within the window"); review `LogWorkoutSetUseCase.resolveSession` before wiring S5.
+**Files:** `core/domain/.../workout/{WorkoutSet,LoggedSet,WorkoutLogRepository,WorkoutSessionRepository}.kt` + use cases; `core/database/.../{WorkoutLog.sq,WorkoutSession.sq,24.sqm,SqlDelight*Repository}.kt`; `core/domain/.../fatigue/{FatigueCalculator,LoggedSet}.kt`; `feature/logger` VM/state/screen/strings; `shared/DomainModule.kt` + `KoinModulesVerificationTest.kt`; tests.
+**Ordering:** S1–S4 can land before item 2; S5 is the item 2 integration.
+
+### 3. AI Planner Prompt Alignment + logger-data parity
+
+**Goal:** both model-backed engines use the same planner inputs the Deterministic engine does, and the AI history reflects every signal the Logger captures, so model plans need less post-hoc correction.
+**Decisions:** one shared count source of truth (prompts/schemas request 4–6, validators accept ≥2); add **RIR**, **bodyweight/weightless sets**, and the **per-set week/day snapshot** to the AI history; warm-ups stay excluded; `gemini-3.1-flash-lite` confirmed on the AI Studio rate-limit docs.
+**Phases:**
+- **P3a — shared prompt helper.** Extract the duplicated prompt blocks (equipment line, fatigue, deload instruction, volume-reps guidance, recent-weights, progressed-weights) into one `:core:domain/engine` helper, with `commonTest` coverage; both engines call it.
+- **P3b — inject missing context.** Surface `equipmentMaxWeights` (per-equipment caps) and `weekNumber`/`cycleNumber`/`isDeload` context in both prompts.
+- **P3c — logger-data parity.** Extend `WeightHistoryEntry` (nullable `weightKg`, add `rir`, `weekNumber`, `dayIndex`) and `BuildRecentWeightsUseCase` to keep bodyweight reps-only sets and carry RIR + snapshot; render them in both prompts. Warm-ups remain excluded by design.
+- **P3d — reconcile exercise counts.** Add shared constants in `:core:domain` (e.g. floor `2`, target `4`–`6`); `WeeklyPlanSanitizer`/`PlanVarietyEnforcer` use the floor, prompts/schemas the target; update the asserting tests.
+- **P3e — pin the model id (precautionary).** Nothing changed on Google's side; the id is already confirmed on the AI Studio page. Add a test asserting the generated URL/model id (`GeminiConfig.kt:4`, `GeminiWorkoutPlannerEngine.kt:48`) so a future edit cannot silently break every call. Cheap, rides along with the prompt work, droppable.
+- **P3f — tests + verification.** New prompt-content tests (equip cap, week/cycle/deload, parity fields); existing OOM→deterministic and sanitizer→deterministic fallbacks stay green; run Koin verification if any binding changes.
+**Files:** `core/network/GeminiWorkoutPlannerEngine.kt` + test, `core/llm/LocalLlmWorkoutPlannerEngine.kt` + test, `core/domain/engine` helper + `BuildRecentWeightsUseCase.kt` + `WeightHistoryEntry`, `WeeklyPlanSanitizer.kt`, `PlanVarietyEnforcer.kt`, `GeminiConfig.kt`.
+**Out of scope:** re-importing/re-packaging the on-device `.litertlm` (migrations do not touch `filesDir`).
+
+### 4. CI/CD Pipeline & Signing (Priority 1.5)
+
+**Why now scheduled:** promoted ahead of the v0.3.0 features so a distributable build exists before new feature work starts; previously deferred for v0.1.0 (fast-path, no signing).
+**This is a Major Infrastructure Change — each phase individually gated.**
+**Goal:** signed release APK on tags, a nightly build, and `local.properties`/secret-based signing.
+**Decisions:** build the full set; `versionName` from the tag, `versionCode` = GitHub run number.
+**Phases:**
+- **C1 — signing config. DONE (`6c77350`).** Add `signingConfigs` + release `buildType` wiring in `androidApp/build.gradle.kts`, reading `RELEASE_KEYSTORE_*` from `local.properties` with a `providers.environmentVariable(...)` fallback (configuration-cache friendly); update `local.properties.template`.
+- **C2 — nightly workflow. DONE (`8727b87`).** New `schedule:` workflow with a concurrency group distinct from `build-and-test.yml`; build/tests + debug artifact.
+- **C3 — release workflow. DONE (`ad0c92d`).** `release.yml` on `v*.*.*`, `permissions: contents: write`, decode the keystore secret to a temp file, build the signed release APK, attach to a GitHub Release.
+- **C4 — version injection. DONE (`b57001c`).** `versionName` from the tag and `versionCode` from the run number, keeping local defaults.
+- **C5 — documentation. DONE (`54069fb`).** Document the required secrets/keys in `local.properties.template` + README.
+- **C6 — update AGENTS.md. DONE (`060de19`).** Once signing, nightly, and release work, record them in `AGENTS.md` (pipeline stages, secret names, version strategy) so future sessions know the release flow.
+**Files:** `.github/workflows/*`, `androidApp/build.gradle.kts`, `local.properties.template`, `README.md`, `AGENTS.md`.
+**Gating:** every phase touches CI/CD or signing and is individually gated; `git push` needs its own approval.
+
+### 5. Potential PR with Safety Margin — DROPPED (2026-10-02)
+
+**Dropped.** As specified it was `max(Epley e1RM over the last N sets) × 0.95`, which is neither evidence-based nor new information: the flat ~5% margin is uncited (loads elsewhere are grounded in the cited NSCA reps→%1RM table × RIR buffer), `max(e1RM)` is dominated by the highest-rep — least reliable — set because the estimate filter allows reps to 15, it ignores recency, and it duplicates the existing `max(logged Epley, manual PR)` baseline plus the NSCA suggested-weight path. It also conflicts with the "never present an unmeasured guess as data" principle (item 9). If an explicit estimated-1RM display is ever wanted, it should be low-rep (e.g. reps ≤ 5), unbuffered, and clearly labeled an estimate — a separate, smaller feature.
