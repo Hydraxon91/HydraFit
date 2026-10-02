@@ -4,6 +4,7 @@ import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.PlannerExerciseCounts
 import com.hydrafit.app.core.domain.engine.PlannerPromptFragments
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SplitResolver
@@ -154,7 +155,10 @@ class GeminiWorkoutPlannerEngine(
             appendLine(PlannerPromptFragments.periodizationLine(request))
             PlannerPromptFragments.deloadInstruction(request)?.let { appendLine(it) }
             appendLine("Choose ONLY exerciseId values from this list: $exerciseIds")
-            appendLine("Give every day 4 to 6 exercises.")
+            appendLine(
+                "Give every day ${PlannerExerciseCounts.TARGET_MIN_PER_DAY} to " +
+                    "${PlannerExerciseCounts.TARGET_MAX_PER_DAY} exercises."
+            )
             appendLine(
                 "Give each day a different focus from the schedule above, and do not reuse a " +
                     "compound lift across days; isolation exercises may repeat."
@@ -221,8 +225,8 @@ class GeminiWorkoutPlannerEngine(
                         ),
                         "exercises" to GeminiSchema(
                             type = "ARRAY",
-                            minItems = MIN_DAY_EXERCISES,
-                            maxItems = MAX_DAY_EXERCISES,
+                            minItems = PlannerExerciseCounts.TARGET_MIN_PER_DAY,
+                            maxItems = PlannerExerciseCounts.TARGET_MAX_PER_DAY,
                             items = GeminiSchema(
                                 type = "OBJECT",
                                 properties = exerciseSchemaProperties(request),
@@ -251,8 +255,6 @@ class GeminiWorkoutPlannerEngine(
         const val MAX_RETRIES = 2
         const val BASE_BACKOFF_MILLIS = 1_000L
         const val MAX_BACKOFF_MILLIS = 8_000L
-        const val MIN_DAY_EXERCISES = 4
-        const val MAX_DAY_EXERCISES = 6
 
         val TRANSIENT_STATUS_CODES = setOf(408, 429, 500, 502, 503, 504)
     }

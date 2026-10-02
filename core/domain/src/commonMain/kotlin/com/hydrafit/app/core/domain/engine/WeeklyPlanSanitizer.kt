@@ -59,7 +59,7 @@ class WeeklyPlanSanitizer(
         }
 
         if (days.size < request.daysPerWeek) return null
-        if (days.any { it.exercises.size < MIN_EXERCISES_PER_DAY }) return null
+        if (days.any { it.exercises.size < PlannerExerciseCounts.FLOOR_PER_DAY }) return null
         val trimmed = plan.copy(
             days = days.take(request.daysPerWeek)
                 .mapIndexed { index, day -> day.copy(dayIndex = index) },
@@ -85,7 +85,6 @@ class WeeklyPlanSanitizer(
     }
 
     companion object {
-        const val MIN_EXERCISES_PER_DAY = 2
         const val MAX_SUGGESTED_WEIGHT_KG = 1_000.0
     }
 }

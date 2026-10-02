@@ -3,6 +3,7 @@ package com.hydrafit.app.core.llm
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.PlannerExerciseCounts
 import com.hydrafit.app.core.domain.engine.PlannerPromptFragments
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SplitResolver
@@ -73,7 +74,8 @@ class LocalLlmWorkoutPlannerEngine(
 
     private fun correction(request: PlanRequest): String =
         "\nYour previous answer was rejected. Return exactly ${request.daysPerWeek} day items, " +
-            "and give every day 4 to 6 exercises by their list number."
+            "and give every day ${PlannerExerciseCounts.TARGET_MIN_PER_DAY} to " +
+            "${PlannerExerciseCounts.TARGET_MAX_PER_DAY} exercises by their list number."
 
     /**
      * The model returns each exercise as its 1-based number from the prompt list. Reading numbers
@@ -113,7 +115,10 @@ class LocalLlmWorkoutPlannerEngine(
             focusSequence.forEachIndexed { index, focus ->
                 appendLine("Day ${index + 1}: ${focus.name}")
             }
-            appendLine("Each \"exercises\" list has 4 to 6 different exercise items.")
+            appendLine(
+                "Each \"exercises\" list has ${PlannerExerciseCounts.TARGET_MIN_PER_DAY} to " +
+                    "${PlannerExerciseCounts.TARGET_MAX_PER_DAY} different exercise items."
+            )
             appendLine(
                 "Each exercise item has \"exerciseId\", \"sets\" and \"reps\". " +
                     "Use $sets sets for compound lifts and $accessorySets sets for accessory " +
@@ -169,7 +174,9 @@ class LocalLlmWorkoutPlannerEngine(
                 appendLine(PlannerPromptFragments.PROGRESSED_WEIGHTS_NOTE)
             }
             appendLine(
-                "Produce exactly $days day items and 4 to 6 exercises in every day. " +
+                "Produce exactly $days day items and " +
+                    "${PlannerExerciseCounts.TARGET_MIN_PER_DAY} to " +
+                    "${PlannerExerciseCounts.TARGET_MAX_PER_DAY} exercises in every day. " +
                     "The example below only shows the shape; do not copy its counts:"
             )
             appendLine("""{"days":[<day>, <day>, ...]}""")
@@ -182,8 +189,6 @@ class LocalLlmWorkoutPlannerEngine(
 
     private companion object {
         const val MAX_ATTEMPTS = 2
-        const val MIN_EXERCISES_PER_DAY = 4
-        const val MAX_EXERCISES_PER_DAY = 6
 
         const val DAY_SHAPE =
             """<day> = {"focus":"<PUSH|PULL|LEGS|UPPER|LOWER|FULL_BODY>",""" +
@@ -244,8 +249,8 @@ class LocalLlmWorkoutPlannerEngine(
                 "focus": {"type": "string", "enum": ["$focus"]},
                 "exercises": {
                   "type": "array",
-                  "minItems": $MIN_EXERCISES_PER_DAY,
-                  "maxItems": $MAX_EXERCISES_PER_DAY,
+                  "minItems": ${PlannerExerciseCounts.TARGET_MIN_PER_DAY},
+                  "maxItems": ${PlannerExerciseCounts.TARGET_MAX_PER_DAY},
                   "items": {
                     "type": "object",
                     "properties": {

@@ -35,7 +35,7 @@ class PlanVarietyEnforcer {
                 val compound = isCompound(planned.exerciseId)
                 !compound || usedCompoundIds.add(planned.exerciseId)
             }
-            if (exercises.size < MIN_EXERCISES_PER_DAY) return null
+            if (exercises.size < PlannerExerciseCounts.FLOOR_PER_DAY) return null
             days += day.copy(exercises = exercises)
         }
 
@@ -44,9 +44,5 @@ class PlanVarietyEnforcer {
             days = days.take(request.daysPerWeek)
                 .mapIndexed { index, day -> day.copy(dayIndex = index) }
         )
-    }
-
-    companion object {
-        const val MIN_EXERCISES_PER_DAY = 2
     }
 }
