@@ -6,7 +6,8 @@
 
 | Item | Status | Next action |
 | --- | --- | --- |
-| Roadmap v0.2.0 → v0.3.0 | PLANNED | Approved 2026-10-01; see the Roadmap section below. Next: Priority 1 item 1 (P1a). |
+| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01; see the Roadmap section below. Next: Priority 1 item 2b S2 (legacy backfill). Item 1 (P1a) still open. |
+| Roadmap 2b S1 — explicit session ids (domain + database) | DONE (`32b6e30`) | S2: idempotent legacy 2h-gap backfill. |
 | E (AI prompt alignment) | FOLDED | Superseded by Roadmap Priority 1 item 3. |
 | BACK work chunk 1 — heatmap freshness | DONE (`cf98d66`, Phase A) | — |
 | BACK work chunk 2 — historical workout time entry | FOLDED | Superseded by Roadmap Priority 1 item 2. |
