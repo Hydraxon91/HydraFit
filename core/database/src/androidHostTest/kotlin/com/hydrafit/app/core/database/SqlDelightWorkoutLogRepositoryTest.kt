@@ -3,9 +3,15 @@ package com.hydrafit.app.core.database
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.fatigue.FatigueCalculator
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.fatigue.MuscleInvolvement
+import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
+import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.SessionConfig
+import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutSet as DomainWorkoutSet
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -21,6 +27,7 @@ class SqlDelightWorkoutLogRepositoryTest {
     private lateinit var driver: SqlDriver
     private lateinit var database: HydraFitDatabase
     private lateinit var repository: SqlDelightWorkoutLogRepository
+    private lateinit var logWorkoutSet: LogWorkoutSetUseCase
 
     @BeforeTest
     fun setUp() {
@@ -29,6 +36,14 @@ class SqlDelightWorkoutLogRepositoryTest {
         database = HydraFitDatabase(driver)
         SeedExerciseCatalog(database).seed()
         repository = SqlDelightWorkoutLogRepository(database)
+        val sessions = SqlDelightWorkoutSessionRepository(database)
+        logWorkoutSet = LogWorkoutSetUseCase(
+            repository = repository,
+            startWorkoutSession = StartWorkoutSessionUseCase(sessions),
+            endWorkoutSession = EndWorkoutSessionUseCase(sessions),
+            observeOpenWorkoutSession = ObserveOpenWorkoutSessionUseCase(sessions),
+            config = SessionConfig()
+        )
     }
 
     @AfterTest
@@ -372,10 +387,46 @@ class SqlDelightWorkoutLogRepositoryTest {
         assertEquals("session-b", repository.loggedSets().single().sessionId)
     }
 
+    @Test
+    fun historicalPerformedAtLowersTheFatigueScoreAtAFixedNow() = runTest {
+        val now = 30L * DAY
+        val chosen = now - 7L * DAY
+        val muscle = MuscleGroup.CHEST
+
+        // Live path: the set is inserted with performedAt == now through the log use case.
+        logWorkoutSet(
+            set(exerciseId = "barbell-bench-press", performedAt = now),
+            utcOffsetMillis = 0L
+        )
+        val current = CalculateMuscleFatigueUseCase()(repository.loggedSets(), nowMillis = now)
+            .getValue(muscle)
+
+        // Backdated path: the same set stored with an explicit historical performedAt.
+        repository.clear()
+        logWorkoutSet.logBackdated(
+            set = set(exerciseId = "barbell-bench-press", performedAt = chosen),
+            utcOffsetMillis = 0L,
+            forceNewSession = false
+        )
+        val stored = repository.loggedSets().single()
+        assertEquals(chosen, stored.timestampMillis)
+
+        val historical = CalculateMuscleFatigueUseCase()(listOf(stored), nowMillis = now)
+            .getValue(muscle)
+
+        assertTrue(current > 0.0)
+        assertTrue(historical > 0.0)
+        assertTrue(historical < current)
+    }
+
     private fun set(exerciseId: String, performedAt: Long) = DomainWorkoutSet(
         exerciseId = exerciseId,
         reps = 5,
         weightKg = 50.0,
         performedAtMillis = performedAt
     )
+
+    private companion object {
+        const val DAY = 24L * 60L * 60L * 1000L
+    }
 }
