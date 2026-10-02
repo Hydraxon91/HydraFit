@@ -54,8 +54,11 @@ import hydrafit.feature.equipment.generated.resources.equipment_exercise_section
 import hydrafit.feature.equipment.generated.resources.equipment_manage
 import hydrafit.feature.equipment.generated.resources.equipment_max_weight
 import hydrafit.feature.equipment.generated.resources.equipment_movement_pattern
+import hydrafit.feature.equipment.generated.resources.equipment_movement_pattern_hint
 import hydrafit.feature.equipment.generated.resources.equipment_muscles
 import hydrafit.feature.equipment.generated.resources.equipment_name_label
+import hydrafit.feature.equipment.generated.resources.equipment_pattern_accessory_group
+import hydrafit.feature.equipment.generated.resources.equipment_pattern_compound_group
 import hydrafit.feature.equipment.generated.resources.equipment_personal_records
 import hydrafit.feature.equipment.generated.resources.equipment_pr_exercise
 import hydrafit.feature.equipment.generated.resources.equipment_pr_reps
@@ -594,6 +597,7 @@ private fun MovementPatternPicker(selected: MovementPattern, onChange: (Movement
             onValueChange = {},
             readOnly = true,
             label = { Text(stringResource(Res.string.equipment_movement_pattern)) },
+            supportingText = { Text(stringResource(Res.string.equipment_movement_pattern_hint)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -603,7 +607,18 @@ private fun MovementPatternPicker(selected: MovementPattern, onChange: (Movement
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
-            MovementPattern.entries.forEach { pattern ->
+            MovementPatternGroupLabel(Res.string.equipment_pattern_compound_group)
+            MovementPattern.entries.filter { it.isCompound }.forEach { pattern ->
+                DropdownMenuItem(
+                    text = { Text(stringResource(pattern.labelResource())) },
+                    onClick = {
+                        onChange(pattern)
+                        expanded = false
+                    }
+                )
+            }
+            MovementPatternGroupLabel(Res.string.equipment_pattern_accessory_group)
+            MovementPattern.entries.filterNot { it.isCompound }.forEach { pattern ->
                 DropdownMenuItem(
                     text = { Text(stringResource(pattern.labelResource())) },
                     onClick = {
@@ -614,6 +629,15 @@ private fun MovementPatternPicker(selected: MovementPattern, onChange: (Movement
             }
         }
     }
+}
+
+@Composable
+private fun MovementPatternGroupLabel(resource: StringResource) {
+    Text(
+        text = stringResource(resource),
+        style = MaterialTheme.typography.labelSmall,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)
