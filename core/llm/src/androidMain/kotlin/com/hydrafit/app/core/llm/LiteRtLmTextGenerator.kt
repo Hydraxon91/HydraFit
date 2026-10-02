@@ -122,7 +122,12 @@ class LiteRtLmTextGenerator(
             override fun onMessage(message: Message) {
                 chunkCount.incrementAndGet()
                 val chunk = readText(message)
-                if (chunk.length >= builder.length) {
+                // The async callback streams deltas. A cumulative snapshot is the only case that
+                // replaces instead of appends, and it starts with the text accumulated so far.
+                val snapshot = builder.isNotEmpty() &&
+                    chunk.length > builder.length &&
+                    chunk.regionMatches(0, builder, 0, builder.length)
+                if (snapshot) {
                     builder.setLength(0)
                     builder.append(chunk)
                 } else {
