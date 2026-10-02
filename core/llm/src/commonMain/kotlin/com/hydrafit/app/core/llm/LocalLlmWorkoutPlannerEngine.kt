@@ -3,6 +3,7 @@ package com.hydrafit.app.core.llm
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.PlannerPromptFragments
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SplitResolver
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
@@ -10,7 +11,6 @@ import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.parseWeeklyPlan
 import com.hydrafit.app.core.domain.equipment.Exercise
-import com.hydrafit.app.core.domain.time.isoDateUtc
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -96,24 +96,11 @@ class LocalLlmWorkoutPlannerEngine(
         }
     )
 
-    private fun progressedWeights(request: PlanRequest): String = if (!request.includeWorkoutData) {
-        ""
-    } else {
-        request.suggestedWeightsKg.entries
-            .sortedBy { it.key }
-            .joinToString("; ") { "${it.key}: ${it.value}kg" }
-    }
-
     private fun prompt(
         request: PlanRequest,
         availableExercises: List<Exercise>,
         focusSequence: List<SplitFocus>
     ): String {
-        val equipment = request.availableEquipment.joinToString(", ") { it.displayName }
-        val fatigue = request.muscleFatigue.entries.joinToString(", ") {
-            "${it.key.name}=${it.value}"
-        }
-
         val sets = request.setsPerExercise
         val accessorySets = request.accessorySetsPerExercise
         val days = request.daysPerWeek
@@ -133,21 +120,10 @@ class LocalLlmWorkoutPlannerEngine(
                     "exercises."
             )
             appendLine("Training goal: ${request.goal.name}")
-            if (request.isDeload) {
-                appendLine(
-                    "This is a deload week: use fewer sets and roughly 80% of the normal working " +
-                        "weight to allow recovery."
-                )
-            }
-            val compoundVolume = request.goal.defaultSets * request.goal.compoundReps
-            val accessoryVolume = request.goal.accessorySets * request.goal.isolationReps
-            appendLine(
-                "Scale reps to keep volume steady: fewer sets mean more reps per set. Aim for " +
-                    "about $compoundVolume total reps for compound lifts and " +
-                    "$accessoryVolume for accessory exercises."
-            )
-            appendLine("Available equipment: $equipment")
-            appendLine("Muscle fatigue (0.0-1.0): $fatigue")
+            PlannerPromptFragments.deloadInstruction(request)?.let { appendLine(it) }
+            appendLine(PlannerPromptFragments.volumeRepsGuidance(request))
+            appendLine(PlannerPromptFragments.equipmentLine(request))
+            appendLine(PlannerPromptFragments.fatigueLine(request, "Muscle fatigue"))
             appendLine("Choose every exercise by its number from this list:")
             availableExercises.forEachIndexed { index, exercise ->
                 appendLine("${index + 1}. ${exercise.id} (${exercise.name})")
@@ -175,11 +151,7 @@ class LocalLlmWorkoutPlannerEngine(
                         recentlyUsedNumbers.joinToString(", ")
                 )
             }
-            if (request.includeWorkoutData && request.recentWeights.isNotEmpty()) {
-                val weights = request.recentWeights.joinToString("; ") {
-                    "${it.exerciseId} ${isoDateUtc(it.performedAtMillis)}: " +
-                        "${it.weightKg}kg x ${it.reps}"
-                }
+            PlannerPromptFragments.recentWeightsList(request)?.let { weights ->
                 appendLine(
                     "Recent working weights (suggest a sensible weight for each exercise): $weights"
                 )
@@ -187,15 +159,12 @@ class LocalLlmWorkoutPlannerEngine(
                     "Also give every exercise a \"suggestedWeightKg\" number based on that history."
                 )
             }
-            val progressed = progressedWeights(request)
-            if (progressed.isNotEmpty()) {
+            PlannerPromptFragments.progressedWeightsList(request)?.let { progressed ->
                 appendLine(
                     "Progressed starting weights by list number (already adjusted for " +
                         "progressive overload): $progressed"
                 )
-                appendLine(
-                    "Use these as \"suggestedWeightKg\" unless the history clearly disagrees."
-                )
+                appendLine(PlannerPromptFragments.PROGRESSED_WEIGHTS_NOTE)
             }
             appendLine(
                 "Produce exactly $days day items and 4 to 6 exercises in every day. " +

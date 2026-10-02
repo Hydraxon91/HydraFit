@@ -4,13 +4,13 @@ import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.PlannerPromptFragments
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SplitResolver
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.parseWeeklyPlan
-import com.hydrafit.app.core.domain.time.isoDateUtc
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.header
@@ -132,10 +132,6 @@ class GeminiWorkoutPlannerEngine(
     private fun HttpStatusCode.isTransient(): Boolean = value in TRANSIENT_STATUS_CODES
 
     private suspend fun buildRequest(request: PlanRequest): GeminiRequest {
-        val equipment = request.availableEquipment.joinToString(", ") { it.displayName }
-        val fatigue = request.muscleFatigue.entries.joinToString(", ") {
-            "${it.key.name}=${it.value}"
-        }
         val exerciseIds = catalog.all()
             .filter { it.isAvailableWith(request.availableEquipment) }
             .joinToString(", ") { it.id }
@@ -152,14 +148,9 @@ class GeminiWorkoutPlannerEngine(
                 appendLine("Day ${index + 1}: ${focus.name}")
             }
             appendLine("Training goal: ${request.goal.name}")
-            appendLine("Available equipment: $equipment")
-            appendLine("Current muscle fatigue (0.0-1.0): $fatigue")
-            if (request.isDeload) {
-                appendLine(
-                    "This is a deload week: use fewer sets and roughly 80% of the normal working " +
-                        "weight to allow recovery."
-                )
-            }
+            appendLine(PlannerPromptFragments.equipmentLine(request))
+            appendLine(PlannerPromptFragments.fatigueLine(request, "Current muscle fatigue"))
+            PlannerPromptFragments.deloadInstruction(request)?.let { appendLine(it) }
             appendLine("Choose ONLY exerciseId values from this list: $exerciseIds")
             appendLine("Give every day 4 to 6 exercises.")
             appendLine(
@@ -170,13 +161,7 @@ class GeminiWorkoutPlannerEngine(
                 "Use ${request.setsPerExercise} sets for compound lifts and " +
                     "${request.accessorySetsPerExercise} sets for accessory exercises."
             )
-            val compoundVolume = request.goal.defaultSets * request.goal.compoundReps
-            val accessoryVolume = request.goal.accessorySets * request.goal.isolationReps
-            appendLine(
-                "Scale reps to keep volume steady: fewer sets mean more reps per set. Aim for " +
-                    "about $compoundVolume total reps for compound lifts and " +
-                    "$accessoryVolume for accessory exercises."
-            )
+            appendLine(PlannerPromptFragments.volumeRepsGuidance(request))
             appendLine("Prefer exercises whose muscles are less fatigued.")
             val recentlyUsed = request.recentExerciseIdsByPattern
             if (recentlyUsed.isNotEmpty()) {
@@ -190,11 +175,7 @@ class GeminiWorkoutPlannerEngine(
                         "same movement pattern when an equally suitable option exists): $history"
                 )
             }
-            if (request.includeWorkoutData && request.recentWeights.isNotEmpty()) {
-                val weights = request.recentWeights.joinToString("; ") {
-                    "${it.exerciseId} ${isoDateUtc(it.performedAtMillis)}: " +
-                        "${it.weightKg}kg x ${it.reps}"
-                }
+            PlannerPromptFragments.recentWeightsList(request)?.let { weights ->
                 appendLine(
                     "Recent working weights (use them to suggest a sensible weight for each " +
                         "exercise): $weights"
@@ -203,15 +184,12 @@ class GeminiWorkoutPlannerEngine(
                     "Give every exercise a \"suggestedWeightKg\" number based on that history."
                 )
             }
-            val progressed = progressedWeights(request)
-            if (progressed.isNotEmpty()) {
+            PlannerPromptFragments.progressedWeightsList(request)?.let { progressed ->
                 appendLine(
                     "Progressed starting weights (already adjusted for progressive overload): " +
                         progressed
                 )
-                appendLine(
-                    "Use these as \"suggestedWeightKg\" unless the history clearly disagrees."
-                )
+                appendLine(PlannerPromptFragments.PROGRESSED_WEIGHTS_NOTE)
             }
         }
 
@@ -223,13 +201,6 @@ class GeminiWorkoutPlannerEngine(
                 responseSchema = planSchema(request)
             )
         )
-    }
-
-    private fun progressedWeights(request: PlanRequest): String {
-        if (!request.includeWorkoutData) return ""
-        return request.suggestedWeightsKg.entries
-            .sortedBy { it.key }
-            .joinToString("; ") { "${it.key}: ${it.value}kg" }
     }
 
     private fun planSchema(request: PlanRequest): GeminiSchema = GeminiSchema(

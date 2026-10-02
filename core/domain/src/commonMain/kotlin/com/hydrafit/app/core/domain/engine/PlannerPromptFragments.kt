@@ -1,0 +1,63 @@
+package com.hydrafit.app.core.domain.engine
+
+import com.hydrafit.app.core.domain.time.isoDateUtc
+
+/**
+ * Pure prompt fragments shared by the model-backed engines. Each engine assembles its own prompt
+ * (order and wording differ), but the equipment, fatigue, deload, volume, and weight-history
+ * fragments are formatted here so both prompts stay in lockstep.
+ */
+object PlannerPromptFragments {
+
+    const val PROGRESSED_WEIGHTS_NOTE =
+        "Use these as \"suggestedWeightKg\" unless the history clearly disagrees."
+
+    /** "Available equipment: <display names>" — identical in both model prompts. */
+    fun equipmentLine(request: PlanRequest): String =
+        "Available equipment: ${equipmentList(request)}"
+
+    /** "<label> (0.0-1.0): <MUSCLE=value, ...>" — the label differs per engine. */
+    fun fatigueLine(request: PlanRequest, label: String): String =
+        "$label (0.0-1.0): ${fatigueList(request)}"
+
+    /** Deload instruction, or null when the week is not a deload. */
+    fun deloadInstruction(request: PlanRequest): String? = if (request.isDeload) {
+        "This is a deload week: use fewer sets and roughly 80% of the normal working " +
+            "weight to allow recovery."
+    } else {
+        null
+    }
+
+    /** Volume/rep guidance derived from the training goal. */
+    fun volumeRepsGuidance(request: PlanRequest): String {
+        val compoundVolume = request.goal.defaultSets * request.goal.compoundReps
+        val accessoryVolume = request.goal.accessorySets * request.goal.isolationReps
+        return "Scale reps to keep volume steady: fewer sets mean more reps per set. Aim for " +
+            "about $compoundVolume total reps for compound lifts and " +
+            "$accessoryVolume for accessory exercises."
+    }
+
+    /** Recent working-weight entries, or null when sharing is off or there is no history. */
+    fun recentWeightsList(request: PlanRequest): String? {
+        if (!request.includeWorkoutData || request.recentWeights.isEmpty()) return null
+        return request.recentWeights.joinToString("; ") {
+            "${it.exerciseId} ${isoDateUtc(it.performedAtMillis)}: " +
+                "${it.weightKg}kg x ${it.reps}"
+        }
+    }
+
+    /** Progressed starting-weight entries, or null when sharing is off or there are none. */
+    fun progressedWeightsList(request: PlanRequest): String? {
+        if (!request.includeWorkoutData) return null
+        return request.suggestedWeightsKg.entries
+            .sortedBy { it.key }
+            .joinToString("; ") { "${it.key}: ${it.value}kg" }
+            .ifEmpty { null }
+    }
+
+    private fun equipmentList(request: PlanRequest): String =
+        request.availableEquipment.joinToString(", ") { it.displayName }
+
+    private fun fatigueList(request: PlanRequest): String =
+        request.muscleFatigue.entries.joinToString(", ") { "${it.key.name}=${it.value}" }
+}
