@@ -27,6 +27,7 @@
 | Fatigue redesign — open decision 5 | RESOLVED | Explicit session ids for ALL logging (not only backdating); the 2h heuristic stays only as a one-time legacy backfill. See Roadmap Priority 1 item 2b. |
 | Open Questions / Later | LATER | See section below; nothing scheduled. |
 | Settings/nav consolidation | PLANNED | Roadmap Priority 2 item 7. |
+| RIR guidance & rough estimation | PLANNED | Roadmap Priority 3 item 9; v0.3.0 or later. |
 | Deferred — release pipeline & signing | DEFERRED | Roadmap "Deferred / Later" item 4; revisit when a distributable build is needed. |
 
 ## Process
@@ -138,10 +139,22 @@
 - **P8b** scale fatigue at the `CalculateMuscleFatigueUseCase`/`FatigueCalculator.calculate(sets, nowMillis)` seam; add `FatigueConfig` parameters; derive an endurance scalar from reps / the existing `repsFactor`; `FatigueCalculatorTest` / `FatigueReplayTest` coverage.
 - **P8c** wire both consumers (`ObserveWorkoutPlanInputsUseCase.kt:58`, `FatigueHeatmapViewModel.kt:59`).
 
+#### 9. RIR Guidance & Rough Estimation (Logger)
+**Goal:** make reps-in-reserve (RIR) understandable to users who don't know the term, help them pick a value, and — only if a defensible signal exists — offer a rough estimate, without ever presenting an unmeasured guess as data.
+**Why it can't be computed directly:** RIR is a subjective self-report (reps left before failure), not derivable from reps/weight alone. The app already treats a blank RIR as the neutral default (`FatigueConfig.defaultRir = 2.0`; neutral because `effortNeutralRir = 2.0`) and consumes it only via `FatigueCalculator.effortMultiplier`; nothing writes a computed RIR back.
+**Phases (sketch, not scheduled):**
+- **B1 — explain + quick-pick.** Add supporting text and 0/1/2/3 quick-pick chips to the Logger RIR field (localized strings); RIR stays optional and a blank stays the neutral assumption. No data/domain change.
+- **B2 — plan-derived default.** If the planner gains a per-exercise RIR target (`AcceptedExercise`/`PlannedExercise` plus prompts/JSON/sanitizer), prefill the field from it. This changes fatigue inputs, so the locked replay figures (isolation 82.5504% / 65.2960%, typed 83.1065% / 68.4753%) must not move.
+- **B3 — rough estimate (optional).** Only with a defensible signal (e.g. prescribed-vs-actual reps); label it explicitly as an estimate/assumption and never write it back as if measured.
+**Files:** `feature/logger` screen/state/strings; for B2 also `core/domain/.../engine/{AcceptedPlan,PlannedExercise}.kt`, the shared prompt/JSON/sanitizer, and a schema change if persisted.
+**Resolve before implementing:** whether the planner should own a prescribed RIR at all (it changes fatigue inputs and risks the locked replay fixtures), and how to present an estimate without implying measurement.
+**Target:** v0.3.0 or later.
+
 **Open decisions to make before each item (never silently defaulted):**
 - **Item 2 (historical time):** P2c picker API fallback; P2b batch share/reset; P2d row-correction scope.
 - **Item 5 (potential PR):** window/`N` definition; fixed vs configurable buffer.
 - **Item 8 (subjective fatigue):** readiness input home (Logger per-session vs standing setting).
+- **Item 9 (RIR guidance):** whether the planner owns a prescribed RIR target (changes fatigue inputs; locked replay figures), and how to present an estimate without implying measurement.
 These are repeated at the item they block and must be answered before implementation of that item.
 
 ## Deferred / Later
