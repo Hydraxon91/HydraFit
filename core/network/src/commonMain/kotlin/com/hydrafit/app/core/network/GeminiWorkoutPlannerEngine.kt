@@ -284,57 +284,54 @@ class GeminiWorkoutPlannerEngine(
                 GeminiContent(role = "user", parts = listOf(GeminiPart(prompt)))
             ),
             generationConfig = GeminiGenerationConfig(
-                responseSchema = planSchema(request, availableIds)
+                responseSchema = planSchema(request)
             )
         )
     }
 
-    private fun planSchema(request: PlanRequest, availableIds: List<String>): GeminiSchema =
-        GeminiSchema(
-            type = "OBJECT",
-            properties = mapOf(
-                "days" to GeminiSchema(
-                    type = "ARRAY",
-                    minItems = request.daysPerWeek,
-                    maxItems = request.daysPerWeek,
-                    items = GeminiSchema(
-                        type = "OBJECT",
-                        properties = mapOf(
-                            "focus" to GeminiSchema(
-                                type = "STRING",
-                                enum = SplitFocus.entries.map { it.name }
-                            ),
-                            "exercises" to GeminiSchema(
-                                type = "ARRAY",
-                                minItems = PlannerExerciseCounts.TARGET_MIN_PER_DAY,
-                                maxItems = PlannerExerciseCounts.TARGET_MAX_PER_DAY,
-                                items = GeminiSchema(
-                                    type = "OBJECT",
-                                    properties = exerciseSchemaProperties(request, availableIds),
-                                    required = listOf("exerciseId", "sets", "reps")
-                                )
-                            )
+    private fun planSchema(request: PlanRequest): GeminiSchema = GeminiSchema(
+        type = "OBJECT",
+        properties = mapOf(
+            "days" to GeminiSchema(
+                type = "ARRAY",
+                minItems = request.daysPerWeek,
+                maxItems = request.daysPerWeek,
+                items = GeminiSchema(
+                    type = "OBJECT",
+                    properties = mapOf(
+                        "focus" to GeminiSchema(
+                            type = "STRING",
+                            enum = SplitFocus.entries.map { it.name }
                         ),
-                        required = listOf("focus", "exercises")
-                    )
+                        "exercises" to GeminiSchema(
+                            type = "ARRAY",
+                            minItems = PlannerExerciseCounts.TARGET_MIN_PER_DAY,
+                            maxItems = PlannerExerciseCounts.TARGET_MAX_PER_DAY,
+                            items = GeminiSchema(
+                                type = "OBJECT",
+                                properties = exerciseSchemaProperties(request),
+                                required = listOf("exerciseId", "sets", "reps")
+                            )
+                        )
+                    ),
+                    required = listOf("focus", "exercises")
                 )
-            ),
-            required = listOf("days")
-        )
+            )
+        ),
+        required = listOf("days")
+    )
 
-    private fun exerciseSchemaProperties(
-        request: PlanRequest,
-        availableIds: List<String>
-    ): Map<String, GeminiSchema> = buildMap {
-        // Constrain the value to the catalog so the model cannot invent an id the sanitizer
-        // would drop (which previously collapsed a day below its minimum and fell back).
-        put("exerciseId", GeminiSchema(type = "STRING", enum = availableIds.ifEmpty { null }))
-        put("sets", GeminiSchema(type = "INTEGER"))
-        put("reps", GeminiSchema(type = "INTEGER"))
-        if (request.includeWorkoutData) {
-            put("suggestedWeightKg", GeminiSchema(type = "NUMBER"))
+    private fun exerciseSchemaProperties(request: PlanRequest): Map<String, GeminiSchema> =
+        buildMap {
+            // The prompt lists the valid ids and normalizeExerciseIds repairs returned names; an
+            // `enum` here is not used because it made Gemini reject the whole request (400).
+            put("exerciseId", GeminiSchema(type = "STRING"))
+            put("sets", GeminiSchema(type = "INTEGER"))
+            put("reps", GeminiSchema(type = "INTEGER"))
+            if (request.includeWorkoutData) {
+                put("suggestedWeightKg", GeminiSchema(type = "NUMBER"))
+            }
         }
-    }
 
     private companion object {
         const val MAX_RETRIES = 2

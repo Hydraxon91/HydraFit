@@ -262,21 +262,6 @@ class GeminiWorkoutPlannerEngineTest {
     }
 
     @Test
-    fun constrainsExerciseIdSchemaToTheCatalog() = runTest {
-        var captured: HttpRequestData? = null
-        val mockEngine = MockEngine { request ->
-            captured = request
-            respond(envelope(VALID_PLAN), HttpStatusCode.OK, jsonHeaders())
-        }
-
-        engine(mockEngine).generatePlan(request())
-
-        val bodyText = (requireNotNull(captured).body as TextContent).text
-        assertTrue(bodyText.contains("\"enum\""), "exerciseId must be constrained to the catalog")
-        assertTrue(bodyText.contains("bench-press"), bodyText)
-    }
-
-    @Test
     fun mapsRateLimitToRateLimitedAndRetries() = runTest {
         var calls = 0
         val mockEngine = MockEngine {
