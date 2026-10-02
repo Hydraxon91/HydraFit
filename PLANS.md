@@ -6,9 +6,11 @@
 
 | Item | Status | Next action |
 | --- | --- | --- |
-| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01. Priority 1 (items 1, 2, 2b, 3) and Priority 1.5 (release pipeline item 4) complete and archived. 0.2.0 ships now; next is 0.2.1 (P2d + QA fixes), then the v0.3.0 features (items 6–7). |
+| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01. Priority 1 (items 1, 2, 2b, 3) and Priority 1.5 (release pipeline item 4) complete and archived. 0.2.0 ships now; next is 0.2.1 (P2d + QA fixes), then 0.2.2 (code review + architecture), then 0.2.3 (performance review), then the v0.3.0 features (items 6–7). |
 | Release 0.2.0 | SHIPPING | Tag `v0.2.0` (signed APK via `release.yml`); delete the stale `v0.1.0-rc.1` validation release/tag. |
 | Release 0.2.1 | PLANNED | Next session: P2d + any 0.2.0 QA fixes; see "0.2.1 — next release". Scope confirmable at the plan gate. |
+| Release 0.2.2 — code review & architecture | PLANNED | After 0.2.1. Review pinned to `v0.2.1` (or latest commit if 0.2.1 hasn't shipped); phases R0–RF; see "0.2.2 — code review and architecture". |
+| Release 0.2.3 — performance review | PLANNED | After 0.2.2. Measure first, no optimization without a number; phases P0–PR; see "0.2.3 — performance review". |
 | Item 2 P2d — existing-row time correction | DEFERRED → 0.2.1 | Revisit in 0.2.1; see the archived item 2 design and the "0.2.1 — next release" section. |
 | BACK work chunk 3 — calibrate Phase B/C constants | OPEN | Calibrate K=6, D=6, half-lives, and C1/C2/C3 against correctly timed histories. The plateau is resolved by the redesign; no further decision needed. |
 | BACK work chunk 4 — literal >100% report | OPEN | Capture exact value/time/build if it recurs. |
@@ -110,6 +112,49 @@ The deferred half of the archived item 2. Add `updateSetPerformedAt` to `Workout
 Update `README.md` status; tag `v0.2.1`; verify the workflow publishes a signed APK with `versionName = 0.2.1`.
 
 **Do not start in 0.2.1:** items 6–7 (v0.3.0), items 8–9 (post-0.3.0), BACK chunks 3–4 (watch items), or any schema change beyond a query-only update.
+
+## 0.2.2 — code review and architecture
+
+**Goal:** review the whole codebase, explain the architectural patterns it actually uses and where they should improve, and turn the approved findings into rules in AGENTS.md so future code follows them.
+
+**Baseline:** the review pins the `v0.2.1` tag (or the latest commit if 0.2.1 hasn't shipped) so findings keep stable `file:line` references. It runs after 0.2.1 so P2d isn't reviewed twice.
+
+**Scope decision to confirm at the plan gate (do not pick silently):** whether 0.2.2 ships fixes (recommended: only blockers and approved majors, each its own gated commit) or is review and documentation only, with fixes deferred to 0.2.x.
+
+**Phases (each its own session and its own approved chunk):**
+- **R0 — slices.** Enumerate modules from `settings.gradle.kts` and define review slices (core:domain; core:database; core:llm + core:network; each feature module; :shared + :androidApp + iOS; build/CI/Gradle config; tests). Record slice order and the checklist below in PLANS.md. Read-only.
+- **R1..Rn — review.** One slice per session, read-only. Findings are appended to `docs/code-review-0.2.2.md` as they are found (so a session reset loses nothing). Each finding has: id, severity (blocker / major / minor / nit), category (bug, risk, design smell, duplication, test gap, consistency), `file:line` evidence, why it matters, a recommendation, and a rough fix cost. No evidence means it isn't a finding. Skip anything ktlint already enforces. No refactors or fixes during review.
+- **RA — architecture write-up** in `docs/architecture.md`: each pattern the code actually uses (KMP module layering; domain ports/repository interfaces with SQLDelight implementations; feature modules with explicit static aggregation; Koin composition root in `:shared`; use cases; UiState/ViewModel; deterministic planner engine with model-backed fallbacks; immutable log snapshots; additive migrations; and anything else found), each with example files, how consistently it's applied, where it's violated, and ranked improvement proposals with cost/benefit. Describe what exists; don't invent patterns.
+- **RG — AGENTS.md update.** Distill approved findings into SHORT, checkable rules; AGENTS.md is read every session, so put rationale in `docs/architecture.md` and link to it. Mark each rule "current convention" (code already follows it) or "target convention, new code only" (existing code is not refactored unless a task is in scope). Propose the diff, wait for approval, then commit.
+- **RF — fixes.** Triage findings into: fix in 0.2.2 (blockers and approved majors only, each its own gated commit), schedule later (PLANS.md entries), or won't fix. Nothing is fixed without approval.
+
+**Seed observations to VERIFY, not conclusions:** the Logger ViewModel sits at 7 constructor params and `LogWorkoutSetUseCase` has grown into a session-aware entry point; adding one `WorkoutLogRepository` method breaks 7 fakes across 6 test files (consider shared test fixtures); a test fixture couldn't be shared between `:core:domain` and `:core:database` (testFixtures source set); `LogWorkoutSetUseCase` and the fatigue path load all sets via `all()`; use-case/Koin wiring placement; error handling and logging consistency; coroutine scope and dispatcher handling; expect/actual boundaries; test quality and flakiness (the heatmap ticker tests once hung).
+
+**Deliverable files:** `docs/code-review-0.2.2.md`, `docs/architecture.md`, `AGENTS.md` (RG), PLANS.md (RF scheduling), plus any RF fixes with their tests and migrations.
+
+**Do not start in 0.2.2:** 0.2.1 work; 0.2.3 measurement or optimization; items 6–9; BACK chunks 3–4; or any fix that was not triaged and approved in RF.
+
+## 0.2.3 — performance review
+
+**Goal:** find and fix measured performance problems. Measure first; no optimization without a number showing a problem.
+
+**Scope decision to confirm at the plan gate (do not pick silently):** which areas are in scope for 0.2.3 (recommended: startup, database and recomputation, APK size; Compose jank and LLM memory only if the baselines show a problem).
+
+**Phases (each gated):**
+- **P0 — measurement setup and baselines,** recorded in `docs/performance-0.2.3.md`. Measure the RELEASE build (minified if R8 is enabled), not debug. Use a realistic dataset: a copy of the phone DB for real shape, plus a synthetic large dataset (e.g. a year or more of sets) in a scratch DB outside the repo, since the phone DB is tiny. Propose target numbers and wait for approval.
+- **P1 — investigation areas,** each with its measurement method:
+  - cold start and Koin startup work (catalog seeding and the `movementPattern` and session backfills run at startup);
+  - database: query plans (`EXPLAIN QUERY PLAN`), missing indexes (e.g. `performedAt`, `sessionId`), and any `all()`/full-table loads on hot paths;
+  - recomputation: fatigue calculation and plan-input flows firing more often than needed, the heatmap's 60s tick, flow collection and recomposition frequency;
+  - Compose: stability and recomposition, lazy list keys, jank (gfxinfo);
+  - memory and the on-device LLM path (load, OOM fallback);
+  - APK size: list the largest entries (e.g. `unzip -lv`), native libs, whether R8 and resource shrinking are on for release, per-ABI options, and keep-rule risks.
+- **P2.. — fixes.** One optimization per chunk, each with before and after numbers and its own gated commit. Schema or index changes need a matching `.sqm` migration and approval.
+- **PR — record results;** update targets and AGENTS.md only with rules that came from measurements.
+
+**Deliverable files:** `docs/performance-0.2.3.md`; PLANS.md entries; `AGENTS.md` (measurement-derived rules only); any fixes with their migrations.
+
+**Do not start in 0.2.3:** 0.2.2 review or fixes; 0.2.1; items 6–9; BACK chunks 3–4; or any optimization without a recorded before/after measurement.
 
 ## Open Questions / Later
 
