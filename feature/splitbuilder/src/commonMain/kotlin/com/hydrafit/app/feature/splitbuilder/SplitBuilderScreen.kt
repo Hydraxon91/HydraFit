@@ -25,6 +25,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.PeriodizationConfig
+import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.time.isoDateUtc
@@ -51,6 +52,14 @@ import hydrafit.feature.splitbuilder.generated.resources.split_days_label
 import hydrafit.feature.splitbuilder.generated.resources.split_delete_plan
 import hydrafit.feature.splitbuilder.generated.resources.split_deload_week
 import hydrafit.feature.splitbuilder.generated.resources.split_error
+import hydrafit.feature.splitbuilder.generated.resources.split_error_api_key
+import hydrafit.feature.splitbuilder.generated.resources.split_error_invalid_request
+import hydrafit.feature.splitbuilder.generated.resources.split_error_invalid_response
+import hydrafit.feature.splitbuilder.generated.resources.split_error_network
+import hydrafit.feature.splitbuilder.generated.resources.split_error_quota_exhausted
+import hydrafit.feature.splitbuilder.generated.resources.split_error_rate_limited
+import hydrafit.feature.splitbuilder.generated.resources.split_error_service_unavailable
+import hydrafit.feature.splitbuilder.generated.resources.split_error_timeout
 import hydrafit.feature.splitbuilder.generated.resources.split_error_transient
 import hydrafit.feature.splitbuilder.generated.resources.split_fallback_note
 import hydrafit.feature.splitbuilder.generated.resources.split_generated_by
@@ -172,11 +181,12 @@ fun SplitBuilderScreen(
             }
         }
         if (state.hasError) {
-            val errorText = if (state.isTransientError) {
-                Res.string.split_error_transient
-            } else {
-                Res.string.split_error
-            }
+            val errorText = state.failureReason.reasonMessage()
+                ?: if (state.isTransientError) {
+                    Res.string.split_error_transient
+                } else {
+                    Res.string.split_error
+                }
             Text(
                 text = stringResource(errorText),
                 style = MaterialTheme.typography.bodyMedium
@@ -302,4 +312,17 @@ private fun SplitFocus.labelResource(): StringResource = when (this) {
     SplitFocus.UPPER -> Res.string.focus_upper
     SplitFocus.LOWER -> Res.string.focus_lower
     SplitFocus.FULL_BODY -> Res.string.focus_full_body
+}
+
+/** A specific message for a mapped failure; null falls back to the generic transient/error text. */
+private fun PlanFailureReason?.reasonMessage(): StringResource? = when (this) {
+    PlanFailureReason.RATE_LIMITED -> Res.string.split_error_rate_limited
+    PlanFailureReason.QUOTA_EXHAUSTED -> Res.string.split_error_quota_exhausted
+    PlanFailureReason.SERVICE_UNAVAILABLE -> Res.string.split_error_service_unavailable
+    PlanFailureReason.TIMEOUT -> Res.string.split_error_timeout
+    PlanFailureReason.NETWORK -> Res.string.split_error_network
+    PlanFailureReason.INVALID_API_KEY -> Res.string.split_error_api_key
+    PlanFailureReason.INVALID_REQUEST -> Res.string.split_error_invalid_request
+    PlanFailureReason.INVALID_RESPONSE -> Res.string.split_error_invalid_response
+    PlanFailureReason.UNKNOWN, null -> null
 }

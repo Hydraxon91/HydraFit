@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.network
 
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
@@ -14,6 +15,7 @@ import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.parseWeeklyPlan
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -24,6 +26,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.random.Random
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.contentOrNull
@@ -44,16 +47,41 @@ class GeminiWorkoutPlannerEngine(
 
     override suspend fun generatePlan(request: PlanRequest): WeeklyPlan {
         val apiKey = apiKeyProvider.geminiApiKey()
-        require(apiKey.isNotBlank()) { "Gemini API key is not configured" }
-        val payload = buildRequest(request)
+        if (apiKey.isBlank()) {
+            throw PlanGenerationException(
+                transient = false,
+                reason = PlanFailureReason.INVALID_API_KEY,
+                message = "Gemini API key is not configured"
+            )
+        }
+        val availableIds = catalog.all()
+            .filter { it.isAvailableWith(request.availableEquipment) }
+            .map { it.id }
+        val payload = buildRequest(request, availableIds)
         val url = "${config.baseUrl}/models/${config.model}:generateContent"
 
         var attempt = 0
         while (true) {
-            val response = httpClient.post(url) {
-                header("x-goog-api-key", apiKey)
-                contentType(ContentType.Application.Json)
-                setBody(payload)
+            val response = try {
+                httpClient.post(url) {
+                    header("x-goog-api-key", apiKey)
+                    contentType(ContentType.Application.Json)
+                    setBody(payload)
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (timeout: HttpRequestTimeoutException) {
+                throw PlanGenerationException(
+                    transient = true,
+                    reason = PlanFailureReason.TIMEOUT,
+                    message = "Gemini request timed out"
+                )
+            } catch (failure: Exception) {
+                throw PlanGenerationException(
+                    transient = true,
+                    reason = PlanFailureReason.NETWORK,
+                    message = failure.message ?: "Could not reach the Gemini API"
+                )
             }
             if (response.status.isSuccess()) {
                 val text = response.body<GeminiResponse>()
@@ -62,16 +90,27 @@ class GeminiWorkoutPlannerEngine(
                     ?.parts
                     ?.firstOrNull()
                     ?.text
-                    ?: error("Gemini response contained no content")
-                val plan = parseWeeklyPlan(text, PlannerEngineId.GEMINI_API)
+                    ?: throw PlanGenerationException(
+                        transient = false,
+                        reason = PlanFailureReason.INVALID_RESPONSE,
+                        message = "Gemini response contained no content"
+                    )
+                val plan = normalizeExerciseIds(
+                    parseWeeklyPlan(text, PlannerEngineId.GEMINI_API),
+                    availableIds
+                )
                 return sanitizer.sanitize(plan, request) ?: fallback.generatePlan(request)
             }
 
             val body = runCatching { response.bodyAsText() }.getOrDefault("")
-            val transient = response.status.isTransient()
+            val reason = failureReason(response.status, body)
+            // A daily-quota 429 will not clear within the backoff window, so it is not retried.
+            val transient = reason != PlanFailureReason.QUOTA_EXHAUSTED &&
+                response.status.isTransient()
             if (!transient || attempt >= MAX_RETRIES) {
                 throw PlanGenerationException(
                     transient = transient,
+                    reason = reason,
                     message = failureMessage(response.status, body)
                 )
             }
@@ -79,6 +118,46 @@ class GeminiWorkoutPlannerEngine(
             delay(retryDelayMillis(response, body, attempt))
             attempt++
         }
+    }
+
+    private fun failureReason(status: HttpStatusCode, body: String): PlanFailureReason = when {
+        status.value == 429 && isDailyQuota(body) -> PlanFailureReason.QUOTA_EXHAUSTED
+        status.value == 429 -> PlanFailureReason.RATE_LIMITED
+        status.value == 408 -> PlanFailureReason.TIMEOUT
+        status.value == 401 || status.value == 403 -> PlanFailureReason.INVALID_API_KEY
+        status.value in 500..599 -> PlanFailureReason.SERVICE_UNAVAILABLE
+        status.value in 400..499 -> PlanFailureReason.INVALID_REQUEST
+        else -> PlanFailureReason.UNKNOWN
+    }
+
+    private fun isDailyQuota(body: String): Boolean {
+        val normalized = body.lowercase()
+        return "perday" in normalized.replace(" ", "") ||
+            "per day" in normalized ||
+            "daily limit" in normalized
+    }
+
+    /** Maps model-returned ids to catalog ids, tolerating a returned name or different casing. */
+    private suspend fun normalizeExerciseIds(
+        plan: WeeklyPlan,
+        availableIds: List<String>
+    ): WeeklyPlan {
+        if (availableIds.isEmpty()) return plan
+        val byId = availableIds.associateBy { it.lowercase() }
+        val byName = catalog.all().associateBy { it.name.lowercase() }
+        return plan.copy(
+            days = plan.days.map { day ->
+                day.copy(
+                    exercises = day.exercises.map { planned ->
+                        val raw = planned.exerciseId
+                        val resolved = byId[raw.lowercase()]
+                            ?: byName[raw.lowercase()]?.id
+                            ?: raw
+                        planned.copy(exerciseId = resolved)
+                    }
+                )
+            }
+        )
     }
 
     private fun failureMessage(status: HttpStatusCode, body: String): String {
@@ -132,10 +211,11 @@ class GeminiWorkoutPlannerEngine(
 
     private fun HttpStatusCode.isTransient(): Boolean = value in TRANSIENT_STATUS_CODES
 
-    private suspend fun buildRequest(request: PlanRequest): GeminiRequest {
-        val exerciseIds = catalog.all()
-            .filter { it.isAvailableWith(request.availableEquipment) }
-            .joinToString(", ") { it.id }
+    private suspend fun buildRequest(
+        request: PlanRequest,
+        availableIds: List<String>
+    ): GeminiRequest {
+        val exerciseIds = availableIds.joinToString(", ")
         val focusSequence = SplitResolver.focusSequence(
             request.splitPreference,
             request.daysPerWeek
@@ -204,52 +284,57 @@ class GeminiWorkoutPlannerEngine(
                 GeminiContent(role = "user", parts = listOf(GeminiPart(prompt)))
             ),
             generationConfig = GeminiGenerationConfig(
-                responseSchema = planSchema(request)
+                responseSchema = planSchema(request, availableIds)
             )
         )
     }
 
-    private fun planSchema(request: PlanRequest): GeminiSchema = GeminiSchema(
-        type = "OBJECT",
-        properties = mapOf(
-            "days" to GeminiSchema(
-                type = "ARRAY",
-                minItems = request.daysPerWeek,
-                maxItems = request.daysPerWeek,
-                items = GeminiSchema(
-                    type = "OBJECT",
-                    properties = mapOf(
-                        "focus" to GeminiSchema(
-                            type = "STRING",
-                            enum = SplitFocus.entries.map { it.name }
-                        ),
-                        "exercises" to GeminiSchema(
-                            type = "ARRAY",
-                            minItems = PlannerExerciseCounts.TARGET_MIN_PER_DAY,
-                            maxItems = PlannerExerciseCounts.TARGET_MAX_PER_DAY,
-                            items = GeminiSchema(
-                                type = "OBJECT",
-                                properties = exerciseSchemaProperties(request),
-                                required = listOf("exerciseId", "sets", "reps")
+    private fun planSchema(request: PlanRequest, availableIds: List<String>): GeminiSchema =
+        GeminiSchema(
+            type = "OBJECT",
+            properties = mapOf(
+                "days" to GeminiSchema(
+                    type = "ARRAY",
+                    minItems = request.daysPerWeek,
+                    maxItems = request.daysPerWeek,
+                    items = GeminiSchema(
+                        type = "OBJECT",
+                        properties = mapOf(
+                            "focus" to GeminiSchema(
+                                type = "STRING",
+                                enum = SplitFocus.entries.map { it.name }
+                            ),
+                            "exercises" to GeminiSchema(
+                                type = "ARRAY",
+                                minItems = PlannerExerciseCounts.TARGET_MIN_PER_DAY,
+                                maxItems = PlannerExerciseCounts.TARGET_MAX_PER_DAY,
+                                items = GeminiSchema(
+                                    type = "OBJECT",
+                                    properties = exerciseSchemaProperties(request, availableIds),
+                                    required = listOf("exerciseId", "sets", "reps")
+                                )
                             )
-                        )
-                    ),
-                    required = listOf("focus", "exercises")
+                        ),
+                        required = listOf("focus", "exercises")
+                    )
                 )
-            )
-        ),
-        required = listOf("days")
-    )
+            ),
+            required = listOf("days")
+        )
 
-    private fun exerciseSchemaProperties(request: PlanRequest): Map<String, GeminiSchema> =
-        buildMap {
-            put("exerciseId", GeminiSchema(type = "STRING"))
-            put("sets", GeminiSchema(type = "INTEGER"))
-            put("reps", GeminiSchema(type = "INTEGER"))
-            if (request.includeWorkoutData) {
-                put("suggestedWeightKg", GeminiSchema(type = "NUMBER"))
-            }
+    private fun exerciseSchemaProperties(
+        request: PlanRequest,
+        availableIds: List<String>
+    ): Map<String, GeminiSchema> = buildMap {
+        // Constrain the value to the catalog so the model cannot invent an id the sanitizer
+        // would drop (which previously collapsed a day below its minimum and fell back).
+        put("exerciseId", GeminiSchema(type = "STRING", enum = availableIds.ifEmpty { null }))
+        put("sets", GeminiSchema(type = "INTEGER"))
+        put("reps", GeminiSchema(type = "INTEGER"))
+        if (request.includeWorkoutData) {
+            put("suggestedWeightKg", GeminiSchema(type = "NUMBER"))
         }
+    }
 
     private companion object {
         const val MAX_RETRIES = 2

@@ -7,6 +7,7 @@ import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
+import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlanRequest
@@ -156,6 +157,7 @@ class SplitBuilderViewModel(
                 hasError = false,
                 isTransientError = false,
                 errorDetail = null,
+                failureReason = null,
                 daysPerWeek = request.daysPerWeek,
                 setsPerExercise = request.setsPerExercise,
                 accessorySetsPerExercise = request.accessorySetsPerExercise,
@@ -185,7 +187,8 @@ class SplitBuilderViewModel(
                     isLoading = false,
                     hasError = true,
                     isTransientError = failure.transient,
-                    errorDetail = failure.message
+                    errorDetail = failure.message,
+                    failureReason = failure.reason
                 )
             }
         } catch (failure: Exception) {
@@ -195,7 +198,8 @@ class SplitBuilderViewModel(
                     isLoading = false,
                     hasError = true,
                     isTransientError = false,
-                    errorDetail = failure.message
+                    errorDetail = failure.message,
+                    failureReason = PlanFailureReason.UNKNOWN
                 )
             }
         }

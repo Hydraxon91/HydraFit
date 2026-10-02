@@ -1,6 +1,7 @@
 package com.hydrafit.app.feature.splitbuilder
 
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 
@@ -17,7 +18,8 @@ data class SplitBuilderUiState(
     val canRegenerate: Boolean = true,
     val hasError: Boolean = false,
     val isTransientError: Boolean = false,
-    val errorDetail: String? = null
+    val errorDetail: String? = null,
+    val failureReason: PlanFailureReason? = null
 ) {
     val usedFallbackEngine: Boolean
         get() = plan != null && requestedEngine != null && plan.engine != requestedEngine

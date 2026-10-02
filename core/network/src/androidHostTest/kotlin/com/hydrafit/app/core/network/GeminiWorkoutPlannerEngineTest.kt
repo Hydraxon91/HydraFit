@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.network
 
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
@@ -201,7 +202,9 @@ class GeminiWorkoutPlannerEngineTest {
     fun rejectsMissingApiKey() = runTest {
         val engine = engine(respondEnvelope(VALID_PLAN), apiKey = "")
 
-        assertFailsWith<IllegalArgumentException> { engine.generatePlan(request()) }
+        val failure = assertFailsWith<PlanGenerationException> { engine.generatePlan(request()) }
+
+        assertEquals(PlanFailureReason.INVALID_API_KEY, failure.reason)
     }
 
     @Test
@@ -259,10 +262,93 @@ class GeminiWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun constrainsExerciseIdSchemaToTheCatalog() = runTest {
+        var captured: HttpRequestData? = null
+        val mockEngine = MockEngine { request ->
+            captured = request
+            respond(envelope(VALID_PLAN), HttpStatusCode.OK, jsonHeaders())
+        }
+
+        engine(mockEngine).generatePlan(request())
+
+        val bodyText = (requireNotNull(captured).body as TextContent).text
+        assertTrue(bodyText.contains("\"enum\""), "exerciseId must be constrained to the catalog")
+        assertTrue(bodyText.contains("bench-press"), bodyText)
+    }
+
+    @Test
+    fun mapsRateLimitToRateLimitedAndRetries() = runTest {
+        var calls = 0
+        val mockEngine = MockEngine {
+            calls++
+            respond(
+                """{"error":{"code":429,"status":"RESOURCE_EXHAUSTED","message":"rate"}}""",
+                HttpStatusCode.TooManyRequests,
+                jsonHeaders()
+            )
+        }
+
+        val failure = assertFailsWith<PlanGenerationException> {
+            engine(mockEngine).generatePlan(request())
+        }
+
+        assertEquals(PlanFailureReason.RATE_LIMITED, failure.reason)
+        assertEquals(3, calls)
+    }
+
+    @Test
+    fun mapsDailyQuotaToQuotaExhaustedWithoutRetrying() = runTest {
+        var calls = 0
+        val mockEngine = MockEngine {
+            calls++
+            respond(
+                """{"error":{"code":429,"status":"RESOURCE_EXHAUSTED",""" +
+                    """"message":"Quota exceeded, limit per day reached"}}""",
+                HttpStatusCode.TooManyRequests,
+                jsonHeaders()
+            )
+        }
+
+        val failure = assertFailsWith<PlanGenerationException> {
+            engine(mockEngine).generatePlan(request())
+        }
+
+        assertEquals(PlanFailureReason.QUOTA_EXHAUSTED, failure.reason)
+        assertFalse(failure.transient)
+        assertEquals(1, calls)
+    }
+
+    @Test
+    fun mapsAuthFailureToInvalidApiKey() = runTest {
+        val mockEngine =
+            MockEngine { respond(geminiError(), HttpStatusCode.Forbidden, jsonHeaders()) }
+
+        val failure = assertFailsWith<PlanGenerationException> {
+            engine(mockEngine).generatePlan(request())
+        }
+
+        assertEquals(PlanFailureReason.INVALID_API_KEY, failure.reason)
+    }
+
+    @Test
+    fun mapsTransportFailureToNetworkReason() = runTest {
+        val mockEngine = MockEngine { throw java.io.IOException("no route to host") }
+
+        val failure = assertFailsWith<PlanGenerationException> {
+            engine(mockEngine).generatePlan(request())
+        }
+
+        assertEquals(PlanFailureReason.NETWORK, failure.reason)
+        assertTrue(failure.transient)
+    }
+
+    @Test
     fun failsWhenResponseHasNoCandidate() = runTest {
         val engine = engine(respondRaw("""{"candidates":[]}"""))
 
-        assertFailsWith<IllegalStateException> { engine.generatePlan(request()) }
+        val failure = assertFailsWith<PlanGenerationException> { engine.generatePlan(request()) }
+
+        assertEquals(PlanFailureReason.INVALID_RESPONSE, failure.reason)
     }
 
     @Test
