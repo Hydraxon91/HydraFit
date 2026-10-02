@@ -12,9 +12,9 @@
 - **Plan gate.** For any task that changes code, config, or data: give a
   short plan first (files, decisions, any deviation from PLANS.md), then
   wait for an explicit OK before implementing. A decision that can change
-  existing results is the user's to make, not silently chosen. This gate
-  does not apply to a PLANS.md status-line-only commit after an approved
-  phase.
+  existing results is the user's: put it in the plan and wait—never choose
+  it silently. This gate does not apply to a PLANS.md status-line-only
+  commit after an approved phase.
 - Gradle: wrap every run in a hard time limit (e.g. `perl -e 'alarm 600;
   exec @ARGV' ./gradlew ... > run.log 2>&1`), then read the result with
   grep/tail afterwards; never block on a run with no timeout. If a run
@@ -42,7 +42,8 @@
   Discipline for push and CI-wait rules.
 - PLANS.md edits are status lines only unless I approve more.
 - Ending a session or writing a starter prompt: follow
-  docs/session-handoff.md.
+  docs/session-handoff.md, and present it only after its self-review has
+  passed.
 
 ## Important Rule for AI Agents
 
@@ -323,8 +324,9 @@ RELEASE_KEY_PASSWORD=changeme
   taps/swipes/text input, `adb shell wm size`.
 - Needs my approval: `adb uninstall`, clearing app data, and any adb command
   that touches other apps or system settings.
-- Use the emulator only, never a personal phone. If no emulator is running
-  (`adb devices` shows nothing), ask me to start it; do not boot one.
+- UI verification uses the emulator only, never a personal phone. If no
+  emulator is running (`adb devices` shows nothing), ask me to start it; do
+  not boot one. (DB audits are the read-only phone pulls in Session rules.)
 - Test screenshots go to /tmp, never into the repo.
 
 ## PR Template
