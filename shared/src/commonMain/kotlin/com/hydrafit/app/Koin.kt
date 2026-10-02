@@ -2,6 +2,7 @@ package com.hydrafit.app
 
 import com.hydrafit.app.core.database.SeedEquipmentCatalog
 import com.hydrafit.app.core.database.SeedExerciseCatalog
+import com.hydrafit.app.core.database.WorkoutSessionBackfill
 import com.hydrafit.app.core.database.databaseModule
 import com.hydrafit.app.core.network.networkModule
 import com.hydrafit.app.feature.equipment.equipmentModule
@@ -29,4 +30,5 @@ fun initKoin(platformModule: Module, extraModules: List<Module> = emptyList()) {
     }
     koinApplication.koin.get<SeedExerciseCatalog>().seed()
     koinApplication.koin.get<SeedEquipmentCatalog>().seed()
+    koinApplication.koin.get<WorkoutSessionBackfill>().backfill()
 }

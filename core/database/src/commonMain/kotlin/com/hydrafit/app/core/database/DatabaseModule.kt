@@ -20,6 +20,7 @@ val databaseModule: Module = module {
     single { HydraFitDatabase(get<DatabaseDriverFactory>().createDriver()) }
     single { SeedExerciseCatalog(get()) }
     single { SeedEquipmentCatalog(get()) }
+    single { WorkoutSessionBackfill(get(), get()) }
     single<ExerciseCatalog> { SqlDelightExerciseCatalog(get()) }
     single<EquipmentRepository> { SqlDelightEquipmentRepository(get()) }
     single<CustomExerciseRepository> { SqlDelightCustomExerciseRepository(get()) }

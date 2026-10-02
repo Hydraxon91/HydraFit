@@ -24,6 +24,9 @@ SELECT * FROM workoutSet ORDER BY performedAt, id;
 assignSession:
 UPDATE workoutSet SET sessionId = ? WHERE id = ?;
 
+selectUnsegmentedSets:
+SELECT * FROM workoutSet WHERE sessionId IS NULL ORDER BY performedAt, id;
+
 deleteSet:
 DELETE FROM workoutSet WHERE id = ?;
 
