@@ -6,7 +6,7 @@
 
 | Item | Status | Next action |
 | --- | --- | --- |
-| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01; see the Roadmap section below. Next: item 3 (AI planner prompt alignment); then Priority 1.5 (release pipeline) before the v0.3.0 features; P2d deferred. |
+| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01; see the Roadmap section below. Next: item 3 P3b (inject missing context); then Priority 1.5 (release pipeline) before the v0.3.0 features; P2d deferred. |
 | Roadmap 2b S1 — explicit session ids (domain + database) | DONE (`32b6e30`) | — |
 | Roadmap 2b S2 — legacy session backfill | DONE (`00825ba`) | — |
 | Roadmap 2b S3 — fatigue reads session ids | DONE (`c377f58`) | — |
@@ -18,6 +18,7 @@
 | Item 2 P2c — picker UI + backdated indicator | DONE (`650dc58`) | — (phone-unsafe warning resolved by S5 `5a8160a`). |
 | Item 2 P2d — existing-row time correction | DEFERRED | Deferred; revisit after S5. |
 | Item 2 P2e — historical timestamp lowers decay | DONE (`460db36`) | — |
+| Item 3 P3a — shared prompt helper | DONE (`02fe42c`) | — |
 | E (AI prompt alignment) | FOLDED | Superseded by Roadmap Priority 1 item 3. |
 | BACK work chunk 1 — heatmap freshness | DONE (`cf98d66`, Phase A) | — |
 | BACK work chunk 2 — historical workout time entry | FOLDED | Superseded by Roadmap Priority 1 item 2. |
