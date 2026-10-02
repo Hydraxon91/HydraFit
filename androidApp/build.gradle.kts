@@ -8,6 +8,20 @@ val localProperties = Properties().apply {
     }
 }
 
+fun signingProperty(name: String): String? = localProperties.getProperty(name)
+    ?: providers.environmentVariable(name).orNull
+
+val releaseKeystorePath = signingProperty("RELEASE_KEYSTORE_PATH")
+val releaseKeystorePassword = signingProperty("RELEASE_KEYSTORE_PASSWORD")
+val releaseKeyAlias = signingProperty("RELEASE_KEY_ALIAS")
+val releaseKeyPassword = signingProperty("RELEASE_KEY_PASSWORD")
+val hasReleaseSigning = listOf(
+    releaseKeystorePath,
+    releaseKeystorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+).all { !it.isNullOrBlank() }
+
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeCompiler)
@@ -48,8 +62,25 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseKeystorePath!!)
+                storePassword = releaseKeystorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
     buildTypes {
         release {
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            } else {
+                logger.lifecycle(
+                    "Release signing not configured (RELEASE_KEYSTORE_* absent); release will be unsigned."
+                )
+            }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

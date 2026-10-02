@@ -3,7 +3,11 @@
 # Gemini API Engine
 GEMINI_API_KEY=your_google_ai_studio_key_here
 
-# Release signing (only needed for release builds)
+# Release signing (only needed for `assembleRelease`/signed builds).
+# Each key falls back to an environment variable of the same name, so CI can
+# supply them as secrets instead of writing local.properties. If all four are
+# absent, release builds are produced unsigned (with a Gradle warning); debug
+# builds are unaffected.
 RELEASE_KEYSTORE_PATH=/path/to/keystore.jks
 RELEASE_KEYSTORE_PASSWORD=changeme
 RELEASE_KEY_ALIAS=hydrafit
