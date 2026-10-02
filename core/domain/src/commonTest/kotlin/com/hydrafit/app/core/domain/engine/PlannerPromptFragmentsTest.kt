@@ -22,6 +22,35 @@ class PlannerPromptFragmentsTest {
     }
 
     @Test
+    fun formatsEquipmentWeightCapsSortedByDisplayName() {
+        val request = request(
+            equipmentMaxWeights = mapOf(
+                EquipmentTag.CABLE_MACHINE to 80.0,
+                EquipmentTag.BARBELL to 200.0
+            )
+        )
+        assertEquals(
+            "Equipment weight limits (do not exceed): " +
+                "Barbell: 200.0kg; Cable machine: 80.0kg",
+            PlannerPromptFragments.equipmentCapsLine(request)
+        )
+    }
+
+    @Test
+    fun equipmentCapsLineIsAbsentWhenNoMaximums() {
+        assertNull(PlannerPromptFragments.equipmentCapsLine(request()))
+    }
+
+    @Test
+    fun formatsThePeriodizationLine() {
+        val request = request(weekNumber = 4, cycleNumber = 2)
+        assertEquals(
+            "Periodization: week 4 of cycle 2.",
+            PlannerPromptFragments.periodizationLine(request)
+        )
+    }
+
+    @Test
     fun formatsTheFatigueLineWithTheGivenLabel() {
         val request = request(
             muscleFatigue = mapOf(MuscleGroup.CHEST to 0.25, MuscleGroup.BACK to 0.5)
@@ -94,6 +123,9 @@ class PlannerPromptFragmentsTest {
         availableEquipment: Set<EquipmentTag> = emptySet(),
         muscleFatigue: Map<MuscleGroup, Double> = emptyMap(),
         goal: TrainingGoal = TrainingGoal.BALANCED,
+        equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
+        weekNumber: Int = 1,
+        cycleNumber: Int = 1,
         includeWorkoutData: Boolean = false,
         recentWeights: List<WeightHistoryEntry> = emptyList(),
         suggestedWeightsKg: Map<String, Double> = emptyMap(),
@@ -104,6 +136,9 @@ class PlannerPromptFragmentsTest {
         muscleFatigue = muscleFatigue,
         nowMillis = 0L,
         goal = goal,
+        equipmentMaxWeights = equipmentMaxWeights,
+        weekNumber = weekNumber,
+        cycleNumber = cycleNumber,
         includeWorkoutData = includeWorkoutData,
         recentWeights = recentWeights,
         suggestedWeightsKg = suggestedWeightsKg,

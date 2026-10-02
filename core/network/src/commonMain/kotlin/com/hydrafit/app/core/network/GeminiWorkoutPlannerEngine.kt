@@ -149,7 +149,9 @@ class GeminiWorkoutPlannerEngine(
             }
             appendLine("Training goal: ${request.goal.name}")
             appendLine(PlannerPromptFragments.equipmentLine(request))
+            PlannerPromptFragments.equipmentCapsLine(request)?.let { appendLine(it) }
             appendLine(PlannerPromptFragments.fatigueLine(request, "Current muscle fatigue"))
+            appendLine(PlannerPromptFragments.periodizationLine(request))
             PlannerPromptFragments.deloadInstruction(request)?.let { appendLine(it) }
             appendLine("Choose ONLY exerciseId values from this list: $exerciseIds")
             appendLine("Give every day 4 to 6 exercises.")

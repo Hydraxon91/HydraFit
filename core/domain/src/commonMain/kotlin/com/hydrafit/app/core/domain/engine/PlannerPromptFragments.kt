@@ -16,9 +16,22 @@ object PlannerPromptFragments {
     fun equipmentLine(request: PlanRequest): String =
         "Available equipment: ${equipmentList(request)}"
 
+    /** Per-equipment weight ceilings, or null when no equipment records a maximum. */
+    fun equipmentCapsLine(request: PlanRequest): String? {
+        if (request.equipmentMaxWeights.isEmpty()) return null
+        val caps = request.equipmentMaxWeights.entries
+            .sortedBy { it.key.displayName }
+            .joinToString("; ") { "${it.key.displayName}: ${it.value}kg" }
+        return "Equipment weight limits (do not exceed): $caps"
+    }
+
     /** "<label> (0.0-1.0): <MUSCLE=value, ...>" — the label differs per engine. */
     fun fatigueLine(request: PlanRequest, label: String): String =
         "$label (0.0-1.0): ${fatigueList(request)}"
+
+    /** Periodization position; the deload wording stays in [deloadInstruction]. */
+    fun periodizationLine(request: PlanRequest): String =
+        "Periodization: week ${request.weekNumber} of cycle ${request.cycleNumber}."
 
     /** Deload instruction, or null when the week is not a deload. */
     fun deloadInstruction(request: PlanRequest): String? = if (request.isDeload) {

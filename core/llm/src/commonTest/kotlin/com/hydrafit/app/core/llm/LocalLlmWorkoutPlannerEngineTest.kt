@@ -103,6 +103,24 @@ class LocalLlmWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun includesEquipmentWeightCapsAndPeriodizationInThePrompt() = runTest {
+        val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
+
+        engine(generator).generatePlan(
+            request(
+                equipmentMaxWeights = mapOf(EquipmentTag.BARBELL to 200.0),
+                weekNumber = 4,
+                cycleNumber = 2
+            )
+        )
+
+        val prompt = requireNotNull(generator.lastPrompt)
+        assertTrue(prompt.contains("Equipment weight limits (do not exceed)"), prompt)
+        assertTrue(prompt.contains("Barbell: 200.0kg"), prompt)
+        assertTrue(prompt.contains("Periodization: week 4 of cycle 2."), prompt)
+    }
+
+    @Test
     fun requestsJsonConstrainedOutput() = runTest {
         val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
 
@@ -382,6 +400,9 @@ class LocalLlmWorkoutPlannerEngineTest {
         accessorySetsPerExercise: Int = goal.accessorySets,
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
         suggestedWeightsKg: Map<String, Double> = emptyMap(),
+        equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
+        weekNumber: Int = 1,
+        cycleNumber: Int = 1,
         includeWorkoutData: Boolean = false,
         isDeload: Boolean = false,
         recentWeights: List<WeightHistoryEntry> = emptyList()
@@ -396,6 +417,9 @@ class LocalLlmWorkoutPlannerEngineTest {
         accessorySetsPerExercise = accessorySetsPerExercise,
         recentExerciseIdsByPattern = recentExerciseIdsByPattern,
         suggestedWeightsKg = suggestedWeightsKg,
+        equipmentMaxWeights = equipmentMaxWeights,
+        weekNumber = weekNumber,
+        cycleNumber = cycleNumber,
         includeWorkoutData = includeWorkoutData,
         isDeload = isDeload,
         recentWeights = recentWeights

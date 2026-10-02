@@ -103,6 +103,28 @@ class GeminiWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun sendsEquipmentWeightCapsAndPeriodization() = runTest {
+        var captured: HttpRequestData? = null
+        val mockEngine = MockEngine { request ->
+            captured = request
+            respond(envelope(VALID_PLAN), HttpStatusCode.OK, jsonHeaders())
+        }
+
+        engine(mockEngine).generatePlan(
+            request(
+                equipmentMaxWeights = mapOf(EquipmentTag.BARBELL to 200.0),
+                weekNumber = 4,
+                cycleNumber = 2
+            )
+        )
+
+        val bodyText = (requireNotNull(captured).body as TextContent).text
+        assertTrue(bodyText.contains("Equipment weight limits (do not exceed)"), bodyText)
+        assertTrue(bodyText.contains("Barbell: 200.0kg"), bodyText)
+        assertTrue(bodyText.contains("Periodization: week 4 of cycle 2."), bodyText)
+    }
+
+    @Test
     fun sendsRecentAcceptedSelectionsToSteerRotation() = runTest {
         var captured: HttpRequestData? = null
         val mockEngine = MockEngine { request ->
@@ -368,6 +390,9 @@ class GeminiWorkoutPlannerEngineTest {
         accessorySetsPerExercise: Int = goal.accessorySets,
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
         suggestedWeightsKg: Map<String, Double> = emptyMap(),
+        equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
+        weekNumber: Int = 1,
+        cycleNumber: Int = 1,
         includeWorkoutData: Boolean = false,
         isDeload: Boolean = false,
         recentWeights: List<WeightHistoryEntry> = emptyList()
@@ -381,6 +406,9 @@ class GeminiWorkoutPlannerEngineTest {
         accessorySetsPerExercise = accessorySetsPerExercise,
         recentExerciseIdsByPattern = recentExerciseIdsByPattern,
         suggestedWeightsKg = suggestedWeightsKg,
+        equipmentMaxWeights = equipmentMaxWeights,
+        weekNumber = weekNumber,
+        cycleNumber = cycleNumber,
         includeWorkoutData = includeWorkoutData,
         isDeload = isDeload,
         recentWeights = recentWeights

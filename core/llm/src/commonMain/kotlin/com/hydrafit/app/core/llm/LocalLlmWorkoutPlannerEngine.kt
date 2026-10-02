@@ -120,9 +120,11 @@ class LocalLlmWorkoutPlannerEngine(
                     "exercises."
             )
             appendLine("Training goal: ${request.goal.name}")
+            appendLine(PlannerPromptFragments.periodizationLine(request))
             PlannerPromptFragments.deloadInstruction(request)?.let { appendLine(it) }
             appendLine(PlannerPromptFragments.volumeRepsGuidance(request))
             appendLine(PlannerPromptFragments.equipmentLine(request))
+            PlannerPromptFragments.equipmentCapsLine(request)?.let { appendLine(it) }
             appendLine(PlannerPromptFragments.fatigueLine(request, "Muscle fatigue"))
             appendLine("Choose every exercise by its number from this list:")
             availableExercises.forEachIndexed { index, exercise ->
