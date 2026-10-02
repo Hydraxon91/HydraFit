@@ -2,6 +2,7 @@ package com.hydrafit.app.feature.logger
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,15 +14,24 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDialog
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -47,14 +57,18 @@ import hydrafit.feature.logger.generated.resources.focus_pull
 import hydrafit.feature.logger.generated.resources.focus_push
 import hydrafit.feature.logger.generated.resources.focus_upper
 import hydrafit.feature.logger.generated.resources.logger_add_weight
+import hydrafit.feature.logger.generated.resources.logger_backdated_at
+import hydrafit.feature.logger.generated.resources.logger_cancel
 import hydrafit.feature.logger.generated.resources.logger_confirm
 import hydrafit.feature.logger.generated.resources.logger_confirm_all
 import hydrafit.feature.logger.generated.resources.logger_delete_set
 import hydrafit.feature.logger.generated.resources.logger_dismiss
 import hydrafit.feature.logger.generated.resources.logger_end_session
+import hydrafit.feature.logger.generated.resources.logger_future_time_error
 import hydrafit.feature.logger.generated.resources.logger_log_button
 import hydrafit.feature.logger.generated.resources.logger_new_session
 import hydrafit.feature.logger.generated.resources.logger_per_hand
+import hydrafit.feature.logger.generated.resources.logger_pick_time_title
 import hydrafit.feature.logger.generated.resources.logger_planned_today
 import hydrafit.feature.logger.generated.resources.logger_recent
 import hydrafit.feature.logger.generated.resources.logger_reps_label
@@ -62,9 +76,12 @@ import hydrafit.feature.logger.generated.resources.logger_rir_label
 import hydrafit.feature.logger.generated.resources.logger_search_label
 import hydrafit.feature.logger.generated.resources.logger_session_active
 import hydrafit.feature.logger.generated.resources.logger_session_none
+import hydrafit.feature.logger.generated.resources.logger_set_time
 import hydrafit.feature.logger.generated.resources.logger_set_week_day
+import hydrafit.feature.logger.generated.resources.logger_time_live
 import hydrafit.feature.logger.generated.resources.logger_title
 import hydrafit.feature.logger.generated.resources.logger_today
+import hydrafit.feature.logger.generated.resources.logger_use_now
 import hydrafit.feature.logger.generated.resources.logger_warmup
 import hydrafit.feature.logger.generated.resources.logger_warmup_suffix
 import hydrafit.feature.logger.generated.resources.logger_weight_label
@@ -109,10 +126,14 @@ fun WorkoutLoggerRoute(
         onDismissDraft = viewModel::dismissDraft,
         onEndSession = viewModel::endSession,
         onNewSession = viewModel::newSession,
+        onBackdatedDateTimePicked = viewModel::onBackdatedDateTimePicked,
+        onClearBackdated = { viewModel.onPerformedAtChanged(null) },
+        nowMillis = viewModel::currentTimeMillis,
         modifier = modifier
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkoutLoggerScreen(
     state: WorkoutLoggerUiState,
@@ -130,10 +151,17 @@ fun WorkoutLoggerScreen(
     onDismissDraft: (DraftSet) -> Unit,
     onEndSession: () -> Unit,
     onNewSession: () -> Unit,
+    onBackdatedDateTimePicked: (Long, Int, Int) -> Boolean,
+    onClearBackdated: () -> Unit,
+    nowMillis: () -> Long,
     modifier: Modifier = Modifier
 ) {
     val focusManager = LocalFocusManager.current
     val weightFocusRequester = remember { FocusRequester() }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+    var pendingDateUtcMillis by remember { mutableStateOf<Long?>(null) }
+    var futureTimeError by remember { mutableStateOf(false) }
 
     // One scroll container for the whole screen: a fixed-height picker inside a non-scrolling
     // parent used to push the form and the recent-sets list off short viewports.
@@ -291,6 +319,23 @@ fun WorkoutLoggerScreen(
             }
         }
         item {
+            BackdatedTimeControl(
+                isBackdated = state.isBackdated,
+                performedAtMillis = state.performedAtMillis,
+                utcOffsetMillis = state.utcOffsetMillis,
+                showFutureError = futureTimeError,
+                onSetTime = {
+                    futureTimeError = false
+                    pendingDateUtcMillis = null
+                    showDatePicker = true
+                },
+                onUseNow = {
+                    futureTimeError = false
+                    onClearBackdated()
+                }
+            )
+        }
+        item {
             Button(onClick = onLog, enabled = state.canLog) {
                 Text(stringResource(Res.string.logger_log_button))
             }
@@ -373,7 +418,130 @@ fun WorkoutLoggerScreen(
             }
         }
     }
+
+    val backdatedAnchor = state.performedAtMillis ?: nowMillis()
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = pendingDateUtcMillis
+                ?: localDateStartOfDayUtcMillis(backdatedAnchor, state.utcOffsetMillis)
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { selected ->
+                            pendingDateUtcMillis = selected
+                            showDatePicker = false
+                            showTimePicker = true
+                        }
+                    }
+                ) {
+                    Text(stringResource(Res.string.logger_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text(stringResource(Res.string.logger_cancel))
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+    if (showTimePicker) {
+        val anchorParts = localDateTimeParts(backdatedAnchor, state.utcOffsetMillis)
+        val timePickerState = rememberTimePickerState(
+            initialHour = anchorParts.hour,
+            initialMinute = anchorParts.minute,
+            is24Hour = true
+        )
+        TimePickerDialog(
+            onDismissRequest = { showTimePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingDateUtcMillis?.let { date ->
+                            futureTimeError = !onBackdatedDateTimePicked(
+                                date,
+                                timePickerState.hour,
+                                timePickerState.minute
+                            )
+                        }
+                        showTimePicker = false
+                    }
+                ) {
+                    Text(stringResource(Res.string.logger_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) {
+                    Text(stringResource(Res.string.logger_cancel))
+                }
+            },
+            title = { Text(stringResource(Res.string.logger_pick_time_title)) }
+        ) {
+            TimePicker(state = timePickerState)
+        }
+    }
 }
+
+@Composable
+private fun BackdatedTimeControl(
+    isBackdated: Boolean,
+    performedAtMillis: Long?,
+    utcOffsetMillis: Long,
+    showFutureError: Boolean,
+    onSetTime: () -> Unit,
+    onUseNow: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = if (isBackdated && performedAtMillis != null) {
+                    val parts = localDateTimeParts(performedAtMillis, utcOffsetMillis)
+                    stringResource(
+                        Res.string.logger_backdated_at,
+                        localDateLabel(parts),
+                        localTimeLabel(parts)
+                    )
+                } else {
+                    stringResource(Res.string.logger_time_live)
+                },
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onSetTime) {
+                    Text(stringResource(Res.string.logger_set_time))
+                }
+                if (isBackdated) {
+                    TextButton(onClick = onUseNow) {
+                        Text(stringResource(Res.string.logger_use_now))
+                    }
+                }
+            }
+        }
+        if (showFutureError) {
+            Text(
+                text = stringResource(Res.string.logger_future_time_error),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+}
+
+private fun localDateLabel(parts: LocalDateTimeParts): String =
+    "${parts.year}-${twoDigits(parts.month)}-${twoDigits(parts.day)}"
+
+private fun localTimeLabel(parts: LocalDateTimeParts): String =
+    "${twoDigits(parts.hour)}:${twoDigits(parts.minute)}"
+
+private fun twoDigits(value: Int): String = value.toString().padStart(2, '0')
 
 private fun SplitFocus.labelResource(): StringResource = when (this) {
     SplitFocus.PUSH -> Res.string.focus_push

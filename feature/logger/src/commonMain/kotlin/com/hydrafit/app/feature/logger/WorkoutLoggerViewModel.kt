@@ -45,6 +45,7 @@ class WorkoutLoggerViewModel(
     private var suggestedWeightKgByExercise: Map<String, Double> = emptyMap()
 
     init {
+        _state.update { it.copy(utcOffsetMillis = timeProvider.utcOffsetMillis()) }
         viewModelScope.launch {
             // Observe the catalog so a newly added/edited custom exercise appears without a restart.
             exerciseCatalog.observeAll().collect { catalog ->
@@ -123,6 +124,23 @@ class WorkoutLoggerViewModel(
         _state.update { it.copy(performedAtMillis = millis) }
         return true
     }
+
+    /**
+     * Applies a picked local date (start-of-day UTC millis) and wall-clock time. Returns false when
+     * the resulting instant is in the future.
+     */
+    fun onBackdatedDateTimePicked(dateStartOfDayUtcMillis: Long, hour: Int, minute: Int): Boolean =
+        onPerformedAtChanged(
+            pickedLocalDateTimeToEpochMillis(
+                dateStartOfDayUtcMillis,
+                hour,
+                minute,
+                timeProvider.utcOffsetMillis()
+            )
+        )
+
+    /** The current wall-clock time, used to seed the backdated pickers. */
+    fun currentTimeMillis(): Long = timeProvider.nowMillis()
 
     /** Reveals the weight field for a bodyweight exercise so a weighted variant can be logged. */
     fun onRevealWeight() {
@@ -218,6 +236,7 @@ class WorkoutLoggerViewModel(
 
     /** Recomputes today's focus/drafts, e.g. when the screen resumes after a local midnight. */
     fun onResume() {
+        _state.update { it.copy(utcOffsetMillis = timeProvider.utcOffsetMillis()) }
         updateTodayPlan(acceptedPlan)
         // Opening the logger is an "open time": expire a session that rolled into a new day or went idle.
         viewModelScope.launch {

@@ -30,4 +30,11 @@
     <string name="logger_session_none">No active session</string>
     <string name="logger_end_session">End session</string>
     <string name="logger_new_session">New session</string>
+    <string name="logger_time_live">Logging now</string>
+    <string name="logger_set_time">Set time</string>
+    <string name="logger_use_now">Use now</string>
+    <string name="logger_backdated_at">Backdated: %1$s %2$s</string>
+    <string name="logger_cancel">Cancel</string>
+    <string name="logger_pick_time_title">Set time</string>
+    <string name="logger_future_time_error">That time is in the future</string>
 </resources>

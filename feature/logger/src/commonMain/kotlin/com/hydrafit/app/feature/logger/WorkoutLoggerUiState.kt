@@ -46,7 +46,9 @@ data class WorkoutLoggerUiState(
     /** The persisted open session, or null when none is open; drives the End/New controls. */
     val activeSession: WorkoutSession? = null,
     /** The explicit backdated time to stamp new sets with, or null to use the current time. */
-    val performedAtMillis: Long? = null
+    val performedAtMillis: Long? = null,
+    /** The local UTC offset, used to display and seed the backdated time picker. */
+    val utcOffsetMillis: Long = 0L
 ) {
     /** True when a backdated time is set; the UI shows a "backdated" indicator. */
     val isBackdated: Boolean
