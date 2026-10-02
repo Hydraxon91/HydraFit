@@ -94,6 +94,33 @@ class WeeklyPlanJsonTest {
         }
     }
 
+    @Test
+    fun recoversATruncatedReplyThatEndsAtAValueBoundary() {
+        val truncated =
+            """{"days":[{"focus":"PUSH","exercises":[{"exerciseId":"bench-press"}]},""" +
+                """{"focus":"PULL","exercises":[{"exerciseId":"barbell-row"}"""
+
+        val plan = parseWeeklyPlan(truncated, PlannerEngineId.LOCAL_LLM)
+
+        assertEquals(listOf(SplitFocus.PUSH, SplitFocus.PULL), plan.days.map { it.focus })
+    }
+
+    @Test
+    fun closesAnArrayCutOffAfterATrailingComma() {
+        val completed = extractJsonObject("""{"days":[{"exerciseId":"a"},""")
+
+        assertEquals("""{"days":[{"exerciseId":"a"}]}""", completed)
+    }
+
+    @Test
+    fun leavesAReplyCutOffInsideAStringUnrecovered() {
+        val extracted = extractJsonObject("""{"days":[{"focus":"PUSH""")
+
+        assertFailsWith<IllegalArgumentException> {
+            parseWeeklyPlan(extracted, PlannerEngineId.LOCAL_LLM)
+        }
+    }
+
     private companion object {
         const val PLAIN =
             """{"days":[{"focus":"PUSH","exercises":[{"exerciseId":"bench-press","sets":3,"reps":8}]}]}"""
