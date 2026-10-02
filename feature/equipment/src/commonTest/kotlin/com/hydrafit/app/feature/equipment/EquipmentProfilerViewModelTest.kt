@@ -62,6 +62,21 @@ class EquipmentProfilerViewModelTest {
     }
 
     @Test
+    fun editorFlagsAMismatchedMovementPattern() {
+        val mismatched = ExerciseEditorState(
+            movementPattern = MovementPattern.HORIZONTAL_PUSH,
+            involvements = mapOf(MuscleGroup.QUADS to 1.0)
+        )
+        val coherent = ExerciseEditorState(
+            movementPattern = MovementPattern.HORIZONTAL_PUSH,
+            involvements = mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.TRICEPS to 0.4)
+        )
+
+        assertTrue(mismatched.patternMismatch)
+        assertFalse(coherent.patternMismatch)
+    }
+
+    @Test
     fun togglingPersistsSelection() = runTest(dispatcher) {
         val selection = FakeSelectionRepository(emptySet())
         val viewModel = viewModel(selection = selection)

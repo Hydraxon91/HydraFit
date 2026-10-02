@@ -32,6 +32,7 @@
     <string name="equipment_pr_reps">Reps</string>
     <string name="equipment_movement_pattern">Movement pattern</string>
     <string name="equipment_movement_pattern_hint">Compound patterns use the main set count; accessory patterns use the accessory set count.</string>
+    <string name="equipment_pattern_mismatch">This pattern does not match the muscles you picked. Check the pattern the exercise mainly trains.</string>
     <string name="equipment_pattern_compound_group">Compound</string>
     <string name="equipment_pattern_accessory_group">Accessory</string>
     <string name="muscle_chest">Chest</string>

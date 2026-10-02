@@ -4,6 +4,7 @@ import com.hydrafit.app.core.domain.equipment.Equipment
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.equipment.MovementPatternGuardrail
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 
 /** The exercise currently open in the editor dialog, and its in-progress edits. */
@@ -24,6 +25,10 @@ data class ExerciseEditorState(
 
     val canSave: Boolean
         get() = name.isNotBlank() && involvements.isNotEmpty()
+
+    /** Advisory: the chosen pattern does not match the involvement profile. */
+    val patternMismatch: Boolean
+        get() = MovementPatternGuardrail.conflicts(movementPattern, involvements)
 
     /** Muscles at the "primary" tier or above, kept in sync for the legacy tag columns. */
     val primaryMuscles: Set<MuscleGroup>

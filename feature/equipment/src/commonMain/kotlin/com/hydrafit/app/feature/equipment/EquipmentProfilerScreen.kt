@@ -59,6 +59,7 @@ import hydrafit.feature.equipment.generated.resources.equipment_muscles
 import hydrafit.feature.equipment.generated.resources.equipment_name_label
 import hydrafit.feature.equipment.generated.resources.equipment_pattern_accessory_group
 import hydrafit.feature.equipment.generated.resources.equipment_pattern_compound_group
+import hydrafit.feature.equipment.generated.resources.equipment_pattern_mismatch
 import hydrafit.feature.equipment.generated.resources.equipment_personal_records
 import hydrafit.feature.equipment.generated.resources.equipment_pr_exercise
 import hydrafit.feature.equipment.generated.resources.equipment_pr_reps
@@ -543,6 +544,13 @@ private fun ExerciseEditorDialog(
                     singleLine = true
                 )
                 MovementPatternPicker(state.movementPattern, onPatternChanged)
+                if (state.patternMismatch) {
+                    Text(
+                        text = stringResource(Res.string.equipment_pattern_mismatch),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
                 Text(
                     text = stringResource(Res.string.equipment_muscles),
                     style = MaterialTheme.typography.labelMedium
