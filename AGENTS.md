@@ -7,6 +7,31 @@
 - **Style Alignment:** Strictly mirror the syntax, pattern choices, and formatting of the existing codebase. If a module uses sealed classes for state, use sealed classes. If it uses data classes with copy-based updates, match that.
 - **Hypothesis Verification:** Before proposing a fix, explain the expected behavior, the actual behavior, and the evidence (log line, stack trace, failing test, or code block) that proves your theory.
 
+## Session rules (apply to every task)
+
+- Gradle: every run has a hard time limit (e.g. `perl -e 'alarm 600;
+  exec @ARGV' ./gradlew ...`). Never redirect Gradle output to a file and
+  wait. If a run hangs, jstack the test executor and report; don't retry
+  blindly.
+- Verification covers downstream consumers, not just the module you
+  edited: for cross-cutting or schema changes run the full host-test
+  suite, ktlint, assembleDebug and iOS compile before showing a diff.
+- Phone access is read-only (`adb exec-out run-as ... cat`): never push,
+  install, launch or clear. Copies live outside the repo, are never
+  committed, and are reported as aggregates only (no individual rows).
+- Keep tool output small: grep, head and line ranges; never whole files
+  or full logs. Don't narrate progress or print step checklists.
+- Stop and report if ~30 tool calls pass without a plan or a result. If
+  budget is nearly out, stop at a clean point with a "where I stopped /
+  what remains" note instead of leaving half-edited files.
+- Flow: plan, wait for OK on deviations, implement, verify, show diff and
+  verification results, wait for approval, commit, push. Wait for CI on
+  code pushes. Pushes that change only markdown files (*.md) don't need a
+  CI wait.
+- PLANS.md edits are status lines only unless I approve more.
+- Ending a session or writing a starter prompt: follow
+  docs/session-handoff.md.
+
 ## Important Rule for AI Agents
 
 **Before performing any destructive actions** (like file deletions, large refactors, module restructuring, or package/dependency downgrades), **committing**, **or pushing to remote**, you **must**:
