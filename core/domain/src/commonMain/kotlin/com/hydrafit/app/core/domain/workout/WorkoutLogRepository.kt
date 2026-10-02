@@ -11,6 +11,9 @@ interface WorkoutLogRepository {
 
     suspend fun delete(id: Long)
 
+    /** Corrects only a set's performed-at time; every other column is left untouched. */
+    suspend fun updateSetPerformedAt(setId: Long, performedAtMillis: Long)
+
     suspend fun all(): List<WorkoutSet>
 
     fun setsFlow(): Flow<List<WorkoutSet>>

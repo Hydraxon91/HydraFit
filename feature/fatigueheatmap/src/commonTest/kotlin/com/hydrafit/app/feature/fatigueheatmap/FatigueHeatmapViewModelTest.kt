@@ -276,6 +276,8 @@ class FatigueHeatmapViewModelTest {
 
         override suspend fun delete(id: Long) = Unit
 
+        override suspend fun updateSetPerformedAt(setId: Long, performedAtMillis: Long) = Unit
+
         override suspend fun all(): List<WorkoutSet> = emptyList()
 
         override fun setsFlow(): Flow<List<WorkoutSet>> = flowOf(emptyList())
@@ -294,6 +296,8 @@ class FatigueHeatmapViewModelTest {
         override suspend fun assignSession(setId: Long, sessionId: String) = Unit
 
         override suspend fun delete(id: Long) = Unit
+
+        override suspend fun updateSetPerformedAt(setId: Long, performedAtMillis: Long) = Unit
 
         override suspend fun all(): List<WorkoutSet> = emptyList()
 

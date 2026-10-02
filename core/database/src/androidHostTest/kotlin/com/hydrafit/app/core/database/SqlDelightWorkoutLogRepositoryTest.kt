@@ -388,6 +388,43 @@ class SqlDelightWorkoutLogRepositoryTest {
     }
 
     @Test
+    fun updateSetPerformedAtChangesOnlyTheTime() = runTest {
+        repository.add(
+            DomainWorkoutSet(
+                exerciseId = "barbell-bench-press",
+                reps = 5,
+                weightKg = 80.0,
+                performedAtMillis = 1,
+                isWarmup = true,
+                weekNumber = 2,
+                cycleNumber = 1,
+                dayIndex = 3,
+                rir = 3,
+                sessionId = "session-a"
+            )
+        )
+        val target = repository.all().single()
+        val snapshotBefore = repository.loggedSets().single().targets
+
+        repository.updateSetPerformedAt(target.id, 999L)
+
+        val stored = repository.all().single()
+        assertEquals(999L, stored.performedAtMillis)
+        assertEquals(5, stored.reps)
+        assertEquals(80.0, stored.weightKg)
+        assertTrue(stored.isWarmup)
+        assertEquals(2, stored.weekNumber)
+        assertEquals(1, stored.cycleNumber)
+        assertEquals(3, stored.dayIndex)
+        assertEquals(3, stored.rir)
+        assertEquals("session-a", stored.sessionId)
+
+        val logged = repository.loggedSets().single()
+        assertEquals(999L, logged.timestampMillis)
+        assertEquals(snapshotBefore, logged.targets)
+    }
+
+    @Test
     fun historicalPerformedAtLowersTheFatigueScoreAtAFixedNow() = runTest {
         val now = 30L * DAY
         val chosen = now - 7L * DAY

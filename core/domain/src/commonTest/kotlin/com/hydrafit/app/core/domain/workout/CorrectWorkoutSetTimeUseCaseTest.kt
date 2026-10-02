@@ -7,29 +7,29 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 
-class DeleteWorkoutSetUseCaseTest {
+class CorrectWorkoutSetTimeUseCaseTest {
 
     @Test
-    fun removesTheRequestedSetFromTheRepository() = runTest {
+    fun forwardsTheSetIdAndNewTimeToTheRepository() = runTest {
         val repository = RecordingWorkoutLogRepository()
 
-        DeleteWorkoutSetUseCase(repository)(7L)
+        CorrectWorkoutSetTimeUseCase(repository)(7L, 1_234L)
 
-        assertEquals(listOf(7L), repository.deletedIds)
+        assertEquals(listOf(7L to 1_234L), repository.corrections)
     }
 
     private class RecordingWorkoutLogRepository : WorkoutLogRepository {
-        val deletedIds = mutableListOf<Long>()
+        val corrections = mutableListOf<Pair<Long, Long>>()
 
         override suspend fun add(set: WorkoutSet) = Unit
 
         override suspend fun assignSession(setId: Long, sessionId: String) = Unit
 
-        override suspend fun delete(id: Long) {
-            deletedIds.add(id)
-        }
+        override suspend fun delete(id: Long) = Unit
 
-        override suspend fun updateSetPerformedAt(setId: Long, performedAtMillis: Long) = Unit
+        override suspend fun updateSetPerformedAt(setId: Long, performedAtMillis: Long) {
+            corrections.add(setId to performedAtMillis)
+        }
 
         override suspend fun all(): List<WorkoutSet> = emptyList()
 

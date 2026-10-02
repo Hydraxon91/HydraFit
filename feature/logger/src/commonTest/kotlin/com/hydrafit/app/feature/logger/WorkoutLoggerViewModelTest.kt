@@ -1253,6 +1253,11 @@ class WorkoutLoggerViewModelTest {
             sets.removeAll { it.id == id }
         }
 
+        override suspend fun updateSetPerformedAt(setId: Long, performedAtMillis: Long) {
+            val index = sets.indexOfFirst { it.id == setId }
+            if (index >= 0) sets[index] = sets[index].copy(performedAtMillis = performedAtMillis)
+        }
+
         override suspend fun all(): List<WorkoutSet> = sets.toList()
 
         override fun setsFlow(): Flow<List<WorkoutSet>> = flowOf(sets.toList())

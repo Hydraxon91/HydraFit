@@ -355,6 +355,8 @@ class LogWorkoutSetUseCaseTest {
 
         override suspend fun delete(id: Long) = Unit
 
+        override suspend fun updateSetPerformedAt(setId: Long, performedAtMillis: Long) = Unit
+
         override suspend fun all(): List<WorkoutSet> = sets.toList()
 
         override fun setsFlow(): Flow<List<WorkoutSet>> = flowOf(sets.toList())

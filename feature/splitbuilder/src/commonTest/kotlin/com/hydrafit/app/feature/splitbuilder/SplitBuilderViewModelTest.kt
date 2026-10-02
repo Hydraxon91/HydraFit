@@ -720,6 +720,8 @@ class SplitBuilderViewModelTest {
 
         override suspend fun delete(id: Long) = Unit
 
+        override suspend fun updateSetPerformedAt(setId: Long, performedAtMillis: Long) = Unit
+
         override suspend fun all(): List<WorkoutSet> = emptyList()
 
         override fun setsFlow(): Flow<List<WorkoutSet>> = flowOf(emptyList())
