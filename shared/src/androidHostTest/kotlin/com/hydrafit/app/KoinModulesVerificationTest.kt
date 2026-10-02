@@ -14,6 +14,7 @@ import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
@@ -111,6 +112,7 @@ class KoinModulesVerificationTest {
             assertNotNull(koin.get<LogWorkoutSetUseCase>())
             assertNotNull(koin.get<GetWorkoutLogUseCase>())
             assertNotNull(koin.get<DeleteWorkoutSetUseCase>())
+            assertNotNull(koin.get<CorrectWorkoutSetTimeUseCase>())
             assertNotNull(koin.get<StartWorkoutSessionUseCase>())
             assertNotNull(koin.get<EndWorkoutSessionUseCase>())
             assertNotNull(koin.get<ObserveOpenWorkoutSessionUseCase>())

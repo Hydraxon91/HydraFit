@@ -14,6 +14,7 @@ import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngineProvider
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
+import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
@@ -21,6 +22,7 @@ import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.SessionConfig
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.llm.LocalLlmWorkoutPlannerEngine
 import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.network.GeminiWorkoutPlannerEngine
@@ -64,6 +66,8 @@ val domainModule: Module = module {
     single { SessionConfig() }
     singleOf(::GetWorkoutLogUseCase)
     singleOf(::DeleteWorkoutSetUseCase)
+    singleOf(::CorrectWorkoutSetTimeUseCase)
+    singleOf(::WorkoutLogMutations)
     singleOf(::StartWorkoutSessionUseCase)
     singleOf(::EndWorkoutSessionUseCase)
     singleOf(::ObserveOpenWorkoutSessionUseCase)
