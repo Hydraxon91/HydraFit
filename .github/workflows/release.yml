@@ -1,0 +1,113 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+      - name: Run ktlint
+        run: ./gradlew ktlintCheck
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+      - name: Run host unit tests
+        run: ./gradlew testAndroidHostTest
+
+  build-release:
+    name: Build Signed Release APK
+    needs: [ lint, unit-tests ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+      RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+      RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+      RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+      - name: Install Android SDK components
+        run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0"
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+      - name: Verify signing secrets are present
+        run: |
+          missing=0
+          for name in RELEASE_KEYSTORE_BASE64 RELEASE_KEYSTORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing required secret: $name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Refusing to publish an unsigned release. Configure the RELEASE_* repository secrets."
+            exit 1
+          fi
+      - name: Decode release keystore
+        run: |
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          echo "RELEASE_KEYSTORE_PATH=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+      - name: Assemble release APK
+        run: ./gradlew :androidApp:assembleRelease
+      - name: Attach APK to GitHub Release
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" androidApp/build/outputs/apk/release/*.apk --clobber
+          else
+            prerelease=()
+            case "$GITHUB_REF_NAME" in
+              *-*) prerelease=(--prerelease) ;;
+            esac
+            gh release create "$GITHUB_REF_NAME" \
+              androidApp/build/outputs/apk/release/*.apk \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes \
+              --verify-tag \
+              "${prerelease[@]}"
+          fi
+      - name: Delete decoded keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.keystore"
