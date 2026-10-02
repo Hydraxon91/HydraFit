@@ -18,6 +18,9 @@ import com.hydrafit.app.core.domain.engine.OnDevicePlanProgress
 import com.hydrafit.app.core.userdata.llm.OnDeviceModelTarget
 import java.io.File
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -61,7 +64,8 @@ class LiteRtLmTextGenerator(
     /**
      * Streams the reply so the UI can show live tokens and tokens/second. The callback may deliver
      * either running or incremental text, so the longer of the two is kept; the token count prefers
-     * the runtime counter and falls back to a character estimate while it is still zero.
+     * the runtime counter and falls back to a character estimate. A heartbeat keeps the line moving
+     * through the slow prefill phase before the first chunk lands.
      */
     private fun stream(
         conversation: Conversation,
@@ -70,12 +74,51 @@ class LiteRtLmTextGenerator(
         onProgress: (OnDevicePlanProgress) -> Unit
     ): String {
         val builder = StringBuilder()
+        val latestChars = AtomicInteger(0)
+        val chunkCount = AtomicInteger(0)
         val failure = AtomicReference<Throwable?>(null)
         val done = CountDownLatch(1)
         val startedNanos = System.nanoTime()
         val constrained = jsonSchema != null && constrainedSupported
+
+        fun report(nativeTokens: Int) {
+            val tokens = maxOf(nativeTokens, latestChars.get() / CHARS_PER_TOKEN)
+            val seconds = (System.nanoTime() - startedNanos) / NANOS_PER_SECOND
+            onProgress(
+                OnDevicePlanProgress(
+                    tokensGenerated = tokens,
+                    expectedTokens = MAX_OUTPUT_TOKENS,
+                    tokensPerSecond = if (seconds > 0.0) tokens / seconds else 0.0
+                )
+            )
+        }
+
+        // Show the progress line immediately; the first streamed chunk can be tens of seconds away.
+        report(nativeTokens = 0)
+
+        val heartbeat = Executors.newSingleThreadScheduledExecutor { runnable ->
+            Thread(runnable, "on-device-progress").apply { isDaemon = true }
+        }
+        heartbeat.scheduleAtFixedRate(
+            {
+                // Reads only the character estimate, never the native conversation.
+                runCatching {
+                    report(nativeTokens = 0)
+                    Log.d(
+                        TAG,
+                        "On-device progress: ${latestChars.get()} chars, " +
+                            "${chunkCount.get()} chunks"
+                    )
+                }
+            },
+            HEARTBEAT_MILLIS,
+            HEARTBEAT_MILLIS,
+            TimeUnit.MILLISECONDS
+        )
+
         val callback = object : MessageCallback {
             override fun onMessage(message: Message) {
+                chunkCount.incrementAndGet()
                 val chunk = readText(message)
                 if (chunk.length >= builder.length) {
                     builder.setLength(0)
@@ -83,16 +126,8 @@ class LiteRtLmTextGenerator(
                 } else {
                     builder.append(chunk)
                 }
-                val nativeTokens = runCatching { conversation.getTokenCount() }.getOrDefault(0)
-                val tokens = maxOf(nativeTokens, builder.length / CHARS_PER_TOKEN)
-                val seconds = (System.nanoTime() - startedNanos) / NANOS_PER_SECOND
-                onProgress(
-                    OnDevicePlanProgress(
-                        tokensGenerated = tokens,
-                        expectedTokens = MAX_OUTPUT_TOKENS,
-                        tokensPerSecond = if (seconds > 0.0) tokens / seconds else 0.0
-                    )
-                )
+                latestChars.set(builder.length)
+                report(runCatching { conversation.getTokenCount() }.getOrDefault(0))
             }
 
             override fun onDone() {
@@ -112,12 +147,16 @@ class LiteRtLmTextGenerator(
                 done.countDown()
             }
         }
-        conversation.sendMessageAsync(
-            prompt,
-            callback,
-            responseFormat = if (constrained) ResponseFormat.json(jsonSchema!!) else null
-        )
-        done.await()
+        try {
+            conversation.sendMessageAsync(
+                prompt,
+                callback,
+                responseFormat = if (constrained) ResponseFormat.json(jsonSchema!!) else null
+            )
+            done.await()
+        } finally {
+            heartbeat.shutdownNow()
+        }
         failure.get()?.let { throw it }
         return builder.toString()
     }
@@ -239,5 +278,8 @@ class LiteRtLmTextGenerator(
         /** Rough characters per token, used only while the runtime token counter reads zero. */
         const val CHARS_PER_TOKEN = 4
         const val NANOS_PER_SECOND = 1_000_000_000.0
+
+        /** How often the heartbeat refreshes the progress line while waiting for the first chunk. */
+        const val HEARTBEAT_MILLIS = 500L
     }
 }

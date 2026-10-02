@@ -400,7 +400,12 @@ class LocalLlmWorkoutPlannerEngineTest {
     @Test
     fun forwardsOnDeviceProgressAndClearsItAfterwards() = runTest {
         val reporter = RecordingProgressReporter()
-        val progress = OnDevicePlanProgress(
+        val first = OnDevicePlanProgress(
+            tokensGenerated = 0,
+            expectedTokens = 2048,
+            tokensPerSecond = 0.0
+        )
+        val second = OnDevicePlanProgress(
             tokensGenerated = 42,
             expectedTokens = 2048,
             tokensPerSecond = 7.5
@@ -408,12 +413,12 @@ class LocalLlmWorkoutPlannerEngineTest {
         val generator = FakeGenerator(
             available = true,
             responses = listOf(THREE_DAY_PLAN),
-            progress = progress
+            progresses = listOf(first, second)
         )
 
         engine(generator, progressReporter = reporter).generatePlan(request())
 
-        assertEquals(listOf(progress), reporter.reported)
+        assertEquals(listOf(first, second), reporter.reported)
         assertNull(reporter.progress.value)
     }
 
@@ -468,7 +473,7 @@ class LocalLlmWorkoutPlannerEngineTest {
         private val available: Boolean,
         private val responses: List<String> = listOf(""),
         private val failure: (() -> Unit)? = null,
-        private val progress: OnDevicePlanProgress? = null
+        private val progresses: List<OnDevicePlanProgress> = emptyList()
     ) : OnDeviceTextGenerator {
         var generateCalls: Int = 0
             private set
@@ -488,7 +493,7 @@ class LocalLlmWorkoutPlannerEngineTest {
             generateCalls++
             lastSchema = jsonSchema
             lastPrompt = prompt
-            progress?.let(onProgress)
+            progresses.forEach(onProgress)
             failure?.invoke()
             return responses[(generateCalls - 1).coerceAtMost(responses.lastIndex)]
         }
