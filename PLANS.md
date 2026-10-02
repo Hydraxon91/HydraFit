@@ -18,7 +18,8 @@
 | Fatigue redesign — open decision 4 | RESOLVED | Phase C1/C2/C3 shipped (`b0959f0`, `6bb9239`, `86ace92`). |
 | Fatigue redesign — open decision 5 | OPEN | Decide 2-hour session gap vs explicit session ids. |
 | Open Questions / Later | LATER | See section below; nothing scheduled. |
-| Deferred (release pipeline, settings/nav) | PROMOTED | Roadmap Priority 1 item 4 and Priority 2 item 7. |
+| Settings/nav consolidation | PLANNED | Roadmap Priority 2 item 7. |
+| Deferred — release pipeline & signing | DEFERRED | Roadmap "Deferred / Later" item 4; revisit when a distributable build is needed. |
 
 ## Process
 
@@ -53,6 +54,7 @@
 - **P2e — tests.** Historical timestamp persists and lowers decay; live logging still defaults to now; a draft batch shares the explicit time; timestamp-only correction preserves reps/weight/warmup/snapshot/rir; correction use-case and repository tests.
 **Files:** `core/domain/.../time`, `workout/WorkoutLogRepository.kt`, new use case, `core/database/.../WorkoutLog.sq` + `SqlDelightWorkoutLogRepository.kt`, `feature/logger` UiState/VM/Screen/strings, tests.
 **Constraints:** `WorkoutLoggerViewModel` currently has 7 constructor params; P2d must not simply append another — group or justify before adding (AGENTS oversized-constructor rule).
+**Resolve before implementing (not defaulted):** P2c picker API fallback if Material3 pickers are unavailable in the CMP artifact; P2b whether a draft batch shares the explicit time or resets to now after each log; P2d whether existing-row correction ships in this release.
 
 #### 3. AI Planner Prompt Alignment + logger-data parity
 **Goal:** both model-backed engines use the same planner inputs the Deterministic engine does, and the AI history reflects every signal the Logger captures, so model plans need less post-hoc correction.
@@ -62,23 +64,10 @@
 - **P3b — inject missing context.** Surface `equipmentMaxWeights` (per-equipment caps) and `weekNumber`/`cycleNumber`/`isDeload` context in both prompts.
 - **P3c — logger-data parity.** Extend `WeightHistoryEntry` (nullable `weightKg`, add `rir`, `weekNumber`, `dayIndex`) and `BuildRecentWeightsUseCase` to keep bodyweight reps-only sets and carry RIR + snapshot; render them in both prompts. Warm-ups remain excluded by design.
 - **P3d — reconcile exercise counts.** Add shared constants in `:core:domain` (e.g. floor `2`, target `4`–`6`); `WeeklyPlanSanitizer`/`PlanVarietyEnforcer` use the floor, prompts/schemas the target; update the asserting tests.
-- **P3e — pin the model id.** Add a test asserting the generated URL/model id (`GeminiConfig.kt:4`, `GeminiWorkoutPlannerEngine.kt:48`).
+- **P3e — pin the model id (precautionary).** Nothing changed on Google's side; the id is already confirmed on the AI Studio page. Add a test asserting the generated URL/model id (`GeminiConfig.kt:4`, `GeminiWorkoutPlannerEngine.kt:48`) so a future edit cannot silently break every call. Cheap, rides along with the prompt work, droppable.
 - **P3f — tests + verification.** New prompt-content tests (equip cap, week/cycle/deload, parity fields); existing OOM→deterministic and sanitizer→deterministic fallbacks stay green; run Koin verification if any binding changes.
 **Files:** `core/network/GeminiWorkoutPlannerEngine.kt` + test, `core/llm/LocalLlmWorkoutPlannerEngine.kt` + test, `core/domain/engine` helper + `BuildRecentWeightsUseCase.kt` + `WeightHistoryEntry`, `WeeklyPlanSanitizer.kt`, `PlanVarietyEnforcer.kt`, `GeminiConfig.kt`.
 **Out of scope:** re-importing/re-packaging the on-device `.litertlm` (migrations do not touch `filesDir`).
-
-#### 4. CI/CD Pipeline & Signing (Major Infrastructure Change — each phase gated)
-**Goal:** signed release APK on tags, a nightly build, and `local.properties`/secret-based signing.
-**Decisions:** build the full set; `versionName` from the tag, `versionCode` = GitHub run number.
-**Phases:**
-- **C1 — signing config.** Add `signingConfigs` + release `buildType` wiring in `androidApp/build.gradle.kts`, reading `RELEASE_KEYSTORE_*` from `local.properties` with a `providers.environmentVariable(...)` fallback (configuration-cache friendly); update `local.properties.template`.
-- **C2 — nightly workflow.** New `schedule:` workflow with a concurrency group distinct from `build-and-test.yml`; build/tests + debug artifact.
-- **C3 — release workflow.** `release.yml` on `v*.*.*`, `permissions: contents: write`, decode the keystore secret to a temp file, build the signed release APK, attach to a GitHub Release.
-- **C4 — version injection.** `versionName` from the tag and `versionCode` from the run number, keeping local defaults.
-- **C5 — documentation.** Document the required secrets/keys in `local.properties.template` + README.
-- **C6 — update AGENTS.md.** Once signing, nightly, and release work, record them in `AGENTS.md` (pipeline stages, secret names, version strategy) so future sessions know the release flow.
-**Files:** `.github/workflows/*`, `androidApp/build.gradle.kts`, `local.properties.template`, `README.md`, `AGENTS.md`.
-**Gating:** every phase touches CI/CD or signing and is individually gated; `git push` needs its own approval.
 
 ### Priority 2 — v0.3.0
 
@@ -90,6 +79,7 @@
 - **P5b — wiring.** Bind in `DomainModule` + Koin verification.
 - **P5c — UI.** Show the value beside the manual PR in `EquipmentProfilerScreen.kt`; VM/state + tests.
 **Files:** `core/domain/engine/CalculatePotentialPrUseCase.kt` + test, `shared/DomainModule.kt`, `KoinModulesVerificationTest.kt`, `feature/equipment` VM/state/screen/strings + test.
+**Resolve before implementing (not defaulted):** window definition and `N` (last N sets vs last N days), and whether the ~5% buffer is fixed or configurable.
 
 #### 6. Dynamic Exercise Substitution
 **Goal:** swap one exercise inside an accepted plan, persisted in place.
@@ -118,7 +108,28 @@
 - **P8b** scale fatigue at the `CalculateMuscleFatigueUseCase`/`FatigueCalculator.calculate(sets, nowMillis)` seam; add `FatigueConfig` parameters; derive an endurance scalar from reps / the existing `repsFactor`; `FatigueCalculatorTest` / `FatigueReplayTest` coverage.
 - **P8c** wire both consumers (`ObserveWorkoutPlanInputsUseCase.kt:58`, `FatigueHeatmapViewModel.kt:59`).
 
-**Remaining open decisions:** P8 readiness input home; P5 PR window `N`; P2 picker API fallback if Material3 pickers are unavailable in the CMP artifact; P2 draft share/reset semantics.
+**Open decisions to make before each item (never silently defaulted):**
+- **Item 2 (historical time):** P2c picker API fallback; P2b batch share/reset; P2d row-correction scope.
+- **Item 5 (potential PR):** window/`N` definition; fixed vs configurable buffer.
+- **Item 8 (subjective fatigue):** readiness input home (Logger per-session vs standing setting).
+These are repeated at the item they block and must be answered before implementation of that item.
+
+## Deferred / Later
+
+### 4. CI/CD Pipeline & Signing (deferred by decision — not a priority)
+**Why deferred:** explicitly postponed for v0.1.0 (fast-path, no signing) until the app is further along. It was listed as Priority 1 item 4 in the 2026-10-01 task message only; nothing has changed to make a distributable build urgent. Promote it into a priority when a real release/distribution need appears.
+**This is a Major Infrastructure Change — each phase individually gated.**
+**Goal:** signed release APK on tags, a nightly build, and `local.properties`/secret-based signing.
+**Decisions (for when promoted):** build the full set; `versionName` from the tag, `versionCode` = GitHub run number.
+**Phases (ready to run once promoted):**
+- **C1 — signing config.** Add `signingConfigs` + release `buildType` wiring in `androidApp/build.gradle.kts`, reading `RELEASE_KEYSTORE_*` from `local.properties` with a `providers.environmentVariable(...)` fallback (configuration-cache friendly); update `local.properties.template`.
+- **C2 — nightly workflow.** New `schedule:` workflow with a concurrency group distinct from `build-and-test.yml`; build/tests + debug artifact.
+- **C3 — release workflow.** `release.yml` on `v*.*.*`, `permissions: contents: write`, decode the keystore secret to a temp file, build the signed release APK, attach to a GitHub Release.
+- **C4 — version injection.** `versionName` from the tag and `versionCode` from the run number, keeping local defaults.
+- **C5 — documentation.** Document the required secrets/keys in `local.properties.template` + README.
+- **C6 — update AGENTS.md.** Once signing, nightly, and release work, record them in `AGENTS.md` (pipeline stages, secret names, version strategy) so future sessions know the release flow.
+**Files:** `.github/workflows/*`, `androidApp/build.gradle.kts`, `local.properties.template`, `README.md`, `AGENTS.md`.
+**Gating:** every phase touches CI/CD or signing and is individually gated; `git push` needs its own approval.
 
 ## Open Questions / Later
 
