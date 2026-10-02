@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01. Priority 1 (items 1, 2, 2b, 3) and Priority 1.5 (release pipeline item 4) complete and archived. 0.2.0 ships now; next is 0.2.1 (P2d + QA fixes), then 0.2.2 (code review + architecture), then 0.2.3 (performance review), then the v0.3.0 features (items 6–7). |
 | Release 0.2.0 | SHIPPING | Tag `v0.2.0` (signed APK via `release.yml`); delete the stale `v0.1.0-rc.1` validation release/tag. |
-| Release 0.2.1 | IN PROGRESS | Q2 (P2d) done (5898c45, 5ab6b42, a64d9cc); Q4 (deterministic planner, Option C) added 2026-10-02, Q4a–Q4d done (f80b71a, c8e3c8a, 4f0ce72); Q1 (QA pass) done 2026-10-02; Q5 (local-LLM reliability) done 2026-10-02 (21cde09, 38803d2); Q4e and Q3 (release/tag) remain; see "0.2.1 — next release". |
+| Release 0.2.1 | IN PROGRESS | Q2 (P2d) done (5898c45, 5ab6b42, a64d9cc); Q4 (deterministic planner, Option C) added 2026-10-02, Q4a–Q4d done (f80b71a, c8e3c8a, 4f0ce72); Q1 (QA pass) done 2026-10-02; Q5 (local-LLM reliability) done 2026-10-02 (21cde09, 38803d2); Q6 (on-device progress + truncation recovery) done 2026-10-02 (b86ad08, b4808c6, 5981c25); Q4e and Q3 (release/tag) remain; see "0.2.1 — next release". |
 | Release 0.2.2 — code review & architecture | PLANNED | After 0.2.1. Review pinned to `v0.2.1` (or latest commit if 0.2.1 hasn't shipped); phases R0–RF; see "0.2.2 — code review and architecture". |
 | Release 0.2.3 — performance review | PLANNED | After 0.2.2. Measure first, no optimization without a number; phases P0–PR; see "0.2.3 — performance review". |
 | Item 2 P2d — existing-row time correction | DONE | Landed in 0.2.1 as Q2 (5898c45, 5ab6b42, a64d9cc). |
@@ -140,6 +140,9 @@ The deferred half of the archived item 2. Add `updateSetPerformedAt` to `Workout
 
 ### Q5 — on-device planner reliability (QA fix) — DONE (2026-10-02, commits 21cde09 / 38803d2)
 The local engine produced truncated JSON on the phone: with no explicit token budget the prompt plus reply overran the native context, every attempt stopped mid-array, and two full generations ran for ~3 minutes before the deterministic fallback. Bounded `EngineConfig.maxNumTokens` (4096) and `ConversationConfig.maxOutputToken` (2048); the local prompt/schema now request only `exerciseId` (the sanitizer applies the goal's sets/reps, so the model need not emit them), and a malformed reply falls straight back instead of retrying. Added a Settings note that on-device planning can take several minutes. Device re-verification is pending — an agent session may not install on the phone.
+
+### Q6 — on-device planning progress — DONE (2026-10-02, commits b86ad08 / b4808c6 / 5981c25)
+The phone's model keeps stopping just before the closing brackets, so `parseWeeklyPlan` now closes a reply truncated at a value boundary (`b86ad08`); a complete-looking plan is then salvageable and a truly short one still fails the sanitizer and falls back. While the local engine generates, the SplitBuilder loading row shows live progress (`tokens / ~expected · tok/s`): a new `OnDevicePlanProgressReporter` port (`:core:domain`) is bound in `domainModule`, the LiteRT generator streams via `sendMessageAsync`/`MessageCallback`, and the engine forwards progress and clears it in `finally`. Device verification pending.
 
 ## 0.2.2 — code review and architecture
 
