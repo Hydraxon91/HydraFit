@@ -22,6 +22,17 @@ val hasReleaseSigning = listOf(
     releaseKeyPassword
 ).all { !it.isNullOrBlank() }
 
+val defaultVersionName = "0.1.0"
+val defaultVersionCode = 1
+val releaseTagPattern = Regex("""^v\d+\.\d+\.\d+([-+].*)?$""")
+val ciVersionName = providers.environmentVariable("GITHUB_REF_NAME").orNull
+    ?.takeIf { releaseTagPattern.matches(it) }
+    ?.removePrefix("v")
+    ?: defaultVersionName
+val ciVersionCode = providers.environmentVariable("GITHUB_RUN_NUMBER").orNull
+    ?.toIntOrNull()
+    ?: defaultVersionCode
+
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeCompiler)
@@ -49,8 +60,8 @@ android {
         applicationId = "com.hydrafit.app"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = ciVersionCode
+        versionName = ciVersionName
         buildConfigField(
             "String",
             "GEMINI_API_KEY",
