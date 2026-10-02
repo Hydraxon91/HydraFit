@@ -6,11 +6,15 @@
 
 | Item | Status | Next action |
 | --- | --- | --- |
-| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01; see the Roadmap section below. Next: Priority 1 item 2b S5 (item 2 integration: backdated logging attaches to sessions). Item 1 (P1a) still open. |
+| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01; see the Roadmap section below. Next: item 2 P2c (picker UI + backdated indicator), then 2b S5 (backdated logging attaches to a session); P2d deferred. Item 1 (P1a) still open. |
 | Roadmap 2b S1 — explicit session ids (domain + database) | DONE (`32b6e30`) | — |
 | Roadmap 2b S2 — legacy session backfill | DONE (`00825ba`) | — |
 | Roadmap 2b S3 — fatigue reads session ids | DONE (`c377f58`) | — |
 | Roadmap 2b S4 — logger stamps session ids + controls | DONE (`fd3d2bb`) | S5 integrates item 2 (backdated logging attaches to a session). |
+| Item 2 P2a — local civil→epoch time math | DONE (`2560fbc`) | — |
+| Item 2 P2b — backdated performed-at state + stamping | DONE (`d2e0c63`) | P2c (picker UI) next; S5 follows P2c. |
+| Item 2 P2c — picker UI + backdated indicator | OPEN | Next after P2b; must not be used with real data on the phone until S5 lands. |
+| Item 2 P2d — existing-row time correction | DEFERRED | Deferred; revisit after S5. |
 | E (AI prompt alignment) | FOLDED | Superseded by Roadmap Priority 1 item 3. |
 | BACK work chunk 1 — heatmap freshness | DONE (`cf98d66`, Phase A) | — |
 | BACK work chunk 2 — historical workout time entry | FOLDED | Superseded by Roadmap Priority 1 item 2. |
@@ -53,7 +57,7 @@
 **Phases:**
 - **P2a — time math.** Add pure local civil→epoch helpers in `core/domain/.../time` (the `daysFromCivil` inverse of the existing private `civilFromDays` in `IsoDate.kt`, plus local→UTC using `TimeProvider.utcOffsetMillis()`), with `commonTest` tests. No `kotlinx-datetime`.
 - **P2b — state + stamping.** Add `performedAtMillis: Long?` (null = now) and `onPerformedAtChanged` to the VM; replace both `timeProvider.nowMillis()` stamp sites (`WorkoutLoggerViewModel.kt:172`, `:256`) with `current.performedAtMillis ?: timeProvider.nowMillis()`; keep week/cycle/day from today's plan.
-- **P2c — picker UI.** Add the time control/dialog (Material3 `DatePicker`/`TimePicker` if the CMP artifact exposes them, else an `AlertDialog` with fields) and localized strings. Verify picker API availability during the build.
+- **P2c — picker UI.** Add the time control/dialog (Material3 `DatePicker`/`TimePicker` if the CMP artifact exposes them, else an `AlertDialog` with validated numeric fields), the visible "backdated" indicator, and localized strings. Reject future times (the VM returns false). Verify picker API availability during the build. **P2c must not be used with real data on the phone until S5 lands:** with P2c alone a backdated time flows through the existing auto-resolve path, which can close the live open session or make a past-anchored session the open one.
 - **P2d — row correction (separately gated).** Add `updateSetPerformedAt` to `WorkoutLog.sq` (query only; no schema change), a repository method + impl, and a focused `CorrectWorkoutSetTimeUseCase`, bound in `domainModule` and covered by the Koin verification. Reached from the row's separate time-edit control.
 - **P2e — tests.** Historical timestamp persists and lowers decay; live logging still defaults to now; a draft batch shares the explicit time; timestamp-only correction preserves reps/weight/warmup/snapshot/rir; correction use-case and repository tests.
 **Files:** `core/domain/.../time`, `workout/WorkoutLogRepository.kt`, new use case, `core/database/.../WorkoutLog.sq` + `SqlDelightWorkoutLogRepository.kt`, `feature/logger` UiState/VM/Screen/strings, tests.
@@ -78,7 +82,7 @@
 - **S3 — fatigue.** `FatigueCalculator` resets the within-session stimulus `V` when `sessionId` changes (ordered by timestamp) instead of on a gap; rework the session-reset test; add a legacy-null fallback test.
   - Map `sessionId` in `loggedSetsFlow()` (S1 gap), with a test that `loggedSets()` and `loggedSetsFlow()` agree.
 - **S4 — logger.** Active-session state + auto-start/day-rollover/End/New controls; stamp `sessionId` in `log()`/`logDraft()`; strings + `WorkoutLoggerViewModelTest`. The VM already has 7 constructor params — group the session collaborator into an existing use case rather than appending.
-- **S5 — item 2 integration.** Time picker attaches the backdated set to the chosen/opened session; tests.
+- **S5 — item 2 integration.** Time picker attaches the backdated set to the chosen/opened session; tests. Backdated sets are written into a session that is created **closed** (`endedAtMillis` = the set's time) or reused **only if it is the already-open session on the same local day**; a backdated session must **never close or replace the live open session**. The attach/inactivity check must be defined for a chosen time **before the open session's start** (the current `performedAt - lastSetAt` gap is negative there, so it must not be mistaken for "within the window"); review `LogWorkoutSetUseCase.resolveSession` before wiring S5.
 **Files:** `core/domain/.../workout/{WorkoutSet,LoggedSet,WorkoutLogRepository,WorkoutSessionRepository}.kt` + use cases; `core/database/.../{WorkoutLog.sq,WorkoutSession.sq,24.sqm,SqlDelight*Repository}.kt`; `core/domain/.../fatigue/{FatigueCalculator,LoggedSet}.kt`; `feature/logger` VM/state/screen/strings; `shared/DomainModule.kt` + `KoinModulesVerificationTest.kt`; tests.
 **Ordering:** S1–S4 can land before item 2; S5 is the item 2 integration.
 
