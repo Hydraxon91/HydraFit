@@ -72,6 +72,22 @@ class GeminiWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun pinsTheModelIdInTheGeneratedUrl() = runTest {
+        assertEquals("gemini-3.1-flash-lite", GeminiConfig().model)
+
+        var captured: HttpRequestData? = null
+        val mockEngine = MockEngine { request ->
+            captured = request
+            respond(envelope(VALID_PLAN), HttpStatusCode.OK, jsonHeaders())
+        }
+
+        engine(mockEngine).generatePlan(request())
+
+        val url = requireNotNull(captured).url.toString()
+        assertTrue(url.contains("/models/gemini-3.1-flash-lite:generateContent"), url)
+    }
+
+    @Test
     fun sendsGoalSpecificRepTargets() = runTest {
         var captured: HttpRequestData? = null
         val mockEngine = MockEngine { request ->
