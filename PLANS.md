@@ -37,7 +37,7 @@
 | Open Questions / Later | LATER | See section below; nothing scheduled. |
 | Settings/nav consolidation | PLANNED | Roadmap Priority 2 item 7. |
 | RIR guidance & rough estimation | PLANNED | Roadmap Priority 3 item 9; v0.3.0 or later. |
-| Release pipeline & signing | IN PROGRESS | Roadmap Priority 1.5 item 4. C1 (signing config) DONE (`6c77350`); C2 (nightly workflow) DONE (`8727b87`); C3–C6 pending, each individually gated. |
+| Release pipeline & signing | IN PROGRESS | Roadmap Priority 1.5 item 4. C1 (signing config) DONE (`6c77350`); C2 (nightly workflow) DONE (`8727b87`); C3 (release workflow) DONE (`ad0c92d`); C4–C6 pending, each individually gated. |
 
 ## Process
 
@@ -119,7 +119,7 @@
 **Phases:**
 - **C1 — signing config. DONE (`6c77350`).** Add `signingConfigs` + release `buildType` wiring in `androidApp/build.gradle.kts`, reading `RELEASE_KEYSTORE_*` from `local.properties` with a `providers.environmentVariable(...)` fallback (configuration-cache friendly); update `local.properties.template`.
 - **C2 — nightly workflow. DONE (`8727b87`).** New `schedule:` workflow with a concurrency group distinct from `build-and-test.yml`; build/tests + debug artifact.
-- **C3 — release workflow.** `release.yml` on `v*.*.*`, `permissions: contents: write`, decode the keystore secret to a temp file, build the signed release APK, attach to a GitHub Release.
+- **C3 — release workflow. DONE (`ad0c92d`).** `release.yml` on `v*.*.*`, `permissions: contents: write`, decode the keystore secret to a temp file, build the signed release APK, attach to a GitHub Release.
 - **C4 — version injection.** `versionName` from the tag and `versionCode` from the run number, keeping local defaults.
 - **C5 — documentation.** Document the required secrets/keys in `local.properties.template` + README.
 - **C6 — update AGENTS.md.** Once signing, nightly, and release work, record them in `AGENTS.md` (pipeline stages, secret names, version strategy) so future sessions know the release flow.
