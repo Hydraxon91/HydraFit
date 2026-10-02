@@ -308,6 +308,39 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun doesNotRepeatACompoundAcrossDaysThatShareTheSamePattern() {
+        val plan = engine.plan(
+            request(daysPerWeek = 3),
+            listOf(
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST),
+                exercise("push-up", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST)
+            )
+        )
+
+        val horizontalPushes = plan.days
+            .flatMap { day -> day.exercises.map { it.exerciseId } }
+            .filter { it == "bench-press" || it == "push-up" }
+        assertEquals(
+            horizontalPushes.distinct().size,
+            horizontalPushes.size,
+            "a compound must not repeat across days"
+        )
+    }
+
+    @Test
+    fun dropsASharedCompoundRatherThanRepeatingItWhenNoAlternativeExists() {
+        val plan = engine.plan(
+            request(daysPerWeek = 3),
+            listOf(exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST))
+        )
+
+        val appearances = plan.days.sumOf { day ->
+            day.exercises.count { it.exerciseId == "bench-press" }
+        }
+        assertEquals(1, appearances)
+    }
+
+    @Test
     fun skipsExercisesAboveTheFatigueSkipThreshold() {
         val plan = engine.plan(
             request(

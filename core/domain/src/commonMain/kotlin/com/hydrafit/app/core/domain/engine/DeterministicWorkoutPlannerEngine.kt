@@ -35,6 +35,9 @@ class DeterministicWorkoutPlannerEngine(
             )
         val availableExercises = exercises.filter { it.isAvailableWith(request.availableEquipment) }
         val isDeload = request.isDeload
+        // Exercises already chosen earlier in the week; compounds are never repeated across days,
+        // while accessories merely prefer a fresh option when one exists.
+        val weekUsed = mutableSetOf<String>()
 
         val days = List(request.daysPerWeek) { index ->
             val focus = focusCycle[index % focusCycle.size]
@@ -44,6 +47,7 @@ class DeterministicWorkoutPlannerEngine(
                 exercises = selectExercises(
                     templateFor(focus, index),
                     availableExercises,
+                    weekUsed,
                     request.muscleFatigue,
                     request.setsPerExercise,
                     request.accessorySetsPerExercise,
@@ -67,6 +71,7 @@ class DeterministicWorkoutPlannerEngine(
     private fun selectExercises(
         template: List<MovementPattern>,
         exercises: List<Exercise>,
+        weekUsed: MutableSet<String>,
         fatigue: Map<MuscleGroup, Double>,
         setsPerExercise: Int,
         accessorySetsPerExercise: Int,
@@ -81,12 +86,18 @@ class DeterministicWorkoutPlannerEngine(
 
         for (pattern in template) {
             val candidate = exercises
-                .filter { it.movementPattern == pattern && it.id !in used }
+                .filter {
+                    it.movementPattern == pattern &&
+                        it.id !in used &&
+                        (!it.movementPattern.isCompound || it.id !in weekUsed)
+                }
                 // Recovery comes first: a fresh less-preferred exercise outranks a sore preferred
-                // one. Equipment preference only breaks ties between equally fresh candidates.
+                // one. Then prefer exercises unused earlier this week (accessories may repeat when
+                // nothing fresh is left, but compounds are already excluded above), then rotation.
                 .minWithOrNull(
                     compareBy(
                         { weightedFatigue(it, fatigue) },
+                        { it.id in weekUsed },
                         { it.id in recentExerciseIdsByPattern[pattern].orEmpty() },
                         { equipmentRank(it) },
                         { it.id }
@@ -108,6 +119,7 @@ class DeterministicWorkoutPlannerEngine(
                 .coerceAtLeast(1)
             val reps = volumeAwareReps.repsFor(goal, isCompound, sets)
             used += candidate.id
+            weekUsed += candidate.id
             picks += PlannedExercise(
                 exerciseId = candidate.id,
                 sets = sets,
