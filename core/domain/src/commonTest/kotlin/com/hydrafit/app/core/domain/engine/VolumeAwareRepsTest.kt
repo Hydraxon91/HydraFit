@@ -2,13 +2,15 @@ package com.hydrafit.app.core.domain.engine
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class VolumeAwareRepsTest {
 
     private val useCase = VolumeAwareReps()
 
     @Test
-    fun holdsTheGoalsDefaultVolumeAtTheDefaultSetCount() {
+    fun returnsTheGoalsBandAtTheDefaultSetCount() {
         TrainingGoal.entries.forEach { goal ->
             assertEquals(
                 goal.compoundReps,
@@ -22,51 +24,42 @@ class VolumeAwareRepsTest {
     }
 
     @Test
-    fun fewerSetsEarnMoreRepsAndMoreSetsEarnFewer() {
-        val goal = TrainingGoal.BALANCED
-
-        // Compound volume 3 x 6 = 18
-        assertEquals(9, useCase.repsFor(goal, isCompound = true, sets = 2))
-        assertEquals(6, useCase.repsFor(goal, isCompound = true, sets = 3))
-        assertEquals(5, useCase.repsFor(goal, isCompound = true, sets = 4))
-        assertEquals(4, useCase.repsFor(goal, isCompound = true, sets = 5))
-        assertEquals(3, useCase.repsFor(goal, isCompound = true, sets = 6))
-    }
-
-    @Test
-    fun usesTheAccessoryVolumeForAccessorySlots() {
-        val goal = TrainingGoal.BALANCED
-
-        // Accessory volume 2 x 12 = 24
-        assertEquals(12, useCase.repsFor(goal, isCompound = false, sets = 2))
-        assertEquals(8, useCase.repsFor(goal, isCompound = false, sets = 3))
-        assertEquals(6, useCase.repsFor(goal, isCompound = false, sets = 4))
-        assertEquals(4, useCase.repsFor(goal, isCompound = false, sets = 6))
-    }
-
-    @Test
-    fun clampsToTheConfiguredBounds() {
-        val narrow = VolumeAwareReps(VolumeAwareRepsConfig(minReps = 5, maxReps = 8))
-        val goal = TrainingGoal.BALANCED
-
-        assertEquals(8, narrow.repsFor(goal, isCompound = true, sets = 2))
-        assertEquals(5, narrow.repsFor(goal, isCompound = true, sets = 6))
-    }
-
-    @Test
-    fun everyGoalStaysWithinTheDefaultBounds() {
-        val range = VolumeAwareRepsConfig.DEFAULT_MIN_REPS..VolumeAwareRepsConfig.DEFAULT_MAX_REPS
+    fun theRepBandSurvivesSetOverridesForEveryGoal() {
         TrainingGoal.entries.forEach { goal ->
-            (2..6).forEach { sets ->
-                listOf(true, false).forEach { compound ->
-                    val reps = useCase.repsFor(goal, compound, sets)
-                    assertEquals(
-                        true,
-                        reps in range,
-                        "goal=$goal sets=$sets compound=$compound -> $reps"
-                    )
-                }
+            (1..8).forEach { sets ->
+                assertEquals(
+                    goal.compoundReps,
+                    useCase.repsFor(goal, isCompound = true, sets = sets),
+                    "goal=$goal sets=$sets"
+                )
+                assertEquals(
+                    goal.isolationReps,
+                    useCase.repsFor(goal, isCompound = false, sets = sets),
+                    "goal=$goal sets=$sets"
+                )
             }
+        }
+    }
+
+    @Test
+    fun enduranceStaysHighRepEvenAtHigherSetCounts() {
+        val endurance = TrainingGoal.ENDURANCE
+
+        assertEquals(
+            endurance.compoundReps,
+            useCase.repsFor(endurance, isCompound = true, sets = 6)
+        )
+        assertEquals(
+            endurance.isolationReps,
+            useCase.repsFor(endurance, isCompound = false, sets = 6)
+        )
+        assertTrue(endurance.compoundReps > TrainingGoal.STRENGTH.compoundReps)
+    }
+
+    @Test
+    fun rejectsNonPositiveSets() {
+        assertFailsWith<IllegalArgumentException> {
+            useCase.repsFor(TrainingGoal.BALANCED, isCompound = true, sets = 0)
         }
     }
 }

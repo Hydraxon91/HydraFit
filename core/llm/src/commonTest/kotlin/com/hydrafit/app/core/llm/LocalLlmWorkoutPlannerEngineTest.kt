@@ -45,10 +45,10 @@ class LocalLlmWorkoutPlannerEngineTest {
         val isolation = plan.days.first().exercises.first { it.exerciseId == "barbell-curl" }
 
         assertEquals(5, compound.sets)
-        // Balanced compound volume 3 x 6 = 18 -> 18/5 = 3.6 -> 4 reps
-        assertEquals(4, compound.reps)
+        // The set override carries volume; reps stay at the goal's compound band (6).
+        assertEquals(6, compound.reps)
         assertEquals(2, isolation.sets)
-        // Balanced accessory volume 2 x 12 = 24 -> 24/2 = 12 reps
+        // Reps stay at the goal's isolation band (12).
         assertEquals(12, isolation.reps)
     }
 

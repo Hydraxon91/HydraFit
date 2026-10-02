@@ -371,8 +371,8 @@ class GeminiWorkoutPlannerEngineTest {
 
         val planned = plan.days.first().exercises.first { it.exerciseId == "bench-press" }
         assertEquals(5, planned.sets)
-        // Balanced compound volume 3 x 6 = 18 -> 18/5 = 3.6 -> 4 reps
-        assertEquals(4, planned.reps)
+        // The set override carries volume; reps stay at the goal's compound band.
+        assertEquals(6, planned.reps)
     }
 
     @Test

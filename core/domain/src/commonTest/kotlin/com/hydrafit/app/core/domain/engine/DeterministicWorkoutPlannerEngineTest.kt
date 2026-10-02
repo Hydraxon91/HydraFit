@@ -573,7 +573,7 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
-    fun heavierWeightForFewerSetsWhenTheRepsDrop() {
+    fun setOverrideChangesVolumeNotTheRepBand() {
         val plan = engine.plan(
             request(
                 daysPerWeek = 3,
@@ -586,9 +586,11 @@ class DeterministicWorkoutPlannerEngineTest {
 
         val benchPress = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.single()
 
-        // 6 sets -> 3 reps -> NSCA 93% x 0.9 = 83.7% -> 100 x 0.837 = 83.7 -> nearest 2.5 = 82.5
-        assertEquals(3, benchPress.reps)
-        assertEquals(82.5, benchPress.suggestedWeightKg)
+        // The 6 sets carry the volume; reps stay at the goal's compound band (6).
+        // 100 x intensity(6 reps) = 100 x 0.765 = 76.5 -> nearest 2.5 = 77.5
+        assertEquals(6, benchPress.sets)
+        assertEquals(TrainingGoal.BALANCED.compoundReps, benchPress.reps)
+        assertEquals(77.5, benchPress.suggestedWeightKg)
     }
 
     @Test
@@ -723,7 +725,7 @@ class DeterministicWorkoutPlannerEngineTest {
 
         val benchPress = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.single()
         assertEquals(4, benchPress.sets)
-        // 100 x intensity(5 reps) = 100 x 0.87 x 0.9 = 78.3 -> nearest 2.5 = 77.5
+        // 100 x intensity(6 reps) = 100 x 0.765 = 76.5 -> nearest 2.5 = 77.5
         assertEquals(77.5, benchPress.suggestedWeightKg)
     }
 
@@ -757,6 +759,96 @@ class DeterministicWorkoutPlannerEngineTest {
                 it.exerciseId
             }
         )
+    }
+
+    @Test
+    fun keepsEveryDayWithinTheTargetExerciseCountRange() {
+        val plan = engine.plan(request(daysPerWeek = 3, equipment = everything), richCatalog())
+
+        val minimum = PlannerExerciseCounts.TARGET_MIN_PER_DAY
+        val maximum = PlannerExerciseCounts.TARGET_MAX_PER_DAY
+        val sizes = plan.days.map { it.exercises.size }
+        assertTrue(sizes.all { it in minimum..maximum }, "sizes=$sizes")
+    }
+
+    @Test
+    fun neverExceedsTheTargetMaximumPerDayEvenWithAPlentifulCatalog() {
+        val plan = engine.plan(request(daysPerWeek = 6, equipment = everything), richCatalog())
+
+        assertTrue(
+            plan.days.all { it.exercises.size <= PlannerExerciseCounts.TARGET_MAX_PER_DAY }
+        )
+    }
+
+    @Test
+    fun placesCompoundsBeforeIsolationsInEveryDay() {
+        val catalog = richCatalog()
+        val plan = engine.plan(request(daysPerWeek = 3, equipment = everything), catalog)
+
+        val byId = catalog.associateBy { it.id }
+        plan.days.forEach { day ->
+            val patterns = day.exercises.mapNotNull { byId[it.exerciseId]?.movementPattern }
+            val firstIsolation = patterns.indexOfFirst { !it.isCompound }
+            if (firstIsolation >= 0) {
+                assertTrue(
+                    patterns.drop(firstIsolation).none { it.isCompound },
+                    "day ${day.dayIndex} ordering=$patterns"
+                )
+            }
+        }
+    }
+
+    @Test
+    fun prefersTheIsolationOnTheMuscleWithTheLargerRemainingDeficit() {
+        val bench = exercise("bench", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST)
+            .copy(involvements = mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.TRICEPS to 0.5))
+        val pushdown = exercise(
+            "a-pushdown",
+            MovementPattern.TRICEPS_ISOLATION,
+            MuscleGroup.TRICEPS,
+            setOf(EquipmentTag.BARBELL)
+        )
+        val shoulderFly = exercise(
+            "z-fly",
+            MovementPattern.SHOULDER_ISOLATION,
+            MuscleGroup.SHOULDERS
+        )
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 2,
+                split = SplitType.FULL_BODY,
+                equipment = setOf(EquipmentTag.BARBELL)
+            ),
+            listOf(bench, pushdown, shoulderFly)
+        )
+
+        // The bench already loaded triceps, so shoulders carry the larger deficit even though the
+        // triceps pushdown has the better equipment rank; deficit is ranked first.
+        val day0 = plan.days.first().exercises.map { it.exerciseId }
+        assertTrue(
+            day0.indexOf("z-fly") in 0 until day0.indexOf("a-pushdown"),
+            "day0=$day0"
+        )
+    }
+
+    @Test
+    fun stopsAddingAnExerciseOnceItsMusclesReachTheWeeklyCeiling() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 6,
+                split = SplitType.FULL_BODY,
+                goal = TrainingGoal.STRENGTH,
+                accessorySetsPerExercise = 3
+            ),
+            listOf(exercise("curl", MovementPattern.BICEPS_ISOLATION, MuscleGroup.BICEPS))
+        )
+
+        val bicepsSets = plan.days.sumOf { day ->
+            day.exercises.filter { it.exerciseId == "curl" }.sumOf { it.sets }
+        }
+        // Five 3-set days reach the STRENGTH ceiling of 15; the sixth day is refused.
+        val ceiling = WeeklyVolumeTargets.forGoal(TrainingGoal.STRENGTH).maxSets
+        assertEquals(ceiling, bicepsSets.toDouble())
     }
 
     private fun request(
@@ -826,6 +918,22 @@ class DeterministicWorkoutPlannerEngineTest {
         exercise("calf-raise", MovementPattern.CALF_RAISE, MuscleGroup.CALVES),
         exercise("lunge", MovementPattern.LUNGE, MuscleGroup.QUADS),
         exercise("curl", MovementPattern.BICEPS_ISOLATION, MuscleGroup.BICEPS)
+    )
+
+    /** One exercise per major pattern (plus every isolation family) so a week can fill each day. */
+    private fun richCatalog(): List<Exercise> = listOf(
+        exercise("squat", MovementPattern.SQUAT, MuscleGroup.QUADS),
+        exercise("hinge", MovementPattern.HINGE, MuscleGroup.HAMSTRINGS),
+        exercise("hpush", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST),
+        exercise("vpush", MovementPattern.VERTICAL_PUSH, MuscleGroup.SHOULDERS),
+        exercise("hpull", MovementPattern.HORIZONTAL_PULL, MuscleGroup.BACK),
+        exercise("vpull", MovementPattern.VERTICAL_PULL, MuscleGroup.BACK),
+        exercise("curl", MovementPattern.BICEPS_ISOLATION, MuscleGroup.BICEPS),
+        exercise("pushdown", MovementPattern.TRICEPS_ISOLATION, MuscleGroup.TRICEPS),
+        exercise("lateral", MovementPattern.SHOULDER_ISOLATION, MuscleGroup.SHOULDERS),
+        exercise("leg-curl", MovementPattern.LEG_ISOLATION, MuscleGroup.HAMSTRINGS),
+        exercise("calf", MovementPattern.CALF_RAISE, MuscleGroup.CALVES),
+        exercise("plank", MovementPattern.CORE, MuscleGroup.CORE)
     )
 
     private object EmptyCatalog : ExerciseCatalog {

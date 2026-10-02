@@ -38,6 +38,10 @@ class DeterministicWorkoutPlannerEngine(
         // Exercises already chosen earlier in the week; compounds are never repeated across days,
         // while accessories merely prefer a fresh option when one exists.
         val weekUsed = mutableSetOf<String>()
+        // Running involvement-weighted sets per muscle, accumulated across the week so each day can
+        // chase the largest remaining volume deficit.
+        val weeklyVolume = MuscleGroup.entries.associateWith { 0.0 }.toMutableMap()
+        val target = WeeklyVolumeTargets.forGoal(request.goal)
 
         val days = List(request.daysPerWeek) { index ->
             val focus = focusCycle[index % focusCycle.size]
@@ -45,9 +49,11 @@ class DeterministicWorkoutPlannerEngine(
                 dayIndex = index,
                 focus = focus,
                 exercises = selectExercises(
-                    templateFor(focus, index),
+                    focus,
                     availableExercises,
                     weekUsed,
+                    weeklyVolume,
+                    target,
                     request.muscleFatigue,
                     request.setsPerExercise,
                     request.accessorySetsPerExercise,
@@ -69,9 +75,11 @@ class DeterministicWorkoutPlannerEngine(
     }
 
     private fun selectExercises(
-        template: List<MovementPattern>,
+        focus: SplitFocus,
         exercises: List<Exercise>,
         weekUsed: MutableSet<String>,
+        weeklyVolume: MutableMap<MuscleGroup, Double>,
+        target: VolumeTarget,
         fatigue: Map<MuscleGroup, Double>,
         setsPerExercise: Int,
         accessorySetsPerExercise: Int,
@@ -84,60 +92,135 @@ class DeterministicWorkoutPlannerEngine(
         val used = mutableSetOf<String>()
         val picks = mutableListOf<PlannedExercise>()
 
-        for (pattern in template) {
-            val candidate = exercises
-                .filter {
-                    it.movementPattern == pattern &&
-                        it.id !in used &&
-                        (!it.movementPattern.isCompound || it.id !in weekUsed)
-                }
-                // Recovery comes first: a fresh less-preferred exercise outranks a sore preferred
-                // one. Then prefer exercises unused earlier this week (accessories may repeat when
-                // nothing fresh is left, but compounds are already excluded above), then rotation.
-                .minWithOrNull(
-                    compareBy(
-                        { weightedFatigue(it, fatigue) },
-                        { it.id in weekUsed },
-                        { it.id in recentExerciseIdsByPattern[pattern].orEmpty() },
-                        { equipmentRank(it) },
-                        { it.id }
-                    )
-                )
-                ?: continue
+        // Recovery first, then the largest remaining weekly deficit, then freshness, rotation,
+        // equipment preference, and finally id for a stable order.
+        val comparator = compareBy<Exercise>(
+            { weightedFatigue(it, fatigue) },
+            { -deficitScore(it, weeklyVolume, target) },
+            { it.id in weekUsed },
+            { it.id in recentExerciseIdsByPattern[it.movementPattern].orEmpty() },
+            { equipmentRank(it) },
+            { it.id }
+        )
 
+        fun pick(candidates: List<Exercise>): Boolean {
+            val candidate = candidates.minWithOrNull(comparator) ?: return false
             val soreness = targetedFatigue(candidate, fatigue)
-            if (soreness >= fatigueConfig.skipThreshold) continue
-
-            val isCompound = candidate.movementPattern.isCompound
-            val baseSets = if (isCompound) setsPerExercise else accessorySetsPerExercise
-            val deloadedSets = if (isDeload) {
-                (baseSets * periodization.deloadVolumeScale).roundToInt().coerceAtLeast(1)
-            } else {
-                baseSets
-            }
-            val sets = (deloadedSets - if (soreness >= fatigueConfig.reduceThreshold) 1 else 0)
-                .coerceAtLeast(1)
-            val reps = volumeAwareReps.repsFor(goal, isCompound, sets)
+            if (soreness >= fatigueConfig.skipThreshold) return false
+            val planned = plannedExercise(
+                candidate,
+                soreness,
+                setsPerExercise,
+                accessorySetsPerExercise,
+                goal,
+                suggestedWeightsKg,
+                equipmentMaxWeights,
+                isDeload
+            )
             used += candidate.id
             weekUsed += candidate.id
-            picks += PlannedExercise(
-                exerciseId = candidate.id,
-                sets = sets,
-                reps = reps,
-                suggestedWeightKg = suggestedWeightsKg[candidate.id]?.let { oneRepMax ->
-                    val working = weightConfig.roundToIncrement(
-                        oneRepMax * weightConfig.intensityForReps(reps) * intensityScale(isDeload)
-                    )
-                    EquipmentWeightLimit.clamp(
-                        working,
-                        EquipmentWeightLimit.ceilingFor(candidate, equipmentMaxWeights)
-                    )
+            picks += planned
+            candidate.effectiveInvolvements.forEach { (muscle, weight) ->
+                weeklyVolume[muscle] = weeklyVolume.getValue(muscle) + planned.sets * weight
+            }
+            return true
+        }
+
+        // One compound for each major pattern in the focus, chosen by the largest remaining deficit.
+        compoundGroups(focus).forEach { group ->
+            if (picks.size >= PlannerExerciseCounts.TARGET_MAX_PER_DAY) return@forEach
+            pick(
+                exercises.filter {
+                    it.movementPattern in group &&
+                        it.id !in used &&
+                        it.id !in weekUsed &&
+                        !isAtMax(it, weeklyVolume, target)
                 }
             )
         }
 
+        // Fill isolation slots by deficit: always toward TARGET_MIN, then only while a muscle is
+        // still below its target, capped at TARGET_MAX.
+        val isolationPool = isolationPatterns(focus)
+        while (picks.size < PlannerExerciseCounts.TARGET_MAX_PER_DAY) {
+            val pastMinimum = picks.size >= PlannerExerciseCounts.TARGET_MIN_PER_DAY
+            val candidates = exercises.filter {
+                it.movementPattern in isolationPool &&
+                    it.id !in used &&
+                    !isAtMax(it, weeklyVolume, target) &&
+                    (!pastMinimum || hasDeficit(it, weeklyVolume, target))
+            }
+            if (!pick(candidates)) break
+        }
+
         return picks
     }
+
+    private fun plannedExercise(
+        candidate: Exercise,
+        soreness: Double,
+        setsPerExercise: Int,
+        accessorySetsPerExercise: Int,
+        goal: TrainingGoal,
+        suggestedWeightsKg: Map<String, Double>,
+        equipmentMaxWeights: Map<EquipmentTag, Double>,
+        isDeload: Boolean
+    ): PlannedExercise {
+        val isCompound = candidate.movementPattern.isCompound
+        val baseSets = if (isCompound) setsPerExercise else accessorySetsPerExercise
+        val deloadedSets = if (isDeload) {
+            (baseSets * periodization.deloadVolumeScale).roundToInt().coerceAtLeast(1)
+        } else {
+            baseSets
+        }
+        val sets = (deloadedSets - if (soreness >= fatigueConfig.reduceThreshold) 1 else 0)
+            .coerceAtLeast(1)
+        val reps = volumeAwareReps.repsFor(goal, isCompound, sets)
+        return PlannedExercise(
+            exerciseId = candidate.id,
+            sets = sets,
+            reps = reps,
+            suggestedWeightKg = suggestedWeightsKg[candidate.id]?.let { oneRepMax ->
+                val working = weightConfig.roundToIncrement(
+                    oneRepMax * weightConfig.intensityForReps(reps) * intensityScale(isDeload)
+                )
+                EquipmentWeightLimit.clamp(
+                    working,
+                    EquipmentWeightLimit.ceilingFor(candidate, equipmentMaxWeights)
+                )
+            }
+        )
+    }
+
+    /** The largest weighted shortfall among the muscles this exercise trains below their target. */
+    private fun deficitScore(
+        exercise: Exercise,
+        weeklyVolume: Map<MuscleGroup, Double>,
+        target: VolumeTarget
+    ): Double = exercise.effectiveInvolvements
+        .filter { (muscle, _) -> (weeklyVolume[muscle] ?: 0.0) < target.targetSets }
+        .maxOfOrNull { (muscle, weight) ->
+            (target.targetSets - weeklyVolume.getValue(muscle)) * weight
+        }
+        ?: 0.0
+
+    private fun hasDeficit(
+        exercise: Exercise,
+        weeklyVolume: Map<MuscleGroup, Double>,
+        target: VolumeTarget
+    ): Boolean = exercise.effectiveInvolvements.any { (muscle, _) ->
+        (weeklyVolume[muscle] ?: 0.0) < target.targetSets
+    }
+
+    /** True when every muscle this exercise trains is already at or beyond its weekly ceiling. */
+    private fun isAtMax(
+        exercise: Exercise,
+        weeklyVolume: Map<MuscleGroup, Double>,
+        target: VolumeTarget
+    ): Boolean = exercise.effectiveInvolvements.isNotEmpty() &&
+        exercise.effectiveInvolvements.all { (muscle, _) ->
+            (weeklyVolume[muscle] ?: 0.0) >= target.maxSets
+        }
 
     private fun intensityScale(isDeload: Boolean): Double =
         if (isDeload) periodization.deloadIntensityScale else 1.0
@@ -168,43 +251,62 @@ class DeterministicWorkoutPlannerEngine(
         .minOfOrNull { EQUIPMENT_RANK[it] ?: CUSTOM_EQUIPMENT_RANK }
         ?: Int.MAX_VALUE
 
-    private fun templateFor(focus: SplitFocus, dayIndex: Int): List<MovementPattern> =
-        when (focus) {
-            SplitFocus.PUSH -> listOf(
-                MovementPattern.HORIZONTAL_PUSH,
-                MovementPattern.VERTICAL_PUSH,
-                MovementPattern.TRICEPS_ISOLATION,
-                MovementPattern.SHOULDER_ISOLATION
-            )
-            SplitFocus.PULL -> listOf(
-                MovementPattern.VERTICAL_PULL,
-                MovementPattern.HORIZONTAL_PULL,
-                MovementPattern.BICEPS_ISOLATION
-            )
-            SplitFocus.LEGS -> listOf(
-                MovementPattern.SQUAT,
-                MovementPattern.HINGE,
-                MovementPattern.LEG_ISOLATION,
-                MovementPattern.CALF_RAISE,
-                MovementPattern.CORE
-            )
-            SplitFocus.UPPER -> listOf(
-                MovementPattern.HORIZONTAL_PUSH,
-                MovementPattern.HORIZONTAL_PULL,
-                MovementPattern.VERTICAL_PUSH,
-                MovementPattern.VERTICAL_PULL,
-                MovementPattern.BICEPS_ISOLATION,
-                MovementPattern.TRICEPS_ISOLATION
-            )
-            SplitFocus.LOWER -> listOf(
-                MovementPattern.SQUAT,
-                MovementPattern.HINGE,
-                MovementPattern.LEG_ISOLATION,
-                MovementPattern.CALF_RAISE,
-                MovementPattern.CORE
-            )
-            SplitFocus.FULL_BODY -> FULL_BODY_TEMPLATES[dayIndex % FULL_BODY_TEMPLATES.size]
-        }
+    /**
+     * The compound slots a focus fills, grouped so one exercise is chosen per group. Each group is a
+     * movement family; the highest-deficit pattern inside it wins. FULL_BODY groups lower/push/pull
+     * so every day stays full-body while still chasing the week's volume deficits.
+     */
+    private fun compoundGroups(focus: SplitFocus): List<List<MovementPattern>> = when (focus) {
+        SplitFocus.PUSH -> listOf(
+            listOf(MovementPattern.HORIZONTAL_PUSH),
+            listOf(MovementPattern.VERTICAL_PUSH)
+        )
+        SplitFocus.PULL -> listOf(
+            listOf(MovementPattern.VERTICAL_PULL),
+            listOf(MovementPattern.HORIZONTAL_PULL)
+        )
+        SplitFocus.LEGS, SplitFocus.LOWER -> listOf(
+            listOf(MovementPattern.SQUAT),
+            listOf(MovementPattern.HINGE)
+        )
+        SplitFocus.UPPER -> listOf(
+            listOf(MovementPattern.HORIZONTAL_PUSH),
+            listOf(MovementPattern.VERTICAL_PUSH),
+            listOf(MovementPattern.HORIZONTAL_PULL),
+            listOf(MovementPattern.VERTICAL_PULL)
+        )
+        SplitFocus.FULL_BODY -> listOf(
+            listOf(MovementPattern.SQUAT, MovementPattern.HINGE, MovementPattern.LUNGE),
+            listOf(MovementPattern.HORIZONTAL_PUSH, MovementPattern.VERTICAL_PUSH),
+            listOf(MovementPattern.HORIZONTAL_PULL, MovementPattern.VERTICAL_PULL)
+        )
+    }
+
+    /** The isolation families a focus fills after its compounds, by largest remaining deficit. */
+    private fun isolationPatterns(focus: SplitFocus): List<MovementPattern> = when (focus) {
+        SplitFocus.PUSH -> listOf(
+            MovementPattern.TRICEPS_ISOLATION,
+            MovementPattern.SHOULDER_ISOLATION
+        )
+        SplitFocus.PULL -> listOf(MovementPattern.BICEPS_ISOLATION)
+        SplitFocus.LEGS, SplitFocus.LOWER -> listOf(
+            MovementPattern.LEG_ISOLATION,
+            MovementPattern.CALF_RAISE,
+            MovementPattern.CORE
+        )
+        SplitFocus.UPPER -> listOf(
+            MovementPattern.BICEPS_ISOLATION,
+            MovementPattern.TRICEPS_ISOLATION
+        )
+        SplitFocus.FULL_BODY -> listOf(
+            MovementPattern.BICEPS_ISOLATION,
+            MovementPattern.TRICEPS_ISOLATION,
+            MovementPattern.SHOULDER_ISOLATION,
+            MovementPattern.LEG_ISOLATION,
+            MovementPattern.CALF_RAISE,
+            MovementPattern.CORE
+        )
+    }
 
     companion object {
         const val MIN_DAYS = 2
@@ -217,27 +319,6 @@ class DeterministicWorkoutPlannerEngine(
 
         /** Any user-added equipment is ranked after the built-ins until it has its own preference. */
         const val CUSTOM_EQUIPMENT_RANK = 20
-
-        private val FULL_BODY_TEMPLATES = listOf(
-            listOf(
-                MovementPattern.SQUAT,
-                MovementPattern.HORIZONTAL_PUSH,
-                MovementPattern.HORIZONTAL_PULL,
-                MovementPattern.CORE
-            ),
-            listOf(
-                MovementPattern.HINGE,
-                MovementPattern.VERTICAL_PUSH,
-                MovementPattern.VERTICAL_PULL,
-                MovementPattern.CALF_RAISE
-            ),
-            listOf(
-                MovementPattern.LUNGE,
-                MovementPattern.HORIZONTAL_PUSH,
-                MovementPattern.HORIZONTAL_PULL,
-                MovementPattern.BICEPS_ISOLATION
-            )
-        )
 
         private val EQUIPMENT_RANK = mapOf(
             EquipmentTag.BARBELL to 0,

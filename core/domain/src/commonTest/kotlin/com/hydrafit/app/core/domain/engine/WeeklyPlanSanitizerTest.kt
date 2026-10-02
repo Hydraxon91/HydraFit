@@ -26,11 +26,10 @@ class WeeklyPlanSanitizerTest {
         val compound = sanitized.days.single().exercises.first { it.exerciseId == "bench-press" }
         val isolation = sanitized.days.single().exercises.first { it.exerciseId == "lateral-raise" }
         assertEquals(5, compound.sets)
-        // Balanced compound volume 3 x 6 = 18 -> 18/5 = 3.6 -> 4 reps
-        assertEquals(4, compound.reps)
+        // The set override carries volume; reps stay at the goal's compound band.
+        assertEquals(TrainingGoal.BALANCED.compoundReps, compound.reps)
         assertEquals(2, isolation.sets)
-        // Balanced accessory volume 2 x 12 = 24 -> 24/2 = 12 reps
-        assertEquals(12, isolation.reps)
+        assertEquals(TrainingGoal.BALANCED.isolationReps, isolation.reps)
     }
 
     @Test
