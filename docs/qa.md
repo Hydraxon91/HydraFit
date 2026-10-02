@@ -1,6 +1,6 @@
-# HydraFit 0.2.0 — Device QA Checklist
+# HydraFit — Device QA Checklist
 
-Manual acceptance pass before tagging `v0.2.0`. Run on a clean install of the signed release
+Manual acceptance pass before tagging a release. Run on a clean install of the signed release
 APK (an emulator is fine; the AGENTS UI-verification rules keep automated runs off a personal
 phone). Tabs: **Equipment · Plan · Fatigue · Log · Settings**.
 
