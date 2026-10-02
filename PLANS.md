@@ -6,14 +6,14 @@
 
 | Item | Status | Next action |
 | --- | --- | --- |
-| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01; see the Roadmap section below. Next: item 2 P2c (picker UI + backdated indicator), then 2b S5 (backdated logging attaches to a session); P2d deferred. Item 1 (P1a) still open. |
+| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01; see the Roadmap section below. Next: 2b S5 (backdated logging attaches to a session), then item 2 P2e; P2d deferred. Item 1 (P1a) still open. |
 | Roadmap 2b S1 — explicit session ids (domain + database) | DONE (`32b6e30`) | — |
 | Roadmap 2b S2 — legacy session backfill | DONE (`00825ba`) | — |
 | Roadmap 2b S3 — fatigue reads session ids | DONE (`c377f58`) | — |
 | Roadmap 2b S4 — logger stamps session ids + controls | DONE (`fd3d2bb`) | S5 integrates item 2 (backdated logging attaches to a session). |
 | Item 2 P2a — local civil→epoch time math | DONE (`2560fbc`) | — |
 | Item 2 P2b — backdated performed-at state + stamping | DONE (`d2e0c63`) | P2c (picker UI) next; S5 follows P2c. |
-| Item 2 P2c — picker UI + backdated indicator | OPEN | Next after P2b; must not be used with real data on the phone until S5 lands. |
+| Item 2 P2c — picker UI + backdated indicator | DONE (`650dc58`) | S5 next (backdated logging attaches to a session); P2c alone must not be used with real phone data until S5 lands. |
 | Item 2 P2d — existing-row time correction | DEFERRED | Deferred; revisit after S5. |
 | E (AI prompt alignment) | FOLDED | Superseded by Roadmap Priority 1 item 3. |
 | BACK work chunk 1 — heatmap freshness | DONE (`cf98d66`, Phase A) | — |
