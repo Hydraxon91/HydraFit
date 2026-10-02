@@ -24,6 +24,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.OnDevicePlanProgress
+import com.hydrafit.app.core.domain.engine.OnDevicePlanProgressReporter
 import com.hydrafit.app.core.domain.engine.PeriodizationConfig
 import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
@@ -66,12 +68,14 @@ import hydrafit.feature.splitbuilder.generated.resources.split_generated_by
 import hydrafit.feature.splitbuilder.generated.resources.split_history
 import hydrafit.feature.splitbuilder.generated.resources.split_history_entry
 import hydrafit.feature.splitbuilder.generated.resources.split_loading
+import hydrafit.feature.splitbuilder.generated.resources.split_loading_progress
 import hydrafit.feature.splitbuilder.generated.resources.split_plan_accepted
 import hydrafit.feature.splitbuilder.generated.resources.split_regenerate
 import hydrafit.feature.splitbuilder.generated.resources.split_retry
 import hydrafit.feature.splitbuilder.generated.resources.split_sets_label
 import hydrafit.feature.splitbuilder.generated.resources.split_suggested_weight
 import hydrafit.feature.splitbuilder.generated.resources.split_week
+import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
@@ -100,9 +104,12 @@ fun SplitBuilderRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val weightUnit by koinInject<WeightUnitRepository>().unitFlow()
         .collectAsStateWithLifecycle(initialValue = WeightUnit.KG)
+    val planProgress by koinInject<OnDevicePlanProgressReporter>().progress
+        .collectAsStateWithLifecycle()
     SplitBuilderScreen(
         state = state,
         weightUnit = weightUnit,
+        planProgress = planProgress,
         onDaysPerWeekSelected = viewModel::onDaysPerWeekSelected,
         onSetsPerExerciseChanged = viewModel::onSetsPerExerciseChanged,
         onAccessorySetsPerExerciseChanged = viewModel::onAccessorySetsPerExerciseChanged,
@@ -119,6 +126,7 @@ fun SplitBuilderRoute(
 fun SplitBuilderScreen(
     state: SplitBuilderUiState,
     weightUnit: WeightUnit,
+    planProgress: OnDevicePlanProgress?,
     onDaysPerWeekSelected: (Int) -> Unit,
     onSetsPerExerciseChanged: (Int) -> Unit,
     onAccessorySetsPerExerciseChanged: (Int) -> Unit,
@@ -178,6 +186,17 @@ fun SplitBuilderScreen(
             ) {
                 CircularProgressIndicator()
                 Text(text = stringResource(Res.string.split_loading))
+            }
+            planProgress?.let { progress ->
+                Text(
+                    text = stringResource(
+                        Res.string.split_loading_progress,
+                        progress.tokensGenerated,
+                        progress.expectedTokens,
+                        formatTokensPerSecond(progress.tokensPerSecond)
+                    ),
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
         if (state.hasError) {
@@ -313,6 +332,10 @@ private fun SplitFocus.labelResource(): StringResource = when (this) {
     SplitFocus.LOWER -> Res.string.focus_lower
     SplitFocus.FULL_BODY -> Res.string.focus_full_body
 }
+
+/** One decimal place, e.g. "8.4"; the progress line only needs a rough rate. */
+private fun formatTokensPerSecond(value: Double): String =
+    ((value * 10.0).roundToInt() / 10.0).toString()
 
 /** A specific message for a mapped failure; null falls back to the generic transient/error text. */
 private fun PlanFailureReason?.reasonMessage(): StringResource? = when (this) {
