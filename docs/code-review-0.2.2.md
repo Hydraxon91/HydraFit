@@ -678,3 +678,77 @@ Findings are appended per slice. `file:line` evidence refers to the pinned commi
 - total: 6
 (TS4-006 recorded as refuted, not a finding.)
 
+## TR — test redundancy (cross-cutting; signal, not quantity)
+
+- **Slice:** all test sources, cross-cutting. Pinned `7e04245`. Date 2026-10-03.
+- **Question:** not the test:code ratio, but whether distinct tests assert the **same behavior through different entry points** (so they all fail together for one reason), or assert implementation details. No test was modified; each recommendation states why removing/merging it would not reduce branch coverage.
+
+### Redundancy findings
+
+**TR-001 — major — duplication — file:line:** `core/domain/src/commonTest/.../engine/VolumeAwareRepsTest.kt`, `WeeklyPlanSanitizerTest.kt:18-33`, `core/network/.../GeminiWorkoutPlannerEngineTest.kt:368-376`, `core/llm/.../LocalLlmWorkoutPlannerEngineTest.kt:42-58`
+- **Why it matters:** The same behavior — "a set override carries volume; reps stay in the goal's compound/isolation band" — is asserted at four levels with the same values (5 sets → 6 compound reps, 2 sets → 12 isolation reps). `VolumeAwareRepsTest` is the owner; the sanitizer test verifies the sanitizer applies it; the two engine tests repeat the identical numeric assertions. A change to `VolumeAwareReps.repsFor` fails all four for one reason, and the two engine copies add no branch the others lack.
+- **Would removal reduce coverage?** No, if one canonical test stays. The engines' delegation to the shared sanitizer is already proven by `mapsStructuredResponseToWeeklyPlan` (Gemini) and `usesOnDeviceOutputWhenAvailable` (local), and the sanitizer itself is covered by `WeeklyPlanSanitizerTest`. Merge value: keep the `VolumeAwareRepsTest` band cases + one sanitizer test; reduce the engine copies to an assertion that the plan was sanitized.
+- **Recommendation:** Keep `VolumeAwareRepsTest` and `WeeklyPlanSanitizerTest`; in each engine test assert only that a model plan's reps/sets were normalized (or drop the numeric copy). Do not delete until the caller confirms.
+- **Fix cost:** S
+
+**TR-002 — minor — duplication (implementation detail) — file:line:** `core/network/.../GeminiWorkoutPlannerEngineTest.kt:109-160,379-437` and `core/llm/.../LocalLlmWorkoutPlannerEngineTest.kt:60-189` vs `core/domain/.../PlannerPromptFragmentsTest.kt`
+- **Why it matters:** `PlannerPromptFragmentsTest` owns the exact formatting and the sharing-gating of every shared fragment (equipment, caps, periodization, deload, volume guidance, recent/progressed weights). Both engine test files then re-assert the same strings via `prompt.contains(...)` — 28 `contains`/prompt assertions in the Gemini test and 32 in the local test — including the identical `sendsRecentWeights…` / `omitsWorkoutData…` / `sendsProgressedWeights…` trio duplicated between the two engines. A wording change fails all three files for one reason.
+- **Would removal reduce coverage?** No for the fragment text: it lives in `PlannerPromptFragmentsTest`. The engines' unique signal is "the engine calls the fragment with the request's values", which one `contains` per engine proves. Removing the exact-format re-assertions keeps wiring coverage.
+- **Recommendation:** In each engine test keep one assertion that the fragment appears/disappears with `includeWorkoutData`; move any exact-format expectation back to `PlannerPromptFragmentsTest`. (This is the main reason `LocalLlmWorkoutPlannerEngineTest` is 2× and `GeminiWorkoutPlannerEngineTest` is verbose.)
+- **Fix cost:** M
+
+**TR-003 — minor — duplication — file:line:** `core/domain/.../DeterministicWorkoutPlannerEngineTest.kt:343-356` (`skipsExercisesAboveTheFatigueSkipThreshold`) and `:358-372` (`reducesSetsWhenAPrimaryMuscleIsFatigued`)
+- **Why it matters:** Both are single-candidate special cases of `reductionAndSkipBoundariesUseUnroundedScores` (`:374-396`), which loops the same thresholds with `nextDown/nextUp` boundaries (0.65 → 3 sets, 0.80 → skipped). 0.9 and 0.7 land inside the ranges the loop already covers, so all three fail together for any threshold change.
+- **Would removal reduce coverage?** No. The loop covers both the reduce and skip branches and their exact boundaries; the two named tests only restate an in-range instance. (They do read as documentation of intent; if kept, mark them as examples, but they carry no extra branch.)
+- **Recommendation:** Fold the two into the boundary loop (or keep one) — the boundary test is the stronger superset.
+- **Fix cost:** S
+
+**TR-004 — minor — duplication (implementation detail) — file:line:** `core/database/.../SqlDelightWorkoutLogRepositoryTest.kt:156-177`, `feature/fatigueheatmap/.../FatigueHeatmapViewModelTest.kt:232-240`
+- **Why it matters:** `storedRepsReachTheCalculatorThroughBothMappingPaths` asserts the calculator's exact formula (`1/13`) inside a repository mapping test, and the heatmap test asserts the calculator's exact outputs (`0.8`, `0.2`, `0.05`). Both re-derive math owned by `FatigueCalculatorTest`; a formula change fails these too. The unique signals are "reps survive mapping" and "the VM maps sets→entries and refreshes" respectively.
+- **Would removal reduce coverage?** No for the formula (owned by `FatigueCalculatorTest`). The mapping/refresh behavior is still asserted if the tests assert structure (reps==2; entries present, ordered, and nonzero after a change) instead of the derived constant.
+- **Recommendation:** Keep the mapping/refresh assertions but assert the invariant, not the calculator constant; or explicitly label them as intended integration checks.
+- **Fix cost:** S
+
+**TR-005 — minor — low-signal (tautology) — file:line:** `core/domain/.../CalculateMuscleFatigueUseCaseTest.kt:21-35`
+- **Why it matters:** `matchesTheCalculatorResult` builds the expected value with `FatigueCalculator().calculate(...)` and asserts the use case returns the same map — the oracle is the implementation under delegation. It can only fail if the one-line delegate stops delegating, which is already visible in the class. `returnsZeroForUntrainedMuscles` is the meaningful case.
+- **Would removal reduce coverage?** No — `FatigueCalculatorTest` covers the math and the use case has no other logic. If a delegation guarantee is wanted, assert a hand-computed value instead of calling the collaborator in the oracle.
+- **Recommendation:** Drop the tautology or replace the oracle with a fixed expected map.
+- **Fix cost:** S
+
+**TR-006 — nit — copy-paste — file:line:** `core/domain/.../DeterministicWorkoutPlannerEngineTest.kt:123`, `:147`, `:176`; and `:272`, `:293`
+- **Why it matters:** `prefersBarbellBenchWhenAvailable` / `prefersDumbbellBenchWhenBarbellIsUnavailable` / `fallsBackToBodyweightWhenNothingElseIsAvailable` are one body with three equipment-set/expected-id pairs; the rotate/repeat pair (`:272`, `:293`) is a two-case parameterization. Only the inputs and one assertion differ.
+- **Would removal reduce coverage?** No — a table-driven test enumerating the same `(equipment → expected ids)` cases covers exactly the same branches with less duplication.
+- **Recommendation:** Collapse each family into a loop over cases (the file already does this for the fatigue boundaries).
+- **Fix cost:** S
+
+**TR-007 — nit — implementation detail — file:line:** `feature/fatigueheatmap/.../FatigueHeatmapViewModelTest.kt:166-199` (`clock.reads`), `core/network/.../GeminiWorkoutPlannerEngineTest.kt:224,240,256,281,303` (`calls`)
+- **Why it matters:** These assert call counts rather than observable output. The retry counts encode real behavior (attempts) and are defensible; the heatmap `assertEquals(readsBeforeTick + 1, clock.reads)` is brittle — any extra `nowMillis()` read in `refresh()` breaks it without a behavior change.
+- **Would removal reduce coverage?** The ticker's "does not run while paused" can be asserted by the unchanged score alone (already present at `:170`); the exact count adds no behavioral branch.
+- **Recommendation:** Keep the retry counts; for the ticker assert the score/behavior, or allow a range.
+- **Fix cost:** S
+
+### Oversized test files (request #4)
+
+Flagged specifically, **not** judged wasteful:
+
+| Test file | lines | source | ratio |
+| --- | ---: | ---: | ---: |
+| `SqlDelightWorkoutLogRepositoryTest.kt` | 469 | 150 | 3.1× |
+| `FatigueCalculatorTest.kt` | 603 | 194 | 3.1× |
+| `WorkoutLoggerViewModelTest.kt` | 1390 | 458 | 3.0× |
+| `SplitBuilderViewModelTest.kt` | 735 | 246 | 3.0× |
+| `DeterministicWorkoutPlannerEngineTest.kt` | 942 | 334 | 2.8× |
+| `LocalLlmWorkoutPlannerEngineTest.kt` | 626 | 308 | 2.0× |
+
+- **TR-008 — nit — file-size flag — reasoning:** `FatigueCalculatorTest` (3.1×) is justified — the calculator has many independent rule branches (session boundaries, relative-load window, RIR, compound/isolation decay) and each needs its own case. `WorkoutLoggerViewModelTest` (3.0×) mirrors a 458-line ViewModel with many user actions, session/backdate states, and units — mostly distinct behavior. `SqlDelightWorkoutLogRepositoryTest` (3.1×) is many small field round-trips; some could be table-driven, but each covers a different column. The one that leans most on **low-signal repetition** is `LocalLlmWorkoutPlannerEngineTest` (2.0×): its bulk is prompt-string `contains` assertions that overlap `PlannerPromptFragmentsTest` and its Gemini twin (TR-002). No file here looks padded for its own sake; TR-002 is the only size driver that is genuinely redundant.
+- **Recommendation:** Act on TR-002 first, then re-measure; do not cut the domain/VM tests for size alone.
+- **Fix cost:** —
+
+### TR summary
+
+- blocker: 0
+- major: 1 (TR-001)
+- minor: 4 (TR-002, TR-003, TR-004, TR-005)
+- nit: 3 (TR-006, TR-007, TR-008)
+- total: 8 (all report-only; no test changed)
+
