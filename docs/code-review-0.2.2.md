@@ -344,3 +344,65 @@ Findings are appended per slice. `file:line` evidence refers to the pinned commi
 - nit: 2 (S4-005, S4-006)
 - total: 6
 
+## S5 — `:feature:splitbuilder` + `:feature:settings` + `:feature:fatigueheatmap` (main sources)
+
+- **Slice:** S5 — main sources of `:feature:splitbuilder` (641), `:feature:settings` (592, incl. platform sets), `:feature:fatigueheatmap` (210).
+- **Pinned commit:** `7e04245` (tag `v0.2.1`).
+- **Date:** 2026-10-03.
+- **Scope:** main sources only. Test tree read only via grep for coverage. No fixes.
+
+**Coverage (files read):**
+
+- `:feature:fatigueheatmap`: `FatigueHeatmapModule.kt`, `FatigueHeatmapUiState.kt`, `FatigueHeatmapViewModel.kt`, `FatigueHeatmapScreen.kt`
+- `:feature:splitbuilder`: `SplitBuilderModule.kt`, `SplitBuilderUiState.kt`, `SplitBuilderViewModel.kt`, `SplitBuilderScreen.kt`
+- `:feature:settings`: `SettingsModule.kt`, `OnDeviceModelSection.kt` (expect), `SettingsUiState.kt`, `SettingsViewModel.kt`, `SettingsScreen.kt`, `OnDeviceModelSection.android.kt`, `OnDeviceModelSection.ios.kt`
+
+**Files read with no findings:** `FatigueHeatmapModule.kt`, `FatigueHeatmapUiState.kt`, `FatigueHeatmapScreen.kt`, `SplitBuilderModule.kt`, `SplitBuilderUiState.kt`, `SettingsModule.kt`, `OnDeviceModelSection.kt`, `SettingsUiState.kt`, `SettingsScreen.kt`, `OnDeviceModelSection.android.kt`, `OnDeviceModelSection.ios.kt`.
+
+### `:feature:splitbuilder`
+
+**S5-001 — minor — bug (invariant) — file:line:** `feature/splitbuilder/.../SplitBuilderViewModel.kt:118-127` (merge at `:127`)
+- **Why it matters:** `showAccepted` resolves display names as `snapshotNames + catalogNames`. Kotlin's `Map.plus` lets the right operand overwrite on key collision, so the **live catalog name wins** over the name snapshotted into the accepted plan. That inverts the recorded invariant (PLANS.md line 302: an accepted entry snapshots the exercise name "so later catalog edits cannot rewrite history") — renaming an exercise after accepting a plan changes how the accepted plan and history render.
+- **Recommendation:** Make the snapshot authoritative (`catalogNames + snapshotNames`, or only fall back to the catalog for ids absent from the snapshot) so acceptance-time names are stable.
+- **Fix cost:** S
+
+**S5-002 — minor — bug/consistency — file:line:** `feature/splitbuilder/.../SplitBuilderViewModel.kt:215-244` (`catalogSignature` at `:219-229`)
+- **Why it matters:** The regenerate fingerprint folds in the catalog via `primaryMuscles`/`secondaryMuscles` — the ≥0.7 tags — but not the underlying involvement **weights** or `isUnilateral`. The deterministic engine selects on `effectiveInvolvements` (the weights), so an edit that changes a weight without crossing 0.7 (e.g. 0.4 → 0.5, or 1.0 → 0.7) produces an identical fingerprint: `canRegenerate` stays `false` and Regenerate is disabled even though the plan would change. The comment claims catalog edits re-enable Regenerate.
+- **Recommendation:** Include each exercise's sorted `involvements` entries (and `isUnilateral`) in `catalogSignature`.
+- **Fix cost:** S
+
+**S5-003 — minor — i18n — file:line:** `feature/splitbuilder/.../SplitBuilderScreen.kt:274`, `:280`, `:286`
+- **Why it matters:** The plan rows build user-visible strings with hardcoded literals in a Composable: `" - "` joined to the day heading, `"  ·  "`, and `"$name  ${exercise.sets} x ${exercise.reps}$weight"`. The project's localization rule forbids user-facing strings outside `commonMain` resources (same class as S4-002).
+- **Recommendation:** Move the day-heading and exercise-row formats into string resources with placeholders (weight already uses a resource).
+- **Fix cost:** S
+
+### `:feature:fatigueheatmap`
+
+**S5-004 — minor — risk (concurrency/perf) — file:line:** `feature/fatigueheatmap/.../FatigueHeatmapViewModel.kt:57-64`
+- **Why it matters:** `refresh()` calls `calculateMuscleFatigue(sets, now)` directly from `viewModelScope` (Main) on every `loggedSetsFlow()` emission and every 60 s ticker fire (`:46-47`). The computation is O(muscles × sets) with decaying math; with a large log it runs on the UI thread and can jank, and the ticker guarantees it keeps happening while the tab is visible. This is the code-side counterpart to the recorded heatmap-ticker test flakiness.
+- **Recommendation:** Run the calculation on `Dispatchers.Default` (e.g. `withContext`) before updating state; keep the ticker as is.
+- **Fix cost:** S
+
+### Nits
+
+**S5-005 — nit — dead parameters — file:line:** `feature/settings/.../OnDeviceModelSection.ios.kt:15-19`
+- **Why it matters:** The iOS `actual` never reads `installed` or calls `onModelChanged`; they are required by the `expect`, so every other platform signature change ripples into a stub that cannot honor it.
+- **Recommendation:** Acceptable as a documented stub; add a brief comment that the parameters are intentionally unused until iOS model management ships.
+- **Fix cost:** S
+
+### Seed-observation status (S5-resident)
+
+- expect/actual boundaries (settings on-device section): **confirmed** — `OnDeviceModelSection` is an `expect` Composable with Android (`...android.kt`) and iOS (`...ios.kt`) actuals; this is the only `expect`/`actual` in the app, and it is used correctly (Android does import/remove on `Dispatchers.IO`, iOS is a note).
+- Coroutine scope and dispatcher handling: **mixed** — model IO is correctly off-main (`OnDeviceModelSection.android.kt:65,91`), while fatigue recomputation and API-key Keystore work run on Main (S5-004, and S2-007 reached here).
+- Error handling and logging consistency: **minor** — `SettingsViewModel` and `SplitBuilderViewModel` update state on the known `PlanGenerationException`/`CustomExerciseException` paths, but persistence calls (`setEngine`, `setGoal`, `apiKeyStore.save`) have no `try/catch` (same shape as S4-004).
+- Test quality and flakiness (heatmap ticker): **outside S5** — test slice TS4; S5-004 is the production-side explanation for the recorded ticker hang/fragility.
+- Sync `ApiKeyStore`/`OnDeviceModelManager` reached from Settings (S2-007): **confirmed** — `SettingsViewModel.saveApiKey`/`clearApiKey` call the store directly on the caller thread (`:69,75`), outside `viewModelScope`, and `refresh()` calls `load()` from a Main `viewModelScope` (`:93`); root cause is S2-007.
+
+### S5 finding summary
+
+- blocker: 0
+- major: 0
+- minor: 4 (S5-001, S5-002, S5-003, S5-004)
+- nit: 1 (S5-005)
+- total: 5
+
