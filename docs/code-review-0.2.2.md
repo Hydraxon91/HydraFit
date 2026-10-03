@@ -278,3 +278,69 @@ Findings are appended per slice. `file:line` evidence refers to the pinned commi
 - nit: 0
 - total: 7
 
+## S4 — `:feature:logger` + `:feature:equipment` (main sources)
+
+- **Slice:** S4 — main sources of `:feature:logger` (1268) and `:feature:equipment` (1258).
+- **Pinned commit:** `7e04245` (tag `v0.2.1`).
+- **Date:** 2026-10-03.
+- **Scope:** main sources only. Test tree read only via grep for coverage. No fixes.
+
+**Coverage (files read):**
+
+- `:feature:logger`: `WorkoutLoggerModule.kt`, `BackdatedTime.kt`, `WorkoutLoggerUiState.kt`, `WorkoutLoggerViewModel.kt`, `WorkoutLoggerScreen.kt`
+- `:feature:equipment`: `EquipmentFeatureModule.kt`, `EquipmentNavigation.kt`, `EquipmentProfilerUiState.kt`, `EquipmentProfilerViewModel.kt`, `EquipmentProfilerScreen.kt`
+
+**Files read with no findings:** `WorkoutLoggerModule.kt`, `BackdatedTime.kt`, `WorkoutLoggerUiState.kt`, `EquipmentFeatureModule.kt`, `EquipmentNavigation.kt`, `EquipmentProfilerUiState.kt`.
+
+### `:feature:logger`
+
+**S4-001 — major — bug — file:line:** `feature/logger/.../WorkoutLoggerViewModel.kt:331-361` (rebuild at `:346`), reached from `:319-321`
+- **Why it matters:** `updateTodayPlan` unconditionally re-derives `draftSets` from the accepted plan, and `onResume()` calls it on every `ON_RESUME` (`WorkoutLoggerScreen.kt:115`). So after the user confirms (or dismisses) a draft, backgrounding and returning rebuilds the full draft list from the plan: the confirmed draft reappears and can be confirmed again, logging duplicate sets. There is no persistence of "already handled today", and the existing tests only assert the list right after `confirmDraft`/`dismissDraft` (`WorkoutLoggerViewModelTest.kt:329-362`), so the resurrection is untested.
+- **Recommendation:** Only rebuild drafts when the plan/day actually changes (compare plan id + local day before resetting), or track handled drafts for the day. Add a test: `confirmDraft(...)` then `onResume()` leaves `draftSets` empty.
+- **Fix cost:** M
+
+**S4-002 — minor — bug/consistency — file:line:** `feature/logger/.../WorkoutLoggerScreen.kt:386` and `:430`
+- **Why it matters:** The draft and recent-set rows build user-visible strings with hardcoded separators/digits (`"${draft.name}  ${draft.sets} x ${draft.reps} · ~$weight"`, `"... ${row.reps} x $weight$warmupSuffix$weekDay"`). The localized pieces (`weight`, `warmupSuffix`, `weekDay`) are used, but `"x"`, `"·"`, `"~"`, and the spacing are literals in a Composable, which the project's localization rule forbids.
+- **Recommendation:** Put the row formats in resource strings with positional placeholders (the weight unit is already a parameter) so translators control the layout.
+- **Fix cost:** S
+
+### `:feature:equipment`
+
+**S4-003 — minor — bug/consistency — file:line:** `feature/equipment/.../EquipmentProfilerScreen.kt:249`
+- **Why it matters:** Personal records are rendered as `"${formatWeight(record.weightKg)} kg × ${record.reps}"` — always kg, with a hardcoded unit — even though the user's `WeightUnit` preference (used by the Logger) can be LB. A user who set pounds sees their PRs in kilograms on this screen. `EquipmentProfilerViewModel` has no `WeightUnitRepository` dependency, so it cannot format per preference.
+- **Recommendation:** Inject `WeightUnitRepository` (or expose the unit in `EquipmentProfilerUiState`) and format via `kilogramsToDisplay` + the unit label, matching the Logger. Note this raises the ViewModel to 7 constructor dependencies — group the read-only preference repositories (or add a small `UnitPreference` collaborator) rather than just appending another `get()`.
+- **Fix cost:** M
+
+**S4-004 — minor — bug (data loss) — file:line:** `feature/equipment/.../EquipmentProfilerViewModel.kt:190-202` (rename), `:145-152` (add), `:95-105` (PR save)
+- **Why it matters:** Renaming a custom equipment item is implemented as `remove(tag)` then `add(name)` and `setMaxWeight(...)`, with no transaction. If `add` throws (id collision, per S2-005) or the process dies between the two calls, the equipment — and its selection — is lost. More generally, `onAddEquipment`, `onSaveEquipmentRenamed`, and `onSavePersonalRecord` run repository calls in `viewModelScope` with no `try/catch`, so a persistence failure crashes the app, unlike the custom-exercise paths that catch `CustomExerciseException`.
+- **Recommendation:** Add an `update`/rename operation to `EquipmentRepository` (or wrap remove+add in a transaction) and surface DB failures into `equipmentEditor.error` instead of leaving them uncaught.
+- **Fix cost:** M
+
+### Nits
+
+**S4-005 — nit — dead parameter — file:line:** `feature/equipment/.../EquipmentProfilerViewModel.kt:379-384`
+- **Why it matters:** `closeEditorAndRefresh(highlightId)` accepts `highlightId` and never uses it; `persistNew` passes the new id (`:332`) expecting the list to highlight it. The intent is unimplemented.
+- **Recommendation:** Implement the highlight or drop the parameter.
+- **Fix cost:** S
+
+**S4-006 — nit — consistency — file:line:** `feature/logger/.../WorkoutLoggerScreen.kt:374` and `:404`
+- **Why it matters:** `items(state.draftSets)` and `items(state.recentSets)` supply no `key`, so Compose reuses item state positionally when drafts/sets are removed. `LoggedSetRow` has a stable `id` for a key.
+- **Recommendation:** Pass `key = { it.id }` for `recentSets` (and a stable key for drafts if one is added).
+- **Fix cost:** S
+
+### Seed-observation status (S4-resident)
+
+- Logger ViewModel constructor size: **refuted** — the seed's "7 constructor params" is now **6** (`WorkoutLoggerViewModel.kt:27-34`), at the project's guideline boundary, after `WorkoutLogMutations` grouped the mutating use cases. No finding on size; the class is large (458 lines) but the logic is state mapping plus delegation.
+- Coroutine scope and dispatcher handling: **mostly confirmed** — all work runs in `viewModelScope` on the Main dispatcher through `suspend` use cases; the gaps are the uncaught persistence calls (S4-004) and the resume-driven draft reset (S4-001).
+- Error handling and logging consistency: **confirmed as inconsistent** — custom-exercise paths catch `CustomExerciseException`, but equipment/PR persistence paths do not (S4-004).
+- Feature registration and cross-feature isolation: **confirmed** — each module exports its Koin module + `FeatureDestination`, and neither feature imports the other or `core:database`/`core:network`; both depend only on `core:domain`/`core:userdata`.
+- Empty-involvements override path (S2-001): **confirmed reachable from here** — `onEditorMuscleInvolvementChanged(..., null)` can clear every muscle, and `onSaveExercise` sends the resulting empty map to `writeBuiltInOverrides` (`:347`); root cause is S2-001.
+
+### S4 finding summary
+
+- blocker: 0
+- major: 1 (S4-001)
+- minor: 3 (S4-002, S4-003, S4-004)
+- nit: 2 (S4-005, S4-006)
+- total: 6
+
