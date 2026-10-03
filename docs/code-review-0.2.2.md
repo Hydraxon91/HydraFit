@@ -610,3 +610,71 @@ Findings are appended per slice. `file:line` evidence refers to the pinned commi
 - nit: 1 (TS3-007)
 - total: 7
 
+## TS4 — feature + `:shared` tests, fixtures/fakes consolidation (sampled)
+
+- **Slice:** TS4 — `:feature:logger` (1,443), `:feature:equipment` (479), `:feature:splitbuilder` (735), `:feature:settings` (278), `:feature:fatigueheatmap` (312), `:shared` (366). Sampled.
+- **Pinned commit:** `7e04245` (tag `v0.2.1`).
+- **Date:** 2026-10-03.
+- **Scope:** read-only. Findings only with evidence; fixtures, flakiness, and VM/state gaps in scope.
+
+**Coverage:** read in full — `FatigueHeatmapViewModelTest.kt` (312), `BackdatedTimeTest.kt` (53), `KoinModulesVerificationTest.kt` (197), `DefaultWorkoutPlannerEngineProviderTest.kt` (83), `DelegatingOnDeviceModelManagerTest.kt` (86). Inventoried all `@Test` names and read the relevant regions of `WorkoutLoggerViewModelTest.kt` (1,390), `SplitBuilderViewModelTest.kt` (735), `EquipmentProfilerViewModelTest.kt` (479), `SettingsViewModelTest.kt` (278); grep-verified the coverage of the specific main-pass findings below. **Read/inventoried with no rule-branch gap found:** the session/backdate/correction/unit/RIR paths in `WorkoutLoggerViewModelTest`, the error/fallback/regenerate-lock paths in `SplitBuilderViewModelTest`, the equipment/PR/override editor paths in `EquipmentProfilerViewModelTest`, and the engine/unit/goal paths in `SettingsViewModelTest`.
+
+### Fixtures and fakes
+
+**TS4-001 — major — duplication/design — file:line:** `feature/fatigueheatmap/.../FatigueHeatmapViewModelTest.kt:271,292`; `feature/logger/.../WorkoutLoggerViewModelTest.kt:1322`; `feature/splitbuilder/.../SplitBuilderViewModelTest.kt:710`; `core/domain/.../LogWorkoutSetUseCaseTest.kt:347`; `core/domain/.../GetWorkoutLogUseCaseTest.kt:27`; `core/domain/.../DeleteWorkoutSetUseCaseTest.kt:21`; `core/domain/.../CorrectWorkoutSetTimeUseCaseTest.kt:21`
+- **Why it matters:** Seed confirmed. There are **8** `WorkoutLogRepository` test doubles across **7** files — 5 `FakeWorkoutLogRepository`, 2 `RecordingWorkoutLogRepository`, and 1 `FlowingWorkoutLogRepository` — not 7 across 6 as the seed estimated (the extra is the flow-backed heatmap double). `PlanHistoryRepository` has 4 doubles, `WorkoutSessionRepository` 5, plus repeated `ExerciseCatalog`, `EnginePreferenceRepository`, and `WeightUnitRepository` doubles. Every method added to a port edits all of them by hand, and a subtle behavioral divergence between copies is easy to introduce. This matches the AGENTS seed that a fixture "couldn't be shared between `:core:domain` and `:core:database`".
+- **Recommendation:** Introduce one shared test-fixtures artifact for the domain ports — a small KMP `:test:fixtures` (or `:core:testing`) module with `commonMain` fakes (`InMemoryWorkoutLogRepository`, `InMemoryWorkoutSessionRepository`, `InMemoryPlanHistoryRepository`, `InMemoryExerciseCatalog`, …) that keep state and expose the flows, consumed by `:core:domain`, `:core:database`, `:core:network`, `:core:llm`, and every feature test. Start with `WorkoutLogRepository` since it is the most duplicated and most churn-prone. If a KMP `testFixtures` source set is preferred over a module, validate it can be consumed across modules before committing to it (that is the recorded open question).
+- **Fix cost:** L
+
+### VM/state gaps (anchored on main-pass findings)
+
+**TS4-002 — major — test gap — file:line:** `feature/logger/.../WorkoutLoggerViewModelTest.kt` (draft tests `:329-387`; resume test `:735-750`)
+- **Why it matters:** S4-001 (drafts rebuilt from the accepted plan on every `onResume`, resurrecting confirmed/dismissed drafts) has no regression test: the draft tests only assert immediately after `confirmDraft`/`dismissDraft`, and `reDerivesTodaysFocusOnResume` never combines resume with drafts. So the duplicate-logging path is invisible to CI.
+- **Recommendation:** Add a test that confirms (and one that dismisses) a draft, calls `onResume()`, and asserts `draftSets` stays empty; this is the regression S4-001 needs.
+- **Fix cost:** S
+
+**TS4-003 — minor — test gap — file:line:** `feature/splitbuilder/.../SplitBuilderViewModelTest.kt:85` (no snapshot-precedence test)
+- **Why it matters:** S5-001 (`showAccepted` lets live catalog names override the plan's snapshotted names) is unverified — the only `exerciseNames` assertion is for a catalog name. Nothing renames an exercise after acceptance and asserts the accepted plan keeps its snapshot.
+- **Recommendation:** Add a test that accepts a plan, changes the exercise name in the catalog fake, and asserts the displayed name is the snapshotted one (once S5-001 is triaged).
+- **Fix cost:** S
+
+**TS4-004 — minor — test gap — file:line:** `feature/splitbuilder/.../SplitBuilderViewModelTest.kt` (no `involvements` reference in the file)
+- **Why it matters:** S5-002 (the regenerate fingerprint folds in the ≥0.7 tags but not the involvement weights) is unverified: no splitbuilder test edits `involvements`, so an edit inside a band that should re-enable Regenerate is never exercised.
+- **Recommendation:** Add a test that edits an exercise's involvement weight without changing its primary/secondary tags and asserts `canRegenerate` flips to true.
+- **Fix cost:** S
+
+**TS4-005 — minor — test gap — file:line:** `feature/equipment/.../EquipmentProfilerViewModelTest.kt:210-221` (removes one muscle; no clear-all save)
+- **Why it matters:** S2-001 (clearing every muscle on a built-in stores `NULL` and silently reverts to the seed weights) is unverified. The editor test removes a single muscle from the in-progress map but never saves a built-in with an empty `involvements` map and reads it back.
+- **Recommendation:** Add a test that clears all muscles, saves, and asserts the resolved `effectiveInvolvements` is empty (currently it would fail, pinning S2-001).
+- **Fix cost:** S
+
+### Flakiness
+
+**TS4-006 — refuted (no finding) — flakiness — file:line:** `feature/fatigueheatmap/.../FatigueHeatmapViewModelTest.kt:35-45,129-203`
+- **Why it matters:** The recorded "heatmap ticker tests once hung" is no longer reproducing in the code: the test installs a `StandardTestDispatcher`, drives the ticker with `advanceTimeBy(59_999)`/`advanceTimeBy(1)` + `runCurrent()`, uses a `FakeClock` that counts reads, and always cancels via `onPause()` in `finally`. `rg` finds no `System.*`, `Thread.sleep`, or real `delay()` anywhere in the feature/`shared` tests. I attempted to falsify this and could not.
+- **Recommendation:** None. Keep the virtual-time pattern; if the ticker is ever reworked, preserve the boundary split around the 60 s interval.
+- **Fix cost:** —
+
+### Nits
+
+**TS4-007 — nit — duplication — file:line:** feature tests' `setUp`/`tearDown` (`Dispatchers.setMain(StandardTestDispatcher())` / `resetMain()`)
+- **Why it matters:** The Main-dispatcher install/reset pair is copy-pasted into every feature ViewModel test; it is easy to forget the reset and leak a dispatcher into a later test in the same JVM.
+- **Recommendation:** Extract a small shared test rule/helper in the same fixtures module as TS4-001.
+- **Fix cost:** S
+
+### Seed-observation status (TS4-resident)
+
+- The 7 `WorkoutLogRepository` fakes / shared `testFixtures`: **confirmed and corrected** — 8 doubles across 7 files; TS4-001 proposes the shared fixtures module (and flags that KMP `testFixtures` cross-module consumption must be validated first).
+- Flaky patterns (heatmap ticker): **refuted** — the ticker tests are deterministic (virtual time + `FakeClock` + `finally { onPause() }`); no real clocks/sleeps anywhere in feature/`shared` tests.
+- VM/state gaps: **found** — S4-001 (TS4-002), S5-001 (TS4-003), S5-002 (TS4-004), S2-001 (TS4-005) are all untested.
+- Koin verification coverage: **partly confirmed** — `KoinModulesVerificationTest` covers `verify()` plus a runtime-resolution test that works around `verify()` not reflecting `singleOf` constructors; PLANS.md already records that the real Android Keystore/`Context` bindings, the Settings Composable's direct model-manager injection, and the iOS graph remain unverified. No new finding.
+
+### TS4 finding summary
+
+- blocker: 0
+- major: 2 (TS4-001, TS4-002)
+- minor: 3 (TS4-003, TS4-004, TS4-005)
+- nit: 1 (TS4-007)
+- total: 6
+(TS4-006 recorded as refuted, not a finding.)
+
