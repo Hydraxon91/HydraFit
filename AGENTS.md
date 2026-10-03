@@ -112,19 +112,92 @@ While executing an approved chunk:
 - **Reserve deep reasoning for genuinely ambiguous or destructive decisions** (see confirmation rule above), not for routine refactors or migrations with a clear precedent already in this codebase.
 - **Never generate a whole feature/module in one shot.** Work file-by-file or component-by-component, and never dump monolithic files. Within an approved work chunk, do not pause for check-ins between steps — the chunk boundary is the check-in point (see Approved Work Chunks).
 
+## Fix-Classification Gate (for findings from a review, or any bug fix)
+
+Before implementing a fix — whether from a triaged review finding or a
+bug reported directly — classify it first:
+
+- **Mechanical fix**: the correct behavior is unambiguous and the change is
+  localized (e.g. a missing null check, an off-by-one, a clamp that's
+  missing). Proceed normally under existing commit/approval rules.
+- **Design decision wearing a bug-fix costume**: fixing it requires
+  deciding behavior that was never actually specified, or reopens a
+  decision that was previously deferred/recorded elsewhere (PLANS.md,
+  plans-archive.md, a KDoc "intentionally out of scope" note). Signs this
+  applies: the fix could reasonably be implemented two or more different
+  ways with different real tradeoffs; it touches a mechanism shared by
+  other features (e.g. anything in the fatigue/session/planner core); or
+  an existing comment/doc already flagged the question as unresolved.
+
+For the second category: **do not implement a default resolution and move
+on.** Stop and present the actual tradeoff — what the different possible
+behaviors are, which existing documented decision (if any) it reopens, and
+what you'd recommend — and wait for an explicit decision, the same way a
+new architectural question would be handled. A one-line "or carry a comment
+naming the exception" is not sufficient resolution for this category; the
+actual behavior must be decided, not deferred again with different wording.
+
+When in doubt which category a fix falls into, ask rather than assume
+"mechanical."
+
+## Architectural Review & Rule-Setting Discipline
+
+A full or partial codebase review (reading real source to find design/
+correctness issues, not implementing a specific requested feature) follows
+this gated sequence. Do not skip or merge steps, even if asked to "just
+fix what you find" — fixing without first separating review from triage is
+how a review session quietly turns into an unreviewed refactor.
+
+1. **Review is read-only.** No source, test, Gradle, CI, or schema edits
+   during review phases. Findings go into a review document; only that
+   document (and an architecture doc, if requested) may be created/edited.
+2. **Findings get a severity and a verification status**, not just a
+   description: confirmed (reproduced/traced in the actual code) vs.
+   theorized; and blocker/major/minor/nit. A finding phrased as a
+   near-certainty ("silently fails") that turns out to be weaker on
+   recheck ("fails but partially surfaced") must be corrected in the
+   document, not left as originally worded.
+3. **Proposed new standing rules (RG) are separable from fix decisions
+   (RF).** A rule derived from a finding must not be written into AGENTS.md
+   until: (a) the finding it's based on is confirmed, not just theorized,
+   and (b) if the rule references infrastructure that doesn't exist yet
+   (a proposed module, a proposed process), it is phrased conditionally,
+   not as if that infrastructure is already real.
+4. **A rule must state what already-shipped code should actually do**,
+   not just "document your exception" as a process placeholder, when a
+   finding identifies a specific gap in shipped code (e.g. a past feature's
+   behavior changed meaning after a later change). Get the intended fix
+   behavior confirmed before generalizing it into a rule — see the
+   Fix-Classification Gate above.
+5. **Fix triage (RF) treats "can delete/corrupt existing user data" as its
+   own severity axis, independent of major/minor/nit labels.** A minor-
+   labeled finding with real data-loss potential is triaged with the same
+   urgency as a major; severity labels describe code quality, not user
+   impact, and must not be conflated.
+6. **Every bucket assignment in a triage must be unambiguous.** If a
+   finding's placement is uncertain or was a drafting error, say so
+   explicitly and ask, rather than leaving a finding in a bucket with
+   contradicting prose next to it.
+7. **Each review phase and the RG/RF outputs are their own approved,
+   gated commits** — same commit discipline as any other work. RG (rules)
+   and RF (fix implementation) are never combined into one commit, and no
+   individual fix from RF's triage skips normal per-fix approval.
+
 ## Review-Derived Rules (0.2.2)
 
 Added by the 0.2.2 review (RG); rationale lives in `docs/architecture.md` and
 `docs/code-review-0.2.2.md`, not here. Marked **[current]** (code already follows) or
 **[target, new code only]** (existing code is not refactored unless a task is in scope).
 
-- **[target] Engine fallback is explicit, never silent.** A planner engine must not substitute another engine without surfacing it: either throw `PlanGenerationException` with the mapped `reason` (SplitBuilder shows reason + Retry), or return the fallback plan so `usedFallbackEngine` renders the fallback note. Do not add engine-level `fallback` dependencies. (`docs/architecture.md` §1.7; S3-001)
+- **[target] Engine substitution is explicit, never silent.** If an engine's generated plan is rejected post-generation (e.g. a sanitize/validation failure, as in S3-001's Gemini case), the engine must not quietly substitute another engine's plan without surfacing it — either throw `PlanGenerationException` with the mapped `reason` (SplitBuilder shows reason + Retry), or return the fallback plan so `usedFallbackEngine` renders the fallback note. This does **not** apply to the Local LLM engine's existing `fallback: WorkoutPlannerEngine` constructor parameter, which is a separate, already-correct, already-tested pattern: it exists specifically to catch `OutOfMemoryError` and other generation failures *before* a plan is produced, and already surfaces via `usedFallbackEngine`. Do not add a *new, second* fallback-engine dependency to any engine to paper over a rejected/invalid plan after the fact — fix the rejection path explicitly instead. (`docs/architecture.md` §1.7; S3-001)
 - **[target] `sessionId` is the one segmentation truth.** Runtime fatigue segmentation reads `sessionId` only. A `performedAt` correction always re-segments the corrected set against the session rules (local day + inactivity window), with **no tolerance/threshold**, and the affected time window is re-segmented so no two sessions interleave. (`docs/architecture.md` §1.8; S1-007, 2b)
 - **[target] Nullable stored fields must not conflate "absent" with "explicitly empty".** If a user can clear a value, the cleared state gets its own encoding. (`docs/architecture.md` §1.8; S2-001)
 - **[target] Migrations are verified.** Every `.sqm` chain is covered by `verifyMigrations` + a schema snapshot or a v1→current test; each new table/column ships with a migration and a migration test in the same change. (`docs/architecture.md` §1.9; S2-004/TS3-001)
 - **[target] No full-table reads on the write path; startup seeding/backfill runs off the main thread.** (`docs/architecture.md` §1.4/§1.5; S1-005/S6-002)
 - **[current] SOLID is review optics, not a refactor mandate.** Follow DIP/ISP deliberately; apply OCP only at real variation points; use SRP's reason-to-change reading. Do not force a new feature into an artificial seam. See `docs/architecture.md` §3.1.
 - **[target] A regression test ships in the same commit as any fix to a logged finding.** (TS-family)
+
+> Note: TS4-001 also proposed a shared `:test:fixtures` module for the duplicated `WorkoutLogRepository` test doubles. That module doesn't exist yet, so no rule here assumes it — the proposal lives in PLANS.md as a scheduled item, not here, until it's actually built.
 
 ## Tool Call Discipline
 
