@@ -281,6 +281,21 @@ class SqlDelightWorkoutLogRepositoryTest {
     }
 
     @Test
+    fun snapshotsAnEmptyOverrideAsNoTargetsWhenLogging() = runTest {
+        SqlDelightExerciseOverrideRepository(database).update(
+            exerciseId = "barbell-bench-press",
+            name = null,
+            requiredEquipment = setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH),
+            movementPattern = null,
+            involvements = emptyMap()
+        )
+
+        repository.add(set(exerciseId = "barbell-bench-press", performedAt = 1))
+
+        assertTrue(repository.loggedSets().single().targets.isEmpty())
+    }
+
+    @Test
     fun keepsTheLoggedSnapshotWhenTheExerciseMusclesAreLaterEdited() = runTest {
         repository.add(set(exerciseId = "barbell-bench-press", performedAt = 1))
 

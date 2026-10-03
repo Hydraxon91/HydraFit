@@ -20,12 +20,10 @@ class SeedExerciseCatalog(private val database: HydraFitDatabase) {
                 )
                 // Always write involvement weights (explicit, or derived from the authored tags)
                 // but only where missing, so a user's edit is kept.
-                encodeInvolvements(exercise.effectiveInvolvements)?.let { encoded ->
-                    database.exerciseQueries.updateInvolvements(
-                        involvements = encoded,
-                        id = exercise.id
-                    )
-                }
+                database.exerciseQueries.updateInvolvements(
+                    involvements = encodeInvolvements(exercise.effectiveInvolvements),
+                    id = exercise.id
+                )
             }
         }
     }

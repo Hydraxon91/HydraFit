@@ -15,12 +15,15 @@ internal fun encodeMuscles(muscles: Set<MuscleGroup>): String =
 
 internal fun decodeMuscles(value: String): Set<MuscleGroup> = value.toEnumSet(MuscleGroup::valueOf)
 
-/** Encodes per-muscle involvement weights as `MUSCLE:weight` pairs, or null when empty. */
-internal fun encodeInvolvements(involvements: Map<MuscleGroup, Double>): String? = involvements
+/**
+ * Encodes per-muscle involvement weights as `MUSCLE:weight` pairs. An empty map encodes as the empty
+ * string, which is distinct from a null column: null means "not set" (fall back to the seed), while
+ * `""` means "explicitly cleared".
+ */
+internal fun encodeInvolvements(involvements: Map<MuscleGroup, Double>): String = involvements
     .entries
     .sortedBy { it.key.name }
     .joinToString(separator = ",") { "${it.key.name}:${it.value}" }
-    .takeIf { it.isNotEmpty() }
 
 internal fun decodeInvolvements(value: String?): Map<MuscleGroup, Double> {
     if (value.isNullOrEmpty()) return emptyMap()

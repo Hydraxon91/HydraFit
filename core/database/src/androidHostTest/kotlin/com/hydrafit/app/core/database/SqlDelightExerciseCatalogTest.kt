@@ -133,6 +133,31 @@ class SqlDelightExerciseCatalogTest {
         assertEquals(0.4, exercise.effectiveInvolvements.getValue(MuscleGroup.SHOULDERS))
     }
 
+    @Test
+    fun clearingEveryMuscleOnABuiltInOverridePersists() = runTest {
+        insert(
+            id = "bench-press",
+            name = "Bench Press",
+            equipment = setOf(EquipmentTag.BARBELL),
+            primary = setOf(MuscleGroup.CHEST),
+            secondary = setOf(MuscleGroup.TRICEPS)
+        )
+        SqlDelightExerciseOverrideRepository(database).update(
+            exerciseId = "bench-press",
+            name = "Bench Press",
+            requiredEquipment = setOf(EquipmentTag.BARBELL),
+            movementPattern = MovementPattern.HORIZONTAL_PUSH,
+            involvements = emptyMap()
+        )
+
+        val exercise = catalog.all().single { it.id == "bench-press" }
+
+        assertTrue(exercise.involvements.isEmpty())
+        assertTrue(exercise.primaryMuscles.isEmpty())
+        assertTrue(exercise.secondaryMuscles.isEmpty())
+        assertTrue(exercise.effectiveInvolvements.isEmpty())
+    }
+
     private fun insert(
         id: String,
         name: String,
