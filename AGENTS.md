@@ -112,6 +112,20 @@ While executing an approved chunk:
 - **Reserve deep reasoning for genuinely ambiguous or destructive decisions** (see confirmation rule above), not for routine refactors or migrations with a clear precedent already in this codebase.
 - **Never generate a whole feature/module in one shot.** Work file-by-file or component-by-component, and never dump monolithic files. Within an approved work chunk, do not pause for check-ins between steps — the chunk boundary is the check-in point (see Approved Work Chunks).
 
+## Review-Derived Rules (0.2.2)
+
+Added by the 0.2.2 review (RG); rationale lives in `docs/architecture.md` and
+`docs/code-review-0.2.2.md`, not here. Marked **[current]** (code already follows) or
+**[target, new code only]** (existing code is not refactored unless a task is in scope).
+
+- **[target] Engine fallback is explicit, never silent.** A planner engine must not substitute another engine without surfacing it: either throw `PlanGenerationException` with the mapped `reason` (SplitBuilder shows reason + Retry), or return the fallback plan so `usedFallbackEngine` renders the fallback note. Do not add engine-level `fallback` dependencies. (`docs/architecture.md` §1.7; S3-001)
+- **[target] `sessionId` is the one segmentation truth.** Runtime fatigue segmentation reads `sessionId` only. A `performedAt` correction always re-segments the corrected set against the session rules (local day + inactivity window), with **no tolerance/threshold**, and the affected time window is re-segmented so no two sessions interleave. (`docs/architecture.md` §1.8; S1-007, 2b)
+- **[target] Nullable stored fields must not conflate "absent" with "explicitly empty".** If a user can clear a value, the cleared state gets its own encoding. (`docs/architecture.md` §1.8; S2-001)
+- **[target] Migrations are verified.** Every `.sqm` chain is covered by `verifyMigrations` + a schema snapshot or a v1→current test; each new table/column ships with a migration and a migration test in the same change. (`docs/architecture.md` §1.9; S2-004/TS3-001)
+- **[target] No full-table reads on the write path; startup seeding/backfill runs off the main thread.** (`docs/architecture.md` §1.4/§1.5; S1-005/S6-002)
+- **[current] SOLID is review optics, not a refactor mandate.** Follow DIP/ISP deliberately; apply OCP only at real variation points; use SRP's reason-to-change reading. Do not force a new feature into an artificial seam. See `docs/architecture.md` §3.1.
+- **[target] A regression test ships in the same commit as any fix to a logged finding.** (TS-family)
+
 ## Tool Call Discipline
 
 Some models occasionally emit a tool call as plain text instead of a real tool call. The harness then treats the turn as finished, nothing runs, and the session stalls. These rules keep calls well-formed and keep the repo from ending up half-modified.
