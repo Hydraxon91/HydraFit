@@ -163,6 +163,19 @@ The phone's model keeps stopping just before the closing brackets, so `parseWeek
 - **RG — AGENTS.md update.** Distill approved findings into SHORT, checkable rules; AGENTS.md is read every session, so put rationale in `docs/architecture.md` and link to it. Mark each rule "current convention" (code already follows it) or "target convention, new code only" (existing code is not refactored unless a task is in scope). Propose the diff, wait for approval, then commit.
 - **RF — fixes.** Triage findings into: fix in 0.2.2 (blockers and approved majors only, each its own gated commit), schedule later (PLANS.md entries), or won't fix. Nothing is fixed without approval.
 
+**RF triage (approved 2026-10-03).** Severity labels aside; each 0.2.2 fix is its own gated commit with a regression test. Full evidence is in `docs/code-review-0.2.2.md`; the elevated pre-seed is recorded there too.
+
+- **Priority 1 — user-facing correctness:** S3-004 (unbounded on-device `done.await()` hang), S4-001 (draft resurrection → duplicate logged sets).
+- **Data-loss / data-corruption class (same urgency as majors):** S2-001 (clearing all muscles silently reverts), S4-004 (non-atomic custom-equipment rename can delete the equipment + selection), S3-007 (failed `replaceModelWith` can delete the working model file), S1-007 (time correction leaves `sessionId` stale → wrong derived fatigue; **2b follow-up** — decided behavior: always re-segment, no threshold).
+- **Deviation from a recorded decision:** S3-001 (sanitize-reject bypasses the mapped-reason/Retry path; throw `INVALID_RESPONSE` or record the documented deviation).
+- **Low-cost correctness:** S1-008 (planner skip fall-through), S2-005 (equipment id collision).
+- **Regression tests ship with those fixes:** TS2-001 (S1-008), TS4-002 (S4-001), TS3-003 + TS3-004 (S2-001/S3-001), plus a session re-segmentation/migration test for S1-007.
+- **Schedule — 0.2.3 (perf/logging):** S1-005, S3-002, S3-003, S5-004, S6-002, S6-004, S6-005.
+- **Schedule — 0.2.4:** S1-013 (enforcer repair), S3-005/S3-006, the async `anyOf` count-enforcement device check.
+- **Schedule — test hardening:** TS2-002..006, TS3-001/002/005/006/007, TS4-003/004/005/007, TR-002..008.
+- **Schedule — cleanup/consistency:** S1-001, S1-003, S1-004, S1-006, S1-009, S1-010, S1-011, S1-012, S2-002, S2-003, S2-006, S2-008, S2-009, S4-002, S4-003, S4-005, S4-006, S5-001, S5-002, S5-003, S5-005, S6-001, S6-003, S6-006, S6-007, S6-008.
+- **Won't fix:** S1-002 (`formatWeight` exotic negative/scientific edge only).
+
 **Seed observations to VERIFY, not conclusions:** the Logger ViewModel sits at 7 constructor params and `LogWorkoutSetUseCase` has grown into a session-aware entry point; adding one `WorkoutLogRepository` method breaks 7 fakes across 6 test files (consider shared test fixtures); a test fixture couldn't be shared between `:core:domain` and `:core:database` (testFixtures source set); `LogWorkoutSetUseCase` and the fatigue path load all sets via `all()`; use-case/Koin wiring placement; error handling and logging consistency; coroutine scope and dispatcher handling; expect/actual boundaries; test quality and flakiness (the heatmap ticker tests once hung); stale wording in `PlannerPromptFragments.volumeRepsGuidance` versus Q4c (behavior correct, wording not); `PlanVarietyEnforcer` versus on-device output (the model reuses compounds across days, so the enforcer rejects the week).
 
 **Deliverable files:** `docs/code-review-0.2.2.md`, `docs/architecture.md`, `AGENTS.md` (RG), PLANS.md (RF scheduling), plus any RF fixes with their tests and migrations.
