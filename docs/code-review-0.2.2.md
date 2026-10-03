@@ -542,3 +542,71 @@ Findings are appended per slice. `file:line` evidence refers to the pinned commi
 - nit: 1 (TS2-006)
 - total: 6
 
+## TS3 — `:core:database` + `:core:userdata` + `:core:network` + `:core:llm` tests, sampled
+
+- **Slice:** TS3 — `:core:database` `androidHostTest` (2,623), `:core:userdata` `commonTest` (25), `:core:network` `androidHostTest` (581), `:core:llm` `commonTest` (723). Sampled.
+- **Pinned commit:** `7e04245` (tag `v0.2.1`).
+- **Date:** 2026-10-03.
+- **Scope:** read-only. Findings only with evidence; test gaps are in scope.
+
+**Coverage:** read in full — all 10 migration tests (`SessionIdMigrationTest`, `InvolvementsMigrationTest`, `InvolvementConversionMigrationTest`, `ExerciseOverrideMigrationTest`, `WorkoutSetWeekDayMigrationTest`, `EquipmentMaxWeightMigrationTest`, `PlanHistoryMigrationTest`, `RirMigrationTest`, `ExerciseUnilateralMigrationTest`, `PersonalRecordMigrationTest`) and `SqlDelightWorkoutLogRepositoryTest.kt` (469); targeted reads in `GeminiWorkoutPlannerEngineTest.kt` (fallback and retry regions) and `SqlDelightExerciseOverrideRepositoryTest.kt`/`SqlDelightExerciseCatalogTest.kt` (override paths). All 25 TS3 test files inventoried by test name. **Read/inventoried with no rule-branch gap found:** `WorkoutSessionBackfillTest.kt` (17 tests incl. rollback and idempotency), `LocalLlmWorkoutPlannerEngineTest.kt` (30 tests incl. OOM fallback, retry, progress clear), `SqlDelightCustomExerciseRepositoryTest.kt`, `SqlDelightPlanHistoryRepositoryTest.kt`, `SeedExerciseCatalogTest.kt`, `SqlDelightEnginePreferenceRepositoryTest.kt`, `SqlDelightWorkoutPlanSourcesRepositoryTest.kt`, `SqlDelightTrainingGoalRepositoryTest.kt`, `SqlDelightWeightUnitRepositoryTest.kt`, `SqlDelightWorkoutSessionRepositoryTest.kt`, `SqlDelightEquipmentSelectionRepositoryTest.kt`, `SqlDelightPersonalRecordRepositoryTest.kt`, `DatabaseModuleVerificationTest.kt`, `NetworkModuleVerificationTest.kt`, `OnDeviceSamplerTest.kt`, `OnDeviceModelTargetClassifierTest.kt`, `NpuDeviceDetectorTest.kt`. **Skipped (not read):** the retry-backoff internals of `GeminiWorkoutPlannerEngineTest` beyond the region read and the `LocalLlmWorkoutPlannerEngineTest` prompt assertions (sampled by name only).
+
+### Migrations
+
+**TS3-001 — minor — test gap — file:line:** `core/database/src/androidHostTest/.../*MigrationTest.kt` (earliest fixture `v13Database()` in `ExerciseOverrideMigrationTest.kt:75`)
+- **Why it matters:** Every migration test builds a hand-written partial "vN shape" and starts at **v13 or later** (`v13`, `v15`, `v16`, `v17`, `v18`, `v19`, `v21`, `v22`, `v23`, `v24`). Migrations `1.sqm..12.sqm` (initial `workoutSet`, `selected_equipment`, `plannerEngine`, `movementPattern`/`daysPerWeek`, `trainingGoal`, `planHistory`, `suggestedWeightKg`, `equipment`, `exerciseEdit`, `shareWorkoutData`, `exerciseMuscleEdit`, `isCustom`) have **no test**, and no single test migrates from the earliest supported version to the current one. Combined with S2-004 (no `verifyMigrations`), a broken early-chain migration or a missing table would not be caught; the recent tests each deliberately scope a partial schema, so the chain is never exercised end-to-end.
+- **Recommendation:** Add one test that builds a v1 database and runs `Schema.migrate(driver, 1, Schema.version)`, plus a catalog/`workoutSet` round-trip afterwards; or (preferred, S2-004) enable SQLDelight `verifyMigrations` with a checked-in schema snapshot. Add the missing v1..v12 fixtures incrementally.
+- **Fix cost:** M
+
+### Repositories
+
+**TS3-002 — minor — test gap — file:line:** `core/database/src/androidHostTest/.../SqlDelightWorkoutLogRepositoryTest.kt:244-263`
+- **Why it matters:** `fallsBackToTheCatalogForLegacyRowsWithoutASnapshot` inserts a null-snapshot legacy row but sets **no** exercise override, so the behavior flagged in S2-003 — that the legacy fallback resolves targets from the seed `exercise.involvements` and ignores `exerciseOverride` — is not exercised. A regression test for S2-003 would set an override first, then assert the fallback uses it.
+- **Recommendation:** Extend the fallback test to write an `exerciseOverride` and assert it (once S2-003 is triaged) or explicitly document that legacy rows intentionally use the seed weights.
+- **Fix cost:** S
+
+**TS3-003 — minor — test gap — file:line:** `core/database/src/androidHostTest/.../SqlDelightExerciseOverrideRepositoryTest.kt:62-81`, `SqlDelightExerciseCatalogTest.kt:110-134`
+- **Why it matters:** The override tests only ever pass a **non-empty** involvements map, so S2-001 (clearing every muscle stores `NULL`, which the catalog then decodes back to the seed weights) is untested. There is no test that an override which clears all muscles produces an empty `effectiveInvolvements`.
+- **Recommendation:** Add a catalog test that upserts an override with an empty involvement map and asserts the resolved `involvements` is empty (currently it would fail, pinning S2-001).
+- **Fix cost:** S
+
+### `:core:network`
+
+**TS3-004 — major — test gap — file:line:** `core/network/src/androidHostTest/.../GeminiWorkoutPlannerEngineTest.kt:340-351` and `:353-366`
+- **Why it matters:** `fallsBackWhenThePlanHasTooFewDays` and `dropsExercisesThatNeedUnavailableEquipmentAndFallsBack` **assert** `PlannerEngineId.DETERMINISTIC` for a successful HTTP response whose body fails sanitization. That is exactly the silent fallback S3-001 flags as contradicting PLANS.md line 291 ("never silently falls back to Deterministic"). The suite does not merely miss the bug — it codifies it, so any fix to S3-001 must rewrite these two tests, and until then CI protects the wrong behavior.
+- **Recommendation:** When S3-001 is triaged, change both tests to expect `PlanGenerationException(INVALID_RESPONSE, transient = false)` (or the agreed contract) and add a positive test that a valid-but-rejected model week surfaces the reason instead of a Deterministic plan.
+- **Fix cost:** S
+
+**TS3-005 — minor — test gap — file:line:** `core/network/src/androidHostTest/.../GeminiWorkoutPlannerEngineTest.kt:210-281` (RetryInfo only via `geminiError()` at `:469-471`)
+- **Why it matters:** Retry behavior is covered only at the call-count/reason level (`retriesTransientFailuresThenSucceeds`, `givesUpAfterMaxRetries…`, `mapsRateLimitToRateLimited…`). `retryDelayMillis` — the `Retry-After` header, the `RetryInfo.retryDelay` body hint, and the `MAX_BACKOFF_MILLIS` clamp behind S3-002 — has no assertion, so a regression in delay parsing/clamping would pass.
+- **Recommendation:** Add a test with a `Retry-After: 30` header and with a `RetryInfo.retryDelay` body and assert the observed delay/attempt timing (using `runTest` virtual time), covering the S3-002 clamp.
+- **Fix cost:** S
+
+### `:core:llm`
+
+**TS3-006 — minor — test gap — file:line:** `core/llm/src/androidMain/.../LiteRtLmTextGenerator.kt:157-166` (no test file exists)
+- **Why it matters:** `LiteRtLmTextGenerator` is `androidMain` over a native runtime and has no test, so the unbounded `done.await()` from S3-004 (native callback never completes → the generation thread blocks while holding `@Synchronized`) has no regression coverage. `LocalLlmWorkoutPlannerEngineTest` covers the engine-level fallbacks but cannot reach the native wait.
+- **Recommendation:** Since the wait cannot be unit-tested, add a bounded `await` and cover it with an instrumented/manual check, and record the S3-004 fix as needing a device re-check (like the other on-device paths). Do not leave it as "no test, no plan".
+- **Fix cost:** S (test/device), tied to the S3-004 fix
+
+### Nits
+
+**TS3-007 — nit — duplication/coupling — file:line:** `core/database/src/androidHostTest/.../SqlDelightWorkoutLogRepositoryTest.kt:133-135`, `:152`, `:239-240`, `:262`, `:279`, `:298`
+- **Why it matters:** The database tests use the production-dead `MuscleInvolvement.PRIMARY/SECONDARY.volumeWeight` enum (S1-003) as their expected constants, so deleting that enum requires editing this test (and the feature/llm tests that use it). Tests should not depend on dead production types.
+- **Recommendation:** Replace the enum references with literal weights (or a shared test constant) when S1-003 is actioned.
+- **Fix cost:** S
+
+### Seed-observation status (TS3-resident)
+
+- Fakes/fixtures and shared-fixture opportunities: **noted, deferred to TS4** — the database/network tests construct the real SQLDelight repositories against `JdbcSqliteDriver` rather than faking `WorkoutLogRepository`, so the feature-level repository fakes (TS4) are the consolidation target.
+- Flaky patterns: **none found** — no real clocks (`historicalPerformedAt…` uses a fixed `now`), no `Thread.sleep`; network retries run on `runTest` virtual time; the native generator is untested (TS3-006) rather than flaky.
+- Test gaps against rule branches: **found** — migration chain v1..v12 (TS3-001), legacy-fallback override resolution (TS3-002), empty-involvements override (TS3-003), Gemini fallback contract (TS3-004), retry-delay parsing (TS3-005), native wait (TS3-006). Repository round-trips, backfill, plan history, custom exercises, seed idempotency, and the local-LLM fallbacks are otherwise thorough.
+
+### TS3 finding summary
+
+- blocker: 0
+- major: 1 (TS3-004)
+- minor: 5 (TS3-001, TS3-002, TS3-003, TS3-005, TS3-006)
+- nit: 1 (TS3-007)
+- total: 7
+
