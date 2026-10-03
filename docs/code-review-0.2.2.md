@@ -406,3 +406,84 @@ Findings are appended per slice. `file:line` evidence refers to the pinned commi
 - nit: 1 (S5-005)
 - total: 5
 
+## S6 — `:shared` + `:androidApp` + iOS Swift + build/Gradle/CI config (main sources)
+
+- **Slice:** S6 — `:shared` (388), `:androidApp` (Kotlin 35 + manifest/resources + gradle), iOS Swift (26), build/Gradle config (`*.kts` + version catalog), and `.github/workflows` (297).
+- **Pinned commit:** `7e04245` (tag `v0.2.1`).
+- **Date:** 2026-10-03.
+- **Scope:** read-only. Test tree not read. Findings are documentation only; any fix here would be a Major Infrastructure Change requiring separate approval.
+
+**Coverage (files read):**
+
+- `:shared`: `Koin.kt`, `App.kt`, `DomainModule.kt`, `DefaultWorkoutPlannerEngineProvider.kt`, `DefaultEngineAvailability.kt`, `AndroidDatabaseModule.kt`, `DelegatingOnDeviceModelManager.kt`, `IosDatabaseModule.kt`, `MainViewController.kt`
+- `:androidApp`: `HydraFitApplication.kt`, `MainActivity.kt`, `AndroidManifest.xml`, `build.gradle.kts`, `proguard-rules.pro`
+- iOS Swift: `iOSApp.swift`, `ContentView.swift`
+- Build/Gradle: `settings.gradle.kts`, root `build.gradle.kts`, `gradle/libs.versions.toml`, `androidApp/build.gradle.kts`, `shared/build.gradle.kts`, and every `core/*` + `feature/*` `build.gradle.kts`; `.gitignore`; `local.properties.template`
+- CI: `build-and-test.yml`, `nightly.yml`, `release.yml`
+
+**Files read with no findings:** `App.kt`, `DefaultWorkoutPlannerEngineProvider.kt`, `DefaultEngineAvailability.kt`, `AndroidDatabaseModule.kt`, `DelegatingOnDeviceModelManager.kt`, `IosDatabaseModule.kt`, `MainViewController.kt`, `HydraFitApplication.kt`, `MainActivity.kt`, `iOSApp.swift`, `ContentView.swift`, `settings.gradle.kts`, root `build.gradle.kts`, all module `build.gradle.kts`, `.gitignore`, `local.properties.template`, `release.yml`, `nightly.yml`.
+
+### `:shared` (composition root)
+
+**S6-001 — minor — design smell / DI — file:line:** `shared/.../DomainModule.kt:37`, `:40-49`, `:61-62`, `:66`
+- **Why it matters:** `SuggestedWeightConfig()` and `PeriodizationConfig()` are registered as singletons, and `ObserveWorkoutPlanInputsUseCase`/`SuggestWeightsUseCase` receive them. But `DeterministicWorkoutPlannerEngine(get())` and `WeeklyPlanSanitizer(get())` inject only the catalog and fall back to their own constructor-default configs (`DeterministicWorkoutPlannerEngine.kt:12-14`, `WeeklyPlanSanitizer.kt:13-15`). There are therefore two live instances of each config, and a DI override of the bound single would change the plan inputs but not the engine/sanitizer that consume them — a silent divergence waiting for the first non-default config.
+- **Recommendation:** Pass the bound configs into the engine and sanitizer (e.g. `DeterministicWorkoutPlannerEngine(get(), get(), get(), get())`) or drop the unused singles; keep exactly one definition per config.
+- **Fix cost:** S
+
+**S6-002 — minor — risk (startup/perf) — file:line:** `shared/.../Koin.kt:31-33`, reached from `androidApp/.../HydraFitApplication.kt:8`
+- **Why it matters:** `initKoin` synchronously runs `SeedExerciseCatalog.seed()`, `SeedEquipmentCatalog.seed()`, and `WorkoutSessionBackfill.backfill()`; `HydraFitApplication.onCreate` calls it on the main thread, so the first frame waits on several DB transactions (and, on legacy data, the whole session backfill). PLANS 0.2.3 names this as a cold-start target.
+- **Recommendation:** Move seeding/backfill off the main thread (or defer behind a startup `Dispatchers.Default` job) and measure in 0.2.3; keep the calls idempotent as they are now.
+- **Fix cost:** S
+
+### `:androidApp`
+
+**S6-003 — minor — risk (security/privacy) — file:line:** `androidApp/src/main/AndroidManifest.xml:8`
+- **Why it matters:** `android:allowBackup="true"` with no `fullBackupContent`/`dataExtractionRules` means the workout database (and `hydrafit_secure` prefs holding the encrypted API-key ciphertext) are eligible for cloud/device backup. The Keystore key is non-exportable, so a restored ciphertext simply fails to decrypt, but the workout history is user data being copied off-device without an explicit decision.
+- **Recommendation:** Decide deliberately — set `allowBackup="false"`, or add `dataExtractionRules` excluding the secure prefs (and optionally the DB). Small manifest change, but call it out as a change to shipped behavior.
+- **Fix cost:** S
+
+**S6-004 — minor — risk (release build) — file:line:** `androidApp/build.gradle.kts:95`
+- **Why it matters:** `release { isMinifyEnabled = false }` ships unshrunk, unobfuscated code, and `proguard-rules.pro` is inert. PLANS 0.2.3 lists APK size and R8 as a measurement area, so this is the expected state now, but it should not be forgotten: enabling R8 later needs keep rules for LiteRT-LM, kotlinx-serialization, and Koin.
+- **Recommendation:** Leave for 0.2.3; add the R8/keep-rule evaluation to that phase's task list.
+- **Fix cost:** M (when done)
+
+### Build config / CI
+
+**S6-005 — minor — consistency — file:line:** `.github/workflows/build-and-test.yml:87-91` (vs `.github/workflows/nightly.yml:87-92`)
+- **Why it matters:** AGENTS.md documents the debug APK artifact with **14-day retention**, and `nightly.yml` sets `retention-days: 14`, but the primary `build-and-test.yml` upload omits it, so the default (90 days) applies. The two workflows now differ on a documented property.
+- **Recommendation:** Add `retention-days: 14` to the `assemble-debug-apk` upload in `build-and-test.yml` (or update AGENTS.md if 90 days is intended).
+- **Fix cost:** S
+
+**S6-006 — minor — dependency hygiene — file:line:** `gradle/libs.versions.toml:28-33`
+- **Why it matters:** `junit`, `kotlin-testJunit`, `androidx-core-ktx`, `androidx-testExt-junit`, `androidx-espresso-core`, and `androidx-appcompat` have **zero** references in any `*.kts` (the app uses the framework `Theme.Material.Light.NoActionBar`, not AppCompat). They are KMP-wizard leftovers. (`mockk` is also unused but is intentionally staged — PLANS.md line 251 — and should stay.)
+- **Recommendation:** Remove the six unused catalog entries; remove `mockk` only when the decision to not use it lands.
+- **Fix cost:** S
+
+**S6-007 — minor — risk (dependency) — file:line:** `gradle/libs.versions.toml:22`
+- **Why it matters:** `material3 = "1.12.0-alpha03"` pins an alpha for a core, app-wide UI dependency. The dependency-hygiene rule asks that alpha/pre-release choices be deliberate and revisited.
+- **Recommendation:** Track a move to a stable `material3` release; if the alpha is required, note why (e.g. a component only in alpha) so the next dependency review does not re-litigate it.
+- **Fix cost:** S
+
+### Nits
+
+**S6-008 — nit — duplication — file:line:** `.github/workflows/*.yml` (lint/unit-tests jobs repeated in all three)
+- **Why it matters:** The same `lint` and `unit-tests` job bodies are copy-pasted into `build-and-test.yml`, `nightly.yml`, and `release.yml`; a change (e.g. Java version, Gradle action version) must be applied three times. PLANS intentionally mirrors the pipeline, but the drift risk is real.
+- **Recommendation:** Extract the shared jobs into a reusable workflow (`workflow_call`) and call it from all three, keeping the stage graph in each caller.
+- **Fix cost:** M
+
+### Seed-observation status (S6-resident)
+
+- Use-case/Koin wiring placement (composition root): **confirmed** — all use cases and both `WorkoutPlannerEngine` implementations are bound in `:shared`'s `domainModule`/`networkModule`; `:core:domain` exposes no Koin module. The one wart is the duplicate config instances (S6-001).
+- expect/actual boundaries: **confirmed** — the only `expect`/`actual` is `OnDeviceModelSection` in `:feature:settings`; platform selection elsewhere is via Koin platform modules (`AndroidDatabaseModule`/`IosDatabaseModule`), and `MainViewController` is the iOS entry point.
+- Feature registration as explicit static aggregation: **confirmed** — `App.kt:34-40` and `Koin.kt:18-28` list every feature export explicitly; no feature imports another (module graph is `feature -> core`), and `:shared` holds only the composition root.
+- Dependency pins: **confirmed** — `libs.versions.toml` matches the PLANS.md "Decisions Made" pins (SQLDelight 2.4.0, Koin 4.2.2, Ktor 3.6.0, serialization 1.11.0, coroutines 1.11.0, MockK 1.14.11, navigation-compose 2.9.2); the gaps are the unused entries (S6-006) and the alpha material3 pin (S6-007).
+- CI pipeline correctness: **confirmed with S6-005** — the stage graph matches AGENTS.md (lint/unit-tests/ios-compile immediately; assemble after lint+unit-tests; release gated on lint+unit-tests with the four secrets verified and the keystore deleted `always()`); no committed secrets. The missing retention setting is the only mismatch found.
+
+### S6 finding summary
+
+- blocker: 0
+- major: 0
+- minor: 7 (S6-001, S6-002, S6-003, S6-004, S6-005, S6-006, S6-007)
+- nit: 1 (S6-008)
+- total: 8
+
