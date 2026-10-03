@@ -224,8 +224,8 @@ Findings are appended per slice. `file:line` evidence refers to the pinned commi
 ### `:core:network`
 
 **S3-001 — major — bug/consistency — file:line:** `core/network/.../GeminiWorkoutPlannerEngine.kt:102`
-- **Why it matters:** On a successful HTTP response whose content is unusable, the engine does `sanitizer.sanitize(plan, request) ?: fallback.generatePlan(request)` — it silently returns the Deterministic plan. `parseWeeklyPlan` is lenient and returns an empty plan for a no-content/garbled reply, and the sanitizer then rejects it, so the user who selected Gemini gets a built-in plan with no error and no log. This contradicts the recorded decision (PLANS.md line 291: Gemini "never silently falls back to Deterministic") and defeats the `INVALID_RESPONSE` reason that `SplitBuilder` is built to surface. The injected `fallback` is only reachable here.
-- **Recommendation:** Throw `PlanGenerationException(transient = false, reason = PlanFailureReason.INVALID_RESPONSE, …)` when `sanitize` returns null (include the compact rejection summary, as the local engine does), so the ViewModel can show the reason and Retry. Remove the `fallback` dependency from this engine, matching the recorded decision.
+- **Why it matters:** On a successful HTTP response whose content is unusable, the engine does `sanitizer.sanitize(plan, request) ?: fallback.generatePlan(request)`, returning a Deterministic plan instead of throwing. `parseWeeklyPlan` is lenient and returns an empty plan for a no-content/garbled reply, and the sanitizer then rejects it. **The user is not left uninformed:** because the returned plan's `engine` is `DETERMINISTIC` while `requestedEngine` is `GEMINI_API`, `SplitBuilderUiState.usedFallbackEngine` is true and `SplitBuilderScreen` renders `split_fallback_note` ("Couldn't run %s — showing the built-in plan instead."). Git history confirms this surfacing predates the engine fallback (`dc8e1f9` added the note; `3547dcd` added the sanitize-fallback), so this is **not a regression**. What is missing is the second half of PLANS.md line 291: the **mapped reason** (`INVALID_RESPONSE`) with the raw detail underneath and a Retry action — that path is only reached when the engine *throws* `PlanGenerationException` (e.g. an empty candidate list), not on a sanitize reject. So the accurate finding is: sanitize-reject bypasses the mapped-reason/Retry path and shows only the generic fallback note.
+- **Recommendation:** Prefer throwing `PlanGenerationException(transient = false, reason = PlanFailureReason.INVALID_RESPONSE, …)` (with the compact rejection summary, as the local engine does) instead of falling back, so the specific reason and Retry are surfaced; drop the now-unused `fallback` dependency. If the generic fallback note is kept intentionally for this path, record that as a deliberate deviation from PLANS.md:291 rather than leaving the two clauses in tension.
 - **Fix cost:** S
 
 **S3-002 — minor — risk (performance) — file:line:** `core/network/.../GeminiWorkoutPlannerEngine.kt:178-183`
@@ -751,4 +751,20 @@ Flagged specifically, **not** judged wasteful:
 - minor: 4 (TR-002, TR-003, TR-004, TR-005)
 - nit: 3 (TR-006, TR-007, TR-008)
 - total: 8 (all report-only; no test changed)
+
+## RF pre-seed — maintainer-elevated fix list (severity labels aside)
+
+Maintainer direction (2026-10-03), recorded before RF triage, so the following are treated as
+fix-in-0.2.2 candidates regardless of their severity label:
+
+- **Priority 1 (user-facing correctness, approved fix-first):** S3-004 (unbounded on-device
+  `done.await()` → hang) and S4-001 (draft resurrection → duplicate logged sets).
+- **Data-loss / data-corruption class (same urgency as majors even though scored minor):**
+  - S2-001 (clearing all muscles silently reverts — persisted config edit lost),
+  - S4-004 (non-atomic custom-equipment rename can delete the equipment and its selection),
+  - S3-007 (failed `replaceModelWith` can delete the working on-device model file),
+  - and S1-007 (time-only correction leaves `sessionId` stale → wrong derived fatigue; see the
+    S1-007 assessment: this is a 2b explicit-session follow-up, not generic backlog).
+- **Still individually gated:** every fix above is its own approved commit; this list seeds RF, it
+  does not authorize changes.
 
