@@ -17,5 +17,8 @@ INSERT INTO equipment(id, name, isBuiltIn) VALUES (?, ?, ?);
 updateMaxWeight:
 UPDATE equipment SET maxWeightKg = ? WHERE id = ?;
 
+updateNameAndMaxWeight:
+UPDATE equipment SET name = ?, maxWeightKg = ? WHERE id = ? AND isBuiltIn = 0;
+
 deleteById:
 DELETE FROM equipment WHERE id = ?;

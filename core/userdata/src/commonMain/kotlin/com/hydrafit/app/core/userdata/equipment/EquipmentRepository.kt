@@ -17,6 +17,12 @@ interface EquipmentRepository {
 
     suspend fun remove(id: EquipmentTag)
 
+    /**
+     * Renames custom equipment and sets its ceiling atomically, keeping [id] stable so the equipment
+     * stays selected and any exercise references remain valid.
+     */
+    suspend fun rename(id: EquipmentTag, name: String, maxWeightKg: Double?): Equipment
+
     /** Sets the heaviest weight this equipment can provide, or null for unlimited (plate-loaded). */
     suspend fun setMaxWeight(id: EquipmentTag, maxWeightKg: Double?)
 }

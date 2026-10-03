@@ -16,6 +16,7 @@
     <string name="equipment_edit">Edit</string>
     <string name="equipment_edit_save">Save</string>
     <string name="equipment_edit_reset">Reset</string>
+    <string name="equipment_save_error">Could not save. Try again.</string>
     <string name="equipment_bodyweight">Bodyweight only</string>
     <string name="equipment_primary_muscles">Primary muscles</string>
     <string name="equipment_secondary_muscles">Secondary muscles</string>

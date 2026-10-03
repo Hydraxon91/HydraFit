@@ -55,7 +55,8 @@ data class PersonalRecordEditorState(
     val open: Boolean = false,
     val exerciseId: String? = null,
     val weightInput: String = "",
-    val repsInput: String = ""
+    val repsInput: String = "",
+    val error: String? = null
 ) {
     val isOpen: Boolean
         get() = open
@@ -66,7 +67,8 @@ data class EquipmentEditorState(
     val tag: EquipmentTag? = null,
     val name: String = "",
     val isBuiltIn: Boolean = false,
-    val maxWeightInput: String = ""
+    val maxWeightInput: String = "",
+    val error: String? = null
 ) {
     val isOpen: Boolean
         get() = tag != null
@@ -76,6 +78,7 @@ data class EquipmentProfilerUiState(
     val equipment: List<Equipment> = emptyList(),
     val selectedTags: Set<EquipmentTag> = emptySet(),
     val newEquipmentName: String = "",
+    val newEquipmentError: String? = null,
     val exercises: List<Exercise> = emptyList(),
     val search: String = "",
     val exerciseEditor: ExerciseEditorState = ExerciseEditorState(),

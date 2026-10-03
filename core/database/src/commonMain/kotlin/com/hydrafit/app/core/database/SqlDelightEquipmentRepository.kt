@@ -32,6 +32,17 @@ class SqlDelightEquipmentRepository(database: HydraFitDatabase) : EquipmentRepos
         queries.deleteById(id.id)
     }
 
+    override suspend fun rename(
+        id: EquipmentTag,
+        name: String,
+        maxWeightKg: Double?
+    ): EquipmentModel {
+        val trimmed = name.trim()
+        require(trimmed.isNotEmpty()) { "Equipment name must not be blank" }
+        queries.updateNameAndMaxWeight(name = trimmed, maxWeightKg = maxWeightKg, id = id.id)
+        return EquipmentModel(id, trimmed, isBuiltIn = false, maxWeightKg = maxWeightKg)
+    }
+
     override suspend fun setMaxWeight(id: EquipmentTag, maxWeightKg: Double?) {
         queries.updateMaxWeight(maxWeightKg = maxWeightKg, id = id.id)
     }

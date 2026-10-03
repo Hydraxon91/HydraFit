@@ -18,6 +18,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
@@ -89,7 +90,7 @@ class EquipmentProfilerViewModelTest {
     }
 
     @Test
-    fun managesCustomEquipmentRenameAndDelete() = runTest(dispatcher) {
+    fun managesCustomEquipmentRenameKeepingTheId() = runTest(dispatcher) {
         val equipment = FakeEquipmentRepository()
         val viewModel = viewModel(equipment = equipment)
         advanceUntilIdle()
@@ -101,8 +102,38 @@ class EquipmentProfilerViewModelTest {
         viewModel.onSaveEquipmentRenamed()
         advanceUntilIdle()
 
-        assertTrue(viewModel.state.value.equipment.any { it.name == "Hex Bar" })
-        assertFalse(viewModel.state.value.equipment.any { it.id == customId })
+        assertEquals(customId, viewModel.state.value.equipment.single { it.name == "Hex Bar" }.id)
+    }
+
+    @Test
+    fun surfacesRenameFailureAndKeepsTheEquipment() = runTest(dispatcher) {
+        val equipment = FakeEquipmentRepository(renameFailure = "Name already used")
+        val viewModel = viewModel(equipment = equipment)
+        advanceUntilIdle()
+        val customId = equipment.add("Trap Bar").id
+        advanceUntilIdle()
+
+        viewModel.onManageEquipment(customId)
+        viewModel.onRenameEquipmentNameChanged("Hex Bar")
+        viewModel.onSaveEquipmentRenamed()
+        advanceUntilIdle()
+
+        assertNotNull(viewModel.state.value.equipmentEditor.error)
+        assertTrue(viewModel.state.value.equipment.any { it.id == customId })
+    }
+
+    @Test
+    fun surfacesAddFailureFromTheRepository() = runTest(dispatcher) {
+        val equipment = FakeEquipmentRepository(addFailure = "Already exists")
+        val viewModel = viewModel(equipment = equipment)
+        advanceUntilIdle()
+
+        viewModel.onNewEquipmentNameChanged("Trap Bar")
+        viewModel.onAddEquipment()
+        advanceUntilIdle()
+
+        assertNotNull(viewModel.state.value.newEquipmentError)
+        assertTrue(viewModel.state.value.equipment.none { it.name == "Trap Bar" })
     }
 
     @Test
@@ -310,6 +341,23 @@ class EquipmentProfilerViewModelTest {
         assertTrue(viewModel.state.value.personalRecords.isEmpty())
     }
 
+    @Test
+    fun surfacesPersonalRecordSaveFailure() = runTest(dispatcher) {
+        val records = FakePersonalRecordRepository(setFailure = "Disk full")
+        val viewModel = viewModel(records = records)
+        advanceUntilIdle()
+
+        viewModel.onNewPersonalRecord()
+        viewModel.onPersonalRecordExerciseSelected("back-squat")
+        viewModel.onPersonalRecordWeightChanged("120")
+        viewModel.onPersonalRecordRepsChanged("5")
+        viewModel.onSavePersonalRecord()
+        advanceUntilIdle()
+
+        assertNotNull(viewModel.state.value.personalRecordEditor.error)
+        assertTrue(viewModel.state.value.personalRecords.isEmpty())
+    }
+
     private fun viewModel(
         equipment: FakeEquipmentRepository = FakeEquipmentRepository(),
         selection: FakeSelectionRepository = FakeSelectionRepository(emptySet()),
@@ -325,12 +373,14 @@ class EquipmentProfilerViewModelTest {
         personalRecordRepository = records
     )
 
-    private class FakePersonalRecordRepository : PersonalRecordRepository {
+    private class FakePersonalRecordRepository(private val setFailure: String? = null) :
+        PersonalRecordRepository {
         private val state = MutableStateFlow<List<PersonalRecord>>(emptyList())
 
         override fun observe(): Flow<List<PersonalRecord>> = state.asStateFlow()
 
         override suspend fun set(record: PersonalRecord) {
+            setFailure?.let { throw IllegalStateException(it) }
             state.value = state.value.filterNot { it.exerciseId == record.exerciseId } + record
         }
 
@@ -352,7 +402,10 @@ class EquipmentProfilerViewModelTest {
         }
     }
 
-    private class FakeEquipmentRepository : EquipmentRepository {
+    private class FakeEquipmentRepository(
+        private val addFailure: String? = null,
+        private val renameFailure: String? = null
+    ) : EquipmentRepository {
         private val state = MutableStateFlow(
             listOf(
                 Equipment(EquipmentTag.BARBELL, "Barbell", isBuiltIn = true),
@@ -365,6 +418,7 @@ class EquipmentProfilerViewModelTest {
         override suspend fun all(): List<Equipment> = state.value
 
         override suspend fun add(name: String): Equipment {
+            addFailure?.let { throw IllegalStateException(it) }
             val created = Equipment(EquipmentTag(name.uppercase()), name, isBuiltIn = false)
             state.value = state.value + created
             return created
@@ -372,6 +426,17 @@ class EquipmentProfilerViewModelTest {
 
         override suspend fun remove(id: EquipmentTag) {
             state.value = state.value.filterNot { it.id == id }
+        }
+
+        override suspend fun rename(
+            id: EquipmentTag,
+            name: String,
+            maxWeightKg: Double?
+        ): Equipment {
+            renameFailure?.let { throw IllegalStateException(it) }
+            val renamed = Equipment(id, name, isBuiltIn = false, maxWeightKg = maxWeightKg)
+            state.value = state.value.map { if (it.id == id) renamed else it }
+            return renamed
         }
 
         override suspend fun setMaxWeight(id: EquipmentTag, maxWeightKg: Double?) {

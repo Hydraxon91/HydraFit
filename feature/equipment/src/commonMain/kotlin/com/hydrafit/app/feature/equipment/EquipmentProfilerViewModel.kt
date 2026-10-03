@@ -76,7 +76,8 @@ class EquipmentProfilerViewModel(
         _state.update {
             it.copy(
                 personalRecordEditor = it.personalRecordEditor.copy(
-                    weightInput = value.filter { char -> char.isDigit() || char == '.' }
+                    weightInput = value.filter { char -> char.isDigit() || char == '.' },
+                    error = null
                 )
             )
         }
@@ -86,7 +87,8 @@ class EquipmentProfilerViewModel(
         _state.update {
             it.copy(
                 personalRecordEditor = it.personalRecordEditor.copy(
-                    repsInput = value.filter(Char::isDigit)
+                    repsInput = value.filter(Char::isDigit),
+                    error = null
                 )
             )
         }
@@ -99,8 +101,17 @@ class EquipmentProfilerViewModel(
         val reps = editor.repsInput.toIntOrNull() ?: return
         if (weightKg <= 0.0 || reps <= 0) return
         viewModelScope.launch {
-            personalRecordRepository.set(PersonalRecord(exerciseId, weightKg, reps))
-            _state.update { it.copy(personalRecordEditor = PersonalRecordEditorState()) }
+            try {
+                personalRecordRepository.set(PersonalRecord(exerciseId, weightKg, reps))
+                _state.update { it.copy(personalRecordEditor = PersonalRecordEditorState()) }
+            } catch (failure: Exception) {
+                _state.update {
+                    it.copy(
+                        personalRecordEditor = it.personalRecordEditor
+                            .copy(error = failure.message ?: "")
+                    )
+                }
+            }
         }
     }
 
@@ -139,15 +150,19 @@ class EquipmentProfilerViewModel(
     }
 
     fun onNewEquipmentNameChanged(value: String) {
-        _state.update { it.copy(newEquipmentName = value) }
+        _state.update { it.copy(newEquipmentName = value, newEquipmentError = null) }
     }
 
     fun onAddEquipment() {
         val name = _state.value.newEquipmentName.trim()
         if (name.isEmpty()) return
         viewModelScope.launch {
-            equipmentRepository.add(name)
-            _state.update { it.copy(newEquipmentName = "") }
+            try {
+                equipmentRepository.add(name)
+                _state.update { it.copy(newEquipmentName = "", newEquipmentError = null) }
+            } catch (failure: Exception) {
+                _state.update { it.copy(newEquipmentError = failure.message ?: "") }
+            }
         }
     }
 
@@ -166,14 +181,17 @@ class EquipmentProfilerViewModel(
     }
 
     fun onRenameEquipmentNameChanged(value: String) {
-        _state.update { it.copy(equipmentEditor = it.equipmentEditor.copy(name = value)) }
+        _state.update {
+            it.copy(equipmentEditor = it.equipmentEditor.copy(name = value, error = null))
+        }
     }
 
     fun onMaxWeightChanged(value: String) {
         _state.update {
             it.copy(
                 equipmentEditor = it.equipmentEditor.copy(
-                    maxWeightInput = value.filter { char -> char.isDigit() || char == '.' }
+                    maxWeightInput = value.filter { char -> char.isDigit() || char == '.' },
+                    error = null
                 )
             )
         }
@@ -188,17 +206,21 @@ class EquipmentProfilerViewModel(
         val name = editor.name.trim()
         if (!editor.isBuiltIn && name.isEmpty()) return
         viewModelScope.launch {
-            if (editor.isBuiltIn) {
-                equipmentRepository.setMaxWeight(tag, maxWeight)
-            } else {
-                equipmentRepository.remove(tag)
-                val created = equipmentRepository.add(name)
-                equipmentRepository.setMaxWeight(created.id, maxWeight)
-                val updatedSelection = _state.value.selectedTags - tag
-                selectionRepository.setSelected(updatedSelection)
-                _state.update { it.copy(selectedTags = updatedSelection) }
+            try {
+                // The custom tag id is stable, so a rename keeps the equipment selected.
+                if (editor.isBuiltIn) {
+                    equipmentRepository.setMaxWeight(tag, maxWeight)
+                } else {
+                    equipmentRepository.rename(tag, name, maxWeight)
+                }
+                _state.update { it.copy(equipmentEditor = EquipmentEditorState()) }
+            } catch (failure: Exception) {
+                _state.update {
+                    it.copy(
+                        equipmentEditor = it.equipmentEditor.copy(error = failure.message ?: "")
+                    )
+                }
             }
-            _state.update { it.copy(equipmentEditor = EquipmentEditorState()) }
         }
     }
 
