@@ -6,12 +6,13 @@
 
 | Item | Status | Next action |
 | --- | --- | --- |
-| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01. Priority 1 (items 1, 2, 2b, 3) and Priority 1.5 (release pipeline item 4) complete and archived. 0.2.0, 0.2.1 and 0.2.2 shipped; next is 0.2.3 (performance review), then 0.2.4 (on-device planner), then the v0.3.0 features (items 6–7). |
+| Roadmap v0.2.0 → v0.3.0 | IN PROGRESS | Approved 2026-10-01. Priority 1 (items 1, 2, 2b, 3) and Priority 1.5 (release pipeline item 4) complete and archived. 0.2.0, 0.2.1 and 0.2.2 shipped; next is 0.2.3 (performance review), then 0.2.4 (on-device planner), then 0.2.5 (seed catalog expansion), then the v0.3.0 features (items 6–7). |
 | Release 0.2.0 | SHIPPING | Tag `v0.2.0` (signed APK via `release.yml`); delete the stale `v0.1.0-rc.1` validation release/tag. |
 | Release 0.2.1 | SHIPPED | Tag `v0.2.1` (signed APK via `release.yml`). Q2 (P2d), Q1, Q4a–Q4d, Q5, Q6 and Q3 (release) done. Q4e is a user-side catalog fix (not part of the shipped artifact). On-device LLM documented as non-functional; follow-up parked in 0.2.4. |
 | Release 0.2.2 — code review & architecture | SHIPPED | Tag `v0.2.2` (signed APK, ~58.1 MB) published with a changelog. R0–RG and RF triage done; all RF fixes implemented (S4-001 `04083ea`, S2-001 `4b2d95d`, S4-004 `b6ff315`, S3-007 `cf1dd5e`, S1-008 `2e1d6bf`, S2-005 `c7918bc`, S3-004 `6c38b17`, S3-001 `a07134e`, S1-007 `c0efda1`), CI green. See "0.2.2 — code review and architecture". |
 | Release 0.2.3 — performance review | PLANNED | After 0.2.2. Measure first, no optimization without a number; phases P0–PR; see "0.2.3 — performance review". |
 | Release 0.2.4 — on-device planner | PLANNED | Make the on-device LLM usable (variety enforcement / constraint reliability / speed) or retire it; see "0.2.4 — on-device planner". |
+| Release 0.2.5 — seed catalog expansion | PLANNED | After 0.2.4. Expand the seeded exercises/equipment with properly researched, cited data; phases P0–P5; see "0.2.5 — seed catalog expansion". |
 | Item 2 P2d — existing-row time correction | DONE | Landed in 0.2.1 as Q2 (5898c45, 5ab6b42, a64d9cc). |
 | Deterministic planner — volume-driven selection | DONE | 0.2.1 addition Q4 (Option C; honor the rep band); Q4a–Q4d done (f80b71a, c8e3c8a, 4f0ce72); Q4e is a user-side catalog fix, not part of the artifact; see "0.2.1 — next release". |
 | BACK work chunk 3 — calibrate Phase B/C constants | OPEN | Calibrate K=6, D=6, half-lives, and C1/C2/C3 against correctly timed histories. The plateau is resolved by the redesign; no further decision needed. |
@@ -256,6 +257,40 @@ Test review method: each test slice covers (a) fakes/fixtures and shared-fixture
 **Deliverable:** a decision plus, if keeping it, the resulting fixes with their tests and a device re-check.
 
 **Do not start in 0.2.4 (from 0.2.1):** the on-device engine is documented as non-functional; 0.2.1 ships the progress UI (`b4808c6`/`5981c25`/`bfb19e1`) and the truncated-reply recovery (`b86ad08`) but leaves the engine falling back.
+
+## 0.2.5 — seed catalog expansion
+
+**Goal:** substantially expand the seeded exercise and equipment catalogs with **properly researched** data — name, canonical slug id, required equipment, movement pattern, primary/secondary muscles, explicit involvement weights, and the unilateral flag — with **each entry traceable to a cited source**, so fresh installs and existing installs (idempotent seeding) get a richer, defensible catalog.
+
+**Why:** the default catalog is **52 exercises across 8 built-in equipment tags** (`core/database/.../DefaultExercises.kt`, `EquipmentTag.BUILT_IN`). Coverage is thin for many movement patterns and machine/cable variants, which limits plan variety and pushes the deterministic/AI planners toward repeats or fallbacks.
+
+**Current mechanics (verified, so the plan is grounded):**
+- `DefaultExercises.all` is a Kotlin list of `ex(id, name, requiredEquipment, primary, secondary, pattern, isUnilateral, involvements)` entries; `involvements` is a per-muscle weight map in `(0,1]`.
+- `SeedExerciseCatalog.seed()` runs on every launch (Koin startup): `insertIgnore`, then `updateMovementPattern`/`updateIsUnilateral`, and `updateInvolvements` only `WHERE involvements IS NULL`. It is idempotent, so **new seed rows appear without a schema change** and existing user edits are preserved.
+- `SeedEquipmentCatalog` seeds `EquipmentTag.BUILT_IN` via `insertIgnore`.
+- `MovementPattern` (14 values, compound/accessory) and `MuscleGroup` (10: CHEST, BACK, SHOULDERS, BICEPS, TRICEPS, QUADS, HAMSTRINGS, GLUTES, CALVES, CORE) are domain enums. The deterministic planner keys on the pattern; fatigue keys on muscle + involvement weight.
+
+**Decisions to resolve at the plan gate (do not pick silently):**
+1. **Target size** — e.g. a bounded first batch (recommend ~+100 exercises and ~+8 equipment tags) so golden-fixture churn stays reviewable vs. a larger one-shot expansion (~250).
+2. **Sources & provenance** — which authoritative references, and how citations are recorded. Recommend a checked-in `docs/exercise-catalog-sources.md` with a per-exercise source column (e.g. ExRx.net for muscle involvement/classification; NSCA/ACE for movement patterns). **Facts only** (names, muscle targets) — never copy copyrighted descriptions; must stay MIT-clean. Requires your sign-off on the source list.
+3. **Involvement weights** — fill explicit `involvements` for every new exercise (primary 1.0, synergists 0.2–0.7) from the source so fatigue uses weights, not the legacy tag fallback. (Recommend yes.)
+4. **Enums** — keep new exercises within the existing `MovementPattern` and `MuscleGroup` values (recommended; no domain/schema ripple) or extend them (e.g. loaded carry, forearm/trap muscles). Extending is a separate, larger change.
+5. **Data format** — hand-written Kotlin `ex(...)` (compile-checked) vs. a checked-in data file (JSON/CSV) parsed at seed time (easier bulk editing; needs a parser + resource). Recommend Kotlin plus a data-quality test, revisiting past ~250 entries.
+6. **Equipment tag granularity** — specific machines (LEG_PRESS, LAT_PULLDOWN, SMITH_MACHINE, EZ_BAR, TRAP_BAR, DIP_BAR, …; `CABLE_MACHINE` already exists) vs. a generic MACHINE. Specific tags improve filtering but grow the list.
+
+**Phases (each gated):**
+- **P0 — sources + methodology (docs only).** Choose sources, define the involvement scale and the pattern/equipment mapping, and write `docs/exercise-catalog-sources.md`; propose the target counts. No code.
+- **P1 — research batch.** Compile the rows (name, slug id, equipment, pattern, primary/secondary, involvement weights, unilateral) with per-row citations, reviewed before it becomes code.
+- **P2 — equipment tags.** Add the approved built-in equipment constants plus `BUILT_IN`/`BUILT_IN_NAMES` and the seed entries (idempotent; no schema change); repository/seed tests.
+- **P3 — exercise seed.** Add rows to `DefaultExercises` in the chosen format (no schema change; `insertIgnore` + null-only backfill). Add a data-quality test.
+- **P4 — planner/fixture ripple.** Update deterministic planner / SplitBuilder golden fixtures and expectations for the expanded catalog **atomically**; assert no duplicate ids and that every seeded exercise's `requiredEquipment` resolves.
+- **P5 — verify.** Full host suite (`ktlintCheck`, `testAndroidHostTest`, `:androidApp:assembleDebug`, iOS compile) plus an emulator smoke of Equipment and SplitBuilder against the expanded catalog.
+
+**Deliverable files:** `docs/exercise-catalog-sources.md` (new); `core/database/.../DefaultExercises.kt`; `core/domain/.../equipment/EquipmentTag.kt` (and `MovementPattern`/`MuscleGroup` only if decision 4 extends them); seed/planner tests; PLANS.md.
+
+**Constraints:** no schema/`.sqm` change for pure seed additions (the tables exist and seeding is idempotent); no new dependencies; no `WorkoutPlannerEngine` interface or engine behavior change; deterministic output changes for everyone, so planner/SplitBuilder expectations update atomically; keep the repo MIT-clean (facts + citations only, no scraped/copyrighted text).
+
+**Do not start in 0.2.5:** 0.2.3/0.2.4 work; items 6–9; BACK chunks 3–4; any planner-engine change; or any entry without a recorded source.
 
 ## Open Questions / Later
 
