@@ -235,7 +235,7 @@ Test review method: each test slice covers (a) fakes/fixtures and shared-fixture
   - recomputation: fatigue calculation and plan-input flows firing more often than needed, the heatmap's 60s tick, flow collection and recomposition frequency;
   - Compose: stability and recomposition, lazy list keys, jank (gfxinfo);
   - memory and the on-device LLM path (load, OOM fallback);
-  - APK size: list the largest entries (e.g. `unzip -lv`), native libs, whether R8 and resource shrinking are on for release, per-ABI options, and keep-rule risks.
+  - APK size: list the largest entries (e.g. `unzip -lv`), native libs, whether R8 and resource shrinking are on for release, per-ABI options, and keep-rule risks. **Investigate why the APK is so large for such a simple app: the v0.2.1 release APK is 58.1 MB.** Record the breakdown (native libs incl. LiteRT-LM, Compose/resources, Kotlin stdlib, per-ABI, no R8/resource shrinking) and a target.
 - **P2.. — fixes.** One optimization per chunk, each with before and after numbers and its own gated commit. Schema or index changes need a matching `.sqm` migration and approval.
 - **PR — record results;** update targets and AGENTS.md only with rules that came from measurements.
 
