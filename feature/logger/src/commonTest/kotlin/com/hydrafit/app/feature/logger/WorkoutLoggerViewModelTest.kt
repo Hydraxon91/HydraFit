@@ -42,9 +42,11 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -384,6 +386,202 @@ class WorkoutLoggerViewModelTest {
         advanceUntilIdle()
 
         assertTrue(viewModel.state.value.draftSets.isEmpty())
+    }
+
+    @Test
+    fun confirmingADraftKeepsItGoneAfterResume() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        advanceUntilIdle()
+        viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+        advanceUntilIdle()
+
+        viewModel.onResume()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.draftSets.isEmpty())
+        assertEquals(3, repository.all().size)
+    }
+
+    @Test
+    fun dismissingADraftKeepsItDismissedAfterResume() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        advanceUntilIdle()
+        viewModel.dismissDraft(viewModel.state.value.draftSets.single())
+        advanceUntilIdle()
+
+        viewModel.onResume()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.draftSets.isEmpty())
+        assertTrue(repository.all().isEmpty())
+    }
+
+    @Test
+    fun aNewViewModelDoesNotResurrectAConfirmedDraft() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val history = FakePlanHistoryRepository(
+            acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        val first = viewModel(repository = repository, timeMillis = MONDAY, history = history)
+        advanceUntilIdle()
+        first.confirmDraft(first.state.value.draftSets.single())
+        advanceUntilIdle()
+
+        val second = viewModel(repository = repository, timeMillis = MONDAY, history = history)
+        advanceUntilIdle()
+
+        assertTrue(second.state.value.draftSets.isEmpty())
+        assertEquals(3, repository.all().size)
+    }
+
+    @Test
+    fun reemittingTheSamePlanAfterConfirmDoesNotResurrectTheDraft() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val history = FakePlanHistoryRepository(
+            acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY, history = history)
+        advanceUntilIdle()
+        viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+        advanceUntilIdle()
+
+        history.reemit()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.draftSets.isEmpty())
+        assertEquals(3, repository.all().size)
+    }
+
+    @Test
+    fun reemittingTheSamePlanAfterDismissKeepsTheDraftDismissed() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val history = FakePlanHistoryRepository(
+            acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY, history = history)
+        advanceUntilIdle()
+        viewModel.dismissDraft(viewModel.state.value.draftSets.single())
+        advanceUntilIdle()
+
+        history.reemit()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.draftSets.isEmpty())
+        assertTrue(repository.all().isEmpty())
+    }
+
+    @Test
+    fun aNewPlanReDerivesDrafts() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val history = FakePlanHistoryRepository(
+            acceptedPlan(listOf("back-squat")).copy(id = 1L)
+        )
+        val viewModel = WorkoutLoggerViewModel(
+            logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
+            getWorkoutLog = GetWorkoutLogUseCase(repository),
+            observeAcceptedPlan = ObserveAcceptedPlanUseCase(history),
+            exerciseCatalog = FakeExerciseCatalog,
+            timeProvider = TimeProvider { MONDAY },
+            weightUnitRepository = FakeWeightUnitRepository(WeightUnit.KG)
+        )
+        advanceUntilIdle()
+        assertEquals("back-squat", viewModel.state.value.draftSets.single().exerciseId)
+
+        history.accepted = acceptedPlan(listOf("bench-press")).copy(id = 2L)
+        advanceUntilIdle()
+
+        assertEquals("bench-press", viewModel.state.value.draftSets.single().exerciseId)
+    }
+
+    @Test
+    fun aDifferentUnsavedPlanWithTheSameIdReDerivesDrafts() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val history = FakePlanHistoryRepository(
+            acceptedPlan(listOf("back-squat")).copy(acceptedAtMillis = 1L)
+        )
+        val viewModel = WorkoutLoggerViewModel(
+            logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
+            getWorkoutLog = GetWorkoutLogUseCase(repository),
+            observeAcceptedPlan = ObserveAcceptedPlanUseCase(history),
+            exerciseCatalog = FakeExerciseCatalog,
+            timeProvider = TimeProvider { MONDAY },
+            weightUnitRepository = FakeWeightUnitRepository(WeightUnit.KG)
+        )
+        advanceUntilIdle()
+        assertEquals("back-squat", viewModel.state.value.draftSets.single().exerciseId)
+
+        history.accepted = acceptedPlan(listOf("bench-press")).copy(acceptedAtMillis = 2L)
+        advanceUntilIdle()
+
+        assertEquals("bench-press", viewModel.state.value.draftSets.single().exerciseId)
+    }
+
+    @Test
+    fun aNewLocalDayReDerivesDrafts() = runTest(dispatcher) {
+        var now = MONDAY
+        val repository = FakeWorkoutLogRepository()
+        val twoDayPlan = AcceptedPlan(
+            engine = PlannerEngineId.DETERMINISTIC,
+            acceptedAtMillis = 0L,
+            days = listOf(
+                AcceptedDay(
+                    dayIndex = 0,
+                    focus = SplitFocus.FULL_BODY,
+                    exercises = listOf(
+                        AcceptedExercise(
+                            exerciseId = "back-squat",
+                            sets = 3,
+                            reps = 8,
+                            name = "back-squat",
+                            movementPattern = MovementPattern.CORE
+                        )
+                    )
+                ),
+                AcceptedDay(
+                    dayIndex = 1,
+                    focus = SplitFocus.FULL_BODY,
+                    exercises = listOf(
+                        AcceptedExercise(
+                            exerciseId = "bench-press",
+                            sets = 3,
+                            reps = 8,
+                            name = "bench-press",
+                            movementPattern = MovementPattern.CORE
+                        )
+                    )
+                )
+            ),
+            id = 1L
+        )
+        val viewModel = WorkoutLoggerViewModel(
+            logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
+            getWorkoutLog = GetWorkoutLogUseCase(repository),
+            observeAcceptedPlan = ObserveAcceptedPlanUseCase(FakePlanHistoryRepository(twoDayPlan)),
+            exerciseCatalog = FakeExerciseCatalog,
+            timeProvider = TimeProvider { now },
+            weightUnitRepository = FakeWeightUnitRepository(WeightUnit.KG)
+        )
+        advanceUntilIdle()
+        assertEquals("back-squat", viewModel.state.value.draftSets.single().exerciseId)
+
+        viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+        advanceUntilIdle()
+
+        now = MONDAY + 3L * DAY
+        viewModel.onResume()
+        advanceUntilIdle()
+
+        assertEquals("bench-press", viewModel.state.value.draftSets.single().exerciseId)
     }
 
     @Test
@@ -1260,6 +1458,7 @@ class WorkoutLoggerViewModelTest {
 
     private class FakePlanHistoryRepository(accepted: AcceptedPlan?) : PlanHistoryRepository {
         private val state = MutableStateFlow(accepted)
+        private val reemits = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
         var accepted: AcceptedPlan?
             get() = state.value
@@ -1267,7 +1466,13 @@ class WorkoutLoggerViewModelTest {
                 state.value = value
             }
 
-        override fun observeLatest(): Flow<AcceptedPlan?> = state
+        /** Re-emits the current plan, as the real combine-based flow can on an upstream emission. */
+        fun reemit() {
+            reemits.tryEmit(Unit)
+        }
+
+        override fun observeLatest(): Flow<AcceptedPlan?> =
+            merge(state, reemits.map { state.value })
 
         override fun observeHistory(): Flow<List<AcceptedPlan>> = state.map { listOfNotNull(it) }
 

@@ -11,6 +11,7 @@ import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.fatigue.FatigueConfig
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.localDayOfWeek
+import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
@@ -41,6 +42,14 @@ class WorkoutLoggerViewModel(
     private var acceptedPlan: AcceptedPlan? = null
     private var acceptedToday: AcceptedDay? = null
     private var suggestedWeightKgByExercise: Map<String, Double> = emptyMap()
+
+    /**
+     * The plan identity and local day the current [WorkoutLoggerUiState.draftSets] were derived for,
+     * so a resume does not rebuild (and resurrect) drafts the user already handled. The plan identity
+     * is its id plus acceptance time; an unsaved plan has id 0, so the acceptance time also tells two
+     * different unsaved plans apart.
+     */
+    private var lastDraftsKey: Triple<Long?, Long?, Long>? = null
 
     /**
      * The backdated session created for the current chosen time, reused so a draft batch shares one
@@ -318,9 +327,9 @@ class WorkoutLoggerViewModel(
     /** Recomputes today's focus/drafts, e.g. when the screen resumes after a local midnight. */
     fun onResume() {
         _state.update { it.copy(utcOffsetMillis = timeProvider.utcOffsetMillis()) }
-        updateTodayPlan(acceptedPlan)
-        // Opening the logger is an "open time": expire a session that rolled into a new day or went idle.
         viewModelScope.launch {
+            updateTodayPlan(acceptedPlan)
+            // Opening the logger is an "open time": expire a session that rolled into a new day or went idle.
             logMutations.expireOpenSession(
                 nowMillis = timeProvider.nowMillis(),
                 utcOffsetMillis = timeProvider.utcOffsetMillis()
@@ -328,22 +337,28 @@ class WorkoutLoggerViewModel(
         }
     }
 
-    private fun updateTodayPlan(plan: AcceptedPlan?) {
-        acceptedToday = plan?.dayFor(
-            localDayOfWeek(timeProvider.nowMillis(), timeProvider.utcOffsetMillis())
-        )
+    private suspend fun updateTodayPlan(plan: AcceptedPlan?) {
+        val nowMillis = timeProvider.nowMillis()
+        val utcOffsetMillis = timeProvider.utcOffsetMillis()
+        acceptedToday = plan?.dayFor(localDayOfWeek(nowMillis, utcOffsetMillis))
         suggestedWeightKgByExercise = acceptedToday?.exercises
             ?.mapNotNull { exercise ->
                 exercise.suggestedWeightKg?.let { exercise.exerciseId to it }
             }
             ?.toMap()
             .orEmpty()
-        _state.update { current ->
-            current.copy(
-                exercises = prioritizedByToday(exercises, acceptedToday),
-                todayFocus = acceptedToday?.focus,
-                // Today's planned exercises become drafts the user must confirm before they count.
-                draftSets = acceptedToday?.exercises.orEmpty().map { exercise ->
+        // Only rebuild drafts when the plan or the local day changes, so a confirmed or dismissed
+        // draft is not resurrected by a resume. A dismissal is not persisted, so it can reappear
+        // after the process restarts.
+        val draftsKey = Triple(
+            plan?.id,
+            plan?.acceptedAtMillis,
+            localEpochDay(nowMillis, utcOffsetMillis)
+        )
+        val rebuildDrafts = draftsKey != lastDraftsKey
+        val rebuiltDrafts = if (rebuildDrafts) {
+            satisfiedDraftFree(
+                drafts = acceptedToday?.exercises.orEmpty().map { exercise ->
                     DraftSet(
                         exerciseId = exercise.exerciseId,
                         name = exercise.name,
@@ -352,12 +367,49 @@ class WorkoutLoggerViewModel(
                         weightKg = exercise.suggestedWeightKg
                     )
                 },
+                nowMillis = nowMillis,
+                utcOffsetMillis = utcOffsetMillis
+            )
+        } else {
+            null
+        }
+        _state.update { current ->
+            current.copy(
+                exercises = prioritizedByToday(exercises, acceptedToday),
+                todayFocus = acceptedToday?.focus,
+                // Today's planned exercises become drafts the user must confirm before they count.
+                draftSets = rebuiltDrafts ?: current.draftSets,
                 reps = current.reps,
                 weightInput = current.selectedExerciseId
                     ?.let { suggestedInputFor(it, current.weightUnit) }
                     ?: current.weightInput
             )
         }
+        // Recorded only after the rebuild lands, so a `collectLatest` cancellation during the
+        // suspending read cannot suppress the next rebuild.
+        if (rebuildDrafts) lastDraftsKey = draftsKey
+    }
+
+    /**
+     * Drops drafts whose exercise already has a logged working set on the same local day, so a draft
+     * confirmed before the ViewModel was recreated (e.g. after process death) is not offered again.
+     * Any logged set counts, so a partial log (e.g. 1 of 3 prescribed sets) still drops the whole
+     * draft and the remaining prescribed sets are not prompted again that day.
+     */
+    private suspend fun satisfiedDraftFree(
+        drafts: List<DraftSet>,
+        nowMillis: Long,
+        utcOffsetMillis: Long
+    ): List<DraftSet> {
+        if (drafts.isEmpty()) return drafts
+        val today = localEpochDay(nowMillis, utcOffsetMillis)
+        val loggedToday = getWorkoutLog()
+            .filter { set ->
+                !set.isWarmup &&
+                    localEpochDay(set.performedAtMillis, utcOffsetMillis) == today
+            }
+            .mapTo(mutableSetOf()) { it.exerciseId }
+        return drafts.filterNot { it.exerciseId in loggedToday }
     }
 
     /** Logs every set of a draft and removes it from the pending list. */
