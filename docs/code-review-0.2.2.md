@@ -119,3 +119,89 @@ Findings are appended per slice. `file:line` evidence refers to the pinned commi
 - nit: 2 (S1-002, S1-014)
 - total: 14
 
+## S2 — `:core:database` + `:core:userdata` + `:core:navigation` (main sources)
+
+- **Slice:** S2 — main sources of `:core:database` (1599), `:core:userdata` (298), `:core:navigation` (10); 483 lines of `.sq`/`.sqm`.
+- **Pinned commit:** `7e04245` (tag `v0.2.1`).
+- **Date:** 2026-10-03.
+- **Scope:** main sources only. Test tree read only via grep for coverage. No fixes.
+
+**Coverage (files read):** all 37 main `.kt` files across every non-test source set, plus all 9 `.sq` and 24 `.sqm` files.
+
+- `:core:navigation`: `FeatureDestination.kt`
+- `:core:userdata` commonMain: `EquipmentRepository.kt`, `ExerciseOverrideRepository.kt`, `PersonalRecordRepository.kt`, `EquipmentSelectionRepository.kt`, `OnDeviceModelManager.kt`, `NpuDeviceDetector.kt`, `OnDeviceModelTarget.kt`, `ModelUpdateResult.kt`, `ApiKeyStore.kt`, `EnginePreferenceRepository.kt`, `TrainingGoalRepository.kt`, `WeightUnitRepository.kt`
+- `:core:userdata` platform: `AndroidKeystoreApiKeyStore.kt`, `NoopApiKeyStore.kt`
+- `:core:database` commonMain: `DatabaseDriverFactory.kt`, `DatabaseModule.kt`, `ExerciseEncoding.kt`, `SeedEquipmentCatalog.kt`, `SeedExerciseCatalog.kt`, `DefaultExercises.kt`, `SqlDelightEquipmentSelectionRepository.kt`, `SqlDelightExerciseOverrideRepository.kt`, `SqlDelightTrainingGoalRepository.kt`, `SqlDelightWeightUnitRepository.kt`, `SqlDelightPersonalRecordRepository.kt`, `SqlDelightWorkoutSessionRepository.kt`, `SqlDelightEquipmentRepository.kt`, `SqlDelightExerciseCatalog.kt`, `SqlDelightEnginePreferenceRepository.kt`, `SqlDelightWorkoutPlanSourcesRepository.kt`, `SqlDelightCustomExerciseRepository.kt`, `SqlDelightPlanHistoryRepository.kt`, `SqlDelightWorkoutLogRepository.kt`, `WorkoutSessionBackfill.kt`
+- `:core:database` platform: `AndroidDatabaseDriverFactory.kt`, `NativeDatabaseDriverFactory.kt`
+- SQL: `WorkoutLog.sq`, `Exercise.sq`, `PlanHistory.sq`, `PlannerEngine.sq`, `ExerciseOverride.sq`, `Equipment.sq`, `WorkoutSession.sq`, `UserEquipment.sq`, `PersonalRecord.sq`; `1.sqm`..`24.sqm`
+
+**Files read with no findings:** `FeatureDestination.kt`, `NpuDeviceDetector.kt`, `OnDeviceModelTarget.kt`, `ModelUpdateResult.kt`, `EnginePreferenceRepository.kt`, `TrainingGoalRepository.kt`, `WeightUnitRepository.kt`, `PersonalRecordRepository.kt`, `EquipmentSelectionRepository.kt`, `EquipmentRepository.kt`, `DatabaseDriverFactory.kt`, `AndroidDatabaseDriverFactory.kt`, `NativeDatabaseDriverFactory.kt`, `SeedEquipmentCatalog.kt`, `SqlDelightEquipmentSelectionRepository.kt`, `SqlDelightTrainingGoalRepository.kt`, `SqlDelightWeightUnitRepository.kt`, `SqlDelightPersonalRecordRepository.kt`, `SqlDelightWorkoutSessionRepository.kt`, `SqlDelightEnginePreferenceRepository.kt`, `SqlDelightExerciseOverrideRepository.kt`, all `.sq`, all `.sqm`, `DefaultExercises.kt` (no duplicate ids; explicit involvements in (0,1]).
+
+### `:core:database` — SQL, seeds, repositories
+
+**S2-001 — major — bug — file:line:** `core/database/.../ExerciseEncoding.kt:19-23`, `SqlDelightExerciseCatalog.kt:34`, `SqlDelightWorkoutLogRepository.kt:31`
+- **Why it matters:** `encodeInvolvements` maps an **empty** map to `null`, and the read paths treat a `null` override as "no override": `decodeInvolvements(override?.involvements ?: involvements)`. So an override that legitimately clears every muscle is stored as `NULL` and decoded as the *seed* weights. The equipment editor sends exactly that empty map for an existing built-in when the user removes all muscles (`EquipmentProfilerViewModel.kt:347` → `writeBuiltInOverrides`; the empty guard at `EquipmentProfilerViewModel.kt:295` only applies to new custom exercises), so the edit is silently discarded and the original muscles remain. `null` currently conflates "not overridden" with "overridden to empty".
+- **Recommendation:** Distinguish the two states — e.g. encode the empty map as `""` (non-null) and decode `""` to an empty map, or add an explicit `involvementsOverridden` flag/column. Apply consistently to `exercise`, `exerciseOverride`, and the `workoutSet` snapshot. Add a test that clearing all muscles on a built-in round-trips.
+- **Fix cost:** M
+
+**S2-002 — minor — duplication/dead code — file:line:** `core/database/.../ExerciseEncoding.kt:13-16`
+- **Why it matters:** `encodeMuscles` and `decodeMuscles` have no callers anywhere in the repo (the muscle tag split is now derived from `involvements`). `decodeMuscles` also uses an unguarded `MuscleGroup::valueOf`, which would throw on an unknown token if it were ever used. Dead code that looks load-bearing.
+- **Recommendation:** Delete both functions.
+- **Fix cost:** S
+
+**S2-003 — minor — bug/consistency — file:line:** `core/database/.../SqlDelightWorkoutLogRepository.kt:77-79` and `103-105`
+- **Why it matters:** `loggedSets()`/`loggedSetsFlow()` build `targetsByExercise` from the seed `exercise.involvements` only, while the sibling `compoundByExercise` (`:129-138`) resolves overrides first. For a legacy set whose snapshot is absent, fatigue targets therefore ignore the user's exercise overrides even though the exercise type does not. The two resolutions should agree.
+- **Recommendation:** Resolve targets through the same override-aware path as the catalog/`compoundByExercise` (e.g. `override.involvements ?: row.involvements`).
+- **Fix cost:** S
+
+**S2-004 — minor — risk (migration) — file:line:** `core/database/build.gradle.kts:50-55`
+- **Why it matters:** The SQLDelight block sets neither `verifyMigrations` nor `schemaOutputDirectory`, so the build never checks that the `.sq` schema equals the result of applying `1.sqm..24.sqm`. A future `.sq` edit (or a mis-ordered migration) can pass `ktlintCheck`/tests while breaking upgrades for existing installs; the hand-written `*MigrationTest` files only assert the expectations they encode. A read of the chain this session found the current schema and migrations consistent, but nothing enforces it.
+- **Recommendation:** Enable `verifyMigrations = true` with a checked-in schema snapshot directory (or add a CI step that generates and diffs the schema). This is a build change and must be approved separately.
+- **Fix cost:** M
+
+**S2-005 — minor — bug — file:line:** `core/database/.../SqlDelightEquipmentRepository.kt:23-29` and `46-47`
+- **Why it matters:** `add` slugifies the display name to a tag id and then uses plain `insert`, so two distinct names that normalize to the same id (e.g. "Lat Pulldown" / "Lat-Pulldown") collide and the second throws a constraint exception out of a routine "add equipment" action. `CustomExerciseRepository.uniqueId` already solves exactly this for exercises.
+- **Recommendation:** Reuse the uniqueness approach (suffix on collision) or surface a typed error; at minimum validate before insert.
+- **Fix cost:** S
+
+**S2-006 — minor — consistency — file:line:** `core/database/.../SqlDelightExerciseCatalog.kt:50`, `SqlDelightCustomExerciseRepository.kt:120`
+- **Why it matters:** The `0.7` primary/secondary threshold is redeclared as a private constant in both database classes (and again as `MovementPatternGuardrail.PRIMARY_THRESHOLD` in `:core:domain`, which the feature layer imports). Three local copies of one domain rule invite drift.
+- **Recommendation:** Reference one shared constant (the domain `MovementPatternGuardrail.PRIMARY_THRESHOLD`, or a domain-owned constant) from both repositories.
+- **Fix cost:** S
+
+### `:core:userdata` — ports
+
+**S2-007 — minor — design smell / risk (concurrency) — file:line:** `core/userdata/.../ApiKeyStore.kt:3-9`, `OnDeviceModelManager.kt:9-20`, `AndroidKeystoreApiKeyStore.kt:20-35`
+- **Why it matters:** Both ports are synchronous, so their implementations must do Keystore crypto / file copy on the caller's thread. `SettingsViewModel.saveApiKey` calls `apiKeyStore.save(key)` directly (not in `viewModelScope`) and `refresh()` calls `load()` from a `viewModelScope` (Main) — both run AES/Keystore work on the main thread. `save()` also lets Keystore exceptions escape uncaught (`AndroidKeystoreApiKeyStore.kt:27-35`), unlike `load()` which swallows them (`:20-24`), so a Keystore failure during save can crash the settings screen while a failure during load silently reports "no key". The on-device model port has the same shape; PLANS records that `:shared` only keeps it off-main by convention.
+- **Recommendation:** Make these ports `suspend` (or add suspend variants) so implementations own their dispatcher and callers cannot block main; give load and save the same explicit failure contract.
+- **Fix cost:** M
+
+### Nits
+
+**S2-008 — nit — consistency — file:line:** `core/database/.../SqlDelightPlanHistoryRepository.kt:33-34,53,56`
+- **Why it matters:** `lastInsertedPlanId` (`SELECT last_insert_rowid()`) is reused to fetch the inserted *day* id, so the query name is misleading at the second call site.
+- **Recommendation:** Rename to `lastInsertedRowId` or add a separate `lastInsertedDayId` alias.
+- **Fix cost:** S
+
+**S2-009 — nit — consistency — file:line:** `core/database/.../WorkoutSessionBackfill.kt:26`
+- **Why it matters:** The KDoc says "the Logger does not stamp session ids until S4", but `LogWorkoutSetUseCase` already stamps `sessionId` on every logged/backdated/draft set, so later launches no longer create null rows by design.
+- **Recommendation:** Update the comment to describe the actual condition (only pre-session-feature rows can be null).
+- **Fix cost:** S
+
+### Seed-observation status (S2-resident)
+
+- `all()` / full-table loads on hot paths: **confirmed** — `SqlDelightWorkoutLogRepository.all()/loggedSets()/loggedSetsFlow()` (`:52,74,98`), `setsFlow` (`:55`), and `SqlDelightPlanHistoryRepository.observeHistory()` (`:28-35`) read whole tables and re-join the catalog; the write-path `lastSetAt` was S1-005. Deferred to 0.2.3.
+- Use-case/Koin wiring placement (`DatabaseModule`): **confirmed as a DI-only module** — 19 `single` bindings, no logic; the `get()` chains are the intended exception to the oversized-constructor rule.
+- Catalog seeding + `movementPattern`/session backfills at startup: **confirmed** — `Koin.kt:31-33` runs `SeedExerciseCatalog.seed()`, `SeedEquipmentCatalog.seed()`, `WorkoutSessionBackfill.backfill()` on every launch; both seeders are idempotent (`insertIgnore` + conditional `updateInvolvements WHERE involvements IS NULL`) and the backfill only touches `sessionId IS NULL`. No finding.
+- Immutable logged snapshots: **confirmed with the S2-001 caveat** — `add` snapshots `involvements` at log time (`:31`); the null-vs-empty ambiguity affects zero-muscle overrides only.
+- Migration discipline / schema version: **migrations are internally consistent** (manual cross-check of `1.sqm..24.sqm` against the `.sq` files this session); the gap is that the build never verifies it (S2-004).
+- 7 `WorkoutLogRepository` fakes / `testFixtures` sharing: **outside S2** — test-side, TS3/TS4.
+
+### S2 finding summary
+
+- blocker: 0
+- major: 1 (S2-001)
+- minor: 6 (S2-002, S2-003, S2-004, S2-005, S2-006, S2-007)
+- nit: 2 (S2-008, S2-009)
+- total: 9
+
