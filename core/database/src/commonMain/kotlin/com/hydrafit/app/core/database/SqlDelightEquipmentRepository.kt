@@ -23,9 +23,9 @@ class SqlDelightEquipmentRepository(database: HydraFitDatabase) : EquipmentRepos
     override suspend fun add(name: String): EquipmentModel {
         val trimmed = name.trim()
         require(trimmed.isNotEmpty()) { "Equipment name must not be blank" }
-        val tag = EquipmentTag(trimmed.toEquipmentId())
-        queries.insert(tag.id, trimmed, 0)
-        return EquipmentModel(tag, trimmed, isBuiltIn = false)
+        val id = uniqueId(trimmed.toEquipmentId())
+        queries.insert(id, trimmed, 0)
+        return EquipmentModel(EquipmentTag(id), trimmed, isBuiltIn = false)
     }
 
     override suspend fun remove(id: EquipmentTag) {
@@ -56,4 +56,13 @@ class SqlDelightEquipmentRepository(database: HydraFitDatabase) : EquipmentRepos
 
     private fun String.toEquipmentId(): String =
         uppercase().map { if (it.isLetterOrDigit()) it else '_' }.joinToString("")
+
+    /** Distinct names can normalize to the same id (e.g. "Lat Pulldown"/"Lat-Pulldown"); suffix on collision. */
+    private fun uniqueId(base: String): String {
+        val taken = queries.selectAll().executeAsList().map { it.id }.toSet()
+        if (base !in taken) return base
+        var suffix = 2
+        while ("${base}_$suffix" in taken) suffix++
+        return "${base}_$suffix"
+    }
 }
