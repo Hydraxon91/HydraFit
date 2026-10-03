@@ -159,6 +159,12 @@ directly.
   1. (S) Make Gemini surface `INVALID_RESPONSE` instead of silent fallback (S3-001).
   2. (M) Bound the on-device `done.await()` and add a repair path to the enforcer for 0.2.4 (S3-004,
      S1-013).
+- **Resolved (0.2.2 RF):** the Gemini sanitize reject is no longer silent — it keeps the
+  Deterministic fallback but sets `SplitBuilderUiState.fallbackReason = INVALID_RESPONSE`, so the
+  screen names the reason under the fallback note (`a07134e`; a recorded deviation from "never
+  silently falls back"). The on-device native wait is bounded at 300 s and cancels the conversation
+  on timeout (`6c38b17`). The `PlanVarietyEnforcer` repair-vs-reject question (S1-013) stays open for
+  0.2.4.
 
 ### 1.8 Immutable (snapshotted) log and plan history
 
