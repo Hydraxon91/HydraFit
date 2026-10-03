@@ -131,6 +131,7 @@ class SplitBuilderViewModel(
                 hasError = false,
                 isTransientError = false,
                 errorDetail = null,
+                fallbackReason = null,
                 requestedEngine = accepted.engine,
                 daysPerWeek = accepted.days.size,
                 setsPerExercise = exercises.firstOrNull { exercise ->
@@ -158,6 +159,7 @@ class SplitBuilderViewModel(
                 isTransientError = false,
                 errorDetail = null,
                 failureReason = null,
+                fallbackReason = null,
                 daysPerWeek = request.daysPerWeek,
                 setsPerExercise = request.setsPerExercise,
                 accessorySetsPerExercise = request.accessorySetsPerExercise,
@@ -175,7 +177,17 @@ class SplitBuilderViewModel(
                     plan = plan,
                     exerciseNames = names,
                     isLoading = false,
-                    canRegenerate = inputs.requestedEngine != PlannerEngineId.DETERMINISTIC
+                    canRegenerate = inputs.requestedEngine != PlannerEngineId.DETERMINISTIC,
+                    // Gemini only returns a fallback plan after a sanitize reject; any other failure
+                    // throws, so a deterministic result for a Gemini request means an unusable reply.
+                    fallbackReason = if (
+                        plan.engine != inputs.requestedEngine &&
+                        inputs.requestedEngine == PlannerEngineId.GEMINI_API
+                    ) {
+                        PlanFailureReason.INVALID_RESPONSE
+                    } else {
+                        null
+                    }
                 )
             }
         } catch (cancellation: CancellationException) {

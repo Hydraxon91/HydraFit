@@ -10,6 +10,7 @@ import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
 import com.hydrafit.app.core.domain.engine.PeriodizationConfig
+import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlanRequest
@@ -336,6 +337,32 @@ class SplitBuilderViewModelTest {
         advanceUntilIdle()
 
         assertFalse(viewModel.state.value.usedFallbackEngine)
+    }
+
+    @Test
+    fun flagsAnInvalidResponseWhenGeminiFallsBack() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = DeterministicWorkoutPlannerEngine(FakeExerciseCatalog()),
+            preference = FakeEnginePreferenceRepository(PlannerEngineId.GEMINI_API)
+        )
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.usedFallbackEngine)
+        assertEquals(PlanFailureReason.INVALID_RESPONSE, viewModel.state.value.fallbackReason)
+    }
+
+    @Test
+    fun doesNotFlagAnInvalidResponseForAnOnDeviceFallback() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = DeterministicWorkoutPlannerEngine(FakeExerciseCatalog()),
+            preference = FakeEnginePreferenceRepository(PlannerEngineId.LOCAL_LLM)
+        )
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.usedFallbackEngine)
+        assertNull(viewModel.state.value.fallbackReason)
     }
 
     @Test

@@ -19,7 +19,9 @@ data class SplitBuilderUiState(
     val hasError: Boolean = false,
     val isTransientError: Boolean = false,
     val errorDetail: String? = null,
-    val failureReason: PlanFailureReason? = null
+    val failureReason: PlanFailureReason? = null,
+    /** Why a fallback plan was shown, when the requested engine is known to have failed a step. */
+    val fallbackReason: PlanFailureReason? = null
 ) {
     val usedFallbackEngine: Boolean
         get() = plan != null && requestedEngine != null && plan.engine != requestedEngine

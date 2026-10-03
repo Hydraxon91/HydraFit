@@ -22,6 +22,7 @@
     <string name="engine_label_gemini">Gemini</string>
     <string name="engine_label_local_llm">the on-device model</string>
     <string name="split_fallback_note">Couldn’t run %1$s — showing the built-in plan instead.</string>
+    <string name="split_fallback_invalid_response">The response wasn’t usable (invalid response), so a built-in plan is shown.</string>
     <string name="split_accept_plan">Use this plan</string>
     <string name="split_plan_accepted">Plan saved. The logger will follow it this week.</string>
     <string name="split_regenerate">Regenerate</string>

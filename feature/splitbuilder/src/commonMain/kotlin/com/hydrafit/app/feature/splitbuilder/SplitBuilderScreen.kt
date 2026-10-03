@@ -63,6 +63,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_error_rate_limite
 import hydrafit.feature.splitbuilder.generated.resources.split_error_service_unavailable
 import hydrafit.feature.splitbuilder.generated.resources.split_error_timeout
 import hydrafit.feature.splitbuilder.generated.resources.split_error_transient
+import hydrafit.feature.splitbuilder.generated.resources.split_fallback_invalid_response
 import hydrafit.feature.splitbuilder.generated.resources.split_fallback_note
 import hydrafit.feature.splitbuilder.generated.resources.split_generated_by
 import hydrafit.feature.splitbuilder.generated.resources.split_history
@@ -263,6 +264,12 @@ fun SplitBuilderScreen(
                             Res.string.split_fallback_note,
                             stringResource(requested.labelResource())
                         ),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                if (state.fallbackReason == PlanFailureReason.INVALID_RESPONSE) {
+                    Text(
+                        text = stringResource(Res.string.split_fallback_invalid_response),
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
