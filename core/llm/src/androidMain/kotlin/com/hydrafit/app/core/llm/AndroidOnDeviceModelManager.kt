@@ -101,11 +101,7 @@ class AndroidOnDeviceModelManager(private val context: Context) {
             ?: throw ModelSourceUnreadableException("Could not open the selected file")
     }
 
-    private fun replaceModelWith(source: File): Boolean {
-        if (source.renameTo(modelFile)) return true
-        modelFile.delete()
-        return source.renameTo(modelFile)
-    }
+    private fun replaceModelWith(source: File): Boolean = replaceFileKeepingOld(source, modelFile)
 
     private fun querySize(uri: Uri): Long? = runCatching {
         context.contentResolver
