@@ -356,6 +356,41 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun picksTheNextCandidateWhenTheTopRankedOneIsSore() {
+        // "sore" has the lower weighted fatigue (0.7 x 0.85 = 0.595) so it sorts first, but its raw
+        // targeted fatigue (0.85) is above the skip threshold. "fresh" is heavier-weighted (1.0 x 0.7
+        // = 0.70) but its raw targeted fatigue (0.70) is below the threshold, so it must be picked.
+        val sore = Exercise(
+            id = "sore-push",
+            name = "sore-push",
+            requiredEquipment = emptySet(),
+            primaryMuscles = setOf(MuscleGroup.CHEST),
+            movementPattern = MovementPattern.HORIZONTAL_PUSH,
+            involvements = mapOf(MuscleGroup.CHEST to 0.7)
+        )
+        val fresh = Exercise(
+            id = "fresh-push",
+            name = "fresh-push",
+            requiredEquipment = emptySet(),
+            primaryMuscles = setOf(MuscleGroup.TRICEPS),
+            movementPattern = MovementPattern.HORIZONTAL_PUSH,
+            involvements = mapOf(MuscleGroup.TRICEPS to 1.0)
+        )
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                split = SplitType.PUSH_PULL_LEGS,
+                fatigue = mapOf(MuscleGroup.CHEST to 0.85, MuscleGroup.TRICEPS to 0.7)
+            ),
+            listOf(sore, fresh)
+        )
+
+        val push = plan.days.first { it.focus == SplitFocus.PUSH }
+
+        assertEquals("fresh-push", push.exercises.singleOrNull()?.exerciseId)
+    }
+
+    @Test
     fun reducesSetsWhenAPrimaryMuscleIsFatigued() {
         val plan = engine.plan(
             request(

@@ -104,9 +104,14 @@ class DeterministicWorkoutPlannerEngine(
         )
 
         fun pick(candidates: List<Exercise>): Boolean {
-            val candidate = candidates.minWithOrNull(comparator) ?: return false
+            // Ordering is by weighted fatigue, but the skip uses raw targeted fatigue, so a lower-
+            // ranked candidate can be fresh while the top one is sore. Try candidates in order and
+            // take the first that is not sore instead of rejecting the whole group.
+            val candidate = candidates
+                .sortedWith(comparator)
+                .firstOrNull { targetedFatigue(it, fatigue) < fatigueConfig.skipThreshold }
+                ?: return false
             val soreness = targetedFatigue(candidate, fatigue)
-            if (soreness >= fatigueConfig.skipThreshold) return false
             val planned = plannedExercise(
                 candidate,
                 soreness,
