@@ -21,7 +21,7 @@
 | RIR guidance & rough estimation | PLANNED | Roadmap Priority 3 item 9; v0.3.0 or later. |
 | Open Questions / Later | LATER | See section below; nothing scheduled. |
 
-> **Archived 2026-10-02** (into [docs/plans-archive.md](docs/plans-archive.md#2026-10-02--v020-feature-cycle-release-pipeline-and-dropped-item)): Roadmap 2b S1–S5, items 1/2/2b/3, release pipeline C1–C6, and the dropped item 5. Earlier archives: the BACK fatigue investigation and the fatigue-model redesign.
+> **Archived 2026-10-03** (into [docs/plans-archive.md](docs/plans-archive.md#2026-10-03--v021-and-v022-released)): the complete 0.2.1 and 0.2.2 release plans (0.2.1 Q1–Q6; 0.2.2 review phases, RF triage, R0 inventory/slices). **Archived 2026-10-02** (into [docs/plans-archive.md](docs/plans-archive.md#2026-10-02--v020-feature-cycle-release-pipeline-and-dropped-item)): Roadmap 2b S1–S5, items 1/2/2b/3, release pipeline C1–C6, and the dropped item 5. Earlier archives: the BACK fatigue investigation and the fatigue-model redesign.
 
 ## Process
 
@@ -96,131 +96,21 @@ These are repeated at the item they block and must be answered before implementa
 
 ## 0.2.1 — released (v0.2.1)
 
-**Goal:** a point release that lands the one deferred Priority 1 item (P2d, done), the deterministic-planner quality work (Q4), and any fixes found by the 0.2.0 QA pass. The v0.3.0 features (items 6–7) stay in the roadmap above and are **not** part of 0.2.1.
+Shipped as tag `v0.2.1`: P2d (existing-row time correction), the 0.2.0 QA pass (clean), the deterministic planner's volume-driven selection (Q4a–Q4d, Option C), and the on-device reliability/progress fixes (Q5, Q6). Q4e was a user-side catalog fix, not part of the artifact. Full plan archived in [docs/plans-archive.md](docs/plans-archive.md#2026-10-03--v021-and-v022-released).
 
-**Scope decision (locked 2026-10-02):** 0.2.1 carries P2d (done) + Q4 (deterministic planner, Option C, honor the rep band) + QA fixes. Item 6 stays in v0.3.0.
+## 0.2.2 — code review and architecture — DONE (v0.2.2 shipped)
 
-### Q3 — release/tag — DONE (2026-10-02)
-Cut `v0.2.1` on `main` after CI is green; `release.yml` builds the signed APK and publishes the GitHub Release. Q4e (the user-side custom-catalog corrections) is not part of the shipped artifact.
+The full review (S1–S6, TS2–TS4, TR), the architecture write-up, the RG rules, and the RF fixes are
+complete and archived in [docs/plans-archive.md](docs/plans-archive.md#2026-10-03--v021-and-v022-released).
+Deliverables: `docs/code-review-0.2.2.md`, `docs/architecture.md`, `AGENTS.md` (RG). No blockers were
+found (12 majors, 50 minors, 14 nits). Remaining deferred findings still to schedule/do:
 
-### Q1 — 0.2.0 QA pass (fix only what is found) — DONE (2026-10-02; manual fresh-app pass clean, no fixes)
-Run `docs/qa.md` against a clean install of the signed v0.2.0 APK. Fix any blocker as a small, isolated commit. No refactors and no scope creep. If the pass is clean, skip.
-
-### Q2 — P2d: existing-row time correction — DONE (2026-10-02, commits 5898c45 / 5ab6b42 / a64d9cc)
-The deferred half of the archived item 2. Add `updateSetPerformedAt` to `WorkoutLog.sq` (query only; no schema change), a repository method + impl, and a focused `CorrectWorkoutSetTimeUseCase` bound in `domainModule`, covered by the Koin verification; reach it from a separate row affordance (tap stays quick-fill; Delete stays). **Blast radius ~15 files** — the new repository method breaks every `WorkoutLogRepository` fake (7 across 6 test files), so update them all.
-
-**Known limitation (time-only correction leaves `sessionId` in place):** a corrected set that lands between another session's sets makes the timestamp-ordered session ids alternate, which the fatigue calculator reads as extra session resets; a correction that crosses local days leaves the original session's bounds and `localEpochDay` stale. Re-segmentation stays a possible follow-up.
-
-**Decisions to put in the plan (not chosen silently):**
-- **Constructor:** `WorkoutLoggerViewModel` already has 7 params; group the log-mutation use cases rather than appending an 8th (AGENTS oversized-constructor rule).
-- **Re-segmentation:** does a time-only correction move the row to another `sessionId`, or leave it in place? (The archived P2d text flags this.)
-- **Affordance:** a third control on the recent-set row (or long-press) that opens the picker targeted at a specific row id.
-
-### Q4 — Deterministic planner: volume-driven selection (Option C) — DONE (Q4a–Q4d done 2026-10-02, commits f80b71a / c8e3c8a / 4f0ce72; approved 2026-10-02; Q4e is a user-side catalog fix)
-
-**Why (read-only phone-DB evidence, 2026-10-02):** on the real device the engine is `DETERMINISTIC`, 3 days/week, goal `ENDURANCE`, with 4 sets chosen per exercise. The generated week is exactly 4 exercises/day, with three root causes:
-- **Day length is hard-coded.** `selectExercises` picks exactly one exercise per entry of the fixed 4-slot `FULL_BODY_TEMPLATES` (`DeterministicWorkoutPlannerEngine.kt:221`); `PlannerExerciseCounts` (target 4–6, floor 2) is AI-only. A fatigue-skipped slot shortens a day further.
-- **The goal's rep band is lost when sets are overridden.** `VolumeAwareReps` holds `sets × reps` at `goal.defaultSets × goal.compoundReps`, so ENDURANCE (2×15) at 4 sets becomes 4×8 — an endurance plan prescribing strength-style reps.
-- **Weekly volume is emergent, not targeted.** Weighted sets/muscle over the week were roughly QUADS 12, BICEPS 11.2, CORE 10.4, GLUTES 10 vs HAMSTRINGS 4, CHEST 6, SHOULDERS 6.8 — no MEV/MAV accounting and no explicit frequency balance.
-- **Misclassified customs compound it.** `user-leg-extension` is filed `HORIZONTAL_PUSH`, `user-seated-ez-bar-curl` `HORIZONTAL_PULL`, `user-ez-bar-upright-row` `VERTICAL_PULL`, so the one-per-pattern pick places a leg isolation in a push slot. The engine trusts user patterns.
-
-**Decisions (locked 2026-10-02, not to be reopened):** Option C (volume-driven selection **and** an editor pattern guardrail); an explicit set count must change volume, **not** the goal's rep band (reps honor the band); the user's custom-exercise corrections are approved.
-
-**Phases:**
-- **Q4a — volume config + metric — DONE (f80b71a).** Add `WeeklyVolumeTargets` in `core/domain/.../engine` (target/MEV/MAV sets per muscle per week by `TrainingGoal`) and a pure helper that computes effective weighted sets per muscle from a plan/days. `commonTest` coverage. No schema.
-- **Q4b — volume-driven selection — DONE (c8e3c8a).** Rework `selectExercises`/`templateFor`: pick a compound for each major pattern by the largest remaining weekly deficit (fatigue-aware, compound-first, no cross-week compound repeat), then fill isolation slots for the largest remaining deficits up to `PlannerExerciseCounts.TARGET_MIN..TARGET_MAX` (never below `FLOOR_PER_DAY`; target `TARGET_MIN` when the catalog allows). Keep the `WorkoutPlannerEngine` interface and all three engines interchangeable. Update `DeterministicWorkoutPlannerEngineTest` and any golden fixtures in the same phase.
-- **Q4c — honor the rep band — DONE (c8e3c8a).** Change the `VolumeAwareReps` contract so reps stay inside the goal's compound/isolation band while sets carry volume (endurance stays high-rep even at higher sets). Keep `VolumeAwareRepsTest` + planner tests.
-- **Q4d — pattern guardrail (editor) — DONE (4f0ce72).** In `feature/equipment`, warn/suggest when a chosen `movementPattern` conflicts with the involvement profile (e.g. quads-dominant filed as a push). Advisory only, no schema, localized strings.
-- **Q4e — data fix (user catalog, not committed).** Correct `user-leg-extension` → `LEG_ISOLATION`, `user-seated-ez-bar-curl` → `BICEPS_ISOLATION`, `user-ez-bar-upright-row` → `SHOULDER_ISOLATION` (or `VERTICAL_PULL` if it is kept as a pull), and fix the `user-incline-parbell-bench-press` name typo. Done through the app editor; no repo code and no phone DB write.
-
-**Files:** `core/domain/.../engine/{DeterministicWorkoutPlannerEngine,VolumeAwareReps,PlannerExerciseCounts}.kt`, new `WeeklyVolumeTargets.kt`, their tests; `feature/equipment` editor/state/strings for Q4d; `feature/splitbuilder`/planner test expectations updated where the deterministic output changes.
-
-**Constraints:** no schema/`.sqm`; no new dependencies; no `WorkoutPlannerEngine` interface change and no change to the Gemini/local engines; no Koin change expected (if a binding is introduced, run the Koin verification in the same change). Deterministic output changes for everyone — update planner/SplitBuilder expectations atomically.
-
-**Tests:** weekly-volume target math; selection meets the MEV floor and caps at MAV; day length tracks `PlannerExerciseCounts`; compound-before-isolation ordering; fatigue skip/reduce still honored; the rep band survives a set override for every goal; the editor guardrail flags a mismatched pattern.
-
-**Verification:** `:core:domain`, `:feature:equipment`, `:feature:splitbuilder` host tests; then the full suite (`ktlintCheck`, `testAndroidHostTest`, `:androidApp:assembleDebug`, the iOS compile tasks); Koin verification if a binding changes; emulator smoke of SplitBuilder against this catalog.
-
-**Do not start in 0.2.1:** items 6–7 (v0.3.0), items 8–9 (post-0.3.0), BACK chunks 3–4 (watch items), or any schema change beyond a query-only update.
-
-### Q5 — on-device planner reliability (QA fix) — DONE (2026-10-02, commits 21cde09 / 38803d2)
-The local engine produced truncated JSON on the phone: with no explicit token budget the prompt plus reply overran the native context, every attempt stopped mid-array, and two full generations ran for ~3 minutes before the deterministic fallback. Bounded `EngineConfig.maxNumTokens` (4096) and `ConversationConfig.maxOutputToken` (2048); the local prompt/schema now request only `exerciseId` (the sanitizer applies the goal's sets/reps, so the model need not emit them), and a malformed reply falls straight back instead of retrying. Added a Settings note that on-device planning can take several minutes. Device re-verification is pending — an agent session may not install on the phone.
-
-### Q6 — on-device planning progress — DONE (2026-10-02, commits b86ad08 / b4808c6 / 5981c25 / bfb19e1 / e324d61 / 12116a3)
-The phone's model keeps stopping just before the closing brackets, so `parseWeeklyPlan` now closes a reply truncated at a value boundary (`b86ad08`); a complete-looking plan is then salvageable and a truly short one still fails the sanitizer and falls back. While the local engine generates, the SplitBuilder loading row shows live progress (`tokens / ~expected · tok/s`): a new `OnDevicePlanProgressReporter` port (`:core:domain`) is bound in `domainModule`, the LiteRT generator streams via `sendMessageAsync`/`MessageCallback`, and the engine forwards progress and clears it in `finally`. The first chunk can be tens of seconds out, so the generator also emits a 0-token report immediately and heartbeats every 500 ms (character-estimate tokens + elapsed tok/s) during prefill (`bfb19e1`). Device verification pending.
-
-## 0.2.2 — code review and architecture
-
-**Goal:** review the whole codebase, explain the architectural patterns it actually uses and where they should improve, and turn the approved findings into rules in AGENTS.md so future code follows them.
-
-**Baseline:** the review pins the `v0.2.1` tag (or the latest commit if 0.2.1 hasn't shipped) so findings keep stable `file:line` references. It runs after 0.2.1 so P2d isn't reviewed twice. R0 pins this baseline to tag `v0.2.1` → commit `7e04245` (HEAD `b1ece2a` is docs-only on top). CI note: run `37023920698` (Build and Test, green) belongs to docs-only commit `2099915`, not to `12116a3`; an earlier handoff attributed it to `12116a3` by mistake. The code at `12116a3` is covered because `2099915` is its docs-only child and `12116a3` is also an ancestor of tag commit `7e04245` (Release run `37024612467`, green).
-
-**Scope decision (R0, approved):** the review and architecture work is documentation-only. 0.2.2 ships fixes for **blockers and approved majors only**, each as its own gated commit; every other finding is either scheduled in PLANS.md or marked won't-fix, revisited at RF once the findings exist. Nothing is fixed without approval.
-
-**Phases (each its own session and its own approved chunk):**
-- **R0 — slices.** Enumerate modules from `settings.gradle.kts` and define review slices (core:domain; core:database; core:llm + core:network; each feature module; :shared + :androidApp + iOS; build/CI/Gradle config; tests). Record slice order and the checklist below in PLANS.md. Read-only.
-- **R1..Rn — review.** One slice per session, read-only. Findings are appended to `docs/code-review-0.2.2.md` as they are found (so a session reset loses nothing). Each finding has: id, severity (blocker / major / minor / nit), category (bug, risk, design smell, duplication, test gap, consistency), an optional principle tag (SRP / OCP / LSP / ISP / DIP, or none), `file:line` evidence, why it matters, a recommendation, and a rough fix cost. No evidence means it isn't a finding. Skip anything ktlint already enforces. No refactors or fixes during review.
-- **RA — architecture write-up** in `docs/architecture.md`: each pattern the code actually uses (KMP module layering; domain ports/repository interfaces with SQLDelight implementations; feature modules with explicit static aggregation; Koin composition root in `:shared`; use cases; UiState/ViewModel; deterministic planner engine with model-backed fallbacks; immutable log snapshots; additive migrations; and anything else found), each with example files, how consistently it's applied, where it's violated, and ranked improvement proposals with cost/benefit. Describe what exists; don't invent patterns. RA also contains: (1) a **decision log** — for each pattern, the decision, the recorded rationale with a citation (PLANS.md "Decisions Made", `docs/plans-archive.md`, AGENTS.md, or a commit hash), any alternatives that were recorded, and "rationale not recorded" where there is no record; never invent a rationale — unrecorded decisions become questions for the user; (2) a **SOLID assessment per pattern** (SRP / OCP / LSP / ISP / DIP: satisfied, violated, or n/a, with evidence); (3) a short **Kotlin/KMP-to-C# glossary** for a C# developer who follows SOLID (e.g. extension functions, sealed interfaces vs discriminated unions, `expect`/`actual` vs partial/conditional compilation, coroutines/Flow vs async/IObservable, Koin vs a DI container); and (4) one **end-to-end trace of logging a set** (screen → ViewModel → use case → repository → database, and back to UiState via Flow), with file references.
-- **RG — AGENTS.md update.** Distill approved findings into SHORT, checkable rules; AGENTS.md is read every session, so put rationale in `docs/architecture.md` and link to it. Mark each rule "current convention" (code already follows it) or "target convention, new code only" (existing code is not refactored unless a task is in scope). Propose the diff, wait for approval, then commit.
-- **RF — fixes.** Triage findings into: fix in 0.2.2 (blockers and approved majors only, each its own gated commit), schedule later (PLANS.md entries), or won't fix. Nothing is fixed without approval.
-
-**RF triage (approved 2026-10-03).** Severity labels aside; each 0.2.2 fix is its own gated commit with a regression test. Full evidence is in `docs/code-review-0.2.2.md`; the elevated pre-seed is recorded there too.
-
-- **Priority 1 — user-facing correctness:** S3-004 (unbounded on-device `done.await()` hang; the fix must extract a unit-testable bounded-wait helper — no regression-test exemption — with the timeout sized from observed device durations), S4-001 (draft resurrection → duplicate logged sets).
-- **Data-loss / data-corruption class (same urgency as majors):** S2-001 (clearing all muscles silently reverts), S4-004 (non-atomic custom-equipment rename can delete the equipment + selection), S3-007 (failed `replaceModelWith` can delete the working model file), S1-007 (time correction leaves `sessionId` stale → wrong derived fatigue; **2b follow-up** — decision note: a correction restores session invariants (non-interleaved, bounds/`localEpochDay` consistent) with no threshold; mechanism decided in the gated fix plan; cost L, scheduled last of the 0.2.2 fixes; the plan must cover manual End/New boundaries, merge/split cases, a single transaction, interleaving/cross-day/manual-boundary tests, and a phone-DB-copy dry run reported as aggregates only).
-- **Deviation from a recorded decision — resolved:** S3-001. Decision (2026-10-03): Gemini's sanitize reject **keeps** the Deterministic fallback (the user still gets a usable plan) and names the reason instead of throwing; `SplitBuilderUiState.fallbackReason = INVALID_RESPONSE` renders an invalid-response note under the existing fallback note. This records the deliberate deviation from PLANS.md:291 ("never silently falls back") — the substitution is no longer silent. Fixed `a07134e`.
-- **Low-cost correctness:** S1-008 (planner skip fall-through), S2-005 (equipment id collision).
-- **Regression tests ship with those fixes:** TS2-001 (S1-008), TS4-002 (S4-001), TS3-003 + TS3-004 (S2-001/S3-001), plus a session re-segmentation/migration test for S1-007.
-- **Schedule — 0.2.3 (perf/logging):** S1-005, S3-002, S3-003, S5-004, S6-002, S6-004, S6-005.
-- **Schedule — 0.2.4:** S1-013 (enforcer repair), S3-005/S3-006, the async `anyOf` count-enforcement device check.
-- **Schedule — test hardening:** TS2-002..006, TS3-001/002/005/006/007, TS4-003/004/005/007, TR-002..008.
-- **Schedule — cleanup/consistency:** S1-001, S1-003, S1-004, S1-006, S1-009, S1-010, S1-011, S1-012, S2-002, S2-003, S2-006, S2-008, S2-009, S4-002, S4-003, S4-005, S4-006, S5-001, S5-002, S5-003, S5-005, S6-001, S6-003, S6-006, S6-007, S6-008.
-- **Won't fix:** S1-002 (`formatWeight` exotic negative/scientific edge only).
-
-**Seed observations to VERIFY, not conclusions:** the Logger ViewModel sits at 7 constructor params and `LogWorkoutSetUseCase` has grown into a session-aware entry point; adding one `WorkoutLogRepository` method breaks 7 fakes across 6 test files (consider shared test fixtures); a test fixture couldn't be shared between `:core:domain` and `:core:database` (testFixtures source set); `LogWorkoutSetUseCase` and the fatigue path load all sets via `all()`; use-case/Koin wiring placement; error handling and logging consistency; coroutine scope and dispatcher handling; expect/actual boundaries; test quality and flakiness (the heatmap ticker tests once hung); stale wording in `PlannerPromptFragments.volumeRepsGuidance` versus Q4c (behavior correct, wording not); `PlanVarietyEnforcer` versus on-device output (the model reuses compounds across days, so the enforcer rejects the week).
-
-**Deliverable files:** `docs/code-review-0.2.2.md`, `docs/architecture.md`, `AGENTS.md` (RG), PLANS.md (RF scheduling), plus any RF fixes with their tests and migrations.
-
-**R0 output — module inventory (main/test Kotlin lines, source only) and review slices:**
-
-| Module | main | test |
-| --- | ---: | ---: |
-| core:domain | 2707 | 5049 |
-| core:database (plus 483 `.sq`/`.sqm`) | 1599 | 2623 |
-| core:userdata | 298 | 25 |
-| core:navigation | 10 | 0 |
-| core:network | 439 | 581 |
-| core:llm | 870 | 723 |
-| shared | 388 | 366 |
-| androidApp | 35 | 0 |
-| feature:logger | 1268 | 1443 |
-| feature:equipment | 1258 | 479 |
-| feature:splitbuilder | 641 | 735 |
-| feature:settings | 592 | 278 |
-| feature:fatigueheatmap | 210 | 312 |
-
-Totals: 10,315 main / 12,614 test Kotlin lines. Non-Kotlin glue/build: iOS Swift 26; `*.kts` 793; version catalog 73; workflows 297.
-
-**Main slices (review in this order; ~2,000–3,000 lines each):**
-- **S1** core:domain (2707).
-- **S2** core:database + core:userdata + core:navigation (1907 + 483 SQL ≈ 2390).
-- **S3** core:network + core:llm (1309).
-- **S4** feature:logger + feature:equipment (2526).
-- **S5** feature:splitbuilder + feature:settings + feature:fatigueheatmap (1443).
-- **S6** shared + androidApp + iOS Swift + build/Gradle/CI config (~1610).
-
-Main order rationale: dependency order (foundation → persistence → external/model I/O → data-capture features → planner-facing features → composition root/build). Later slices reference symbols defined earlier, so findings keep stable context; the direction matches `feature → domain ← database`. Modules under ~1.3k are grouped so per-session overhead doesn't dominate.
-
-**Test slices (targeted, sampled — not line-by-line; ~2,000–2,800 lines each):**
-- **TS2** core:domain rule-branch gaps (planner, volume, reps, enforcer, fatigue, use cases): ~2800.
-- **TS3** core:database + core:userdata + core:network + core:llm (round-trips, migrations, version consistency, DTO parsing, truncation recovery, progress reporter): ~2200.
-- **TS4** feature tests + fixtures/fakes consolidation (the 7 `WorkoutLogRepository` fakes across 6 files, `testFixtures` source set, VM/state gaps, flakiness incl. the heatmap ticker): ~2400.
-
-Test review method: each test slice covers (a) fakes/fixtures and shared-fixture opportunities, (b) flaky patterns, and (c) test gaps against each rule branch. Test review is sampled, not exhaustive.
-
-**Review order (9 sessions):** S1, S2, S3, S4, S5, S6, then TS2, TS3, TS4. Rationale: the main pass builds finding context (including the seed observations and cross-module patterns), which the targeted test pass then uses to judge gaps and duplication. Findings use the R1..Rn fields above; no separate checklist is duplicated here.
-
-**Do not start in 0.2.2:** 0.2.1 work; 0.2.3 measurement or optimization; items 6–9; BACK chunks 3–4; or any fix that was not triaged and approved in RF.
+- **0.2.3 (perf):** S1-005, S3-002, S3-003, S5-004, S6-002, S6-004, S6-005. (S6-005 is a CI artifact-retention consistency nit, not performance — consider reclassifying to cleanup.)
+- **0.2.4:** S1-013 (enforcer repair), S3-005/S3-006, the async `anyOf` count-enforcement device check.
+- **Test hardening:** TS2-002..006, TS3-001/002/005/006/007, TS4-003/004/005/007, TR-002..008.
+- **Cleanup/consistency:** S1-001, S1-003, S1-004, S1-006, S1-009, S1-010, S1-011, S1-012, S2-002, S2-003, S2-006, S2-008, S2-009, S4-002, S4-003, S4-005, S4-006, S5-001, S5-002, S5-003, S5-005, S6-001, S6-003, S6-006, S6-007, S6-008.
+- **Won't fix:** S1-002.
+- **Unassigned majors to confirm:** TS4-001 (shared test fixtures), TR-001 (test redundancy) — currently have no schedule entry.
 
 ## 0.2.3 — performance review
 
