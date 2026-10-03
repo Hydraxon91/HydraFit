@@ -205,3 +205,76 @@ Findings are appended per slice. `file:line` evidence refers to the pinned commi
 - nit: 2 (S2-008, S2-009)
 - total: 9
 
+## S3 — `:core:network` + `:core:llm` (main sources)
+
+- **Slice:** S3 — main sources of `:core:network` (439) and `:core:llm` (870).
+- **Pinned commit:** `7e04245` (tag `v0.2.1`).
+- **Date:** 2026-10-03.
+- **Scope:** main sources only. Test tree read only via grep for coverage. No fixes.
+
+**Coverage (files read):**
+
+- `:core:network` commonMain: `GeminiConfig.kt`, `NetworkModule.kt`, `GeminiHttpClient.kt`, `GeminiDtos.kt`, `GeminiWorkoutPlannerEngine.kt`
+- `:core:llm` commonMain: `OnDeviceTextGenerator.kt`, `OnDevicePlannerLogger.kt`, `OnDeviceModelTargetClassifier.kt`, `OnDeviceSampler.kt`, `LocalLlmWorkoutPlannerEngine.kt`
+- `:core:llm` androidMain: `AndroidOnDeviceModelManager.kt`, `AndroidOnDevicePlannerLogger.kt`, `LiteRtLmTextGenerator.kt`
+- `:core:llm` iosMain: `UnsupportedOnDeviceTextGenerator.kt`
+
+**Files read with no findings:** `GeminiConfig.kt`, `NetworkModule.kt`, `GeminiHttpClient.kt`, `GeminiDtos.kt`, `OnDeviceTextGenerator.kt`, `OnDevicePlannerLogger.kt`, `OnDeviceModelTargetClassifier.kt`, `OnDeviceSampler.kt`, `UnsupportedOnDeviceTextGenerator.kt`, `AndroidOnDevicePlannerLogger.kt`.
+
+### `:core:network`
+
+**S3-001 — major — bug/consistency — file:line:** `core/network/.../GeminiWorkoutPlannerEngine.kt:102`
+- **Why it matters:** On a successful HTTP response whose content is unusable, the engine does `sanitizer.sanitize(plan, request) ?: fallback.generatePlan(request)` — it silently returns the Deterministic plan. `parseWeeklyPlan` is lenient and returns an empty plan for a no-content/garbled reply, and the sanitizer then rejects it, so the user who selected Gemini gets a built-in plan with no error and no log. This contradicts the recorded decision (PLANS.md line 291: Gemini "never silently falls back to Deterministic") and defeats the `INVALID_RESPONSE` reason that `SplitBuilder` is built to surface. The injected `fallback` is only reachable here.
+- **Recommendation:** Throw `PlanGenerationException(transient = false, reason = PlanFailureReason.INVALID_RESPONSE, …)` when `sanitize` returns null (include the compact rejection summary, as the local engine does), so the ViewModel can show the reason and Retry. Remove the `fallback` dependency from this engine, matching the recorded decision.
+- **Fix cost:** S
+
+**S3-002 — minor — risk (performance) — file:line:** `core/network/.../GeminiWorkoutPlannerEngine.kt:178-183`
+- **Why it matters:** `retryDelayMillis` takes the server hint (via `Retry-After` or `RetryInfo.retryDelay`) and then `coerceIn(0L, MAX_BACKOFF_MILLIS)` (8 s). A server asking the client to wait longer is retried ~8 s later, which can keep hitting the rate limit and waste the single retry budget.
+- **Recommendation:** Honor the hint up to a larger ceiling (or, if the hint exceeds the cap, stop retrying and throw `RATE_LIMITED`), so the client respects the server's pacing.
+- **Fix cost:** S
+
+**S3-003 — minor — duplication/performance — file:line:** `core/network/.../GeminiWorkoutPlannerEngine.kt:57` and `:147`
+- **Why it matters:** `generatePlan` loads `catalog.all()` to compute `availableIds`, then `normalizeExerciseIds` loads `catalog.all()` again to build the name index — two full catalog reads per generation, and the second ignores the already-filtered list.
+- **Recommendation:** Load the catalog once and pass the resulting exercises (or id/name maps) into `normalizeExerciseIds`.
+- **Fix cost:** S
+
+### `:core:llm`
+
+**S3-004 — major — bug (hang) — file:line:** `core/llm/src/androidMain/.../LiteRtLmTextGenerator.kt:157-166`
+- **Why it matters:** `stream` waits on `done.await()` with no timeout. If the native callback never fires `onDone`/`onError` (the known LiteRT-LM failure mode behind the earlier hung runs), `generate` blocks forever on a `Dispatchers.Default` thread while holding the `@Synchronized` monitor, so every later generation queues behind it; the heartbeat executor is only shut down in the `finally`, which never runs until `await` returns. `LocalLlmWorkoutPlannerEngine` cannot recover because its `catch` never sees an exception.
+- **Recommendation:** Bound the wait (`done.await(timeoutMillis, MILLISECONDS)`) and treat a timeout as a failure — set a cause, close the conversation, shut down the heartbeat, and let the engine fall back. Size the timeout from `MAX_OUTPUT_TOKENS` at the slowest expected throughput.
+- **Fix cost:** S
+
+**S3-005 — minor — consistency (privacy) — file:line:** `core/llm/src/androidMain/.../LiteRtLmTextGenerator.kt:50,54`
+- **Why it matters:** The full prompt and output are logged at debug, and the prompt includes the shared recent/progressed weight history when the "Share workout data" toggle is on. On-device data is user training history, and the Gemini API key is never in it, but logging whole payloads is inconsistent with the "no payload logging" stance and unnecessary in release.
+- **Recommendation:** Log lengths and progress counters only, or gate the payload behind a debug-only flag.
+- **Fix cost:** S
+
+**S3-006 — minor — consistency — file:line:** `core/llm/src/androidMain/.../LiteRtLmTextGenerator.kt:205`
+- **Why it matters:** `Engine.setNativeMinLogSeverity(LogSeverity.VERBOSE)` globally raises native logging on every engine creation, including release builds; the native runtime can then spill verbose model/tensor logs at runtime.
+- **Recommendation:** Set `VERBOSE` only under a debug build flag; keep the release default.
+- **Fix cost:** S
+
+**S3-007 — minor — risk (data) — file:line:** `core/llm/src/androidMain/.../AndroidOnDeviceModelManager.kt:104-108`
+- **Why it matters:** `replaceModelWith` first tries `renameTo`, and on failure deletes the existing `modelFile` before the second `renameTo`. If that second rename also fails, the working model is gone and the import throws — the exact loss the temp-file copy was meant to avoid. Renames within the same directory rarely fail, but the fallback path is the one designed to be safe.
+- **Recommendation:** Rename the old model aside (or copy the temp over) so a failed replace can be rolled back; only delete the old file after the new one is confirmed.
+- **Fix cost:** M
+
+### Seed-observation status (S3-resident)
+
+- Error handling and logging consistency (fallback classification): **confirmed** — `OnDevicePlannerFallback` is split correctly and the Android logger uses warn/error accordingly (`AndroidOnDevicePlannerLogger.kt:6-19`); the Gemini silent fallback is S3-001 and the payload logging is S3-005/S3-006.
+- Coroutine scope and dispatcher handling: **mostly confirmed** — the local engine correctly runs blocking generation on `Dispatchers.Default` and rethrows cancellation (`LocalLlmWorkoutPlannerEngine.kt:62,70-71`); the gap is the unbounded native wait (S3-004).
+- expect/actual boundaries: **refuted for S3** — neither module uses `expect`/`actual`; platform selection is source-set classes (`UnsupportedOnDeviceTextGenerator`) plus Koin bindings.
+- Test quality/flakiness (on-device path): **outside S3** — test slice TS3; S3-004 is the code-side explanation for the reported hang.
+- Stale `PlannerPromptFragments.volumeRepsGuidance`: **confirmed as consumed here** — `GeminiWorkoutPlannerEngine.kt:250` and `LocalLlmWorkoutPlannerEngine.kt:173`; root cause is S1-012.
+- `PlanVarietyEnforcer` vs on-device output: **confirmed and handled as designed** — a rejected local week is re-prompted once with a correction and then fell back with a compact rejection summary (`LocalLlmWorkoutPlannerEngine.kt:94,108-119`); the S1-013 repair-vs-reject question stands.
+- 0.2.4 async `sendMessageAsync` + `ResponseFormat.json` count enforcement: **not decided here** — the schema uses per-day `anyOf` (`LocalLlmWorkoutPlannerEngine.kt:266-283`); whether `minItems`/`maxItems` survive that on-device is the recorded 0.2.4 device check, not a finding.
+
+### S3 finding summary
+
+- blocker: 0
+- major: 2 (S3-001, S3-004)
+- minor: 5 (S3-002, S3-003, S3-005, S3-006, S3-007)
+- nit: 0
+- total: 7
+
