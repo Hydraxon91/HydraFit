@@ -160,7 +160,11 @@ class LiteRtLmTextGenerator(
                 callback,
                 responseFormat = if (constrained) ResponseFormat.json(jsonSchema!!) else null
             )
-            done.await()
+            awaitGeneration(done, GENERATION_TIMEOUT_MILLIS) {
+                Log.w(TAG, "On-device generation timed out; cancelling the native process")
+                runCatching { conversation.cancelProcess() }
+                    .onFailure { Log.w(TAG, "Could not cancel the timed-out generation", it) }
+            }
         } finally {
             heartbeat.shutdownNow()
         }
@@ -288,5 +292,12 @@ class LiteRtLmTextGenerator(
 
         /** How often the heartbeat refreshes the progress line while waiting for the first chunk. */
         const val HEARTBEAT_MILLIS = 500L
+
+        /**
+         * Upper bound on a single generation. A full 2048-token reply at the slowest observed
+         * ~10 tokens/sec is ~205s plus prefill, and a real run took ~3 minutes, so this leaves
+         * headroom while still bounding a callback that never fires.
+         */
+        const val GENERATION_TIMEOUT_MILLIS = 300_000L
     }
 }
