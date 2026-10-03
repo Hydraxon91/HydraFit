@@ -21,6 +21,7 @@ import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.SessionResegmenter
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSession
@@ -100,6 +101,7 @@ class KoinModulesVerificationTest {
                     single<ExerciseCatalog> { FakeExerciseCatalog }
                     single<WorkoutLogRepository> { FakeWorkoutLogRepository }
                     single<WorkoutSessionRepository> { FakeWorkoutSessionRepository }
+                    single<SessionResegmenter> { FakeSessionResegmenter }
                 },
                 domainModule,
                 testPlatformModule
@@ -193,5 +195,13 @@ class KoinModulesVerificationTest {
         override fun openFlow(): Flow<WorkoutSession?> = emptyFlow()
 
         override suspend fun all(): List<WorkoutSession> = emptyList()
+    }
+
+    private object FakeSessionResegmenter : SessionResegmenter {
+        override suspend fun resegmentAfterTimeCorrection(
+            setId: Long,
+            performedAtMillis: Long,
+            utcOffsetMillis: Long
+        ) = Unit
     }
 }

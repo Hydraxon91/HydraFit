@@ -57,20 +57,6 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
             rows.map { row -> row.toDomain() }
         }
 
-    private fun com.hydrafit.app.core.database.WorkoutSet.toDomain() = DomainWorkoutSet(
-        id = id,
-        exerciseId = exerciseId,
-        reps = reps.toInt(),
-        weightKg = weightKg,
-        performedAtMillis = performedAt,
-        isWarmup = isWarmup != 0L,
-        weekNumber = weekNumber?.toInt(),
-        cycleNumber = cycleNumber?.toInt(),
-        dayIndex = dayIndex?.toInt(),
-        rir = rir?.toInt(),
-        sessionId = sessionId
-    )
-
     override suspend fun loggedSets(): List<LoggedSet> {
         val exercises = exerciseQueries.selectAll().executeAsList()
         val overrides = overrideQueries.selectAll().executeAsList()

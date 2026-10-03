@@ -22,6 +22,7 @@ import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.SessionConfig
+import com.hydrafit.app.core.domain.workout.SessionResegmenter
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
@@ -1431,7 +1432,18 @@ class WorkoutLoggerViewModelTest {
             config = SessionConfig()
         ),
         deleteWorkoutSet = DeleteWorkoutSetUseCase(repository),
-        correctWorkoutSetTime = CorrectWorkoutSetTimeUseCase(repository)
+        correctWorkoutSetTime = CorrectWorkoutSetTimeUseCase(
+            resegmenter = object : SessionResegmenter {
+                override suspend fun resegmentAfterTimeCorrection(
+                    setId: Long,
+                    performedAtMillis: Long,
+                    utcOffsetMillis: Long
+                ) {
+                    repository.updateSetPerformedAt(setId, performedAtMillis)
+                }
+            },
+            timeProvider = TimeProvider { 0L }
+        )
     )
 
     private fun acceptedPlan(dayZeroExerciseIds: List<String>, suggestedWeightKg: Double? = null) =

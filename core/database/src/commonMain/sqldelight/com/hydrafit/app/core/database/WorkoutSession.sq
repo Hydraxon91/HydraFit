@@ -12,6 +12,11 @@ VALUES (?, ?, ?, ?);
 endSession:
 UPDATE workoutSession SET endedAtMillis = ? WHERE id = ?;
 
+updateSessionBounds:
+UPDATE workoutSession
+SET startedAtMillis = ?, endedAtMillis = ?, localEpochDay = ?
+WHERE id = ?;
+
 selectOpenSession:
 SELECT * FROM workoutSession WHERE endedAtMillis IS NULL ORDER BY startedAtMillis DESC LIMIT 1;
 

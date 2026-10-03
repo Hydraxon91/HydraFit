@@ -1,44 +1,37 @@
 package com.hydrafit.app.core.domain.workout
 
-import com.hydrafit.app.core.domain.fatigue.LoggedSet
+import com.hydrafit.app.core.domain.time.TimeProvider
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 
 class CorrectWorkoutSetTimeUseCaseTest {
 
     @Test
-    fun forwardsTheSetIdAndNewTimeToTheRepository() = runTest {
-        val repository = RecordingWorkoutLogRepository()
+    fun forwardsTheCorrectionAndTheCurrentOffsetToTheResegmenter() = runTest {
+        val resegmenter = RecordingSessionResegmenter()
+        val offset = 3_600_000L
 
-        CorrectWorkoutSetTimeUseCase(repository)(7L, 1_234L)
+        CorrectWorkoutSetTimeUseCase(resegmenter, offsetProvider(offset))(7L, 1_234L)
 
-        assertEquals(listOf(7L to 1_234L), repository.corrections)
+        assertEquals(listOf(Triple(7L, 1_234L, offset)), resegmenter.corrections)
     }
 
-    private class RecordingWorkoutLogRepository : WorkoutLogRepository {
-        val corrections = mutableListOf<Pair<Long, Long>>()
+    private fun offsetProvider(offsetMillis: Long) = object : TimeProvider {
+        override fun nowMillis(): Long = 0L
 
-        override suspend fun add(set: WorkoutSet) = Unit
+        override fun utcOffsetMillis(): Long = offsetMillis
+    }
 
-        override suspend fun assignSession(setId: Long, sessionId: String) = Unit
+    private class RecordingSessionResegmenter : SessionResegmenter {
+        val corrections = mutableListOf<Triple<Long, Long, Long>>()
 
-        override suspend fun delete(id: Long) = Unit
-
-        override suspend fun updateSetPerformedAt(setId: Long, performedAtMillis: Long) {
-            corrections.add(setId to performedAtMillis)
+        override suspend fun resegmentAfterTimeCorrection(
+            setId: Long,
+            performedAtMillis: Long,
+            utcOffsetMillis: Long
+        ) {
+            corrections.add(Triple(setId, performedAtMillis, utcOffsetMillis))
         }
-
-        override suspend fun all(): List<WorkoutSet> = emptyList()
-
-        override fun setsFlow(): Flow<List<WorkoutSet>> = flowOf(emptyList())
-
-        override suspend fun loggedSets(): List<LoggedSet> = emptyList()
-
-        override fun loggedSetsFlow(): Flow<List<LoggedSet>> = flowOf(emptyList())
-
-        override suspend fun clear() = Unit
     }
 }
