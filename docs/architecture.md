@@ -284,6 +284,46 @@ Legend: ✅ satisfied, ⚠️ mixed/violated with evidence, n/a.
 | 1.9 Additive migrations | ✅ | ✅ | n/a | n/a | n/a | Ordered, additive; verification gap (S2-004). |
 | 1.10 Platform source sets | ✅ | ✅ | ✅ | ✅ | ✅ | One `expect/actual`; platform selection via Koin. Sync IO ports push dispatch to callers (S2-007). |
 
+### 3.1 Is SOLID worth following in Kotlin/JVM?
+
+Short answer: yes, but as **lenses, not laws**, and unevenly across the five. This is grounded in
+primary sources, not recollection:
+
+- Wikipedia, *SOLID* (https://en.wikipedia.org/wiki/SOLID) — the principles apply to OO and also
+  underpin agile/adaptive methods; SRP is stated as "one reason to change".
+- Wikipedia, *Single-responsibility principle* — Martin's later clarification: "Gather together the
+  things that change for the same reasons. Separate those things that change for different reasons,"
+  and the actor-based reading (one responsible actor). (https://en.wikipedia.org/wiki/Single-responsibility_principle)
+- Robert C. Martin, *Solid Relevance* (2020) — defends all five; his **ISP** argument is explicitly
+  about **statically typed languages** (Java, C#, C++, Go, Swift): compile-time dependencies mean
+  "clients *do* depend on methods they don't call"; he reframes **LSP** as being about
+  subtyping/contracts, not inheritance, and **OCP** as separating abstract concepts from details.
+  (https://blog.cleancoder.com/uncle-bob/2020/10/18/Solid-Relevance.html)
+- Dan North, *CUPID: for joyful coding* (2022) — the counterpoint: principles are "bounded" rules and
+  SRP "creates artificial seams" (he cites separating report content from format when they change
+  together), proposing centred properties instead: Composable, Unix-philosophy, Predictable,
+  Idiomatic, Domain-based. (https://dannorth.net/blog/cupid-for-joyful-coding/)
+
+Applied to this codebase:
+
+- **DIP and ISP are load-bearing.** DIP is what makes `domain` ports → SQLDelight/Ktor/LiteRT
+  implementations + Koin wiring testable; ISP is Martin's compile-time argument in practice —
+  `WorkoutLogRepository`'s width (S1-006) is exactly why there are 8 hand-written doubles (TS4-001).
+  Follow these closely.
+- **OCP only at real variation points.** The `WorkoutPlannerEngine` strategy is the textbook win;
+  elsewhere prefer idiomatic Kotlin (`sealed` + `when` + data classes) over open inheritance —
+  Kotlin classes are closed by default, so interfaces/extension functions are the seams.
+- **LSP matters only when several implementations share one contract** (the three engines), and is
+  about subtyping/contracts, not class hierarchies.
+- **SRP with judgment** — reason-to-change/actor, not "one method per class". North's critique is
+  real; splitting code that always changes together adds indirection. This project's own "no style
+  conversions / no speculative abstractions" rules (AGENTS.md) are the guard against SOLID dogmatism.
+- **Kotlin caveat:** don't write Java-in-Kotlin (getter/setter objects, deep hierarchies); idiomatic
+  Kotlin usually satisfies SOLID's *intent* with less ceremony.
+
+Net: follow DIP/ISP deliberately, apply OCP/LSP/SRP where variation/contract/reason-to-change is
+real, and keep the SOLID tags as review optics (as §3 does) rather than refactoring targets.
+
 ---
 
 ## 4. Kotlin/KMP → C# glossary (for a SOLID C# developer)
