@@ -487,3 +487,58 @@ Findings are appended per slice. `file:line` evidence refers to the pinned commi
 - nit: 1 (S6-008)
 - total: 8
 
+## TS2 — `:core:domain` tests (rule-branch gaps), sampled
+
+- **Slice:** TS2 — `:core:domain` `commonTest` (5,049 Kotlin lines, 34 files). Sampled, not line-by-line.
+- **Pinned commit:** `7e04245` (tag `v0.2.1`).
+- **Date:** 2026-10-03.
+- **Scope:** read-only. Findings only with evidence; test gaps are in scope, style is not.
+
+**Coverage:** `DeterministicWorkoutPlannerEngineTest.kt` (942) read in full. For the other 33 files I enumerated every `@Test`/function name and read the regions relevant to each rule branch (session boundaries, thresholds, truncation, config validation). Test-name inventory used for the coverage judgement. **Read with no rule-branch gap found:** `FatigueCalculatorTest.kt` (603), `FatigueReplayTest.kt`/`FatigueReplayFixture.kt` (214), `ObserveWorkoutPlanInputsUseCaseTest.kt` (601), `LogWorkoutSetUseCaseTest.kt` (399), `WeeklyPlanSanitizerTest.kt` (238), `PlanVarietyEnforcerTest.kt` (124), `WeeklyPlanJsonTest.kt` (128), `ProgressWeightsUseCaseTest.kt` (178), `BuildRecentWeightsUseCaseTest.kt` (128), `AcceptWeeklyPlanUseCaseTest.kt` (134), `SuggestWeightsUseCaseTest.kt`, `SuggestedWeightConfigTest.kt`, `WeeklyVolumeTargetsTest.kt`, `PeriodizationConfigTest.kt`, `GenerateWeeklySplitUseCaseTest.kt`, `EquipmentWeightLimitTest.kt`, `SplitResolverTest.kt`, the `equipment/time/unit` tests, and the simple session/log use-case tests.
+
+### Findings
+
+**TS2-001 — major — test gap — file:line:** `core/domain/src/commonTest/.../engine/DeterministicWorkoutPlannerEngineTest.kt:343-356` and `:398-421`
+- **Why it matters:** The fatigue-skip tests only ever pass **one** candidate per movement group. The engine's actual skip path (`DeterministicWorkoutPlannerEngine.pick`, S1-008) returns `false` for the whole group when the single best-ranked candidate is over `skipThreshold`, so a fresh second candidate in the same group is silently dropped — exactly the bug S1-008 describes. No test exercises two same-pattern candidates where the top-ranked is sore and the other is fresh, so the regression is invisible.
+- **Recommendation:** Add a test with two exercises in one `compoundGroups` family (e.g. two HORIZONTAL_PUSH) where the comparator-leading one has a targeted muscle above 0.8 and the other is fresh; assert the fresh one is picked. This is the regression test S1-008 needs.
+- **Fix cost:** S
+
+**TS2-002 — minor — test gap — file:line:** (no test file) `core/domain/.../engine/WeeklyPlan.kt:11-19`, `AcceptedPlan.kt:19-27`
+- **Why it matters:** `WeeklyPlan.scheduledDay`/`dayFor` and the identical `AcceptedPlan` methods have **zero** tests anywhere (`rg scheduledDay|dayFor` finds only main sources and the Logger consumer). That formula decides which accepted day is "today" for the Logger and progression day labeling, and it is the duplicated logic flagged in S1-011. Its boundaries (`days.size` 2..6, an out-of-range `dayIndex`, a `dayIndex` sequence that is not 0-based) are unverified.
+- **Recommendation:** Add a `WeeklyPlanTest`/`AcceptedPlanTest` covering day counts 2..6, each `dayIndex`, and the invalid-`dayIndex` null case; this also pins the shared formula.
+- **Fix cost:** S
+
+**TS2-003 — minor — test gap — file:line:** `core/domain/src/commonTest/.../unit/WeightUnitTest.kt:1-32`
+- **Why it matters:** `WeightUnitTest` covers kg/lb round-trips, the plate step, and whole-number formatting, but not the `formatWeight` edge flagged in S1-002 (`-0.0`, very small/large values that render in scientific notation). The boundary is unguarded by a test.
+- **Recommendation:** Add cases for `-0.0`, a value that rounds to a whole number, and (if deemed in-scope) a tiny/large magnitude; assert the intended string.
+- **Fix cost:** S
+
+**TS2-004 — minor — test gap — file:line:** `core/domain/src/commonMain/.../equipment/Exercise.kt:26-29`
+- **Why it matters:** `Exercise.effectiveInvolvements` (explicit map, else legacy primary 1.0 + secondary 0.5) is used by the deterministic engine, sanitizer, and volume targets, but no `:core:domain` test reads it directly (`rg effectiveInvolvements core/domain/src/commonTest` → none). The legacy fallback and the empty-both case are only exercised indirectly through catalog tests in other modules.
+- **Recommendation:** Add a small `ExerciseTest` asserting explicit-with-non-empty wins, the primary/secondary fallback, and empty→empty.
+- **Fix cost:** S
+
+**TS2-005 — minor — test gap/consistency — file:line:** `core/domain/src/commonTest/.../engine/PlannerPromptFragmentsTest.kt:76-82`
+- **Why it matters:** `derivesVolumeGuidanceFromTheGoal` asserts the prompt text verbatim, including the stale "fewer sets mean more reps per set" wording (S1-012). The test therefore pins the misleading behavior: any fix to S1-012 must change this assertion, and until then the test actively protects the stale text.
+- **Recommendation:** When S1-012 is triaged, update this assertion to the Option C wording in the same change; note the coupling so the fix is not blocked or forgotten.
+- **Fix cost:** S
+
+**TS2-006 — nit — duplication — file:line:** `core/domain/src/commonTest/.../workout/GetWorkoutLogUseCaseTest.kt:27`, `LogWorkoutSetUseCaseTest.kt:347`, `CorrectWorkoutSetTimeUseCaseTest.kt:21`, `DeleteWorkoutSetUseCaseTest.kt:21`, `engine/ObserveWorkoutPlanInputsUseCaseTest.kt:576,587`, `AcceptWeeklyPlanUseCaseTest.kt:95`
+- **Why it matters:** Within `:core:domain` alone there are two `FakeWorkoutLogRepository` classes, two `RecordingWorkoutLogRepository` classes, and two `FakePlanHistoryRepository` classes. Each re-implements the same interface, so any interface change ripples through all of them.
+- **Recommendation:** Consolidate the domain-internal fakes into one shared test helper — coordinate with the TS4 `testFixtures` decision rather than fixing it here.
+- **Fix cost:** M
+
+### Seed-observation status (TS2-resident)
+
+- Fakes/fixtures and shared-fixture opportunities: **noted, deferred to TS4** — the domain tests reuse `FatigueReplayFixture` (good) but duplicate repository fakes among themselves (TS2-006); `WorkoutLogRepository` fakes appear in `:core:domain`, `:core:database`, and the feature tests, and TS4 owns the consolidation count.
+- Flaky patterns: **none found in TS2** — no real-clock/`System.*`/`sleep`/`delay` usage in `:core:domain` tests; every test drives explicit millisecond values and `runTest` virtual time.
+- Test gaps against rule branches: **found** — TS2-001 (skip fall-through), TS2-002 (schedule formula), TS2-003 (`formatWeight` edge), TS2-004 (`effectiveInvolvements` fallback), TS2-005 (stale prompt wording pinned). The fatigue calculator, sanitizer/enforcer, JSON truncation recovery, session use cases, and config validation are well covered.
+
+### TS2 finding summary
+
+- blocker: 0
+- major: 1 (TS2-001)
+- minor: 4 (TS2-002, TS2-003, TS2-004, TS2-005)
+- nit: 1 (TS2-006)
+- total: 6
+
