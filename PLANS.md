@@ -13,7 +13,7 @@
 | Release 0.2.3 — performance review | PLANNED | After 0.2.2. Measure first, no optimization without a number; phases P0–PR; see "0.2.3 — performance review". |
 | Release 0.2.4 — on-device planner | PLANNED | Make the on-device LLM usable (variety enforcement / constraint reliability / speed) or retire it; see "0.2.4 — on-device planner". |
 | Item 2 P2d — existing-row time correction | DONE | Landed in 0.2.1 as Q2 (5898c45, 5ab6b42, a64d9cc). |
-| Deterministic planner — volume-driven selection | IN PROGRESS | 0.2.1 addition Q4 (Option C; honor the rep band); Q4a–Q4d done (f80b71a, c8e3c8a, 4f0ce72), Q4e remains; see "0.2.1 — next release". |
+| Deterministic planner — volume-driven selection | DONE | 0.2.1 addition Q4 (Option C; honor the rep band); Q4a–Q4d done (f80b71a, c8e3c8a, 4f0ce72); Q4e is a user-side catalog fix, not part of the artifact; see "0.2.1 — next release". |
 | BACK work chunk 3 — calibrate Phase B/C constants | OPEN | Calibrate K=6, D=6, half-lives, and C1/C2/C3 against correctly timed histories. The plateau is resolved by the redesign; no further decision needed. |
 | BACK work chunk 4 — literal >100% report | OPEN | Capture exact value/time/build if it recurs. |
 | Settings/nav consolidation | PLANNED | Roadmap Priority 2 item 7. |
@@ -115,7 +115,7 @@ The deferred half of the archived item 2. Add `updateSetPerformedAt` to `Workout
 - **Re-segmentation:** does a time-only correction move the row to another `sessionId`, or leave it in place? (The archived P2d text flags this.)
 - **Affordance:** a third control on the recent-set row (or long-press) that opens the picker targeted at a specific row id.
 
-### Q4 — Deterministic planner: volume-driven selection (Option C) — IN PROGRESS (Q4a–Q4d done 2026-10-02, commits f80b71a / c8e3c8a / 4f0ce72; approved 2026-10-02)
+### Q4 — Deterministic planner: volume-driven selection (Option C) — DONE (Q4a–Q4d done 2026-10-02, commits f80b71a / c8e3c8a / 4f0ce72; approved 2026-10-02; Q4e is a user-side catalog fix)
 
 **Why (read-only phone-DB evidence, 2026-10-02):** on the real device the engine is `DETERMINISTIC`, 3 days/week, goal `ENDURANCE`, with 4 sets chosen per exercise. The generated week is exactly 4 exercises/day, with three root causes:
 - **Day length is hard-coded.** `selectExercises` picks exactly one exercise per entry of the fixed 4-slot `FULL_BODY_TEMPLATES` (`DeterministicWorkoutPlannerEngine.kt:221`); `PlannerExerciseCounts` (target 4–6, floor 2) is AI-only. A fatigue-skipped slot shortens a day further.
@@ -145,27 +145,66 @@ The deferred half of the archived item 2. Add `updateSetPerformedAt` to `Workout
 ### Q5 — on-device planner reliability (QA fix) — DONE (2026-10-02, commits 21cde09 / 38803d2)
 The local engine produced truncated JSON on the phone: with no explicit token budget the prompt plus reply overran the native context, every attempt stopped mid-array, and two full generations ran for ~3 minutes before the deterministic fallback. Bounded `EngineConfig.maxNumTokens` (4096) and `ConversationConfig.maxOutputToken` (2048); the local prompt/schema now request only `exerciseId` (the sanitizer applies the goal's sets/reps, so the model need not emit them), and a malformed reply falls straight back instead of retrying. Added a Settings note that on-device planning can take several minutes. Device re-verification is pending — an agent session may not install on the phone.
 
-### Q6 — on-device planning progress — DONE (2026-10-02, commits b86ad08 / b4808c6 / 5981c25 / bfb19e1)
+### Q6 — on-device planning progress — DONE (2026-10-02, commits b86ad08 / b4808c6 / 5981c25 / bfb19e1 / e324d61 / 12116a3)
 The phone's model keeps stopping just before the closing brackets, so `parseWeeklyPlan` now closes a reply truncated at a value boundary (`b86ad08`); a complete-looking plan is then salvageable and a truly short one still fails the sanitizer and falls back. While the local engine generates, the SplitBuilder loading row shows live progress (`tokens / ~expected · tok/s`): a new `OnDevicePlanProgressReporter` port (`:core:domain`) is bound in `domainModule`, the LiteRT generator streams via `sendMessageAsync`/`MessageCallback`, and the engine forwards progress and clears it in `finally`. The first chunk can be tens of seconds out, so the generator also emits a 0-token report immediately and heartbeats every 500 ms (character-estimate tokens + elapsed tok/s) during prefill (`bfb19e1`). Device verification pending.
 
 ## 0.2.2 — code review and architecture
 
 **Goal:** review the whole codebase, explain the architectural patterns it actually uses and where they should improve, and turn the approved findings into rules in AGENTS.md so future code follows them.
 
-**Baseline:** the review pins the `v0.2.1` tag (or the latest commit if 0.2.1 hasn't shipped) so findings keep stable `file:line` references. It runs after 0.2.1 so P2d isn't reviewed twice.
+**Baseline:** the review pins the `v0.2.1` tag (or the latest commit if 0.2.1 hasn't shipped) so findings keep stable `file:line` references. It runs after 0.2.1 so P2d isn't reviewed twice. R0 pins this baseline to tag `v0.2.1` → commit `7e04245` (HEAD `b1ece2a` is docs-only on top). CI note: run `37023920698` (Build and Test, green) belongs to docs-only commit `2099915`, not to `12116a3`; an earlier handoff attributed it to `12116a3` by mistake. The code at `12116a3` is covered because `2099915` is its docs-only child and `12116a3` is also an ancestor of tag commit `7e04245` (Release run `37024612467`, green).
 
-**Scope decision to confirm at the plan gate (do not pick silently):** whether 0.2.2 ships fixes (recommended: only blockers and approved majors, each its own gated commit) or is review and documentation only, with fixes deferred to 0.2.x.
+**Scope decision (R0, approved):** the review and architecture work is documentation-only. 0.2.2 ships fixes for **blockers and approved majors only**, each as its own gated commit; every other finding is either scheduled in PLANS.md or marked won't-fix, revisited at RF once the findings exist. Nothing is fixed without approval.
 
 **Phases (each its own session and its own approved chunk):**
 - **R0 — slices.** Enumerate modules from `settings.gradle.kts` and define review slices (core:domain; core:database; core:llm + core:network; each feature module; :shared + :androidApp + iOS; build/CI/Gradle config; tests). Record slice order and the checklist below in PLANS.md. Read-only.
-- **R1..Rn — review.** One slice per session, read-only. Findings are appended to `docs/code-review-0.2.2.md` as they are found (so a session reset loses nothing). Each finding has: id, severity (blocker / major / minor / nit), category (bug, risk, design smell, duplication, test gap, consistency), `file:line` evidence, why it matters, a recommendation, and a rough fix cost. No evidence means it isn't a finding. Skip anything ktlint already enforces. No refactors or fixes during review.
-- **RA — architecture write-up** in `docs/architecture.md`: each pattern the code actually uses (KMP module layering; domain ports/repository interfaces with SQLDelight implementations; feature modules with explicit static aggregation; Koin composition root in `:shared`; use cases; UiState/ViewModel; deterministic planner engine with model-backed fallbacks; immutable log snapshots; additive migrations; and anything else found), each with example files, how consistently it's applied, where it's violated, and ranked improvement proposals with cost/benefit. Describe what exists; don't invent patterns.
+- **R1..Rn — review.** One slice per session, read-only. Findings are appended to `docs/code-review-0.2.2.md` as they are found (so a session reset loses nothing). Each finding has: id, severity (blocker / major / minor / nit), category (bug, risk, design smell, duplication, test gap, consistency), an optional principle tag (SRP / OCP / LSP / ISP / DIP, or none), `file:line` evidence, why it matters, a recommendation, and a rough fix cost. No evidence means it isn't a finding. Skip anything ktlint already enforces. No refactors or fixes during review.
+- **RA — architecture write-up** in `docs/architecture.md`: each pattern the code actually uses (KMP module layering; domain ports/repository interfaces with SQLDelight implementations; feature modules with explicit static aggregation; Koin composition root in `:shared`; use cases; UiState/ViewModel; deterministic planner engine with model-backed fallbacks; immutable log snapshots; additive migrations; and anything else found), each with example files, how consistently it's applied, where it's violated, and ranked improvement proposals with cost/benefit. Describe what exists; don't invent patterns. RA also contains: (1) a **decision log** — for each pattern, the decision, the recorded rationale with a citation (PLANS.md "Decisions Made", `docs/plans-archive.md`, AGENTS.md, or a commit hash), any alternatives that were recorded, and "rationale not recorded" where there is no record; never invent a rationale — unrecorded decisions become questions for the user; (2) a **SOLID assessment per pattern** (SRP / OCP / LSP / ISP / DIP: satisfied, violated, or n/a, with evidence); (3) a short **Kotlin/KMP-to-C# glossary** for a C# developer who follows SOLID (e.g. extension functions, sealed interfaces vs discriminated unions, `expect`/`actual` vs partial/conditional compilation, coroutines/Flow vs async/IObservable, Koin vs a DI container); and (4) one **end-to-end trace of logging a set** (screen → ViewModel → use case → repository → database, and back to UiState via Flow), with file references.
 - **RG — AGENTS.md update.** Distill approved findings into SHORT, checkable rules; AGENTS.md is read every session, so put rationale in `docs/architecture.md` and link to it. Mark each rule "current convention" (code already follows it) or "target convention, new code only" (existing code is not refactored unless a task is in scope). Propose the diff, wait for approval, then commit.
 - **RF — fixes.** Triage findings into: fix in 0.2.2 (blockers and approved majors only, each its own gated commit), schedule later (PLANS.md entries), or won't fix. Nothing is fixed without approval.
 
-**Seed observations to VERIFY, not conclusions:** the Logger ViewModel sits at 7 constructor params and `LogWorkoutSetUseCase` has grown into a session-aware entry point; adding one `WorkoutLogRepository` method breaks 7 fakes across 6 test files (consider shared test fixtures); a test fixture couldn't be shared between `:core:domain` and `:core:database` (testFixtures source set); `LogWorkoutSetUseCase` and the fatigue path load all sets via `all()`; use-case/Koin wiring placement; error handling and logging consistency; coroutine scope and dispatcher handling; expect/actual boundaries; test quality and flakiness (the heatmap ticker tests once hung).
+**Seed observations to VERIFY, not conclusions:** the Logger ViewModel sits at 7 constructor params and `LogWorkoutSetUseCase` has grown into a session-aware entry point; adding one `WorkoutLogRepository` method breaks 7 fakes across 6 test files (consider shared test fixtures); a test fixture couldn't be shared between `:core:domain` and `:core:database` (testFixtures source set); `LogWorkoutSetUseCase` and the fatigue path load all sets via `all()`; use-case/Koin wiring placement; error handling and logging consistency; coroutine scope and dispatcher handling; expect/actual boundaries; test quality and flakiness (the heatmap ticker tests once hung); stale wording in `PlannerPromptFragments.volumeRepsGuidance` versus Q4c (behavior correct, wording not); `PlanVarietyEnforcer` versus on-device output (the model reuses compounds across days, so the enforcer rejects the week).
 
 **Deliverable files:** `docs/code-review-0.2.2.md`, `docs/architecture.md`, `AGENTS.md` (RG), PLANS.md (RF scheduling), plus any RF fixes with their tests and migrations.
+
+**R0 output — module inventory (main/test Kotlin lines, source only) and review slices:**
+
+| Module | main | test |
+| --- | ---: | ---: |
+| core:domain | 2707 | 5049 |
+| core:database (plus 483 `.sq`/`.sqm`) | 1599 | 2623 |
+| core:userdata | 298 | 25 |
+| core:navigation | 10 | 0 |
+| core:network | 439 | 581 |
+| core:llm | 870 | 723 |
+| shared | 388 | 366 |
+| androidApp | 35 | 0 |
+| feature:logger | 1268 | 1443 |
+| feature:equipment | 1258 | 479 |
+| feature:splitbuilder | 641 | 735 |
+| feature:settings | 592 | 278 |
+| feature:fatigueheatmap | 210 | 312 |
+
+Totals: 10,315 main / 12,614 test Kotlin lines. Non-Kotlin glue/build: iOS Swift 26; `*.kts` 793; version catalog 73; workflows 297.
+
+**Main slices (review in this order; ~2,000–3,000 lines each):**
+- **S1** core:domain (2707).
+- **S2** core:database + core:userdata + core:navigation (1907 + 483 SQL ≈ 2390).
+- **S3** core:network + core:llm (1309).
+- **S4** feature:logger + feature:equipment (2526).
+- **S5** feature:splitbuilder + feature:settings + feature:fatigueheatmap (1443).
+- **S6** shared + androidApp + iOS Swift + build/Gradle/CI config (~1610).
+
+Main order rationale: dependency order (foundation → persistence → external/model I/O → data-capture features → planner-facing features → composition root/build). Later slices reference symbols defined earlier, so findings keep stable context; the direction matches `feature → domain ← database`. Modules under ~1.3k are grouped so per-session overhead doesn't dominate.
+
+**Test slices (targeted, sampled — not line-by-line; ~2,000–2,800 lines each):**
+- **TS2** core:domain rule-branch gaps (planner, volume, reps, enforcer, fatigue, use cases): ~2800.
+- **TS3** core:database + core:userdata + core:network + core:llm (round-trips, migrations, version consistency, DTO parsing, truncation recovery, progress reporter): ~2200.
+- **TS4** feature tests + fixtures/fakes consolidation (the 7 `WorkoutLogRepository` fakes across 6 files, `testFixtures` source set, VM/state gaps, flakiness incl. the heatmap ticker): ~2400.
+
+Test review method: each test slice covers (a) fakes/fixtures and shared-fixture opportunities, (b) flaky patterns, and (c) test gaps against each rule branch. Test review is sampled, not exhaustive.
+
+**Review order (9 sessions):** S1, S2, S3, S4, S5, S6, then TS2, TS3, TS4. Rationale: the main pass builds finding context (including the seed observations and cross-module patterns), which the targeted test pass then uses to judge gaps and duplication. Findings use the R1..Rn fields above; no separate checklist is duplicated here.
 
 **Do not start in 0.2.2:** 0.2.1 work; 0.2.3 measurement or optimization; items 6–9; BACK chunks 3–4; or any fix that was not triaged and approved in RF.
 
