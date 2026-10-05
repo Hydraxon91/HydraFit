@@ -10,7 +10,7 @@
 | Release 0.2.0 | SHIPPING | Tag `v0.2.0` (signed APK via `release.yml`); delete the stale `v0.1.0-rc.1` validation release/tag. |
 | Release 0.2.1 | SHIPPED | Tag `v0.2.1` (signed APK via `release.yml`). Q2 (P2d), Q1, Q4a–Q4d, Q5, Q6 and Q3 (release) done. Q4e is a user-side catalog fix (not part of the shipped artifact). On-device LLM documented as non-functional; follow-up deferred to M8 (formerly targeted at 0.2.4). |
 | Release 0.2.2 — code review & architecture | SHIPPED | Tag `v0.2.2` (signed APK, ~58.1 MB) published with a changelog. R0–RG and RF triage done; all RF fixes implemented (S4-001 `04083ea`, S2-001 `4b2d95d`, S4-004 `b6ff315`, S3-007 `cf1dd5e`, S1-008 `2e1d6bf`, S2-005 `c7918bc`, S3-004 `6c38b17`, S3-001 `a07134e`, S1-007 `c0efda1`), CI green. See "0.2.2 — code review and architecture". |
-| M1 — Foundation & Performance | PLANNED | Target 0.2.3. Early priority: QL-03 local Maestro MCP evaluation after emulator-script checks, to support UI work. Retain original performance/APK-size phases P0–PR and separately gated quality baseline/test-hardening scopes; tooling adoption does not block performance measurement. |
+| M1 — Foundation & Performance | PLANNED | Target 0.2.3. QL-03 local Maestro CLI installed (2.11.0), local MCP configured and confirmed live in an OpenCode session, comparative pilot done (see `docs/maestro-evaluation.md`); only the QL-03-P3 adoption decision remains. Retain original performance/APK-size phases P0–PR and separately gated quality baseline/test-hardening scopes; tooling adoption does not block performance measurement. |
 | M2 — Data Ownership & Exercise Library | FUTURE | OF-01 and catalog expansion (formerly targeted at 0.2.5), plus separately scoped offline instructions. Does not depend on AI repair. |
 | M8 — Optional AI Reliability | DEFERRED | Retain local AI; research reliability, speed and licensing after core planner-facing contracts settle. Replaces the former 0.2.4 release slot; no replacement release number assigned. |
 | Item 2 P2d — existing-row time correction | DONE | Landed in 0.2.1 as Q2 (5898c45, 5ab6b42, a64d9cc). |
@@ -521,7 +521,7 @@ These stable references are separately approved slices, not implicit additions t
 
 #### QL-03 — Local Maestro MCP evaluation (M1 early priority)
 
-**Status / scheduling:** prioritized by the user on 2026-10-05 for early M1 evaluation immediately after the near-term emulator scripts are verified, preferably before broader QL-01/UI feature work. Installation/configuration still requires the QL-03-P0 setup plan and approval. This is the next tooling item, not an implementation instruction within the current script task; it does not replace or delay M1/0.2.3 performance and APK-size investigation.
+**Status / scheduling:** prioritized by the user on 2026-10-05 for early M1 evaluation. P0–P2 are **DONE** (CLI 2.11.0 installed, local MCP configured and confirmed live in an OpenCode session, comparative pilot complete; evidence in `docs/maestro-evaluation.md`). Only the QL-03-P3 adoption decision remains. This does not replace or delay M1/0.2.3 performance and APK-size investigation.
 
 **Goal:** use structured UI inspection and semantic interactions for agent navigation and repeatable smoke flows, retaining screenshots for appearance/custom graphics. Evaluate local Maestro CLI/MCP on the existing Android Studio emulator; cloud execution is outside this scope.
 
