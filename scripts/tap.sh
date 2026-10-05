@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# usage: scripts/tap.sh <x> <y> [output.png]
+# usage: scripts/tap.sh <x> <y> [--screenshot [output.png]]
 
 if [ "$#" -lt 2 ]; then
-  echo "usage: $0 <x> <y> [output.png]" >&2
+  echo "usage: scripts/tap.sh <x> <y> [--screenshot [output.png]]" >&2
   exit 1
 fi
 
@@ -16,12 +16,28 @@ for arg in "$1" "$2"; do
   esac
 done
 
-if ! adb get-state >/dev/null 2>&1; then
-  echo "No adb device/emulator connected. Start one and retry." >&2
-  exit 1
+X="$1"
+Y="$2"
+shift 2
+CAPTURE=false
+OUT="/tmp/hydrafit-screen.png"
+if [ "$#" -gt 0 ]; then
+  if [ "$1" != "--screenshot" ] || [ "$#" -gt 2 ] ||
+    { [ "$#" -eq 2 ] && [ -z "$2" ]; }; then
+    echo "usage: scripts/tap.sh <x> <y> [--screenshot [output.png]]" >&2
+    exit 1
+  fi
+  CAPTURE=true
+  OUT="${2:-$OUT}"
 fi
 
-adb shell input tap "$1" "$2"
-sleep 1
-adb exec-out screencap -p > "${3:-/tmp/hydrafit-screen.png}"
-echo "Tapped ($1,$2); screenshot saved."
+source "$(dirname "${BASH_SOURCE[0]}")/emulator-common.sh"
+require_emulator
+emulator_adb shell input tap "$X" "$Y"
+if [ "$CAPTURE" = true ]; then
+  sleep 1
+  emulator_adb exec-out screencap -p > "$OUT"
+  echo "Tapped ($X,$Y); screenshot saved to $OUT."
+else
+  echo "Tapped ($X,$Y)."
+fi

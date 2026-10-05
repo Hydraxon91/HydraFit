@@ -2,7 +2,7 @@
 
 ## Agent Behavioral Rules
 
-- **No Hallucinated Code:** Never write or refactor code you have not explicitly read in the current session. Always search for and read the target file first. Do not assume the state of any file based on previous chat memory. If a file has not been printed or searched in the current turn, you must locate and read it before proposing edits.
+- **No Hallucinated Code:** Locate and read the current target before proposing or making edits; inspect its relevant consumers and helpers rather than relying on previous chat memory. A file already read in this session need not be re-read solely because a new turn starts. Re-read after an interruption, unexpected working-tree changes, or any reason to doubt its current contents.
 - **Root-Cause Debugging:** Do not "band-aid" errors (e.g., adding arbitrary null-checks, blanket `?:` fallbacks, or empty try/catch blocks). You must trace errors back to their origin (e.g., SQLDelight schema mismatch, incorrect Koin binding, wrong expect/actual mapping) and fix them there.
 - **Style Alignment:** Strictly mirror the syntax, pattern choices, and formatting of the existing codebase. If a module uses sealed classes for state, use sealed classes. If it uses data classes with copy-based updates, match that.
 - **Hypothesis Verification:** Before proposing a fix, explain the expected behavior, the actual behavior, and the evidence (log line, stack trace, failing test, or code block) that proves your theory.
@@ -37,9 +37,9 @@
 - Stop and report if ~30 tool calls pass without a plan or a result. If
   budget is nearly out, stop at a clean point with a "where I stopped /
   what remains" note instead of leaving half-edited files.
-- Flow: plan → wait for OK → implement → verify → show diff and
-  verification results → wait for approval → commit → push. See Commit
-  Discipline for push and CI-wait rules.
+- Flow: plan → wait for OK → implement → verify → review/report.
+  Commit authorization and order depend on the work mode; follow the
+  table in Commit Discipline. Pushing needs separate approval.
 - PLANS.md edits are status lines only unless I approve more.
 - Ending a session or writing a starter prompt: follow
   docs/session-handoff.md, and present it only after its self-review has
@@ -64,7 +64,7 @@ While executing an approved chunk:
 2. After each step, verify it compiles/tests (run the relevant Gradle task) before moving on.
 3. **If a step fails, diagnose the root cause and try to fix it.** If the fix is within the chunk's scope, apply it and re-verify. If you are stuck, or the fix needs something outside the chunk, stop and report with evidence — do not commit failing work unless asked.
 4. Do not expand scope, refactor unrelated code, or touch anything not enumerated in the chunk.
-5. When the chunk is done (or when stopped on an unresolved failure), **commit the chunk's work yourself** — one atomic commit per logical change, each with a message — then report results, `git status` / `git diff --stat`, and the commit list. **An approved chunk authorizes its own commits; do not pause for a separate commit confirmation.** `git push` is still individually gated and always needs its own explicit "yes".
+5. Finish verification and follow the approved-chunk row in Commit Discipline for commits and the end-of-chunk report. If stopped on an unresolved failure, report the evidence and remaining work; do not commit failing work unless asked.
 6. Do not start the next chunk until instructed.
 
 **Covered by an approved chunk** (when enumerated): creating/editing files, creating modules and registering them in `settings.gradle.kts`, and running builds/tests.
@@ -73,7 +73,7 @@ While executing an approved chunk:
 
 ## External Infrastructure & Integration Locks
 
-- **Do Not Change Core Architecture Decisions:** Never migrate, switch, or replace SQLDelight, Koin, Ktor, or Compose Multiplatform for an alternative (e.g., swapping SQLDelight for Room KMP, or Koin for Hilt/manual DI) under any circumstances — even if you believe a build failure is caused by one of these libraries. If a library-related error occurs, stop immediately, report the error, and await manual instruction.
+- **Do Not Change Core Architecture Decisions:** Never migrate, switch, or replace SQLDelight, Koin, Ktor, or Compose Multiplatform for an alternative (e.g., swapping SQLDelight for Room KMP, or Koin for Hilt/manual DI) — even if you believe a build failure is caused by one of these libraries. Diagnose library-related errors and fix query, binding, mapping or usage problems within the approved scope and existing stack. If the proposed remedy requires an architectural substitution, an unapproved dependency/configuration change, or work outside that scope, stop, report the evidence and await instruction.
 - **No Stealth Infrastructure Changes:** Any proposed changes to CI/CD workflows, Gradle configuration, signing setup, or the module graph must be explicitly highlighted in your plan. If a plan involves changing where the app is built, signed, or published, you must call this out as a "Major Infrastructure Change" and await explicit confirmation. Module-graph changes explicitly enumerated in an approved work chunk are covered by that chunk's approval.
 - **No Unrequested Cloud/LLM Provider Changes:** Do not swap the Gemini API for another LLM provider, and do not change the on-device model (e.g., swapping Gemma for another MediaPipe-compatible model) without explicit instruction.
 
@@ -81,6 +81,11 @@ While executing an approved chunk:
 
 - **No Unsolicited Package Changes:** Never add, remove, or upgrade any dependency in `libs.versions.toml` or module-level `build.gradle.kts` files unless explicitly requested to resolve a specific bug or feature requirement.
 - **No Swapping Established Libraries:** Do not replace existing architectural libraries (e.g., replacing Ktor with OkHttp directly, or changing the test runner from kotlin.test). Work strictly within the established tech stack.
+
+### Offline and Licensing Direction
+
+- Preserve offline operation for the default planner and core training/data flows; AI remains optional. Do not introduce a server, account or network requirement without explicit approval.
+- Keep HydraFit-authored source under MIT. Check dependency, artwork, model-weight and optional acceleration-binary licenses separately before proposing reuse or distribution. Record required attribution and redistribution/usage terms; user-imported weights are not automatically MIT. Do not copy or translate incompatible third-party source into the project or bundle proprietary artifacts to work around a limitation. Model/dependency/provider changes retain their existing approval gates; future AI work is scheduled in PLANS.md.
 
 ### Anti-Churn & Code Preservation
 
@@ -106,7 +111,7 @@ While executing an approved chunk:
 
 ## Agent Behavior Guidelines
 
-- **Load relevant module skills first thing in every session**, if any are configured for this project (e.g., a `hydrafit-domain` or `hydrafit-database` skill covering module conventions, SQLDelight query patterns, and the fatigue formula).
+- **Load a skill when its description matches the task.** The project skill `hydrafit-mechanics` covers fatigue, planning, SQLDelight, Koin and feature UI. Its recipes are references, not a substitute for reading current source; unrelated tasks do not require loading it.
 - **Avoid over-deliberation.** Plan once, then act. Do not re-plan or second-guess a chosen approach more than once before executing, unless new information (e.g. a build error) genuinely changes the picture.
 - **Stop after completing the requested task.** Summarize what you did and what you found, then wait for the next instruction. Do not move on to a new task — commits, cleanup, further refactors, starting the next item on a todo list — unless explicitly asked, even if it seems like the obvious next step. An approved work chunk counts as one task: finish all its steps, then stop — do not begin the next chunk.
 - **Reserve deep reasoning for genuinely ambiguous or destructive decisions** (see confirmation rule above), not for routine refactors or migrations with a clear precedent already in this codebase.
@@ -169,7 +174,7 @@ Added by the 0.2.2 review (RG); rationale lives in `docs/architecture.md` and
 Some models occasionally emit a tool call as plain text instead of a real tool call. The harness then treats the turn as finished, nothing runs, and the session stalls. These rules keep calls well-formed and keep the repo from ending up half-modified.
 
 - **Real tool calls only.** Never write tool-call markup, tags, or parameter blocks into a message as text. If a call returned no output, or a file or log it should have produced is missing, treat it as not executed. Re-issue it as a proper tool call instead of narrating what it would have done.
-- **One tool call per turn.** Do not batch dependent calls. Run one, read the result, then decide the next.
+- **Keep dependent operations sequential.** Read each result before taking an action that depends on it. Independent read-only searches/reads may run in parallel; do not batch edits, break/restore checks or dependent build/git operations.
 - **Use the edit/write tool for every file change.** Never modify source files through bash (no `python3 - <<EOF`, `sed -i`, `perl -pi`, `echo >`, or heredocs). Bash is for running builds, tests, `git`, and search.
 - **Keep bash commands short.** One command per call, with no heredocs and no nested quoting. For Gradle, one call to run with output redirected to a log file (see Unit Testing Standards), and a separate call to grep or read that log.
 - **Temporary break-and-restore checks (e.g. removing a binding to prove a guard test fails) are separate steps.** Make the break, run the check, and restore by reversing the exact edit, each as its own call. Never combine them in one call. Confirm the restore with `git diff` on that file before calling the task done.
@@ -179,26 +184,32 @@ Some models occasionally emit a tool call as plain text instead of a real tool c
 ## Unit Testing Standards
 
 - **Unit tests are mandatory for all `:core:domain` logic**, not optional: every use case, the fatigue algorithm, and each `WorkoutPlannerEngine` implementation must ship with tests using `kotlin.test` (common) and MockK (JVM-side mocking of dependencies like repositories or the Ktor client).
-- **New code without a corresponding test is incomplete work.** If you write a new use case or engine implementation, write its test in the same turn unless explicitly told to defer it.
+- **New code without a corresponding test is incomplete work.** Write the corresponding tests in the same approved work scope as a new use case or engine implementation, unless explicitly told to defer them. Run the required tests before reporting that work complete or committing it.
 - **Domain logic must be testable without an emulator.** If you find yourself needing Android context or an emulator to test something in `:core:domain`, that's a sign the abstraction is wrong — flag it rather than working around it.
 - **Test the fallback paths, not just the happy path.** The Local LLM engine's `OutOfMemoryError` → Deterministic Engine fallback needs an explicit test, not just manual verification.
-- **Verify the Koin graph in tests, not on a device.** Koin resolves dependencies at runtime, so a missing binding or a mis-ordered `get()` chain compiles fine and crashes on first injection. Every module that registers bindings (`databaseModule`, each feature's Koin module, and the platform modules where testable) must be covered by a `koin-test` verification test (`verify()` or `checkModules`, whichever the approved Koin version supports). When you add or change a binding, a ViewModel constructor, or a module, run that verification in the same turn. A Koin change without a passing verification test is incomplete work. If verification cannot cover a binding (for example, one that needs an Android `Context`), say so and name what is left unverified instead of silently skipping it.
+- **Verify the Koin graph in tests, not on a device.** Koin resolves dependencies at runtime, so a missing binding or a mis-ordered `get()` chain compiles fine and crashes on first injection. Every module that registers bindings (`databaseModule`, each feature's Koin module, and the platform modules where testable) must be covered by a `koin-test` verification test (`verify()` or `checkModules`, whichever the approved Koin version supports). When you add or change a binding, a ViewModel constructor, or a module, run that verification before its step/work chunk is reported complete or committed. A Koin change without a passing verification test is incomplete work. If verification cannot cover a binding (for example, one that needs an Android `Context`), say so and name what is left unverified instead of silently skipping it.
 - **`koin-test` is a test-scope dependency only.** Adding it to `libs.versions.toml` and the relevant module's test source set is a dependency change: propose the version and the modules it goes in, and wait for approval. Never add it to a main/production source set.
 - **Run tests with output redirected to a file, not chained into filters:**
   ```bash
-  ./gradlew :core:domain:testAndroidHostTest > test-output.log 2>&1
+  perl -e 'alarm 600; exec @ARGV' ./gradlew :core:domain:testAndroidHostTest > test-output.log 2>&1
   ```
   If you need a different view (failures only, full stack traces), grep/cat `test-output.log` — do not re-run the suite just to change how you're viewing the same results.
 - **Look for a shared root cause before treating failures as independent.** If several tests fail with the same underlying exception (e.g. a Koin binding missing in test setup), fix the shared cause once and re-run, rather than debugging each test in isolation.
 
 ## Commit Discipline
 
-- **Ask before committing outside an approved chunk; an approved chunk commits itself.** For ad-hoc work (no chunk in flight), show what you're about to commit (`git status` / `git diff --stat` and the proposed message) and wait for confirmation — one yes covers one commit. Inside an approved work chunk, commit its logical changes as you judge best without pausing for a separate confirmation (see Approved Work Chunks). **Pushing always requires its own explicit approval.**
+This table is the authoritative commit workflow; approval to edit files alone is not an approved work chunk.
+
+| Work mode | Commit authorization and order |
+| --- | --- |
+| Ad-hoc task / approved edit scope | Verify → show `git status`, intended diff/stat, verification results and proposed message → wait for explicit commit approval → commit. One approval covers one commit. |
+| Explicitly approved work chunk (ordered steps, as defined above) | Verify the steps → inspect `git status`, intended diff and recent log → create atomic commits without another commit confirmation → report results, status/stat and commit list at the chunk boundary. Do not commit failing work unless asked. |
+| Push, in either mode | Propose the push and wait for its own explicit approval. A commit or chunk approval does not authorize pushing. |
+
 - **Docs-only pushes don't need a CI wait.** If a push contains only edits to Markdown files (e.g. `AGENTS.md`, `PLANS.md`, or other `.md` docs), do not wait for GitHub Actions to report green — there is no code change, so the run should pass if the previous push passed. Report the push and move on; still treat any unexpected failure as a signal to investigate.
 - **Never churn code to force a perfect commit split.** If cleanly separating logical changes would mean deleting and re-adding (or temporarily reverting) code just to keep a shared file out of a commit, don't do it. Keep every commit compiling and prefer a slightly broader but honest grouping (e.g. a single "persistence-layer support for X and Y" commit) over mechanical revert/restore cycles. Atomicity means one clear intent per commit, not a self-inflicted edit dance.
-- **One commit per logical change — never bundle unrelated changes into a single commit.** Outside a chunk, commit each slice as it is verified. Inside a chunk, stage and propose the commits together at the end, but still one commit per logical change. Keep them atomic either way.
+- **One commit per logical change — never bundle unrelated changes into a single commit.** Follow the authorization/order table above and stage only files required for that change.
 - **A commit should touch the smallest number of files possible for the one change it represents.** If the file list includes anything not directly required for the one change being committed (e.g. an unrelated formatting change, a file touched while investigating but not actually modified for the fix), stop and either revert that unrelated change or ask whether it should be a separate commit.
-- **Keep commits atomic.** Each commit should represent one logical change — not a grab-bag of everything done in a session. If a task naturally splits into unrelated parts (e.g. "add fatigue use case" + "fix unrelated typo in build.gradle.kts" + "bump a lint suppression"), commit them separately, even if they happened back-to-back in the same session.
 - **Commit message should describe the one thing, not summarize everything.** If it's hard to write a single clear sentence for what changed, that's a sign the commit should be split.
 - **Don't bundle unrelated fixes "while you're in there."** If an unrelated issue is noticed while working on something else, mention it and ask, or commit it separately — don't fold it into the current commit.
 
@@ -280,16 +291,7 @@ HydraFit/
 - Kotlin Multiplatform Mobile plugin (for iOS target, if building on macOS)
 
 ### Local Development
-```bash
-# Build the Android debug APK
-./gradlew :androidApp:assembleDebug
-
-# Run unit tests across all modules
-./gradlew testAndroidHostTest
-
-# Run unit tests for a single module
-./gradlew :core:domain:testAndroidHostTest
-```
+Use the bounded commands under Key Commands. Redirect build/test output to a log and inspect it separately; do not re-run a task just to change the output view.
 
 ## Local Configuration (`local.properties`)
 
@@ -320,18 +322,21 @@ RELEASE_KEY_PASSWORD=changeme
 
 ```bash
 # Build debug APK
-./gradlew :androidApp:assembleDebug
+perl -e 'alarm 600; exec @ARGV' ./gradlew :androidApp:assembleDebug > assemble-output.log 2>&1
 
 # Run all unit tests, redirect output
-./gradlew testAndroidHostTest > test-output.log 2>&1
+perl -e 'alarm 600; exec @ARGV' ./gradlew testAndroidHostTest > test-output.log 2>&1
+
+# Run tests for a single module
+perl -e 'alarm 600; exec @ARGV' ./gradlew :core:domain:testAndroidHostTest > domain-test-output.log 2>&1
 
 # Run lint/static analysis
-./gradlew ktlintCheck
+perl -e 'alarm 600; exec @ARGV' ./gradlew ktlintCheck > lint-output.log 2>&1
 # or, if detekt is configured
-./gradlew detekt
+perl -e 'alarm 600; exec @ARGV' ./gradlew detekt > detekt-output.log 2>&1
 
 # Clean build (reserve for dependency/config changes, not routine edits)
-./gradlew clean build
+perl -e 'alarm 600; exec @ARGV' ./gradlew clean build > build-output.log 2>&1
 ```
 
 ## Project Structure & Conventions
@@ -369,12 +374,37 @@ RELEASE_KEY_PASSWORD=changeme
 
 ## Visual Verification
 
-- After UI changes, run `scripts/snap.sh` and view the screenshot before
-  reporting the change as done.
-- To exercise the UI, use `scripts/tap.sh <x> <y>` or `adb shell input`
-  (swipe, text, keyevent). Keep interactions to short flows. Wait about a
-  second after each action before capturing. Cap visual iteration at two
-  rounds, then report.
+- Verify the target with `adb devices -l` and set `ANDROID_SERIAL` to a running
+  `emulator-<port>` serial. All UI scripts require this explicit target, verify
+  that it responds as an emulator, and bound ADB calls. Never let a phone become
+  the implicit target; raw ADB interactions must also specify the emulator.
+- Separate deployment, launch, interaction and inspection. After code changes,
+  use `scripts/deploy.sh` (bounded debug build, then targeted APK install), then
+  `scripts/launch.sh` to foreground the app. Use `launch.sh --restart` only when
+  a restart is intended. Do not install/restart merely to inspect the current screen.
+- Use `scripts/inspect.sh [output.xml]` for current UI text, accessibility
+  descriptions, states and bounds. It does not launch/restart the app; custom
+  graphics and missing semantics still require visual inspection. After UI
+  changes, capture with `scripts/snap.sh [output.png]` and view the screenshot
+  before reporting the change as done. It only captures the current screen.
+  Replace the serial placeholder below with the running emulator's serial:
+  ```bash
+  export ANDROID_SERIAL="<emulator-serial>"
+  bash scripts/deploy.sh /tmp/hydrafit-deploy.log
+  bash scripts/launch.sh
+  bash scripts/inspect.sh /tmp/hydrafit-ui.xml
+  bash scripts/snap.sh /tmp/hydrafit-screen.png
+  ```
+  Run each needed operation separately; deployment is not required for every
+  inspection. `deploy.sh` redirects Gradle output to its log with a 600s timeout;
+  inspect it separately and report timeout/failure before retrying.
+- `scripts/tap.sh <x> <y>` taps without an image or fixed delay. Add
+  `--screenshot [output.png]` to wait one second and capture explicitly. Inspect
+  state after relevant transitions and take images at visual checkpoints rather
+  than after every action. For raw swipe/text/keyevent commands, use
+  `adb -s "$ANDROID_SERIAL" shell input ...` with a hard timeout. Keep flows short,
+  wait for the expected state/allow rendering before capture, and cap visual
+  iteration at two rounds, then report.
 - Allowed without asking: build, install, launch, screenshot, logcat,
   taps/swipes/text input, `adb shell wm size`.
 - Needs my approval: `adb uninstall`, clearing app data, and any adb command
@@ -382,7 +412,8 @@ RELEASE_KEY_PASSWORD=changeme
 - UI verification uses the emulator only, never a personal phone. If no
   emulator is running (`adb devices` shows nothing), ask me to start it; do
   not boot one. (DB audits are the read-only phone pulls in Session rules.)
-- Test screenshots go to /tmp, never into the repo.
+- Test screenshots and UI dumps go to /tmp, never into the repo. Emulator
+  inspection uses `/data/local/tmp/hydrafit-ui.xml` as a scratch hierarchy file.
 
 ## PR Template
 
@@ -404,7 +435,7 @@ Every PR description should follow this format (template at `.github/PULL_REQUES
 - [ ] Unit tests pass (`./gradlew testAndroidHostTest`)
 - [ ] Lint passes (`./gradlew ktlintCheck`)
 - [ ] Debug APK builds cleanly (`./gradlew :androidApp:assembleDebug`)
-- [ ] Manual smoke test on emulator/device (if applicable)
+- [ ] Manual smoke test on emulator (if applicable)
 
 ## Checklist
 

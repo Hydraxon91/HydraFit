@@ -9,8 +9,9 @@ This is a code-level reference. Behavioral rules, approvals, module boundaries,
 and verification requirements remain in `AGENTS.md`; future work remains in
 `PLANS.md`.
 
-Defaults below describe the implementation when this skill was authored. The
-named source files are authoritative when code changes. Schema versions are
+Recipes are references, not permission to change behavior. Read the named source
+and relevant tests before using a recipe; source is authoritative when it differs
+from this skill or an older design note. Schema versions are
 discovered from the migration directory rather than treated as fixed constants.
 All paths are relative to the repository root.
 
@@ -37,44 +38,50 @@ Kotlin package roots:
 | Engine selection | Shell `DefaultWorkoutPlannerEngineProvider.kt`, `DomainModule.kt` |
 | Platform adapters | `shared/src/androidMain/kotlin/com/hydrafit/app/AndroidDatabaseModule.kt` and corresponding `iosMain/IosDatabaseModule.kt` |
 
-## Fatigue: exact calculation
+## Fatigue: bounded, session-aware calculation
 
 Sources: domain `fatigue/FatigueCalculator.kt`, `FatigueConfig.kt`, `LoggedSet.kt`,
-and `MuscleTarget.kt`; supporting explanation: `docs/fatigue-formula.md`.
+and `MuscleTarget.kt`. Tests: `fatigue/FatigueCalculatorTest.kt` and
+`FatigueReplayTest.kt` under `core/domain/src/commonTest/kotlin/com/hydrafit/app/core/domain/`.
+`docs/fatigue-formula.md` explains the bounded response, but its inferred-session
+description predates explicit session ids; use the current source for segmentation.
 
-For each muscle independently:
+The implementation is not a decayed set count divided by a reference volume:
+
+- Ignore warm-ups; compute relative-load and RIR effort factors for working sets.
+- Sort by timestamp and batch by `(timestampMillis, sessionId)`. Equal timestamps
+  with different session ids remain separate batches. All muscle groups are returned.
+- Each muscle has compound and isolation components sharing one bounded headroom
+  and one cumulative session stimulus. Decay both components between batches using
+  their respective effective half-lives; apply isolation before compound within a batch.
+- Reset session stimulus when explicit ids change or on a null/non-null boundary.
+  Only two null ids use the legacy `sessionGap`; resetting stimulus does not reset fatigue.
+- Sum involvement × rep factor × relative load × effort for each muscle/type batch
+  in canonical order, then add a diminishing dose to that type's component.
+
+Conceptual dose/update (read source for batching and floating-point handling):
 
 ```text
-volume(set, muscle) = sum of matching MuscleTarget.weight values
-events = non-warmup sets with nonzero volume, sorted by timestampMillis
+repsFactor = clamp((reps / referenceReps)^repExponent, minRepMultiplier, maxRepMultiplier)
+stimulus = sum(involvement * repsFactor * relativeLoad * effort)
+dose = diminishingScale * ln1p(stimulus / (diminishingScale + sessionStimulus))
+increment = (1 - isolationFatigue - compoundFatigue) * -expm1(-dose / capacityScale)
+fatigueOfThisType += increment
+sessionStimulus += stimulus
 decay(elapsedMillis, H) = 2 ^ (-max(elapsedMillis, 0) / H)
-
-raw = 0
-previousMillis = first event's timestamp
-for each event:
-    raw = raw * decay(event.timestamp - previousMillis, H) + event.volume
-    previousMillis = event.timestamp
-
-recovered = raw * decay(nowMillis - last event.timestamp, H)
-score = clamp(recovered / referenceVolume, 0, 1)
 ```
 
-`H` is the muscle half-life in milliseconds. Empty events produce `0.0`.
-The result includes every `MuscleGroup`. Reps and lifted kilograms do not enter
-this calculation; accumulated involvement-weighted sets do.
+Relative load uses the best eligible Epley estimate from strictly earlier sets of
+the same exercise within `referenceWindow`. Missing weight/reference or incomparable
+reps makes it neutral (`1.0`). Missing RIR uses `defaultRir` internally; it is never
+written back as measured effort. Reps, load and RIR do affect the calculation.
 
-Verbatim defaults:
-
-```text
-referenceVolume = 24.0
-fallback half-life = 48.hours
-CHEST, BACK, QUADS, HAMSTRINGS, GLUTES = 48.hours
-SHOULDERS = 36.hours
-BICEPS, TRICEPS, CALVES, CORE = 24.hours
-```
-
-`nowMillis` is supplied to `calculate`, making decay tests deterministic.
-`CalculateMuscleFatigueUseCase` is the domain entry point.
+After the last batch, decay both components to supplied `nowMillis`; the score
+is their sum, bounded strictly below `1.0` even after floating-point rounding.
+Empty working input produces zero. `CalculateMuscleFatigueUseCase` is the entry point.
+Read current capacity/diminishing scales, base half-lives, compound/isolation scales,
+load/RIR factors and thresholds from `FatigueConfig.kt` rather than copying constants
+from a recipe. Its base half-lives are distinct from the scaled effective half-lives.
 
 ## Muscle mapping and catalog persistence
 
@@ -196,12 +203,11 @@ accepted prescription, not merely the heaviest logged set.
 Deterministic candidate ordering: weighted fatigue, not recently used,
 equipment rank, then exercise id. Weighted fatigue is the maximum of
 `involvementWeight * muscleFatigue`; skip/reduce decisions instead use raw
-fatigue of muscles with involvement `>= 0.7`.
+fatigue of targeted muscles. The engine reads `reduceThreshold`, `skipThreshold`
+and `targetedInvolvementCutoff` from `FatigueConfig.kt`; inspect those fields for
+current values rather than introducing separate planner threshold constants.
 
 ```text
-FATIGUE_REDUCE_THRESHOLD = 0.5
-FATIGUE_SKIP_THRESHOLD = 0.85
-TARGETED_THRESHOLD = 0.7
 MIN_DAYS = 2; MAX_DAYS = 6
 MIN_SETS = 1; MAX_SETS = 8
 CUSTOM_EQUIPMENT_RANK = 20
@@ -237,21 +243,24 @@ sets and reps, gates suggested weights, scales deload loads, clamps equipment
 ceilings, and stamps request week/cycle values. Suggested weights must be
 positive and at most `1_000.0` kg before scaling/clamping.
 
-`PlanVarietyEnforcer` removes repeated foci, within-day duplicates, and repeated
-compound exercise ids across days. It does not repair the focus schedule or
-choose substitute exercises. Repeated focus can be valid for a cyclic split;
-the current unique-focus rule can reject such model plans. Likewise, the local
-schema's `items.anyOf` allows any listed focus on each item; it does not pin
-focus by array position. Inspect these when diagnosing unexpected fallback.
+`PlanVarietyEnforcer` removes within-day duplicate exercises and repeated compound
+exercise ids across days; accessories may repeat. It allows repeated foci for
+cyclic splits and rejects a week with fewer distinct foci than the resolved split
+expects, insufficient days, or a day below the exercise floor after filtering.
+It does not choose substitutes or repair the focus schedule. The local schema's
+`items.anyOf` does not pin focus by array position; distinguish schema generation
+constraints from post-generation validation when diagnosing fallback.
 
-Current AI schemas request 4–6 exercises/day; sanitizer and enforcer accept a
-minimum of 2 after filtering. These are distinct current thresholds, with
-alignment tracked in `PLANS.md` rather than assumed implemented.
+`PlannerExerciseCounts.kt` owns the distinct prompt/schema targets and looser
+validation floor. Read its values and comments before diagnosing count failures;
+do not assume the generation target and post-filter floor should be identical.
 
 - Gemini implementation: network `GeminiWorkoutPlannerEngine.kt` and
   `GeminiDtos.kt`. HTTP transient retries: `MAX_RETRIES = 2`, base delay
   `1_000` ms, maximum delay `8_000` ms. HTTP failures surface as
-  `PlanGenerationException`; sanitizer rejection falls back to deterministic.
+  `PlanGenerationException`; the current sanitizer-rejection branch calls its
+  deterministic fallback. This describes existing source, not a pattern to copy:
+  follow AGENTS.md's explicit engine-substitution rule for new/changed rejection paths.
 - Local implementation: `LocalLlmWorkoutPlannerEngine.kt`, with
   `MAX_ATTEMPTS = 2`. Prompt numbers are 1-based catalog indexes mapped back to
   ids before sanitization. Unavailability and OOM fall back; cancellation is
@@ -406,13 +415,27 @@ NSDateFormatter `Z` offset. Stored timestamps remain UTC milliseconds.
 Current bucketing uses the supplied offset; it is not a historical timezone or
 DST lookup for each recorded timestamp.
 
-`scripts/snap.sh [output]` installs debug, force-stops/relaunches HydraFit, waits,
-then captures a screenshot. This restart matters when testing retained UI
-state. `scripts/tap.sh x y [output]` taps, waits, and captures without relaunching.
-Both default to `/tmp/hydrafit-screen.png`. Set `ANDROID_SERIAL` to the emulator
-when more than one adb target is attached.
+Run UI helpers with `bash scripts/<name>.sh`; AGENTS.md Visual Verification owns
+the workflow and emulator-only restrictions. `emulator-common.sh` verifies an
+explicit `ANDROID_SERIAL=emulator-<port>` and bounds every ADB call to 120s.
+
+| Helper | Behavior |
+| --- | --- |
+| `deploy.sh [build-log]` | 600s-bounded `assembleDebug`, then targeted `adb install -r`; no launch. Default log `/tmp/hydrafit-deploy.log`. |
+| `launch.sh [--restart]` | Foreground HydraFit; force-stop first only with `--restart`. |
+| `inspect.sh [output.xml]` | Dump current UI hierarchy to `/tmp/hydrafit-ui.xml` by default; no launch/restart. Reads emulator scratch `/data/local/tmp/hydrafit-ui.xml` only after a successful dump. |
+| `snap.sh [output.png]` | Capture current screen only; default `/tmp/hydrafit-screen.png`. |
+| `tap.sh x y [--screenshot [output.png]]` | Tap without delay/image by default; optional image after one second. |
+
+Deployment is only needed after relevant app changes; capture/inspection must not
+reset the state being tested. Prefer hierarchy text/states/bounds for navigation
+and images for layout, colour and custom graphics. These scripts do not implement
+semantic selectors or readiness assertions; verify expected transitions explicitly.
 
 Gradle task lookup by subsystem:
+
+These are task names, not standalone invocation examples. Use the timeout/log
+wrapper in AGENTS.md Key Commands and inspect the captured result separately.
 
 ```text
 :core:domain:testAndroidHostTest      pure planner/fatigue tests
