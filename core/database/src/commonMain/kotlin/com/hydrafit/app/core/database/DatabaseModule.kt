@@ -3,6 +3,7 @@ package com.hydrafit.app.core.database
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
+import com.hydrafit.app.core.domain.startup.StartupReadiness
 import com.hydrafit.app.core.domain.workout.SessionResegmenter
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
@@ -23,6 +24,8 @@ val databaseModule: Module = module {
     single { SeedEquipmentCatalog(get()) }
     single { CustomExerciseDedupe(get()) }
     single { WorkoutSessionBackfill(get(), get()) }
+    single { DatabaseStartupMaintenance(get(), get(), get(), get()) }
+    single<StartupReadiness> { get<DatabaseStartupMaintenance>() }
     single<ExerciseCatalog> { SqlDelightExerciseCatalog(get()) }
     single<EquipmentRepository> { SqlDelightEquipmentRepository(get()) }
     single<CustomExerciseRepository> { SqlDelightCustomExerciseRepository(get()) }

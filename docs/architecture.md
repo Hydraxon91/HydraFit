@@ -84,16 +84,16 @@ All use cases and both model-backed engine bindings live in `:shared` (`domainMo
 
 - **Examples:** `shared/…/DomainModule.kt` (use cases + engines), `shared/…/AndroidDatabaseModule.kt`
   (`TimeProvider`, `ApiKeyStore`, `OnDeviceTextGenerator`, `AndroidDatabaseDriverFactory`),
-  `Koin.kt` (`startKoin` + seeding/backfill).
+  `Koin.kt` (`startKoin` + starting off-main startup maintenance).
 - **Consistency:** high. `:core:domain` exposes no Koin module (PLANS.md "Decisions Made": "Domain
   use cases and the `WorkoutPlannerEngine` binding live in `:shared`'s `domainModule`").
 - **Violations / tensions:** `domainModule` binds `SuggestedWeightConfig`/`PeriodizationConfig` as
   singletons, but `DeterministicWorkoutPlannerEngine(get())` and `WeeklyPlanSanitizer(get())` build
-  their own default configs, so there are two instances of each (S6-001). `initKoin` runs catalog
-  seeding and the session backfill synchronously on the main thread at startup (S6-002).
+  their own default configs, so there are two instances of each (S6-001). `initKoin` starts
+  `DatabaseStartupMaintenance`, which runs catalog seeding, custom-exercise dedupe and the session
+  backfill off the main thread; the app shell gates its first screen on `StartupReadiness` (S6-002).
 - **Ranked improvements:**
   1. (S) Inject the bound configs into the engine/sanitizer, or drop the unused singles (S6-001).
-  2. (S) Move seeding/backfill off the main thread and measure in 0.2.3 (S6-002).
 
 ### 1.5 Use cases (one entry point per action)
 

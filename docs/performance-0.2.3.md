@@ -313,11 +313,13 @@ developer machine, not a physical-device or app-store baseline.
 
 ## Source-traced recomputation/startup paths
 
-- `shared/.../Koin.kt` invokes exercise seeding, equipment seeding, custom-exercise
-  dedupe and session backfill synchronously immediately after `startKoin`. Host
-  isolation now measures this warm-path work at ~2.5 ms median (see above); it runs on
-  the startup thread and remains a candidate for moving off it, but it is not a
-  measured bottleneck at current sizes.
+- `shared/.../Koin.kt` starts `DatabaseStartupMaintenance`, which runs exercise
+  seeding, equipment seeding, custom-exercise dedupe and session backfill in order
+  off the main thread; the app shell gates its first screen on `StartupReadiness`.
+  Measured at the real phone-DB shape (read-only copy, host JVM file-backed JDBC,
+  warm path, 15 runs): **4.53 ms median / 10.06 ms p95** total, superseding the
+  earlier in-memory ~2.5 ms estimate (the delta is file-backed commits plus the
+  larger seeded catalog).
 - `SqlDelightWorkoutLogRepository.loggedSetsFlow` combines all exercise, override
   and set rows and remaps all sets when any source emits.
 - `FatigueHeatmapViewModel.refresh` invokes fatigue synchronously from its
@@ -342,8 +344,8 @@ developer machine, not a physical-device or app-store baseline.
    after repeatable device measurements. Do not infer a 16 ms UI-frame guarantee
    from host or emulator timings.
 5. Keep startup warm-path work (seeding + dedupe + backfill) under ~10 ms on the host
-   as a regression budget (currently ~2.5 ms); move it off the startup thread is a
-   separate, optional change.
+   as a regression budget (real-shape 4.53 ms median / 10.06 ms p95); it now runs off
+   the startup thread behind a readiness gate.
 6. Keep host planner-input p95 under ~40 ms at 10,000 sets as a regression budget
    (currently ~34 ms); the AI engines and Android disk path remain out of scope.
 7. Compose jank: no optimization justified by the emulator debug number. If pursued,
