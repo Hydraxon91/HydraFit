@@ -18,6 +18,17 @@ internal object FatigueReplayFixture {
         val type: SetType = SetType.ISOLATION
     )
 
+    /**
+     * The archived rows stored only a broad `BACK` involvement. MUS-P1 split `BACK`, so each row's
+     * stored weight is mapped onto the split regions with the documented fractions. The expected
+     * scores in `FatigueReplayTest` are derived independently from the formula, not from this map.
+     */
+    private val BACK_REGION_FRACTIONS: Map<MuscleGroup, Double> = linkedMapOf(
+        MuscleGroup.LATS to 0.5,
+        MuscleGroup.UPPER_BACK to 0.35,
+        MuscleGroup.LOWER_BACK to 0.15
+    )
+
     private val rows = listOf(
         row(1790787141874, 20, 0.3, type = SetType.COMPOUND), // Dumbbell Lunge
         row(1790787142631, 20, 0.3, type = SetType.COMPOUND),
@@ -99,7 +110,9 @@ internal object FatigueReplayFixture {
 
     private fun Row.toLoggedSet(isCompound: Boolean) = LoggedSet(
         timestampMillis = timestampMillis,
-        targets = listOf(MuscleTarget(MuscleGroup.LATS, backWeight)),
+        targets = BACK_REGION_FRACTIONS.map { (muscle, fraction) ->
+            MuscleTarget(muscle, backWeight * fraction)
+        },
         isWarmup = isWarmup,
         reps = reps,
         isCompound = isCompound

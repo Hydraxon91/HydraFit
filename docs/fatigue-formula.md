@@ -78,8 +78,9 @@ The muscle set was refined in MUS-P1 (2026-10-06): the former `CHEST`, `BACK`,
 legacy names expand on read in `decodeInvolvements`, so historical rows keep
 contributing; `CustomExerciseDedupe` merges a custom exercise whose normalized name
 matches a seeded one, preserving its differing edits as an override. The regression
-fixture below predates the split (its `BACK` work is now `LATS` / `UPPER_BACK` /
-`LOWER_BACK`).
+fixture below maps its archived `BACK` work onto the split regions
+(`LATS` 0.50 / `UPPER_BACK` 0.35 / `LOWER_BACK` 0.15), and its expected scores are
+derived independently from the recurrence below.
 
 | Parameter | Default |
 | --- | --- |
@@ -113,19 +114,31 @@ The shared `Map<MuscleGroup, Double>` contract remains compatible with all plann
 
 ## Calibration regressions
 
-The captured ledger fixture (from the archived BACK investigation, `docs/plans-archive.md`) contains 39 working sets plus three warm-ups. With its stored
-timestamps, reps and BACK weights, peak fatigue is **82.5504%** at `1790844708670` ms;
-evaluation is **65.2960%** at `1790873936000` ms. BACK-targeting exercises are skipped at
-peak and reduced at evaluation. After 24 h without new stimulus the peak halves to 41.2752%.
-The fixture carries no exercise type, so it is replayed as isolation (C1 no-op) and reproduces
-the Phase B figures exactly. Tagging the same sets with the original redesign's types (compound:
-lunges, chin-ups, trap-bar deadlift, pulldowns, cable rows, shoulder press, upright rows;
-isolation: leg extension, raise combo, face pull) gives peak **83.1065%** and evaluation
-**68.4753%** — still skipped at peak and reduced at evaluation, so the 0.65/0.80 thresholds hold.
-The fixture carries no weight data, so C2 is neutral and none of these figures change. It also has
-no RIR, so C3 uses the neutral 2-RIR default and the same figures. Applying a uniform RIR to the
-typed replay gives RIR 0 → peak **87.7603%** / evaluation **72.3376%**, and RIR 4 → peak
-**77.1306%** / evaluation **63.5221%**.
+The captured ledger fixture (from the archived BACK investigation, `docs/plans-archive.md`)
+contains 39 working sets plus three warm-ups. MUS-P1 split `BACK`, so each stored BACK weight is now
+mapped onto the split regions as **LATS 0.50 / UPPER_BACK 0.35 / LOWER_BACK 0.15**, and the expected
+scores below are derived independently from the recurrence above — not copied from the former
+broad-BACK output, whose LATS-only figures no longer apply.
+
+| Replay | LATS peak / evaluation | UPPER_BACK peak / evaluation | LOWER_BACK peak / evaluation |
+| --- | --- | --- | --- |
+| isolation (C1 no-op) | 69.3755% / 54.8749% | 60.8721% / 48.1489% | 39.2578% / 31.0523% |
+| typed | 69.8728% / 57.5116% | 61.3177% / 50.4344% | 39.5537% / 32.4736% |
+| typed, RIR 0 | 77.1306% / 63.5221% | 69.6439% / 57.3222% | 48.3723% / 39.7432% |
+| typed, RIR 4 | 61.5714% / 50.6441% | 52.3923% / 43.0607% | 31.4347% / 25.7905% |
+
+Peak is at `1790844708670` ms and evaluation at `1790873936000` ms. The fixture carries no exercise
+type, so the isolation replay is the C1 no-op (every set isolation; the compound component stays
+zero). Tagging the same sets with the original redesign's types (compound: lunges, chin-ups,
+trap-bar deadlift, pulldowns, cable rows, shoulder press, upright rows; isolation: leg extension,
+raise combo, face pull) gives the typed rows. After the split, the LATS peak is about 0.6938
+(**reduced**, at or above the 0.65 reduce threshold) and the evaluation about 0.5487 (no reduction);
+**no region reaches the 0.80 skip threshold, so this fixture no longer exercises skip**. The
+isolation LATS peak halves to 34.6878% after 24 h without new stimulus.
+
+The fixture carries no weight data, so C2 is neutral and none of these figures change. It also has no
+RIR, so C3 uses the neutral 2-RIR default and the same isolation/typed figures; a uniform RIR gives
+the RIR rows above.
 
 Compact sessions with involvement 1.0 and no inter-set decay yield:
 

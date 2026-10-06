@@ -480,11 +480,14 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
-    fun replayBackExercisesAreReducedAtEvaluationAndSkippedAtPeak() {
+    fun replayBackExerciseIsReducedAtPeakButNotAtEvaluationAfterTheSplitReBaseline() {
         val calculator = FatigueCalculator()
+        // With BACK split (LATS 0.50 / UPPER_BACK 0.35 / LOWER_BACK 0.15) the LATS peak is
+        // ~0.6938 (>= 0.65 reduce, < 0.80 skip) and the evaluation is ~0.5487 (no reduction), so
+        // this fixture no longer demonstrates the skip threshold.
         for ((instant, expectedSets) in listOf(
-            FatigueReplayFixture.EVALUATION_MILLIS to 3,
-            FatigueReplayFixture.PEAK_MILLIS to null
+            FatigueReplayFixture.EVALUATION_MILLIS to 4,
+            FatigueReplayFixture.PEAK_MILLIS to 3
         )) {
             val plan = engine.plan(
                 request(

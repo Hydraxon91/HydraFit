@@ -55,4 +55,47 @@ class ExerciseEncodingTest {
         assertEquals(emptyMap(), decodeInvolvements(null))
         assertEquals(emptyMap(), decodeInvolvements(""))
     }
+
+    @Test
+    fun dropsIndividuallyMalformedTokensWithoutKeepingAnEntry() {
+        // Missing separator, extra separator, non-numeric weight, unknown name, empty weight.
+        assertEquals(emptyMap(), decodeInvolvements("LATS"))
+        assertEquals(emptyMap(), decodeInvolvements("LATS:1.0:2.0"))
+        assertEquals(emptyMap(), decodeInvolvements("LATS:abc"))
+        assertEquals(emptyMap(), decodeInvolvements("NOT_A_MUSCLE:1.0"))
+        assertEquals(emptyMap(), decodeInvolvements("LATS:"))
+    }
+
+    @Test
+    fun keepsValidTokensAlongsideMalformedOnes() {
+        assertEquals(
+            mapOf(MuscleGroup.LATS to 1.0, MuscleGroup.TRICEPS to 0.4),
+            decodeInvolvements("LATS:1.0,BICEPS:bad,TRICEPS:0.4")
+        )
+    }
+
+    @Test
+    fun aMalformedTokenDoesNotDiscardValidLegacyExpansion() {
+        assertEquals(
+            mapOf(
+                MuscleGroup.ABS to 0.35,
+                MuscleGroup.OBLIQUES to 0.15,
+                MuscleGroup.BICEPS to 1.0
+            ),
+            decodeInvolvements("CORE:0.5,NOT_A_MUSCLE:1.0,BICEPS:1.0")
+        )
+    }
+
+    @Test
+    fun sumsDuplicateContributionsForTheSameMuscle() {
+        assertEquals(mapOf(MuscleGroup.LATS to 0.5), decodeInvolvements("LATS:0.3,LATS:0.2"))
+        assertEquals(
+            mapOf(
+                MuscleGroup.LATS to 1.0,
+                MuscleGroup.UPPER_BACK to 0.35,
+                MuscleGroup.LOWER_BACK to 0.15
+            ),
+            decodeInvolvements("BACK:1.0,LATS:0.5")
+        )
+    }
 }
