@@ -1,7 +1,11 @@
 # Exercise catalog — CAT-P1 researched rows (first batch)
 
-Status: research batch (docs only), 2026-10-06. **No code, schema or seed change.** These
-rows are reviewed here before any of them become `DefaultExercises.kt` entries; that
+Status: **DRAFT UNDER CORRECTION (2026-10-06)** — not accepted as CAT-P1 research yet.
+A review found the weights were role-assigned rather than EMG-derived, equipment and
+movement identity were not verified against the cited rows, several rows duplicate existing
+seed movements, and the muscle folding predates the 21-group extension. See the repair
+criteria in `PLANS.md` ("CAT-P1 draft UNDER CORRECTION"). **No code, schema or seed change.**
+These rows are reviewed here before any of them become `DefaultExercises.kt` entries; that
 implementation is the separately gated CAT-P2/P3/P4. Method and sources are defined in
 [`docs/exercise-catalog-sources.md`](exercise-catalog-sources.md) (CAT-P0).
 
@@ -14,10 +18,11 @@ implementation is the separately gated CAT-P2/P3/P4. Method and sources are defi
 - **Weights:** explicit per CAT-P0's `%MVIC` bands (`>60% → 1.0`, `41–60% → 0.7`,
   `21–40% → 0.5`, `0–20% → 0.3`). Rows without a direct EMG source are marked
   **family-inferred** in the `source(s)` column (nearest same-mechanism family evidence).
-- **Enums:** no extension — every row uses an existing `MovementPattern` (14) and
-  `MuscleGroup` (17). Where the source dataset has a muscle with no HydraFit group
-  (traps, abductors/adductors, neck), it is folded into the nearest existing group
-  (`UPPER_BACK`, `GLUTES`) or omitted; see "To verify in CAT-P2".
+- **Enums:** `MovementPattern` is unchanged (14). `MuscleGroup` was extended to **21** on
+  2026-10-06 (`ADDUCTORS`, `HIP_ABDUCTORS`, `TRAPS`, `NECK`); the rows below predate that
+  extension and still fold traps → `UPPER_BACK` and abductors/adductors → `GLUTES`, which
+  the repair must re-map. Trapezius rows must follow the `TRAPS`/`UPPER_BACK` boundary rule
+  in `docs/exercise-catalog-sources.md`.
 - **Data format (eventual):** hand-written Kotlin `ex(...)` in `DefaultExercises.kt`,
   compile-checked, plus a data-quality test.
 - **Equipment:** `requiredEquipment` lists the HydraFit `EquipmentTag` ids; bodyweight-only
@@ -182,9 +187,10 @@ least one seeded exercise, so CAT-P2/P3 does not need to invent a fallback for a
 
 ## To verify in CAT-P2
 
-1. **`traps` / adductor mapping.** Several rows fold `traps` → `UPPER_BACK` and
-   `abductors`/`adductors` → `GLUTES`; confirm these are acceptable, or defer the affected
-   rows until a `TRAPS`/`ADDUCTORS` group is considered (would be a separate enum change).
+1. **`traps` / adductor mapping.** `ADDUCTORS`, `HIP_ABDUCTORS`, `TRAPS` and `NECK` now
+   exist, so re-map every folded row: adduction → `ADDUCTORS`, abduction → `HIP_ABDUCTORS`,
+   trapezius-primary work → `TRAPS` (never alongside `UPPER_BACK` for the same work), neck
+   work → `NECK`. This is part of the CAT-P1 repair, not a remaining open question.
 2. **`Bodyweight Flyes`** is a floor-slide variant; confirm it belongs in the batch (it is
    the weakest row) or drop it.
 3. **`push-up-to-side-plank` / `push-up-wide`** mix a core and push pattern; confirm the
