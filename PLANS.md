@@ -22,6 +22,14 @@
 | RIR guidance & rough estimation | PLANNED | Item 9: B1 guidance/quick-picks in M4; B2/B3 remain decision-gated, not required for M4. |
 | Open Questions / Later | LATER | See section below; nothing scheduled. |
 
+> **Next work sequence (approved 2026-10-06).** Ordered, separately gated steps; each is planned and approved at its own session boundary. The section/skill each step details lives under "Product milestones", "Retained roadmap items" or the Oct 6 follow-up.
+> 1. **Close 0.2.3 and ship.** Live 0.2.3 review S-items (S1-005, S3-002, S3-003, S5-004, S6-005; S6-002/S6-004 are already resolved by C5/P2b), the residual measurements (Android-driver timing, valid release jank baseline, AI-engine timings), and R3-09/R3-10 verification, then tag `v0.2.3`. See "0.2.3 — performance review" and `docs/review-0.2.3.md`.
+> 2. **M3 — "Build Your Training".** Item 7 (Settings Consolidation, quick win), then item 6 (Dynamic Exercise Substitution), then OF-11 (routines) / OF-12 (scheduling). See "Core planning items — M3".
+> 3. **VOL-01 — direct/indirect volume policy.** The Oct 6 live-testing finding (low direct arm volume, substantial indirect credit). See "VOL-01" under the Oct 6 follow-up.
+> 4. **OF-01 — local backup/export and restore.** See "OF-01 — Local backup/export and restore" in the offline-first backlog.
+>
+> Not scheduled in this sequence: M8, BACK chunks 3/4, the on-device engine flakiness diagnostic, item 9 B1 (M4), and the 0.2.3 review cleanup/test-hardening lists.
+
 > **Archived 2026-10-03** (into [docs/plans-archive.md](docs/plans-archive.md#2026-10-03--v021-and-v022-released)): the complete 0.2.1 and 0.2.2 release plans (0.2.1 Q1–Q6; 0.2.2 review phases, RF triage, R0 inventory/slices). **Archived 2026-10-02** (into [docs/plans-archive.md](docs/plans-archive.md#2026-10-02--v020-feature-cycle-release-pipeline-and-dropped-item)): Roadmap 2b S1–S5, items 1/2/2b/3, release pipeline C1–C6, and the dropped item 5. Earlier archives: the BACK fatigue investigation and the fatigue-model redesign.
 
 ## Process
