@@ -76,9 +76,10 @@ All calibration values live in `FatigueConfig`. They are tunable model parameter
 The muscle set was refined in MUS-P1 (2026-10-06): the former `CHEST`, `BACK`,
 `SHOULDERS` and `CORE` were split into the groups listed below (17 total). Stored
 legacy names expand on read in `decodeInvolvements`, so historical rows keep
-contributing; `CustomExerciseDedupe` merges any custom exercise renamed onto a seeded
-one. The regression fixture below predates the split (its `BACK` work is now `LATS` /
-`UPPER_BACK` / `LOWER_BACK`).
+contributing; `CustomExerciseDedupe` merges a custom exercise whose normalized name
+matches a seeded one, preserving its differing edits as an override. The regression
+fixture below predates the split (its `BACK` work is now `LATS` / `UPPER_BACK` /
+`LOWER_BACK`).
 
 | Parameter | Default |
 | --- | --- |

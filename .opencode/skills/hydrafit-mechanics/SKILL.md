@@ -98,9 +98,13 @@ There are three distinct locations for this map:
 3. `workoutSet.involvements`: effective muscle mapping snapshotted when logged.
 
 `CustomExerciseDedupe` runs at startup after seeding: a custom exercise whose name
-matches a seeded exercise is merged into the seeded id (history/PR reassigned, custom
-row removed). The 17-group set and the muscle-split mechanism are recorded in PLANS.md
-and `docs/exercise-catalog-sources.md`.
+matches a seeded exercise after normalization (trim, collapse whitespace, lowercase) is
+merged into the seeded id. History and plan entries are reassigned; the custom's
+differing equipment, pattern, unilateral flag and involvement weights are preserved as a
+canonical override (editor-default values are not materialized); personal records are
+merged by weight, then reps, then timestamp; the custom override and row are removed.
+The 17-group set and the muscle-split mechanism are recorded in PLANS.md and
+`docs/exercise-catalog-sources.md`.
 
 `SqlDelightExerciseCatalog` overlays nullable override fields onto catalog rows.
 Display groups are derived from the resolved map: weight `>= 0.7` is primary,

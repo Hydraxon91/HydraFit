@@ -114,7 +114,8 @@ id | name | requiredEquipment | movementPattern | unilateral | involvements | so
 
 1. Confirm the exact first-batch size (~+100) and the equipment-tag list.
 2. Confirm the source set above (free-exercise-db + ExRx + the EMG reviews).
-3. Decide whether custom exercises that duplicate a newly seeded name are merged (the
-   existing `CustomExerciseDedupe` already does this for matching names).
+3. Custom exercises that duplicate a newly seeded name are merged by `CustomExerciseDedupe`
+   (normalized name match); their history, personal records and differing field edits are
+   preserved, so newly seeded names need not avoid existing custom names.
 4. Decide whether per-exercise involvement weights are authored only where EMG evidence
    is available, or back-filled to the nearest family evidence and labeled as such.
