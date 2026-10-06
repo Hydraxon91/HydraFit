@@ -68,6 +68,20 @@ Publishing requires four repository secrets (Settings → Secrets and variables 
 
 This project was built with heavy use of an AI coding agent ([opencode](https://opencode.ai)), directed through an explicit architecture spec and a project-local `AGENTS.md` covering commit discipline, testing standards, and scope boundaries — worth a look if you're curious how that workflow holds up on a real, evolving codebase. Domain logic ships with unit tests, and the domain layer is fully platform-independent and testable without an emulator.
 
+## Credits
+
+Built by [Hydraxon](https://github.com/Hydraxon91/HydraFit).
+
+Exercise catalog metadata (names, muscle targets, equipment, mechanics) is derived from [yuhonas/free-exercise-db](https://github.com/yuhonas/free-exercise-db) (Unlicense, public domain), with muscle classification cross-checked against [ExRx.net](https://exrx.net) facts. The per-muscle involvement weights are HydraFit model parameters calibrated against the following surface-EMG systematic reviews (cited as sources of facts; no text or figures reproduced):
+
+- Krause Neto et al. (2020), *Gluteus Maximus Activation during Common Strength and Hypertrophy Exercises: A Systematic Review*, Journal of Sports Science and Medicine 19(1):195–203.
+- Martín-Fuentes, Oliva-Lozano & Muyor (2020), *Electromyographic activity in deadlift exercise and its variants. A systematic review*, PLoS ONE 15(2):e0229507.
+- Martín-Fuentes, Oliva-Lozano & Muyor (2020), *Evaluation of the Lower Limb Muscles' Electromyographic Activity during the Leg Press Exercise and Its Variants: A Systematic Review*, IJERPH 17(13):4626.
+- Oliva-Lozano & Muyor (2020), *Core Muscle Activity during Physical Fitness Exercises: A Systematic Review*, IJERPH 17(12):4306.
+- García-Valverde et al. (2025), *Electromyographic activity of the lower limb muscles during squat exercise and its derivatives: a systematic review with meta-analysis*, Cultura, Ciencia y Deporte 20(66):2261.
+
+No exercise media is bundled. Full source and provenance notes are in [`docs/exercise-catalog-sources.md`](docs/exercise-catalog-sources.md).
+
 ## License
 MIT
 

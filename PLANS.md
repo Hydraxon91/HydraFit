@@ -143,6 +143,17 @@ no suitable available candidate exists. Do not silently broaden P6b's mutation s
 - **P7b — verify.** `SettingsViewModelTest` remains valid; manual smoke check.
 **Files:** `feature/settings/SettingsScreen.kt` + `strings.xml`.
 
+#### 7b. Credits / Acknowledgments screen
+**Goal:** surface the project's third-party credits and its own MIT license inside the app (Settings → Acknowledgments), alongside a live app version.
+**Decisions (2026-10-06):** project license stays **MIT** (AGPL v3.0 was considered and rejected in favour of adoption/portfolio reach); credits are recorded in `README.md` (done) **and** shown in-app; author shown as **Hydraxon** (linking to the repo); third-party credit targets: the five EMG reviews cited by CAT-P1 — `Krause Neto 2020` (JSSM 19:195), `Martín-Fuentes 2020` (PLoS ONE 15(2):e0229507), `Martín-Fuentes 2020` (IJERPH 17(13):4626), `Oliva-Lozano & Muyor 2020` (IJERPH 17(12):4306), `García-Valverde 2025` (Cultura, Ciencia y Deporte 20(66):2261) — plus `yuhonas/free-exercise-db` (Unlicense) and ExRx.net (facts cross-check). FAQ: no CLA, no trademark, no NOTICE file.
+**Phases:**
+- **P7b-a — README credits.** `## Credits` section (done with this change).
+- **P7b-b — version provider.** Add `buildConfigField("String", "VERSION_NAME", ...)` to `androidApp/build.gradle.kts` and an `AppVersionProvider` interface in `:core:userdata` (Android impl reads `BuildConfig.VERSION_NAME`; iOS stub returns `"dev"`); register both in Koin. **BuildConfig change — needs its own approval per AGENTS.md.**
+- **P7b-c — screen.** `feature/settings` Acknowledgments sub-screen (credits data, thin ViewModel, screen, `acknowledgmentsRoute`/destination) plus an `OutlinedButton` at the bottom of Settings; strings in the feature resources. No new feature module.
+- **P7b-d — verify.** `AcknowledgmentsViewModelTest`; existing `KoinModulesVerificationTest` covers the new bindings; `ktlintCheck` + `testAndroidHostTest` + `assembleDebug`; emulator smoke (Settings → Acknowledgments → Back).
+**Files:** `README.md`; `androidApp/build.gradle.kts`; `core/userdata/.../AppVersionProvider*.kt`; `feature/settings/.../Acknowledgments*.kt`, `SettingsScreen.kt`, `SettingsModule.kt`, `composeResources/values/strings.xml`; `AcknowledgmentsViewModelTest.kt`.
+**Not in scope:** CLA, trademark, NOTICE file, or any license change beyond MIT.
+
 ### Guidance and advanced inputs — M4 / M7 (formerly Priority 3)
 
 #### 8. Subjective Fatigue Adjustment
