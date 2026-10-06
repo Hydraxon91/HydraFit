@@ -1,13 +1,14 @@
 # M1 / 0.2.3 performance baseline
 
-Status: **partial P0 baseline**, measured 2026-10-06 against `99830c1`.
-No application, dependency, schema, build or signing configuration changed.
+Status: **P0 baseline (partial)**, measured 2026-10-06 against `99830c1`.
+No application, dependency, schema, build, CI or signing configuration changed.
 These measurements identify investigation candidates; they do not approve fixes.
 
 ## Scope and reproducibility
 
-Approved work: release APK contents and synthetic host measurements. No phone data
-was accessed. Temporary harnesses ran outside the repo and were removed afterwards.
+Approved work: release APK contents, synthetic host measurements, and an
+emulator release-startup measurement. No phone data was accessed. Temporary
+harnesses ran outside the repo (or were deleted from it) and were removed afterwards.
 
 - Host: Apple M1, 16 GiB RAM, macOS, Temurin JDK 17.
 - Release artifact: `:androidApp:assembleRelease`, existing configuration, unsigned.
@@ -123,7 +124,56 @@ one open session is returned at each size.
 
 Indexes are an investigation candidate, not a conclusion: an all-history query
 still has to materialize every row even with an ordering index, and indexes add
-write/migration cost. Android query plans and repository timings remain unmeasured.
+write/migration cost.
+
+### SQLDelight repository mapping (milliseconds)
+
+Temporary host test against the real `SqlDelightWorkoutLogRepository` on an
+in-memory `JdbcSqliteDriver` with a seeded catalog. Measures SQL plus result
+decoding plus domain mapping end to end.
+
+| Sets | `loggedSets()` median / p95 | `loggedSetsFlow().first()` median / p95 | `all()` median / p95 |
+| ---: | ---: | ---: | ---: |
+| 1,000 | 5.94 / 9.94 | 7.15 / 7.90 | 4.24 / 4.49 |
+| 10,000 | 43.46 / 52.30 | 51.40 / 59.67 | 43.12 / 47.02 |
+| 50,000 | 294.48 / 473.02 | 253.33 / 284.33 | 223.83 / 241.28 |
+
+Mapping roughly triples the raw-SQL cost at 50,000 sets (mapping ≈ 294 ms vs raw
+statement ≈ 82 ms), so repository decoding/domain mapping is a larger contributor
+than the statement itself on the full-history path. These are in-memory JDBC host
+numbers; Android disk IO and SQLDelight Android-driver behavior are not included.
+
+### Deterministic planner generation (milliseconds)
+
+Temporary host test calling the real `DeterministicWorkoutPlannerEngine.generatePlan`
+with a synthetic 52-exercise catalog, 6 days, AUTO split and a varied fatigue map.
+
+| Catalog | Days | Runs | Median | p95 |
+| ---: | ---: | ---: | ---: | ---: |
+| 52 | 6 | 30 | 0.575 | 1.082 |
+
+Plan generation is sub-millisecond on the host and is not an evident bottleneck at
+this catalog size. This is engine-only; it excludes `ObserveWorkoutPlanInputsUseCase`
+flow combination, repository queries and the AI engines.
+
+## Release startup on the emulator
+
+The release build was measured on `emulator-5554` without changing build or signing
+configuration: a scratch copy of the unsigned release APK was `zipalign`ed and
+signed with the **debug keystore**, whose certificate already matches the installed
+app, then `adb install -r` replaced it with **data preserved** (verified: installed
+and signed certs both `35F466…0269`; no uninstall or clear). Cold starts force-stop
+first; warm starts return from HOME with the process alive.
+
+| Start type | Runs (WaitTime ms) | Median |
+| --- | --- | ---: |
+| Cold | 1422, 1188, 1243, 1384, 1276 | ~1276 |
+| Warm | 456, 245, 333, 420, 399 | ~399 |
+
+Cold startup includes process creation and startup seeding/backfill (`initKoin` in
+`Koin.kt`), which were not isolated; the app's existing data was small, so the
+seeding/backfill cost here reflects a light history. This is emulator timing on a
+developer machine, not a physical-device or app-store baseline.
 
 ## Source-traced recomputation/startup paths
 
@@ -142,14 +192,17 @@ write/migration cost. Android query plans and repository timings remain unmeasur
 1. Keep these host datasets/protocol fixed for before/after comparisons. Any
    selected change should improve its measured path without moving fatigue replay
    outputs or weakening history/session invariants.
-2. Investigate keeping host 10,000-set fatigue p95 below 25 ms and full SQL read
-   p95 below 20 ms on this host; these are baseline regression budgets, not Android
-   UX targets. Stress-case budgets need a selected supported history size first.
+2. Investigate keeping host 10,000-set fatigue p95 below 25 ms, raw SQL read p95
+   below 20 ms, and repository mapping p95 below 60 ms on this host; these are
+   baseline regression budgets, not Android UX targets. Stress-case budgets need a
+   selected supported history size first.
 3. Investigate an arm64-focused release artifact below **40 decimal MB** while
    retaining local AI. ABI arithmetic makes this plausible, but distribution,
    coverage and a built-artifact check must precede accepting that target.
-4. Define Android startup/end-to-end budgets only after repeatable release-device
-   measurements. Do not infer a 16 ms UI-frame guarantee from host timings.
+4. Keep emulator release cold start under ~1.6 s and warm under ~500 ms as
+   regression budgets on this host/emulator, and set physical-device budgets only
+   after repeatable device measurements. Do not infer a 16 ms UI-frame guarantee
+   from host or emulator timings.
 
 ## Verification and remaining gaps
 
@@ -159,15 +212,19 @@ write/migration cost. Android query plans and repository timings remain unmeasur
   successful in 8 seconds. Most checks were up-to-date; database host tests were
   restored from cache. This validates the unchanged baseline, not newly executed
   tests or a benchmark timing for those checks.
+- Scratch release install: `apksigner verify` matched the installed certificate;
+  `adb install -r` succeeded with data preserved (no clear/uninstall).
+- Temporary measurement tests (`:core:database` and `:core:domain`) compiled and ran;
+  both files were deleted and `git status` is clean.
 
-**P0 is not complete:** release startup could not be measured with the current
-unsigned APK installed unchanged. A signed release deployment strategy and its
-emulator-data/signature compatibility need approval; no signing/uninstall/clear
-workaround was applied. Also remaining: real SQLDelight mapping timings,
-end-to-end planner-input/generation measurements, Android disk IO, startup
-seeding/backfill timing, emission counts and UI jank. No phone-data audit or
-full migration replay was performed; the approved chunk used synthetic data only.
+**P0 remaining:** end-to-end planner-input mapping (flow combination +
+`ObserveWorkoutPlanInputsUseCase`) is still unmeasured; the planner figure is
+engine-only. Startup seeding/backfill is included in cold start but not isolated.
+Android disk IO, UI jank/recomposition, AI-engine timings, emission counts, and a
+larger realistic history on-device remain. No phone-data audit or full migration
+replay was performed; the approved chunk used synthetic data only. The release
+startup figures are emulator numbers, not physical-device or store-rollout figures.
 
-Next action: approve measurement setup for these gaps and proposed targets, then
-choose one evidenced optimization under a separate P2 plan. No optimization,
-new permanent benchmark module, CI change or migration was introduced here.
+Next action: approve the proposed targets, then choose one evidenced optimization
+under a separate P2 plan. No optimization, new permanent benchmark module, CI
+change or migration was introduced here.
