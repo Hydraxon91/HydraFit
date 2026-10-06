@@ -28,6 +28,7 @@ import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_heatmap_title
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_percentage
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_percentage_near_limit
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_abs
+import hydrafit.feature.fatigueheatmap.generated.resources.muscle_adductors
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_biceps
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_calves
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_chest_lower
@@ -36,12 +37,15 @@ import hydrafit.feature.fatigueheatmap.generated.resources.muscle_forearms
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_front_delts
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_glutes
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_hamstrings
+import hydrafit.feature.fatigueheatmap.generated.resources.muscle_hip_abductors
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_lats
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_lower_back
+import hydrafit.feature.fatigueheatmap.generated.resources.muscle_neck
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_obliques
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_quads
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_rear_delts
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_side_delts
+import hydrafit.feature.fatigueheatmap.generated.resources.muscle_traps
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_triceps
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_upper_back
 import hydrafit.feature.fatigueheatmap.generated.resources.nav_label
@@ -137,4 +141,8 @@ private fun MuscleGroup.labelResource(): StringResource = when (this) {
     MuscleGroup.HAMSTRINGS -> Res.string.muscle_hamstrings
     MuscleGroup.GLUTES -> Res.string.muscle_glutes
     MuscleGroup.CALVES -> Res.string.muscle_calves
+    MuscleGroup.ADDUCTORS -> Res.string.muscle_adductors
+    MuscleGroup.HIP_ABDUCTORS -> Res.string.muscle_hip_abductors
+    MuscleGroup.TRAPS -> Res.string.muscle_traps
+    MuscleGroup.NECK -> Res.string.muscle_neck
 }

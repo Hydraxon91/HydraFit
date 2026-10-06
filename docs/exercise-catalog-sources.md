@@ -98,8 +98,16 @@ id | name | requiredEquipment | movementPattern | unilateral | involvements | so
   `TRAP_BAR`, `DIP_BAR`, `AB_ROLLER` (some already added in MUS-P1).
 - Data format: **hand-written Kotlin `ex(...)`** (compile-checked) plus a data-quality
   test; revisit a checked-in data file past ~250 entries.
-- Enums: stay within the existing `MovementPattern` and `MuscleGroup` (17 groups) values
-  unless a separate, approved change extends them.
+- Enums: stay within the existing `MovementPattern` and `MuscleGroup` values unless a
+  separate, approved change extends them. `MuscleGroup` was extended to **21** on
+  2026-10-06 with `ADDUCTORS`, `HIP_ABDUCTORS`, `TRAPS` and `NECK` (see
+  `docs/fatigue-formula.md`).
+
+**Trapezius rule.** A row must not record the same trapezius work as both `TRAPS` and
+`UPPER_BACK`. Use `UPPER_BACK` where the trapezius is a synergist (rows, upright rows,
+pull-downs); reserve `TRAPS` for trapezius-primary work (shrugs). `TRAPS` is excluded from
+the deterministic planner's weekly-volume deficit targeting (fatigue still counts it), so a
+second deficit window cannot double-count the same sets.
 
 ## Licensing summary for the repo
 

@@ -50,7 +50,8 @@ class FatigueCalculatorTest {
             val hours = when (muscle) {
                 MuscleGroup.FRONT_DELTS, MuscleGroup.SIDE_DELTS, MuscleGroup.REAR_DELTS -> 21
                 MuscleGroup.BICEPS, MuscleGroup.TRICEPS, MuscleGroup.FOREARMS,
-                MuscleGroup.CALVES, MuscleGroup.ABS, MuscleGroup.OBLIQUES -> 18
+                MuscleGroup.CALVES, MuscleGroup.ABS, MuscleGroup.OBLIQUES,
+                MuscleGroup.NECK -> 18
                 else -> 24
             }
             val sets = List(24) { loggedSet(muscle) }

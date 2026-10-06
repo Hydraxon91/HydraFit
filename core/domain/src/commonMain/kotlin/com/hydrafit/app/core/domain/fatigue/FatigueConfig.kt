@@ -140,7 +140,11 @@ data class FatigueConfig(
             MuscleGroup.FOREARMS to 18.hours,
             MuscleGroup.CALVES to 18.hours,
             MuscleGroup.ABS to 18.hours,
-            MuscleGroup.OBLIQUES to 18.hours
+            MuscleGroup.OBLIQUES to 18.hours,
+            MuscleGroup.ADDUCTORS to 24.hours,
+            MuscleGroup.HIP_ABDUCTORS to 24.hours,
+            MuscleGroup.TRAPS to 24.hours,
+            MuscleGroup.NECK to 18.hours
         )
     }
 }

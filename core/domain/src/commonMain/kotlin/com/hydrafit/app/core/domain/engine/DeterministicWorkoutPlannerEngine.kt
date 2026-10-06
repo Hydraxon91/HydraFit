@@ -197,12 +197,21 @@ class DeterministicWorkoutPlannerEngine(
         )
     }
 
+    /**
+     * Involvements that drive weekly-volume deficit targeting. TRAPS is excluded: the trapezius
+     * shares most work with UPPER_BACK, so giving it its own deficit window would double-count the
+     * same sets. It still contributes to fatigue and soreness (see [weightedFatigue]); only the
+     * weekly volume ledger ignores it, until a dedicated policy is agreed (VOL-01).
+     */
+    private fun Exercise.plannerInvolvements(): Map<MuscleGroup, Double> =
+        effectiveInvolvements.filterKeys { it !in PLANNER_DEFERRED_MUSCLES }
+
     /** The largest weighted shortfall among the muscles this exercise trains below their target. */
     private fun deficitScore(
         exercise: Exercise,
         weeklyVolume: Map<MuscleGroup, Double>,
         target: VolumeTarget
-    ): Double = exercise.effectiveInvolvements
+    ): Double = exercise.plannerInvolvements()
         .filter { (muscle, _) -> (weeklyVolume[muscle] ?: 0.0) < target.targetSets }
         .maxOfOrNull { (muscle, weight) ->
             (target.targetSets - weeklyVolume.getValue(muscle)) * weight
@@ -213,7 +222,7 @@ class DeterministicWorkoutPlannerEngine(
         exercise: Exercise,
         weeklyVolume: Map<MuscleGroup, Double>,
         target: VolumeTarget
-    ): Boolean = exercise.effectiveInvolvements.any { (muscle, _) ->
+    ): Boolean = exercise.plannerInvolvements().any { (muscle, _) ->
         (weeklyVolume[muscle] ?: 0.0) < target.targetSets
     }
 
@@ -222,10 +231,13 @@ class DeterministicWorkoutPlannerEngine(
         exercise: Exercise,
         weeklyVolume: Map<MuscleGroup, Double>,
         target: VolumeTarget
-    ): Boolean = exercise.effectiveInvolvements.isNotEmpty() &&
-        exercise.effectiveInvolvements.all { (muscle, _) ->
-            (weeklyVolume[muscle] ?: 0.0) >= target.maxSets
-        }
+    ): Boolean {
+        val targeted = exercise.plannerInvolvements()
+        return targeted.isNotEmpty() &&
+            targeted.all { (muscle, _) ->
+                (weeklyVolume[muscle] ?: 0.0) >= target.maxSets
+            }
+    }
 
     private fun intensityScale(isDeload: Boolean): Double =
         if (isDeload) periodization.deloadIntensityScale else 1.0
@@ -324,6 +336,9 @@ class DeterministicWorkoutPlannerEngine(
 
         /** Any user-added equipment is ranked after the built-ins until it has its own preference. */
         const val CUSTOM_EQUIPMENT_RANK = 20
+
+        /** Muscles excluded from weekly-volume deficit targeting (still counted for fatigue). */
+        private val PLANNER_DEFERRED_MUSCLES = setOf(MuscleGroup.TRAPS)
 
         private val EQUIPMENT_RANK = mapOf(
             EquipmentTag.BARBELL to 0,

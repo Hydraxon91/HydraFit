@@ -88,7 +88,9 @@ from a recipe. Its base half-lives are distinct from the scaled effective half-l
 The database encodes involvements as comma-separated `MUSCLE:weight` pairs,
 for example `CHEST_UPPER:0.6,CHEST_LOWER:0.6,TRICEPS:0.4`.
 `ExerciseEncoding.kt` owns encoding and decoding; encoding sorts by muscle name.
-`MuscleGroup` has 17 groups; `decodeInvolvements` expands legacy broad names
+`MuscleGroup` has 21 groups (`ADDUCTORS`, `HIP_ABDUCTORS`, `TRAPS`, `NECK` added
+2026-10-06; `TRAPS` is excluded from planner volume-deficit targeting and must not
+double-count with `UPPER_BACK`); `decodeInvolvements` expands legacy broad names
 (`CHEST`/`BACK`/`SHOULDERS`/`CORE`) on read, so historical rows keep contributing.
 
 There are three distinct locations for this map:

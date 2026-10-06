@@ -74,6 +74,7 @@ import hydrafit.feature.equipment.generated.resources.equipment_tier_mid
 import hydrafit.feature.equipment.generated.resources.equipment_tier_primary
 import hydrafit.feature.equipment.generated.resources.equipment_unilateral
 import hydrafit.feature.equipment.generated.resources.muscle_abs
+import hydrafit.feature.equipment.generated.resources.muscle_adductors
 import hydrafit.feature.equipment.generated.resources.muscle_biceps
 import hydrafit.feature.equipment.generated.resources.muscle_calves
 import hydrafit.feature.equipment.generated.resources.muscle_chest_lower
@@ -82,12 +83,15 @@ import hydrafit.feature.equipment.generated.resources.muscle_forearms
 import hydrafit.feature.equipment.generated.resources.muscle_front_delts
 import hydrafit.feature.equipment.generated.resources.muscle_glutes
 import hydrafit.feature.equipment.generated.resources.muscle_hamstrings
+import hydrafit.feature.equipment.generated.resources.muscle_hip_abductors
 import hydrafit.feature.equipment.generated.resources.muscle_lats
 import hydrafit.feature.equipment.generated.resources.muscle_lower_back
+import hydrafit.feature.equipment.generated.resources.muscle_neck
 import hydrafit.feature.equipment.generated.resources.muscle_obliques
 import hydrafit.feature.equipment.generated.resources.muscle_quads
 import hydrafit.feature.equipment.generated.resources.muscle_rear_delts
 import hydrafit.feature.equipment.generated.resources.muscle_side_delts
+import hydrafit.feature.equipment.generated.resources.muscle_traps
 import hydrafit.feature.equipment.generated.resources.muscle_triceps
 import hydrafit.feature.equipment.generated.resources.muscle_upper_back
 import hydrafit.feature.equipment.generated.resources.pattern_biceps_isolation
@@ -756,6 +760,10 @@ private fun MuscleGroup.labelResource(): StringResource = when (this) {
     MuscleGroup.HAMSTRINGS -> Res.string.muscle_hamstrings
     MuscleGroup.GLUTES -> Res.string.muscle_glutes
     MuscleGroup.CALVES -> Res.string.muscle_calves
+    MuscleGroup.ADDUCTORS -> Res.string.muscle_adductors
+    MuscleGroup.HIP_ABDUCTORS -> Res.string.muscle_hip_abductors
+    MuscleGroup.TRAPS -> Res.string.muscle_traps
+    MuscleGroup.NECK -> Res.string.muscle_neck
 }
 
 private fun MovementPattern.labelResource(): StringResource = when (this) {

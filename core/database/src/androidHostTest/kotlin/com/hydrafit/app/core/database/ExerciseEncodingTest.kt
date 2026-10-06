@@ -87,6 +87,18 @@ class ExerciseEncodingTest {
     }
 
     @Test
+    fun roundTripsTheExtendedMuscleGroups() {
+        val involvements = mapOf(
+            MuscleGroup.ADDUCTORS to 1.0,
+            MuscleGroup.HIP_ABDUCTORS to 0.5,
+            MuscleGroup.TRAPS to 0.5,
+            MuscleGroup.NECK to 0.3
+        )
+
+        assertEquals(involvements, decodeInvolvements(encodeInvolvements(involvements)))
+    }
+
+    @Test
     fun sumsDuplicateContributionsForTheSameMuscle() {
         assertEquals(mapOf(MuscleGroup.LATS to 0.5), decodeInvolvements("LATS:0.3,LATS:0.2"))
         assertEquals(

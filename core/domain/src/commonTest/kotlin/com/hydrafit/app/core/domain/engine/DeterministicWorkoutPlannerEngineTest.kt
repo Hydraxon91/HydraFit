@@ -13,6 +13,7 @@ import kotlin.math.nextUp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class DeterministicWorkoutPlannerEngineTest {
@@ -188,6 +189,28 @@ class DeterministicWorkoutPlannerEngineTest {
 
         val pushIds = plan.days.flatMap { it.exercises.map { it.exerciseId } }
         assertEquals(listOf("push-up"), pushIds)
+    }
+
+    @Test
+    fun defersTrapsFromWeeklyVolumeDeficitTargeting() {
+        // A trapezius-only accessory has no weekly-volume deficit of its own (TRAPS is excluded from
+        // planner targeting, since it overlaps UPPER_BACK), so it is not pulled in to chase volume.
+        val trapsOnly = Exercise(
+            id = "shrug",
+            name = "shrug",
+            requiredEquipment = emptySet(),
+            primaryMuscles = setOf(MuscleGroup.TRAPS),
+            movementPattern = MovementPattern.SHOULDER_ISOLATION,
+            involvements = mapOf(MuscleGroup.TRAPS to 1.0)
+        )
+
+        val plan = engine.plan(
+            request(daysPerWeek = 2, equipment = everything),
+            richCatalog() + trapsOnly
+        )
+        val ids = plan.days.flatMap { it.exercises.map { it.exerciseId } }
+
+        assertFalse("shrug" in ids)
     }
 
     @Test

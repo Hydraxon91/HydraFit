@@ -21,4 +21,8 @@
     <string name="muscle_hamstrings">Hamstrings</string>
     <string name="muscle_glutes">Glutes</string>
     <string name="muscle_calves">Calves</string>
+    <string name="muscle_adductors">Adductors</string>
+    <string name="muscle_hip_abductors">Hip abductors</string>
+    <string name="muscle_traps">Traps</string>
+    <string name="muscle_neck">Neck</string>
 </resources>

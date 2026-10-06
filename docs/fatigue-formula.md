@@ -74,7 +74,9 @@ All calibration values live in `FatigueConfig`. They are tunable model parameter
 **not physiological measurements or facts**.
 
 The muscle set was refined in MUS-P1 (2026-10-06): the former `CHEST`, `BACK`,
-`SHOULDERS` and `CORE` were split into the groups listed below (17 total). Stored
+`SHOULDERS` and `CORE` were split into the groups listed below (17). A follow-up
+extension added `ADDUCTORS`, `HIP_ABDUCTORS`, `TRAPS` and `NECK` (21 total) so catalog
+rows for hip adduction/abduction, shrugs and neck work have an accurate target. Stored
 legacy names expand on read in `decodeInvolvements`, so historical rows keep
 contributing; `CustomExerciseDedupe` merges a custom exercise whose normalized name
 matches a seeded one, preserving its differing edits as an override. The regression
@@ -82,15 +84,24 @@ fixture below maps its archived `BACK` work onto the split regions
 (`LATS` 0.50 / `UPPER_BACK` 0.35 / `LOWER_BACK` 0.15), and its expected scores are
 derived independently from the recurrence below.
 
+**`TRAPS` boundary rule (decided 2026-10-06).** The trapezius overlaps `UPPER_BACK`, so a
+row may carry **either** `TRAPS` **or** `UPPER_BACK` for the same trapezius contribution,
+never both. Where the trapezius is a synergist (rows, upright rows, pull-downs) the work
+is recorded as `UPPER_BACK`; `TRAPS` is reserved for exercises whose primary target is the
+trapezius (shrugs, trap-focused raises). `TRAPS` is also excluded from the deterministic
+planner's weekly-volume deficit targeting (it still contributes to fatigue and soreness),
+because a second deficit window over the same sets would double-count; a dedicated policy
+is deferred to VOL-01.
+
 | Parameter | Default |
 | --- | --- |
 | Capacity `K` | 6 stimulus units |
 | Diminishing scale `D` | 6 stimulus units |
 | Reference reps / exponent | 8 / 0.5 |
 | Rep multiplier range | 0.5–1.5 |
-| CHEST_UPPER, CHEST_LOWER, LATS, UPPER_BACK, LOWER_BACK, QUADS, HAMSTRINGS, GLUTES half-life | 24 h |
+| CHEST_UPPER, CHEST_LOWER, LATS, UPPER_BACK, LOWER_BACK, QUADS, HAMSTRINGS, GLUTES, ADDUCTORS, HIP_ABDUCTORS, TRAPS half-life | 24 h |
 | FRONT_DELTS, SIDE_DELTS, REAR_DELTS half-life | 21 h |
-| BICEPS, TRICEPS, FOREARMS, CALVES, ABS, OBLIQUES half-life | 18 h |
+| BICEPS, TRICEPS, FOREARMS, CALVES, ABS, OBLIQUES, NECK half-life | 18 h |
 | Missing-muscle fallback half-life | 24 h |
 | Isolation half-life scale (C1) | × 1.0 |
 | Compound half-life scale (C1) | × 1.25 |
