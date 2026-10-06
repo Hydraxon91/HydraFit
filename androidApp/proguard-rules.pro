@@ -23,7 +23,9 @@
 -keepattributes RuntimeVisibleAnnotations,AnnotationDefault,InnerClasses,EnclosingMethod,Signature
 
 -keep class kotlin.Metadata { *; }
--keep class org.koin.** { *; }
+
+# Koin ships its own consumer rules (it adds `-dontwarn org.koin.**`), and definitions/ViewModels
+# resolve at compile time (reified `singleOf`/`get`), so no broad `-keep class org.koin.**` is needed.
 
 # Ktor discovers its engine through META-INF/services when HttpClient() has no explicit engine
 # (see createGeminiHttpClient). Keep the OkHttp container/engine so discovery still resolves.
