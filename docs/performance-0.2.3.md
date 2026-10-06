@@ -1,8 +1,8 @@
 # M1 / 0.2.3 performance baseline
 
-Status: **P0 baseline (partial) + P2a applied**, measured 2026-10-06.
-P0 baselines were taken against `99830c1`; P2a changed only release packaging
-(no application source, dependency, schema, CI or signing change).
+Status: **shipped in 0.2.3** (release APK 24,295,546 B, arm64-v8a, R8), measured
+2026-10-06. P0 baselines were taken against `99830c1`; P2a/P2b/P2c changed packaging,
+shrink rules and repository mapping only.
 
 Applied optimization:
 - **P2a — release ABI filter.** `abiFilters += "arm64-v8a"` on the release build
@@ -395,3 +395,82 @@ startup seeding/dedupe/backfill isolation, and file-backed repository IO.
 Targets approved 2026-10-06. Next action: the chosen P2 optimization (repository
 mapping) under its own gated plan. No optimization, new permanent benchmark module,
 CI change or migration was introduced here.
+
+## Chunk A measurements (2026-10-06, 0.2.3 close)
+
+Release build `:androidApp:assembleRelease` (R8, arm64-only, **debug-key-signed
+scratch**), installed on `emulator-5554` with `install -r` (data preserved; installed
+and signed certs both `35F466…0269`). After the upgrade the DB holds 25 schema version,
+174 exercises, 11 sets, 8 sessions and 3 overrides.
+
+### Release startup (re-measured)
+
+| Start type | Runs (WaitTime ms) | Median |
+| --- | --- | ---: |
+| Cold | 2158, 2182, 2008, 1681, 1500 | ~2008 |
+| Warm | 177, 214, 444, 123, 479 | ~214 |
+
+The first cold launch after install was 5218 ms (post-install dexopt) and is excluded.
+The cold median is above the earlier ~1276 ms on this emulator; the emulator had been
+running a long time and the seeded catalog is larger (174 vs the earlier shape), so
+treat the emulator cold number as noisy. Warm stays under the ~500 ms regression budget.
+
+### Release jank baseline (emulator, no GPU)
+
+`dumpsys gfxinfo com.hydrafit.app` on the debug-key-signed release:
+
+| Interaction | Frames | Janky | 50th | 95th | 99th |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Plan generate, on-device engine (hung) | 457 | 94.3% | 57 ms | 109 ms | 200 ms |
+| Plan generate, Deterministic | 32 | 96.9% | 48 ms | 101 ms | 150 ms |
+| Idle tab switching | 11–24 | 100% | 17–26 ms | 31–53 ms | 38 ms |
+
+The emulator has no GPU and the first sample includes hung LLM/native work, so this is
+not a physical-device or 60 fps baseline. It replaces the inconclusive debug 74.6%
+number with a **release-build** number, but a proper frame-timing measurement
+(Macrobenchmark / `FrameMetricsAggregator`) is still required before any Compose jank
+change.
+
+### AI-engine timings
+
+- **On-device (experimental):** two release runs. One hung at
+  `Generating… 0 / ~2048 tokens · 0.0 tok/s` for >30 s (emitting `0 chars, 0 chunks`
+  every 500 ms) — the known flakiness. The other reached `164 / ~2048 tokens · 1.8 tok/s`;
+  at that rate the ~2048-token target is on the order of ~19 minutes. No usable timing.
+- **Gemini:** not exercised (no API key / network on the emulator).
+- **Deterministic (control):** UI end-to-end generate ~3.3 s wall-clock including tap,
+  recomposition and 1 s polling granularity; the engine itself is sub-millisecond on the
+  host (above). No engine-only on-device number could be isolated without a benchmark
+  harness.
+
+### Android-driver / on-device disk path — not measured
+
+The repo has no instrumented (`androidTest`) harness and the emulator image ships no
+`sqlite3`, so neither the SQLDelight Android driver nor the on-device disk path could be
+timed without adding harness infrastructure (out of this change's scope). The host JDBC
+numbers above remain the closest available proxy and are labelled as such.
+
+### R3-09 upgrade behavior
+
+Installing 0.2.3 over the existing install (data preserved) left every row intact:
+exercise 174→174, workoutSet 11→11, workoutSession 8→8, exerciseOverride 3→3, schema
+`user_version` 25 unchanged, `PRAGMA foreign_key_check` clean, 0 dangling set→exercise
+references. The heatmap rendered the 17-group set, the Equipment list showed the new
+tags (Dip bar, Hack squat machine, Calf raise machine), and catalog search found
+`Cable Crossover` / `Low Cable Crossover`. Legacy broad involvements (`CHEST`,
+`SHOULDERS`, `CORE`) remain stored and expand on read. This is a real install over
+existing on-device data, not a clean v0.2.2-artifact install.
+
+### R3-10 rendering
+
+All 17-group heatmap labels render without truncation at the default emulator size;
+screenshots captured during the run. The legacy-fraction plausibility host harness was
+not run in this session.
+
+### Chunk A residual gaps
+
+- Android-driver / on-device disk timing and engine-only on-device/AI timings need a
+  benchmark/instrumented harness that does not exist in the repo.
+- A physical-device or Macrobenchmark frame-timing baseline is still outstanding.
+- On-device engine flakiness (documented above) remains a separate diagnostic.
+

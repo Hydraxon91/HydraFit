@@ -150,18 +150,32 @@ Could not judge without running more/app
 - **Reviewer claim (relayed):** cannot be judged from source.
 - **Evidence (state, not defect):** `docs/performance-0.2.3.md:147-151,366-371`.
 - **Disposition:** C2 smoke (release build, both engines) after the additive keep rules.
+- **Resolution (2026-10-06, Chunk A):** closed. The C2 minified-R8 smoke generated a real plan on
+  both Gemini and the on-device engine with no serialization/Koin/JNI failure
+  (`docs/performance-0.2.3.md`).
 
 ### R3-09 — Real v0.2.2→v0.2.3 device upgrade
 - **Reviewer claim (relayed):** cannot be judged from source; only one phone copy was checked.
 - **Evidence (state):** `PLANS.md:172` ("10/11 custom merged, the unrelated one kept", one copy).
 - **Disposition:** verification debt; schedule a separate real-data check under the AGENTS.md
   read-only/scratch-copy rules. Not a code fix.
+- **Resolution (2026-10-06, Chunk A):** closed on the emulator. The 0.2.3 release installed over
+  the existing install (data preserved) left every row intact — 174 exercises, 11 sets, 8 sessions,
+  3 overrides, schema version 25 unchanged, `foreign_key_check` clean, 0 dangling set→exercise
+  references — with the 17-group heatmap, the new equipment tags and `Cable Crossover` all present.
+  This is install-over-existing-data, not a clean v0.2.2-artifact install; numbers in
+  `docs/performance-0.2.3.md`.
 
 ### R3-10 — 17-group labels across screen sizes + legacy-fraction plausibility
 - **Reviewer claim (relayed):** cannot be judged from source.
 - **Evidence (state):** labels live in the Fatigue heatmap/Equipment UIs; expansion fractions in
   `ExerciseEncoding.kt:28-41`.
 - **Disposition:** verification debt; emulator screenshots + `scripts/snap.sh` review. Not a code fix.
+- **Resolution (2026-10-06, Chunk A):** rendering verified — the heatmap renders all 17-group labels
+  (Upper/Lower chest, Lats, Upper/Lower back, Front/Side/Rear delts, Biceps, Triceps, …) without
+  truncation at the default emulator size, and the Equipment list shows the new tags. The
+  legacy-fraction plausibility host harness was not run; the read-time `BACK`→{LATS, UPPER_BACK,
+  LOWER_BACK} expansion is exercised by the shipped tests. Closed as rendering-verified.
 
 ## 5. Evidence check — 0.2.3 target approval
 
@@ -187,6 +201,22 @@ None. All 10 reviewer findings are triaged as R3-01…R3-10.
 These are not code defects; they need runtime/device evidence and are scheduled separately:
 R8 release smoke of both optional engines (R3-08), a real device upgrade check (R3-09), and
 17-group label/screen-size rendering (R3-10).
+
+**Resolution (2026-10-06, Chunk A):** R3-08 closed (C2 both-engine R8 smoke); R3-09 closed
+(0.2.3 release installed over existing data on `emulator-5554`, aggregates in
+`docs/performance-0.2.3.md`); R3-10 rendering verified on the emulator. R3-10's
+legacy-fraction plausibility host harness was not run.
+
+### S-item closures (0.2.3 list, from `PLANS.md`)
+
+- **S1-005, S3-002, S3-003, S5-004** — fixed in Chunk A (`f185308`, `96bf97f`, `f324719`,
+  `7aa566c`).
+- **S6-005** — fixed in Chunk A (`99f7a3e`; 14-day debug-APK artifact retention in
+  `build-and-test.yml`, matching `nightly.yml`).
+- **S6-002** — already resolved by C5/R3-03: `shared/src/commonMain/kotlin/com/hydrafit/app/Koin.kt`
+  starts `DatabaseStartupMaintenance` off the main thread behind `StartupReadiness`.
+- **S6-004** — already resolved by P2b: `androidApp/build.gradle.kts` sets
+  `isMinifyEnabled = true` (with `isShrinkResources = true`).
 
 ## 8. Proposed fix sequencing (plans only — nothing implemented)
 

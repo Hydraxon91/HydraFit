@@ -108,8 +108,8 @@ Business operations are single-purpose classes with one public `operator fun inv
 - **Violations / tensions:** `LogWorkoutSetUseCase` absorbed session lifecycle (auto-start,
   day/idle rollover, backdate attach, end/new) and a `Mutex` — an SRP drift (S1-004) that also makes
   it the chokepoint for session rules. `ObserveWorkoutPlanInputsUseCase` has 8 constructor
-  dependencies, past the project's ~6 guideline (S1-009). `lastSetAt` loads the whole log per write
-  (S1-005).
+  dependencies, past the project's ~6 guideline (S1-009). `lastSetAt` now reads one row via
+  `lastSetBySession` (S1-005 resolved).
 - **Ranked improvements:**
   1. (M) Extract a `WorkoutSessionResolver`/`SessionPolicy` collaborator if session rules grow; keep
      the lock at the use-case boundary (S1-004).
