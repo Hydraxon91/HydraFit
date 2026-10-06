@@ -11,12 +11,14 @@ import com.hydrafit.app.core.domain.workout.WorkoutSet
 import hydrafit.feature.fatigueheatmap.generated.resources.Res
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_percentage
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_percentage_near_limit
+import kotlin.coroutines.CoroutineContext
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -74,7 +76,8 @@ class FatigueHeatmapViewModelTest {
         val viewModel = FatigueHeatmapViewModel(
             workoutLogRepository = FlowingWorkoutLogRepository(sets),
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
-            timeProvider = TimeProvider { 0L }
+            timeProvider = TimeProvider { 0L },
+            calculationDispatcher = dispatcher
         )
         runCurrent()
         assertEquals(0.0, viewModel.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
@@ -91,7 +94,8 @@ class FatigueHeatmapViewModelTest {
         val viewModel = FatigueHeatmapViewModel(
             workoutLogRepository = FlowingWorkoutLogRepository(sets),
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
-            timeProvider = TimeProvider { 0L }
+            timeProvider = TimeProvider { 0L },
+            calculationDispatcher = dispatcher
         )
         runCurrent()
         assertEquals(CHEST_24_FRESH, viewModel.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
@@ -203,6 +207,22 @@ class FatigueHeatmapViewModelTest {
     }
 
     @Test
+    fun calculatesFatigueOnTheInjectedDispatcherNotTheCaller() = runTest(dispatcher) {
+        val calculationDispatcher = RecordingDispatcher(dispatcher)
+        val viewModel = FatigueHeatmapViewModel(
+            workoutLogRepository = FakeWorkoutLogRepository(List(24) { chestSet(0L) }),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { 0L },
+            calculationDispatcher = calculationDispatcher
+        )
+
+        runCurrent()
+
+        assertTrue(calculationDispatcher.used)
+        assertEquals(CHEST_24_FRESH, viewModel.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
+    }
+
+    @Test
     fun percentageRoundsToOneDecimal() {
         assertEquals(0, roundedFatiguePercentage(0.0))
         assertEquals(123, roundedFatiguePercentage(0.1234))
@@ -249,14 +269,30 @@ class FatigueHeatmapViewModelTest {
     private fun viewModel(sets: List<LoggedSet>, nowMillis: Long) = FatigueHeatmapViewModel(
         workoutLogRepository = FakeWorkoutLogRepository(sets),
         calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
-        timeProvider = TimeProvider { nowMillis }
+        timeProvider = TimeProvider { nowMillis },
+        calculationDispatcher = dispatcher
     )
 
     private fun viewModel(sets: List<LoggedSet>, clock: FakeClock) = FatigueHeatmapViewModel(
         workoutLogRepository = FakeWorkoutLogRepository(sets),
         calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
-        timeProvider = clock
+        timeProvider = clock,
+        calculationDispatcher = dispatcher
     )
+
+    private class RecordingDispatcher(private val delegate: CoroutineDispatcher) :
+        CoroutineDispatcher() {
+        var used = false
+            private set
+
+        override fun dispatch(context: CoroutineContext, block: Runnable) {
+            used = true
+            delegate.dispatch(context, block)
+        }
+
+        override fun isDispatchNeeded(context: CoroutineContext): Boolean =
+            delegate.isDispatchNeeded(context)
+    }
 
     private class FakeClock : TimeProvider {
         var now = 0L

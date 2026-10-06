@@ -7,6 +7,8 @@ import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,11 +17,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class FatigueHeatmapViewModel(
     private val workoutLogRepository: WorkoutLogRepository,
     private val calculateMuscleFatigue: CalculateMuscleFatigueUseCase,
-    private val timeProvider: TimeProvider
+    private val timeProvider: TimeProvider,
+    private val calculationDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(FatigueHeatmapUiState())
@@ -39,7 +43,7 @@ class FatigueHeatmapViewModel(
     }
 
     fun onResume() {
-        refresh()
+        viewModelScope.launch { refresh() }
         if (refreshJob?.isActive == true) return
         refreshJob = viewModelScope.launch {
             while (isActive) {
@@ -54,9 +58,11 @@ class FatigueHeatmapViewModel(
         refreshJob = null
     }
 
-    private fun refresh() {
+    private suspend fun refresh() {
         val sets = loggedSets ?: return
-        val scores = calculateMuscleFatigue(sets, timeProvider.nowMillis())
+        val scores = withContext(calculationDispatcher) {
+            calculateMuscleFatigue(sets, timeProvider.nowMillis())
+        }
         val entries = MuscleGroup.entries.map { muscle ->
             MuscleFatigueEntry(muscle = muscle, score = scores[muscle] ?: 0.0)
         }
