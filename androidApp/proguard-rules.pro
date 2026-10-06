@@ -25,6 +25,15 @@
 -keep class kotlin.Metadata { *; }
 -keep class org.koin.** { *; }
 
+# Ktor discovers its engine through META-INF/services when HttpClient() has no explicit engine
+# (see createGeminiHttpClient). Keep the OkHttp container/engine so discovery still resolves.
+-keep class io.ktor.client.engine.okhttp.OkHttpEngineContainer { *; }
+-keep class io.ktor.client.engine.okhttp.OkHttpEngine { *; }
+
+# LiteRT-LM binds native methods by name (Java_com_google_ai_edge_litertlm_LiteRtLmJni_*);
+# renaming these classes/methods breaks the JNI lookup.
+-keep class com.google.ai.edge.litertlm.** { *; }
+
 -if @kotlinx.serialization.Serializable class **
 -keepclassmembers class <1> {
     static <1>$Companion Companion;
