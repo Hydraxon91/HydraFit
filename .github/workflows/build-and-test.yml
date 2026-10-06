@@ -90,3 +90,4 @@ jobs:
           name: androidApp-debug-apk
           path: androidApp/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+          retention-days: 14
