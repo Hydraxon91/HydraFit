@@ -93,6 +93,14 @@ While executing an approved chunk:
 - **No Style Conversions for Aesthetics:** If existing code is functional and matches the codebase style guidelines, leave it alone. Do not change working syntax unless aligning a newly written feature to it.
 - **Oversized Constructors Are a Design Signal, Not a Formatting Problem:** If a class constructor (or a Koin `get()` chain feeding it) needs more than about 6 parameters, stop. Do not reformat the line, add a line-length or `@Suppress` lint exception, or otherwise work around the warning. Instead, report it and propose a design fix: group the dependencies by responsibility and extract use cases into `core/domain` (following the existing use-case pattern) so the class depends on fewer, more meaningful collaborators. Wait for approval before implementing. Apply judgment: if a class genuinely needs many dependencies and extraction would only add indirection (for example, a DI module that just wires many bindings, or a data holder), say so and explain instead of forcing an extraction. This is an exception to "scope containment" only in that you must flag the problem; do not refactor unrelated existing code without approval.
 
+### Documentation & Code Sync
+
+- **A change updates the living docs that describe it, in the same change.** If you alter behavior, architecture, the data model or stored encoding, the fatigue/planner formulas or calibration, the seeded catalog/muscle set, module boundaries, CI, or tooling, update the affected doc(s) and the `hydrafit-mechanics` skill as part of that same approved scope and commit — the same way a schema change ships its migration and a fix ships its regression test.
+- **Living docs (keep current):** `docs/architecture.md`, `docs/fatigue-formula.md`, `docs/performance-0.2.3.md`, `docs/exercise-catalog-sources.md`, `docs/maestro-evaluation.md`, `README.md`, `AGENTS.md`, `PLANS.md`, and `.opencode/skills/hydrafit-mechanics/SKILL.md`.
+- **Historical records are immutable:** dated review/handoff docs (`docs/code-review-0.2.2.md`, `docs/plans-archive.md`, `docs/review-*`) are never rewritten to match new code; only forward-looking docs are kept in sync.
+- **Scope note:** updating a doc your change invalidates is part of that change, not "scope creep" — but inventing new docs or rewriting unrelated ones is still out of scope. `PLANS.md` remains status-lines-only per the session rule; durable decisions move to "Decisions Made" only when approved.
+- **If you can't update a doc in scope** (e.g. it needs a decision), say so and record it in `PLANS.md` rather than leaving the doc wrong.
+
 ### Reuse Existing Architecture
 
 - **Audit Existing Utilities First:** Before creating a new helper function, use case, or utility method, explicitly search the codebase to see if a similar mechanism already exists.
@@ -442,6 +450,6 @@ Every PR description should follow this format (template at `.github/PULL_REQUES
 - [ ] My code follows the project's Kotlin style conventions
 - [ ] I've added unit tests for new domain logic
 - [ ] No hardcoded UI strings outside resource files
-- [ ] I've updated documentation if needed
+- [ ] I've updated any living doc/skill that describes the changed code
 - [ ] Commit history is clean and atomic
 ```
