@@ -48,6 +48,13 @@ class AndroidOnDeviceModelManager(private val context: Context) {
         }
 
         val modelTarget = OnDeviceModelTargetClassifier.classify(queryDisplayName(uri))
+        // NPU packs need the unbundled Qualcomm QNN runtime and cannot run on GPU/CPU, so reject
+        // them before copying instead of leaving an installed model that can never generate.
+        if (modelTarget == OnDeviceModelTarget.NPU) {
+            throw UnsupportedModelTargetException(
+                "NPU model packs are not supported; import a CPU/GPU pack instead"
+            )
+        }
         val input = openInput(uri)
         tempFile.delete()
         input.use { source ->
@@ -133,3 +140,5 @@ class AndroidOnDeviceModelManager(private val context: Context) {
 class InsufficientStorageException(message: String) : Exception(message)
 
 class ModelSourceUnreadableException(message: String) : Exception(message)
+
+class UnsupportedModelTargetException(message: String) : Exception(message)

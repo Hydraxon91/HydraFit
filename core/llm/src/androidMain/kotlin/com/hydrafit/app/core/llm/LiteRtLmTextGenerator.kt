@@ -41,7 +41,10 @@ class LiteRtLmTextGenerator(
     private var engineKey: EngineKey? = null
     private var constrainedSupported = true
 
-    override fun isAvailable(): Boolean = modelManager.isInstalled()
+    // An NPU-target pack cannot initialize on this build (QNN runtime unbundled) and cannot load
+    // on GPU/CPU, so treat it as unavailable rather than exposing an engine that always fails.
+    override fun isAvailable(): Boolean =
+        modelManager.isInstalled() && modelManager.modelTarget() != OnDeviceModelTarget.NPU
 
     @Synchronized
     override fun generate(

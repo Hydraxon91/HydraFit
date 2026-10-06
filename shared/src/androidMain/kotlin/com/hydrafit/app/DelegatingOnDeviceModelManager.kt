@@ -2,6 +2,7 @@ package com.hydrafit.app
 
 import com.hydrafit.app.core.llm.InsufficientStorageException
 import com.hydrafit.app.core.llm.ModelSourceUnreadableException
+import com.hydrafit.app.core.llm.UnsupportedModelTargetException
 import com.hydrafit.app.core.userdata.llm.ModelUpdateResult
 import com.hydrafit.app.core.userdata.llm.OnDeviceModelManager
 import com.hydrafit.app.core.userdata.llm.OnDeviceModelTarget
@@ -32,6 +33,7 @@ class DelegatingOnDeviceModelManager(
             when (failure) {
                 is InsufficientStorageException -> ModelUpdateResult.INSUFFICIENT_STORAGE
                 is ModelSourceUnreadableException -> ModelUpdateResult.UNREADABLE_SOURCE
+                is UnsupportedModelTargetException -> ModelUpdateResult.UNSUPPORTED_TARGET
                 else -> ModelUpdateResult.FAILED
             }
         }

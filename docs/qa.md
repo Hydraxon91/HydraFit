@@ -44,7 +44,7 @@ exact on-screen text.
 - No model imported → the engine is greyed out in Settings.
 - Import the portable pack (`gemma3-1b-it-int4.litertlm`) → generation starts on GPU/CPU; a plan is produced or a reason is logged.
 - **Recovery regression:** after a failed generation or a model change, tapping generate again must not fail with "Engine is not initialized" — the generator drops the stale engine instead of caching a closed one.
-- NPU pack (`…_sm8850.litertlm`) → is detected as an NPU target (log shows the NPU backend tried first). Without the Qualcomm QNN libs it falls back to GPU/CPU and, if those fail, to the deterministic engine with a clear log line.
+- NPU pack (`…_sm8850.litertlm`) → import is refused with the "NPU model packs aren't supported" message; the hint/link that used to point at these packs is gone. A pre-existing NPU install shows "NPU build (unsupported)" and the on-device engine stays unavailable; if reached, the generator still tries NPU → GPU → CPU and falls back with a clear log line.
 - If the on-device plan is rejected, logcat (`adb logcat -s LiteRtLmTextGenerator OnDevicePlanner`) shows `On-device plan did not satisfy the request: days=N/M, per-day=[…]` so the shape can be triaged.
 - OOM → deterministic fallback (unchanged).
 

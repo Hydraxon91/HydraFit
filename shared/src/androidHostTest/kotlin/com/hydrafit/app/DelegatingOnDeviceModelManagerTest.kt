@@ -2,6 +2,7 @@ package com.hydrafit.app
 
 import com.hydrafit.app.core.llm.InsufficientStorageException
 import com.hydrafit.app.core.llm.ModelSourceUnreadableException
+import com.hydrafit.app.core.llm.UnsupportedModelTargetException
 import com.hydrafit.app.core.userdata.llm.ModelUpdateResult
 import com.hydrafit.app.core.userdata.llm.OnDeviceModelTarget
 import kotlin.test.Test
@@ -51,6 +52,18 @@ class DelegatingOnDeviceModelManagerTest {
         )
 
         assertEquals(ModelUpdateResult.UNREADABLE_SOURCE, manager.installFrom("content://m"))
+    }
+
+    @Test
+    fun mapsUnsupportedTargetFailures() {
+        val manager = DelegatingOnDeviceModelManager(
+            installedCheck = { false },
+            targetCheck = { OnDeviceModelTarget.CPU_GPU },
+            onInstall = { throw UnsupportedModelTargetException("npu") },
+            onRemove = {}
+        )
+
+        assertEquals(ModelUpdateResult.UNSUPPORTED_TARGET, manager.installFrom("content://m"))
     }
 
     @Test
