@@ -40,6 +40,10 @@
 - Flow: plan → wait for OK → implement → verify → review/report.
   Commit authorization and order depend on the work mode; follow the
   table in Commit Discipline. Pushing needs separate approval.
+- Planner and builder share one session, but may be different agents/models
+  the user switches between freely (e.g. a planner model and a builder
+  model). Because the session context carries over, an approved plan is
+  implemented in place — no separate handoff message is needed.
 - PLANS.md edits are status lines only unless I approve more.
 - Ending a session or writing a starter prompt: follow
   docs/session-handoff.md, and present it only after its self-review has
