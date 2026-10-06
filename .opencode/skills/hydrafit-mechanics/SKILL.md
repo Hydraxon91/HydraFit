@@ -86,14 +86,21 @@ from a recipe. Its base half-lives are distinct from the scaled effective half-l
 ## Muscle mapping and catalog persistence
 
 The database encodes involvements as comma-separated `MUSCLE:weight` pairs,
-for example `CHEST:1.0,CORE:0.2,TRICEPS:0.4`.
+for example `CHEST_UPPER:0.6,CHEST_LOWER:0.6,TRICEPS:0.4`.
 `ExerciseEncoding.kt` owns encoding and decoding; encoding sorts by muscle name.
+`MuscleGroup` has 17 groups; `decodeInvolvements` expands legacy broad names
+(`CHEST`/`BACK`/`SHOULDERS`/`CORE`) on read, so historical rows keep contributing.
 
 There are three distinct locations for this map:
 
 1. `exercise.involvements`: catalog defaults or custom exercise data.
 2. `exerciseOverride.involvements`: an optional built-in exercise edit.
 3. `workoutSet.involvements`: effective muscle mapping snapshotted when logged.
+
+`CustomExerciseDedupe` runs at startup after seeding: a custom exercise whose name
+matches a seeded exercise is merged into the seeded id (history/PR reassigned, custom
+row removed). The 17-group set and the muscle-split mechanism are recorded in PLANS.md
+and `docs/exercise-catalog-sources.md`.
 
 `SqlDelightExerciseCatalog` overlays nullable override fields onto catalog rows.
 Display groups are derived from the resolved map: weight `>= 0.7` is primary,

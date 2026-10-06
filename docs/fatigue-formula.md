@@ -73,15 +73,22 @@ below one if floating-point rounding reaches one.
 All calibration values live in `FatigueConfig`. They are tunable model parameters,
 **not physiological measurements or facts**.
 
+The muscle set was refined in MUS-P1 (2026-10-06): the former `CHEST`, `BACK`,
+`SHOULDERS` and `CORE` were split into the groups listed below (17 total). Stored
+legacy names expand on read in `decodeInvolvements`, so historical rows keep
+contributing; `CustomExerciseDedupe` merges any custom exercise renamed onto a seeded
+one. The regression fixture below predates the split (its `BACK` work is now `LATS` /
+`UPPER_BACK` / `LOWER_BACK`).
+
 | Parameter | Default |
 | --- | --- |
 | Capacity `K` | 6 stimulus units |
 | Diminishing scale `D` | 6 stimulus units |
 | Reference reps / exponent | 8 / 0.5 |
 | Rep multiplier range | 0.5–1.5 |
-| CHEST, BACK, QUADS, HAMSTRINGS, GLUTES half-life | 24 h |
-| SHOULDERS half-life | 21 h |
-| BICEPS, TRICEPS, CALVES, CORE half-life | 18 h |
+| CHEST_UPPER, CHEST_LOWER, LATS, UPPER_BACK, LOWER_BACK, QUADS, HAMSTRINGS, GLUTES half-life | 24 h |
+| FRONT_DELTS, SIDE_DELTS, REAR_DELTS half-life | 21 h |
+| BICEPS, TRICEPS, FOREARMS, CALVES, ABS, OBLIQUES half-life | 18 h |
 | Missing-muscle fallback half-life | 24 h |
 | Isolation half-life scale (C1) | × 1.0 |
 | Compound half-life scale (C1) | × 1.25 |
