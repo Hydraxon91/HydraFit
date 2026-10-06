@@ -10,7 +10,7 @@
 | Release 0.2.0 | SHIPPING | Tag `v0.2.0` (signed APK via `release.yml`); delete the stale `v0.1.0-rc.1` validation release/tag. |
 | Release 0.2.1 | SHIPPED | Tag `v0.2.1` (signed APK via `release.yml`). Q2 (P2d), Q1, Q4a–Q4d, Q5, Q6 and Q3 (release) done. Q4e is a user-side catalog fix (not part of the shipped artifact). On-device LLM documented as non-functional; follow-up deferred to M8 (formerly targeted at 0.2.4). |
 | Release 0.2.2 — code review & architecture | SHIPPED | Tag `v0.2.2` (signed APK, ~58.1 MB) published with a changelog. R0–RG and RF triage done; all RF fixes implemented (S4-001 `04083ea`, S2-001 `4b2d95d`, S4-004 `b6ff315`, S3-007 `cf1dd5e`, S1-008 `2e1d6bf`, S2-005 `c7918bc`, S3-004 `6c38b17`, S3-001 `a07134e`, S1-007 `c0efda1`), CI green. See "0.2.2 — code review and architecture". |
-| M1 — Foundation & Performance | PLANNED | Target 0.2.3. QL-03 local Maestro CLI installed (2.11.0), local MCP configured and confirmed live in an OpenCode session, comparative pilot done (see `docs/maestro-evaluation.md`); only the QL-03-P3 adoption decision remains. Retain original performance/APK-size phases P0–PR and separately gated quality baseline/test-hardening scopes; tooling adoption does not block performance measurement. |
+| M1 — Foundation & Performance | IN PROGRESS | Target 0.2.3. QL-03 CLI/MCP and pilot verified; P3 adoption decision remains. Performance P0 partial: release APK breakdown and synthetic host SQL/fatigue baselines recorded in `docs/performance-0.2.3.md`; release startup, end-to-end mapping/planner timings and target approval remain. Original performance/APK-size phases P0–PR retained; no optimization applied. |
 | M2 — Data Ownership & Exercise Library | FUTURE | OF-01 and catalog expansion (formerly targeted at 0.2.5), plus separately scoped offline instructions. Does not depend on AI repair. |
 | M8 — Optional AI Reliability | DEFERRED | Retain local AI; research reliability, speed and licensing after core planner-facing contracts settle. Replaces the former 0.2.4 release slot; no replacement release number assigned. |
 | Item 2 P2d — existing-row time correction | DONE | Landed in 0.2.1 as Q2 (5898c45, 5ab6b42, a64d9cc). |
@@ -134,6 +134,8 @@ found (12 majors, 50 minors, 14 nits). Remaining deferred findings still to sche
 - **Unassigned majors to confirm:** TS4-001 (shared test fixtures), TR-001 (test redundancy) — currently have no schedule entry.
 
 ## 0.2.3 — performance review
+
+**Status (2026-10-06):** P0 partial baseline recorded in `docs/performance-0.2.3.md` (60,949,600-byte unsigned release APK; LiteRT-LM native libraries ~77.4%; synthetic host query plans/timings and actual fatigue calculator timings). Baseline checks pass with cache/up-to-date reuse. Release startup is unmeasured pending an approved signed deployment path; SQLDelight mapping/end-to-end planner timings and proposed target approval remain. No P2 optimization started.
 
 **Goal:** find and fix measured performance problems. Measure first; no optimization without a number showing a problem.
 
