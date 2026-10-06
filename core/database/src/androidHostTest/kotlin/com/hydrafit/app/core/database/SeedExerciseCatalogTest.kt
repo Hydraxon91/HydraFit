@@ -94,7 +94,7 @@ class SeedExerciseCatalogTest {
         val seeded = SqlDelightExerciseCatalog(database)
             .all()
             .first { it.id == "barbell-bench-press" }
-        assertEquals(0.4, seeded.involvements.getValue(MuscleGroup.SHOULDERS))
+        assertEquals(0.4, seeded.involvements.getValue(MuscleGroup.FRONT_DELTS))
     }
 
     @Test
@@ -102,7 +102,7 @@ class SeedExerciseCatalogTest {
         SeedExerciseCatalog(database).seed()
         driver.execute(
             identifier = null,
-            sql = "UPDATE exercise SET involvements = 'CHEST:0.9' " +
+            sql = "UPDATE exercise SET involvements = 'CHEST_UPPER:0.9' " +
                 "WHERE id = 'barbell-bench-press'",
             parameters = 0
         )
@@ -112,7 +112,7 @@ class SeedExerciseCatalogTest {
         val seeded = SqlDelightExerciseCatalog(database)
             .all()
             .first { it.id == "barbell-bench-press" }
-        assertEquals(mapOf(MuscleGroup.CHEST to 0.9), seeded.involvements)
+        assertEquals(mapOf(MuscleGroup.CHEST_UPPER to 0.9), seeded.involvements)
     }
 
     @Test

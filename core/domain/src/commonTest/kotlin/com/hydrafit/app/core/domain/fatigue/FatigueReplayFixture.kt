@@ -99,7 +99,7 @@ internal object FatigueReplayFixture {
 
     private fun Row.toLoggedSet(isCompound: Boolean) = LoggedSet(
         timestampMillis = timestampMillis,
-        targets = listOf(MuscleTarget(MuscleGroup.BACK, backWeight)),
+        targets = listOf(MuscleTarget(MuscleGroup.LATS, backWeight)),
         isWarmup = isWarmup,
         reps = reps,
         isCompound = isCompound

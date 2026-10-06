@@ -130,9 +130,9 @@ class SqlDelightWorkoutLogRepositoryTest {
         val logged = repository.loggedSets().single()
 
         val byMuscle = logged.targets.associate { it.muscle to it.weight }
-        assertEquals(MuscleInvolvement.PRIMARY.volumeWeight, byMuscle[MuscleGroup.CHEST])
+        assertEquals(MuscleInvolvement.PRIMARY.volumeWeight, byMuscle[MuscleGroup.CHEST_UPPER])
         assertEquals(MuscleInvolvement.SECONDARY.volumeWeight, byMuscle[MuscleGroup.TRICEPS])
-        assertEquals(MuscleInvolvement.SECONDARY.volumeWeight, byMuscle[MuscleGroup.SHOULDERS])
+        assertEquals(MuscleInvolvement.SECONDARY.volumeWeight, byMuscle[MuscleGroup.FRONT_DELTS])
     }
 
     @Test
@@ -149,7 +149,7 @@ class SqlDelightWorkoutLogRepositoryTest {
         val logged = repository.loggedSetsFlow().first().single()
 
         val byMuscle = logged.targets.associate { it.muscle to it.weight }
-        assertEquals(MuscleInvolvement.PRIMARY.volumeWeight, byMuscle[MuscleGroup.CHEST])
+        assertEquals(0.6, byMuscle[MuscleGroup.CHEST_UPPER])
         assertEquals(1L, logged.timestampMillis)
     }
 
@@ -157,7 +157,7 @@ class SqlDelightWorkoutLogRepositoryTest {
     fun storedRepsReachTheCalculatorThroughBothMappingPaths() = runTest {
         repository.add(
             DomainWorkoutSet(
-                exerciseId = "barbell-bench-press",
+                exerciseId = "hammer-curl",
                 reps = 2,
                 weightKg = 50.0,
                 performedAtMillis = 1L
@@ -170,7 +170,7 @@ class SqlDelightWorkoutLogRepositoryTest {
             // Two reps give R = 0.5, hence F = 0.5 / (6 + 0.5), rather than the default's 1/7.
             assertEquals(
                 1.0 / 13.0,
-                calculator.calculate(logged, nowMillis = 1L).getValue(MuscleGroup.CHEST),
+                calculator.calculate(logged, nowMillis = 1L).getValue(MuscleGroup.BICEPS),
                 1e-9
             )
         }
@@ -192,7 +192,7 @@ class SqlDelightWorkoutLogRepositoryTest {
 
         val row = database.workoutLogQueries.selectAllSets().executeAsList().single()
 
-        assertTrue(requireNotNull(row.involvements).contains("CHEST:1.0"))
+        assertTrue(requireNotNull(row.involvements).contains("CHEST_UPPER:0.6"))
         assertTrue(requireNotNull(row.involvements).contains("TRICEPS"))
     }
 
@@ -225,7 +225,7 @@ class SqlDelightWorkoutLogRepositoryTest {
             weightKg = 50.0,
             performedAt = 1,
             isWarmup = 0,
-            involvements = "CHEST:1.0,TRICEPS:0.5",
+            involvements = "CHEST_UPPER:1.0,TRICEPS:0.5",
             weekNumber = null,
             cycleNumber = null,
             dayIndex = null,
@@ -236,7 +236,7 @@ class SqlDelightWorkoutLogRepositoryTest {
         val logged = repository.loggedSets().single()
 
         val byMuscle = logged.targets.associate { it.muscle to it.weight }
-        assertEquals(MuscleInvolvement.PRIMARY.volumeWeight, byMuscle[MuscleGroup.CHEST])
+        assertEquals(MuscleInvolvement.PRIMARY.volumeWeight, byMuscle[MuscleGroup.CHEST_UPPER])
         assertEquals(MuscleInvolvement.SECONDARY.volumeWeight, byMuscle[MuscleGroup.TRICEPS])
     }
 
@@ -259,7 +259,7 @@ class SqlDelightWorkoutLogRepositoryTest {
         val logged = repository.loggedSets().single()
 
         val byMuscle = logged.targets.associate { it.muscle to it.weight }
-        assertEquals(MuscleInvolvement.PRIMARY.volumeWeight, byMuscle[MuscleGroup.CHEST])
+        assertEquals(0.6, byMuscle[MuscleGroup.CHEST_UPPER])
     }
 
     @Test
@@ -269,15 +269,15 @@ class SqlDelightWorkoutLogRepositoryTest {
             name = null,
             requiredEquipment = setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH),
             movementPattern = null,
-            involvements = mapOf(MuscleGroup.BACK to 1.0)
+            involvements = mapOf(MuscleGroup.LATS to 1.0)
         )
 
         repository.add(set(exerciseId = "barbell-bench-press", performedAt = 1))
 
         val logged = repository.loggedSets().single()
         val byMuscle = logged.targets.associate { it.muscle to it.weight }
-        assertEquals(MuscleInvolvement.PRIMARY.volumeWeight, byMuscle[MuscleGroup.BACK])
-        assertNull(byMuscle[MuscleGroup.CHEST])
+        assertEquals(MuscleInvolvement.PRIMARY.volumeWeight, byMuscle[MuscleGroup.LATS])
+        assertNull(byMuscle[MuscleGroup.CHEST_UPPER])
     }
 
     @Test
@@ -310,7 +310,7 @@ class SqlDelightWorkoutLogRepositoryTest {
         val logged = repository.loggedSets().single()
 
         val byMuscle = logged.targets.associate { it.muscle to it.weight }
-        assertEquals(MuscleInvolvement.PRIMARY.volumeWeight, byMuscle[MuscleGroup.CHEST])
+        assertEquals(0.6, byMuscle[MuscleGroup.CHEST_UPPER])
         assertNull(byMuscle[MuscleGroup.QUADS])
     }
 
@@ -443,7 +443,7 @@ class SqlDelightWorkoutLogRepositoryTest {
     fun historicalPerformedAtLowersTheFatigueScoreAtAFixedNow() = runTest {
         val now = 30L * DAY
         val chosen = now - 7L * DAY
-        val muscle = MuscleGroup.CHEST
+        val muscle = MuscleGroup.CHEST_UPPER
 
         // Live path: the set is inserted with performedAt == now through the log use case.
         logWorkoutSet(

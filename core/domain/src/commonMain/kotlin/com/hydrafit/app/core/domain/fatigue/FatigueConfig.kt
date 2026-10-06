@@ -124,16 +124,23 @@ data class FatigueConfig(
         val DEFAULT_HALF_LIFE: Duration = 24.hours
 
         val DEFAULT_HALF_LIVES: Map<MuscleGroup, Duration> = mapOf(
-            MuscleGroup.CHEST to 24.hours,
-            MuscleGroup.BACK to 24.hours,
+            MuscleGroup.CHEST_UPPER to 24.hours,
+            MuscleGroup.CHEST_LOWER to 24.hours,
+            MuscleGroup.LATS to 24.hours,
+            MuscleGroup.UPPER_BACK to 24.hours,
+            MuscleGroup.LOWER_BACK to 24.hours,
             MuscleGroup.QUADS to 24.hours,
             MuscleGroup.HAMSTRINGS to 24.hours,
             MuscleGroup.GLUTES to 24.hours,
-            MuscleGroup.SHOULDERS to 21.hours,
+            MuscleGroup.FRONT_DELTS to 21.hours,
+            MuscleGroup.SIDE_DELTS to 21.hours,
+            MuscleGroup.REAR_DELTS to 21.hours,
             MuscleGroup.BICEPS to 18.hours,
             MuscleGroup.TRICEPS to 18.hours,
+            MuscleGroup.FOREARMS to 18.hours,
             MuscleGroup.CALVES to 18.hours,
-            MuscleGroup.CORE to 18.hours
+            MuscleGroup.ABS to 18.hours,
+            MuscleGroup.OBLIQUES to 18.hours
         )
     }
 }

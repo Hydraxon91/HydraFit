@@ -27,16 +27,23 @@ import hydrafit.feature.fatigueheatmap.generated.resources.Res
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_heatmap_title
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_percentage
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_percentage_near_limit
-import hydrafit.feature.fatigueheatmap.generated.resources.muscle_back
+import hydrafit.feature.fatigueheatmap.generated.resources.muscle_abs
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_biceps
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_calves
-import hydrafit.feature.fatigueheatmap.generated.resources.muscle_chest
-import hydrafit.feature.fatigueheatmap.generated.resources.muscle_core
+import hydrafit.feature.fatigueheatmap.generated.resources.muscle_chest_lower
+import hydrafit.feature.fatigueheatmap.generated.resources.muscle_chest_upper
+import hydrafit.feature.fatigueheatmap.generated.resources.muscle_forearms
+import hydrafit.feature.fatigueheatmap.generated.resources.muscle_front_delts
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_glutes
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_hamstrings
+import hydrafit.feature.fatigueheatmap.generated.resources.muscle_lats
+import hydrafit.feature.fatigueheatmap.generated.resources.muscle_lower_back
+import hydrafit.feature.fatigueheatmap.generated.resources.muscle_obliques
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_quads
-import hydrafit.feature.fatigueheatmap.generated.resources.muscle_shoulders
+import hydrafit.feature.fatigueheatmap.generated.resources.muscle_rear_delts
+import hydrafit.feature.fatigueheatmap.generated.resources.muscle_side_delts
 import hydrafit.feature.fatigueheatmap.generated.resources.muscle_triceps
+import hydrafit.feature.fatigueheatmap.generated.resources.muscle_upper_back
 import hydrafit.feature.fatigueheatmap.generated.resources.nav_label
 import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.StringResource
@@ -113,14 +120,21 @@ internal fun fatiguePercentageResource(percentageTenths: Int): StringResource =
     }
 
 private fun MuscleGroup.labelResource(): StringResource = when (this) {
-    MuscleGroup.CHEST -> Res.string.muscle_chest
-    MuscleGroup.BACK -> Res.string.muscle_back
-    MuscleGroup.SHOULDERS -> Res.string.muscle_shoulders
+    MuscleGroup.CHEST_UPPER -> Res.string.muscle_chest_upper
+    MuscleGroup.CHEST_LOWER -> Res.string.muscle_chest_lower
+    MuscleGroup.LATS -> Res.string.muscle_lats
+    MuscleGroup.UPPER_BACK -> Res.string.muscle_upper_back
+    MuscleGroup.LOWER_BACK -> Res.string.muscle_lower_back
+    MuscleGroup.FRONT_DELTS -> Res.string.muscle_front_delts
+    MuscleGroup.SIDE_DELTS -> Res.string.muscle_side_delts
+    MuscleGroup.REAR_DELTS -> Res.string.muscle_rear_delts
     MuscleGroup.BICEPS -> Res.string.muscle_biceps
     MuscleGroup.TRICEPS -> Res.string.muscle_triceps
+    MuscleGroup.FOREARMS -> Res.string.muscle_forearms
+    MuscleGroup.ABS -> Res.string.muscle_abs
+    MuscleGroup.OBLIQUES -> Res.string.muscle_obliques
     MuscleGroup.QUADS -> Res.string.muscle_quads
     MuscleGroup.HAMSTRINGS -> Res.string.muscle_hamstrings
     MuscleGroup.GLUTES -> Res.string.muscle_glutes
     MuscleGroup.CALVES -> Res.string.muscle_calves
-    MuscleGroup.CORE -> Res.string.muscle_core
 }

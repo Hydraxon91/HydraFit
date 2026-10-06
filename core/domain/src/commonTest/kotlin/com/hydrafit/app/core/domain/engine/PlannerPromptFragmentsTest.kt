@@ -53,14 +53,14 @@ class PlannerPromptFragmentsTest {
     @Test
     fun formatsTheFatigueLineWithTheGivenLabel() {
         val request = request(
-            muscleFatigue = mapOf(MuscleGroup.CHEST to 0.25, MuscleGroup.BACK to 0.5)
+            muscleFatigue = mapOf(MuscleGroup.CHEST_UPPER to 0.25, MuscleGroup.LATS to 0.5)
         )
         assertEquals(
-            "Muscle fatigue (0.0-1.0): CHEST=0.25, BACK=0.5",
+            "Muscle fatigue (0.0-1.0): CHEST_UPPER=0.25, LATS=0.5",
             PlannerPromptFragments.fatigueLine(request, "Muscle fatigue")
         )
         assertEquals(
-            "Current muscle fatigue (0.0-1.0): CHEST=0.25, BACK=0.5",
+            "Current muscle fatigue (0.0-1.0): CHEST_UPPER=0.25, LATS=0.5",
             PlannerPromptFragments.fatigueLine(request, "Current muscle fatigue")
         )
     }

@@ -8,6 +8,12 @@ CREATE TABLE personalRecord (
 selectAll:
 SELECT * FROM personalRecord ORDER BY exerciseId;
 
+selectById:
+SELECT * FROM personalRecord WHERE exerciseId = ?;
+
+updateExerciseId:
+UPDATE personalRecord SET exerciseId = :newId WHERE exerciseId = :oldId;
+
 upsert:
 INSERT OR REPLACE INTO personalRecord(exerciseId, weightKg, reps, updatedAt)
 VALUES (?, ?, ?, ?);

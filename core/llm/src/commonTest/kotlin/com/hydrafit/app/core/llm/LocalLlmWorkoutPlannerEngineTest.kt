@@ -533,7 +533,7 @@ class LocalLlmWorkoutPlannerEngineTest {
             id = id,
             name = id,
             requiredEquipment = setOf(EquipmentTag.BARBELL),
-            primaryMuscles = setOf(MuscleGroup.CHEST),
+            primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
             movementPattern = pattern
         )
     }

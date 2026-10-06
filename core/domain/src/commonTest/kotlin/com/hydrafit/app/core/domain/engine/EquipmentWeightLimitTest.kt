@@ -14,7 +14,7 @@ class EquipmentWeightLimitTest {
         id = "cable-fly",
         name = "Cable Fly",
         requiredEquipment = setOf(EquipmentTag.CABLE_MACHINE),
-        primaryMuscles = setOf(MuscleGroup.CHEST),
+        primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
         movementPattern = MovementPattern.CHEST_FLY
     )
 

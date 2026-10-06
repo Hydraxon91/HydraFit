@@ -52,7 +52,7 @@ class ExerciseOverrideMigrationTest {
         exec("INSERT INTO exerciseEdit(exerciseId, requiredEquipment) VALUES ('x', 'DUMBBELL')")
         exec(
             "INSERT INTO exerciseMuscleEdit(exerciseId, primaryMuscles, secondaryMuscles) " +
-                "VALUES ('x', 'CHEST', '')"
+                "VALUES ('x', 'CHEST_UPPER', '')"
         )
 
         migrateToLatest()
@@ -60,7 +60,7 @@ class ExerciseOverrideMigrationTest {
             .single { it.id == "x" }
 
         assertEquals(setOf(EquipmentTag.DUMBBELL), exercise.requiredEquipment)
-        assertEquals(setOf(MuscleGroup.CHEST), exercise.primaryMuscles)
+        assertEquals(setOf(MuscleGroup.CHEST_UPPER), exercise.primaryMuscles)
     }
 
     private fun exec(sql: String) {

@@ -125,16 +125,16 @@ class DeterministicWorkoutPlannerEngineTest {
             exercise(
                 "barbell-bench-press",
                 MovementPattern.HORIZONTAL_PUSH,
-                MuscleGroup.CHEST,
+                MuscleGroup.CHEST_UPPER,
                 setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH)
             ),
             exercise(
                 "dumbbell-bench-press",
                 MovementPattern.HORIZONTAL_PUSH,
-                MuscleGroup.CHEST,
+                MuscleGroup.CHEST_UPPER,
                 setOf(EquipmentTag.DUMBBELL, EquipmentTag.BENCH)
             ),
-            exercise("push-up", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST)
+            exercise("push-up", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
         )
 
         val plan = engine.plan(request(daysPerWeek = 2, equipment = everything), exercises)
@@ -149,13 +149,13 @@ class DeterministicWorkoutPlannerEngineTest {
             exercise(
                 "barbell-bench-press",
                 MovementPattern.HORIZONTAL_PUSH,
-                MuscleGroup.CHEST,
+                MuscleGroup.CHEST_UPPER,
                 setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH)
             ),
             exercise(
                 "dumbbell-bench-press",
                 MovementPattern.HORIZONTAL_PUSH,
-                MuscleGroup.CHEST,
+                MuscleGroup.CHEST_UPPER,
                 setOf(EquipmentTag.DUMBBELL, EquipmentTag.BENCH)
             )
         )
@@ -178,10 +178,10 @@ class DeterministicWorkoutPlannerEngineTest {
             exercise(
                 "barbell-bench-press",
                 MovementPattern.HORIZONTAL_PUSH,
-                MuscleGroup.CHEST,
+                MuscleGroup.CHEST_UPPER,
                 setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH)
             ),
-            exercise("push-up", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST)
+            exercise("push-up", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
         )
 
         val plan = engine.plan(request(daysPerWeek = 2, equipment = emptySet()), exercises)
@@ -193,8 +193,8 @@ class DeterministicWorkoutPlannerEngineTest {
     @Test
     fun neverRepeatsAPatternWithinADay() {
         val exercises = listOf(
-            exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST),
-            exercise("push-up", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST)
+            exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER),
+            exercise("push-up", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
         )
 
         val plan = engine.plan(
@@ -222,15 +222,15 @@ class DeterministicWorkoutPlannerEngineTest {
     @Test
     fun prefersExercisesWhosePrimaryMusclesAreLessFatigued() {
         val exercises = listOf(
-            exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST),
-            exercise("push-up", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.SHOULDERS)
+            exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER),
+            exercise("push-up", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.SIDE_DELTS)
         )
 
         val plan = engine.plan(
             request(
                 daysPerWeek = 3,
                 split = SplitType.PUSH_PULL_LEGS,
-                fatigue = mapOf(MuscleGroup.CHEST to 0.6)
+                fatigue = mapOf(MuscleGroup.CHEST_UPPER to 0.6)
             ),
             exercises
         )
@@ -247,10 +247,10 @@ class DeterministicWorkoutPlannerEngineTest {
             exercise(
                 "barbell-bench-press",
                 MovementPattern.HORIZONTAL_PUSH,
-                MuscleGroup.CHEST,
+                MuscleGroup.CHEST_UPPER,
                 setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH)
             ),
-            exercise("push-up", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.SHOULDERS)
+            exercise("push-up", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.SIDE_DELTS)
         )
 
         val plan = engine.plan(
@@ -258,7 +258,7 @@ class DeterministicWorkoutPlannerEngineTest {
                 daysPerWeek = 3,
                 split = SplitType.PUSH_PULL_LEGS,
                 equipment = everything,
-                fatigue = mapOf(MuscleGroup.CHEST to 0.6)
+                fatigue = mapOf(MuscleGroup.CHEST_UPPER to 0.6)
             ),
             exercises
         )
@@ -279,8 +279,8 @@ class DeterministicWorkoutPlannerEngineTest {
                 )
             ),
             listOf(
-                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST),
-                exercise("push-up", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST)
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER),
+                exercise("push-up", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
             )
         )
 
@@ -299,7 +299,9 @@ class DeterministicWorkoutPlannerEngineTest {
                     MovementPattern.HORIZONTAL_PUSH to setOf("bench-press")
                 )
             ),
-            listOf(exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST))
+            listOf(
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+            )
         )
 
         val pushIds = plan.days.first { it.focus == SplitFocus.PUSH }
@@ -312,8 +314,8 @@ class DeterministicWorkoutPlannerEngineTest {
         val plan = engine.plan(
             request(daysPerWeek = 3),
             listOf(
-                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST),
-                exercise("push-up", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST)
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER),
+                exercise("push-up", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
             )
         )
 
@@ -331,7 +333,9 @@ class DeterministicWorkoutPlannerEngineTest {
     fun dropsASharedCompoundRatherThanRepeatingItWhenNoAlternativeExists() {
         val plan = engine.plan(
             request(daysPerWeek = 3),
-            listOf(exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST))
+            listOf(
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+            )
         )
 
         val appearances = plan.days.sumOf { day ->
@@ -346,9 +350,11 @@ class DeterministicWorkoutPlannerEngineTest {
             request(
                 daysPerWeek = 3,
                 split = SplitType.PUSH_PULL_LEGS,
-                fatigue = mapOf(MuscleGroup.CHEST to 0.9)
+                fatigue = mapOf(MuscleGroup.CHEST_UPPER to 0.9)
             ),
-            listOf(exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST))
+            listOf(
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+            )
         )
 
         val pushDay = plan.days.first { it.focus == SplitFocus.PUSH }
@@ -364,9 +370,9 @@ class DeterministicWorkoutPlannerEngineTest {
             id = "sore-push",
             name = "sore-push",
             requiredEquipment = emptySet(),
-            primaryMuscles = setOf(MuscleGroup.CHEST),
+            primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
             movementPattern = MovementPattern.HORIZONTAL_PUSH,
-            involvements = mapOf(MuscleGroup.CHEST to 0.7)
+            involvements = mapOf(MuscleGroup.CHEST_UPPER to 0.7)
         )
         val fresh = Exercise(
             id = "fresh-push",
@@ -380,7 +386,7 @@ class DeterministicWorkoutPlannerEngineTest {
             request(
                 daysPerWeek = 3,
                 split = SplitType.PUSH_PULL_LEGS,
-                fatigue = mapOf(MuscleGroup.CHEST to 0.85, MuscleGroup.TRICEPS to 0.7)
+                fatigue = mapOf(MuscleGroup.CHEST_UPPER to 0.85, MuscleGroup.TRICEPS to 0.7)
             ),
             listOf(sore, fresh)
         )
@@ -396,10 +402,12 @@ class DeterministicWorkoutPlannerEngineTest {
             request(
                 daysPerWeek = 3,
                 split = SplitType.PUSH_PULL_LEGS,
-                fatigue = mapOf(MuscleGroup.CHEST to 0.7),
+                fatigue = mapOf(MuscleGroup.CHEST_UPPER to 0.7),
                 setsPerExercise = 4
             ),
-            listOf(exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST))
+            listOf(
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+            )
         )
 
         val planned = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.single()
@@ -420,10 +428,16 @@ class DeterministicWorkoutPlannerEngineTest {
                 request(
                     daysPerWeek = 3,
                     split = SplitType.PUSH_PULL_LEGS,
-                    fatigue = mapOf(MuscleGroup.CHEST to fatigue),
+                    fatigue = mapOf(MuscleGroup.CHEST_UPPER to fatigue),
                     setsPerExercise = 4
                 ),
-                listOf(exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST))
+                listOf(
+                    exercise(
+                        "bench-press",
+                        MovementPattern.HORIZONTAL_PUSH,
+                        MuscleGroup.CHEST_UPPER
+                    )
+                )
             )
             val picks = plan.days.first { it.focus == SplitFocus.PUSH }.exercises
             assertEquals(expectedSets, picks.singleOrNull()?.sets, "fatigue=$fatigue")
@@ -437,15 +451,25 @@ class DeterministicWorkoutPlannerEngineTest {
             Triple(0.7, 0.65, 3),
             Triple(0.7, 0.8, null)
         )) {
-            val candidate = exercise("bench", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST)
+            val candidate = exercise(
+                "bench",
+                MovementPattern.HORIZONTAL_PUSH,
+                MuscleGroup.CHEST_UPPER
+            )
                 .copy(
-                    involvements = mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.SHOULDERS to weight)
+                    involvements = mapOf(
+                        MuscleGroup.CHEST_UPPER to 1.0,
+                        MuscleGroup.SIDE_DELTS to weight
+                    )
                 )
             val plan = engine.plan(
                 request(
                     daysPerWeek = 3,
                     split = SplitType.PUSH_PULL_LEGS,
-                    fatigue = mapOf(MuscleGroup.CHEST to 0.1, MuscleGroup.SHOULDERS to fatigue),
+                    fatigue = mapOf(
+                        MuscleGroup.CHEST_UPPER to 0.1,
+                        MuscleGroup.SIDE_DELTS to fatigue
+                    ),
                     setsPerExercise = 4
                 ),
                 listOf(candidate)
@@ -469,7 +493,7 @@ class DeterministicWorkoutPlannerEngineTest {
                     fatigue = calculator.calculate(FatigueReplayFixture.sets, instant),
                     setsPerExercise = 4
                 ),
-                listOf(exercise("row", MovementPattern.HORIZONTAL_PULL, MuscleGroup.BACK))
+                listOf(exercise("row", MovementPattern.HORIZONTAL_PULL, MuscleGroup.LATS))
             )
             val picks = plan.days.first { it.focus == SplitFocus.PULL }.exercises
             assertEquals(expectedSets, picks.singleOrNull()?.sets)
@@ -479,18 +503,22 @@ class DeterministicWorkoutPlannerEngineTest {
     @Test
     fun candidateOrderingUsesTheNewNonlinearScoresAndMaximumWeightedInvolvement() {
         val sets = List(12) {
-            LoggedSet(0L, listOf(MuscleTarget(MuscleGroup.CHEST, 1.0)), reps = 8)
+            LoggedSet(0L, listOf(MuscleTarget(MuscleGroup.CHEST_UPPER, 1.0)), reps = 8)
         } + List(8) {
-            LoggedSet(0L, listOf(MuscleTarget(MuscleGroup.SHOULDERS, 1.0)), reps = 8)
+            LoggedSet(0L, listOf(MuscleTarget(MuscleGroup.SIDE_DELTS, 1.0)), reps = 8)
         }
-        val chest = exercise("chest", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST).copy(
-            involvements = mapOf(MuscleGroup.CHEST to 0.7, MuscleGroup.SHOULDERS to 0.3)
+        val chest = exercise(
+            "chest",
+            MovementPattern.HORIZONTAL_PUSH,
+            MuscleGroup.CHEST_UPPER
+        ).copy(
+            involvements = mapOf(MuscleGroup.CHEST_UPPER to 0.7, MuscleGroup.SIDE_DELTS to 0.3)
         )
         val shoulders = exercise(
             "shoulders",
             MovementPattern.HORIZONTAL_PUSH,
-            MuscleGroup.SHOULDERS
-        ).copy(involvements = mapOf(MuscleGroup.SHOULDERS to 1.0))
+            MuscleGroup.SIDE_DELTS
+        ).copy(involvements = mapOf(MuscleGroup.SIDE_DELTS to 1.0))
         for (candidates in listOf(listOf(chest, shoulders), listOf(shoulders, chest))) {
             val plan = engine.plan(
                 request(
@@ -511,7 +539,9 @@ class DeterministicWorkoutPlannerEngineTest {
     fun honorsRequestedSetsCount() {
         val plan = engine.plan(
             request(daysPerWeek = 3, split = SplitType.PUSH_PULL_LEGS, setsPerExercise = 5),
-            listOf(exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST))
+            listOf(
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+            )
         )
 
         val planned = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.single()
@@ -523,7 +553,7 @@ class DeterministicWorkoutPlannerEngineTest {
         val plan = engine.plan(
             request(daysPerWeek = 3, split = SplitType.PUSH_PULL_LEGS),
             listOf(
-                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST),
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER),
                 exercise("pushdown", MovementPattern.TRICEPS_ISOLATION, MuscleGroup.TRICEPS)
             )
         )
@@ -547,7 +577,11 @@ class DeterministicWorkoutPlannerEngineTest {
             val plan = engine.plan(
                 request(daysPerWeek = 3, split = SplitType.PUSH_PULL_LEGS, goal = goal),
                 listOf(
-                    exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST),
+                    exercise(
+                        "bench-press",
+                        MovementPattern.HORIZONTAL_PUSH,
+                        MuscleGroup.CHEST_UPPER
+                    ),
                     exercise("pushdown", MovementPattern.TRICEPS_ISOLATION, MuscleGroup.TRICEPS)
                 )
             )
@@ -572,7 +606,7 @@ class DeterministicWorkoutPlannerEngineTest {
                 accessorySetsPerExercise = 2
             ),
             listOf(
-                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST),
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER),
                 exercise("pushdown", MovementPattern.TRICEPS_ISOLATION, MuscleGroup.TRICEPS)
             )
         )
@@ -593,8 +627,8 @@ class DeterministicWorkoutPlannerEngineTest {
                 suggestedWeightsKg = mapOf("bench-press" to 82.5)
             ),
             listOf(
-                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST),
-                exercise("push-up", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST)
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER),
+                exercise("push-up", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
             )
         )
 
@@ -616,7 +650,9 @@ class DeterministicWorkoutPlannerEngineTest {
                 setsPerExercise = 6,
                 suggestedWeightsKg = mapOf("bench-press" to 100.0)
             ),
-            listOf(exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST))
+            listOf(
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+            )
         )
 
         val benchPress = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.single()
@@ -642,7 +678,7 @@ class DeterministicWorkoutPlannerEngineTest {
                 exercise(
                     "cable-press",
                     MovementPattern.HORIZONTAL_PUSH,
-                    MuscleGroup.CHEST,
+                    MuscleGroup.CHEST_UPPER,
                     setOf(EquipmentTag.CABLE_MACHINE)
                 )
             )
@@ -661,23 +697,23 @@ class DeterministicWorkoutPlannerEngineTest {
             id = "even",
             name = "even",
             requiredEquipment = emptySet(),
-            primaryMuscles = setOf(MuscleGroup.CHEST),
+            primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
             movementPattern = MovementPattern.HORIZONTAL_PUSH,
-            involvements = mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.SHOULDERS to 1.0)
+            involvements = mapOf(MuscleGroup.CHEST_UPPER to 1.0, MuscleGroup.SIDE_DELTS to 1.0)
         )
         val lightlyLoaded = Exercise(
             id = "light",
             name = "light",
             requiredEquipment = emptySet(),
-            primaryMuscles = setOf(MuscleGroup.SHOULDERS),
+            primaryMuscles = setOf(MuscleGroup.SIDE_DELTS),
             movementPattern = MovementPattern.HORIZONTAL_PUSH,
-            involvements = mapOf(MuscleGroup.CHEST to 0.3)
+            involvements = mapOf(MuscleGroup.CHEST_UPPER to 0.3)
         )
         val plan = engine.plan(
             request(
                 daysPerWeek = 3,
                 split = SplitType.PUSH_PULL_LEGS,
-                fatigue = mapOf(MuscleGroup.CHEST to 0.4, MuscleGroup.SHOULDERS to 0.4)
+                fatigue = mapOf(MuscleGroup.CHEST_UPPER to 0.4, MuscleGroup.SIDE_DELTS to 0.4)
             ),
             listOf(evenlyLoaded, lightlyLoaded)
         )
@@ -694,15 +730,15 @@ class DeterministicWorkoutPlannerEngineTest {
             id = "bench",
             name = "bench",
             requiredEquipment = emptySet(),
-            primaryMuscles = setOf(MuscleGroup.SHOULDERS),
+            primaryMuscles = setOf(MuscleGroup.SIDE_DELTS),
             movementPattern = MovementPattern.HORIZONTAL_PUSH,
-            involvements = mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.SHOULDERS to 0.3)
+            involvements = mapOf(MuscleGroup.CHEST_UPPER to 1.0, MuscleGroup.SIDE_DELTS to 0.3)
         )
         val plan = engine.plan(
             request(
                 daysPerWeek = 3,
                 split = SplitType.PUSH_PULL_LEGS,
-                fatigue = mapOf(MuscleGroup.SHOULDERS to 0.9)
+                fatigue = mapOf(MuscleGroup.SIDE_DELTS to 0.9)
             ),
             listOf(exercise)
         )
@@ -718,7 +754,9 @@ class DeterministicWorkoutPlannerEngineTest {
     fun omitsTheWeightWhenTheRequestHasNoOneRepMax() {
         val plan = engine.plan(
             request(daysPerWeek = 3, split = SplitType.PUSH_PULL_LEGS),
-            listOf(exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST))
+            listOf(
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+            )
         )
 
         val benchPress = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.single()
@@ -735,7 +773,9 @@ class DeterministicWorkoutPlannerEngineTest {
                 suggestedWeightsKg = mapOf("bench-press" to 100.0),
                 isDeload = true
             ),
-            listOf(exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST))
+            listOf(
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+            )
         )
 
         val benchPress = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.single()
@@ -755,7 +795,9 @@ class DeterministicWorkoutPlannerEngineTest {
                 setsPerExercise = 4,
                 suggestedWeightsKg = mapOf("bench-press" to 100.0)
             ),
-            listOf(exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST))
+            listOf(
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+            )
         )
 
         val benchPress = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.single()
@@ -835,8 +877,8 @@ class DeterministicWorkoutPlannerEngineTest {
 
     @Test
     fun prefersTheIsolationOnTheMuscleWithTheLargerRemainingDeficit() {
-        val bench = exercise("bench", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST)
-            .copy(involvements = mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.TRICEPS to 0.5))
+        val bench = exercise("bench", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+            .copy(involvements = mapOf(MuscleGroup.CHEST_UPPER to 1.0, MuscleGroup.TRICEPS to 0.5))
         val pushdown = exercise(
             "a-pushdown",
             MovementPattern.TRICEPS_ISOLATION,
@@ -846,7 +888,7 @@ class DeterministicWorkoutPlannerEngineTest {
         val shoulderFly = exercise(
             "z-fly",
             MovementPattern.SHOULDER_ISOLATION,
-            MuscleGroup.SHOULDERS
+            MuscleGroup.SIDE_DELTS
         )
         val plan = engine.plan(
             request(
@@ -916,7 +958,7 @@ class DeterministicWorkoutPlannerEngineTest {
     private fun exercise(
         id: String,
         pattern: MovementPattern,
-        primary: MuscleGroup = MuscleGroup.CORE,
+        primary: MuscleGroup = MuscleGroup.ABS,
         required: Set<EquipmentTag> = emptySet()
     ) = Exercise(
         id = id,
@@ -939,15 +981,15 @@ class DeterministicWorkoutPlannerEngineTest {
             MuscleGroup.QUADS,
             setOf(EquipmentTag.DUMBBELL)
         ),
-        exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST),
-        exercise("barbell-row", MovementPattern.HORIZONTAL_PULL, MuscleGroup.BACK),
+        exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER),
+        exercise("barbell-row", MovementPattern.HORIZONTAL_PULL, MuscleGroup.LATS),
         exercise("plank", MovementPattern.CORE),
         exercise("rdl", MovementPattern.HINGE, MuscleGroup.HAMSTRINGS),
-        exercise("ohp", MovementPattern.VERTICAL_PUSH, MuscleGroup.SHOULDERS),
+        exercise("ohp", MovementPattern.VERTICAL_PUSH, MuscleGroup.SIDE_DELTS),
         exercise(
             "pull-up",
             MovementPattern.VERTICAL_PULL,
-            MuscleGroup.BACK,
+            MuscleGroup.LATS,
             setOf(EquipmentTag.PULL_UP_BAR)
         ),
         exercise("calf-raise", MovementPattern.CALF_RAISE, MuscleGroup.CALVES),
@@ -959,16 +1001,16 @@ class DeterministicWorkoutPlannerEngineTest {
     private fun richCatalog(): List<Exercise> = listOf(
         exercise("squat", MovementPattern.SQUAT, MuscleGroup.QUADS),
         exercise("hinge", MovementPattern.HINGE, MuscleGroup.HAMSTRINGS),
-        exercise("hpush", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST),
-        exercise("vpush", MovementPattern.VERTICAL_PUSH, MuscleGroup.SHOULDERS),
-        exercise("hpull", MovementPattern.HORIZONTAL_PULL, MuscleGroup.BACK),
-        exercise("vpull", MovementPattern.VERTICAL_PULL, MuscleGroup.BACK),
+        exercise("hpush", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER),
+        exercise("vpush", MovementPattern.VERTICAL_PUSH, MuscleGroup.SIDE_DELTS),
+        exercise("hpull", MovementPattern.HORIZONTAL_PULL, MuscleGroup.LATS),
+        exercise("vpull", MovementPattern.VERTICAL_PULL, MuscleGroup.LATS),
         exercise("curl", MovementPattern.BICEPS_ISOLATION, MuscleGroup.BICEPS),
         exercise("pushdown", MovementPattern.TRICEPS_ISOLATION, MuscleGroup.TRICEPS),
-        exercise("lateral", MovementPattern.SHOULDER_ISOLATION, MuscleGroup.SHOULDERS),
+        exercise("lateral", MovementPattern.SHOULDER_ISOLATION, MuscleGroup.SIDE_DELTS),
         exercise("leg-curl", MovementPattern.LEG_ISOLATION, MuscleGroup.HAMSTRINGS),
         exercise("calf", MovementPattern.CALF_RAISE, MuscleGroup.CALVES),
-        exercise("plank", MovementPattern.CORE, MuscleGroup.CORE)
+        exercise("plank", MovementPattern.CORE, MuscleGroup.ABS)
     )
 
     private object EmptyCatalog : ExerciseCatalog {

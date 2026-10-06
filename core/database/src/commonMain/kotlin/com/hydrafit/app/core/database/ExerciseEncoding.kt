@@ -25,16 +25,39 @@ internal fun encodeInvolvements(involvements: Map<MuscleGroup, Double>): String 
     .sortedBy { it.key.name }
     .joinToString(separator = ",") { "${it.key.name}:${it.value}" }
 
+private val LEGACY_MUSCLE_EXPANSION: Map<String, Map<MuscleGroup, Double>> = mapOf(
+    "CHEST" to mapOf(MuscleGroup.CHEST_UPPER to 0.5, MuscleGroup.CHEST_LOWER to 0.5),
+    "BACK" to mapOf(
+        MuscleGroup.LATS to 0.5,
+        MuscleGroup.UPPER_BACK to 0.35,
+        MuscleGroup.LOWER_BACK to 0.15
+    ),
+    "SHOULDERS" to mapOf(
+        MuscleGroup.FRONT_DELTS to 0.3,
+        MuscleGroup.SIDE_DELTS to 0.4,
+        MuscleGroup.REAR_DELTS to 0.3
+    ),
+    "CORE" to mapOf(MuscleGroup.ABS to 0.7, MuscleGroup.OBLIQUES to 0.3)
+)
+
 internal fun decodeInvolvements(value: String?): Map<MuscleGroup, Double> {
     if (value.isNullOrEmpty()) return emptyMap()
-    return value.split(',').mapNotNull { entry ->
+    val resolved = mutableMapOf<MuscleGroup, Double>()
+    value.split(',').forEach { entry ->
         val parts = entry.split(':')
-        if (parts.size != 2) return@mapNotNull null
-        val muscle = runCatching { MuscleGroup.valueOf(parts[0]) }.getOrNull()
-            ?: return@mapNotNull null
-        val weight = parts[1].toDoubleOrNull() ?: return@mapNotNull null
-        muscle to weight
-    }.toMap()
+        if (parts.size != 2) return@forEach
+        val weight = parts[1].toDoubleOrNull() ?: return@forEach
+        val legacy = LEGACY_MUSCLE_EXPANSION[parts[0]]
+        if (legacy != null) {
+            legacy.forEach { (muscle, fraction) ->
+                resolved[muscle] = (resolved[muscle] ?: 0.0) + weight * fraction
+            }
+            return@forEach
+        }
+        val muscle = runCatching { MuscleGroup.valueOf(parts[0]) }.getOrNull() ?: return@forEach
+        resolved[muscle] = (resolved[muscle] ?: 0.0) + weight
+    }
+    return resolved
 }
 
 internal fun decodeMovementPattern(value: String): MovementPattern =

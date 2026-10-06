@@ -18,25 +18,28 @@ class FatigueCalculatorTest {
         val scores = calculator.calculate(emptyList(), nowMillis = T0)
 
         assertEquals(MuscleGroup.entries.size, scores.size)
-        assertEquals(0.0, scores.getValue(MuscleGroup.CHEST), TOLERANCE)
+        assertEquals(0.0, scores.getValue(MuscleGroup.CHEST_UPPER), TOLERANCE)
     }
 
     @Test
     fun singleSessionUsesBoundedAdditionAndDiminishingReturns() {
-        val sets = List(12) { loggedSet(MuscleGroup.CHEST) }
+        val sets = List(12) { loggedSet(MuscleGroup.CHEST_UPPER) }
 
-        val score = calculator.calculate(sets, nowMillis = T0).getValue(MuscleGroup.CHEST)
+        val score = calculator.calculate(sets, nowMillis = T0).getValue(MuscleGroup.CHEST_UPPER)
 
         assertEquals(2.0 / 3.0, score, TOLERANCE)
     }
 
     @Test
     fun extremeVolumeStaysBelowOneAndRecoversImmediatelyWithoutAPlateau() {
-        val sets = List(100_000) { loggedSet(MuscleGroup.CHEST, reps = 100) }
+        val sets = List(100_000) { loggedSet(MuscleGroup.CHEST_UPPER, reps = 100) }
 
-        val score = calculator.calculate(sets, nowMillis = T0).getValue(MuscleGroup.CHEST)
+        val score = calculator.calculate(sets, nowMillis = T0).getValue(MuscleGroup.CHEST_UPPER)
 
-        val recovered = calculator.calculate(sets, nowMillis = T0 + 1L).getValue(MuscleGroup.CHEST)
+        val recovered = calculator.calculate(
+            sets,
+            nowMillis = T0 + 1L
+        ).getValue(MuscleGroup.CHEST_UPPER)
         assertTrue(score > 0.99 && score < 1.0)
         assertTrue(recovered >= 0.0 && recovered < score)
     }
@@ -45,8 +48,9 @@ class FatigueCalculatorTest {
     fun decaysByHalfAfterEachMusclesHalfLife() {
         for (muscle in MuscleGroup.entries) {
             val hours = when (muscle) {
-                MuscleGroup.SHOULDERS -> 21
-                MuscleGroup.BICEPS, MuscleGroup.TRICEPS, MuscleGroup.CALVES, MuscleGroup.CORE -> 18
+                MuscleGroup.FRONT_DELTS, MuscleGroup.SIDE_DELTS, MuscleGroup.REAR_DELTS -> 21
+                MuscleGroup.BICEPS, MuscleGroup.TRICEPS, MuscleGroup.FOREARMS,
+                MuscleGroup.CALVES, MuscleGroup.ABS, MuscleGroup.OBLIQUES -> 18
                 else -> 24
             }
             val sets = List(24) { loggedSet(muscle) }
@@ -58,10 +62,10 @@ class FatigueCalculatorTest {
 
     @Test
     fun decaysToAQuarterAfterTwoHalfLives() {
-        val sets = List(24) { loggedSet(MuscleGroup.CHEST) }
+        val sets = List(24) { loggedSet(MuscleGroup.CHEST_UPPER) }
 
         val score = calculator.calculate(sets, nowMillis = T0 + 48 * HOUR_MILLIS)
-            .getValue(MuscleGroup.CHEST)
+            .getValue(MuscleGroup.CHEST_UPPER)
 
         assertEquals(0.2, score, TOLERANCE)
     }
@@ -69,30 +73,30 @@ class FatigueCalculatorTest {
     @Test
     fun secondaryInvolvementHalvesStimulusBeforeTheNonlinearResponse() {
         val sets = List(24) {
-            loggedSet(MuscleGroup.SHOULDERS, weight = MuscleInvolvement.SECONDARY.volumeWeight)
+            loggedSet(MuscleGroup.SIDE_DELTS, weight = MuscleInvolvement.SECONDARY.volumeWeight)
         }
 
-        val score = calculator.calculate(sets, nowMillis = T0).getValue(MuscleGroup.SHOULDERS)
+        val score = calculator.calculate(sets, nowMillis = T0).getValue(MuscleGroup.SIDE_DELTS)
 
         assertEquals(2.0 / 3.0, score, TOLERANCE)
     }
 
     @Test
     fun warmupSetsAreIgnored() {
-        val sets = List(24) { loggedSet(MuscleGroup.CHEST, isWarmup = true) }
+        val sets = List(24) { loggedSet(MuscleGroup.CHEST_UPPER, isWarmup = true) }
 
-        val score = calculator.calculate(sets, nowMillis = T0).getValue(MuscleGroup.CHEST)
+        val score = calculator.calculate(sets, nowMillis = T0).getValue(MuscleGroup.CHEST_UPPER)
 
         assertEquals(0.0, score, TOLERANCE)
     }
 
     @Test
     fun laterSessionsUseRecoveredHeadroomAndResetTheDiscount() {
-        val sets = List(8) { loggedSet(MuscleGroup.CHEST, timestampMillis = T0) } +
-            List(8) { loggedSet(MuscleGroup.CHEST, timestampMillis = T0 + 24 * HOUR_MILLIS) }
+        val sets = List(8) { loggedSet(MuscleGroup.CHEST_UPPER, timestampMillis = T0) } +
+            List(8) { loggedSet(MuscleGroup.CHEST_UPPER, timestampMillis = T0 + 24 * HOUR_MILLIS) }
 
         val score = calculator.calculate(sets, nowMillis = T0 + 24 * HOUR_MILLIS)
-            .getValue(MuscleGroup.CHEST)
+            .getValue(MuscleGroup.CHEST_UPPER)
 
         assertEquals(34.0 / 49.0, score, TOLERANCE)
     }
@@ -100,9 +104,9 @@ class FatigueCalculatorTest {
     @Test
     fun setOrderingDoesNotAffectTheResult() {
         val ascending = listOf(
-            loggedSet(MuscleGroup.CHEST, timestampMillis = T0),
-            loggedSet(MuscleGroup.CHEST, timestampMillis = T0 + 2 * HOUR_MILLIS),
-            loggedSet(MuscleGroup.CHEST, timestampMillis = T0 + HOUR_MILLIS)
+            loggedSet(MuscleGroup.CHEST_UPPER, timestampMillis = T0),
+            loggedSet(MuscleGroup.CHEST_UPPER, timestampMillis = T0 + 2 * HOUR_MILLIS),
+            loggedSet(MuscleGroup.CHEST_UPPER, timestampMillis = T0 + HOUR_MILLIS)
         )
 
         val shuffled = listOf(ascending[2], ascending[0], ascending[1])
@@ -115,11 +119,11 @@ class FatigueCalculatorTest {
 
     @Test
     fun nowComesFromTheParameterNotTheClock() {
-        val sets = List(24) { loggedSet(MuscleGroup.CHEST) }
+        val sets = List(24) { loggedSet(MuscleGroup.CHEST_UPPER) }
 
-        val fresh = calculator.calculate(sets, nowMillis = T0).getValue(MuscleGroup.CHEST)
+        val fresh = calculator.calculate(sets, nowMillis = T0).getValue(MuscleGroup.CHEST_UPPER)
         val recovered = calculator.calculate(sets, nowMillis = T0 + 24 * HOUR_MILLIS)
-            .getValue(MuscleGroup.CHEST)
+            .getValue(MuscleGroup.CHEST_UPPER)
 
         assertEquals(0.8, fresh, TOLERANCE)
         assertEquals(0.4, recovered, TOLERANCE)
@@ -132,14 +136,14 @@ class FatigueCalculatorTest {
         val scores = calculator.calculate(sets, nowMillis = T0)
 
         assertEquals(2.0 / 3.0, scores.getValue(MuscleGroup.QUADS), TOLERANCE)
-        assertEquals(0.0, scores.getValue(MuscleGroup.CHEST), TOLERANCE)
+        assertEquals(0.0, scores.getValue(MuscleGroup.CHEST_UPPER), TOLERANCE)
     }
 
     @Test
     fun thirdSetHasGreaterMarginalDoseThanTheTenth() {
         val scores = (0..10).map { count ->
-            calculator.calculate(List(count) { loggedSet(MuscleGroup.CHEST) }, T0)
-                .getValue(MuscleGroup.CHEST)
+            calculator.calculate(List(count) { loggedSet(MuscleGroup.CHEST_UPPER) }, T0)
+                .getValue(MuscleGroup.CHEST_UPPER)
         }
         val thirdDose = -6.0 * ln((1.0 - scores[3]) / (1.0 - scores[2]))
         val tenthDose = -6.0 * ln((1.0 - scores[10]) / (1.0 - scores[9]))
@@ -152,13 +156,13 @@ class FatigueCalculatorTest {
     @Test
     fun differentExercisesShareTheMusclesSessionDiscount() {
         // LoggedSet has no exercise id: different exercise snapshots feed the same muscle V.
-        val chestOnly = loggedSet(MuscleGroup.CHEST)
+        val chestOnly = loggedSet(MuscleGroup.CHEST_UPPER)
         val chestAndShoulders = chestOnly.copy(
-            targets = chestOnly.targets + MuscleTarget(MuscleGroup.SHOULDERS, 0.5),
+            targets = chestOnly.targets + MuscleTarget(MuscleGroup.SIDE_DELTS, 0.5),
             timestampMillis = T0 + 1L
         )
         val score = calculator.calculate(listOf(chestOnly, chestAndShoulders), T0 + 1L)
-            .getValue(MuscleGroup.CHEST)
+            .getValue(MuscleGroup.CHEST_UPPER)
         val recoveredFirst = (1.0 / 7.0) * 2.0.pow(-1.0 / (24 * HOUR_MILLIS))
         assertEquals(recoveredFirst + (1.0 - recoveredFirst) / 8.0, score, TOLERANCE)
     }
@@ -167,14 +171,14 @@ class FatigueCalculatorTest {
     fun legacyNullSessionIdsFallBackToTheGap() {
         for (gap in listOf(2 * HOUR_MILLIS - 1L, 2 * HOUR_MILLIS, 2 * HOUR_MILLIS + 1L)) {
             val sets = listOf(
-                loggedSet(MuscleGroup.CHEST),
-                loggedSet(MuscleGroup.CHEST, timestampMillis = gap)
+                loggedSet(MuscleGroup.CHEST_UPPER),
+                loggedSet(MuscleGroup.CHEST_UPPER, timestampMillis = gap)
             )
             val recoveredFirst = (1.0 / 7.0) * 2.0.pow(-gap.toDouble() / (24 * HOUR_MILLIS))
             val secondResponse = if (gap < 2 * HOUR_MILLIS) 1.0 / 8.0 else 1.0 / 7.0
             assertEquals(
                 recoveredFirst + (1.0 - recoveredFirst) * secondResponse,
-                calculator.calculate(sets, gap).getValue(MuscleGroup.CHEST),
+                calculator.calculate(sets, gap).getValue(MuscleGroup.CHEST_UPPER),
                 TOLERANCE
             )
         }
@@ -184,13 +188,13 @@ class FatigueCalculatorTest {
     fun sessionIdChangeResetsTheDiscountRegardlessOfTheGap() {
         val gap = HOUR_MILLIS
         val sets = listOf(
-            loggedSet(MuscleGroup.CHEST).copy(sessionId = "session-a"),
-            loggedSet(MuscleGroup.CHEST, timestampMillis = gap).copy(sessionId = "session-b")
+            loggedSet(MuscleGroup.CHEST_UPPER).copy(sessionId = "session-a"),
+            loggedSet(MuscleGroup.CHEST_UPPER, timestampMillis = gap).copy(sessionId = "session-b")
         )
         val recoveredFirst = (1.0 / 7.0) * 2.0.pow(-gap.toDouble() / (24 * HOUR_MILLIS))
         assertEquals(
             recoveredFirst + (1.0 - recoveredFirst) / 7.0,
-            calculator.calculate(sets, gap).getValue(MuscleGroup.CHEST),
+            calculator.calculate(sets, gap).getValue(MuscleGroup.CHEST_UPPER),
             TOLERANCE
         )
     }
@@ -199,13 +203,13 @@ class FatigueCalculatorTest {
     fun sameSessionIdDoesNotResetAcrossTheLegacyGap() {
         val gap = 24 * HOUR_MILLIS
         val sets = listOf(
-            loggedSet(MuscleGroup.CHEST).copy(sessionId = "session-a"),
-            loggedSet(MuscleGroup.CHEST, timestampMillis = gap).copy(sessionId = "session-a")
+            loggedSet(MuscleGroup.CHEST_UPPER).copy(sessionId = "session-a"),
+            loggedSet(MuscleGroup.CHEST_UPPER, timestampMillis = gap).copy(sessionId = "session-a")
         )
         val recoveredFirst = (1.0 / 7.0) * 2.0.pow(-gap.toDouble() / (24 * HOUR_MILLIS))
         assertEquals(
             recoveredFirst + (1.0 - recoveredFirst) / 8.0,
-            calculator.calculate(sets, gap).getValue(MuscleGroup.CHEST),
+            calculator.calculate(sets, gap).getValue(MuscleGroup.CHEST_UPPER),
             TOLERANCE
         )
     }
@@ -217,22 +221,22 @@ class FatigueCalculatorTest {
         val resetSecond = recoveredFirst + (1.0 - recoveredFirst) / 7.0
 
         val nullThenId = listOf(
-            loggedSet(MuscleGroup.CHEST),
-            loggedSet(MuscleGroup.CHEST, timestampMillis = gap).copy(sessionId = "session-a")
+            loggedSet(MuscleGroup.CHEST_UPPER),
+            loggedSet(MuscleGroup.CHEST_UPPER, timestampMillis = gap).copy(sessionId = "session-a")
         )
         // S2's interim rule: a later null row must not re-join the identified session.
         val idThenNull = listOf(
-            loggedSet(MuscleGroup.CHEST).copy(sessionId = "session-a"),
-            loggedSet(MuscleGroup.CHEST, timestampMillis = gap)
+            loggedSet(MuscleGroup.CHEST_UPPER).copy(sessionId = "session-a"),
+            loggedSet(MuscleGroup.CHEST_UPPER, timestampMillis = gap)
         )
         assertEquals(
             resetSecond,
-            calculator.calculate(nullThenId, gap).getValue(MuscleGroup.CHEST),
+            calculator.calculate(nullThenId, gap).getValue(MuscleGroup.CHEST_UPPER),
             TOLERANCE
         )
         assertEquals(
             resetSecond,
-            calculator.calculate(idThenNull, gap).getValue(MuscleGroup.CHEST),
+            calculator.calculate(idThenNull, gap).getValue(MuscleGroup.CHEST_UPPER),
             TOLERANCE
         )
     }
@@ -240,13 +244,13 @@ class FatigueCalculatorTest {
     @Test
     fun sameTimestampDifferentSessionIdsSplitDeterministically() {
         val split = listOf(
-            loggedSet(MuscleGroup.CHEST).copy(sessionId = "session-a"),
-            loggedSet(MuscleGroup.CHEST).copy(sessionId = "session-b")
+            loggedSet(MuscleGroup.CHEST_UPPER).copy(sessionId = "session-a"),
+            loggedSet(MuscleGroup.CHEST_UPPER).copy(sessionId = "session-b")
         )
         val expected = 1.0 - (1.0 - 1.0 / 7.0) * (1.0 - 1.0 / 7.0)
         assertEquals(
             expected,
-            calculator.calculate(split, T0).getValue(MuscleGroup.CHEST),
+            calculator.calculate(split, T0).getValue(MuscleGroup.CHEST_UPPER),
             TOLERANCE
         )
         assertEquals(
@@ -258,14 +262,14 @@ class FatigueCalculatorTest {
     @Test
     fun otherMusclesWorkingSetsKeepTheWholeLogSessionOpen() {
         val sets = listOf(
-            loggedSet(MuscleGroup.CHEST),
+            loggedSet(MuscleGroup.CHEST_UPPER),
             loggedSet(MuscleGroup.QUADS, timestampMillis = HOUR_MILLIS),
-            loggedSet(MuscleGroup.CHEST, timestampMillis = 2 * HOUR_MILLIS)
+            loggedSet(MuscleGroup.CHEST_UPPER, timestampMillis = 2 * HOUR_MILLIS)
         )
         val recoveredFirst = (1.0 / 7.0) * 2.0.pow(-2.0 / 24.0)
         assertEquals(
             recoveredFirst + (1.0 - recoveredFirst) / 8.0,
-            calculator.calculate(sets, 2 * HOUR_MILLIS).getValue(MuscleGroup.CHEST),
+            calculator.calculate(sets, 2 * HOUR_MILLIS).getValue(MuscleGroup.CHEST_UPPER),
             TOLERANCE
         )
     }
@@ -273,8 +277,8 @@ class FatigueCalculatorTest {
     @Test
     fun midnightDoesNotResetTheSession() {
         val sameDay = listOf(
-            loggedSet(MuscleGroup.CHEST, timestampMillis = 10 * HOUR_MILLIS),
-            loggedSet(MuscleGroup.CHEST, timestampMillis = 11 * HOUR_MILLIS)
+            loggedSet(MuscleGroup.CHEST_UPPER, timestampMillis = 10 * HOUR_MILLIS),
+            loggedSet(MuscleGroup.CHEST_UPPER, timestampMillis = 11 * HOUR_MILLIS)
         )
         val spanningMidnight = sameDay.map {
             it.copy(timestampMillis = it.timestampMillis + 13 * HOUR_MILLIS + HOUR_MILLIS / 2)
@@ -288,11 +292,11 @@ class FatigueCalculatorTest {
     @Test
     fun warmupsNeitherAddStimulusNorBridgeTheSessionGap() {
         val working = listOf(
-            loggedSet(MuscleGroup.CHEST),
-            loggedSet(MuscleGroup.CHEST, timestampMillis = 2 * HOUR_MILLIS)
+            loggedSet(MuscleGroup.CHEST_UPPER),
+            loggedSet(MuscleGroup.CHEST_UPPER, timestampMillis = 2 * HOUR_MILLIS)
         )
         val warmup = loggedSet(
-            MuscleGroup.CHEST,
+            MuscleGroup.CHEST_UPPER,
             timestampMillis = HOUR_MILLIS,
             isWarmup = true,
             reps = 100
@@ -307,9 +311,9 @@ class FatigueCalculatorTest {
     fun equalTimestampBatchesAreExactlyOrderIndependent() {
         val sets = listOf(0.3, 1.0, 0.5, 0.7).flatMap { weight ->
             listOf(1, 5, 8, 10, 20).map { reps ->
-                loggedSet(MuscleGroup.CHEST, weight = weight, reps = reps)
+                loggedSet(MuscleGroup.CHEST_UPPER, weight = weight, reps = reps)
             }
-        } + loggedSet(MuscleGroup.CHEST, timestampMillis = HOUR_MILLIS)
+        } + loggedSet(MuscleGroup.CHEST_UPPER, timestampMillis = HOUR_MILLIS)
         assertEquals(
             calculator.calculate(sets, HOUR_MILLIS),
             calculator.calculate(sets.reversed(), HOUR_MILLIS)
@@ -323,11 +327,14 @@ class FatigueCalculatorTest {
     @Test
     fun repsFactorUsesTheReferenceAndClampsBothEnds() {
         for ((reps, multiplier) in listOf(1 to 0.5, 2 to 0.5, 8 to 1.0, 18 to 1.5, 100 to 1.5)) {
-            val score = calculator.calculate(listOf(loggedSet(MuscleGroup.CHEST, reps = reps)), T0)
-                .getValue(MuscleGroup.CHEST)
+            val score = calculator.calculate(
+                listOf(loggedSet(MuscleGroup.CHEST_UPPER, reps = reps)),
+                T0
+            )
+                .getValue(MuscleGroup.CHEST_UPPER)
             assertEquals(multiplier / (6.0 + multiplier), score, TOLERANCE)
         }
-        assertEquals(8, loggedSet(MuscleGroup.CHEST).reps)
+        assertEquals(8, loggedSet(MuscleGroup.CHEST_UPPER).reps)
     }
 
     @Test
@@ -338,15 +345,15 @@ class FatigueCalculatorTest {
             Triple(4, 5, 0.345141),
             Triple(4, 10, 0.427051)
         )) {
-            val sets = List(count) { loggedSet(MuscleGroup.BACK, reps = reps) }
+            val sets = List(count) { loggedSet(MuscleGroup.LATS, reps = reps) }
             assertEquals(
                 expected,
-                calculator.calculate(sets, T0).getValue(MuscleGroup.BACK),
+                calculator.calculate(sets, T0).getValue(MuscleGroup.LATS),
                 0.0000005
             )
             assertEquals(
                 expected / 2.0,
-                calculator.calculate(sets, 24 * HOUR_MILLIS).getValue(MuscleGroup.BACK),
+                calculator.calculate(sets, 24 * HOUR_MILLIS).getValue(MuscleGroup.LATS),
                 0.0000005
             )
         }
@@ -367,61 +374,67 @@ class FatigueCalculatorTest {
         )
         val custom = FatigueCalculator(config)
         val sets = listOf(
-            loggedSet(MuscleGroup.CHEST, reps = 20),
-            loggedSet(MuscleGroup.CHEST, timestampMillis = HOUR_MILLIS, reps = 1)
+            loggedSet(MuscleGroup.CHEST_UPPER, reps = 20),
+            loggedSet(MuscleGroup.CHEST_UPPER, timestampMillis = HOUR_MILLIS, reps = 1)
         )
         val first = (1.0 - (4.0 / 6.0).pow(4.0 / 3.0)) * 2.0.pow(-1.0 / 12.0)
         val expected = 1.0 - (1.0 - first) * (4.0 / 4.25).pow(4.0 / 3.0)
         assertEquals(
             expected,
-            custom.calculate(sets, HOUR_MILLIS).getValue(MuscleGroup.CHEST),
+            custom.calculate(sets, HOUR_MILLIS).getValue(MuscleGroup.CHEST_UPPER),
             TOLERANCE
         )
         assertEquals(
             expected / 2.0,
-            custom.calculate(sets, 13 * HOUR_MILLIS).getValue(MuscleGroup.CHEST),
+            custom.calculate(sets, 13 * HOUR_MILLIS).getValue(MuscleGroup.CHEST_UPPER),
             TOLERANCE
         )
     }
 
     @Test
     fun compoundWorkRecoversSlowerThanIsolation() {
-        val isolation = List(12) { loggedSet(MuscleGroup.CHEST) }
-        val compound = List(12) { loggedSet(MuscleGroup.CHEST, isCompound = true) }
+        val isolation = List(12) { loggedSet(MuscleGroup.CHEST_UPPER) }
+        val compound = List(12) { loggedSet(MuscleGroup.CHEST_UPPER, isCompound = true) }
 
         assertEquals(
-            calculator.calculate(isolation, T0).getValue(MuscleGroup.CHEST),
-            calculator.calculate(compound, T0).getValue(MuscleGroup.CHEST),
+            calculator.calculate(isolation, T0).getValue(MuscleGroup.CHEST_UPPER),
+            calculator.calculate(compound, T0).getValue(MuscleGroup.CHEST_UPPER),
             TOLERANCE
         )
         assertTrue(
-            calculator.calculate(compound, T0 + 24 * HOUR_MILLIS).getValue(MuscleGroup.CHEST) >
-                calculator.calculate(isolation, T0 + 24 * HOUR_MILLIS).getValue(MuscleGroup.CHEST)
+            calculator.calculate(
+                compound,
+                T0 + 24 * HOUR_MILLIS
+            ).getValue(MuscleGroup.CHEST_UPPER) >
+                calculator.calculate(
+                    isolation,
+                    T0 + 24 * HOUR_MILLIS
+                ).getValue(MuscleGroup.CHEST_UPPER)
         )
     }
 
     @Test
     fun compoundHalfLifeIsTwentyFivePercentLonger() {
-        val set = loggedSet(MuscleGroup.CHEST, isCompound = true)
+        val set = loggedSet(MuscleGroup.CHEST_UPPER, isCompound = true)
 
-        val fresh = calculator.calculate(listOf(set), T0).getValue(MuscleGroup.CHEST)
+        val fresh = calculator.calculate(listOf(set), T0).getValue(MuscleGroup.CHEST_UPPER)
         val after30h = calculator.calculate(listOf(set), T0 + 30 * HOUR_MILLIS)
-            .getValue(MuscleGroup.CHEST)
+            .getValue(MuscleGroup.CHEST_UPPER)
 
         assertEquals(fresh / 2.0, after30h, TOLERANCE)
     }
 
     @Test
     fun mixedTypesShareOneBoundedHeadroom() {
-        val sets = List(12) { loggedSet(MuscleGroup.CHEST) } +
+        val sets = List(12) { loggedSet(MuscleGroup.CHEST_UPPER) } +
             List(12) {
-                loggedSet(MuscleGroup.CHEST, timestampMillis = HOUR_MILLIS, isCompound = true)
+                loggedSet(MuscleGroup.CHEST_UPPER, timestampMillis = HOUR_MILLIS, isCompound = true)
             }
         val now = T0 + HOUR_MILLIS
 
-        val mixed = calculator.calculate(sets, now).getValue(MuscleGroup.CHEST)
+        val mixed = calculator.calculate(sets, now).getValue(MuscleGroup.CHEST_UPPER)
         val isolationOnly = calculator.calculate(sets.filterNot { it.isCompound }, now)
-            .getValue(MuscleGroup.CHEST)
+            .getValue(MuscleGroup.CHEST_UPPER)
 
         assertTrue(mixed > isolationOnly)
         assertTrue(mixed < 1.0)
@@ -532,11 +545,11 @@ class FatigueCalculatorTest {
         val heavy = calculator.calculate(
             listOf(reference, loadedSet("bench", later, 100.0)),
             later
-        ).getValue(MuscleGroup.CHEST)
+        ).getValue(MuscleGroup.CHEST_UPPER)
         val light = calculator.calculate(
             listOf(reference, loadedSet("bench", later, 50.0)),
             later
-        ).getValue(MuscleGroup.CHEST)
+        ).getValue(MuscleGroup.CHEST_UPPER)
 
         assertTrue(heavy > light)
     }
@@ -556,11 +569,11 @@ class FatigueCalculatorTest {
         val nearFailure = calculator.calculate(
             listOf(loadedSet("bench", T0, 100.0).copy(rir = 0)),
             T0
-        ).getValue(MuscleGroup.CHEST)
+        ).getValue(MuscleGroup.CHEST_UPPER)
         val easy = calculator.calculate(
             listOf(loadedSet("bench", T0, 100.0).copy(rir = 10)),
             T0
-        ).getValue(MuscleGroup.CHEST)
+        ).getValue(MuscleGroup.CHEST_UPPER)
 
         assertTrue(nearFailure > easy)
     }
@@ -578,7 +591,7 @@ class FatigueCalculatorTest {
             isWarmup: Boolean = false
         ) = LoggedSet(
             timestampMillis = timestampMillis,
-            targets = listOf(MuscleTarget(MuscleGroup.CHEST, 1.0)),
+            targets = listOf(MuscleTarget(MuscleGroup.CHEST_UPPER, 1.0)),
             isWarmup = isWarmup,
             reps = reps,
             exerciseId = exerciseId,

@@ -11,45 +11,46 @@ internal object DefaultExercises {
             "barbell-bench-press",
             "Barbell Bench Press",
             setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH),
-            setOf(MuscleGroup.CHEST),
-            setOf(MuscleGroup.TRICEPS, MuscleGroup.SHOULDERS),
+            setOf(MuscleGroup.CHEST_UPPER, MuscleGroup.CHEST_LOWER),
+            setOf(MuscleGroup.TRICEPS, MuscleGroup.FRONT_DELTS),
             MovementPattern.HORIZONTAL_PUSH,
             involvements = mapOf(
-                MuscleGroup.CHEST to 1.0,
-                MuscleGroup.SHOULDERS to 0.4,
+                MuscleGroup.CHEST_UPPER to 0.6,
+                MuscleGroup.CHEST_LOWER to 0.6,
+                MuscleGroup.FRONT_DELTS to 0.4,
                 MuscleGroup.TRICEPS to 0.4,
-                MuscleGroup.CORE to 0.2
+                MuscleGroup.ABS to 0.2
             )
         ),
         ex(
             "dumbbell-bench-press",
             "Dumbbell Bench Press",
             setOf(EquipmentTag.DUMBBELL, EquipmentTag.BENCH),
-            setOf(MuscleGroup.CHEST),
-            setOf(MuscleGroup.TRICEPS, MuscleGroup.SHOULDERS),
+            setOf(MuscleGroup.CHEST_UPPER, MuscleGroup.CHEST_LOWER),
+            setOf(MuscleGroup.TRICEPS, MuscleGroup.FRONT_DELTS),
             MovementPattern.HORIZONTAL_PUSH
         ),
         ex(
             "incline-dumbbell-press",
             "Incline Dumbbell Press",
             setOf(EquipmentTag.DUMBBELL, EquipmentTag.BENCH),
-            setOf(MuscleGroup.CHEST),
-            setOf(MuscleGroup.SHOULDERS, MuscleGroup.TRICEPS),
+            setOf(MuscleGroup.CHEST_UPPER),
+            setOf(MuscleGroup.FRONT_DELTS, MuscleGroup.TRICEPS),
             MovementPattern.HORIZONTAL_PUSH
         ),
         ex(
             "push-up",
             "Push-up",
             emptySet(),
-            setOf(MuscleGroup.CHEST),
-            setOf(MuscleGroup.TRICEPS, MuscleGroup.SHOULDERS, MuscleGroup.CORE),
+            setOf(MuscleGroup.CHEST_UPPER, MuscleGroup.CHEST_LOWER),
+            setOf(MuscleGroup.TRICEPS, MuscleGroup.FRONT_DELTS, MuscleGroup.ABS),
             MovementPattern.HORIZONTAL_PUSH
         ),
         ex(
             "incline-push-up",
             "Incline Push-up",
             emptySet(),
-            setOf(MuscleGroup.CHEST),
+            setOf(MuscleGroup.CHEST_UPPER),
             setOf(MuscleGroup.TRICEPS),
             MovementPattern.HORIZONTAL_PUSH
         ),
@@ -57,15 +58,15 @@ internal object DefaultExercises {
             "cable-fly",
             "Cable Fly",
             setOf(EquipmentTag.CABLE_MACHINE),
-            setOf(MuscleGroup.CHEST),
-            setOf(MuscleGroup.SHOULDERS),
+            setOf(MuscleGroup.CHEST_UPPER, MuscleGroup.CHEST_LOWER),
+            setOf(MuscleGroup.FRONT_DELTS),
             MovementPattern.CHEST_FLY
         ),
         ex(
             "band-chest-press",
             "Band Chest Press",
             setOf(EquipmentTag.RESISTANCE_BAND),
-            setOf(MuscleGroup.CHEST),
+            setOf(MuscleGroup.CHEST_UPPER, MuscleGroup.CHEST_LOWER),
             setOf(MuscleGroup.TRICEPS),
             MovementPattern.HORIZONTAL_PUSH
         ),
@@ -73,15 +74,15 @@ internal object DefaultExercises {
             "dips",
             "Dips",
             setOf(EquipmentTag.BODYWEIGHT),
-            setOf(MuscleGroup.CHEST, MuscleGroup.TRICEPS),
-            setOf(MuscleGroup.SHOULDERS),
+            setOf(MuscleGroup.CHEST_LOWER, MuscleGroup.TRICEPS),
+            setOf(MuscleGroup.FRONT_DELTS),
             MovementPattern.VERTICAL_PUSH
         ),
         ex(
             "barbell-row",
             "Barbell Row",
             setOf(EquipmentTag.BARBELL),
-            setOf(MuscleGroup.BACK),
+            setOf(MuscleGroup.UPPER_BACK, MuscleGroup.LATS),
             setOf(MuscleGroup.BICEPS),
             MovementPattern.HORIZONTAL_PULL
         ),
@@ -89,7 +90,7 @@ internal object DefaultExercises {
             "dumbbell-row",
             "Dumbbell Row",
             setOf(EquipmentTag.DUMBBELL),
-            setOf(MuscleGroup.BACK),
+            setOf(MuscleGroup.LATS, MuscleGroup.UPPER_BACK),
             setOf(MuscleGroup.BICEPS),
             MovementPattern.HORIZONTAL_PULL,
             isUnilateral = true
@@ -98,7 +99,7 @@ internal object DefaultExercises {
             "pull-up",
             "Pull-up",
             setOf(EquipmentTag.PULL_UP_BAR, EquipmentTag.BODYWEIGHT),
-            setOf(MuscleGroup.BACK),
+            setOf(MuscleGroup.LATS),
             setOf(MuscleGroup.BICEPS),
             MovementPattern.VERTICAL_PULL
         ),
@@ -106,7 +107,7 @@ internal object DefaultExercises {
             "chin-up",
             "Chin-up",
             setOf(EquipmentTag.PULL_UP_BAR, EquipmentTag.BODYWEIGHT),
-            setOf(MuscleGroup.BACK, MuscleGroup.BICEPS),
+            setOf(MuscleGroup.LATS, MuscleGroup.BICEPS),
             emptySet(),
             MovementPattern.VERTICAL_PULL
         ),
@@ -114,7 +115,7 @@ internal object DefaultExercises {
             "lat-pulldown",
             "Lat Pulldown",
             setOf(EquipmentTag.CABLE_MACHINE),
-            setOf(MuscleGroup.BACK),
+            setOf(MuscleGroup.LATS),
             setOf(MuscleGroup.BICEPS),
             MovementPattern.VERTICAL_PULL
         ),
@@ -122,7 +123,7 @@ internal object DefaultExercises {
             "seated-cable-row",
             "Seated Cable Row",
             setOf(EquipmentTag.CABLE_MACHINE),
-            setOf(MuscleGroup.BACK),
+            setOf(MuscleGroup.UPPER_BACK, MuscleGroup.LATS),
             setOf(MuscleGroup.BICEPS),
             MovementPattern.HORIZONTAL_PULL
         ),
@@ -130,7 +131,7 @@ internal object DefaultExercises {
             "band-row",
             "Band Row",
             setOf(EquipmentTag.RESISTANCE_BAND),
-            setOf(MuscleGroup.BACK),
+            setOf(MuscleGroup.UPPER_BACK, MuscleGroup.LATS),
             setOf(MuscleGroup.BICEPS),
             MovementPattern.HORIZONTAL_PULL
         ),
@@ -138,7 +139,7 @@ internal object DefaultExercises {
             "band-pull-apart",
             "Band Pull-Apart",
             setOf(EquipmentTag.RESISTANCE_BAND),
-            setOf(MuscleGroup.BACK, MuscleGroup.SHOULDERS),
+            setOf(MuscleGroup.REAR_DELTS, MuscleGroup.UPPER_BACK),
             emptySet(),
             MovementPattern.SHOULDER_ISOLATION
         ),
@@ -146,7 +147,7 @@ internal object DefaultExercises {
             "overhead-press",
             "Overhead Press",
             setOf(EquipmentTag.BARBELL),
-            setOf(MuscleGroup.SHOULDERS),
+            setOf(MuscleGroup.FRONT_DELTS, MuscleGroup.SIDE_DELTS),
             setOf(MuscleGroup.TRICEPS),
             MovementPattern.VERTICAL_PUSH
         ),
@@ -154,7 +155,7 @@ internal object DefaultExercises {
             "dumbbell-shoulder-press",
             "Dumbbell Shoulder Press",
             setOf(EquipmentTag.DUMBBELL),
-            setOf(MuscleGroup.SHOULDERS),
+            setOf(MuscleGroup.FRONT_DELTS, MuscleGroup.SIDE_DELTS),
             setOf(MuscleGroup.TRICEPS),
             MovementPattern.VERTICAL_PUSH
         ),
@@ -162,7 +163,7 @@ internal object DefaultExercises {
             "lateral-raise",
             "Lateral Raise",
             setOf(EquipmentTag.DUMBBELL),
-            setOf(MuscleGroup.SHOULDERS),
+            setOf(MuscleGroup.SIDE_DELTS),
             emptySet(),
             MovementPattern.SHOULDER_ISOLATION
         ),
@@ -170,7 +171,7 @@ internal object DefaultExercises {
             "cable-lateral-raise",
             "Cable Lateral Raise",
             setOf(EquipmentTag.CABLE_MACHINE),
-            setOf(MuscleGroup.SHOULDERS),
+            setOf(MuscleGroup.SIDE_DELTS),
             emptySet(),
             MovementPattern.SHOULDER_ISOLATION
         ),
@@ -178,7 +179,7 @@ internal object DefaultExercises {
             "face-pull",
             "Face Pull",
             setOf(EquipmentTag.CABLE_MACHINE),
-            setOf(MuscleGroup.SHOULDERS, MuscleGroup.BACK),
+            setOf(MuscleGroup.REAR_DELTS, MuscleGroup.UPPER_BACK),
             emptySet(),
             MovementPattern.SHOULDER_ISOLATION
         ),
@@ -228,7 +229,7 @@ internal object DefaultExercises {
             "Close-Grip Bench Press",
             setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH),
             setOf(MuscleGroup.TRICEPS),
-            setOf(MuscleGroup.CHEST),
+            setOf(MuscleGroup.CHEST_UPPER, MuscleGroup.CHEST_LOWER),
             MovementPattern.HORIZONTAL_PUSH
         ),
         ex(
@@ -236,7 +237,7 @@ internal object DefaultExercises {
             "Back Squat",
             setOf(EquipmentTag.BARBELL),
             setOf(MuscleGroup.QUADS, MuscleGroup.GLUTES),
-            setOf(MuscleGroup.HAMSTRINGS, MuscleGroup.CORE),
+            setOf(MuscleGroup.HAMSTRINGS, MuscleGroup.ABS),
             MovementPattern.SQUAT
         ),
         ex(
@@ -244,7 +245,7 @@ internal object DefaultExercises {
             "Front Squat",
             setOf(EquipmentTag.BARBELL),
             setOf(MuscleGroup.QUADS),
-            setOf(MuscleGroup.GLUTES, MuscleGroup.CORE),
+            setOf(MuscleGroup.GLUTES, MuscleGroup.ABS),
             MovementPattern.SQUAT
         ),
         ex(
@@ -252,7 +253,7 @@ internal object DefaultExercises {
             "Goblet Squat",
             setOf(EquipmentTag.DUMBBELL),
             setOf(MuscleGroup.QUADS, MuscleGroup.GLUTES),
-            setOf(MuscleGroup.CORE),
+            setOf(MuscleGroup.ABS),
             MovementPattern.SQUAT
         ),
         ex(
@@ -275,7 +276,7 @@ internal object DefaultExercises {
         ex(
             "leg-press",
             "Leg Press",
-            setOf(EquipmentTag.CABLE_MACHINE),
+            setOf(EquipmentTag.LEG_PRESS_MACHINE),
             setOf(MuscleGroup.QUADS, MuscleGroup.GLUTES),
             setOf(MuscleGroup.HAMSTRINGS),
             MovementPattern.SQUAT
@@ -285,7 +286,7 @@ internal object DefaultExercises {
             "Romanian Deadlift",
             setOf(EquipmentTag.BARBELL),
             setOf(MuscleGroup.HAMSTRINGS, MuscleGroup.GLUTES),
-            setOf(MuscleGroup.BACK),
+            setOf(MuscleGroup.LOWER_BACK),
             MovementPattern.HINGE
         ),
         ex(
@@ -293,15 +294,15 @@ internal object DefaultExercises {
             "Dumbbell Romanian Deadlift",
             setOf(EquipmentTag.DUMBBELL),
             setOf(MuscleGroup.HAMSTRINGS, MuscleGroup.GLUTES),
-            setOf(MuscleGroup.BACK),
+            setOf(MuscleGroup.LOWER_BACK),
             MovementPattern.HINGE
         ),
         ex(
             "conventional-deadlift",
             "Conventional Deadlift",
             setOf(EquipmentTag.BARBELL),
-            setOf(MuscleGroup.BACK, MuscleGroup.GLUTES, MuscleGroup.HAMSTRINGS),
-            setOf(MuscleGroup.QUADS, MuscleGroup.CORE),
+            setOf(MuscleGroup.LOWER_BACK, MuscleGroup.GLUTES, MuscleGroup.HAMSTRINGS),
+            setOf(MuscleGroup.QUADS, MuscleGroup.ABS),
             MovementPattern.HINGE
         ),
         ex(
@@ -323,7 +324,7 @@ internal object DefaultExercises {
         ex(
             "leg-curl",
             "Leg Curl",
-            setOf(EquipmentTag.CABLE_MACHINE),
+            setOf(EquipmentTag.LEG_CURL_MACHINE),
             setOf(MuscleGroup.HAMSTRINGS),
             emptySet(),
             MovementPattern.LEG_ISOLATION
@@ -333,7 +334,7 @@ internal object DefaultExercises {
             "Kettlebell Swing",
             setOf(EquipmentTag.KETTLEBELL),
             setOf(MuscleGroup.GLUTES, MuscleGroup.HAMSTRINGS),
-            setOf(MuscleGroup.CORE, MuscleGroup.BACK),
+            setOf(MuscleGroup.ABS, MuscleGroup.LOWER_BACK),
             MovementPattern.HINGE
         ),
         ex(
@@ -356,7 +357,7 @@ internal object DefaultExercises {
             "plank",
             "Plank",
             emptySet(),
-            setOf(MuscleGroup.CORE),
+            setOf(MuscleGroup.ABS, MuscleGroup.OBLIQUES),
             emptySet(),
             MovementPattern.CORE
         ),
@@ -364,15 +365,15 @@ internal object DefaultExercises {
             "hanging-leg-raise",
             "Hanging Leg Raise",
             setOf(EquipmentTag.PULL_UP_BAR, EquipmentTag.BODYWEIGHT),
-            setOf(MuscleGroup.CORE),
-            emptySet(),
+            setOf(MuscleGroup.ABS),
+            setOf(MuscleGroup.OBLIQUES),
             MovementPattern.CORE
         ),
         ex(
             "cable-crunch",
             "Cable Crunch",
             setOf(EquipmentTag.CABLE_MACHINE),
-            setOf(MuscleGroup.CORE),
+            setOf(MuscleGroup.ABS),
             emptySet(),
             MovementPattern.CORE
         ),
@@ -409,30 +410,30 @@ internal object DefaultExercises {
             "close-grip-pulldown",
             "Close-Grip Pulldown",
             setOf(EquipmentTag.CABLE_MACHINE),
-            setOf(MuscleGroup.BACK),
+            setOf(MuscleGroup.LATS),
             setOf(MuscleGroup.BICEPS),
             MovementPattern.VERTICAL_PULL,
-            involvements = mapOf(MuscleGroup.BACK to 1.0, MuscleGroup.BICEPS to 0.4)
+            involvements = mapOf(MuscleGroup.LATS to 1.0, MuscleGroup.BICEPS to 0.4)
         ),
         ex(
             "wide-grip-pulldown",
             "Wide-Grip Pulldown",
             setOf(EquipmentTag.CABLE_MACHINE),
-            setOf(MuscleGroup.BACK),
+            setOf(MuscleGroup.LATS),
             setOf(MuscleGroup.BICEPS),
             MovementPattern.VERTICAL_PULL,
-            involvements = mapOf(MuscleGroup.BACK to 1.0, MuscleGroup.BICEPS to 0.3)
+            involvements = mapOf(MuscleGroup.LATS to 1.0, MuscleGroup.BICEPS to 0.3)
         ),
         ex(
             "incline-barbell-press",
             "Incline Barbell Press",
             setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH),
-            setOf(MuscleGroup.CHEST),
-            setOf(MuscleGroup.SHOULDERS, MuscleGroup.TRICEPS),
+            setOf(MuscleGroup.CHEST_UPPER),
+            setOf(MuscleGroup.FRONT_DELTS, MuscleGroup.TRICEPS),
             MovementPattern.HORIZONTAL_PUSH,
             involvements = mapOf(
-                MuscleGroup.CHEST to 1.0,
-                MuscleGroup.SHOULDERS to 0.5,
+                MuscleGroup.CHEST_UPPER to 1.0,
+                MuscleGroup.FRONT_DELTS to 0.5,
                 MuscleGroup.TRICEPS to 0.4
             )
         ),
@@ -440,14 +441,115 @@ internal object DefaultExercises {
             "decline-barbell-press",
             "Decline Barbell Press",
             setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH),
-            setOf(MuscleGroup.CHEST),
-            setOf(MuscleGroup.TRICEPS, MuscleGroup.SHOULDERS),
+            setOf(MuscleGroup.CHEST_LOWER),
+            setOf(MuscleGroup.TRICEPS, MuscleGroup.FRONT_DELTS),
             MovementPattern.HORIZONTAL_PUSH,
             involvements = mapOf(
-                MuscleGroup.CHEST to 1.0,
+                MuscleGroup.CHEST_LOWER to 1.0,
                 MuscleGroup.TRICEPS to 0.4,
-                MuscleGroup.SHOULDERS to 0.2
+                MuscleGroup.FRONT_DELTS to 0.2
             )
+        ),
+        ex(
+            "ez-bar-upright-row",
+            "EZ Bar Upright Row",
+            setOf(EquipmentTag.EZ_BAR),
+            setOf(MuscleGroup.SIDE_DELTS, MuscleGroup.UPPER_BACK),
+            setOf(MuscleGroup.BICEPS),
+            MovementPattern.SHOULDER_ISOLATION,
+            involvements = mapOf(
+                MuscleGroup.SIDE_DELTS to 1.0,
+                MuscleGroup.UPPER_BACK to 0.3,
+                MuscleGroup.BICEPS to 0.3,
+                MuscleGroup.ABS to 0.3
+            )
+        ),
+        ex(
+            "seated-ez-bar-curl",
+            "Seated EZ Bar Curl",
+            setOf(EquipmentTag.EZ_BAR),
+            setOf(MuscleGroup.BICEPS),
+            setOf(MuscleGroup.FOREARMS),
+            MovementPattern.BICEPS_ISOLATION,
+            involvements = mapOf(MuscleGroup.BICEPS to 1.0, MuscleGroup.FOREARMS to 0.3)
+        ),
+        ex(
+            "trap-bar-deadlift",
+            "Trap Bar Deadlift",
+            setOf(EquipmentTag.TRAP_BAR),
+            setOf(MuscleGroup.GLUTES, MuscleGroup.HAMSTRINGS, MuscleGroup.QUADS),
+            setOf(MuscleGroup.LOWER_BACK, MuscleGroup.UPPER_BACK, MuscleGroup.ABS),
+            MovementPattern.HINGE,
+            involvements = mapOf(
+                MuscleGroup.GLUTES to 1.0,
+                MuscleGroup.HAMSTRINGS to 1.0,
+                MuscleGroup.QUADS to 0.5,
+                MuscleGroup.LOWER_BACK to 0.6,
+                MuscleGroup.UPPER_BACK to 0.4,
+                MuscleGroup.ABS to 0.5
+            )
+        ),
+        ex(
+            "dumbbell-lunge",
+            "Dumbbell Lunge",
+            setOf(EquipmentTag.DUMBBELL),
+            setOf(MuscleGroup.QUADS, MuscleGroup.GLUTES, MuscleGroup.HAMSTRINGS),
+            setOf(MuscleGroup.CALVES, MuscleGroup.LOWER_BACK),
+            MovementPattern.LUNGE
+        ),
+        ex(
+            "barbell-shoulder-press",
+            "Barbell Shoulder Press",
+            setOf(EquipmentTag.BARBELL),
+            setOf(MuscleGroup.FRONT_DELTS, MuscleGroup.SIDE_DELTS),
+            setOf(MuscleGroup.TRICEPS, MuscleGroup.ABS),
+            MovementPattern.VERTICAL_PUSH
+        ),
+        ex(
+            "ab-roll",
+            "Ab Roll",
+            setOf(EquipmentTag.BODYWEIGHT, EquipmentTag.AB_ROLLER),
+            setOf(MuscleGroup.ABS),
+            setOf(MuscleGroup.OBLIQUES, MuscleGroup.TRICEPS),
+            MovementPattern.CORE,
+            involvements = mapOf(MuscleGroup.ABS to 1.0, MuscleGroup.TRICEPS to 0.3)
+        ),
+        ex(
+            "leg-extension",
+            "Leg Extension",
+            setOf(EquipmentTag.LEG_EXTENSION_MACHINE),
+            setOf(MuscleGroup.QUADS),
+            setOf(MuscleGroup.ABS),
+            MovementPattern.LEG_ISOLATION,
+            involvements = mapOf(MuscleGroup.QUADS to 1.0, MuscleGroup.ABS to 0.3)
+        ),
+        ex(
+            "standing-dumbbell-side-bend",
+            "Standing Dumbbell Side Bend",
+            setOf(EquipmentTag.DUMBBELL),
+            setOf(MuscleGroup.OBLIQUES),
+            emptySet(),
+            MovementPattern.CORE,
+            isUnilateral = true,
+            involvements = mapOf(MuscleGroup.OBLIQUES to 1.0)
+        ),
+        ex(
+            "dumbbell-triceps-overhead-extension",
+            "Dumbbell Triceps Overhead Extension",
+            setOf(EquipmentTag.DUMBBELL),
+            setOf(MuscleGroup.TRICEPS),
+            emptySet(),
+            MovementPattern.TRICEPS_ISOLATION,
+            involvements = mapOf(MuscleGroup.TRICEPS to 1.0)
+        ),
+        ex(
+            "dumbbell-front-to-lateral-raise-combo",
+            "Dumbbell Front to Lateral Raise combo",
+            setOf(EquipmentTag.DUMBBELL),
+            setOf(MuscleGroup.FRONT_DELTS, MuscleGroup.SIDE_DELTS),
+            setOf(MuscleGroup.UPPER_BACK, MuscleGroup.ABS),
+            MovementPattern.SHOULDER_ISOLATION,
+            isUnilateral = true
         )
     )
 

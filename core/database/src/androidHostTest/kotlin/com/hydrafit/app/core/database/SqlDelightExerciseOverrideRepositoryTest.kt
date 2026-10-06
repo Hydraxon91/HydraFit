@@ -40,13 +40,13 @@ class SqlDelightExerciseOverrideRepositoryTest {
             name = "Low-Bar Back Squat",
             requiredEquipment = setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH),
             movementPattern = MovementPattern.HINGE,
-            involvements = mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.TRICEPS to 0.5)
+            involvements = mapOf(MuscleGroup.CHEST_UPPER to 1.0, MuscleGroup.TRICEPS to 0.5)
         )
 
         val edited = catalog.exercise("back-squat")
         assertEquals("Low-Bar Back Squat", edited.name)
         assertEquals(setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH), edited.requiredEquipment)
-        assertEquals(setOf(MuscleGroup.CHEST), edited.primaryMuscles)
+        assertEquals(setOf(MuscleGroup.CHEST_UPPER), edited.primaryMuscles)
         assertEquals(setOf(MuscleGroup.TRICEPS), edited.secondaryMuscles)
         assertEquals(MovementPattern.HINGE, edited.movementPattern)
 
@@ -70,7 +70,7 @@ class SqlDelightExerciseOverrideRepositoryTest {
                 MuscleGroup.QUADS to 1.0,
                 MuscleGroup.GLUTES to 1.0,
                 MuscleGroup.HAMSTRINGS to 0.5,
-                MuscleGroup.CORE to 0.5
+                MuscleGroup.ABS to 0.5
             )
         )
 

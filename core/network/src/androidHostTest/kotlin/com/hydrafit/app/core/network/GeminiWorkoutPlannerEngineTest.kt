@@ -522,7 +522,7 @@ class GeminiWorkoutPlannerEngineTest {
                 id = id,
                 name = id,
                 requiredEquipment = setOf(equipment),
-                primaryMuscles = setOf(MuscleGroup.CHEST),
+                primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
                 movementPattern = pattern
             )
     }

@@ -12,13 +12,13 @@ class FatigueReplayTest {
         assertEquals(3, sets.count { it.isWarmup })
         assertEquals(
             0.825504,
-            calculator.calculate(sets, FatigueReplayFixture.PEAK_MILLIS).getValue(MuscleGroup.BACK),
+            calculator.calculate(sets, FatigueReplayFixture.PEAK_MILLIS).getValue(MuscleGroup.LATS),
             0.0000005
         )
         assertEquals(
             0.652960,
             calculator.calculate(sets, FatigueReplayFixture.EVALUATION_MILLIS)
-                .getValue(MuscleGroup.BACK),
+                .getValue(MuscleGroup.LATS),
             0.0000005
         )
     }
@@ -28,9 +28,9 @@ class FatigueReplayTest {
         val calculator = FatigueCalculator()
         val typed = FatigueReplayFixture.typedSets
         val peak = calculator.calculate(typed, FatigueReplayFixture.PEAK_MILLIS)
-            .getValue(MuscleGroup.BACK)
+            .getValue(MuscleGroup.LATS)
         val evaluation = calculator.calculate(typed, FatigueReplayFixture.EVALUATION_MILLIS)
-            .getValue(MuscleGroup.BACK)
+            .getValue(MuscleGroup.LATS)
         assertEquals(0.8310648, peak, 0.0000005)
         assertEquals(0.6847530, evaluation, 0.0000005)
     }
@@ -44,25 +44,25 @@ class FatigueReplayTest {
         assertEquals(
             0.825504,
             calculator.calculate(plain, FatigueReplayFixture.PEAK_MILLIS)
-                .getValue(MuscleGroup.BACK),
+                .getValue(MuscleGroup.LATS),
             0.0000005
         )
         assertEquals(
             0.652960,
             calculator.calculate(plain, FatigueReplayFixture.EVALUATION_MILLIS)
-                .getValue(MuscleGroup.BACK),
+                .getValue(MuscleGroup.LATS),
             0.0000005
         )
         assertEquals(
             0.8310648,
             calculator.calculate(typed, FatigueReplayFixture.PEAK_MILLIS)
-                .getValue(MuscleGroup.BACK),
+                .getValue(MuscleGroup.LATS),
             0.0000005
         )
         assertEquals(
             0.6847530,
             calculator.calculate(typed, FatigueReplayFixture.EVALUATION_MILLIS)
-                .getValue(MuscleGroup.BACK),
+                .getValue(MuscleGroup.LATS),
             0.0000005
         )
     }
@@ -76,7 +76,7 @@ class FatigueReplayTest {
             calculator.calculate(
                 FatigueReplayFixture.typedSetsWithRir(0),
                 FatigueReplayFixture.PEAK_MILLIS
-            ).getValue(MuscleGroup.BACK),
+            ).getValue(MuscleGroup.LATS),
             0.0000005
         )
         assertEquals(
@@ -84,7 +84,7 @@ class FatigueReplayTest {
             calculator.calculate(
                 FatigueReplayFixture.typedSetsWithRir(0),
                 FatigueReplayFixture.EVALUATION_MILLIS
-            ).getValue(MuscleGroup.BACK),
+            ).getValue(MuscleGroup.LATS),
             0.0000005
         )
         assertEquals(
@@ -92,7 +92,7 @@ class FatigueReplayTest {
             calculator.calculate(
                 FatigueReplayFixture.typedSetsWithRir(4),
                 FatigueReplayFixture.PEAK_MILLIS
-            ).getValue(MuscleGroup.BACK),
+            ).getValue(MuscleGroup.LATS),
             0.0000005
         )
         assertEquals(
@@ -100,7 +100,7 @@ class FatigueReplayTest {
             calculator.calculate(
                 FatigueReplayFixture.typedSetsWithRir(4),
                 FatigueReplayFixture.EVALUATION_MILLIS
-            ).getValue(MuscleGroup.BACK),
+            ).getValue(MuscleGroup.LATS),
             0.0000005
         )
     }

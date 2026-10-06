@@ -36,9 +36,9 @@ class WeeklyVolumeTargetsTest {
     fun weightedSetsSumSetsTimesInvolvementAcrossDays() {
         val bench = exercise(
             "bench",
-            mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.TRICEPS to 0.4)
+            mapOf(MuscleGroup.CHEST_UPPER to 1.0, MuscleGroup.TRICEPS to 0.4)
         )
-        val row = exercise("row", mapOf(MuscleGroup.BACK to 1.0, MuscleGroup.BICEPS to 0.3))
+        val row = exercise("row", mapOf(MuscleGroup.LATS to 1.0, MuscleGroup.BICEPS to 0.3))
         val days = listOf(
             day(0, listOf("bench" to 3, "row" to 4)),
             day(1, listOf("bench" to 2))
@@ -47,15 +47,15 @@ class WeeklyVolumeTargetsTest {
         val exercisesById = mapOf(bench.id to bench, row.id to row)
         val volume = WeeklyVolumeTargets.weightedSetsByMuscle(days, exercisesById)
 
-        assertEquals(5.0, volume.getValue(MuscleGroup.CHEST))
-        assertEquals(4.0, volume.getValue(MuscleGroup.BACK))
+        assertEquals(5.0, volume.getValue(MuscleGroup.CHEST_UPPER))
+        assertEquals(4.0, volume.getValue(MuscleGroup.LATS))
         assertEquals(2.0, volume.getValue(MuscleGroup.TRICEPS))
         assertEquals(1.2, volume.getValue(MuscleGroup.BICEPS), 1e-9)
     }
 
     @Test
     fun untrainedMusclesAreReportedAtZero() {
-        val bench = exercise("bench", mapOf(MuscleGroup.CHEST to 1.0))
+        val bench = exercise("bench", mapOf(MuscleGroup.CHEST_UPPER to 1.0))
 
         val volume = WeeklyVolumeTargets.weightedSetsByMuscle(
             listOf(day(0, listOf("bench" to 3))),

@@ -24,7 +24,7 @@ class MovementPatternGuardrailTest {
         assertFalse(
             MovementPatternGuardrail.conflicts(
                 MovementPattern.HORIZONTAL_PUSH,
-                mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.TRICEPS to 0.4)
+                mapOf(MuscleGroup.CHEST_UPPER to 1.0, MuscleGroup.TRICEPS to 0.4)
             )
         )
     }
@@ -35,7 +35,7 @@ class MovementPatternGuardrailTest {
         assertTrue(
             MovementPatternGuardrail.conflicts(
                 MovementPattern.VERTICAL_PULL,
-                mapOf(MuscleGroup.SHOULDERS to 1.0, MuscleGroup.BACK to 0.3)
+                mapOf(MuscleGroup.SIDE_DELTS to 1.0, MuscleGroup.LATS to 0.3)
             )
         )
     }
@@ -57,13 +57,13 @@ class MovementPatternGuardrailTest {
         assertFalse(
             MovementPatternGuardrail.conflicts(
                 MovementPattern.HORIZONTAL_PUSH,
-                mapOf(MuscleGroup.CHEST to MovementPatternGuardrail.PRIMARY_THRESHOLD)
+                mapOf(MuscleGroup.CHEST_UPPER to MovementPatternGuardrail.PRIMARY_THRESHOLD)
             )
         )
         assertTrue(
             MovementPatternGuardrail.conflicts(
                 MovementPattern.HORIZONTAL_PUSH,
-                mapOf(MuscleGroup.CHEST to MovementPatternGuardrail.PRIMARY_THRESHOLD - 0.01)
+                mapOf(MuscleGroup.CHEST_UPPER to MovementPatternGuardrail.PRIMARY_THRESHOLD - 0.01)
             )
         )
     }
@@ -80,7 +80,12 @@ class MovementPatternGuardrailTest {
             MovementPatternGuardrail.expectedMusclesFor(MovementPattern.CALF_RAISE)
         )
         assertEquals(
-            setOf(MuscleGroup.BACK, MuscleGroup.BICEPS),
+            setOf(
+                MuscleGroup.LATS,
+                MuscleGroup.UPPER_BACK,
+                MuscleGroup.REAR_DELTS,
+                MuscleGroup.BICEPS
+            ),
             MovementPatternGuardrail.expectedMusclesFor(MovementPattern.HORIZONTAL_PULL)
         )
     }

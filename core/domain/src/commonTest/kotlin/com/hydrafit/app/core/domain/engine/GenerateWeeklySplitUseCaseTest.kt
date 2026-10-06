@@ -29,7 +29,7 @@ class GenerateWeeklySplitUseCaseTest {
     private fun request() = PlanRequest(
         daysPerWeek = 4,
         availableEquipment = setOf(EquipmentTag.DUMBBELL),
-        muscleFatigue = mapOf(MuscleGroup.CHEST to 0.5),
+        muscleFatigue = mapOf(MuscleGroup.CHEST_UPPER to 0.5),
         nowMillis = 123L
     )
 

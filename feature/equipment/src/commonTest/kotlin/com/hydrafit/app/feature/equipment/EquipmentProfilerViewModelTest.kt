@@ -70,7 +70,7 @@ class EquipmentProfilerViewModelTest {
         )
         val coherent = ExerciseEditorState(
             movementPattern = MovementPattern.HORIZONTAL_PUSH,
-            involvements = mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.TRICEPS to 0.4)
+            involvements = mapOf(MuscleGroup.CHEST_UPPER to 1.0, MuscleGroup.TRICEPS to 0.4)
         )
 
         assertTrue(mismatched.patternMismatch)
@@ -169,7 +169,7 @@ class EquipmentProfilerViewModelTest {
 
         viewModel.onEditorNameChanged("Back Squat (Low Bar)")
         viewModel.onEditorEquipmentToggled(EquipmentTag.BENCH)
-        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.CHEST, 1.0)
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.CHEST_UPPER, 1.0)
         viewModel.onSaveExercise()
         advanceUntilIdle()
 
@@ -177,7 +177,7 @@ class EquipmentProfilerViewModelTest {
         assertEquals("Back Squat (Low Bar)", stored.name)
         assertEquals(setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH), stored.equipment)
         assertEquals(1.0, stored.involvements[MuscleGroup.QUADS])
-        assertEquals(1.0, stored.involvements[MuscleGroup.CHEST])
+        assertEquals(1.0, stored.involvements[MuscleGroup.CHEST_UPPER])
         assertNull(viewModel.state.value.exerciseEditor.exerciseId)
     }
 
@@ -205,7 +205,7 @@ class EquipmentProfilerViewModelTest {
 
         viewModel.onNewCustomExercise()
         viewModel.onEditorNameChanged("My Row")
-        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.BACK, 1.0)
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.LATS, 1.0)
         viewModel.onEditorUnilateralToggled(true)
         viewModel.onSaveExercise()
         advanceUntilIdle()
@@ -261,7 +261,7 @@ class EquipmentProfilerViewModelTest {
         viewModel.onNewCustomExercise()
         viewModel.onEditorNameChanged("Trap Bar Deadlift")
         viewModel.onEditorPatternChanged(MovementPattern.HINGE)
-        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.BACK, 1.0)
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.LATS, 1.0)
         assertEquals(MovementPattern.HINGE, viewModel.state.value.exerciseEditor.movementPattern)
         viewModel.onSaveExercise()
         advanceUntilIdle()
@@ -280,7 +280,7 @@ class EquipmentProfilerViewModelTest {
         assertFalse(viewModel.state.value.exerciseEditor.canSave)
         viewModel.onEditorNameChanged("Something")
         assertFalse(viewModel.state.value.exerciseEditor.canSave)
-        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.CORE, 1.0)
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.ABS, 1.0)
 
         assertTrue(viewModel.state.value.exerciseEditor.canSave)
     }
@@ -292,7 +292,7 @@ class EquipmentProfilerViewModelTest {
         advanceUntilIdle()
         viewModel.onNewCustomExercise()
         viewModel.onEditorNameChanged("Disposable")
-        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.CORE, 1.0)
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.ABS, 1.0)
         viewModel.onSaveExercise()
         advanceUntilIdle()
 

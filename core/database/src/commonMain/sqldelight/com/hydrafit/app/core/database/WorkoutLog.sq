@@ -27,6 +27,9 @@ UPDATE workoutSet SET sessionId = ? WHERE id = ?;
 updateSetPerformedAt:
 UPDATE workoutSet SET performedAt = ? WHERE id = ?;
 
+updateSetExerciseId:
+UPDATE workoutSet SET exerciseId = :newId WHERE exerciseId = :oldId;
+
 selectUnsegmentedSets:
 SELECT * FROM workoutSet WHERE sessionId IS NULL ORDER BY performedAt, id;
 

@@ -4,14 +4,21 @@
     <string name="fatigue_percentage">%1$d.%2$d%</string>
     <string name="fatigue_percentage_near_limit">99.9+%</string>
     <string name="nav_label">Fatigue</string>
-    <string name="muscle_chest">Chest</string>
-    <string name="muscle_back">Back</string>
-    <string name="muscle_shoulders">Shoulders</string>
+    <string name="muscle_chest_upper">Upper chest</string>
+    <string name="muscle_chest_lower">Lower chest</string>
+    <string name="muscle_lats">Lats</string>
+    <string name="muscle_upper_back">Upper back</string>
+    <string name="muscle_lower_back">Lower back</string>
+    <string name="muscle_front_delts">Front delts</string>
+    <string name="muscle_side_delts">Side delts</string>
+    <string name="muscle_rear_delts">Rear delts</string>
     <string name="muscle_biceps">Biceps</string>
     <string name="muscle_triceps">Triceps</string>
+    <string name="muscle_forearms">Forearms</string>
+    <string name="muscle_abs">Abs</string>
+    <string name="muscle_obliques">Obliques</string>
     <string name="muscle_quads">Quads</string>
     <string name="muscle_hamstrings">Hamstrings</string>
     <string name="muscle_glutes">Glutes</string>
     <string name="muscle_calves">Calves</string>
-    <string name="muscle_core">Core</string>
 </resources>

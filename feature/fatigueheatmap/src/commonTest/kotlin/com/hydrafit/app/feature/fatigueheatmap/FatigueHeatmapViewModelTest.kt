@@ -60,12 +60,12 @@ class FatigueHeatmapViewModelTest {
 
         val fresh = viewModel(sets, nowMillis = 0L)
         runCurrent()
-        assertEquals(CHEST_24_FRESH, fresh.scoreOf(MuscleGroup.CHEST), 1e-9)
+        assertEquals(CHEST_24_FRESH, fresh.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
         assertEquals(0.0, fresh.scoreOf(MuscleGroup.QUADS), 1e-9)
 
         val decayed = viewModel(sets, nowMillis = 48L * 60L * 60L * 1000L)
         runCurrent()
-        assertEquals(CHEST_24_48H, decayed.scoreOf(MuscleGroup.CHEST), 1e-9)
+        assertEquals(CHEST_24_48H, decayed.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
     }
 
     @Test
@@ -77,12 +77,12 @@ class FatigueHeatmapViewModelTest {
             timeProvider = TimeProvider { 0L }
         )
         runCurrent()
-        assertEquals(0.0, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+        assertEquals(0.0, viewModel.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
 
         sets.value = List(24) { chestSet(timestampMillis = 0L) }
         runCurrent()
 
-        assertEquals(CHEST_24_FRESH, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+        assertEquals(CHEST_24_FRESH, viewModel.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
     }
 
     @Test
@@ -94,12 +94,12 @@ class FatigueHeatmapViewModelTest {
             timeProvider = TimeProvider { 0L }
         )
         runCurrent()
-        assertEquals(CHEST_24_FRESH, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+        assertEquals(CHEST_24_FRESH, viewModel.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
 
         sets.value = emptyList()
         runCurrent()
 
-        assertEquals(0.0, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+        assertEquals(0.0, viewModel.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
     }
 
     @Test
@@ -108,18 +108,18 @@ class FatigueHeatmapViewModelTest {
         val viewModel = viewModel(List(24) { chestSet(0L) }, clock)
         try {
             runCurrent()
-            assertEquals(CHEST_24_FRESH, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+            assertEquals(CHEST_24_FRESH, viewModel.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
 
             clock.now = 48L * 60L * 60L * 1000L
             viewModel.onResume()
             runCurrent()
-            assertEquals(CHEST_24_48H, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+            assertEquals(CHEST_24_48H, viewModel.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
 
             viewModel.onPause()
             clock.now *= 2
             viewModel.onResume()
             runCurrent()
-            assertEquals(CHEST_24_96H, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+            assertEquals(CHEST_24_96H, viewModel.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
         } finally {
             viewModel.onPause()
         }
@@ -137,15 +137,15 @@ class FatigueHeatmapViewModelTest {
             clock.now = 48L * 60L * 60L * 1000L
             advanceTimeBy(59_999L)
             runCurrent()
-            assertEquals(CHEST_24_FRESH, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+            assertEquals(CHEST_24_FRESH, viewModel.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
             advanceTimeBy(1L)
             runCurrent()
-            assertEquals(CHEST_24_48H, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+            assertEquals(CHEST_24_48H, viewModel.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
 
             clock.now *= 2
             advanceTimeBy(60_000L)
             runCurrent()
-            assertEquals(CHEST_24_96H, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+            assertEquals(CHEST_24_96H, viewModel.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
         } finally {
             viewModel.onPause()
         }
@@ -167,15 +167,15 @@ class FatigueHeatmapViewModelTest {
             advanceTimeBy(180_000L)
             runCurrent()
             assertEquals(readsWhenPaused, clock.reads)
-            assertEquals(CHEST_24_FRESH, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+            assertEquals(CHEST_24_FRESH, viewModel.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
 
             viewModel.onResume()
             runCurrent()
-            assertEquals(CHEST_24_48H, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+            assertEquals(CHEST_24_48H, viewModel.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
             clock.now *= 2
             advanceTimeBy(60_000L)
             runCurrent()
-            assertEquals(CHEST_24_96H, viewModel.scoreOf(MuscleGroup.CHEST), 1e-9)
+            assertEquals(CHEST_24_96H, viewModel.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
         } finally {
             viewModel.onPause()
         }
@@ -242,7 +242,7 @@ class FatigueHeatmapViewModelTest {
     private fun chestSet(timestampMillis: Long) = LoggedSet(
         timestampMillis = timestampMillis,
         targets = listOf(
-            MuscleTarget(MuscleGroup.CHEST, MuscleInvolvement.PRIMARY.volumeWeight)
+            MuscleTarget(MuscleGroup.CHEST_UPPER, MuscleInvolvement.PRIMARY.volumeWeight)
         )
     )
 

@@ -84,7 +84,7 @@ class FilterExercisesByEquipmentUseCaseTest {
     private fun exercise(
         id: String,
         required: Set<EquipmentTag> = emptySet(),
-        primary: Set<MuscleGroup> = setOf(MuscleGroup.CHEST)
+        primary: Set<MuscleGroup> = setOf(MuscleGroup.CHEST_UPPER)
     ) = Exercise(
         id = id,
         name = id,

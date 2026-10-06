@@ -1,5 +1,6 @@
 package com.hydrafit.app
 
+import com.hydrafit.app.core.database.CustomExerciseDedupe
 import com.hydrafit.app.core.database.SeedEquipmentCatalog
 import com.hydrafit.app.core.database.SeedExerciseCatalog
 import com.hydrafit.app.core.database.WorkoutSessionBackfill
@@ -30,5 +31,6 @@ fun initKoin(platformModule: Module, extraModules: List<Module> = emptyList()) {
     }
     koinApplication.koin.get<SeedExerciseCatalog>().seed()
     koinApplication.koin.get<SeedEquipmentCatalog>().seed()
+    koinApplication.koin.get<CustomExerciseDedupe>().run()
     koinApplication.koin.get<WorkoutSessionBackfill>().backfill()
 }

@@ -19,7 +19,7 @@ class CalculateMuscleFatigueUseCaseTest {
             LoggedSet(
                 timestampMillis = 0L,
                 targets = listOf(
-                    MuscleTarget(MuscleGroup.CHEST, MuscleInvolvement.PRIMARY.volumeWeight)
+                    MuscleTarget(MuscleGroup.CHEST_UPPER, MuscleInvolvement.PRIMARY.volumeWeight)
                 )
             )
         )

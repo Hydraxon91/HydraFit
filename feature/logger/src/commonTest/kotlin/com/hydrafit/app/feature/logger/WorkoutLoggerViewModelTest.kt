@@ -1516,14 +1516,14 @@ class WorkoutLoggerViewModelTest {
                 id = "bench-press",
                 name = "Bench Press",
                 requiredEquipment = setOf(EquipmentTag.BARBELL),
-                primaryMuscles = setOf(MuscleGroup.CHEST),
+                primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
                 movementPattern = MovementPattern.HORIZONTAL_PUSH
             ),
             Exercise(
                 id = "plank",
                 name = "Plank",
                 requiredEquipment = emptySet(),
-                primaryMuscles = setOf(MuscleGroup.CORE),
+                primaryMuscles = setOf(MuscleGroup.ABS),
                 movementPattern = MovementPattern.CORE
             ),
             Exercise(

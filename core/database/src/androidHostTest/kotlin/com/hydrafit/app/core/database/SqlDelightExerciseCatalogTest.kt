@@ -43,8 +43,8 @@ class SqlDelightExerciseCatalogTest {
             id = "bench-press",
             name = "Bench Press",
             equipment = setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH),
-            primary = setOf(MuscleGroup.CHEST),
-            secondary = setOf(MuscleGroup.TRICEPS, MuscleGroup.SHOULDERS),
+            primary = setOf(MuscleGroup.CHEST_UPPER),
+            secondary = setOf(MuscleGroup.TRICEPS, MuscleGroup.SIDE_DELTS),
             pattern = MovementPattern.HORIZONTAL_PUSH
         )
 
@@ -53,8 +53,8 @@ class SqlDelightExerciseCatalogTest {
         assertEquals("bench-press", exercise.id)
         assertEquals("Bench Press", exercise.name)
         assertEquals(setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH), exercise.requiredEquipment)
-        assertEquals(setOf(MuscleGroup.CHEST), exercise.primaryMuscles)
-        assertEquals(setOf(MuscleGroup.TRICEPS, MuscleGroup.SHOULDERS), exercise.secondaryMuscles)
+        assertEquals(setOf(MuscleGroup.CHEST_UPPER), exercise.primaryMuscles)
+        assertEquals(setOf(MuscleGroup.TRICEPS, MuscleGroup.SIDE_DELTS), exercise.secondaryMuscles)
         assertEquals(MovementPattern.HORIZONTAL_PUSH, exercise.movementPattern)
     }
 
@@ -64,7 +64,7 @@ class SqlDelightExerciseCatalogTest {
             id = "push-up",
             name = "Push Up",
             equipment = emptySet(),
-            primary = setOf(MuscleGroup.CHEST),
+            primary = setOf(MuscleGroup.CHEST_UPPER),
             secondary = emptySet()
         )
 
@@ -76,8 +76,8 @@ class SqlDelightExerciseCatalogTest {
 
     @Test
     fun returnsExercisesOrderedById() = runTest {
-        insert("b-exercise", "B", emptySet(), setOf(MuscleGroup.BACK), emptySet())
-        insert("a-exercise", "A", emptySet(), setOf(MuscleGroup.CHEST), emptySet())
+        insert("b-exercise", "B", emptySet(), setOf(MuscleGroup.LATS), emptySet())
+        insert("a-exercise", "A", emptySet(), setOf(MuscleGroup.CHEST_UPPER), emptySet())
 
         val ids = catalog.all().map { it.id }
 
@@ -90,7 +90,7 @@ class SqlDelightExerciseCatalogTest {
             id = "bench-press",
             name = "Bench Press",
             equipment = setOf(EquipmentTag.BARBELL),
-            primary = setOf(MuscleGroup.CHEST),
+            primary = setOf(MuscleGroup.CHEST_UPPER),
             secondary = emptySet()
         )
         SqlDelightExerciseOverrideRepository(database).update(
@@ -98,13 +98,16 @@ class SqlDelightExerciseCatalogTest {
             name = "Flat Bench",
             requiredEquipment = setOf(EquipmentTag.BARBELL),
             movementPattern = MovementPattern.HORIZONTAL_PUSH,
-            involvements = mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.SHOULDERS to 0.7)
+            involvements = mapOf(MuscleGroup.CHEST_UPPER to 1.0, MuscleGroup.SIDE_DELTS to 0.7)
         )
 
         val exercise = catalog.observeAll().first().single()
 
         assertEquals("Flat Bench", exercise.name)
-        assertEquals(setOf(MuscleGroup.CHEST, MuscleGroup.SHOULDERS), exercise.primaryMuscles)
+        assertEquals(
+            setOf(MuscleGroup.CHEST_UPPER, MuscleGroup.SIDE_DELTS),
+            exercise.primaryMuscles
+        )
     }
 
     @Test
@@ -113,7 +116,7 @@ class SqlDelightExerciseCatalogTest {
             id = "bench",
             name = "Bench",
             equipment = setOf(EquipmentTag.BARBELL),
-            primary = setOf(MuscleGroup.CHEST),
+            primary = setOf(MuscleGroup.CHEST_UPPER),
             secondary = emptySet()
         )
         SqlDelightExerciseOverrideRepository(database).update(
@@ -121,16 +124,16 @@ class SqlDelightExerciseCatalogTest {
             name = null,
             requiredEquipment = setOf(EquipmentTag.BARBELL),
             movementPattern = null,
-            involvements = mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.SHOULDERS to 0.4)
+            involvements = mapOf(MuscleGroup.CHEST_UPPER to 1.0, MuscleGroup.SIDE_DELTS to 0.4)
         )
 
         val exercise = catalog.all().single { it.id == "bench" }
 
         assertEquals(
-            mapOf(MuscleGroup.CHEST to 1.0, MuscleGroup.SHOULDERS to 0.4),
+            mapOf(MuscleGroup.CHEST_UPPER to 1.0, MuscleGroup.SIDE_DELTS to 0.4),
             exercise.involvements
         )
-        assertEquals(0.4, exercise.effectiveInvolvements.getValue(MuscleGroup.SHOULDERS))
+        assertEquals(0.4, exercise.effectiveInvolvements.getValue(MuscleGroup.SIDE_DELTS))
     }
 
     @Test
@@ -139,7 +142,7 @@ class SqlDelightExerciseCatalogTest {
             id = "bench-press",
             name = "Bench Press",
             equipment = setOf(EquipmentTag.BARBELL),
-            primary = setOf(MuscleGroup.CHEST),
+            primary = setOf(MuscleGroup.CHEST_UPPER),
             secondary = setOf(MuscleGroup.TRICEPS)
         )
         SqlDelightExerciseOverrideRepository(database).update(

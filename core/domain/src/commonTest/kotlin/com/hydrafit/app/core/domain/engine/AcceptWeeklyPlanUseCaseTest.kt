@@ -126,7 +126,7 @@ class AcceptWeeklyPlanUseCaseTest {
                 id = "bench-press",
                 name = "Bench Press",
                 requiredEquipment = setOf(EquipmentTag.BARBELL),
-                primaryMuscles = setOf(MuscleGroup.CHEST),
+                primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
                 movementPattern = MovementPattern.HORIZONTAL_PUSH
             )
         )

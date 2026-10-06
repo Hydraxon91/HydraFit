@@ -55,6 +55,9 @@ SELECT * FROM planHistoryEntry ORDER BY dayId, position;
 selectEntriesForDay:
 SELECT * FROM planHistoryEntry WHERE dayId = ? ORDER BY position;
 
+updateEntryExerciseId:
+UPDATE planHistoryEntry SET exerciseId = :newId WHERE exerciseId = :oldId;
+
 deleteEntriesForPlan:
 DELETE FROM planHistoryEntry WHERE dayId IN (SELECT id FROM planHistoryDay WHERE planId = ?);
 

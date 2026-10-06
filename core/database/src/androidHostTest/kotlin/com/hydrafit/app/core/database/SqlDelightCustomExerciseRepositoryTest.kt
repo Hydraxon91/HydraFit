@@ -41,21 +41,21 @@ class SqlDelightCustomExerciseRepositoryTest {
     @Test
     fun addsACustomExerciseThatAppearsInTheCatalog() = runTest {
         val created = repository.add(
-            name = "Trap Bar Deadlift",
+            name = "My Trap Bar Deadlift",
             requiredEquipment = setOf(EquipmentTag.BARBELL),
             involvements = mapOf(
-                MuscleGroup.BACK to 1.0,
+                MuscleGroup.LATS to 1.0,
                 MuscleGroup.GLUTES to 1.0,
                 MuscleGroup.HAMSTRINGS to 0.5
             ),
             movementPattern = MovementPattern.HINGE
         )
 
-        assertEquals("user-trap-bar-deadlift", created.id)
+        assertEquals("user-my-trap-bar-deadlift", created.id)
         assertTrue(created.isCustom)
         val stored = catalog.all().first { it.id == created.id }
-        assertEquals("Trap Bar Deadlift", stored.name)
-        assertEquals(setOf(MuscleGroup.BACK, MuscleGroup.GLUTES), stored.primaryMuscles)
+        assertEquals("My Trap Bar Deadlift", stored.name)
+        assertEquals(setOf(MuscleGroup.LATS, MuscleGroup.GLUTES), stored.primaryMuscles)
         assertTrue(stored.isCustom)
         assertTrue(catalog.all().first { it.id == "back-squat" }.isCustom.not())
     }
@@ -73,13 +73,13 @@ class SqlDelightCustomExerciseRepositoryTest {
             id = created.id,
             name = "My Hammer Curl",
             requiredEquipment = setOf(EquipmentTag.DUMBBELL),
-            involvements = mapOf(MuscleGroup.BICEPS to 1.0, MuscleGroup.BACK to 0.5),
+            involvements = mapOf(MuscleGroup.BICEPS to 1.0, MuscleGroup.LATS to 0.5),
             movementPattern = MovementPattern.BICEPS_ISOLATION
         )
 
         val stored = catalog.all().first { it.id == created.id }
         assertEquals("My Hammer Curl", stored.name)
-        assertEquals(setOf(MuscleGroup.BACK), stored.secondaryMuscles)
+        assertEquals(setOf(MuscleGroup.LATS), stored.secondaryMuscles)
     }
 
     @Test
@@ -111,7 +111,7 @@ class SqlDelightCustomExerciseRepositoryTest {
         val created = repository.add(
             name = "Disposable",
             requiredEquipment = emptySet(),
-            involvements = mapOf(MuscleGroup.CORE to 1.0),
+            involvements = mapOf(MuscleGroup.ABS to 1.0),
             movementPattern = MovementPattern.CORE
         )
         SqlDelightWorkoutLogRepository(database).add(
@@ -132,13 +132,13 @@ class SqlDelightCustomExerciseRepositoryTest {
         val first = repository.add(
             name = "Cable Fly!",
             requiredEquipment = setOf(EquipmentTag.CABLE_MACHINE),
-            involvements = mapOf(MuscleGroup.CHEST to 1.0),
+            involvements = mapOf(MuscleGroup.CHEST_UPPER to 1.0),
             movementPattern = MovementPattern.CHEST_FLY
         )
         val second = repository.add(
             name = "Cable Fly?",
             requiredEquipment = setOf(EquipmentTag.CABLE_MACHINE),
-            involvements = mapOf(MuscleGroup.CHEST to 1.0),
+            involvements = mapOf(MuscleGroup.CHEST_UPPER to 1.0),
             movementPattern = MovementPattern.CHEST_FLY
         )
 
@@ -151,7 +151,7 @@ class SqlDelightCustomExerciseRepositoryTest {
         suspend fun add(
             name: String = "Ok Name",
             equipment: Set<EquipmentTag> = emptySet(),
-            muscles: Map<MuscleGroup, Double> = mapOf(MuscleGroup.CORE to 1.0)
+            muscles: Map<MuscleGroup, Double> = mapOf(MuscleGroup.ABS to 1.0)
         ) = repository.add(
             name = name,
             requiredEquipment = equipment,
@@ -172,7 +172,7 @@ class SqlDelightCustomExerciseRepositoryTest {
         val created = repository.add(
             name = "Mine",
             requiredEquipment = emptySet(),
-            involvements = mapOf(MuscleGroup.CORE to 1.0),
+            involvements = mapOf(MuscleGroup.ABS to 1.0),
             movementPattern = MovementPattern.CORE
         )
 
@@ -188,7 +188,7 @@ class SqlDelightCustomExerciseRepositoryTest {
         val created = repository.add(
             name = "Custom Press",
             requiredEquipment = setOf(EquipmentTag.DUMBBELL),
-            involvements = mapOf(MuscleGroup.SHOULDERS to 1.0, MuscleGroup.TRICEPS to 0.5),
+            involvements = mapOf(MuscleGroup.SIDE_DELTS to 1.0, MuscleGroup.TRICEPS to 0.5),
             movementPattern = MovementPattern.VERTICAL_PUSH
         )
 
@@ -198,6 +198,6 @@ class SqlDelightCustomExerciseRepositoryTest {
 
         val logged = SqlDelightWorkoutLogRepository(database).loggedSets().single()
         val byMuscle = logged.targets.associate { it.muscle to it.weight }
-        assertEquals(setOf(MuscleGroup.SHOULDERS, MuscleGroup.TRICEPS), byMuscle.keys)
+        assertEquals(setOf(MuscleGroup.SIDE_DELTS, MuscleGroup.TRICEPS), byMuscle.keys)
     }
 }
