@@ -12,9 +12,9 @@ import kotlin.test.assertTrue
  * hand-written baseline plus the CAT-P1 research batch in [DefaultExercisesCatalogC1]).
  *
  * These assert *shape*, not scientific correctness: ids are unique slugs, every required
- * equipment tag resolves to a built-in, enum values are valid, and the CAT-P1 batch's
- * involvement weights stay on the CAT-P0 tier scale. The baseline seed uses finer legacy
- * weights (0.6/0.4) and is intentionally excluded from the tier-scale check.
+ * equipment tag resolves to a built-in, enum values are valid, and involvement weights stay
+ * on the CAT-P0 tier scale. The baseline seed's former finer weights (0.6/0.4/0.2) were
+ * normalized to the scale (0.7/0.5/0.3) on 2026-10-06, so the whole catalog is now tier-aligned.
  */
 class DefaultExercisesDataQualityTest {
 
@@ -73,11 +73,11 @@ class DefaultExercisesDataQualityTest {
     }
 
     @Test
-    fun newBatchInvolvementsStayOnTheTierScale() {
-        val bad = newBatch.flatMap { exercise ->
+    fun involvementsStayOnTheTierScale() {
+        val bad = catalog.flatMap { exercise ->
             exercise.involvements.map { (muscle, weight) -> Triple(exercise.id, muscle, weight) }
         }.filter { (_, _, weight) -> weight !in tierScale }
-        assertTrue(bad.isEmpty(), "CAT-P1 weights off the 0.3/0.5/0.7/1.0 scale: $bad")
+        assertTrue(bad.isEmpty(), "Weights off the 0.3/0.5/0.7/1.0 scale: $bad")
     }
 
     @Test

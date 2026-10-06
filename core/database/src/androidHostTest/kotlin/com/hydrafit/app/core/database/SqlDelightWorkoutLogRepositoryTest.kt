@@ -149,7 +149,7 @@ class SqlDelightWorkoutLogRepositoryTest {
         val logged = repository.loggedSetsFlow().first().single()
 
         val byMuscle = logged.targets.associate { it.muscle to it.weight }
-        assertEquals(0.6, byMuscle[MuscleGroup.CHEST_UPPER])
+        assertEquals(0.7, byMuscle[MuscleGroup.CHEST_UPPER])
         assertEquals(1L, logged.timestampMillis)
     }
 
@@ -192,7 +192,7 @@ class SqlDelightWorkoutLogRepositoryTest {
 
         val row = database.workoutLogQueries.selectAllSets().executeAsList().single()
 
-        assertTrue(requireNotNull(row.involvements).contains("CHEST_UPPER:0.6"))
+        assertTrue(requireNotNull(row.involvements).contains("CHEST_UPPER:0.7"))
         assertTrue(requireNotNull(row.involvements).contains("TRICEPS"))
     }
 
@@ -259,7 +259,7 @@ class SqlDelightWorkoutLogRepositoryTest {
         val logged = repository.loggedSets().single()
 
         val byMuscle = logged.targets.associate { it.muscle to it.weight }
-        assertEquals(0.6, byMuscle[MuscleGroup.CHEST_UPPER])
+        assertEquals(0.7, byMuscle[MuscleGroup.CHEST_UPPER])
     }
 
     @Test
@@ -310,7 +310,7 @@ class SqlDelightWorkoutLogRepositoryTest {
         val logged = repository.loggedSets().single()
 
         val byMuscle = logged.targets.associate { it.muscle to it.weight }
-        assertEquals(0.6, byMuscle[MuscleGroup.CHEST_UPPER])
+        assertEquals(0.7, byMuscle[MuscleGroup.CHEST_UPPER])
         assertNull(byMuscle[MuscleGroup.QUADS])
     }
 

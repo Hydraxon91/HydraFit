@@ -45,3 +45,12 @@ SELECT COUNT(*) FROM workoutSet WHERE exerciseId = ?;
 
 updateMovementPattern:
 UPDATE exercise SET movementPattern = ? WHERE id = ?;
+
+-- One-time (idempotent) normalization of legacy involvement weights on built-in rows to the
+-- CAT-P0 tier scale: 0.6 -> 0.7, 0.4 -> 0.5, 0.2 -> 0.3. Custom rows hold user-authored weights
+-- and are excluded; user edits to built-ins live in `exerciseOverride`, and historical snapshots
+-- in `workoutSet`, so neither is touched.
+normalizeLegacyInvolvementWeights:
+UPDATE exercise
+SET involvements = REPLACE(REPLACE(REPLACE(involvements, ':0.6', ':0.7'), ':0.4', ':0.5'), ':0.2', ':0.3')
+WHERE isCustom = 0 AND involvements IS NOT NULL;

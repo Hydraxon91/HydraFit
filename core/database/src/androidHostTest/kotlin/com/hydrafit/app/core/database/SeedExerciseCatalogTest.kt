@@ -94,7 +94,7 @@ class SeedExerciseCatalogTest {
         val seeded = SqlDelightExerciseCatalog(database)
             .all()
             .first { it.id == "barbell-bench-press" }
-        assertEquals(0.4, seeded.involvements.getValue(MuscleGroup.FRONT_DELTS))
+        assertEquals(0.5, seeded.involvements.getValue(MuscleGroup.FRONT_DELTS))
     }
 
     @Test
@@ -134,5 +134,56 @@ class SeedExerciseCatalogTest {
         assertTrue(requireNotNull(byId["dumbbell-curl"]).isUnilateral)
         assertTrue(requireNotNull(byId["bulgarian-split-squat"]).isUnilateral)
         assertFalse(requireNotNull(byId["back-squat"]).isUnilateral)
+    }
+
+    @Test
+    fun normalizesLegacyInvolvementWeightsOnBuiltIns() = runTest {
+        SeedExerciseCatalog(database).seed()
+        driver.execute(
+            identifier = null,
+            sql = "UPDATE exercise SET involvements = 'CHEST_UPPER:0.6,FRONT_DELTS:0.4,ABS:0.2' " +
+                "WHERE id = 'barbell-bench-press'",
+            parameters = 0
+        )
+
+        SeedExerciseCatalog(database).seed()
+
+        val seeded = SqlDelightExerciseCatalog(database)
+            .all()
+            .first { it.id == "barbell-bench-press" }
+        assertEquals(0.7, seeded.involvements.getValue(MuscleGroup.CHEST_UPPER))
+        assertEquals(0.5, seeded.involvements.getValue(MuscleGroup.FRONT_DELTS))
+        assertEquals(0.3, seeded.involvements.getValue(MuscleGroup.ABS))
+    }
+
+    @Test
+    fun normalizationLeavesNonLegacyAndCustomWeightsUntouched() = runTest {
+        SeedExerciseCatalog(database).seed()
+        driver.execute(
+            identifier = null,
+            sql = "UPDATE exercise SET involvements = 'CHEST_UPPER:0.9' " +
+                "WHERE id = 'barbell-bench-press'",
+            parameters = 0
+        )
+        database.exerciseQueries.insertCustom(
+            id = "user-custom",
+            name = "User Custom",
+            requiredEquipment = "BARBELL",
+            movementPattern = "SQUAT",
+            isUnilateral = 0L,
+            involvements = "QUADS:0.6"
+        )
+
+        SeedExerciseCatalog(database).seed()
+
+        val byId = SqlDelightExerciseCatalog(database).all().associateBy { it.id }
+        assertEquals(
+            mapOf(MuscleGroup.CHEST_UPPER to 0.9),
+            byId.getValue("barbell-bench-press").involvements
+        )
+        assertEquals(
+            mapOf(MuscleGroup.QUADS to 0.6),
+            byId.getValue("user-custom").involvements
+        )
     }
 }

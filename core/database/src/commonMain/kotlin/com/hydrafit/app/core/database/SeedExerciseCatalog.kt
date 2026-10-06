@@ -25,6 +25,9 @@ class SeedExerciseCatalog(private val database: HydraFitDatabase) {
                     id = exercise.id
                 )
             }
+            // Bring pre-existing built-in rows onto the CAT-P0 tier scale (0.6/0.4/0.2 -> 0.7/0.5/0.3).
+            // Only affects seed-owned weights; custom rows, user overrides and logged snapshots are untouched.
+            database.exerciseQueries.normalizeLegacyInvolvementWeights()
         }
     }
 }

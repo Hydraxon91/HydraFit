@@ -1,8 +1,8 @@
 # Exercise catalog — sources & methodology (CAT-P0)
 
-Status: plan/methodology approved in principle (2026-10-06); research batch (CAT-P1) not
-started. This document defines where catalog facts come from and how per-muscle
-involvement weights are derived. No code, schema or data files change with this doc.
+Status: CAT-P0/P1 done; the CAT-P1 batch is seeded (CAT-P2/P3, 2026-10-06). This document
+defines where catalog facts come from and how per-muscle involvement weights are derived.
+It is documentation only (no code); implementation lives in `core/database`.
 
 ## Goal
 
@@ -20,6 +20,10 @@ HydraFit-authored source staying **MIT**.
   datasets either do not license them or claim ownership we cannot verify).
 - **No schema change.** The seed is additive via `INSERT OR IGNORE`; the exercise
   tables already exist.
+- **Tier normalization.** Involvement weights use the CAT-P0 tier scale (`0.3`/`0.5`/`0.7`/`1.0`,
+  derived from the `%MVIC` bands above). `SeedExerciseCatalog` writes current scale values and
+  idempotently normalizes legacy built-in weights on startup (`0.6 → 0.7`, `0.4 → 0.5`,
+  `0.2 → 0.3`); custom exercises, user overrides and historical set snapshots are not touched.
 - **Involvement weights are model parameters**, not physiological measurements. They are
   calibrated approximations, labeled as such, consistent with the fatigue model's own
   framing (`FatigueConfig` values are tunable parameters).
@@ -118,12 +122,13 @@ second deficit window cannot double-count the same sets.
   are copied into the repository.
 - No exercise media is bundled.
 
-## Open items before CAT-P1
+## Decisions (resolved at CAT-P1/P2)
 
-1. Confirm the exact first-batch size (~+100) and the equipment-tag list.
-2. Confirm the source set above (free-exercise-db + ExRx + the EMG reviews).
-3. Custom exercises that duplicate a newly seeded name are merged by `CustomExerciseDedupe`
-   (normalized name match); their history, personal records and differing field edits are
-   preserved, so newly seeded names need not avoid existing custom names.
-4. Decide whether per-exercise involvement weights are authored only where EMG evidence
-   is available, or back-filled to the nearest family evidence and labeled as such.
+1. **Batch size and tags:** 112 rows and four new equipment tags (`DIP_BAR`, `SMITH_MACHINE`,
+   `HACK_SQUAT_MACHINE`, `CALF_RAISE_MACHINE`); reconciled in `docs/exercise-catalog-rows-c1p1.md`.
+2. **Source set:** confirmed (`free-exercise-db` + ExRx + the EMG reviews above).
+3. **Custom/exercise dedupe:** custom exercises that duplicate a newly seeded name are merged by
+   `CustomExerciseDedupe` (normalized name match); their history, personal records and differing
+   field edits are preserved, so newly seeded names need not avoid existing custom names.
+4. **Weight basis:** authored with per-row citations where a review reports a figure, otherwise
+   labelled family-inferred / `modeled` (see the row doc); not silently back-filled.

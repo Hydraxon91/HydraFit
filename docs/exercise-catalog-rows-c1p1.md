@@ -161,8 +161,8 @@ No rows were dropped in this re-check.
 - **Per-exercise EMG figures for the remaining families.** Krause Neto 2020 Table 3 is GMax-only and covers glute-extension / lunge / squat / belt-squat movements only; leg curl, calf raise, bench press, overhead press, row, pulldown, fly, curl, pushdown and raise have no per-exercise figure cited yet. The Martín-Fuentes 2020 deadlift review is qualitative (no per-variant %MVIC published); the García-Valverde 2025 squat meta-analysis reports no significant difference across back/front/overhead/belt squat but no per-type %MVIC either. A future pass could find additional per-exercise figures in narrower primary studies.
 - **Dataset muscle-classification outliers.** No new outliers were found in this pass beyond `kneeling-squat` (fixed). The doc's prior hint about "a shoulder press listing chest" did not appear in the 8 SQUAT-family press rows reviewed (`oh-inventory` dataset has no chest listed for any overhead press variant in this batch).
 
-## To verify in CAT-P2
+## Resolved in CAT-P2/P3 (implementation)
 
-1. Bodyweight encoding (`emptySet()` vs `BODYWEIGHT`).
-2. Whether to normalize the existing seed's finer weights (`0.6`/`0.4`) to the CAT-P0 tier scale.
-3. Final display names for the four new equipment tags.
+1. **Bodyweight encoding:** resolved — the batch encodes `setOf(EquipmentTag.BODYWEIGHT)`, and `Exercise.isAvailableWith` ignores `BODYWEIGHT`, so it is behaviourally equivalent to `emptySet()`.
+2. **Baseline tier normalization:** resolved (2026-10-06) — the baseline seed's finer weights were normalized on a round-half-up basis (`0.2 → 0.3`, `0.4 → 0.5`, `0.6 → 0.7`), so the whole catalog is now on the CAT-P0 `0.3`/`0.5`/`0.7`/`1.0` scale. Existing installs are brought onto the same scale by `SeedExerciseCatalog`'s idempotent startup normalization of seed-owned built-in weights; custom exercises, user overrides and historical set snapshots are deliberately left untouched. Note the intended side effect: muscles that were `0.6` (bench `CHEST_*`, deadlift `LOWER_BACK`) now meet the `FatigueConfig.targetedInvolvementCutoff = 0.7` and participate in targeted reduce/skip.
+3. **Display names:** `DIP_BAR` → "Dip bar", `SMITH_MACHINE` → "Smith machine", `HACK_SQUAT_MACHINE` → "Hack squat machine", `CALF_RAISE_MACHINE` → "Calf raise machine".

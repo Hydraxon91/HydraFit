@@ -15,11 +15,11 @@ internal object DefaultExercises {
             setOf(MuscleGroup.TRICEPS, MuscleGroup.FRONT_DELTS),
             MovementPattern.HORIZONTAL_PUSH,
             involvements = mapOf(
-                MuscleGroup.CHEST_UPPER to 0.6,
-                MuscleGroup.CHEST_LOWER to 0.6,
-                MuscleGroup.FRONT_DELTS to 0.4,
-                MuscleGroup.TRICEPS to 0.4,
-                MuscleGroup.ABS to 0.2
+                MuscleGroup.CHEST_UPPER to 0.7,
+                MuscleGroup.CHEST_LOWER to 0.7,
+                MuscleGroup.FRONT_DELTS to 0.5,
+                MuscleGroup.TRICEPS to 0.5,
+                MuscleGroup.ABS to 0.3
             )
         ),
         ex(
@@ -413,7 +413,7 @@ internal object DefaultExercises {
             setOf(MuscleGroup.LATS),
             setOf(MuscleGroup.BICEPS),
             MovementPattern.VERTICAL_PULL,
-            involvements = mapOf(MuscleGroup.LATS to 1.0, MuscleGroup.BICEPS to 0.4)
+            involvements = mapOf(MuscleGroup.LATS to 1.0, MuscleGroup.BICEPS to 0.5)
         ),
         ex(
             "wide-grip-pulldown",
@@ -434,7 +434,7 @@ internal object DefaultExercises {
             involvements = mapOf(
                 MuscleGroup.CHEST_UPPER to 1.0,
                 MuscleGroup.FRONT_DELTS to 0.5,
-                MuscleGroup.TRICEPS to 0.4
+                MuscleGroup.TRICEPS to 0.5
             )
         ),
         ex(
@@ -446,8 +446,8 @@ internal object DefaultExercises {
             MovementPattern.HORIZONTAL_PUSH,
             involvements = mapOf(
                 MuscleGroup.CHEST_LOWER to 1.0,
-                MuscleGroup.TRICEPS to 0.4,
-                MuscleGroup.FRONT_DELTS to 0.2
+                MuscleGroup.TRICEPS to 0.5,
+                MuscleGroup.FRONT_DELTS to 0.3
             )
         ),
         ex(
@@ -484,8 +484,8 @@ internal object DefaultExercises {
                 MuscleGroup.GLUTES to 1.0,
                 MuscleGroup.HAMSTRINGS to 1.0,
                 MuscleGroup.QUADS to 0.5,
-                MuscleGroup.LOWER_BACK to 0.6,
-                MuscleGroup.UPPER_BACK to 0.4,
+                MuscleGroup.LOWER_BACK to 0.7,
+                MuscleGroup.UPPER_BACK to 0.5,
                 MuscleGroup.ABS to 0.5
             )
         ),

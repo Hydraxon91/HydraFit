@@ -86,7 +86,7 @@ from a recipe. Its base half-lives are distinct from the scaled effective half-l
 ## Muscle mapping and catalog persistence
 
 The database encodes involvements as comma-separated `MUSCLE:weight` pairs,
-for example `CHEST_UPPER:0.6,CHEST_LOWER:0.6,TRICEPS:0.4`.
+for example `CHEST_UPPER:0.7,CHEST_LOWER:0.7,TRICEPS:0.5`.
 `ExerciseEncoding.kt` owns encoding and decoding; encoding sorts by muscle name.
 `MuscleGroup` has 21 groups (`ADDUCTORS`, `HIP_ABDUCTORS`, `TRAPS`, `NECK` added
 2026-10-06; `TRAPS` is excluded from planner volume-deficit targeting and must not
@@ -120,10 +120,12 @@ for an empty explicit map is primary muscles at `1.0` plus secondary muscles at
 Editor tiers: None, Low `0.3`, Mid `0.5`, High `0.7`, Primary `1.0`.
 Stored values are doubles, not a tier enum.
 
-`DefaultExercises.kt` is the seed catalog. `SeedExerciseCatalog` inserts missing
-rows and backfills involvements only where null. A fresh installation can
-therefore have corrected seed weights while an upgraded installation retains
-legacy-equivalent weights. That difference is intentional data preservation.
+`DefaultExercises.kt` is the seed catalog (baseline + `DefaultExercisesCatalogC1`).
+`SeedExerciseCatalog` inserts missing rows, backfills involvements only where null,
+then idempotently normalizes legacy built-in weights onto the editor tier scale
+(`0.6 → 0.7`, `0.4 → 0.5`, `0.2 → 0.3`). Custom rows and user overrides are left
+untouched, so an upgraded installation converges to the current weights without
+losing edits. It runs off-main at startup via `DatabaseStartupMaintenance`.
 
 ## Planner inputs and weight semantics
 
