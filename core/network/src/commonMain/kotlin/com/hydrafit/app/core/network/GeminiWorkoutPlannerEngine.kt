@@ -178,8 +178,16 @@ class GeminiWorkoutPlannerEngine(
     private fun retryDelayMillis(response: HttpResponse, body: String, attempt: Int): Long {
         val hint = response.headers[HttpHeaders.RetryAfter]?.toRetryDelayMillis()
             ?: retryDelayFromBody(body)
-            ?: backoffMillis(attempt)
-        return hint.coerceIn(0L, MAX_BACKOFF_MILLIS)
+            ?: return backoffMillis(attempt)
+        if (hint > MAX_RETRY_HINT_MILLIS) {
+            throw PlanGenerationException(
+                transient = true,
+                reason = PlanFailureReason.RATE_LIMITED,
+                message = "Gemini asked to retry after ${hint / 1_000}s, above the " +
+                    "${MAX_RETRY_HINT_MILLIS / 1_000}s limit"
+            )
+        }
+        return hint.coerceAtLeast(0L)
     }
 
     private fun backoffMillis(attempt: Int): Long {
@@ -337,6 +345,13 @@ class GeminiWorkoutPlannerEngine(
         const val MAX_RETRIES = 2
         const val BASE_BACKOFF_MILLIS = 1_000L
         const val MAX_BACKOFF_MILLIS = 8_000L
+
+        /**
+         * Ceiling for an explicit server retry hint (`Retry-After` or `RetryInfo.retryDelay`).
+         * A hint above this is treated as non-transient at this scale; automatic backoff stays
+         * capped at [MAX_BACKOFF_MILLIS].
+         */
+        const val MAX_RETRY_HINT_MILLIS = 60_000L
 
         val TRANSIENT_STATUS_CODES = setOf(408, 429, 500, 502, 503, 504)
     }

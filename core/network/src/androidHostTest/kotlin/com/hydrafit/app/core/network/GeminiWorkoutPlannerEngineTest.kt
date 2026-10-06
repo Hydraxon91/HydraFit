@@ -29,9 +29,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class GeminiWorkoutPlannerEngineTest {
 
     @Test
@@ -279,6 +281,79 @@ class GeminiWorkoutPlannerEngineTest {
 
         assertEquals(PlanFailureReason.RATE_LIMITED, failure.reason)
         assertEquals(3, calls)
+    }
+
+    @Test
+    fun honorsRetryAfterHintUpToTheCeiling() = runTest {
+        var calls = 0
+        val mockEngine = MockEngine {
+            calls++
+            if (calls == 1) {
+                respond(
+                    """{"error":{"code":429,"status":"RESOURCE_EXHAUSTED","message":"rate"}}""",
+                    HttpStatusCode.TooManyRequests,
+                    headersOf(
+                        HttpHeaders.ContentType to listOf(ContentType.Application.Json.toString()),
+                        HttpHeaders.RetryAfter to listOf("30")
+                    )
+                )
+            } else {
+                respond(envelope(VALID_PLAN), HttpStatusCode.OK, jsonHeaders())
+            }
+        }
+
+        engine(mockEngine).generatePlan(request())
+
+        assertEquals(2, calls)
+        assertEquals(30_000L, testScheduler.currentTime)
+    }
+
+    @Test
+    fun honorsRetryInfoBodyHintUpToTheCeiling() = runTest {
+        var calls = 0
+        val mockEngine = MockEngine {
+            calls++
+            if (calls == 1) {
+                respond(
+                    """{"error":{"code":429,"status":"RESOURCE_EXHAUSTED","message":"rate",""" +
+                        """"details":[{"@type":"type.googleapis.com/google.rpc.RetryInfo",""" +
+                        """"retryDelay":"30s"}]}}""",
+                    HttpStatusCode.TooManyRequests,
+                    jsonHeaders()
+                )
+            } else {
+                respond(envelope(VALID_PLAN), HttpStatusCode.OK, jsonHeaders())
+            }
+        }
+
+        engine(mockEngine).generatePlan(request())
+
+        assertEquals(2, calls)
+        assertEquals(30_000L, testScheduler.currentTime)
+    }
+
+    @Test
+    fun rejectsRetryHintAboveTheCeilingAsRateLimited() = runTest {
+        var calls = 0
+        val mockEngine = MockEngine {
+            calls++
+            respond(
+                """{"error":{"code":429,"status":"RESOURCE_EXHAUSTED","message":"rate"}}""",
+                HttpStatusCode.TooManyRequests,
+                headersOf(
+                    HttpHeaders.ContentType to listOf(ContentType.Application.Json.toString()),
+                    HttpHeaders.RetryAfter to listOf("120")
+                )
+            )
+        }
+
+        val failure = assertFailsWith<PlanGenerationException> {
+            engine(mockEngine).generatePlan(request())
+        }
+
+        assertEquals(PlanFailureReason.RATE_LIMITED, failure.reason)
+        assertTrue(failure.transient)
+        assertEquals(1, calls)
     }
 
     @Test
