@@ -194,41 +194,157 @@ Order is fixed by the user. Each chunk gets its own plan and approval.
 
 ### C1 — R3-02 + R3-05: dedupe preservation and PR merge
 
-The plan must define, with the decision points called out:
+**Status: approved 2026-10-06 (not yet implemented).**
 
-1. **Name normalization rule:** apply to both the custom name and the seeded canonical name
-   before matching — `trim()`, case-fold (`lowercase()`), and collapse internal whitespace runs
-   to a single space. (Decide whether to also Unicode-normalize; recommend no, to avoid pulling
-   in a new dependency.)
-2. **`exerciseOverride` merge precedence:** materialize the custom row's values that differ from
-   the seeded canonical as an override on the canonical id; if an override already exists, merge
-   with **custom values winning on non-null fields** (per decision). Define "default/null" for
-   each overridden field (`name`, `requiredEquipment`, `movementPattern`, `isUnilateral`,
-   `involvements`).
-3. **Personal-record fields and merge rule:** the table is `personalRecord(exerciseId, weightKg,
-   reps, updatedAt)`. Decide and record whether the winner is chosen by **weight only**
-   (tie-break `updatedAt`), or by **weightKg then reps then updatedAt**. (The reviewer's suggested
-   `(weightKg, updatedAt)` tuple is weight-only with an `updatedAt` tie-break.)
-4. **All tables referencing the exercise id** (verified): `exercise` (`id`), `exerciseOverride`
-   (`exerciseId` PK), `personalRecord` (`exerciseId` PK), `workoutSet` (`exerciseId`, FK →
-   `exercise(id)`), `planHistoryEntry` (`exerciseId`). The hard-delete guard query is
-   `Exercise.sq:44`.
-5. **One transaction:** all reassignments, override merge, PR merge and deletes inside a single
-   `database.transaction { }` (the current code already does this at `CustomExerciseDedupe.kt:14`),
-   so any failure leaves the database unchanged.
-6. **Idempotency:** after a successful merge the custom row is gone, so a re-run matches nothing;
-   state this explicitly and test it.
-7. **Tests for each:** normalization (case/leading/trailing/internal-whitespace); field
-   preservation (equipment/movement/unilateral/involvements diffs); existing-vs-absent override
-   (custom wins); PR merge (custom heavier / canonical heavier / equal weight-different reps /
-   equal both-different `updatedAt`); idempotency (run twice → identical state); transaction
-   atomicity (injected failure → no partial writes). Run `:core:database:testAndroidHostTest`,
-   plus the Koin verification if any constructor/binding changes.
-8. **Data already merged by the MUS-P1 build on the phone:** the ~10 merged custom rows and their
-   overrides were already deleted, and their differing field values are not recoverable from the
-   current app DB. **Proposed recovery action: none.** The read-only phone backup may predate the
-   merge (its date relative to MUS-P1 is not established), so it is a possible manual source if
-   the user wants one — the decision is the user's. The backup must not be deleted or moved.
+#### Approved plan
+
+**Files**
+
+| File | Change |
+| --- | --- |
+| `core/database/src/commonMain/kotlin/com/hydrafit/app/core/database/CustomExerciseDedupe.kt` | Rewrite `run()`; add `normalizeExerciseName` and the override/PR merge helpers |
+| `core/database/src/androidHostTest/kotlin/com/hydrafit/app/core/database/CustomExerciseDedupeTest.kt` | Add the tests in §9 |
+| `.opencode/skills/hydrafit-mechanics/SKILL.md:100-103` | Describe normalized matching and override/PR preservation |
+
+No SQL/schema change, no dependency change, **no new constructor or Koin binding**
+(`CustomExerciseDedupe(database)` and `DatabaseModule.kt:24` are unchanged, so the existing
+Koin verification still covers it).
+
+**1. Name normalization.** `internal fun normalizeExerciseName(name: String): String =
+name.trim().replace(Regex("\\s+"), " ").lowercase()`, a top-level function in
+`CustomExerciseDedupe.kt` (module-internal, so `androidHostTest` can unit-test it directly).
+`run()` keys both the canonical index and the lookup with it; a non-matching custom is untouched.
+
+**2. Default-versus-choice rule (Option A, approved).** Source audit (verified): a custom
+exercise's fields come only from the Equipment editor
+(`EquipmentProfilerViewModel.onSaveExercise` → `persistNew`/`update`). Editor defaults
+(`EquipmentProfilerUiState.kt:11-22`): name `""`, `movementPattern = CORE`, `equipment =
+emptySet()`, `involvements = emptyMap()`, `isUnilateral = false`. Save requires a non-blank name
+and ≥1 muscle (`:26-27`; `Screen.kt:538`); `patternMismatch` is advisory only (`Screen.kt:578`).
+There is no inference anywhere. The `movementPattern` backfill (`SeedExerciseCatalog.kt:13-16`)
+targets only seeded ids and runs before dedupe (`Koin.kt:32-34`), so it never touches custom
+(`user-*`) rows.
+
+| Field | Editor default | Rule |
+| --- | --- | --- |
+| `involvements` | empty, but save requires ≥1 muscle | always deliberate → materialize when it differs from the seed |
+| `requiredEquipment` | `emptySet()` | materialize only when the custom set is **non-empty** and differs from the seed |
+| `movementPattern` | `CORE` | materialize only when the custom pattern is **not `CORE`** and differs from the seed |
+| `isUnilateral` | `false` | materialize only when the custom flag is **`true`** and the seed is `false` |
+
+A default-valued difference (empty equipment, `CORE`, `false`) is treated as a non-choice and is
+**not** materialized (test `doesNotMaterializeDefaultOrBackfilledValues`). Accepted tradeoff: a
+user who deliberately cleared equipment, chose `CORE`, or turned unilateral off loses that nuance
+on merge.
+
+**3. Override merge (algorithm).**
+
+```text
+seed = DefaultExercises.all entry for canonicalId
+existing = exerciseOverrideQueries.selectById(canonicalId)
+diffs = {}
+if (custom.requiredEquipment non-empty &&
+    decodeEquipment(custom.requiredEquipment) != seed.requiredEquipment) diffs.equipment = custom.requiredEquipment
+if (decodeMovementPattern(custom.movementPattern) != CORE &&
+    decodeMovementPattern(custom.movementPattern) != seed.movementPattern) diffs.pattern = custom.movementPattern
+if (custom.isUnilateral != 0L && !seed.isUnilateral)               diffs.unilateral = custom.isUnilateral
+if (custom.involvements != null &&
+    decodeInvolvements(custom.involvements) != seed.involvements)  diffs.involvements = custom.involvements
+if (diffs is not empty):
+    merged = existing (or all-null) with diffs applied   // custom wins on differing fields; name never overridden
+    upsert(canonicalId, merged.name, merged.equipment, merged.pattern, merged.unilateral, merged.involvements)
+```
+
+**4. Personal-record merge (algorithm).** Fields `weightKg`, `reps`, `updatedAt`; lexicographic
+**weightKg → reps → updatedAt** (a heavier single beats a lighter set of 8; reps then break weight
+ties; `updatedAt` last; a full tie keeps the canonical). `weightKg` is SQLite `REAL` and
+`SqlDelightPersonalRecordRepository.set` stores it unrounded (`:23-29`), so weight equality uses
+`abs(a - b) < 1e-9`.
+
+```text
+customPR = personalRecordQueries.selectById(customId)
+if (customPR != null):
+    canonicalPR = personalRecordQueries.selectById(canonicalId)
+    if (canonicalPR == null):
+        personalRecordQueries.updateExerciseId(newId = canonicalId, oldId = customId)
+    else:
+        customWins =
+            customPR.weightKg > canonicalPR.weightKg + 1e-9 ||
+            (abs(customPR.weightKg - canonicalPR.weightKg) < 1e-9 && customPR.reps > canonicalPR.reps) ||
+            (abs(customPR.weightKg - canonicalPR.weightKg) < 1e-9 && customPR.reps == canonicalPR.reps &&
+             customPR.updatedAt > canonicalPR.updatedAt)
+        if (customWins) personalRecordQueries.upsert(canonicalId, customPR.weightKg, customPR.reps, customPR.updatedAt)
+        personalRecordQueries.deleteById(customId)
+```
+
+`personalRecordQueries.selectById` (`PersonalRecord.sq:11-12`) and `upsert` (`:17-19`) exist.
+
+**5. Tables referencing the exercise id:** `workoutSet.exerciseId` (`updateSetExerciseId`; FK →
+`exercise(id)`), `planHistoryEntry.exerciseId` (`updateEntryExerciseId`), `personalRecord.exerciseId`
+(merged per §4), `exerciseOverride.exerciseId` (canonical written per §3, custom deleted),
+`exercise.id` (custom deleted last). Hard-delete guard query: `Exercise.sq:44`.
+
+**6. One transaction / write order.** Single `database.transaction { }`. Order: 1) `workoutSet`
+reassign, 2) `planHistoryEntry` reassign, 3) personal-record merge, 4) canonical override upsert,
+5) delete custom override, 6) delete custom exercise.
+
+**7. Idempotency.** After a merge the custom row is gone, so a re-run matches nothing; asserted by
+`secondRunIsANoOp`.
+
+**8. Custom overrides (amendment 3).** A custom exercise cannot have its own `exerciseOverride` in
+any current flow — the editor writes overrides only for built-ins
+(`EquipmentProfilerViewModel.kt:333-334,362-371`); `CustomExerciseRepository.add`/`update` write
+only the `exercise` row; no import/backfill writes custom overrides. A custom override is therefore
+never a merge source; any orphan is deleted (`deleteById(customId)`), asserted by
+`orphanCustomOverrideIsNotUsedAsSource`.
+
+**9. Tests (`CustomExerciseDedupeTest`).**
+
+- `normalizesCaseWhitespaceAndPadding`
+- `seededNamesHaveNoNormalizedCollisions`
+- `matchesCustomNameAcrossCaseAndWhitespace`
+- `materializesDifferingEquipmentAsCanonicalOverride` (non-empty custom equipment)
+- `doesNotMaterializeDefaultOrBackfilledValues` (empty equipment / `CORE` / `false` unilateral → no override)
+- `materializesDifferingPatternAndUnilateralAsCanonicalOverride` (non-`CORE` pattern, `true` unilateral)
+- `materializesDifferingInvolvementsAsCanonicalOverride`
+- `keepsExistingOverrideForFieldsTheCustomDoesNotDifferOn`
+- `customValueWinsOverExistingOverrideOnDifferingField`
+- `secondRunIsANoOp`
+- `rollsBackAllMergesWhenAStepFails` — create `TRIGGER … BEFORE INSERT ON exerciseOverride … RAISE(ABORT)`,
+  run dedupe on a custom with a deliberate diff so step 4 fires, `assertFailsWith`, then assert step 1
+  (and/or step 3) rolled back (the set/PR still points at the custom id) and the custom row + history
+  are unchanged. No table drop.
+- `orphanCustomOverrideIsNotUsedAsSource`
+- `movesSoleCustomPersonalRecordToCanonical`
+- `keepsHeavierCustomPersonalRecord`
+- `keepsCanonicalPersonalRecordWhenHeavier`
+- `breaksEqualWeightByReps`
+- `breaksEqualWeightAndRepsByUpdatedAt`
+- `deletesCustomPersonalRecordAfterMerge`
+- Retained: `mergesACustomExerciseIntoTheSeededOneAndMovesItsHistory` (extend to assert the
+  materialized involvements override), `leavesCustomExercisesWithNoSeededMatchAlone`.
+
+**10. Verification.**
+
+```bash
+perl -e 'alarm 600; exec @ARGV' ./gradlew :core:database:testAndroidHostTest > /tmp/c1-db-tests.log 2>&1
+perl -e 'alarm 600; exec @ARGV' ./gradlew testAndroidHostTest        > /tmp/c1-host-tests.log 2>&1
+perl -e 'alarm 600; exec @ARGV' ./gradlew ktlintCheck                 > /tmp/c1-lint.log 2>&1
+perl -e 'alarm 600; exec @ARGV' ./gradlew :androidApp:assembleDebug   > /tmp/c1-assemble.log 2>&1
+perl -e 'alarm 600; exec @ARGV' ./gradlew :shared:compileKotlinIosSimulatorArm64 :core:network:compileKotlinIosSimulatorArm64 > /tmp/c1-ios.log 2>&1
+```
+
+Logs go to `/tmp` (and `*.log` is gitignored at `.gitignore:10`), so the tree stays clean.
+
+**11. Docs updated in the same commit (amendment 4):** `.opencode/skills/hydrafit-mechanics/SKILL.md:100-103`
+(required); `docs/exercise-catalog-sources.md:117-118` and `docs/fatigue-formula.md:79` (minor
+wording). `AGENTS.md` and `docs/architecture.md` contain no dedupe text. A status-line-only
+`PLANS.md` commit follows CI green.
+
+**12. Data already merged by the MUS-P1 build on the phone:** the ~10 merged custom rows and their
+overrides were already deleted; their differing values are not recoverable from the current app DB.
+**No recovery action.** The read-only phone backup is left untouched and unmoved; its date relative
+to MUS-P1 is not established.
 
 ### C2 — R3-04 (additive) + R3-08: additive keep rules + both-engine release smoke
 - Add Ktor ServiceLoader/engine and LiteRT-LM JNI keep rules **without** touching the Koin keep.
