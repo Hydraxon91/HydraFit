@@ -305,7 +305,7 @@ developer machine, not a physical-device or app-store baseline.
   on pause. The source path warrants measurement with large histories, but no
   frame-jank or dispatcher-impact claim is established by this host benchmark.
 
-## Proposed targets — awaiting approval
+## Targets (approved 2026-10-06)
 
 1. Keep these host datasets/protocol fixed for before/after comparisons. Any
    selected change should improve its measured path without moving fatigue replay
@@ -353,6 +353,6 @@ emulator numbers, not physical-device or store-rollout figures.
 **Closed since the first baseline:** planner-input end-to-end (`ObserveWorkoutPlanInputsUseCase`),
 startup seeding/dedupe/backfill isolation, and file-backed repository IO.
 
-Next action: approve the proposed targets, then choose one evidenced optimization
-under a separate P2 plan. No optimization, new permanent benchmark module, CI
-change or migration was introduced here.
+Targets approved 2026-10-06. Next action: the chosen P2 optimization (repository
+mapping) under its own gated plan. No optimization, new permanent benchmark module,
+CI change or migration was introduced here.
