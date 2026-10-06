@@ -7,18 +7,22 @@ Status: **repaired draft (2026-10-06)** — supersedes the earlier draft that wa
 - **Equipment is taken from each cited `free-exercise-db` row**, not inferred: `requiredEquipment` is the dataset's `equipment` mapped to a HydraFit `EquipmentTag`, or the row is dropped if it does not map. Machine-specific tags are assigned only where the row's name identifies the machine.
 - **Identity dedupe by movement, not slug:** candidates whose normalized name matches an existing seed id are excluded, and a manual alias list drops same-movement renames (e.g. `Barbell Squat` → seed `back-squat`, `Barbell Deadlift` → `conventional-deadlift`).
 - **New muscle groups used:** `ADDUCTORS`, `HIP_ABDUCTORS`, `TRAPS`, `NECK` (added 2026-10-06) replace the earlier folds into `GLUTES`/`UPPER_BACK`. Trapezius follows the `TRAPS`/`UPPER_BACK` boundary rule.
-- **Honest weight basis:** the `weight basis` column names the reference movement and, where applicable, the review. These weights are **HydraFit model parameters inferred from family-level EMG evidence, not per-exercise measurements.** Rows whose family has no cited review are marked `modeled`.
+- **Honest weight basis:** the `weight basis` column names the reference movement and, where applicable, the review. These weights are **HydraFit model parameters inferred from family-level EMG evidence, not per-exercise measurements**, except where a cited review reports a specific per-exercise `%MVIC` figure (currently only the Krause Neto 2020 glute review, Table 3) — those rows cite the figure and adjust the relevant muscle weight. Rows whose family has no cited review are marked `modeled`.
 
 ## Weight basis legend
 
-- **`<review>; ref: <movement>`** — the family is covered by a systematic review; weights are inferred from that family's reference movement, using the CAT-P0 `%MVIC` bands (0-20 / 21-40 / 41-60 / >60 %MVIC → 0.3 / 0.5 / 0.7 / 1.0).
+- **`<review>, <table/figure>; <per-exercise figure>`** — the review reports a specific per-exercise `%MVIC` figure for the cited reference movement; the relevant muscle weight is taken from that figure, all other muscles in the row are still family-inferred. The exact table/figure is named so a reviewer can re-check.
+- **`<review>; ref: <movement>`** — the family is covered by a systematic review, but no per-exercise figure is reported for the cited reference movement; weights are inferred from that family's reference movement using the CAT-P0 `%MVIC` bands (0-20 / 21-40 / 41-60 / >60 %MVIC → 0.3 / 0.5 / 0.7 / 1.0).
 - **`modeled (<movement>); ref: <movement>`** — no per-family review is cited; weights are HydraFit model parameters by analogy to the named reference movement. Not EMG-calibrated.
 
 ## Evidence limits (read before using these rows)
 
-1. These are **family-level** inferences. No row's weights come from a per-exercise `%MVIC` figure for that exact movement.
-2. `movementPattern` and `unilateral` are a **first pass** from the dataset's `mechanic` and the row name; machine and hybrid variants are the likeliest to need a second look.
-3. `primary`/`secondary` muscle roles come from `free-exercise-db`; where the dataset's classification looks inconsistent with the movement, the row should be re-checked (see "Deferred / needs review").
+1. Per-exercise `%MVIC` figures are cited only for rows where the cited review reports one. Currently this is the **Krause Neto 2020 glute review (Table 3, GMax-only)** for 8 LUNGE rows and the **Oliva-Lozano & Muyor 2020 core review** for the `crunches` row (RA). Every other row is still family-level inference. Specifically:
+   - **Martín-Fuentes 2020 deadlift review (PLoS ONE)** is qualitative — it does not publish per-deadlift-variant %MVIC, so all 8 HINGE rows stay family-level.
+   - **García-Valverde 2025 squat meta-analysis** reports no significant differences across back/front/overhead/belt squat (SMD -0.49 to 0.66) but does not publish per-type %MVIC figures, so all 8 SQUAT rows stay family-level.
+   - **Martín-Fuentes 2020 leg press review (IJERPH 17(13):4626)** covers leg press and its variants, not leg curl. The 3 leg curl rows previously mis-cited this paper and have been switched to `modeled (leg curl)`.
+2. `movementPattern` and `unilateral` are a **first pass** from the dataset's `mechanic` and the row name; machine and hybrid variants are the likeliest to need a second look. This pass re-checked every machine-named and every dataset outlier row — see "Classification re-check" below.
+3. `primary`/`secondary` muscle roles come from `free-exercise-db`; where the dataset's classification looks inconsistent with the movement, the row should be re-checked (see "Classification re-check").
 4. Bodyweight rows list `BODYWEIGHT` for review clarity; the seed may encode them as `emptySet()`.
 
 ## New equipment tags proposed (only those this batch uses)
@@ -51,7 +55,7 @@ Status: **repaired draft (2026-10-06)** — supersedes the earlier draft that wa
 | shotgun-row | Shotgun Row | CABLE_MACHINE | HORIZONTAL_PULL | false | BICEPS:0.5,LATS:0.7,UPPER_BACK:0.5 | modeled (row); ref: barbell row | `Shotgun_Row` |
 | t-bar-row-with-handle | T-Bar Row with Handle | BARBELL | HORIZONTAL_PULL | false | BICEPS:0.5,LATS:0.5,UPPER_BACK:0.7 | modeled (row); ref: barbell row | `T-Bar_Row_with_Handle` |
 | upright-barbell-row | Upright Barbell Row | BARBELL | HORIZONTAL_PULL | false | FRONT_DELTS:0.7,SIDE_DELTS:0.7,UPPER_BACK:0.5 | modeled (row); ref: barbell row | `Upright_Barbell_Row` |
-| upright-cable-row | Upright Cable Row | CABLE_MACHINE | HORIZONTAL_PULL | false | FRONT_DELTS:0.5,SIDE_DELTS:0.5,TRAPS:0.7 | modeled (row); ref: barbell row | `Upright_Cable_Row` |
+| upright-cable-row | Upright Cable Row | CABLE_MACHINE | VERTICAL_PULL | false | FRONT_DELTS:0.5,SIDE_DELTS:0.5,TRAPS:0.7 | modeled (upright row); ref: upright barbell row | `Upright_Cable_Row` |
 | close-grip-front-lat-pulldown | Close-Grip Front Lat Pulldown | CABLE_MACHINE | VERTICAL_PULL | false | BICEPS:0.5,FRONT_DELTS:0.5,LATS:0.7,UPPER_BACK:0.5 | modeled (pulldown); ref: lat pulldown | `Close-Grip_Front_Lat_Pulldown` |
 | full-range-of-motion-lat-pulldown | Full Range-Of-Motion Lat Pulldown | CABLE_MACHINE | VERTICAL_PULL | false | BICEPS:0.5,FRONT_DELTS:0.5,LATS:0.7,SIDE_DELTS:0.5,UPPER_BACK:0.5 | modeled (pulldown); ref: lat pulldown | `Full_Range-Of-Motion_Lat_Pulldown` |
 | one-arm-lat-pulldown | One Arm Lat Pulldown | CABLE_MACHINE | VERTICAL_PULL | true | BICEPS:0.5,LATS:0.7,UPPER_BACK:0.5 | modeled (pulldown); ref: lat pulldown | `One_Arm_Lat_Pulldown` |
@@ -63,9 +67,9 @@ Status: **repaired draft (2026-10-06)** — supersedes the earlier draft that wa
 | box-squat | Box Squat | BARBELL | SQUAT | false | ADDUCTORS:0.5,CALVES:0.5,GLUTES:0.5,HAMSTRINGS:0.5,LOWER_BACK:0.3,QUADS:1.0 | García-Valverde et al. 2025 (squat sEMG meta-analysis); ref: back squat | `Box_Squat` |
 | dumbbell-squat | Dumbbell Squat | DUMBBELL | SQUAT | false | CALVES:0.5,GLUTES:0.5,HAMSTRINGS:0.5,LOWER_BACK:0.3,QUADS:1.0 | García-Valverde et al. 2025 (squat sEMG meta-analysis); ref: back squat | `Dumbbell_Squat` |
 | hack-squat | Hack Squat | HACK_SQUAT_MACHINE | SQUAT | false | CALVES:0.5,GLUTES:0.5,HAMSTRINGS:0.5,QUADS:1.0 | García-Valverde et al. 2025 (squat sEMG meta-analysis); ref: back squat | `Hack_Squat` |
-| kneeling-squat | Kneeling Squat | BARBELL | SQUAT | false | ABS:0.3,GLUTES:1.0,HAMSTRINGS:0.5,LOWER_BACK:0.3 | García-Valverde et al. 2025 (squat sEMG meta-analysis); ref: back squat | `Kneeling_Squat` |
+| kneeling-squat | Kneeling Squat | BARBELL | SQUAT | false | ABS:0.3,GLUTES:1.0,HAMSTRINGS:0.5,LOWER_BACK:0.3,QUADS:0.5 | García-Valverde et al. 2025 (squat sEMG meta-analysis; ref: back squat); quads added by pattern — `free-exercise-db` omits quads, but a barbell squat does not | `Kneeling_Squat` |
 | olympic-squat | Olympic Squat | BARBELL | SQUAT | false | CALVES:0.5,GLUTES:0.5,HAMSTRINGS:0.5,QUADS:1.0 | García-Valverde et al. 2025 (squat sEMG meta-analysis); ref: back squat | `Olympic_Squat` |
-| overhead-squat | Overhead Squat | BARBELL | SQUAT | false | ABS:0.3,CALVES:0.5,FRONT_DELTS:0.5,GLUTES:0.5,HAMSTRINGS:0.5,LOWER_BACK:0.3,QUADS:1.0,SIDE_DELTS:0.5,TRICEPS:0.5 | García-Valverde et al. 2025 (squat sEMG meta-analysis); ref: back squat | `Overhead_Squat` |
+| overhead-squat | Overhead Squat | BARBELL | SQUAT | false | ABS:0.3,CALVES:0.5,FRONT_DELTS:0.5,GLUTES:0.5,HAMSTRINGS:0.5,LOWER_BACK:0.3,QUADS:1.0,SIDE_DELTS:0.5,TRICEPS:0.5 | García-Valverde et al. 2025 (squat sEMG meta-analysis; no significant difference from back squat, SMD -0.49 to 0.66); ref: overhead squat | `Overhead_Squat` |
 | squat-jerk | Squat Jerk | BARBELL | SQUAT | false | CALVES:0.5,FRONT_DELTS:0.5,GLUTES:0.5,HAMSTRINGS:0.5,QUADS:1.0,SIDE_DELTS:0.5,TRICEPS:0.5 | García-Valverde et al. 2025 (squat sEMG meta-analysis); ref: back squat | `Squat_Jerk` |
 | squat-with-bands | Squat with Bands | BARBELL | SQUAT | false | ADDUCTORS:0.5,CALVES:0.5,GLUTES:0.5,HAMSTRINGS:0.5,LOWER_BACK:0.3,QUADS:1.0 | García-Valverde et al. 2025 (squat sEMG meta-analysis); ref: back squat | `Squat_with_Bands` |
 | band-good-morning | Band Good Morning | RESISTANCE_BAND | HINGE | false | GLUTES:0.5,HAMSTRINGS:1.0,LOWER_BACK:0.3 | Martín-Fuentes et al. 2020 (deadlift review, PLoS ONE); ref: conventional deadlift | `Band_Good_Morning` |
@@ -76,14 +80,14 @@ Status: **repaired draft (2026-10-06)** — supersedes the earlier draft that wa
 | deficit-deadlift | Deficit Deadlift | BARBELL | HINGE | false | FOREARMS:0.3,GLUTES:0.5,HAMSTRINGS:0.5,LOWER_BACK:1.0,QUADS:0.5,UPPER_BACK:0.5 | Martín-Fuentes et al. 2020 (deadlift review, PLoS ONE); ref: conventional deadlift | `Deficit_Deadlift` |
 | good-morning | Good Morning | BARBELL | HINGE | false | ABS:0.3,GLUTES:0.5,HAMSTRINGS:1.0,LOWER_BACK:0.3 | Martín-Fuentes et al. 2020 (deadlift review, PLoS ONE); ref: conventional deadlift | `Good_Morning` |
 | sumo-deadlift | Sumo Deadlift | BARBELL | HINGE | false | ADDUCTORS:0.5,FOREARMS:0.3,GLUTES:0.5,HAMSTRINGS:1.0,LOWER_BACK:0.3,QUADS:0.5,UPPER_BACK:0.5 | Martín-Fuentes et al. 2020 (deadlift review, PLoS ONE); ref: conventional deadlift | `Sumo_Deadlift` |
-| barbell-lunge | Barbell Lunge | BARBELL | LUNGE | true | CALVES:0.5,GLUTES:0.5,HAMSTRINGS:0.5,QUADS:1.0 | Krause Neto et al. 2020 (glute review; step-up >60% MVIC); ref: step-up / lunge | `Barbell_Lunge` |
-| barbell-step-ups | Barbell Step Ups | BARBELL | LUNGE | true | CALVES:0.5,GLUTES:0.5,HAMSTRINGS:0.5,QUADS:1.0 | Krause Neto et al. 2020 (glute review; step-up >60% MVIC); ref: step-up / lunge | `Barbell_Step_Ups` |
-| barbell-walking-lunge | Barbell Walking Lunge | BARBELL | LUNGE | true | CALVES:0.5,GLUTES:0.5,HAMSTRINGS:0.5,QUADS:1.0 | Krause Neto et al. 2020 (glute review; step-up >60% MVIC); ref: step-up / lunge | `Barbell_Walking_Lunge` |
-| dumbbell-rear-lunge | Dumbbell Rear Lunge | DUMBBELL | LUNGE | true | CALVES:0.5,GLUTES:0.5,HAMSTRINGS:0.5,QUADS:1.0 | Krause Neto et al. 2020 (glute review; step-up >60% MVIC); ref: step-up / lunge | `Dumbbell_Rear_Lunge` |
-| dumbbell-step-ups | Dumbbell Step Ups | DUMBBELL | LUNGE | true | CALVES:0.5,GLUTES:0.5,HAMSTRINGS:0.5,QUADS:1.0 | Krause Neto et al. 2020 (glute review; step-up >60% MVIC); ref: step-up / lunge | `Dumbbell_Step_Ups` |
-| elevated-back-lunge | Elevated Back Lunge | BARBELL | LUNGE | true | GLUTES:0.5,HAMSTRINGS:0.5,QUADS:1.0 | Krause Neto et al. 2020 (glute review; step-up >60% MVIC); ref: step-up / lunge | `Elevated_Back_Lunge` |
-| lunge-pass-through | Lunge Pass Through | KETTLEBELL | LUNGE | true | CALVES:0.5,GLUTES:0.5,HAMSTRINGS:1.0,QUADS:0.5 | Krause Neto et al. 2020 (glute review; step-up >60% MVIC); ref: step-up / lunge | `Lunge_Pass_Through` |
-| step-up-with-knee-raise | Step-up with Knee Raise | BODYWEIGHT | LUNGE | true | GLUTES:1.0,HAMSTRINGS:0.5,QUADS:0.5 | Krause Neto et al. 2020 (glute review; step-up >60% MVIC); ref: step-up / lunge | `Step-up_with_Knee_Raise` |
+| barbell-lunge | Barbell Lunge | BARBELL | LUNGE | true | CALVES:0.5,GLUTES:1.0,HAMSTRINGS:0.5,QUADS:1.0 | Krause Neto et al. 2020 (glute review, JSSM 19:195; Table 3 — traditional lunge GMax 66% MVIC); ref: traditional lunge; other muscles family-inferred | `Barbell_Lunge` |
+| barbell-step-ups | Barbell Step Ups | BARBELL | LUNGE | true | CALVES:0.5,GLUTES:1.0,HAMSTRINGS:0.5,QUADS:1.0 | Krause Neto et al. 2020 (glute review, JSSM 19:195; Table 3 — step-up GMax 169% MVIC); ref: step-up; other muscles family-inferred | `Barbell_Step_Ups` |
+| barbell-walking-lunge | Barbell Walking Lunge | BARBELL | LUNGE | true | CALVES:0.5,GLUTES:1.0,HAMSTRINGS:0.5,QUADS:1.0 | Krause Neto et al. 2020 (glute review, JSSM 19:195; Table 3 — traditional lunge GMax 66% MVIC); ref: traditional lunge; other muscles family-inferred | `Barbell_Walking_Lunge` |
+| dumbbell-rear-lunge | Dumbbell Rear Lunge | DUMBBELL | LUNGE | true | CALVES:0.5,GLUTES:1.0,HAMSTRINGS:0.5,QUADS:1.0 | Krause Neto et al. 2020 (glute review, JSSM 19:195; Table 3 — traditional lunge GMax 66% MVIC); ref: traditional lunge; other muscles family-inferred | `Dumbbell_Rear_Lunge` |
+| dumbbell-step-ups | Dumbbell Step Ups | DUMBBELL | LUNGE | true | CALVES:0.5,GLUTES:1.0,HAMSTRINGS:0.5,QUADS:1.0 | Krause Neto et al. 2020 (glute review, JSSM 19:195; Table 3 — step-up GMax 169% MVIC); ref: step-up; other muscles family-inferred | `Dumbbell_Step_Ups` |
+| elevated-back-lunge | Elevated Back Lunge | BARBELL | LUNGE | true | GLUTES:1.0,HAMSTRINGS:0.5,QUADS:1.0 | Krause Neto et al. 2020 (glute review, JSSM 19:195; Table 3 — traditional lunge GMax 66% MVIC); ref: traditional lunge; other muscles family-inferred | `Elevated_Back_Lunge` |
+| lunge-pass-through | Lunge Pass Through | KETTLEBELL | LUNGE | true | CALVES:0.5,GLUTES:1.0,HAMSTRINGS:1.0,QUADS:0.5 | Krause Neto et al. 2020 (glute review, JSSM 19:195; Table 3 — traditional lunge GMax 66% MVIC); ref: traditional lunge; other muscles family-inferred | `Lunge_Pass_Through` |
+| step-up-with-knee-raise | Step-up with Knee Raise | BODYWEIGHT | LUNGE | true | GLUTES:1.0,HAMSTRINGS:0.5,QUADS:0.5 | Krause Neto et al. 2020 (glute review, JSSM 19:195; Table 3 — step-up GMax 169% MVIC); ref: step-up; other muscles family-inferred | `Step-up_with_Knee_Raise` |
 | barbell-seated-calf-raise | Barbell Seated Calf Raise | BARBELL | CALF_RAISE | false | CALVES:1.0 | modeled (calf raise); ref: standing calf raise | `Barbell_Seated_Calf_Raise` |
 | calf-press | Calf Press | CALF_RAISE_MACHINE | CALF_RAISE | false | CALVES:1.0 | modeled (calf raise); ref: standing calf raise | `Calf_Press` |
 | calf-raise-on-a-dumbbell | Calf Raise On A Dumbbell | DUMBBELL | CALF_RAISE | false | CALVES:1.0 | modeled (calf raise); ref: standing calf raise | `Calf_Raise_On_A_Dumbbell` |
@@ -128,11 +132,11 @@ Status: **repaired draft (2026-10-06)** — supersedes the earlier draft that wa
 | butt-lift-bridge | Butt Lift (Bridge) | BODYWEIGHT | LEG_ISOLATION | false | GLUTES:1.0,HAMSTRINGS:0.5 | Krause Neto et al. 2020 (glute review); ref: glute bridge | `Butt_Lift_Bridge` |
 | cable-hip-adduction | Cable Hip Adduction | CABLE_MACHINE | LEG_ISOLATION | false | ADDUCTORS:1.0 | Krause Neto et al. 2020 (glute review); ref: hip adduction | `Cable_Hip_Adduction` |
 | leg-lift | Leg Lift | BODYWEIGHT | LEG_ISOLATION | false | GLUTES:1.0,HAMSTRINGS:0.5 | Krause Neto et al. 2020 (glute review); ref: glute bridge | `Leg_Lift` |
-| lying-leg-curls | Lying Leg Curls | LEG_CURL_MACHINE | LEG_ISOLATION | false | HAMSTRINGS:1.0 | Martín-Fuentes et al. 2020 (leg press review, IJERPH); ref: leg curl / leg extension | `Lying_Leg_Curls` |
-| seated-leg-curl | Seated Leg Curl | LEG_CURL_MACHINE | LEG_ISOLATION | false | HAMSTRINGS:1.0 | Martín-Fuentes et al. 2020 (leg press review, IJERPH); ref: leg curl / leg extension | `Seated_Leg_Curl` |
+| lying-leg-curls | Lying Leg Curls | LEG_CURL_MACHINE | LEG_ISOLATION | false | HAMSTRINGS:1.0 | modeled (leg curl); ref: lying leg curl | `Lying_Leg_Curls` |
+| seated-leg-curl | Seated Leg Curl | LEG_CURL_MACHINE | LEG_ISOLATION | false | HAMSTRINGS:1.0 | modeled (leg curl); ref: seated leg curl | `Seated_Leg_Curl` |
 | single-leg-glute-bridge | Single Leg Glute Bridge | BODYWEIGHT | LEG_ISOLATION | true | GLUTES:1.0,HAMSTRINGS:0.5 | Krause Neto et al. 2020 (glute review); ref: glute bridge | `Single_Leg_Glute_Bridge` |
-| standing-leg-curl | Standing Leg Curl | LEG_CURL_MACHINE | LEG_ISOLATION | false | HAMSTRINGS:1.0 | Martín-Fuentes et al. 2020 (leg press review, IJERPH); ref: leg curl / leg extension | `Standing_Leg_Curl` |
-| crunches | Crunches | BODYWEIGHT | CORE | false | ABS:1.0 | IJERPH 17(12):4306 (core review); ref: crunch / plank | `Crunches` |
+| standing-leg-curl | Standing Leg Curl | LEG_CURL_MACHINE | LEG_ISOLATION | false | HAMSTRINGS:1.0 | modeled (leg curl); ref: standing leg curl | `Standing_Leg_Curl` |
+| crunches | Crunches | BODYWEIGHT | CORE | false | ABS:1.0 | Oliva-Lozano & Muyor 2020 (core review, IJERPH 17(12):4306; static curl-up RA 70–81% MVIC, Table 2); ref: crunch; other muscles family-inferred | `Crunches` |
 | decline-crunch | Decline Crunch | BODYWEIGHT | CORE | false | ABS:1.0 | IJERPH 17(12):4306 (core review); ref: crunch / plank | `Decline_Crunch` |
 | reverse-crunch | Reverse Crunch | BODYWEIGHT | CORE | false | ABS:1.0 | IJERPH 17(12):4306 (core review); ref: crunch / plank | `Reverse_Crunch` |
 | rope-crunch | Rope Crunch | CABLE_MACHINE | CORE | false | ABS:1.0 | IJERPH 17(12):4306 (core review); ref: crunch / plank | `Rope_Crunch` |
@@ -141,11 +145,21 @@ Status: **repaired draft (2026-10-06)** — supersedes the earlier draft that wa
 | stomach-vacuum | Stomach Vacuum | BODYWEIGHT | CORE | false | ABS:1.0 | IJERPH 17(12):4306 (core review); ref: crunch / plank | `Stomach_Vacuum` |
 | toe-touchers | Toe Touchers | BODYWEIGHT | CORE | false | ABS:1.0 | IJERPH 17(12):4306 (core review); ref: crunch / plank | `Toe_Touchers` |
 
-## Deferred / needs review
+## Classification re-check (CAT-P1 completion)
 
-- **Per-exercise EMG figures:** none are claimed. A future pass could read the review tables and cite exact `%MVIC` per movement for the lower-body/glute/core families.
-- **Machine/hybrid pattern check:** rows whose pattern is driven by a machine name (e.g. `Hack Squat`, `Smith Machine` variants) should be confirmed against the app's `MovementPattern` intent.
-- **Dataset muscle-classification outliers:** a few `free-exercise-db` rows carry surprising primary muscles (e.g. a shoulder press listing chest); these were kept as-is or dropped, and any kept should be re-checked.
+This pass re-verified every machine-named, hybrid and dataset-outlier row. Disposition:
+
+- **Kept as-is** (machine pattern matches the intent): `hack-squat` (SQUAT), `smith-machine-calf-raise` (CALF_RAISE), `dip-machine` (VERTICAL_PUSH), `calf-press` (CALF_RAISE — leg-press-style calf raise in `free-exercise-db`), `seated-calf-raise` (CALF_RAISE), `cable-deadlifts` (HINGE), `cable-iron-cross` (CHEST_FLY), `barbell-rear-delt-row` (HORIZONTAL_PULL — lats/biceps 0.5 are synergists, consistent with `mechanic=compound`), `push-up-to-side-plank` (HORIZONTAL_PUSH — the push component is primary), `overhead-squat` (SQUAT).
+- **Re-classified:** `upright-cable-row` from HORIZONTAL_PULL → **VERTICAL_PULL**. The movement pulls the bar from a downward hang to chin level with elbows flaring out — by motion this is a vertical pull. Reference movement updated to "upright barbell row" so the family inference stays consistent.
+- **Muscle-list fix (data outlier):** `kneeling-squat` was `ABS:0.3,GLUTES:1.0,HAMSTRINGS:0.5,LOWER_BACK:0.3` with no quads — a `kneeling-squat` from `free-exercise-db` is a heavy barbell-on-shoulders movement; quads must be present. Added `QUADS:0.5`; weight basis notes that the dataset row omits quads.
+- **Citation fix:** the 3 leg curl rows (`lying-leg-curls`, `seated-leg-curl`, `standing-leg-curl`) cited `Martín-Fuentes et al. 2020 (leg press review, IJERPH)`, but that paper is about leg press and its variants, **not** leg curl. Switched to `modeled (leg curl); ref: <movement>`.
+
+No rows were dropped in this re-check.
+
+## Deferred / still open before CAT-P2
+
+- **Per-exercise EMG figures for the remaining families.** Krause Neto 2020 Table 3 is GMax-only and covers glute-extension / lunge / squat / belt-squat movements only; leg curl, calf raise, bench press, overhead press, row, pulldown, fly, curl, pushdown and raise have no per-exercise figure cited yet. The Martín-Fuentes 2020 deadlift review is qualitative (no per-variant %MVIC published); the García-Valverde 2025 squat meta-analysis reports no significant difference across back/front/overhead/belt squat but no per-type %MVIC either. A future pass could find additional per-exercise figures in narrower primary studies.
+- **Dataset muscle-classification outliers.** No new outliers were found in this pass beyond `kneeling-squat` (fixed). The doc's prior hint about "a shoulder press listing chest" did not appear in the 8 SQUAT-family press rows reviewed (`oh-inventory` dataset has no chest listed for any overhead press variant in this batch).
 
 ## To verify in CAT-P2
 
