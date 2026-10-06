@@ -379,6 +379,29 @@ class GeminiWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun loadsTheCatalogOncePerGeneration() = runTest {
+        var catalogCalls = 0
+        val countingCatalog = object : ExerciseCatalog {
+            override suspend fun all(): List<Exercise> {
+                catalogCalls++
+                return FakeCatalog.all()
+            }
+        }
+        val engine = GeminiWorkoutPlannerEngine(
+            httpClient = createGeminiHttpClient(respondEnvelope(VALID_PLAN)),
+            config = GeminiConfig(),
+            catalog = countingCatalog,
+            apiKeyProvider = ApiKeyProvider { "test-key" },
+            sanitizer = WeeklyPlanSanitizer(FakeCatalog),
+            fallback = FallbackEngine
+        )
+
+        engine.generatePlan(request())
+
+        assertEquals(1, catalogCalls)
+    }
+
+    @Test
     fun mapsAuthFailureToInvalidApiKey() = runTest {
         val mockEngine =
             MockEngine { respond(geminiError(), HttpStatusCode.Forbidden, jsonHeaders()) }

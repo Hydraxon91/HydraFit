@@ -13,6 +13,7 @@ import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.parseWeeklyPlan
+import com.hydrafit.app.core.domain.equipment.Exercise
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.HttpRequestTimeoutException
@@ -54,7 +55,8 @@ class GeminiWorkoutPlannerEngine(
                 message = "Gemini API key is not configured"
             )
         }
-        val availableIds = catalog.all()
+        val catalogExercises = catalog.all()
+        val availableIds = catalogExercises
             .filter { it.isAvailableWith(request.availableEquipment) }
             .map { it.id }
         val payload = buildRequest(request, availableIds)
@@ -97,7 +99,8 @@ class GeminiWorkoutPlannerEngine(
                     )
                 val plan = normalizeExerciseIds(
                     parseWeeklyPlan(text, PlannerEngineId.GEMINI_API),
-                    availableIds
+                    availableIds,
+                    catalogExercises
                 )
                 return sanitizer.sanitize(plan, request) ?: fallback.generatePlan(request)
             }
@@ -138,13 +141,14 @@ class GeminiWorkoutPlannerEngine(
     }
 
     /** Maps model-returned ids to catalog ids, tolerating a returned name or different casing. */
-    private suspend fun normalizeExerciseIds(
+    private fun normalizeExerciseIds(
         plan: WeeklyPlan,
-        availableIds: List<String>
+        availableIds: List<String>,
+        catalogExercises: List<Exercise>
     ): WeeklyPlan {
         if (availableIds.isEmpty()) return plan
         val byId = availableIds.associateBy { it.lowercase() }
-        val byName = catalog.all().associateBy { it.name.lowercase() }
+        val byName = catalogExercises.associateBy { it.name.lowercase() }
         return plan.copy(
             days = plan.days.map { day ->
                 day.copy(
