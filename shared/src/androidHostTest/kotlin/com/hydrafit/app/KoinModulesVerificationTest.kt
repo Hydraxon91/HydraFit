@@ -176,6 +176,8 @@ class KoinModulesVerificationTest {
 
         override suspend fun all(): List<WorkoutSet> = emptyList()
 
+        override suspend fun lastSetBySession(sessionId: String): WorkoutSet? = null
+
         override fun setsFlow(): Flow<List<WorkoutSet>> = emptyFlow()
 
         override suspend fun loggedSets(): List<LoggedSet> = emptyList()

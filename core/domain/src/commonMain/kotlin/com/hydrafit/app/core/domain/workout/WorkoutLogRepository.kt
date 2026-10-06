@@ -16,6 +16,12 @@ interface WorkoutLogRepository {
 
     suspend fun all(): List<WorkoutSet>
 
+    /**
+     * The latest set in [sessionId] by `performedAt` (ties broken by most recently inserted), or
+     * null when the session has no sets yet. Bounded single-row read for session-boundary checks.
+     */
+    suspend fun lastSetBySession(sessionId: String): WorkoutSet?
+
     fun setsFlow(): Flow<List<WorkoutSet>>
 
     suspend fun loggedSets(): List<LoggedSet>

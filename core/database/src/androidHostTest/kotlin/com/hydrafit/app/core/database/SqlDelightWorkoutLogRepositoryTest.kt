@@ -471,6 +471,73 @@ class SqlDelightWorkoutLogRepositoryTest {
         assertTrue(historical < current)
     }
 
+    @Test
+    fun lastSetBySessionReturnsTheLatestByPerformedAt() = runTest {
+        repository.add(
+            DomainWorkoutSet(
+                exerciseId = "back-squat",
+                reps = 5,
+                weightKg = 100.0,
+                performedAtMillis = 100,
+                sessionId = "session-a"
+            )
+        )
+        repository.add(
+            DomainWorkoutSet(
+                exerciseId = "barbell-bench-press",
+                reps = 5,
+                weightKg = 80.0,
+                performedAtMillis = 300,
+                sessionId = "session-a"
+            )
+        )
+        repository.add(
+            DomainWorkoutSet(
+                exerciseId = "back-squat",
+                reps = 5,
+                weightKg = 100.0,
+                performedAtMillis = 500,
+                sessionId = "session-b"
+            )
+        )
+
+        val latest = repository.lastSetBySession("session-a")
+
+        assertEquals(300L, latest?.performedAtMillis)
+        assertEquals("barbell-bench-press", latest?.exerciseId)
+    }
+
+    @Test
+    fun lastSetBySessionBreaksEqualTimesByMostRecentInsertion() = runTest {
+        repository.add(
+            DomainWorkoutSet(
+                exerciseId = "back-squat",
+                reps = 5,
+                weightKg = 100.0,
+                performedAtMillis = 300,
+                sessionId = "session-a"
+            )
+        )
+        repository.add(
+            DomainWorkoutSet(
+                exerciseId = "barbell-bench-press",
+                reps = 5,
+                weightKg = 80.0,
+                performedAtMillis = 300,
+                sessionId = "session-a"
+            )
+        )
+
+        assertEquals("barbell-bench-press", repository.lastSetBySession("session-a")?.exerciseId)
+    }
+
+    @Test
+    fun lastSetBySessionReturnsNullForAnEmptySession() = runTest {
+        repository.add(set(exerciseId = "back-squat", performedAt = 100))
+
+        assertNull(repository.lastSetBySession("session-empty"))
+    }
+
     private fun set(exerciseId: String, performedAt: Long) = DomainWorkoutSet(
         exerciseId = exerciseId,
         reps = 5,

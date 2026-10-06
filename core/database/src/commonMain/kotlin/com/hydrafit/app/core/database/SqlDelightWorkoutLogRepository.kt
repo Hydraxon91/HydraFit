@@ -52,6 +52,9 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
     override suspend fun all(): List<DomainWorkoutSet> =
         setQueries.selectAllSets().executeAsList().map { row -> row.toDomain() }
 
+    override suspend fun lastSetBySession(sessionId: String): DomainWorkoutSet? =
+        setQueries.selectLastSetBySession(sessionId).executeAsOneOrNull()?.toDomain()
+
     override fun setsFlow(): Flow<List<DomainWorkoutSet>> =
         setQueries.selectAllSets().asFlow().mapToList(Dispatchers.Default).map { rows ->
             rows.map { row -> row.toDomain() }

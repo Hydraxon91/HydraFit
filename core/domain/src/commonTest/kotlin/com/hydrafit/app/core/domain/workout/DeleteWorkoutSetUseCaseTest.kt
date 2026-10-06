@@ -33,6 +33,8 @@ class DeleteWorkoutSetUseCaseTest {
 
         override suspend fun all(): List<WorkoutSet> = emptyList()
 
+        override suspend fun lastSetBySession(sessionId: String): WorkoutSet? = null
+
         override fun setsFlow(): Flow<List<WorkoutSet>> = flowOf(emptyList())
 
         override suspend fun loggedSets(): List<LoggedSet> = emptyList()

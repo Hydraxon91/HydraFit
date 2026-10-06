@@ -328,6 +328,20 @@ class LogWorkoutSetUseCaseTest {
         assertNull(sessions.open())
     }
 
+    @Test
+    fun reopeningTheSameSessionDoesNotReadTheWholeLog() = runTest {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val useCase = useCase(logs, sessions)
+        useCase(set(performedAtMillis = 1_000L), utcOffsetMillis = 0L)
+
+        logs.allCalls = 0
+        useCase(set(performedAtMillis = 1_000L + 1.hours.inWholeMilliseconds), utcOffsetMillis = 0L)
+
+        assertEquals(0, logs.allCalls)
+        assertEquals(1, sessions.all().size)
+    }
+
     private fun useCase(logs: FakeWorkoutLogRepository, sessions: FakeWorkoutSessionRepository) =
         LogWorkoutSetUseCase(
             repository = logs,
@@ -347,6 +361,8 @@ class LogWorkoutSetUseCaseTest {
     private class FakeWorkoutLogRepository : WorkoutLogRepository {
         private val sets = mutableListOf<WorkoutSet>()
 
+        var allCalls = 0
+
         override suspend fun add(set: WorkoutSet) {
             sets.add(set)
         }
@@ -357,7 +373,14 @@ class LogWorkoutSetUseCaseTest {
 
         override suspend fun updateSetPerformedAt(setId: Long, performedAtMillis: Long) = Unit
 
-        override suspend fun all(): List<WorkoutSet> = sets.toList()
+        override suspend fun all(): List<WorkoutSet> {
+            allCalls++
+            return sets.toList()
+        }
+
+        override suspend fun lastSetBySession(sessionId: String): WorkoutSet? =
+            sets.filter { it.sessionId == sessionId }
+                .maxWithOrNull(compareBy({ it.performedAtMillis }, { it.id }))
 
         override fun setsFlow(): Flow<List<WorkoutSet>> = flowOf(sets.toList())
 

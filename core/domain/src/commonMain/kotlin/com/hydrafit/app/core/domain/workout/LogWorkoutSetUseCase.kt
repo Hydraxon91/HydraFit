@@ -136,8 +136,7 @@ class LogWorkoutSetUseCase(
     }
 
     /** The latest set already attached to [session], or the session start when it has none yet. */
-    private suspend fun lastSetAt(session: WorkoutSession): Long = repository.all()
-        .filter { it.sessionId == session.id }
-        .maxOfOrNull { it.performedAtMillis }
-        ?: session.startedAtMillis
+    private suspend fun lastSetAt(session: WorkoutSession): Long =
+        repository.lastSetBySession(session.id)?.performedAtMillis
+            ?: session.startedAtMillis
 }

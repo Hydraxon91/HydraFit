@@ -1835,6 +1835,10 @@ class WorkoutLoggerViewModelTest {
 
         override suspend fun all(): List<WorkoutSet> = sets.toList()
 
+        override suspend fun lastSetBySession(sessionId: String): WorkoutSet? =
+            sets.filter { it.sessionId == sessionId }
+                .maxWithOrNull(compareBy({ it.performedAtMillis }, { it.id }))
+
         override fun setsFlow(): Flow<List<WorkoutSet>> = flowOf(sets.toList())
 
         override suspend fun loggedSets(): List<LoggedSet> = emptyList()

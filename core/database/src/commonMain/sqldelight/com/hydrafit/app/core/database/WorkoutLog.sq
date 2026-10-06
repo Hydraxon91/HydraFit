@@ -21,6 +21,9 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 selectAllSets:
 SELECT * FROM workoutSet ORDER BY performedAt, id;
 
+selectLastSetBySession:
+SELECT * FROM workoutSet WHERE sessionId = ? ORDER BY performedAt DESC, id DESC LIMIT 1;
+
 assignSession:
 UPDATE workoutSet SET sessionId = ? WHERE id = ?;
 
