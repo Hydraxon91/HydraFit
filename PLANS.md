@@ -22,6 +22,7 @@
 | Settings/nav consolidation | IN PROGRESS | M3 item 7. P7a (Planning-section layout + strings grouping engine/goal/consent) and P7b verify done; credits/acknowledgments (7b) open. |
 | RIR guidance & rough estimation | PLANNED | Item 9: B1 guidance/quick-picks in M4; B2/B3 remain decision-gated, not required for M4. |
 | Open Questions / Later | LATER | See section below; nothing scheduled. |
+| 0.2.4 review snapshot | DONE | bf959ee^..HEAD (`eb310de`); 12 findings (R4-01..R4-12): 2 minor docs drift + 1 nit deferred to VOL-01 + 9 nit-positive confirmations of Chunk A + Settings chunk. See `docs/review-0.2.4-snapshot.md`. RF (docs sync on R4-01) gated separately. |
 
 > **Next work sequence (approved 2026-10-06).** Ordered, separately gated steps; each is planned and approved at its own session boundary. The section/skill each step details lives under "Product milestones", "Retained roadmap items" or the Oct 6 follow-up.
 > 1. **Close 0.2.3 and ship.** DONE — shipped as `v0.2.3`; S-items, measurements and R3-08/R3-09/R3-10 resolutions in `docs/review-0.2.3.md` and `docs/performance-0.2.3.md`.
