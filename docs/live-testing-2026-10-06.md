@@ -323,8 +323,9 @@ No third-party source, media or exercise descriptions are copied into HydraFit.
 
 ## Delivery order and remaining verification
 
-1. Preserve existing C2–C5/CAT-P1 gates. LT-01–03 are separate near-term fix/enhancement
-   plans, with the exact input-transition rules approved before editing code.
+1. Preserve existing C2–C5/CAT-P1 gates. LT-01–03 are **DONE** (`d690e3c`); LT-01/LT-02
+   verified on the emulator, LT-03's tied-time emulator check remains deferred (its feature
+   test is in place).
 2. VOL-01 investigates the accounting policy; no blind accessory/seed/fatigue change.
 3. M2 retains backup/catalog foundations and adds optional CAT-02.
 4. M3 settles routine/occurrence/start-date contracts, then temporary replacements.
@@ -333,7 +334,8 @@ No third-party source, media or exercise descriptions are copied into HydraFit.
 6. M5 adds reliable records and volume visibility; advanced policies remain M7;
    AI-specific reliability remains M8.
 
-Still unverified: full historical plan replay, live tab/navigation reproduction,
-process-death draft behavior, individual physiological adequacy of the plan, and
-any new UI. New behavior ships through separately approved chunks, meaningful
-domain/feature regression tests, downstream checks and emulator-only UI verification.
+Still unverified: full historical plan replay, process-death draft behavior,
+individual physiological adequacy of the plan, and LT-03's tied-time ordering on
+the emulator (others covered by automated tests). New behavior ships through
+separately approved chunks, meaningful domain/feature regression tests,
+downstream checks and emulator-only UI verification.
