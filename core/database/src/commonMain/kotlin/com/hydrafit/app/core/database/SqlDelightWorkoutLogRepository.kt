@@ -57,15 +57,34 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
             rows.map { row -> row.toDomain() }
         }
 
-    override suspend fun loggedSets(): List<LoggedSet> {
-        val exercises = exerciseQueries.selectAll().executeAsList()
-        val overrides = overrideQueries.selectAll().executeAsList()
+    override suspend fun loggedSets(): List<LoggedSet> = mapLoggedSets(
+        exercises = exerciseQueries.selectAll().executeAsList(),
+        overrides = overrideQueries.selectAll().executeAsList(),
+        setRows = setQueries.selectAllSets().executeAsList()
+    )
+
+    override fun loggedSetsFlow(): Flow<List<LoggedSet>> {
+        val exerciseRows = exerciseQueries.selectAll().asFlow().mapToList(Dispatchers.Default)
+        val overrideRows = overrideQueries.selectAll().asFlow().mapToList(Dispatchers.Default)
+        val setRows = setQueries.selectAllSets().asFlow().mapToList(Dispatchers.Default)
+        return combine(exerciseRows, overrideRows, setRows) { exercises, overrides, sets ->
+            mapLoggedSets(exercises, overrides, sets)
+        }
+    }
+
+    private fun mapLoggedSets(
+        exercises: List<com.hydrafit.app.core.database.Exercise>,
+        overrides: List<com.hydrafit.app.core.database.ExerciseOverride>,
+        setRows: List<com.hydrafit.app.core.database.WorkoutSet>
+    ): List<LoggedSet> {
+        val decodeCache = HashMap<String, List<MuscleTarget>>()
         val targetsByExercise = exercises.associate { row ->
-            row.id to targetsOf(row.involvements)
+            row.id to (decodeCached(row.involvements, decodeCache) ?: emptyList())
         }
         val compoundByExercise = compoundByExercise(exercises, overrides)
-        return setQueries.selectAllSets().executeAsList().mapNotNull { row ->
-            val targets = row.targets() ?: targetsByExercise[row.exerciseId]
+        return setRows.mapNotNull { row ->
+            val targets = decodeCached(row.involvements, decodeCache)
+                ?: targetsByExercise[row.exerciseId]
                 ?: return@mapNotNull null
             LoggedSet(
                 timestampMillis = row.performedAt,
@@ -78,33 +97,6 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                 rir = row.rir?.toInt(),
                 sessionId = row.sessionId
             )
-        }
-    }
-
-    override fun loggedSetsFlow(): Flow<List<LoggedSet>> {
-        val exerciseRows = exerciseQueries.selectAll().asFlow().mapToList(Dispatchers.Default)
-        val overrideRows = overrideQueries.selectAll().asFlow().mapToList(Dispatchers.Default)
-        val setRows = setQueries.selectAllSets().asFlow().mapToList(Dispatchers.Default)
-        return combine(exerciseRows, overrideRows, setRows) { exercises, overrides, sets ->
-            val targetsByExercise = exercises.associate { row ->
-                row.id to targetsOf(row.involvements)
-            }
-            val compoundByExercise = compoundByExercise(exercises, overrides)
-            sets.mapNotNull { row ->
-                val targets = row.targets() ?: targetsByExercise[row.exerciseId]
-                    ?: return@mapNotNull null
-                LoggedSet(
-                    timestampMillis = row.performedAt,
-                    targets = targets,
-                    isWarmup = row.isWarmup != 0L,
-                    reps = row.reps.toInt(),
-                    isCompound = compoundByExercise[row.exerciseId] ?: false,
-                    exerciseId = row.exerciseId,
-                    weightKg = row.weightKg,
-                    rir = row.rir?.toInt(),
-                    sessionId = row.sessionId
-                )
-            }
         }
     }
 
@@ -127,9 +119,10 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
         setQueries.deleteAllSets()
     }
 
-    /** Targets stored on the set at log time, or null for rows without a snapshot. */
-    private fun com.hydrafit.app.core.database.WorkoutSet.targets(): List<MuscleTarget>? =
-        involvements?.let { targetsOf(it) }
+    private fun decodeCached(
+        involvements: String?,
+        cache: MutableMap<String, List<MuscleTarget>>
+    ): List<MuscleTarget>? = involvements?.let { cache.getOrPut(it) { targetsOf(it) } }
 
     private fun targetsOf(involvements: String?): List<MuscleTarget> =
         decodeInvolvements(involvements).map { MuscleTarget(it.key, it.value) }

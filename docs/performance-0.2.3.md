@@ -150,6 +150,26 @@ API key/model and a network/generation call. Their keep rules are in place, but 
 R8+serialization/JNI regression there would not have been caught by this smoke.
 Confirm when those engines are next used.
 
+## P2c — repository mapping decode cache (applied)
+
+Chosen P2 optimization for the DB/mapping path (the only remaining measured
+candidate; the APK levers are done). `loggedSets()` was dominated by domain mapping,
+and ~65 ms of ~277 ms at 50k sets was re-parsing the same `MUSCLE:weight` snapshot
+strings. `SqlDelightWorkoutLogRepository.mapLoggedSets` now memoizes decoded
+`List<MuscleTarget>` per involvements string **for the duration of one mapping pass**
+(a local cache, never shared across emissions, so catalog/override edits stay
+reflected). `SqlDelightWorkoutPlanSourcesRepository` inherits this via `loggedSetsFlow()`.
+
+| `loggedSets()` @50k (single repeated snapshot string) | Median |
+| --- | ---: |
+| Before | ~277 ms |
+| After | **227 ms** |
+
+~18% lower on this fixture (the decode cost, ~65 ms, is removed). Behavior is
+unchanged (decode is a pure function of the string; no production caller mutates the
+returned targets). At realistic histories the win is small but non-negative and adds
+no schema, dependency or behavior risk.
+
 ## Synthetic host results
 
 ### Actual fatigue calculator (milliseconds)
