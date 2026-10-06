@@ -12,6 +12,7 @@
 | Release 0.2.2 — code review & architecture | SHIPPED | Tag `v0.2.2` (signed APK, ~58.1 MB) published with a changelog. R0–RG and RF triage done; all RF fixes implemented (S4-001 `04083ea`, S2-001 `4b2d95d`, S4-004 `b6ff315`, S3-007 `cf1dd5e`, S1-008 `2e1d6bf`, S2-005 `c7918bc`, S3-004 `6c38b17`, S3-001 `a07134e`, S1-007 `c0efda1`), CI green. See "0.2.2 — code review and architecture". |
 | M1 — Foundation & Performance | IN PROGRESS | Target 0.2.3. QL-03 CLI/MCP and pilot verified; P3 adoption decision remains. Performance P0 (per `docs/performance-0.2.3.md`): APK breakdown, synthetic host SQL/fatigue/repository-mapping/planner timings, emulator release cold/warm startup, planner-input end-to-end, startup seeding/dedupe/backfill isolation, and file-backed repository IO measured (release installed via debug-key signing, data preserved); remaining: Android-driver/on-device timing, a valid release jank baseline (emulator debug number is inconclusive), AI-engine timings; performance targets approved 2026-10-06 (`5749bb7`). P2a (release abiFilters arm64-v8a, `66b4e9e`), P2b (R8 + resource shrinking, `751eb36`) and P2c (repository decode cache, `e52f67e`) applied: release 60,949,600 → 24,849,177 B (−59.2%), all tabs + plan generation smoke-verified, `loggedSets()` ~277→227 ms @50k; AI-engine serialization/JNI under R8 unexercised. MUS-P1 applied (`aeda008`; 17 muscle groups; 6 new machine tags; seed + legacy read-mapping + custom-exercise dedupe; real phone-copy check: 96 sets preserved, 10/11 custom merged). CAT-P0 done (`b570085`). C1 done (`631c13d`), fixing a data-loss defect the 0.2.3 code review found in that dedupe. CAT-P1 is ON HOLD until the 0.2.3 review fixes C1-C5 are done (see `docs/review-0.2.3.md`). Pending: C2-C5, R3-08, R3-09, R3-10 (see `docs/review-0.2.3.md`). |
 | M2 — Data Ownership & Exercise Library | FUTURE | OF-01 and catalog expansion (formerly targeted at 0.2.5), plus separately scoped offline instructions. Catalog research (CAT-P0/P1) brought forward into 0.2.3 (2026-10-06); implementation still gated. Does not depend on AI repair. |
+| Oct 6 live-testing follow-up | PLANNED | Read-only phone audit DONE; confirmed low direct arm volume alongside substantial indirect credit. LT-01 weight preservation, LT-02 search separators and LT-03 recent-set tie ordering await separate implementation plans. VOL-01 policy investigation follows C2–C5. Scheduling, rest/effort, warm-ups, substitutions, progression integrity, summaries and name suggestions mapped below; see `docs/live-testing-2026-10-06.md`. |
 | M8 — Optional AI Reliability | DEFERRED | Retain local AI; research reliability, speed and licensing after core planner-facing contracts settle. Replaces the former 0.2.4 release slot; no replacement release number assigned. |
 | Item 2 P2d — existing-row time correction | DONE | Landed in 0.2.1 as Q2 (5898c45, 5ab6b42, a64d9cc). |
 | Deterministic planner — volume-driven selection | DONE | 0.2.1 addition Q4 (Option C; honor the rep band); Q4a–Q4d done (f80b71a, c8e3c8a, 4f0ce72); Q4e is a user-side catalog fix, not part of the artifact; see "0.2.1 — next release". |
@@ -35,16 +36,62 @@
 
 | Id | Milestone | Planned scope / references | Re-entry or completion gate |
 | --- | --- | --- | --- |
-| M1 | Foundation & Performance | QL-03 early local Maestro MCP evaluation; existing 0.2.3 performance/APK-size phases; QL-01 quality baseline; select migration/test hardening from the 0.2.2 backlog under separate approved plans | Tooling evaluated early to support UI work; measured fixes meet agreed targets and selected checks pass. Maestro adoption is not a prerequisite for performance measurement; scopes remain separately approved. |
-| M2 | Data Ownership & Exercise Library | OF-01; catalog expansion P0–P5; CAT-01 offline instructions; QL-02 data-management controls | Backups round-trip; catalog provenance and downstream planner tests pass; instruction coverage is defined. |
+| M1 | Foundation & Performance | QL-03 early local Maestro MCP evaluation; existing 0.2.3 performance/APK-size phases; QL-01 quality baseline; select migration/test hardening from the 0.2.2 backlog; separately scoped LT-01–03 logger usability fixes; VOL-01 volume-policy investigation after C2–C5 | Tooling evaluated early to support UI work; measured fixes meet agreed targets and selected checks pass. Maestro adoption is not a prerequisite for performance measurement; scopes remain separately approved. |
+| M2 | Data Ownership & Exercise Library | OF-01; catalog expansion P0–P5; CAT-01 offline instructions; optional CAT-02 catalog-assisted name/profile suggestions; QL-02 data-management controls | Backups round-trip; catalog provenance and downstream planner tests pass; instruction coverage is defined. |
 | M3 | Build Your Training | OF-11; OF-12-P0/P1 scheduling; items 6/7 substitution/Settings; EX-01 exclusions; EQ-01 equipment profiles | Routine, schedule, active equipment and history contracts are agreed and tested. |
-| M4 | Train Without Friction | OF-02; OF-03; OF-13; OF-14; OF-12-P2/P3 reminders; item 9 B1 RIR guidance | Guided/resumed sessions, notes and history work offline; entry and completion semantics are verified. |
+| M4 | Train Without Friction | OF-02; OF-03; OF-13; OF-14; OF-12-P2/P3 reminders; item 9 B1 RIR guidance; WU-01 warm-ups; early OF-10A-P0 progression-integrity contract after guided logging/explanations/history | Guided/resumed sessions, notes and history work offline; entry and completion semantics are verified. Early progression contract does not authorize advanced-policy implementation. |
 | M5 | See Your Progress & Recovery | OF-04 charts/automatic records; OF-08 anatomical map/coverage; OF-09 measurements | Metrics reconcile with history, corrections re-emit and the accessible body map refreshes under the agreed contract. |
 | M6 | Bring & Share Your Training | OF-05; OF-07; OF-06 using EQ-01 inventory decisions | Interchange/versioning, repeated imports and exact plate-count constraints pass acceptance checks. |
 | M7 | Advanced Training Controls | Separately approved OF-10A/B/C; item 8 readiness only after its open decisions | Selected advanced measurement/progression contracts are stable; deferred candidates remain explicitly out of the release scope. |
 | M8 | Optional AI Reliability | Retained on-device planner investigation and Gemini shared-contract compatibility | Begin after core routine/schedule/catalog/prescription contracts and selected advanced metrics settle; define supported AI scope and benchmarks before experiments. |
 
 **Dependency discipline:** milestone order is preferred sequencing, not a requirement to implement every optional candidate before progressing. Record the selected scope and deferred items at each milestone gate. Cross-cutting accessibility/localization/design criteria apply throughout (QL-01). Isolated slices such as OF-08's anatomical rendering can be brought forward with explicit approval; dependency decisions still apply. M8 is not blocked forever by OF-10D or other unspecified future features.
+
+### Oct 6 live-testing follow-up — approved direction, implementation gated
+
+Evidence, source traces, aggregate phone audit, research limits and regression
+cases live in [the observation record](docs/live-testing-2026-10-06.md). Approval
+on 2026-10-06 covers this planning/documentation direction, not application edits.
+These LT references are separate from R3 findings; C2–C5 remain pending and the
+CAT-P1 hold is unchanged. Later release versions remain unassigned.
+
+| Reference | Direction / importance | Home / next gate |
+| --- | --- | --- |
+| LT-01 | Preserve edited weight/reps, including blank weight, on same-workout resume; highest immediate usability priority | M1, separate localized fix plan; decide exercise/new-plan/unit/midnight transitions |
+| LT-02 | Search treats hyphens/dashes and whitespace equivalently in Logger and Equipment | M1, separate enhancement; search-only normalization, unchanged IDs/dedupe |
+| LT-03 | Recent sets sort performed time descending, then ID descending for ties | M1, separate behavior fix; update pinned tie-order test; no invented timestamp increments |
+| LT-04 | Explicit activation/start date, chosen weekdays by default, optional next-workout sequence; missed work stays pending | OF-11/OF-12, M3; occurrence/completion contract first |
+| LT-05 / VOL-01 | Separate direct arm work from estimated compound credit; audited accepted plan has 2 direct biceps and 4 direct triceps sets | M1 policy investigation after C2–C5; thresholds/engine upgrade separately gated; OF-03/OF-08 display integration |
+| LT-06 | Editable goal/exercise-aware rest ranges; live-event countdown cancels on session end | OF-02, M4; lifecycle/alerts contract first |
+| LT-07 | Explain optional RIR; optional equivalent RPE presentation, prior report as context rather than automatically recorded effort | Item 9 B1, M4; B2/B3 remain decision-gated |
+| LT-08 / WU-01 | Optional general/dynamic preparation and specific ramp sets; no unsupported viral lymphatic/longevity claims | M4 alongside OF-02; content/provenance with CAT-01; timed metric persistence gated by OF-10C |
+| LT-09 | Unavailable-today replacement differs from persistent exclusion and gym inventory | Item 6 / OF-12 / EX-01 / EQ-01, M3; settle occurrence-only vs accepted-plan mutation |
+| LT-10 | Historical prescriptions and optional execution-quality self-report; eligibility covers success streaks and e1RM/records | OF-10A-P0 contract brought to post-guided-logging M4; advanced implementation remains M7 |
+| LT-11 | Basic summary after Finish workout, with honest target/actual and comparable exercise-level facts | OF-13, M4; richer records OF-04, M5; no universal percent-better score |
+| LT-12 / CAT-02 | Offline recognized-name/translated-alias profile suggestions with preview/confirmation | Optional M2 editor enhancement; stable catalog identity/alias contract first |
+
+**VOL-01 — direct/indirect volume policy, not a fourth planner engine.** The audit
+used production repositories/calculator/engine: acceptance-time reconstruction
+matched arm allocations but not the entire historical plan. Current accounting
+credits compounds with 7.6 biceps and 10 triceps weighted sets; availability is not
+the limiting explanation. First approve direct/indirect definitions, evidence,
+goal/per-muscle targets, priorities, session-length and unmet-target behavior.
+Then propose a bounded change inside the existing engine with synthetic regression
+fixtures and all-engine downstream verification. Do not equate EMG weights with
+validated hypertrophy set credit or change fatigue/catalog weights to force picks.
+
+**WU-01 — warm-up guidance.** Contract/content phase selects short editable
+general preparation, relevant dynamic movement and non-fatiguing specific ramp
+sets; approve source provenance, equipment/no-load behavior and skip/resume.
+Guided UI reuses existing warm-up logging and exclusions. A timed preparation
+checklist must not encode seconds as reps; new stored timed metrics need OF-10C.
+Verify warm-up/working-set separation, equipment limits and lifecycle behavior.
+
+**CAT-02 — recognized-name profile suggestions.** Start with catalog names and
+curated aliases/translations by stable ID; preview and confirm before copying a
+profile. Decide ambiguity/unknown handling and preservation of manual edits,
+then implement offline matching/editor UI with localization and confirmation tests.
+No arbitrary name-to-weight inference or required AI/network dependency.
 
 ## Retained roadmap items (originally v0.2.0 → v0.3.0, approved 2026-10-01)
 
@@ -81,6 +128,13 @@ Dropped as unscientific and redundant with the existing e1RM/NSCA path; rational
 
 **Follow-up:** EX-01 adds persistent generation exclusions; swapping a single accepted-plan slot does not implicitly exclude that exercise from future plans.
 
+**Oct 6 direction (LT-09):** a broken/busy station today is an occurrence-level
+constraint, not a permanent exclusion or inventory edit. Existing P6a–P6c target
+the accepted plan; before extending to Logger, resolve occurrence-only swaps
+with OF-12, including active/partially performed slots and historical snapshots.
+Use the replacement exercise's own load history; offer manual choice/skip when
+no suitable available candidate exists. Do not silently broaden P6b's mutation scope.
+
 #### 7. Settings Consolidation
 **Goal:** a coherent "Planning" section grouping goal, engine, and AI consent.
 **Decisions:** days-per-week stays in SplitBuilder.
@@ -104,11 +158,17 @@ Dropped as unscientific and redundant with the existing e1RM/NSCA path; rational
 **Why it can't be computed directly:** RIR is a subjective self-report (reps left before failure), not derivable from reps/weight alone. The app already treats a blank RIR as the neutral default (`FatigueConfig.defaultRir = 2.0`; neutral because `effortNeutralRir = 2.0`) and consumes it only via `FatigueCalculator.effortMultiplier`; nothing writes a computed RIR back.
 **Phases (sketch, not scheduled):**
 - **B1 — explain + quick-pick.** Add supporting text and 0/1/2/3 quick-pick chips to the Logger RIR field (localized strings); RIR stays optional and a blank stays the neutral assumption. No data/domain change.
-- **B2 — plan-derived default.** If the planner gains a per-exercise RIR target (`AcceptedExercise`/`PlannedExercise` plus prompts/JSON/sanitizer), prefill the field from it. This changes fatigue inputs, so the locked replay figures (isolation 82.5504% / 65.2960%, typed 83.1065% / 68.4753%) must not move.
+- **B2 — plan-derived target (separately gated).** If the planner gains a per-exercise RIR target (`AcceptedExercise`/`PlannedExercise` plus prompts/JSON/sanitizer), display it separately from blank/unreported actual effort. Do not automatically record a target or prior report as measured RIR. Any approved integration with fatigue preserves the locked replay figures (isolation 82.5504% / 65.2960%, typed 83.1065% / 68.4753%).
 - **B3 — rough estimate (optional).** Only with a defensible signal (e.g. prescribed-vs-actual reps); label it explicitly as an estimate/assumption and never write it back as if measured.
 **Files:** `feature/logger` screen/state/strings; for B2 also `core/domain/.../engine/{AcceptedPlan,PlannedExercise}.kt`, the shared prompt/JSON/sanitizer, and a schema change if persisted.
 **Resolve before implementing:** whether the planner should own a prescribed RIR at all (it changes fatigue inputs and risks the locked replay fixtures), and how to present an estimate without implying measurement.
 **Target:** B1 in M4; B2/B3 remain separately decision-gated follow-ups. Do not delay basic RIR guidance for an inferred-effort feature.
+
+**Oct 6 direction (LT-07):** avoid two mandatory struggle scores. An optional
+resistance-training RPE presentation can represent the same proximity-to-failure
+concept; generic discomfort/breathlessness is distinct. Show previous reported
+effort as context only. Reps/load history alone does not establish actual RIR;
+modified technique/discomfort notes do not authorize an inferred fatigue multiplier.
 
 **Open decisions to make before each item (never silently defaulted):**
 - **Item 8 (subjective fatigue):** readiness input home (Logger per-session vs standing setting).
@@ -304,6 +364,15 @@ Brought forward at the user's request (2026-10-06) to run alongside 0.2.3, **aft
 
 **Goal / v1 scope:** run an accepted-plan day or approved manual routine as an ordered workout, show prescribed vs actual sets/reps/load and last-session context, and offer a local rest countdown. Reuse explicit sessions and quick-fill rather than creating a second workout log. OF-11/OF-12 own routine and scheduling contracts; OF-02 consumes them rather than creating a parallel scheduler.
 
+**Oct 6 direction (LT-01/LT-06/LT-08):** preserve edited input on resume and track
+remaining prescribed sets rather than treating one logged set as full exercise
+completion. Start rest from live completion events, not historical timestamps;
+cancel on End/New session and relevant deletion. Initial editable ranges: heavy
+strength compounds 3–5 min, balanced/hypertrophy compounds 2–3 min, isolation
+1–2 min (extend when needed), endurance often 30–90 s. These are guidelines,
+not personal recovery predictions. Remember chosen rest before attempting history-
+based adaptation. WU-01 supplies optional preparation without inventing working sets.
+
 **Proposed ownership:** Logger UI/state; domain workout workflow and timer ports; database persistence only where approved; platform notification/lifecycle adapters.
 
 **Decisions before implementation:** how a plan day is selected/moved; distinction between planned, performed, skipped and unfinished sets; completion/early-exit behavior; persistence across backgrounding, process death and reboot; rest defaults/overrides and alert permissions; how late edits to the accepted plan affect an active workout. Keep planned rows separate from performed records so opening a workout never invents fatigue inputs.
@@ -436,6 +505,18 @@ Brought forward at the user's request (2026-10-06) to run alongside 0.2.3, **aft
 
 **Dependencies / existing decisions:** OF-02 workout state model; OF-03 explanations; the existing "Progression limitation" under Open Questions / Later. Preserve the current NSCA/e1RM path unless its replacement/extension is explicitly approved. Item 9 remains the RIR-guidance plan; no automatic RIR inference is authorized here.
 
+**Oct 6 sequencing (LT-10): OF-10A-P0 — integrity contract** is brought forward
+to M4 after OF-02/OF-03/OF-13. Define historical prescription snapshots,
+completion/partial-work semantics, optional intended/modified/unsure execution
+self-report, and eligibility through both success streaks and logged-e1RM/record
+baselines (including manual PRs and absent quality reports). The app does not
+verify technique from load/reps. Compare like-for-like prescriptions; define
+session-vs-date grouping and corrected-history replay. Double progression and
+hold/smaller-increment/reviewed-reset options are policy candidates, not proven
+universal rules. Multiple comparable exposures are required before flagging a
+stall; one poor workout does not diagnose a plateau. This early contract does
+not bring advanced policy implementation out of M7 without separate approval.
+
 **Separately gated slices:**
 - **OF-10A — progression policies.** First decide policy scope (exercise/routine/global), historical prescription snapshots, success/miss/extra-set semantics, stall/reset rules and interactions with periodization, caps and edited/deleted history. Then implement domain policy/use-case tests, persistence if needed and UI. Acceptance: replaying corrected history yields the approved target and explanation; incomplete work never counts as success under the chosen rules.
 - **OF-10B — supersets.** Decide grouping/order, rest timing, skip/resume behavior and whether grouping changes any fatigue calculation. Implement grouping persistence and guided UI only after those decisions. Acceptance: interleaved logging preserves session identity and each set exactly once; grouping has no unapproved fatigue/progression effect.
@@ -464,6 +545,18 @@ Brought forward at the user's request (2026-10-06) to run alongside 0.2.3, **aft
 
 **Milestone / goal:** M3 for scheduling/rotation; M4 for reminders. Support moving a planned occurrence without changing the underlying routine and an optional "next workout in sequence" mode for irregular schedules. Reminders are local and optional, separate from the OF-02 rest timer.
 
+**Oct 6 direction (LT-04):** separate template, occurrence and performed session.
+At acceptance offer Start today / Choose start date / Save for later and preview
+dates. Chosen weekdays are default and determine weekly frequency; flexible mode
+keeps the next unfinished workout pending. Generated plans retain the existing
+2–6-day limit unless separately extended. Friday activation of five workouts
+crosses calendar boundaries on chosen dates without compression or truncation.
+Postpone preserves pending work; Skip is explicit. Finish workout distinguishes
+continue/finish partially/skip remaining work; finish block is separate. Arbitrary
+rotation length differing from weekly frequency requires frequency-aware volume
+planning before release, not relabeling weekly targets. Preserve accepted-plan
+ordinal periodization; final queue-advance/active-edit rules remain P0 decisions.
+
 **Proposed ownership:** domain schedule/queue contracts and use cases, SQLDelight occurrence/progress storage where approved, shared settings in userdata, owning feature UI and platform local-notification adapters.
 
 **Decisions before implementation:** calendar schedule vs rotation selection and switching; recurrence/occurrence identity; missed/postponed/skipped/cancelled/completed semantics; what advances a rotation (manual confirmation, session end or completion); repeated occurrences and multiple workouts/day; timezone/DST, preferred week start and travel; how backdated/manual sessions link to occurrences; notification permission denial, quiet hours and rescheduling after edits/reboot. Moving a scheduled occurrence must not rewrite set timestamps/session ids or increment accepted-plan periodization.
@@ -479,6 +572,13 @@ Brought forward at the user's request (2026-10-06) to run alongside 0.2.3, **aft
 ### OF-13 — Workout/exercise notes and session history
 
 **Milestone / goal:** M4. Add persistent exercise setup/cue notes and distinct notes on a workout occurrence/session. Provide a searchable session browser and summaries showing recorded exercises/sets, timestamps, approved duration and records, with existing correction actions reachable in context.
+
+**Oct 6 direction (LT-11):** first offer a summary after Finish workout plus
+session-history access; a new permanent tab is not required. Show prescribed/
+actual work, skipped/replaced/extra work, notes and corrections by explicit
+session identity. Comparable exercise-level facts can support encouragement;
+no universal "N% better workout", inferred growth or one-session plateau claim.
+Unknown duration stays unknown; basic review need not wait for OF-04 charts/records.
 
 **Proposed ownership:** domain note/history query contracts, database storage/queries and Logger/history UI home to approve. OF-04 supplies automatic record results through shared use cases; no history feature imports Logger internals.
 
@@ -592,9 +692,11 @@ These stable references are separately approved slices, not implicit additions t
 - Implement a Keychain-backed `ApiKeyStore` when the iOS app ships (currently a no-op on iOS).
 - Use MockK when a chunk needs it (approved version, not yet used).
 - Local AI quality is retained and deferred to M8. A stronger pack (e.g. Gemma 3n-E2B) remains a research candidate, not an approved model change; verify its separate license/distribution terms. The NPU guidance hint shipped, but Qualcomm QNN libs stay unbundled under the existing decision.
-- **Progression limitation.** Deterministic progression keys off the accepted-plan prescription and completed-session streaks; repeated set failures are only coarsely captured (`failureStreak = 3 → −1`), and a mis-planned/deleted week can't correct it.
+- **Progression limitation.** Deterministic progression compares logged work grouped by exercise/local calendar day against the latest accepted-plan prescription, not each session's historical target; failure handling is coarse (`failureStreak = 3 → −1`) and cannot faithfully replay changed/deleted prescriptions. LT-10 / OF-10A-P0 defines the integrity contract before advanced policies; implementation remains separately gated.
 
 ## Decisions Made
+
+- **2026-10-06 — live-training follow-up direction:** approve the documentation/roadmap recommendations in `docs/live-testing-2026-10-06.md`: explicit start/scheduling with chosen-weekday default and optional sequence, input preservation and search/tie-order usability fixes, direct/indirect volume investigation, editable evidence-informed rest/warm-ups, self-report distinct from inferred effort, occurrence-aware replacements, honest session summaries and confirmed catalog-profile suggestions. Bring only OF-10A-P0's integrity contract to post-guided-logging M4; advanced policies remain M7. Implementation, precise thresholds, storage and work chunks retain their gates; C2–C5 and the CAT-P1 hold are unchanged.
 
 - **2026-10-05 — roadmap/local AI direction:** use M1–M8 milestone names and stable OF references, keep 0.2.3 as the next performance target, and assign later release versions when scope is ready. Deliver core offline features first; retain local AI and defer dedicated improvement research to M8. Keep HydraFit-authored source MIT; evaluate model/runtime/binary terms separately before approving any artifact or distribution change.
 
@@ -647,7 +749,7 @@ These stable references are separately approved slices, not implicit additions t
 - Muscle model: involvement is a per-muscle weight in 0.0–1.0 stored as `involvements` (`MUSCLE:weight` pairs) on `exercise`, `exerciseOverride`, and the `workoutSet` snapshot; `Exercise.effectiveInvolvements` is the effective map. The legacy `primaryMuscles`/`secondaryMuscles` columns were **dropped** (schema v21 + `20.sqm`, table-rebuild because `minSdk 24` predates SQLite 3.35 `DROP COLUMN`); the catalog derives display tags (≥ 0.7 = primary). Deterministic orders candidates by the **weighted max** of `weight × fatigue` and keeps the skip (≥0.80) / reduce (≥0.65) thresholds on the **raw** fatigue of targeted muscles (weight ≥ 0.7).
 - The Equipment editor selects per muscle as tiers **None / Low 0.3 / Mid 0.5 / High 0.7 / Primary 1.0**, stored as free doubles (a slider/numeric override can be added later with no schema change). Saving writes `involvements`. The movement-pattern picker groups patterns as Compound vs Accessory (accessory = `movementPattern.isCompound == false`, which uses the accessory set count).
 - Suggested weight from the NSCA curve applies to the **Deterministic** weight only: `suggestedWeight = Epley 1RM × NSCA_curve(reps) × (1 − rirBuffer)`, with `rirBuffer = 0.10`. Gemini/local keep their own self-derived `suggestedWeightKg`; the sanitizer passes them through unchanged. `SuggestedWeightConfig.intensityForReps` owns the curve; the old flat `goalIntensity` map is gone.
-- Volume-aware reps: `VolumeAwareReps` holds per-slot volume roughly constant in both directions (`reps = roundToInt(intendedVolume / sets).coerceIn(minReps, maxReps)`, config 3–20), applied in the Deterministic engine and the shared sanitizer so all engines agree.
+- Reps under shipped 0.2.1 Option C: `VolumeAwareReps` returns the goal's fixed compound/isolation reps; explicit set count is the volume knob and does not inversely change reps. Applied in the Deterministic engine and shared sanitizer so all engines agree. This supersedes the earlier volume-constant formula; an Endurance prescription remains 15 reps when the user selects more sets.
 - Periodization: a "week" is an accepted-plan ordinal (not a calendar week), so irregular acceptance can never shift the deload. `PeriodizationConfig` defaults `cycleLength = 4`, `deloadWeek = 4`, `deloadVolumeScale = 0.7`, `deloadIntensityScale = 0.8`; `AcceptedPlan`/`planHistory` carry `weekNumber`/`cycleNumber` (schema v16 + `15.sqm`). Deterministic and the sanitizer scale sets ×0.7 (floor 1) and suggested weight ×0.8 on a deload week, `ProgressWeightsUseCase` pauses increments, and the SplitBuilder shows "Week N · Cycle M".
 - Equipment weight ceilings live **per equipment** (user-configurable, `maxWeightKg` nullable, schema v18 + `17.sqm`); `PlanRequest.equipmentMaxWeights` is applied by `EquipmentWeightLimit.clamp` in the Deterministic engine and the sanitizer. No progression-signal change in v1 (just clamped).
 - Unilateral exercises carry an `isUnilateral` flag (built-in + custom, editable; schema v17 + `16.sqm`); the Logger shows a "Per hand" hint. Standard convention is **per-hand weight** (log the weight actually held). No per-side set records.

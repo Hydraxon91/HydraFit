@@ -261,8 +261,11 @@ maintainer; RA does not answer them.
    for relying on hand-written migration tests instead (S2-004).
 4. **Gemini sanitize-time silent fallback** — the recorded decision (D8) says the opposite; the
    rationale for the code's behavior is unrecorded (S3-001).
-5. **`VolumeAwareReps.repsFor` ignores its `sets` parameter** while PLANS.md line 306 records the
-   volume-constant formula — one of the two is stale; which is intended is unrecorded (S1-010).
+5. **`VolumeAwareReps.repsFor` validates but otherwise ignores its `sets` parameter** (S1-010).
+   The intended behavior is shipped 0.2.1 Option C/Q4c: goal-fixed reps, with sets carrying volume.
+   The Oct 6 live-testing audit confirmed this against source and corrected the stale
+   volume-constant wording in PLANS.md and the mechanics skill. The signature/name remain unchanged;
+   historical review findings are retained in `docs/code-review-0.2.2.md`.
 6. **`testFixtures` module vs KMP source set** for shared fakes (TS4-001) — the open question is
    recorded in AGENTS.md as "a test fixture couldn't be shared between `:core:domain` and
    `:core:database`", but not which mechanism to adopt.

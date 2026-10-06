@@ -190,11 +190,13 @@ working = roundToIncrement(progressed1RM * intensityForReps(reps) * deloadScale)
 suggestedWeightKg = EquipmentWeightLimit.clamp(working, ceilingFor(exercise))
 ```
 
-Volume-aware reps:
+Reps under shipped Option C: chosen set count is the volume knob; reps stay fixed
+at the goal's compound/isolation values. The older volume-constant formula is
+superseded. `VolumeAwareReps.repsFor` validates a positive set count but does not
+trade reps against it.
 
 ```text
-intendedVolume = goal's default sets * goal's default reps for the slot type
-reps = roundToInt(intendedVolume / chosenSets).coerceIn(3, 20)
+reps = if (isCompound) goal.compoundReps else goal.isolationReps
 DEFAULT_SETS_PER_EXERCISE = 3  // declared in PlanRequest.kt
 ```
 
@@ -208,11 +210,21 @@ DEFAULT_SETS_PER_EXERCISE = 3  // declared in PlanRequest.kt
 Progression defaults: `successStreak = 3`, `failureStreak = 3`,
 `roundToKg = 2.5`, `maxIncrements = 5`. Completion is judged against the latest
 accepted prescription, not merely the heaviest logged set.
+The success grouping is by exercise/local calendar day, not explicit session id;
+historical sets are compared with the latest accepted prescription. Missing
+quality/effort data is not execution verification. Planned improvements are in
+PLANS.md (LT-10 / OF-10A-P0), not part of the current calculation.
 
 ### Selection, schedule, and periodization
 
-Deterministic candidate ordering: weighted fatigue, not recently used,
-equipment rank, then exercise id. Weighted fatigue is the maximum of
+Deterministic candidate ordering: weighted fatigue, largest remaining weighted
+volume deficit, freshness within the generated week, previous-plan compound
+rotation, equipment rank, then exercise id. The ledger accumulates selected
+sets × involvement weight; it is planned volume, not performed-history volume
+or a validated direct/indirect hypertrophy conversion. Accessories fill toward
+four exercises/day, then chase deficits up to six. Unfilled targets are possible;
+there is no direct-arm quota or final minimum-volume repair pass.
+Weighted fatigue is the maximum of
 `involvementWeight * muscleFatigue`; skip/reduce decisions instead use raw
 fatigue of targeted muscles. The engine reads `reduceThreshold`, `skipThreshold`
 and `targetedInvolvementCutoff` from `FatigueConfig.kt`; inspect those fields for
