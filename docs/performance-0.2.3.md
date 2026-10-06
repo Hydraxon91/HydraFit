@@ -1,8 +1,16 @@
 # M1 / 0.2.3 performance baseline
 
-Status: **P0 baseline (partial)**, measured 2026-10-06 against `99830c1`.
-No application, dependency, schema, build, CI or signing configuration changed.
-These measurements identify investigation candidates; they do not approve fixes.
+Status: **P0 baseline (partial) + P2a applied**, measured 2026-10-06.
+P0 baselines were taken against `99830c1`; P2a changed only release packaging
+(no application source, dependency, schema, CI or signing change).
+
+Applied optimization:
+- **P2a — release ABI filter.** `abiFilters += "arm64-v8a"` on the release build
+  type only. Release APK fell from **60,949,600 → 35,235,260 bytes** (−25,714,340,
+  ~42.2%). Debug keeps all ABIs. Verified: arm64-only release installs (`install -r`,
+  debug-key-signed, data preserved) and launches on the arm64 `emulator-5554`
+  (cold `WaitTime` 1193 ms), UI renders.
+- **P2b — R8 + resource shrinking:** planned next.
 
 ## Scope and reproducibility
 
@@ -85,6 +93,26 @@ both major runtime ABIs. Existing ProGuard file declarations alone do not enable
    so shrinking DEX cannot remove that main contributor.
 3. Retain local AI under the user decision. Removing the engine/dependency is
    not the proposed size fix. Distribution changes require their own approval.
+
+## P2a — release ABI filter (applied)
+
+`androidApp/build.gradle.kts` release build type now sets
+`ndk { abiFilters += "arm64-v8a" }`. Build types were otherwise unchanged.
+
+| Artifact | Before | After |
+| --- | ---: | ---: |
+| Release APK | 60,949,600 B (4 ABI dirs) | 35,235,260 B (arm64-v8a only) |
+| Debug APK | all 4 ABIs retained | all 4 ABIs retained |
+
+`unzip -l` on the new release APK shows only `lib/arm64-v8a/` (2 entries:
+`liblitertlm_jni.so`, `libandroidx.graphics.path.so`); x86_64/armeabi-v7a/x86 are
+gone. Debug still contains `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`.
+
+`abiFilters` was chosen over ABI splits because distribution is a single
+GitHub-release APK (no Play/AAB, where splits matter) and the emulator is
+`arm64-v8a` (`ro.product.cpu.abi`), so an arm64-only APK still runs there.
+arm64-only release was installed (debug-key-signed, `install -r`, data preserved)
+and cold-launched on `emulator-5554`: `WaitTime` 1193 ms, UI rendered.
 
 ## Synthetic host results
 

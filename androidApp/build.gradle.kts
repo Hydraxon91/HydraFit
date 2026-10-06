@@ -92,6 +92,9 @@ android {
                     "Release signing not configured (RELEASE_KEYSTORE_* absent); release will be unsigned."
                 )
             }
+            ndk {
+                abiFilters += "arm64-v8a"
+            }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
