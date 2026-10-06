@@ -220,6 +220,58 @@ Plan generation is sub-millisecond on the host and is not an evident bottleneck 
 this catalog size. This is engine-only; it excludes `ObserveWorkoutPlanInputsUseCase`
 flow combination, repository queries and the AI engines.
 
+## M1 follow-up measurements (2026-10-06)
+
+Temporary host test in `:core:database` (deleted after use); this closed the
+planner-input, startup-seeding and file-backed-IO gaps from the first baseline.
+
+### Planner-input end-to-end (milliseconds)
+
+The real `ObserveWorkoutPlanInputsUseCase` with a fixed synthetic `WorkoutPlanSources`
+snapshot (1,000 / 10,000 / 50,000 sets) and a no-op plan history. This runs the domain
+compute per emission — fatigue, suggested weights, progression and recent-weight build —
+but excludes the SQLDelight source flow (`sources.observe()`), which is measured above.
+
+| Sets | Median | p95 |
+| ---: | ---: | ---: |
+| 1,000 | 8.23 | 9.70 |
+| 10,000 | 27.99 | 33.81 |
+| 50,000 | 139.08 | 187.25 |
+
+Scales roughly linearly and is dominated by the same fatigue calculation already
+measured; at a realistic year of history (~5–8k sets) this is on the order of 15–25 ms
+of background compute per plan-input emission.
+
+### Startup seeding/dedupe/backfill isolation (milliseconds)
+
+`SeedExerciseCatalog.seed()` + `SeedEquipmentCatalog.seed()` + `CustomExerciseDedupe.run()`
++ `WorkoutSessionBackfill.backfill()`, re-run on a warm DB (the upgrade/relaunch path):
+**median 2.46 ms, p95 4.48 ms** (15 runs, in-memory JDBC). Startup seeding is not a
+bottleneck at the current catalog and history sizes.
+
+### File-backed repository IO (milliseconds)
+
+`SqlDelightWorkoutLogRepository.loggedSets()` against a **file-backed** `JdbcSqliteDriver`
+(database on disk, mapping included):
+
+| Sets | Median | p95 |
+| ---: | ---: | ---: |
+| 10,000 | 26.62 | 30.15 |
+| 50,000 | 134.03 | 144.88 |
+
+Comparable to the in-memory mapping numbers, i.e. decoding/domain mapping dominates and
+file IO adds relatively little at these sizes. Still JDBC on the host, not the Android
+driver.
+
+### UI jank sample (inconclusive)
+
+`dumpsys gfxinfo` on `emulator-5554` (debug build, small history) after ~10 tab
+navigations: 327 frames, **74.6% janky**, 50th 44 ms, 95th 150 ms. The GPU timing was
+unavailable (`50th gpu percentile: 4950 ms`). This is a **debug build on an emulator**,
+so it is not a valid jank baseline — it only flags that a proper measurement (release
+build, `FrameMetricsAggregator`/Macrobenchmark) is needed before any Compose change. No
+jank optimization is justified by this number.
+
 ## Release startup on the emulator
 
 The release build was measured on `emulator-5554` without changing build or signing
@@ -241,9 +293,11 @@ developer machine, not a physical-device or app-store baseline.
 
 ## Source-traced recomputation/startup paths
 
-- `shared/.../Koin.kt` invokes exercise seeding, equipment seeding and session
-  backfill synchronously immediately after `startKoin`. Their elapsed contribution
-  has not been isolated on a release device.
+- `shared/.../Koin.kt` invokes exercise seeding, equipment seeding, custom-exercise
+  dedupe and session backfill synchronously immediately after `startKoin`. Host
+  isolation now measures this warm-path work at ~2.5 ms median (see above); it runs on
+  the startup thread and remains a candidate for moving off it, but it is not a
+  measured bottleneck at current sizes.
 - `SqlDelightWorkoutLogRepository.loggedSetsFlow` combines all exercise, override
   and set rows and remaps all sets when any source emits.
 - `FatigueHeatmapViewModel.refresh` invokes fatigue synchronously from its
@@ -267,6 +321,14 @@ developer machine, not a physical-device or app-store baseline.
    regression budgets on this host/emulator, and set physical-device budgets only
    after repeatable device measurements. Do not infer a 16 ms UI-frame guarantee
    from host or emulator timings.
+5. Keep startup warm-path work (seeding + dedupe + backfill) under ~10 ms on the host
+   as a regression budget (currently ~2.5 ms); move it off the startup thread is a
+   separate, optional change.
+6. Keep host planner-input p95 under ~40 ms at 10,000 sets as a regression budget
+   (currently ~34 ms); the AI engines and Android disk path remain out of scope.
+7. Compose jank: no optimization justified by the emulator debug number. If pursued,
+   first add a release-build frame-timing measurement (physical device or Macrobenchmark)
+   and re-evaluate against the recommended 60 fps budget.
 
 ## Verification and remaining gaps
 
@@ -281,13 +343,15 @@ developer machine, not a physical-device or app-store baseline.
 - Temporary measurement tests (`:core:database` and `:core:domain`) compiled and ran;
   both files were deleted and `git status` is clean.
 
-**P0 remaining:** end-to-end planner-input mapping (flow combination +
-`ObserveWorkoutPlanInputsUseCase`) is still unmeasured; the planner figure is
-engine-only. Startup seeding/backfill is included in cold start but not isolated.
-Android disk IO, UI jank/recomposition, AI-engine timings, emission counts, and a
-larger realistic history on-device remain. No phone-data audit or full migration
-replay was performed; the approved chunk used synthetic data only. The release
-startup figures are emulator numbers, not physical-device or store-rollout figures.
+**P0 remaining:** the Android SQLDelight driver and on-device disk-JVM path, a valid
+release-build frame-timing/jank baseline (the emulator debug number is inconclusive),
+AI-engine generation timings, flow emission counts under real usage, and a larger
+realistic history on a physical device. No phone-data audit or full migration replay
+was performed; all measurements used synthetic data. Release startup figures are
+emulator numbers, not physical-device or store-rollout figures.
+
+**Closed since the first baseline:** planner-input end-to-end (`ObserveWorkoutPlanInputsUseCase`),
+startup seeding/dedupe/backfill isolation, and file-backed repository IO.
 
 Next action: approve the proposed targets, then choose one evidenced optimization
 under a separate P2 plan. No optimization, new permanent benchmark module, CI
