@@ -11,7 +11,7 @@
 | Release 0.2.1 | SHIPPED | Tag `v0.2.1` (signed APK via `release.yml`). Q2 (P2d), Q1, Q4a–Q4d, Q5, Q6 and Q3 (release) done. Q4e is a user-side catalog fix (not part of the shipped artifact). On-device LLM documented as non-functional; follow-up deferred to M8 (formerly targeted at 0.2.4). |
 | Release 0.2.2 — code review & architecture | SHIPPED | Tag `v0.2.2` (signed APK, ~58.1 MB) published with a changelog. R0–RG and RF triage done; all RF fixes implemented (S4-001 `04083ea`, S2-001 `4b2d95d`, S4-004 `b6ff315`, S3-007 `cf1dd5e`, S1-008 `2e1d6bf`, S2-005 `c7918bc`, S3-004 `6c38b17`, S3-001 `a07134e`, S1-007 `c0efda1`), CI green. See "0.2.2 — code review and architecture". |
 | M1 — Foundation & Performance | IN PROGRESS | Target 0.2.3. QL-03 CLI/MCP and pilot verified; P3 adoption decision remains. Performance P0 (per `docs/performance-0.2.3.md`): APK breakdown, synthetic host SQL/fatigue/repository-mapping/planner timings, and emulator release cold/warm startup measured (release installed via debug-key signing, data preserved); remaining: end-to-end planner-input mapping, seeding isolation, disk IO/UI jank, target approval. Original P0–PR retained; no optimization applied. |
-| M2 — Data Ownership & Exercise Library | FUTURE | OF-01 and catalog expansion (formerly targeted at 0.2.5), plus separately scoped offline instructions. Does not depend on AI repair. |
+| M2 — Data Ownership & Exercise Library | FUTURE | OF-01 and catalog expansion (formerly targeted at 0.2.5), plus separately scoped offline instructions. Catalog research (CAT-P0/P1) brought forward into 0.2.3 (2026-10-06); implementation still gated. Does not depend on AI repair. |
 | M8 — Optional AI Reliability | DEFERRED | Retain local AI; research reliability, speed and licensing after core planner-facing contracts settle. Replaces the former 0.2.4 release slot; no replacement release number assigned. |
 | Item 2 P2d — existing-row time correction | DONE | Landed in 0.2.1 as Q2 (5898c45, 5ab6b42, a64d9cc). |
 | Deterministic planner — volume-driven selection | DONE | 0.2.1 addition Q4 (Option C; honor the rep band); Q4a–Q4d done (f80b71a, c8e3c8a, 4f0ce72); Q4e is a user-side catalog fix, not part of the artifact; see "0.2.1 — next release". |
@@ -153,6 +153,42 @@ found (12 majors, 50 minors, 14 nits). Remaining deferred findings still to sche
 - **P2.. — fixes.** One optimization per chunk, each with before and after numbers and its own gated commit. Schema or index changes need a matching `.sqm` migration and approval.
 - **PR — record results;** update targets and AGENTS.md only with rules that came from measurements.
 
+### P2 — chosen optimization (evidenced): release APK size
+
+**Why this one (evidence):** size is the largest measured problem with the widest user impact (download/storage), and it needs no training-behavior change. The release APK is 60,949,600 bytes; LiteRT-LM's two native libraries are 47,179,192 bytes (~77.4%) and DEX is 12,617,660 bytes stored (36,342,900 uncompressed). Runtime paths are not the top evidence: deterministic plan generation is ~0.6 ms (p95 ~1.1 ms) and repository mapping is ~6 ms at 1,000 sets / ~43 ms at 10,000. Index/mapping work is parked as a follow-up (see "Do not do").
+
+**Decided (2026-10-06):** release-only ABI filter to `arm64-v8a`; R8 + resource shrinking enabled now; muscle-model track **before** the catalog batch.
+
+**Levers — one gated chunk each, in order:**
+- **P2a — release ABI filter (`abiFilters`, not splits).** Restrict the **release** build to `arm64-v8a`; keep debug multi-ABI (including x86_64). Rationale: distribution is a single GitHub-release APK (no Play/AAB, where splits matter), and the emulator is `arm64-v8a` (`ro.product.cpu.abi`), so an arm64-only APK still installs/runs. Expected ≈ 35.2 MB (60,949,600 − 25,649,544 x86_64 litertlm). **Major Infrastructure Change** (Gradle config) — approved.
+- **P2b — R8 + resource shrinking.** `isMinifyEnabled = false` today; enable R8 and `isShrinkResources` for release with keep-rules, then run a Koin/serialization/SQLDelight/LiteRT-LM runtime smoke on the emulator. **Major Infrastructure Change** (Gradle config) — approved.
+
+**Measure:** before/after `unzip -lv` breakdown plus installed-artifact size on `emulator-5554` (debug-key-signed scratch copy, data preserved), using the unchanged baseline protocol in `docs/performance-0.2.3.md`. Confirm no training-output change.
+
+**Do not do in P2:** change/remove the LiteRT-LM dependency or local AI; change fatigue/planner outputs; add indexes or refactor repository mapping (separate P0-follow-up chunk — measured but lower impact and requires a `.sqm` migration).
+
+### MUS — muscle-model refinement (before the catalog batch)
+
+**Decided (2026-10-06):** run before CAT-P2/P3 so ~100 new exercises are authored against the final muscle set once. This is a behavior + stored-data change (fatigue/planner fixtures, persisted `MUSCLE:weight` strings) and is separately gated with a migration and a fixture re-baseline.
+
+**Bounded target set (recommended, to confirm exact names at MUS-P0):** split `BACK` → upper/lower, `SHOULDERS` → front/side/rear delts, `CORE` → abs/obliques; consider `TRAPS` and `FOREARMS`. Target ~16–20 groups. Chest upper/lower is lower value and not proposed unless requested. New groups need half-lives in `FatigueConfig`, seed involvements, UI labels, and an anatomical region mapping for OF-08.
+
+**Blast radius (verified):** `MuscleGroup` has 10 values with 100+ references; `decodeInvolvements` silently drops unknown names and `encodeInvolvements` writes `MUSCLE:weight` (so a rename without a migration loses historical fatigue); `FatigueReplayTest` figures (BACK 82.5504% / typed 83.1065%) and planner golden fixtures need re-baselining; `FatigueHeatmapScreen` has an exhaustive `when` for labels.
+
+**Phases (each gated):**
+- **MUS-P0 — design + migration plan.** Approve the exact enum set, the old→new mapping for stored involvements in `exercise`/`exerciseOverride`/`workoutSet`, half-lives, targeted-threshold behavior, UI strings, and the fixture re-baseline list. No code.
+- **MUS-P1 — implementation + migration + re-baseline.** Enum/config/encoding/migration, seed + catalog involvements remapped, fatigue/planner fixtures re-baselined atomically, UI labels, heatmap region mapping, tests, full host suite + emulator smoke.
+
+### Brought forward from M2 — exercise catalog additions (research first)
+
+Brought forward at the user's request (2026-10-06) to run alongside 0.2.3, **after MUS-P1**. Implementation stays separately gated. **Decided:** sources approved (ExRx-style for muscle involvement/classification; NSCA/ACE-style for movement patterns); batch ~+100 exercises / ~+8 equipment tags; add specific machine tags (leg press, lat pulldown, EZ bar, trap bar, dip bar, smith machine, …).
+
+- **CAT-P0 (docs/research, no code).** Write `docs/exercise-catalog-sources.md`, define the involvement scale and pattern/equipment mapping, and finalize the batch + tag list.
+- **CAT-P1.** Compile the rows (name, slug id, equipment, pattern, involvement weights, unilateral) with per-row citations for review before they become code.
+- **Later (separately gated, unchanged from M2):** seed rows via idempotent `insertIgnore` (no schema change), update deterministic planner/SplitBuilder golden fixtures atomically, add a data-quality test, keep MIT-clean facts-only, and verify with the full host suite plus an emulator smoke.
+
+**Remaining CAT decision:** data format (Kotlin vs checked-in file; recommend Kotlin + a data-quality test).
+
 **Deliverable files:** `docs/performance-0.2.3.md`; PLANS.md entries; `AGENTS.md` (measurement-derived rules only); any fixes with their migrations.
 
 **Do not start in 0.2.3:** 0.2.2 review or fixes; 0.2.1; items 6–9; BACK chunks 3–4; or any optimization without a recorded before/after measurement.
@@ -183,6 +219,8 @@ found (12 majors, 50 minors, 14 nits). Remaining deferred findings still to sche
 **Prior evidence (from 0.2.1):** the on-device engine is documented as non-functional; 0.2.1 ships the progress UI (`b4808c6`/`5981c25`/`bfb19e1`) and the truncated-reply recovery (`b86ad08`) but leaves the engine falling back. Preserve this history until new evidence supersedes it.
 
 ## M2 — Exercise Library: seed catalog expansion (formerly 0.2.5)
+
+**Status (2026-10-06):** research brought forward into the 0.2.3 cycle at the user's request; see "Brought forward from M2 — exercise catalog additions (research first)" under 0.2.3. CAT-P0/P1 are research/docs only; the seeded-data implementation stays separately gated.
 
 **Goal:** substantially expand the seeded exercise and equipment catalogs with **properly researched** data — name, canonical slug id, required equipment, movement pattern, primary/secondary muscles, explicit involvement weights, and the unilateral flag — with **each entry traceable to a cited source**, so fresh installs and existing installs (idempotent seeding) get a richer, defensible catalog.
 
