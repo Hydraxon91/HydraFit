@@ -19,7 +19,7 @@
 | Deterministic planner — volume-driven selection | DONE | 0.2.1 addition Q4 (Option C; honor the rep band); Q4a–Q4d done (f80b71a, c8e3c8a, 4f0ce72); Q4e is a user-side catalog fix, not part of the artifact; see "0.2.1 — next release". |
 | BACK work chunk 3 — calibrate Phase B/C constants | OPEN | Calibrate K=6, D=6, half-lives, and C1/C2/C3 against correctly timed histories. The plateau is resolved by the redesign; no further decision needed. |
 | BACK work chunk 4 — literal >100% report | OPEN | Capture exact value/time/build if it recurs. |
-| Settings/nav consolidation | PLANNED | M3; retained item 7 plan. |
+| Settings/nav consolidation | IN PROGRESS | M3 item 7. P7a (Planning-section layout + strings grouping engine/goal/consent) and P7b verify done; credits/acknowledgments (7b) open. |
 | RIR guidance & rough estimation | PLANNED | Item 9: B1 guidance/quick-picks in M4; B2/B3 remain decision-gated, not required for M4. |
 | Open Questions / Later | LATER | See section below; nothing scheduled. |
 

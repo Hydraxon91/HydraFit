@@ -48,6 +48,7 @@ import hydrafit.feature.settings.generated.resources.settings_goal_hypertrophy
 import hydrafit.feature.settings.generated.resources.settings_goal_section
 import hydrafit.feature.settings.generated.resources.settings_goal_strength
 import hydrafit.feature.settings.generated.resources.settings_local_llm_slow
+import hydrafit.feature.settings.generated.resources.settings_planning_section
 import hydrafit.feature.settings.generated.resources.settings_share_data
 import hydrafit.feature.settings.generated.resources.settings_share_data_description
 import hydrafit.feature.settings.generated.resources.settings_title
@@ -113,6 +114,10 @@ fun SettingsScreen(
             style = MaterialTheme.typography.headlineSmall
         )
         Text(
+            text = stringResource(Res.string.settings_planning_section),
+            style = MaterialTheme.typography.titleLarge
+        )
+        Text(
             text = stringResource(Res.string.settings_engine_section),
             style = MaterialTheme.typography.titleMedium
         )
@@ -147,6 +152,28 @@ fun SettingsScreen(
                 text = stringResource(Res.string.settings_local_llm_slow),
                 style = MaterialTheme.typography.bodySmall
             )
+        }
+
+        Text(
+            text = stringResource(Res.string.settings_goal_section),
+            style = MaterialTheme.typography.titleMedium
+        )
+        TrainingGoal.entries.forEach { goal ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .selectable(
+                        selected = state.selectedGoal == goal,
+                        onClick = { onGoalSelected(goal) }
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = state.selectedGoal == goal,
+                    onClick = { onGoalSelected(goal) }
+                )
+                Text(stringResource(goal.labelResource()))
+            }
         }
 
         Row(
@@ -184,28 +211,6 @@ fun SettingsScreen(
                     onClick = { onWeightUnitSelected(unit) }
                 )
                 Text(stringResource(unit.labelResource()))
-            }
-        }
-
-        Text(
-            text = stringResource(Res.string.settings_goal_section),
-            style = MaterialTheme.typography.titleMedium
-        )
-        TrainingGoal.entries.forEach { goal ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .selectable(
-                        selected = state.selectedGoal == goal,
-                        onClick = { onGoalSelected(goal) }
-                    ),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RadioButton(
-                    selected = state.selectedGoal == goal,
-                    onClick = { onGoalSelected(goal) }
-                )
-                Text(stringResource(goal.labelResource()))
             }
         }
 

@@ -2,6 +2,7 @@
 <resources>
     <string name="nav_label">Settings</string>
     <string name="settings_title">Settings</string>
+    <string name="settings_planning_section">Planning</string>
     <string name="settings_engine_section">Planning engine</string>
     <string name="settings_engine_deterministic">Deterministic (offline)</string>
     <string name="settings_engine_gemini">Gemini API (cloud)</string>
