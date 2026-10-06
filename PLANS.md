@@ -183,13 +183,14 @@ found (12 majors, 50 minors, 14 nits). Remaining deferred findings still to sche
 
 ### Brought forward from M2 — exercise catalog additions (research first)
 
-Brought forward at the user's request (2026-10-06) to run alongside 0.2.3, **after MUS-P1**. Implementation stays separately gated. **Decided:** sources approved (ExRx-style for muscle involvement/classification; NSCA/ACE-style for movement patterns); batch ~+100 exercises / ~+8 equipment tags; add specific machine tags (leg press, lat pulldown, EZ bar, trap bar, dip bar, smith machine, …).
+Brought forward at the user's request (2026-10-06) to run alongside 0.2.3, **after MUS-P1**. Implementation stays separately gated. **Decided:** sources approved; batch ~+100 exercises / ~+8 equipment tags; add specific machine tags (leg press, lat curl/extension, EZ bar, trap bar, dip bar, smith machine, …).
 
-- **CAT-P0 (docs/research, no code).** Write `docs/exercise-catalog-sources.md`, define the involvement scale and pattern/equipment mapping, and finalize the batch + tag list.
-- **CAT-P1.** Compile the rows (name, slug id, equipment, pattern, involvement weights, unilateral) with per-row citations for review before they become code.
+**Status (2026-10-06): CAT-P0 DONE** — `docs/exercise-catalog-sources.md` written. Sources: `yuhonas/free-exercise-db` (**Unlicense**/public domain) for names/muscles/equipment/mechanic, cross-checked with ExRx.net facts; **no media** (its images are not clearly licensed). Per-exercise involvement weights are anchored to **EMG %MVIC bands** from systematic reviews (leg press, gluteus maximus, deadlift, core, rotator cuff) and mapped to the existing editor tiers: **>60% → 1.0, 41–60% → 0.7, 21–40% → 0.5, 0–20% → 0.3**. Weights are model parameters, not measurements. `CustomExerciseDedupe` already merges any custom exercise whose name matches a newly seeded row.
+
+- **CAT-P1 (next).** Compile the rows (name, slug id, equipment, pattern, involvement weights, unilateral) with per-row citations for review before they become code.
 - **Later (separately gated, unchanged from M2):** seed rows via idempotent `insertIgnore` (no schema change), update deterministic planner/SplitBuilder golden fixtures atomically, add a data-quality test, keep MIT-clean facts-only, and verify with the full host suite plus an emulator smoke.
 
-**Remaining CAT decision:** data format (Kotlin vs checked-in file; recommend Kotlin + a data-quality test).
+**Remaining CAT decisions:** data format (Kotlin vs checked-in file; recommend Kotlin + a data-quality test); whether weights are authored only where EMG evidence exists or back-filled from family evidence; confirm first-batch size and machine-tag list.
 
 **Deliverable files:** `docs/performance-0.2.3.md`; PLANS.md entries; `AGENTS.md` (measurement-derived rules only); any fixes with their migrations.
 
