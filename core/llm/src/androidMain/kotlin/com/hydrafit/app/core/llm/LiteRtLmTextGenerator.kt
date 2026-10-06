@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.llm
 
 import android.content.Context
+import android.os.Build
 import android.system.Os
 import android.util.Log
 import com.google.ai.edge.litertlm.Backend
@@ -21,6 +22,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -58,6 +60,9 @@ class LiteRtLmTextGenerator(
         }
     } catch (failure: Throwable) {
         Log.e(TAG, "On-device generation failed", failure)
+        // A failed/timed-out native run can leave the cached engine holding its backend threads and
+        // memory; drop it so the next attempt re-initializes cleanly and idle resources are freed.
+        release()
         throw failure
     }
 
@@ -79,6 +84,8 @@ class LiteRtLmTextGenerator(
         val failure = AtomicReference<Throwable?>(null)
         val done = CountDownLatch(1)
         val startedNanos = System.nanoTime()
+        // Last time accumulated output grew; the waiting thread aborts a run that stays silent.
+        val lastOutputNanos = AtomicLong(startedNanos)
         val constrained = jsonSchema != null && constrainedSupported
 
         // Live estimate from the streamed text: the runtime token counter is deliberately not read
@@ -103,7 +110,8 @@ class LiteRtLmTextGenerator(
         }
         heartbeat.scheduleAtFixedRate(
             {
-                // Reads only the character estimate, never the native conversation.
+                // Reads only the character estimate, never the native conversation, and never
+                // signals completion; stall/timeout detection lives on the waiting thread.
                 runCatching {
                     report()
                     Log.d(
@@ -121,6 +129,7 @@ class LiteRtLmTextGenerator(
         val callback = object : MessageCallback {
             override fun onMessage(message: Message) {
                 chunkCount.incrementAndGet()
+                val before = builder.length
                 val chunk = readText(message)
                 // The async callback streams deltas. A cumulative snapshot is the only case that
                 // replaces instead of appends, and it starts with the text accumulated so far.
@@ -134,6 +143,9 @@ class LiteRtLmTextGenerator(
                     builder.append(chunk)
                 }
                 latestChars.set(builder.length)
+                // Only real growth counts as progress: empty or duplicate callbacks must not reset
+                // the stall clock and keep a zero-output run alive to the full timeout.
+                if (builder.length > before) lastOutputNanos.set(System.nanoTime())
                 report()
             }
 
@@ -160,11 +172,20 @@ class LiteRtLmTextGenerator(
                 callback,
                 responseFormat = if (constrained) ResponseFormat.json(jsonSchema!!) else null
             )
-            awaitGeneration(done, GENERATION_TIMEOUT_MILLIS) {
-                Log.w(TAG, "On-device generation timed out; cancelling the native process")
-                runCatching { conversation.cancelProcess() }
-                    .onFailure { Log.w(TAG, "Could not cancel the timed-out generation", it) }
-            }
+            // The wait itself requests cancellation on a stall/timeout and waits out the grace
+            // period, so the conversation is only closed once native has had a chance to unwind.
+            val abort = awaitGeneration(
+                done = done,
+                timeoutMillis = GENERATION_TIMEOUT_MILLIS,
+                stallTimeoutMillis = STALL_TIMEOUT_MILLIS,
+                lastProgressNanos = lastOutputNanos::get,
+                onCancel = {
+                    Log.w(TAG, "On-device generation aborted; stopping the native process")
+                    runCatching { conversation.cancelProcess() }
+                        .onFailure { Log.w(TAG, "Could not cancel the on-device generation", it) }
+                }
+            )
+            if (abort != null) failure.compareAndSet(null, abort)
         } finally {
             heartbeat.shutdownNow()
         }
@@ -176,6 +197,12 @@ class LiteRtLmTextGenerator(
         .filterIsInstance<Content.Text>()
         .joinToString(separator = "") { it.text }
 
+    @Synchronized
+    override fun release() {
+        closeEngine()
+        constrainedSupported = true
+    }
+
     private fun activeEngine(): Engine {
         val modelFile = File(modelManager.modelPath())
         val key = EngineKey(modelFile.path, modelFile.length(), modelFile.lastModified())
@@ -185,18 +212,23 @@ class LiteRtLmTextGenerator(
         // Drop the cached engine before creating a new one. If the model changed, close the old
         // one; if creation then fails, no stale reference survives to trip the next call (LiteRT's
         // Engine.close() throws once the engine was never initialized or already closed).
-        engine = null
-        engineKey = null
-        if (current != null) {
-            runCatching { current.close() }
-                .onFailure { Log.w(TAG, "Could not close the previous on-device engine", it) }
-        }
-
+        closeEngine()
         constrainedSupported = true
         val created = createEngine(key)
         engine = created
         engineKey = key
         return created
+    }
+
+    /** Drops the cached engine and closes it; safe when nothing is cached or it is already closed. */
+    private fun closeEngine() {
+        val current = engine
+        engine = null
+        engineKey = null
+        if (current != null) {
+            runCatching { current.close() }
+                .onFailure { Log.w(TAG, "Could not close the on-device engine", it) }
+        }
     }
 
     /**
@@ -249,13 +281,23 @@ class LiteRtLmTextGenerator(
         }.onFailure { Log.w(TAG, "Could not set the NPU library path", it) }
     }
 
-    private fun backendChain(target: OnDeviceModelTarget): List<Backend> = when (target) {
-        OnDeviceModelTarget.NPU -> listOf(
+    private val onEmulator: Boolean = looksLikeEmulator(
+        Build.FINGERPRINT,
+        Build.HARDWARE,
+        Build.PRODUCT,
+        Build.MODEL
+    )
+
+    private fun backendChain(target: OnDeviceModelTarget): List<Backend> = when {
+        // Emulators degrade the GPU path to WebGPU, whose kernel compilation pegs the host CPU
+        // without producing output; keep them on CPU, which still generates (slowly).
+        onEmulator -> listOf(Backend.CPU())
+        target == OnDeviceModelTarget.NPU -> listOf(
             Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir),
             Backend.GPU(),
             Backend.CPU()
         )
-        OnDeviceModelTarget.CPU_GPU -> listOf(Backend.GPU(), Backend.CPU())
+        else -> listOf(Backend.GPU(), Backend.CPU())
     }
 
     private fun conversationConfig(): ConversationConfig = ConversationConfig(
@@ -292,6 +334,12 @@ class LiteRtLmTextGenerator(
 
         /** How often the heartbeat refreshes the progress line while waiting for the first chunk. */
         const val HEARTBEAT_MILLIS = 500L
+
+        /**
+         * Abort a generation that produces no output for this long (0 tokens / 0.0 tok/s), rather
+         * than waiting the full [GENERATION_TIMEOUT_MILLIS]. Tunable model parameter, not a fact.
+         */
+        const val STALL_TIMEOUT_MILLIS = 90_000L
 
         /**
          * Upper bound on a single generation. A full 2048-token reply at the slowest observed

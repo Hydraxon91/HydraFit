@@ -285,16 +285,27 @@ do not assume the generation target and post-filter floor should be identical.
   deterministic fallback. This describes existing source, not a pattern to copy:
   follow AGENTS.md's explicit engine-substitution rule for new/changed rejection paths.
 - Local implementation: `LocalLlmWorkoutPlannerEngine.kt`, with
-  `MAX_ATTEMPTS = 2`. Prompt numbers are 1-based catalog indexes mapped back to
-  ids before sanitization. Unavailability and OOM fall back; cancellation is
-  rethrown rather than converted into fallback.
+  `MAX_ATTEMPTS = 2` used only to retry a parsed-but-rejected (incomplete) plan.
+  A generation exception, unavailability or OOM falls straight back; cancellation
+  is rethrown rather than converted into fallback. Prompt numbers are 1-based
+  catalog indexes mapped back to ids before sanitization.
 - Native runtime: `core/llm/src/androidMain/kotlin/com/hydrafit/app/core/llm/LiteRtLmTextGenerator.kt`.
   It caches the Engine but creates/closes a Conversation per call. Reusing a
-  failed Conversation can cause "roles must alternate" errors.
+  failed Conversation can cause "roles must alternate" errors. `release()` drops
+  the cached Engine; it is called on a generation failure/timeout, on model
+  removal, and (off main, via `OnDeviceEngineLifecycle` collecting
+  `EnginePreferenceRepository.engineFlow()`) whenever a non-local engine is selected.
+- Generation wait: the waiting thread runs `awaitGeneration` and aborts on the
+  absolute `GENERATION_TIMEOUT_MILLIS` (300 s) or on no output for
+  `STALL_TIMEOUT_MILLIS` (90 s). It calls `conversation.cancelProcess()`, waits out
+  the cancellation grace period, then returns the abort reason — a separate
+  watchdog never signals completion. Only real output growth resets the stall
+  clock.
 - Imported models live at `filesDir/on_device_llm.litertlm`; filename target
-  classification is persisted separately. Portable packs try GPU then CPU;
-  NPU-tagged packs try NPU, GPU, then CPU. Installed-file presence is not proof
-  that native inference works.
+  classification is persisted separately. Real devices try NPU → GPU → CPU (NPU
+  packs) or GPU → CPU (portable); **emulators use CPU only** (`looksLikeEmulator`),
+  because the GPU path degrades to WebGPU and spins the host. Installed-file
+  presence is not proof that native inference works.
 
 ## SQLDelight recipe and migration fixtures
 

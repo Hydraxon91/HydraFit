@@ -26,6 +26,7 @@ import com.hydrafit.app.core.domain.workout.SessionConfig
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.llm.LocalLlmWorkoutPlannerEngine
+import com.hydrafit.app.core.llm.OnDeviceEngineLifecycle
 import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.network.GeminiWorkoutPlannerEngine
 import org.koin.core.module.Module
@@ -57,6 +58,7 @@ val domainModule: Module = module {
             apiKeyProvider = get<ApiKeyProvider>()
         )
     }
+    single { OnDeviceEngineLifecycle(get(), get()) }
     singleOf(::GenerateWeeklySplitUseCase)
     single { SuggestedWeightConfig() }
     single { PeriodizationConfig() }

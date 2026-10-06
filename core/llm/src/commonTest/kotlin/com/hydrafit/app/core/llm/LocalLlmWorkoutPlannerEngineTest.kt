@@ -385,6 +385,20 @@ class LocalLlmWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun fallsBackAfterOneAttemptWhenGenerationThrows() = runTest {
+        val generator = FakeGenerator(
+            available = true,
+            failure = { throw IllegalStateException("native failure") }
+        )
+
+        val plan = engine(generator).generatePlan(request())
+
+        assertEquals(PlannerEngineId.DETERMINISTIC, plan.engine)
+        // A native/backend exception is not fixed by a retry, so it must not spend a second attempt.
+        assertEquals(1, generator.generateCalls)
+    }
+
+    @Test
     fun acceptsAReplyThatOmitsSetsAndReps() = runTest {
         val generator = FakeGenerator(available = true, responses = listOf(ID_ONLY_PLAN))
 

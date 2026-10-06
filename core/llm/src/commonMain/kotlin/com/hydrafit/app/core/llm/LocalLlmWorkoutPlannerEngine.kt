@@ -74,8 +74,10 @@ class LocalLlmWorkoutPlannerEngine(
                 null
             }
             if (output == null) {
-                prompt = prompt(request, availableExercises, focusSequence) + correction(request)
-                continue
+                // A generation exception (native/backend failure) is not fixed by a retry, and a
+                // second attempt doubles an already minutes-long wait; fall straight back instead.
+                // The retry loop is kept for parsed-but-rejected (incomplete) plans below.
+                break
             }
 
             val parsed = try {

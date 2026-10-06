@@ -5,6 +5,7 @@ import com.hydrafit.app.core.database.SeedEquipmentCatalog
 import com.hydrafit.app.core.database.SeedExerciseCatalog
 import com.hydrafit.app.core.database.WorkoutSessionBackfill
 import com.hydrafit.app.core.database.databaseModule
+import com.hydrafit.app.core.llm.OnDeviceEngineLifecycle
 import com.hydrafit.app.core.network.networkModule
 import com.hydrafit.app.feature.equipment.equipmentModule
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapModule
@@ -33,4 +34,6 @@ fun initKoin(platformModule: Module, extraModules: List<Module> = emptyList()) {
     koinApplication.koin.get<SeedEquipmentCatalog>().seed()
     koinApplication.koin.get<CustomExerciseDedupe>().run()
     koinApplication.koin.get<WorkoutSessionBackfill>().backfill()
+    // Releases the cached on-device engine (off main) whenever a non-on-device engine is selected.
+    koinApplication.koin.get<OnDeviceEngineLifecycle>().start()
 }

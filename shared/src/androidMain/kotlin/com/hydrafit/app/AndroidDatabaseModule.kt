@@ -32,17 +32,23 @@ fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = modu
         ApiKeyProvider { store.load()?.takeIf { it.isNotBlank() } ?: geminiApiKey }
     }
     single { AndroidOnDeviceModelManager(context.applicationContext) }
+    single<OnDeviceTextGenerator> {
+        LiteRtLmTextGenerator(context.applicationContext, get<AndroidOnDeviceModelManager>())
+    }
     single<OnDeviceModelManager> {
         val manager = get<AndroidOnDeviceModelManager>()
+        // Resolve the generator (cheap: it loads no model until generate) so removing the model also
+        // stops its cached native engine instead of leaving it holding backend resources.
+        val generator = get<OnDeviceTextGenerator>()
         DelegatingOnDeviceModelManager(
             installedCheck = manager::isInstalled,
             targetCheck = manager::modelTarget,
             onInstall = { source -> manager.importFromUri(Uri.parse(source)) },
-            onRemove = manager::remove
+            onRemove = {
+                manager.remove()
+                generator.release()
+            }
         )
-    }
-    single<OnDeviceTextGenerator> {
-        LiteRtLmTextGenerator(context.applicationContext, get<AndroidOnDeviceModelManager>())
     }
     single<OnDevicePlannerLogger> { AndroidOnDevicePlannerLogger() }
 }
