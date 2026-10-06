@@ -318,6 +318,33 @@ class EquipmentProfilerViewModelTest {
     }
 
     @Test
+    fun searchMatchesHyphenatedAndSpaceSeparatedNames() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onNewCustomExercise()
+        viewModel.onEditorNameChanged("Close-grip Pulldown")
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.LATS, 1.0)
+        viewModel.onSaveExercise()
+        advanceUntilIdle()
+
+        viewModel.onSearchChanged("close grip")
+        assertEquals(
+            listOf("Close-grip Pulldown"),
+            viewModel.state.value.visibleExercises.map { it.name }
+        )
+
+        viewModel.onSearchChanged("back-squat")
+        assertEquals(
+            listOf("Back Squat"),
+            viewModel.state.value.visibleExercises.map { it.name }
+        )
+
+        viewModel.onSearchChanged("-")
+        assertEquals(2, viewModel.state.value.visibleExercises.size)
+    }
+
+    @Test
     fun savesAndClearsAPersonalRecord() = runTest(dispatcher) {
         val records = FakePersonalRecordRepository()
         val viewModel = viewModel(records = records)

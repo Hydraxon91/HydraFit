@@ -101,6 +101,43 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun searchMatchesHyphenatedNamesFromSpaces() = runTest(dispatcher) {
+        val hyphenatedCatalog = object : ExerciseCatalog {
+            override suspend fun all(): List<Exercise> = listOf(
+                Exercise(
+                    id = "close-grip-bench-press",
+                    name = "Close-grip Bench Press",
+                    requiredEquipment = setOf(EquipmentTag.BARBELL),
+                    primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
+                    movementPattern = MovementPattern.HORIZONTAL_PUSH
+                ),
+                Exercise(
+                    id = "bench-press",
+                    name = "Bench Press",
+                    requiredEquipment = setOf(EquipmentTag.BARBELL),
+                    primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
+                    movementPattern = MovementPattern.HORIZONTAL_PUSH
+                )
+            )
+        }
+        val viewModel = viewModel(catalog = hyphenatedCatalog)
+        advanceUntilIdle()
+        assertEquals(2, viewModel.state.value.exercises.size)
+
+        viewModel.onExerciseSearchChanged("close grip")
+        assertEquals(
+            listOf("Close-grip Bench Press"),
+            viewModel.state.value.visibleExercises.map { it.name }
+        )
+
+        viewModel.onExerciseSearchChanged("-")
+        assertEquals(2, viewModel.state.value.visibleExercises.size)
+
+        viewModel.onExerciseSearchChanged("squat")
+        assertTrue(viewModel.state.value.visibleExercises.isEmpty())
+    }
+
+    @Test
     fun prefillsFromTheLastLoggedSetWhenThePlanHasNoSuggestion() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository(
             initial = listOf(
@@ -425,6 +462,213 @@ class WorkoutLoggerViewModelTest {
 
         assertTrue(viewModel.state.value.draftSets.isEmpty())
         assertTrue(repository.all().isEmpty())
+    }
+
+    @Test
+    fun resumeKeepsAnEditedWeightWhenThePlanHasASuggestion() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        assertEquals("100", viewModel.state.value.weightInput)
+        viewModel.onWeightChanged("120")
+
+        viewModel.onResume()
+        advanceUntilIdle()
+
+        assertEquals("120", viewModel.state.value.weightInput)
+    }
+
+    @Test
+    fun resumeKeepsAnEditedWeightWhenThePlanHasNoSuggestion() = runTest(dispatcher) {
+        val viewModel = viewModel(timeMillis = MONDAY)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onWeightChanged("80")
+
+        viewModel.onResume()
+        advanceUntilIdle()
+
+        assertEquals("back-squat", viewModel.state.value.selectedExerciseId)
+        assertEquals("80", viewModel.state.value.weightInput)
+    }
+
+    @Test
+    fun resumeKeepsADeliberatelyClearedWeight() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onWeightChanged("")
+
+        viewModel.onResume()
+        advanceUntilIdle()
+
+        assertEquals("", viewModel.state.value.weightInput)
+    }
+
+    @Test
+    fun resumeKeepsRepsAndWeightAcrossRepeatedResumes() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("12")
+        viewModel.onWeightChanged("90")
+
+        viewModel.onResume()
+        advanceUntilIdle()
+        viewModel.onResume()
+        advanceUntilIdle()
+
+        assertEquals("12", viewModel.state.value.reps)
+        assertEquals("90", viewModel.state.value.weightInput)
+    }
+
+    @Test
+    fun resumeAfterLoggingKeepsTheTypedWeightNotThePlannedSuggestion() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("95")
+        viewModel.log()
+        advanceUntilIdle()
+
+        viewModel.onResume()
+        advanceUntilIdle()
+
+        assertEquals("95", viewModel.state.value.weightInput)
+        assertEquals("5", viewModel.state.value.reps)
+        assertEquals(95.0, repository.all().single().weightKg)
+    }
+
+    @Test
+    fun resumeKeepsARecentSetQuickFilledWeight() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = 5,
+                    weightKg = 62.5,
+                    performedAtMillis = 1L
+                )
+            )
+        )
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+
+        viewModel.onRecentSetSelected(viewModel.state.value.recentSets.single())
+        assertEquals("62.5", viewModel.state.value.weightInput)
+
+        viewModel.onResume()
+        advanceUntilIdle()
+
+        assertEquals("62.5", viewModel.state.value.weightInput)
+        assertEquals("5", viewModel.state.value.reps)
+    }
+
+    @Test
+    fun resumeKeepsTheLastSetFallbackWeightWhenThePlanHasNoSuggestion() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = 5,
+                    weightKg = 72.5,
+                    performedAtMillis = 2L
+                )
+            )
+        )
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+        assertEquals("72.5", viewModel.state.value.weightInput)
+
+        viewModel.onResume()
+        advanceUntilIdle()
+
+        assertEquals("72.5", viewModel.state.value.weightInput)
+    }
+
+    @Test
+    fun aNewLocalDayRefreshesTheSuggestionInsteadOfKeepingTheEditedWeight() = runTest(dispatcher) {
+        var now = MONDAY
+        val repository = FakeWorkoutLogRepository()
+        val twoDayPlan = AcceptedPlan(
+            engine = PlannerEngineId.DETERMINISTIC,
+            acceptedAtMillis = 0L,
+            days = listOf(
+                AcceptedDay(
+                    dayIndex = 0,
+                    focus = SplitFocus.FULL_BODY,
+                    exercises = listOf(
+                        AcceptedExercise(
+                            exerciseId = "back-squat",
+                            sets = 3,
+                            reps = 8,
+                            name = "back-squat",
+                            movementPattern = MovementPattern.CORE,
+                            suggestedWeightKg = 100.0
+                        )
+                    )
+                ),
+                AcceptedDay(
+                    dayIndex = 1,
+                    focus = SplitFocus.FULL_BODY,
+                    exercises = listOf(
+                        AcceptedExercise(
+                            exerciseId = "back-squat",
+                            sets = 3,
+                            reps = 8,
+                            name = "back-squat",
+                            movementPattern = MovementPattern.CORE,
+                            suggestedWeightKg = 200.0
+                        )
+                    )
+                )
+            ),
+            id = 1L
+        )
+        val viewModel = WorkoutLoggerViewModel(
+            logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
+            getWorkoutLog = GetWorkoutLogUseCase(repository),
+            observeAcceptedPlan = ObserveAcceptedPlanUseCase(FakePlanHistoryRepository(twoDayPlan)),
+            exerciseCatalog = FakeExerciseCatalog,
+            timeProvider = TimeProvider { now },
+            weightUnitRepository = FakeWeightUnitRepository(WeightUnit.KG)
+        )
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onWeightChanged("150")
+        assertEquals("150", viewModel.state.value.weightInput)
+
+        now = MONDAY + 3L * DAY
+        viewModel.onResume()
+        advanceUntilIdle()
+
+        assertEquals("200", viewModel.state.value.weightInput)
     }
 
     @Test
@@ -1386,8 +1630,41 @@ class WorkoutLoggerViewModelTest {
         viewModel.log()
         advanceUntilIdle()
 
-        // performedAt desc with ties kept in repository order (performedAt, id asc).
-        assertEquals(listOf(1L, 2L, 3L), viewModel.state.value.recentSets.map { it.id })
+        // performedAt desc, ties broken by newest insertion (id desc).
+        assertEquals(listOf(3L, 2L, 1L), viewModel.state.value.recentSets.map { it.id })
+    }
+
+    @Test
+    fun recentSetsOrderByTimeThenNewestInsertionOnATie() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = 5,
+                    weightKg = 100.0,
+                    performedAtMillis = 200L
+                ),
+                WorkoutSet(
+                    id = 2L,
+                    exerciseId = "back-squat",
+                    reps = 5,
+                    weightKg = 100.0,
+                    performedAtMillis = 200L
+                ),
+                WorkoutSet(
+                    id = 3L,
+                    exerciseId = "back-squat",
+                    reps = 5,
+                    weightKg = 100.0,
+                    performedAtMillis = 100L
+                )
+            )
+        )
+        val viewModel = viewModel(repository = repository)
+        advanceUntilIdle()
+
+        assertEquals(listOf(2L, 1L, 3L), viewModel.state.value.recentSets.map { it.id })
     }
 
     private fun viewModel(

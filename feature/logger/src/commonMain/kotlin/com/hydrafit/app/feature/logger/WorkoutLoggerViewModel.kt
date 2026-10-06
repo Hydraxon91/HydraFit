@@ -380,9 +380,13 @@ class WorkoutLoggerViewModel(
                 // Today's planned exercises become drafts the user must confirm before they count.
                 draftSets = rebuiltDrafts ?: current.draftSets,
                 reps = current.reps,
-                weightInput = current.selectedExerciseId
-                    ?.let { suggestedInputFor(it, current.weightUnit) }
-                    ?: current.weightInput
+                weightInput = if (rebuildDrafts) {
+                    current.selectedExerciseId
+                        ?.let { suggestedInputFor(it, current.weightUnit) }
+                        ?: current.weightInput
+                } else {
+                    current.weightInput
+                }
             )
         }
         // Recorded only after the rebuild lands, so a `collectLatest` cancellation during the
@@ -490,7 +494,10 @@ class WorkoutLoggerViewModel(
 
     private suspend fun refreshRecentSets() {
         val rows = getWorkoutLog()
-            .sortedByDescending { it.performedAtMillis }
+            .sortedWith(
+                compareByDescending<WorkoutSet> { it.performedAtMillis }
+                    .thenByDescending { it.id }
+            )
             .map { set ->
                 LoggedSetRow(
                     id = set.id,

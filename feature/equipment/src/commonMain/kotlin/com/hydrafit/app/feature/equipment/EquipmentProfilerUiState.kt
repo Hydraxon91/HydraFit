@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.equipment.MovementPatternGuardrail
+import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 
 /** The exercise currently open in the editor dialog, and its in-progress edits. */
@@ -94,7 +95,7 @@ data class EquipmentProfilerUiState(
         get() = if (search.isBlank()) {
             exercises
         } else {
-            exercises.filter { it.name.contains(search.trim(), ignoreCase = true) }
+            exercises.filter { matchesExerciseNameQuery(it.name, search) }
         }
 
     val builtInExercises: List<Exercise>

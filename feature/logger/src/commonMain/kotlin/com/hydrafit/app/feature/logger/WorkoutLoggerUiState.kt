@@ -1,6 +1,7 @@
 package com.hydrafit.app.feature.logger
 
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.WorkoutSession
@@ -94,6 +95,6 @@ data class WorkoutLoggerUiState(
         get() = if (exerciseSearch.isBlank()) {
             exercises
         } else {
-            exercises.filter { it.name.contains(exerciseSearch.trim(), ignoreCase = true) }
+            exercises.filter { matchesExerciseNameQuery(it.name, exerciseSearch) }
         }
 }
