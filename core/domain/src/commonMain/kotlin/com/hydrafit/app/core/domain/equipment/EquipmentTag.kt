@@ -18,6 +18,12 @@ data class EquipmentTag(val id: String) {
         val RESISTANCE_BAND = EquipmentTag("RESISTANCE_BAND")
         val CABLE_MACHINE = EquipmentTag("CABLE_MACHINE")
         val BODYWEIGHT = EquipmentTag("BODYWEIGHT")
+        val EZ_BAR = EquipmentTag("EZ_BAR")
+        val TRAP_BAR = EquipmentTag("TRAP_BAR")
+        val AB_ROLLER = EquipmentTag("AB_ROLLER")
+        val LEG_EXTENSION_MACHINE = EquipmentTag("LEG_EXTENSION_MACHINE")
+        val LEG_PRESS_MACHINE = EquipmentTag("LEG_PRESS_MACHINE")
+        val LEG_CURL_MACHINE = EquipmentTag("LEG_CURL_MACHINE")
 
         val BUILT_IN: List<EquipmentTag> = listOf(
             BARBELL,
@@ -27,7 +33,13 @@ data class EquipmentTag(val id: String) {
             PULL_UP_BAR,
             RESISTANCE_BAND,
             CABLE_MACHINE,
-            BODYWEIGHT
+            BODYWEIGHT,
+            EZ_BAR,
+            TRAP_BAR,
+            AB_ROLLER,
+            LEG_EXTENSION_MACHINE,
+            LEG_PRESS_MACHINE,
+            LEG_CURL_MACHINE
         )
 
         val BUILT_IN_NAMES: Map<String, String> = mapOf(
@@ -38,7 +50,13 @@ data class EquipmentTag(val id: String) {
             PULL_UP_BAR.id to "Pull-up bar",
             RESISTANCE_BAND.id to "Resistance bands",
             CABLE_MACHINE.id to "Cable machine",
-            BODYWEIGHT.id to "Bodyweight"
+            BODYWEIGHT.id to "Bodyweight",
+            EZ_BAR.id to "EZ bar",
+            TRAP_BAR.id to "Trap bar",
+            AB_ROLLER.id to "Ab roller",
+            LEG_EXTENSION_MACHINE.id to "Leg extension machine",
+            LEG_PRESS_MACHINE.id to "Leg press machine",
+            LEG_CURL_MACHINE.id to "Leg curl machine"
         )
     }
 }
