@@ -426,6 +426,14 @@ the selected/oldest-unresolved occurrence's remaining sets as drafts, stamps
 `occurrenceId`/`occurrenceEntryId` on logged sets, and exposes Finish/partial/
 Skip (the only queue advances); with no block it keeps the accepted-plan path.
 
+Feature navigation: each feature exports a `FeatureDestination` whose `graph` is
+`(NavController) -> NavGraphBuilder.() -> Unit`; the shell passes its `NavController`, so a feature
+can register an internal sub-route without a shell change. Settings uses a nested `navigation(...)`
+graph (`settings` → `settings/home` + `settings/acknowledgments`) so the bottom tab stays selected on
+its sub-screen. The live app version comes from `AppVersionProvider` (`:core:userdata`), bound in
+`appVersionModule` (Android, from `BuildConfig.VERSION_NAME`) and `IosDatabaseModule` (returns
+`"dev"`).
+
 For routine authoring, the module is `:feature:routines`:
 `RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/
 `routinesDestination`), `RoutinesScreen.kt` (list, editor, exercise picker,
