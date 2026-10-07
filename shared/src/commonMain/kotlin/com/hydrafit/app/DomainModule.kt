@@ -38,7 +38,6 @@ import com.hydrafit.app.core.domain.schedule.SelectWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.SkipWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.StartWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.SwitchScheduleModeUseCase
-import com.hydrafit.app.core.domain.schedule.WorkoutQueueAdvancer
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleActions
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
@@ -113,7 +112,6 @@ val domainModule: Module = module {
     singleOf(::CreateTrainingActivationUseCase)
     singleOf(::ActivateRoutineUseCase)
     singleOf(::RepeatTrainingBlockUseCase)
-    singleOf(::WorkoutQueueAdvancer)
     singleOf(::SelectWorkoutOccurrenceUseCase)
     singleOf(::StartWorkoutOccurrenceUseCase)
     singleOf(::FinishWorkoutOccurrenceUseCase)

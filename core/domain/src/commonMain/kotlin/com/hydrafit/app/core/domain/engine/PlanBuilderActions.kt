@@ -24,7 +24,6 @@ import kotlinx.coroutines.flow.Flow
 class PlanBuilderActions(
     private val acceptWeeklyPlan: AcceptWeeklyPlanUseCase,
     private val substituteExercise: SubstituteExerciseUseCase,
-    private val planHistoryRepository: PlanHistoryRepository,
     private val convertPlanToTemplate: ConvertPlanToTemplateUseCase,
     private val saveRoutineTemplate: SaveRoutineTemplateUseCase,
     private val activateRoutine: ActivateRoutineUseCase,
@@ -81,14 +80,22 @@ class PlanBuilderActions(
         )
     }
 
-    /** Accepts a draft plan and immediately schedules it as an active block. */
+    /**
+     * Accepts a draft plan and schedules it as an active block in one transaction, so a rejected
+     * schedule never leaves accepted-plan history behind and a failure leaves neither write.
+     */
     suspend fun acceptAndSchedule(plan: WeeklyPlan, request: ActivationRequest): Long {
-        // Validate before accepting so an invalid schedule never writes accepted-plan history.
         requireGeneratedFrequency(plan.days.size, request)
-        acceptWeeklyPlan(plan)
-        val accepted = planHistoryRepository.latest()
-            ?: throw ScheduleException("The plan could not be accepted")
-        return scheduleAcceptedPlan(accepted, request)
+        val accepted = acceptWeeklyPlan.build(plan)
+        val template = convertPlanToTemplate(accepted, request.name)
+        return activateRoutine(
+            template,
+            request.copy(
+                weekNumber = accepted.weekNumber,
+                cycleNumber = accepted.cycleNumber
+            ),
+            acceptedPlan = accepted
+        )
     }
 
     /**

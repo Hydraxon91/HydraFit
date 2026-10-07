@@ -1,5 +1,6 @@
 package com.hydrafit.app.feature.routines
 
+import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
@@ -23,15 +24,16 @@ import com.hydrafit.app.core.domain.schedule.EditUnstartedOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.FinishTrainingBlockUseCase
 import com.hydrafit.app.core.domain.schedule.MoveWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
+import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
 import com.hydrafit.app.core.domain.schedule.PreviewWorkoutScheduleUseCase
 import com.hydrafit.app.core.domain.schedule.RepeatTrainingBlockUseCase
+import com.hydrafit.app.core.domain.schedule.ScheduleException
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.schedule.SelectWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.StartWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.SwitchScheduleModeUseCase
 import com.hydrafit.app.core.domain.schedule.TrainingActivation
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
-import com.hydrafit.app.core.domain.schedule.WorkoutQueueAdvancer
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleActions
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
@@ -310,7 +312,6 @@ class RoutinesViewModelTest {
     ): RoutinesViewModel {
         val preview = PreviewWorkoutScheduleUseCase()
         val createActivation = CreateTrainingActivationUseCase(schedule, preview, timeProvider)
-        val queueAdvancer = WorkoutQueueAdvancer(schedule)
         val routineActions = RoutineTemplateActions(
             observeTemplates = ObserveRoutineTemplatesUseCase(routines),
             saveTemplate = SaveRoutineTemplateUseCase(routines, timeProvider),
@@ -491,7 +492,27 @@ private class FakeWorkoutScheduleRepository : WorkoutScheduleRepository {
     override suspend fun getOccurrence(id: Long): WorkoutOccurrence? =
         occurrenceState.value.firstOrNull { it.id == id }
 
-    override suspend fun insertActivation(activation: TrainingActivation): Long {
+    override suspend fun acceptAndActivate(
+        acceptedPlan: AcceptedPlan?,
+        activation: TrainingActivation,
+        scheduledEpochDays: List<Long?>,
+        replaceActive: Boolean
+    ): Long {
+        val active = activationState.value.lastOrNull { it.status == ActivationStatus.ACTIVE }
+        if (active != null) {
+            if (!replaceActive) throw ScheduleException("A training block is already active")
+            activationState.value = activationState.value.map {
+                if (it.id == active.id) {
+                    it.copy(
+                        status = ActivationStatus.CANCELLED,
+                        endedAtMillis = activation.createdAtMillis,
+                        revision = it.revision + 1
+                    )
+                } else {
+                    it
+                }
+            }
+        }
         val id = nextActivationId++
         val stored = activation.copy(
             id = id,
@@ -503,20 +524,78 @@ private class FakeWorkoutScheduleRepository : WorkoutScheduleRepository {
             }
         )
         activationState.value = activationState.value + stored
+        val created = stored.workouts.mapIndexed { index, workout ->
+            WorkoutOccurrence(
+                id = nextOccurrenceId++,
+                activationId = id,
+                activationWorkoutId = workout.id,
+                queuePosition = index,
+                scheduledEpochDay = scheduledEpochDays.getOrNull(index),
+                status = OccurrenceStatus.PENDING,
+                revision = 1,
+                entries = workout.entries.mapIndexed { entryIndex, entry ->
+                    OccurrenceEntry(
+                        id = nextOccurrenceEntryId++,
+                        sourceActivationEntryId = entry.id,
+                        position = entryIndex,
+                        exerciseId = entry.exerciseId,
+                        exerciseName = entry.exerciseName,
+                        movementPattern = entry.movementPattern,
+                        requiredEquipment = entry.requiredEquipment,
+                        involvements = entry.involvements,
+                        isUnilateral = entry.isUnilateral,
+                        sets = entry.sets,
+                        reps = entry.reps,
+                        weightKg = entry.weightKg
+                    )
+                }
+            )
+        }
+        occurrenceState.value = occurrenceState.value + created
+        state.value = WorkoutScheduleState(
+            activeActivationId = id,
+            selectedOccurrenceId = created.firstOrNull()?.id,
+            legacyFallbackEnabled = false
+        )
         return id
     }
 
-    override suspend fun insertOccurrences(
-        occurrences: List<WorkoutOccurrence>
-    ): List<WorkoutOccurrence> {
-        val stored = occurrences.map { occurrence ->
-            occurrence.copy(
-                id = nextOccurrenceId++,
-                entries = occurrence.entries.map { it.copy(id = nextOccurrenceEntryId++) }
-            )
+    override suspend fun resolveOccurrence(
+        occurrenceId: Long,
+        expectedRevision: Int,
+        status: OccurrenceStatus,
+        resolvedAtMillis: Long,
+        entries: List<OccurrenceEntry>
+    ): WorkoutScheduleState {
+        val occurrence = occurrenceState.value.firstOrNull { it.id == occurrenceId }
+            ?: throw ScheduleException("That workout no longer exists")
+        if (state.value.activeActivationId != occurrence.activationId) {
+            throw ScheduleException("That workout is not in the active block")
         }
-        occurrenceState.value = occurrenceState.value + stored
-        return stored
+        if (occurrence.revision != expectedRevision) {
+            throw ScheduleException("That workout changed; refresh and try again")
+        }
+        occurrenceState.value = occurrenceState.value.map {
+            if (it.id != occurrenceId) {
+                it
+            } else {
+                it.copy(
+                    entries = entries.map { entry ->
+                        entry.copy(id = if (entry.id == 0L) nextOccurrenceEntryId++ else entry.id)
+                    },
+                    status = status,
+                    startedAtMillis = it.startedAtMillis ?: resolvedAtMillis,
+                    resolvedAtMillis = resolvedAtMillis,
+                    revision = it.revision + 1
+                )
+            }
+        }
+        val next = occurrenceState.value
+            .filter { it.activationId == occurrence.activationId && !it.isResolved }
+            .minByOrNull { it.queuePosition }
+        val updated = state.value.copy(selectedOccurrenceId = next?.id)
+        state.value = updated
+        return updated
     }
 
     override suspend fun updateActivationHeader(activation: TrainingActivation) {

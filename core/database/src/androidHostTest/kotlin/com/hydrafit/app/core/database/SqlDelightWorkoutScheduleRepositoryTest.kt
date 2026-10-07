@@ -12,15 +12,16 @@ import com.hydrafit.app.core.domain.schedule.ActivationWorkout
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
 import com.hydrafit.app.core.domain.schedule.RemainingDisposition
+import com.hydrafit.app.core.domain.schedule.ScheduleException
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.schedule.TrainingActivation
-import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -69,9 +70,13 @@ class SqlDelightWorkoutScheduleRepositoryTest {
     }
 
     @Test
-    fun insertsAndReloadsAnActivationWithFrozenWorkoutsAndEntries() = runTest {
-        val activation = activation()
-        val id = repository.insertActivation(activation)
+    fun acceptAndActivateWritesActivationOccurrencesAndCursorAtomically() = runTest {
+        val id = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(),
+            scheduledEpochDays = listOf(20_000L, 20_002L),
+            replaceActive = false
+        )
 
         val reloaded = requireNotNull(repository.getActivation(id))
         assertEquals("Upper block", reloaded.name)
@@ -80,8 +85,8 @@ class SqlDelightWorkoutScheduleRepositoryTest {
         assertEquals(ActivationStatus.ACTIVE, reloaded.status)
         assertEquals(7L, reloaded.templateId)
         assertEquals(3, reloaded.templateRevision)
-        assertEquals(SplitFocus.PUSH, reloaded.workouts.single().focus)
-        val slot = reloaded.workouts.single().entries.single()
+        assertEquals(SplitFocus.PUSH, reloaded.workouts[0].focus)
+        val slot = reloaded.workouts[0].entries.single()
         assertEquals("bench-press", slot.exerciseId)
         assertEquals("Barbell Bench Press", slot.exerciseName)
         assertEquals(setOf(EquipmentTag("barbell")), slot.requiredEquipment)
@@ -89,72 +94,172 @@ class SqlDelightWorkoutScheduleRepositoryTest {
         assertTrue(slot.isUnilateral.not())
         assertEquals(82.5, slot.weightKg)
 
-        assertEquals(id, requireNotNull(repository.activeActivation()).id)
-        assertEquals(id, repository.observeActiveActivation().first()?.id)
+        val occurrences = repository.occurrences(id)
+        assertEquals(listOf(0, 1), occurrences.map { it.queuePosition })
+        assertEquals(listOf(20_000L, 20_002L), occurrences.map { it.scheduledEpochDay })
+        assertTrue(occurrences.all { it.status == OccurrenceStatus.PENDING })
+        assertEquals(occurrences[0].id, repository.scheduleState().selectedOccurrenceId)
+        assertEquals(id, repository.scheduleState().activeActivationId)
+
+        val copiedEntry = occurrences[0].entries.single()
+        assertEquals(slot.id, copiedEntry.sourceActivationEntryId)
+        assertEquals("bench-press", copiedEntry.exerciseId)
+        assertNull(copiedEntry.remainingDisposition)
     }
 
     @Test
-    fun insertsOccurrencesWithWorkingCopyEntriesAndResolvesThem() = runTest {
-        val id = repository.insertActivation(activation())
-        val saved = requireNotNull(repository.getActivation(id))
-        val workoutId = saved.workouts.single().id
-        val sourceEntryId = saved.workouts.single().entries.single().id
-
-        val inserted = repository.insertOccurrences(
-            listOf(
-                occurrence(
-                    activationId = id,
-                    activationWorkoutId = workoutId,
-                    queuePosition = 0,
-                    scheduledEpochDay = 20_000L,
-                    sourceEntryId = sourceEntryId
-                ),
-                occurrence(
-                    activationId = id,
-                    activationWorkoutId = workoutId,
-                    queuePosition = 1,
-                    scheduledEpochDay = 20_002L,
-                    sourceEntryId = sourceEntryId
-                )
-            )
+    fun acceptAndActivateRejectsASecondBlockUnlessReplacing() = runTest {
+        val first = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(),
+            scheduledEpochDays = listOf(20_000L, 20_002L),
+            replaceActive = false
         )
 
-        assertEquals(listOf(0, 1), inserted.map { it.queuePosition })
-        assertEquals(listOf(20_000L, 20_002L), inserted.map { it.scheduledEpochDay })
-        val reloaded = repository.occurrences(id)
-        assertEquals(inserted.map { it.id }, reloaded.map { it.id })
-        assertEquals(sourceEntryId, reloaded[0].entries.single().sourceActivationEntryId)
-        assertEquals(0, reloaded[0].entries.single().position)
-        assertNull(reloaded[0].entries.single().weightKg)
+        assertFailsWith<ScheduleException> {
+            repository.acceptAndActivate(
+                acceptedPlan = null,
+                activation = activation(),
+                scheduledEpochDays = listOf(20_010L, 20_012L),
+                replaceActive = false
+            )
+        }
+
+        // The rejected write leaves the first block fully intact and writes nothing new.
+        assertEquals(
+            1,
+            database.trainingScheduleQueries.selectAllActivations().executeAsList().size
+        )
+        assertEquals(
+            2,
+            database.trainingScheduleQueries.selectAllOccurrences().executeAsList().size
+        )
+        assertEquals(first, repository.scheduleState().activeActivationId)
+
+        val second = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(),
+            scheduledEpochDays = listOf(20_010L, 20_012L),
+            replaceActive = true
+        )
+
+        assertEquals(ActivationStatus.CANCELLED, repository.getActivation(first)?.status)
+        assertEquals(second, repository.scheduleState().activeActivationId)
+    }
+
+    @Test
+    fun resolveOccurrenceAdvancesTheCursorAndRejectsStaleRevisions() = runTest {
+        val id = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(),
+            scheduledEpochDays = listOf(20_000L, 20_002L),
+            replaceActive = false
+        )
+        val first = repository.occurrences(id).first()
+
+        val state = repository.resolveOccurrence(
+            occurrenceId = first.id,
+            expectedRevision = first.revision,
+            status = OccurrenceStatus.FINISHED,
+            resolvedAtMillis = 500L,
+            entries = first.entries
+        )
+
+        assertEquals(OccurrenceStatus.FINISHED, repository.getOccurrence(first.id)?.status)
+        assertEquals(500L, repository.getOccurrence(first.id)?.resolvedAtMillis)
+        assertEquals(first.id + 1, state.selectedOccurrenceId)
+
+        assertFailsWith<ScheduleException> {
+            repository.resolveOccurrence(
+                occurrenceId = first.id,
+                expectedRevision = first.revision,
+                status = OccurrenceStatus.FINISHED,
+                resolvedAtMillis = 600L,
+                entries = first.entries
+            )
+        }
+
+        // The stale attempt changes neither the occurrence nor the cursor.
+        assertEquals(OccurrenceStatus.FINISHED, repository.getOccurrence(first.id)?.status)
+        assertEquals(500L, repository.getOccurrence(first.id)?.resolvedAtMillis)
+        assertEquals(first.id + 1, repository.scheduleState().selectedOccurrenceId)
+    }
+
+    @Test
+    fun resolveOccurrencePersistsRemainingDisposition() = runTest {
+        val id = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(),
+            scheduledEpochDays = listOf(20_000L, 20_002L),
+            replaceActive = false
+        )
+        val occurrence = repository.occurrences(id).first()
+        val entries = occurrence.entries.map {
+            it.copy(remainingDisposition = RemainingDisposition.OMITTED, terminalRemainingSets = 2)
+        }
+
+        repository.resolveOccurrence(
+            occurrenceId = occurrence.id,
+            expectedRevision = occurrence.revision,
+            status = OccurrenceStatus.FINISHED_PARTIAL,
+            resolvedAtMillis = 500L,
+            entries = entries
+        )
+
+        val reloaded = requireNotNull(repository.getOccurrence(occurrence.id))
+        assertEquals(RemainingDisposition.OMITTED, reloaded.entries[0].remainingDisposition)
+        assertEquals(2, reloaded.entries[0].terminalRemainingSets)
+    }
+
+    @Test
+    fun resolveOccurrenceRejectsAnOccurrenceFromANonActiveBlock() = runTest {
+        val first = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(),
+            scheduledEpochDays = listOf(20_000L, 20_002L),
+            replaceActive = false
+        )
+        val foreign = repository.occurrences(first).first()
+
+        repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(),
+            scheduledEpochDays = listOf(20_010L, 20_012L),
+            replaceActive = true
+        )
+
+        assertFailsWith<ScheduleException> {
+            repository.resolveOccurrence(
+                occurrenceId = foreign.id,
+                expectedRevision = foreign.revision,
+                status = OccurrenceStatus.FINISHED,
+                resolvedAtMillis = 500L,
+                entries = foreign.entries
+            )
+        }
     }
 
     @Test
     fun updatingAnOccurrencePersistsStatusAndCompletionFields() = runTest {
-        val id = repository.insertActivation(activation())
-        val saved = requireNotNull(repository.getActivation(id))
-        val inserted = repository.insertOccurrences(
-            listOf(
-                occurrence(
-                    id,
-                    saved.workouts.single().id,
-                    0,
-                    20_000L,
-                    saved.workouts.single().entries.single().id
-                )
-            )
-        ).single()
+        val id = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(),
+            scheduledEpochDays = listOf(20_000L, 20_002L),
+            replaceActive = false
+        )
+        val occurrence = repository.occurrences(id).first()
 
         repository.updateOccurrence(
-            inserted.copy(
-                status = OccurrenceStatus.FINISHED_PARTIAL,
+            occurrence.copy(
+                status = OccurrenceStatus.IN_PROGRESS,
                 startedAtMillis = 111L,
                 resolvedAtMillis = 222L,
                 revision = 2
             )
         )
 
-        val reloaded = requireNotNull(repository.getOccurrence(inserted.id))
-        assertEquals(OccurrenceStatus.FINISHED_PARTIAL, reloaded.status)
+        val reloaded = requireNotNull(repository.getOccurrence(occurrence.id))
+        assertEquals(OccurrenceStatus.IN_PROGRESS, reloaded.status)
         assertEquals(111L, reloaded.startedAtMillis)
         assertEquals(222L, reloaded.resolvedAtMillis)
         assertEquals(2, reloaded.revision)
@@ -162,62 +267,51 @@ class SqlDelightWorkoutScheduleRepositoryTest {
 
     @Test
     fun replacingOccurrenceEntriesPreservesKeptIdsAndDeletesRemovedRows() = runTest {
-        val id = repository.insertActivation(activation())
-        val saved = requireNotNull(repository.getActivation(id))
-        val sourceEntryId = saved.workouts.single().entries.single().id
-        val base = occurrence(id, saved.workouts.single().id, 0, 20_000L, sourceEntryId)
-        val occurrence = repository.insertOccurrences(
-            listOf(
-                base.copy(
-                    entries = listOf(
-                        base.entries.single(),
-                        base.entries.single().copy(
-                            position = 1,
-                            exerciseId = "overhead-press",
-                            exerciseName = "Overhead Press",
-                            movementPattern = MovementPattern.VERTICAL_PUSH
-                        )
-                    )
-                )
-            )
-        ).single()
-        val bench = occurrence.entries[0]
+        val id = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(),
+            scheduledEpochDays = listOf(20_000L, 20_002L),
+            replaceActive = false
+        )
+        val occurrence = repository.occurrences(id).first()
+        val original = occurrence.entries.single()
 
         repository.replaceOccurrenceEntries(
             occurrence.id,
             listOf(
-                bench.copy(
-                    sets = 5,
-                    remainingDisposition = RemainingDisposition.OMITTED,
-                    terminalRemainingSets = 2
+                OccurrenceEntry(
+                    position = 0,
+                    exerciseId = "overhead-press",
+                    exerciseName = "Overhead Press",
+                    movementPattern = MovementPattern.VERTICAL_PUSH,
+                    sets = 3,
+                    reps = 8
                 )
             )
         )
 
         val reloaded = requireNotNull(repository.getOccurrence(occurrence.id))
         assertEquals(1, reloaded.entries.size)
-        assertEquals(bench.id, reloaded.entries[0].id)
-        assertEquals(5, reloaded.entries[0].sets)
-        assertEquals(RemainingDisposition.OMITTED, reloaded.entries[0].remainingDisposition)
-        assertEquals(2, reloaded.entries[0].terminalRemainingSets)
+        assertTrue(reloaded.entries[0].id != original.id)
+        assertEquals("overhead-press", reloaded.entries[0].exerciseId)
     }
 
     @Test
     fun replacingOccurrenceEntriesInsertsNewRows() = runTest {
-        val id = repository.insertActivation(activation())
-        val saved = requireNotNull(repository.getActivation(id))
-        val sourceEntryId = saved.workouts.single().entries.single().id
-        val occurrence = repository.insertOccurrences(
-            listOf(occurrence(id, saved.workouts.single().id, 0, 20_000L, sourceEntryId))
-        ).single()
+        val id = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(),
+            scheduledEpochDays = listOf(20_000L, 20_002L),
+            replaceActive = false
+        )
+        val occurrence = repository.occurrences(id).first()
         val original = occurrence.entries.single()
 
         repository.replaceOccurrenceEntries(
             occurrence.id,
             listOf(
-                original,
+                original.copy(sets = 5),
                 OccurrenceEntry(
-                    sourceActivationEntryId = sourceEntryId,
                     position = 1,
                     exerciseId = "overhead-press",
                     exerciseName = "Overhead Press",
@@ -231,17 +325,18 @@ class SqlDelightWorkoutScheduleRepositoryTest {
         val reloaded = requireNotNull(repository.getOccurrence(occurrence.id))
         assertEquals(2, reloaded.entries.size)
         assertEquals(original.id, reloaded.entries[0].id)
+        assertEquals(5, reloaded.entries[0].sets)
         assertEquals("overhead-press", reloaded.entries[1].exerciseId)
         assertTrue(reloaded.entries[1].id != 0L)
     }
 
     @Test
     fun deletingOccurrencesCascadesTheirEntries() = runTest {
-        val id = repository.insertActivation(activation())
-        val saved = requireNotNull(repository.getActivation(id))
-        val sourceEntryId = saved.workouts.single().entries.single().id
-        repository.insertOccurrences(
-            listOf(occurrence(id, saved.workouts.single().id, 0, 20_000L, sourceEntryId))
+        val id = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(),
+            scheduledEpochDays = listOf(20_000L, 20_002L),
+            replaceActive = false
         )
 
         repository.deleteOccurrencesForActivation(id)
@@ -256,7 +351,12 @@ class SqlDelightWorkoutScheduleRepositoryTest {
     @Test
     fun templateReferenceGuardReflectsStoredActivations() = runTest {
         assertFalse(repository.isTemplateReferenced(7L))
-        repository.insertActivation(activation())
+        repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(),
+            scheduledEpochDays = listOf(20_000L, 20_002L),
+            replaceActive = false
+        )
         assertTrue(repository.isTemplateReferenced(7L))
         assertFalse(repository.isTemplateReferenced(8L))
     }
@@ -270,7 +370,12 @@ class SqlDelightWorkoutScheduleRepositoryTest {
             cycleNumber = 1L
         )
         val planId = database.planHistoryQueries.lastInsertedPlanId().executeAsOne()
-        val activationId = repository.insertActivation(activation().copy(sourcePlanId = planId))
+        val activationId = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation().copy(sourcePlanId = planId),
+            scheduledEpochDays = listOf(20_000L, 20_002L),
+            replaceActive = false
+        )
         assertEquals(planId, requireNotNull(repository.getActivation(activationId)).sourcePlanId)
 
         SqlDelightPlanHistoryRepository(database).delete(planId)
@@ -307,31 +412,25 @@ class SqlDelightWorkoutScheduleRepositoryTest {
                         weightKg = 82.5
                     )
                 )
-            )
-        )
-    )
-
-    private fun occurrence(
-        activationId: Long,
-        activationWorkoutId: Long,
-        queuePosition: Int,
-        scheduledEpochDay: Long,
-        sourceEntryId: Long
-    ) = WorkoutOccurrence(
-        activationId = activationId,
-        activationWorkoutId = activationWorkoutId,
-        queuePosition = queuePosition,
-        scheduledEpochDay = scheduledEpochDay,
-        status = OccurrenceStatus.PENDING,
-        entries = listOf(
-            OccurrenceEntry(
-                sourceActivationEntryId = sourceEntryId,
-                position = 0,
-                exerciseId = "bench-press",
-                exerciseName = "Barbell Bench Press",
-                movementPattern = MovementPattern.HORIZONTAL_PUSH,
-                sets = 3,
-                reps = 8
+            ),
+            ActivationWorkout(
+                position = 1,
+                name = "Day 2",
+                focus = SplitFocus.PULL,
+                entries = listOf(
+                    ActivationEntry(
+                        position = 0,
+                        exerciseId = "cable-row",
+                        exerciseName = "Cable Row",
+                        movementPattern = MovementPattern.HORIZONTAL_PULL,
+                        requiredEquipment = setOf(EquipmentTag("cable")),
+                        involvements = mapOf(MuscleGroup.LATS to 0.7),
+                        isUnilateral = false,
+                        sets = 3,
+                        reps = 10,
+                        weightKg = 60.0
+                    )
+                )
             )
         )
     )

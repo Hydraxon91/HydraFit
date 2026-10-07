@@ -3,6 +3,7 @@ package com.hydrafit.app.core.database
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
+import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.schedule.ActivationEntry as DomainActivationEntry
 import com.hydrafit.app.core.domain.schedule.ActivationStatus
@@ -10,6 +11,7 @@ import com.hydrafit.app.core.domain.schedule.ActivationWorkout as DomainActivati
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry as DomainOccurrenceEntry
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
 import com.hydrafit.app.core.domain.schedule.RemainingDisposition
+import com.hydrafit.app.core.domain.schedule.ScheduleException
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.schedule.TrainingActivation as DomainTrainingActivation
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence as DomainWorkoutOccurrence
@@ -22,7 +24,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
-class SqlDelightWorkoutScheduleRepository(database: HydraFitDatabase) : WorkoutScheduleRepository {
+class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase) :
+    WorkoutScheduleRepository {
     private val queries = database.trainingScheduleQueries
 
     override fun observeScheduleState(): Flow<DomainWorkoutScheduleState> =
@@ -82,73 +85,192 @@ class SqlDelightWorkoutScheduleRepository(database: HydraFitDatabase) : WorkoutS
         return occurrence.toDomain(queries.selectOccurrenceEntriesForOccurrence(id).executeAsList())
     }
 
-    override suspend fun insertActivation(activation: DomainTrainingActivation): Long =
-        queries.transactionWithResult {
-            queries.insertActivation(
-                templateId = activation.templateId,
-                templateRevision = activation.templateRevision?.toLong(),
-                sourcePlanId = activation.sourcePlanId,
-                name = activation.name,
-                createdAtMillis = activation.createdAtMillis,
-                startEpochDay = activation.startEpochDay,
-                mode = activation.mode.name,
-                weekdayMask = activation.weekdays.toWeekdayMask().toLong(),
-                status = activation.status.name,
-                weekNumber = activation.weekNumber?.toLong(),
-                cycleNumber = activation.cycleNumber?.toLong(),
-                endedAtMillis = activation.endedAtMillis,
-                revision = activation.revision.toLong()
-            )
-            val activationId = queries.lastInsertedActivationId().executeAsOne()
-            activation.workouts.forEachIndexed { index, workout ->
-                queries.insertActivationWorkout(
-                    activationId = activationId,
-                    sourceWorkoutId = null,
-                    position = index.toLong(),
-                    name = workout.name,
-                    focus = workout.focus?.name
-                )
-                val workoutId = queries.lastInsertedActivationWorkoutId().executeAsOne()
-                workout.entries.forEachIndexed { entryIndex, entry ->
-                    queries.insertActivationEntry(
-                        workoutId = workoutId,
-                        position = entryIndex.toLong(),
-                        exerciseId = entry.exerciseId,
-                        exerciseName = entry.exerciseName,
-                        movementPattern = entry.movementPattern.name,
-                        requiredEquipment = encodeEquipment(entry.requiredEquipment),
-                        involvements = entry.involvements?.let { encodeInvolvements(it) },
-                        isUnilateral = if (entry.isUnilateral) 1L else 0L,
-                        sets = entry.sets.toLong(),
-                        reps = entry.reps.toLong(),
-                        weightKg = entry.weightKg
-                    )
-                }
+    override suspend fun acceptAndActivate(
+        acceptedPlan: AcceptedPlan?,
+        activation: DomainTrainingActivation,
+        scheduledEpochDays: List<Long?>,
+        replaceActive: Boolean
+    ): Long = database.transactionWithResult {
+        val active = queries.selectActiveActivation().executeAsOneOrNull()
+        if (active != null) {
+            if (!replaceActive) {
+                throw ScheduleException("A training block is already active")
             }
-            activationId
+            queries.updateActivationHeader(
+                name = active.name,
+                mode = active.mode,
+                weekdayMask = active.weekdayMask,
+                status = ActivationStatus.CANCELLED.name,
+                endedAtMillis = activation.createdAtMillis,
+                revision = active.revision + 1,
+                id = active.id
+            )
         }
 
-    override suspend fun insertOccurrences(
-        occurrences: List<DomainWorkoutOccurrence>
-    ): List<DomainWorkoutOccurrence> = queries.transactionWithResult {
-        occurrences.map { occurrence ->
+        val acceptedPlanId = acceptedPlan?.let { insertAcceptedPlan(it) }
+
+        queries.insertActivation(
+            templateId = activation.templateId,
+            templateRevision = activation.templateRevision?.toLong(),
+            sourcePlanId = acceptedPlanId ?: activation.sourcePlanId,
+            name = activation.name,
+            createdAtMillis = activation.createdAtMillis,
+            startEpochDay = activation.startEpochDay,
+            mode = activation.mode.name,
+            weekdayMask = activation.weekdays.toWeekdayMask().toLong(),
+            status = activation.status.name,
+            weekNumber = activation.weekNumber?.toLong(),
+            cycleNumber = activation.cycleNumber?.toLong(),
+            endedAtMillis = activation.endedAtMillis,
+            revision = activation.revision.toLong()
+        )
+        val activationId = queries.lastInsertedActivationId().executeAsOne()
+
+        val occurrenceIds = mutableListOf<Long>()
+        activation.workouts.forEachIndexed { index, workout ->
+            queries.insertActivationWorkout(
+                activationId = activationId,
+                sourceWorkoutId = null,
+                position = index.toLong(),
+                name = workout.name,
+                focus = workout.focus?.name
+            )
+            val workoutId = queries.lastInsertedActivationWorkoutId().executeAsOne()
+            val entryIds = workout.entries.map { entry ->
+                queries.insertActivationEntry(
+                    workoutId = workoutId,
+                    position = entry.position.toLong(),
+                    exerciseId = entry.exerciseId,
+                    exerciseName = entry.exerciseName,
+                    movementPattern = entry.movementPattern.name,
+                    requiredEquipment = encodeEquipment(entry.requiredEquipment),
+                    involvements = entry.involvements?.let { encodeInvolvements(it) },
+                    isUnilateral = if (entry.isUnilateral) 1L else 0L,
+                    sets = entry.sets.toLong(),
+                    reps = entry.reps.toLong(),
+                    weightKg = entry.weightKg
+                )
+                queries.lastInsertedActivationEntryId().executeAsOne()
+            }
+
             queries.insertOccurrence(
-                activationId = occurrence.activationId,
-                activationWorkoutId = occurrence.activationWorkoutId,
-                queuePosition = occurrence.queuePosition.toLong(),
-                scheduledEpochDay = occurrence.scheduledEpochDay,
-                notBeforeEpochDay = occurrence.notBeforeEpochDay,
-                startedAtMillis = occurrence.startedAtMillis,
-                resolvedAtMillis = occurrence.resolvedAtMillis,
-                status = occurrence.status.name,
-                revision = occurrence.revision.toLong()
+                activationId = activationId,
+                activationWorkoutId = workoutId,
+                queuePosition = index.toLong(),
+                scheduledEpochDay = scheduledEpochDays.getOrNull(index),
+                notBeforeEpochDay = null,
+                startedAtMillis = null,
+                resolvedAtMillis = null,
+                status = OccurrenceStatus.PENDING.name,
+                revision = 1L
             )
             val occurrenceId = queries.lastInsertedOccurrenceId().executeAsOne()
-            val savedEntries = occurrence.entries.map { entry ->
-                entry.insert(queries, occurrenceId)
+            occurrenceIds += occurrenceId
+
+            workout.entries.forEachIndexed { entryIndex, entry ->
+                queries.insertOccurrenceEntry(
+                    occurrenceId = occurrenceId,
+                    sourceActivationEntryId = entryIds[entryIndex],
+                    position = entry.position.toLong(),
+                    exerciseId = entry.exerciseId,
+                    exerciseName = entry.exerciseName,
+                    movementPattern = entry.movementPattern.name,
+                    requiredEquipment = encodeEquipment(entry.requiredEquipment),
+                    involvements = entry.involvements?.let { encodeInvolvements(it) },
+                    isUnilateral = if (entry.isUnilateral) 1L else 0L,
+                    sets = entry.sets.toLong(),
+                    reps = entry.reps.toLong(),
+                    weightKg = entry.weightKg,
+                    remainingDisposition = null,
+                    terminalRemainingSets = null
+                )
             }
-            occurrence.copy(id = occurrenceId, entries = savedEntries)
         }
+
+        queries.upsertScheduleState(
+            activeActivationId = activationId,
+            selectedOccurrenceId = occurrenceIds.firstOrNull(),
+            legacyFallbackEnabled = 0L
+        )
+        activationId
+    }
+
+    override suspend fun resolveOccurrence(
+        occurrenceId: Long,
+        expectedRevision: Int,
+        status: OccurrenceStatus,
+        resolvedAtMillis: Long,
+        entries: List<DomainOccurrenceEntry>
+    ): DomainWorkoutScheduleState = database.transactionWithResult {
+        val occurrence = queries.selectOccurrenceById(occurrenceId).executeAsOneOrNull()
+            ?: throw ScheduleException("That workout no longer exists")
+        val state = queries.selectScheduleState().executeAsOneOrNull()
+        if (state?.activeActivationId != occurrence.activationId) {
+            throw ScheduleException("That workout is not in the active block")
+        }
+        if (occurrence.revision != expectedRevision.toLong()) {
+            throw ScheduleException("That workout changed; refresh and try again")
+        }
+
+        applyEntryChanges(occurrenceId, entries)
+
+        queries.updateOccurrence(
+            queuePosition = occurrence.queuePosition,
+            scheduledEpochDay = occurrence.scheduledEpochDay,
+            notBeforeEpochDay = occurrence.notBeforeEpochDay,
+            startedAtMillis = occurrence.startedAtMillis,
+            resolvedAtMillis = resolvedAtMillis,
+            status = status.name,
+            revision = occurrence.revision + 1,
+            id = occurrenceId
+        )
+
+        val next = queries.selectOccurrencesForActivation(occurrence.activationId).executeAsList()
+            .filter { it.id != occurrenceId && it.status !in RESOLVED_STATUS_NAMES }
+            .minByOrNull { it.queuePosition }
+        val legacyFallback = state.legacyFallbackEnabled != 0L
+        queries.upsertScheduleState(
+            activeActivationId = occurrence.activationId,
+            selectedOccurrenceId = next?.id,
+            legacyFallbackEnabled = if (legacyFallback) 1L else 0L
+        )
+        DomainWorkoutScheduleState(
+            activeActivationId = occurrence.activationId,
+            selectedOccurrenceId = next?.id,
+            legacyFallbackEnabled = legacyFallback
+        )
+    }
+
+    private fun insertAcceptedPlan(plan: AcceptedPlan): Long {
+        val planQueries = database.planHistoryQueries
+        planQueries.insertPlan(
+            engineId = plan.engine.name,
+            acceptedAt = plan.acceptedAtMillis,
+            weekNumber = plan.weekNumber.toLong(),
+            cycleNumber = plan.cycleNumber.toLong()
+        )
+        val planId = planQueries.lastInsertedPlanId().executeAsOne()
+        plan.days.forEach { day ->
+            planQueries.insertDay(
+                planId = planId,
+                dayIndex = day.dayIndex.toLong(),
+                focus = day.focus.name
+            )
+            val dayId = planQueries.lastInsertedPlanId().executeAsOne()
+            day.exercises.forEachIndexed { position, exercise ->
+                planQueries.insertEntry(
+                    dayId = dayId,
+                    position = position.toLong(),
+                    exerciseId = exercise.exerciseId,
+                    sets = exercise.sets.toLong(),
+                    reps = exercise.reps.toLong(),
+                    exerciseName = exercise.name,
+                    movementPattern = exercise.movementPattern.name,
+                    suggestedWeightKg = exercise.suggestedWeightKg
+                )
+            }
+        }
+        return planId
     }
 
     override suspend fun updateActivationHeader(activation: DomainTrainingActivation) {
@@ -181,19 +303,23 @@ class SqlDelightWorkoutScheduleRepository(database: HydraFitDatabase) : WorkoutS
         entries: List<DomainOccurrenceEntry>
     ) {
         queries.transaction {
-            val keptIds = mutableSetOf<Long>()
-            entries.forEachIndexed { index, entry ->
-                if (entry.id == 0L) {
-                    keptIds += entry.insert(queries, occurrenceId, position = index).id
-                } else {
-                    entry.update(queries, position = index)
-                    keptIds += entry.id
-                }
-            }
-            queries.selectOccurrenceEntryIdsForOccurrence(occurrenceId).executeAsList()
-                .filterNot { it in keptIds }
-                .forEach { queries.deleteOccurrenceEntry(it) }
+            applyEntryChanges(occurrenceId, entries)
         }
+    }
+
+    private fun applyEntryChanges(occurrenceId: Long, entries: List<DomainOccurrenceEntry>) {
+        val keptIds = mutableSetOf<Long>()
+        entries.forEachIndexed { index, entry ->
+            if (entry.id == 0L) {
+                keptIds += entry.insert(queries, occurrenceId, position = index).id
+            } else {
+                entry.update(queries, position = index)
+                keptIds += entry.id
+            }
+        }
+        queries.selectOccurrenceEntryIdsForOccurrence(occurrenceId).executeAsList()
+            .filterNot { it in keptIds }
+            .forEach { queries.deleteOccurrenceEntry(it) }
     }
 
     override suspend fun deleteOccurrencesForActivation(activationId: Long) {
@@ -373,4 +499,12 @@ class SqlDelightWorkoutScheduleRepository(database: HydraFitDatabase) : WorkoutS
 
     private fun String.toRemainingDisposition(): RemainingDisposition? =
         RemainingDisposition.entries.firstOrNull { it.name == this }
+
+    private companion object {
+        val RESOLVED_STATUS_NAMES: Set<String> = setOf(
+            OccurrenceStatus.FINISHED.name,
+            OccurrenceStatus.FINISHED_PARTIAL.name,
+            OccurrenceStatus.SKIPPED.name
+        )
+    }
 }

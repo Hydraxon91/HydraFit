@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.domain.schedule
 
+import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import kotlinx.coroutines.flow.Flow
 
 /** Persists frozen activations, their occurrences and the single scheduling cursor. */
@@ -23,13 +24,32 @@ interface WorkoutScheduleRepository {
     suspend fun getOccurrence(id: Long): WorkoutOccurrence?
 
     /**
-     * Writes a new activation with its frozen workouts/entries in one transaction; returns the
-     * activation id so the caller can reload the assigned child ids before generating occurrences.
+     * Atomically accepts [acceptedPlan] (when non-null), then writes [activation] with one pending
+     * occurrence per workout (dates by queue position from [scheduledEpochDays]) and points the
+     * cursor at the first occurrence. When a block is already active it must be replaced
+     * ([replaceActive]) or the call is rejected. All writes commit as one transaction. Returns the
+     * new activation id.
      */
-    suspend fun insertActivation(activation: TrainingActivation): Long
+    suspend fun acceptAndActivate(
+        acceptedPlan: AcceptedPlan?,
+        activation: TrainingActivation,
+        scheduledEpochDays: List<Long?>,
+        replaceActive: Boolean
+    ): Long
 
-    /** Writes generated occurrences (each with its working-copy entries); returns them with ids. */
-    suspend fun insertOccurrences(occurrences: List<WorkoutOccurrence>): List<WorkoutOccurrence>
+    /**
+     * Atomically concludes an occurrence in the active block: verifies it belongs to the active
+     * activation and still carries [expectedRevision], writes the remaining-work [entries] and the
+     * terminal [status], then advances the cursor to the oldest unresolved occurrence. A stale or
+     * foreign occurrence is rejected with [ScheduleException] and nothing is written.
+     */
+    suspend fun resolveOccurrence(
+        occurrenceId: Long,
+        expectedRevision: Int,
+        status: OccurrenceStatus,
+        resolvedAtMillis: Long,
+        entries: List<OccurrenceEntry>
+    ): WorkoutScheduleState
 
     /** Updates an activation's mutable header (name, mode, weekdays, status, revision, end time). */
     suspend fun updateActivationHeader(activation: TrainingActivation)

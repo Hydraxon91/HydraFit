@@ -13,33 +13,36 @@ class AcceptWeeklyPlanUseCase(
     private val catalog: ExerciseCatalog,
     private val timeProvider: TimeProvider
 ) {
-    suspend operator fun invoke(plan: WeeklyPlan) {
+    /** Builds the frozen accepted-plan snapshot without persisting it. */
+    suspend fun build(plan: WeeklyPlan): AcceptedPlan {
         val byId = catalog.all().associateBy { it.id }
-        repository.accept(
-            AcceptedPlan(
-                engine = plan.engine,
-                acceptedAtMillis = timeProvider.nowMillis(),
-                weekNumber = plan.weekNumber,
-                cycleNumber = plan.cycleNumber,
-                days = plan.days.map { day ->
-                    AcceptedDay(
-                        dayIndex = day.dayIndex,
-                        focus = day.focus,
-                        exercises = day.exercises.map { planned ->
-                            val exercise = byId[planned.exerciseId]
-                            AcceptedExercise(
-                                exerciseId = planned.exerciseId,
-                                sets = planned.sets,
-                                reps = planned.reps,
-                                name = exercise?.name ?: planned.exerciseId,
-                                movementPattern = exercise?.movementPattern ?: MovementPattern.CORE,
-                                suggestedWeightKg = planned.suggestedWeightKg
-                            )
-                        }
-                    )
-                }
-            )
+        return AcceptedPlan(
+            engine = plan.engine,
+            acceptedAtMillis = timeProvider.nowMillis(),
+            weekNumber = plan.weekNumber,
+            cycleNumber = plan.cycleNumber,
+            days = plan.days.map { day ->
+                AcceptedDay(
+                    dayIndex = day.dayIndex,
+                    focus = day.focus,
+                    exercises = day.exercises.map { planned ->
+                        val exercise = byId[planned.exerciseId]
+                        AcceptedExercise(
+                            exerciseId = planned.exerciseId,
+                            sets = planned.sets,
+                            reps = planned.reps,
+                            name = exercise?.name ?: planned.exerciseId,
+                            movementPattern = exercise?.movementPattern ?: MovementPattern.CORE,
+                            suggestedWeightKg = planned.suggestedWeightKg
+                        )
+                    }
+                )
+            }
         )
+    }
+
+    suspend operator fun invoke(plan: WeeklyPlan) {
+        repository.accept(build(plan))
     }
 }
 

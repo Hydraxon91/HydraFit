@@ -798,11 +798,20 @@ class SplitBuilderViewModelTest {
 
             override suspend fun getOccurrence(id: Long): WorkoutOccurrence? = null
 
-            override suspend fun insertActivation(activation: TrainingActivation): Long = 0L
+            override suspend fun acceptAndActivate(
+                acceptedPlan: AcceptedPlan?,
+                activation: TrainingActivation,
+                scheduledEpochDays: List<Long?>,
+                replaceActive: Boolean
+            ): Long = 1L
 
-            override suspend fun insertOccurrences(
-                occurrences: List<WorkoutOccurrence>
-            ): List<WorkoutOccurrence> = occurrences
+            override suspend fun resolveOccurrence(
+                occurrenceId: Long,
+                expectedRevision: Int,
+                status: com.hydrafit.app.core.domain.schedule.OccurrenceStatus,
+                resolvedAtMillis: Long,
+                entries: List<OccurrenceEntry>
+            ): WorkoutScheduleState = WorkoutScheduleState()
 
             override suspend fun updateActivationHeader(activation: TrainingActivation) = Unit
 
@@ -845,7 +854,6 @@ class SplitBuilderViewModelTest {
                 history,
                 DeterministicWorkoutPlannerEngine(catalog)
             ),
-            planHistoryRepository = history,
             convertPlanToTemplate = ConvertPlanToTemplateUseCase(),
             saveRoutineTemplate = SaveRoutineTemplateUseCase(routineRepository, time),
             activateRoutine = ActivateRoutineUseCase(
