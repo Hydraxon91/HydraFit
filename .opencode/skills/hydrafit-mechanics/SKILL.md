@@ -321,12 +321,13 @@ Schema directory:
 
 Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseOverride.sq`,
 `PersonalRecord.sq`, `PlanHistory.sq`, `PlannerEngine.sq`, `UserEquipment.sq`,
-and `WorkoutLog.sq`. `PlanHistory.sq`'s `updateEntryExerciseIdAtPosition` swaps
-one entry's `exerciseId`/`exerciseName`/`suggestedWeightKg` in place (no schema
+`WorkoutLog.sq`, and `WorkoutSession.sq`. `PlanHistory.sq`'s
+`updateEntryExerciseIdAtPosition` swaps one entry's
+`exerciseId`/`exerciseName`/`suggestedWeightKg` in place (no schema
 change) for `SubstituteExerciseUseCase`; the entry's `sets`/`reps` are untouched.
 
 `N.sqm` migrates from version N to N+1. At authoring, migrations were `1.sqm`
-through `22.sqm`, producing schema 23. Determine the next version from the
+through `24.sqm`, producing schema 25. Determine the next version from the
 current directory/generated Schema rather than copying this snapshot.
 
 `core/database/build.gradle.kts` declares:

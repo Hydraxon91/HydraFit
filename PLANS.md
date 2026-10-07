@@ -26,7 +26,7 @@
 
 > **Next work sequence (approved 2026-10-06).** Ordered, separately gated steps; each is planned and approved at its own session boundary. The section/skill each step details lives under "Product milestones", "Retained roadmap items" or the Oct 6 follow-up.
 > 1. **Close 0.2.3 and ship.** DONE — shipped as `v0.2.3`; S-items, measurements and R3-08/R3-09/R3-10 resolutions in `docs/review-0.2.3.md` and `docs/performance-0.2.3.md`.
-> 2. **M3 — "Build Your Training".** Item 7 (Settings Consolidation, quick win), then item 6 (Dynamic Exercise Substitution), then OF-11 (routines) / OF-12 (scheduling). See "Core planning items — M3".
+> 2. **M3 — "Build Your Training".** Item 7 (Settings Consolidation, quick win); item 6 (Dynamic Exercise Substitution) DONE 2026-10-07; then OF-11 (routines) / OF-12 (scheduling). See "Core planning items — M3".
 > 3. **VOL-01 — direct/indirect volume policy.** The Oct 6 live-testing finding (low direct arm volume, substantial indirect credit). See "VOL-01" under the Oct 6 follow-up.
 > 4. **OF-01 — local backup/export and restore.** See "OF-01 — Local backup/export and restore" in the offline-first backlog.
 >
@@ -48,7 +48,7 @@
 | --- | --- | --- | --- |
 | M1 | Foundation & Performance | QL-03 early local Maestro MCP evaluation; existing 0.2.3 performance/APK-size phases; QL-01 quality baseline; select migration/test hardening from the 0.2.2 backlog; separately scoped LT-01–03 logger usability fixes; VOL-01 volume-policy investigation after C2–C5 | Tooling evaluated early to support UI work; measured fixes meet agreed targets and selected checks pass. Maestro adoption is not a prerequisite for performance measurement; scopes remain separately approved. |
 | M2 | Data Ownership & Exercise Library | OF-01; catalog expansion P0–P5; CAT-01 offline instructions; optional CAT-02 catalog-assisted name/profile suggestions; QL-02 data-management controls | Backups round-trip; catalog provenance and downstream planner tests pass; instruction coverage is defined. |
-| M3 | Build Your Training | OF-11; OF-12-P0/P1 scheduling; items 6/7 substitution/Settings; EX-01 exclusions; EQ-01 equipment profiles | Routine, schedule, active equipment and history contracts are agreed and tested. |
+| M3 | Build Your Training | OF-11; OF-12-P0/P1 scheduling; item 7 Settings (item 6 substitution DONE); EX-01 exclusions; EQ-01 equipment profiles | Routine, schedule, active equipment and history contracts are agreed and tested. |
 | M4 | Train Without Friction | OF-02; OF-03; OF-13; OF-14; OF-12-P2/P3 reminders; item 9 B1 RIR guidance; WU-01 warm-ups; early OF-10A-P0 progression-integrity contract after guided logging/explanations/history | Guided/resumed sessions, notes and history work offline; entry and completion semantics are verified. Early progression contract does not authorize advanced-policy implementation. |
 | M5 | See Your Progress & Recovery | OF-04 charts/automatic records; OF-08 anatomical map/coverage; OF-09 measurements | Metrics reconcile with history, corrections re-emit and the accessible body map refreshes under the agreed contract. |
 | M6 | Bring & Share Your Training | OF-05; OF-07; OF-06 using EQ-01 inventory decisions | Interchange/versioning, repeated imports and exact plate-count constraints pass acceptance checks. |
@@ -263,7 +263,7 @@ found (12 majors, 50 minors, 14 nits). Remaining deferred findings still to sche
 
 **Bounded target set (recommended, to confirm exact names at MUS-P0):** split `BACK` → upper/lower, `SHOULDERS` → front/side/rear delts, `CORE` → abs/obliques; consider `TRAPS` and `FOREARMS`. Target ~16–20 groups. Chest upper/lower is lower value and not proposed unless requested. New groups need half-lives in `FatigueConfig`, seed involvements, UI labels, and an anatomical region mapping for OF-08.
 
-**Blast radius (verified):** `MuscleGroup` has 10 values with 100+ references; `decodeInvolvements` silently drops unknown names and `encodeInvolvements` writes `MUSCLE:weight` (so a rename without a migration loses historical fatigue); `FatigueReplayTest` figures (former broad-BACK 82.5504% / typed 83.1065%, re-baselined to the split regions by C3) and planner golden fixtures needed re-baselining; `FatigueHeatmapScreen` has an exhaustive `when` for labels.
+**Blast radius (verified pre-MUS-P1):** `MuscleGroup` had 10 values with 100+ references; `decodeInvolvements` silently drops unknown names and `encodeInvolvements` writes `MUSCLE:weight` (so a rename without a migration loses historical fatigue); `FatigueReplayTest` figures (former broad-BACK 82.5504% / typed 83.1065%, re-baselined to the split regions by C3) and planner golden fixtures needed re-baselining; `FatigueHeatmapScreen` has an exhaustive `when` for labels.
 
 **Phases (each gated):**
 - **MUS-P0 — design + migration plan.** Approve the exact enum set, the old→new mapping for stored involvements in `exercise`/`exerciseOverride`/`workoutSet`, half-lives, targeted-threshold behavior, UI strings, and the fixture re-baseline list. No code.
@@ -321,17 +321,17 @@ On-device re-test (emulator): attempt 1 failed at ~24 s (constrained JSON) and t
 
 ## M2 — Exercise Library: seed catalog expansion (formerly 0.2.5)
 
-**Status (2026-10-06):** research brought forward into the 0.2.3 cycle at the user's request; see "Brought forward from M2 — exercise catalog additions (research first)" under 0.2.3. CAT-P0/P1 are research/docs only; the seeded-data implementation stays separately gated.
+**Status (2026-10-06):** research was brought forward into the 0.2.3 cycle at the user's request; see "Brought forward from M2 — exercise catalog additions (research first)" under 0.2.3. **CAT-P2/P3/P4 DONE, P5 verified** — the batch is seeded (112 rows, four new tags, no schema change); this section is kept as the M2 plan record.
 
 **Goal:** substantially expand the seeded exercise and equipment catalogs with **properly researched** data — name, canonical slug id, required equipment, movement pattern, primary/secondary muscles, explicit involvement weights, and the unilateral flag — with **each entry traceable to a cited source**, so fresh installs and existing installs (idempotent seeding) get a richer, defensible catalog.
 
-**Why:** the default catalog is **52 exercises across 8 built-in equipment tags** (`core/database/.../DefaultExercises.kt`, `EquipmentTag.BUILT_IN`). Coverage is thin for many movement patterns and machine/cable variants, which limits plan variety and pushes the deterministic/AI planners toward repeats or fallbacks.
+**Why (at plan time):** the pre-expansion catalog was **52 exercises across 8 built-in equipment tags** (`core/database/.../DefaultExercises.kt`, `EquipmentTag.BUILT_IN`). Coverage was thin for many movement patterns and machine/cable variants, which limited plan variety and pushed the deterministic/AI planners toward repeats or fallbacks. The expansion brought the catalog to **174 exercises across 18 built-in equipment tags**.
 
 **Current mechanics (verified, so the plan is grounded):**
 - `DefaultExercises.all` is a Kotlin list of `ex(id, name, requiredEquipment, primary, secondary, pattern, isUnilateral, involvements)` entries; `involvements` is a per-muscle weight map in `(0,1]`.
 - `SeedExerciseCatalog.seed()` runs on every launch (Koin startup): `insertIgnore`, then `updateMovementPattern`/`updateIsUnilateral`, and `updateInvolvements` only `WHERE involvements IS NULL`. It is idempotent, so **new seed rows appear without a schema change** and existing user edits are preserved.
 - `SeedEquipmentCatalog` seeds `EquipmentTag.BUILT_IN` via `insertIgnore`.
-- `MovementPattern` (14 values, compound/accessory) and `MuscleGroup` (10: CHEST, BACK, SHOULDERS, BICEPS, TRICEPS, QUADS, HAMSTRINGS, GLUTES, CALVES, CORE) are domain enums. The deterministic planner keys on the pattern; fatigue keys on muscle + involvement weight.
+- `MovementPattern` (14 values, compound/accessory) and `MuscleGroup` (21: `CHEST_UPPER`, `CHEST_LOWER`, `LATS`, `UPPER_BACK`, `LOWER_BACK`, `FRONT_DELTS`, `SIDE_DELTS`, `REAR_DELTS`, `BICEPS`, `TRICEPS`, `FOREARMS`, `ABS`, `OBLIQUES`, `QUADS`, `HAMSTRINGS`, `GLUTES`, `CALVES`, `ADDUCTORS`, `HIP_ABDUCTORS`, `TRAPS`, `NECK`) are domain enums. The deterministic planner keys on the pattern; fatigue keys on muscle + involvement weight.
 
 **Decisions to resolve at the plan gate (do not pick silently):**
 1. **Target size** — e.g. a bounded first batch (recommend ~+100 exercises and ~+8 equipment tags) so golden-fixture churn stays reviewable vs. a larger one-shot expansion (~250).

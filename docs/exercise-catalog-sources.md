@@ -1,6 +1,6 @@
 # Exercise catalog — sources & methodology (CAT-P0)
 
-Status: CAT-P0/P1 done; the CAT-P1 batch is seeded (CAT-P2/P3, 2026-10-06). This document
+Status: CAT-P0/P1 done; the CAT-P1 batch is seeded and verified (CAT-P2/P3/P4, P5 verified, 2026-10-06). This document
 defines where catalog facts come from and how per-muscle involvement weights are derived.
 It is documentation only (no code); implementation lives in `core/database`.
 
@@ -59,7 +59,7 @@ conventional classification used across the systematic reviews cited.
 This maps directly onto the existing editor tiers (None / 0.3 / 0.5 / 0.7 / 1.0), so the
 weight scale introduces no new concept.
 
-Representative systematic reviews to cite per exercise family (to be expanded in CAT-P1):
+Representative systematic reviews cited per exercise family (expanded in CAT-P1):
 
 - **Lower limb / leg press** — Martín-Fuentes, Oliva-Lozano & Muyor (2020), *Evaluation
   of the Lower Limb Muscles' Electromyographic Activity during the Leg Press Exercise

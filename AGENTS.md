@@ -100,7 +100,7 @@ While executing an approved chunk:
 ### Documentation & Code Sync
 
 - **A change updates the living docs that describe it, in the same change.** If you alter behavior, architecture, the data model or stored encoding, the fatigue/planner formulas or calibration, the seeded catalog/muscle set, module boundaries, CI, or tooling, update the affected doc(s) and the `hydrafit-mechanics` skill as part of that same approved scope and commit — the same way a schema change ships its migration and a fix ships its regression test.
-- **Living docs (keep current):** `docs/architecture.md`, `docs/fatigue-formula.md`, `docs/performance-0.2.3.md`, `docs/exercise-catalog-sources.md`, `docs/exercise-catalog-rows-c1p1.md`, `docs/maestro-evaluation.md`, `README.md`, `AGENTS.md`, `PLANS.md`, and `.opencode/skills/hydrafit-mechanics/SKILL.md`.
+- **Living docs (keep current):** `docs/architecture.md`, `docs/fatigue-formula.md`, `docs/performance-0.2.3.md`, `docs/exercise-catalog-sources.md`, `docs/exercise-catalog-rows-c1p1.md`, `docs/maestro-evaluation.md`, `docs/qa.md`, `docs/session-handoff.md`, `README.md`, `AGENTS.md`, `PLANS.md`, and `.opencode/skills/hydrafit-mechanics/SKILL.md`.
 - **Historical records are immutable:** dated review/handoff docs (`docs/code-review-0.2.2.md`, `docs/plans-archive.md`, `docs/review-*`) are never rewritten to match new code; only forward-looking docs are kept in sync.
 - **Scope note:** updating a doc your change invalidates is part of that change, not "scope creep" — but inventing new docs or rewriting unrelated ones is still out of scope. `PLANS.md` remains status-lines-only per the session rule; durable decisions move to "Decisions Made" only when approved.
 - **If you can't update a doc in scope** (e.g. it needs a decision), say so and record it in `PLANS.md` rather than leaving the doc wrong.
@@ -294,6 +294,7 @@ HydraFit/
 ├── core/
 │   ├── domain/             # KMP module (commonMain only): models, use cases, WorkoutPlannerEngine interface — no platform APIs
 │   ├── userdata/           # Shared user profile, body metrics, goals, unit preferences, settings — used by any feature, owned by none
+│   ├── navigation/         # Shared navigation contract: FeatureDestination (route + label + graph) exported by each feature and aggregated by the shell
 │   ├── database/           # SQLDelight schema (.sq files), versioned .sqm migrations, generated queries, repository implementations
 │   ├── network/            # Ktor client setup, Gemini API DTOs, response_schema definitions
 │   └── llm/                # On-device text generation (LiteRT-LM), model management, local planner engine

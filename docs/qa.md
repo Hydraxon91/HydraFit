@@ -2,7 +2,7 @@
 
 Manual acceptance pass before tagging a release. Run on a clean install of the signed release
 APK (an emulator is fine; the AGENTS UI-verification rules keep automated runs off a personal
-phone). Tabs: **Equipment · Plan · Fatigue · Log · Settings**.
+phone). Tabs: **Equipment · Fatigue · Plan · Log · Settings**.
 
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.

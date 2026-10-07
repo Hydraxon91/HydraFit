@@ -1,11 +1,11 @@
 # HydraFit — Architecture
 
-Status: 0.2.2 RA deliverable. Describes the patterns the code **actually** uses at the pinned tag
-`v0.2.1` / commit `7e04245` (the code-review baseline), not an aspirational design. Where a pattern
+Status: living doc, kept current at HEAD; originally the 0.2.2 RA deliverable written against the
+`v0.2.1` / commit `7e04245` code-review baseline. Describes the patterns the code **actually** uses,
+not an aspirational design; later shipped changes are folded in as they land. Where a pattern
 is inconsistent, the violation is recorded and cross-referenced to `docs/code-review-0.2.2.md`.
-Rationale citations resolve to `PLANS.md` "Decisions Made" (line numbers at the pinned commit),
-`docs/plans-archive.md`, `AGENTS.md`, or a commit hash; "rationale not recorded" is used rather than
-inventing a reason.
+Rationale citations resolve to `PLANS.md` "Decisions Made", `docs/plans-archive.md`, `AGENTS.md`, or a
+commit hash; "rationale not recorded" is used rather than inventing a reason.
 
 Companion reading: `README.md` (what the app does), `PLANS.md` (current work), `AGENTS.md`
 (working rules), `docs/fatigue-formula.md` (the fatigue model), `docs/code-review-0.2.2.md`
@@ -362,7 +362,7 @@ real, and keep the SOLID tags as review optics (as §3 does) rather than refacto
 
 ## 5. End-to-end trace — logging a set
 
-The path from a tap to a persisted row and back to the UI. File references at `7e04245`.
+The path from a tap to a persisted row and back to the UI. File references may have drifted since `7e04245`; verify against current source.
 
 1. **Screen (tap "Log").** `feature/logger/.../WorkoutLoggerScreen.kt` renders the stateless screen;
    the Log `Button` calls `onLog` → `WorkoutLoggerRoute(viewModel::log)`.
