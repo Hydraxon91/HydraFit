@@ -14,6 +14,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class DeterministicWorkoutPlannerEngineTest {
@@ -952,6 +953,111 @@ class DeterministicWorkoutPlannerEngineTest {
         // Five 3-set days reach the STRENGTH ceiling of 15; the sixth day is refused.
         val ceiling = WeeklyVolumeTargets.forGoal(TrainingGoal.STRENGTH).maxSets
         assertEquals(ceiling, bicepsSets.toDouble())
+    }
+
+    @Test
+    fun rankCandidatesOrdersByFatigueThenDeficitThenFreshness() {
+        val target = WeeklyVolumeTargets.forGoal(TrainingGoal.BALANCED)
+        val noVolume = MuscleGroup.entries.associateWith { 0.0 }
+
+        // Fatigue dominates: the lower weighted fatigue sorts first.
+        val highFatigue = exercise("high", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+        val lowFatigue = exercise("low", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.SIDE_DELTS)
+        val byFatigue = engine.rankCandidates(
+            candidates = listOf(highFatigue, lowFatigue),
+            fatigue = mapOf(MuscleGroup.CHEST_UPPER to 0.6, MuscleGroup.SIDE_DELTS to 0.1),
+            weekUsed = emptySet(),
+            recentExerciseIdsByPattern = emptyMap(),
+            weeklyVolume = noVolume,
+            target = target
+        )
+        assertEquals(listOf("low", "high"), byFatigue.map { it.id })
+
+        // With fatigue tied, the larger remaining deficit sorts first.
+        val satisfied = exercise("satisfied", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+        val lacking = exercise("lacking", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.SIDE_DELTS)
+        val volumes = noVolume.toMutableMap().apply {
+            this[MuscleGroup.CHEST_UPPER] = target.targetSets
+        }
+        val byDeficit = engine.rankCandidates(
+            candidates = listOf(satisfied, lacking),
+            fatigue = emptyMap(),
+            weekUsed = emptySet(),
+            recentExerciseIdsByPattern = emptyMap(),
+            weeklyVolume = volumes,
+            target = target
+        )
+        assertEquals(listOf("lacking", "satisfied"), byDeficit.map { it.id })
+
+        // With fatigue and deficit tied, an exercise not yet used this week sorts first.
+        val used = exercise("used", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+        val fresh = exercise("fresh", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+        val byFreshness = engine.rankCandidates(
+            candidates = listOf(used, fresh),
+            fatigue = emptyMap(),
+            weekUsed = setOf("used"),
+            recentExerciseIdsByPattern = emptyMap(),
+            weeklyVolume = noVolume,
+            target = target
+        )
+        assertEquals(listOf("fresh", "used"), byFreshness.map { it.id })
+    }
+
+    @Test
+    fun pickFirstNonSoreSkipsTargetedOverSkipThreshold() {
+        val sore = Exercise(
+            id = "sore",
+            name = "sore",
+            requiredEquipment = emptySet(),
+            primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
+            movementPattern = MovementPattern.HORIZONTAL_PUSH,
+            involvements = mapOf(MuscleGroup.CHEST_UPPER to 1.0)
+        )
+        val fresh = Exercise(
+            id = "fresh",
+            name = "fresh",
+            requiredEquipment = emptySet(),
+            primaryMuscles = setOf(MuscleGroup.SIDE_DELTS),
+            movementPattern = MovementPattern.HORIZONTAL_PUSH,
+            involvements = mapOf(MuscleGroup.SIDE_DELTS to 1.0)
+        )
+        val fatigue = mapOf(MuscleGroup.CHEST_UPPER to 0.85, MuscleGroup.SIDE_DELTS to 0.5)
+
+        assertEquals("fresh", engine.pickFirstNonSore(listOf(sore, fresh), fatigue)?.id)
+        assertNull(engine.pickFirstNonSore(listOf(sore), fatigue))
+    }
+
+    @Test
+    fun twoDayPlanOutputIsUnchangedAfterTheRankingExtraction() {
+        val plan = engine.plan(request(daysPerWeek = 2, equipment = everything), catalog())
+
+        assertEquals(
+            "FULL_BODY[back-squat:3:6:null,bench-press:3:6:null,pull-up:3:6:null," +
+                "calf-raise:2:12:null,curl:2:12:null,plank:2:12:null];" +
+                "FULL_BODY[rdl:3:6:null,ohp:3:6:null,barbell-row:3:6:null," +
+                "calf-raise:2:12:null,curl:2:12:null,plank:2:12:null]",
+            render(plan)
+        )
+    }
+
+    @Test
+    fun fourDayPlanOutputIsUnchangedAfterTheRankingExtraction() {
+        val plan = engine.plan(request(daysPerWeek = 4, equipment = everything), catalog())
+
+        assertEquals(
+            "UPPER[bench-press:3:6:null,ohp:3:6:null,barbell-row:3:6:null,pull-up:3:6:null," +
+                "curl:2:12:null];" +
+                "LOWER[back-squat:3:6:null,rdl:3:6:null,calf-raise:2:12:null,plank:2:12:null];" +
+                "UPPER[curl:2:12:null];" +
+                "LOWER[goblet-squat:3:6:null,calf-raise:2:12:null,plank:2:12:null]",
+            render(plan)
+        )
+    }
+
+    private fun render(plan: WeeklyPlan): String = plan.days.joinToString(";") { day ->
+        day.focus.name + "[" + day.exercises.joinToString(",") { exercise ->
+            "${exercise.exerciseId}:${exercise.sets}:${exercise.reps}:${exercise.suggestedWeightKg}"
+        } + "]"
     }
 
     private fun request(

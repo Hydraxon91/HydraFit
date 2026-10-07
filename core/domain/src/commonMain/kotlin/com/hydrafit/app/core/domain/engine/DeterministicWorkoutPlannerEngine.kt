@@ -92,25 +92,21 @@ class DeterministicWorkoutPlannerEngine(
         val used = mutableSetOf<String>()
         val picks = mutableListOf<PlannedExercise>()
 
-        // Recovery first, then the largest remaining weekly deficit, then freshness, rotation,
-        // equipment preference, and finally id for a stable order.
-        val comparator = compareBy<Exercise>(
-            { weightedFatigue(it, fatigue) },
-            { -deficitScore(it, weeklyVolume, target) },
-            { it.id in weekUsed },
-            { it.id in recentExerciseIdsByPattern[it.movementPattern].orEmpty() },
-            { equipmentRank(it) },
-            { it.id }
-        )
-
         fun pick(candidates: List<Exercise>): Boolean {
             // Ordering is by weighted fatigue, but the skip uses raw targeted fatigue, so a lower-
             // ranked candidate can be fresh while the top one is sore. Try candidates in order and
             // take the first that is not sore instead of rejecting the whole group.
-            val candidate = candidates
-                .sortedWith(comparator)
-                .firstOrNull { targetedFatigue(it, fatigue) < fatigueConfig.skipThreshold }
-                ?: return false
+            val candidate = pickFirstNonSore(
+                rankCandidates(
+                    candidates = candidates,
+                    fatigue = fatigue,
+                    weekUsed = weekUsed,
+                    recentExerciseIdsByPattern = recentExerciseIdsByPattern,
+                    weeklyVolume = weeklyVolume,
+                    target = target
+                ),
+                fatigue
+            ) ?: return false
             val soreness = targetedFatigue(candidate, fatigue)
             val planned = plannedExercise(
                 candidate,
@@ -159,6 +155,42 @@ class DeterministicWorkoutPlannerEngine(
         }
 
         return picks
+    }
+
+    /**
+     * Orders candidate exercises for selection: recovery first, then the largest remaining weekly
+     * deficit, then freshness within the generated week, previous-plan compound rotation, equipment
+     * preference, and finally id for a stable order. Extracted from [selectExercises] so the same
+     * ranking can drive substitution of an accepted plan's slot ([SubstituteExerciseUseCase]).
+     */
+    internal fun rankCandidates(
+        candidates: List<Exercise>,
+        fatigue: Map<MuscleGroup, Double>,
+        weekUsed: Set<String>,
+        recentExerciseIdsByPattern: Map<MovementPattern, Set<String>>,
+        weeklyVolume: Map<MuscleGroup, Double>,
+        target: VolumeTarget
+    ): List<Exercise> {
+        val comparator = compareBy<Exercise>(
+            { weightedFatigue(it, fatigue) },
+            { -deficitScore(it, weeklyVolume, target) },
+            { it.id in weekUsed },
+            { it.id in recentExerciseIdsByPattern[it.movementPattern].orEmpty() },
+            { equipmentRank(it) },
+            { it.id }
+        )
+        return candidates.sortedWith(comparator)
+    }
+
+    /**
+     * The first ranked candidate that is not sore. Ordering is by weighted fatigue while the skip
+     * uses raw targeted fatigue, so a lower-ranked candidate can be fresh while the top one is sore.
+     */
+    internal fun pickFirstNonSore(
+        ranked: List<Exercise>,
+        fatigue: Map<MuscleGroup, Double>
+    ): Exercise? = ranked.firstOrNull {
+        targetedFatigue(it, fatigue) < fatigueConfig.skipThreshold
     }
 
     private fun plannedExercise(
