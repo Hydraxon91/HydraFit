@@ -165,6 +165,11 @@ RG rule-setting and RF fix triage), read and follow
 read-only, rules (RG) and fixes (RF) are never combined in one commit,
 and no review finding is fixed without its own approved plan.
 
+Always follow `docs/review-discipline.md` for any codebase review. For a
+bounded, already-implemented scope (a session, work chunk or commit range),
+also follow `docs/post-execution-review.md`. If the intended scope is unclear,
+clarify it before starting.
+
 ## Review-Derived Rules (0.2.2)
 
 Added by the 0.2.2 review (RG); rationale lives in `docs/architecture.md` and
