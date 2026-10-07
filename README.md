@@ -56,7 +56,7 @@ Requires JDK 17+ and the Android SDK (Android Studio's SDK Manager is the easies
 
 ## Releases
 
-Signed release APKs are built and published by `.github/workflows/release.yml` on tags matching `v*.*.*`. The version is derived at build time — `versionName` from the tag (leading `v` stripped) and `versionCode` from the GitHub Actions run number — while local builds keep the `0.3.1-dev` / `1` defaults. A tag containing a hyphen (for example `v0.1.0-rc.1`) is published as a pre-release.
+Signed release APKs are built and published by `.github/workflows/release.yml` on tags matching `v*.*.*`. The version is derived at build time — `versionName` from the tag (leading `v` stripped) and `versionCode` from the GitHub Actions run number — while local builds keep the `0.3.2-dev` / `1` defaults. A tag containing a hyphen (for example `v0.1.0-rc.1`) is published as a pre-release.
 
 Publishing requires four repository secrets (Settings → Secrets and variables → Actions):
 
@@ -88,9 +88,9 @@ MIT
 
 ## Status
 
-Actively developed, solo, as a portfolio project. Not yet published to an app store; the current release is [v0.3.0](https://github.com/Hydraxon91/HydraFit/releases).
+Actively developed, solo, as a portfolio project. Not yet published to an app store; the current release is [v0.3.1](https://github.com/Hydraxon91/HydraFit/releases).
 
-Known limitations in 0.3.0:
+Known limitations in 0.3.x:
 
 - **Legacy prescriptions need a decision.** A plan recorded before 0.3.0 carries a weight whose meaning was never established. The Logger shows it as "(recorded, unconfirmed)" and asks you to log the set as external or bodyweight; the stored prescription is never rewritten.
 - **Load semantics are deliberately conservative.** A bodyweight exercise is never given a generated external-load suggestion, and added kilograms are treated as added load rather than total resistance. Added-load e1RM/progression and assisted/negative load are out of scope for this release.

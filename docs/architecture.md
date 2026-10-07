@@ -244,6 +244,10 @@ fatigue is segmented by.
   work; sequence mode keeps the oldest unresolved workout pending.
 - **Consistency:** the frozen prescriptions mirror the accepted-plan snapshot rule (§1.8); the
   occurrence's performed sets stay the fatigue source of truth.
+- **Shell integration:** the Routines list re-reads on screen resume (`RoutinesViewModel.refresh`),
+  so a routine saved from SplitBuilder is never stale; a feature asks the shell to switch top-level
+  tabs through `LocalAppTabNavigator`/`AppTab` (`:core:navigation`), so no feature imports another
+  feature's route.
 - **Violations / tensions:** progression eligibility is still computed from date-grouped sets against
   the latest accepted prescription (not occurrence-aware); that reconciliation is deferred to
   OF-10A-P0.
