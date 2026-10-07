@@ -6,4 +6,5 @@ import org.koin.dsl.module
 
 val settingsModule: Module = module {
     viewModel { SettingsViewModel(get(), get(), get(), get(), get()) }
+    viewModel { AcknowledgmentsViewModel(get()) }
 }

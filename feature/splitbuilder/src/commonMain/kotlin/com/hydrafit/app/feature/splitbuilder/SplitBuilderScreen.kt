@@ -133,7 +133,7 @@ val splitBuilderRoute: String = "plan"
 val splitBuilderDestination: FeatureDestination = FeatureDestination(
     route = splitBuilderRoute,
     label = Res.string.nav_label,
-    graph = { splitBuilderGraph() }
+    graph = { { splitBuilderGraph() } }
 )
 
 private val dayOptions = 2..6

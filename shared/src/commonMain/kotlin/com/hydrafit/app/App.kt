@@ -101,7 +101,7 @@ private fun AppContent() {
             startDestination = equipmentRoute,
             modifier = Modifier.padding(innerPadding)
         ) {
-            destinations.forEach { destination -> destination.graph(this) }
+            destinations.forEach { destination -> destination.graph(navController)(this) }
         }
     }
 }

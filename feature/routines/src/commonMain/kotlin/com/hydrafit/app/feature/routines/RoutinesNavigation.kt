@@ -11,7 +11,7 @@ val routinesRoute: String = "routines"
 val routinesDestination: FeatureDestination = FeatureDestination(
     route = routinesRoute,
     label = Res.string.nav_label,
-    graph = { routinesGraph() }
+    graph = { { routinesGraph() } }
 )
 
 fun NavGraphBuilder.routinesGraph() {

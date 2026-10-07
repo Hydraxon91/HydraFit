@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
@@ -32,6 +33,7 @@ import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.navigation.FeatureDestination
 import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.nav_label
+import hydrafit.feature.settings.generated.resources.settings_acknowledgments
 import hydrafit.feature.settings.generated.resources.settings_api_key_clear
 import hydrafit.feature.settings.generated.resources.settings_api_key_configured
 import hydrafit.feature.settings.generated.resources.settings_api_key_label
@@ -64,15 +66,24 @@ val settingsRoute: String = "settings"
 val settingsDestination: FeatureDestination = FeatureDestination(
     route = settingsRoute,
     label = Res.string.nav_label,
-    graph = { settingsGraph() }
+    graph = { navController -> { settingsGraph(navController) } }
 )
 
-fun NavGraphBuilder.settingsGraph() {
-    composable(settingsRoute) { SettingsRoute() }
+fun NavGraphBuilder.settingsGraph(navController: NavController) {
+    composable(settingsRoute) {
+        SettingsRoute(onOpenAcknowledgments = { navController.navigate(acknowledgmentsRoute) })
+    }
+    composable(acknowledgmentsRoute) {
+        AcknowledgmentsRoute(onBack = { navController.popBackStack() })
+    }
 }
 
 @Composable
-fun SettingsRoute(modifier: Modifier = Modifier, viewModel: SettingsViewModel = koinViewModel()) {
+fun SettingsRoute(
+    onOpenAcknowledgments: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: SettingsViewModel = koinViewModel()
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     SettingsScreen(
         state = state,
@@ -84,6 +95,7 @@ fun SettingsRoute(modifier: Modifier = Modifier, viewModel: SettingsViewModel = 
         onSaveApiKey = viewModel::saveApiKey,
         onClearApiKey = viewModel::clearApiKey,
         onModelChanged = viewModel::refresh,
+        onOpenAcknowledgments = onOpenAcknowledgments,
         modifier = modifier
     )
 }
@@ -99,6 +111,7 @@ fun SettingsScreen(
     onSaveApiKey: () -> Unit,
     onClearApiKey: () -> Unit,
     onModelChanged: () -> Unit,
+    onOpenAcknowledgments: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -246,6 +259,10 @@ fun SettingsScreen(
                 text = stringResource(Res.string.settings_api_key_configured),
                 style = MaterialTheme.typography.bodySmall
             )
+        }
+
+        OutlinedButton(onClick = onOpenAcknowledgments) {
+            Text(stringResource(Res.string.settings_acknowledgments))
         }
     }
 }

@@ -36,4 +36,20 @@
     <string name="settings_model_error_unreadable">Couldn’t read the selected model file. It may be empty or corrupt — download it again and retry.</string>
     <string name="settings_model_error_unsupported">NPU model packs aren’t supported in this build. Import the standard Gemma 3 1B (CPU/GPU) pack instead.</string>
     <string name="settings_model_terms">Gemma Terms of Use</string>
+    <string name="settings_acknowledgments">Acknowledgments</string>
+    <string name="acknowledgments_title">Acknowledgments</string>
+    <string name="acknowledgments_version">Version %1$s</string>
+    <string name="acknowledgments_credits_heading">Credits</string>
+    <string name="acknowledgments_credit_krause_neto">Krause Neto 2020, JSSM 19:195 — glute EMG reference</string>
+    <string name="acknowledgments_credit_martin_fuentes_plos">Martín-Fuentes 2020, PLoS ONE 15(2):e0229507 — deadlift and leg press EMG</string>
+    <string name="acknowledgments_credit_martin_fuentes_ijerph">Martín-Fuentes 2020, IJERPH 17(13):4626 — leg press EMG</string>
+    <string name="acknowledgments_credit_oliva_lozano">Oliva-Lozano &amp; Muyor 2020, IJERPH 17(12):4306 — core EMG</string>
+    <string name="acknowledgments_credit_garcia_valverde">García-Valverde 2025, Cultura, Ciencia y Deporte 20(66):2261 — squat meta-analysis</string>
+    <string name="acknowledgments_credit_free_exercise_db">yuhonas/free-exercise-db (Unlicense) — exercise names, muscles and equipment</string>
+    <string name="acknowledgments_credit_exrx">ExRx.net — facts cross-check</string>
+    <string name="acknowledgments_license_heading">License</string>
+    <string name="acknowledgments_license_text">HydraFit is open-source software released under the MIT License.</string>
+    <string name="acknowledgments_author">Built by Hydraxon.</string>
+    <string name="acknowledgments_repo">View on GitHub</string>
+    <string name="acknowledgments_back">Back</string>
 </resources>

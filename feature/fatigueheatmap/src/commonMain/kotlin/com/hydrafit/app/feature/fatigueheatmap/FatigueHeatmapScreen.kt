@@ -59,7 +59,7 @@ val fatigueHeatmapRoute: String = "fatigue"
 val fatigueHeatmapDestination: FeatureDestination = FeatureDestination(
     route = fatigueHeatmapRoute,
     label = Res.string.nav_label,
-    graph = { fatigueHeatmapGraph() }
+    graph = { { fatigueHeatmapGraph() } }
 )
 
 fun NavGraphBuilder.fatigueHeatmapGraph() {

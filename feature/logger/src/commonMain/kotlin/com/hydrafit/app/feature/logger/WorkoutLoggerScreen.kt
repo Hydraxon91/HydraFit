@@ -106,7 +106,7 @@ val loggerRoute: String = "log"
 val loggerDestination: FeatureDestination = FeatureDestination(
     route = loggerRoute,
     label = Res.string.nav_label,
-    graph = { loggerGraph() }
+    graph = { { loggerGraph() } }
 )
 
 fun NavGraphBuilder.loggerGraph() {

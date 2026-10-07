@@ -11,7 +11,7 @@ val equipmentRoute: String = "equipment"
 val equipmentDestination: FeatureDestination = FeatureDestination(
     route = equipmentRoute,
     label = Res.string.nav_label,
-    graph = { equipmentGraph() }
+    graph = { { equipmentGraph() } }
 )
 
 fun NavGraphBuilder.equipmentGraph() {
