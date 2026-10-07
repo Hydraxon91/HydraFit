@@ -2,6 +2,7 @@ package com.hydrafit.app.feature.splitbuilder
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -23,11 +24,16 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,10 +54,14 @@ import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SwapCandidate
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.time.DayOfWeek
+import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.isoDateUtc
+import com.hydrafit.app.core.domain.time.isoLocalDateTime
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
+import com.hydrafit.app.core.navigation.AppTab
 import com.hydrafit.app.core.navigation.FeatureDestination
+import com.hydrafit.app.core.navigation.LocalAppTabNavigator
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import hydrafit.feature.splitbuilder.generated.resources.Res
 import hydrafit.feature.splitbuilder.generated.resources.engine_label_deterministic
@@ -87,6 +97,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line
 import hydrafit.feature.splitbuilder.generated.resources.split_fallback_invalid_response
 import hydrafit.feature.splitbuilder.generated.resources.split_fallback_note
 import hydrafit.feature.splitbuilder.generated.resources.split_generated_by
+import hydrafit.feature.splitbuilder.generated.resources.split_generated_routine_name
 import hydrafit.feature.splitbuilder.generated.resources.split_history
 import hydrafit.feature.splitbuilder.generated.resources.split_history_entry
 import hydrafit.feature.splitbuilder.generated.resources.split_loading
@@ -94,6 +105,8 @@ import hydrafit.feature.splitbuilder.generated.resources.split_loading_progress
 import hydrafit.feature.splitbuilder.generated.resources.split_plan_accepted
 import hydrafit.feature.splitbuilder.generated.resources.split_regenerate
 import hydrafit.feature.splitbuilder.generated.resources.split_retry
+import hydrafit.feature.splitbuilder.generated.resources.split_routine_saved
+import hydrafit.feature.splitbuilder.generated.resources.split_routine_saved_view
 import hydrafit.feature.splitbuilder.generated.resources.split_save_routine
 import hydrafit.feature.splitbuilder.generated.resources.split_schedule_choose_date
 import hydrafit.feature.splitbuilder.generated.resources.split_schedule_frequency
@@ -153,25 +166,56 @@ fun SplitBuilderRoute(
         .collectAsStateWithLifecycle(initialValue = WeightUnit.KG)
     val planProgress by koinInject<OnDevicePlanProgressReporter>().progress
         .collectAsStateWithLifecycle()
-    SplitBuilderScreen(
-        state = state,
-        weightUnit = weightUnit,
-        planProgress = planProgress,
-        onDaysPerWeekSelected = viewModel::onDaysPerWeekSelected,
-        onSetsPerExerciseChanged = viewModel::onSetsPerExerciseChanged,
-        onAccessorySetsPerExerciseChanged = viewModel::onAccessorySetsPerExerciseChanged,
-        onAcceptPlan = viewModel::onAcceptPlan,
-        onSchedulePlan = viewModel::onScheduleRequested,
-        onSaveAsRoutine = viewModel::onSaveAsRoutine,
-        onRegenerate = viewModel::refresh,
-        onViewAcceptedPlan = viewModel::onViewAcceptedPlan,
-        onDeletePlan = viewModel::onDeletePlan,
-        onSwapRequested = viewModel::onSwapRequested,
-        onSwapCandidateSelected = viewModel::onSwapCandidateSelected,
-        onSwapDialogDismissed = viewModel::onSwapDialogDismissed,
-        onRetry = viewModel::refresh,
-        modifier = modifier
-    )
+    val timeProvider = koinInject<TimeProvider>()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val openTab = LocalAppTabNavigator.current
+    val savedMessage = stringResource(Res.string.split_routine_saved)
+    val viewRoutinesAction = stringResource(Res.string.split_routine_saved_view)
+    val generatedRoutineName = stringResource(Res.string.split_generated_routine_name)
+    LaunchedEffect(state.routineSaved) {
+        if (state.routineSaved) {
+            val result = snackbarHostState.showSnackbar(
+                message = savedMessage,
+                actionLabel = viewRoutinesAction,
+                withDismissAction = true,
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) openTab(AppTab.ROUTINES)
+            viewModel.onRoutineSavedShown()
+        }
+    }
+    Box(modifier = modifier.fillMaxSize()) {
+        SplitBuilderScreen(
+            state = state,
+            weightUnit = weightUnit,
+            planProgress = planProgress,
+            onDaysPerWeekSelected = viewModel::onDaysPerWeekSelected,
+            onSetsPerExerciseChanged = viewModel::onSetsPerExerciseChanged,
+            onAccessorySetsPerExerciseChanged = viewModel::onAccessorySetsPerExerciseChanged,
+            onAcceptPlan = viewModel::onAcceptPlan,
+            onSchedulePlan = viewModel::onScheduleRequested,
+            onSaveAsRoutine = {
+                viewModel.onSaveAsRoutine(
+                    "$generatedRoutineName " + isoLocalDateTime(
+                        timeProvider.nowMillis(),
+                        timeProvider.utcOffsetMillis()
+                    )
+                )
+            },
+            onRegenerate = viewModel::refresh,
+            onViewAcceptedPlan = viewModel::onViewAcceptedPlan,
+            onDeletePlan = viewModel::onDeletePlan,
+            onSwapRequested = viewModel::onSwapRequested,
+            onSwapCandidateSelected = viewModel::onSwapCandidateSelected,
+            onSwapDialogDismissed = viewModel::onSwapDialogDismissed,
+            onRetry = viewModel::refresh,
+            modifier = Modifier.fillMaxSize()
+        )
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
+    }
     state.scheduleDialog?.let { dialog ->
         SplitScheduleDialog(dialog = dialog, viewModel = viewModel)
     }

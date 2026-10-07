@@ -48,7 +48,9 @@ data class SplitBuilderUiState(
     /** True when a training block is already active, so starting a new one would replace it. */
     val hasActiveBlock: Boolean = false,
     /** The schedule dialog shown when starting the plan as a block; null when closed. */
-    val scheduleDialog: SplitScheduleDialogState? = null
+    val scheduleDialog: SplitScheduleDialogState? = null,
+    /** One-shot: true after "Save as routine" succeeds, until the screen shows the confirmation. */
+    val routineSaved: Boolean = false
 ) {
     val usedFallbackEngine: Boolean
         get() = plan != null && requestedEngine != null && plan.engine != requestedEngine

@@ -1,11 +1,26 @@
 package com.hydrafit.app.core.domain.time
 
 private const val MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
+private const val MILLIS_PER_HOUR = 60L * 60L * 1000L
+private const val MILLIS_PER_MINUTE = 60L * 1000L
 
 /** Formats an instant as an ISO-8601 calendar date (UTC) without pulling in a date library. */
 fun isoDateUtc(epochMillis: Long): String {
     val (year, month, day) = civilFromDays(floorDiv(epochMillis, MILLIS_PER_DAY))
     return "$year-" + month.toString().padStart(2, '0') + "-" + day.toString().padStart(2, '0')
+}
+
+/**
+ * Formats an instant as a local civil date-time `YYYY-MM-DD HH:mm` (e.g. `2026-10-07 16:09`) using
+ * the single supplied [utcOffsetMillis]; there is no historical zone or DST lookup.
+ */
+fun isoLocalDateTime(epochMillis: Long, utcOffsetMillis: Long): String {
+    val local = epochMillis + utcOffsetMillis
+    val minuteOfDay = floorMod(local / MILLIS_PER_MINUTE, MILLIS_PER_DAY / MILLIS_PER_MINUTE)
+    val hour = (minuteOfDay / (MILLIS_PER_HOUR / MILLIS_PER_MINUTE)).toInt()
+    val minute = (minuteOfDay % (MILLIS_PER_HOUR / MILLIS_PER_MINUTE)).toInt()
+    return isoDateUtc(local) + " " +
+        hour.toString().padStart(2, '0') + ":" + minute.toString().padStart(2, '0')
 }
 
 /** Days-since-epoch to civil date (Howard Hinnant's algorithm), the inverse of [daysFromCivil]. */
@@ -43,4 +58,9 @@ private fun floorDiv(dividend: Long, divisor: Long): Long {
     val quotient = dividend / divisor
     val roundsTowardsZero = dividend % divisor != 0L && (dividend < 0) != (divisor < 0)
     return if (roundsTowardsZero) quotient - 1 else quotient
+}
+
+private fun floorMod(dividend: Long, divisor: Long): Long {
+    val remainder = dividend % divisor
+    return if (remainder < 0) remainder + divisor else remainder
 }

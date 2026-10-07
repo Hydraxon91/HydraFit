@@ -11,6 +11,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -26,6 +27,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.hydrafit.app.core.domain.startup.StartupReadiness
+import com.hydrafit.app.core.navigation.AppTab
+import com.hydrafit.app.core.navigation.LocalAppTabNavigator
 import com.hydrafit.app.feature.equipment.equipmentDestination
 import com.hydrafit.app.feature.equipment.equipmentRoute
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapDestination
@@ -66,6 +69,24 @@ private fun AppContent() {
         routinesDestination,
         settingsDestination
     )
+    val tabRoutes: Map<AppTab, String> = mapOf(
+        AppTab.EQUIPMENT to equipmentDestination.route,
+        AppTab.FATIGUE to fatigueHeatmapDestination.route,
+        AppTab.PLAN to splitBuilderDestination.route,
+        AppTab.LOG to loggerDestination.route,
+        AppTab.ROUTINES to routinesDestination.route,
+        AppTab.SETTINGS to settingsDestination.route
+    )
+    // Lets a feature (e.g. SplitBuilder after "Save as routine") open a tab without importing it.
+    val openTab: (AppTab) -> Unit = { tab ->
+        tabRoutes[tab]?.let { route ->
+            navController.navigate(route) {
+                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -96,12 +117,14 @@ private fun AppContent() {
             }
         }
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = equipmentRoute,
-            modifier = Modifier.padding(innerPadding)
-        ) {
-            destinations.forEach { destination -> destination.graph(navController)(this) }
+        CompositionLocalProvider(LocalAppTabNavigator provides openTab) {
+            NavHost(
+                navController = navController,
+                startDestination = equipmentRoute,
+                modifier = Modifier.padding(innerPadding)
+            ) {
+                destinations.forEach { destination -> destination.graph(navController)(this) }
+            }
         }
     }
 }

@@ -73,6 +73,22 @@ class IsoDateTest {
         assertFailsWith<IllegalArgumentException> { daysFromCivil(2024, 1, 32) }
     }
 
+    @Test
+    fun formatsLocalCivilDateTime() {
+        val base = daysFromCivil(2026, 10, 7) * MILLIS_PER_DAY
+        val instant = base + 16L * 60L * 60L * 1000L + 9L * 60L * 1000L
+        assertEquals("2026-10-07 16:09", isoLocalDateTime(instant, 0L))
+        // A +02:00 offset moves the same instant to 18:09 local.
+        assertEquals("2026-10-07 18:09", isoLocalDateTime(instant, 2L * 60L * 60L * 1000L))
+    }
+
+    @Test
+    fun padsSingleDigitHourAndMinute() {
+        val base = daysFromCivil(2026, 10, 7) * MILLIS_PER_DAY
+        val instant = base + 3L * 60L * 60L * 1000L + 5L * 60L * 1000L
+        assertEquals("2026-10-07 03:05", isoLocalDateTime(instant, 0L))
+    }
+
     private companion object {
         const val MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
     }

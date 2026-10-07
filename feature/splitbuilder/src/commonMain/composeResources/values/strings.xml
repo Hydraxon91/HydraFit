@@ -49,6 +49,9 @@
     <string name="split_swap_no_candidates">No alternative available</string>
     <string name="split_start_block">Start block</string>
     <string name="split_save_routine">Save as routine</string>
+    <string name="split_routine_saved">Saved as a routine</string>
+    <string name="split_routine_saved_view">View routines</string>
+    <string name="split_generated_routine_name">Generated Routine</string>
     <string name="split_schedule_title">Start training block</string>
     <string name="split_schedule_mode_weekday">Chosen weekdays</string>
     <string name="split_schedule_mode_sequence">Next workout</string>

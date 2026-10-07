@@ -191,17 +191,24 @@ class SplitBuilderViewModel(
     }
 
     /** Copies the shown plan into a new editable routine without accepting the plan. */
-    fun onSaveAsRoutine() {
+    fun onSaveAsRoutine(name: String) {
         val plan = _state.value.plan ?: return
         viewModelScope.launch {
             val accepted = shownPlan?.takeIf { _state.value.isPlanAccepted }
             if (accepted != null) {
-                planBuilderActions.saveAcceptedPlanAsRoutine(accepted, "Generated routine")
+                planBuilderActions.saveAcceptedPlanAsRoutine(accepted, name)
             } else {
                 // Saving a routine is not accepting a plan: no accepted-plan history is written.
-                planBuilderActions.saveDraftPlanAsRoutine(plan, "Generated routine")
+                planBuilderActions.saveDraftPlanAsRoutine(plan, name)
             }
+            // Signal the confirmation; the screen shows it and offers to open the Routines tab.
+            _state.update { it.copy(routineSaved = true) }
         }
+    }
+
+    /** Clears the one-shot save confirmation after the screen has shown it. */
+    fun onRoutineSavedShown() {
+        _state.update { it.copy(routineSaved = false) }
     }
 
     private fun updateScheduleDialog(

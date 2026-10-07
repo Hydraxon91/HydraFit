@@ -245,11 +245,15 @@ class SplitBuilderViewModelTest {
         advanceUntilIdle()
         assertNotNull(viewModel.state.value.plan)
 
-        viewModel.onSaveAsRoutine()
+        viewModel.onSaveAsRoutine("Test routine")
         advanceUntilIdle()
 
         assertNull(history.latest())
         assertFalse(viewModel.state.value.isPlanAccepted)
+        // Saving signals the confirmation; it is cleared once the screen has shown it.
+        assertTrue(viewModel.state.value.routineSaved)
+        viewModel.onRoutineSavedShown()
+        assertFalse(viewModel.state.value.routineSaved)
     }
 
     @Test
