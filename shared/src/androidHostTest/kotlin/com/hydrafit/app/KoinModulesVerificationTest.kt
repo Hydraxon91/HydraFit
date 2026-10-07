@@ -68,9 +68,11 @@ import com.hydrafit.app.feature.equipment.equipmentModule
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapModule
 import com.hydrafit.app.feature.logger.loggerModule
 import com.hydrafit.app.feature.routines.routinesModule
+import com.hydrafit.app.feature.settings.AcknowledgmentsViewModel
 import com.hydrafit.app.feature.settings.settingsModule
 import com.hydrafit.app.feature.splitbuilder.splitBuilderModule
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
@@ -180,6 +182,25 @@ class KoinModulesVerificationTest {
             assertNotNull(koin.get<MoveWorkoutOccurrenceUseCase>())
             assertNotNull(koin.get<SwitchScheduleModeUseCase>())
             assertNotNull(koin.get<EditUnstartedOccurrenceUseCase>())
+        } finally {
+            koin.close()
+        }
+    }
+
+    /**
+     * `verify()` cannot reflect a lambda definition's `get()` chain, so boot the real
+     * `settingsModule` plus the production Android version module and resolve the new VM, proving
+     * the Acknowledgments binding and `AppVersionProvider` are wired at runtime.
+     */
+    @Test
+    fun theAcknowledgmentsViewModelResolvesFromTheProductionVersionModule() {
+        val koin = koinApplication {
+            modules(settingsModule, appVersionModule("1.2.3"))
+        }.koin
+
+        try {
+            assertEquals("1.2.3", koin.get<AppVersionProvider>().versionName)
+            assertNotNull(koin.get<AcknowledgmentsViewModel>())
         } finally {
             koin.close()
         }
