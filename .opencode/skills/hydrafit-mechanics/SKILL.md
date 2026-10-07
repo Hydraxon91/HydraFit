@@ -418,7 +418,13 @@ For logger work, the concrete files are `WorkoutLoggerModule.kt`,
 `WorkoutLoggerUiState.kt` under the feature package root.
 `WorkoutLoggerScreen.kt` contains `loggerDestination`, `loggerGraph`,
 `WorkoutLoggerRoute`, and the stateless screen. Equipment instead keeps
-navigation in `EquipmentNavigation.kt`.
+navigation in `EquipmentNavigation.kt`. The ViewModel depends on the domain
+aggregate `WorkoutLoggingActions` (accepted-plan + schedule context + start/
+finish/skip), which replaced its direct `ObserveAcceptedPlanUseCase` dependency
+to stay within the constructor budget. When a block is active the Logger shows
+the selected/oldest-unresolved occurrence's remaining sets as drafts, stamps
+`occurrenceId`/`occurrenceEntryId` on logged sets, and exposes Finish/partial/
+Skip (the only queue advances); with no block it keeps the accepted-plan path.
 
 For routine authoring, the module is `:feature:routines`:
 `RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/
