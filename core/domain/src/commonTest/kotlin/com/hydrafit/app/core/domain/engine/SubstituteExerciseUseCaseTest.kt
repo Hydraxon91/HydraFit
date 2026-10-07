@@ -174,17 +174,14 @@ class SubstituteExerciseUseCaseTest {
         )
     )
 
-    private fun exercise(
-        id: String,
-        pattern: MovementPattern,
-        equipment: EquipmentTag? = null
-    ) = Exercise(
-        id = id,
-        name = id.split('-').joinToString(" ") { it.replaceFirstChar(Char::uppercase) },
-        requiredEquipment = setOfNotNull(equipment),
-        primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
-        movementPattern = pattern
-    )
+    private fun exercise(id: String, pattern: MovementPattern, equipment: EquipmentTag? = null) =
+        Exercise(
+            id = id,
+            name = id.split('-').joinToString(" ") { it.replaceFirstChar(Char::uppercase) },
+            requiredEquipment = setOfNotNull(equipment),
+            primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
+            movementPattern = pattern
+        )
 
     private data class SubstituteCall(
         val planId: Long,

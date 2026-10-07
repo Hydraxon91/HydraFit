@@ -44,7 +44,11 @@ class SubstituteExerciseUseCase(
                 name = candidate.name,
                 movementPattern = candidate.movementPattern,
                 primaryEquipment = primaryEquipmentOf(candidate),
-                suggestedWeightKg = preservedWeight(context.entry, candidate, request.equipmentMaxWeights)
+                suggestedWeightKg = preservedWeight(
+                    context.entry,
+                    candidate,
+                    request.equipmentMaxWeights
+                )
             )
         }
     }
@@ -66,7 +70,11 @@ class SubstituteExerciseUseCase(
         val chosen = rankedCandidates(context, exercises)
             .firstOrNull { it.id == selectedExerciseId }
             ?: return null
-        if (rankingEngine.pickFirstNonSore(listOf(chosen), request.muscleFatigue) == null) return null
+        if (rankingEngine.pickFirstNonSore(listOf(chosen), request.muscleFatigue) ==
+            null
+        ) {
+            return null
+        }
 
         val weight = preservedWeight(context.entry, chosen, request.equipmentMaxWeights)
         planHistory.substitute(
@@ -145,7 +153,13 @@ class SubstituteExerciseUseCase(
         val weekUsed = plan.days
             .flatMap { planDay ->
                 planDay.exercises.mapIndexedNotNull { index, exercise ->
-                    if (planDay.dayIndex == dayIndex && index == position) null else exercise.exerciseId
+                    if (planDay.dayIndex == dayIndex &&
+                        index == position
+                    ) {
+                        null
+                    } else {
+                        exercise.exerciseId
+                    }
                 }
             }
             .toSet()

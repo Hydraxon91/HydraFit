@@ -132,7 +132,13 @@ class SplitBuilderViewModel(
         val dayIndex = _state.value.swapTargetDayIndex ?: return
         val position = _state.value.swapTargetPosition ?: return
         viewModelScope.launch {
-            val updated = planBuilderActions.substitute(plan, dayIndex, position, request, exerciseId)
+            val updated = planBuilderActions.substitute(
+                plan,
+                dayIndex,
+                position,
+                request,
+                exerciseId
+            )
             if (updated == null) {
                 _state.update { it.copy(swapNoCandidates = true) }
                 return@launch

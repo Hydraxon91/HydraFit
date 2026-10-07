@@ -974,7 +974,8 @@ class DeterministicWorkoutPlannerEngineTest {
         assertEquals(listOf("low", "high"), byFatigue.map { it.id })
 
         // With fatigue tied, the larger remaining deficit sorts first.
-        val satisfied = exercise("satisfied", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+        val satisfied =
+            exercise("satisfied", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
         val lacking = exercise("lacking", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.SIDE_DELTS)
         val volumes = noVolume.toMutableMap().apply {
             this[MuscleGroup.CHEST_UPPER] = target.targetSets

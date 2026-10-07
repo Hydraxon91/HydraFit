@@ -678,7 +678,11 @@ class SplitBuilderViewModelTest {
                 }
             ),
             planBuilderActions = PlanBuilderActions(
-                acceptWeeklyPlan = AcceptWeeklyPlanUseCase(planHistory, catalog, TimeProvider { 0L }),
+                acceptWeeklyPlan = AcceptWeeklyPlanUseCase(
+                    planHistory,
+                    catalog,
+                    TimeProvider { 0L }
+                ),
                 substituteExercise = SubstituteExerciseUseCase(
                     catalog,
                     planHistory,
