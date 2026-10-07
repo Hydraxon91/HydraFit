@@ -63,6 +63,7 @@ import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.network.GeminiWorkoutPlannerEngine
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
+import com.hydrafit.app.core.userdata.settings.AppVersionProvider
 import com.hydrafit.app.feature.equipment.equipmentModule
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapModule
 import com.hydrafit.app.feature.logger.loggerModule
@@ -85,6 +86,7 @@ class KoinModulesVerificationTest {
     private val testPlatformModule = module {
         single<TimeProvider> { TimeProvider { 0L } }
         single<ApiKeyStore> { FakeApiKeyStore }
+        single<AppVersionProvider> { FakeAppVersionProvider }
         single<ApiKeyProvider> { ApiKeyProvider { "test-key" } }
         single<OnDeviceTextGenerator> { FakeOnDeviceTextGenerator }
         single<OnDevicePlannerLogger> { NoopOnDevicePlannerLogger }
@@ -189,6 +191,10 @@ class KoinModulesVerificationTest {
         override fun save(apiKey: String) = Unit
 
         override fun clear() = Unit
+    }
+
+    private object FakeAppVersionProvider : AppVersionProvider {
+        override val versionName: String = "test"
     }
 
     private object FakeOnDeviceTextGenerator : OnDeviceTextGenerator {

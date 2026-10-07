@@ -12,8 +12,10 @@ import com.hydrafit.app.core.llm.OnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.userdata.llm.OnDeviceModelManager
+import com.hydrafit.app.core.userdata.settings.AndroidAppVersionProvider
 import com.hydrafit.app.core.userdata.settings.AndroidKeystoreApiKeyStore
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
+import com.hydrafit.app.core.userdata.settings.AppVersionProvider
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -53,6 +55,11 @@ fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = modu
     single<OnDevicePlannerLogger> { AndroidOnDevicePlannerLogger() }
 }
 
-fun initKoin(context: Context, geminiApiKey: String) {
-    initKoin(androidDatabaseModule(context, geminiApiKey))
+/** Carries the Android `BuildConfig.VERSION_NAME`, which is not reachable from `:shared`/`:core`. */
+fun appVersionModule(versionName: String): Module = module {
+    single<AppVersionProvider> { AndroidAppVersionProvider(versionName) }
+}
+
+fun initKoin(context: Context, geminiApiKey: String, versionName: String) {
+    initKoin(androidDatabaseModule(context, geminiApiKey), listOf(appVersionModule(versionName)))
 }

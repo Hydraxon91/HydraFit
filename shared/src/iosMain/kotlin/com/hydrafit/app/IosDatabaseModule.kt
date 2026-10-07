@@ -9,6 +9,8 @@ import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.core.llm.UnsupportedOnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
+import com.hydrafit.app.core.userdata.settings.AppVersionProvider
+import com.hydrafit.app.core.userdata.settings.IosAppVersionProvider
 import com.hydrafit.app.core.userdata.settings.NoopApiKeyStore
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -27,6 +29,7 @@ fun iosDatabaseModule(): Module = module {
         }
     }
     single<ApiKeyStore> { NoopApiKeyStore() }
+    single<AppVersionProvider> { IosAppVersionProvider() }
     single<ApiKeyProvider> {
         val store = get<ApiKeyStore>()
         val environmentKey =
