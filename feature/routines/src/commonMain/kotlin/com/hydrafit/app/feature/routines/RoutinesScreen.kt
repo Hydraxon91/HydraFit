@@ -38,6 +38,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
@@ -131,6 +133,9 @@ private const val MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
 @Composable
 fun RoutinesRoute(viewModel: RoutinesViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // A save made elsewhere (e.g. SplitBuilder) may have landed after the long-lived collection
+    // already ran; re-read on resume so the list is never stale.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refresh() }
     RoutinesScreen(state = state, viewModel = viewModel)
 }
 

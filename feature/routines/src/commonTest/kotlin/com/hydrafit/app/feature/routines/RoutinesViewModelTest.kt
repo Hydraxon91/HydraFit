@@ -307,20 +307,42 @@ class RoutinesViewModelTest {
         assertEquals(100.0, entry.weightKg)
     }
 
+    @Test
+    fun refreshPicksUpARoutineSavedElsewhere() = runTest(dispatcher) {
+        val snapshot = SnapshotRoutineTemplateRepository()
+        snapshot.add(template("Existing"))
+        val viewModel = viewModel(routineRepository = snapshot)
+        advanceUntilIdle()
+        assertEquals(listOf("Existing"), viewModel.state.value.templates.map { it.name })
+
+        // A save from another screen lands in storage, but this one-shot flow does not re-emit.
+        snapshot.add(template("Generated routine"))
+        advanceUntilIdle()
+        assertEquals(listOf("Existing"), viewModel.state.value.templates.map { it.name })
+
+        viewModel.refresh()
+        advanceUntilIdle()
+        assertEquals(
+            listOf("Existing", "Generated routine"),
+            viewModel.state.value.templates.map { it.name }
+        )
+    }
+
     private fun viewModel(
-        weightUnitRepository: FakeWeightUnitRepository = FakeWeightUnitRepository()
+        weightUnitRepository: FakeWeightUnitRepository = FakeWeightUnitRepository(),
+        routineRepository: RoutineTemplateRepository = routines
     ): RoutinesViewModel {
         val preview = PreviewWorkoutScheduleUseCase()
         val createActivation = CreateTrainingActivationUseCase(schedule, preview, timeProvider)
         val routineActions = RoutineTemplateActions(
-            observeTemplates = ObserveRoutineTemplatesUseCase(routines),
-            saveTemplate = SaveRoutineTemplateUseCase(routines, timeProvider),
+            observeTemplates = ObserveRoutineTemplatesUseCase(routineRepository),
+            saveTemplate = SaveRoutineTemplateUseCase(routineRepository, timeProvider),
             duplicateTemplate = DuplicateRoutineTemplateUseCase(
-                routines,
-                SaveRoutineTemplateUseCase(routines, timeProvider)
+                routineRepository,
+                SaveRoutineTemplateUseCase(routineRepository, timeProvider)
             ),
-            archiveTemplate = ArchiveRoutineTemplateUseCase(routines, timeProvider),
-            deleteTemplate = DeleteRoutineTemplateUseCase(routines)
+            archiveTemplate = ArchiveRoutineTemplateUseCase(routineRepository, timeProvider),
+            deleteTemplate = DeleteRoutineTemplateUseCase(routineRepository)
         )
         val scheduleActions = WorkoutScheduleActions(
             repository = schedule,
@@ -450,6 +472,33 @@ private class FakeRoutineTemplateRepository : RoutineTemplateRepository {
             )
         }
     )
+}
+
+/** A repository whose observe flow is a one-shot snapshot, modelling a flow that already passed an
+ *  emission; [RoutinesViewModel.refresh] must re-read to see a later write. */
+private class SnapshotRoutineTemplateRepository : RoutineTemplateRepository {
+    private val stored = mutableListOf<RoutineTemplate>()
+    private var nextId = 1L
+
+    fun add(template: RoutineTemplate): Long {
+        val id = nextId++
+        stored += template.copy(id = id)
+        return id
+    }
+
+    override fun observeAll(): Flow<List<RoutineTemplate>> = flowOf(stored.toList())
+
+    override suspend fun get(id: Long): RoutineTemplate? = stored.firstOrNull { it.id == id }
+
+    override suspend fun save(template: RoutineTemplate): Long = add(template)
+
+    override suspend fun setArchived(id: Long, archivedAtMillis: Long?) = Unit
+
+    override suspend fun isReferencedByActivation(id: Long): Boolean = false
+
+    override suspend fun delete(id: Long) {
+        stored.removeAll { it.id == id }
+    }
 }
 
 private class FakeWorkoutScheduleRepository : WorkoutScheduleRepository {

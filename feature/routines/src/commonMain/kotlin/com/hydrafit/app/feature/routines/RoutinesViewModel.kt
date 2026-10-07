@@ -26,6 +26,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -44,10 +45,19 @@ class RoutinesViewModel(
     private var occurrencesJob: Job? = null
     private var exerciseCapabilities: Map<String, ExerciseLoadCapability> = emptyMap()
 
+    /**
+     * Bumping this re-subscribes to [routineActions.observe], which re-reads the current rows. This
+     * backstops a save made from another tab (e.g. SplitBuilder "Save as routine") whose emission the
+     * long-lived collection may already have passed.
+     */
+    private val templatesRefresh = MutableStateFlow(0)
+
     init {
         viewModelScope.launch {
-            routineActions.observe().collect { templates ->
-                _state.update { it.copy(templates = templates, isLoading = false) }
+            templatesRefresh.collectLatest {
+                routineActions.observe().collect { templates ->
+                    _state.update { it.copy(templates = templates, isLoading = false) }
+                }
             }
         }
         viewModelScope.launch {
@@ -83,6 +93,11 @@ class RoutinesViewModel(
                 }
             }
         }
+    }
+
+    /** Re-reads the routines; the screen calls this on resume so another tab's save is visible. */
+    fun refresh() {
+        templatesRefresh.value += 1
     }
 
     // --- Editor ---
