@@ -20,6 +20,8 @@ mockk = "1.14.11"
 serialization = "1.11.0"
 ktlint = "14.2.0"
 material3 = "1.12.0-alpha03"
+# JetBrains stopped porting material-icons to KMP after 1.7.3; the artifact is frozen there.
+materialIcons = "1.7.3"
 navigationCompose = "2.9.2"
 sqldelight = "2.4.0"
 
@@ -38,6 +40,7 @@ androidx-lifecycle-runtimeCompose = { module = "org.jetbrains.androidx.lifecycle
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "composeMultiplatform" }
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "composeMultiplatform" }
 compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "material3" }
+compose-materialIconsExtended = { module = "org.jetbrains.compose.material:material-icons-extended", version.ref = "materialIcons" }
 compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMultiplatform" }
 compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }
 compose-uiToolingPreview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "composeMultiplatform" }
