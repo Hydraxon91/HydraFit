@@ -16,6 +16,14 @@ import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
+import com.hydrafit.app.core.domain.routine.ArchiveRoutineTemplateUseCase
+import com.hydrafit.app.core.domain.routine.ConvertPlanToTemplateUseCase
+import com.hydrafit.app.core.domain.routine.DeleteRoutineTemplateUseCase
+import com.hydrafit.app.core.domain.routine.DuplicateRoutineTemplateUseCase
+import com.hydrafit.app.core.domain.routine.ObserveRoutineTemplatesUseCase
+import com.hydrafit.app.core.domain.routine.RoutineTemplate
+import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
+import com.hydrafit.app.core.domain.routine.SaveRoutineTemplateUseCase
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
@@ -104,6 +112,7 @@ class KoinModulesVerificationTest {
                     single<WorkoutLogRepository> { FakeWorkoutLogRepository }
                     single<WorkoutSessionRepository> { FakeWorkoutSessionRepository }
                     single<SessionResegmenter> { FakeSessionResegmenter }
+                    single<RoutineTemplateRepository> { FakeRoutineTemplateRepository }
                 },
                 domainModule,
                 testPlatformModule
@@ -124,6 +133,12 @@ class KoinModulesVerificationTest {
             assertNotNull(koin.get<EndWorkoutSessionUseCase>())
             assertNotNull(koin.get<ObserveOpenWorkoutSessionUseCase>())
             assertNotNull(koin.get<SuggestWeightsUseCase>())
+            assertNotNull(koin.get<ConvertPlanToTemplateUseCase>())
+            assertNotNull(koin.get<SaveRoutineTemplateUseCase>())
+            assertNotNull(koin.get<DuplicateRoutineTemplateUseCase>())
+            assertNotNull(koin.get<ArchiveRoutineTemplateUseCase>())
+            assertNotNull(koin.get<DeleteRoutineTemplateUseCase>())
+            assertNotNull(koin.get<ObserveRoutineTemplatesUseCase>())
         } finally {
             koin.close()
         }
@@ -218,5 +233,17 @@ class KoinModulesVerificationTest {
             performedAtMillis: Long,
             utcOffsetMillis: Long
         ) = Unit
+    }
+
+    private object FakeRoutineTemplateRepository : RoutineTemplateRepository {
+        override fun observeAll(): Flow<List<RoutineTemplate>> = flowOf(emptyList())
+
+        override suspend fun get(id: Long): RoutineTemplate? = null
+
+        override suspend fun save(template: RoutineTemplate): Long = 0L
+
+        override suspend fun setArchived(id: Long, archivedAtMillis: Long?) = Unit
+
+        override suspend fun delete(id: Long) = Unit
     }
 }

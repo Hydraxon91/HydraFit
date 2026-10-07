@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
 import com.hydrafit.app.core.domain.startup.StartupReadiness
 import com.hydrafit.app.core.domain.time.TimeProvider
 import kotlin.test.Test
@@ -44,6 +45,7 @@ class DatabaseModuleVerificationTest {
         try {
             assertNotNull(koin.get<DatabaseStartupMaintenance>())
             assertNotNull(koin.get<StartupReadiness>())
+            assertNotNull(koin.get<RoutineTemplateRepository>())
         } finally {
             koin.close()
             driver.close()

@@ -1,0 +1,32 @@
+CREATE TABLE routineTemplate (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    createdAtMillis INTEGER NOT NULL,
+    updatedAtMillis INTEGER NOT NULL,
+    archivedAtMillis INTEGER,
+    sourcePlanId INTEGER
+);
+
+CREATE TABLE routineWorkout (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    templateId INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    focus TEXT,
+    FOREIGN KEY (templateId) REFERENCES routineTemplate(id)
+);
+
+CREATE TABLE routineEntry (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    workoutId INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    exerciseId TEXT NOT NULL,
+    sets INTEGER NOT NULL,
+    reps INTEGER NOT NULL,
+    weightKg REAL,
+    FOREIGN KEY (workoutId) REFERENCES routineWorkout(id)
+);
+
+CREATE INDEX routineWorkout_templateId ON routineWorkout(templateId);
+CREATE INDEX routineEntry_workoutId ON routineEntry(workoutId);

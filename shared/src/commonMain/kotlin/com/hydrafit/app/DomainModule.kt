@@ -18,6 +18,12 @@ import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngineProvider
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
+import com.hydrafit.app.core.domain.routine.ArchiveRoutineTemplateUseCase
+import com.hydrafit.app.core.domain.routine.ConvertPlanToTemplateUseCase
+import com.hydrafit.app.core.domain.routine.DeleteRoutineTemplateUseCase
+import com.hydrafit.app.core.domain.routine.DuplicateRoutineTemplateUseCase
+import com.hydrafit.app.core.domain.routine.ObserveRoutineTemplatesUseCase
+import com.hydrafit.app.core.domain.routine.SaveRoutineTemplateUseCase
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
@@ -81,4 +87,10 @@ val domainModule: Module = module {
     singleOf(::StartWorkoutSessionUseCase)
     singleOf(::EndWorkoutSessionUseCase)
     singleOf(::ObserveOpenWorkoutSessionUseCase)
+    single { ConvertPlanToTemplateUseCase() }
+    singleOf(::SaveRoutineTemplateUseCase)
+    singleOf(::DuplicateRoutineTemplateUseCase)
+    singleOf(::ArchiveRoutineTemplateUseCase)
+    singleOf(::DeleteRoutineTemplateUseCase)
+    singleOf(::ObserveRoutineTemplatesUseCase)
 }

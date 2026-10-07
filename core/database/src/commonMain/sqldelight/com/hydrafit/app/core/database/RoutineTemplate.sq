@@ -1,0 +1,111 @@
+CREATE TABLE routineTemplate (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    createdAtMillis INTEGER NOT NULL,
+    updatedAtMillis INTEGER NOT NULL,
+    archivedAtMillis INTEGER,
+    sourcePlanId INTEGER
+);
+
+CREATE TABLE routineWorkout (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    templateId INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    focus TEXT,
+    FOREIGN KEY (templateId) REFERENCES routineTemplate(id)
+);
+
+CREATE TABLE routineEntry (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    workoutId INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    exerciseId TEXT NOT NULL,
+    sets INTEGER NOT NULL,
+    reps INTEGER NOT NULL,
+    weightKg REAL,
+    FOREIGN KEY (workoutId) REFERENCES routineWorkout(id)
+);
+
+selectAllTemplates:
+SELECT * FROM routineTemplate ORDER BY updatedAtMillis DESC, id DESC;
+
+selectTemplate:
+SELECT * FROM routineTemplate WHERE id = ?;
+
+selectWorkoutsForTemplate:
+SELECT * FROM routineWorkout WHERE templateId = ? ORDER BY position;
+
+selectEntriesForWorkout:
+SELECT * FROM routineEntry WHERE workoutId = ? ORDER BY position;
+
+selectAllWorkouts:
+SELECT * FROM routineWorkout ORDER BY templateId, position;
+
+selectAllEntries:
+SELECT * FROM routineEntry ORDER BY workoutId, position;
+
+selectWorkoutIdsForTemplate:
+SELECT id FROM routineWorkout WHERE templateId = ?;
+
+selectEntryIdsForWorkout:
+SELECT id FROM routineEntry WHERE workoutId = ?;
+
+insertTemplate:
+INSERT INTO routineTemplate(name, revision, createdAtMillis, updatedAtMillis, archivedAtMillis, sourcePlanId)
+VALUES (?, ?, ?, ?, ?, ?);
+
+updateTemplate:
+UPDATE routineTemplate
+SET name = ?, revision = ?, updatedAtMillis = ?, archivedAtMillis = ?, sourcePlanId = ?
+WHERE id = ?;
+
+lastInsertedTemplateId:
+SELECT last_insert_rowid();
+
+insertWorkout:
+INSERT INTO routineWorkout(templateId, position, name, focus) VALUES (?, ?, ?, ?);
+
+updateWorkout:
+UPDATE routineWorkout SET position = ?, name = ?, focus = ? WHERE id = ?;
+
+lastInsertedWorkoutId:
+SELECT last_insert_rowid();
+
+insertEntry:
+INSERT INTO routineEntry(workoutId, position, exerciseId, sets, reps, weightKg)
+VALUES (?, ?, ?, ?, ?, ?);
+
+updateEntry:
+UPDATE routineEntry SET position = ?, exerciseId = ?, sets = ?, reps = ?, weightKg = ? WHERE id = ?;
+
+lastInsertedEntryId:
+SELECT last_insert_rowid();
+
+setArchived:
+UPDATE routineTemplate SET archivedAtMillis = ? WHERE id = ?;
+
+deleteEntry:
+DELETE FROM routineEntry WHERE id = ?;
+
+deleteEntriesForWorkout:
+DELETE FROM routineEntry WHERE workoutId = ?;
+
+deleteWorkout:
+DELETE FROM routineWorkout WHERE id = ?;
+
+deleteWorkoutsForTemplate:
+DELETE FROM routineWorkout WHERE templateId = ?;
+
+deleteTemplate:
+DELETE FROM routineTemplate WHERE id = ?;
+
+deleteAllEntries:
+DELETE FROM routineEntry;
+
+deleteAllWorkouts:
+DELETE FROM routineWorkout;
+
+deleteAllTemplates:
+DELETE FROM routineTemplate;
