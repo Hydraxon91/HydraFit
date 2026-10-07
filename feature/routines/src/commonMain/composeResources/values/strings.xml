@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="nav_label">Routines</string>
+    <string name="routines_title">Routines</string>
+    <string name="routines_empty">No routines yet. Create one to reuse it offline.</string>
+    <string name="routines_new">New routine</string>
+    <string name="routines_edit">Edit</string>
+    <string name="routines_duplicate">Duplicate</string>
+    <string name="routines_archive">Archive</string>
+    <string name="routines_unarchive">Restore</string>
+    <string name="routines_delete">Delete</string>
+    <string name="routines_archived_badge">Archived</string>
+    <string name="routines_workout_count">%1$d workouts</string>
+
+    <string name="routines_editor_new_title">New routine</string>
+    <string name="routines_editor_edit_title">Edit routine</string>
+    <string name="routines_name_label">Routine name</string>
+    <string name="routines_workout_name_label">Workout name</string>
+    <string name="routines_add_workout">Add workout</string>
+    <string name="routines_add_exercise">Add exercise</string>
+    <string name="routines_remove">Remove</string>
+    <string name="routines_move_up">Move up</string>
+    <string name="routines_move_down">Move down</string>
+    <string name="routines_sets_label">Sets</string>
+    <string name="routines_reps_label">Reps</string>
+    <string name="routines_weight_label">Weight (%1$s)</string>
+    <string name="routines_weight_optional">Optional</string>
+    <string name="routines_workout_number">Workout %1$d</string>
+    <string name="routines_focus_label">Focus</string>
+
+    <string name="routines_save">Save</string>
+    <string name="routines_cancel">Cancel</string>
+    <string name="routines_confirm">Confirm</string>
+    <string name="routines_delete_title">Delete routine?</string>
+    <string name="routines_delete_message">\"%1$s\" will be deleted permanently.</string>
+
+    <string name="routines_picker_title">Choose exercise</string>
+    <string name="routines_search_label">Search exercises</string>
+    <string name="routines_picker_empty">No matching exercises</string>
+
+    <string name="routines_activate">Start this routine</string>
+    <string name="routines_activation_title">Start training block</string>
+    <string name="routines_activation_mode_weekday">Chosen weekdays</string>
+    <string name="routines_activation_mode_sequence">Next workout</string>
+    <string name="routines_activation_weekdays_label">Training days</string>
+    <string name="routines_activation_start_today">Start today</string>
+    <string name="routines_activation_choose_date">Choose start date</string>
+    <string name="routines_activation_preview">First dates</string>
+    <string name="routines_activation_save_later">Save for later</string>
+    <string name="routines_activation_replace">Cancel the current block and start this one</string>
+    <string name="routines_activation_no_weekday">Pick at least one training day</string>
+
+    <string name="routines_active_title">Active block</string>
+    <string name="routines_active_progress">%1$d of %2$d done</string>
+    <string name="routines_no_active">No active training block.</string>
+    <string name="routines_occurrence_pending">Pending</string>
+    <string name="routines_occurrence_in_progress">In progress</string>
+    <string name="routines_occurrence_finished">Finished</string>
+    <string name="routines_occurrence_partial">Partially finished</string>
+    <string name="routines_occurrence_skipped">Skipped</string>
+    <string name="routines_occurrence_scheduled">Scheduled %1$s</string>
+    <string name="routines_occurrence_unscheduled">Next up</string>
+    <string name="routines_occurrence_not_before">Not before %1$s</string>
+    <string name="routines_finish_block">Finish block</string>
+    <string name="routines_cancel_block">Cancel block</string>
+    <string name="routines_repeat_block">Repeat block</string>
+    <string name="routines_postpone">Postpone</string>
+    <string name="routines_postpone_title">Move workout to</string>
+    <string name="routines_switch_mode">Change scheduling</string>
+
+    <string name="weekday_monday">Mon</string>
+    <string name="weekday_tuesday">Tue</string>
+    <string name="weekday_wednesday">Wed</string>
+    <string name="weekday_thursday">Thu</string>
+    <string name="weekday_friday">Fri</string>
+    <string name="weekday_saturday">Sat</string>
+    <string name="weekday_sunday">Sun</string>
+
+    <string name="focus_push">Push</string>
+    <string name="focus_pull">Pull</string>
+    <string name="focus_legs">Legs</string>
+    <string name="focus_upper">Upper</string>
+    <string name="focus_lower">Lower</string>
+    <string name="focus_full_body">Full body</string>
+    <string name="focus_none">No focus</string>
+</resources>

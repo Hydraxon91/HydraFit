@@ -7,6 +7,7 @@ import com.hydrafit.app.core.network.networkModule
 import com.hydrafit.app.feature.equipment.equipmentModule
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapModule
 import com.hydrafit.app.feature.logger.loggerModule
+import com.hydrafit.app.feature.routines.routinesModule
 import com.hydrafit.app.feature.settings.settingsModule
 import com.hydrafit.app.feature.splitbuilder.splitBuilderModule
 import org.koin.core.context.startKoin
@@ -23,6 +24,7 @@ fun initKoin(platformModule: Module, extraModules: List<Module> = emptyList()) {
             splitBuilderModule,
             loggerModule,
             settingsModule,
+            routinesModule,
             platformModule
         )
         modules(extraModules)

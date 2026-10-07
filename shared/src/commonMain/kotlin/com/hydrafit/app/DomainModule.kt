@@ -23,6 +23,7 @@ import com.hydrafit.app.core.domain.routine.ConvertPlanToTemplateUseCase
 import com.hydrafit.app.core.domain.routine.DeleteRoutineTemplateUseCase
 import com.hydrafit.app.core.domain.routine.DuplicateRoutineTemplateUseCase
 import com.hydrafit.app.core.domain.routine.ObserveRoutineTemplatesUseCase
+import com.hydrafit.app.core.domain.routine.RoutineTemplateActions
 import com.hydrafit.app.core.domain.routine.SaveRoutineTemplateUseCase
 import com.hydrafit.app.core.domain.schedule.ActivateRoutineUseCase
 import com.hydrafit.app.core.domain.schedule.CancelTrainingActivationUseCase
@@ -38,6 +39,7 @@ import com.hydrafit.app.core.domain.schedule.SkipWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.StartWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.SwitchScheduleModeUseCase
 import com.hydrafit.app.core.domain.schedule.WorkoutQueueAdvancer
+import com.hydrafit.app.core.domain.schedule.WorkoutScheduleActions
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
@@ -121,4 +123,6 @@ val domainModule: Module = module {
     singleOf(::MoveWorkoutOccurrenceUseCase)
     singleOf(::SwitchScheduleModeUseCase)
     singleOf(::EditUnstartedOccurrenceUseCase)
+    singleOf(::RoutineTemplateActions)
+    singleOf(::WorkoutScheduleActions)
 }

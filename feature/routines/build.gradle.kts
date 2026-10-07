@@ -8,18 +8,11 @@ plugins {
 }
 
 kotlin {
-    listOf(
-        iosArm64(),
-        iosSimulatorArm64()
-    ).forEach { iosTarget ->
-        iosTarget.binaries.framework {
-            baseName = "Shared"
-            isStatic = true
-        }
-    }
+    iosArm64()
+    iosSimulatorArm64()
 
     android {
-        namespace = "com.hydrafit.app.shared"
+        namespace = "com.hydrafit.app.feature.routines"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
 
@@ -32,11 +25,6 @@ kotlin {
         withHostTest {
             isIncludeAndroidResources = true
         }
-        withDeviceTestBuilder {
-            sourceSetTreeName = "test"
-        }.configure {
-            instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        }
     }
 
     sourceSets {
@@ -48,15 +36,6 @@ kotlin {
             implementation(project(":core:domain"))
             implementation(project(":core:userdata"))
             implementation(project(":core:navigation"))
-            implementation(project(":core:database"))
-            implementation(project(":core:network"))
-            implementation(project(":core:llm"))
-            implementation(project(":feature:equipment"))
-            implementation(project(":feature:fatigueheatmap"))
-            implementation(project(":feature:splitbuilder"))
-            implementation(project(":feature:logger"))
-            implementation(project(":feature:settings"))
-            implementation(project(":feature:routines"))
             implementation(libs.koin.core)
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
@@ -72,9 +51,6 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
-        }
-        getByName("androidHostTest").dependencies {
-            implementation(libs.koin.test)
             implementation(libs.kotlinx.coroutines.test)
         }
     }
