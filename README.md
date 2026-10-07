@@ -15,6 +15,7 @@ An open-source, offline-first fitness planning app for Android (Kotlin Multiplat
 - **Periodization** — 4-week cycles with a built-in deload week (reduced volume and load), tracked per accepted plan.
 - **A fully editable exercise catalog** — change any built-in exercise's equipment, movement pattern, per-muscle involvement, or unilateral flag (resettable), or add entirely custom exercises.
 - **Offline workout logger** — sets, reps, weight (kg or lb), RIR, warm-ups, bodyweight/weightless sets, and a per-hand hint for unilateral work, with one-tap quick-fill from recent sets.
+- **Reusable routines & scheduling** — build, reorder, duplicate and archive your own routines offline, then start one (or a generated plan) as a training block on chosen weekdays or as a next-workout sequence, with an explicit Finish/Skip queue that never silently compresses missed work.
 - **Explicit workout sessions** — sessions start automatically on your first set, roll over by day and after inactivity, and can be ended or started manually, so fatigue is segmented visibly rather than guessed.
 - **Backdated logging** — record past workouts with a date/time picker (future times rejected), choosing the session they attach to.
 - **Personal records** — store your best set per exercise to seed the weight baseline the planner uses for its suggested loads.

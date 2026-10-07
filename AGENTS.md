@@ -303,6 +303,7 @@ HydraFit/
 │   ├── splitbuilder/       # Adaptive Weekly Split Builder UI + ViewModels
 │   ├── fatigueheatmap/     # Muscle Fatigue Heatmap UI + ViewModels
 │   ├── logger/             # Offline Workout Logger UI + ViewModels
+│   ├── routines/           # Manual routine authoring + training-block scheduling UI + ViewModels
 │   └── settings/           # Planner engine, API key, and on-device model settings UI + ViewModels
 └── .github/workflows/      # CI/CD pipeline definitions
 ```

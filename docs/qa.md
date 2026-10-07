@@ -68,10 +68,16 @@ exact on-screen text.
 - API key: save, shows "configured", clear.
 - Model management: import/remove, target (NPU vs CPU/GPU) display, terms link.
 
-## 10. Persistence & integrity
-- Kill and relaunch → all data persists.
+## 10. Routines & scheduling
+- Create a routine (name, workouts, exercises with sets/reps/weight); save; edit; reorder; duplicate; archive/restore; delete is blocked while a training block references it.
+- Start a routine: chosen-weekday vs next-workout mode, start today vs a chosen date, previewed dates; confirm creates an active block with one pending occurrence per workout.
+- Active block: pending/finished status, postpone a workout (reflows its unstarted suffix), change scheduling, repeat block, finish/cancel block.
+- Plan tab: **Start block** starts the generated plan as a block (warns when one is already active), **Save as routine** copies it into a new routine.
+
+## 11. Persistence & integrity
+- Kill and relaunch → all data persists, including the active block and its occurrences.
 - Optional: read-only DB pull (aggregates only) to confirm sessions/PRs were written.
 
-## 11. Release-specific
+## 12. Release-specific
 - Install the signed APK from `release.yml`; `versionName`/`versionCode` match the tag/run number.
 - Upgrade install over the previous build → data survives migrations.

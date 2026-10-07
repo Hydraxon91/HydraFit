@@ -418,7 +418,17 @@ For logger work, the concrete files are `WorkoutLoggerModule.kt`,
 `WorkoutLoggerUiState.kt` under the feature package root.
 `WorkoutLoggerScreen.kt` contains `loggerDestination`, `loggerGraph`,
 `WorkoutLoggerRoute`, and the stateless screen. Equipment instead keeps
-navigation in `EquipmentNavigation.kt`. SplitBuilder's accepted-plan swap uses
+navigation in `EquipmentNavigation.kt`.
+
+For routine authoring, the module is `:feature:routines`:
+`RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/
+`routinesDestination`), `RoutinesScreen.kt` (list, editor, exercise picker,
+activation dialog), `RoutinesViewModel.kt` and `RoutinesUiState.kt`. The
+ViewModel depends on the domain aggregates `RoutineTemplateActions` and
+`WorkoutScheduleActions` plus `ExerciseCatalog`, `TimeProvider` and
+`WeightUnitRepository`. SplitBuilder starts a generated plan as a block via
+`PlanBuilderActions.scheduleAcceptedPlan`/`acceptAndSchedule` and the
+`SplitScheduleDialogState` in `SplitBuilderUiState.kt`. SplitBuilder's accepted-plan swap uses
 `SplitBuilderViewModel.onSwapRequested`/`onSwapCandidateSelected` (via
 `PlanBuilderActions`) and the `SwapCandidateDialog` in `SplitBuilderScreen.kt`;
 the dialog is only reachable while `SplitBuilderUiState.isPlanAccepted`.
