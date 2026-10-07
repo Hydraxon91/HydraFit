@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.navigation
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.unit.WeightUnit
@@ -62,6 +63,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 val settingsRoute: String = "settings"
+private val settingsHomeRoute: String = "settings/home"
 
 val settingsDestination: FeatureDestination = FeatureDestination(
     route = settingsRoute,
@@ -70,11 +72,15 @@ val settingsDestination: FeatureDestination = FeatureDestination(
 )
 
 fun NavGraphBuilder.settingsGraph(navController: NavController) {
-    composable(settingsRoute) {
-        SettingsRoute(onOpenAcknowledgments = { navController.navigate(acknowledgmentsRoute) })
-    }
-    composable(acknowledgmentsRoute) {
-        AcknowledgmentsRoute(onBack = { navController.popBackStack() })
+    // A real nested graph keeps the Settings tab selected on its sub-routes (the shell matches
+    // destinations by graph hierarchy), so Acknowledgments is a child of Settings, not a sibling.
+    navigation(startDestination = settingsHomeRoute, route = settingsRoute) {
+        composable(settingsHomeRoute) {
+            SettingsRoute(onOpenAcknowledgments = { navController.navigate(acknowledgmentsRoute) })
+        }
+        composable(acknowledgmentsRoute) {
+            AcknowledgmentsRoute(onBack = { navController.popBackStack() })
+        }
     }
 }
 
