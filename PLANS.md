@@ -23,7 +23,7 @@
 | RIR guidance & rough estimation | PLANNED | Item 9: B1 guidance/quick-picks in M4; B2/B3 remain decision-gated, not required for M4. |
 | Open Questions / Later | LATER | See section below; nothing scheduled. |
 | 0.2.4 review snapshot | DONE | bf959ee^..HEAD (`eb310de`); 12 findings (R4-01..R4-12): 2 minor docs drift + 1 nit deferred to VOL-01 + 9 nit-positive confirmations of Chunk A + Settings chunk. See `docs/review-0.2.4-snapshot.md`. RF (docs sync on R4-01) gated separately. |
-| M3 routines & scheduling (OF-11 + OF-12-P0/P1) | IN PROGRESS | Joint P0 contract approved 2026-10-07 (see "Decisions Made"). Implemented: routine templates (`6e5b00a`), activations/occurrences + logging links (`047f0a0`), scheduling/lifecycle use cases (`8ba47a3`), `:feature:routines` authoring UI (`677370a`), SplitBuilder start-block/save-as-routine (`8fad038`), post-review fixes and the atomic activation/resolution refactor (`a3bc6da`, `0403297`, `e70fdee`), and Logger occurrence progress + Finish/Skip (`accbd0e`). Emulator-verified for authoring, activation, and the Logger occurrence card. Steps 6–7 effectively complete; the optional mid-transaction fault-injection seam (PER-17) is covered by rollback tests for `resolveOccurrence` and `acceptAndActivate`'s cancel-previous path in `SqlDelightWorkoutScheduleRepositoryTest`. |
+| M3 routines & scheduling (OF-11 + OF-12-P0/P1) | DONE | Shipped. Routine authoring + scheduling per the 2026-10-07 routine/scheduling contract (`6e5b00a`…`04259cf`); emulator-verified for authoring, activation, the Logger occurrence card, and Finish/Skip. The mid-transaction rollback seam (PER-17) is covered by `SqlDelightWorkoutScheduleRepositoryTest`. See "M3 — routines & scheduling — SHIPPED". |
 
 > **Next work sequence (approved 2026-10-06).** Ordered, separately gated steps; each is planned and approved at its own session boundary. The section/skill each step details lives under "Product milestones", "Retained roadmap items" or the Oct 6 follow-up.
 > 1. **Close 0.2.3 and ship.** DONE — shipped as `v0.2.3`; S-items, measurements and R3-08/R3-09/R3-10 resolutions in `docs/review-0.2.3.md` and `docs/performance-0.2.3.md`.
@@ -290,6 +290,22 @@ Brought forward at the user's request (2026-10-06) to run alongside 0.2.3, **aft
 **Deliverable files:** `docs/performance-0.2.3.md`; PLANS.md entries; `AGENTS.md` (measurement-derived rules only); any fixes with their migrations.
 
 **Do not start in 0.2.3:** 0.2.2 review or fixes; 0.2.1; items 6–9; BACK chunks 3–4; or any optimization without a recorded before/after measurement.
+
+## M3 — routines & scheduling — SHIPPED
+
+Shipped 2026-10-07: offline routine authoring plus scheduling/rotation per the
+OF-11/OF-12 contract under "Decisions Made" (2026-10-07). Landed in `6e5b00a`
+(routine template storage + domain actions), `047f0a0` (frozen activations,
+occurrences and logging links), `8ba47a3` (activation/queue lifecycle and
+completion use cases), `677370a` (`:feature:routines` authoring UI), `8fad038`
+(SplitBuilder start-block / save-as-routine), `a3bc6da`, `0403297` and `e70fdee`
+(post-review fixes and the atomic activation/resolution refactor), `accbd0e`
+(Logger occurrence progress + Finish/Skip), and `04259cf` (mid-transaction
+rollback tests, PER-17). Emulator-verified for authoring, activation, the Logger
+occurrence card and Finish/Skip. Artifacts: `:feature:routines`, the
+`scheduling`/`lifecycle` use cases, `workoutSet.occurrenceId`/
+`occurrenceEntryId` and the schema v26/v27 tables (`25.sqm`, `26.sqm`). The
+M3-adjacent item 7b Credits/Acknowledgments is tracked separately.
 
 ## M8 — Optional AI Reliability: retain and improve local AI
 
