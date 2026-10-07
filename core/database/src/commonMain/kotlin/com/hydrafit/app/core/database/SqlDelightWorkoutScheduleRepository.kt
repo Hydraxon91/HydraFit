@@ -136,6 +136,8 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
                 focus = workout.focus?.name
             )
             val workoutId = queries.lastInsertedActivationWorkoutId().executeAsOne()
+            // The real ids the just-inserted activation entries received; each occurrence entry
+            // copies its source entry so a logged set stays attributable to the prescribed slot.
             val entryIds = workout.entries.map { entry ->
                 queries.insertActivationEntry(
                     workoutId = workoutId,
