@@ -22,6 +22,7 @@ import com.hydrafit.app.core.domain.routine.DeleteRoutineTemplateUseCase
 import com.hydrafit.app.core.domain.routine.DuplicateRoutineTemplateUseCase
 import com.hydrafit.app.core.domain.routine.ObserveRoutineTemplatesUseCase
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
+import com.hydrafit.app.core.domain.routine.RoutineTemplateActions
 import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
 import com.hydrafit.app.core.domain.routine.SaveRoutineTemplateUseCase
 import com.hydrafit.app.core.domain.schedule.ActivateRoutineUseCase
@@ -40,6 +41,7 @@ import com.hydrafit.app.core.domain.schedule.SwitchScheduleModeUseCase
 import com.hydrafit.app.core.domain.schedule.TrainingActivation
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import com.hydrafit.app.core.domain.schedule.WorkoutQueueAdvancer
+import com.hydrafit.app.core.domain.schedule.WorkoutScheduleActions
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.time.TimeProvider
@@ -160,6 +162,8 @@ class KoinModulesVerificationTest {
             assertNotNull(koin.get<ArchiveRoutineTemplateUseCase>())
             assertNotNull(koin.get<DeleteRoutineTemplateUseCase>())
             assertNotNull(koin.get<ObserveRoutineTemplatesUseCase>())
+            assertNotNull(koin.get<RoutineTemplateActions>())
+            assertNotNull(koin.get<WorkoutScheduleActions>())
             assertNotNull(koin.get<PreviewWorkoutScheduleUseCase>())
             assertNotNull(koin.get<CreateTrainingActivationUseCase>())
             assertNotNull(koin.get<ActivateRoutineUseCase>())

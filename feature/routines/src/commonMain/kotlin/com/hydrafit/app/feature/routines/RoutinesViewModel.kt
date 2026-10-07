@@ -97,7 +97,8 @@ class RoutinesViewModel(
     }
 
     fun onEditRoutine(template: RoutineTemplate) {
-        _state.update { it.copy(editor = template.toEditor(weightUnit)) }
+        val names = _state.value.exercises.associate { it.id to it.name }
+        _state.update { it.copy(editor = template.toEditor(weightUnit, names)) }
     }
 
     fun onEditorNameChanged(name: String) = updateEditor { it.copy(name = name) }
@@ -136,8 +137,13 @@ class RoutinesViewModel(
         it.copy(picker = ExercisePickerState(workoutIndex = workoutIndex))
     }
 
-    fun onReplaceExercise(workoutIndex: Int, entryId: Long) = _state.update {
-        it.copy(picker = ExercisePickerState(workoutIndex = workoutIndex, replaceEntryId = entryId))
+    fun onReplaceExercise(workoutIndex: Int, entryIndex: Int) = _state.update {
+        it.copy(
+            picker = ExercisePickerState(
+                workoutIndex = workoutIndex,
+                replaceEntryIndex = entryIndex
+            )
+        )
     }
 
     fun onPickerQueryChanged(query: String) = _state.update { current ->
@@ -156,16 +162,15 @@ class RoutinesViewModel(
                 reps = "8",
                 weight = ""
             )
-            val entries = if (picker.replaceEntryId == null) {
+            val entries = if (picker.replaceEntryIndex == null) {
                 workout.entries + entry
             } else {
-                workout.entries.map {
-                    if (it.id ==
-                        picker.replaceEntryId
-                    ) {
-                        entry.copy(id = it.id)
+                workout.entries.mapIndexed { index, existing ->
+                    // Replace exactly the chosen slot; keep its persisted id so an edit is an update.
+                    if (index == picker.replaceEntryIndex) {
+                        entry.copy(id = existing.id)
                     } else {
-                        it
+                        existing
                     }
                 }
             }
@@ -238,13 +243,15 @@ class RoutinesViewModel(
     fun onActivateRequested(template: RoutineTemplate) {
         val workoutCount = template.workouts.size
         _state.update {
+            val hasActive = it.activeActivation != null
             it.copy(
                 activation = ActivationUiState(
                     templateId = template.id,
                     templateName = template.name,
                     workoutCount = workoutCount,
                     startEpochDay = todayEpochDay(),
-                    replaceActive = it.activeActivation != null
+                    hasActiveBlock = hasActive,
+                    replaceActive = hasActive
                 ).withPreview(scheduleActions, workoutCount)
             )
         }
@@ -408,7 +415,10 @@ private fun ActivationUiState.withPreview(
     return copy(preview = dates)
 }
 
-private fun RoutineTemplate.toEditor(unit: WeightUnit): RoutineEditorState = RoutineEditorState(
+private fun RoutineTemplate.toEditor(
+    unit: WeightUnit,
+    exerciseNames: Map<String, String>
+): RoutineEditorState = RoutineEditorState(
     id = id,
     revision = revision,
     sourcePlanId = sourcePlanId,
@@ -422,7 +432,7 @@ private fun RoutineTemplate.toEditor(unit: WeightUnit): RoutineEditorState = Rou
                 EditorEntry(
                     id = entry.id,
                     exerciseId = entry.exerciseId,
-                    name = entry.exerciseId,
+                    name = exerciseNames[entry.exerciseId] ?: entry.exerciseId,
                     sets = entry.sets.toString(),
                     reps = entry.reps.toString(),
                     weight = entry.weightKg
@@ -452,11 +462,24 @@ private fun RoutineEditorState.toDraft(unit: WeightUnit): RoutineTemplate = Rout
                     exerciseId = entry.exerciseId,
                     sets = entry.sets.toIntOrNull() ?: 0,
                     reps = entry.reps.toIntOrNull() ?: 0,
-                    weightKg = entry.weight.trim().takeIf { it.isNotEmpty() }
-                        ?.toDoubleOrNull()
-                        ?.let { unit.displayToKilograms(it) }
+                    weightKg = parseDisplayedWeight(entry.weight, unit)
                 )
             }
         )
     }
 )
+
+/**
+ * Blank means "no load recorded" (null). A non-blank value must be a finite, non-negative number;
+ * anything else is rejected so a malformed entry can never silently clear a prescribed load.
+ */
+private fun parseDisplayedWeight(input: String, unit: WeightUnit): Double? {
+    val trimmed = input.trim()
+    if (trimmed.isEmpty()) return null
+    val value = trimmed.toDoubleOrNull()
+        ?: throw RoutineTemplateException("Weight must be a number")
+    if (!value.isFinite() || value < 0.0) {
+        throw RoutineTemplateException("Weight must be zero or positive")
+    }
+    return unit.displayToKilograms(value)
+}

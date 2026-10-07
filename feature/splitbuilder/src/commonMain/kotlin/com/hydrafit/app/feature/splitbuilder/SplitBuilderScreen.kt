@@ -575,15 +575,17 @@ private fun SplitScheduleDialog(
                         )
                     }
                 }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(stringResource(Res.string.split_schedule_replace))
-                    Switch(
-                        checked = dialog.replaceActive,
-                        onCheckedChange = viewModel::onScheduleReplaceActiveChanged
-                    )
+                if (dialog.hasActiveBlock) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(stringResource(Res.string.split_schedule_replace))
+                        Switch(
+                            checked = dialog.replaceActive,
+                            onCheckedChange = viewModel::onScheduleReplaceActiveChanged
+                        )
+                    }
                 }
                 dialog.error?.let { error ->
                     Text(

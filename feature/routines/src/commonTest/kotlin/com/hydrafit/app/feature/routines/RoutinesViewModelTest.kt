@@ -231,6 +231,48 @@ class RoutinesViewModelTest {
         assertEquals(ScheduleMode.WEEKDAY, viewModel.state.value.activeActivation?.mode)
     }
 
+    @Test
+    fun replacingOneUnsavedSlotLeavesItsSiblingUntouched() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onNewRoutine()
+        viewModel.onEditorNameChanged("Upper")
+        viewModel.onAddWorkout()
+        viewModel.onWorkoutNameChanged(0, "Day 1")
+        viewModel.onAddExercise(0)
+        viewModel.onPickerExerciseSelected("bench-press", "Barbell Bench Press")
+        viewModel.onAddExercise(0)
+        viewModel.onPickerExerciseSelected("bench-press", "Barbell Bench Press")
+
+        viewModel.onReplaceExercise(0, 1)
+        viewModel.onPickerExerciseSelected("overhead-press", "Overhead Press")
+
+        val entries = requireNotNull(viewModel.state.value.editor).workouts[0].entries
+        assertEquals(2, entries.size)
+        assertEquals("bench-press", entries[0].exerciseId)
+        assertEquals("overhead-press", entries[1].exerciseId)
+    }
+
+    @Test
+    fun anInvalidWeightIsRejectedInsteadOfSilentlyCleared() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onNewRoutine()
+        viewModel.onEditorNameChanged("Upper")
+        viewModel.onAddWorkout()
+        viewModel.onWorkoutNameChanged(0, "Day 1")
+        viewModel.onAddExercise(0)
+        viewModel.onPickerExerciseSelected("bench-press", "Barbell Bench Press")
+        viewModel.onEntryWeightChanged(0, 0, "abc")
+
+        viewModel.onSaveEditor()
+        advanceUntilIdle()
+
+        assertNotNull(viewModel.state.value.editor)
+        assertNotNull(viewModel.state.value.message)
+        assertTrue(viewModel.state.value.templates.isEmpty())
+    }
+
     private fun viewModel(): RoutinesViewModel {
         val preview = PreviewWorkoutScheduleUseCase()
         val createActivation = CreateTrainingActivationUseCase(schedule, preview, timeProvider)

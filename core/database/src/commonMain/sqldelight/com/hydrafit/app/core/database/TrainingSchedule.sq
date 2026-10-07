@@ -206,3 +206,8 @@ SELECT * FROM workoutScheduleState WHERE id = 1;
 upsertScheduleState:
 INSERT OR REPLACE INTO workoutScheduleState(id, activeActivationId, selectedOccurrenceId, legacyFallbackEnabled)
 VALUES (1, ?, ?, ?);
+
+CREATE INDEX activationWorkout_activationId ON activationWorkout(activationId);
+CREATE INDEX activationEntry_workoutId ON activationEntry(workoutId);
+CREATE INDEX workoutOccurrence_activationId ON workoutOccurrence(activationId);
+CREATE INDEX occurrenceEntry_occurrenceId ON occurrenceEntry(occurrenceId);

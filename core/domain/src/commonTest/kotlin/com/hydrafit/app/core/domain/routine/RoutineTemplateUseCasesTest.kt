@@ -241,6 +241,23 @@ class RoutineTemplateUseCasesTest {
         }
     }
 
+    @Test
+    fun editingAMissingTemplateIsRejectedInsteadOfFabricatingASave() = runTest {
+        val repository = FakeRoutineTemplateRepository()
+        val saver = save(repository)
+
+        assertRoutineFailure {
+            saver(
+                RoutineTemplate(
+                    id = 99L,
+                    name = "Ghost",
+                    workouts = listOf(RoutineWorkout(name = "Day 1"))
+                )
+            )
+        }
+        assertNull(repository.get(99L))
+    }
+
     private suspend fun assertRoutineFailure(block: suspend () -> Unit) {
         val error = runCatching { block() }.exceptionOrNull()
         assertTrue(

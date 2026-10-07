@@ -37,10 +37,10 @@ data class RoutineEditorState(
     val workouts: List<EditorWorkout> = emptyList()
 )
 
-/** Which workout/entry the exercise picker is filling; [replaceEntryId] null means "add". */
+/** Which workout/entry the exercise picker is filling; [replaceEntryIndex] null means "add". */
 data class ExercisePickerState(
     val workoutIndex: Int,
-    val replaceEntryId: Long? = null,
+    val replaceEntryIndex: Int? = null,
     val query: String = ""
 )
 
@@ -53,6 +53,8 @@ data class ActivationUiState(
     val startToday: Boolean = true,
     val startEpochDay: Long,
     val preview: List<Long?> = emptyList(),
+    /** True when a block is already active, so the replacement choice is worth showing. */
+    val hasActiveBlock: Boolean = false,
     val replaceActive: Boolean = false,
     val error: String? = null
 )

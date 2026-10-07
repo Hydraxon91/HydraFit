@@ -15,6 +15,8 @@ data class SplitScheduleDialogState(
     val startToday: Boolean = true,
     val startEpochDay: Long,
     val preview: List<Long?> = emptyList(),
+    /** True when a block is already active, so the replacement choice is worth showing. */
+    val hasActiveBlock: Boolean = false,
     val replaceActive: Boolean = false,
     val error: String? = null
 )

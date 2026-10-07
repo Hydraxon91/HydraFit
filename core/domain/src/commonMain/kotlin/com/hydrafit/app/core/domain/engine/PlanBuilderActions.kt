@@ -92,6 +92,13 @@ class PlanBuilderActions(
     suspend fun saveAcceptedPlanAsRoutine(accepted: AcceptedPlan, name: String): Long =
         saveRoutineTemplate(convertPlanToTemplate(accepted, name)).id
 
+    /**
+     * Copies a draft (not-yet-accepted) plan into a new routine without accepting it, so saving a
+     * routine never advances the accepted-plan ordinal.
+     */
+    suspend fun saveDraftPlanAsRoutine(plan: WeeklyPlan, name: String): Long =
+        saveRoutineTemplate(convertPlanToTemplate(plan, name)).id
+
     /** Converts an accepted plan into an unsaved routine draft (for previewing/editing). */
     fun toRoutineDraft(accepted: AcceptedPlan, name: String): RoutineTemplate =
         convertPlanToTemplate(accepted, name)

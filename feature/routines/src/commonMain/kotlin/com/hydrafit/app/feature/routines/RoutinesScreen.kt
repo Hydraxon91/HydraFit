@@ -139,6 +139,7 @@ fun RoutinesScreen(state: RoutinesUiState, viewModel: RoutinesViewModel) {
         RoutineEditor(
             editor = state.editor,
             weightUnit = state.weightUnit,
+            message = state.message,
             viewModel = viewModel
         )
     } else {
@@ -425,6 +426,7 @@ private fun TemplateRow(template: RoutineTemplate, viewModel: RoutinesViewModel)
 private fun RoutineEditor(
     editor: RoutineEditorState,
     weightUnit: WeightUnit,
+    message: String?,
     viewModel: RoutinesViewModel
 ) {
     Column(
@@ -437,9 +439,7 @@ private fun RoutineEditor(
     ) {
         Text(
             text = stringResource(
-                if (editor.id ==
-                    0L
-                ) {
+                if (editor.id == 0L) {
                     Res.string.routines_editor_new_title
                 } else {
                     Res.string.routines_editor_edit_title
@@ -447,6 +447,7 @@ private fun RoutineEditor(
             ),
             style = MaterialTheme.typography.headlineSmall
         )
+        message?.let { MessageBanner(message = it, onDismiss = viewModel::onMessageShown) }
         OutlinedTextField(
             value = editor.name,
             onValueChange = viewModel::onEditorNameChanged,
@@ -550,7 +551,7 @@ private fun EntryRow(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(text = entry.name, modifier = Modifier.weight(1f))
-            TextButton(onClick = { viewModel.onReplaceExercise(workoutIndex, entry.id) }) {
+            TextButton(onClick = { viewModel.onReplaceExercise(workoutIndex, entryIndex) }) {
                 Text(stringResource(Res.string.routines_edit))
             }
             TextButton(onClick = { viewModel.onRemoveEntry(workoutIndex, entryIndex) }) {
@@ -747,7 +748,7 @@ private fun ActivationDialog(
                         )
                     }
                 }
-                if (activation.replaceActive) {
+                if (activation.hasActiveBlock) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)

@@ -123,6 +123,7 @@ class SplitBuilderViewModel(
             current.copy(
                 scheduleDialog = SplitScheduleDialogState(
                     startEpochDay = planBuilderActions.todayEpochDay(),
+                    hasActiveBlock = current.hasActiveBlock,
                     replaceActive = current.hasActiveBlock
                 ).withPreview(planBuilderActions, plan.days.size)
             )
@@ -188,21 +189,16 @@ class SplitBuilderViewModel(
         }
     }
 
-    /** Accepts the plan (if needed) and copies it into a new editable routine. */
+    /** Copies the shown plan into a new editable routine without accepting the plan. */
     fun onSaveAsRoutine() {
         val plan = _state.value.plan ?: return
         viewModelScope.launch {
-            val accepted = if (_state.value.isPlanAccepted && shownPlan != null) {
-                shownPlan
-            } else {
-                planBuilderActions.accept(plan)
-                planHistory.latest()
-            }
+            val accepted = shownPlan?.takeIf { _state.value.isPlanAccepted }
             if (accepted != null) {
                 planBuilderActions.saveAcceptedPlanAsRoutine(accepted, "Generated routine")
-                lastGeneratedFingerprint = null
-                shownPlan = accepted
-                _state.update { it.copy(isPlanAccepted = true, canRegenerate = true) }
+            } else {
+                // Saving a routine is not accepting a plan: no accepted-plan history is written.
+                planBuilderActions.saveDraftPlanAsRoutine(plan, "Generated routine")
             }
         }
     }

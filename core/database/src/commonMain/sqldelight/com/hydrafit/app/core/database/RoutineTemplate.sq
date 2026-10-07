@@ -115,3 +115,6 @@ DELETE FROM routineWorkout;
 
 deleteAllTemplates:
 DELETE FROM routineTemplate;
+
+CREATE INDEX routineWorkout_templateId ON routineWorkout(templateId);
+CREATE INDEX routineEntry_workoutId ON routineEntry(workoutId);

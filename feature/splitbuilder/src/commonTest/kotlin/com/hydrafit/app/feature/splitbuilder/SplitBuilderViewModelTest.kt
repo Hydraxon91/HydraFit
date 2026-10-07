@@ -231,6 +231,25 @@ class SplitBuilderViewModelTest {
     }
 
     @Test
+    fun savingThePlanAsARoutineDoesNotAcceptIt() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = DeterministicWorkoutPlannerEngine(FakeExerciseCatalog()),
+            preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC),
+            planHistory = history
+        )
+        advanceUntilIdle()
+        assertNotNull(viewModel.state.value.plan)
+
+        viewModel.onSaveAsRoutine()
+        advanceUntilIdle()
+
+        assertNull(history.latest())
+        assertFalse(viewModel.state.value.isPlanAccepted)
+    }
+
+    @Test
     fun loadsDaysPerWeekFromPreference() = runTest(dispatcher) {
         val viewModel = viewModel(
             availableEquipment = setOf(EquipmentTag.DUMBBELL),
@@ -763,17 +782,25 @@ class SplitBuilderViewModelTest {
             override suspend fun isTemplateReferenced(templateId: Long): Boolean = false
         }
         val routineRepository = object : RoutineTemplateRepository {
-            override fun observeAll(): Flow<List<RoutineTemplate>> = flowOf(emptyList())
+            private var stored: RoutineTemplate? = null
 
-            override suspend fun get(id: Long): RoutineTemplate? = null
+            override fun observeAll(): Flow<List<RoutineTemplate>> = flowOf(listOfNotNull(stored))
 
-            override suspend fun save(template: RoutineTemplate): Long = 0L
+            override suspend fun get(id: Long): RoutineTemplate? = stored?.takeIf { it.id == id }
+
+            override suspend fun save(template: RoutineTemplate): Long {
+                val id = if (template.id == 0L) 1L else template.id
+                stored = template.copy(id = id)
+                return id
+            }
 
             override suspend fun setArchived(id: Long, archivedAtMillis: Long?) = Unit
 
             override suspend fun isReferencedByActivation(id: Long): Boolean = false
 
-            override suspend fun delete(id: Long) = Unit
+            override suspend fun delete(id: Long) {
+                stored = null
+            }
         }
         return PlanBuilderActions(
             acceptWeeklyPlan = AcceptWeeklyPlanUseCase(history, catalog, time),
