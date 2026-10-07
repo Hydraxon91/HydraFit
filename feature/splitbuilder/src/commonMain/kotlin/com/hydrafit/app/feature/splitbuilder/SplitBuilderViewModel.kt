@@ -16,6 +16,10 @@ import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.WorkoutPlanInputs
 import com.hydrafit.app.core.domain.engine.toWeeklyPlan
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.schedule.ActivationRequest
+import com.hydrafit.app.core.domain.schedule.ScheduleException
+import com.hydrafit.app.core.domain.schedule.ScheduleMode
+import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -57,6 +61,11 @@ class SplitBuilderViewModel(
         viewModelScope.launch {
             planHistory.observeHistory().collectLatest { history ->
                 _state.update { it.copy(history = history) }
+            }
+        }
+        viewModelScope.launch {
+            planBuilderActions.observeActiveActivation().collectLatest { active ->
+                _state.update { it.copy(hasActiveBlock = active != null) }
             }
         }
         viewModelScope.launch {
@@ -104,6 +113,109 @@ class SplitBuilderViewModel(
             // The just-accepted plan is the persisted latest; remember it so a swap can target it.
             shownPlan = planHistory.latest()
             _state.update { it.copy(isPlanAccepted = true, canRegenerate = true) }
+        }
+    }
+
+    /** Opens the schedule dialog so the generated plan can be started as a training block. */
+    fun onScheduleRequested() {
+        val plan = _state.value.plan ?: return
+        _state.update { current ->
+            current.copy(
+                scheduleDialog = SplitScheduleDialogState(
+                    startEpochDay = planBuilderActions.todayEpochDay(),
+                    replaceActive = current.hasActiveBlock
+                ).withPreview(planBuilderActions, plan.days.size)
+            )
+        }
+    }
+
+    fun onScheduleModeChanged(mode: ScheduleMode) = updateScheduleDialog { it.copy(mode = mode) }
+
+    fun onScheduleWeekdayToggled(day: DayOfWeek) = updateScheduleDialog { dialog ->
+        val weekdays = if (day in dialog.weekdays) {
+            dialog.weekdays - day
+        } else {
+            dialog.weekdays + day
+        }
+        dialog.copy(weekdays = weekdays)
+    }
+
+    fun onScheduleStartTodayChanged(startToday: Boolean) =
+        updateScheduleDialog { it.copy(startToday = startToday) }
+
+    fun onScheduleStartDateChosen(epochDay: Long) =
+        updateScheduleDialog { it.copy(startEpochDay = epochDay, startToday = false) }
+
+    fun onScheduleReplaceActiveChanged(replaceActive: Boolean) =
+        updateScheduleDialog { it.copy(replaceActive = replaceActive) }
+
+    fun onScheduleDismissed() = _state.update { it.copy(scheduleDialog = null) }
+
+    /** Accepts (if needed) and starts the shown plan as an active block with the chosen schedule. */
+    fun onConfirmSchedule() {
+        val plan = _state.value.plan ?: return
+        val dialog = _state.value.scheduleDialog ?: return
+        if (dialog.mode == ScheduleMode.WEEKDAY && dialog.weekdays.isEmpty()) {
+            _state.update { it.copy(scheduleDialog = dialog.copy(error = "weekdays")) }
+            return
+        }
+        val request = ActivationRequest(
+            name = "Generated plan",
+            startEpochDay = dialog.startEpochDay,
+            mode = dialog.mode,
+            weekdays = dialog.weekdays,
+            startToday = dialog.startToday,
+            replaceActive = dialog.replaceActive
+        )
+        viewModelScope.launch {
+            try {
+                val accepted = shownPlan
+                if (_state.value.isPlanAccepted && accepted != null) {
+                    planBuilderActions.scheduleAcceptedPlan(accepted, request)
+                } else {
+                    planBuilderActions.acceptAndSchedule(plan, request)
+                }
+                lastGeneratedFingerprint = null
+                shownPlan = planHistory.latest()
+                _state.update {
+                    it.copy(isPlanAccepted = true, canRegenerate = true, scheduleDialog = null)
+                }
+            } catch (error: ScheduleException) {
+                _state.update { state ->
+                    state.copy(scheduleDialog = state.scheduleDialog?.copy(error = error.message))
+                }
+            }
+        }
+    }
+
+    /** Accepts the plan (if needed) and copies it into a new editable routine. */
+    fun onSaveAsRoutine() {
+        val plan = _state.value.plan ?: return
+        viewModelScope.launch {
+            val accepted = if (_state.value.isPlanAccepted && shownPlan != null) {
+                shownPlan
+            } else {
+                planBuilderActions.accept(plan)
+                planHistory.latest()
+            }
+            if (accepted != null) {
+                planBuilderActions.saveAcceptedPlanAsRoutine(accepted, "Generated routine")
+                lastGeneratedFingerprint = null
+                shownPlan = accepted
+                _state.update { it.copy(isPlanAccepted = true, canRegenerate = true) }
+            }
+        }
+    }
+
+    private fun updateScheduleDialog(
+        transform: (SplitScheduleDialogState) -> SplitScheduleDialogState
+    ) {
+        _state.update { current ->
+            val dialog = current.scheduleDialog ?: return@update current
+            val plan = current.plan ?: return@update current
+            current.copy(
+                scheduleDialog = transform(dialog).withPreview(planBuilderActions, plan.days.size)
+            )
         }
     }
 
@@ -351,4 +463,17 @@ class SplitBuilderViewModel(
             catalogSignature
         ).hashCode()
     }
+}
+
+private fun SplitScheduleDialogState.withPreview(
+    actions: PlanBuilderActions,
+    count: Int
+): SplitScheduleDialogState {
+    if (count <= 0) return copy(preview = emptyList())
+    val dates = try {
+        actions.previewSchedule(count, startEpochDay, mode, weekdays, startToday)
+    } catch (_: ScheduleException) {
+        emptyList()
+    }
+    return copy(preview = dates)
 }

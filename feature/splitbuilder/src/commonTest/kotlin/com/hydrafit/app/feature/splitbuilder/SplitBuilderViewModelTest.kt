@@ -33,6 +33,18 @@ import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.fatigue.MuscleInvolvement
 import com.hydrafit.app.core.domain.fatigue.MuscleTarget
+import com.hydrafit.app.core.domain.routine.ConvertPlanToTemplateUseCase
+import com.hydrafit.app.core.domain.routine.RoutineTemplate
+import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
+import com.hydrafit.app.core.domain.routine.SaveRoutineTemplateUseCase
+import com.hydrafit.app.core.domain.schedule.ActivateRoutineUseCase
+import com.hydrafit.app.core.domain.schedule.CreateTrainingActivationUseCase
+import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
+import com.hydrafit.app.core.domain.schedule.PreviewWorkoutScheduleUseCase
+import com.hydrafit.app.core.domain.schedule.TrainingActivation
+import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
+import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
+import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
@@ -43,6 +55,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
@@ -124,17 +137,9 @@ class SplitBuilderViewModelTest {
             generateWeeklySplit = GenerateWeeklySplitUseCase(
                 WorkoutPlannerEngineProvider { throw IllegalStateException("engine boom") }
             ),
-            planBuilderActions = PlanBuilderActions(
-                acceptWeeklyPlan = AcceptWeeklyPlanUseCase(
-                    FakePlanHistoryRepository(),
-                    FakeExerciseCatalog(),
-                    TimeProvider { 0L }
-                ),
-                substituteExercise = SubstituteExerciseUseCase(
-                    FakeExerciseCatalog(),
-                    EmptyPlanHistoryRepository,
-                    DeterministicWorkoutPlannerEngine(FakeExerciseCatalog())
-                )
+            planBuilderActions = planBuilderActions(
+                history = FakePlanHistoryRepository(),
+                catalog = FakeExerciseCatalog()
             ),
             planHistory = EmptyPlanHistoryRepository,
             exerciseCatalog = FakeExerciseCatalog(),
@@ -161,17 +166,9 @@ class SplitBuilderViewModelTest {
                     throw PlanGenerationException(transient = true, message = "503")
                 }
             ),
-            planBuilderActions = PlanBuilderActions(
-                acceptWeeklyPlan = AcceptWeeklyPlanUseCase(
-                    FakePlanHistoryRepository(),
-                    FakeExerciseCatalog(),
-                    TimeProvider { 0L }
-                ),
-                substituteExercise = SubstituteExerciseUseCase(
-                    FakeExerciseCatalog(),
-                    EmptyPlanHistoryRepository,
-                    DeterministicWorkoutPlannerEngine(FakeExerciseCatalog())
-                )
+            planBuilderActions = planBuilderActions(
+                history = FakePlanHistoryRepository(),
+                catalog = FakeExerciseCatalog()
             ),
             planHistory = EmptyPlanHistoryRepository,
             exerciseCatalog = FakeExerciseCatalog(),
@@ -197,6 +194,40 @@ class SplitBuilderViewModelTest {
         assertEquals(PlannerEngineId.LOCAL_LLM, state.requestedEngine)
         assertEquals(PlannerEngineId.DETERMINISTIC, state.plan?.engine)
         assertTrue(state.usedFallbackEngine)
+    }
+
+    @Test
+    fun startingThePlanOpensAScheduleDialogWithOneDatePerWorkout() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = DeterministicWorkoutPlannerEngine(FakeExerciseCatalog()),
+            preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC)
+        )
+        advanceUntilIdle()
+        val plan = assertNotNull(viewModel.state.value.plan)
+
+        viewModel.onScheduleRequested()
+
+        val dialog = assertNotNull(viewModel.state.value.scheduleDialog)
+        assertEquals(plan.days.size, dialog.preview.size)
+        assertFalse(dialog.replaceActive)
+    }
+
+    @Test
+    fun dismissingTheScheduleDialogLeavesThePlanUntouched() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = DeterministicWorkoutPlannerEngine(FakeExerciseCatalog()),
+            preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC)
+        )
+        advanceUntilIdle()
+        viewModel.onScheduleRequested()
+        assertNotNull(viewModel.state.value.scheduleDialog)
+
+        viewModel.onScheduleDismissed()
+
+        assertNull(viewModel.state.value.scheduleDialog)
+        assertFalse(viewModel.state.value.isPlanAccepted)
     }
 
     @Test
@@ -677,21 +708,90 @@ class SplitBuilderViewModelTest {
                     engine ?: DeterministicWorkoutPlannerEngine(catalog)
                 }
             ),
-            planBuilderActions = PlanBuilderActions(
-                acceptWeeklyPlan = AcceptWeeklyPlanUseCase(
-                    planHistory,
-                    catalog,
-                    TimeProvider { 0L }
-                ),
-                substituteExercise = SubstituteExerciseUseCase(
-                    catalog,
-                    planHistory,
-                    DeterministicWorkoutPlannerEngine(catalog)
-                )
-            ),
+            planBuilderActions = planBuilderActions(history = planHistory, catalog = catalog),
             planHistory = planHistory,
             exerciseCatalog = catalog,
             enginePreference = preference
+        )
+    }
+
+    private fun planBuilderActions(
+        history: PlanHistoryRepository,
+        catalog: ExerciseCatalog
+    ): PlanBuilderActions {
+        val time = TimeProvider { 0L }
+        val preview = PreviewWorkoutScheduleUseCase()
+        val scheduleRepository = object : WorkoutScheduleRepository {
+            override fun observeScheduleState(): Flow<WorkoutScheduleState> =
+                flowOf(WorkoutScheduleState())
+
+            override fun observeActiveActivation(): Flow<TrainingActivation?> = flowOf(null)
+
+            override fun observeOccurrences(activationId: Long): Flow<List<WorkoutOccurrence>> =
+                flowOf(emptyList())
+
+            override suspend fun scheduleState(): WorkoutScheduleState = WorkoutScheduleState()
+
+            override suspend fun setScheduleState(state: WorkoutScheduleState) = Unit
+
+            override suspend fun activeActivation(): TrainingActivation? = null
+
+            override suspend fun getActivation(id: Long): TrainingActivation? = null
+
+            override suspend fun occurrences(activationId: Long): List<WorkoutOccurrence> =
+                emptyList()
+
+            override suspend fun getOccurrence(id: Long): WorkoutOccurrence? = null
+
+            override suspend fun insertActivation(activation: TrainingActivation): Long = 0L
+
+            override suspend fun insertOccurrences(
+                occurrences: List<WorkoutOccurrence>
+            ): List<WorkoutOccurrence> = occurrences
+
+            override suspend fun updateActivationHeader(activation: TrainingActivation) = Unit
+
+            override suspend fun updateOccurrence(occurrence: WorkoutOccurrence) = Unit
+
+            override suspend fun replaceOccurrenceEntries(
+                occurrenceId: Long,
+                entries: List<OccurrenceEntry>
+            ) = Unit
+
+            override suspend fun deleteOccurrencesForActivation(activationId: Long) = Unit
+
+            override suspend fun isTemplateReferenced(templateId: Long): Boolean = false
+        }
+        val routineRepository = object : RoutineTemplateRepository {
+            override fun observeAll(): Flow<List<RoutineTemplate>> = flowOf(emptyList())
+
+            override suspend fun get(id: Long): RoutineTemplate? = null
+
+            override suspend fun save(template: RoutineTemplate): Long = 0L
+
+            override suspend fun setArchived(id: Long, archivedAtMillis: Long?) = Unit
+
+            override suspend fun isReferencedByActivation(id: Long): Boolean = false
+
+            override suspend fun delete(id: Long) = Unit
+        }
+        return PlanBuilderActions(
+            acceptWeeklyPlan = AcceptWeeklyPlanUseCase(history, catalog, time),
+            substituteExercise = SubstituteExerciseUseCase(
+                catalog,
+                history,
+                DeterministicWorkoutPlannerEngine(catalog)
+            ),
+            planHistoryRepository = history,
+            convertPlanToTemplate = ConvertPlanToTemplateUseCase(),
+            saveRoutineTemplate = SaveRoutineTemplateUseCase(routineRepository, time),
+            activateRoutine = ActivateRoutineUseCase(
+                catalog,
+                CreateTrainingActivationUseCase(scheduleRepository, preview, time)
+            ),
+            previewWorkoutSchedule = preview,
+            scheduleRepository = scheduleRepository,
+            timeProvider = time
         )
     }
 

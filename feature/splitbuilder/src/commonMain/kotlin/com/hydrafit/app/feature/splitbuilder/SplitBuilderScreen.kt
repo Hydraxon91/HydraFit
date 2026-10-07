@@ -3,6 +3,8 @@ package com.hydrafit.app.feature.splitbuilder
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -14,14 +16,22 @@ import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -36,6 +46,8 @@ import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SwapCandidate
+import com.hydrafit.app.core.domain.schedule.ScheduleMode
+import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.isoDateUtc
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
@@ -55,6 +67,8 @@ import hydrafit.feature.splitbuilder.generated.resources.nav_label
 import hydrafit.feature.splitbuilder.generated.resources.split_accept_plan
 import hydrafit.feature.splitbuilder.generated.resources.split_accessory_sets_label
 import hydrafit.feature.splitbuilder.generated.resources.split_builder_title
+import hydrafit.feature.splitbuilder.generated.resources.split_cancel
+import hydrafit.feature.splitbuilder.generated.resources.split_confirm
 import hydrafit.feature.splitbuilder.generated.resources.split_day
 import hydrafit.feature.splitbuilder.generated.resources.split_days_label
 import hydrafit.feature.splitbuilder.generated.resources.split_delete_plan
@@ -80,7 +94,18 @@ import hydrafit.feature.splitbuilder.generated.resources.split_loading_progress
 import hydrafit.feature.splitbuilder.generated.resources.split_plan_accepted
 import hydrafit.feature.splitbuilder.generated.resources.split_regenerate
 import hydrafit.feature.splitbuilder.generated.resources.split_retry
+import hydrafit.feature.splitbuilder.generated.resources.split_save_routine
+import hydrafit.feature.splitbuilder.generated.resources.split_schedule_choose_date
+import hydrafit.feature.splitbuilder.generated.resources.split_schedule_mode_sequence
+import hydrafit.feature.splitbuilder.generated.resources.split_schedule_mode_weekday
+import hydrafit.feature.splitbuilder.generated.resources.split_schedule_no_weekday
+import hydrafit.feature.splitbuilder.generated.resources.split_schedule_preview
+import hydrafit.feature.splitbuilder.generated.resources.split_schedule_replace
+import hydrafit.feature.splitbuilder.generated.resources.split_schedule_start_today
+import hydrafit.feature.splitbuilder.generated.resources.split_schedule_title
+import hydrafit.feature.splitbuilder.generated.resources.split_schedule_weekdays
 import hydrafit.feature.splitbuilder.generated.resources.split_sets_label
+import hydrafit.feature.splitbuilder.generated.resources.split_start_block
 import hydrafit.feature.splitbuilder.generated.resources.split_suggested_weight
 import hydrafit.feature.splitbuilder.generated.resources.split_swap_action
 import hydrafit.feature.splitbuilder.generated.resources.split_swap_candidate
@@ -89,6 +114,13 @@ import hydrafit.feature.splitbuilder.generated.resources.split_swap_dialog_empty
 import hydrafit.feature.splitbuilder.generated.resources.split_swap_dialog_title
 import hydrafit.feature.splitbuilder.generated.resources.split_swap_no_candidates
 import hydrafit.feature.splitbuilder.generated.resources.split_week
+import hydrafit.feature.splitbuilder.generated.resources.weekday_friday
+import hydrafit.feature.splitbuilder.generated.resources.weekday_monday
+import hydrafit.feature.splitbuilder.generated.resources.weekday_saturday
+import hydrafit.feature.splitbuilder.generated.resources.weekday_sunday
+import hydrafit.feature.splitbuilder.generated.resources.weekday_thursday
+import hydrafit.feature.splitbuilder.generated.resources.weekday_tuesday
+import hydrafit.feature.splitbuilder.generated.resources.weekday_wednesday
 import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -128,6 +160,8 @@ fun SplitBuilderRoute(
         onSetsPerExerciseChanged = viewModel::onSetsPerExerciseChanged,
         onAccessorySetsPerExerciseChanged = viewModel::onAccessorySetsPerExerciseChanged,
         onAcceptPlan = viewModel::onAcceptPlan,
+        onSchedulePlan = viewModel::onScheduleRequested,
+        onSaveAsRoutine = viewModel::onSaveAsRoutine,
         onRegenerate = viewModel::refresh,
         onViewAcceptedPlan = viewModel::onViewAcceptedPlan,
         onDeletePlan = viewModel::onDeletePlan,
@@ -137,6 +171,9 @@ fun SplitBuilderRoute(
         onRetry = viewModel::refresh,
         modifier = modifier
     )
+    state.scheduleDialog?.let { dialog ->
+        SplitScheduleDialog(dialog = dialog, viewModel = viewModel)
+    }
 }
 
 @Composable
@@ -148,6 +185,8 @@ fun SplitBuilderScreen(
     onSetsPerExerciseChanged: (Int) -> Unit,
     onAccessorySetsPerExerciseChanged: (Int) -> Unit,
     onAcceptPlan: () -> Unit,
+    onSchedulePlan: () -> Unit,
+    onSaveAsRoutine: () -> Unit,
     onRegenerate: () -> Unit,
     onViewAcceptedPlan: (AcceptedPlan) -> Unit,
     onDeletePlan: (AcceptedPlan) -> Unit,
@@ -271,6 +310,14 @@ fun SplitBuilderScreen(
             } else {
                 Button(onClick = onAcceptPlan) {
                     Text(stringResource(Res.string.split_accept_plan))
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onSchedulePlan) {
+                    Text(stringResource(Res.string.split_start_block))
+                }
+                TextButton(onClick = onSaveAsRoutine) {
+                    Text(stringResource(Res.string.split_save_routine))
                 }
             }
             Button(onClick = onRegenerate, enabled = state.canRegenerate) {
@@ -461,4 +508,142 @@ private fun PlanFailureReason?.reasonMessage(): StringResource? = when (this) {
     PlanFailureReason.INVALID_REQUEST -> Res.string.split_error_invalid_request
     PlanFailureReason.INVALID_RESPONSE -> Res.string.split_error_invalid_response
     PlanFailureReason.UNKNOWN, null -> null
+}
+
+private const val MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun SplitScheduleDialog(
+    dialog: SplitScheduleDialogState,
+    viewModel: SplitBuilderViewModel
+) {
+    var showDatePicker by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = viewModel::onScheduleDismissed,
+        title = { Text(stringResource(Res.string.split_schedule_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = dialog.mode == ScheduleMode.WEEKDAY,
+                        onClick = { viewModel.onScheduleModeChanged(ScheduleMode.WEEKDAY) },
+                        label = { Text(stringResource(Res.string.split_schedule_mode_weekday)) }
+                    )
+                    FilterChip(
+                        selected = dialog.mode == ScheduleMode.SEQUENCE,
+                        onClick = { viewModel.onScheduleModeChanged(ScheduleMode.SEQUENCE) },
+                        label = { Text(stringResource(Res.string.split_schedule_mode_sequence)) }
+                    )
+                }
+                if (dialog.mode == ScheduleMode.WEEKDAY) {
+                    Text(stringResource(Res.string.split_schedule_weekdays))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        DayOfWeek.entries.forEach { day ->
+                            FilterChip(
+                                selected = day in dialog.weekdays,
+                                onClick = { viewModel.onScheduleWeekdayToggled(day) },
+                                label = { Text(weekdayLabel(day)) }
+                            )
+                        }
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(stringResource(Res.string.split_schedule_start_today))
+                        Switch(
+                            checked = dialog.startToday,
+                            onCheckedChange = viewModel::onScheduleStartTodayChanged
+                        )
+                        TextButton(onClick = { showDatePicker = true }) {
+                            Text(stringResource(Res.string.split_schedule_choose_date))
+                        }
+                    }
+                    Text(
+                        text = isoDateUtc(dialog.startEpochDay * MILLIS_PER_DAY),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        text = stringResource(Res.string.split_schedule_preview),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    dialog.preview.forEach { day ->
+                        Text(
+                            text = day?.let { isoDateUtc(it * MILLIS_PER_DAY) }.orEmpty(),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(stringResource(Res.string.split_schedule_replace))
+                    Switch(
+                        checked = dialog.replaceActive,
+                        onCheckedChange = viewModel::onScheduleReplaceActiveChanged
+                    )
+                }
+                dialog.error?.let { error ->
+                    Text(
+                        text = if (error == "weekdays") {
+                            stringResource(Res.string.split_schedule_no_weekday)
+                        } else {
+                            error
+                        },
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = viewModel::onConfirmSchedule) {
+                Text(stringResource(Res.string.split_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = viewModel::onScheduleDismissed) {
+                Text(stringResource(Res.string.split_cancel))
+            }
+        }
+    )
+    if (showDatePicker) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = dialog.startEpochDay * MILLIS_PER_DAY
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pickerState.selectedDateMillis?.let { millis ->
+                            viewModel.onScheduleStartDateChosen(millis / MILLIS_PER_DAY)
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text(stringResource(Res.string.split_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text(stringResource(Res.string.split_cancel))
+                }
+            }
+        ) {
+            DatePicker(state = pickerState)
+        }
+    }
+}
+
+@Composable
+private fun weekdayLabel(day: DayOfWeek): String = when (day) {
+    DayOfWeek.MONDAY -> stringResource(Res.string.weekday_monday)
+    DayOfWeek.TUESDAY -> stringResource(Res.string.weekday_tuesday)
+    DayOfWeek.WEDNESDAY -> stringResource(Res.string.weekday_wednesday)
+    DayOfWeek.THURSDAY -> stringResource(Res.string.weekday_thursday)
+    DayOfWeek.FRIDAY -> stringResource(Res.string.weekday_friday)
+    DayOfWeek.SATURDAY -> stringResource(Res.string.weekday_saturday)
+    DayOfWeek.SUNDAY -> stringResource(Res.string.weekday_sunday)
 }

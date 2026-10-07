@@ -5,6 +5,19 @@ import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SwapCandidate
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
+import com.hydrafit.app.core.domain.schedule.ScheduleMode
+import com.hydrafit.app.core.domain.time.DayOfWeek
+
+/** The scheduling choices shown when a generated plan is started as a block. */
+data class SplitScheduleDialogState(
+    val mode: ScheduleMode = ScheduleMode.WEEKDAY,
+    val weekdays: Set<DayOfWeek> = setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY),
+    val startToday: Boolean = true,
+    val startEpochDay: Long,
+    val preview: List<Long?> = emptyList(),
+    val replaceActive: Boolean = false,
+    val error: String? = null
+)
 
 data class SplitBuilderUiState(
     val daysPerWeek: Int = 4,
@@ -29,7 +42,11 @@ data class SplitBuilderUiState(
     val swapTargetPosition: Int? = null,
     val swapCandidates: List<SwapCandidate> = emptyList(),
     /** True when a selected candidate could not be applied (it became unavailable or sore). */
-    val swapNoCandidates: Boolean = false
+    val swapNoCandidates: Boolean = false,
+    /** True when a training block is already active, so starting a new one would replace it. */
+    val hasActiveBlock: Boolean = false,
+    /** The schedule dialog shown when starting the plan as a block; null when closed. */
+    val scheduleDialog: SplitScheduleDialogState? = null
 ) {
     val usedFallbackEngine: Boolean
         get() = plan != null && requestedEngine != null && plan.engine != requestedEngine

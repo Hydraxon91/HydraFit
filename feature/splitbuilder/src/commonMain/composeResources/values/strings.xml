@@ -47,4 +47,24 @@
     <string name="split_swap_dialog_empty">No substitute available</string>
     <string name="split_swap_dialog_cancel">Cancel</string>
     <string name="split_swap_no_candidates">No alternative available</string>
+    <string name="split_start_block">Start block</string>
+    <string name="split_save_routine">Save as routine</string>
+    <string name="split_schedule_title">Start training block</string>
+    <string name="split_schedule_mode_weekday">Chosen weekdays</string>
+    <string name="split_schedule_mode_sequence">Next workout</string>
+    <string name="split_schedule_weekdays">Training days</string>
+    <string name="split_schedule_start_today">Start today</string>
+    <string name="split_schedule_choose_date">Choose start date</string>
+    <string name="split_schedule_preview">First dates</string>
+    <string name="split_schedule_replace">Cancel the current block and start this one</string>
+    <string name="split_schedule_no_weekday">Pick at least one training day</string>
+    <string name="split_confirm">Confirm</string>
+    <string name="split_cancel">Cancel</string>
+    <string name="weekday_monday">Mon</string>
+    <string name="weekday_tuesday">Tue</string>
+    <string name="weekday_wednesday">Wed</string>
+    <string name="weekday_thursday">Thu</string>
+    <string name="weekday_friday">Fri</string>
+    <string name="weekday_saturday">Sat</string>
+    <string name="weekday_sunday">Sun</string>
 </resources>
