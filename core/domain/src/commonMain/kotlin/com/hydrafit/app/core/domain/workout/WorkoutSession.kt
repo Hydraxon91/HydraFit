@@ -10,5 +10,7 @@ data class WorkoutSession(
     val id: String,
     val startedAtMillis: Long,
     val endedAtMillis: Long? = null,
-    val localEpochDay: Long
+    val localEpochDay: Long,
+    /** The scheduled occurrence this session was started for, when it belongs to one. */
+    val occurrenceId: Long? = null
 )

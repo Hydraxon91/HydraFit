@@ -13,12 +13,17 @@ class SqlDelightWorkoutSessionRepository(private val database: HydraFitDatabase)
     private val sessionQueries = database.workoutSessionQueries
 
     override suspend fun create(session: WorkoutSession) {
-        sessionQueries.insertSession(
-            id = session.id,
-            startedAtMillis = session.startedAtMillis,
-            endedAtMillis = session.endedAtMillis,
-            localEpochDay = session.localEpochDay
-        )
+        sessionQueries.transaction {
+            sessionQueries.insertSession(
+                id = session.id,
+                startedAtMillis = session.startedAtMillis,
+                endedAtMillis = session.endedAtMillis,
+                localEpochDay = session.localEpochDay
+            )
+            session.occurrenceId?.let { occurrenceId ->
+                sessionQueries.assignOccurrence(occurrenceId = occurrenceId, id = session.id)
+            }
+        }
     }
 
     override suspend fun end(id: String, endedAtMillis: Long) {

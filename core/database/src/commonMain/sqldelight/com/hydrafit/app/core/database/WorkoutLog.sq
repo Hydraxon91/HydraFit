@@ -11,12 +11,17 @@ CREATE TABLE workoutSet (
     dayIndex INTEGER,
     rir INTEGER,
     sessionId TEXT,
+    occurrenceId INTEGER,
+    occurrenceEntryId INTEGER,
     FOREIGN KEY (exerciseId) REFERENCES exercise(id)
 );
 
 insertSet:
 INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber, dayIndex, rir, sessionId)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+lastInsertedSetId:
+SELECT last_insert_rowid();
 
 selectAllSets:
 SELECT * FROM workoutSet ORDER BY performedAt, id;
@@ -26,6 +31,15 @@ SELECT * FROM workoutSet WHERE sessionId = ? ORDER BY performedAt DESC, id DESC 
 
 assignSession:
 UPDATE workoutSet SET sessionId = ? WHERE id = ?;
+
+assignOccurrence:
+UPDATE workoutSet SET occurrenceId = ?, occurrenceEntryId = ? WHERE id = ?;
+
+selectSetsForOccurrence:
+SELECT * FROM workoutSet WHERE occurrenceId = ? ORDER BY performedAt, id;
+
+selectSetsForOccurrenceEntry:
+SELECT * FROM workoutSet WHERE occurrenceEntryId = ? ORDER BY performedAt, id;
 
 updateSetPerformedAt:
 UPDATE workoutSet SET performedAt = ? WHERE id = ?;

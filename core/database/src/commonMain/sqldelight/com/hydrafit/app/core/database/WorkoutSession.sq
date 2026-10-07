@@ -2,12 +2,16 @@ CREATE TABLE workoutSession (
     id TEXT NOT NULL PRIMARY KEY,
     startedAtMillis INTEGER NOT NULL,
     endedAtMillis INTEGER,
-    localEpochDay INTEGER NOT NULL
+    localEpochDay INTEGER NOT NULL,
+    occurrenceId INTEGER
 );
 
 insertSession:
 INSERT INTO workoutSession(id, startedAtMillis, endedAtMillis, localEpochDay)
 VALUES (?, ?, ?, ?);
+
+assignOccurrence:
+UPDATE workoutSession SET occurrenceId = ? WHERE id = ?;
 
 endSession:
 UPDATE workoutSession SET endedAtMillis = ? WHERE id = ?;

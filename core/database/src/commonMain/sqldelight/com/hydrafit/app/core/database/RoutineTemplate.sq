@@ -86,6 +86,12 @@ SELECT last_insert_rowid();
 setArchived:
 UPDATE routineTemplate SET archivedAtMillis = ? WHERE id = ?;
 
+countRoutineEntriesForExercise:
+SELECT COUNT(*) FROM routineEntry WHERE exerciseId = ?;
+
+updateRoutineEntryExerciseId:
+UPDATE routineEntry SET exerciseId = :newId WHERE exerciseId = :oldId;
+
 deleteEntry:
 DELETE FROM routineEntry WHERE id = ?;
 

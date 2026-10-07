@@ -31,6 +31,20 @@ class CustomExerciseDedupe(private val database: HydraFitDatabase) {
                     newId = canonical.id,
                     oldId = custom.id
                 )
+                database.routineTemplateQueries.updateRoutineEntryExerciseId(
+                    newId = canonical.id,
+                    oldId = custom.id
+                )
+                // Frozen activation/occurrence snapshots keep their recorded name but follow the
+                // canonical id, matching how accepted-plan history is remapped.
+                database.trainingScheduleQueries.updateActivationEntryExerciseId(
+                    newId = canonical.id,
+                    oldId = custom.id
+                )
+                database.trainingScheduleQueries.updateOccurrenceEntryExerciseId(
+                    newId = canonical.id,
+                    oldId = custom.id
+                )
                 mergePersonalRecord(custom.id, canonical.id)
                 mergeOverride(custom, canonical)
                 database.exerciseOverrideQueries.deleteById(custom.id)

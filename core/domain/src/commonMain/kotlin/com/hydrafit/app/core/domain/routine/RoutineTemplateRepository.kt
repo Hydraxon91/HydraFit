@@ -14,6 +14,9 @@ interface RoutineTemplateRepository {
 
     suspend fun setArchived(id: Long, archivedAtMillis: Long?)
 
+    /** True when any activation references this template; a referenced template cannot be deleted. */
+    suspend fun isReferencedByActivation(id: Long): Boolean
+
     /** Hard-deletes a template with its workouts and entries. */
     suspend fun delete(id: Long)
 }

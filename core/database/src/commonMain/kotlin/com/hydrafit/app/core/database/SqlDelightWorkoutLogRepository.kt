@@ -22,19 +22,28 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
         // later catalog edits can't rewrite history.
         val seed = exerciseQueries.selectById(set.exerciseId).executeAsOneOrNull()
         val override = overrideQueries.selectById(set.exerciseId).executeAsOneOrNull()
-        setQueries.insertSet(
-            exerciseId = set.exerciseId,
-            reps = set.reps.toLong(),
-            weightKg = set.weightKg,
-            performedAt = set.performedAtMillis,
-            isWarmup = if (set.isWarmup) 1L else 0L,
-            involvements = override?.involvements ?: seed?.involvements,
-            weekNumber = set.weekNumber?.toLong(),
-            cycleNumber = set.cycleNumber?.toLong(),
-            dayIndex = set.dayIndex?.toLong(),
-            rir = set.rir?.toLong(),
-            sessionId = set.sessionId
-        )
+        setQueries.transaction {
+            setQueries.insertSet(
+                exerciseId = set.exerciseId,
+                reps = set.reps.toLong(),
+                weightKg = set.weightKg,
+                performedAt = set.performedAtMillis,
+                isWarmup = if (set.isWarmup) 1L else 0L,
+                involvements = override?.involvements ?: seed?.involvements,
+                weekNumber = set.weekNumber?.toLong(),
+                cycleNumber = set.cycleNumber?.toLong(),
+                dayIndex = set.dayIndex?.toLong(),
+                rir = set.rir?.toLong(),
+                sessionId = set.sessionId
+            )
+            if (set.occurrenceId != null || set.occurrenceEntryId != null) {
+                setQueries.assignOccurrence(
+                    occurrenceId = set.occurrenceId,
+                    occurrenceEntryId = set.occurrenceEntryId,
+                    id = setQueries.lastInsertedSetId().executeAsOne()
+                )
+            }
+        }
     }
 
     override suspend fun assignSession(setId: Long, sessionId: String) {

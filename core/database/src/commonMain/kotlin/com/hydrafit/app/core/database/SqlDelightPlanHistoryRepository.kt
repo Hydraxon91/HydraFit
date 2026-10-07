@@ -13,7 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 
-class SqlDelightPlanHistoryRepository(database: HydraFitDatabase) : PlanHistoryRepository {
+class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) : PlanHistoryRepository {
     private val queries = database.planHistoryQueries
 
     override fun observeLatest(): Flow<AcceptedPlan?> {
@@ -92,6 +92,8 @@ class SqlDelightPlanHistoryRepository(database: HydraFitDatabase) : PlanHistoryR
 
     override suspend fun delete(planId: Long) {
         queries.transaction {
+            // An activation keeps its snapshot but loses the now-dangling source-plan provenance.
+            database.trainingScheduleQueries.clearActivationSourcePlan(planId)
             queries.deleteEntriesForPlan(planId)
             queries.deleteDaysForPlan(planId)
             queries.deletePlan(planId)
@@ -100,6 +102,7 @@ class SqlDelightPlanHistoryRepository(database: HydraFitDatabase) : PlanHistoryR
 
     override suspend fun clear() {
         queries.transaction {
+            database.trainingScheduleQueries.clearAllActivationSourcePlans()
             queries.deleteAllEntries()
             queries.deleteAllDays()
             queries.deleteAllPlans()

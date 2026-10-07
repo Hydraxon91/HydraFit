@@ -11,7 +11,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 
-class SqlDelightRoutineTemplateRepository(database: HydraFitDatabase) : RoutineTemplateRepository {
+class SqlDelightRoutineTemplateRepository(private val database: HydraFitDatabase) :
+    RoutineTemplateRepository {
     private val queries = database.routineTemplateQueries
 
     override fun observeAll(): Flow<List<DomainRoutineTemplate>> {
@@ -117,6 +118,9 @@ class SqlDelightRoutineTemplateRepository(database: HydraFitDatabase) : RoutineT
     override suspend fun setArchived(id: Long, archivedAtMillis: Long?) {
         queries.setArchived(archivedAtMillis = archivedAtMillis, id = id)
     }
+
+    override suspend fun isReferencedByActivation(id: Long): Boolean =
+        database.trainingScheduleQueries.countActivationsForTemplate(id).executeAsOne() > 0L
 
     override suspend fun delete(id: Long) {
         queries.transaction {

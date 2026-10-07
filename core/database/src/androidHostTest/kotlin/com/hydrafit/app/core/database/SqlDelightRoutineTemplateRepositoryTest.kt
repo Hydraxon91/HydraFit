@@ -10,6 +10,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
@@ -131,6 +132,30 @@ class SqlDelightRoutineTemplateRepositoryTest {
         assertEquals(0, database.routineTemplateQueries.selectAllWorkouts().executeAsList().size)
         assertEquals(0, database.routineTemplateQueries.selectAllEntries().executeAsList().size)
         assertEquals(0, database.routineTemplateQueries.selectAllTemplates().executeAsList().size)
+    }
+
+    @Test
+    fun aTemplateReferencedByAnActivationReportsAsReferenced() = runTest {
+        val id = repository.save(template(name = "Upper"))
+        assertFalse(repository.isReferencedByActivation(id))
+
+        database.trainingScheduleQueries.insertActivation(
+            templateId = id,
+            templateRevision = 1L,
+            sourcePlanId = null,
+            name = "Block",
+            createdAtMillis = 1L,
+            startEpochDay = 0L,
+            mode = "WEEKDAY",
+            weekdayMask = 1L,
+            status = "ACTIVE",
+            weekNumber = null,
+            cycleNumber = null,
+            endedAtMillis = null,
+            revision = 1L
+        )
+
+        assertTrue(repository.isReferencedByActivation(id))
     }
 
     private fun template(

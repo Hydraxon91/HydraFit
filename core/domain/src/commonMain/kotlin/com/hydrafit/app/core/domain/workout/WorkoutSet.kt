@@ -14,5 +14,9 @@ data class WorkoutSet(
     /** Optional reps in reserve (0..10); null when the user did not record effort. */
     val rir: Int? = null,
     /** The explicit workout session this set belongs to; null for legacy/unsegmented rows. */
-    val sessionId: String? = null
+    val sessionId: String? = null,
+    /** The scheduled occurrence this set fulfils, when it was logged against one. */
+    val occurrenceId: Long? = null,
+    /** The occurrence's prescription slot this set fulfils, when it was logged against one. */
+    val occurrenceEntryId: Long? = null
 )

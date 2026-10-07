@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.database
 
+import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import kotlin.test.AfterTest
@@ -30,17 +31,43 @@ class SessionIdMigrationTest {
 
         HydraFitDatabase.Schema.migrate(driver, 24, 25)
 
-        val row = HydraFitDatabase(driver).workoutLogQueries.selectAllSets().executeAsOne()
-        assertNull(row.sessionId)
-        assertEquals(5L, row.reps)
-        assertEquals(50.0, row.weightKg)
-        assertEquals("CHEST:1.0", row.involvements)
-        assertEquals(2L, row.weekNumber)
-        assertEquals(3L, row.rir)
+        // Read the scoped old schema directly: the current generated workoutSet query expects the
+        // later occurrence columns, which do not exist at v25.
+        val row = driver.executeQuery(
+            identifier = null,
+            sql = "SELECT sessionId, reps, weightKg, involvements, weekNumber, rir FROM workoutSet",
+            mapper = { cursor ->
+                cursor.next()
+                QueryResult.Value(
+                    listOf<Any?>(
+                        cursor.getString(0),
+                        cursor.getLong(1),
+                        cursor.getDouble(2),
+                        cursor.getString(3),
+                        cursor.getLong(4),
+                        cursor.getLong(5)
+                    )
+                )
+            },
+            parameters = 0
+        ).value
+        assertNull(row[0])
+        assertEquals(5L, row[1])
+        assertEquals(50.0, row[2])
+        assertEquals("CHEST:1.0", row[3])
+        assertEquals(2L, row[4])
+        assertEquals(3L, row[5])
 
-        val sessions = HydraFitDatabase(driver).workoutSessionQueries.selectAllSessions()
-            .executeAsList()
-        assertTrue(sessions.isEmpty())
+        val sessions = driver.executeQuery(
+            identifier = null,
+            sql = "SELECT COUNT(*) FROM workoutSession",
+            mapper = { cursor ->
+                cursor.next()
+                QueryResult.Value(cursor.getLong(0))
+            },
+            parameters = 0
+        ).value
+        assertTrue(sessions == 0L)
     }
 
     /** The v24 shape: workoutSet has rir but no sessionId, and workoutSession does not exist. */

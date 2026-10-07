@@ -4,6 +4,7 @@ import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
+import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.startup.StartupReadiness
 import com.hydrafit.app.core.domain.workout.SessionResegmenter
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
@@ -40,6 +41,7 @@ val databaseModule: Module = module {
     single<WeightUnitRepository> { SqlDelightWeightUnitRepository(get()) }
     single<PlanHistoryRepository> { SqlDelightPlanHistoryRepository(get()) }
     single<RoutineTemplateRepository> { SqlDelightRoutineTemplateRepository(get()) }
+    single<WorkoutScheduleRepository> { SqlDelightWorkoutScheduleRepository(get()) }
     single<PersonalRecordRepository> { SqlDelightPersonalRecordRepository(get(), get()) }
     single<WorkoutPlanSourcesRepository> {
         SqlDelightWorkoutPlanSourcesRepository(get(), get(), get(), get(), get(), get())

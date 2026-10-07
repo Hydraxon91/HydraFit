@@ -58,6 +58,9 @@ SELECT * FROM planHistoryEntry WHERE dayId = ? ORDER BY position;
 updateEntryExerciseId:
 UPDATE planHistoryEntry SET exerciseId = :newId WHERE exerciseId = :oldId;
 
+countEntriesForExercise:
+SELECT COUNT(*) FROM planHistoryEntry WHERE exerciseId = ?;
+
 updateEntryExerciseIdAtPosition:
 UPDATE planHistoryEntry
 SET exerciseId = :newExerciseId, exerciseName = :newExerciseName, suggestedWeightKg = :newWeightKg

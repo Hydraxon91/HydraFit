@@ -14,12 +14,15 @@ internal fun WorkoutSet.toDomain(): DomainWorkoutSet = DomainWorkoutSet(
     cycleNumber = cycleNumber?.toInt(),
     dayIndex = dayIndex?.toInt(),
     rir = rir?.toInt(),
-    sessionId = sessionId
+    sessionId = sessionId,
+    occurrenceId = occurrenceId,
+    occurrenceEntryId = occurrenceEntryId
 )
 
 internal fun WorkoutSession.toDomain(): DomainWorkoutSession = DomainWorkoutSession(
     id = id,
     startedAtMillis = startedAtMillis,
     endedAtMillis = endedAtMillis,
-    localEpochDay = localEpochDay
+    localEpochDay = localEpochDay,
+    occurrenceId = occurrenceId
 )

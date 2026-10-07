@@ -317,6 +317,18 @@ class RoutineTemplateUseCasesTest {
     }
 
     @Test
+    fun aTemplateUsedByABlockCanOnlyBeArchived() = runTest {
+        val repository = FakeRoutineTemplateRepository()
+        val saver = save(repository)
+        val delete = DeleteRoutineTemplateUseCase(repository)
+        val saved = saver(RoutineTemplate(name = "Upper", workouts = listOf(RoutineWorkout(name = "Day 1"))))
+        repository.referencedTemplates = setOf(saved.id)
+
+        assertRoutineFailure { delete(saved.id) }
+        assertEquals(saved.id, repository.get(saved.id)?.id)
+    }
+
+    @Test
     fun convertsAnAcceptedPlanIntoAnEditableTemplate() {
         val plan = AcceptedPlan(
             engine = PlannerEngineId.DETERMINISTIC,
@@ -389,6 +401,10 @@ private class FakeRoutineTemplateRepository : RoutineTemplateRepository {
             if (it.id == id) it.copy(archivedAtMillis = archivedAtMillis) else it
         }
     }
+
+    var referencedTemplates: Set<Long> = emptySet()
+
+    override suspend fun isReferencedByActivation(id: Long): Boolean = id in referencedTemplates
 
     override suspend fun delete(id: Long) {
         templates.value = templates.value.filterNot { it.id == id }

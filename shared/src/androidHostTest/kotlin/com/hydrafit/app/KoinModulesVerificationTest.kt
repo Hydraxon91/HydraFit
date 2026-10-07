@@ -244,6 +244,8 @@ class KoinModulesVerificationTest {
 
         override suspend fun setArchived(id: Long, archivedAtMillis: Long?) = Unit
 
+        override suspend fun isReferencedByActivation(id: Long): Boolean = false
+
         override suspend fun delete(id: Long) = Unit
     }
 }

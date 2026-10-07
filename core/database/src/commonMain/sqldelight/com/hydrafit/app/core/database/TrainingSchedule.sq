@@ -1,0 +1,208 @@
+CREATE TABLE trainingActivation (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    templateId INTEGER,
+    templateRevision INTEGER,
+    sourcePlanId INTEGER,
+    name TEXT NOT NULL,
+    createdAtMillis INTEGER NOT NULL,
+    startEpochDay INTEGER NOT NULL,
+    mode TEXT NOT NULL,
+    weekdayMask INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    weekNumber INTEGER,
+    cycleNumber INTEGER,
+    endedAtMillis INTEGER,
+    revision INTEGER NOT NULL
+);
+
+CREATE TABLE activationWorkout (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    activationId INTEGER NOT NULL,
+    sourceWorkoutId INTEGER,
+    position INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    focus TEXT,
+    FOREIGN KEY (activationId) REFERENCES trainingActivation(id)
+);
+
+CREATE TABLE activationEntry (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    workoutId INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    exerciseId TEXT NOT NULL,
+    exerciseName TEXT NOT NULL,
+    movementPattern TEXT NOT NULL,
+    requiredEquipment TEXT NOT NULL,
+    involvements TEXT,
+    isUnilateral INTEGER NOT NULL DEFAULT 0,
+    sets INTEGER NOT NULL,
+    reps INTEGER NOT NULL,
+    weightKg REAL,
+    FOREIGN KEY (workoutId) REFERENCES activationWorkout(id)
+);
+
+CREATE TABLE workoutOccurrence (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    activationId INTEGER NOT NULL,
+    activationWorkoutId INTEGER NOT NULL,
+    queuePosition INTEGER NOT NULL,
+    scheduledEpochDay INTEGER,
+    notBeforeEpochDay INTEGER,
+    startedAtMillis INTEGER,
+    resolvedAtMillis INTEGER,
+    status TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    FOREIGN KEY (activationId) REFERENCES trainingActivation(id)
+);
+
+CREATE TABLE occurrenceEntry (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    occurrenceId INTEGER NOT NULL,
+    sourceActivationEntryId INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    exerciseId TEXT NOT NULL,
+    exerciseName TEXT NOT NULL,
+    movementPattern TEXT NOT NULL,
+    requiredEquipment TEXT NOT NULL,
+    involvements TEXT,
+    isUnilateral INTEGER NOT NULL DEFAULT 0,
+    sets INTEGER NOT NULL,
+    reps INTEGER NOT NULL,
+    weightKg REAL,
+    remainingDisposition TEXT,
+    terminalRemainingSets INTEGER,
+    FOREIGN KEY (occurrenceId) REFERENCES workoutOccurrence(id)
+);
+
+CREATE TABLE workoutScheduleState (
+    id INTEGER NOT NULL PRIMARY KEY,
+    activeActivationId INTEGER,
+    selectedOccurrenceId INTEGER,
+    legacyFallbackEnabled INTEGER NOT NULL DEFAULT 1
+);
+
+insertActivation:
+INSERT INTO trainingActivation(templateId, templateRevision, sourcePlanId, name, createdAtMillis, startEpochDay, mode, weekdayMask, status, weekNumber, cycleNumber, endedAtMillis, revision)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+lastInsertedActivationId:
+SELECT last_insert_rowid();
+
+selectActivationById:
+SELECT * FROM trainingActivation WHERE id = ?;
+
+selectActiveActivation:
+SELECT * FROM trainingActivation WHERE status = 'ACTIVE' ORDER BY id DESC LIMIT 1;
+
+selectAllActivations:
+SELECT * FROM trainingActivation ORDER BY id DESC;
+
+updateActivationHeader:
+UPDATE trainingActivation
+SET name = ?, mode = ?, weekdayMask = ?, status = ?, endedAtMillis = ?, revision = ?
+WHERE id = ?;
+
+countActivationsForTemplate:
+SELECT COUNT(*) FROM trainingActivation WHERE templateId = ?;
+
+clearActivationSourcePlan:
+UPDATE trainingActivation SET sourcePlanId = NULL WHERE sourcePlanId = ?;
+
+clearAllActivationSourcePlans:
+UPDATE trainingActivation SET sourcePlanId = NULL;
+
+countActivationEntriesForExercise:
+SELECT COUNT(*) FROM activationEntry WHERE exerciseId = ?;
+
+countOccurrenceEntriesForExercise:
+SELECT COUNT(*) FROM occurrenceEntry WHERE exerciseId = ?;
+
+updateActivationEntryExerciseId:
+UPDATE activationEntry SET exerciseId = :newId WHERE exerciseId = :oldId;
+
+updateOccurrenceEntryExerciseId:
+UPDATE occurrenceEntry SET exerciseId = :newId WHERE exerciseId = :oldId;
+
+insertActivationWorkout:
+INSERT INTO activationWorkout(activationId, sourceWorkoutId, position, name, focus)
+VALUES (?, ?, ?, ?, ?);
+
+lastInsertedActivationWorkoutId:
+SELECT last_insert_rowid();
+
+selectActivationWorkoutsForActivation:
+SELECT * FROM activationWorkout WHERE activationId = ? ORDER BY position;
+
+selectAllActivationWorkouts:
+SELECT * FROM activationWorkout ORDER BY activationId, position;
+
+insertActivationEntry:
+INSERT INTO activationEntry(workoutId, position, exerciseId, exerciseName, movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, weightKg)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+lastInsertedActivationEntryId:
+SELECT last_insert_rowid();
+
+selectActivationEntriesForWorkout:
+SELECT * FROM activationEntry WHERE workoutId = ? ORDER BY position;
+
+selectAllActivationEntries:
+SELECT * FROM activationEntry ORDER BY workoutId, position;
+
+insertOccurrence:
+INSERT INTO workoutOccurrence(activationId, activationWorkoutId, queuePosition, scheduledEpochDay, notBeforeEpochDay, startedAtMillis, resolvedAtMillis, status, revision)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+lastInsertedOccurrenceId:
+SELECT last_insert_rowid();
+
+selectOccurrenceById:
+SELECT * FROM workoutOccurrence WHERE id = ?;
+
+selectOccurrencesForActivation:
+SELECT * FROM workoutOccurrence WHERE activationId = ? ORDER BY queuePosition;
+
+selectAllOccurrences:
+SELECT * FROM workoutOccurrence ORDER BY activationId, queuePosition;
+
+updateOccurrence:
+UPDATE workoutOccurrence
+SET queuePosition = ?, scheduledEpochDay = ?, notBeforeEpochDay = ?, startedAtMillis = ?, resolvedAtMillis = ?, status = ?, revision = ?
+WHERE id = ?;
+
+deleteOccurrencesForActivation:
+DELETE FROM workoutOccurrence WHERE activationId = ?;
+
+insertOccurrenceEntry:
+INSERT INTO occurrenceEntry(occurrenceId, sourceActivationEntryId, position, exerciseId, exerciseName, movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, weightKg, remainingDisposition, terminalRemainingSets)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+lastInsertedOccurrenceEntryId:
+SELECT last_insert_rowid();
+
+updateOccurrenceEntry:
+UPDATE occurrenceEntry
+SET position = ?, exerciseId = ?, exerciseName = ?, movementPattern = ?, requiredEquipment = ?, involvements = ?, isUnilateral = ?, sets = ?, reps = ?, weightKg = ?, remainingDisposition = ?, terminalRemainingSets = ?
+WHERE id = ?;
+
+selectOccurrenceEntriesForOccurrence:
+SELECT * FROM occurrenceEntry WHERE occurrenceId = ? ORDER BY position;
+
+selectAllOccurrenceEntries:
+SELECT * FROM occurrenceEntry ORDER BY occurrenceId, position;
+
+selectOccurrenceEntryIdsForOccurrence:
+SELECT id FROM occurrenceEntry WHERE occurrenceId = ?;
+
+deleteOccurrenceEntry:
+DELETE FROM occurrenceEntry WHERE id = ?;
+
+deleteOccurrenceEntriesForOccurrence:
+DELETE FROM occurrenceEntry WHERE occurrenceId = ?;
+
+selectScheduleState:
+SELECT * FROM workoutScheduleState WHERE id = 1;
+
+upsertScheduleState:
+INSERT OR REPLACE INTO workoutScheduleState(id, activeActivationId, selectedOccurrenceId, legacyFallbackEnabled)
+VALUES (1, ?, ?, ?);
