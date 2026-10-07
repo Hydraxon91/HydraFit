@@ -228,6 +228,9 @@ sets × involvement weight; it is planned volume, not performed-history volume
 or a validated direct/indirect hypertrophy conversion. Accessories fill toward
 four exercises/day, then chase deficits up to six. Unfilled targets are possible;
 there is no direct-arm quota or final minimum-volume repair pass.
+The ordering lives in `DeterministicWorkoutPlannerEngine.rankCandidates` (with
+`pickFirstNonSore` for the skip); `SubstituteExerciseUseCase` reuses both to swap
+one slot of an accepted plan, so a replacement is ranked like a fresh pick.
 Weighted fatigue is the maximum of
 `involvementWeight * muscleFatigue`; skip/reduce decisions instead use raw
 fatigue of targeted muscles. The engine reads `reduceThreshold`, `skipThreshold`
@@ -318,7 +321,9 @@ Schema directory:
 
 Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseOverride.sq`,
 `PersonalRecord.sq`, `PlanHistory.sq`, `PlannerEngine.sq`, `UserEquipment.sq`,
-and `WorkoutLog.sq`.
+and `WorkoutLog.sq`. `PlanHistory.sq`'s `updateEntryExerciseIdAtPosition` swaps
+one entry's `exerciseId`/`exerciseName`/`suggestedWeightKg` in place (no schema
+change) for `SubstituteExerciseUseCase`; the entry's `sets`/`reps` are untouched.
 
 `N.sqm` migrates from version N to N+1. At authoring, migrations were `1.sqm`
 through `22.sqm`, producing schema 23. Determine the next version from the
@@ -375,7 +380,7 @@ Composition files:
 
 | Location | Export / responsibility |
 | --- | --- |
-| Shell `DomainModule.kt` | `domainModule`: use cases, configs, deterministic/local engines, provider |
+| Shell `DomainModule.kt` | `domainModule`: use cases (incl. `SubstituteExerciseUseCase` / `PlanBuilderActions`), configs, deterministic/local engines, provider |
 | Database `DatabaseModule.kt` | `databaseModule`: DB and repository implementations |
 | Network `NetworkModule.kt` | `networkModule`: HTTP client and Gemini engine |
 | Feature `EquipmentFeatureModule.kt` | `equipmentModule` |
@@ -409,7 +414,10 @@ For logger work, the concrete files are `WorkoutLoggerModule.kt`,
 `WorkoutLoggerUiState.kt` under the feature package root.
 `WorkoutLoggerScreen.kt` contains `loggerDestination`, `loggerGraph`,
 `WorkoutLoggerRoute`, and the stateless screen. Equipment instead keeps
-navigation in `EquipmentNavigation.kt`.
+navigation in `EquipmentNavigation.kt`. SplitBuilder's accepted-plan swap uses
+`SplitBuilderViewModel.onSwapRequested`/`onSwapCandidateSelected` (via
+`PlanBuilderActions`) and the `SwapCandidateDialog` in `SplitBuilderScreen.kt`;
+the dialog is only reachable while `SplitBuilderUiState.isPlanAccepted`.
 
 The route collects `viewModel.state` with `collectAsStateWithLifecycle` and
 forwards method references to the screen. Logger also uses

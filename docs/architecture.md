@@ -101,8 +101,8 @@ Business operations are single-purpose classes with one public `operator fun inv
 `:core:domain`. They are constructed by Koin.
 
 - **Examples:** `LogWorkoutSetUseCase` (session-aware logging), `ObserveWorkoutPlanInputsUseCase`,
-  `AcceptWeeklyPlanUseCase`, `SuggestWeightsUseCase`, `ProgressWeightsUseCase`,
-  `CalculateMuscleFatigueUseCase`, `StartWorkoutSessionUseCase`.
+  `AcceptWeeklyPlanUseCase`, `SubstituteExerciseUseCase`, `SuggestWeightsUseCase`,
+  `ProgressWeightsUseCase`, `CalculateMuscleFatigueUseCase`, `StartWorkoutSessionUseCase`.
 - **Consistency:** mostly high; thin delegating use cases (e.g. `GetWorkoutLogUseCase`,
   `CalculateMuscleFatigueUseCase`) coexist with rich ones.
 - **Violations / tensions:** `LogWorkoutSetUseCase` absorbed session lifecycle (auto-start,
@@ -140,7 +140,8 @@ One interface (`WorkoutPlannerEngine`: `id` + `suspend generatePlan(PlanRequest)
 three implementations selected by `DefaultWorkoutPlannerEngineProvider` from the persisted engine
 preference. `GeminiWorkoutPlannerEngine` and `LocalLlmWorkoutPlannerEngine` both funnel output
 through the shared `WeeklyPlanSanitizer` + `PlanVarietyEnforcer`; the deterministic engine returns
-directly.
+directly. The deterministic candidate ordering (`rankCandidates`/`pickFirstNonSore`) is reused by
+`SubstituteExerciseUseCase` to swap one slot of an accepted plan.
 
 - **Examples:** `WorkoutPlannerEngine`, `WorkoutPlannerEngineProvider`,
   `DefaultWorkoutPlannerEngineProvider`, `DeterministicWorkoutPlannerEngine`,
@@ -169,7 +170,10 @@ directly.
 ### 1.8 Immutable (snapshotted) log and plan history
 
 Logged sets and accepted plans capture the data needed to interpret them later, so catalog edits do
-not rewrite history. Domain models are `data class`es (value semantics).
+not rewrite history. Domain models are `data class`es (value semantics). A `SubstituteExerciseUseCase`
+swap updates one `planHistoryEntry` in place — the plan keeps its id and acceptance time — and
+snapshots the replacement's name/movement pattern plus a preserved, equipment-clamped weight, so the
+swapped slot is self-describing like any other accepted entry.
 
 - **Examples:** `WorkoutSet` carries the involvement snapshot, `weekNumber`/`cycleNumber`/`dayIndex`,
   `rir`, and `sessionId`; `SqlDelightWorkoutLogRepository.add` snapshots override-aware

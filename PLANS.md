@@ -130,10 +130,11 @@ Dropped as unscientific and redundant with the existing e1RM/NSCA path; rational
 #### 6. Dynamic Exercise Substitution
 **Goal:** swap one exercise inside an accepted plan, persisted in place.
 **Decisions:** target the accepted plan; add an `UPDATE` (no schema change) so the plan keeps its id/acceptedAt.
+**Status:** DONE (P6a–P6c, 2026-10-07: `d93769f`, `461d51f`, `f5acc7d`). In-place UPDATE only; no schema change. Candidate exposure + selected-candidate substitution land in `PlanBuilderActions`/`SubstituteExerciseUseCase`.
 **Phases:**
-- **P6a — candidate selection.** Extract the private ranking from `DeterministicWorkoutPlannerEngine.selectExercises` into a reusable function (same movement pattern, availability filter, equipment cap, fatigue/rotation order); tests.
-- **P6b — persistence + use case.** Add `UPDATE planHistoryEntry ... WHERE position = ?` to `PlanHistory.sq`, a repository method + impl, and a `SubstituteExerciseUseCase`; bind + Koin verify; repository/use-case tests. No schema change (columns exist).
-- **P6c — UI.** Per-row swap control + candidate dialog in `SplitBuilderScreen.kt`, strings, VM handler. Keep `SplitBuilderViewModel` within the constructor limit by grouping into one use case. Verify the swap re-emits `observeLatest()` so the Logger and next-generation inputs update.
+- **P6a — candidate selection. DONE.** Extracted the private ranking from `DeterministicWorkoutPlannerEngine.selectExercises` into reusable `rankCandidates`/`pickFirstNonSore` (same movement pattern, availability filter, equipment cap, fatigue/rotation order); tests + a two-day/four-day output regression.
+- **P6b — persistence + use case. DONE.** Added `updateEntryExerciseIdAtPosition` to `PlanHistory.sq`, `PlanHistoryRepository.substitute` + impl, `SubstituteExerciseUseCase` and the `PlanBuilderActions` aggregate; bind + Koin verify; repository/use-case tests. No schema change (columns exist). Scope stays the accepted plan — no Logger mutation (LT-09); OF-12 owns occurrence-level swaps.
+- **P6c — UI. DONE.** Per-row swap icon + candidate dialog in `SplitBuilderScreen.kt`, strings, VM handlers. `SplitBuilderViewModel` stays at six deps via `PlanBuilderActions`. Swap re-emits `observeLatest()`, so the Logger and next-generation inputs update.
 **Files:** `core/domain/engine/DeterministicWorkoutPlannerEngine.kt`, new use case, `PlanHistoryRepository.kt`, `core/database/.../PlanHistory.sq` + `SqlDelightPlanHistoryRepository.kt`, `feature/splitbuilder` screen/VM/state/strings + test, `shared/DomainModule.kt`, Koin verification.
 
 **Follow-up:** EX-01 adds persistent generation exclusions; swapping a single accepted-plan slot does not implicitly exclude that exercise from future plans.
