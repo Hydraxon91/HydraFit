@@ -62,7 +62,9 @@ Domain declares repository and engine **interfaces**; implementations live in `:
 ### 1.3 Feature modules with explicit static aggregation
 
 Each feature exports its own Koin module, route string, `FeatureDestination` (label + nav graph),
-and screen; `:shared` lists the exports explicitly. No auto-discovery or plugin registry.
+and screen; `:shared` lists the exports explicitly. No auto-discovery or plugin registry. The graph
+lambda receives the shell's `NavController`, so a feature can register an internal sub-route
+(e.g. Settings → Acknowledgments) without a shell change.
 
 - **Examples:** `feature/*/…Module.kt`, `feature/*/…Navigation.kt` (`FeatureDestination`),
   `core/navigation/FeatureDestination.kt`, `shared/App.kt` (destinations list),

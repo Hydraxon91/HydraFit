@@ -19,7 +19,7 @@
 | Deterministic planner — volume-driven selection | DONE | 0.2.1 addition Q4 (Option C; honor the rep band); Q4a–Q4d done (f80b71a, c8e3c8a, 4f0ce72); Q4e is a user-side catalog fix, not part of the artifact; see "0.2.1 — next release". |
 | BACK work chunk 3 — calibrate Phase B/C constants | OPEN | Calibrate K=6, D=6, half-lives, and C1/C2/C3 against correctly timed histories. The plateau is resolved by the redesign; no further decision needed. |
 | BACK work chunk 4 — literal >100% report | OPEN | Capture exact value/time/build if it recurs. |
-| Settings/nav consolidation | IN PROGRESS | M3 item 7. P7a (Planning-section layout + strings grouping engine/goal/consent) and P7b verify done; credits/acknowledgments (7b) open. |
+| Settings/nav consolidation | DONE | M3 item 7. P7a (Planning-section layout + strings grouping engine/goal/consent), P7b verify and 7b credits/acknowledgments (Settings → Acknowledgments with a live app version) done (`6c5e0fd`, `07dd965`). |
 | RIR guidance & rough estimation | PLANNED | Item 9: B1 guidance/quick-picks in M4; B2/B3 remain decision-gated, not required for M4. |
 | Open Questions / Later | LATER | See section below; nothing scheduled. |
 | 0.2.4 review snapshot | DONE | bf959ee^..HEAD (`eb310de`); 12 findings (R4-01..R4-12): 2 minor docs drift + 1 nit deferred to VOL-01 + 9 nit-positive confirmations of Chunk A + Settings chunk. See `docs/review-0.2.4-snapshot.md`. RF (docs sync on R4-01) gated separately. |
@@ -305,7 +305,7 @@ rollback tests, PER-17). Emulator-verified for authoring, activation, the Logger
 occurrence card and Finish/Skip. Artifacts: `:feature:routines`, the
 `scheduling`/`lifecycle` use cases, `workoutSet.occurrenceId`/
 `occurrenceEntryId` and the schema v26/v27 tables (`25.sqm`, `26.sqm`). The
-M3-adjacent item 7b Credits/Acknowledgments is tracked separately.
+M3-adjacent item 7b Credits/Acknowledgments shipped in `6c5e0fd`/`07dd965`.
 
 ## M8 — Optional AI Reliability: retain and improve local AI
 
