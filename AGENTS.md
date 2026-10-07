@@ -162,7 +162,7 @@ When in doubt which category a fix falls into, ask rather than assume
 Before starting, resuming, or triaging any codebase review (including
 RG rule-setting and RF fix triage), read and follow
 `docs/review-discipline.md`. It is mandatory. In short: review is
-read-only, rules (RG) and fixes (RF) are never combined in one commit,
+read-only, rules (RG) and fix implementation are separate gated steps,
 and no review finding is fixed without its own approved plan.
 
 Always follow `docs/review-discipline.md` for any codebase review. For a
