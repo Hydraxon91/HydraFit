@@ -8,12 +8,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -56,6 +58,8 @@ import hydrafit.feature.logger.generated.resources.focus_lower
 import hydrafit.feature.logger.generated.resources.focus_pull
 import hydrafit.feature.logger.generated.resources.focus_push
 import hydrafit.feature.logger.generated.resources.focus_upper
+import hydrafit.feature.logger.generated.resources.logger_active_progress
+import hydrafit.feature.logger.generated.resources.logger_active_workout
 import hydrafit.feature.logger.generated.resources.logger_add_weight
 import hydrafit.feature.logger.generated.resources.logger_backdated_at
 import hydrafit.feature.logger.generated.resources.logger_cancel
@@ -65,6 +69,8 @@ import hydrafit.feature.logger.generated.resources.logger_delete_set
 import hydrafit.feature.logger.generated.resources.logger_dismiss
 import hydrafit.feature.logger.generated.resources.logger_edit_time
 import hydrafit.feature.logger.generated.resources.logger_end_session
+import hydrafit.feature.logger.generated.resources.logger_finish
+import hydrafit.feature.logger.generated.resources.logger_finish_partial
 import hydrafit.feature.logger.generated.resources.logger_future_time_error
 import hydrafit.feature.logger.generated.resources.logger_log_button
 import hydrafit.feature.logger.generated.resources.logger_new_session
@@ -79,6 +85,7 @@ import hydrafit.feature.logger.generated.resources.logger_session_active
 import hydrafit.feature.logger.generated.resources.logger_session_none
 import hydrafit.feature.logger.generated.resources.logger_set_time
 import hydrafit.feature.logger.generated.resources.logger_set_week_day
+import hydrafit.feature.logger.generated.resources.logger_skip
 import hydrafit.feature.logger.generated.resources.logger_target_current_session
 import hydrafit.feature.logger.generated.resources.logger_target_label
 import hydrafit.feature.logger.generated.resources.logger_time_live
@@ -130,6 +137,10 @@ fun WorkoutLoggerRoute(
         onDismissDraft = viewModel::dismissDraft,
         onEndSession = viewModel::endSession,
         onNewSession = viewModel::newSession,
+        onFinishWorkout = viewModel::finishWorkout,
+        onFinishWorkoutPartially = viewModel::finishWorkoutPartially,
+        onSkipWorkout = viewModel::skipWorkout,
+        onOccurrenceMessageShown = viewModel::onOccurrenceMessageShown,
         onBackdatedDateTimePicked = viewModel::onBackdatedDateTimePicked,
         onCorrectSetTime = viewModel::correctSetTime,
         onClearBackdated = { viewModel.onPerformedAtChanged(null) },
@@ -158,6 +169,10 @@ fun WorkoutLoggerScreen(
     onDismissDraft: (DraftSet) -> Unit,
     onEndSession: () -> Unit,
     onNewSession: () -> Unit,
+    onFinishWorkout: () -> Unit,
+    onFinishWorkoutPartially: () -> Unit,
+    onSkipWorkout: () -> Unit,
+    onOccurrenceMessageShown: () -> Unit,
     onBackdatedDateTimePicked: (Long, Int, Int) -> Boolean,
     onCorrectSetTime: (Long, Long, Int, Int) -> Boolean,
     onClearBackdated: () -> Unit,
@@ -353,6 +368,18 @@ fun WorkoutLoggerScreen(
         item {
             Button(onClick = onLog, enabled = state.canLog) {
                 Text(stringResource(Res.string.logger_log_button))
+            }
+        }
+        state.activeOccurrence?.let { occurrence ->
+            item {
+                ActiveOccurrenceSection(
+                    occurrence = occurrence,
+                    message = state.occurrenceMessage,
+                    onFinish = onFinishWorkout,
+                    onFinishPartially = onFinishWorkoutPartially,
+                    onSkip = onSkipWorkout,
+                    onMessageShown = onOccurrenceMessageShown
+                )
             }
         }
         if (state.draftSets.isNotEmpty()) {
@@ -639,4 +666,63 @@ private fun SplitFocus.labelResource(): StringResource = when (this) {
     SplitFocus.UPPER -> Res.string.focus_upper
     SplitFocus.LOWER -> Res.string.focus_lower
     SplitFocus.FULL_BODY -> Res.string.focus_full_body
+}
+
+@Composable
+private fun ActiveOccurrenceSection(
+    occurrence: ActiveOccurrence,
+    message: String?,
+    onFinish: () -> Unit,
+    onFinishPartially: () -> Unit,
+    onSkip: () -> Unit,
+    onMessageShown: () -> Unit
+) {
+    Card {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = stringResource(Res.string.logger_active_workout, occurrence.workoutName),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = stringResource(
+                    Res.string.logger_active_progress,
+                    occurrence.performedSets,
+                    occurrence.prescribedSets
+                ),
+                style = MaterialTheme.typography.bodySmall
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = onFinish) {
+                    Text(stringResource(Res.string.logger_finish))
+                }
+                TextButton(onClick = onFinishPartially) {
+                    Text(stringResource(Res.string.logger_finish_partial))
+                }
+                TextButton(onClick = onSkip) {
+                    Text(stringResource(Res.string.logger_skip))
+                }
+            }
+            message?.let { error ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = onMessageShown) {
+                        Text(stringResource(Res.string.logger_dismiss))
+                    }
+                }
+            }
+        }
+    }
 }

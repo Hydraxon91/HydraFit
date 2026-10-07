@@ -40,4 +40,9 @@
     <string name="logger_cancel">Cancel</string>
     <string name="logger_pick_time_title">Set time</string>
     <string name="logger_future_time_error">That time is in the future</string>
+    <string name="logger_active_workout">Current workout: %1$s</string>
+    <string name="logger_active_progress">%1$d of %2$d sets</string>
+    <string name="logger_finish">Finish</string>
+    <string name="logger_finish_partial">Finish partially</string>
+    <string name="logger_skip">Skip</string>
 </resources>

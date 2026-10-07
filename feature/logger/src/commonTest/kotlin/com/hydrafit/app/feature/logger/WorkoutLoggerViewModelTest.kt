@@ -13,6 +13,19 @@ import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.schedule.ActivationEntry
+import com.hydrafit.app.core.domain.schedule.ActivationStatus
+import com.hydrafit.app.core.domain.schedule.ActivationWorkout
+import com.hydrafit.app.core.domain.schedule.FinishWorkoutOccurrenceUseCase
+import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
+import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
+import com.hydrafit.app.core.domain.schedule.SkipWorkoutOccurrenceUseCase
+import com.hydrafit.app.core.domain.schedule.StartWorkoutOccurrenceUseCase
+import com.hydrafit.app.core.domain.schedule.TrainingActivation
+import com.hydrafit.app.core.domain.schedule.WorkoutLoggingActions
+import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
+import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
+import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
@@ -653,7 +666,7 @@ class WorkoutLoggerViewModelTest {
         val viewModel = WorkoutLoggerViewModel(
             logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
             getWorkoutLog = GetWorkoutLogUseCase(repository),
-            observeAcceptedPlan = ObserveAcceptedPlanUseCase(FakePlanHistoryRepository(twoDayPlan)),
+            loggingActions = loggingActions(FakePlanHistoryRepository(twoDayPlan)),
             exerciseCatalog = FakeExerciseCatalog,
             timeProvider = TimeProvider { now },
             weightUnitRepository = FakeWeightUnitRepository(WeightUnit.KG)
@@ -734,7 +747,7 @@ class WorkoutLoggerViewModelTest {
         val viewModel = WorkoutLoggerViewModel(
             logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
             getWorkoutLog = GetWorkoutLogUseCase(repository),
-            observeAcceptedPlan = ObserveAcceptedPlanUseCase(history),
+            loggingActions = loggingActions(history),
             exerciseCatalog = FakeExerciseCatalog,
             timeProvider = TimeProvider { MONDAY },
             weightUnitRepository = FakeWeightUnitRepository(WeightUnit.KG)
@@ -757,7 +770,7 @@ class WorkoutLoggerViewModelTest {
         val viewModel = WorkoutLoggerViewModel(
             logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
             getWorkoutLog = GetWorkoutLogUseCase(repository),
-            observeAcceptedPlan = ObserveAcceptedPlanUseCase(history),
+            loggingActions = loggingActions(history),
             exerciseCatalog = FakeExerciseCatalog,
             timeProvider = TimeProvider { MONDAY },
             weightUnitRepository = FakeWeightUnitRepository(WeightUnit.KG)
@@ -811,7 +824,7 @@ class WorkoutLoggerViewModelTest {
         val viewModel = WorkoutLoggerViewModel(
             logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
             getWorkoutLog = GetWorkoutLogUseCase(repository),
-            observeAcceptedPlan = ObserveAcceptedPlanUseCase(FakePlanHistoryRepository(twoDayPlan)),
+            loggingActions = loggingActions(FakePlanHistoryRepository(twoDayPlan)),
             exerciseCatalog = FakeExerciseCatalog,
             timeProvider = TimeProvider { now },
             weightUnitRepository = FakeWeightUnitRepository(WeightUnit.KG)
@@ -1175,7 +1188,7 @@ class WorkoutLoggerViewModelTest {
         val viewModel = WorkoutLoggerViewModel(
             logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
             getWorkoutLog = GetWorkoutLogUseCase(repository),
-            observeAcceptedPlan = ObserveAcceptedPlanUseCase(
+            loggingActions = loggingActions(
                 FakePlanHistoryRepository(acceptedPlan(listOf("plank")))
             ),
             exerciseCatalog = FakeExerciseCatalog,
@@ -1678,7 +1691,7 @@ class WorkoutLoggerViewModelTest {
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessionRepository),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
-        observeAcceptedPlan = ObserveAcceptedPlanUseCase(history),
+        loggingActions = loggingActions(history, repository, timeMillis = timeMillis),
         exerciseCatalog = catalog,
         timeProvider = TimeProvider { timeMillis },
         weightUnitRepository = FakeWeightUnitRepository(weightUnit)
@@ -1691,7 +1704,7 @@ class WorkoutLoggerViewModelTest {
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessionRepository),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
-        observeAcceptedPlan = ObserveAcceptedPlanUseCase(FakePlanHistoryRepository(null)),
+        loggingActions = loggingActions(FakePlanHistoryRepository(null), repository),
         exerciseCatalog = FakeExerciseCatalog,
         timeProvider = TimeProvider { now() },
         weightUnitRepository = FakeWeightUnitRepository(WeightUnit.KG)
@@ -1722,6 +1735,167 @@ class WorkoutLoggerViewModelTest {
             timeProvider = TimeProvider { 0L }
         )
     )
+
+    @Test
+    fun logsSetsAgainstTheActiveOccurrenceWithoutAdvancingTheQueue() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+
+        assertEquals("Upper", viewModel.state.value.activeOccurrence?.workoutName)
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("8")
+        viewModel.onWeightChanged("100")
+        viewModel.log()
+        advanceUntilIdle()
+
+        val set = repository.all().single()
+        assertEquals(30L, set.occurrenceId)
+        assertEquals(40L, set.occurrenceEntryId)
+        assertEquals(30L, schedule.scheduleState().selectedOccurrenceId)
+        assertEquals(1, viewModel.state.value.activeOccurrence?.performedSets)
+    }
+
+    @Test
+    fun finishingTheCurrentWorkoutAdvancesTheQueue() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("8")
+        viewModel.onWeightChanged("100")
+        viewModel.log()
+        viewModel.log()
+        advanceUntilIdle()
+        assertEquals(30L, schedule.scheduleState().selectedOccurrenceId)
+
+        viewModel.finishWorkout()
+        advanceUntilIdle()
+
+        assertEquals(31L, schedule.scheduleState().selectedOccurrenceId)
+        assertEquals("Lower", viewModel.state.value.activeOccurrence?.workoutName)
+    }
+
+    private fun occurrenceViewModel(
+        repository: WorkoutLogRepository,
+        schedule: WorkoutScheduleRepository
+    ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
+        logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
+        getWorkoutLog = GetWorkoutLogUseCase(repository),
+        loggingActions = loggingActions(FakePlanHistoryRepository(null), repository, schedule, 0L),
+        exerciseCatalog = FakeExerciseCatalog,
+        timeProvider = TimeProvider { MONDAY },
+        weightUnitRepository = FakeWeightUnitRepository(WeightUnit.KG)
+    )
+
+    private fun blockActivation() = TrainingActivation(
+        id = 5L,
+        name = "Block",
+        createdAtMillis = 0L,
+        startEpochDay = 0L,
+        mode = com.hydrafit.app.core.domain.schedule.ScheduleMode.WEEKDAY,
+        weekdays = setOf(com.hydrafit.app.core.domain.time.DayOfWeek.MONDAY),
+        status = ActivationStatus.ACTIVE,
+        workouts = listOf(
+            ActivationWorkout(
+                id = 9L,
+                name = "Upper",
+                entries = listOf(
+                    ActivationEntry(
+                        id = 20L,
+                        exerciseId = "back-squat",
+                        exerciseName = "Back Squat",
+                        movementPattern = MovementPattern.SQUAT,
+                        sets = 2,
+                        reps = 8,
+                        weightKg = 100.0
+                    )
+                )
+            ),
+            ActivationWorkout(
+                id = 10L,
+                name = "Lower",
+                entries = listOf(
+                    ActivationEntry(
+                        id = 21L,
+                        exerciseId = "deadlift",
+                        exerciseName = "Deadlift",
+                        movementPattern = MovementPattern.HINGE,
+                        sets = 2,
+                        reps = 5,
+                        weightKg = 140.0
+                    )
+                )
+            )
+        )
+    )
+
+    private fun twoOccurrences() = listOf(
+        WorkoutOccurrence(
+            id = 30L,
+            activationId = 5L,
+            activationWorkoutId = 9L,
+            queuePosition = 0,
+            status = OccurrenceStatus.PENDING,
+            entries = listOf(
+                OccurrenceEntry(
+                    id = 40L,
+                    sourceActivationEntryId = 20L,
+                    position = 0,
+                    exerciseId = "back-squat",
+                    exerciseName = "Back Squat",
+                    movementPattern = MovementPattern.SQUAT,
+                    sets = 2,
+                    reps = 8,
+                    weightKg = 100.0
+                )
+            )
+        ),
+        WorkoutOccurrence(
+            id = 31L,
+            activationId = 5L,
+            activationWorkoutId = 10L,
+            queuePosition = 1,
+            status = OccurrenceStatus.PENDING,
+            entries = listOf(
+                OccurrenceEntry(
+                    id = 41L,
+                    sourceActivationEntryId = 21L,
+                    position = 0,
+                    exerciseId = "deadlift",
+                    exerciseName = "Deadlift",
+                    movementPattern = MovementPattern.HINGE,
+                    sets = 2,
+                    reps = 5,
+                    weightKg = 140.0
+                )
+            )
+        )
+    )
+
+    private fun loggingActions(
+        history: PlanHistoryRepository,
+        workoutLog: WorkoutLogRepository = FakeWorkoutLogRepository(),
+        schedule: WorkoutScheduleRepository = FakeWorkoutScheduleRepository(),
+        timeMillis: Long = 0L
+    ): WorkoutLoggingActions {
+        val time = TimeProvider { timeMillis }
+        return WorkoutLoggingActions(
+            observeAcceptedPlanUseCase = ObserveAcceptedPlanUseCase(history),
+            scheduleRepository = schedule,
+            startWorkoutOccurrence = StartWorkoutOccurrenceUseCase(schedule, time),
+            finishWorkoutOccurrence = FinishWorkoutOccurrenceUseCase(schedule, workoutLog, time),
+            skipWorkoutOccurrence = SkipWorkoutOccurrenceUseCase(schedule, workoutLog, time)
+        )
+    }
 
     private fun acceptedPlan(dayZeroExerciseIds: List<String>, suggestedWeightKg: Double? = null) =
         AcceptedPlan(
@@ -1890,6 +2064,145 @@ class WorkoutLoggerViewModelTest {
         override fun unitFlow(): Flow<WeightUnit> = flowOf(unit)
 
         override suspend fun setUnit(unit: WeightUnit) = Unit
+    }
+
+    /** No active block: the Logger falls back to the accepted-plan path. */
+    private class FakeWorkoutScheduleRepository : WorkoutScheduleRepository {
+        override fun observeScheduleState(): Flow<WorkoutScheduleState> =
+            flowOf(WorkoutScheduleState())
+
+        override fun observeActiveActivation(): Flow<TrainingActivation?> = flowOf(null)
+
+        override fun observeOccurrences(activationId: Long): Flow<List<WorkoutOccurrence>> =
+            flowOf(emptyList())
+
+        override suspend fun scheduleState(): WorkoutScheduleState = WorkoutScheduleState()
+
+        override suspend fun setScheduleState(state: WorkoutScheduleState) = Unit
+
+        override suspend fun activeActivation(): TrainingActivation? = null
+
+        override suspend fun getActivation(id: Long): TrainingActivation? = null
+
+        override suspend fun occurrences(activationId: Long): List<WorkoutOccurrence> = emptyList()
+
+        override suspend fun getOccurrence(id: Long): WorkoutOccurrence? = null
+
+        override suspend fun acceptAndActivate(
+            acceptedPlan: AcceptedPlan?,
+            activation: TrainingActivation,
+            scheduledEpochDays: List<Long?>,
+            replaceActive: Boolean
+        ): Long = 0L
+
+        override suspend fun resolveOccurrence(
+            occurrenceId: Long,
+            expectedRevision: Int,
+            status: OccurrenceStatus,
+            resolvedAtMillis: Long,
+            entries: List<OccurrenceEntry>
+        ): WorkoutScheduleState = WorkoutScheduleState()
+
+        override suspend fun updateActivationHeader(activation: TrainingActivation) = Unit
+
+        override suspend fun updateOccurrence(occurrence: WorkoutOccurrence) = Unit
+
+        override suspend fun replaceOccurrenceEntries(
+            occurrenceId: Long,
+            entries: List<OccurrenceEntry>
+        ) = Unit
+
+        override suspend fun deleteOccurrencesForActivation(activationId: Long) = Unit
+
+        override suspend fun isTemplateReferenced(templateId: Long): Boolean = false
+    }
+
+    /** A single active block whose occurrences can be read and resolved in memory. */
+    private class MutableWorkoutScheduleRepository : WorkoutScheduleRepository {
+        private val activationState = MutableStateFlow<TrainingActivation?>(null)
+        private val occurrenceState = MutableStateFlow<List<WorkoutOccurrence>>(emptyList())
+        private val state = MutableStateFlow(WorkoutScheduleState())
+
+        fun set(
+            activation: TrainingActivation,
+            occurrences: List<WorkoutOccurrence>,
+            selectedOccurrenceId: Long?
+        ) {
+            activationState.value = activation
+            occurrenceState.value = occurrences
+            state.value = WorkoutScheduleState(
+                activeActivationId = activation.id,
+                selectedOccurrenceId = selectedOccurrenceId,
+                legacyFallbackEnabled = false
+            )
+        }
+
+        override fun observeScheduleState(): Flow<WorkoutScheduleState> = state
+
+        override fun observeActiveActivation(): Flow<TrainingActivation?> = activationState
+
+        override fun observeOccurrences(activationId: Long): Flow<List<WorkoutOccurrence>> =
+            occurrenceState.map { list ->
+                list.filter { it.activationId == activationId }.sortedBy { it.queuePosition }
+            }
+
+        override suspend fun scheduleState(): WorkoutScheduleState = state.value
+
+        override suspend fun setScheduleState(state: WorkoutScheduleState) {
+            this.state.value = state
+        }
+
+        override suspend fun activeActivation(): TrainingActivation? = activationState.value
+
+        override suspend fun getActivation(id: Long): TrainingActivation? =
+            activationState.value?.takeIf { it.id == id }
+
+        override suspend fun occurrences(activationId: Long): List<WorkoutOccurrence> =
+            occurrenceState.value.filter { it.activationId == activationId }
+
+        override suspend fun getOccurrence(id: Long): WorkoutOccurrence? =
+            occurrenceState.value.firstOrNull { it.id == id }
+
+        override suspend fun acceptAndActivate(
+            acceptedPlan: AcceptedPlan?,
+            activation: TrainingActivation,
+            scheduledEpochDays: List<Long?>,
+            replaceActive: Boolean
+        ): Long = 0L
+
+        override suspend fun resolveOccurrence(
+            occurrenceId: Long,
+            expectedRevision: Int,
+            status: OccurrenceStatus,
+            resolvedAtMillis: Long,
+            entries: List<OccurrenceEntry>
+        ): WorkoutScheduleState {
+            occurrenceState.value = occurrenceState.value.map {
+                if (it.id == occurrenceId) {
+                    it.copy(status = status, resolvedAtMillis = resolvedAtMillis, entries = entries)
+                } else {
+                    it
+                }
+            }
+            val next = occurrenceState.value
+                .filter { it.activationId == activationState.value?.id && !it.isResolved }
+                .minByOrNull { it.queuePosition }
+            state.value = state.value.copy(selectedOccurrenceId = next?.id)
+            return state.value
+        }
+
+        override suspend fun updateActivationHeader(activation: TrainingActivation) = Unit
+
+        override suspend fun updateOccurrence(occurrence: WorkoutOccurrence) = Unit
+
+        override suspend fun replaceOccurrenceEntries(
+            occurrenceId: Long,
+            entries: List<OccurrenceEntry>
+        ) = Unit
+
+        override suspend fun deleteOccurrencesForActivation(activationId: Long) = Unit
+
+        override suspend fun isTemplateReferenced(templateId: Long): Boolean = false
     }
 
     private companion object {

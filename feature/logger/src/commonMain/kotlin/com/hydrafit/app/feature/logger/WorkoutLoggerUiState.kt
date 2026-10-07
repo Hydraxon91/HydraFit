@@ -35,6 +35,14 @@ data class DraftSet(
     val weightKg: Double?
 )
 
+/** The active block's current workout occurrence, shown so the user can finish or skip it. */
+data class ActiveOccurrence(
+    val occurrenceId: Long,
+    val workoutName: String,
+    val performedSets: Int,
+    val prescribedSets: Int
+)
+
 data class WorkoutLoggerUiState(
     val exercises: List<ExerciseOption> = emptyList(),
     val exerciseSearch: String = "",
@@ -45,6 +53,10 @@ data class WorkoutLoggerUiState(
     val isWarmup: Boolean = false,
     val recentSets: List<LoggedSetRow> = emptyList(),
     val draftSets: List<DraftSet> = emptyList(),
+    /** The current workout of the active block, or null when no block is active. */
+    val activeOccurrence: ActiveOccurrence? = null,
+    /** A finish/skip error to surface (e.g. the workout changed elsewhere). */
+    val occurrenceMessage: String? = null,
     val todayFocus: SplitFocus? = null,
     val weightUnit: WeightUnit = WeightUnit.KG,
     val weightRevealed: Boolean = false,

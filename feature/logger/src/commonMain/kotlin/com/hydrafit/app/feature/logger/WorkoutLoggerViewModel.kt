@@ -5,10 +5,15 @@ import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.AcceptedDay
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
-import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.fatigue.FatigueConfig
+import com.hydrafit.app.core.domain.schedule.FinishMode
+import com.hydrafit.app.core.domain.schedule.ScheduleException
+import com.hydrafit.app.core.domain.schedule.TrainingActivation
+import com.hydrafit.app.core.domain.schedule.WorkoutLoggingActions
+import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
+import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.localDayOfWeek
 import com.hydrafit.app.core.domain.time.localEpochDay
@@ -18,6 +23,7 @@ import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,7 +34,7 @@ import kotlinx.coroutines.launch
 class WorkoutLoggerViewModel(
     private val logMutations: WorkoutLogMutations,
     private val getWorkoutLog: GetWorkoutLogUseCase,
-    private val observeAcceptedPlan: ObserveAcceptedPlanUseCase,
+    private val loggingActions: WorkoutLoggingActions,
     private val exerciseCatalog: ExerciseCatalog,
     private val timeProvider: TimeProvider,
     private val weightUnitRepository: WeightUnitRepository
@@ -42,6 +48,13 @@ class WorkoutLoggerViewModel(
     private var acceptedPlan: AcceptedPlan? = null
     private var acceptedToday: AcceptedDay? = null
     private var suggestedWeightKgByExercise: Map<String, Double> = emptyMap()
+
+    /** The active block and its queue, when the user has started one; null uses the accepted plan. */
+    private var activeActivation: TrainingActivation? = null
+    private var currentOccurrences: List<WorkoutOccurrence> = emptyList()
+    private var scheduleState: WorkoutScheduleState? = null
+    private var currentOccurrence: WorkoutOccurrence? = null
+    private var occurrencesJob: Job? = null
 
     /**
      * The plan identity and local day the current [WorkoutLoggerUiState.draftSets] were derived for,
@@ -73,9 +86,34 @@ class WorkoutLoggerViewModel(
             }
         }
         viewModelScope.launch {
-            observeAcceptedPlan().collectLatest { plan ->
+            loggingActions.observeAcceptedPlan().collectLatest { plan ->
                 acceptedPlan = plan
-                updateTodayPlan(plan)
+                if (activeActivation == null) updateTodayPlan(plan)
+            }
+        }
+        viewModelScope.launch {
+            loggingActions.observeScheduleState().collect { state ->
+                scheduleState = state
+                if (activeActivation != null) refreshOccurrence()
+            }
+        }
+        viewModelScope.launch {
+            loggingActions.observeActiveActivation().collect { activation ->
+                activeActivation = activation
+                occurrencesJob?.cancel()
+                if (activation == null) {
+                    currentOccurrences = emptyList()
+                    currentOccurrence = null
+                    _state.update { it.copy(activeOccurrence = null) }
+                    updateTodayPlan(acceptedPlan)
+                } else {
+                    occurrencesJob = viewModelScope.launch {
+                        loggingActions.observeOccurrences(activation.id).collect { occurrences ->
+                            currentOccurrences = occurrences
+                            refreshOccurrence()
+                        }
+                    }
+                }
             }
         }
         viewModelScope.launch {
@@ -266,6 +304,7 @@ class WorkoutLoggerViewModel(
         }
 
         viewModelScope.launch {
+            val link = occurrenceLink(exerciseId)
             logResolved(
                 WorkoutSet(
                     exerciseId = exerciseId,
@@ -273,10 +312,12 @@ class WorkoutLoggerViewModel(
                     weightKg = weightKg,
                     performedAtMillis = current.performedAtMillis ?: timeProvider.nowMillis(),
                     isWarmup = current.isWarmup,
-                    weekNumber = acceptedPlan?.weekNumber,
-                    cycleNumber = acceptedPlan?.cycleNumber,
+                    weekNumber = activeActivation?.weekNumber ?: acceptedPlan?.weekNumber,
+                    cycleNumber = activeActivation?.cycleNumber ?: acceptedPlan?.cycleNumber,
                     dayIndex = acceptedToday?.dayIndex,
-                    rir = current.rir.toIntOrNull()
+                    rir = current.rir.toIntOrNull(),
+                    occurrenceId = link?.first,
+                    occurrenceEntryId = link?.second
                 ),
                 current
             )
@@ -284,6 +325,7 @@ class WorkoutLoggerViewModel(
             // only the warm-up flag resets between sets.
             _state.update { it.copy(isWarmup = false) }
             refreshRecentSets()
+            if (activeActivation != null) refreshOccurrence()
         }
     }
 
@@ -328,7 +370,7 @@ class WorkoutLoggerViewModel(
     fun onResume() {
         _state.update { it.copy(utcOffsetMillis = timeProvider.utcOffsetMillis()) }
         viewModelScope.launch {
-            updateTodayPlan(acceptedPlan)
+            refreshToday()
             // Opening the logger is an "open time": expire a session that rolled into a new day or went idle.
             logMutations.expireOpenSession(
                 nowMillis = timeProvider.nowMillis(),
@@ -422,6 +464,7 @@ class WorkoutLoggerViewModel(
             logDraft(draft)
             _state.update { it.copy(draftSets = it.draftSets - draft) }
             refreshRecentSets()
+            if (activeActivation != null) refreshOccurrence()
         }
     }
 
@@ -433,6 +476,7 @@ class WorkoutLoggerViewModel(
             drafts.forEach { logDraft(it) }
             _state.update { it.copy(draftSets = emptyList()) }
             refreshRecentSets()
+            if (activeActivation != null) refreshOccurrence()
         }
     }
 
@@ -442,6 +486,7 @@ class WorkoutLoggerViewModel(
     }
 
     private suspend fun logDraft(draft: DraftSet) {
+        val link = occurrenceLink(draft.exerciseId)
         repeat(draft.sets.coerceAtLeast(1)) {
             val current = _state.value
             logResolved(
@@ -451,9 +496,11 @@ class WorkoutLoggerViewModel(
                     weightKg = draft.weightKg,
                     performedAtMillis = current.performedAtMillis ?: timeProvider.nowMillis(),
                     isWarmup = false,
-                    weekNumber = acceptedPlan?.weekNumber,
-                    cycleNumber = acceptedPlan?.cycleNumber,
-                    dayIndex = acceptedToday?.dayIndex
+                    weekNumber = activeActivation?.weekNumber ?: acceptedPlan?.weekNumber,
+                    cycleNumber = activeActivation?.cycleNumber ?: acceptedPlan?.cycleNumber,
+                    dayIndex = acceptedToday?.dayIndex,
+                    occurrenceId = link?.first,
+                    occurrenceEntryId = link?.second
                 ),
                 current
             )
@@ -491,6 +538,101 @@ class WorkoutLoggerViewModel(
             }
             .sortedWith(compareBy({ priority[it.id] ?: Int.MAX_VALUE }, { it.name }))
     }
+
+    /** Refreshes today's context: the active block's occurrence when one is active, else the plan. */
+    private suspend fun refreshToday() {
+        if (activeActivation != null) refreshOccurrence() else updateTodayPlan(acceptedPlan)
+    }
+
+    /**
+     * Recomputes the current workout of the active block: the selected occurrence (or the oldest
+     * unresolved one), its remaining sets as drafts, and its performed/prescribed progress.
+     */
+    private suspend fun refreshOccurrence() {
+        val activation = activeActivation ?: return
+        val selectedId = scheduleState?.selectedOccurrenceId
+        val occurrence = currentOccurrences.firstOrNull { it.id == selectedId }
+            ?: currentOccurrences.filterNot { it.isResolved }.minByOrNull { it.queuePosition }
+        if (occurrence == null) {
+            currentOccurrence = null
+            _state.update {
+                it.copy(activeOccurrence = null, draftSets = emptyList(), todayFocus = null)
+            }
+            return
+        }
+        currentOccurrence = occurrence
+        val performed = performedSetsByEntry(occurrence.id)
+        val drafts = occurrence.entries.mapNotNull { entry ->
+            val remaining = entry.sets - (performed[entry.id] ?: 0)
+            if (remaining <= 0) {
+                null
+            } else {
+                DraftSet(
+                    entry.exerciseId,
+                    entry.exerciseName,
+                    remaining,
+                    entry.reps,
+                    entry.weightKg
+                )
+            }
+        }
+        val workout = activation.workouts.firstOrNull { it.id == occurrence.activationWorkoutId }
+        val prescribed = occurrence.entries.sumOf { it.sets }
+        val performedTotal = occurrence.entries.sumOf {
+            (performed[it.id] ?: 0).coerceAtMost(it.sets)
+        }
+        _state.update {
+            it.copy(
+                activeOccurrence = ActiveOccurrence(
+                    occurrenceId = occurrence.id,
+                    workoutName = workout?.name.orEmpty(),
+                    performedSets = performedTotal,
+                    prescribedSets = prescribed
+                ),
+                draftSets = drafts,
+                todayFocus = workout?.focus
+            )
+        }
+    }
+
+    /** The occurrence + entry a set for [exerciseId] belongs to, when a block is active. */
+    private fun occurrenceLink(exerciseId: String): Pair<Long, Long?>? {
+        val occurrence = currentOccurrence ?: return null
+        val entry = occurrence.entries.firstOrNull { it.exerciseId == exerciseId }
+        return occurrence.id to entry?.id
+    }
+
+    private suspend fun performedSetsByEntry(occurrenceId: Long): Map<Long, Int> = getWorkoutLog()
+        .filter { set ->
+            !set.isWarmup && set.occurrenceId == occurrenceId && set.occurrenceEntryId != null
+        }
+        .groupingBy { requireNotNull(it.occurrenceEntryId) }
+        .eachCount()
+
+    /** Concludes the current workout occurrence: finish, finish partially, or skip. */
+    fun finishWorkout() = resolveCurrentOccurrence(FinishMode.FULL)
+
+    fun finishWorkoutPartially() = resolveCurrentOccurrence(FinishMode.PARTIAL)
+
+    fun skipWorkout() = resolveCurrentOccurrence(null)
+
+    private fun resolveCurrentOccurrence(mode: FinishMode?) {
+        val occurrence = currentOccurrence ?: return
+        viewModelScope.launch {
+            try {
+                if (mode == null) {
+                    loggingActions.skip(occurrence.id)
+                } else {
+                    loggingActions.finish(occurrence.id, mode)
+                }
+                _state.update { it.copy(occurrenceMessage = null) }
+            } catch (error: ScheduleException) {
+                _state.update { it.copy(occurrenceMessage = error.message) }
+            }
+        }
+    }
+
+    fun onOccurrenceMessageShown() = _state.update { it.copy(occurrenceMessage = null) }
 
     private suspend fun refreshRecentSets() {
         val rows = getWorkoutLog()

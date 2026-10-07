@@ -39,6 +39,7 @@ import com.hydrafit.app.core.domain.schedule.SkipWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.StartWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.SwitchScheduleModeUseCase
 import com.hydrafit.app.core.domain.schedule.TrainingActivation
+import com.hydrafit.app.core.domain.schedule.WorkoutLoggingActions
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleActions
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
@@ -163,6 +164,7 @@ class KoinModulesVerificationTest {
             assertNotNull(koin.get<ObserveRoutineTemplatesUseCase>())
             assertNotNull(koin.get<RoutineTemplateActions>())
             assertNotNull(koin.get<WorkoutScheduleActions>())
+            assertNotNull(koin.get<WorkoutLoggingActions>())
             assertNotNull(koin.get<PreviewWorkoutScheduleUseCase>())
             assertNotNull(koin.get<CreateTrainingActivationUseCase>())
             assertNotNull(koin.get<ActivateRoutineUseCase>())
