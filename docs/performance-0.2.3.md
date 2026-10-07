@@ -455,7 +455,7 @@ numbers above remain the closest available proxy and are labelled as such.
 Installing 0.2.3 over the existing install (data preserved) left every row intact:
 exercise 174→174, workoutSet 11→11, workoutSession 8→8, exerciseOverride 3→3, schema
 `user_version` 25 unchanged, `PRAGMA foreign_key_check` clean, 0 dangling set→exercise
-references. The heatmap rendered the 17-group set, the Equipment list showed the new
+references. The heatmap rendered the 21-group set, the Equipment list showed the new
 tags (Dip bar, Hack squat machine, Calf raise machine), and catalog search found
 `Cable Crossover` / `Low Cable Crossover`. Legacy broad involvements (`CHEST`,
 `SHOULDERS`, `CORE`) remain stored and expand on read. This is a real install over
@@ -463,7 +463,7 @@ existing on-device data, not a clean v0.2.2-artifact install.
 
 ### R3-10 rendering
 
-All 17-group heatmap labels render without truncation at the default emulator size;
+All 21-group heatmap labels render without truncation at the default emulator size;
 screenshots captured during the run. The legacy-fraction plausibility host harness was
 not run in this session.
 

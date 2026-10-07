@@ -34,7 +34,7 @@ Nit
 Could not judge without running more/app
 - Whether the R8 release actually survives Gemini JSON serialization, Ktor init, and LiteRT-LM JNI/model-import paths.
 - Whether a real v0.2.2→v0.2.3 device upgrade expands legacy snapshots and merges custom exercises as intended (only one reported phone copy).
-- Whether all 17-group labels render correctly across screen sizes and whether the legacy-expansion fractions match user-perceived muscle distribution.
+- Whether all 21-group labels render correctly across screen sizes and whether the legacy-expansion fractions match user-perceived muscle distribution.
 ```
 
 ## 2. Coverage of the reviewer's findings
@@ -67,7 +67,7 @@ Could not judge without running more/app
 | R3-07 | Nit | `decodeInvolvements` silently drops malformed/unknown tokens | Yes |
 | R3-08 | Could not judge | R8 survival of Gemini/Ktor/LiteRT-LM runtime paths | No — verification gap |
 | R3-09 | Could not judge | Real v0.2.2→v0.2.3 upgrade behavior | No — verification gap |
-| R3-10 | Could not judge | 17-group label rendering and legacy-fraction plausibility | No — verification gap |
+| R3-10 | Could not judge | 21-group label rendering and legacy-fraction plausibility | No — verification gap |
 
 ## 4. Finding triage
 
@@ -162,16 +162,16 @@ Could not judge without running more/app
 - **Resolution (2026-10-06, Chunk A):** closed on the emulator. The 0.2.3 release installed over
   the existing install (data preserved) left every row intact — 174 exercises, 11 sets, 8 sessions,
   3 overrides, schema version 25 unchanged, `foreign_key_check` clean, 0 dangling set→exercise
-  references — with the 17-group heatmap, the new equipment tags and `Cable Crossover` all present.
+  references — with the 21-group heatmap, the new equipment tags and `Cable Crossover` all present.
   This is install-over-existing-data, not a clean v0.2.2-artifact install; numbers in
   `docs/performance-0.2.3.md`.
 
-### R3-10 — 17-group labels across screen sizes + legacy-fraction plausibility
+### R3-10 — 21-group labels across screen sizes + legacy-fraction plausibility
 - **Reviewer claim (relayed):** cannot be judged from source.
 - **Evidence (state):** labels live in the Fatigue heatmap/Equipment UIs; expansion fractions in
   `ExerciseEncoding.kt:28-41`.
 - **Disposition:** verification debt; emulator screenshots + `scripts/snap.sh` review. Not a code fix.
-- **Resolution (2026-10-06, Chunk A):** rendering verified — the heatmap renders all 17-group labels
+- **Resolution (2026-10-06, Chunk A):** rendering verified — the heatmap renders all 21-group labels
   (Upper/Lower chest, Lats, Upper/Lower back, Front/Side/Rear delts, Biceps, Triceps, …) without
   truncation at the default emulator size, and the Equipment list shows the new tags. The
   legacy-fraction plausibility host harness was not run; the read-time `BACK`→{LATS, UPPER_BACK,
@@ -200,7 +200,7 @@ None. All 10 reviewer findings are triaged as R3-01…R3-10.
 
 These are not code defects; they need runtime/device evidence and are scheduled separately:
 R8 release smoke of both optional engines (R3-08), a real device upgrade check (R3-09), and
-17-group label/screen-size rendering (R3-10).
+21-group label/screen-size rendering (R3-10).
 
 **Resolution (2026-10-06, Chunk A):** R3-08 closed (C2 both-engine R8 smoke); R3-09 closed
 (0.2.3 release installed over existing data on `emulator-5554`, aggregates in

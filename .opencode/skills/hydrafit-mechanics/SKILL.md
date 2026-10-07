@@ -105,7 +105,7 @@ merged into the seeded id. History and plan entries are reassigned; the custom's
 differing equipment, pattern, unilateral flag and involvement weights are preserved as a
 canonical override (editor-default values are not materialized); personal records are
 merged by weight, then reps, then timestamp; the custom override and row are removed.
-The 17-group set and the muscle-split mechanism are recorded in PLANS.md and
+The 21-group set and the muscle-split mechanism are recorded in PLANS.md and
 `docs/exercise-catalog-sources.md`.
 
 `SqlDelightExerciseCatalog` overlays nullable override fields onto catalog rows.
