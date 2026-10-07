@@ -240,6 +240,79 @@ class SqlDelightWorkoutScheduleRepositoryTest {
     }
 
     @Test
+    fun resolveOccurrenceRollsBackWhenTheOccurrenceUpdateFailsMidTransaction() = runTest {
+        val id = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(),
+            scheduledEpochDays = listOf(20_000L, 20_002L),
+            replaceActive = false
+        )
+        val occurrence = repository.occurrences(id).first()
+        val beforeState = repository.scheduleState()
+        // Entry changes are applied before the occurrence update; fail the later write so the whole
+        // transaction must roll back, entry edit included.
+        injectFault("BEFORE UPDATE ON workoutOccurrence")
+
+        assertFailsWith<Exception> {
+            repository.resolveOccurrence(
+                occurrenceId = occurrence.id,
+                expectedRevision = occurrence.revision,
+                status = OccurrenceStatus.FINISHED_PARTIAL,
+                resolvedAtMillis = 500L,
+                entries = occurrence.entries.map {
+                    it.copy(
+                        remainingDisposition = RemainingDisposition.OMITTED,
+                        terminalRemainingSets = 2
+                    )
+                }
+            )
+        }
+
+        val reloaded = requireNotNull(repository.getOccurrence(occurrence.id))
+        assertEquals(OccurrenceStatus.PENDING, reloaded.status)
+        assertNull(reloaded.resolvedAtMillis)
+        assertNull(reloaded.entries[0].remainingDisposition)
+        assertNull(reloaded.entries[0].terminalRemainingSets)
+        assertEquals(beforeState, repository.scheduleState())
+    }
+
+    @Test
+    fun acceptAndActivateRollsBackTheCancelledPreviousBlockWhenTheInsertFails() = runTest {
+        val first = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(),
+            scheduledEpochDays = listOf(20_000L, 20_002L),
+            replaceActive = false
+        )
+        val firstOccurrenceIds = repository.occurrences(first).map { it.id }
+        val beforeState = repository.scheduleState()
+        // The previous block is cancelled before the replacement activation is inserted; fail the
+        // insert so the cancellation must roll back with it.
+        injectFault("BEFORE INSERT ON trainingActivation")
+
+        assertFailsWith<Exception> {
+            repository.acceptAndActivate(
+                acceptedPlan = null,
+                activation = activation(),
+                scheduledEpochDays = listOf(20_010L, 20_012L),
+                replaceActive = true
+            )
+        }
+
+        assertEquals(ActivationStatus.ACTIVE, repository.getActivation(first)?.status)
+        assertEquals(
+            1,
+            database.trainingScheduleQueries.selectAllActivations().executeAsList().size
+        )
+        assertEquals(
+            2,
+            database.trainingScheduleQueries.selectAllOccurrences().executeAsList().size
+        )
+        assertEquals(firstOccurrenceIds, repository.occurrences(first).map { it.id })
+        assertEquals(beforeState, repository.scheduleState())
+    }
+
+    @Test
     fun updatingAnOccurrencePersistsStatusAndCompletionFields() = runTest {
         val id = repository.acceptAndActivate(
             acceptedPlan = null,
@@ -381,6 +454,16 @@ class SqlDelightWorkoutScheduleRepositoryTest {
         SqlDelightPlanHistoryRepository(database).delete(planId)
 
         assertNull(requireNotNull(repository.getActivation(activationId)).sourcePlanId)
+    }
+
+    /** Installs a trigger that aborts [triggerClause] so a mid-transaction write can fail on demand. */
+    private fun injectFault(triggerClause: String) {
+        driver.execute(
+            identifier = null,
+            sql = "CREATE TRIGGER inject_fault $triggerClause " +
+                "BEGIN SELECT RAISE(ABORT, 'injected'); END",
+            parameters = 0
+        ).value
     }
 
     private fun activation() = TrainingActivation(
