@@ -50,7 +50,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
+import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.navigation.FeatureDestination
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.focus_full_body
@@ -73,8 +75,12 @@ import hydrafit.feature.logger.generated.resources.logger_end_session
 import hydrafit.feature.logger.generated.resources.logger_finish
 import hydrafit.feature.logger.generated.resources.logger_finish_partial
 import hydrafit.feature.logger.generated.resources.logger_future_time_error
+import hydrafit.feature.logger.generated.resources.logger_load_added
+import hydrafit.feature.logger.generated.resources.logger_load_added_none
+import hydrafit.feature.logger.generated.resources.logger_load_bodyweight
 import hydrafit.feature.logger.generated.resources.logger_load_confirm_body
 import hydrafit.feature.logger.generated.resources.logger_load_confirm_title
+import hydrafit.feature.logger.generated.resources.logger_load_legacy
 import hydrafit.feature.logger.generated.resources.logger_load_use_bodyweight
 import hydrafit.feature.logger.generated.resources.logger_load_use_external
 import hydrafit.feature.logger.generated.resources.logger_log_button
@@ -410,12 +416,7 @@ fun WorkoutLoggerScreen(
                 }
             }
             items(state.draftSets) { draft ->
-                val weight = draft.weightKg
-                    ?.let {
-                        formatWeight(state.weightUnit.kilogramsToDisplay(it)) +
-                            " " + state.weightUnit.label
-                    }
-                    ?: stringResource(Res.string.logger_weight_none)
+                val weight = loadWeightText(draft.loadKind, draft.weightKg, state.weightUnit)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -441,11 +442,7 @@ fun WorkoutLoggerScreen(
         }
         items(state.recentSets) { row ->
             val unit = state.weightUnit
-            val weight = row.weightKg
-                ?.let { kg ->
-                    formatWeight(unit.kilogramsToDisplay(kg)) + " " + unit.label
-                }
-                ?: stringResource(Res.string.logger_weight_none)
+            val weight = loadWeightText(row.loadKind, row.weightKg, unit)
             val warmupSuffix = if (row.isWarmup) {
                 " " + stringResource(Res.string.logger_warmup_suffix)
             } else {
@@ -620,6 +617,30 @@ fun WorkoutLoggerScreen(
         )
     }
 }
+
+/** Renders a recorded weight with honest load semantics (external vs added vs bodyweight vs legacy). */
+@Composable
+private fun loadWeightText(loadKind: LoadKind, weightKg: Double?, unit: WeightUnit): String =
+    when (val display = loadDisplayFor(loadKind, weightKg)) {
+        LoadDisplay.None -> stringResource(Res.string.logger_weight_none)
+        is LoadDisplay.External ->
+            formatWeight(unit.kilogramsToDisplay(display.weightKg)) + " " + unit.label
+        is LoadDisplay.Added -> display.weightKg?.let {
+            stringResource(
+                Res.string.logger_load_added,
+                formatWeight(unit.kilogramsToDisplay(it)),
+                unit.label
+            )
+        } ?: stringResource(Res.string.logger_load_added_none)
+        LoadDisplay.Bodyweight -> stringResource(Res.string.logger_load_bodyweight)
+        is LoadDisplay.LegacyUnconfirmed -> display.weightKg?.let {
+            stringResource(
+                Res.string.logger_load_legacy,
+                formatWeight(unit.kilogramsToDisplay(it)),
+                unit.label
+            )
+        } ?: stringResource(Res.string.logger_weight_none)
+    }
 
 @Composable
 private fun BackdatedTimeControl(

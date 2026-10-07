@@ -34,6 +34,36 @@ data class LoggedSetRow(
     val loadKind: LoadKind = LoadKind.LEGACY_UNSPECIFIED
 )
 
+/**
+ * How a recorded weight reads, given its load kind. Keeps a legacy number from being shown as
+ * confirmed external load and labels added kilograms as added, not total resistance.
+ */
+sealed interface LoadDisplay {
+    /** No number recorded for this kind. */
+    data object None : LoadDisplay
+
+    /** External resistance in kilograms. */
+    data class External(val weightKg: Double) : LoadDisplay
+
+    /** Kilograms added to bodyweight; null when the amount was not recorded. */
+    data class Added(val weightKg: Double?) : LoadDisplay
+
+    /** Bodyweight / no added load. */
+    data object Bodyweight : LoadDisplay
+
+    /** A recorded historical number whose meaning was never established. */
+    data class LegacyUnconfirmed(val weightKg: Double?) : LoadDisplay
+}
+
+/** Maps a stored load kind and weight to its display form. Pure so it can be unit-tested. */
+fun loadDisplayFor(loadKind: LoadKind, weightKg: Double?): LoadDisplay = when (loadKind) {
+    LoadKind.EXTERNAL -> weightKg?.let { LoadDisplay.External(it) } ?: LoadDisplay.None
+    LoadKind.ADDED -> LoadDisplay.Added(weightKg)
+    LoadKind.BODYWEIGHT -> LoadDisplay.Bodyweight
+    LoadKind.LEGACY_UNSPECIFIED ->
+        weightKg?.let { LoadDisplay.LegacyUnconfirmed(it) } ?: LoadDisplay.None
+}
+
 /** A planned exercise offered in the Logger; nothing here counts until it is confirmed. */
 data class DraftSet(
     val exerciseId: String,

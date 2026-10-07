@@ -49,4 +49,8 @@
     <string name="logger_load_confirm_body">%1$s was prescribed load %2$s, but its meaning was never recorded. Choose what these sets represent before logging.</string>
     <string name="logger_load_use_external">Log as external load</string>
     <string name="logger_load_use_bodyweight">Log as bodyweight</string>
+    <string name="logger_load_bodyweight">Bodyweight</string>
+    <string name="logger_load_added">Bodyweight + %1$s %2$s</string>
+    <string name="logger_load_added_none">Bodyweight + added load</string>
+    <string name="logger_load_legacy">%1$s %2$s (recorded, unconfirmed)</string>
 </resources>
