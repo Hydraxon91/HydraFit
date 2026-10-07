@@ -1,7 +1,6 @@
 package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.db.SqlDriver
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -17,7 +16,7 @@ class InvolvementConversionMigrationTest {
 
     @Test
     fun migratingFromV19DerivesInvolvementsFromTagsWithoutOverwritingExisting() {
-        driver = v19Database()
+        driver = HistoricalDatabaseFixtures.v19()
         exec(
             "INSERT INTO exercise(id, name, requiredEquipment, primaryMuscles, secondaryMuscles, " +
                 "movementPattern, isCustom, isUnilateral) " +
@@ -59,30 +58,6 @@ class InvolvementConversionMigrationTest {
     }
 
     private fun exec(sql: String) {
-        driver.execute(identifier = null, sql = sql, parameters = 0)
-    }
-
-    /** The v19 shape: involvements exists (may be null); the tag columns are still present. */
-    private fun v19Database(): SqlDriver {
-        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
-        val statements = listOf(
-            "CREATE TABLE exercise (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, " +
-                "requiredEquipment TEXT NOT NULL, primaryMuscles TEXT NOT NULL, " +
-                "secondaryMuscles TEXT NOT NULL, movementPattern TEXT NOT NULL, " +
-                "isCustom INTEGER NOT NULL DEFAULT 0, isUnilateral INTEGER NOT NULL DEFAULT 0, " +
-                "involvements TEXT)",
-            "CREATE TABLE exerciseOverride (exerciseId TEXT NOT NULL PRIMARY KEY, name TEXT, " +
-                "requiredEquipment TEXT, primaryMuscles TEXT, secondaryMuscles TEXT, " +
-                "movementPattern TEXT, isUnilateral INTEGER, involvements TEXT)",
-            "CREATE TABLE workoutSet (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, " +
-                "exerciseId TEXT NOT NULL, reps INTEGER NOT NULL, weightKg REAL, " +
-                "performedAt INTEGER NOT NULL, isWarmup INTEGER NOT NULL DEFAULT 0, " +
-                "primaryMuscles TEXT, secondaryMuscles TEXT, involvements TEXT)",
-            // Plan history entries predate v19 and are not created by any migration in the
-            // 19→latest range; the EX-02 migration (27.sqm) alters this table.
-            "CREATE TABLE planHistoryEntry (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT)"
-        )
-        statements.forEach { driver.execute(identifier = null, sql = it, parameters = 0) }
-        return driver
+        HistoricalDatabaseFixtures.exec(driver, sql)
     }
 }
