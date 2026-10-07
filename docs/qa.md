@@ -2,7 +2,7 @@
 
 Manual acceptance pass before tagging a release. Run on a clean install of the signed release
 APK (an emulator is fine; the AGENTS UI-verification rules keep automated runs off a personal
-phone). Tabs: **Equipment · Fatigue · Plan · Log · Settings**.
+phone). Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
 
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
@@ -20,6 +20,7 @@ exact on-screen text.
 - Edit a built-in: equipment, movement pattern, per-muscle involvement tiers, unilateral flag → Save, reopen, values persisted.
 - Movement-pattern picker now groups **Compound** and **Accessory** and shows the hint that accessory patterns use the accessory set count. Selecting an accessory pattern (e.g. Core, Biceps isolation) yields the accessory set count in a plan.
 - Reset restores defaults; add/edit/delete a custom exercise; deleting one referenced by a logged set is blocked.
+- **Load capability (EX-02):** the editor's Load row offers External weight / Bodyweight / Bodyweight + added. `Ab Roll` shows Bodyweight selected; `Back Squat` shows External weight; `Pull-up` shows Bodyweight + added. Saving persists and survives relaunch (built-in edits go through the override).
 
 ## 3. Plan — deterministic
 - Days 2–6 resolve to the right split (2–3 Full Body, 4 Upper-Lower, 5–6 PPL); per-day focus labels correct.
@@ -55,6 +56,8 @@ exact on-screen text.
 - Backdated logging: picker opens, past time accepted, future time rejected, target session shown; row shows the backdated stamp.
 - Units kg ↔ lb conversion correct.
 - Planned-today focus matches the accepted plan; no accepted plan → no focus.
+- Active block: the Logger's occurrence card shows the workout name and performed/prescribed sets; **Finish** is rejected until every prescribed set is recorded ("Not every prescribed set is recorded yet"), **Finish partially** resolves with the remainder omitted, and **Skip** resolves without inventing sets; the queue advances.
+- **Load semantics (EX-02):** a bodyweight exercise hides the weight field (no numeric load); an addable bodyweight exercise reveals an "added load" field; a migrated legacy recent-set row reads "(recorded, unconfirmed)" and an added-load row reads "Bodyweight + X kg". A legacy planned draft requires resolving it as external or bodyweight before logging.
 
 ## 7. Fatigue
 - Heatmap reflects logged sets per muscle; percentages shown; near-limit shows "99.9+%".
