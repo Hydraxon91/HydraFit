@@ -20,10 +20,36 @@ class SubstituteExerciseUseCaseTest {
         listOf(
             exercise("barbell-bench", MovementPattern.HORIZONTAL_PUSH, EquipmentTag.BARBELL),
             exercise("dumbbell-bench", MovementPattern.HORIZONTAL_PUSH, EquipmentTag.DUMBBELL),
-            exercise("push-up", MovementPattern.HORIZONTAL_PUSH),
+            exercise(
+                "push-up",
+                MovementPattern.HORIZONTAL_PUSH,
+                loadCapability = ExerciseLoadCapability.BODYWEIGHT_ONLY
+            ),
             exercise("cable-fly", MovementPattern.CHEST_FLY, EquipmentTag.CABLE_MACHINE)
         )
     )
+
+    @Test
+    fun dropsTheLoadWhenTheReplacementCannotCarryTheSlotLoad() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val useCase = useCase(repository)
+
+        val result = useCase(
+            plan = plan(),
+            dayIndex = 0,
+            position = 0,
+            request = request(equipment = emptySet()),
+            selectedExerciseId = "push-up"
+        )
+
+        // The external slot's 82.5 kg cannot become bodyweight load: no number, bodyweight kind.
+        assertEquals("push-up", result?.exerciseId)
+        assertNull(result?.suggestedWeightKg)
+        assertEquals(LoadKind.BODYWEIGHT, result?.loadKind)
+        assertEquals(ExerciseLoadCapability.BODYWEIGHT_ONLY, result?.loadCapability)
+        assertNull(repository.substitutions.single().newWeightKg)
+        assertEquals(LoadKind.BODYWEIGHT, repository.substitutions.single().newLoadKind)
+    }
 
     @Test
     fun updatesTheRowInTheRepository() = runTest {
@@ -176,14 +202,19 @@ class SubstituteExerciseUseCaseTest {
         )
     )
 
-    private fun exercise(id: String, pattern: MovementPattern, equipment: EquipmentTag? = null) =
-        Exercise(
-            id = id,
-            name = id.split('-').joinToString(" ") { it.replaceFirstChar(Char::uppercase) },
-            requiredEquipment = setOfNotNull(equipment),
-            primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
-            movementPattern = pattern
-        )
+    private fun exercise(
+        id: String,
+        pattern: MovementPattern,
+        equipment: EquipmentTag? = null,
+        loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL
+    ) = Exercise(
+        id = id,
+        name = id.split('-').joinToString(" ") { it.replaceFirstChar(Char::uppercase) },
+        requiredEquipment = setOfNotNull(equipment),
+        primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
+        movementPattern = pattern,
+        loadCapability = loadCapability
+    )
 
     private data class SubstituteCall(
         val planId: Long,
@@ -191,7 +222,8 @@ class SubstituteExerciseUseCaseTest {
         val position: Int,
         val newExerciseId: String,
         val newExerciseName: String,
-        val newWeightKg: Double?
+        val newWeightKg: Double?,
+        val newLoadKind: LoadKind = LoadKind.EXTERNAL
     )
 
     private class FakeCatalog(private val exercises: List<Exercise>) : ExerciseCatalog {
@@ -225,7 +257,8 @@ class SubstituteExerciseUseCaseTest {
                 position = position,
                 newExerciseId = newExerciseId,
                 newExerciseName = newExerciseName,
-                newWeightKg = newWeightKg
+                newWeightKg = newWeightKg,
+                newLoadKind = newLoadKind
             )
         }
 
