@@ -1,7 +1,6 @@
 package com.hydrafit.app.core.domain.schedule
 
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
-import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.time.TimeProvider
 
@@ -108,10 +107,11 @@ class ActivateRoutineUseCase(
     private val createActivation: CreateTrainingActivationUseCase
 ) {
     suspend operator fun invoke(template: RoutineTemplate, request: ActivationRequest): Long {
+        if (template.isArchived) {
+            throw ScheduleException("An archived routine cannot be started")
+        }
         if (template.workouts.isEmpty()) {
-            throw ScheduleException(
-                "A routine needs at least one workout"
-            )
+            throw ScheduleException("A routine needs at least one workout")
         }
         val byId = catalog.all().associateBy { it.id }
         val workouts = template.workouts.sortedBy { it.position }.map { workout ->
@@ -121,14 +121,17 @@ class ActivateRoutineUseCase(
                 focus = workout.focus,
                 entries = workout.entries.sortedBy { it.position }.map { entry ->
                     val exercise = byId[entry.exerciseId]
+                        ?: throw ScheduleException(
+                            "This routine references an unknown exercise: ${entry.exerciseId}"
+                        )
                     ActivationEntry(
                         position = entry.position,
                         exerciseId = entry.exerciseId,
-                        exerciseName = exercise?.name ?: entry.exerciseId,
-                        movementPattern = exercise?.movementPattern ?: MovementPattern.CORE,
-                        requiredEquipment = exercise?.requiredEquipment ?: emptySet(),
-                        involvements = exercise?.effectiveInvolvements,
-                        isUnilateral = exercise?.isUnilateral ?: false,
+                        exerciseName = exercise.name,
+                        movementPattern = exercise.movementPattern,
+                        requiredEquipment = exercise.requiredEquipment,
+                        involvements = exercise.effectiveInvolvements,
+                        isUnilateral = exercise.isUnilateral,
                         sets = entry.sets,
                         reps = entry.reps,
                         weightKg = entry.weightKg

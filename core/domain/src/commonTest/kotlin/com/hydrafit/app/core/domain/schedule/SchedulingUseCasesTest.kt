@@ -335,6 +335,57 @@ class SchedulingUseCasesTest {
         assertEquals(resolvedAt, scheduleRepository.getOccurrence(occurrence.id)?.resolvedAtMillis)
     }
 
+    @Test
+    fun movingAStartedOccurrenceIsRejected() = runTest {
+        val activationId = activateRoutine(routine(), request(replaceActive = false))
+        val occurrence = scheduleRepository.occurrences(activationId).first()
+        startOccurrence(occurrence.id)
+
+        assertFailsWith<ScheduleException> { move(occurrence.id, 999L) }
+    }
+
+    @Test
+    fun switchingModeLeavesStartedOccurrencesUntouchedAndClearsPendingOnes() = runTest {
+        val activationId = activateRoutine(routine(), request(replaceActive = false))
+        val occurrences = scheduleRepository.occurrences(activationId)
+        startOccurrence(occurrences[0].id)
+        val startedDate = scheduleRepository.getOccurrence(occurrences[0].id)?.scheduledEpochDay
+
+        switchMode(activationId, ScheduleMode.SEQUENCE, weekdays, friday)
+
+        assertEquals(
+            startedDate,
+            scheduleRepository.getOccurrence(occurrences[0].id)?.scheduledEpochDay
+        )
+        assertNull(scheduleRepository.getOccurrence(occurrences[1].id)?.scheduledEpochDay)
+    }
+
+    @Test
+    fun activatingAnArchivedRoutineIsRejected() = runTest {
+        assertFailsWith<ScheduleException> {
+            activateRoutine(
+                routine().copy(archivedAtMillis = 1L),
+                request(replaceActive = false)
+            )
+        }
+    }
+
+    @Test
+    fun activatingWithAnUnknownExerciseIsRejected() = runTest {
+        val template = routine().copy(
+            workouts = listOf(
+                RoutineWorkout(
+                    name = "Day 1",
+                    entries = listOf(RoutineEntry(exerciseId = "ghost", sets = 3, reps = 8))
+                )
+            )
+        )
+
+        assertFailsWith<ScheduleException> {
+            activateRoutine(template, request(replaceActive = false))
+        }
+    }
+
     private fun request(replaceActive: Boolean) = ActivationRequest(
         name = "Upper/Lower",
         startEpochDay = friday,

@@ -57,6 +57,19 @@ class WorkoutScheduleActions(
     suspend fun move(occurrenceId: Long, newEpochDay: Long) =
         moveOccurrence(occurrenceId, newEpochDay)
 
+    /** Dates the postponed occurrence and its pending suffix would move to, without writing. */
+    suspend fun previewMove(occurrenceId: Long, newEpochDay: Long): List<OccurrenceDateChange> =
+        moveOccurrence.preview(occurrenceId, newEpochDay)
+
+    /** Dates pending occurrences would take under a new mode, without writing. */
+    suspend fun previewSwitchMode(
+        activationId: Long,
+        mode: ScheduleMode,
+        weekdays: Set<DayOfWeek>,
+        startEpochDay: Long
+    ): List<OccurrenceDateChange> =
+        switchScheduleMode.preview(activationId, mode, weekdays, startEpochDay)
+
     suspend fun switchMode(
         activationId: Long,
         mode: ScheduleMode,

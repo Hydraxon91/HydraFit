@@ -122,6 +122,7 @@ class SplitBuilderViewModel(
         _state.update { current ->
             current.copy(
                 scheduleDialog = SplitScheduleDialogState(
+                    weekdays = DayOfWeek.entries.take(plan.days.size).toSet(),
                     startEpochDay = planBuilderActions.todayEpochDay(),
                     hasActiveBlock = current.hasActiveBlock,
                     replaceActive = current.hasActiveBlock
@@ -156,8 +157,8 @@ class SplitBuilderViewModel(
     fun onConfirmSchedule() {
         val plan = _state.value.plan ?: return
         val dialog = _state.value.scheduleDialog ?: return
-        if (dialog.mode == ScheduleMode.WEEKDAY && dialog.weekdays.isEmpty()) {
-            _state.update { it.copy(scheduleDialog = dialog.copy(error = "weekdays")) }
+        if (dialog.mode == ScheduleMode.WEEKDAY && dialog.weekdays.size != plan.days.size) {
+            _state.update { it.copy(scheduleDialog = dialog.copy(error = "frequency")) }
             return
         }
         val request = ActivationRequest(

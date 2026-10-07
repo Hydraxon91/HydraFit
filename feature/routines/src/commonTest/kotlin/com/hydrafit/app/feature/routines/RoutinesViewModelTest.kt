@@ -206,6 +206,10 @@ class RoutinesViewModelTest {
         val occurrence = viewModel.state.value.occurrences.first()
         viewModel.onPostpone(occurrence.id, 999L)
         advanceUntilIdle()
+        assertNotNull(viewModel.state.value.pendingPostpone)
+
+        viewModel.onConfirmPostpone()
+        advanceUntilIdle()
 
         assertEquals(
             999L,
@@ -224,9 +228,14 @@ class RoutinesViewModelTest {
 
         viewModel.onSwitchScheduleMode()
         advanceUntilIdle()
+        assertNotNull(viewModel.state.value.pendingSwitchMode)
+        viewModel.onConfirmSwitchMode()
+        advanceUntilIdle()
         assertEquals(ScheduleMode.SEQUENCE, viewModel.state.value.activeActivation?.mode)
 
         viewModel.onSwitchScheduleMode()
+        advanceUntilIdle()
+        viewModel.onConfirmSwitchMode()
         advanceUntilIdle()
         assertEquals(ScheduleMode.WEEKDAY, viewModel.state.value.activeActivation?.mode)
     }
@@ -273,7 +282,32 @@ class RoutinesViewModelTest {
         assertTrue(viewModel.state.value.templates.isEmpty())
     }
 
-    private fun viewModel(): RoutinesViewModel {
+    @Test
+    fun theEditorFreezesTheUnitItWasOpenedWith() = runTest(dispatcher) {
+        val unitRepository = FakeWeightUnitRepository()
+        val viewModel = viewModel(unitRepository)
+        advanceUntilIdle()
+        viewModel.onNewRoutine()
+        viewModel.onEditorNameChanged("Upper")
+        viewModel.onAddWorkout()
+        viewModel.onWorkoutNameChanged(0, "Day 1")
+        viewModel.onAddExercise(0)
+        viewModel.onPickerExerciseSelected("bench-press", "Barbell Bench Press")
+        viewModel.onEntryWeightChanged(0, 0, "100")
+
+        unitRepository.setUnit(WeightUnit.LB)
+        advanceUntilIdle()
+
+        viewModel.onSaveEditor()
+        advanceUntilIdle()
+
+        val entry = viewModel.state.value.templates.single().workouts.single().entries.single()
+        assertEquals(100.0, entry.weightKg)
+    }
+
+    private fun viewModel(
+        weightUnitRepository: FakeWeightUnitRepository = FakeWeightUnitRepository()
+    ): RoutinesViewModel {
         val preview = PreviewWorkoutScheduleUseCase()
         val createActivation = CreateTrainingActivationUseCase(schedule, preview, timeProvider)
         val queueAdvancer = WorkoutQueueAdvancer(schedule)
@@ -305,7 +339,7 @@ class RoutinesViewModelTest {
             scheduleActions = scheduleActions,
             exerciseCatalog = catalog,
             timeProvider = timeProvider,
-            weightUnitRepository = FakeWeightUnitRepository()
+            weightUnitRepository = weightUnitRepository
         )
     }
 
@@ -343,6 +377,13 @@ private class FakeCatalog : ExerciseCatalog {
             requiredEquipment = setOf(EquipmentTag("barbell")),
             primaryMuscles = emptySet(),
             involvements = mapOf(MuscleGroup.CHEST_UPPER to 0.6)
+        ),
+        Exercise(
+            id = "barbell-squat",
+            name = "Barbell Squat",
+            requiredEquipment = setOf(EquipmentTag("barbell")),
+            primaryMuscles = emptySet(),
+            involvements = mapOf(MuscleGroup.QUADS to 0.7)
         )
     )
 }

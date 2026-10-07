@@ -1,7 +1,6 @@
 package com.hydrafit.app.core.domain.schedule
 
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
-import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.routine.RoutineTemplateException
 import com.hydrafit.app.core.domain.time.DayOfWeek
@@ -68,19 +67,25 @@ class CancelTrainingActivationUseCase(
     }
 }
 
+/** One occurrence's resulting schedule after a move or mode switch (read-only preview). */
+data class OccurrenceDateChange(
+    val occurrenceId: Long,
+    val scheduledEpochDay: Long?,
+    val notBeforeEpochDay: Long? = null
+)
+
 /**
- * Moves one pending occurrence. In chosen-weekday mode its scheduled day and every later unresolved
+ * Moves one pending occurrence. In chosen-weekday mode its scheduled day and every later **pending**
  * occurrence are reflowed from the new date so the block keeps its chosen weekdays without
- * compressing. In sequence mode it only sets a "not before" hint and queue order is untouched.
+ * compressing; started (`IN_PROGRESS`) and resolved occurrences are never touched. In sequence mode
+ * it only sets a "not before" hint and queue order is untouched.
  */
 class MoveWorkoutOccurrenceUseCase(
     private val scheduleRepository: WorkoutScheduleRepository,
     private val previewSchedule: PreviewWorkoutScheduleUseCase
 ) {
     suspend operator fun invoke(occurrenceId: Long, newEpochDay: Long) {
-        val occurrence = scheduleRepository.getOccurrence(occurrenceId)
-            ?: throw ScheduleException("That workout no longer exists")
-        if (occurrence.isResolved) throw ScheduleException("That workout is already finished")
+        val occurrence = requireMoved(occurrenceId)
         val activation = scheduleRepository.getActivation(occurrence.activationId)
             ?: throw ScheduleException("That training block no longer exists")
 
@@ -90,11 +95,46 @@ class MoveWorkoutOccurrenceUseCase(
             )
             return
         }
+        pendingSuffix(occurrence, activation, newEpochDay).forEach { (pending, date) ->
+            scheduleRepository.updateOccurrence(
+                pending.copy(scheduledEpochDay = date, revision = pending.revision + 1)
+            )
+        }
+    }
 
-        val occurrences = scheduleRepository.occurrences(occurrence.activationId)
+    /** The resulting dates for the moved occurrence and its pending suffix, without writing. */
+    suspend fun preview(occurrenceId: Long, newEpochDay: Long): List<OccurrenceDateChange> {
+        val occurrence = requireMoved(occurrenceId)
+        val activation = scheduleRepository.getActivation(occurrence.activationId)
+            ?: throw ScheduleException("That training block no longer exists")
+        if (activation.mode == ScheduleMode.SEQUENCE) {
+            return listOf(
+                OccurrenceDateChange(occurrence.id, null, notBeforeEpochDay = newEpochDay)
+            )
+        }
+        return pendingSuffix(occurrence, activation, newEpochDay).map { (pending, date) ->
+            OccurrenceDateChange(pending.id, scheduledEpochDay = date)
+        }
+    }
+
+    private suspend fun requireMoved(occurrenceId: Long): WorkoutOccurrence {
+        val occurrence = scheduleRepository.getOccurrence(occurrenceId)
+            ?: throw ScheduleException("That workout no longer exists")
+        if (occurrence.status != OccurrenceStatus.PENDING) {
+            throw ScheduleException("Only a pending workout can be moved")
+        }
+        return occurrence
+    }
+
+    private suspend fun pendingSuffix(
+        occurrence: WorkoutOccurrence,
+        activation: TrainingActivation,
+        newEpochDay: Long
+    ): List<Pair<WorkoutOccurrence, Long?>> {
+        val occurrences = scheduleRepository.occurrences(activation.id)
             .sortedBy { it.queuePosition }
-        val index = occurrences.indexOfFirst { it.id == occurrenceId }
-        val suffix = occurrences.drop(index).filterNot { it.isResolved }
+        val index = occurrences.indexOfFirst { it.id == occurrence.id }
+        val suffix = occurrences.drop(index).filter { it.status == OccurrenceStatus.PENDING }
         val dates = previewSchedule(
             count = suffix.size,
             startEpochDay = newEpochDay,
@@ -102,20 +142,14 @@ class MoveWorkoutOccurrenceUseCase(
             weekdays = activation.weekdays,
             startToday = true
         )
-        suffix.forEachIndexed { position, pending ->
-            scheduleRepository.updateOccurrence(
-                pending.copy(
-                    scheduledEpochDay = dates.getOrNull(position),
-                    revision = pending.revision + 1
-                )
-            )
-        }
+        return suffix.mapIndexed { position, pending -> pending to dates.getOrNull(position) }
     }
 }
 
 /**
- * Switches the active block between chosen-weekday and next-workout-sequence scheduling. Queued
- * workout ids and recorded work are preserved; only the unresolved occurrences' dates change.
+ * Switches the active block between chosen-weekday and next-workout-sequence scheduling. The new
+ * schedule is validated before anything is written; queued ids and recorded work are preserved, and
+ * only **pending** occurrences' dates change (started/resolved occurrences keep their dates).
  */
 class SwitchScheduleModeUseCase(
     private val scheduleRepository: WorkoutScheduleRepository,
@@ -127,35 +161,76 @@ class SwitchScheduleModeUseCase(
         weekdays: Set<DayOfWeek>,
         startEpochDay: Long
     ) {
+        val activation = requireActive(activationId)
+        val pending = pendingOccurrences(activationId)
+        val dates = datesFor(mode, weekdays, pending.size, startEpochDay)
+        scheduleRepository.updateActivationHeader(
+            activation.copy(mode = mode, weekdays = weekdays, revision = activation.revision + 1)
+        )
+        pending.forEachIndexed { position, occurrence ->
+            scheduleRepository.updateOccurrence(
+                occurrence.copy(
+                    scheduledEpochDay = if (mode == ScheduleMode.WEEKDAY) {
+                        dates?.getOrNull(position)
+                    } else {
+                        null
+                    },
+                    notBeforeEpochDay = if (mode == ScheduleMode.WEEKDAY) {
+                        null
+                    } else {
+                        occurrence.notBeforeEpochDay
+                    },
+                    revision = occurrence.revision + 1
+                )
+            )
+        }
+    }
+
+    /** The resulting dates for each pending occurrence under the new mode, without writing. */
+    suspend fun preview(
+        activationId: Long,
+        mode: ScheduleMode,
+        weekdays: Set<DayOfWeek>,
+        startEpochDay: Long
+    ): List<OccurrenceDateChange> {
+        requireActive(activationId)
+        val pending = pendingOccurrences(activationId)
+        val dates = datesFor(mode, weekdays, pending.size, startEpochDay)
+        return pending.mapIndexed { position, occurrence ->
+            OccurrenceDateChange(
+                occurrenceId = occurrence.id,
+                scheduledEpochDay = if (mode == ScheduleMode.WEEKDAY) {
+                    dates?.getOrNull(position)
+                } else {
+                    null
+                }
+            )
+        }
+    }
+
+    private suspend fun requireActive(activationId: Long): TrainingActivation {
         val activation = scheduleRepository.getActivation(activationId)
             ?: throw ScheduleException("That training block no longer exists")
         if (activation.status != ActivationStatus.ACTIVE) {
             throw ScheduleException("Only the active block can be rescheduled")
         }
-        scheduleRepository.updateActivationHeader(
-            activation.copy(mode = mode, weekdays = weekdays, revision = activation.revision + 1)
-        )
-        val unresolved = scheduleRepository.occurrences(activationId)
+        return activation
+    }
+
+    private suspend fun pendingOccurrences(activationId: Long): List<WorkoutOccurrence> =
+        scheduleRepository.occurrences(activationId)
             .sortedBy { it.queuePosition }
-            .filterNot { it.isResolved }
-        if (mode == ScheduleMode.SEQUENCE) {
-            unresolved.forEach { pending ->
-                scheduleRepository.updateOccurrence(
-                    pending.copy(scheduledEpochDay = null, revision = pending.revision + 1)
-                )
-            }
-            return
-        }
-        val dates = previewSchedule(unresolved.size, startEpochDay, ScheduleMode.WEEKDAY, weekdays)
-        unresolved.forEachIndexed { position, pending ->
-            scheduleRepository.updateOccurrence(
-                pending.copy(
-                    scheduledEpochDay = dates.getOrNull(position),
-                    notBeforeEpochDay = null,
-                    revision = pending.revision + 1
-                )
-            )
-        }
+            .filter { it.status == OccurrenceStatus.PENDING }
+
+    private fun datesFor(
+        mode: ScheduleMode,
+        weekdays: Set<DayOfWeek>,
+        count: Int,
+        startEpochDay: Long
+    ): List<Long?>? = if (mode == ScheduleMode.WEEKDAY) {
+        previewSchedule(count, startEpochDay, ScheduleMode.WEEKDAY, weekdays)
+    } else {
+        null
     }
 }
 
@@ -187,15 +262,16 @@ class EditUnstartedOccurrenceUseCase(
                 throw ScheduleException(error.message ?: "Invalid prescription")
             }
             val exercise = byId[draft.exerciseId]
+                ?: throw ScheduleException("That exercise no longer exists")
             OccurrenceEntry(
                 sourceActivationEntryId = null,
                 position = index,
                 exerciseId = draft.exerciseId,
-                exerciseName = exercise?.name ?: draft.exerciseId,
-                movementPattern = exercise?.movementPattern ?: MovementPattern.CORE,
-                requiredEquipment = exercise?.requiredEquipment ?: emptySet(),
-                involvements = exercise?.effectiveInvolvements,
-                isUnilateral = exercise?.isUnilateral ?: false,
+                exerciseName = exercise.name,
+                movementPattern = exercise.movementPattern,
+                requiredEquipment = exercise.requiredEquipment,
+                involvements = exercise.effectiveInvolvements,
+                isUnilateral = exercise.isUnilateral,
                 sets = draft.sets,
                 reps = draft.reps,
                 weightKg = draft.weightKg

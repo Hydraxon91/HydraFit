@@ -96,6 +96,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_regenerate
 import hydrafit.feature.splitbuilder.generated.resources.split_retry
 import hydrafit.feature.splitbuilder.generated.resources.split_save_routine
 import hydrafit.feature.splitbuilder.generated.resources.split_schedule_choose_date
+import hydrafit.feature.splitbuilder.generated.resources.split_schedule_frequency
 import hydrafit.feature.splitbuilder.generated.resources.split_schedule_mode_sequence
 import hydrafit.feature.splitbuilder.generated.resources.split_schedule_mode_weekday
 import hydrafit.feature.splitbuilder.generated.resources.split_schedule_no_weekday
@@ -589,10 +590,10 @@ private fun SplitScheduleDialog(
                 }
                 dialog.error?.let { error ->
                     Text(
-                        text = if (error == "weekdays") {
-                            stringResource(Res.string.split_schedule_no_weekday)
-                        } else {
-                            error
+                        text = when (error) {
+                            "frequency" -> stringResource(Res.string.split_schedule_frequency)
+                            "weekdays" -> stringResource(Res.string.split_schedule_no_weekday)
+                            else -> error
                         },
                         color = MaterialTheme.colorScheme.error
                     )

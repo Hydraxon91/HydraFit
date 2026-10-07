@@ -250,6 +250,42 @@ class SplitBuilderViewModelTest {
     }
 
     @Test
+    fun startingAGeneratedPlanUsesOneWeekdayPerWorkout() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = DeterministicWorkoutPlannerEngine(FakeExerciseCatalog()),
+            preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC)
+        )
+        advanceUntilIdle()
+        val plan = assertNotNull(viewModel.state.value.plan)
+
+        viewModel.onScheduleRequested()
+
+        val dialog = assertNotNull(viewModel.state.value.scheduleDialog)
+        assertEquals(plan.days.size, dialog.weekdays.size)
+        assertEquals(plan.days.size, dialog.preview.size)
+    }
+
+    @Test
+    fun aGeneratedPlanCannotDropToFewerWeekdays() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = DeterministicWorkoutPlannerEngine(FakeExerciseCatalog()),
+            preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC)
+        )
+        advanceUntilIdle()
+        viewModel.onScheduleRequested()
+        val dialog = assertNotNull(viewModel.state.value.scheduleDialog)
+
+        viewModel.onScheduleWeekdayToggled(dialog.weekdays.first())
+        viewModel.onConfirmSchedule()
+        advanceUntilIdle()
+
+        assertNotNull(viewModel.state.value.scheduleDialog)
+        assertFalse(viewModel.state.value.isPlanAccepted)
+    }
+
+    @Test
     fun loadsDaysPerWeekFromPreference() = runTest(dispatcher) {
         val viewModel = viewModel(
             availableEquipment = setOf(EquipmentTag.DUMBBELL),

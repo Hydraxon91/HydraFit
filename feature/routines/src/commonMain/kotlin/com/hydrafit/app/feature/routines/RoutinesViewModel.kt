@@ -90,6 +90,7 @@ class RoutinesViewModel(
                     revision = 0,
                     sourcePlanId = null,
                     name = "",
+                    unit = weightUnit,
                     workouts = emptyList()
                 )
             )
@@ -210,7 +211,7 @@ class RoutinesViewModel(
         val editor = _state.value.editor ?: return
         viewModelScope.launch {
             try {
-                routineActions.save(editor.toDraft(weightUnit))
+                routineActions.save(editor.toDraft())
                 _state.update { it.copy(editor = null, picker = null) }
             } catch (error: RoutineTemplateException) {
                 _state.update { it.copy(message = error.message) }
@@ -336,22 +337,65 @@ class RoutinesViewModel(
     }
 
     fun onPostpone(occurrenceId: Long, epochDay: Long) {
-        viewModelScope.launch { scheduleActions.move(occurrenceId, epochDay) }
+        viewModelScope.launch {
+            val changes = try {
+                scheduleActions.previewMove(occurrenceId, epochDay)
+            } catch (error: ScheduleException) {
+                _state.update { it.copy(message = error.message) }
+                return@launch
+            }
+            _state.update {
+                it.copy(pendingPostpone = PendingPostpone(occurrenceId, epochDay, changes))
+            }
+        }
+    }
+
+    fun onConfirmPostpone() {
+        val pending = _state.value.pendingPostpone ?: return
+        viewModelScope.launch {
+            scheduleActions.move(pending.occurrenceId, pending.newEpochDay)
+            _state.update { it.copy(pendingPostpone = null) }
+        }
     }
 
     fun onSwitchScheduleMode() {
         val active = _state.value.activeActivation ?: return
-        val mode = if (active.mode ==
-            ScheduleMode.WEEKDAY
-        ) {
+        val mode = if (active.mode == ScheduleMode.WEEKDAY) {
             ScheduleMode.SEQUENCE
         } else {
             ScheduleMode.WEEKDAY
         }
         val weekdays = active.weekdays.ifEmpty { DefaultWeekdays }
+        val start = todayEpochDay()
         viewModelScope.launch {
-            scheduleActions.switchMode(active.id, mode, weekdays, todayEpochDay())
+            val changes = try {
+                scheduleActions.previewSwitchMode(active.id, mode, weekdays, start)
+            } catch (error: ScheduleException) {
+                _state.update { it.copy(message = error.message) }
+                return@launch
+            }
+            _state.update {
+                it.copy(pendingSwitchMode = PendingSwitchMode(mode, weekdays, start, changes))
+            }
         }
+    }
+
+    fun onConfirmSwitchMode() {
+        val active = _state.value.activeActivation ?: return
+        val pending = _state.value.pendingSwitchMode ?: return
+        viewModelScope.launch {
+            scheduleActions.switchMode(
+                active.id,
+                pending.mode,
+                pending.weekdays,
+                pending.startEpochDay
+            )
+            _state.update { it.copy(pendingSwitchMode = null) }
+        }
+    }
+
+    fun onPendingDismissed() = _state.update {
+        it.copy(pendingPostpone = null, pendingSwitchMode = null)
     }
 
     fun onMessageShown() = _state.update { it.copy(message = null) }
@@ -423,6 +467,7 @@ private fun RoutineTemplate.toEditor(
     revision = revision,
     sourcePlanId = sourcePlanId,
     name = name,
+    unit = unit,
     workouts = workouts.sortedBy { it.position }.map { workout ->
         EditorWorkout(
             id = workout.id,
@@ -444,7 +489,7 @@ private fun RoutineTemplate.toEditor(
     }
 )
 
-private fun RoutineEditorState.toDraft(unit: WeightUnit): RoutineTemplate = RoutineTemplate(
+private fun RoutineEditorState.toDraft(): RoutineTemplate = RoutineTemplate(
     id = id,
     revision = revision,
     sourcePlanId = sourcePlanId,

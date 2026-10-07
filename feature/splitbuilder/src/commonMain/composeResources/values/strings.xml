@@ -58,6 +58,7 @@
     <string name="split_schedule_preview">First dates</string>
     <string name="split_schedule_replace">Cancel the current block and start this one</string>
     <string name="split_schedule_no_weekday">Pick at least one training day</string>
+    <string name="split_schedule_frequency">Choose one training day per workout</string>
     <string name="split_confirm">Confirm</string>
     <string name="split_cancel">Cancel</string>
     <string name="weekday_monday">Mon</string>

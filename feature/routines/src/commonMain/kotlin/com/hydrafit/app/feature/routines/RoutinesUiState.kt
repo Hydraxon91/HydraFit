@@ -2,6 +2,7 @@ package com.hydrafit.app.feature.routines
 
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
+import com.hydrafit.app.core.domain.schedule.OccurrenceDateChange
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.schedule.TrainingActivation
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
@@ -28,12 +29,13 @@ data class EditorWorkout(
     val entries: List<EditorEntry> = emptyList()
 )
 
-/** The full editor draft; [id] == 0 is a new routine. */
+/** The full editor draft; [id] == 0 is a new routine, and [unit] is frozen at open time. */
 data class RoutineEditorState(
     val id: Long,
     val revision: Int,
     val sourcePlanId: Long?,
     val name: String,
+    val unit: WeightUnit,
     val workouts: List<EditorWorkout> = emptyList()
 )
 
@@ -65,6 +67,21 @@ val DefaultWeekdays: Set<DayOfWeek> = setOf(
     DayOfWeek.FRIDAY
 )
 
+/** A postponement awaiting confirmation, with the dates the pending suffix would move to. */
+data class PendingPostpone(
+    val occurrenceId: Long,
+    val newEpochDay: Long,
+    val changes: List<OccurrenceDateChange>
+)
+
+/** A schedule-mode change awaiting confirmation, with the dates pending workouts would take. */
+data class PendingSwitchMode(
+    val mode: ScheduleMode,
+    val weekdays: Set<DayOfWeek>,
+    val startEpochDay: Long,
+    val changes: List<OccurrenceDateChange>
+)
+
 data class RoutinesUiState(
     val templates: List<RoutineTemplate> = emptyList(),
     val isLoading: Boolean = true,
@@ -74,6 +91,8 @@ data class RoutinesUiState(
     val activation: ActivationUiState? = null,
     val activeActivation: TrainingActivation? = null,
     val occurrences: List<WorkoutOccurrence> = emptyList(),
+    val pendingPostpone: PendingPostpone? = null,
+    val pendingSwitchMode: PendingSwitchMode? = null,
     val weightUnit: WeightUnit = WeightUnit.KG,
     val message: String? = null
 )

@@ -42,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
+import com.hydrafit.app.core.domain.schedule.OccurrenceDateChange
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
@@ -138,7 +139,6 @@ fun RoutinesScreen(state: RoutinesUiState, viewModel: RoutinesViewModel) {
     if (state.editor != null) {
         RoutineEditor(
             editor = state.editor,
-            weightUnit = state.weightUnit,
             message = state.message,
             viewModel = viewModel
         )
@@ -203,6 +203,67 @@ fun RoutinesScreen(state: RoutinesUiState, viewModel: RoutinesViewModel) {
             onDismiss = viewModel::onActivationDismissed
         )
     }
+    val occurrenceNames = occurrenceNames(state)
+    state.pendingPostpone?.let { pending ->
+        ScheduleChangeDialog(
+            title = stringResource(Res.string.routines_postpone_title),
+            changes = pending.changes,
+            occurrenceNames = occurrenceNames,
+            onConfirm = viewModel::onConfirmPostpone,
+            onDismiss = viewModel::onPendingDismissed
+        )
+    }
+    state.pendingSwitchMode?.let { pending ->
+        ScheduleChangeDialog(
+            title = stringResource(Res.string.routines_switch_mode),
+            changes = pending.changes,
+            occurrenceNames = occurrenceNames,
+            onConfirm = viewModel::onConfirmSwitchMode,
+            onDismiss = viewModel::onPendingDismissed
+        )
+    }
+}
+
+private fun occurrenceNames(state: RoutinesUiState): Map<Long, String> {
+    val activation = state.activeActivation ?: return emptyMap()
+    val workoutNames = activation.workouts.associate { it.id to it.name }
+    return state.occurrences.associate { it.id to workoutNames[it.activationWorkoutId].orEmpty() }
+}
+
+@Composable
+private fun ScheduleChangeDialog(
+    title: String,
+    changes: List<OccurrenceDateChange>,
+    occurrenceNames: Map<Long, String>,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                changes.forEach { change ->
+                    val date = change.scheduledEpochDay ?: change.notBeforeEpochDay
+                    Text(
+                        text = occurrenceNames[change.occurrenceId].orEmpty() +
+                            " → " + (date?.let(::epochDayLabel) ?: ""),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(stringResource(Res.string.routines_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(Res.string.routines_cancel))
+            }
+        }
+    )
 }
 
 @Composable
@@ -381,8 +442,10 @@ private fun TemplateRow(template: RoutineTemplate, viewModel: RoutinesViewModel)
                 TextButton(onClick = { viewModel.onDuplicate(template) }) {
                     Text(stringResource(Res.string.routines_duplicate))
                 }
-                TextButton(onClick = { viewModel.onActivateRequested(template) }) {
-                    Text(stringResource(Res.string.routines_activate))
+                if (!template.isArchived) {
+                    TextButton(onClick = { viewModel.onActivateRequested(template) }) {
+                        Text(stringResource(Res.string.routines_activate))
+                    }
                 }
                 TextButton(onClick = { viewModel.onToggleArchive(template) }) {
                     val label = if (template.isArchived) {
@@ -425,7 +488,6 @@ private fun TemplateRow(template: RoutineTemplate, viewModel: RoutinesViewModel)
 @Composable
 private fun RoutineEditor(
     editor: RoutineEditorState,
-    weightUnit: WeightUnit,
     message: String?,
     viewModel: RoutinesViewModel
 ) {
@@ -459,7 +521,7 @@ private fun RoutineEditor(
             WorkoutCard(
                 index = index,
                 workout = workout,
-                weightUnit = weightUnit,
+                weightUnit = editor.unit,
                 viewModel = viewModel
             )
         }

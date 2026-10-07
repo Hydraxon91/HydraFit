@@ -69,6 +69,7 @@ class PlanBuilderActions(
 
     /** Turns an already-accepted plan into a frozen, active training block. Returns the block id. */
     suspend fun scheduleAcceptedPlan(accepted: AcceptedPlan, request: ActivationRequest): Long {
+        requireGeneratedFrequency(accepted.days.size, request)
         val template = convertPlanToTemplate(accepted, request.name)
         return activateRoutine(
             template,
@@ -82,10 +83,23 @@ class PlanBuilderActions(
 
     /** Accepts a draft plan and immediately schedules it as an active block. */
     suspend fun acceptAndSchedule(plan: WeeklyPlan, request: ActivationRequest): Long {
+        // Validate before accepting so an invalid schedule never writes accepted-plan history.
+        requireGeneratedFrequency(plan.days.size, request)
         acceptWeeklyPlan(plan)
         val accepted = planHistoryRepository.latest()
             ?: throw ScheduleException("The plan could not be accepted")
         return scheduleAcceptedPlan(accepted, request)
+    }
+
+    /**
+     * A generated plan keeps its weekly frequency: in chosen-weekday mode it needs exactly one
+     * chosen weekday per workout, so a block is never stretched across weeks (that would require
+     * frequency-aware volume planning, which is not approved).
+     */
+    private fun requireGeneratedFrequency(count: Int, request: ActivationRequest) {
+        if (request.mode == ScheduleMode.WEEKDAY && request.weekdays.size != count) {
+            throw ScheduleException("A generated plan needs one chosen weekday per workout")
+        }
     }
 
     /** Copies an accepted plan into a new editable routine and returns its id. */
