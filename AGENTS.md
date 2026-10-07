@@ -181,6 +181,19 @@ Added by the 0.2.2 review (RG); rationale lives in `docs/architecture.md` and
 
 > Note: TS4-001 also proposed a shared `:test:fixtures` module for the duplicated `WorkoutLogRepository` test doubles. That module doesn't exist yet, so no rule here assumes it — the proposal lives in PLANS.md as a scheduled item, not here, until it's actually built.
 
+## Review-Derived Rules (0.2.4)
+
+Added by the 0.2.4 review (RG); findings and rationale live in
+`docs/review-0.2.4-snapshot.md`, not here. Marked **[current]** (code/docs
+already follow) or **[target, new code only]**.
+
+- **[current] The muscle-group count is one living value.** The `MuscleGroup`
+  enum (`:core:domain`) is the single source of truth for the set and its size.
+  When it changes, every living doc that states the count or enumerates the set
+  must be updated in the same change. Today those docs are `PLANS.md`, the
+  `hydrafit-mechanics` skill, `docs/fatigue-formula.md`,
+  `docs/performance-0.2.3.md` and `docs/review-0.2.3.md`. (R4-01)
+
 ## Tool Call Discipline
 
 Some models occasionally emit a tool call as plain text instead of a real tool call. The harness then treats the turn as finished, nothing runs, and the session stalls. These rules keep calls well-formed and keep the repo from ending up half-modified.
