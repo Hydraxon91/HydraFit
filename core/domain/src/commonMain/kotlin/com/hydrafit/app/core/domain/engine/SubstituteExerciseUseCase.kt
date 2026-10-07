@@ -188,9 +188,23 @@ class SubstituteExerciseUseCase(
         )
     }
 
-    private fun primaryEquipmentOf(exercise: Exercise): EquipmentTag =
-        exercise.requiredEquipment.firstOrNull { it != EquipmentTag.BODYWEIGHT }
-            ?: EquipmentTag.BODYWEIGHT
+    /**
+     * The implement a candidate is shown under. Built-in equipment wins over custom by the catalog's
+     * own order (so a dumbbell+bench exercise reports dumbbells, not the bench), and custom tags fall
+     * back to id order so the chip is stable regardless of the underlying set's iteration order.
+     */
+    private fun primaryEquipmentOf(exercise: Exercise): EquipmentTag = exercise.requiredEquipment
+        .filterNot { it == EquipmentTag.BODYWEIGHT }
+        .minWithOrNull(
+            compareBy<EquipmentTag>(
+                { tag ->
+                    EquipmentTag.BUILT_IN.indexOf(tag)
+                        .takeIf { index -> index >= 0 } ?: Int.MAX_VALUE
+                },
+                { it.id }
+            )
+        )
+        ?: EquipmentTag.BODYWEIGHT
 
     private data class SlotContext(
         val entry: AcceptedExercise,

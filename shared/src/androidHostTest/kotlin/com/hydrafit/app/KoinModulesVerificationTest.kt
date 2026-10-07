@@ -8,7 +8,9 @@ import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
 import com.hydrafit.app.core.domain.engine.OnDevicePlanProgress
+import com.hydrafit.app.core.domain.engine.PlanBuilderActions
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
+import com.hydrafit.app.core.domain.engine.SubstituteExerciseUseCase
 import com.hydrafit.app.core.domain.engine.SuggestWeightsUseCase
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
@@ -111,6 +113,8 @@ class KoinModulesVerificationTest {
         try {
             assertNotNull(koin.get<ObserveWorkoutPlanInputsUseCase>())
             assertNotNull(koin.get<AcceptWeeklyPlanUseCase>())
+            assertNotNull(koin.get<SubstituteExerciseUseCase>())
+            assertNotNull(koin.get<PlanBuilderActions>())
             assertNotNull(koin.get<ObserveAcceptedPlanUseCase>())
             assertNotNull(koin.get<LogWorkoutSetUseCase>())
             assertNotNull(koin.get<GetWorkoutLogUseCase>())

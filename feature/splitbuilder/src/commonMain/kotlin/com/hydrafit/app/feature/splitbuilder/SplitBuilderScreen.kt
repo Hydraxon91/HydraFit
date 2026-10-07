@@ -69,6 +69,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_error_rate_limite
 import hydrafit.feature.splitbuilder.generated.resources.split_error_service_unavailable
 import hydrafit.feature.splitbuilder.generated.resources.split_error_timeout
 import hydrafit.feature.splitbuilder.generated.resources.split_error_transient
+import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line
 import hydrafit.feature.splitbuilder.generated.resources.split_fallback_invalid_response
 import hydrafit.feature.splitbuilder.generated.resources.split_fallback_note
 import hydrafit.feature.splitbuilder.generated.resources.split_generated_by
@@ -82,6 +83,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_retry
 import hydrafit.feature.splitbuilder.generated.resources.split_sets_label
 import hydrafit.feature.splitbuilder.generated.resources.split_suggested_weight
 import hydrafit.feature.splitbuilder.generated.resources.split_swap_action
+import hydrafit.feature.splitbuilder.generated.resources.split_swap_candidate
 import hydrafit.feature.splitbuilder.generated.resources.split_swap_dialog_cancel
 import hydrafit.feature.splitbuilder.generated.resources.split_swap_dialog_empty
 import hydrafit.feature.splitbuilder.generated.resources.split_swap_dialog_title
@@ -301,7 +303,7 @@ fun SplitBuilderScreen(
                     day.exercises.forEachIndexed { position, exercise ->
                         val name = state.exerciseNames[exercise.exerciseId] ?: exercise.exerciseId
                         val weight = exercise.suggestedWeightKg?.let { kg ->
-                            "  ·  " + stringResource(
+                            stringResource(
                                 Res.string.split_suggested_weight,
                                 formatWeight(weightUnit.kilogramsToDisplay(kg)),
                                 weightUnit.label
@@ -309,7 +311,13 @@ fun SplitBuilderScreen(
                         }.orEmpty()
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "$name  ${exercise.sets} x ${exercise.reps}$weight",
+                                text = stringResource(
+                                    Res.string.split_exercise_line,
+                                    name,
+                                    exercise.sets,
+                                    exercise.reps,
+                                    weight
+                                ),
                                 modifier = Modifier.weight(1f)
                             )
                             if (state.isPlanAccepted) {
@@ -338,7 +346,7 @@ fun SplitBuilderScreen(
                 ?.let { state.exerciseNames[it.exerciseId] ?: it.exerciseId }
                 .orEmpty()
             SwapCandidateDialog(
-                title = stringResource(Res.string.split_swap_dialog_title, targetName),
+                targetName = targetName,
                 candidates = state.swapCandidates,
                 noCandidates = state.swapNoCandidates,
                 weightUnit = weightUnit,
@@ -378,7 +386,7 @@ fun SplitBuilderScreen(
 
 @Composable
 private fun SwapCandidateDialog(
-    title: String,
+    targetName: String,
     candidates: List<SwapCandidate>,
     noCandidates: Boolean,
     weightUnit: WeightUnit,
@@ -387,7 +395,7 @@ private fun SwapCandidateDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = { Text(stringResource(Res.string.split_swap_dialog_title, targetName)) },
         text = {
             when {
                 noCandidates -> Text(stringResource(Res.string.split_swap_no_candidates))
@@ -395,14 +403,20 @@ private fun SwapCandidateDialog(
                 else -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     candidates.forEach { candidate ->
                         val weight = candidate.suggestedWeightKg?.let { kg ->
-                            "  ·  " + stringResource(
+                            stringResource(
                                 Res.string.split_suggested_weight,
                                 formatWeight(weightUnit.kilogramsToDisplay(kg)),
                                 weightUnit.label
                             )
                         }.orEmpty()
                         TextButton(onClick = { onSelect(candidate.exerciseId) }) {
-                            Text(text = candidate.name + weight)
+                            Text(
+                                text = stringResource(
+                                    Res.string.split_swap_candidate,
+                                    candidate.name,
+                                    weight
+                                )
+                            )
                         }
                     }
                 }
