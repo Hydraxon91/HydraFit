@@ -1,0 +1,188 @@
+package com.hydrafit.app.core.domain.engine
+
+import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+
+/** A ranked replacement for one accepted-plan slot, shown so the user can pick one. */
+data class SwapCandidate(
+    val exerciseId: String,
+    val name: String,
+    val movementPattern: MovementPattern,
+    val primaryEquipment: EquipmentTag,
+    val suggestedWeightKg: Double?
+)
+
+/**
+ * Swaps one exercise inside an already-accepted plan, persisting the change in place (the plan keeps
+ * its id and acceptance time). Candidates must train the same movement pattern and be available with
+ * the user's equipment; they are ranked by the same fatigue/deficit/freshness order the generator
+ * uses, so a substitution reads like a fresh pick rather than an arbitrary swap.
+ *
+ * The slot's sets, reps and working weight are preserved: substitution replaces the exercise, it does
+ * not re-plan the slot. The weight is only lowered to fit the replacement's equipment ceiling.
+ */
+class SubstituteExerciseUseCase(
+    private val catalog: ExerciseCatalog,
+    private val planHistory: PlanHistoryRepository,
+    private val rankingEngine: DeterministicWorkoutPlannerEngine
+) {
+
+    /** Ranked alternatives for one slot, or empty when nothing suitable is available. */
+    suspend fun candidates(
+        plan: AcceptedPlan,
+        dayIndex: Int,
+        position: Int,
+        request: PlanRequest
+    ): List<SwapCandidate> {
+        val exercises = catalog.all()
+        val context = contextFor(plan, dayIndex, position, request, exercises) ?: return emptyList()
+        return rankedCandidates(context, exercises).map { candidate ->
+            SwapCandidate(
+                exerciseId = candidate.id,
+                name = candidate.name,
+                movementPattern = candidate.movementPattern,
+                primaryEquipment = primaryEquipmentOf(candidate),
+                suggestedWeightKg = preservedWeight(context.entry, candidate, request.equipmentMaxWeights)
+            )
+        }
+    }
+
+    /**
+     * Replaces the slot with [selectedExerciseId], or returns null when the plan/slot is missing, the
+     * candidate is no longer available/fresh, or it is no longer a valid alternative. Availability
+     * and soreness are re-validated here because the candidate list is only a snapshot.
+     */
+    suspend operator fun invoke(
+        plan: AcceptedPlan,
+        dayIndex: Int,
+        position: Int,
+        request: PlanRequest,
+        selectedExerciseId: String
+    ): AcceptedExercise? {
+        val exercises = catalog.all()
+        val context = contextFor(plan, dayIndex, position, request, exercises) ?: return null
+        val chosen = rankedCandidates(context, exercises)
+            .firstOrNull { it.id == selectedExerciseId }
+            ?: return null
+        if (rankingEngine.pickFirstNonSore(listOf(chosen), request.muscleFatigue) == null) return null
+
+        val weight = preservedWeight(context.entry, chosen, request.equipmentMaxWeights)
+        planHistory.substitute(
+            planId = plan.id,
+            dayIndex = dayIndex,
+            position = position,
+            newExerciseId = chosen.id,
+            newExerciseName = chosen.name,
+            newWeightKg = weight
+        )
+        return AcceptedExercise(
+            exerciseId = chosen.id,
+            sets = context.entry.sets,
+            reps = context.entry.reps,
+            name = chosen.name,
+            movementPattern = chosen.movementPattern,
+            suggestedWeightKg = weight
+        )
+    }
+
+    private fun rankedCandidates(context: SlotContext, exercises: List<Exercise>): List<Exercise> {
+        val available = exercises.filter { it.isAvailableWith(context.request.availableEquipment) }
+        // Compounds never repeat across days; accessories merely prefer a fresh option. The replaced
+        // slot is excluded from the week's used set, so its own exercise is not a "used" penalty.
+        val crossDayExclusions = if (context.entry.movementPattern.isCompound) {
+            context.weekUsed
+        } else {
+            emptySet()
+        }
+        val filtered = available.filter { exercise ->
+            exercise.movementPattern == context.entry.movementPattern &&
+                exercise.id != context.entry.exerciseId &&
+                exercise.id !in context.sameDayIds &&
+                exercise.id !in crossDayExclusions
+        }
+        return rankingEngine.rankCandidates(
+            candidates = filtered,
+            fatigue = context.request.muscleFatigue,
+            weekUsed = context.weekUsed,
+            recentExerciseIdsByPattern = context.request.recentExerciseIdsByPattern,
+            weeklyVolume = context.weeklyVolume,
+            target = WeeklyVolumeTargets.forGoal(context.request.goal)
+        )
+    }
+
+    private fun contextFor(
+        plan: AcceptedPlan,
+        dayIndex: Int,
+        position: Int,
+        request: PlanRequest,
+        exercises: List<Exercise>
+    ): SlotContext? {
+        val day = plan.days.firstOrNull { it.dayIndex == dayIndex } ?: return null
+        val entry = day.exercises.getOrNull(position) ?: return null
+        val exercisesById = exercises.associateBy { it.id }
+        // The replaced slot is removed from the volume ledger so the candidate is ranked against the
+        // rest of the plan, not against the exercise it replaces.
+        val daysWithoutSlot = plan.days.map { planDay ->
+            WorkoutDay(
+                dayIndex = planDay.dayIndex,
+                focus = planDay.focus,
+                exercises = planDay.exercises.mapIndexedNotNull { index, exercise ->
+                    if (planDay.dayIndex == dayIndex && index == position) {
+                        null
+                    } else {
+                        PlannedExercise(
+                            exerciseId = exercise.exerciseId,
+                            sets = exercise.sets,
+                            reps = exercise.reps,
+                            suggestedWeightKg = exercise.suggestedWeightKg
+                        )
+                    }
+                }
+            )
+        }
+        val weekUsed = plan.days
+            .flatMap { planDay ->
+                planDay.exercises.mapIndexedNotNull { index, exercise ->
+                    if (planDay.dayIndex == dayIndex && index == position) null else exercise.exerciseId
+                }
+            }
+            .toSet()
+        val sameDayIds = day.exercises.mapIndexedNotNull { index, exercise ->
+            if (index == position) null else exercise.exerciseId
+        }.toSet()
+        return SlotContext(
+            entry = entry,
+            request = request,
+            weekUsed = weekUsed,
+            sameDayIds = sameDayIds,
+            weeklyVolume = WeeklyVolumeTargets.weightedSetsByMuscle(daysWithoutSlot, exercisesById)
+        )
+    }
+
+    /** Keeps the slot's working weight, only lowering it to the replacement's equipment ceiling. */
+    private fun preservedWeight(
+        entry: AcceptedExercise,
+        candidate: Exercise,
+        equipmentMaxWeights: Map<EquipmentTag, Double>
+    ): Double? {
+        val current = entry.suggestedWeightKg ?: return null
+        return EquipmentWeightLimit.clamp(
+            current,
+            EquipmentWeightLimit.ceilingFor(candidate, equipmentMaxWeights)
+        )
+    }
+
+    private fun primaryEquipmentOf(exercise: Exercise): EquipmentTag =
+        exercise.requiredEquipment.firstOrNull { it != EquipmentTag.BODYWEIGHT }
+            ?: EquipmentTag.BODYWEIGHT
+
+    private data class SlotContext(
+        val entry: AcceptedExercise,
+        val request: PlanRequest,
+        val weekUsed: Set<String>,
+        val sameDayIds: Set<String>,
+        val weeklyVolume: Map<MuscleGroup, Double>
+    )
+}

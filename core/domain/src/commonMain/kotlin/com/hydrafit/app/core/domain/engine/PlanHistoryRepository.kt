@@ -13,6 +13,21 @@ interface PlanHistoryRepository {
 
     suspend fun accept(plan: AcceptedPlan)
 
+    /**
+     * Replaces one slot's exercise in place, keeping the plan's id, acceptance time and week: an
+     * UPDATE, not a re-accept. [newExerciseName] is snapshotted from the catalog and [newWeightKg]
+     * is the preserved (and equipment-clamped) working weight, so a later catalog edit cannot
+     * silently rewrite the swapped slot.
+     */
+    suspend fun substitute(
+        planId: Long,
+        dayIndex: Int,
+        position: Int,
+        newExerciseId: String,
+        newExerciseName: String,
+        newWeightKg: Double?
+    )
+
     suspend fun delete(planId: Long)
 
     suspend fun clear()

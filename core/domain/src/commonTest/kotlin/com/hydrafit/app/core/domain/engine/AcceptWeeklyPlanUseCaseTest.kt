@@ -111,6 +111,15 @@ class AcceptWeeklyPlanUseCaseTest {
             state.value = plan
         }
 
+        override suspend fun substitute(
+            planId: Long,
+            dayIndex: Int,
+            position: Int,
+            newExerciseId: String,
+            newExerciseName: String,
+            newWeightKg: Double?
+        ) = Unit
+
         override suspend fun delete(planId: Long) {
             if (state.value?.id == planId) state.value = null
         }

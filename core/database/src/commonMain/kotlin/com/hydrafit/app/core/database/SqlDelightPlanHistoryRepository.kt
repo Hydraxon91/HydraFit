@@ -70,6 +70,26 @@ class SqlDelightPlanHistoryRepository(database: HydraFitDatabase) : PlanHistoryR
         }
     }
 
+    override suspend fun substitute(
+        planId: Long,
+        dayIndex: Int,
+        position: Int,
+        newExerciseId: String,
+        newExerciseName: String,
+        newWeightKg: Double?
+    ) {
+        queries.transaction {
+            queries.updateEntryExerciseIdAtPosition(
+                newExerciseId = newExerciseId,
+                newExerciseName = newExerciseName,
+                newWeightKg = newWeightKg,
+                position = position.toLong(),
+                planId = planId,
+                dayIndex = dayIndex.toLong()
+            )
+        }
+    }
+
     override suspend fun delete(planId: Long) {
         queries.transaction {
             queries.deleteEntriesForPlan(planId)

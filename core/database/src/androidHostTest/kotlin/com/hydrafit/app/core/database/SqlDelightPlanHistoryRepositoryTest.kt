@@ -125,6 +125,50 @@ class SqlDelightPlanHistoryRepositoryTest {
         assertEquals(2, database.planHistoryQueries.selectAllEntries().executeAsList().size)
     }
 
+    @Test
+    fun substituteUpdatesExerciseIdAndNameAtPosition() = runTest {
+        repository.accept(plan(engine = PlannerEngineId.DETERMINISTIC, acceptedAt = 1L))
+        val accepted = requireNotNull(repository.latest())
+
+        repository.substitute(
+            planId = accepted.id,
+            dayIndex = 0,
+            position = 1,
+            newExerciseId = "dumbbell-press",
+            newExerciseName = "Dumbbell Press",
+            newWeightKg = 30.0
+        )
+
+        val reloaded = requireNotNull(repository.latest())
+        assertEquals(accepted.id, reloaded.id)
+        assertEquals(accepted.acceptedAtMillis, reloaded.acceptedAtMillis)
+        val swapped = reloaded.days.first().exercises[1]
+        assertEquals("dumbbell-press", swapped.exerciseId)
+        assertEquals("Dumbbell Press", swapped.name)
+        assertEquals(30.0, swapped.suggestedWeightKg)
+    }
+
+    @Test
+    fun substituteLeavesOtherEntriesUntouched() = runTest {
+        repository.accept(plan(engine = PlannerEngineId.DETERMINISTIC, acceptedAt = 1L))
+        val accepted = requireNotNull(repository.latest())
+
+        repository.substitute(
+            planId = accepted.id,
+            dayIndex = 0,
+            position = 1,
+            newExerciseId = "dumbbell-press",
+            newExerciseName = "Dumbbell Press",
+            newWeightKg = null
+        )
+
+        val reloaded = requireNotNull(repository.latest())
+        val untouched = reloaded.days.first().exercises[0]
+        assertEquals("bench-press", untouched.exerciseId)
+        assertEquals("Barbell Bench Press", untouched.name)
+        assertEquals(82.5, untouched.suggestedWeightKg)
+    }
+
     private fun plan(
         engine: PlannerEngineId,
         acceptedAt: Long,

@@ -594,6 +594,15 @@ class ObserveWorkoutPlanInputsUseCaseTest {
 
         override suspend fun accept(plan: AcceptedPlan) = Unit
 
+        override suspend fun substitute(
+            planId: Long,
+            dayIndex: Int,
+            position: Int,
+            newExerciseId: String,
+            newExerciseName: String,
+            newWeightKg: Double?
+        ) = Unit
+
         override suspend fun delete(planId: Long) = Unit
 
         override suspend fun clear() = Unit

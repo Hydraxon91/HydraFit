@@ -10,7 +10,9 @@ import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
 import com.hydrafit.app.core.domain.engine.OnDevicePlanProgressReporter
 import com.hydrafit.app.core.domain.engine.PeriodizationConfig
+import com.hydrafit.app.core.domain.engine.PlanBuilderActions
 import com.hydrafit.app.core.domain.engine.ProgressWeightsUseCase
+import com.hydrafit.app.core.domain.engine.SubstituteExerciseUseCase
 import com.hydrafit.app.core.domain.engine.SuggestWeightsUseCase
 import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
@@ -67,6 +69,8 @@ val domainModule: Module = module {
     single { ProgressWeightsUseCase() }
     singleOf(::ObserveWorkoutPlanInputsUseCase)
     singleOf(::AcceptWeeklyPlanUseCase)
+    singleOf(::SubstituteExerciseUseCase)
+    singleOf(::PlanBuilderActions)
     singleOf(::ObserveAcceptedPlanUseCase)
     singleOf(::LogWorkoutSetUseCase)
     single { SessionConfig() }

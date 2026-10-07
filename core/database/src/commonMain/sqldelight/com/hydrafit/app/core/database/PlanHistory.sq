@@ -58,6 +58,12 @@ SELECT * FROM planHistoryEntry WHERE dayId = ? ORDER BY position;
 updateEntryExerciseId:
 UPDATE planHistoryEntry SET exerciseId = :newId WHERE exerciseId = :oldId;
 
+updateEntryExerciseIdAtPosition:
+UPDATE planHistoryEntry
+SET exerciseId = :newExerciseId, exerciseName = :newExerciseName, suggestedWeightKg = :newWeightKg
+WHERE position = :position
+  AND dayId IN (SELECT id FROM planHistoryDay WHERE planId = :planId AND dayIndex = :dayIndex);
+
 deleteEntriesForPlan:
 DELETE FROM planHistoryEntry WHERE dayId IN (SELECT id FROM planHistoryDay WHERE planId = ?);
 

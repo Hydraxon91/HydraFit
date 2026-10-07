@@ -624,6 +624,39 @@ class SplitBuilderViewModelTest {
             state.value = plan
         }
 
+        override suspend fun substitute(
+            planId: Long,
+            dayIndex: Int,
+            position: Int,
+            newExerciseId: String,
+            newExerciseName: String,
+            newWeightKg: Double?
+        ) {
+            val plan = state.value ?: return
+            if (plan.id != planId) return
+            state.value = plan.copy(
+                days = plan.days.map { day ->
+                    if (day.dayIndex != dayIndex) {
+                        day
+                    } else {
+                        day.copy(
+                            exercises = day.exercises.mapIndexed { index, exercise ->
+                                if (index != position) {
+                                    exercise
+                                } else {
+                                    exercise.copy(
+                                        exerciseId = newExerciseId,
+                                        name = newExerciseName,
+                                        suggestedWeightKg = newWeightKg
+                                    )
+                                }
+                            }
+                        )
+                    }
+                }
+            )
+        }
+
         override suspend fun delete(planId: Long) {
             if (state.value?.id == planId) state.value = null
         }
@@ -663,6 +696,15 @@ class SplitBuilderViewModelTest {
         override suspend fun latest(): AcceptedPlan? = null
 
         override suspend fun accept(plan: AcceptedPlan) = Unit
+
+        override suspend fun substitute(
+            planId: Long,
+            dayIndex: Int,
+            position: Int,
+            newExerciseId: String,
+            newExerciseName: String,
+            newWeightKg: Double?
+        ) = Unit
 
         override suspend fun delete(planId: Long) = Unit
 
