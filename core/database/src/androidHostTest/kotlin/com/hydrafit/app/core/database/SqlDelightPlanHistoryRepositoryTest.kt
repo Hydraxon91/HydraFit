@@ -7,7 +7,9 @@ import com.hydrafit.app.core.domain.engine.AcceptedExercise
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.workout.LoadKind
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -136,7 +138,9 @@ class SqlDelightPlanHistoryRepositoryTest {
             position = 1,
             newExerciseId = "dumbbell-press",
             newExerciseName = "Dumbbell Press",
-            newWeightKg = 30.0
+            newWeightKg = 30.0,
+            newLoadCapability = ExerciseLoadCapability.EXTERNAL,
+            newLoadKind = LoadKind.EXTERNAL
         )
 
         val reloaded = requireNotNull(repository.latest())
@@ -159,7 +163,9 @@ class SqlDelightPlanHistoryRepositoryTest {
             position = 1,
             newExerciseId = "dumbbell-press",
             newExerciseName = "Dumbbell Press",
-            newWeightKg = null
+            newWeightKg = null,
+            newLoadCapability = ExerciseLoadCapability.EXTERNAL,
+            newLoadKind = LoadKind.EXTERNAL
         )
 
         val reloaded = requireNotNull(repository.latest())

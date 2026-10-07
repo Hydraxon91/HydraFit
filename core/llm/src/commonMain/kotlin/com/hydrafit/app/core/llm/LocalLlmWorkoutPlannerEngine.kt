@@ -208,7 +208,9 @@ class LocalLlmWorkoutPlannerEngine(
                     "Recent working weights (suggest a sensible weight for each exercise): $weights"
                 )
                 appendLine(
-                    "Also give every exercise a \"suggestedWeightKg\" number based on that history."
+                    "Also give a \"suggestedWeightKg\" number only for exercises with " +
+                        "external resistance; omit it for bodyweight and " +
+                        "bodyweight-plus-added-load movements."
                 )
             }
             PlannerPromptFragments.progressedWeightsList(request)?.let { progressed ->

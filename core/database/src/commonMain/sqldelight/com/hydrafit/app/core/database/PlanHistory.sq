@@ -24,6 +24,8 @@ CREATE TABLE planHistoryEntry (
     exerciseName TEXT NOT NULL,
     movementPattern TEXT NOT NULL,
     suggestedWeightKg REAL,
+    loadCapability TEXT NOT NULL DEFAULT 'UNSPECIFIED',
+    loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
     FOREIGN KEY (dayId) REFERENCES planHistoryDay(id)
 );
 
@@ -46,8 +48,8 @@ selectAllDays:
 SELECT * FROM planHistoryDay ORDER BY planId, dayIndex;
 
 insertEntry:
-INSERT INTO planHistoryEntry(dayId, position, exerciseId, sets, reps, exerciseName, movementPattern, suggestedWeightKg)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO planHistoryEntry(dayId, position, exerciseId, sets, reps, exerciseName, movementPattern, suggestedWeightKg, loadCapability, loadKind)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 selectAllEntries:
 SELECT * FROM planHistoryEntry ORDER BY dayId, position;
@@ -63,7 +65,8 @@ SELECT COUNT(*) FROM planHistoryEntry WHERE exerciseId = ?;
 
 updateEntryExerciseIdAtPosition:
 UPDATE planHistoryEntry
-SET exerciseId = :newExerciseId, exerciseName = :newExerciseName, suggestedWeightKg = :newWeightKg
+SET exerciseId = :newExerciseId, exerciseName = :newExerciseName, suggestedWeightKg = :newWeightKg,
+    loadCapability = :newLoadCapability, loadKind = :newLoadKind
 WHERE position = :position
   AND dayId IN (SELECT id FROM planHistoryDay WHERE planId = :planId AND dayIndex = :dayIndex);
 

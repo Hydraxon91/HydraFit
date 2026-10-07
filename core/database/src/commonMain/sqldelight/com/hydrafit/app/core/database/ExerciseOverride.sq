@@ -4,6 +4,7 @@ CREATE TABLE exerciseOverride (
     requiredEquipment TEXT,
     movementPattern TEXT,
     isUnilateral INTEGER,
+    loadCapability TEXT,
     involvements TEXT
 );
 
@@ -15,9 +16,9 @@ SELECT * FROM exerciseOverride WHERE exerciseId = ?;
 
 upsert:
 INSERT OR REPLACE INTO exerciseOverride(
-    exerciseId, name, requiredEquipment, movementPattern, isUnilateral, involvements
+    exerciseId, name, requiredEquipment, movementPattern, isUnilateral, loadCapability, involvements
 )
-VALUES (?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?);
 
 deleteById:
 DELETE FROM exerciseOverride WHERE exerciseId = ?;

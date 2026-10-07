@@ -94,7 +94,10 @@ class ExerciseOverrideMigrationTest {
                 "trainingGoal TEXT NOT NULL DEFAULT 'BALANCED', " +
                 "shareWorkoutData INTEGER NOT NULL DEFAULT 0)",
             "CREATE TABLE planHistory (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, " +
-                "engineId TEXT NOT NULL, acceptedAt INTEGER NOT NULL)"
+                "engineId TEXT NOT NULL, acceptedAt INTEGER NOT NULL)",
+            // Plan history entries predate v13 and are not created by any migration in the 13→latest
+            // range; the EX-02 migration (27.sqm) alters this table, so the fixture must define it.
+            "CREATE TABLE planHistoryEntry (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT)"
         )
         statements.forEach { driver.execute(identifier = null, sql = it, parameters = 0) }
         return driver

@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.database
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.userdata.equipment.ExerciseOverrideRepository
@@ -15,6 +16,7 @@ class SqlDelightExerciseOverrideRepository(database: HydraFitDatabase) :
         requiredEquipment: Set<EquipmentTag>,
         movementPattern: MovementPattern?,
         unilateral: Boolean?,
+        loadCapability: ExerciseLoadCapability?,
         involvements: Map<MuscleGroup, Double>
     ) {
         queries.upsert(
@@ -23,6 +25,7 @@ class SqlDelightExerciseOverrideRepository(database: HydraFitDatabase) :
             requiredEquipment = encodeEquipment(requiredEquipment),
             movementPattern = movementPattern?.name,
             isUnilateral = unilateral?.let { if (it) 1L else 0L },
+            loadCapability = loadCapability?.name,
             involvements = encodeInvolvements(involvements)
         )
     }

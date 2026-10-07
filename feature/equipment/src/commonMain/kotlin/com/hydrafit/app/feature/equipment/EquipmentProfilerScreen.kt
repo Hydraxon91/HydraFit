@@ -36,6 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hydrafit.app.core.domain.equipment.Equipment
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.unit.formatWeight
@@ -51,6 +52,10 @@ import hydrafit.feature.equipment.generated.resources.equipment_edit_reset
 import hydrafit.feature.equipment.generated.resources.equipment_edit_save
 import hydrafit.feature.equipment.generated.resources.equipment_equipment_section
 import hydrafit.feature.equipment.generated.resources.equipment_exercise_section
+import hydrafit.feature.equipment.generated.resources.equipment_load_bodyweight
+import hydrafit.feature.equipment.generated.resources.equipment_load_bodyweight_added
+import hydrafit.feature.equipment.generated.resources.equipment_load_external
+import hydrafit.feature.equipment.generated.resources.equipment_load_section
 import hydrafit.feature.equipment.generated.resources.equipment_manage
 import hydrafit.feature.equipment.generated.resources.equipment_max_weight
 import hydrafit.feature.equipment.generated.resources.equipment_movement_pattern
@@ -136,6 +141,7 @@ fun EquipmentProfilerRoute(
         onEditorPatternChanged = viewModel::onEditorPatternChanged,
         onEditorEquipmentToggled = viewModel::onEditorEquipmentToggled,
         onEditorUnilateralToggled = viewModel::onEditorUnilateralToggled,
+        onEditorLoadCapabilityChanged = viewModel::onEditorLoadCapabilityChanged,
         onEditorMuscleInvolvementChanged = viewModel::onEditorMuscleInvolvementChanged,
         onSaveExercise = viewModel::onSaveExercise,
         onResetExercise = viewModel::onResetExercise,
@@ -171,6 +177,7 @@ fun EquipmentProfilerScreen(
     onEditorPatternChanged: (MovementPattern) -> Unit,
     onEditorEquipmentToggled: (EquipmentTag) -> Unit,
     onEditorUnilateralToggled: (Boolean) -> Unit,
+    onEditorLoadCapabilityChanged: (ExerciseLoadCapability) -> Unit,
     onEditorMuscleInvolvementChanged: (MuscleGroup, Double?) -> Unit,
     onSaveExercise: () -> Unit,
     onResetExercise: () -> Unit,
@@ -287,6 +294,7 @@ fun EquipmentProfilerScreen(
             onPatternChanged = onEditorPatternChanged,
             onEquipmentToggled = onEditorEquipmentToggled,
             onUnilateralToggled = onEditorUnilateralToggled,
+            onLoadCapabilityChanged = onEditorLoadCapabilityChanged,
             onMuscleInvolvementChanged = onEditorMuscleInvolvementChanged,
             onSave = onSaveExercise,
             onReset = onResetExercise,
@@ -530,6 +538,7 @@ private fun ExerciseEditorDialog(
     onPatternChanged: (MovementPattern) -> Unit,
     onEquipmentToggled: (EquipmentTag) -> Unit,
     onUnilateralToggled: (Boolean) -> Unit,
+    onLoadCapabilityChanged: (ExerciseLoadCapability) -> Unit,
     onMuscleInvolvementChanged: (MuscleGroup, Double?) -> Unit,
     onSave: () -> Unit,
     onReset: () -> Unit,
@@ -600,6 +609,34 @@ private fun ExerciseEditorDialog(
                         onCheckedChange = onUnilateralToggled
                     )
                     Text(stringResource(Res.string.equipment_unilateral))
+                }
+                Text(
+                    text = stringResource(Res.string.equipment_load_section),
+                    style = MaterialTheme.typography.labelMedium
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = state.loadCapability == ExerciseLoadCapability.EXTERNAL,
+                        onClick = { onLoadCapabilityChanged(ExerciseLoadCapability.EXTERNAL) },
+                        label = { Text(stringResource(Res.string.equipment_load_external)) }
+                    )
+                    FilterChip(
+                        selected = state.loadCapability == ExerciseLoadCapability.BODYWEIGHT_ONLY,
+                        onClick = {
+                            onLoadCapabilityChanged(ExerciseLoadCapability.BODYWEIGHT_ONLY)
+                        },
+                        label = { Text(stringResource(Res.string.equipment_load_bodyweight)) }
+                    )
+                    FilterChip(
+                        selected = state.loadCapability ==
+                            ExerciseLoadCapability.BODYWEIGHT_ADDABLE,
+                        onClick = {
+                            onLoadCapabilityChanged(ExerciseLoadCapability.BODYWEIGHT_ADDABLE)
+                        },
+                        label = {
+                            Text(stringResource(Res.string.equipment_load_bodyweight_added))
+                        }
+                    )
                 }
                 Text(
                     text = stringResource(Res.string.equipment_equipment_section),

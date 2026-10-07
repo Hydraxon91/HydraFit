@@ -5,8 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.AcceptedDay
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
-import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.fatigue.FatigueConfig
 import com.hydrafit.app.core.domain.schedule.FinishMode
 import com.hydrafit.app.core.domain.schedule.ScheduleException
@@ -20,6 +20,7 @@ import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
+import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
@@ -157,9 +158,13 @@ class WorkoutLoggerViewModel(
             ?: return
         _state.update { current ->
             if (current.selectedExerciseId != exerciseId) return@update current
+            val option = current.exercises.firstOrNull { it.id == exerciseId }
             current.copy(
                 weightInput = weightInputFor(last.weightKg, unit),
-                reps = last.reps.toString()
+                reps = last.reps.toString(),
+                // An added-load history reveals the field on an addable bodyweight exercise.
+                weightRevealed = current.weightRevealed ||
+                    (option?.canAddLoad == true && last.weightKg != null)
             )
         }
     }
@@ -248,8 +253,10 @@ class WorkoutLoggerViewModel(
         return true
     }
 
-    /** Reveals the weight field for a bodyweight exercise so a weighted variant can be logged. */
+    /** Reveals the weight field for an addable bodyweight exercise so added load can be logged. */
     fun onRevealWeight() {
+        val exercise = exercises.firstOrNull { it.id == _state.value.selectedExerciseId } ?: return
+        if (exercise.loadCapability != ExerciseLoadCapability.BODYWEIGHT_ADDABLE) return
         _state.update { it.copy(weightRevealed = true) }
     }
 
@@ -296,11 +303,24 @@ class WorkoutLoggerViewModel(
         if (reps <= 0) return
         // A hidden weight field (bodyweight exercise not revealed) never logs a weight, even if a
         // value was retained from a previous exercise.
-        val weightKg = if (current.showWeightField) {
+        val typedWeight = if (current.showWeightField) {
             current.weightInput.toDoubleOrNull()
                 ?.let { current.weightUnit.displayToKilograms(it) }
         } else {
             null
+        }
+        val capability = exercises.firstOrNull { it.id == exerciseId }?.loadCapability
+            ?: ExerciseLoadCapability.EXTERNAL
+        val (loadKind, weightKg) = when (capability) {
+            ExerciseLoadCapability.BODYWEIGHT_ONLY -> LoadKind.BODYWEIGHT to null
+            ExerciseLoadCapability.BODYWEIGHT_ADDABLE ->
+                if (typedWeight != null) {
+                    LoadKind.ADDED to typedWeight
+                } else {
+                    LoadKind.BODYWEIGHT to null
+                }
+            ExerciseLoadCapability.EXTERNAL -> LoadKind.EXTERNAL to typedWeight
+            ExerciseLoadCapability.UNSPECIFIED -> LoadKind.LEGACY_UNSPECIFIED to typedWeight
         }
 
         viewModelScope.launch {
@@ -310,6 +330,7 @@ class WorkoutLoggerViewModel(
                     exerciseId = exerciseId,
                     reps = reps,
                     weightKg = weightKg,
+                    loadKind = loadKind,
                     performedAtMillis = current.performedAtMillis ?: timeProvider.nowMillis(),
                     isWarmup = current.isWarmup,
                     weekNumber = activeActivation?.weekNumber ?: acceptedPlan?.weekNumber,
@@ -406,7 +427,8 @@ class WorkoutLoggerViewModel(
                         name = exercise.name,
                         sets = exercise.sets,
                         reps = exercise.reps,
-                        weightKg = exercise.suggestedWeightKg
+                        weightKg = exercise.suggestedWeightKg,
+                        loadKind = exercise.loadKind
                     )
                 },
                 nowMillis = nowMillis,
@@ -460,6 +482,11 @@ class WorkoutLoggerViewModel(
 
     /** Logs every set of a draft and removes it from the pending list. */
     fun confirmDraft(draft: DraftSet) {
+        val resolution = legacyResolutionFor(listOf(draft))
+        if (resolution != null) {
+            _state.update { it.copy(legacyResolution = resolution) }
+            return
+        }
         viewModelScope.launch {
             logDraft(draft)
             _state.update { it.copy(draftSets = it.draftSets - draft) }
@@ -468,10 +495,18 @@ class WorkoutLoggerViewModel(
         }
     }
 
-    /** Logs every pending draft and clears the list. */
+    /**
+     * Logs every pending draft and clears the list. A preflight stops before any write when a draft's
+     * stored load meaning is unconfirmed, so a legacy number is never silently logged as external.
+     */
     fun confirmAllDrafts() {
         val drafts = _state.value.draftSets
         if (drafts.isEmpty()) return
+        val resolution = legacyResolutionFor(drafts)
+        if (resolution != null) {
+            _state.update { it.copy(legacyResolution = resolution) }
+            return
+        }
         viewModelScope.launch {
             drafts.forEach { logDraft(it) }
             _state.update { it.copy(draftSets = emptyList()) }
@@ -485,6 +520,55 @@ class WorkoutLoggerViewModel(
         _state.update { it.copy(draftSets = it.draftSets - draft) }
     }
 
+    /** Logs the current legacy draft as bodyweight/no added load and advances the queue. */
+    fun resolveLegacyAsBodyweight() = resolveLegacy(LoadKind.BODYWEIGHT, null)
+
+    /** Logs the current legacy draft's recorded number as external load (only when permitted). */
+    fun resolveLegacyAsExternal() {
+        val item = _state.value.legacyResolution?.current ?: return
+        if (!item.canBeExternal) return
+        resolveLegacy(LoadKind.EXTERNAL, item.draft.weightKg)
+    }
+
+    /** Closes the resolution without logging; the drafts stay pending. */
+    fun dismissLegacyResolution() {
+        _state.update { it.copy(legacyResolution = null) }
+    }
+
+    private fun resolveLegacy(kind: LoadKind, weightKg: Double?) {
+        val resolution = _state.value.legacyResolution ?: return
+        val item = resolution.current
+        viewModelScope.launch {
+            logDraft(item.draft.copy(loadKind = kind, weightKg = weightKg))
+            val remaining = resolution.items.drop(1)
+            _state.update { state ->
+                state.copy(
+                    draftSets = state.draftSets - item.draft,
+                    legacyResolution = if (remaining.isEmpty()) {
+                        null
+                    } else {
+                        LegacyResolution(remaining)
+                    }
+                )
+            }
+            refreshRecentSets()
+            if (activeActivation != null) refreshOccurrence()
+        }
+    }
+
+    /** The legacy drafts among [drafts] that need an explicit load decision, or null when none. */
+    private fun legacyResolutionFor(drafts: List<DraftSet>): LegacyResolution? {
+        val legacy = drafts.filter { it.loadKind == LoadKind.LEGACY_UNSPECIFIED }
+        if (legacy.isEmpty()) return null
+        return LegacyResolution(
+            legacy.map { draft ->
+                val capability = exercises.firstOrNull { it.id == draft.exerciseId }?.loadCapability
+                    ?: ExerciseLoadCapability.UNSPECIFIED
+                LegacyResolutionItem(draft, capability)
+            }
+        )
+    }
+
     private suspend fun logDraft(draft: DraftSet) {
         val link = occurrenceLink(draft.exerciseId)
         repeat(draft.sets.coerceAtLeast(1)) {
@@ -493,7 +577,8 @@ class WorkoutLoggerViewModel(
                 WorkoutSet(
                     exerciseId = draft.exerciseId,
                     reps = draft.reps,
-                    weightKg = draft.weightKg,
+                    weightKg = if (draft.loadKind == LoadKind.BODYWEIGHT) null else draft.weightKg,
+                    loadKind = draft.loadKind,
                     performedAtMillis = current.performedAtMillis ?: timeProvider.nowMillis(),
                     isWarmup = false,
                     weekNumber = activeActivation?.weekNumber ?: acceptedPlan?.weekNumber,
@@ -531,9 +616,9 @@ class WorkoutLoggerViewModel(
                 ExerciseOption(
                     id = it.id,
                     name = it.name,
-                    isBodyweight = it.requiredEquipment.isEmpty() ||
-                        EquipmentTag.BODYWEIGHT in it.requiredEquipment,
-                    isUnilateral = it.isUnilateral
+                    isBodyweight = it.loadCapability != ExerciseLoadCapability.EXTERNAL,
+                    isUnilateral = it.isUnilateral,
+                    loadCapability = it.loadCapability
                 )
             }
             .sortedWith(compareBy({ priority[it.id] ?: Int.MAX_VALUE }, { it.name }))
@@ -572,7 +657,8 @@ class WorkoutLoggerViewModel(
                     entry.exerciseName,
                     remaining,
                     entry.reps,
-                    entry.weightKg
+                    entry.weightKg,
+                    entry.loadKind
                 )
             }
         }
@@ -651,7 +737,8 @@ class WorkoutLoggerViewModel(
                     rir = set.rir,
                     isWarmup = set.isWarmup,
                     weekNumber = set.weekNumber,
-                    dayIndex = set.dayIndex
+                    dayIndex = set.dayIndex,
+                    loadKind = set.loadKind
                 )
             }
         _state.update { it.copy(recentSets = rows) }

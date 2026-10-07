@@ -29,6 +29,7 @@ class LogWorkoutSetUseCase(
 
     /** Resolves the set's session, stamps it, and persists the set. */
     suspend operator fun invoke(set: WorkoutSet, utcOffsetMillis: Long) {
+        WorkoutLoadPolicy.validateShape(set.loadKind, set.weightKg)
         sessionLock.withLock {
             val session = resolveSession(set.performedAtMillis, utcOffsetMillis)
             repository.add(set.copy(sessionId = session.id))
@@ -46,19 +47,27 @@ class LogWorkoutSetUseCase(
         set: WorkoutSet,
         utcOffsetMillis: Long,
         forceNewSession: Boolean
-    ): WorkoutSession = sessionLock.withLock {
-        val target = backdatedAttachTarget(set.performedAtMillis, utcOffsetMillis, forceNewSession)
-            ?: startWorkoutSession(
+    ): WorkoutSession {
+        WorkoutLoadPolicy.validateShape(set.loadKind, set.weightKg)
+        return sessionLock.withLock {
+            val target = backdatedAttachTarget(
                 set.performedAtMillis,
-                localEpochDay(set.performedAtMillis, utcOffsetMillis),
-                endedAtMillis = set.performedAtMillis
+                utcOffsetMillis,
+                forceNewSession
             )
-        repository.add(set.copy(sessionId = target.id))
-        target
+                ?: startWorkoutSession(
+                    set.performedAtMillis,
+                    localEpochDay(set.performedAtMillis, utcOffsetMillis),
+                    endedAtMillis = set.performedAtMillis
+                )
+            repository.add(set.copy(sessionId = target.id))
+            target
+        }
     }
 
     /** Persists [set] into an explicit session, bypassing auto-resolution. */
     suspend fun logInto(set: WorkoutSet, sessionId: String) {
+        WorkoutLoadPolicy.validateShape(set.loadKind, set.weightKg)
         sessionLock.withLock {
             repository.add(set.copy(sessionId = sessionId))
         }

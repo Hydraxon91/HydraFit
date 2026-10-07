@@ -38,7 +38,11 @@ C2 adds the relative-load factor `L`. Its reference is the best Epley estimate
 `reps ≤ maxReferenceReps` and `weightKg > 0`, within `referenceWindow`; the same timestamp never
 counts as earlier. `L = 1.0` when the reference or the set's own weight is missing, or when the
 set's own reps exceed `maxReferenceReps`. A heavy earlier set raises the reference and can
-therefore lower `L` for later back-off sets of the same exercise.
+therefore lower `L` for later back-off sets of the same exercise. Under EX-02, a set logged as
+**added load** or **bodyweight** is mapped with a neutral `L` (its number is not total resistance),
+while external and legacy rows keep the recorded weight; the rule is applied at the repository
+mapping boundary (`SqlDelightWorkoutLogRepository`), so this formula and the archived replay figures
+are unchanged.
 
 C3 adds the effort factor `E` from reps in reserve. Missing effort uses `defaultRir = 2.0` inside
 the calculator only — the assumed value is never written to the database — and `E = 1.0` at the

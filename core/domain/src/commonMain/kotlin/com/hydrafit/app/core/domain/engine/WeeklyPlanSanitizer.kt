@@ -1,6 +1,8 @@
 package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
 import kotlin.math.roundToInt
 
 /**
@@ -26,6 +28,34 @@ class WeeklyPlanSanitizer(
                 exercises = day.exercises.mapNotNull { planned ->
                     val exercise = usable[planned.exerciseId] ?: return@mapNotNull null
                     val sets = setsFor(exercise, request, isDeload)
+                    val capability = exercise.loadCapability
+                    // The model may propose a number, but the app decides its meaning: only external
+                    // resistance keeps one. A bodyweight or added-load exercise is sanitized to a
+                    // typed no-number prescription without discarding the selection.
+                    val suggestedWeightKg =
+                        if (WorkoutLoadPolicy.allowsAutomaticLoad(capability)) {
+                            planned.suggestedWeightKg
+                                ?.takeIf {
+                                    request.includeWorkoutData &&
+                                        it > 0.0 &&
+                                        it <= MAX_SUGGESTED_WEIGHT_KG
+                                }
+                                ?.let { weight ->
+                                    EquipmentWeightLimit.clamp(
+                                        weight * if (isDeload) {
+                                            periodization.deloadIntensityScale
+                                        } else {
+                                            1.0
+                                        },
+                                        EquipmentWeightLimit.ceilingFor(
+                                            exercise,
+                                            request.equipmentMaxWeights
+                                        )
+                                    )
+                                }
+                        } else {
+                            null
+                        }
                     PlannedExercise(
                         exerciseId = exercise.id,
                         sets = sets,
@@ -34,25 +64,13 @@ class WeeklyPlanSanitizer(
                             exercise.movementPattern.isCompound,
                             sets
                         ),
-                        suggestedWeightKg = planned.suggestedWeightKg
-                            ?.takeIf {
-                                request.includeWorkoutData &&
-                                    it > 0.0 &&
-                                    it <= MAX_SUGGESTED_WEIGHT_KG
-                            }
-                            ?.let { weight ->
-                                EquipmentWeightLimit.clamp(
-                                    weight * if (isDeload) {
-                                        periodization.deloadIntensityScale
-                                    } else {
-                                        1.0
-                                    },
-                                    EquipmentWeightLimit.ceilingFor(
-                                        exercise,
-                                        request.equipmentMaxWeights
-                                    )
-                                )
-                            }
+                        suggestedWeightKg = suggestedWeightKg,
+                        loadKind = if (suggestedWeightKg != null) {
+                            LoadKind.EXTERNAL
+                        } else {
+                            WorkoutLoadPolicy.defaultKind(capability)
+                        },
+                        loadCapability = capability
                     )
                 }
             )

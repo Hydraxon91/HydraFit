@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.database
 
+import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import kotlin.test.AfterTest
@@ -38,43 +39,39 @@ class TrainingScheduleMigrationTest {
         )
 
         HydraFitDatabase.Schema.migrate(driver, 26, 27)
-        val database = HydraFitDatabase(driver)
 
-        assertTrue(
-            database.trainingScheduleQueries.selectAllActivations().executeAsList().isEmpty()
-        )
-        assertTrue(
-            database.trainingScheduleQueries.selectAllOccurrences().executeAsList().isEmpty()
-        )
-        assertEquals(
-            null,
-            database.trainingScheduleQueries.selectScheduleState().executeAsOneOrNull()
-        )
+        // Read the scoped old schema directly: the current generated queries expect the EX-02
+        // columns added by 27.sqm (the next migration), which this 26→27 end version does not create.
+        assertTrue(countOf("trainingActivation") == 0L)
+        assertTrue(countOf("workoutOccurrence") == 0L)
+        assertTrue(countOf("workoutScheduleState") == 0L)
 
-        database.workoutLogQueries.insertSet(
-            exerciseId = "bench-press",
-            reps = 8,
-            weightKg = 80.0,
-            performedAt = 1L,
-            isWarmup = 0L,
-            involvements = null,
-            weekNumber = null,
-            cycleNumber = null,
-            dayIndex = null,
-            rir = null,
-            sessionId = null
+        exec(
+            "INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, " +
+                "involvements) VALUES ('bench-press', 8, 80.0, 1, 0, NULL)"
         )
-        val setId = database.workoutLogQueries.lastInsertedSetId().executeAsOne()
-        database.workoutLogQueries.assignOccurrence(
-            occurrenceId = 4L,
-            occurrenceEntryId = 5L,
-            id = setId
-        )
+        val setId = longOf("SELECT last_insert_rowid()")
+        exec("UPDATE workoutSet SET occurrenceId = 4, occurrenceEntryId = 5 WHERE id = $setId")
 
-        assertEquals(1, database.workoutLogQueries.selectSetsForOccurrence(4L).executeAsList().size)
-        assertEquals(
-            1,
-            database.workoutLogQueries.selectSetsForOccurrenceEntry(5L).executeAsList().size
-        )
+        assertEquals(1L, countOf("workoutSet", "occurrenceId = 4"))
+        assertEquals(1L, countOf("workoutSet", "occurrenceEntryId = 5"))
     }
+
+    private fun exec(sql: String) {
+        driver.execute(identifier = null, sql = sql, parameters = 0)
+    }
+
+    private fun countOf(table: String, where: String? = null): Long = longOf(
+        "SELECT COUNT(*) FROM $table" + (where?.let { " WHERE $it" } ?: "")
+    )
+
+    private fun longOf(sql: String): Long = driver.executeQuery(
+        identifier = null,
+        sql = sql,
+        mapper = { cursor ->
+            cursor.next()
+            QueryResult.Value(cursor.getLong(0) ?: 0L)
+        },
+        parameters = 0
+    ).value
 }

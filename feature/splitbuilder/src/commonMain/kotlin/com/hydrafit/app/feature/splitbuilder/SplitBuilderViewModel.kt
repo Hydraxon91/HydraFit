@@ -441,7 +441,8 @@ class SplitBuilderViewModel(
                     exercise.primaryMuscles.map { it.name }.sorted().joinToString(","),
                     exercise.secondaryMuscles.map { it.name }.sorted().joinToString(","),
                     exercise.movementPattern.name,
-                    exercise.isCustom.toString()
+                    exercise.isCustom.toString(),
+                    exercise.loadCapability.name
                 ).joinToString("|")
             }
             .sorted()

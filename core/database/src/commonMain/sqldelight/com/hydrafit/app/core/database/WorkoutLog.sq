@@ -13,12 +13,13 @@ CREATE TABLE workoutSet (
     sessionId TEXT,
     occurrenceId INTEGER,
     occurrenceEntryId INTEGER,
+    loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
     FOREIGN KEY (exerciseId) REFERENCES exercise(id)
 );
 
 insertSet:
-INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber, dayIndex, rir, sessionId)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber, dayIndex, rir, sessionId, loadKind)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 lastInsertedSetId:
 SELECT last_insert_rowid();

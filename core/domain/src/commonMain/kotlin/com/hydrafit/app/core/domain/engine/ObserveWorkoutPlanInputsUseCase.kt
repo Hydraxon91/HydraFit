@@ -14,9 +14,7 @@ class ObserveWorkoutPlanInputsUseCase(
     private val calculateMuscleFatigue: CalculateMuscleFatigueUseCase,
     private val timeProvider: TimeProvider,
     private val planHistoryRepository: PlanHistoryRepository,
-    private val suggestWeights: SuggestWeightsUseCase,
-    private val buildRecentWeights: BuildRecentWeightsUseCase,
-    private val progressWeights: ProgressWeightsUseCase,
+    private val buildPlannerLoadInputs: BuildPlannerLoadInputsUseCase,
     private val periodization: PeriodizationConfig
 ) {
     operator fun invoke(
@@ -32,14 +30,13 @@ class ObserveWorkoutPlanInputsUseCase(
         val nowMillis = timeProvider.nowMillis()
         val latestPlan = planHistoryRepository.latest()
         val (weekNumber, cycleNumber) = nextPeriodization(latestPlan)
-        // A logged set's Epley 1RM, lifted to at least any manually entered personal record.
-        val baseline = suggestWeights(current.loggedWorkoutSets).toMutableMap()
-        current.personalRecords.forEach { record ->
-            baseline[record.exerciseId] = maxOf(
-                baseline[record.exerciseId] ?: 0.0,
-                OneRepMax.estimate(record.weightKg, record.reps)
-            )
-        }
+        val utcOffsetMillis = timeProvider.utcOffsetMillis()
+        val loadInputs = buildPlannerLoadInputs(
+            sources = current,
+            latestPlan = latestPlan,
+            pauseIncrements = latestPlan?.let { periodization.isDeload(it.weekNumber) } ?: false,
+            utcOffsetMillis = utcOffsetMillis
+        )
         // Accessory slots are exempt from week-over-week rotation: only compound patterns rotate.
         val recentExerciseIdsByPattern = latestPlan
             ?.days
@@ -61,22 +58,10 @@ class ObserveWorkoutPlanInputsUseCase(
                 setsPerExercise = sets ?: current.goal.defaultSets,
                 accessorySetsPerExercise = accessorySets ?: current.goal.accessorySets,
                 recentExerciseIdsByPattern = recentExerciseIdsByPattern,
-                suggestedWeightsKg = progressWeights(
-                    baseline = baseline,
-                    prescriptions = prescriptionsFrom(latestPlan),
-                    sets = current.loggedWorkoutSets,
-                    pauseIncrements = latestPlan?.let {
-                        periodization.isDeload(it.weekNumber)
-                    } ?: false,
-                    utcOffsetMillis = timeProvider.utcOffsetMillis()
-                ),
+                suggestedWeightsKg = loadInputs.suggestedWeightsKg,
                 equipmentMaxWeights = current.equipmentMaxWeights,
                 includeWorkoutData = current.workoutDataSharingEnabled,
-                recentWeights = if (current.workoutDataSharingEnabled) {
-                    buildRecentWeights(current.loggedWorkoutSets, timeProvider.utcOffsetMillis())
-                } else {
-                    emptyList()
-                },
+                recentWeights = loadInputs.recentWeights,
                 weekNumber = weekNumber,
                 cycleNumber = cycleNumber,
                 isDeload = periodization.isDeload(weekNumber)
@@ -92,20 +77,4 @@ class ObserveWorkoutPlanInputsUseCase(
         val cycle = if (week == 1) latest.cycleNumber + 1 else latest.cycleNumber
         return week to cycle
     }
-
-    /** The weight each exercise was prescribed in the most recent accepted plan. */
-    private fun prescriptionsFrom(plan: AcceptedPlan?): Map<String, Prescription> = plan
-        ?.days
-        ?.flatMap { it.exercises }
-        ?.mapNotNull { exercise ->
-            val weight = exercise.suggestedWeightKg ?: return@mapNotNull null
-            exercise.exerciseId to Prescription(
-                exerciseId = exercise.exerciseId,
-                sets = exercise.sets,
-                reps = exercise.reps,
-                weightKg = weight
-            )
-        }
-        ?.toMap()
-        .orEmpty()
 }

@@ -1,6 +1,7 @@
 package com.hydrafit.app
 
 import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
+import com.hydrafit.app.core.domain.engine.BuildPlannerLoadInputsUseCase
 import com.hydrafit.app.core.domain.engine.BuildRecentWeightsUseCase
 import com.hydrafit.app.core.domain.engine.DefaultOnDevicePlanProgressReporter
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
@@ -89,6 +90,7 @@ val domainModule: Module = module {
     singleOf(::SuggestWeightsUseCase)
     single { BuildRecentWeightsUseCase() }
     single { ProgressWeightsUseCase() }
+    singleOf(::BuildPlannerLoadInputsUseCase)
     singleOf(::ObserveWorkoutPlanInputsUseCase)
     singleOf(::AcceptWeeklyPlanUseCase)
     singleOf(::SubstituteExerciseUseCase)

@@ -1637,6 +1637,7 @@ internal object DefaultExercisesCatalogC1 {
         secondaryMuscles = secondary,
         movementPattern = pattern,
         isUnilateral = isUnilateral,
+        loadCapability = ExerciseLoadDefaults.capabilityFor(id),
         involvements = involvements
     )
 }

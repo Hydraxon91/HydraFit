@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.database
 
 import com.hydrafit.app.core.domain.equipment.Exercise as CatalogExercise
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import kotlin.math.abs
 
@@ -72,7 +73,8 @@ class CustomExerciseDedupe(private val database: HydraFitDatabase) {
                 exerciseId = canonicalId,
                 weightKg = customRecord.weightKg,
                 reps = customRecord.reps,
-                updatedAt = customRecord.updatedAt
+                updatedAt = customRecord.updatedAt,
+                loadKind = customRecord.loadKind
             )
         }
         database.personalRecordQueries.deleteById(customId)
@@ -85,6 +87,7 @@ class CustomExerciseDedupe(private val database: HydraFitDatabase) {
         var equipment = existing?.requiredEquipment
         var pattern = existing?.movementPattern
         var unilateral = existing?.isUnilateral
+        var loadCapability = existing?.loadCapability
         var involvements = existing?.involvements
         var changed = false
 
@@ -102,6 +105,15 @@ class CustomExerciseDedupe(private val database: HydraFitDatabase) {
             unilateral = custom.isUnilateral
             changed = true
         }
+        // Preserve an explicit custom capability selection, but only when it differs from the
+        // canonical built-in (matching the "materialize differences only" rule above). A legacy
+        // custom row still carrying UNSPECIFIED never overwrites the curated default.
+        if (custom.loadCapability != ExerciseLoadCapability.UNSPECIFIED.name &&
+            custom.loadCapability != canonical.loadCapability.name
+        ) {
+            loadCapability = custom.loadCapability
+            changed = true
+        }
         if (custom.involvements != null &&
             decodeInvolvements(custom.involvements) != canonical.effectiveInvolvements
         ) {
@@ -115,6 +127,7 @@ class CustomExerciseDedupe(private val database: HydraFitDatabase) {
             requiredEquipment = equipment,
             movementPattern = pattern,
             isUnilateral = unilateral,
+            loadCapability = loadCapability,
             involvements = involvements
         )
     }

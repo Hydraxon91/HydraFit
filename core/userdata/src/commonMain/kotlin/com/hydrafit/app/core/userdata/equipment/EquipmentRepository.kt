@@ -3,6 +3,7 @@ package com.hydrafit.app.core.userdata.equipment
 import com.hydrafit.app.core.domain.equipment.Equipment
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import kotlinx.coroutines.flow.Flow
@@ -34,7 +35,8 @@ interface CustomExerciseRepository {
         requiredEquipment: Set<EquipmentTag>,
         involvements: Map<MuscleGroup, Double>,
         movementPattern: MovementPattern,
-        isUnilateral: Boolean = false
+        isUnilateral: Boolean = false,
+        loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL
     ): Exercise
 
     suspend fun update(
@@ -43,7 +45,8 @@ interface CustomExerciseRepository {
         requiredEquipment: Set<EquipmentTag>,
         involvements: Map<MuscleGroup, Double>,
         movementPattern: MovementPattern,
-        isUnilateral: Boolean = false
+        isUnilateral: Boolean = false,
+        loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL
     )
 
     suspend fun delete(id: String)

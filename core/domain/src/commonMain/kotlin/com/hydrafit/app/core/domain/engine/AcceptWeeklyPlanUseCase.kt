@@ -33,7 +33,9 @@ class AcceptWeeklyPlanUseCase(
                             reps = planned.reps,
                             name = exercise?.name ?: planned.exerciseId,
                             movementPattern = exercise?.movementPattern ?: MovementPattern.CORE,
-                            suggestedWeightKg = planned.suggestedWeightKg
+                            suggestedWeightKg = planned.suggestedWeightKg,
+                            loadCapability = planned.loadCapability,
+                            loadKind = planned.loadKind
                         )
                     }
                 )

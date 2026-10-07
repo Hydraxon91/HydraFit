@@ -2,8 +2,10 @@ package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.workout.LoadKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -183,6 +185,41 @@ class WeeklyPlanSanitizerTest {
         assertNull(byId.getValue("lateral-raise").suggestedWeightKg)
     }
 
+    @Test
+    fun stripsAModelWeightForABodyweightOnlyExercise() = runTest {
+        val plan = WeeklyPlan(
+            engine = PlannerEngineId.GEMINI_API,
+            days = listOf(
+                WorkoutDay(
+                    dayIndex = 0,
+                    focus = SplitFocus.FULL_BODY,
+                    exercises = listOf(
+                        PlannedExercise(
+                            exerciseId = "ab-roll",
+                            sets = 3,
+                            reps = 10,
+                            suggestedWeightKg = 32.5
+                        ),
+                        PlannedExercise(
+                            exerciseId = "bench-press",
+                            sets = 3,
+                            reps = 8,
+                            suggestedWeightKg = 82.5
+                        )
+                    )
+                )
+            )
+        )
+
+        val sanitized = sanitizer.sanitize(plan, request(includeWorkoutData = true))!!
+
+        val entry = sanitized.days.single().exercises
+            .first { it.exerciseId == "ab-roll" }
+        assertNull(entry.suggestedWeightKg)
+        assertEquals(LoadKind.BODYWEIGHT, entry.loadKind)
+        assertEquals(ExerciseLoadCapability.BODYWEIGHT_ONLY, entry.loadCapability)
+    }
+
     private fun planOf(exerciseIds: List<String>) = WeeklyPlan(
         engine = PlannerEngineId.LOCAL_LLM,
         days = listOf(dayOf(0, exerciseIds))
@@ -223,16 +260,27 @@ class WeeklyPlanSanitizerTest {
             exercise("overhead-press", MovementPattern.VERTICAL_PUSH, EquipmentTag.BARBELL),
             exercise("barbell-row", MovementPattern.HORIZONTAL_PULL, EquipmentTag.BARBELL),
             exercise("lateral-raise", MovementPattern.SHOULDER_ISOLATION, EquipmentTag.BARBELL),
-            exercise("dumbbell-curl", MovementPattern.BICEPS_ISOLATION, EquipmentTag.DUMBBELL)
+            exercise("dumbbell-curl", MovementPattern.BICEPS_ISOLATION, EquipmentTag.DUMBBELL),
+            exercise(
+                "ab-roll",
+                MovementPattern.CORE,
+                EquipmentTag.BODYWEIGHT,
+                loadCapability = ExerciseLoadCapability.BODYWEIGHT_ONLY
+            )
         )
 
-        private fun exercise(id: String, pattern: MovementPattern, equipment: EquipmentTag) =
-            Exercise(
-                id = id,
-                name = id,
-                requiredEquipment = setOf(equipment),
-                primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
-                movementPattern = pattern
-            )
+        private fun exercise(
+            id: String,
+            pattern: MovementPattern,
+            equipment: EquipmentTag,
+            loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL
+        ) = Exercise(
+            id = id,
+            name = id,
+            requiredEquipment = setOf(equipment),
+            primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
+            movementPattern = pattern,
+            loadCapability = loadCapability
+        )
     }
 }

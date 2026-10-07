@@ -45,4 +45,8 @@
     <string name="logger_finish">Finish</string>
     <string name="logger_finish_partial">Finish partially</string>
     <string name="logger_skip">Skip</string>
+    <string name="logger_load_confirm_title">Confirm the recorded load</string>
+    <string name="logger_load_confirm_body">%1$s was prescribed load %2$s, but its meaning was never recorded. Choose what these sets represent before logging.</string>
+    <string name="logger_load_use_external">Log as external load</string>
+    <string name="logger_load_use_bodyweight">Log as bodyweight</string>
 </resources>

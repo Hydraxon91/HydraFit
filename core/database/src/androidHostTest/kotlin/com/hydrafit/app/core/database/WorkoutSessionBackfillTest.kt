@@ -272,7 +272,8 @@ class WorkoutSessionBackfillTest {
             cycleNumber = null,
             dayIndex = null,
             rir = null,
-            sessionId = sessionId
+            sessionId = sessionId,
+            loadKind = "EXTERNAL"
         )
         return allSets().filter { it.performedAt == performedAt && it.sessionId == sessionId }
             .maxOf { it.id }

@@ -230,7 +230,8 @@ class SqlDelightWorkoutLogRepositoryTest {
             cycleNumber = null,
             dayIndex = null,
             rir = null,
-            sessionId = null
+            sessionId = null,
+            loadKind = "EXTERNAL"
         )
 
         val logged = repository.loggedSets().single()
@@ -253,7 +254,8 @@ class SqlDelightWorkoutLogRepositoryTest {
             cycleNumber = null,
             dayIndex = null,
             rir = null,
-            sessionId = null
+            sessionId = null,
+            loadKind = "EXTERNAL"
         )
 
         val logged = repository.loggedSets().single()

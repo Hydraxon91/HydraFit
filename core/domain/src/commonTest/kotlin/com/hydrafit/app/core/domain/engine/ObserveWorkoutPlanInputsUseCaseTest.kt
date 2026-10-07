@@ -1,9 +1,12 @@
 package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -567,11 +570,18 @@ class ObserveWorkoutPlanInputsUseCaseTest {
         calculateMuscleFatigue = calculateMuscleFatigue,
         timeProvider = timeProvider,
         planHistoryRepository = planHistoryRepository,
-        suggestWeights = SuggestWeightsUseCase(),
-        buildRecentWeights = BuildRecentWeightsUseCase(),
-        progressWeights = ProgressWeightsUseCase(),
+        buildPlannerLoadInputs = BuildPlannerLoadInputsUseCase(
+            catalog = FakeCatalog,
+            suggestWeights = SuggestWeightsUseCase(),
+            buildRecentWeights = BuildRecentWeightsUseCase(),
+            progressWeights = ProgressWeightsUseCase()
+        ),
         periodization = PeriodizationConfig()
     )
+
+    private object FakeCatalog : ExerciseCatalog {
+        override suspend fun all(): List<Exercise> = emptyList()
+    }
 
     private class FakeWorkoutPlanSourcesRepository(initial: WorkoutPlanSources) :
         WorkoutPlanSourcesRepository {
@@ -600,7 +610,9 @@ class ObserveWorkoutPlanInputsUseCaseTest {
             position: Int,
             newExerciseId: String,
             newExerciseName: String,
-            newWeightKg: Double?
+            newWeightKg: Double?,
+            newLoadCapability: ExerciseLoadCapability,
+            newLoadKind: LoadKind
         ) = Unit
 
         override suspend fun delete(planId: Long) = Unit

@@ -124,6 +124,7 @@ class CustomExerciseDedupeTest {
             requiredEquipment = "BODYWEIGHT",
             movementPattern = null,
             isUnilateral = null,
+            loadCapability = null,
             involvements = "ABS:0.9"
         )
         insertCustom(
@@ -149,6 +150,7 @@ class CustomExerciseDedupeTest {
             requiredEquipment = "BODYWEIGHT",
             movementPattern = null,
             isUnilateral = null,
+            loadCapability = null,
             involvements = null
         )
         insertCustom(equipment = "BARBELL", involvements = trapBarSeedInvolvements())
@@ -176,7 +178,8 @@ class CustomExerciseDedupeTest {
             cycleNumber = null,
             dayIndex = null,
             rir = null,
-            sessionId = null
+            sessionId = null,
+            loadKind = "EXTERNAL"
         )
 
         CustomExerciseDedupe(database).run()
@@ -205,12 +208,14 @@ class CustomExerciseDedupeTest {
             cycleNumber = null,
             dayIndex = null,
             rir = null,
-            sessionId = null
+            sessionId = null,
+            loadKind = "EXTERNAL"
         )
         database.personalRecordQueries.upsert(
             exerciseId = "user-trap-bar-deadlift",
             weightKg = 140.0,
             reps = 3,
+            loadKind = "EXTERNAL",
             updatedAt = 1
         )
         insertPlanHistoryEntry("user-trap-bar-deadlift")
@@ -249,6 +254,7 @@ class CustomExerciseDedupeTest {
             requiredEquipment = "BODYWEIGHT",
             movementPattern = null,
             isUnilateral = null,
+            loadCapability = null,
             involvements = null
         )
         insertCustom(involvements = trapBarSeedInvolvements())
@@ -266,6 +272,7 @@ class CustomExerciseDedupeTest {
             exerciseId = "user-trap-bar-deadlift",
             weightKg = 100.0,
             reps = 5,
+            loadKind = "EXTERNAL",
             updatedAt = 1
         )
 
@@ -284,12 +291,14 @@ class CustomExerciseDedupeTest {
             exerciseId = "user-trap-bar-deadlift",
             weightKg = 140.0,
             reps = 3,
+            loadKind = "EXTERNAL",
             updatedAt = 1
         )
         database.personalRecordQueries.upsert(
             exerciseId = "trap-bar-deadlift",
             weightKg = 100.0,
             reps = 10,
+            loadKind = "EXTERNAL",
             updatedAt = 1
         )
 
@@ -307,12 +316,14 @@ class CustomExerciseDedupeTest {
             exerciseId = "user-trap-bar-deadlift",
             weightKg = 100.0,
             reps = 5,
+            loadKind = "EXTERNAL",
             updatedAt = 1
         )
         database.personalRecordQueries.upsert(
             exerciseId = "trap-bar-deadlift",
             weightKg = 140.0,
             reps = 3,
+            loadKind = "EXTERNAL",
             updatedAt = 1
         )
 
@@ -330,12 +341,14 @@ class CustomExerciseDedupeTest {
             exerciseId = "user-trap-bar-deadlift",
             weightKg = 100.0,
             reps = 5,
+            loadKind = "EXTERNAL",
             updatedAt = 1
         )
         database.personalRecordQueries.upsert(
             exerciseId = "trap-bar-deadlift",
             weightKg = 100.0,
             reps = 3,
+            loadKind = "EXTERNAL",
             updatedAt = 2
         )
 
@@ -352,12 +365,14 @@ class CustomExerciseDedupeTest {
             exerciseId = "user-trap-bar-deadlift",
             weightKg = 100.0,
             reps = 5,
+            loadKind = "EXTERNAL",
             updatedAt = 2
         )
         database.personalRecordQueries.upsert(
             exerciseId = "trap-bar-deadlift",
             weightKg = 100.0,
             reps = 5,
+            loadKind = "EXTERNAL",
             updatedAt = 1
         )
 
@@ -374,6 +389,7 @@ class CustomExerciseDedupeTest {
             exerciseId = "user-trap-bar-deadlift",
             weightKg = 100.0,
             reps = 5,
+            loadKind = "EXTERNAL",
             updatedAt = 1
         )
 
@@ -398,12 +414,14 @@ class CustomExerciseDedupeTest {
             cycleNumber = null,
             dayIndex = null,
             rir = null,
-            sessionId = null
+            sessionId = null,
+            loadKind = "EXTERNAL"
         )
         database.personalRecordQueries.upsert(
             exerciseId = "user-trap-bar-deadlift",
             weightKg = 140.0,
             reps = 3,
+            loadKind = "EXTERNAL",
             updatedAt = 1
         )
         insertPlanHistoryEntry("user-trap-bar-deadlift")
@@ -444,6 +462,7 @@ class CustomExerciseDedupeTest {
             requiredEquipment = "BARBELL",
             movementPattern = "HINGE",
             isUnilateral = 0,
+            loadCapability = "EXTERNAL",
             involvements = encodeInvolvements(mapOf(MuscleGroup.LATS to 1.0))
         )
 
@@ -462,6 +481,7 @@ class CustomExerciseDedupeTest {
             requiredEquipment = null,
             movementPattern = null,
             isUnilateral = null,
+            loadCapability = null,
             involvements = "LATS:0.9"
         )
         val seed = DefaultExercises.all.first { it.id == "barbell-row" }
@@ -500,12 +520,14 @@ class CustomExerciseDedupeTest {
             exerciseId = "user-trap-bar-deadlift",
             weightKg = 100.0,
             reps = 8,
+            loadKind = "EXTERNAL",
             updatedAt = 1
         )
         database.personalRecordQueries.upsert(
             exerciseId = "trap-bar-deadlift",
             weightKg = 100.0 + 5e-10,
             reps = 5,
+            loadKind = "EXTERNAL",
             updatedAt = 3
         )
 
@@ -522,12 +544,14 @@ class CustomExerciseDedupeTest {
             exerciseId = "user-trap-bar-deadlift",
             weightKg = 100.0000001,
             reps = 5,
+            loadKind = "EXTERNAL",
             updatedAt = 1
         )
         database.personalRecordQueries.upsert(
             exerciseId = "trap-bar-deadlift",
             weightKg = 100.0,
             reps = 8,
+            loadKind = "EXTERNAL",
             updatedAt = 2
         )
 
@@ -551,6 +575,7 @@ class CustomExerciseDedupeTest {
             requiredEquipment = equipment,
             movementPattern = pattern,
             isUnilateral = unilateral,
+            loadCapability = "EXTERNAL",
             involvements = involvements
         )
     }
@@ -585,7 +610,9 @@ class CustomExerciseDedupeTest {
             reps = 5,
             exerciseName = "Trap Bar Deadlift",
             movementPattern = "HINGE",
-            suggestedWeightKg = 100.0
+            suggestedWeightKg = 100.0,
+            loadCapability = "EXTERNAL",
+            loadKind = "EXTERNAL"
         )
     }
 
@@ -596,6 +623,7 @@ class CustomExerciseDedupeTest {
             requiredEquipment = "TRAP_BAR",
             movementPattern = "HINGE",
             isUnilateral = 0,
+            loadCapability = "UNSPECIFIED",
             involvements = encodeInvolvements(
                 mapOf(MuscleGroup.LOWER_BACK to 1.0, MuscleGroup.GLUTES to 1.0)
             )

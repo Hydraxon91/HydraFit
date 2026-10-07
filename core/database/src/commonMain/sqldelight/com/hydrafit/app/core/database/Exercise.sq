@@ -5,6 +5,7 @@ CREATE TABLE exercise (
     movementPattern TEXT NOT NULL,
     isCustom INTEGER NOT NULL DEFAULT 0,
     isUnilateral INTEGER NOT NULL DEFAULT 0,
+    loadCapability TEXT NOT NULL DEFAULT 'UNSPECIFIED',
     involvements TEXT
 );
 
@@ -15,20 +16,20 @@ selectById:
 SELECT * FROM exercise WHERE id = ?;
 
 insert:
-INSERT INTO exercise(id, name, requiredEquipment, movementPattern)
-VALUES (?, ?, ?, ?);
+INSERT INTO exercise(id, name, requiredEquipment, movementPattern, loadCapability)
+VALUES (?, ?, ?, ?, ?);
 
 insertIgnore:
-INSERT OR IGNORE INTO exercise(id, name, requiredEquipment, movementPattern)
-VALUES (?, ?, ?, ?);
+INSERT OR IGNORE INTO exercise(id, name, requiredEquipment, movementPattern, loadCapability)
+VALUES (?, ?, ?, ?, ?);
 
 insertCustom:
-INSERT INTO exercise(id, name, requiredEquipment, movementPattern, isCustom, isUnilateral, involvements)
-VALUES (?, ?, ?, ?, 1, ?, ?);
+INSERT INTO exercise(id, name, requiredEquipment, movementPattern, isCustom, isUnilateral, loadCapability, involvements)
+VALUES (?, ?, ?, ?, 1, ?, ?, ?);
 
 updateCustom:
 UPDATE exercise
-SET name = ?, requiredEquipment = ?, movementPattern = ?, isUnilateral = ?, involvements = ?
+SET name = ?, requiredEquipment = ?, movementPattern = ?, isUnilateral = ?, loadCapability = ?, involvements = ?
 WHERE id = ? AND isCustom = 1;
 
 updateIsUnilateral:
@@ -45,6 +46,12 @@ SELECT COUNT(*) FROM workoutSet WHERE exerciseId = ?;
 
 updateMovementPattern:
 UPDATE exercise SET movementPattern = ? WHERE id = ?;
+
+-- Backfills the curated load capability onto built-in rows on every start; idempotent. Custom rows
+-- hold the user's own selection and are excluded, and a user's edit to a built-in lives in
+-- `exerciseOverride`, so neither is touched.
+updateLoadCapability:
+UPDATE exercise SET loadCapability = ? WHERE id = ? AND isCustom = 0;
 
 -- One-time (idempotent) normalization of legacy involvement weights on built-in rows to the
 -- CAT-P0 tier scale: 0.6 -> 0.7, 0.4 -> 0.5, 0.2 -> 0.3. Custom rows hold user-authored weights

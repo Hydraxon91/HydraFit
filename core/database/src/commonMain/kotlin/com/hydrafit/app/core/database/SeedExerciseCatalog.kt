@@ -8,7 +8,8 @@ class SeedExerciseCatalog(private val database: HydraFitDatabase) {
                     id = exercise.id,
                     name = exercise.name,
                     requiredEquipment = encodeEquipment(exercise.requiredEquipment),
-                    movementPattern = exercise.movementPattern.name
+                    movementPattern = exercise.movementPattern.name,
+                    loadCapability = exercise.loadCapability.name
                 )
                 database.exerciseQueries.updateMovementPattern(
                     movementPattern = exercise.movementPattern.name,
@@ -16,6 +17,12 @@ class SeedExerciseCatalog(private val database: HydraFitDatabase) {
                 )
                 database.exerciseQueries.updateIsUnilateral(
                     isUnilateral = if (exercise.isUnilateral) 1L else 0L,
+                    id = exercise.id
+                )
+                // Curated capability on built-in rows only; a user's edit lives in exerciseOverride and
+                // custom rows keep their own selection.
+                database.exerciseQueries.updateLoadCapability(
+                    loadCapability = exercise.loadCapability.name,
                     id = exercise.id
                 )
                 // Always write involvement weights (explicit, or derived from the authored tags)

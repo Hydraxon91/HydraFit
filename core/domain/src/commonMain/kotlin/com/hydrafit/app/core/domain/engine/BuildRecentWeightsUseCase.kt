@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.time.localEpochDay
+import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 
 /** A representative working set shared with the AI engines so they can see recent training. */
@@ -11,7 +12,9 @@ data class WeightHistoryEntry(
     val reps: Int,
     val rir: Int? = null,
     val weekNumber: Int? = null,
-    val dayIndex: Int? = null
+    val dayIndex: Int? = null,
+    /** What [weightKg] means, so the prompt never presents added or legacy load as external. */
+    val loadKind: LoadKind = LoadKind.EXTERNAL
 )
 
 data class RecentWeightsConfig(val maxDatesPerExercise: Int = 2) {
@@ -53,7 +56,8 @@ class BuildRecentWeightsUseCase(private val config: RecentWeightsConfig = Recent
                     reps = best.reps,
                     rir = best.rir,
                     weekNumber = best.weekNumber,
-                    dayIndex = best.dayIndex
+                    dayIndex = best.dayIndex,
+                    loadKind = best.loadKind
                 )
             }
 

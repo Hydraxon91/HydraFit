@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.time.isoDateUtc
+import com.hydrafit.app.core.domain.workout.LoadKind
 
 /**
  * Pure prompt fragments shared by the model-backed engines. Each engine assembles its own prompt
@@ -54,7 +55,7 @@ object PlannerPromptFragments {
     fun recentWeightsList(request: PlanRequest): String? {
         if (!request.includeWorkoutData || request.recentWeights.isEmpty()) return null
         return request.recentWeights.joinToString("; ") { entry ->
-            val weight = entry.weightKg?.let { "${it}kg" } ?: "Bodyweight"
+            val weight = describeLoad(entry)
             val rir = entry.rir?.let { " (rir $it)" } ?: ""
             val snapshot = if (entry.weekNumber != null && entry.dayIndex != null) {
                 " (wk ${entry.weekNumber}, day ${entry.dayIndex + 1})"
@@ -73,6 +74,17 @@ object PlannerPromptFragments {
             .sortedBy { it.key }
             .joinToString("; ") { "${it.key}: ${it.value}kg" }
             .ifEmpty { null }
+    }
+
+    /** Honest wording for a history entry so a model never reads added/legacy load as external. */
+    private fun describeLoad(entry: WeightHistoryEntry): String = when (entry.loadKind) {
+        LoadKind.EXTERNAL -> entry.weightKg?.let { "${it}kg" } ?: "external load unspecified"
+        LoadKind.BODYWEIGHT -> "Bodyweight"
+        LoadKind.ADDED -> entry.weightKg?.let { "Bodyweight + ${it}kg added" }
+            ?: "Bodyweight + added load (unspecified)"
+        LoadKind.LEGACY_UNSPECIFIED ->
+            entry.weightKg?.let { "${it}kg (recorded, meaning unconfirmed)" }
+                ?: "load unspecified"
     }
 
     private fun equipmentList(request: PlanRequest): String =

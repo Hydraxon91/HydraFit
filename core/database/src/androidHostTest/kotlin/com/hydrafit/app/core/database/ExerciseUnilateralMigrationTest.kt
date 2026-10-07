@@ -54,7 +54,10 @@ class ExerciseUnilateralMigrationTest {
             "CREATE TABLE workoutSet (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, " +
                 "exerciseId TEXT NOT NULL, reps INTEGER NOT NULL, weightKg REAL, " +
                 "performedAt INTEGER NOT NULL, isWarmup INTEGER NOT NULL DEFAULT 0, " +
-                "primaryMuscles TEXT, secondaryMuscles TEXT)"
+                "primaryMuscles TEXT, secondaryMuscles TEXT)",
+            // Plan history entries predate v16 and are not created by any migration in the
+            // 16→latest range; the EX-02 migration (27.sqm) alters this table.
+            "CREATE TABLE planHistoryEntry (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT)"
         )
         statements.forEach { driver.execute(identifier = null, sql = it, parameters = 0) }
         return driver

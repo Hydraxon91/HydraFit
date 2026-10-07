@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.routine.RoutineTemplateException
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 
 /** Closes an active block once every occurrence is resolved, and clears the cursor. */
@@ -263,6 +264,11 @@ class EditUnstartedOccurrenceUseCase(
             }
             val exercise = byId[draft.exerciseId]
                 ?: throw ScheduleException("That exercise no longer exists")
+            val (kind, weightKg) = WorkoutLoadPolicy.reconcile(
+                exercise.loadCapability,
+                draft.loadKind,
+                draft.weightKg
+            )
             OccurrenceEntry(
                 sourceActivationEntryId = null,
                 position = index,
@@ -274,7 +280,9 @@ class EditUnstartedOccurrenceUseCase(
                 isUnilateral = exercise.isUnilateral,
                 sets = draft.sets,
                 reps = draft.reps,
-                weightKg = draft.weightKg
+                weightKg = weightKg,
+                loadCapability = exercise.loadCapability,
+                loadKind = kind
             )
         }
         scheduleRepository.replaceOccurrenceEntries(occurrenceId, entries)

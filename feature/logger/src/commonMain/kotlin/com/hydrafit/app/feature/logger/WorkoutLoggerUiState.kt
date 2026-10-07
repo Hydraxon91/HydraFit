@@ -1,17 +1,23 @@
 package com.hydrafit.app.feature.logger
 
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutSession
 
 data class ExerciseOption(
     val id: String,
     val name: String,
     val isBodyweight: Boolean,
-    val isUnilateral: Boolean = false
-)
+    val isUnilateral: Boolean = false,
+    val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL
+) {
+    /** Only an addable bodyweight movement may reveal a field for added kilograms. */
+    val canAddLoad: Boolean get() = loadCapability == ExerciseLoadCapability.BODYWEIGHT_ADDABLE
+}
 
 data class LoggedSetRow(
     val id: Long,
@@ -23,7 +29,9 @@ data class LoggedSetRow(
     val rir: Int? = null,
     val isWarmup: Boolean,
     val weekNumber: Int? = null,
-    val dayIndex: Int? = null
+    val dayIndex: Int? = null,
+    /** What [weightKg] means, so the row can label added or unconfirmed load honestly. */
+    val loadKind: LoadKind = LoadKind.LEGACY_UNSPECIFIED
 )
 
 /** A planned exercise offered in the Logger; nothing here counts until it is confirmed. */
@@ -32,8 +40,20 @@ data class DraftSet(
     val name: String,
     val sets: Int,
     val reps: Int,
-    val weightKg: Double?
+    val weightKg: Double?,
+    val loadKind: LoadKind = LoadKind.EXTERNAL
 )
+
+/** One draft whose stored prescription has no established load meaning and needs a decision. */
+data class LegacyResolutionItem(val draft: DraftSet, val capability: ExerciseLoadCapability) {
+    /** True when the exercise is external today, so recording the number as external is allowed. */
+    val canBeExternal: Boolean get() = capability == ExerciseLoadCapability.EXTERNAL
+}
+
+/** The queue of legacy drafts the user must resolve before they can be logged. */
+data class LegacyResolution(val items: List<LegacyResolutionItem>) {
+    val current: LegacyResolutionItem get() = items.first()
+}
 
 /** The active block's current workout occurrence, shown so the user can finish or skip it. */
 data class ActiveOccurrence(
@@ -57,6 +77,8 @@ data class WorkoutLoggerUiState(
     val activeOccurrence: ActiveOccurrence? = null,
     /** A finish/skip error to surface (e.g. the workout changed elsewhere). */
     val occurrenceMessage: String? = null,
+    /** A pending explicit load decision for legacy drafts, or null when none is waiting. */
+    val legacyResolution: LegacyResolution? = null,
     val todayFocus: SplitFocus? = null,
     val weightUnit: WeightUnit = WeightUnit.KG,
     val weightRevealed: Boolean = false,
@@ -95,8 +117,14 @@ data class WorkoutLoggerUiState(
      * exercises only once the user reveals it to log a weighted variant.
      */
     val showWeightField: Boolean
-        get() = weightRevealed ||
-            exercises.firstOrNull { it.id == selectedExerciseId }?.isBodyweight != true
+        get() {
+            val option = exercises.firstOrNull { it.id == selectedExerciseId }
+            return when (option?.loadCapability) {
+                ExerciseLoadCapability.BODYWEIGHT_ONLY -> false
+                ExerciseLoadCapability.BODYWEIGHT_ADDABLE -> weightRevealed
+                else -> true
+            }
+        }
 
     /** True when the selected exercise is one-side-at-a-time, so the entered weight is per hand. */
     val selectedExerciseIsUnilateral: Boolean

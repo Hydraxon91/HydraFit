@@ -27,6 +27,10 @@
     <string name="equipment_tier_primary">Primary</string>
     <string name="equipment_equipment_section">Equipment</string>
     <string name="equipment_unilateral">Unilateral (per hand)</string>
+    <string name="equipment_load_section">Load</string>
+    <string name="equipment_load_external">External weight</string>
+    <string name="equipment_load_bodyweight">Bodyweight</string>
+    <string name="equipment_load_bodyweight_added">Bodyweight + added</string>
     <string name="equipment_personal_records">Personal records</string>
     <string name="equipment_pr_exercise">Exercise</string>
     <string name="equipment_pr_weight">Best weight (kg)</string>

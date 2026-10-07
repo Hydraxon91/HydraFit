@@ -4,6 +4,8 @@ import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
 
 /** A ranked replacement for one accepted-plan slot, shown so the user can pick one. */
 data class SwapCandidate(
@@ -11,7 +13,9 @@ data class SwapCandidate(
     val name: String,
     val movementPattern: MovementPattern,
     val primaryEquipment: EquipmentTag,
-    val suggestedWeightKg: Double?
+    val suggestedWeightKg: Double?,
+    /** The meaning of [suggestedWeightKg] after the swap; the slot's kind when compatible. */
+    val loadKind: LoadKind = LoadKind.EXTERNAL
 )
 
 /**
@@ -39,16 +43,18 @@ class SubstituteExerciseUseCase(
         val exercises = catalog.all()
         val context = contextFor(plan, dayIndex, position, request, exercises) ?: return emptyList()
         return rankedCandidates(context, exercises).map { candidate ->
+            val (weight, kind) = preservedLoad(
+                context.entry,
+                candidate,
+                request.equipmentMaxWeights
+            )
             SwapCandidate(
                 exerciseId = candidate.id,
                 name = candidate.name,
                 movementPattern = candidate.movementPattern,
                 primaryEquipment = primaryEquipmentOf(candidate),
-                suggestedWeightKg = preservedWeight(
-                    context.entry,
-                    candidate,
-                    request.equipmentMaxWeights
-                )
+                suggestedWeightKg = weight,
+                loadKind = kind
             )
         }
     }
@@ -76,14 +82,16 @@ class SubstituteExerciseUseCase(
             return null
         }
 
-        val weight = preservedWeight(context.entry, chosen, request.equipmentMaxWeights)
+        val (weight, kind) = preservedLoad(context.entry, chosen, request.equipmentMaxWeights)
         planHistory.substitute(
             planId = plan.id,
             dayIndex = dayIndex,
             position = position,
             newExerciseId = chosen.id,
             newExerciseName = chosen.name,
-            newWeightKg = weight
+            newWeightKg = weight,
+            newLoadCapability = chosen.loadCapability,
+            newLoadKind = kind
         )
         return AcceptedExercise(
             exerciseId = chosen.id,
@@ -91,7 +99,9 @@ class SubstituteExerciseUseCase(
             reps = context.entry.reps,
             name = chosen.name,
             movementPattern = chosen.movementPattern,
-            suggestedWeightKg = weight
+            suggestedWeightKg = weight,
+            loadCapability = chosen.loadCapability,
+            loadKind = kind
         )
     }
 
@@ -144,7 +154,9 @@ class SubstituteExerciseUseCase(
                             exerciseId = exercise.exerciseId,
                             sets = exercise.sets,
                             reps = exercise.reps,
-                            suggestedWeightKg = exercise.suggestedWeightKg
+                            suggestedWeightKg = exercise.suggestedWeightKg,
+                            loadKind = exercise.loadKind,
+                            loadCapability = exercise.loadCapability
                         )
                     }
                 }
@@ -175,17 +187,29 @@ class SubstituteExerciseUseCase(
         )
     }
 
-    /** Keeps the slot's working weight, only lowering it to the replacement's equipment ceiling. */
-    private fun preservedWeight(
+    /**
+     * Keeps the slot's working weight and its meaning when the replacement's capability permits
+     * that meaning, only lowering the number to the replacement's equipment ceiling. When the
+     * meaning is not permitted (e.g. an external slot replaced by a bodyweight-only exercise) the
+     * slot falls back to the replacement's default kind with no number, and the preview shows the
+     * no-load target before the user confirms.
+     */
+    private fun preservedLoad(
         entry: AcceptedExercise,
         candidate: Exercise,
         equipmentMaxWeights: Map<EquipmentTag, Double>
-    ): Double? {
-        val current = entry.suggestedWeightKg ?: return null
-        return EquipmentWeightLimit.clamp(
-            current,
-            EquipmentWeightLimit.ceilingFor(candidate, equipmentMaxWeights)
-        )
+    ): Pair<Double?, LoadKind> {
+        val capability = candidate.loadCapability
+        if (!WorkoutLoadPolicy.permits(capability, entry.loadKind)) {
+            return null to WorkoutLoadPolicy.defaultKind(capability)
+        }
+        val clamped = entry.suggestedWeightKg?.let {
+            EquipmentWeightLimit.clamp(
+                it,
+                EquipmentWeightLimit.ceilingFor(candidate, equipmentMaxWeights)
+            )
+        }
+        return clamped to entry.loadKind
     }
 
     /**

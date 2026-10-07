@@ -25,6 +25,7 @@ CREATE TABLE routineEntry (
     sets INTEGER NOT NULL,
     reps INTEGER NOT NULL,
     weightKg REAL,
+    loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
     FOREIGN KEY (workoutId) REFERENCES routineWorkout(id)
 );
 
@@ -74,11 +75,11 @@ lastInsertedWorkoutId:
 SELECT last_insert_rowid();
 
 insertEntry:
-INSERT INTO routineEntry(workoutId, position, exerciseId, sets, reps, weightKg)
-VALUES (?, ?, ?, ?, ?, ?);
+INSERT INTO routineEntry(workoutId, position, exerciseId, sets, reps, weightKg, loadKind)
+VALUES (?, ?, ?, ?, ?, ?, ?);
 
 updateEntry:
-UPDATE routineEntry SET position = ?, exerciseId = ?, sets = ?, reps = ?, weightKg = ? WHERE id = ?;
+UPDATE routineEntry SET position = ?, exerciseId = ?, sets = ?, reps = ?, weightKg = ?, loadKind = ? WHERE id = ?;
 
 lastInsertedEntryId:
 SELECT last_insert_rowid();

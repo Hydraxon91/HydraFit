@@ -196,10 +196,10 @@ swapped slot is self-describing like any other accepted entry.
 SQLDelight `.sq` files describe the current schema; every schema change ships a numbered `.sqm`
 migration, and released schemas are never edited in place.
 
-- **Examples:** `core/database/src/commonMain/sqldelight/…` — `1.sqm`..`26.sqm`, table rebuilds in
+- **Examples:** `core/database/src/commonMain/sqldelight/…` — `1.sqm`..`27.sqm`, table rebuilds in
   `20.sqm` (dropping legacy muscle columns), additive columns (`17.sqm`, `18.sqm`, `22.sqm`,
-  `23.sqm`, `24.sqm`), new tables (`21.sqm` `personalRecord`, `25.sqm` routine templates, `26.sqm`
-  activations/occurrences/schedule cursor).
+  `23.sqm`, `24.sqm`, `27.sqm` EX-02 load columns), new tables (`21.sqm` `personalRecord`, `25.sqm`
+  routine templates, `26.sqm` activations/occurrences/schedule cursor).
 - **Consistency:** high; the current `.sq` schema matches the cumulative migrations (manually
   cross-checked in S2). Business-level compatibility is guarded by the review's "Phase C" invariant:
   neutral inputs must reproduce prior figures exactly (`docs/plans-archive.md` C1-C3).
@@ -248,6 +248,35 @@ fatigue is segmented by.
   the latest accepted prescription (not occurrence-aware); that reconciliation is deferred to
   OF-10A-P0.
 
+### 1.12 Exercise load semantics (EX-02)
+
+What external load an exercise can carry is separate from what a recorded number means. The exercise
+carries a **capability** (`EXTERNAL`, `BODYWEIGHT_ONLY`, `BODYWEIGHT_ADDABLE`, `UNSPECIFIED`), decided
+per catalog row and editable per built-in/custom exercise; it is never inferred from equipment
+presence (Ab Roll and the calf-raise-on-a-dumbbell both use apparatus without carrying its weight).
+Every prescription, snapshot and performed set carries a **load kind** (`EXTERNAL`, `BODYWEIGHT`,
+`ADDED`, `LEGACY_UNSPECIFIED`).
+
+- **Examples:** `Exercise.loadCapability` (`core/domain/.../equipment/Exercise.kt`);
+  `WorkoutLoadPolicy` (pure capability↔kind rule); `LoadKind`; nullable
+  `loadCapability` on `exerciseOverride`; `loadKind` on `workoutSet`, `personalRecord`, plan/routine/
+  activation/occurrence entries; `loadCapability` frozen on accepted plans and activation/occurrence
+  entries. Migration `27.sqm` marks every existing load row `LEGACY_UNSPECIFIED`/`UNSPECIFIED`.
+- **Rules:** automatic Epley-based weight suggestions are external-only, in the deterministic engine,
+  the AI sanitizer and substitution. A legacy number contributes to the baseline/progression only
+  when the exercise is external **today** (a read-time compatibility exception — stored rows are never
+  rewritten); typed external performances/prescriptions alone drive a streak. Added kilograms are not
+  total effective resistance and never seed a generated number. `null`/`0.0`/positive stay distinct.
+  A legacy draft must be explicitly resolved (external or bodyweight) before it is logged; the choice
+  affects the new performed set, never the frozen prescription. Built-in capability is backfilled by
+  the seed; `CustomExerciseDedupe` preserves an explicit custom capability that differs from the
+  built-in.
+- **Consistency:** high; `SqlDelightWorkoutLogRepository` maps `ADDED`/`BODYWEIGHT` sets to a neutral
+  relative-load factor for fatigue while retaining the stored number for display, so historical
+  fatigue results are unchanged.
+- **Violations / tensions:** `UNSPECIFIED` customs and old frozen snapshots cannot be auto-classified;
+  assisted/negative load, added-load e1RM and resistance calibration are out of scope.
+
 ---
 
 ## 2. Decision log
@@ -278,6 +307,7 @@ No rationale is invented; unrecorded items are listed as questions in §2.1.
 | D19 | Gemini model `gemini-3.1-flash-lite`; sampling params omitted | PLANS.md line 282 | None recorded | Current |
 | D20 | Editable routine templates vs frozen activations and occurrences; one active finite block at a time | PLANS.md "Decisions Made" (2026-10-07 routine/scheduling contract) | Shared references and endless recurrence considered; copy semantics chosen | Current |
 | D21 | Explicit Finish/Skip advances the queue; logging a set, End/New session, expiry and midnight do not; progression stays the accepted-plan ordinal | PLANS.md "Decisions Made" (2026-10-07) | Occurrence-aware progression eligibility deferred to OF-10A-P0 | Current |
+| D22 | Exercise load capability vs recorded load kind; external-only generation; legacy contributes to the planner only when external today; added/bodyweight are neutral for relative load | PLANS.md "Decisions Made" (2026-10-07 live-testing) + "EX-02 — exercise load semantics" | Collapse-to-zero, equipment-derived capability and blanket historical reinterpretation rejected | Current |
 
 ### 2.1 Rationale not recorded (questions, not findings)
 

@@ -1,0 +1,23 @@
+-- EX-02 exercise load semantics: capability on the catalog/override, load meaning on every
+-- prescription, snapshot and performed-set row. Existing rows receive the conservative
+-- UNSPECIFIED capability and LEGACY_UNSPECIFIED load kind so their recorded numbers are preserved
+-- and never reinterpreted. Built-in capability is backfilled separately by the seed at startup.
+
+ALTER TABLE exercise ADD COLUMN loadCapability TEXT NOT NULL DEFAULT 'UNSPECIFIED';
+
+ALTER TABLE exerciseOverride ADD COLUMN loadCapability TEXT;
+
+ALTER TABLE personalRecord ADD COLUMN loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED';
+
+ALTER TABLE planHistoryEntry ADD COLUMN loadCapability TEXT NOT NULL DEFAULT 'UNSPECIFIED';
+ALTER TABLE planHistoryEntry ADD COLUMN loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED';
+
+ALTER TABLE routineEntry ADD COLUMN loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED';
+
+ALTER TABLE activationEntry ADD COLUMN loadCapability TEXT NOT NULL DEFAULT 'UNSPECIFIED';
+ALTER TABLE activationEntry ADD COLUMN loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED';
+
+ALTER TABLE occurrenceEntry ADD COLUMN loadCapability TEXT NOT NULL DEFAULT 'UNSPECIFIED';
+ALTER TABLE occurrenceEntry ADD COLUMN loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED';
+
+ALTER TABLE workoutSet ADD COLUMN loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED';

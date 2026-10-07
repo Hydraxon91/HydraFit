@@ -2,12 +2,14 @@ package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.FatigueCalculator
 import com.hydrafit.app.core.domain.fatigue.FatigueReplayFixture
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.fatigue.MuscleTarget
+import com.hydrafit.app.core.domain.workout.LoadKind
 import kotlin.math.nextDown
 import kotlin.math.nextUp
 import kotlin.test.Test
@@ -791,6 +793,52 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun doesNotGenerateLoadForABodyweightOnlyExerciseEvenWithABaseline() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 2,
+                suggestedWeightsKg = mapOf("ab-roll" to 32.5)
+            ),
+            listOf(
+                exercise(
+                    "ab-roll",
+                    MovementPattern.CORE,
+                    MuscleGroup.ABS,
+                    loadCapability = ExerciseLoadCapability.BODYWEIGHT_ONLY
+                )
+            )
+        )
+
+        val entry = plan.days.flatMap { it.exercises }.first { it.exerciseId == "ab-roll" }
+        assertNull(entry.suggestedWeightKg)
+        assertEquals(LoadKind.BODYWEIGHT, entry.loadKind)
+        assertEquals(ExerciseLoadCapability.BODYWEIGHT_ONLY, entry.loadCapability)
+    }
+
+    @Test
+    fun keepsTheGeneratedLoadForAnExternalExercise() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                split = SplitType.PUSH_PULL_LEGS,
+                suggestedWeightsKg = mapOf("bench-press" to 100.0)
+            ),
+            listOf(
+                exercise(
+                    "bench-press",
+                    MovementPattern.HORIZONTAL_PUSH,
+                    MuscleGroup.CHEST_UPPER,
+                    loadCapability = ExerciseLoadCapability.EXTERNAL
+                )
+            )
+        )
+
+        val entry = plan.days.flatMap { it.exercises }.first { it.exerciseId == "bench-press" }
+        assertTrue((entry.suggestedWeightKg ?: 0.0) > 0.0)
+        assertEquals(LoadKind.EXTERNAL, entry.loadKind)
+    }
+
+    @Test
     fun deloadWeekReducesSetsAndWeight() {
         val plan = engine.plan(
             request(
@@ -1092,13 +1140,15 @@ class DeterministicWorkoutPlannerEngineTest {
         id: String,
         pattern: MovementPattern,
         primary: MuscleGroup = MuscleGroup.ABS,
-        required: Set<EquipmentTag> = emptySet()
+        required: Set<EquipmentTag> = emptySet(),
+        loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL
     ) = Exercise(
         id = id,
         name = id,
         requiredEquipment = required,
         primaryMuscles = setOf(primary),
-        movementPattern = pattern
+        movementPattern = pattern,
+        loadCapability = loadCapability
     )
 
     private fun catalog(): List<Exercise> = listOf(

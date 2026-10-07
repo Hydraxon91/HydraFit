@@ -1,8 +1,10 @@
 package com.hydrafit.app.core.database
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.workout.LoadKind
 
 internal fun encodeEquipment(tags: Set<EquipmentTag>): String =
     tags.joinToString(separator = ",") { it.id }
@@ -62,6 +64,15 @@ internal fun decodeInvolvements(value: String?): Map<MuscleGroup, Double> {
 
 internal fun decodeMovementPattern(value: String): MovementPattern =
     runCatching { MovementPattern.valueOf(value) }.getOrDefault(MovementPattern.CORE)
+
+/** Decodes a stored capability, defaulting to [ExerciseLoadCapability.UNSPECIFIED] when absent. */
+internal fun decodeLoadCapability(value: String?): ExerciseLoadCapability =
+    runCatching { ExerciseLoadCapability.valueOf(value ?: "") }
+        .getOrDefault(ExerciseLoadCapability.UNSPECIFIED)
+
+/** Decodes a stored load kind, defaulting to [LoadKind.LEGACY_UNSPECIFIED] when absent. */
+internal fun decodeLoadKind(value: String?): LoadKind =
+    runCatching { LoadKind.valueOf(value ?: "") }.getOrDefault(LoadKind.LEGACY_UNSPECIFIED)
 
 private inline fun <T> String.toEnumSet(transform: (String) -> T): Set<T> =
     if (isEmpty()) emptySet() else split(',').map(transform).toSet()

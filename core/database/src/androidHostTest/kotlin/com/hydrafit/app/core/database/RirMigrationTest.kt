@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.database
 
+import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import kotlin.test.AfterTest
@@ -27,16 +28,32 @@ class RirMigrationTest {
             parameters = 0
         )
 
-        // Migrate through the current version: later migrations add columns the generated
-        // query reads (e.g. sessionId), which a scoped 23→24 end version would not create.
-        HydraFitDatabase.Schema.migrate(driver, 23, HydraFitDatabase.Schema.version)
+        // Scoped to 23→24: this test asserts only the rir column added here. Reading the scoped
+        // schema directly avoids the later columns the current generated query expects.
+        HydraFitDatabase.Schema.migrate(driver, 23, 24)
 
-        val row = HydraFitDatabase(driver).workoutLogQueries.selectAllSets().executeAsOne()
-        assertNull(row.rir)
-        assertEquals(5L, row.reps)
-        assertEquals(50.0, row.weightKg)
-        assertEquals("CHEST:1.0", row.involvements)
-        assertEquals(2L, row.weekNumber)
+        val row = driver.executeQuery(
+            identifier = null,
+            sql = "SELECT rir, reps, weightKg, involvements, weekNumber FROM workoutSet",
+            mapper = { cursor ->
+                cursor.next()
+                QueryResult.Value(
+                    listOf(
+                        cursor.getString(0),
+                        cursor.getLong(1),
+                        cursor.getDouble(2),
+                        cursor.getString(3),
+                        cursor.getLong(4)
+                    )
+                )
+            },
+            parameters = 0
+        ).value
+        assertNull(row[0])
+        assertEquals(5L, row[1])
+        assertEquals(50.0, row[2])
+        assertEquals("CHEST:1.0", row[3])
+        assertEquals(2L, row[4])
     }
 
     /** The v23 shape: workoutSet has week/cycle/day but no rir column yet. */

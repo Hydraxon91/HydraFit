@@ -3,6 +3,7 @@ package com.hydrafit.app.feature.equipment
 import com.hydrafit.app.core.domain.equipment.Equipment
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.equipment.MovementPatternGuardrail
 import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
@@ -19,6 +20,8 @@ data class ExerciseEditorState(
     /** Per-muscle involvement weights in (0.0, 1.0]; a muscle absent here is not involved. */
     val involvements: Map<MuscleGroup, Double> = emptyMap(),
     val isUnilateral: Boolean = false,
+    /** What external load this exercise can carry; drives generation, logging and display. */
+    val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL,
     val error: String? = null
 ) {
     val isOpen: Boolean

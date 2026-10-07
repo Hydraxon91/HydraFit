@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.engine.PersonalRecord
 import com.hydrafit.app.core.domain.equipment.Equipment
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseException
@@ -490,6 +491,7 @@ class EquipmentProfilerViewModelTest {
             requiredEquipment: Set<EquipmentTag>,
             movementPattern: MovementPattern?,
             unilateral: Boolean?,
+            loadCapability: ExerciseLoadCapability?,
             involvements: Map<MuscleGroup, Double>
         ) {
             overrides[exerciseId] = StoredOverride(
@@ -515,7 +517,8 @@ class EquipmentProfilerViewModelTest {
             requiredEquipment: Set<EquipmentTag>,
             involvements: Map<MuscleGroup, Double>,
             movementPattern: MovementPattern,
-            isUnilateral: Boolean
+            isUnilateral: Boolean,
+            loadCapability: ExerciseLoadCapability
         ): Exercise {
             val exercise = Exercise(
                 id = "user-" + name.lowercase().replace(' ', '-'),
@@ -526,6 +529,7 @@ class EquipmentProfilerViewModelTest {
                 movementPattern = movementPattern,
                 isCustom = true,
                 isUnilateral = isUnilateral,
+                loadCapability = loadCapability,
                 involvements = involvements
             )
             created += exercise
@@ -538,7 +542,8 @@ class EquipmentProfilerViewModelTest {
             requiredEquipment: Set<EquipmentTag>,
             involvements: Map<MuscleGroup, Double>,
             movementPattern: MovementPattern,
-            isUnilateral: Boolean
+            isUnilateral: Boolean,
+            loadCapability: ExerciseLoadCapability
         ) = Unit
 
         override suspend fun delete(id: String) {

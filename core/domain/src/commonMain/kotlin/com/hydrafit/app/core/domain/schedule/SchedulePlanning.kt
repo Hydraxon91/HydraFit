@@ -2,6 +2,7 @@ package com.hydrafit.app.core.domain.schedule
 
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.dayOfWeekForEpochDay
+import com.hydrafit.app.core.domain.workout.LoadKind
 
 /** A scheduling action the user asked for cannot be carried out as requested. */
 class ScheduleException(message: String) : IllegalStateException(message)
@@ -31,7 +32,8 @@ data class OccurrenceEntryDraft(
     val exerciseId: String,
     val sets: Int,
     val reps: Int,
-    val weightKg: Double? = null
+    val weightKg: Double? = null,
+    val loadKind: LoadKind = LoadKind.EXTERNAL
 )
 
 /**

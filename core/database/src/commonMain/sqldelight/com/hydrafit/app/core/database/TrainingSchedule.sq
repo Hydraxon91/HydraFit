@@ -38,6 +38,8 @@ CREATE TABLE activationEntry (
     sets INTEGER NOT NULL,
     reps INTEGER NOT NULL,
     weightKg REAL,
+    loadCapability TEXT NOT NULL DEFAULT 'UNSPECIFIED',
+    loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
     FOREIGN KEY (workoutId) REFERENCES activationWorkout(id)
 );
 
@@ -69,6 +71,8 @@ CREATE TABLE occurrenceEntry (
     sets INTEGER NOT NULL,
     reps INTEGER NOT NULL,
     weightKg REAL,
+    loadCapability TEXT NOT NULL DEFAULT 'UNSPECIFIED',
+    loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
     remainingDisposition TEXT,
     terminalRemainingSets INTEGER,
     FOREIGN KEY (occurrenceId) REFERENCES workoutOccurrence(id)
@@ -137,8 +141,8 @@ selectAllActivationWorkouts:
 SELECT * FROM activationWorkout ORDER BY activationId, position;
 
 insertActivationEntry:
-INSERT INTO activationEntry(workoutId, position, exerciseId, exerciseName, movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, weightKg)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO activationEntry(workoutId, position, exerciseId, exerciseName, movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, weightKg, loadCapability, loadKind)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 lastInsertedActivationEntryId:
 SELECT last_insert_rowid();
@@ -174,15 +178,15 @@ deleteOccurrencesForActivation:
 DELETE FROM workoutOccurrence WHERE activationId = ?;
 
 insertOccurrenceEntry:
-INSERT INTO occurrenceEntry(occurrenceId, sourceActivationEntryId, position, exerciseId, exerciseName, movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, weightKg, remainingDisposition, terminalRemainingSets)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO occurrenceEntry(occurrenceId, sourceActivationEntryId, position, exerciseId, exerciseName, movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, weightKg, loadCapability, loadKind, remainingDisposition, terminalRemainingSets)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 lastInsertedOccurrenceEntryId:
 SELECT last_insert_rowid();
 
 updateOccurrenceEntry:
 UPDATE occurrenceEntry
-SET position = ?, exerciseId = ?, exerciseName = ?, movementPattern = ?, requiredEquipment = ?, involvements = ?, isUnilateral = ?, sets = ?, reps = ?, weightKg = ?, remainingDisposition = ?, terminalRemainingSets = ?
+SET position = ?, exerciseId = ?, exerciseName = ?, movementPattern = ?, requiredEquipment = ?, involvements = ?, isUnilateral = ?, sets = ?, reps = ?, weightKg = ?, loadCapability = ?, loadKind = ?, remainingDisposition = ?, terminalRemainingSets = ?
 WHERE id = ?;
 
 selectOccurrenceEntriesForOccurrence:

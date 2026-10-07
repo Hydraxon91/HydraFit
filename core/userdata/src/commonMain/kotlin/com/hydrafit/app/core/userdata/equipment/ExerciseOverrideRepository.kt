@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.userdata.equipment
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 
@@ -15,6 +16,7 @@ interface ExerciseOverrideRepository {
         requiredEquipment: Set<EquipmentTag>,
         movementPattern: MovementPattern?,
         unilateral: Boolean? = null,
+        loadCapability: ExerciseLoadCapability? = null,
         involvements: Map<MuscleGroup, Double>
     )
 

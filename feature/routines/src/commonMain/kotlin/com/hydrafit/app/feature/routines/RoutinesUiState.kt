@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.schedule.TrainingActivation
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.workout.LoadKind
 
 /** A catalog exercise the routine editor can pick. */
 data class RoutineExerciseOption(val id: String, val name: String)
@@ -19,7 +20,9 @@ data class EditorEntry(
     val name: String,
     val sets: String,
     val reps: String,
-    val weight: String
+    val weight: String,
+    /** What the weight means under the exercise's capability; drives save and display. */
+    val loadKind: LoadKind = LoadKind.EXTERNAL
 )
 
 data class EditorWorkout(

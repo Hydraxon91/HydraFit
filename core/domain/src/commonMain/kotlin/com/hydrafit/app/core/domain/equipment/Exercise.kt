@@ -12,6 +12,12 @@ data class Exercise(
     val isCustom: Boolean = false,
     /** True for one-side-at-a-time exercises (dumbbell curl, single-arm row, …); weight is per hand. */
     val isUnilateral: Boolean = false,
+    /**
+     * What external load this exercise can carry. Independent of [requiredEquipment], which only
+     * governs availability. Defaults to [ExerciseLoadCapability.EXTERNAL] for the common weighted
+     * movement; bodyweight and custom rows set it explicitly.
+     */
+    val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL,
     /** Per-muscle involvement weights in (0.0, 1.0]; empty means derive from the tag sets. */
     val involvements: Map<MuscleGroup, Double> = emptyMap()
 ) {

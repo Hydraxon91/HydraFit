@@ -77,7 +77,8 @@ class SqlDelightSessionResegmenterTest {
             cycleNumber = null,
             dayIndex = null,
             rir = null,
-            sessionId = sessionId
+            sessionId = sessionId,
+            loadKind = "EXTERNAL"
         )
     }
 }

@@ -150,7 +150,9 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
                     isUnilateral = if (entry.isUnilateral) 1L else 0L,
                     sets = entry.sets.toLong(),
                     reps = entry.reps.toLong(),
-                    weightKg = entry.weightKg
+                    weightKg = entry.weightKg,
+                    loadCapability = entry.loadCapability.name,
+                    loadKind = entry.loadKind.name
                 )
                 queries.lastInsertedActivationEntryId().executeAsOne()
             }
@@ -183,6 +185,8 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
                     sets = entry.sets.toLong(),
                     reps = entry.reps.toLong(),
                     weightKg = entry.weightKg,
+                    loadCapability = entry.loadCapability.name,
+                    loadKind = entry.loadKind.name,
                     remainingDisposition = null,
                     terminalRemainingSets = null
                 )
@@ -268,7 +272,9 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
                     reps = exercise.reps.toLong(),
                     exerciseName = exercise.name,
                     movementPattern = exercise.movementPattern.name,
-                    suggestedWeightKg = exercise.suggestedWeightKg
+                    suggestedWeightKg = exercise.suggestedWeightKg,
+                    loadCapability = exercise.loadCapability.name,
+                    loadKind = exercise.loadKind.name
                 )
             }
         }
@@ -356,6 +362,8 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
             sets = sets.toLong(),
             reps = reps.toLong(),
             weightKg = weightKg,
+            loadCapability = loadCapability.name,
+            loadKind = loadKind.name,
             remainingDisposition = remainingDisposition?.name,
             terminalRemainingSets = terminalRemainingSets?.toLong()
         )
@@ -377,6 +385,8 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
             sets = sets.toLong(),
             reps = reps.toLong(),
             weightKg = weightKg,
+            loadCapability = loadCapability.name,
+            loadKind = loadKind.name,
             remainingDisposition = remainingDisposition?.name,
             terminalRemainingSets = terminalRemainingSets?.toLong(),
             id = id
@@ -442,7 +452,9 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
         isUnilateral = isUnilateral != 0L,
         sets = sets.toInt(),
         reps = reps.toInt(),
-        weightKg = weightKg
+        weightKg = weightKg,
+        loadCapability = decodeLoadCapability(loadCapability),
+        loadKind = decodeLoadKind(loadKind)
     )
 
     private fun WorkoutOccurrence.toDomain(
@@ -476,6 +488,8 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
         sets = sets.toInt(),
         reps = reps.toInt(),
         weightKg = weightKg,
+        loadCapability = decodeLoadCapability(loadCapability),
+        loadKind = decodeLoadKind(loadKind),
         remainingDisposition = remainingDisposition?.toRemainingDisposition(),
         terminalRemainingSets = terminalRemainingSets?.toInt()
     )

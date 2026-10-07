@@ -5,6 +5,8 @@ data class WorkoutSet(
     val exerciseId: String,
     val reps: Int,
     val weightKg: Double?,
+    /** What the recorded [weightKg] means (external, added, bodyweight, or legacy). */
+    val loadKind: LoadKind = LoadKind.EXTERNAL,
     val performedAtMillis: Long,
     val isWarmup: Boolean = false,
     /** The accepted plan's week/cycle and day at log time, when a plan was active. */

@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.domain.routine
 
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.workout.LoadKind
 
 /**
  * A named, editable routine the user builds and reuses.
@@ -37,6 +38,8 @@ data class RoutineEntry(
     val exerciseId: String,
     val sets: Int,
     val reps: Int,
-    /** null = unspecified load; 0.0 = an explicit zero external load; positive = stored kilograms. */
-    val weightKg: Double? = null
+    /** null = unspecified load; 0.0 = an explicit zero load; positive = stored kilograms. */
+    val weightKg: Double? = null,
+    /** What [weightKg] means under the exercise's capability. */
+    val loadKind: LoadKind = LoadKind.EXTERNAL
 )

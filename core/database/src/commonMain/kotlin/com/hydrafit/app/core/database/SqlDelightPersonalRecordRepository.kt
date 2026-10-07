@@ -18,14 +18,24 @@ class SqlDelightPersonalRecordRepository(
     override fun observe(): Flow<List<PersonalRecord>> = queries.selectAll()
         .asFlow()
         .mapToList(Dispatchers.Default)
-        .map { rows -> rows.map { PersonalRecord(it.exerciseId, it.weightKg, it.reps.toInt()) } }
+        .map { rows ->
+            rows.map {
+                PersonalRecord(
+                    it.exerciseId,
+                    it.weightKg,
+                    it.reps.toInt(),
+                    decodeLoadKind(it.loadKind)
+                )
+            }
+        }
 
     override suspend fun set(record: PersonalRecord) {
         queries.upsert(
             exerciseId = record.exerciseId,
             weightKg = record.weightKg,
             reps = record.reps.toLong(),
-            updatedAt = timeProvider.nowMillis()
+            updatedAt = timeProvider.nowMillis(),
+            loadKind = record.loadKind.name
         )
     }
 

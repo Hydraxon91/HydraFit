@@ -10,6 +10,7 @@ import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
@@ -32,6 +33,7 @@ import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
+import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.SessionConfig
@@ -905,7 +907,7 @@ class WorkoutLoggerViewModelTest {
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        viewModel.onExerciseSelected("plank")
+        viewModel.onExerciseSelected("pull-up")
         assertFalse(viewModel.state.value.showWeightField)
 
         viewModel.onRevealWeight()
@@ -933,31 +935,63 @@ class WorkoutLoggerViewModelTest {
         val viewModel = viewModel(repository)
         advanceUntilIdle()
 
-        viewModel.onExerciseSelected("plank")
+        viewModel.onExerciseSelected("pull-up")
         viewModel.onRevealWeight()
         viewModel.onRepsChanged("10")
         viewModel.onWeightChanged("10")
         viewModel.log()
         advanceUntilIdle()
 
-        assertEquals(10.0, repository.all().single().weightKg)
+        val stored = repository.all().single()
+        assertEquals(10.0, stored.weightKg)
+        // Added kilograms, not total resistance.
+        assertEquals(LoadKind.ADDED, stored.loadKind)
     }
 
     @Test
     fun prefillsARevealedBodyweightWeightFromTheAcceptedPlan() = runTest(dispatcher) {
         val viewModel = viewModel(
             timeMillis = MONDAY,
-            acceptedPlan = acceptedPlan(listOf("plank"), suggestedWeightKg = 42.0)
+            acceptedPlan = acceptedPlan(listOf("pull-up"), suggestedWeightKg = 42.0)
         )
         advanceUntilIdle()
 
-        viewModel.onExerciseSelected("plank")
+        viewModel.onExerciseSelected("pull-up")
         assertFalse(viewModel.state.value.showWeightField)
         assertEquals("42", viewModel.state.value.weightInput)
 
         viewModel.onRevealWeight()
         assertTrue(viewModel.state.value.showWeightField)
         assertEquals("42", viewModel.state.value.weightInput)
+    }
+
+    @Test
+    fun requiresExplicitResolutionBeforeLoggingALegacyPrescription() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(
+                dayZeroExerciseIds = listOf("back-squat"),
+                suggestedWeightKg = 32.5,
+                loadKind = LoadKind.LEGACY_UNSPECIFIED
+            )
+        )
+        advanceUntilIdle()
+
+        // Confirming a legacy draft opens the resolution instead of writing the unconfirmed number.
+        viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+        advanceUntilIdle()
+        assertNotNull(viewModel.state.value.legacyResolution)
+        assertTrue(repository.all().isEmpty())
+
+        // Confirming the recorded number as external records it with the chosen meaning.
+        viewModel.resolveLegacyAsExternal()
+        advanceUntilIdle()
+        val stored = repository.all()
+        assertEquals(3, stored.size)
+        assertTrue(stored.all { it.loadKind == LoadKind.EXTERNAL && it.weightKg == 32.5 })
+        assertNull(viewModel.state.value.legacyResolution)
     }
 
     @Test
@@ -980,7 +1014,7 @@ class WorkoutLoggerViewModelTest {
 
         assertEquals(null, viewModel.state.value.todayFocus)
         assertEquals(
-            listOf("Back Squat", "Bench Press", "Dumbbell Curl", "Plank"),
+            listOf("Back Squat", "Bench Press", "Dumbbell Curl", "Plank", "Pull-up"),
             viewModel.state.value.exercises.map { it.name }
         )
     }
@@ -996,7 +1030,7 @@ class WorkoutLoggerViewModelTest {
         val state = viewModel.state.value
         assertEquals(SplitFocus.FULL_BODY, state.todayFocus)
         assertEquals(
-            listOf("Plank", "Back Squat", "Bench Press", "Dumbbell Curl"),
+            listOf("Plank", "Back Squat", "Bench Press", "Dumbbell Curl", "Pull-up"),
             state.exercises.map { it.name }
         )
     }
@@ -1023,7 +1057,7 @@ class WorkoutLoggerViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            listOf("Plank", "Back Squat", "Bench Press", "Dumbbell Curl"),
+            listOf("Plank", "Back Squat", "Bench Press", "Dumbbell Curl", "Pull-up"),
             viewModel.state.value.exercises.map { it.name }
         )
     }
@@ -1897,27 +1931,31 @@ class WorkoutLoggerViewModelTest {
         )
     }
 
-    private fun acceptedPlan(dayZeroExerciseIds: List<String>, suggestedWeightKg: Double? = null) =
-        AcceptedPlan(
-            engine = PlannerEngineId.DETERMINISTIC,
-            acceptedAtMillis = 0L,
-            days = listOf(
-                AcceptedDay(
-                    dayIndex = 0,
-                    focus = SplitFocus.FULL_BODY,
-                    exercises = dayZeroExerciseIds.map { id ->
-                        AcceptedExercise(
-                            exerciseId = id,
-                            sets = 3,
-                            reps = 8,
-                            name = id,
-                            movementPattern = MovementPattern.CORE,
-                            suggestedWeightKg = suggestedWeightKg
-                        )
-                    }
-                )
+    private fun acceptedPlan(
+        dayZeroExerciseIds: List<String>,
+        suggestedWeightKg: Double? = null,
+        loadKind: LoadKind = LoadKind.EXTERNAL
+    ) = AcceptedPlan(
+        engine = PlannerEngineId.DETERMINISTIC,
+        acceptedAtMillis = 0L,
+        days = listOf(
+            AcceptedDay(
+                dayIndex = 0,
+                focus = SplitFocus.FULL_BODY,
+                exercises = dayZeroExerciseIds.map { id ->
+                    AcceptedExercise(
+                        exerciseId = id,
+                        sets = 3,
+                        reps = 8,
+                        name = id,
+                        movementPattern = MovementPattern.CORE,
+                        suggestedWeightKg = suggestedWeightKg,
+                        loadKind = loadKind
+                    )
+                }
             )
         )
+    )
 
     private class FakePlanHistoryRepository(accepted: AcceptedPlan?) : PlanHistoryRepository {
         private val state = MutableStateFlow(accepted)
@@ -1951,7 +1989,9 @@ class WorkoutLoggerViewModelTest {
             position: Int,
             newExerciseId: String,
             newExerciseName: String,
-            newWeightKg: Double?
+            newWeightKg: Double?,
+            newLoadCapability: ExerciseLoadCapability,
+            newLoadKind: LoadKind
         ) = Unit
 
         override suspend fun delete(planId: Long) {
@@ -1984,7 +2024,8 @@ class WorkoutLoggerViewModelTest {
                 name = "Plank",
                 requiredEquipment = emptySet(),
                 primaryMuscles = setOf(MuscleGroup.ABS),
-                movementPattern = MovementPattern.CORE
+                movementPattern = MovementPattern.CORE,
+                loadCapability = ExerciseLoadCapability.BODYWEIGHT_ONLY
             ),
             Exercise(
                 id = "dumbbell-curl",
@@ -1992,6 +2033,14 @@ class WorkoutLoggerViewModelTest {
                 requiredEquipment = setOf(EquipmentTag.DUMBBELL),
                 primaryMuscles = setOf(MuscleGroup.BICEPS),
                 movementPattern = MovementPattern.BICEPS_ISOLATION
+            ),
+            Exercise(
+                id = "pull-up",
+                name = "Pull-up",
+                requiredEquipment = emptySet(),
+                primaryMuscles = setOf(MuscleGroup.LATS),
+                movementPattern = MovementPattern.VERTICAL_PULL,
+                loadCapability = ExerciseLoadCapability.BODYWEIGHT_ADDABLE
             )
         )
     }

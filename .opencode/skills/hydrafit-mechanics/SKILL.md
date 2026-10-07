@@ -103,8 +103,9 @@ There are three distinct locations for this map:
 `CustomExerciseDedupe` runs at startup after seeding: a custom exercise whose name
 matches a seeded exercise after normalization (trim, collapse whitespace, lowercase) is
 merged into the seeded id. History and plan entries are reassigned; the custom's
-differing equipment, pattern, unilateral flag and involvement weights are preserved as a
-canonical override (editor-default values are not materialized); personal records are
+differing equipment, pattern, unilateral flag, load capability and involvement weights are
+preserved as a canonical override (values matching the built-in are not materialized, and a
+legacy `UNSPECIFIED` custom never overwrites the curated default); personal records are
 merged by weight, then reps, then timestamp; the custom override and row are removed.
 The 21-group set and the muscle-split mechanism are recorded in PLANS.md and
 `docs/exercise-catalog-sources.md`.
@@ -161,6 +162,35 @@ exercise. They are not workout sets and do not add fatigue.
 AI history and weight suggestions are gated by `includeWorkoutData`.
 Deterministic suggestions are local computations and do not require the AI
 sharing toggle.
+
+### Exercise load semantics (EX-02)
+
+An exercise's **capability** (`Exercise.loadCapability`) is separate from a
+recorded number's **kind** (`LoadKind`). Capability is `EXTERNAL`,
+`BODYWEIGHT_ONLY`, `BODYWEIGHT_ADDABLE` or `UNSPECIFIED`; it is curated per
+built-in (`ExerciseLoadDefaults`, applied in both `DefaultExercises.ex` helpers),
+editable per built-in (`exerciseOverride.loadCapability`) and required for new
+customs. Never infer it from equipment: Ab Roll and the calf-raise-on-a-dumbbell
+use apparatus without carrying its weight. Kind is `EXTERNAL`, `BODYWEIGHT`,
+`ADDED` or `LEGACY_UNSPECIFIED`; `null`/`0.0`/positive stay distinct.
+
+`WorkoutLoadPolicy` is the single pure rule. Automatic numeric generation
+(`DeterministicWorkoutPlannerEngine`, `WeeklyPlanSanitizer`, `SubstituteExerciseUseCase`)
+is **external-only** and skips `UNSPECIFIED` too. `BuildPlannerLoadInputsUseCase`
+filters the baseline/PRs by `contributesToLoadMath` and feeds progression only
+typed `EXTERNAL` sets against typed `EXTERNAL` prescriptions, so a pre-EX-02 plan
+seeds the baseline (when the exercise is external today) but not a streak. Legacy
+rows are never rewritten. `WorkoutLoadPolicy.reconcile` snaps routine/occurrence
+edits onto the current capability. `LogWorkoutSetUseCase` enforces the shape at
+persistence; the Logger resolves manual/plan/occurrence authority and requires an
+explicit decision for `LEGACY_UNSPECIFIED` drafts before logging. Snapshot
+capability is frozen on accepted plans and activation/occurrence entries.
+
+Fatigue stays unchanged: `SqlDelightWorkoutLogRepository.mapLoggedSets` passes a
+neutral relative load for `BODYWEIGHT`/`ADDED` (`weightKg = null`) but keeps
+external/legacy weights, so historical replay figures do not move. Migration
+`27.sqm` adds the columns and marks all existing load rows legacy/unspecified;
+the seed backfills built-in capability.
 
 ### Exact weight and rep defaults
 

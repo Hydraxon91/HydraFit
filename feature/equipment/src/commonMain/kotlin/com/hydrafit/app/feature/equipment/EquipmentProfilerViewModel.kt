@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PersonalRecord
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.unit.formatWeight
@@ -100,6 +101,17 @@ class EquipmentProfilerViewModel(
         val weightKg = editor.weightInput.toDoubleOrNull() ?: return
         val reps = editor.repsInput.toIntOrNull() ?: return
         if (weightKg <= 0.0 || reps <= 0) return
+        // Personal records feed the external-load baseline only; a bodyweight exercise cannot hold one.
+        val capability = _state.value.exercises.firstOrNull { it.id == exerciseId }?.loadCapability
+        if (capability != ExerciseLoadCapability.EXTERNAL) {
+            _state.update {
+                it.copy(
+                    personalRecordEditor = it.personalRecordEditor
+                        .copy(error = "This exercise does not record external load")
+                )
+            }
+            return
+        }
         viewModelScope.launch {
             try {
                 personalRecordRepository.set(PersonalRecord(exerciseId, weightKg, reps))
@@ -258,7 +270,8 @@ class EquipmentProfilerViewModel(
                     movementPattern = exercise.movementPattern,
                     equipment = exercise.requiredEquipment,
                     involvements = exercise.effectiveInvolvements,
-                    isUnilateral = exercise.isUnilateral
+                    isUnilateral = exercise.isUnilateral,
+                    loadCapability = exercise.loadCapability
                 )
             )
         }
@@ -285,6 +298,12 @@ class EquipmentProfilerViewModel(
     fun onEditorUnilateralToggled(isUnilateral: Boolean) {
         _state.update {
             it.copy(exerciseEditor = it.exerciseEditor.copy(isUnilateral = isUnilateral))
+        }
+    }
+
+    fun onEditorLoadCapabilityChanged(capability: ExerciseLoadCapability) {
+        _state.update {
+            it.copy(exerciseEditor = it.exerciseEditor.copy(loadCapability = capability))
         }
     }
 
@@ -328,7 +347,8 @@ class EquipmentProfilerViewModel(
                         requiredEquipment = editor.equipment,
                         involvements = editor.involvements,
                         movementPattern = editor.movementPattern,
-                        isUnilateral = editor.isUnilateral
+                        isUnilateral = editor.isUnilateral,
+                        loadCapability = editor.loadCapability
                     )
                 } else {
                     writeBuiltInOverrides(exerciseId, editor)
@@ -349,7 +369,8 @@ class EquipmentProfilerViewModel(
                 requiredEquipment = editor.equipment,
                 involvements = editor.involvements,
                 movementPattern = editor.movementPattern,
-                isUnilateral = editor.isUnilateral
+                isUnilateral = editor.isUnilateral,
+                loadCapability = editor.loadCapability
             )
             closeEditorAndRefresh(created.id)
         } catch (failure: CustomExerciseException) {
@@ -366,6 +387,7 @@ class EquipmentProfilerViewModel(
             requiredEquipment = editor.equipment,
             movementPattern = editor.movementPattern,
             unilateral = editor.isUnilateral,
+            loadCapability = editor.loadCapability,
             involvements = editor.involvements
         )
     }

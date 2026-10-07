@@ -4,6 +4,7 @@ import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
 
 /**
  * Builds a frozen activation and persists it with its occurrences and the scheduling cursor in one
@@ -80,6 +81,11 @@ class ActivateRoutineUseCase(
                         ?: throw ScheduleException(
                             "This routine references an unknown exercise: ${entry.exerciseId}"
                         )
+                    val (kind, weightKg) = WorkoutLoadPolicy.reconcile(
+                        exercise.loadCapability,
+                        entry.loadKind,
+                        entry.weightKg
+                    )
                     ActivationEntry(
                         position = entry.position,
                         exerciseId = entry.exerciseId,
@@ -90,7 +96,9 @@ class ActivateRoutineUseCase(
                         isUnilateral = exercise.isUnilateral,
                         sets = entry.sets,
                         reps = entry.reps,
-                        weightKg = entry.weightKg
+                        weightKg = weightKg,
+                        loadCapability = exercise.loadCapability,
+                        loadKind = kind
                     )
                 }
             )

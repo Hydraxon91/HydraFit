@@ -58,7 +58,8 @@ class SeedExerciseCatalogTest {
             id = bench.id,
             name = bench.name,
             requiredEquipment = encodeEquipment(bench.requiredEquipment),
-            movementPattern = "CORE"
+            movementPattern = "CORE",
+            loadCapability = "UNSPECIFIED"
         )
 
         SeedExerciseCatalog(database).seed()
@@ -86,7 +87,8 @@ class SeedExerciseCatalogTest {
             id = bench.id,
             name = bench.name,
             requiredEquipment = encodeEquipment(bench.requiredEquipment),
-            movementPattern = bench.movementPattern.name
+            movementPattern = bench.movementPattern.name,
+            loadCapability = "UNSPECIFIED"
         )
 
         SeedExerciseCatalog(database).seed()
@@ -171,6 +173,7 @@ class SeedExerciseCatalogTest {
             requiredEquipment = "BARBELL",
             movementPattern = "SQUAT",
             isUnilateral = 0L,
+            loadCapability = "EXTERNAL",
             involvements = "QUADS:0.6"
         )
 

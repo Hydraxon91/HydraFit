@@ -23,7 +23,8 @@ class ConvertPlanToTemplateUseCase {
                         exerciseId = exercise.exerciseId,
                         sets = exercise.sets,
                         reps = exercise.reps,
-                        weightKg = exercise.suggestedWeightKg
+                        weightKg = exercise.suggestedWeightKg,
+                        loadKind = exercise.loadKind
                     )
                 }
             )
@@ -44,7 +45,8 @@ class ConvertPlanToTemplateUseCase {
                         exerciseId = exercise.exerciseId,
                         sets = exercise.sets,
                         reps = exercise.reps,
-                        weightKg = exercise.suggestedWeightKg
+                        weightKg = exercise.suggestedWeightKg,
+                        loadKind = exercise.loadKind
                     )
                 }
             )

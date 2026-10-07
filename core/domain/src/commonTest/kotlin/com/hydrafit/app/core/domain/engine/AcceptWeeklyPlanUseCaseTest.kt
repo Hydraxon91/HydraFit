@@ -2,9 +2,11 @@ package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.workout.LoadKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -117,7 +119,9 @@ class AcceptWeeklyPlanUseCaseTest {
             position: Int,
             newExerciseId: String,
             newExerciseName: String,
-            newWeightKg: Double?
+            newWeightKg: Double?,
+            newLoadCapability: ExerciseLoadCapability,
+            newLoadKind: LoadKind
         ) = Unit
 
         override suspend fun delete(planId: Long) {

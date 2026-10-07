@@ -1,5 +1,7 @@
 package com.hydrafit.app.core.domain.routine
 
+import com.hydrafit.app.core.domain.workout.LoadKind
+
 /** A routine draft the user submitted is not a usable routine. */
 class RoutineTemplateException(message: String) : IllegalArgumentException(message)
 
@@ -38,6 +40,11 @@ internal object RoutineTemplateValidator {
             throw RoutineTemplateException("A slot needs an exercise")
         }
         PrescriptionBounds.validate(entry.sets, entry.reps, entry.weightKg)
+        // Capability compatibility is checked at activation (which has the catalog); here only the
+        // shape that holds regardless of capability is enforced.
+        if (entry.loadKind == LoadKind.BODYWEIGHT && entry.weightKg != null) {
+            throw RoutineTemplateException("Bodyweight work cannot record a numeric load")
+        }
         return entry
     }
 }

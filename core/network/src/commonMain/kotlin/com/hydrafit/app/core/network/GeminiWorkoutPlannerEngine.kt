@@ -279,7 +279,9 @@ class GeminiWorkoutPlannerEngine(
                         "exercise): $weights"
                 )
                 appendLine(
-                    "Give every exercise a \"suggestedWeightKg\" number based on that history."
+                    "Give a \"suggestedWeightKg\" number only for exercises whose resistance is " +
+                        "external weight; omit it for bodyweight and bodyweight-plus-added-load " +
+                        "movements."
                 )
             }
             PlannerPromptFragments.progressedWeightsList(request)?.let { progressed ->

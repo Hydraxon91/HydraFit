@@ -33,17 +33,16 @@ class InvolvementsMigrationTest {
         // Scoped to 18→19: this test asserts the columns default to null, before the v20 conversion.
         HydraFitDatabase.Schema.migrate(driver, 18, 19)
 
-        val database = HydraFitDatabase(driver)
-        assertNull(database.exerciseQueries.selectById("x").executeAsOne().involvements)
-        assertNull(database.exerciseOverrideQueries.selectById("x").executeAsOne().involvements)
-        // Read the scoped old schema directly: the current generated workoutSet query expects the
-        // later `rir` column, which does not exist at v19.
-        assertNull(involvementsColumn())
+        // Read the scoped old schema directly: the current generated queries expect columns added
+        // later (workoutSet.rir, exercise.loadCapability), which do not exist at v19.
+        assertNull(column("SELECT involvements FROM exercise WHERE id = 'x'"))
+        assertNull(column("SELECT involvements FROM exerciseOverride WHERE exerciseId = 'x'"))
+        assertNull(column("SELECT involvements FROM workoutSet"))
     }
 
-    private fun involvementsColumn(): String? = driver.executeQuery(
+    private fun column(sql: String): String? = driver.executeQuery(
         identifier = null,
-        sql = "SELECT involvements FROM workoutSet",
+        sql = sql,
         mapper = { cursor ->
             cursor.next()
             QueryResult.Value(cursor.getString(0))

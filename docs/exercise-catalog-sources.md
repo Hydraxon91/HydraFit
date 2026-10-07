@@ -86,10 +86,14 @@ Each researched row is recorded in `docs/exercise-catalog-sources.md` (or an app
 table) with one line per exercise:
 
 ```
-id | name | requiredEquipment | movementPattern | unilateral | involvements | source(s)
+id | name | requiredEquipment | movementPattern | unilateral | loadCapability | involvements | source(s)
 ```
 
 - `involvements` uses the weight scale above, e.g. `CHEST_UPPER:1.0,FRONT_DELTS:0.5,TRICEPS:0.5`.
+- `loadCapability` is the EX-02 exercise-load capability (`EXTERNAL`, `BODYWEIGHT_ONLY` or
+  `BODYWEIGHT_ADDABLE`); it is curated from the movement's instructions, never inferred from
+  `requiredEquipment` (an apparatus may be a support surface). Rows omitted here default to
+  `EXTERNAL`. See `docs/architecture.md` §1.12.
 - `source(s)` cites the dataset row and, where a weight is calibrated, the EMG review
   (author, year, table/figure). One primary source per row is the minimum.
 

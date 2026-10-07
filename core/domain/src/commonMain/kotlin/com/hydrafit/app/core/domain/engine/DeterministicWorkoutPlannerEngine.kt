@@ -5,6 +5,8 @@ import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.FatigueConfig
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
 import kotlin.math.roundToInt
 
 class DeterministicWorkoutPlannerEngine(
@@ -213,11 +215,12 @@ class DeterministicWorkoutPlannerEngine(
         val sets = (deloadedSets - if (soreness >= fatigueConfig.reduceThreshold) 1 else 0)
             .coerceAtLeast(1)
         val reps = volumeAwareReps.repsFor(goal, isCompound, sets)
-        return PlannedExercise(
-            exerciseId = candidate.id,
-            sets = sets,
-            reps = reps,
-            suggestedWeightKg = suggestedWeightsKg[candidate.id]?.let { oneRepMax ->
+        val capability = candidate.loadCapability
+        // A numeric working weight is only meaningful for external resistance. A bodyweight or
+        // added-load exercise is prescribed without a generated number, even if a stale baseline
+        // exists for its id.
+        val suggestedWeightKg = if (WorkoutLoadPolicy.allowsAutomaticLoad(capability)) {
+            suggestedWeightsKg[candidate.id]?.let { oneRepMax ->
                 val working = weightConfig.roundToIncrement(
                     oneRepMax * weightConfig.intensityForReps(reps) * intensityScale(isDeload)
                 )
@@ -226,6 +229,20 @@ class DeterministicWorkoutPlannerEngine(
                     EquipmentWeightLimit.ceilingFor(candidate, equipmentMaxWeights)
                 )
             }
+        } else {
+            null
+        }
+        return PlannedExercise(
+            exerciseId = candidate.id,
+            sets = sets,
+            reps = reps,
+            suggestedWeightKg = suggestedWeightKg,
+            loadKind = if (suggestedWeightKg != null) {
+                LoadKind.EXTERNAL
+            } else {
+                WorkoutLoadPolicy.defaultKind(capability)
+            },
+            loadCapability = capability
         )
     }
 

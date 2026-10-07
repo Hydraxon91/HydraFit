@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.DatePicker
@@ -72,6 +73,10 @@ import hydrafit.feature.logger.generated.resources.logger_end_session
 import hydrafit.feature.logger.generated.resources.logger_finish
 import hydrafit.feature.logger.generated.resources.logger_finish_partial
 import hydrafit.feature.logger.generated.resources.logger_future_time_error
+import hydrafit.feature.logger.generated.resources.logger_load_confirm_body
+import hydrafit.feature.logger.generated.resources.logger_load_confirm_title
+import hydrafit.feature.logger.generated.resources.logger_load_use_bodyweight
+import hydrafit.feature.logger.generated.resources.logger_load_use_external
 import hydrafit.feature.logger.generated.resources.logger_log_button
 import hydrafit.feature.logger.generated.resources.logger_new_session
 import hydrafit.feature.logger.generated.resources.logger_per_hand
@@ -135,6 +140,9 @@ fun WorkoutLoggerRoute(
         onConfirmDraft = viewModel::confirmDraft,
         onConfirmAllDrafts = viewModel::confirmAllDrafts,
         onDismissDraft = viewModel::dismissDraft,
+        onResolveLegacyAsBodyweight = viewModel::resolveLegacyAsBodyweight,
+        onResolveLegacyAsExternal = viewModel::resolveLegacyAsExternal,
+        onDismissLegacyResolution = viewModel::dismissLegacyResolution,
         onEndSession = viewModel::endSession,
         onNewSession = viewModel::newSession,
         onFinishWorkout = viewModel::finishWorkout,
@@ -167,6 +175,9 @@ fun WorkoutLoggerScreen(
     onConfirmDraft: (DraftSet) -> Unit,
     onConfirmAllDrafts: () -> Unit,
     onDismissDraft: (DraftSet) -> Unit,
+    onResolveLegacyAsBodyweight: () -> Unit,
+    onResolveLegacyAsExternal: () -> Unit,
+    onDismissLegacyResolution: () -> Unit,
     onEndSession: () -> Unit,
     onNewSession: () -> Unit,
     onFinishWorkout: () -> Unit,
@@ -568,6 +579,45 @@ fun WorkoutLoggerScreen(
         ) {
             TimePicker(state = timePickerState)
         }
+    }
+    state.legacyResolution?.let { resolution ->
+        val draft = resolution.current.draft
+        val recorded = draft.weightKg
+            ?.let {
+                formatWeight(state.weightUnit.kilogramsToDisplay(it)) +
+                    " " + state.weightUnit.label
+            }
+            ?: stringResource(Res.string.logger_weight_none)
+        AlertDialog(
+            onDismissRequest = onDismissLegacyResolution,
+            title = { Text(stringResource(Res.string.logger_load_confirm_title)) },
+            text = {
+                Text(stringResource(Res.string.logger_load_confirm_body, draft.name, recorded))
+            },
+            confirmButton = {
+                if (resolution.current.canBeExternal) {
+                    TextButton(onClick = onResolveLegacyAsExternal) {
+                        Text(stringResource(Res.string.logger_load_use_external))
+                    }
+                } else {
+                    TextButton(onClick = onResolveLegacyAsBodyweight) {
+                        Text(stringResource(Res.string.logger_load_use_bodyweight))
+                    }
+                }
+            },
+            dismissButton = {
+                Row {
+                    if (resolution.current.canBeExternal) {
+                        TextButton(onClick = onResolveLegacyAsBodyweight) {
+                            Text(stringResource(Res.string.logger_load_use_bodyweight))
+                        }
+                    }
+                    TextButton(onClick = onDismissLegacyResolution) {
+                        Text(stringResource(Res.string.logger_cancel))
+                    }
+                }
+            }
+        )
     }
 }
 

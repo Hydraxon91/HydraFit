@@ -4,6 +4,7 @@ import com.hydrafit.app.core.database.DatabaseDriverFactory
 import com.hydrafit.app.core.database.databaseModule
 import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.BuildPlannerLoadInputsUseCase
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
@@ -15,6 +16,7 @@ import com.hydrafit.app.core.domain.engine.SuggestWeightsUseCase
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.routine.ArchiveRoutineTemplateUseCase
 import com.hydrafit.app.core.domain.routine.ConvertPlanToTemplateUseCase
@@ -49,6 +51,7 @@ import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
+import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.SessionResegmenter
@@ -147,6 +150,7 @@ class KoinModulesVerificationTest {
         }.koin
 
         try {
+            assertNotNull(koin.get<BuildPlannerLoadInputsUseCase>())
             assertNotNull(koin.get<ObserveWorkoutPlanInputsUseCase>())
             assertNotNull(koin.get<AcceptWeeklyPlanUseCase>())
             assertNotNull(koin.get<SubstituteExerciseUseCase>())
@@ -247,7 +251,9 @@ class KoinModulesVerificationTest {
             position: Int,
             newExerciseId: String,
             newExerciseName: String,
-            newWeightKg: Double?
+            newWeightKg: Double?,
+            newLoadCapability: ExerciseLoadCapability,
+            newLoadKind: LoadKind
         ) = Unit
 
         override suspend fun delete(planId: Long) = Unit

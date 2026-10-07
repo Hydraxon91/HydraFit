@@ -2,9 +2,11 @@ package com.hydrafit.app.core.domain.schedule
 
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.DayOfWeek
+import com.hydrafit.app.core.domain.workout.LoadKind
 
 /** How a block assigns its workouts to a calendar. */
 enum class ScheduleMode { WEEKDAY, SEQUENCE }
@@ -68,7 +70,11 @@ data class ActivationEntry(
     val isUnilateral: Boolean = false,
     val sets: Int,
     val reps: Int,
-    val weightKg: Double? = null
+    val weightKg: Double? = null,
+    /** The exercise's load capability frozen at activation. */
+    val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL,
+    /** What [weightKg] means on this frozen slot. */
+    val loadKind: LoadKind = LoadKind.EXTERNAL
 )
 
 data class WorkoutOccurrence(
@@ -105,6 +111,10 @@ data class OccurrenceEntry(
     val sets: Int,
     val reps: Int,
     val weightKg: Double? = null,
+    /** The exercise's load capability frozen into this occurrence entry. */
+    val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL,
+    /** What [weightKg] means on this occurrence entry. */
+    val loadKind: LoadKind = LoadKind.EXTERNAL,
     val remainingDisposition: RemainingDisposition? = null,
     val terminalRemainingSets: Int? = null
 )

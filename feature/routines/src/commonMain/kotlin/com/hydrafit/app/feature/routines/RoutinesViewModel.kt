@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.routine.RoutineEntry
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.routine.RoutineTemplateActions
@@ -18,6 +19,8 @@ import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
+import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,6 +42,7 @@ class RoutinesViewModel(
 
     private var weightUnit: WeightUnit = WeightUnit.KG
     private var occurrencesJob: Job? = null
+    private var exerciseCapabilities: Map<String, ExerciseLoadCapability> = emptyMap()
 
     init {
         viewModelScope.launch {
@@ -48,6 +52,7 @@ class RoutinesViewModel(
         }
         viewModelScope.launch {
             exerciseCatalog.observeAll().collect { catalog ->
+                exerciseCapabilities = catalog.associate { it.id to it.loadCapability }
                 _state.update {
                     it.copy(
                         exercises = catalog.map { exercise ->
@@ -156,12 +161,15 @@ class RoutinesViewModel(
     fun onPickerExerciseSelected(exerciseId: String, name: String) {
         val picker = _state.value.picker ?: return
         updateWorkout(picker.workoutIndex) { workout ->
+            val capability =
+                exerciseCapabilities[exerciseId] ?: ExerciseLoadCapability.UNSPECIFIED
             val entry = EditorEntry(
                 exerciseId = exerciseId,
                 name = name,
                 sets = "3",
                 reps = "8",
-                weight = ""
+                weight = "",
+                loadKind = WorkoutLoadPolicy.defaultKind(capability)
             )
             val entries = if (picker.replaceEntryIndex == null) {
                 workout.entries + entry
@@ -482,7 +490,8 @@ private fun RoutineTemplate.toEditor(
                     reps = entry.reps.toString(),
                     weight = entry.weightKg
                         ?.let { formatWeight(unit.kilogramsToDisplay(it)) }
-                        ?: ""
+                        ?: "",
+                    loadKind = entry.loadKind
                 )
             }
         )
@@ -507,7 +516,12 @@ private fun RoutineEditorState.toDraft(): RoutineTemplate = RoutineTemplate(
                     exerciseId = entry.exerciseId,
                     sets = entry.sets.toIntOrNull() ?: 0,
                     reps = entry.reps.toIntOrNull() ?: 0,
-                    weightKg = parseDisplayedWeight(entry.weight, unit)
+                    weightKg = if (entry.loadKind == LoadKind.BODYWEIGHT) {
+                        null
+                    } else {
+                        parseDisplayedWeight(entry.weight, unit)
+                    },
+                    loadKind = entry.loadKind
                 )
             }
         )

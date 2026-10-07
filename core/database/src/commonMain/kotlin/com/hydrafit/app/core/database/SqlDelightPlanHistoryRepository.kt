@@ -9,6 +9,8 @@ import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.workout.LoadKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -64,7 +66,9 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
                         reps = exercise.reps.toLong(),
                         exerciseName = exercise.name,
                         movementPattern = exercise.movementPattern.name,
-                        suggestedWeightKg = exercise.suggestedWeightKg
+                        suggestedWeightKg = exercise.suggestedWeightKg,
+                        loadCapability = exercise.loadCapability.name,
+                        loadKind = exercise.loadKind.name
                     )
                 }
             }
@@ -77,13 +81,17 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
         position: Int,
         newExerciseId: String,
         newExerciseName: String,
-        newWeightKg: Double?
+        newWeightKg: Double?,
+        newLoadCapability: ExerciseLoadCapability,
+        newLoadKind: LoadKind
     ) {
         queries.transaction {
             queries.updateEntryExerciseIdAtPosition(
                 newExerciseId = newExerciseId,
                 newExerciseName = newExerciseName,
                 newWeightKg = newWeightKg,
+                newLoadCapability = newLoadCapability.name,
+                newLoadKind = newLoadKind.name,
                 position = position.toLong(),
                 planId = planId,
                 dayIndex = dayIndex.toLong()
@@ -131,7 +139,9 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
                                 reps = row.reps.toInt(),
                                 name = row.exerciseName,
                                 movementPattern = decodeMovementPattern(row.movementPattern),
-                                suggestedWeightKg = row.suggestedWeightKg
+                                suggestedWeightKg = row.suggestedWeightKg,
+                                loadCapability = decodeLoadCapability(row.loadCapability),
+                                loadKind = decodeLoadKind(row.loadKind)
                             )
                         }
                 )

@@ -173,7 +173,8 @@ class SqlDelightExerciseCatalogTest {
             id = id,
             name = name,
             requiredEquipment = encodeEquipment(equipment),
-            movementPattern = pattern.name
+            movementPattern = pattern.name,
+            loadCapability = "EXTERNAL"
         )
         database.exerciseQueries.updateInvolvements(
             involvements = encodeInvolvements(

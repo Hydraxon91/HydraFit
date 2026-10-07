@@ -1,5 +1,7 @@
 package com.hydrafit.app.core.domain.engine
 
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.workout.LoadKind
 import kotlinx.coroutines.flow.Flow
 
 /** Stores plans the user explicitly accepted. Drafts are never persisted. */
@@ -25,7 +27,9 @@ interface PlanHistoryRepository {
         position: Int,
         newExerciseId: String,
         newExerciseName: String,
-        newWeightKg: Double?
+        newWeightKg: Double?,
+        newLoadCapability: ExerciseLoadCapability,
+        newLoadKind: LoadKind
     )
 
     suspend fun delete(planId: Long)

@@ -8,6 +8,7 @@ internal fun WorkoutSet.toDomain(): DomainWorkoutSet = DomainWorkoutSet(
     exerciseId = exerciseId,
     reps = reps.toInt(),
     weightKg = weightKg,
+    loadKind = decodeLoadKind(loadKind),
     performedAtMillis = performedAt,
     isWarmup = isWarmup != 0L,
     weekNumber = weekNumber?.toInt(),

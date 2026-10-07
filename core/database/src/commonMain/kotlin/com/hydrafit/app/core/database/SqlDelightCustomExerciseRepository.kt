@@ -2,6 +2,7 @@ package com.hydrafit.app.core.database
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseException
@@ -17,7 +18,8 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
         requiredEquipment: Set<EquipmentTag>,
         involvements: Map<MuscleGroup, Double>,
         movementPattern: MovementPattern,
-        isUnilateral: Boolean
+        isUnilateral: Boolean,
+        loadCapability: ExerciseLoadCapability
     ): Exercise {
         val trimmed = validate(
             id = null,
@@ -32,6 +34,7 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
             requiredEquipment = encodeEquipment(requiredEquipment),
             movementPattern = movementPattern.name,
             isUnilateral = if (isUnilateral) 1L else 0L,
+            loadCapability = loadCapability.name,
             involvements = encodeInvolvements(involvements)
         )
         return Exercise(
@@ -43,6 +46,7 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
             movementPattern = movementPattern,
             isCustom = true,
             isUnilateral = isUnilateral,
+            loadCapability = loadCapability,
             involvements = involvements
         )
     }
@@ -53,7 +57,8 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
         requiredEquipment: Set<EquipmentTag>,
         involvements: Map<MuscleGroup, Double>,
         movementPattern: MovementPattern,
-        isUnilateral: Boolean
+        isUnilateral: Boolean,
+        loadCapability: ExerciseLoadCapability
     ) {
         val trimmed = validate(
             id = id,
@@ -66,6 +71,7 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
             requiredEquipment = encodeEquipment(requiredEquipment),
             movementPattern = movementPattern.name,
             isUnilateral = if (isUnilateral) 1L else 0L,
+            loadCapability = loadCapability.name,
             involvements = encodeInvolvements(involvements),
             id = id
         )

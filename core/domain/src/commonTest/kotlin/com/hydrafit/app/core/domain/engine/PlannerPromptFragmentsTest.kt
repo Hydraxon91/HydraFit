@@ -2,6 +2,7 @@ package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.workout.LoadKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -105,7 +106,8 @@ class PlannerPromptFragmentsTest {
                     reps = 12,
                     rir = 2,
                     weekNumber = 3,
-                    dayIndex = 1
+                    dayIndex = 1,
+                    loadKind = LoadKind.BODYWEIGHT
                 )
             )
         )

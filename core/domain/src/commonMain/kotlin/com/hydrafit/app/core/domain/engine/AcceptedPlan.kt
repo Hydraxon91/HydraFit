@@ -1,7 +1,9 @@
 package com.hydrafit.app.core.domain.engine
 
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.time.DayOfWeek
+import com.hydrafit.app.core.domain.workout.LoadKind
 
 /**
  * A plan the user explicitly accepted. Display data is snapshotted so a later catalog edit cannot
@@ -39,7 +41,11 @@ data class AcceptedExercise(
     val reps: Int,
     val name: String,
     val movementPattern: MovementPattern,
-    val suggestedWeightKg: Double? = null
+    val suggestedWeightKg: Double? = null,
+    /** The exercise's load capability frozen at acceptance; external by default. */
+    val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL,
+    /** What [suggestedWeightKg] means; external by default (a pre-EX-02 row is read as legacy). */
+    val loadKind: LoadKind = LoadKind.EXTERNAL
 )
 
 /** Renders a stored plan with the same shape the live (draft) plan uses. */
@@ -56,7 +62,9 @@ fun AcceptedPlan.toWeeklyPlan(): WeeklyPlan = WeeklyPlan(
                     exerciseId = exercise.exerciseId,
                     sets = exercise.sets,
                     reps = exercise.reps,
-                    suggestedWeightKg = exercise.suggestedWeightKg
+                    suggestedWeightKg = exercise.suggestedWeightKg,
+                    loadKind = exercise.loadKind,
+                    loadCapability = exercise.loadCapability
                 )
             }
         )

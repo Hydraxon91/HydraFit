@@ -4,6 +4,7 @@ import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
 import com.hydrafit.app.core.domain.engine.AcceptedDay
 import com.hydrafit.app.core.domain.engine.AcceptedExercise
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.BuildPlannerLoadInputsUseCase
 import com.hydrafit.app.core.domain.engine.BuildRecentWeightsUseCase
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
@@ -27,6 +28,7 @@ import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngineProvider
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
@@ -46,6 +48,7 @@ import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
@@ -874,9 +877,12 @@ class SplitBuilderViewModelTest {
         calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
         timeProvider = TimeProvider { 0L },
         planHistoryRepository = planHistoryRepository,
-        suggestWeights = SuggestWeightsUseCase(),
-        buildRecentWeights = BuildRecentWeightsUseCase(),
-        progressWeights = ProgressWeightsUseCase(),
+        buildPlannerLoadInputs = BuildPlannerLoadInputsUseCase(
+            catalog = FakeExerciseCatalog(),
+            suggestWeights = SuggestWeightsUseCase(),
+            buildRecentWeights = BuildRecentWeightsUseCase(),
+            progressWeights = ProgressWeightsUseCase()
+        ),
         periodization = PeriodizationConfig()
     )
 
@@ -900,7 +906,9 @@ class SplitBuilderViewModelTest {
             position: Int,
             newExerciseId: String,
             newExerciseName: String,
-            newWeightKg: Double?
+            newWeightKg: Double?,
+            newLoadCapability: ExerciseLoadCapability,
+            newLoadKind: LoadKind
         ) {
             val plan = state.value ?: return
             if (plan.id != planId) return
@@ -917,7 +925,9 @@ class SplitBuilderViewModelTest {
                                     exercise.copy(
                                         exerciseId = newExerciseId,
                                         name = newExerciseName,
-                                        suggestedWeightKg = newWeightKg
+                                        suggestedWeightKg = newWeightKg,
+                                        loadCapability = newLoadCapability,
+                                        loadKind = newLoadKind
                                     )
                                 }
                             }
@@ -973,7 +983,9 @@ class SplitBuilderViewModelTest {
             position: Int,
             newExerciseId: String,
             newExerciseName: String,
-            newWeightKg: Double?
+            newWeightKg: Double?,
+            newLoadCapability: ExerciseLoadCapability,
+            newLoadKind: LoadKind
         ) = Unit
 
         override suspend fun delete(planId: Long) = Unit

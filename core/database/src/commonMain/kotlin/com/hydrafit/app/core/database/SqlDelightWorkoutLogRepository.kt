@@ -4,6 +4,7 @@ import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleTarget
+import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet as DomainWorkoutSet
 import kotlinx.coroutines.Dispatchers
@@ -34,7 +35,8 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                 cycleNumber = set.cycleNumber?.toLong(),
                 dayIndex = set.dayIndex?.toLong(),
                 rir = set.rir?.toLong(),
-                sessionId = set.sessionId
+                sessionId = set.sessionId,
+                loadKind = set.loadKind.name
             )
             if (set.occurrenceId != null || set.occurrenceEntryId != null) {
                 setQueries.assignOccurrence(
@@ -108,7 +110,13 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                 reps = row.reps.toInt(),
                 isCompound = compoundByExercise[row.exerciseId] ?: false,
                 exerciseId = row.exerciseId,
-                weightKg = row.weightKg,
+                // Neutral relative load for work whose recorded number is not external resistance:
+                // added kilograms are not total resistance, and bodyweight carries none. External
+                // and legacy rows keep the recorded weight, so historical fatigue is unchanged.
+                weightKg = row.weightKg.takeIf {
+                    val kind = decodeLoadKind(row.loadKind)
+                    kind != LoadKind.BODYWEIGHT && kind != LoadKind.ADDED
+                },
                 rir = row.rir?.toInt(),
                 sessionId = row.sessionId
             )
