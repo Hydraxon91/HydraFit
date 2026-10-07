@@ -30,7 +30,9 @@ class SqlDelightWorkoutScheduleRepository(database: HydraFitDatabase) : WorkoutS
             .map { it?.toDomain() ?: DomainWorkoutScheduleState() }
 
     override fun observeActiveActivation(): Flow<DomainTrainingActivation?> {
-        val activation = queries.selectActiveActivation().asFlow().mapToOneOrNull(Dispatchers.Default)
+        val activation = queries.selectActiveActivation().asFlow().mapToOneOrNull(
+            Dispatchers.Default
+        )
         val workouts = queries.selectAllActivationWorkouts().asFlow().mapToList(Dispatchers.Default)
         val entries = queries.selectAllActivationEntries().asFlow().mapToList(Dispatchers.Default)
         return combine(activation, workouts, entries) { row, workoutRows, entryRows ->
@@ -40,7 +42,9 @@ class SqlDelightWorkoutScheduleRepository(database: HydraFitDatabase) : WorkoutS
 
     override fun observeOccurrences(activationId: Long): Flow<List<DomainWorkoutOccurrence>> {
         val occurrences =
-            queries.selectOccurrencesForActivation(activationId).asFlow().mapToList(Dispatchers.Default)
+            queries.selectOccurrencesForActivation(
+                activationId
+            ).asFlow().mapToList(Dispatchers.Default)
         val entries = queries.selectAllOccurrenceEntries().asFlow().mapToList(Dispatchers.Default)
         return combine(occurrences, entries) { occurrenceRows, entryRows ->
             occurrenceRows.map { it.toDomain(entryRows) }
@@ -48,7 +52,8 @@ class SqlDelightWorkoutScheduleRepository(database: HydraFitDatabase) : WorkoutS
     }
 
     override suspend fun scheduleState(): DomainWorkoutScheduleState =
-        queries.selectScheduleState().executeAsOneOrNull()?.toDomain() ?: DomainWorkoutScheduleState()
+        queries.selectScheduleState().executeAsOneOrNull()?.toDomain()
+            ?: DomainWorkoutScheduleState()
 
     override suspend fun setScheduleState(state: DomainWorkoutScheduleState) {
         queries.upsertScheduleState(
@@ -193,7 +198,9 @@ class SqlDelightWorkoutScheduleRepository(database: HydraFitDatabase) : WorkoutS
 
     override suspend fun deleteOccurrencesForActivation(activationId: Long) {
         queries.transaction {
-            queries.selectOccurrencesForActivation(activationId).executeAsList().forEach { occurrence ->
+            queries.selectOccurrencesForActivation(
+                activationId
+            ).executeAsList().forEach { occurrence ->
                 queries.deleteOccurrenceEntriesForOccurrence(occurrence.id)
             }
             queries.deleteOccurrencesForActivation(activationId)
@@ -224,7 +231,10 @@ class SqlDelightWorkoutScheduleRepository(database: HydraFitDatabase) : WorkoutS
             remainingDisposition = remainingDisposition?.name,
             terminalRemainingSets = terminalRemainingSets?.toLong()
         )
-        return copy(id = queries.lastInsertedOccurrenceEntryId().executeAsOne(), position = position)
+        return copy(
+            id = queries.lastInsertedOccurrenceEntryId().executeAsOne(),
+            position = position
+        )
     }
 
     private fun DomainOccurrenceEntry.update(queries: TrainingScheduleQueries, position: Int) {
@@ -249,7 +259,9 @@ class SqlDelightWorkoutScheduleRepository(database: HydraFitDatabase) : WorkoutS
         queries: TrainingScheduleQueries
     ): DomainTrainingActivation {
         val workouts = queries.selectActivationWorkoutsForActivation(id).executeAsList()
-        val entries = workouts.flatMap { queries.selectActivationEntriesForWorkout(it.id).executeAsList() }
+        val entries = workouts.flatMap {
+            queries.selectActivationEntriesForWorkout(it.id).executeAsList()
+        }
         return toDomain(workouts, entries)
     }
 
@@ -326,8 +338,7 @@ class SqlDelightWorkoutScheduleRepository(database: HydraFitDatabase) : WorkoutS
 
     private fun OccurrenceEntry.toDomain(): DomainOccurrenceEntry = DomainOccurrenceEntry(
         id = id,
-        sourceActivationEntryId = sourceActivationEntryId,
-        position = position.toInt(),
+        sourceActivationEntryId = sourceActivationEntryId, position = position.toInt(),
         exerciseId = exerciseId,
         exerciseName = exerciseName,
         movementPattern = decodeMovementPattern(movementPattern),
@@ -341,11 +352,12 @@ class SqlDelightWorkoutScheduleRepository(database: HydraFitDatabase) : WorkoutS
         terminalRemainingSets = terminalRemainingSets?.toInt()
     )
 
-    private fun WorkoutScheduleState.toDomain(): DomainWorkoutScheduleState = DomainWorkoutScheduleState(
-        activeActivationId = activeActivationId,
-        selectedOccurrenceId = selectedOccurrenceId,
-        legacyFallbackEnabled = legacyFallbackEnabled != 0L
-    )
+    private fun WorkoutScheduleState.toDomain(): DomainWorkoutScheduleState =
+        DomainWorkoutScheduleState(
+            activeActivationId = activeActivationId,
+            selectedOccurrenceId = selectedOccurrenceId,
+            legacyFallbackEnabled = legacyFallbackEnabled != 0L
+        )
 
     private fun String.toFocusOrNull(): SplitFocus? =
         SplitFocus.entries.firstOrNull { it.name == this }

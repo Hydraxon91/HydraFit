@@ -1848,6 +1848,9 @@ class WorkoutLoggerViewModelTest {
             sets.filter { it.sessionId == sessionId }
                 .maxWithOrNull(compareBy({ it.performedAtMillis }, { it.id }))
 
+        override suspend fun setsForOccurrence(occurrenceId: Long): List<WorkoutSet> =
+            sets.filter { it.occurrenceId == occurrenceId }
+
         override fun setsFlow(): Flow<List<WorkoutSet>> = flowOf(sets.toList())
 
         override suspend fun loggedSets(): List<LoggedSet> = emptyList()

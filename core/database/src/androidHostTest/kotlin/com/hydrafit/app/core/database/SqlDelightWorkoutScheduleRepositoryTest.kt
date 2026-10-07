@@ -133,7 +133,15 @@ class SqlDelightWorkoutScheduleRepositoryTest {
         val id = repository.insertActivation(activation())
         val saved = requireNotNull(repository.getActivation(id))
         val inserted = repository.insertOccurrences(
-            listOf(occurrence(id, saved.workouts.single().id, 0, 20_000L, saved.workouts.single().entries.single().id))
+            listOf(
+                occurrence(
+                    id,
+                    saved.workouts.single().id,
+                    0,
+                    20_000L,
+                    saved.workouts.single().entries.single().id
+                )
+            )
         ).single()
 
         repository.updateOccurrence(
@@ -239,7 +247,10 @@ class SqlDelightWorkoutScheduleRepositoryTest {
         repository.deleteOccurrencesForActivation(id)
 
         assertTrue(repository.occurrences(id).isEmpty())
-        assertEquals(0, database.trainingScheduleQueries.selectAllOccurrenceEntries().executeAsList().size)
+        assertEquals(
+            0,
+            database.trainingScheduleQueries.selectAllOccurrenceEntries().executeAsList().size
+        )
     }
 
     @Test

@@ -27,6 +27,9 @@ fun localDayOfWeek(epochMillis: Long, utcOffsetMillis: Long): DayOfWeek =
 fun localEpochDay(epochMillis: Long, utcOffsetMillis: Long): Long =
     floorDiv(epochMillis + utcOffsetMillis, MILLIS_PER_DAY)
 
+/** The weekday of a local calendar-day index (days since the Unix epoch). */
+fun dayOfWeekForEpochDay(epochDay: Long): DayOfWeek = dayOfWeek(epochDay * MILLIS_PER_DAY)
+
 private fun floorDiv(dividend: Long, divisor: Long): Long {
     val quotient = dividend / divisor
     val roundsTowardsZero = dividend % divisor != 0L && (dividend < 0) != (divisor < 0)

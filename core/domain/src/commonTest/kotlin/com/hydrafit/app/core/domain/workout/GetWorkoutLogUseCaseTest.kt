@@ -39,6 +39,9 @@ class GetWorkoutLogUseCaseTest {
         override suspend fun lastSetBySession(sessionId: String): WorkoutSet? =
             sets.filter { it.sessionId == sessionId }.maxByOrNull { it.performedAtMillis }
 
+        override suspend fun setsForOccurrence(occurrenceId: Long): List<WorkoutSet> =
+            sets.filter { it.occurrenceId == occurrenceId }
+
         override fun setsFlow(): Flow<List<WorkoutSet>> = flowOf(sets)
 
         override suspend fun loggedSets(): List<LoggedSet> = emptyList()

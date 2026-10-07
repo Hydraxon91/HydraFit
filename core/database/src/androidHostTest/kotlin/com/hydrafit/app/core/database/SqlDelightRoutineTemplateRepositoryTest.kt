@@ -44,7 +44,12 @@ class SqlDelightRoutineTemplateRepositoryTest {
         assertEquals(1, reloaded.revision)
         assertEquals(1, reloaded.workouts.size)
         assertEquals(SplitFocus.PUSH, reloaded.workouts[0].focus)
-        assertEquals(listOf("bench-press", "overhead-press"), reloaded.workouts[0].entries.map { it.exerciseId })
+        assertEquals(
+            listOf("bench-press", "overhead-press"),
+            reloaded.workouts[0].entries.map {
+                it.exerciseId
+            }
+        )
         assertEquals(82.5, reloaded.workouts[0].entries[0].weightKg)
         assertNull(reloaded.workouts[0].entries[1].weightKg)
         assertNull(reloaded.sourcePlanId)
@@ -64,7 +69,10 @@ class SqlDelightRoutineTemplateRepositoryTest {
                 updatedAtMillis = 2_000L,
                 workouts = listOf(
                     before.workouts[0].copy(
-                        entries = listOf(before.workouts[0].entries[1], before.workouts[0].entries[0])
+                        entries = listOf(
+                            before.workouts[0].entries[1],
+                            before.workouts[0].entries[0]
+                        )
                     )
                 )
             )
@@ -73,7 +81,12 @@ class SqlDelightRoutineTemplateRepositoryTest {
         val reloaded = requireNotNull(repository.get(id))
         assertEquals("Upper v2", reloaded.name)
         assertEquals(listOf(ohpId, benchId), reloaded.workouts[0].entries.map { it.id })
-        assertEquals(listOf("overhead-press", "bench-press"), reloaded.workouts[0].entries.map { it.exerciseId })
+        assertEquals(
+            listOf("overhead-press", "bench-press"),
+            reloaded.workouts[0].entries.map {
+                it.exerciseId
+            }
+        )
         assertEquals(listOf(0, 1), reloaded.workouts[0].entries.map { it.position })
     }
 
@@ -179,7 +192,13 @@ class SqlDelightRoutineTemplateRepositoryTest {
         name = name,
         focus = focus,
         entries = listOf(
-            RoutineEntry(position = 0, exerciseId = "bench-press", sets = 3, reps = 8, weightKg = 82.5),
+            RoutineEntry(
+                position = 0,
+                exerciseId = "bench-press",
+                sets = 3,
+                reps = 8,
+                weightKg = 82.5
+            ),
             RoutineEntry(position = 1, exerciseId = "overhead-press", sets = 3, reps = 8)
         )
     )

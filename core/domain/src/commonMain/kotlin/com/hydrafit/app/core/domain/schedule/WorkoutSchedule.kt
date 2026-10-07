@@ -1,8 +1,8 @@
 package com.hydrafit.app.core.domain.schedule
 
+import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.MovementPattern
-import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.DayOfWeek
 
@@ -94,7 +94,7 @@ data class WorkoutOccurrence(
  */
 data class OccurrenceEntry(
     val id: Long = 0,
-    val sourceActivationEntryId: Long,
+    val sourceActivationEntryId: Long? = null,
     val position: Int = 0,
     val exerciseId: String,
     val exerciseName: String,
@@ -116,8 +116,7 @@ data class WorkoutScheduleState(
     val legacyFallbackEnabled: Boolean = true
 )
 
-fun Set<DayOfWeek>.toWeekdayMask(): Int =
-    fold(0) { mask, day -> mask or dayBit(day) }
+fun Set<DayOfWeek>.toWeekdayMask(): Int = fold(0) { mask, day -> mask or dayBit(day) }
 
 fun weekdaysOf(mask: Int): Set<DayOfWeek> =
     DayOfWeek.entries.filterTo(mutableSetOf()) { mask and dayBit(it) != 0 }

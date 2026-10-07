@@ -84,7 +84,9 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
         val occurrenceReferences =
             database.trainingScheduleQueries.countOccurrenceEntriesForExercise(id).executeAsOne()
         if (planReferences + routineReferences + activationReferences + occurrenceReferences > 0L) {
-            throw CustomExerciseException("This exercise is used by a plan or routine and can't be deleted")
+            throw CustomExerciseException(
+                "This exercise is used by a plan or routine and can't be deleted"
+            )
         }
         queries.deleteById(id)
     }

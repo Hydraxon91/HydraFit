@@ -58,7 +58,7 @@ CREATE TABLE workoutOccurrence (
 CREATE TABLE occurrenceEntry (
     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     occurrenceId INTEGER NOT NULL,
-    sourceActivationEntryId INTEGER NOT NULL,
+    sourceActivationEntryId INTEGER,
     position INTEGER NOT NULL,
     exerciseId TEXT NOT NULL,
     exerciseName TEXT NOT NULL,

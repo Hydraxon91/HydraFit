@@ -24,6 +24,24 @@ import com.hydrafit.app.core.domain.routine.ObserveRoutineTemplatesUseCase
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
 import com.hydrafit.app.core.domain.routine.SaveRoutineTemplateUseCase
+import com.hydrafit.app.core.domain.schedule.ActivateRoutineUseCase
+import com.hydrafit.app.core.domain.schedule.CancelTrainingActivationUseCase
+import com.hydrafit.app.core.domain.schedule.CreateTrainingActivationUseCase
+import com.hydrafit.app.core.domain.schedule.EditUnstartedOccurrenceUseCase
+import com.hydrafit.app.core.domain.schedule.FinishTrainingBlockUseCase
+import com.hydrafit.app.core.domain.schedule.FinishWorkoutOccurrenceUseCase
+import com.hydrafit.app.core.domain.schedule.MoveWorkoutOccurrenceUseCase
+import com.hydrafit.app.core.domain.schedule.PreviewWorkoutScheduleUseCase
+import com.hydrafit.app.core.domain.schedule.RepeatTrainingBlockUseCase
+import com.hydrafit.app.core.domain.schedule.SelectWorkoutOccurrenceUseCase
+import com.hydrafit.app.core.domain.schedule.SkipWorkoutOccurrenceUseCase
+import com.hydrafit.app.core.domain.schedule.StartWorkoutOccurrenceUseCase
+import com.hydrafit.app.core.domain.schedule.SwitchScheduleModeUseCase
+import com.hydrafit.app.core.domain.schedule.TrainingActivation
+import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
+import com.hydrafit.app.core.domain.schedule.WorkoutQueueAdvancer
+import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
+import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
@@ -113,6 +131,7 @@ class KoinModulesVerificationTest {
                     single<WorkoutSessionRepository> { FakeWorkoutSessionRepository }
                     single<SessionResegmenter> { FakeSessionResegmenter }
                     single<RoutineTemplateRepository> { FakeRoutineTemplateRepository }
+                    single<WorkoutScheduleRepository> { FakeWorkoutScheduleRepository }
                 },
                 domainModule,
                 testPlatformModule
@@ -139,6 +158,20 @@ class KoinModulesVerificationTest {
             assertNotNull(koin.get<ArchiveRoutineTemplateUseCase>())
             assertNotNull(koin.get<DeleteRoutineTemplateUseCase>())
             assertNotNull(koin.get<ObserveRoutineTemplatesUseCase>())
+            assertNotNull(koin.get<PreviewWorkoutScheduleUseCase>())
+            assertNotNull(koin.get<CreateTrainingActivationUseCase>())
+            assertNotNull(koin.get<ActivateRoutineUseCase>())
+            assertNotNull(koin.get<RepeatTrainingBlockUseCase>())
+            assertNotNull(koin.get<WorkoutQueueAdvancer>())
+            assertNotNull(koin.get<SelectWorkoutOccurrenceUseCase>())
+            assertNotNull(koin.get<StartWorkoutOccurrenceUseCase>())
+            assertNotNull(koin.get<FinishWorkoutOccurrenceUseCase>())
+            assertNotNull(koin.get<SkipWorkoutOccurrenceUseCase>())
+            assertNotNull(koin.get<FinishTrainingBlockUseCase>())
+            assertNotNull(koin.get<CancelTrainingActivationUseCase>())
+            assertNotNull(koin.get<MoveWorkoutOccurrenceUseCase>())
+            assertNotNull(koin.get<SwitchScheduleModeUseCase>())
+            assertNotNull(koin.get<EditUnstartedOccurrenceUseCase>())
         } finally {
             koin.close()
         }
@@ -206,6 +239,8 @@ class KoinModulesVerificationTest {
 
         override suspend fun lastSetBySession(sessionId: String): WorkoutSet? = null
 
+        override suspend fun setsForOccurrence(occurrenceId: Long): List<WorkoutSet> = emptyList()
+
         override fun setsFlow(): Flow<List<WorkoutSet>> = emptyFlow()
 
         override suspend fun loggedSets(): List<LoggedSet> = emptyList()
@@ -247,5 +282,46 @@ class KoinModulesVerificationTest {
         override suspend fun isReferencedByActivation(id: Long): Boolean = false
 
         override suspend fun delete(id: Long) = Unit
+    }
+
+    private object FakeWorkoutScheduleRepository : WorkoutScheduleRepository {
+        override fun observeScheduleState(): Flow<WorkoutScheduleState> =
+            flowOf(WorkoutScheduleState())
+
+        override fun observeActiveActivation(): Flow<TrainingActivation?> = flowOf(null)
+
+        override fun observeOccurrences(activationId: Long): Flow<List<WorkoutOccurrence>> =
+            flowOf(emptyList())
+
+        override suspend fun scheduleState(): WorkoutScheduleState = WorkoutScheduleState()
+
+        override suspend fun setScheduleState(state: WorkoutScheduleState) = Unit
+
+        override suspend fun activeActivation(): TrainingActivation? = null
+
+        override suspend fun getActivation(id: Long): TrainingActivation? = null
+
+        override suspend fun occurrences(activationId: Long): List<WorkoutOccurrence> = emptyList()
+
+        override suspend fun getOccurrence(id: Long): WorkoutOccurrence? = null
+
+        override suspend fun insertActivation(activation: TrainingActivation): Long = 0L
+
+        override suspend fun insertOccurrences(
+            occurrences: List<WorkoutOccurrence>
+        ): List<WorkoutOccurrence> = occurrences
+
+        override suspend fun updateActivationHeader(activation: TrainingActivation) = Unit
+
+        override suspend fun updateOccurrence(occurrence: WorkoutOccurrence) = Unit
+
+        override suspend fun replaceOccurrenceEntries(
+            occurrenceId: Long,
+            entries: List<com.hydrafit.app.core.domain.schedule.OccurrenceEntry>
+        ) = Unit
+
+        override suspend fun deleteOccurrencesForActivation(activationId: Long) = Unit
+
+        override suspend fun isTemplateReferenced(templateId: Long): Boolean = false
     }
 }

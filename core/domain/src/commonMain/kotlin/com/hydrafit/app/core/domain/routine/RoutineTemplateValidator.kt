@@ -9,11 +9,6 @@ class RoutineTemplateException(message: String) : IllegalArgumentException(messa
  * workout may be empty while the user is still building it; a slot may not carry invalid work.
  */
 internal object RoutineTemplateValidator {
-    const val MIN_SETS = 1
-    const val MAX_SETS = 8
-    const val MIN_REPS = 1
-    const val MAX_REPS = 100
-
     fun validate(template: RoutineTemplate): RoutineTemplate {
         val name = template.name.trim()
         if (name.isEmpty()) throw RoutineTemplateException("Routine name must not be blank")
@@ -42,16 +37,7 @@ internal object RoutineTemplateValidator {
         if (entry.exerciseId.isBlank()) {
             throw RoutineTemplateException("A slot needs an exercise")
         }
-        if (entry.sets !in MIN_SETS..MAX_SETS) {
-            throw RoutineTemplateException("Sets must be between $MIN_SETS and $MAX_SETS")
-        }
-        if (entry.reps !in MIN_REPS..MAX_REPS) {
-            throw RoutineTemplateException("Reps must be between $MIN_REPS and $MAX_REPS")
-        }
-        val weight = entry.weightKg
-        if (weight != null && (!weight.isFinite() || weight < 0.0)) {
-            throw RoutineTemplateException("Weight must be zero or positive")
-        }
+        PrescriptionBounds.validate(entry.sets, entry.reps, entry.weightKg)
         return entry
     }
 }

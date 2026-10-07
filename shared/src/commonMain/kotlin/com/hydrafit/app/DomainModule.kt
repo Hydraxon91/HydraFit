@@ -24,6 +24,20 @@ import com.hydrafit.app.core.domain.routine.DeleteRoutineTemplateUseCase
 import com.hydrafit.app.core.domain.routine.DuplicateRoutineTemplateUseCase
 import com.hydrafit.app.core.domain.routine.ObserveRoutineTemplatesUseCase
 import com.hydrafit.app.core.domain.routine.SaveRoutineTemplateUseCase
+import com.hydrafit.app.core.domain.schedule.ActivateRoutineUseCase
+import com.hydrafit.app.core.domain.schedule.CancelTrainingActivationUseCase
+import com.hydrafit.app.core.domain.schedule.CreateTrainingActivationUseCase
+import com.hydrafit.app.core.domain.schedule.EditUnstartedOccurrenceUseCase
+import com.hydrafit.app.core.domain.schedule.FinishTrainingBlockUseCase
+import com.hydrafit.app.core.domain.schedule.FinishWorkoutOccurrenceUseCase
+import com.hydrafit.app.core.domain.schedule.MoveWorkoutOccurrenceUseCase
+import com.hydrafit.app.core.domain.schedule.PreviewWorkoutScheduleUseCase
+import com.hydrafit.app.core.domain.schedule.RepeatTrainingBlockUseCase
+import com.hydrafit.app.core.domain.schedule.SelectWorkoutOccurrenceUseCase
+import com.hydrafit.app.core.domain.schedule.SkipWorkoutOccurrenceUseCase
+import com.hydrafit.app.core.domain.schedule.StartWorkoutOccurrenceUseCase
+import com.hydrafit.app.core.domain.schedule.SwitchScheduleModeUseCase
+import com.hydrafit.app.core.domain.schedule.WorkoutQueueAdvancer
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
@@ -93,4 +107,18 @@ val domainModule: Module = module {
     singleOf(::ArchiveRoutineTemplateUseCase)
     singleOf(::DeleteRoutineTemplateUseCase)
     singleOf(::ObserveRoutineTemplatesUseCase)
+    single { PreviewWorkoutScheduleUseCase() }
+    singleOf(::CreateTrainingActivationUseCase)
+    singleOf(::ActivateRoutineUseCase)
+    singleOf(::RepeatTrainingBlockUseCase)
+    singleOf(::WorkoutQueueAdvancer)
+    singleOf(::SelectWorkoutOccurrenceUseCase)
+    singleOf(::StartWorkoutOccurrenceUseCase)
+    singleOf(::FinishWorkoutOccurrenceUseCase)
+    singleOf(::SkipWorkoutOccurrenceUseCase)
+    singleOf(::FinishTrainingBlockUseCase)
+    singleOf(::CancelTrainingActivationUseCase)
+    singleOf(::MoveWorkoutOccurrenceUseCase)
+    singleOf(::SwitchScheduleModeUseCase)
+    singleOf(::EditUnstartedOccurrenceUseCase)
 }

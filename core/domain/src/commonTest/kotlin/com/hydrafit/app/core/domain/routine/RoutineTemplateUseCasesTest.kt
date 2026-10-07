@@ -35,7 +35,9 @@ class RoutineTemplateUseCasesTest {
                 workouts = listOf(
                     RoutineWorkout(
                         name = "Day 1",
-                        entries = listOf(RoutineEntry(exerciseId = "bench-press", sets = 3, reps = 8))
+                        entries = listOf(
+                            RoutineEntry(exerciseId = "bench-press", sets = 3, reps = 8)
+                        )
                     )
                 )
             )
@@ -69,7 +71,9 @@ class RoutineTemplateUseCasesTest {
                 workouts = listOf(
                     RoutineWorkout(
                         name = "Day 1",
-                        entries = listOf(RoutineEntry(exerciseId = "bench-press", sets = 4, reps = 6))
+                        entries = listOf(
+                            RoutineEntry(exerciseId = "bench-press", sets = 4, reps = 6)
+                        )
                     )
                 )
             )
@@ -113,7 +117,10 @@ class RoutineTemplateUseCasesTest {
                 workouts = listOf(
                     created.workouts[1],
                     created.workouts[0].copy(
-                        entries = listOf(created.workouts[0].entries[1], created.workouts[0].entries[0])
+                        entries = listOf(
+                            created.workouts[0].entries[1],
+                            created.workouts[0].entries[0]
+                        )
                     )
                 )
             )
@@ -200,7 +207,12 @@ class RoutineTemplateUseCasesTest {
                         RoutineWorkout(
                             name = "Day 1",
                             entries = listOf(
-                                RoutineEntry(exerciseId = "bench-press", sets = 3, reps = 8, weightKg = -1.0)
+                                RoutineEntry(
+                                    exerciseId = "bench-press",
+                                    sets = 3,
+                                    reps = 8,
+                                    weightKg = -1.0
+                                )
                             )
                         )
                     )
@@ -248,7 +260,12 @@ class RoutineTemplateUseCasesTest {
                     RoutineWorkout(
                         name = "Day 1",
                         entries = listOf(
-                            RoutineEntry(exerciseId = "push-up", sets = 3, reps = 12, weightKg = 0.0),
+                            RoutineEntry(
+                                exerciseId = "push-up",
+                                sets = 3,
+                                reps = 12,
+                                weightKg = 0.0
+                            ),
                             RoutineEntry(exerciseId = "pull-up", sets = 3, reps = 8)
                         )
                     )
@@ -272,7 +289,9 @@ class RoutineTemplateUseCasesTest {
                 workouts = listOf(
                     RoutineWorkout(
                         name = "Day 1",
-                        entries = listOf(RoutineEntry(exerciseId = "bench-press", sets = 3, reps = 8))
+                        entries = listOf(
+                            RoutineEntry(exerciseId = "bench-press", sets = 3, reps = 8)
+                        )
                     )
                 )
             )
@@ -294,7 +313,10 @@ class RoutineTemplateUseCasesTest {
     fun archivingAndRestoringTogglesTheFlag() = runTest {
         val repository = FakeRoutineTemplateRepository()
         val archive = ArchiveRoutineTemplateUseCase(repository, timeProvider)
-        val saved = save(repository)(RoutineTemplate(name = "Upper", workouts = listOf(RoutineWorkout(name = "Day 1"))))
+        val saved =
+            save(
+                repository
+            )(RoutineTemplate(name = "Upper", workouts = listOf(RoutineWorkout(name = "Day 1"))))
 
         archive(saved.id, archived = true)
         assertEquals(1_000L, repository.get(saved.id)?.archivedAtMillis)
@@ -309,7 +331,10 @@ class RoutineTemplateUseCasesTest {
         val repository = FakeRoutineTemplateRepository()
         val saver = save(repository)
         val delete = DeleteRoutineTemplateUseCase(repository)
-        val saved = saver(RoutineTemplate(name = "Upper", workouts = listOf(RoutineWorkout(name = "Day 1"))))
+        val saved =
+            saver(
+                RoutineTemplate(name = "Upper", workouts = listOf(RoutineWorkout(name = "Day 1")))
+            )
 
         assertTrue(delete(saved.id))
         assertNull(repository.get(saved.id))
@@ -321,7 +346,10 @@ class RoutineTemplateUseCasesTest {
         val repository = FakeRoutineTemplateRepository()
         val saver = save(repository)
         val delete = DeleteRoutineTemplateUseCase(repository)
-        val saved = saver(RoutineTemplate(name = "Upper", workouts = listOf(RoutineWorkout(name = "Day 1"))))
+        val saved =
+            saver(
+                RoutineTemplate(name = "Upper", workouts = listOf(RoutineWorkout(name = "Day 1")))
+            )
         repository.referencedTemplates = setOf(saved.id)
 
         assertRoutineFailure { delete(saved.id) }
@@ -370,7 +398,9 @@ class RoutineTemplateUseCasesTest {
             engine = PlannerEngineId.DETERMINISTIC,
             acceptedAtMillis = 0L,
             id = 0L,
-            days = listOf(AcceptedDay(dayIndex = 0, focus = SplitFocus.PUSH, exercises = emptyList()))
+            days = listOf(
+                AcceptedDay(dayIndex = 0, focus = SplitFocus.PUSH, exercises = emptyList())
+            )
         )
 
         val template = ConvertPlanToTemplateUseCase()(plan, "Draft")
@@ -387,7 +417,9 @@ private class FakeRoutineTemplateRepository : RoutineTemplateRepository {
 
     override fun observeAll(): Flow<List<RoutineTemplate>> = templates.map { it }
 
-    override suspend fun get(id: Long): RoutineTemplate? = templates.value.firstOrNull { it.id == id }
+    override suspend fun get(id: Long): RoutineTemplate? = templates.value.firstOrNull {
+        it.id == id
+    }
 
     override suspend fun save(template: RoutineTemplate): Long {
         val id = if (template.id == 0L) nextTemplateId++ else template.id

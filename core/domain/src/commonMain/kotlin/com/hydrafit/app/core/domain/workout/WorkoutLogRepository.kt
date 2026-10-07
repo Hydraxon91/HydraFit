@@ -22,6 +22,9 @@ interface WorkoutLogRepository {
      */
     suspend fun lastSetBySession(sessionId: String): WorkoutSet?
 
+    /** Every set logged against [occurrenceId], oldest first; used to compute workout progress. */
+    suspend fun setsForOccurrence(occurrenceId: Long): List<WorkoutSet>
+
     fun setsFlow(): Flow<List<WorkoutSet>>
 
     suspend fun loggedSets(): List<LoggedSet>

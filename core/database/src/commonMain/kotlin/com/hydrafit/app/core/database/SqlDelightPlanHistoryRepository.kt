@@ -13,7 +13,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 
-class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) : PlanHistoryRepository {
+class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
+    PlanHistoryRepository {
     private val queries = database.planHistoryQueries
 
     override fun observeLatest(): Flow<AcceptedPlan?> {

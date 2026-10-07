@@ -40,9 +40,16 @@ class TrainingScheduleMigrationTest {
         HydraFitDatabase.Schema.migrate(driver, 26, 27)
         val database = HydraFitDatabase(driver)
 
-        assertTrue(database.trainingScheduleQueries.selectAllActivations().executeAsList().isEmpty())
-        assertTrue(database.trainingScheduleQueries.selectAllOccurrences().executeAsList().isEmpty())
-        assertEquals(null, database.trainingScheduleQueries.selectScheduleState().executeAsOneOrNull())
+        assertTrue(
+            database.trainingScheduleQueries.selectAllActivations().executeAsList().isEmpty()
+        )
+        assertTrue(
+            database.trainingScheduleQueries.selectAllOccurrences().executeAsList().isEmpty()
+        )
+        assertEquals(
+            null,
+            database.trainingScheduleQueries.selectScheduleState().executeAsOneOrNull()
+        )
 
         database.workoutLogQueries.insertSet(
             exerciseId = "bench-press",
@@ -58,9 +65,16 @@ class TrainingScheduleMigrationTest {
             sessionId = null
         )
         val setId = database.workoutLogQueries.lastInsertedSetId().executeAsOne()
-        database.workoutLogQueries.assignOccurrence(occurrenceId = 4L, occurrenceEntryId = 5L, id = setId)
+        database.workoutLogQueries.assignOccurrence(
+            occurrenceId = 4L,
+            occurrenceEntryId = 5L,
+            id = setId
+        )
 
         assertEquals(1, database.workoutLogQueries.selectSetsForOccurrence(4L).executeAsList().size)
-        assertEquals(1, database.workoutLogQueries.selectSetsForOccurrenceEntry(5L).executeAsList().size)
+        assertEquals(
+            1,
+            database.workoutLogQueries.selectSetsForOccurrenceEntry(5L).executeAsList().size
+        )
     }
 }
