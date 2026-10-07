@@ -194,9 +194,10 @@ swapped slot is self-describing like any other accepted entry.
 SQLDelight `.sq` files describe the current schema; every schema change ships a numbered `.sqm`
 migration, and released schemas are never edited in place.
 
-- **Examples:** `core/database/src/commonMain/sqldelight/…` — `1.sqm`..`24.sqm`, table rebuilds in
+- **Examples:** `core/database/src/commonMain/sqldelight/…` — `1.sqm`..`26.sqm`, table rebuilds in
   `20.sqm` (dropping legacy muscle columns), additive columns (`17.sqm`, `18.sqm`, `22.sqm`,
-  `23.sqm`, `24.sqm`).
+  `23.sqm`, `24.sqm`), new tables (`21.sqm` `personalRecord`, `25.sqm` routine templates, `26.sqm`
+  activations/occurrences/schedule cursor).
 - **Consistency:** high; the current `.sq` schema matches the cumulative migrations (manually
   cross-checked in S2). Business-level compatibility is guarded by the review's "Phase C" invariant:
   neutral inputs must reproduce prior figures exactly (`docs/plans-archive.md` C1-C3).
@@ -221,6 +222,29 @@ Platform behavior is supplied by source-set-specific classes bound in platform K
   onto callers (S2-007).
 - **Ranked improvements:** (M) make the IO ports `suspend` (S2-007); add an instrumented verification
   for the Android graph where feasible.
+
+### 1.11 Editable templates, frozen activations and the workout queue
+
+A routine template is an editable, reusable block; activating one freezes a copy (the "activation")
+plus one "occurrence" per workout. This separates three things that were previously one: the template
+the user edits, the prescription snapshot the workout was planned against, and the performed session
+fatigue is segmented by.
+
+- **Examples:** `RoutineTemplate`/`RoutineWorkout`/`RoutineEntry` (schema v26 + `25.sqm`);
+  `TrainingActivation`/`ActivationWorkout`/`ActivationEntry`/`WorkoutOccurrence`/`OccurrenceEntry` and
+  the single-row `workoutScheduleState` (schema v27 + `26.sqm`); nullable
+  `workoutSet.occurrenceId`/`occurrenceEntryId` and `workoutSession.occurrenceId`.
+- **Rules:** editing a template, catalog or accepted plan never rewrites an activation;
+  occurrence-only prescription edits are allowed only before any set is logged; explicit Finish/Skip
+  resolves an occurrence and advances the queue while logging a set, End/New session, inactivity
+  expiry or midnight do not. Periodization stays the accepted-plan ordinal — template/routine actions
+  never advance it. Chosen-weekday scheduling assigns civil-day dates and never compresses missed
+  work; sequence mode keeps the oldest unresolved workout pending.
+- **Consistency:** the frozen prescriptions mirror the accepted-plan snapshot rule (§1.8); the
+  occurrence's performed sets stay the fatigue source of truth.
+- **Violations / tensions:** progression eligibility is still computed from date-grouped sets against
+  the latest accepted prescription (not occurrence-aware); that reconciliation is deferred to
+  OF-10A-P0.
 
 ---
 
@@ -250,6 +274,8 @@ No rationale is invented; unrecorded items are listed as questions in §2.1.
 | D17 | Koin `4.2.2`: `Module.verify()` is JVM-only, `checkModules()` deprecated; verify in Android host tests | PLANS.md "Decisions Made" (line 288) | None recorded | Current; known unverified bindings recorded |
 | D18 | On-device model imported in-app; no binary bundled; Android-only; NPU libs unbundled | PLANS.md lines 278-286, 293 | MediaPipe deprecated → migrated to LiteRT-LM | Current |
 | D19 | Gemini model `gemini-3.1-flash-lite`; sampling params omitted | PLANS.md line 282 | None recorded | Current |
+| D20 | Editable routine templates vs frozen activations and occurrences; one active finite block at a time | PLANS.md "Decisions Made" (2026-10-07 routine/scheduling contract) | Shared references and endless recurrence considered; copy semantics chosen | Current |
+| D21 | Explicit Finish/Skip advances the queue; logging a set, End/New session, expiry and midnight do not; progression stays the accepted-plan ordinal | PLANS.md "Decisions Made" (2026-10-07) | Occurrence-aware progression eligibility deferred to OF-10A-P0 | Current |
 
 ### 2.1 Rationale not recorded (questions, not findings)
 

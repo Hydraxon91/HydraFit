@@ -36,6 +36,7 @@ Kotlin package roots:
 | Catalog edits and seeding | Database `SqlDelightExerciseCatalog.kt`, `ExerciseEncoding.kt`, `DefaultExercises.kt`, `SeedExerciseCatalog.kt` |
 | Workout storage and snapshots | Database `SqlDelightWorkoutLogRepository.kt`; domain `workout/WorkoutSet.kt` |
 | Engine selection | Shell `DefaultWorkoutPlannerEngineProvider.kt`, `DomainModule.kt` |
+| Routine templates and scheduling | Domain `routine/RoutineTemplate.kt`, `routine/SaveRoutineTemplateUseCase.kt`, `schedule/ActivationUseCases.kt`, `schedule/OccurrenceLifecycleUseCases.kt`, `schedule/TrainingBlockUseCases.kt`; database `SqlDelightRoutineTemplateRepository.kt`, `SqlDelightWorkoutScheduleRepository.kt` |
 | Platform adapters | `shared/src/androidMain/kotlin/com/hydrafit/app/AndroidDatabaseModule.kt` and corresponding `iosMain/IosDatabaseModule.kt` |
 
 ## Fatigue: bounded, session-aware calculation
@@ -320,14 +321,16 @@ Schema directory:
 `core/database/src/commonMain/sqldelight/com/hydrafit/app/core/database/`.
 
 Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseOverride.sq`,
-`PersonalRecord.sq`, `PlanHistory.sq`, `PlannerEngine.sq`, `UserEquipment.sq`,
-`WorkoutLog.sq`, and `WorkoutSession.sq`. `PlanHistory.sq`'s
-`updateEntryExerciseIdAtPosition` swaps one entry's
-`exerciseId`/`exerciseName`/`suggestedWeightKg` in place (no schema
-change) for `SubstituteExerciseUseCase`; the entry's `sets`/`reps` are untouched.
+`PersonalRecord.sq`, `PlanHistory.sq`, `PlannerEngine.sq`, `RoutineTemplate.sq`,
+`TrainingSchedule.sq`, `UserEquipment.sq`, `WorkoutLog.sq`, and `WorkoutSession.sq`.
+`PlanHistory.sq`'s `updateEntryExerciseIdAtPosition` swaps one entry's
+`exerciseId`/`exerciseName`/`suggestedWeightKg` in place (no schema change) for
+`SubstituteExerciseUseCase`; the entry's `sets`/`reps` are untouched. Editing a
+routine template upserts kept workouts/slots by id and deletes the removed ones,
+so reordering preserves identity.
 
 `N.sqm` migrates from version N to N+1. At authoring, migrations were `1.sqm`
-through `24.sqm`, producing schema 25. Determine the next version from the
+through `26.sqm`, producing schema 27. Determine the next version from the
 current directory/generated Schema rather than copying this snapshot.
 
 `core/database/build.gradle.kts` declares:
