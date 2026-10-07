@@ -2,11 +2,12 @@ package com.hydrafit.app.feature.splitbuilder
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
+import com.hydrafit.app.core.domain.engine.AcceptedExercise
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
+import com.hydrafit.app.core.domain.engine.PlanBuilderActions
 import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
@@ -23,13 +24,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class SplitBuilderViewModel(
     private val observeWorkoutPlanInputs: ObserveWorkoutPlanInputsUseCase,
     private val generateWeeklySplit: GenerateWeeklySplitUseCase,
-    private val acceptWeeklyPlan: AcceptWeeklyPlanUseCase,
+    private val planBuilderActions: PlanBuilderActions,
     private val planHistory: PlanHistoryRepository,
     private val exerciseCatalog: ExerciseCatalog,
     private val enginePreference: EnginePreferenceRepository
@@ -45,6 +47,12 @@ class SplitBuilderViewModel(
     /** Fingerprint of the request that produced the currently shown plan; null until one exists. */
     private var lastGeneratedFingerprint: Int? = null
 
+    /** The accepted plan currently rendered, so a swap can target its exact id and slot. */
+    private var shownPlan: AcceptedPlan? = null
+
+    /** The latest plan-generation request, reused as the ranking context for a swap. */
+    private var lastRequest: PlanRequest? = null
+
     init {
         viewModelScope.launch {
             planHistory.observeHistory().collectLatest { history ->
@@ -56,7 +64,7 @@ class SplitBuilderViewModel(
                 setsPerExercise = setsPerExercise,
                 accessorySetsPerExercise = accessorySetsPerExercise,
                 refreshRequests = refreshRequests
-            )
+            ).onEach { lastRequest = it.request }
             val accepted = planHistory.latest()
             if (accepted == null) {
                 inputs.collectLatest { generate(it) }
@@ -91,9 +99,70 @@ class SplitBuilderViewModel(
     fun onAcceptPlan() {
         val plan = _state.value.plan ?: return
         viewModelScope.launch {
-            acceptWeeklyPlan(plan)
+            planBuilderActions.accept(plan)
             lastGeneratedFingerprint = null
+            // The just-accepted plan is the persisted latest; remember it so a swap can target it.
+            shownPlan = planHistory.latest()
             _state.update { it.copy(isPlanAccepted = true, canRegenerate = true) }
+        }
+    }
+
+    /** Opens the candidate dialog for one slot of the shown accepted plan. */
+    fun onSwapRequested(dayIndex: Int, position: Int) {
+        val plan = shownPlan ?: return
+        val request = lastRequest ?: return
+        viewModelScope.launch {
+            val candidates = planBuilderActions.swapCandidates(plan, dayIndex, position, request)
+            _state.update {
+                it.copy(
+                    swapDialogOpen = true,
+                    swapTargetDayIndex = dayIndex,
+                    swapTargetPosition = position,
+                    swapCandidates = candidates,
+                    swapNoCandidates = false
+                )
+            }
+        }
+    }
+
+    /** Applies a chosen replacement, or flags the slot when the candidate is no longer valid. */
+    fun onSwapCandidateSelected(exerciseId: String) {
+        val plan = shownPlan ?: return
+        val request = lastRequest ?: return
+        val dayIndex = _state.value.swapTargetDayIndex ?: return
+        val position = _state.value.swapTargetPosition ?: return
+        viewModelScope.launch {
+            val updated = planBuilderActions.substitute(plan, dayIndex, position, request, exerciseId)
+            if (updated == null) {
+                _state.update { it.copy(swapNoCandidates = true) }
+                return@launch
+            }
+            val swapped = plan.replacingExercise(dayIndex, position, updated)
+            shownPlan = swapped
+            _state.update {
+                it.copy(
+                    plan = swapped.toWeeklyPlan(),
+                    exerciseNames = it.exerciseNames + (updated.exerciseId to updated.name),
+                    swapDialogOpen = false,
+                    swapTargetDayIndex = null,
+                    swapTargetPosition = null,
+                    swapCandidates = emptyList(),
+                    swapNoCandidates = false
+                )
+            }
+        }
+    }
+
+    /** Closes the swap dialog without changing the plan. */
+    fun onSwapDialogDismissed() {
+        _state.update {
+            it.copy(
+                swapDialogOpen = false,
+                swapTargetDayIndex = null,
+                swapTargetPosition = null,
+                swapCandidates = emptyList(),
+                swapNoCandidates = false
+            )
         }
     }
 
@@ -121,6 +190,7 @@ class SplitBuilderViewModel(
         val catalogNames = exerciseCatalog.all().associate { it.id to it.name }
         val exercises = accepted.days.flatMap { it.exercises }
         lastGeneratedFingerprint = null
+        shownPlan = accepted
         _state.update {
             it.copy(
                 plan = accepted.toWeeklyPlan(),
@@ -149,6 +219,7 @@ class SplitBuilderViewModel(
         val fingerprint = fingerprintOf(request, exerciseCatalog.all())
         val canRegenerate = inputs.requestedEngine != PlannerEngineId.DETERMINISTIC ||
             fingerprint != lastGeneratedFingerprint
+        shownPlan = null
         _state.update {
             it.copy(
                 plan = null,
@@ -216,6 +287,25 @@ class SplitBuilderViewModel(
             }
         }
     }
+
+    /** Returns a copy of this plan with one slot's exercise replaced. */
+    private fun AcceptedPlan.replacingExercise(
+        dayIndex: Int,
+        position: Int,
+        replacement: AcceptedExercise
+    ): AcceptedPlan = copy(
+        days = days.map { day ->
+            if (day.dayIndex != dayIndex) {
+                day
+            } else {
+                day.copy(
+                    exercises = day.exercises.mapIndexed { index, exercise ->
+                        if (index == position) replacement else exercise
+                    }
+                )
+            }
+        }
+    )
 
     /**
      * Fingerprint of the inputs that shape a deterministic plan. `nowMillis` is excluded because the

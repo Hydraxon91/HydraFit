@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -30,6 +31,7 @@ import com.hydrafit.app.core.domain.engine.PeriodizationConfig
 import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.engine.SwapCandidate
 import com.hydrafit.app.core.domain.time.isoDateUtc
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
@@ -75,6 +77,11 @@ import hydrafit.feature.splitbuilder.generated.resources.split_regenerate
 import hydrafit.feature.splitbuilder.generated.resources.split_retry
 import hydrafit.feature.splitbuilder.generated.resources.split_sets_label
 import hydrafit.feature.splitbuilder.generated.resources.split_suggested_weight
+import hydrafit.feature.splitbuilder.generated.resources.split_swap_action
+import hydrafit.feature.splitbuilder.generated.resources.split_swap_dialog_cancel
+import hydrafit.feature.splitbuilder.generated.resources.split_swap_dialog_empty
+import hydrafit.feature.splitbuilder.generated.resources.split_swap_dialog_title
+import hydrafit.feature.splitbuilder.generated.resources.split_swap_no_candidates
 import hydrafit.feature.splitbuilder.generated.resources.split_week
 import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.StringResource
@@ -118,6 +125,9 @@ fun SplitBuilderRoute(
         onRegenerate = viewModel::refresh,
         onViewAcceptedPlan = viewModel::onViewAcceptedPlan,
         onDeletePlan = viewModel::onDeletePlan,
+        onSwapRequested = viewModel::onSwapRequested,
+        onSwapCandidateSelected = viewModel::onSwapCandidateSelected,
+        onSwapDialogDismissed = viewModel::onSwapDialogDismissed,
         onRetry = viewModel::refresh,
         modifier = modifier
     )
@@ -135,6 +145,9 @@ fun SplitBuilderScreen(
     onRegenerate: () -> Unit,
     onViewAcceptedPlan: (AcceptedPlan) -> Unit,
     onDeletePlan: (AcceptedPlan) -> Unit,
+    onSwapRequested: (Int, Int) -> Unit,
+    onSwapCandidateSelected: (String) -> Unit,
+    onSwapDialogDismissed: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -281,7 +294,7 @@ fun SplitBuilderScreen(
                             " - " + stringResource(day.focus.labelResource()),
                         style = MaterialTheme.typography.titleMedium
                     )
-                    day.exercises.forEach { exercise ->
+                    day.exercises.forEachIndexed { position, exercise ->
                         val name = state.exerciseNames[exercise.exerciseId] ?: exercise.exerciseId
                         val weight = exercise.suggestedWeightKg?.let { kg ->
                             "  ·  " + stringResource(
@@ -290,10 +303,39 @@ fun SplitBuilderScreen(
                                 weightUnit.label
                             )
                         }.orEmpty()
-                        Text(text = "$name  ${exercise.sets} x ${exercise.reps}$weight")
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "$name  ${exercise.sets} x ${exercise.reps}$weight",
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (state.isPlanAccepted) {
+                                TextButton(
+                                    onClick = { onSwapRequested(day.dayIndex, position) }
+                                ) {
+                                    Text(stringResource(Res.string.split_swap_action))
+                                }
+                            }
+                        }
                     }
                 }
             }
+        }
+        if (state.swapDialogOpen) {
+            val target = state.plan?.days
+                ?.firstOrNull { it.dayIndex == state.swapTargetDayIndex }
+                ?.exercises
+                ?.getOrNull(state.swapTargetPosition ?: -1)
+            val targetName = target
+                ?.let { state.exerciseNames[it.exerciseId] ?: it.exerciseId }
+                .orEmpty()
+            SwapCandidateDialog(
+                title = stringResource(Res.string.split_swap_dialog_title, targetName),
+                candidates = state.swapCandidates,
+                noCandidates = state.swapNoCandidates,
+                weightUnit = weightUnit,
+                onSelect = onSwapCandidateSelected,
+                onDismiss = onSwapDialogDismissed
+            )
         }
         if (state.history.isNotEmpty()) {
             Text(
@@ -323,6 +365,47 @@ fun SplitBuilderScreen(
             }
         }
     }
+}
+
+@Composable
+private fun SwapCandidateDialog(
+    title: String,
+    candidates: List<SwapCandidate>,
+    noCandidates: Boolean,
+    weightUnit: WeightUnit,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            when {
+                noCandidates -> Text(stringResource(Res.string.split_swap_no_candidates))
+                candidates.isEmpty() -> Text(stringResource(Res.string.split_swap_dialog_empty))
+                else -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    candidates.forEach { candidate ->
+                        val weight = candidate.suggestedWeightKg?.let { kg ->
+                            "  ·  " + stringResource(
+                                Res.string.split_suggested_weight,
+                                formatWeight(weightUnit.kilogramsToDisplay(kg)),
+                                weightUnit.label
+                            )
+                        }.orEmpty()
+                        TextButton(onClick = { onSelect(candidate.exerciseId) }) {
+                            Text(text = candidate.name + weight)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(Res.string.split_swap_dialog_cancel))
+            }
+        }
+    )
 }
 
 private fun PlannerEngineId.labelResource(): StringResource = when (this) {

@@ -10,6 +10,7 @@ import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
 import com.hydrafit.app.core.domain.engine.PeriodizationConfig
+import com.hydrafit.app.core.domain.engine.PlanBuilderActions
 import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
@@ -17,6 +18,7 @@ import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.ProgressWeightsUseCase
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.engine.SubstituteExerciseUseCase
 import com.hydrafit.app.core.domain.engine.SuggestWeightsUseCase
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
@@ -122,10 +124,17 @@ class SplitBuilderViewModelTest {
             generateWeeklySplit = GenerateWeeklySplitUseCase(
                 WorkoutPlannerEngineProvider { throw IllegalStateException("engine boom") }
             ),
-            acceptWeeklyPlan = AcceptWeeklyPlanUseCase(
-                FakePlanHistoryRepository(),
-                FakeExerciseCatalog(),
-                TimeProvider { 0L }
+            planBuilderActions = PlanBuilderActions(
+                acceptWeeklyPlan = AcceptWeeklyPlanUseCase(
+                    FakePlanHistoryRepository(),
+                    FakeExerciseCatalog(),
+                    TimeProvider { 0L }
+                ),
+                substituteExercise = SubstituteExerciseUseCase(
+                    FakeExerciseCatalog(),
+                    EmptyPlanHistoryRepository,
+                    DeterministicWorkoutPlannerEngine(FakeExerciseCatalog())
+                )
             ),
             planHistory = EmptyPlanHistoryRepository,
             exerciseCatalog = FakeExerciseCatalog(),
@@ -152,10 +161,17 @@ class SplitBuilderViewModelTest {
                     throw PlanGenerationException(transient = true, message = "503")
                 }
             ),
-            acceptWeeklyPlan = AcceptWeeklyPlanUseCase(
-                FakePlanHistoryRepository(),
-                FakeExerciseCatalog(),
-                TimeProvider { 0L }
+            planBuilderActions = PlanBuilderActions(
+                acceptWeeklyPlan = AcceptWeeklyPlanUseCase(
+                    FakePlanHistoryRepository(),
+                    FakeExerciseCatalog(),
+                    TimeProvider { 0L }
+                ),
+                substituteExercise = SubstituteExerciseUseCase(
+                    FakeExerciseCatalog(),
+                    EmptyPlanHistoryRepository,
+                    DeterministicWorkoutPlannerEngine(FakeExerciseCatalog())
+                )
             ),
             planHistory = EmptyPlanHistoryRepository,
             exerciseCatalog = FakeExerciseCatalog(),
@@ -546,6 +562,78 @@ class SplitBuilderViewModelTest {
         assertTrue(viewModel.state.value.history.isEmpty())
     }
 
+    @Test
+    fun swapReplacesTheExerciseAtPosition() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        history.accept(acceptedPlan().copy(id = 1L))
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL, EquipmentTag.BARBELL),
+            planHistory = history
+        )
+        advanceUntilIdle()
+
+        viewModel.onSwapRequested(0, 0)
+        advanceUntilIdle()
+        assertEquals(
+            listOf("back-squat"),
+            viewModel.state.value.swapCandidates.map { it.exerciseId }
+        )
+
+        viewModel.onSwapCandidateSelected("back-squat")
+        advanceUntilIdle()
+
+        val state = viewModel.state.value
+        assertFalse(state.swapDialogOpen)
+        assertEquals("back-squat", state.plan!!.days.single().exercises.single().exerciseId)
+        assertEquals("Back Squat", state.exerciseNames["back-squat"])
+        assertEquals(
+            "back-squat",
+            history.latest()!!.days.single().exercises.single().exerciseId
+        )
+    }
+
+    @Test
+    fun swapShowsErrorWhenNoCandidates() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        history.accept(acceptedPlan().copy(id = 1L))
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            planHistory = history
+        )
+        advanceUntilIdle()
+
+        viewModel.onSwapRequested(0, 0)
+        advanceUntilIdle()
+
+        val state = viewModel.state.value
+        assertTrue(state.swapDialogOpen)
+        assertTrue(state.swapCandidates.isEmpty())
+    }
+
+    @Test
+    fun swapLeavesThePlanIntactWhenDialogDismissed() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        history.accept(acceptedPlan().copy(id = 1L))
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL, EquipmentTag.BARBELL),
+            planHistory = history
+        )
+        advanceUntilIdle()
+
+        viewModel.onSwapRequested(0, 0)
+        advanceUntilIdle()
+        viewModel.onSwapDialogDismissed()
+        advanceUntilIdle()
+
+        val state = viewModel.state.value
+        assertFalse(state.swapDialogOpen)
+        assertEquals("goblet-squat", state.plan!!.days.single().exercises.single().exerciseId)
+        assertEquals(
+            "goblet-squat",
+            history.latest()!!.days.single().exercises.single().exerciseId
+        )
+    }
+
     private fun acceptedPlan() = AcceptedPlan(
         engine = PlannerEngineId.DETERMINISTIC,
         acceptedAtMillis = 0L,
@@ -589,7 +677,14 @@ class SplitBuilderViewModelTest {
                     engine ?: DeterministicWorkoutPlannerEngine(catalog)
                 }
             ),
-            acceptWeeklyPlan = AcceptWeeklyPlanUseCase(planHistory, catalog, TimeProvider { 0L }),
+            planBuilderActions = PlanBuilderActions(
+                acceptWeeklyPlan = AcceptWeeklyPlanUseCase(planHistory, catalog, TimeProvider { 0L }),
+                substituteExercise = SubstituteExerciseUseCase(
+                    catalog,
+                    planHistory,
+                    DeterministicWorkoutPlannerEngine(catalog)
+                )
+            ),
             planHistory = planHistory,
             exerciseCatalog = catalog,
             enginePreference = preference
