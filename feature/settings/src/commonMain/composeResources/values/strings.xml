@@ -41,7 +41,7 @@
     <string name="acknowledgments_version">Version %1$s</string>
     <string name="acknowledgments_credits_heading">Credits</string>
     <string name="acknowledgments_credit_krause_neto">Krause Neto 2020, JSSM 19:195 — glute EMG reference</string>
-    <string name="acknowledgments_credit_martin_fuentes_plos">Martín-Fuentes 2020, PLoS ONE 15(2):e0229507 — deadlift and leg press EMG</string>
+    <string name="acknowledgments_credit_martin_fuentes_plos">Martín-Fuentes 2020, PLoS ONE 15(2):e0229507 — deadlift EMG</string>
     <string name="acknowledgments_credit_martin_fuentes_ijerph">Martín-Fuentes 2020, IJERPH 17(13):4626 — leg press EMG</string>
     <string name="acknowledgments_credit_oliva_lozano">Oliva-Lozano &amp; Muyor 2020, IJERPH 17(12):4306 — core EMG</string>
     <string name="acknowledgments_credit_garcia_valverde">García-Valverde 2025, Cultura, Ciencia y Deporte 20(66):2261 — squat meta-analysis</string>
