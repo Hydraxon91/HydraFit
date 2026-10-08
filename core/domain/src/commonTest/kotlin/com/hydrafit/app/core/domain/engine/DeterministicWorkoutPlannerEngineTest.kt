@@ -951,7 +951,7 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
-    fun prefersTheIsolationOnTheMuscleWithTheLargerRemainingDeficit() {
+    fun directArmPriorityTakesPrecedenceOverADiscretionaryIsolation() {
         val bench = exercise("bench", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
             .copy(involvements = mapOf(MuscleGroup.CHEST_UPPER to 1.0, MuscleGroup.TRICEPS to 0.5))
         val pushdown = exercise(
@@ -1154,13 +1154,28 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
-    fun marksNormalArmTargetsAsNotEnforcedDuringDeload() {
+    fun deloadKeepsEligibleDirectArmIsolationSelectableWithoutEnforcingTheTarget() {
+        // Disabling the normal four-set priority must not make arm isolation unselectable: on a
+        // deload an eligible curl is an ordinary accessory and stays available to the deficit chase.
         val plan = engine.plan(
-            request(daysPerWeek = 2, equipment = everything, isDeload = true),
-            richCatalog()
+            request(
+                daysPerWeek = 2,
+                split = SplitType.FULL_BODY,
+                equipment = everything,
+                isDeload = true
+            ),
+            listOf(exercise("curl", MovementPattern.BICEPS_ISOLATION, MuscleGroup.BICEPS))
         )
 
-        assertTrue(plan.armCoverage.none { it.isTargetEnforced })
+        assertEquals(
+            listOf("curl"),
+            plan.days.first().exercises.map { it.exerciseId },
+            "a fresh compatible arm isolation must remain selectable on a deload day"
+        )
+        val biceps = plan.armCoverage.single { it.muscle == MuscleGroup.BICEPS }
+        assertTrue(biceps.directIsolationSets > 0)
+        assertFalse(biceps.isTargetEnforced)
+        assertNull(biceps.unmetReason)
     }
 
     @Test

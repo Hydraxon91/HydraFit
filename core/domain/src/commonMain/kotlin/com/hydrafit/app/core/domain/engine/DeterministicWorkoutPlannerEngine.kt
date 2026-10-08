@@ -179,7 +179,9 @@ class DeterministicWorkoutPlannerEngine(
                 continue
             }
             val remaining = candidates.filter { candidate ->
-                !DirectArmCoverage.needsCoverage(candidate, directArmSets) &&
+                // A deload does not chase the direct-arm target, so an eligible arm isolation is an
+                // ordinary accessory there; only a normal week reserves it for the priority branch.
+                (isDeload || !DirectArmCoverage.needsCoverage(candidate, directArmSets)) &&
                     !isAtMax(candidate, weeklyVolume, target) &&
                     (!pastMinimum || hasDeficit(candidate, weeklyVolume, target))
             }
