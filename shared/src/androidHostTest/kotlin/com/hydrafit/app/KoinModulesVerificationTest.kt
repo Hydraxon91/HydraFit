@@ -5,6 +5,7 @@ import com.hydrafit.app.core.database.databaseModule
 import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.BuildPlannerLoadInputsUseCase
+import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
@@ -13,6 +14,7 @@ import com.hydrafit.app.core.domain.engine.PlanBuilderActions
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.SubstituteExerciseUseCase
 import com.hydrafit.app.core.domain.engine.SuggestWeightsUseCase
+import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.equipment.Exercise
@@ -151,6 +153,8 @@ class KoinModulesVerificationTest {
 
         try {
             assertNotNull(koin.get<BuildPlannerLoadInputsUseCase>())
+            assertNotNull(koin.get<DeterministicWorkoutPlannerEngine>())
+            assertNotNull(koin.get<WeeklyPlanSanitizer>())
             assertNotNull(koin.get<ObserveWorkoutPlanInputsUseCase>())
             assertNotNull(koin.get<AcceptWeeklyPlanUseCase>())
             assertNotNull(koin.get<SubstituteExerciseUseCase>())

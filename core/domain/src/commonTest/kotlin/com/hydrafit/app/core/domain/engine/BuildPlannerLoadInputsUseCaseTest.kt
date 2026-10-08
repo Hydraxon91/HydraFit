@@ -194,11 +194,11 @@ class BuildPlannerLoadInputsUseCaseTest {
     }
 
     @Test
-    fun futureSetsAreExcludedAndCutoffEqualityIsIncluded() = runTest {
+    fun cutoffEqualityIsIncludedInTheRecentWindow() = runTest {
+        // now - 42 days is exactly day 58; both endpoints count.
         val sets = listOf(
-            set("bench-press", day = 58, kind = LoadKind.EXTERNAL),
-            set("bench-press", day = 100, kind = LoadKind.EXTERNAL),
-            set("bench-press", day = 101, kind = LoadKind.EXTERNAL)
+            set("bench-press", day = 58, weightKg = 100.0, kind = LoadKind.EXTERNAL),
+            set("bench-press", day = 100, weightKg = 100.0, kind = LoadKind.EXTERNAL)
         )
         val result = useCase(
             sources = sources(sets),
@@ -209,6 +209,66 @@ class BuildPlannerLoadInputsUseCaseTest {
         )
 
         assertEquals(126.66666666666667, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
+    }
+
+    @Test
+    fun justExpiredEvidenceIsExcludedAndWithholdsTheSuggestion() = runTest {
+        // Day 57 is one day past the 42-day window, leaving only one in-window set.
+        val sets = listOf(
+            set("bench-press", day = 57, weightKg = 120.0, kind = LoadKind.EXTERNAL),
+            set("bench-press", day = 100, weightKg = 100.0, kind = LoadKind.EXTERNAL)
+        )
+        val result = useCase(
+            sources = sources(sets),
+            latestPlan = null,
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        assertTrue("bench-press" in result.withheldWeightExerciseIds)
+        assertTrue("bench-press" !in result.suggestedWeightsKg)
+    }
+
+    @Test
+    fun aHeavierFutureSetCannotRaiseTheEstimateOrProgression() = runTest {
+        val sets = completedExternalSessions("bench-press") +
+            set("bench-press", day = 101, weightKg = 500.0, kind = LoadKind.EXTERNAL)
+        val result = useCase(
+            sources = sources(sets),
+            latestPlan = plan("bench-press", weightKg = 80.0, kind = LoadKind.EXTERNAL),
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        // Three completed in-window sessions earn +2.5 over the 126.667 bound. If the future 500 kg
+        // set leaked in, the bound would be far higher and this assertion would fail.
+        assertEquals(129.16666666666667, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
+    }
+
+    @Test
+    fun configuredRepBoundsGovernRecentEvidence() = runTest {
+        val narrow = BuildPlannerLoadInputsUseCase(
+            catalog = FakeCatalog(listOf(exercise("bench-press", ExerciseLoadCapability.EXTERNAL))),
+            buildRecentWeights = BuildRecentWeightsUseCase(),
+            progressWeights = ProgressWeightsUseCase(),
+            weightConfig = SuggestedWeightConfig(maxRepsForEstimate = 3)
+        )
+        val sets = listOf(
+            set("bench-press", day = 99, weightKg = 100.0, kind = LoadKind.EXTERNAL),
+            set("bench-press", day = 100, weightKg = 100.0, kind = LoadKind.EXTERNAL)
+        )
+
+        val result = narrow(
+            sources = sources(sets),
+            latestPlan = null,
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        assertTrue("bench-press" in result.withheldWeightExerciseIds)
     }
 
     @Test

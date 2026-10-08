@@ -116,6 +116,35 @@ class WeeklyPlanSanitizerTest {
     }
 
     @Test
+    fun keepsABelowBoundModelProposalWhenTheExerciseHasAnActiveCap() = runTest {
+        val plan = planOf(listOf("bench-press", "lateral-raise")).copy(
+            days = listOf(
+                dayOf(0, listOf("bench-press", "lateral-raise")).copy(
+                    exercises = listOf(
+                        PlannedExercise(
+                            exerciseId = "bench-press",
+                            sets = 3,
+                            reps = 8,
+                            suggestedWeightKg = 50.0
+                        ),
+                        PlannedExercise("lateral-raise", sets = 3, reps = 8)
+                    )
+                )
+            )
+        )
+
+        val sanitized = sanitizer.sanitize(
+            plan,
+            request(includeWorkoutData = true).copy(
+                recentWeightCaps = mapOf("bench-press" to 126.6666666667)
+            )
+        )!!
+
+        // The converted bound is 97.5 kg; a model proposal under it is neither raised nor rounded.
+        assertEquals(50.0, sanitized.days.single().exercises.first().suggestedWeightKg)
+    }
+
+    @Test
     fun capsModelWeightByRecentPerformance() = runTest {
         val plan = WeeklyPlan(
             engine = PlannerEngineId.GEMINI_API,

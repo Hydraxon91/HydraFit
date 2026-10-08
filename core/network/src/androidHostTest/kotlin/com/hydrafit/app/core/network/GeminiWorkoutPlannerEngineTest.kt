@@ -65,6 +65,25 @@ class GeminiWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun capsTheModelWeightByTheProgressionAdjustedBound() = runTest {
+        val weightedPlan = VALID_PLAN.replace(
+            "\"exerciseId\":\"bench-press\"",
+            "\"exerciseId\":\"bench-press\",\"suggestedWeightKg\":100.0"
+        )
+        val plan = engine(respondEnvelope(weightedPlan)).generatePlan(
+            request(includeWorkoutData = true).copy(
+                recentWeightCaps = mapOf("bench-press" to 126.6666666667)
+            )
+        )
+
+        // The shared bound converts to 97.5 kg, below the model's 100 kg proposal.
+        assertEquals(
+            97.5,
+            plan.days.first().exercises.first { it.exerciseId == "bench-press" }.suggestedWeightKg
+        )
+    }
+
+    @Test
     fun sendsApiKeyHeaderStructuredSchemaAndPlanningInputs() = runTest {
         var captured: HttpRequestData? = null
         val mockEngine = MockEngine { request ->

@@ -89,13 +89,13 @@ All use cases and both model-backed engine bindings live in `:shared` (`domainMo
   `Koin.kt` (`startKoin` + starting off-main startup maintenance).
 - **Consistency:** high. `:core:domain` exposes no Koin module (PLANS.md "Decisions Made": "Domain
   use cases and the `WorkoutPlannerEngine` binding live in `:shared`'s `domainModule`").
-- **Violations / tensions:** `domainModule` binds `SuggestedWeightConfig`/`PeriodizationConfig` as
-  singletons, but `DeterministicWorkoutPlannerEngine(get())` and `WeeklyPlanSanitizer(get())` build
-  their own default configs, so there are two instances of each (S6-001). `initKoin` starts
+- **Violations / tensions:** `domainModule` injects the shared `SuggestedWeightConfig`/
+  `PeriodizationConfig` singletons into `DeterministicWorkoutPlannerEngine` and `WeeklyPlanSanitizer`,
+  so both read the same bound configuration (S6-001 resolved). `initKoin` starts
   `DatabaseStartupMaintenance`, which runs catalog seeding, custom-exercise dedupe and the session
   backfill off the main thread; the app shell gates its first screen on `StartupReadiness` (S6-002).
 - **Ranked improvements:**
-  1. (S) Inject the bound configs into the engine/sanitizer, or drop the unused singles (S6-001).
+  1. (S) None outstanding here; the S6-001 config-injection item is resolved.
 
 ### 1.5 Use cases (one entry point per action)
 

@@ -2,6 +2,7 @@ package com.hydrafit.app.core.domain.engine
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class SuggestedWeightConfigTest {
@@ -35,5 +36,39 @@ class SuggestedWeightConfigTest {
         val raw = SuggestedWeightConfig(rirBuffer = 0.0)
 
         assertEquals(0.85, raw.intensityForReps(6), absoluteTolerance = 1e-9)
+    }
+
+    @Test
+    fun hasUsableEstimateUsesTheConfiguredBound() {
+        assertTrue(config.hasUsableEstimate(1))
+        assertTrue(config.hasUsableEstimate(config.maxRepsForEstimate))
+        assertFalse(config.hasUsableEstimate(0))
+        assertFalse(config.hasUsableEstimate(config.maxRepsForEstimate + 1))
+        assertFalse(SuggestedWeightConfig(maxRepsForEstimate = 3).hasUsableEstimate(4))
+    }
+
+    @Test
+    fun workingWeightForConvertsAndRoundsWithTheConfiguredPolicy() {
+        // 126.667 x intensity(6) 0.765 = 96.9 -> nearest 2.5 = 97.5
+        assertEquals(
+            97.5,
+            config.workingWeightFor(126.6666666667, reps = 6),
+            absoluteTolerance = 1e-9
+        )
+        // Deload scale applies before rounding: 129.167 x 0.765 x 0.8 = 79.05 -> 80.0
+        assertEquals(
+            80.0,
+            config.workingWeightFor(129.1666666667, reps = 6, intensityScale = 0.8),
+            absoluteTolerance = 1e-9
+        )
+    }
+
+    @Test
+    fun workingWeightForRoundsToTheNearestIncrement() {
+        val exact = SuggestedWeightConfig(rirBuffer = 0.0)
+        // intensity(6) = 0.85; 100 x 0.85 = 85.0 -> already on the grid.
+        assertEquals(85.0, exact.workingWeightFor(100.0, reps = 6), absoluteTolerance = 1e-9)
+        // 102 x 0.85 = 86.7 -> nearest 2.5 = 87.5 (round half up at the halfway point).
+        assertEquals(87.5, exact.workingWeightFor(102.0, reps = 6), absoluteTolerance = 1e-9)
     }
 }

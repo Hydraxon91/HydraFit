@@ -500,6 +500,74 @@ class ObserveWorkoutPlanInputsUseCaseTest {
     }
 
     @Test
+    fun withholdsWeightSuggestionWhenRecentEvidenceIsInsufficient() = runTest {
+        val useCase = useCase(
+            sources = FakeWorkoutPlanSourcesRepository(
+                WorkoutPlanSources(
+                    availableEquipment = setOf(EquipmentTag.BARBELL),
+                    selectedEngine = PlannerEngineId.DETERMINISTIC,
+                    daysPerWeek = 3,
+                    loggedSets = emptyList(),
+                    loggedWorkoutSets = listOf(
+                        WorkoutSet(
+                            exerciseId = "bench-press",
+                            reps = 5,
+                            weightKg = 100.0,
+                            performedAtMillis = 1L
+                        )
+                    )
+                )
+            ),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { 2L },
+            planHistoryRepository = FakePlanHistoryRepository()
+        )
+
+        val request = useCase().first().request
+
+        assertTrue(request.suggestedWeightsKg.isEmpty())
+        assertTrue("bench-press" in request.withheldWeightExerciseIds)
+    }
+
+    @Test
+    fun withholdsWeightSuggestionOnceEvidenceExpiresAsTimePasses() = runTest {
+        val sets = listOf(
+            WorkoutSet(
+                exerciseId = "bench-press",
+                reps = 5,
+                weightKg = 100.0,
+                performedAtMillis = 1L
+            ),
+            WorkoutSet(
+                exerciseId = "bench-press",
+                reps = 5,
+                weightKg = 100.0,
+                performedAtMillis = 2L
+            )
+        )
+        suspend fun requestAt(now: Long) = useCase(
+            sources = FakeWorkoutPlanSourcesRepository(
+                WorkoutPlanSources(
+                    availableEquipment = setOf(EquipmentTag.BARBELL),
+                    selectedEngine = PlannerEngineId.DETERMINISTIC,
+                    daysPerWeek = 3,
+                    loggedSets = emptyList(),
+                    loggedWorkoutSets = sets
+                )
+            ),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { now },
+            planHistoryRepository = FakePlanHistoryRepository()
+        )().first().request
+
+        // Inside the window the progressed bound is present; past it, the numeric suggestion is gone.
+        assertEquals(116.66666666666667, requestAt(3L).suggestedWeightsKg["bench-press"])
+        val expired = requestAt(43L * 24L * 60L * 60L * 1000L)
+        assertTrue(expired.suggestedWeightsKg.isEmpty())
+        assertTrue("bench-press" in expired.withheldWeightExerciseIds)
+    }
+
+    @Test
     fun defaultsAccessorySetsFromTheGoalAndOverridesWithThePicker() = runTest {
         val useCase = useCase(
             sources = FakeWorkoutPlanSourcesRepository(

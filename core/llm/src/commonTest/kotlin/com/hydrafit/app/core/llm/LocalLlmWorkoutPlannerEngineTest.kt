@@ -59,6 +59,27 @@ class LocalLlmWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun capsTheModelWeightByTheProgressionAdjustedBound() = runTest {
+        val weightedPlan = INDEXED_PLAN.replace(
+            "\"sets\":3,\"reps\":8",
+            "\"sets\":3,\"reps\":8,\"suggestedWeightKg\":100.0"
+        )
+        val plan = engine(
+            FakeGenerator(available = true, responses = listOf(weightedPlan))
+        ).generatePlan(
+            request(includeWorkoutData = true).copy(
+                recentWeightCaps = mapOf("bench-press" to 126.6666666667)
+            )
+        )
+
+        // The shared bound converts to 97.5 kg, below the model's 100 kg proposal.
+        assertEquals(
+            97.5,
+            plan.days.first().exercises.first { it.exerciseId == "bench-press" }.suggestedWeightKg
+        )
+    }
+
+    @Test
     fun appliesRequestedSetsAndVolumeAwareReps() = runTest {
         val generator = FakeGenerator(available = true, responses = listOf(MIXED_REPS_PLAN))
 

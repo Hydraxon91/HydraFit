@@ -155,9 +155,11 @@ baselines adjusted by progression, despite the name. The output field
 `PlannedExercise.suggestedWeightKg` is a working-set load. AI prompt wording
 must not accidentally present a 1RM baseline as a ready-to-lift working weight.
 
-Manual PRs enter the baseline through `WorkoutPlanSources.personalRecords`:
-`baseline = max(logged-set estimated 1RM, manual-record estimated 1RM)` per
-exercise. They are not workout sets and do not add fatigue.
+Manual PRs enter the baseline through `WorkoutPlanSources.personalRecords`.
+They are not workout sets and do not add fatigue. An eligible external manual PR is a
+**floor**, not an all-history exemption: the planner baseline is the recent-window
+estimate (or the manual estimate when evidence is thin) raised to at least the eligible
+manual value. See the "Recent-performance load policy" recipe below for the full rule.
 
 AI history and weight suggestions are gated by `includeWorkoutData`.
 Deterministic suggestions are local computations and do not require the AI
