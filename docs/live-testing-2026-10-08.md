@@ -17,7 +17,7 @@ Source baseline: `8f1b2ae` (0.4.0 shipped). **Confirmed** means traced in curren
 | --- | --- | --- | --- |
 | 1 | Logger "Planned today" drafts do not ask for weight and cannot be edited | A draft with no recommended load logs no weight; the row offers only Confirm/Dismiss | **LT-13** — OF-02 Logger slice |
 | 2 | Deadlift / clean-and-press class exercises are risky if done carelessly | No caution/acknowledgment mechanism exists | **EX-03** — **DEFERRED** (2026-10-08): too complex for the current systems and not wanted now; recorded only, not scheduled |
-| 3 | Seeded Dumbbell Row / Dumbbell Shoulder Press show "this pattern does not match the muscles you picked" | Confirmed upgrade-only defect: legacy involvement strings survive and decode below the primary threshold | **CAT-P6 corrective** — patch-level; also silently under-weights those rows |
+| 3 | Seeded Dumbbell Row / Dumbbell Shoulder Press show "this pattern does not match the muscles you picked" | Confirmed upgrade-only defect: legacy involvement strings survive and decode below the primary threshold | **CAT-P6 corrective** — **DONE** (`2851148`), shipped `v0.4.1`; also silently under-weighted those rows |
 | 4 | Recommend muscle groups and movement pattern when adding a custom exercise | Editor starts blank with no suggestions | **LT-12 / CAT-02** — already homed |
 | 5 | More seeded catalog variations (machine/cable flies, close/wide-grip cable row, lat-pulldown grips) | Several pulldown/fly variants already exist; machine-fly and grip-cable-row gaps remain | **CAT-P7** — M2 catalog batch |
 
@@ -84,7 +84,7 @@ acknowledgment is stored (making it OF-01 backup data).
 
 ---
 
-## 3. Legacy involvement mismatch on upgraded installs (CAT-P6 corrective)
+## 3. Legacy involvement mismatch on upgraded installs (CAT-P6 corrective) — IMPLEMENTED
 
 ### Reported
 
@@ -125,10 +125,10 @@ planner's week coverage/targeting on upgraded installs (e.g. LATS 0.5 instead of
 `workoutSet` snapshots also expand legacy names on read and are **not** proposed for rewrite
 (history is immutable; the expansion fractions are the accepted historical mapping).
 
-### Fix direction (recommended; needs a gated implementation plan)
+### Fix direction — IMPLEMENTED (mechanism (b), `2851148`)
 
-Rewriting so an upgraded install matches a fresh one is unambiguous in intent, but the
-mechanism is a decision:
+Rewriting so an upgraded install matches a fresh one is unambiguous in intent; the mechanism
+chosen is **(b) idempotent startup repair** (the alternatives below are kept for record):
 
 - **(a) additive `.sqm`** expanding legacy tokens to split names/weights in `exercise`;
 - **(b) idempotent startup repair** (recommended): for `isCustom = 0` rows whose stored
@@ -137,10 +137,10 @@ mechanism is a decision:
   do not touch `exerciseOverride`, custom rows or `workoutSet` snapshots.
 - **(c)** have the catalog prefer the seed over a legacy-named stored string for built-ins.
 
-Ship with a **catalog-wide data-quality regression test** (currently missing): every built-in
-row's decoded involvements must satisfy `MovementPatternGuardrail` (or carry a documented
-exemption), plus migration-chain coverage. Because this corrects a shipped contract, it is a
-**patch-level** release candidate.
+Shipped (`2851148`) with a **catalog-wide data-quality regression test**: every built-in row's
+decoded involvements must satisfy `MovementPatternGuardrail` except the five pinned fresh-install
+conflicts below. Because this corrects a shipped contract it is the **patch-level** release
+`v0.4.1`.
 
 ### Fresh-install conflicts surfaced by the guardrail test (separate decision)
 
@@ -223,8 +223,8 @@ unless it is revived.)
 
 **Recommended order:**
 
-1. **CAT-P6 — legacy involvement repair** (corrective, no science; patch-level candidate),
-   including the catalog-wide guardrail regression test.
+1. **CAT-P6 — legacy involvement repair** — **DONE** (`2851148`, shipped `v0.4.1`): idempotent
+   startup repair plus the catalog-wide guardrail regression test.
 2. **LT-13 — Logger draft editor + load prompt** (OF-02 slice).
 3. **LT-12 / CAT-02 — custom-exercise profile suggestions** (reuses the internal mapping).
 4. **CAT-P7 — catalog variations** only after its sourced list is researched and reviewed.
@@ -234,9 +234,10 @@ unless it is revived.)
 
 - LT-13: editable field set; one-off vs persistent edit; time policy; legacy-resolution
   interaction; whether blank weight blocks Confirm.
-- CAT-P6: migration mechanism (a)/(b)/(c); whether any historical snapshot is affected; patch
-  release versus normal chunk. **Follow-up:** which of the five fresh-install pattern conflicts to
-  fix and how (reclassify pattern / extend guardrail expected muscles / correct weights).
+- CAT-P6: **resolved** — mechanism (b) idempotent startup repair, no historical snapshot affected
+  (`workoutSet` snapshots are never rewritten), shipped as the patch release `v0.4.1`.
+  **Follow-up (open):** which of the five fresh-install pattern conflicts to fix and how
+  (reclassify pattern / extend guardrail expected muscles / correct weights).
 - EX-03 (deferred): qualifying exercises and sources; notice vs acknowledgment gate; storage/OF-01
   impact.
 - CAT-P7: exact row list, grip variants and citations; whether "front"/naming changes affect

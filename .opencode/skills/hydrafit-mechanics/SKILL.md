@@ -125,9 +125,14 @@ Stored values are doubles, not a tier enum.
 `DefaultExercises.kt` is the seed catalog (baseline + `DefaultExercisesCatalogC1`).
 `SeedExerciseCatalog` inserts missing rows, backfills involvements only where null,
 then idempotently normalizes legacy built-in weights onto the editor tier scale
-(`0.6 → 0.7`, `0.4 → 0.5`, `0.2 → 0.3`). Custom rows and user overrides are left
-untouched, so an upgraded installation converges to the current weights without
-losing edits. It runs off-main at startup via `DatabaseStartupMaintenance`.
+(`0.6 → 0.7`, `0.4 → 0.5`, `0.2 → 0.3`). It then rewrites built-in rows that still
+hold pre-MUS-P1 broad names (`CHEST`/`BACK`/`SHOULDERS`/`CORE`) from the current
+seed (`repairLegacyInvolvementNames`; anchored LIKE patterns avoid matching the split
+names), so an upgraded install matches a fresh one. Custom rows, user overrides and
+historical set snapshots are left untouched. It runs off-main at startup via
+`DatabaseStartupMaintenance`. `DefaultExercisesDataQualityTest` asserts every
+built-in row satisfies `MovementPatternGuardrail` except five pinned fresh-install
+classification conflicts (tracked in `docs/live-testing-2026-10-08.md`).
 
 ## Planner inputs and weight semantics
 

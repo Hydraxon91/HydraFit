@@ -22,7 +22,7 @@ val hasReleaseSigning = listOf(
     releaseKeyPassword
 ).all { !it.isNullOrBlank() }
 
-val defaultVersionName = "0.4.0-dev"
+val defaultVersionName = "0.4.1-dev"
 val defaultVersionCode = 1
 val releaseTagPattern = Regex("""^v\d+\.\d+\.\d+([-+].*)?$""")
 val ciVersionName = providers.environmentVariable("GITHUB_REF_NAME").orNull

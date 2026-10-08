@@ -24,6 +24,15 @@ HydraFit-authored source staying **MIT**.
   derived from the `%MVIC` bands above). `SeedExerciseCatalog` writes current scale values and
   idempotently normalizes legacy built-in weights on startup (`0.6 → 0.7`, `0.4 → 0.5`,
   `0.2 → 0.3`); custom exercises, user overrides and historical set snapshots are not touched.
+- **Legacy-name repair.** Upgraded installs can still store the pre-MUS-P1 broad muscle names
+  (`CHEST`/`BACK`/`SHOULDERS`/`CORE`), which decode below the guardrail's 0.7 primary threshold.
+  `SeedExerciseCatalog` rewrites those built-in rows from the current seed on startup
+  (idempotent `repairLegacyInvolvementNames`; anchored so split names such as `CHEST_UPPER`/
+  `UPPER_BACK` are not matched), so an upgrade matches a fresh install. Custom rows, user
+  overrides and historical set snapshots are never touched. A catalog-wide
+  `DefaultExercisesDataQualityTest` asserts every built-in row satisfies
+  `MovementPatternGuardrail` except five pinned fresh-install classification conflicts tracked in
+  `docs/live-testing-2026-10-08.md`.
 - **Involvement weights are model parameters**, not physiological measurements. They are
   calibrated approximations, labeled as such, consistent with the fatigue model's own
   framing (`FatigueConfig` values are tunable parameters).

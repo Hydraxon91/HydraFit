@@ -81,8 +81,11 @@ The muscle set was refined in MUS-P1 (2026-10-06): the former `CHEST`, `BACK`,
 `SHOULDERS` and `CORE` were split into the groups listed below (17). A follow-up
 extension added `ADDUCTORS`, `HIP_ABDUCTORS`, `TRAPS` and `NECK` (21 total) so catalog
 rows for hip adduction/abduction, shrugs and neck work have an accurate target. Stored
-legacy names expand on read in `decodeInvolvements`, so historical rows keep
-contributing; `CustomExerciseDedupe` merges a custom exercise whose normalized name
+legacy names expand on read in `decodeInvolvements`, so historical set snapshots keep
+contributing; as of 0.4.1 `SeedExerciseCatalog` additionally rewrites built-in catalog
+rows that still hold the broad names from the current seed, so an upgraded catalog matches
+a fresh install (custom rows, user overrides and historical snapshots are untouched);
+`CustomExerciseDedupe` merges a custom exercise whose normalized name
 matches a seeded one, preserving its differing edits as an override. The regression
 fixture below maps its archived `BACK` work onto the split regions
 (`LATS` 0.50 / `UPPER_BACK` 0.35 / `LOWER_BACK` 0.15), and its expected scores are
