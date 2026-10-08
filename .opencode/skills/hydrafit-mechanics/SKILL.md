@@ -289,8 +289,10 @@ EX-01 exclusions are a separate, harder gate: `PlanRequest.excludedExerciseIds` 
 exclusions only, computed by `ObserveWorkoutPlanInputsUseCase` from `WorkoutPlanSources.exerciseExclusions`)
 removes candidates before ranking in the Deterministic engine, `WeeklyPlanSanitizer`,
 `SubstituteExerciseUseCase` and both model engines' available-id lists. Exclusions cannot be
-bypassed; `Prefer-less` is not an exclusion. A plan left with no eligible exercise at all
-becomes a non-transient `NO_ELIGIBLE_EXERCISES` failure in `SplitBuilderViewModel`.
+bypassed; `Prefer-less` is not an exclusion. If a requested focus has no equipment/exclusion-eligible
+work, the engines preflight `PlannerCandidateEligibility.requireWorkouts` and fail with a non-transient
+`NO_ELIGIBLE_EXERCISES` before generating; an empty output that still had eligible work is reported
+separately as `NO_USABLE_EXERCISES`.
 The weighted ledger accumulates
 selected sets × involvement weight; it is planned volume, not performed-history
 volume or a validated direct/indirect hypertrophy conversion. Accessories fill

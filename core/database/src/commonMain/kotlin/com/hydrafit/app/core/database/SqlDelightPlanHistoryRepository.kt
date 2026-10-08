@@ -88,7 +88,7 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
         newLoadKind: LoadKind
     ) {
         queries.transaction {
-            queries.updateEntryExerciseIdAtPosition(
+            val updated = queries.updateEntryExerciseIdAtPosition(
                 newExerciseId = newExerciseId,
                 newExerciseName = newExerciseName,
                 newWeightKg = newWeightKg,
@@ -97,11 +97,13 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
                 position = position.toLong(),
                 planId = planId,
                 dayIndex = dayIndex.toLong()
-            )
-            // A manual substitution invalidates the frozen volume assessment: it no longer describes
-            // the plan, and it must not be silently reconstructed from today's catalog.
-            volumeQueries.deleteForPlan(planId)
-            stateQueries.invalidateForSlot(planId, dayIndex.toLong(), position.toLong())
+            ).value
+            // Only a real slot replacement invalidates the frozen volume assessment. A missing
+            // day/position is a no-op that must leave the plan and its metadata untouched.
+            if (updated > 0L) {
+                volumeQueries.deleteForPlan(planId)
+                stateQueries.invalidateForSlot(planId, dayIndex.toLong(), position.toLong())
+            }
         }
     }
 

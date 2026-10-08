@@ -110,7 +110,8 @@ class RoutinesViewModel(
             state.copy(
                 exercises = catalogExerciseNames.map { (id, name) ->
                     RoutineExerciseOption(id, name, isExcluded = id in excludedExerciseIds)
-                }
+                },
+                excludedExerciseIds = excludedExerciseIds
             )
         }
     }

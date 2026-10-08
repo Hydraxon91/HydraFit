@@ -248,6 +248,49 @@ class SqlDelightPlanHistoryRepositoryTest {
     }
 
     @Test
+    fun aNoOpSubstitutionLeavesTheVolumeExplanationUntouched() = runTest {
+        repository.accept(
+            plan(engine = PlannerEngineId.DETERMINISTIC, acceptedAt = 1L).copy(
+                armCoverage = coverage(),
+                volumeAttribution = PlanAttribution.DETERMINISTIC
+            )
+        )
+        val accepted = requireNotNull(repository.latest())
+
+        // A missing day, then a missing position: neither changes a slot, so the frozen assessment
+        // and the plan must survive intact.
+        repository.substitute(
+            planId = accepted.id,
+            dayIndex = 5,
+            position = 0,
+            newExerciseId = "dumbbell-press",
+            newExerciseName = "Dumbbell Press",
+            newWeightKg = null,
+            newLoadCapability = ExerciseLoadCapability.EXTERNAL,
+            newLoadKind = LoadKind.EXTERNAL
+        )
+        repository.substitute(
+            planId = accepted.id,
+            dayIndex = 0,
+            position = 9,
+            newExerciseId = "dumbbell-press",
+            newExerciseName = "Dumbbell Press",
+            newWeightKg = null,
+            newLoadCapability = ExerciseLoadCapability.EXTERNAL,
+            newLoadKind = LoadKind.EXTERNAL
+        )
+
+        val reloaded = requireNotNull(repository.latest())
+        assertEquals(coverage(), reloaded.armCoverage)
+        assertEquals(PlanAttribution.DETERMINISTIC, reloaded.volumeAttribution)
+        assertEquals(VolumeExplanationStatus.AVAILABLE, reloaded.volumeExplanationStatus)
+        assertEquals(
+            listOf("bench-press", "overhead-press"),
+            reloaded.days.first().exercises.map { it.exerciseId }
+        )
+    }
+
+    @Test
     fun aLegacyPlanHasNoVolumeExplanation() = runTest {
         repository.accept(plan(engine = PlannerEngineId.DETERMINISTIC, acceptedAt = 1L))
 

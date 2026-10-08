@@ -867,6 +867,20 @@ class SplitBuilderViewModelTest {
                     exerciseExclusions = listOf(ExerciseExclusion("back-squat"))
                 )
                 advanceUntilIdle()
+                // Metadata-only edits (renewing the window, then making it indefinite) keep the same
+                // active id but must still never regenerate the displayed plan.
+                source.value = source.value.copy(
+                    exerciseExclusions = listOf(
+                        ExerciseExclusion("back-squat", expiresAtMillis = 1_000L)
+                    )
+                )
+                advanceUntilIdle()
+                source.value = source.value.copy(
+                    exerciseExclusions = listOf(
+                        ExerciseExclusion("back-squat", expiresAtMillis = null)
+                    )
+                )
+                advanceUntilIdle()
                 model.refreshContext()
                 advanceUntilIdle()
                 assertEquals(shown, model.state.value.plan)
@@ -883,6 +897,48 @@ class SplitBuilderViewModelTest {
                 )
             }
         }
+
+    @Test
+    fun removingAnExpiredExclusionDoesNotRegenerateTheDisplayedPlan() = runTest(dispatcher) {
+        val source = MutableStateFlow(
+            WorkoutPlanSources(
+                availableEquipment = setOf(EquipmentTag.DUMBBELL),
+                selectedEngine = PlannerEngineId.GEMINI_API,
+                daysPerWeek = 4,
+                loggedSets = emptyList(),
+                exerciseExclusions = listOf(
+                    ExerciseExclusion("back-squat", expiresAtMillis = 100L)
+                )
+            )
+        )
+        val requests = mutableListOf<PlanRequest>()
+        val engine = object : WorkoutPlannerEngine {
+            override val id = PlannerEngineId.GEMINI_API
+            override suspend fun generatePlan(request: PlanRequest): WeeklyPlan {
+                requests += request
+                return acceptedPlan().toWeeklyPlan()
+            }
+        }
+        val model = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = engine,
+            sourcesRepository = object : WorkoutPlanSourcesRepository {
+                override fun observe(): Flow<WorkoutPlanSources> = source
+            }
+        )
+        advanceUntilIdle()
+        val shown = model.state.value.plan
+        val initialRequests = requests.size
+
+        // The expired row was filter-irrelevant; removing it is a settings edit, not a generation one.
+        source.value = source.value.copy(exerciseExclusions = emptyList())
+        advanceUntilIdle()
+        model.refreshContext()
+        advanceUntilIdle()
+
+        assertEquals(shown, model.state.value.plan)
+        assertEquals(initialRequests, requests.size)
+    }
 
     @Test
     fun swapsRefreshExpiryWithoutARepositoryEmissionAndRevalidateAtConfirmation() =

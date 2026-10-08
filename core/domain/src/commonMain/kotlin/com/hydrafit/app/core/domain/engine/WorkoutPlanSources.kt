@@ -27,4 +27,15 @@ interface WorkoutPlanSourcesRepository {
     fun observe(): Flow<WorkoutPlanSources>
 }
 
-data class WorkoutPlanInputs(val request: PlanRequest, val requestedEngine: PlannerEngineId)
+data class WorkoutPlanInputs(
+    val request: PlanRequest,
+    val requestedEngine: PlannerEngineId,
+    /**
+     * Standing exercise settings snapshots. A change limited to these never triggers generation, so
+     * the displayed draft/accepted plan is preserved; it is distinct from the derived
+     * [PlanRequest.exercisePreferences]/[PlanRequest.excludedExerciseIds], which may not change when
+     * an exclusion's expiry is renewed or an expired row is removed.
+     */
+    val exercisePreferences: Map<String, ExercisePreference> = emptyMap(),
+    val exerciseExclusions: List<ExerciseExclusion> = emptyList()
+)

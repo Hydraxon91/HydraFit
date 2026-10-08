@@ -91,6 +91,8 @@ data class RoutinesUiState(
     val exercises: List<RoutineExerciseOption> = emptyList(),
     val editor: RoutineEditorState? = null,
     val picker: ExercisePickerState? = null,
+    /** Active EX-01 exclusions, so routine entries can be marked in place. */
+    val excludedExerciseIds: Set<String> = emptySet(),
     val activation: ActivationUiState? = null,
     val activeActivation: TrainingActivation? = null,
     val occurrences: List<WorkoutOccurrence> = emptyList(),

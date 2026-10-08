@@ -75,7 +75,9 @@ class ObserveWorkoutPlanInputsUseCase(
                 cycleNumber = cycleNumber,
                 isDeload = periodization.isDeload(weekNumber)
             ),
-            requestedEngine = current.selectedEngine
+            requestedEngine = current.selectedEngine,
+            exercisePreferences = current.exercisePreferences,
+            exerciseExclusions = current.exerciseExclusions
         )
     }
 

@@ -81,8 +81,8 @@ class SplitBuilderViewModel(
                 lastRequest = inputs.request
                 val settingsChanged = prior != null &&
                     (
-                        prior.request.exercisePreferences != inputs.request.exercisePreferences ||
-                            prior.request.excludedExerciseIds != inputs.request.excludedExerciseIds
+                        prior.exercisePreferences != inputs.exercisePreferences ||
+                            prior.exerciseExclusions != inputs.exerciseExclusions
                         )
                 if (settingsChanged) {
                     // Standing exercise settings affect future picks, never the displayed plan.

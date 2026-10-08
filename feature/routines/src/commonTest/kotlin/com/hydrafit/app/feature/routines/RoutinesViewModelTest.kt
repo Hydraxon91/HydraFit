@@ -342,10 +342,12 @@ class RoutinesViewModelTest {
         )
         advanceUntilIdle()
         assertTrue(model.state.value.exercises.first { it.id == "bench-press" }.isExcluded)
+        assertTrue("bench-press" in model.state.value.excludedExerciseIds)
         now = 100L
         model.refresh()
         advanceUntilIdle()
         assertFalse(model.state.value.exercises.first { it.id == "bench-press" }.isExcluded)
+        assertFalse("bench-press" in model.state.value.excludedExerciseIds)
         now = 99L
         model.onAddExercise(0)
         assertTrue(model.state.value.exercises.first { it.id == "bench-press" }.isExcluded)

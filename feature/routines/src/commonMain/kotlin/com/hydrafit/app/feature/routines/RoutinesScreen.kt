@@ -86,6 +86,7 @@ import hydrafit.feature.routines.generated.resources.routines_edit
 import hydrafit.feature.routines.generated.resources.routines_editor_edit_title
 import hydrafit.feature.routines.generated.resources.routines_editor_new_title
 import hydrafit.feature.routines.generated.resources.routines_empty
+import hydrafit.feature.routines.generated.resources.routines_entry_excluded
 import hydrafit.feature.routines.generated.resources.routines_finish_block
 import hydrafit.feature.routines.generated.resources.routines_focus_label
 import hydrafit.feature.routines.generated.resources.routines_move_down
@@ -146,6 +147,7 @@ fun RoutinesScreen(state: RoutinesUiState, viewModel: RoutinesViewModel) {
         RoutineEditor(
             editor = state.editor,
             message = state.message,
+            excludedExerciseIds = state.excludedExerciseIds,
             viewModel = viewModel
         )
     } else {
@@ -495,6 +497,7 @@ private fun TemplateRow(template: RoutineTemplate, viewModel: RoutinesViewModel)
 private fun RoutineEditor(
     editor: RoutineEditorState,
     message: String?,
+    excludedExerciseIds: Set<String>,
     viewModel: RoutinesViewModel
 ) {
     Column(
@@ -528,6 +531,7 @@ private fun RoutineEditor(
                 index = index,
                 workout = workout,
                 weightUnit = editor.unit,
+                excludedExerciseIds = excludedExerciseIds,
                 viewModel = viewModel
             )
         }
@@ -551,6 +555,7 @@ private fun WorkoutCard(
     index: Int,
     workout: EditorWorkout,
     weightUnit: WeightUnit,
+    excludedExerciseIds: Set<String>,
     viewModel: RoutinesViewModel
 ) {
     Card {
@@ -583,6 +588,7 @@ private fun WorkoutCard(
                     entryIndex = entryIndex,
                     entry = entry,
                     weightUnit = weightUnit,
+                    isExcluded = entry.exerciseId in excludedExerciseIds,
                     viewModel = viewModel
                 )
             }
@@ -610,6 +616,7 @@ private fun EntryRow(
     entryIndex: Int,
     entry: EditorEntry,
     weightUnit: WeightUnit,
+    isExcluded: Boolean,
     viewModel: RoutinesViewModel
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -618,7 +625,14 @@ private fun EntryRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(text = entry.name, modifier = Modifier.weight(1f))
+            Text(
+                text = if (isExcluded) {
+                    stringResource(Res.string.routines_entry_excluded, entry.name)
+                } else {
+                    entry.name
+                },
+                modifier = Modifier.weight(1f)
+            )
             TextButton(onClick = { viewModel.onReplaceExercise(workoutIndex, entryIndex) }) {
                 Text(stringResource(Res.string.routines_edit))
             }

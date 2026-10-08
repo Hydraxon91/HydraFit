@@ -162,9 +162,10 @@ from non-direct exercises as estimates, and a bounded unmet reason; it is planni
 prediction of growth or performed work.
 
 The model engines receive the same advisory prompt and the sanitizer computes the same coverage
-summary, but missing direct-arm coverage does not reject a model-generated plan. Coverage is not
-persisted with accepted-plan history; history and explicit substitutions retain their existing
-semantics. The four-set objective is a product planning default, not a validated minimum or optimum.
+summary, but missing direct-arm coverage does not reject a model-generated plan. Coverage is
+persisted with accepted-plan history (C4, below); a user-confirmed substitution invalidates the
+stored assessment rather than silently rebuilding it. The four-set objective is a product planning
+default, not a validated minimum or optimum.
 
 Planner load inputs use the best eligible external or compatible-legacy Epley estimate in the
 inclusive interval `[now − 42 days, now]`, requiring at least two qualifying sets. Those values are
