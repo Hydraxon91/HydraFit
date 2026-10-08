@@ -208,10 +208,12 @@ keeps only the active exclusions and passes the ids through `WorkoutPlanSources`
 and both model engines' candidate/available-id lists filter on it, so an exclusion can never be
 silently bypassed or restored. `CustomExerciseDedupe` reassigns an exclusion on merge (indefinite wins
 over dated; otherwise the later expiry). Manual routine authoring still allows an excluded exercise,
-marked as excluded, because exclusions gate generation, not an explicit user prescription. A plan that
-exclusions leave entirely without eligible work surfaces a non-transient `NO_ELIGIBLE_EXERCISES`
-failure; a merely partial plan keeps its existing behavior. Accepted/frozen plans, occurrences and
-recorded sets are never rewritten.
+marked as excluded in both the picker and the routine entry rows, because exclusions gate generation,
+not an explicit user prescription. The engines preflight `PlannerCandidateEligibility.requireWorkouts`
+before generating: if a requested focus has no equipment/exclusion-eligible work they surface a
+non-transient `NO_ELIGIBLE_EXERCISES` failure, and a plan that had eligible work but selected none is
+reported separately as `NO_USABLE_EXERCISES`; a merely partial plan keeps its existing behavior.
+Accepted/frozen plans, occurrences and recorded sets are never rewritten.
 
 **Volume explanation (implemented, C4 / OF-03 slice).** The VOL-01 volume assessment is persisted
 with the accepted plan so it always matches the calculation/output that produced it. On acceptance,

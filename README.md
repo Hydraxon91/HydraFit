@@ -20,6 +20,8 @@ An open-source, offline-first fitness planning app for Android (Kotlin Multiplat
 - **Backdated logging** — record past workouts with a date/time picker (future times rejected), choosing the session they attach to.
 - **Personal records** — store your best set per exercise to seed the weight baseline the planner uses for its suggested loads.
 - **Configurable planner & data** — pick the planner engine and training goal, choose units, toggle whether logged history is shared with the AI engines, and import/remove the optional on-device model.
+- **Exercise preferences & exclusions** — set an explicit Prefer / Neutral / Prefer-less tier per exercise, or exclude an exercise for 12 weeks or indefinitely. The built-in planner respects both, and exclusions are a hard gate across every engine (Prefer-less is soft and never removes an exercise).
+- **Volume explanations** — accepted plans report direct isolation work versus estimated indirect contribution for biceps and triceps, the coverage target, truthful unmet reasons, and whether the plan came from the built-in planner or an AI engine.
 
 ## The planning engine — and an honest note on the AI parts
 
@@ -56,7 +58,7 @@ Requires JDK 17+ and the Android SDK (Android Studio's SDK Manager is the easies
 
 ## Releases
 
-Signed release APKs are built and published by `.github/workflows/release.yml` on tags matching `v*.*.*`. The version is derived at build time — `versionName` from the tag (leading `v` stripped) and `versionCode` from the GitHub Actions run number — while local builds keep the `0.3.2-dev` / `1` defaults. A tag containing a hyphen (for example `v0.1.0-rc.1`) is published as a pre-release.
+Signed release APKs are built and published by `.github/workflows/release.yml` on tags matching `v*.*.*`. The version is derived at build time — `versionName` from the tag (leading `v` stripped) and `versionCode` from the GitHub Actions run number — while local builds keep the `0.4.0-dev` / `1` defaults. A tag containing a hyphen (for example `v0.1.0-rc.1`) is published as a pre-release.
 
 Publishing requires four repository secrets (Settings → Secrets and variables → Actions):
 
