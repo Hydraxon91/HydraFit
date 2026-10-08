@@ -16,7 +16,7 @@ Source baseline: `8f1b2ae` (0.4.0 shipped). **Confirmed** means traced in curren
 | # | Observation | Finding / importance | Home / next gate |
 | --- | --- | --- | --- |
 | 1 | Logger "Planned today" drafts do not ask for weight and cannot be edited | A draft with no recommended load logs no weight; the row offers only Confirm/Dismiss | **LT-13** — OF-02 Logger slice |
-| 2 | Deadlift / clean-and-press class exercises are risky if done carelessly | No caution/acknowledgment mechanism exists | **EX-03** — needs a sourced high-risk list; no injury inference, no rehab advice |
+| 2 | Deadlift / clean-and-press class exercises are risky if done carelessly | No caution/acknowledgment mechanism exists | **EX-03** — **DEFERRED** (2026-10-08): too complex for the current systems and not wanted now; recorded only, not scheduled |
 | 3 | Seeded Dumbbell Row / Dumbbell Shoulder Press show "this pattern does not match the muscles you picked" | Confirmed upgrade-only defect: legacy involvement strings survive and decode below the primary threshold | **CAT-P6 corrective** — patch-level; also silently under-weights those rows |
 | 4 | Recommend muscle groups and movement pattern when adding a custom exercise | Editor starts blank with no suggestions | **LT-12 / CAT-02** — already homed |
 | 5 | More seeded catalog variations (machine/cable flies, close/wide-grip cable row, lat-pulldown grips) | Several pulldown/fly variants already exist; machine-fly and grip-cable-row gaps remain | **CAT-P7** — M2 catalog batch |
@@ -52,7 +52,11 @@ legacy-resolution queue; whether a blank weight blocks Confirm or only warns.
 
 ---
 
-## 2. Injury / high-risk exercise caution (EX-03)
+## 2. Injury / high-risk exercise caution (EX-03) — DEFERRED
+
+**Status (2026-10-08): DEFERRED.** The user deferred this: it would be too complex against the
+current systems and is not wanted now. Recorded for reference only and **not scheduled**; the
+direction below is not approved for implementation and no sourcing work is started.
 
 ### Current behavior (confirmed)
 
@@ -69,14 +73,14 @@ technique") for a **researched, bounded** set of high-risk movements (e.g. deadl
 power clean / clean-and-press, overhead variants). It is informational/acknowledgment only —
 never medical advice, never inferred from history, never a substitute for coaching.
 
-**Sourcing requirement:** the high-risk list and its wording must cite authoritative,
-peer-reviewed or professional-body sources (e.g. NSCA/ACSM guidance plus injury-surveillance
-literature); no source, no entry.
+**Sourcing requirement (if ever revived):** the high-risk list and its wording must cite
+authoritative, peer-reviewed or professional-body sources (e.g. NSCA/ACSM guidance plus
+injury-surveillance literature); no source, no entry.
 
-**Unresolved decisions:** which exercises qualify and from which sources; per-exercise vs a
-single global notice; whether it is a soft notice or a one-time acknowledgment gate; where it is
-shown (catalog, plan, routine, logger); whether the acknowledgment is stored (making it OF-01
-backup data).
+**Unresolved decisions (deferred with the item):** which exercises qualify and from which
+sources; per-exercise vs a single global notice; whether it is a soft notice or a one-time
+acknowledgment gate; where it is shown (catalog, plan, routine, logger); whether the
+acknowledgment is stored (making it OF-01 backup data).
 
 ---
 
@@ -194,8 +198,9 @@ proposed; no schema change is implied.
 
 ## Research references
 
-To be recorded here once the CAT-P0 review passes for the EX-03 (injury) and CAT-P7 (variation)
-batches. None are cited yet; no entry may ship without a recorded source.
+To be recorded here once the CAT-P0 review passes for the CAT-P7 (variation) batch. None are
+cited yet; no entry may ship without a recorded source. (EX-03 is deferred and needs no sources
+unless it is revived.)
 
 ## Delivery order and unresolved decisions
 
@@ -205,8 +210,8 @@ batches. None are cited yet; no entry may ship without a recorded source.
    including the catalog-wide guardrail regression test.
 2. **LT-13 — Logger draft editor + load prompt** (OF-02 slice).
 3. **LT-12 / CAT-02 — custom-exercise profile suggestions** (reuses the internal mapping).
-4. **EX-03 — high-risk exercise caution** and **CAT-P7 — catalog variations** only after their
-   sourced lists are researched and reviewed.
+4. **CAT-P7 — catalog variations** only after its sourced list is researched and reviewed.
+   **EX-03 is deferred** (see §2) and is not scheduled.
 
 **Unresolved decisions (do not default silently):**
 
@@ -214,6 +219,7 @@ batches. None are cited yet; no entry may ship without a recorded source.
   interaction; whether blank weight blocks Confirm.
 - CAT-P6: migration mechanism (a)/(b)/(c); whether any historical snapshot is affected; patch
   release versus normal chunk.
-- EX-03: qualifying exercises and sources; notice vs acknowledgment gate; storage/OF-01 impact.
+- EX-03 (deferred): qualifying exercises and sources; notice vs acknowledgment gate; storage/OF-01
+  impact.
 - CAT-P7: exact row list, grip variants and citations; whether "front"/naming changes affect
   existing ids (they must not be renamed in place).
