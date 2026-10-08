@@ -269,6 +269,10 @@ than being full-body-only. These are product reachability choices informed by
 general resistance-training evidence (e.g. pec-deck/chest-fly regional
 hypertrophy), not a claim that each isolation exercise is optimal.
 
+Compounds are chosen one per focus group by largest deficit; a compound not yet
+used this week is preferred, but one repeats when no alternative exists so a later
+day is not left incomplete.
+
 The deterministic planner also targets four direct isolation sets each for
 BICEPS and TRICEPS per normal generated week, across all goals. A set qualifies
 only when the exercise uses the matching `BICEPS_ISOLATION` or

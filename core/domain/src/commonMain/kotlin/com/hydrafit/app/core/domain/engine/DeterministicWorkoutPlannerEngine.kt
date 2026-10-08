@@ -40,8 +40,8 @@ class DeterministicWorkoutPlannerEngine(
             )
         val availableExercises = exercises.filter { it.isAvailableWith(request.availableEquipment) }
         val isDeload = request.isDeload
-        // Exercises already chosen earlier in the week; compounds are never repeated across days,
-        // while accessories merely prefer a fresh option when one exists.
+        // Exercises already chosen earlier in the week; a fresh compound is preferred, but one may
+        // repeat when no alternative exists. Accessories merely prefer a fresh option when one does.
         val weekUsed = mutableSetOf<String>()
         // Running involvement-weighted sets per muscle, accumulated across the week so each day can
         // chase the largest remaining volume deficit.
@@ -150,16 +150,17 @@ class DeterministicWorkoutPlannerEngine(
         }
 
         // One compound for each major pattern in the focus, chosen by the largest remaining deficit.
+        // Prefer a compound not yet used this week; if none remains, repeat an eligible one so the
+        // day is not left incomplete (completeness outranks within-week novelty).
         compoundGroups(focus).forEach { group ->
             if (picks.size >= PlannerExerciseCounts.TARGET_MAX_PER_DAY) return@forEach
-            pick(
-                exercises.filter {
-                    it.movementPattern in group &&
-                        it.id !in used &&
-                        it.id !in weekUsed &&
-                        !isAtMax(it, weeklyVolume, target)
-                }
-            )
+            val eligible = exercises.filter {
+                it.movementPattern in group &&
+                    it.id !in used &&
+                    !isAtMax(it, weeklyVolume, target)
+            }
+            val fresh = eligible.filter { it.id !in weekUsed }
+            pick(fresh) || pick(eligible)
         }
 
         // Pursue unmet direct arm coverage first, then fill toward TARGET_MIN and chase weighted

@@ -200,8 +200,9 @@ class DeterministicWorkoutPlannerEngineTest {
 
         val plan = engine.plan(request(daysPerWeek = 2, equipment = emptySet()), exercises)
 
+        // The only available compound is repeated on the second day rather than dropping the slot.
         val pushIds = plan.days.flatMap { it.exercises.map { it.exerciseId } }
-        assertEquals(listOf("push-up"), pushIds)
+        assertEquals(listOf("push-up", "push-up"), pushIds)
     }
 
     @Test
@@ -382,7 +383,7 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
-    fun doesNotRepeatACompoundAcrossDaysThatShareTheSamePattern() {
+    fun prefersFreshCompoundsAcrossDaysBeforeRepeatingOne() {
         val plan = engine.plan(
             request(daysPerWeek = 3),
             listOf(
@@ -394,15 +395,13 @@ class DeterministicWorkoutPlannerEngineTest {
         val horizontalPushes = plan.days
             .flatMap { day -> day.exercises.map { it.exerciseId } }
             .filter { it == "bench-press" || it == "push-up" }
-        assertEquals(
-            horizontalPushes.distinct().size,
-            horizontalPushes.size,
-            "a compound must not repeat across days"
-        )
+        // Fresh alternatives are exhausted before any compound repeats.
+        assertEquals(3, horizontalPushes.size)
+        assertEquals(setOf("bench-press", "push-up"), horizontalPushes.distinct().toSet())
     }
 
     @Test
-    fun dropsASharedCompoundRatherThanRepeatingItWhenNoAlternativeExists() {
+    fun repeatsACompoundWhenNoAlternativeExists() {
         val plan = engine.plan(
             request(daysPerWeek = 3),
             listOf(
@@ -413,7 +412,7 @@ class DeterministicWorkoutPlannerEngineTest {
         val appearances = plan.days.sumOf { day ->
             day.exercises.count { it.exerciseId == "bench-press" }
         }
-        assertEquals(1, appearances)
+        assertEquals(3, appearances)
     }
 
     @Test
@@ -1065,8 +1064,9 @@ class DeterministicWorkoutPlannerEngineTest {
             val triceps = plan.armCoverage.single { it.muscle == MuscleGroup.TRICEPS }
             assertEquals(4, biceps.directIsolationSets, "goal=$goal biceps=$biceps")
             assertEquals(4, triceps.directIsolationSets, "goal=$goal triceps=$triceps")
-            assertEquals(8.0, biceps.estimatedOtherInvolvementCredits, "goal=$goal")
-            assertEquals(8.0, triceps.estimatedOtherInvolvementCredits, "goal=$goal")
+            // The press and row repeat across both full-body days, so compound credits double.
+            assertEquals(16.0, biceps.estimatedOtherInvolvementCredits, "goal=$goal")
+            assertEquals(16.0, triceps.estimatedOtherInvolvementCredits, "goal=$goal")
         }
     }
 
@@ -1331,15 +1331,18 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
-    fun fourDayPlanOutputIsUnchangedAfterTheRankingExtraction() {
+    fun fourDayPlanOutputMatchesTheCurrentSelectionPolicy() {
         val plan = engine.plan(request(daysPerWeek = 4, equipment = everything), catalog())
 
+        // The second upper day repeats its compounds (no alternative exists) instead of being
+        // accessory-only; the second lower day similarly repeats the hinge.
         assertEquals(
             "UPPER[bench-press:3:6:null,ohp:3:6:null,barbell-row:3:6:null,pull-up:3:6:null," +
                 "curl:2:12:null];" +
                 "LOWER[back-squat:3:6:null,rdl:3:6:null,calf-raise:2:12:null,plank:2:12:null];" +
-                "UPPER[curl:2:12:null];" +
-                "LOWER[goblet-squat:3:6:null,calf-raise:2:12:null,plank:2:12:null]",
+                "UPPER[bench-press:3:6:null,ohp:3:6:null,barbell-row:3:6:null,pull-up:3:6:null," +
+                "curl:2:12:null];" +
+                "LOWER[goblet-squat:3:6:null,rdl:3:6:null,calf-raise:2:12:null,plank:2:12:null]",
             render(plan)
         )
     }
