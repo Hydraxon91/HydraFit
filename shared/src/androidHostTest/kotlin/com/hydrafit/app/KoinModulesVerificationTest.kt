@@ -18,6 +18,7 @@ import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.ExercisePreference
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
@@ -68,6 +69,7 @@ import com.hydrafit.app.core.llm.OnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.network.GeminiWorkoutPlannerEngine
+import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
 import com.hydrafit.app.core.userdata.equipment.ExercisePreferenceRepository
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
@@ -228,6 +230,8 @@ class KoinModulesVerificationTest {
             modules(
                 module {
                     single<ExercisePreferenceRepository> { FakeExercisePreferenceRepository }
+                    single<ExerciseExclusionRepository> { FakeExerciseExclusionRepository }
+                    single<TimeProvider> { TimeProvider { 0L } }
                 },
                 equipmentModule
             )
@@ -259,6 +263,16 @@ class KoinModulesVerificationTest {
             ExercisePreference.NEUTRAL
 
         override suspend fun set(exerciseId: String, preference: ExercisePreference) = Unit
+    }
+
+    private object FakeExerciseExclusionRepository : ExerciseExclusionRepository {
+        override fun observe(): Flow<List<ExerciseExclusion>> = flowOf(emptyList())
+
+        override suspend fun exclusion(exerciseId: String): ExerciseExclusion? = null
+
+        override suspend fun set(exclusion: ExerciseExclusion) = Unit
+
+        override suspend fun clear(exerciseId: String) = Unit
     }
 
     private object FakeOnDeviceTextGenerator : OnDeviceTextGenerator {

@@ -226,6 +226,20 @@ class SubstituteExerciseUseCaseTest {
     }
 
     @Test
+    fun excludedCandidateIsNeitherOfferedNorApplied() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val useCase = useCase(repository)
+        val request = request(
+            equipment = setOf(EquipmentTag.DUMBBELL),
+            excludedExerciseIds = setOf("push-up")
+        )
+
+        assertTrue(useCase.candidates(plan(), 0, 0, request).none { it.exerciseId == "push-up" })
+        assertNull(useCase(plan(), 0, 0, request, "push-up"))
+        assertTrue(repository.substitutions.isEmpty())
+    }
+
+    @Test
     fun nullWhenTheSelectedCandidateIsSore() = runTest {
         val repository = FakePlanHistoryRepository()
         val useCase = useCase(repository)
@@ -252,7 +266,8 @@ class SubstituteExerciseUseCaseTest {
         equipment: Set<EquipmentTag>,
         fatigue: Map<MuscleGroup, Double> = emptyMap(),
         equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
-        exercisePreferences: Map<String, ExercisePreference> = emptyMap()
+        exercisePreferences: Map<String, ExercisePreference> = emptyMap(),
+        excludedExerciseIds: Set<String> = emptySet()
     ) = PlanRequest(
         daysPerWeek = 3,
         availableEquipment = equipment,
@@ -260,7 +275,8 @@ class SubstituteExerciseUseCaseTest {
         nowMillis = 0L,
         goal = TrainingGoal.BALANCED,
         equipmentMaxWeights = equipmentMaxWeights,
-        exercisePreferences = exercisePreferences
+        exercisePreferences = exercisePreferences,
+        excludedExerciseIds = excludedExerciseIds
     )
 
     private fun plan() = AcceptedPlan(

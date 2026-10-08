@@ -30,6 +30,12 @@ data class PlanRequest(
      * [ExercisePreference.NEUTRAL]. It never makes an exercise required and never excludes one.
      */
     val exercisePreferences: Map<String, ExercisePreference> = emptyMap(),
+    /**
+     * Exercise ids the user has excluded (EX-01 hard gate). Excluded candidates are unavailable to
+     * generation, ranking and model sanitization; this is distinct from a soft
+     * [ExercisePreference.PREFER_LESS].
+     */
+    val excludedExerciseIds: Set<String> = emptySet(),
     /** Heaviest weight each piece of equipment can provide; equipment absent here is unlimited. */
     val equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
     val includeWorkoutData: Boolean = false,

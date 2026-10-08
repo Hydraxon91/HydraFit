@@ -41,6 +41,7 @@
     <string name="split_error_api_key">Gemini rejected the API key. Add or update it in Settings.</string>
     <string name="split_error_invalid_request">Gemini rejected the request. Try regenerating, or switch to the built-in planner.</string>
     <string name="split_error_invalid_response">Gemini returned a response the app couldn’t use. Please try again.</string>
+    <string name="split_error_no_eligible_exercises">No exercises are available for this plan. Review your excluded exercises and available equipment, then retry.</string>
     <string name="split_retry">Retry</string>
     <string name="split_swap_action">Swap</string>
     <string name="split_swap_dialog_title">Replace %1$s</string>

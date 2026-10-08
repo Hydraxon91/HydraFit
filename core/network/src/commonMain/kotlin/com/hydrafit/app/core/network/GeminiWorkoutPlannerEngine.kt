@@ -57,7 +57,10 @@ class GeminiWorkoutPlannerEngine(
         }
         val catalogExercises = catalog.all()
         val availableIds = catalogExercises
-            .filter { it.isAvailableWith(request.availableEquipment) }
+            .filter {
+                it.isAvailableWith(request.availableEquipment) &&
+                    it.id !in request.excludedExerciseIds
+            }
             .map { it.id }
         val payload = buildRequest(request, availableIds)
         val url = "${config.baseUrl}/models/${config.model}:generateContent"

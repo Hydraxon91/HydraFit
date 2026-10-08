@@ -35,6 +35,14 @@
     <string name="equipment_preference_prefer">Prefer</string>
     <string name="equipment_preference_neutral">Neutral</string>
     <string name="equipment_preference_less">Prefer less</string>
+    <string name="equipment_exclusions_title">Excluded from planner</string>
+    <string name="equipment_exclusion_section">Planner exclusion</string>
+    <string name="equipment_exclude_window">Exclude for 12 weeks</string>
+    <string name="equipment_exclude_indefinite">Exclude indefinitely</string>
+    <string name="equipment_exclude_indefinitely">Excluded indefinitely</string>
+    <string name="equipment_exclude_until">Excluded until %1$s</string>
+    <string name="equipment_exclude_expired">Exclusion expired</string>
+    <string name="equipment_include">Include in planner</string>
     <string name="equipment_personal_records">Personal records</string>
     <string name="equipment_pr_exercise">Exercise</string>
     <string name="equipment_pr_weight">Best weight (kg)</string>

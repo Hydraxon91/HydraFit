@@ -21,6 +21,7 @@ import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
+import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +36,8 @@ class RoutinesViewModel(
     private val scheduleActions: WorkoutScheduleActions,
     private val exerciseCatalog: ExerciseCatalog,
     private val timeProvider: TimeProvider,
-    private val weightUnitRepository: WeightUnitRepository
+    private val weightUnitRepository: WeightUnitRepository,
+    private val exclusionRepository: ExerciseExclusionRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(RoutinesUiState())
@@ -44,6 +46,8 @@ class RoutinesViewModel(
     private var weightUnit: WeightUnit = WeightUnit.KG
     private var occurrencesJob: Job? = null
     private var exerciseCapabilities: Map<String, ExerciseLoadCapability> = emptyMap()
+    private var catalogExerciseNames: List<Pair<String, String>> = emptyList()
+    private var excludedExerciseIds: Set<String> = emptySet()
 
     /**
      * Bumping this re-subscribes to [routineActions.observe], which re-reads the current rows. This
@@ -63,13 +67,18 @@ class RoutinesViewModel(
         viewModelScope.launch {
             exerciseCatalog.observeAll().collect { catalog ->
                 exerciseCapabilities = catalog.associate { it.id to it.loadCapability }
-                _state.update {
-                    it.copy(
-                        exercises = catalog.map { exercise ->
-                            RoutineExerciseOption(exercise.id, exercise.name)
-                        }
-                    )
-                }
+                catalogExerciseNames = catalog.map { it.id to it.name }
+                updateExerciseOptions()
+            }
+        }
+        viewModelScope.launch {
+            exclusionRepository.observe().collect { exclusions ->
+                val now = timeProvider.nowMillis()
+                excludedExerciseIds = exclusions
+                    .filter { it.isActive(now) }
+                    .map { it.exerciseId }
+                    .toSet()
+                updateExerciseOptions()
             }
         }
         viewModelScope.launch {
@@ -92,6 +101,17 @@ class RoutinesViewModel(
                     }
                 }
             }
+        }
+    }
+
+    /** Rebuilds the picker options, marking EX-01 exclusions without removing them from the list. */
+    private fun updateExerciseOptions() {
+        _state.update { state ->
+            state.copy(
+                exercises = catalogExerciseNames.map { (id, name) ->
+                    RoutineExerciseOption(id, name, isExcluded = id in excludedExerciseIds)
+                }
+            )
         }
     }
 

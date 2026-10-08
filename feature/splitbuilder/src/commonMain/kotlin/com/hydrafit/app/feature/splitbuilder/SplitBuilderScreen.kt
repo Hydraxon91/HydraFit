@@ -88,6 +88,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_error_api_key
 import hydrafit.feature.splitbuilder.generated.resources.split_error_invalid_request
 import hydrafit.feature.splitbuilder.generated.resources.split_error_invalid_response
 import hydrafit.feature.splitbuilder.generated.resources.split_error_network
+import hydrafit.feature.splitbuilder.generated.resources.split_error_no_eligible_exercises
 import hydrafit.feature.splitbuilder.generated.resources.split_error_quota_exhausted
 import hydrafit.feature.splitbuilder.generated.resources.split_error_rate_limited
 import hydrafit.feature.splitbuilder.generated.resources.split_error_service_unavailable
@@ -552,6 +553,7 @@ private fun PlanFailureReason?.reasonMessage(): StringResource? = when (this) {
     PlanFailureReason.INVALID_API_KEY -> Res.string.split_error_api_key
     PlanFailureReason.INVALID_REQUEST -> Res.string.split_error_invalid_request
     PlanFailureReason.INVALID_RESPONSE -> Res.string.split_error_invalid_response
+    PlanFailureReason.NO_ELIGIBLE_EXERCISES -> Res.string.split_error_no_eligible_exercises
     PlanFailureReason.UNKNOWN, null -> null
 }
 

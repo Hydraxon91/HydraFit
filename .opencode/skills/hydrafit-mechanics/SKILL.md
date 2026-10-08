@@ -284,6 +284,13 @@ coverage gates; it is never inferred, never decays and `PREFER_LESS` never remov
 candidate (it is not EX-01 exclusion). Coverage is the next key so a negligible difference
 in the unvalidated fatigue estimate cannot override a much larger coverage deficit; fatigue
 is used within a class, not as a tolerance.
+
+EX-01 exclusions are a separate, harder gate: `PlanRequest.excludedExerciseIds` (active
+exclusions only, computed by `ObserveWorkoutPlanInputsUseCase` from `WorkoutPlanSources.exerciseExclusions`)
+removes candidates before ranking in the Deterministic engine, `WeeklyPlanSanitizer`,
+`SubstituteExerciseUseCase` and both model engines' available-id lists. Exclusions cannot be
+bypassed; `Prefer-less` is not an exclusion. A plan left with no eligible exercise at all
+becomes a non-transient `NO_ELIGIBLE_EXERCISES` failure in `SplitBuilderViewModel`.
 The weighted ledger accumulates
 selected sets × involvement weight; it is planned volume, not performed-history
 volume or a validated direct/indirect hypertrophy conversion. Accessories fill
@@ -418,7 +425,7 @@ do not assume the generation target and post-filter floor should be identical.
 Schema directory:
 `core/database/src/commonMain/sqldelight/com/hydrafit/app/core/database/`.
 
-Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseOverride.sq`,
+Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseExclusion.sq`, `ExerciseOverride.sq`,
 `ExercisePreference.sq`, `PersonalRecord.sq`, `PlanHistory.sq`, `PlannerEngine.sq`,
 `RoutineTemplate.sq`, `TrainingSchedule.sq`, `UserEquipment.sq`, `WorkoutLog.sq`, and
 `WorkoutSession.sq`.

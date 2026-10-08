@@ -446,6 +446,70 @@ class CustomExerciseDedupeTest {
     }
 
     @Test
+    fun movesACustomsExclusionToTheCanonicalExercise() {
+        insertCustom(involvements = trapBarSeedInvolvements())
+        database.exerciseExclusionQueries.upsert(
+            exerciseId = "user-trap-bar-deadlift",
+            expiresAt = null
+        )
+
+        CustomExerciseDedupe(database).run()
+
+        assertNull(
+            database.exerciseExclusionQueries.selectById(
+                "trap-bar-deadlift"
+            ).executeAsOne().expiresAt
+        )
+        assertNull(
+            database.exerciseExclusionQueries.selectById("user-trap-bar-deadlift")
+                .executeAsOneOrNull()
+        )
+    }
+
+    @Test
+    fun indefiniteExclusionWinsOverADatedCanonicalExclusion() {
+        insertCustom(involvements = trapBarSeedInvolvements())
+        database.exerciseExclusionQueries.upsert(
+            exerciseId = "user-trap-bar-deadlift",
+            expiresAt = null
+        )
+        database.exerciseExclusionQueries.upsert(
+            exerciseId = "trap-bar-deadlift",
+            expiresAt = 1_000L
+        )
+
+        CustomExerciseDedupe(database).run()
+
+        assertNull(
+            database.exerciseExclusionQueries.selectById(
+                "trap-bar-deadlift"
+            ).executeAsOne().expiresAt
+        )
+    }
+
+    @Test
+    fun laterDatedExclusionWinsOnMerge() {
+        insertCustom(involvements = trapBarSeedInvolvements())
+        database.exerciseExclusionQueries.upsert(
+            exerciseId = "user-trap-bar-deadlift",
+            expiresAt = 2_000L
+        )
+        database.exerciseExclusionQueries.upsert(
+            exerciseId = "trap-bar-deadlift",
+            expiresAt = 1_000L
+        )
+
+        CustomExerciseDedupe(database).run()
+
+        assertEquals(
+            2_000L,
+            database.exerciseExclusionQueries.selectById(
+                "trap-bar-deadlift"
+            ).executeAsOne().expiresAt
+        )
+    }
+
+    @Test
     fun mergesACustomExerciseIntoTheSeededOneAndMovesItsHistory() {
         insertLegacyCustom()
         database.workoutLogQueries.insertSet(

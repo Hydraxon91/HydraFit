@@ -2,6 +2,7 @@ package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
@@ -72,6 +73,35 @@ class ObserveWorkoutPlanInputsUseCaseTest {
 
         assertEquals(1, request.weekNumber)
         assertEquals(1, request.cycleNumber)
+    }
+
+    @Test
+    fun keepsOnlyActiveExclusionsInTheRequest() = runTest {
+        val now = 1_000L
+        val sources = FakeWorkoutPlanSourcesRepository(
+            WorkoutPlanSources(
+                availableEquipment = setOf(EquipmentTag.BARBELL),
+                selectedEngine = PlannerEngineId.DETERMINISTIC,
+                daysPerWeek = 3,
+                loggedSets = emptyList(),
+                exerciseExclusions = listOf(
+                    ExerciseExclusion("back-squat", expiresAtMillis = null),
+                    ExerciseExclusion("bench-press", expiresAtMillis = now + 1),
+                    ExerciseExclusion("barbell-row", expiresAtMillis = now)
+                )
+            )
+        )
+        val useCase = useCase(
+            sources = sources,
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { now },
+            planHistoryRepository = FakePlanHistoryRepository()
+        )
+
+        val request = useCase().first().request
+
+        // The indefinite and future-dated exclusions are active; the one expiring at `now` is not.
+        assertEquals(setOf("back-squat", "bench-press"), request.excludedExerciseIds)
     }
 
     @Test

@@ -106,7 +106,10 @@ class SubstituteExerciseUseCase(
     }
 
     private fun rankedCandidates(context: SlotContext, exercises: List<Exercise>): List<Exercise> {
-        val available = exercises.filter { it.isAvailableWith(context.request.availableEquipment) }
+        val available = exercises.filter {
+            it.isAvailableWith(context.request.availableEquipment) &&
+                it.id !in context.request.excludedExerciseIds
+        }
         // Compounds never repeat across days; accessories merely prefer a fresh option. The replaced
         // slot is excluded from the week's used set, so its own exercise is not a "used" penalty.
         val crossDayExclusions = if (context.entry.movementPattern.isCompound) {

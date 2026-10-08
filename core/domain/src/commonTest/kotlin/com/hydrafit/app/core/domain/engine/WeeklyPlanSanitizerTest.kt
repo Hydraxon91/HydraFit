@@ -18,6 +18,20 @@ class WeeklyPlanSanitizerTest {
     private val sanitizer = WeeklyPlanSanitizer(FakeCatalog)
 
     @Test
+    fun dropsExcludedExercisesBeforeAssessing() = runTest {
+        val plan = planOf(listOf("bench-press", "overhead-press", "barbell-row"))
+
+        val sanitized = sanitizer.sanitize(
+            plan,
+            request(excludedExerciseIds = setOf("overhead-press"))
+        )!!
+
+        val ids = sanitized.days.single().exercises.map { it.exerciseId }
+        assertTrue("overhead-press" !in ids)
+        assertTrue("bench-press" in ids)
+    }
+
+    @Test
     fun appliesRequestedSetsAndVolumeAwareReps() = runTest {
         val plan = planOf(listOf("bench-press", "lateral-raise"))
 
@@ -437,7 +451,8 @@ class WeeklyPlanSanitizerTest {
         accessorySetsPerExercise: Int = goal.accessorySets,
         includeWorkoutData: Boolean = false,
         isDeload: Boolean = false,
-        equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap()
+        equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
+        excludedExerciseIds: Set<String> = emptySet()
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
         availableEquipment = setOf(EquipmentTag.BARBELL),
@@ -448,7 +463,8 @@ class WeeklyPlanSanitizerTest {
         accessorySetsPerExercise = accessorySetsPerExercise,
         equipmentMaxWeights = equipmentMaxWeights,
         includeWorkoutData = includeWorkoutData,
-        isDeload = isDeload
+        isDeload = isDeload,
+        excludedExerciseIds = excludedExerciseIds
     )
 
     private object FakeCatalog : ExerciseCatalog {

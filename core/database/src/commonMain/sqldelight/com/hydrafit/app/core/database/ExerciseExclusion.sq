@@ -1,0 +1,20 @@
+CREATE TABLE exerciseExclusion (
+    exerciseId TEXT NOT NULL PRIMARY KEY,
+    expiresAt INTEGER
+);
+
+selectAll:
+SELECT * FROM exerciseExclusion ORDER BY exerciseId;
+
+selectById:
+SELECT * FROM exerciseExclusion WHERE exerciseId = ?;
+
+upsert:
+INSERT OR REPLACE INTO exerciseExclusion(exerciseId, expiresAt)
+VALUES (?, ?);
+
+deleteById:
+DELETE FROM exerciseExclusion WHERE exerciseId = ?;
+
+updateExerciseId:
+UPDATE exerciseExclusion SET exerciseId = :newId WHERE exerciseId = :oldId;

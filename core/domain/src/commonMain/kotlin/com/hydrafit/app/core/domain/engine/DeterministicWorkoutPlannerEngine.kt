@@ -39,7 +39,10 @@ class DeterministicWorkoutPlannerEngine(
             SplitResolver.focusCycle(
                 SplitResolver.resolveSplitType(request.splitPreference, request.daysPerWeek)
             )
-        val availableExercises = exercises.filter { it.isAvailableWith(request.availableEquipment) }
+        val availableExercises = exercises.filter {
+            it.isAvailableWith(request.availableEquipment) &&
+                it.id !in request.excludedExerciseIds
+        }
         val isDeload = request.isDeload
         // Exercises already chosen earlier in the week; a fresh compound is preferred, but one may
         // repeat when no alternative exists. Accessories merely prefer a fresh option when one does.

@@ -31,6 +31,10 @@ class ObserveWorkoutPlanInputsUseCase(
         val latestPlan = planHistoryRepository.latest()
         val (weekNumber, cycleNumber) = nextPeriodization(latestPlan)
         val utcOffsetMillis = timeProvider.utcOffsetMillis()
+        val excludedExerciseIds = current.exerciseExclusions
+            .filter { it.isActive(nowMillis) }
+            .map { it.exerciseId }
+            .toSet()
         val loadInputs = buildPlannerLoadInputs(
             sources = current,
             latestPlan = latestPlan,
@@ -64,6 +68,7 @@ class ObserveWorkoutPlanInputsUseCase(
                 withheldWeightExerciseIds = loadInputs.withheldWeightExerciseIds,
                 equipmentMaxWeights = current.equipmentMaxWeights,
                 exercisePreferences = current.exercisePreferences,
+                excludedExerciseIds = excludedExerciseIds,
                 includeWorkoutData = current.workoutDataSharingEnabled,
                 recentWeights = loadInputs.recentWeights,
                 weekNumber = weekNumber,

@@ -189,11 +189,28 @@ older adults and does not validate this horizon, sample threshold or load prescr
 like a personal record, with the canonical row's explicit choice winning on conflict. It is never
 inferred from substitutions or passive acceptance and does not decay. `ObserveWorkoutPlanInputsUseCase`
 carries it through `WorkoutPlanSources` into `PlanRequest.exercisePreferences`, and `rankCandidates`
-applies it as the first ordering tier among candidates that already passed the equipment, soreness
-and direct-arm/coverage gates (and future EX-01 exclusion), ahead of the unvalidated deficit/fatigue
+applies it as the first ordering tier among candidates that already passed the equipment, soreness,
+direct-arm/coverage gates and EX-01 exclusion, ahead of the unvalidated deficit/fatigue
 heuristic. Prefer-less never removes a candidate and preference never bypasses a hard gate, so it is
 soft and distinct from EX-01 exclusion. Accepted/frozen plans and recorded sets are never rewritten;
 the Equipment exercise editor exposes the control on its own save action, separate from catalog edits.
+
+**Exercise exclusions (implemented, C3 / EX-01).** A persistent per-exercise exclusion is a hard
+generation gate, distinct from the soft preference and from a one-slot substitution. It is stored in
+a dedicated `exerciseExclusion` table (`exerciseId`, nullable `expiresAt` UTC millis) behind
+`ExerciseExclusionRepository` (`:core:userdata`, `SqlDelightExerciseExclusionRepository`; migration
+`29.sqm`). An exclusion is global to the catalog (not per equipment profile), defaults to a 12-week
+window with an indefinite option, and never carries a medical reason. Expired rows are retained and
+shown as expired rather than deleted, and re-excluding resets the window. `ObserveWorkoutPlanInputsUseCase`
+keeps only the active exclusions and passes the ids through `WorkoutPlanSources` to
+`PlanRequest.excludedExerciseIds`; the Deterministic engine, `WeeklyPlanSanitizer`, `SubstituteExerciseUseCase`,
+and both model engines' candidate/available-id lists filter on it, so an exclusion can never be
+silently bypassed or restored. `CustomExerciseDedupe` reassigns an exclusion on merge (indefinite wins
+over dated; otherwise the later expiry). Manual routine authoring still allows an excluded exercise,
+marked as excluded, because exclusions gate generation, not an explicit user prescription. A plan that
+exclusions leave entirely without eligible work surfaces a non-transient `NO_ELIGIBLE_EXERCISES`
+failure; a merely partial plan keeps its existing behavior. Accepted/frozen plans, occurrences and
+recorded sets are never rewritten.
 
 - **Examples:** `WorkoutPlannerEngine`, `WorkoutPlannerEngineProvider`,
   `DefaultWorkoutPlannerEngineProvider`, `DeterministicWorkoutPlannerEngine`,

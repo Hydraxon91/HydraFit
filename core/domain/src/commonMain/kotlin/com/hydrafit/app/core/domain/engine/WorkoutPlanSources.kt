@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExercisePreference
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.workout.WorkoutSet
@@ -17,7 +18,9 @@ data class WorkoutPlanSources(
     val equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
     val personalRecords: List<PersonalRecord> = emptyList(),
     /** Explicit user preference per exercise id; absence means [ExercisePreference.NEUTRAL]. */
-    val exercisePreferences: Map<String, ExercisePreference> = emptyMap()
+    val exercisePreferences: Map<String, ExercisePreference> = emptyMap(),
+    /** EX-01 exclusions with their expiry; the observer keeps only the currently active ones. */
+    val exerciseExclusions: List<ExerciseExclusion> = emptyList()
 )
 
 interface WorkoutPlanSourcesRepository {

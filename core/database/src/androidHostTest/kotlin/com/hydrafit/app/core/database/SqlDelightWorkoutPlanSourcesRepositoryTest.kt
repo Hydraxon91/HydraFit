@@ -5,6 +5,7 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExercisePreference
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.WorkoutSet
@@ -43,6 +44,7 @@ class SqlDelightWorkoutPlanSourcesRepositoryTest {
         SeedEquipmentCatalog(database).seed()
         val records = SqlDelightPersonalRecordRepository(database, TimeProvider { 0L })
         val exercisePreferences = SqlDelightExercisePreferenceRepository(database)
+        val exerciseExclusions = SqlDelightExerciseExclusionRepository(database)
         val sources = SqlDelightWorkoutPlanSourcesRepository(
             equipment,
             preference,
@@ -50,7 +52,8 @@ class SqlDelightWorkoutPlanSourcesRepositoryTest {
             goal,
             equipmentCatalog,
             records,
-            exercisePreferences
+            exercisePreferences,
+            exerciseExclusions
         )
         equipment.setSelected(setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH))
         preference.setEngine(PlannerEngineId.GEMINI_API)
@@ -58,6 +61,7 @@ class SqlDelightWorkoutPlanSourcesRepositoryTest {
         goal.setGoal(TrainingGoal.HYPERTROPHY)
         equipmentCatalog.setMaxWeight(EquipmentTag.CABLE_MACHINE, 100.0)
         exercisePreferences.set("barbell-bench-press", ExercisePreference.PREFER)
+        exerciseExclusions.set(ExerciseExclusion("barbell-row"))
         workoutLog.add(
             WorkoutSet(
                 exerciseId = "barbell-bench-press",
@@ -79,6 +83,10 @@ class SqlDelightWorkoutPlanSourcesRepositoryTest {
         assertEquals(
             mapOf("barbell-bench-press" to ExercisePreference.PREFER),
             result.exercisePreferences
+        )
+        assertEquals(
+            listOf(ExerciseExclusion("barbell-row")),
+            result.exerciseExclusions
         )
     }
 }

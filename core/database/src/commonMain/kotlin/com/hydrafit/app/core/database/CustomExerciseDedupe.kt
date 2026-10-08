@@ -49,6 +49,7 @@ class CustomExerciseDedupe(private val database: HydraFitDatabase) {
                 mergePersonalRecord(custom.id, canonical.id)
                 mergeOverride(custom, canonical)
                 mergePreference(custom.id, canonical.id)
+                mergeExclusion(custom.id, canonical.id)
                 database.exerciseOverrideQueries.deleteById(custom.id)
                 database.exerciseQueries.deleteById(custom.id)
             }
@@ -100,6 +101,33 @@ class CustomExerciseDedupe(private val database: HydraFitDatabase) {
         } else {
             database.exercisePreferenceQueries.deleteById(customId)
         }
+    }
+
+    /**
+     * Moves an exclusion onto the merged seeded id. An indefinite exclusion wins over a dated one
+     * (the more protective choice); between two dated exclusions the later expiry wins.
+     */
+    private fun mergeExclusion(customId: String, canonicalId: String) {
+        val custom =
+            database.exerciseExclusionQueries.selectById(customId).executeAsOneOrNull() ?: return
+        val canonical =
+            database.exerciseExclusionQueries.selectById(canonicalId).executeAsOneOrNull()
+        if (canonical == null) {
+            database.exerciseExclusionQueries.updateExerciseId(
+                newId = canonicalId,
+                oldId = customId
+            )
+            return
+        }
+        val customWins = custom.expiresAt == null ||
+            (canonical.expiresAt != null && custom.expiresAt > canonical.expiresAt)
+        if (customWins) {
+            database.exerciseExclusionQueries.upsert(
+                exerciseId = canonicalId,
+                expiresAt = custom.expiresAt
+            )
+        }
+        database.exerciseExclusionQueries.deleteById(customId)
     }
 
     private fun mergeOverride(custom: Exercise, canonical: CatalogExercise) {

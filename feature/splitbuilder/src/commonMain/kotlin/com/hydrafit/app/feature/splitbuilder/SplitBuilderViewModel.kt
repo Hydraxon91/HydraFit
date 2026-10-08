@@ -361,6 +361,24 @@ class SplitBuilderViewModel(
         }
         try {
             val plan = generateWeeklySplit(request)
+            // Exclusions are a hard gate: when they (or equipment) leave no eligible exercise at all,
+            // surface an actionable failure instead of an empty week. A merely partial plan (some
+            // days empty) keeps the existing behavior.
+            if (plan.days.all { it.exercises.isEmpty() } &&
+                request.excludedExerciseIds.isNotEmpty()
+            ) {
+                _state.update {
+                    it.copy(
+                        plan = null,
+                        isLoading = false,
+                        hasError = true,
+                        isTransientError = false,
+                        errorDetail = null,
+                        failureReason = PlanFailureReason.NO_ELIGIBLE_EXERCISES
+                    )
+                }
+                return
+            }
             val names = exerciseCatalog.all().associate { it.id to it.name }
             lastGeneratedFingerprint = fingerprint
             // The plan now matches the current inputs, so a repeat tap would produce the same

@@ -27,6 +27,7 @@ import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngineProvider
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
@@ -746,6 +747,43 @@ class SplitBuilderViewModelTest {
         )
     )
 
+    @Test
+    fun exclusionLeavingNoEligibleWorkShowsAnActionableError() = runTest(dispatcher) {
+        val emptyEngine = object : WorkoutPlannerEngine {
+            override val id: PlannerEngineId = PlannerEngineId.DETERMINISTIC
+            override suspend fun generatePlan(request: PlanRequest) =
+                WeeklyPlan(PlannerEngineId.DETERMINISTIC, emptyList())
+        }
+        val history = FakePlanHistoryRepository()
+        val sources = FakeWorkoutPlanSourcesRepository(
+            FakeEquipmentSelectionRepository(emptySet()),
+            FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC),
+            FakeWorkoutLogRepository(),
+            exclusions = listOf(ExerciseExclusion("back-squat"))
+        )
+        val viewModel = SplitBuilderViewModel(
+            observeWorkoutPlanInputs = observeInputs(sources = sources),
+            generateWeeklySplit = GenerateWeeklySplitUseCase(
+                WorkoutPlannerEngineProvider { emptyEngine }
+            ),
+            planBuilderActions = planBuilderActions(
+                history = history,
+                catalog = FakeExerciseCatalog()
+            ),
+            planHistory = history,
+            exerciseCatalog = FakeExerciseCatalog(),
+            enginePreference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC)
+        )
+
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.hasError)
+        assertEquals(
+            PlanFailureReason.NO_ELIGIBLE_EXERCISES,
+            viewModel.state.value.failureReason
+        )
+    }
+
     private fun viewModel(
         availableEquipment: Set<EquipmentTag>,
         engine: WorkoutPlannerEngine? = null,
@@ -951,7 +989,8 @@ class SplitBuilderViewModelTest {
     private class FakeWorkoutPlanSourcesRepository(
         private val equipment: EquipmentSelectionRepository,
         private val preference: EnginePreferenceRepository,
-        private val workoutLog: WorkoutLogRepository
+        private val workoutLog: WorkoutLogRepository,
+        private val exclusions: List<ExerciseExclusion> = emptyList()
     ) : WorkoutPlanSourcesRepository {
         override fun observe(): Flow<WorkoutPlanSources> = combine(
             equipment.selectedFlow(),
@@ -963,7 +1002,8 @@ class SplitBuilderViewModelTest {
                 availableEquipment = availableEquipment,
                 selectedEngine = selectedEngine,
                 daysPerWeek = daysPerWeek,
-                loggedSets = loggedSets
+                loggedSets = loggedSets,
+                exerciseExclusions = exclusions
             )
         }
     }

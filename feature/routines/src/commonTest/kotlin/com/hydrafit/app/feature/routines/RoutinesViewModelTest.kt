@@ -4,6 +4,7 @@ import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.routine.ArchiveRoutineTemplateUseCase
@@ -41,6 +42,7 @@ import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
+import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -362,7 +364,8 @@ class RoutinesViewModelTest {
             scheduleActions = scheduleActions,
             exerciseCatalog = catalog,
             timeProvider = timeProvider,
-            weightUnitRepository = weightUnitRepository
+            weightUnitRepository = weightUnitRepository,
+            exclusionRepository = FakeExerciseExclusionRepository()
         )
     }
 
@@ -390,6 +393,16 @@ class RoutinesViewModelTest {
             )
         )
     )
+}
+
+private class FakeExerciseExclusionRepository : ExerciseExclusionRepository {
+    override fun observe(): Flow<List<ExerciseExclusion>> = flowOf(emptyList())
+
+    override suspend fun exclusion(exerciseId: String): ExerciseExclusion? = null
+
+    override suspend fun set(exclusion: ExerciseExclusion) = Unit
+
+    override suspend fun clear(exerciseId: String) = Unit
 }
 
 private class FakeCatalog : ExerciseCatalog {

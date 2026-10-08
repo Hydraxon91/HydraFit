@@ -11,7 +11,8 @@ val routinesModule: Module = module {
             scheduleActions = get(),
             exerciseCatalog = get(),
             timeProvider = get(),
-            weightUnitRepository = get()
+            weightUnitRepository = get(),
+            exclusionRepository = get()
         )
     }
 }

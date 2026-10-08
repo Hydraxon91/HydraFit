@@ -1477,6 +1477,28 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun excludedExerciseIsUnavailableToDeterministicGeneration() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                split = SplitType.PUSH_PULL_LEGS,
+                excludedExerciseIds = setOf("ohp"),
+                exercisePreferences = mapOf("ohp" to ExercisePreference.PREFER)
+            ),
+            listOf(
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER),
+                exercise("ohp", MovementPattern.VERTICAL_PUSH, MuscleGroup.SIDE_DELTS),
+                exercise("pushdown", MovementPattern.TRICEPS_ISOLATION, MuscleGroup.TRICEPS)
+            )
+        )
+
+        // Exclusion is a hard gate that even a PREFER preference cannot override.
+        assertTrue(
+            plan.days.flatMap { it.exercises }.none { it.exerciseId == "ohp" }
+        )
+    }
+
+    @Test
     fun pickFirstNonSoreSkipsTargetedOverSkipThreshold() {
         val sore = Exercise(
             id = "sore",
@@ -1548,6 +1570,7 @@ class DeterministicWorkoutPlannerEngineTest {
         suggestedWeightsKg: Map<String, Double> = emptyMap(),
         equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
         exercisePreferences: Map<String, ExercisePreference> = emptyMap(),
+        excludedExerciseIds: Set<String> = emptySet(),
         isDeload: Boolean = false
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
@@ -1562,6 +1585,7 @@ class DeterministicWorkoutPlannerEngineTest {
         suggestedWeightsKg = suggestedWeightsKg,
         equipmentMaxWeights = equipmentMaxWeights,
         exercisePreferences = exercisePreferences,
+        excludedExerciseIds = excludedExerciseIds,
         isDeload = isDeload
     )
 

@@ -37,6 +37,7 @@
     <string name="routines_picker_title">Choose exercise</string>
     <string name="routines_search_label">Search exercises</string>
     <string name="routines_picker_empty">No matching exercises</string>
+    <string name="routines_picker_excluded">%1$s (excluded)</string>
 
     <string name="routines_activate">Start this routine</string>
     <string name="routines_activation_title">Start training block</string>

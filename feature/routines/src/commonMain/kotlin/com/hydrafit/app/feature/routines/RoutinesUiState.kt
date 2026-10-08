@@ -10,8 +10,8 @@ import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
 
-/** A catalog exercise the routine editor can pick. */
-data class RoutineExerciseOption(val id: String, val name: String)
+/** A catalog exercise the routine editor can pick; [isExcluded] marks an EX-01 exclusion. */
+data class RoutineExerciseOption(val id: String, val name: String, val isExcluded: Boolean = false)
 
 /** One editable prescription slot; numbers stay as text until save so partial input is allowed. */
 data class EditorEntry(

@@ -28,7 +28,10 @@ class WeeklyPlanSanitizer(
             "accessorySetsPerExercise must be between $minSets and $maxSets"
         }
         val usable = catalog.all()
-            .filter { it.isAvailableWith(request.availableEquipment) }
+            .filter {
+                it.isAvailableWith(request.availableEquipment) &&
+                    it.id !in request.excludedExerciseIds
+            }
             .associateBy { it.id }
         val isDeload = request.isDeload
 

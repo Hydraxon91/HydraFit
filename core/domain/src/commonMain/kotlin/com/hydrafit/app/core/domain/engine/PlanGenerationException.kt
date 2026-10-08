@@ -29,6 +29,12 @@ enum class PlanFailureReason {
     /** The provider returned a response the app could not use (unparseable or unusable). */
     INVALID_RESPONSE,
 
+    /**
+     * No exercise was eligible for the requested plan because of the user's exclusions (and/or
+     * available equipment). Non-transient: the user must change exclusions or equipment, then retry.
+     */
+    NO_ELIGIBLE_EXERCISES,
+
     /** Anything not otherwise mapped. */
     UNKNOWN
 }

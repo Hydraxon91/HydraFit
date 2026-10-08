@@ -1,0 +1,9 @@
+-- EX-01 persistent exercise exclusions: a hard generation gate keyed by exercise id and independent
+-- of the catalog. expiresAt is an absolute UTC millisecond timestamp, or NULL for an indefinite
+-- exclusion. Expired rows are retained (never auto-deleted) and remain visible until re-enabled.
+-- The exclusion is required future OF-01 backup data; OF-01 itself is not implemented here.
+
+CREATE TABLE exerciseExclusion (
+    exerciseId TEXT NOT NULL PRIMARY KEY,
+    expiresAt INTEGER
+);

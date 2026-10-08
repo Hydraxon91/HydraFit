@@ -40,7 +40,10 @@ class LocalLlmWorkoutPlannerEngine(
 
     private suspend fun generateOnDevice(request: PlanRequest): WeeklyPlan {
         val availableExercises = catalog.all()
-            .filter { it.isAvailableWith(request.availableEquipment) }
+            .filter {
+                it.isAvailableWith(request.availableEquipment) &&
+                    it.id !in request.excludedExerciseIds
+            }
         val availableIds = availableExercises.map { it.id }
         val focusSequence = SplitResolver.focusSequence(
             request.splitPreference,

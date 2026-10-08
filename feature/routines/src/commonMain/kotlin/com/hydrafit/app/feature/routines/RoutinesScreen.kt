@@ -102,6 +102,7 @@ import hydrafit.feature.routines.generated.resources.routines_occurrence_schedul
 import hydrafit.feature.routines.generated.resources.routines_occurrence_skipped
 import hydrafit.feature.routines.generated.resources.routines_occurrence_unscheduled
 import hydrafit.feature.routines.generated.resources.routines_picker_empty
+import hydrafit.feature.routines.generated.resources.routines_picker_excluded
 import hydrafit.feature.routines.generated.resources.routines_picker_title
 import hydrafit.feature.routines.generated.resources.routines_postpone
 import hydrafit.feature.routines.generated.resources.routines_postpone_title
@@ -719,7 +720,16 @@ private fun ExercisePickerDialog(
                 } else {
                     matches.forEach { exercise ->
                         TextButton(onClick = { onSelected(exercise.id, exercise.name) }) {
-                            Text(exercise.name)
+                            Text(
+                                if (exercise.isExcluded) {
+                                    stringResource(
+                                        Res.string.routines_picker_excluded,
+                                        exercise.name
+                                    )
+                                } else {
+                                    exercise.name
+                                }
+                            )
                         }
                     }
                 }

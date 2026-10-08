@@ -36,10 +36,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hydrafit.app.core.domain.equipment.Equipment
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.ExercisePreference
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.time.isoLocalDateTime
 import com.hydrafit.app.core.domain.unit.formatWeight
 import hydrafit.feature.equipment.generated.resources.Res
 import hydrafit.feature.equipment.generated.resources.equipment_add_button
@@ -52,7 +54,15 @@ import hydrafit.feature.equipment.generated.resources.equipment_edit
 import hydrafit.feature.equipment.generated.resources.equipment_edit_reset
 import hydrafit.feature.equipment.generated.resources.equipment_edit_save
 import hydrafit.feature.equipment.generated.resources.equipment_equipment_section
+import hydrafit.feature.equipment.generated.resources.equipment_exclude_expired
+import hydrafit.feature.equipment.generated.resources.equipment_exclude_indefinite
+import hydrafit.feature.equipment.generated.resources.equipment_exclude_indefinitely
+import hydrafit.feature.equipment.generated.resources.equipment_exclude_until
+import hydrafit.feature.equipment.generated.resources.equipment_exclude_window
+import hydrafit.feature.equipment.generated.resources.equipment_exclusion_section
+import hydrafit.feature.equipment.generated.resources.equipment_exclusions_title
 import hydrafit.feature.equipment.generated.resources.equipment_exercise_section
+import hydrafit.feature.equipment.generated.resources.equipment_include
 import hydrafit.feature.equipment.generated.resources.equipment_load_bodyweight
 import hydrafit.feature.equipment.generated.resources.equipment_load_bodyweight_added
 import hydrafit.feature.equipment.generated.resources.equipment_load_external
@@ -130,10 +140,18 @@ fun EquipmentProfilerRoute(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val exercisePreferences by planningSettings.preferences.collectAsStateWithLifecycle()
+    val exclusions by planningSettings.exclusions.collectAsStateWithLifecycle()
+    val nowMillis = planningSettings.nowMillis()
+    val utcOffsetMillis = planningSettings.utcOffsetMillis()
     EquipmentProfilerScreen(
         state = state,
         exercisePreferences = exercisePreferences,
+        exclusions = exclusions,
+        nowMillis = nowMillis,
+        utcOffsetMillis = utcOffsetMillis,
         onExercisePreferenceChanged = planningSettings::onPreferenceChanged,
+        onExcludeExercise = planningSettings::onExclude,
+        onIncludeExercise = planningSettings::onInclude,
         onTagToggled = viewModel::onTagToggled,
         onNewEquipmentNameChanged = viewModel::onNewEquipmentNameChanged,
         onAddEquipment = viewModel::onAddEquipment,
@@ -171,7 +189,12 @@ fun EquipmentProfilerRoute(
 fun EquipmentProfilerScreen(
     state: EquipmentProfilerUiState,
     exercisePreferences: Map<String, ExercisePreference>,
+    exclusions: List<ExerciseExclusion>,
+    nowMillis: Long,
+    utcOffsetMillis: Long,
     onExercisePreferenceChanged: (String, ExercisePreference) -> Unit,
+    onExcludeExercise: (String, Boolean) -> Unit,
+    onIncludeExercise: (String) -> Unit,
     onTagToggled: (EquipmentTag) -> Unit,
     onNewEquipmentNameChanged: (String) -> Unit,
     onAddEquipment: () -> Unit,
@@ -285,6 +308,34 @@ fun EquipmentProfilerScreen(
                 }
             }
         }
+        if (exclusions.isNotEmpty()) {
+            Text(
+                text = stringResource(Res.string.equipment_exclusions_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+            val names = state.exercises.associate { it.id to it.name }
+            exclusions.sortedBy { names[it.exerciseId] ?: it.exerciseId }.forEach { exclusion ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = names[exclusion.exerciseId] ?: exclusion.exerciseId,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Text(
+                            text = exclusionSummary(exclusion, nowMillis, utcOffsetMillis),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    TextButton(onClick = { onIncludeExercise(exclusion.exerciseId) }) {
+                        Text(stringResource(Res.string.equipment_include))
+                    }
+                }
+            }
+        }
     }
 
     if (state.equipmentEditor.isOpen) {
@@ -298,13 +349,20 @@ fun EquipmentProfilerScreen(
         )
     }
     if (state.exerciseEditor.isOpen) {
+        val editorExerciseId = state.exerciseEditor.exerciseId
         ExerciseEditorDialog(
             state = state.exerciseEditor,
             equipment = state.equipment,
-            preference = state.exerciseEditor.exerciseId
+            preference = editorExerciseId
                 ?.let { exercisePreferences[it] }
                 ?: ExercisePreference.NEUTRAL,
+            exclusion = editorExerciseId
+                ?.let { id -> exclusions.firstOrNull { it.exerciseId == id } },
+            nowMillis = nowMillis,
+            utcOffsetMillis = utcOffsetMillis,
             onPreferenceChanged = onExercisePreferenceChanged,
+            onExclude = onExcludeExercise,
+            onInclude = onIncludeExercise,
             onNameChanged = onEditorNameChanged,
             onPatternChanged = onEditorPatternChanged,
             onEquipmentToggled = onEditorEquipmentToggled,
@@ -550,7 +608,12 @@ private fun ExerciseEditorDialog(
     state: ExerciseEditorState,
     equipment: List<Equipment>,
     preference: ExercisePreference,
+    exclusion: ExerciseExclusion?,
+    nowMillis: Long,
+    utcOffsetMillis: Long,
     onPreferenceChanged: (String, ExercisePreference) -> Unit,
+    onExclude: (String, Boolean) -> Unit,
+    onInclude: (String) -> Unit,
     onNameChanged: (String) -> Unit,
     onPatternChanged: (MovementPattern) -> Unit,
     onEquipmentToggled: (EquipmentTag) -> Unit,
@@ -703,6 +766,40 @@ private fun ExerciseEditorDialog(
                         )
                     }
                 }
+                state.exerciseId?.let { exerciseId ->
+                    Text(
+                        text = stringResource(Res.string.equipment_exclusion_section),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    val exclusionActive = exclusion?.isActive(nowMillis) == true
+                    if (exclusion != null) {
+                        Text(
+                            text = exclusionSummary(exclusion, nowMillis, utcOffsetMillis),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        TextButton(onClick = { onInclude(exerciseId) }) {
+                            Text(stringResource(Res.string.equipment_include))
+                        }
+                    }
+                    if (!exclusionActive) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = false,
+                                onClick = { onExclude(exerciseId, false) },
+                                label = {
+                                    Text(stringResource(Res.string.equipment_exclude_window))
+                                }
+                            )
+                            FilterChip(
+                                selected = false,
+                                onClick = { onExclude(exerciseId, true) },
+                                label = {
+                                    Text(stringResource(Res.string.equipment_exclude_indefinite))
+                                }
+                            )
+                        }
+                    }
+                }
                 state.error?.let { message ->
                     Text(
                         text = message,
@@ -817,6 +914,23 @@ private fun involvementTierLabel(weight: Double): StringResource = when (weight)
     0.5 -> Res.string.equipment_tier_mid
     0.7 -> Res.string.equipment_tier_high
     else -> Res.string.equipment_tier_primary
+}
+
+@Composable
+private fun exclusionSummary(
+    exclusion: ExerciseExclusion,
+    nowMillis: Long,
+    utcOffsetMillis: Long
+): String {
+    val expiresAt = exclusion.expiresAtMillis
+    return when {
+        expiresAt == null -> stringResource(Res.string.equipment_exclude_indefinitely)
+        !exclusion.isActive(nowMillis) -> stringResource(Res.string.equipment_exclude_expired)
+        else -> stringResource(
+            Res.string.equipment_exclude_until,
+            isoLocalDateTime(expiresAt, utcOffsetMillis).substringBefore(' ')
+        )
+    }
 }
 
 @Composable
