@@ -79,8 +79,8 @@ Versions are assigned when a release scope is agreed; they do **not** grant impl
 
 | Chunk | Scope | Exit gate |
 | --- | --- | --- |
-| **0.4-C1 — VOL-01 policy and scope contract** | Investigate and decide direct vs indirect credit, evidence limits, per-muscle/goal targets, TRAPS targeting, priorities relative to fatigue/equipment/session limits, unmet-target behavior, and whether the policy applies to Deterministic only or shared model-engine validation. Specify synthetic cases and locked replay treatment. | Approved behavior contract confirms substantive scope; no code in this chunk. |
-| **0.4-C2 — VOL-01 implementation** | Implement the bounded change within the existing planner architecture. Do not add a fourth engine or alter fatigue/catalog weights to force exercise selection. Test feasible and infeasible targets, equipment constraints, fatigue, goals and training frequency. Verify downstream consumers and all-engine compatibility; preserve locked replay figures or re-baseline them explicitly and atomically. | Domain regression tests; full host-test suite, ktlint, debug assembly and iOS compile; emulator smoke. Any real-data check uses the approved throwaway harness and read-only-copy rules. |
+| **0.4-C1 — VOL-01 policy and scope contract** | Investigate and decide direct vs indirect credit, evidence limits, per-muscle/goal targets, TRAPS targeting, priorities relative to fatigue/equipment/session limits, unmet-target behavior, and whether the policy applies to Deterministic only or shared model-engine validation. Specify synthetic cases and locked replay treatment. **Direction selected for the proposal:** dedicated biceps and triceps coverage across all training goals; this is a planner/product promise, not a claim that one dose is physiologically sufficient or optimal. Exact weekly set objective and direct-work classification remain to be settled before C2. | Approved behavior contract confirms substantive scope; no code in this chunk. |
+| **0.4-C2 — VOL-01 implementation** | Implement the approved bounded policy within the existing planner architecture. Ensure feasible dedicated biceps and triceps isolation-set coverage across all goals without letting compound involvement-weighted estimates erase that coverage; account for compound contribution separately and label it as an estimate. Reserve compatible weekly accessory capacity before discretionary accessory filling; preserve equipment and soreness constraints, selected set counts/reps, day exercise caps, and deload reduction. Return partial plans with truthful unmet-coverage reasons when constraints prevent coverage. Share coverage accounting with downstream consumers and AI output assessment, but do not hard-reject model plans solely for unmet direct-arm coverage unless separately approved. Do not add a fourth engine or alter fatigue/catalog weights to force exercise selection. Test feasible/infeasible candidates, equipment, fatigue, goals, frequency, set overrides, deloads, substitutions and history stability. Preserve locked fatigue replay figures; re-baseline affected planner-selection expectations explicitly and atomically. | Domain regression tests; full host-test suite, ktlint, debug assembly and iOS compile; emulator smoke. Any real-data check uses the approved throwaway harness and read-only-copy rules. |
 | **0.4-C3 — EX-01 persistent exclusions** | Settle global/profile ownership, expiry, manual-routine behavior, accepted-plan semantics and no-candidate behavior. Implement persistence and migration if required, shared candidate filtering/validation for the approved engines, and UI. Cover interaction with VOL-01 and equipment constraints. | Exclusions cannot be silently bypassed; infeasible candidate sets are actionable; migration and Koin verification pass where applicable; downstream tests pass. |
 | **0.4-C4 — OF-03 volume-explanation slice** | Bring forward only explanations tied to VOL-01: direct-set count vs clearly labelled estimated indirect contribution, approved target/range, truthful unmet-target reasons, and honest distinction between deterministic policy results and AI-generated suggestions. Decide at its own contract gate whether explanations are persisted or reconstructed and how legacy plans behave. Do not expand this slice to load, progression or deload explanations. | Explanations correspond to the calculation/output that produced the plan and never fabricate a deterministic rationale for AI output. |
 | **0.4-C5 — integration, review and release** | Verify interactions across volume policy, exclusions, equipment, all engines, accepted plans, routines and frozen activations. Review the complete delta from the latest shipped 0.3.x tag; perform applicable upgrade/release verification; sync living docs and the `hydrafit-mechanics` skill; prepare and publish `v0.4.0` through the existing release workflow. | Required tests/builds pass, bounded review is APPROVED, docs match shipped behavior, signed release artifact is verified. |
@@ -113,14 +113,63 @@ CAT-P1's hold condition (C1–C5) is met. Later release numbers are provisional 
 | LT-11 | Basic summary after Finish workout, with honest target/actual and comparable exercise-level facts | OF-13, M4; richer records OF-04, M5; no universal percent-better score |
 | LT-12 / CAT-02 | Offline recognized-name/translated-alias profile suggestions with preview/confirmation | Optional M2 editor enhancement; stable catalog identity/alias contract first |
 
-**VOL-01 — direct/indirect volume policy, not a fourth planner engine.** The audit
-used production repositories/calculator/engine: acceptance-time reconstruction
-matched arm allocations but not the entire historical plan. Current accounting
-credits compounds with 7.6 biceps and 10 triceps weighted sets; availability is not
-the limiting explanation. First approve direct/indirect definitions, evidence,
-goal/per-muscle targets, priorities, session-length and unmet-target behavior.
-Then propose a bounded change inside the existing engine with synthetic regression
-fixtures and all-engine downstream verification. Do not equate EMG weights with
+**VOL-01 — dedicated arm coverage and honest volume accounting, not a fourth planner engine.**
+The production-repository audit reconstructed the accepted plan's arm allocation,
+but not its full historical generation request. That plan had **2 direct biceps and
+4 direct triceps isolation sets**; resolving its exercise IDs against the current
+override-aware catalog yielded **7.6 biceps and 10.0 triceps compound
+involvement-weighted credits** (9.6/14.0 total). For its ENDURANCE goal the current
+weighted target was 9, so compound credits could satisfy the selector without
+requiring more direct arm work. Six biceps and three triceps isolation candidates
+were available; availability alone did not explain the low direct allocation.
+These are planner-accounting observations, not evidence of inadequate growth or a
+physiological need for more arm work. Exact historical generation remains unverified.
+
+**Evidence limits and research context (reviewed 2026-10-08).** Pelland et al. (2026,
+https://doi.org/10.1007/s40279-025-02344-w) found fractional counting of indirect
+sets (0.5, compared with 0 or 1) had the strongest relative evidence among tested
+models; it does not validate HydraFit's per-exercise EMG involvement tiers as set
+equivalents. Schoenfeld et al. (2019, https://doi.org/10.3390/sports7070177)
+describe the limits of EMG-based credit and heterogeneous longitudinal evidence.
+Arm-specific comparisons are mixed: pulldown vs curl produced similar elbow-flexor
+thickness changes in one small 10-week study of untrained men (Gentil et al. 2015,
+https://doi.org/10.5812/asjsm.24057); a small 8-week within-subject study found
+greater elbow-flexor thickness change with curls than rows (Mannarino et al. 2021,
+https://doi.org/10.1519/JSC.0000000000003234); adding isolation to compounds did not
+show additional benefit in another 10-week untrained-men study (Gentil et al. 2013,
+https://doi.org/10.1139/apnm-2012-0176). Overhead vs neutral elbow extensions
+produced different triceps growth in a 21-person, 12-week study (Maeo et al. 2023,
+https://doi.org/10.1080/17461391.2022.2100279), but does not prove everyone needs
+multiple triceps exercises. The ACSM 2026 overview (137 reviews,
+https://doi.org/10.1249/MSS.0000000000003897) reports higher volume (at least 10
+sets/muscle group/week) enhances hypertrophy, while stating the exact set count to
+optimize adaptation cannot be established; it does not prescribe 10 direct arm
+sets. These findings support keeping direct and estimated indirect contributions
+distinct, not a universal direct-set minimum, a 0.7 biological boundary, or a single
+optimal dose for all goals.
+
+**Selected product direction:** aim to provide dedicated biceps and triceps
+isolation work in plans for **all training goals**. This is a coverage promise, not
+a claim that the chosen set objective guarantees growth or is optimal. Count direct
+work from qualifying `BICEPS_ISOLATION`/`TRICEPS_ISOLATION` prescriptions, not from
+secondary-muscle involvement thresholds; do not treat 0.7 as a physiological cutoff.
+Track compound contribution separately as an estimate so that it cannot erase the
+direct-work objective. The exact weekly set objective, how custom exercises qualify,
+and any goal-specific differences remain decisions to settle before C2; the
+literature does not supply a universal table. Prefer spreading coverage across
+compatible days where the resolved split permits, without requiring multiple
+distinct exercise names or changing user-selected sets/reps. Preserve equipment,
+fatigue/soreness, day-cap and deload constraints; partial plans with unmet coverage
+are returned with truthful reasons rather than rejected.
+
+**Implementation direction:** reserve compatible weekly accessory capacity for
+the selected direct-arm objectives before filling discretionary accessories in the
+existing Deterministic engine. Evaluate shared direct/estimated coverage for model
+outputs, provide advisory prompt guidance, and do not reject AI plans solely for
+missing direct-arm coverage unless separately approved. Existing accepted plans
+and frozen activations are not automatically rewritten; explicit accepted-plan
+substitution remains supported. Keep TRAPS excluded from this arm-coverage policy
+and retain its existing boundary/fatigue behavior. Do not equate EMG weights with
 validated hypertrophy set credit or change fatigue/catalog weights to force picks.
 
 **WU-01 — warm-up guidance.** Contract/content phase selects short editable
