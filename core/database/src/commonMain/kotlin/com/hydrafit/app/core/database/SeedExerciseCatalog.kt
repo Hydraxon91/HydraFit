@@ -35,6 +35,15 @@ class SeedExerciseCatalog(private val database: HydraFitDatabase) {
             // Bring pre-existing built-in rows onto the CAT-P0 tier scale (0.6/0.4/0.2 -> 0.7/0.5/0.3).
             // Only affects seed-owned weights; custom rows, user overrides and logged snapshots are untouched.
             database.exerciseQueries.normalizeLegacyInvolvementWeights()
+            // Rewrite built-in rows that still hold pre-MUS-P1 broad muscle names (CHEST/BACK/
+            // SHOULDERS/CORE) from the current seed, so an upgraded install matches a fresh one.
+            // Idempotent: the legacy tokens are gone after the first repair.
+            DefaultExercises.all.forEach { exercise ->
+                database.exerciseQueries.repairLegacyInvolvementNames(
+                    involvements = encodeInvolvements(exercise.effectiveInvolvements),
+                    id = exercise.id
+                )
+            }
         }
     }
 }

@@ -2,6 +2,7 @@ package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.hydrafit.app.core.domain.equipment.MovementPatternGuardrail
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -187,6 +188,58 @@ class SeedExerciseCatalogTest {
         assertEquals(
             mapOf(MuscleGroup.QUADS to 0.6),
             byId.getValue("user-custom").involvements
+        )
+    }
+
+    @Test
+    fun repairsLegacyInvolvementNamesOnBuiltIns() = runTest {
+        SeedExerciseCatalog(database).seed()
+        driver.execute(
+            identifier = null,
+            sql = "UPDATE exercise SET involvements = 'BACK:1.0,BICEPS:0.5' " +
+                "WHERE id = 'dumbbell-row'",
+            parameters = 0
+        )
+
+        SeedExerciseCatalog(database).seed()
+
+        val row = SqlDelightExerciseCatalog(database).all().first { it.id == "dumbbell-row" }
+        assertEquals(
+            mapOf(
+                MuscleGroup.BICEPS to 0.5,
+                MuscleGroup.LATS to 1.0,
+                MuscleGroup.UPPER_BACK to 1.0
+            ),
+            row.involvements
+        )
+        assertFalse(
+            MovementPatternGuardrail.conflicts(row.movementPattern, row.effectiveInvolvements)
+        )
+    }
+
+    @Test
+    fun legacyInvolvementRepairLeavesCustomRowsUntouched() = runTest {
+        SeedExerciseCatalog(database).seed()
+        database.exerciseQueries.insertCustom(
+            id = "user-legacy",
+            name = "User Legacy",
+            requiredEquipment = "BARBELL",
+            movementPattern = "HORIZONTAL_PULL",
+            isUnilateral = 0L,
+            loadCapability = "EXTERNAL",
+            involvements = "BACK:1.0"
+        )
+
+        SeedExerciseCatalog(database).seed()
+
+        val row = SqlDelightExerciseCatalog(database).all().first { it.id == "user-legacy" }
+        assertEquals(
+            mapOf(
+                MuscleGroup.LATS to 0.5,
+                MuscleGroup.UPPER_BACK to 0.35,
+                MuscleGroup.LOWER_BACK to 0.15
+            ),
+            row.involvements
         )
     }
 }

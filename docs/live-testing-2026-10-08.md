@@ -142,6 +142,23 @@ row's decoded involvements must satisfy `MovementPatternGuardrail` (or carry a d
 exemption), plus migration-chain coverage. Because this corrects a shipped contract, it is a
 **patch-level** release candidate.
 
+### Fresh-install conflicts surfaced by the guardrail test (separate decision)
+
+The new catalog-wide check also found five rows that conflict on a **fresh** install (not the
+legacy-string defect):
+
+- `upright-barbell-row` (HORIZONTAL_PULL, primary FRONT/SIDE_DELTS 0.7, UPPER_BACK 0.5)
+- `upright-cable-row` (VERTICAL_PULL, TRAPS 0.7, FRONT/SIDE_DELTS 0.5)
+- `cable-deadlifts` (HINGE, QUADS 1.0, posterior chain ≤0.5)
+- `band-hip-adductions`, `cable-hip-adduction` (LEG_ISOLATION, ADDUCTORS 1.0)
+
+Each is a pattern/involvement **classification disagreement**, needing a decision — reclassify the
+pattern, extend the guardrail's expected-muscle set (e.g. `ADDUCTORS`/`HIP_ABDUCTORS` for leg
+isolation and `TRAPS` for upright-row trap work, which the 21-group split left out), or correct the
+involvement weights from a source. They are **not** fixed in CAT-P6; the data-quality test pins
+them in a `knownPatternConflicts` set so no *new* conflict slips in, and fixing them is a
+separately gated catalog decision.
+
 ---
 
 ## 4. Custom-exercise profile suggestions (LT-12 / CAT-02)
@@ -218,7 +235,8 @@ unless it is revived.)
 - LT-13: editable field set; one-off vs persistent edit; time policy; legacy-resolution
   interaction; whether blank weight blocks Confirm.
 - CAT-P6: migration mechanism (a)/(b)/(c); whether any historical snapshot is affected; patch
-  release versus normal chunk.
+  release versus normal chunk. **Follow-up:** which of the five fresh-install pattern conflicts to
+  fix and how (reclassify pattern / extend guardrail expected muscles / correct weights).
 - EX-03 (deferred): qualifying exercises and sources; notice vs acknowledgment gate; storage/OF-01
   impact.
 - CAT-P7: exact row list, grip variants and citations; whether "front"/naming changes affect

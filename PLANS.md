@@ -416,6 +416,14 @@ unaffected. Historical `workoutSet` snapshots are not rewritten. Recommended mec
 idempotent startup repair of legacy-named built-in rows plus a catalog-wide guardrail regression
 test; patch-level release.
 
+**CAT-P6 follow-up — fresh-install pattern conflicts.** The new catalog-wide guardrail
+data-quality test also surfaced five rows that conflict on a fresh install
+(`upright-barbell-row`, `upright-cable-row`, `cable-deadlifts`, `band-hip-adductions`,
+`cable-hip-adduction`). These are pattern/involvement classification disagreements needing a
+decision (reclassify the pattern, extend the guardrail's expected muscles left out by the
+21-group split, or correct the weights), not the legacy-string defect; they are pinned in the
+test's `knownPatternConflicts` set and not fixed in CAT-P6.
+
 **LT-13 — Logger drafts.** Draft rows currently offer only Confirm/Dismiss
 (`WorkoutLoggerScreen.kt:402-436`) and a null load logs as no weight. Add an overflow editor and
 reuse the existing `legacyResolution` prompt pattern when a recommendation is absent.

@@ -2,6 +2,7 @@ package com.hydrafit.app.core.database
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.equipment.MovementPatternGuardrail
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -78,6 +79,39 @@ class DefaultExercisesDataQualityTest {
             exercise.involvements.map { (muscle, weight) -> Triple(exercise.id, muscle, weight) }
         }.filter { (_, _, weight) -> weight !in tierScale }
         assertTrue(bad.isEmpty(), "Weights off the 0.3/0.5/0.7/1.0 scale: $bad")
+    }
+
+    /**
+     * Known pattern/involvement disagreements in the fresh seed. Each is a catalog classification
+     * decision (reclassify the pattern, extend the guardrail's expected-muscle set, or correct the
+     * weights) tracked separately in `docs/live-testing-2026-10-08.md`; none is a regression.
+     * Listing them keeps this test strict: any *new* conflict still fails, and fixing one prompts
+     * an update here.
+     */
+    private val knownPatternConflicts = setOf(
+        "upright-barbell-row",
+        "upright-cable-row",
+        "cable-deadlifts",
+        "band-hip-adductions",
+        "cable-hip-adduction"
+    )
+
+    @Test
+    fun everyRowPassesTheMovementPatternGuardrailExceptKnownConflicts() {
+        val conflicts = catalog
+            .filter { exercise ->
+                MovementPatternGuardrail.conflicts(
+                    exercise.movementPattern,
+                    exercise.effectiveInvolvements
+                )
+            }
+            .map { it.id }
+            .toSet()
+        assertEquals(
+            knownPatternConflicts,
+            conflicts,
+            "Pattern/involvement conflicts changed; update the known-conflicts set if intended"
+        )
     }
 
     @Test

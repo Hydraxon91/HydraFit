@@ -61,3 +61,19 @@ normalizeLegacyInvolvementWeights:
 UPDATE exercise
 SET involvements = REPLACE(REPLACE(REPLACE(involvements, ':0.6', ':0.7'), ':0.4', ':0.5'), ':0.2', ':0.3')
 WHERE isCustom = 0 AND involvements IS NOT NULL;
+
+-- One-time (idempotent) repair of built-in rows whose stored involvement string still uses the
+-- pre-MUS-P1 broad muscle names (CHEST/BACK/SHOULDERS/CORE). The value is written from the current
+-- seed so an upgraded install matches a fresh one; after the first repair no legacy token remains.
+-- The anchored LIKE patterns avoid matching the split names (CHEST_UPPER:, UPPER_BACK:, ...), and
+-- custom rows, user overrides and historical snapshots are never touched.
+repairLegacyInvolvementNames:
+UPDATE exercise
+SET involvements = ?
+WHERE id = ? AND isCustom = 0 AND involvements IS NOT NULL
+    AND (
+        involvements LIKE 'CHEST:%' OR involvements LIKE '%,CHEST:%'
+        OR involvements LIKE 'BACK:%' OR involvements LIKE '%,BACK:%'
+        OR involvements LIKE 'SHOULDERS:%' OR involvements LIKE '%,SHOULDERS:%'
+        OR involvements LIKE 'CORE:%' OR involvements LIKE '%,CORE:%'
+    );
