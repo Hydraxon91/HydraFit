@@ -27,10 +27,12 @@ import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngineProvider
+import com.hydrafit.app.core.domain.engine.toWeeklyPlan
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.equipment.ExercisePreference
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
@@ -102,7 +104,7 @@ class SplitBuilderViewModelTest {
         val plan = viewModel.state.value.plan
         assertEquals(4, plan?.days?.size)
         val ids = plan!!.days.flatMap { day -> day.exercises.map { it.exerciseId } }.toSet()
-        assertEquals(setOf("goblet-squat"), ids)
+        assertEquals(setOf("goblet-squat", "dumbbell-press", "dumbbell-row"), ids)
         assertEquals("Goblet Squat", viewModel.state.value.exerciseNames["goblet-squat"])
     }
 
@@ -122,13 +124,12 @@ class SplitBuilderViewModelTest {
     }
 
     @Test
-    fun producesDaysWithNoExercisesWhenNoEquipmentIsSelected() = runTest(dispatcher) {
+    fun noEquipmentShowsAnActionableEligibilityFailure() = runTest(dispatcher) {
         val viewModel = viewModel(availableEquipment = emptySet())
         advanceUntilIdle()
 
-        val days = viewModel.state.value.plan!!.days
-        assertEquals(4, days.size)
-        assertTrue(days.all { it.exercises.isEmpty() })
+        assertNull(viewModel.state.value.plan)
+        assertEquals(PlanFailureReason.NO_ELIGIBLE_EXERCISES, viewModel.state.value.failureReason)
     }
 
     @Test
@@ -345,7 +346,8 @@ class SplitBuilderViewModelTest {
         val viewModel = viewModel(availableEquipment = emptySet(), equipmentRepository = equipment)
         advanceUntilIdle()
 
-        assertTrue(viewModel.state.value.plan!!.days.all { it.exercises.isEmpty() })
+        assertNull(viewModel.state.value.plan)
+        assertEquals(PlanFailureReason.NO_ELIGIBLE_EXERCISES, viewModel.state.value.failureReason)
 
         equipment.setSelected(setOf(EquipmentTag.DUMBBELL))
         advanceUntilIdle()
@@ -353,7 +355,7 @@ class SplitBuilderViewModelTest {
         val ids = viewModel.state.value.plan!!.days
             .flatMap { day -> day.exercises.map { it.exerciseId } }
             .toSet()
-        assertEquals(setOf("goblet-squat"), ids)
+        assertEquals(setOf("goblet-squat", "dumbbell-press", "dumbbell-row"), ids)
     }
 
     @Test
@@ -788,7 +790,7 @@ class SplitBuilderViewModelTest {
     )
 
     @Test
-    fun exclusionLeavingNoEligibleWorkShowsAnActionableError() = runTest(dispatcher) {
+    fun emptyOutputDoesNotAttributeAnUnrelatedExclusionAsTheCause() = runTest(dispatcher) {
         val emptyEngine = object : WorkoutPlannerEngine {
             override val id: PlannerEngineId = PlannerEngineId.DETERMINISTIC
             override suspend fun generatePlan(request: PlanRequest) =
@@ -819,10 +821,122 @@ class SplitBuilderViewModelTest {
 
         assertTrue(viewModel.state.value.hasError)
         assertEquals(
-            PlanFailureReason.NO_ELIGIBLE_EXERCISES,
+            PlanFailureReason.NO_USABLE_EXERCISES,
             viewModel.state.value.failureReason
         )
     }
+
+    @Test
+    fun standingSettingsPreserveDraftAndAcceptedPlansUntilExplicitGeneration() =
+        runTest(dispatcher) {
+            for (accepted in listOf(false, true)) {
+                val history = FakePlanHistoryRepository()
+                if (accepted) history.accept(acceptedPlan().copy(id = 1L))
+                val source = MutableStateFlow(
+                    WorkoutPlanSources(
+                        availableEquipment = setOf(EquipmentTag.DUMBBELL, EquipmentTag.BARBELL),
+                        selectedEngine = PlannerEngineId.GEMINI_API,
+                        daysPerWeek = 4,
+                        loggedSets = emptyList()
+                    )
+                )
+                val requests = mutableListOf<PlanRequest>()
+                val engine = object : WorkoutPlannerEngine {
+                    override val id = PlannerEngineId.GEMINI_API
+                    override suspend fun generatePlan(request: PlanRequest): WeeklyPlan {
+                        requests += request
+                        return acceptedPlan().toWeeklyPlan()
+                    }
+                }
+                val model = viewModel(
+                    availableEquipment = source.value.availableEquipment,
+                    engine = engine,
+                    planHistory = history,
+                    sourcesRepository = object : WorkoutPlanSourcesRepository {
+                        override fun observe(): Flow<WorkoutPlanSources> = source
+                    }
+                )
+                advanceUntilIdle()
+                val shown = model.state.value.plan
+                val initialRequests = requests.size
+                source.value = source.value.copy(
+                    exercisePreferences = mapOf("back-squat" to ExercisePreference.PREFER)
+                )
+                advanceUntilIdle()
+                source.value = source.value.copy(
+                    exerciseExclusions = listOf(ExerciseExclusion("back-squat"))
+                )
+                advanceUntilIdle()
+                model.refreshContext()
+                advanceUntilIdle()
+                assertEquals(shown, model.state.value.plan)
+                assertEquals(accepted, model.state.value.isPlanAccepted)
+                assertEquals(initialRequests, requests.size)
+                assertTrue(model.state.value.canRegenerate)
+                model.refresh()
+                advanceUntilIdle()
+                assertEquals(initialRequests + 1, requests.size)
+                assertEquals(setOf("back-squat"), requests.last().excludedExerciseIds)
+                assertEquals(
+                    ExercisePreference.PREFER,
+                    requests.last().exercisePreferences["back-squat"]
+                )
+            }
+        }
+
+    @Test
+    fun swapsRefreshExpiryWithoutARepositoryEmissionAndRevalidateAtConfirmation() =
+        runTest(dispatcher) {
+            var now = 99L
+            val history = FakePlanHistoryRepository()
+            history.accept(acceptedPlan().copy(id = 1L))
+            val source = MutableStateFlow(
+                WorkoutPlanSources(
+                    availableEquipment = setOf(EquipmentTag.DUMBBELL, EquipmentTag.BARBELL),
+                    selectedEngine = PlannerEngineId.DETERMINISTIC,
+                    daysPerWeek = 4,
+                    loggedSets = emptyList(),
+                    exerciseExclusions = listOf(ExerciseExclusion("back-squat", 100L))
+                )
+            )
+            val model = viewModel(
+                availableEquipment = source.value.availableEquipment,
+                planHistory = history,
+                timeProvider = TimeProvider { now },
+                sourcesRepository = object : WorkoutPlanSourcesRepository {
+                    override fun observe(): Flow<WorkoutPlanSources> = source
+                }
+            )
+            advanceUntilIdle()
+            model.onSwapRequested(0, 0)
+            advanceUntilIdle()
+            assertTrue(model.state.value.swapCandidates.isEmpty())
+            now = 100L
+            model.onSwapRequested(0, 0)
+            advanceUntilIdle()
+            assertEquals(
+                listOf("back-squat"),
+                model.state.value.swapCandidates.map {
+                    it.exerciseId
+                }
+            )
+            // No flow emission: moving the clock before expiry must still reject confirmation.
+            now = 99L
+            model.onSwapCandidateSelected("back-squat")
+            advanceUntilIdle()
+            assertTrue(model.state.value.swapNoCandidates)
+            assertEquals(
+                "goblet-squat",
+                history.latest()!!.days.single().exercises.single().exerciseId
+            )
+            now = 100L
+            model.onSwapCandidateSelected("back-squat")
+            advanceUntilIdle()
+            assertEquals(
+                "back-squat",
+                history.latest()!!.days.single().exercises.single().exerciseId
+            )
+        }
 
     private fun viewModel(
         availableEquipment: Set<EquipmentTag>,
@@ -832,16 +946,21 @@ class SplitBuilderViewModelTest {
         equipmentRepository: EquipmentSelectionRepository =
             FakeEquipmentSelectionRepository(availableEquipment),
         workoutLogRepository: FakeWorkoutLogRepository = FakeWorkoutLogRepository(),
-        planHistory: FakePlanHistoryRepository = FakePlanHistoryRepository()
+        planHistory: FakePlanHistoryRepository = FakePlanHistoryRepository(),
+        sourcesRepository: WorkoutPlanSourcesRepository? = null,
+        timeProvider: TimeProvider = TimeProvider { 0L }
     ): SplitBuilderViewModel {
         val catalog = FakeExerciseCatalog()
-        val sources = FakeWorkoutPlanSourcesRepository(
+        val sources = sourcesRepository ?: FakeWorkoutPlanSourcesRepository(
             equipment = equipmentRepository,
             preference = preference,
             workoutLog = workoutLogRepository
         )
         return SplitBuilderViewModel(
-            observeWorkoutPlanInputs = observeInputs(sources = sources),
+            observeWorkoutPlanInputs = observeInputs(
+                sources = sources,
+                timeProvider = timeProvider
+            ),
             generateWeeklySplit = GenerateWeeklySplitUseCase(
                 WorkoutPlannerEngineProvider {
                     engine ?: DeterministicWorkoutPlannerEngine(catalog)
@@ -952,11 +1071,12 @@ class SplitBuilderViewModelTest {
 
     private fun observeInputs(
         sources: WorkoutPlanSourcesRepository,
-        planHistoryRepository: PlanHistoryRepository = EmptyPlanHistoryRepository
+        planHistoryRepository: PlanHistoryRepository = EmptyPlanHistoryRepository,
+        timeProvider: TimeProvider = TimeProvider { 0L }
     ) = ObserveWorkoutPlanInputsUseCase(
         sources = sources,
         calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
-        timeProvider = TimeProvider { 0L },
+        timeProvider = timeProvider,
         planHistoryRepository = planHistoryRepository,
         buildPlannerLoadInputs = BuildPlannerLoadInputsUseCase(
             catalog = FakeExerciseCatalog(),
@@ -1090,6 +1210,20 @@ class SplitBuilderViewModelTest {
                 requiredEquipment = setOf(EquipmentTag.BARBELL),
                 primaryMuscles = setOf(MuscleGroup.QUADS),
                 movementPattern = MovementPattern.SQUAT
+            ),
+            Exercise(
+                id = "dumbbell-press",
+                name = "Dumbbell Press",
+                requiredEquipment = setOf(EquipmentTag.DUMBBELL),
+                primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
+                movementPattern = MovementPattern.HORIZONTAL_PUSH
+            ),
+            Exercise(
+                id = "dumbbell-row",
+                name = "Dumbbell Row",
+                requiredEquipment = setOf(EquipmentTag.DUMBBELL),
+                primaryMuscles = setOf(MuscleGroup.LATS),
+                movementPattern = MovementPattern.HORIZONTAL_PULL
             )
         )
 

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.routine.RoutineEntry
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
@@ -47,7 +48,7 @@ class RoutinesViewModel(
     private var occurrencesJob: Job? = null
     private var exerciseCapabilities: Map<String, ExerciseLoadCapability> = emptyMap()
     private var catalogExerciseNames: List<Pair<String, String>> = emptyList()
-    private var excludedExerciseIds: Set<String> = emptySet()
+    private var exerciseExclusions: List<ExerciseExclusion> = emptyList()
 
     /**
      * Bumping this re-subscribes to [routineActions.observe], which re-reads the current rows. This
@@ -73,11 +74,7 @@ class RoutinesViewModel(
         }
         viewModelScope.launch {
             exclusionRepository.observe().collect { exclusions ->
-                val now = timeProvider.nowMillis()
-                excludedExerciseIds = exclusions
-                    .filter { it.isActive(now) }
-                    .map { it.exerciseId }
-                    .toSet()
+                exerciseExclusions = exclusions
                 updateExerciseOptions()
             }
         }
@@ -106,6 +103,9 @@ class RoutinesViewModel(
 
     /** Rebuilds the picker options, marking EX-01 exclusions without removing them from the list. */
     private fun updateExerciseOptions() {
+        val now = timeProvider.nowMillis()
+        val excludedExerciseIds = exerciseExclusions.filter { it.isActive(now) }
+            .map { it.exerciseId }.toSet()
         _state.update { state ->
             state.copy(
                 exercises = catalogExerciseNames.map { (id, name) ->
@@ -117,6 +117,7 @@ class RoutinesViewModel(
 
     /** Re-reads the routines; the screen calls this on resume so another tab's save is visible. */
     fun refresh() {
+        updateExerciseOptions()
         templatesRefresh.value += 1
     }
 
@@ -174,17 +175,21 @@ class RoutinesViewModel(
     fun onWorkoutFocusChanged(index: Int, focus: SplitFocus?) =
         updateWorkout(index) { it.copy(focus = focus) }
 
-    fun onAddExercise(workoutIndex: Int) = _state.update {
-        it.copy(picker = ExercisePickerState(workoutIndex = workoutIndex))
+    fun onAddExercise(workoutIndex: Int) {
+        updateExerciseOptions()
+        _state.update { it.copy(picker = ExercisePickerState(workoutIndex = workoutIndex)) }
     }
 
-    fun onReplaceExercise(workoutIndex: Int, entryIndex: Int) = _state.update {
-        it.copy(
-            picker = ExercisePickerState(
-                workoutIndex = workoutIndex,
-                replaceEntryIndex = entryIndex
+    fun onReplaceExercise(workoutIndex: Int, entryIndex: Int) {
+        updateExerciseOptions()
+        _state.update {
+            it.copy(
+                picker = ExercisePickerState(
+                    workoutIndex = workoutIndex,
+                    replaceEntryIndex = entryIndex
+                )
             )
-        )
+        }
     }
 
     fun onPickerQueryChanged(query: String) = _state.update { current ->

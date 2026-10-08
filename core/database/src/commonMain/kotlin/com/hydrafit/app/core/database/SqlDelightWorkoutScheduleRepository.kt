@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.map
 class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase) :
     WorkoutScheduleRepository {
     private val queries = database.trainingScheduleQueries
+    private val planWriter = AcceptedPlanWriter(database)
 
     override fun observeScheduleState(): Flow<DomainWorkoutScheduleState> =
         queries.selectScheduleState().asFlow().mapToOneOrNull(Dispatchers.Default)
@@ -107,7 +108,7 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
             )
         }
 
-        val acceptedPlanId = acceptedPlan?.let { insertAcceptedPlan(it) }
+        val acceptedPlanId = acceptedPlan?.let { planWriter.insert(it) }
 
         queries.insertActivation(
             templateId = activation.templateId,
@@ -245,40 +246,6 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
             selectedOccurrenceId = next?.id,
             legacyFallbackEnabled = legacyFallback
         )
-    }
-
-    private fun insertAcceptedPlan(plan: AcceptedPlan): Long {
-        val planQueries = database.planHistoryQueries
-        planQueries.insertPlan(
-            engineId = plan.engine.name,
-            acceptedAt = plan.acceptedAtMillis,
-            weekNumber = plan.weekNumber.toLong(),
-            cycleNumber = plan.cycleNumber.toLong()
-        )
-        val planId = planQueries.lastInsertedPlanId().executeAsOne()
-        plan.days.forEach { day ->
-            planQueries.insertDay(
-                planId = planId,
-                dayIndex = day.dayIndex.toLong(),
-                focus = day.focus.name
-            )
-            val dayId = planQueries.lastInsertedPlanId().executeAsOne()
-            day.exercises.forEachIndexed { position, exercise ->
-                planQueries.insertEntry(
-                    dayId = dayId,
-                    position = position.toLong(),
-                    exerciseId = exercise.exerciseId,
-                    sets = exercise.sets.toLong(),
-                    reps = exercise.reps.toLong(),
-                    exerciseName = exercise.name,
-                    movementPattern = exercise.movementPattern.name,
-                    suggestedWeightKg = exercise.suggestedWeightKg,
-                    loadCapability = exercise.loadCapability.name,
-                    loadKind = exercise.loadKind.name
-                )
-            }
-        }
-        return planId
     }
 
     override suspend fun updateActivationHeader(activation: DomainTrainingActivation) {

@@ -51,6 +51,7 @@ import com.hydrafit.app.core.domain.schedule.WorkoutScheduleActions
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
@@ -73,10 +74,12 @@ import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
 import com.hydrafit.app.core.userdata.equipment.ExercisePreferenceRepository
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
+import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import com.hydrafit.app.feature.equipment.ExercisePlanningSettingsViewModel
 import com.hydrafit.app.feature.equipment.equipmentModule
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapModule
 import com.hydrafit.app.feature.logger.loggerModule
+import com.hydrafit.app.feature.routines.RoutinesViewModel
 import com.hydrafit.app.feature.routines.routinesModule
 import com.hydrafit.app.feature.settings.AcknowledgmentsViewModel
 import com.hydrafit.app.feature.settings.settingsModule
@@ -221,8 +224,8 @@ class KoinModulesVerificationTest {
 
     /**
      * The preference ViewModel is registered with a lambda `viewModel { }`, which `verify()` cannot
-     * reflect, so resolve it from a real container over the equipment module to prove its new
-     * binding and `get()` chain.
+     * reflect, so resolve it to prove its constructor `get()` chain. The repositories it depends on
+     * are proved against the real databaseModule in `DatabaseModuleVerificationTest`.
      */
     @Test
     fun theExercisePlanningSettingsViewModelResolvesAtRuntime() {
@@ -239,6 +242,39 @@ class KoinModulesVerificationTest {
 
         try {
             assertNotNull(koin.get<ExercisePlanningSettingsViewModel>())
+        } finally {
+            koin.close()
+        }
+    }
+
+    /**
+     * The routines ViewModel is a lambda `viewModel { }` with a real constructor `get()` chain, so
+     * resolve it over `routinesModule` + `domainModule` with fake repositories.
+     */
+    @Test
+    fun theRoutinesViewModelResolvesAtRuntime() {
+        val koin = koinApplication {
+            modules(
+                module {
+                    single<WorkoutPlanSourcesRepository> { FakeWorkoutPlanSourcesRepository }
+                    single<PlanHistoryRepository> { FakePlanHistoryRepository }
+                    single<ExerciseCatalog> { FakeExerciseCatalog }
+                    single<WorkoutLogRepository> { FakeWorkoutLogRepository }
+                    single<WorkoutSessionRepository> { FakeWorkoutSessionRepository }
+                    single<SessionResegmenter> { FakeSessionResegmenter }
+                    single<RoutineTemplateRepository> { FakeRoutineTemplateRepository }
+                    single<WorkoutScheduleRepository> { FakeWorkoutScheduleRepository }
+                    single<WeightUnitRepository> { FakeWeightUnitRepository }
+                    single<ExerciseExclusionRepository> { FakeExerciseExclusionRepository }
+                },
+                domainModule,
+                routinesModule,
+                testPlatformModule
+            )
+        }.koin
+
+        try {
+            assertNotNull(koin.get<RoutinesViewModel>())
         } finally {
             koin.close()
         }
@@ -273,6 +309,14 @@ class KoinModulesVerificationTest {
         override suspend fun set(exclusion: ExerciseExclusion) = Unit
 
         override suspend fun clear(exerciseId: String) = Unit
+    }
+
+    private object FakeWeightUnitRepository : WeightUnitRepository {
+        override suspend fun selectedUnit(): WeightUnit = WeightUnit.KG
+
+        override fun unitFlow(): Flow<WeightUnit> = flowOf(WeightUnit.KG)
+
+        override suspend fun setUnit(unit: WeightUnit) = Unit
     }
 
     private object FakeOnDeviceTextGenerator : OnDeviceTextGenerator {

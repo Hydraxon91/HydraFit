@@ -2,7 +2,14 @@ package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.hydrafit.app.core.domain.engine.AcceptedDay
+import com.hydrafit.app.core.domain.engine.AcceptedExercise
+import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.ArmMuscleCoverage
+import com.hydrafit.app.core.domain.engine.PlanAttribution
+import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
@@ -105,6 +112,46 @@ class SqlDelightWorkoutScheduleRepositoryTest {
         assertEquals(slot.id, copiedEntry.sourceActivationEntryId)
         assertEquals("bench-press", copiedEntry.exerciseId)
         assertNull(copiedEntry.remainingDisposition)
+    }
+
+    @Test
+    fun acceptAndActivatePersistsTheVolumeExplanationWithTheAcceptedPlan() = runTest {
+        val accepted = AcceptedPlan(
+            engine = PlannerEngineId.DETERMINISTIC,
+            acceptedAtMillis = 1L,
+            days = listOf(
+                AcceptedDay(
+                    dayIndex = 0,
+                    focus = SplitFocus.PUSH,
+                    exercises = listOf(
+                        AcceptedExercise(
+                            exerciseId = "bench-press",
+                            sets = 3,
+                            reps = 8,
+                            name = "Barbell Bench Press",
+                            movementPattern = MovementPattern.HORIZONTAL_PUSH
+                        )
+                    )
+                )
+            ),
+            armCoverage = listOf(
+                ArmMuscleCoverage(MuscleGroup.BICEPS, 4, true, 4, 1.0, null)
+            ),
+            volumeAttribution = PlanAttribution.DETERMINISTIC
+        )
+
+        repository.acceptAndActivate(
+            acceptedPlan = accepted,
+            activation = activation(),
+            scheduledEpochDays = listOf(20_000L, 20_002L),
+            replaceActive = false
+        )
+
+        // The Start-block path must persist the same frozen assessment as plain acceptance.
+        val stored = requireNotNull(SqlDelightPlanHistoryRepository(database).latest())
+        assertEquals(VolumeExplanationStatus.AVAILABLE, stored.volumeExplanationStatus)
+        assertEquals(PlanAttribution.DETERMINISTIC, stored.volumeAttribution)
+        assertEquals(listOf(MuscleGroup.BICEPS), stored.armCoverage.map { it.muscle })
     }
 
     @Test

@@ -21,8 +21,11 @@ class DeterministicWorkoutPlannerEngine(
 
     private val fatigueConfig = FatigueConfig()
 
-    override suspend fun generatePlan(request: PlanRequest): WeeklyPlan =
-        plan(request, catalog.all())
+    override suspend fun generatePlan(request: PlanRequest): WeeklyPlan {
+        val exercises = catalog.all()
+        PlannerCandidateEligibility.requireWorkouts(exercises, request)
+        return plan(request, exercises)
+    }
 
     internal fun plan(request: PlanRequest, exercises: List<Exercise>): WeeklyPlan {
         require(request.daysPerWeek in MIN_DAYS..MAX_DAYS) {
@@ -39,10 +42,7 @@ class DeterministicWorkoutPlannerEngine(
             SplitResolver.focusCycle(
                 SplitResolver.resolveSplitType(request.splitPreference, request.daysPerWeek)
             )
-        val availableExercises = exercises.filter {
-            it.isAvailableWith(request.availableEquipment) &&
-                it.id !in request.excludedExerciseIds
-        }
+        val availableExercises = PlannerCandidateEligibility.candidates(exercises, request)
         val isDeload = request.isDeload
         // Exercises already chosen earlier in the week; a fresh compound is preferred, but one may
         // repeat when no alternative exists. Accessories merely prefer a fresh option when one does.
@@ -51,6 +51,7 @@ class DeterministicWorkoutPlannerEngine(
         // chase the largest remaining volume deficit.
         val weeklyVolume = MuscleGroup.entries.associateWith { 0.0 }.toMutableMap()
         val directArmSets = MuscleGroup.entries.associateWith { 0 }.toMutableMap()
+        val skippedForSoreness = mutableSetOf<String>()
         val target = WeeklyVolumeTargets.forGoal(request.goal)
 
         val days = List(request.daysPerWeek) { index ->
@@ -75,6 +76,7 @@ class DeterministicWorkoutPlannerEngine(
                     request.withheldWeightExerciseIds,
                     request.equipmentMaxWeights,
                     request.exercisePreferences,
+                    skippedForSoreness,
                     isDeload
                 )
             )
@@ -94,7 +96,8 @@ class DeterministicWorkoutPlannerEngine(
                 exercisesById = availableExercises.associateBy { it.id },
                 compatibleCandidatesByMuscle = compatibleArmCandidates,
                 fatigue = request.muscleFatigue,
-                isDeload = isDeload
+                isDeload = isDeload,
+                skippedCandidateIds = skippedForSoreness
             )
         )
     }
@@ -116,6 +119,7 @@ class DeterministicWorkoutPlannerEngine(
         withheldWeightExerciseIds: Set<String>,
         equipmentMaxWeights: Map<EquipmentTag, Double>,
         exercisePreferences: Map<String, ExercisePreference>,
+        skippedForSoreness: MutableSet<String>,
         isDeload: Boolean
     ): List<PlannedExercise> {
         val used = mutableSetOf<String>()
@@ -125,18 +129,18 @@ class DeterministicWorkoutPlannerEngine(
             // Ordering is by weighted fatigue, but the skip uses raw targeted fatigue, so a lower-
             // ranked candidate can be fresh while the top one is sore. Try candidates in order and
             // take the first that is not sore instead of rejecting the whole group.
-            val candidate = pickFirstNonSore(
-                rankCandidates(
-                    candidates = candidates,
-                    fatigue = fatigue,
-                    weekUsed = weekUsed,
-                    recentExerciseIdsByPattern = recentExerciseIdsByPattern,
-                    weeklyVolume = weeklyVolume,
-                    target = target,
-                    exercisePreferences = exercisePreferences
-                ),
-                fatigue
-            ) ?: return false
+            val ranked = rankCandidates(
+                candidates = candidates,
+                fatigue = fatigue,
+                weekUsed = weekUsed,
+                recentExerciseIdsByPattern = recentExerciseIdsByPattern,
+                weeklyVolume = weeklyVolume,
+                target = target,
+                exercisePreferences = exercisePreferences
+            )
+            val candidate = pickFirstNonSore(ranked, fatigue)
+            ranked.takeWhile { it.id != candidate?.id }.forEach { skippedForSoreness += it.id }
+            if (candidate == null) return false
             val soreness = targetedFatigue(candidate, fatigue)
             val planned = plannedExercise(
                 candidate,
@@ -165,7 +169,7 @@ class DeterministicWorkoutPlannerEngine(
         // One compound for each major pattern in the focus, chosen by the largest remaining deficit.
         // Prefer a compound not yet used this week; if none remains, repeat an eligible one so the
         // day is not left incomplete (completeness outranks within-week novelty).
-        compoundGroups(focus).forEach { group ->
+        SplitResolver.compoundGroups(focus).forEach { group ->
             if (picks.size >= PlannerExerciseCounts.TARGET_MAX_PER_DAY) return@forEach
             val eligible = exercises.filter {
                 it.movementPattern in group &&
@@ -192,14 +196,13 @@ class DeterministicWorkoutPlannerEngine(
             }
             // Fairness: feed the arm with fewer direct sets first, so one arm cannot consume every
             // accessory slot while the other stays under target.
-            val leastCoveredArm = directArmCandidates
+            val priorityPools = directArmCandidates
                 .mapNotNull { exercise ->
                     DirectArmCoverage.muscleFor(exercise)?.let { muscle -> muscle to exercise }
                 }
                 .groupBy({ it.first }, { it.second })
-                .minByOrNull { (muscle, _) -> directArmSets[muscle] ?: 0 }
-                ?.value
-            if (leastCoveredArm != null && pick(leastCoveredArm)) {
+                .entries.sortedBy { (muscle, _) -> directArmSets[muscle] ?: 0 }
+            if (priorityPools.any { (_, pool) -> pick(pool) }) {
                 // Dedicated arm coverage takes precedence over the weighted ceiling: compound
                 // credits must not make qualifying direct work ineligible.
                 continue
@@ -394,37 +397,6 @@ class DeterministicWorkoutPlannerEngine(
         .filterNot { it == EquipmentTag.BODYWEIGHT }
         .minOfOrNull { EQUIPMENT_RANK[it] ?: CUSTOM_EQUIPMENT_RANK }
         ?: Int.MAX_VALUE
-
-    /**
-     * The compound slots a focus fills, grouped so one exercise is chosen per group. Each group is a
-     * movement family; the highest-deficit pattern inside it wins. FULL_BODY groups lower/push/pull
-     * so every day stays full-body while still chasing the week's volume deficits.
-     */
-    private fun compoundGroups(focus: SplitFocus): List<List<MovementPattern>> = when (focus) {
-        SplitFocus.PUSH -> listOf(
-            listOf(MovementPattern.HORIZONTAL_PUSH),
-            listOf(MovementPattern.VERTICAL_PUSH)
-        )
-        SplitFocus.PULL -> listOf(
-            listOf(MovementPattern.VERTICAL_PULL),
-            listOf(MovementPattern.HORIZONTAL_PULL)
-        )
-        SplitFocus.LEGS, SplitFocus.LOWER -> listOf(
-            listOf(MovementPattern.SQUAT, MovementPattern.LUNGE),
-            listOf(MovementPattern.HINGE)
-        )
-        SplitFocus.UPPER -> listOf(
-            listOf(MovementPattern.HORIZONTAL_PUSH),
-            listOf(MovementPattern.VERTICAL_PUSH),
-            listOf(MovementPattern.HORIZONTAL_PULL),
-            listOf(MovementPattern.VERTICAL_PULL)
-        )
-        SplitFocus.FULL_BODY -> listOf(
-            listOf(MovementPattern.SQUAT, MovementPattern.HINGE, MovementPattern.LUNGE),
-            listOf(MovementPattern.HORIZONTAL_PUSH, MovementPattern.VERTICAL_PUSH),
-            listOf(MovementPattern.HORIZONTAL_PULL, MovementPattern.VERTICAL_PULL)
-        )
-    }
 
     /** The isolation families a focus fills after its compounds, by largest remaining deficit. */
     private fun isolationPatterns(focus: SplitFocus): List<MovementPattern> =

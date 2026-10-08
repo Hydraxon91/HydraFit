@@ -4,6 +4,7 @@ import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanRequest
+import com.hydrafit.app.core.domain.engine.PlannerCandidateEligibility
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.PlannerExerciseCounts
 import com.hydrafit.app.core.domain.engine.PlannerPromptFragments
@@ -56,11 +57,8 @@ class GeminiWorkoutPlannerEngine(
             )
         }
         val catalogExercises = catalog.all()
-        val availableIds = catalogExercises
-            .filter {
-                it.isAvailableWith(request.availableEquipment) &&
-                    it.id !in request.excludedExerciseIds
-            }
+        PlannerCandidateEligibility.requireWorkouts(catalogExercises, request)
+        val availableIds = PlannerCandidateEligibility.candidates(catalogExercises, request)
             .map { it.id }
         val payload = buildRequest(request, availableIds)
         val url = "${config.baseUrl}/models/${config.model}:generateContent"

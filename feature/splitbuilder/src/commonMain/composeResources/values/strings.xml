@@ -42,6 +42,8 @@
     <string name="split_error_invalid_request">Gemini rejected the request. Try regenerating, or switch to the built-in planner.</string>
     <string name="split_error_invalid_response">Gemini returned a response the app couldn’t use. Please try again.</string>
     <string name="split_error_no_eligible_exercises">No exercises are available for this plan. Review your excluded exercises and available equipment, then retry.</string>
+    <string name="split_error_no_usable_exercises">No exercises were selected from the eligible pool. Review current soreness and try again.</string>
+    <string name="split_review_equipment">Review equipment and exclusions</string>
     <string name="split_retry">Retry</string>
     <string name="split_swap_action">Swap</string>
     <string name="split_swap_dialog_title">Replace %1$s</string>
@@ -58,6 +60,7 @@
     <string name="split_volume_not_enforced">Normal-week direct-arm objective not enforced on a deload.</string>
     <string name="split_volume_unmet_candidate">Target not met: no compatible exercise available.</string>
     <string name="split_volume_unmet_fatigue">Target not met: candidates skipped for fatigue.</string>
+    <string name="split_volume_soreness_constraint">Compatible candidates exceed the planner soreness threshold. This is a constraint assessment, not the reason an AI omitted them.</string>
     <string name="split_volume_unmet_available">Target not met despite available exercises.</string>
     <string name="split_volume_substituted">Volume explanation unavailable after a manual substitution.</string>
     <string name="split_start_block">Start block</string>

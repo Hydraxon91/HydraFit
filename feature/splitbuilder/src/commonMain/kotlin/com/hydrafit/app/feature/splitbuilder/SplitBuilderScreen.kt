@@ -41,6 +41,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
@@ -93,6 +95,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_error_invalid_req
 import hydrafit.feature.splitbuilder.generated.resources.split_error_invalid_response
 import hydrafit.feature.splitbuilder.generated.resources.split_error_network
 import hydrafit.feature.splitbuilder.generated.resources.split_error_no_eligible_exercises
+import hydrafit.feature.splitbuilder.generated.resources.split_error_no_usable_exercises
 import hydrafit.feature.splitbuilder.generated.resources.split_error_quota_exhausted
 import hydrafit.feature.splitbuilder.generated.resources.split_error_rate_limited
 import hydrafit.feature.splitbuilder.generated.resources.split_error_service_unavailable
@@ -112,6 +115,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_muscle_triceps
 import hydrafit.feature.splitbuilder.generated.resources.split_plan_accepted
 import hydrafit.feature.splitbuilder.generated.resources.split_regenerate
 import hydrafit.feature.splitbuilder.generated.resources.split_retry
+import hydrafit.feature.splitbuilder.generated.resources.split_review_equipment
 import hydrafit.feature.splitbuilder.generated.resources.split_routine_saved
 import hydrafit.feature.splitbuilder.generated.resources.split_routine_saved_view
 import hydrafit.feature.splitbuilder.generated.resources.split_save_routine
@@ -140,6 +144,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_volume_direct_lab
 import hydrafit.feature.splitbuilder.generated.resources.split_volume_explanation_title
 import hydrafit.feature.splitbuilder.generated.resources.split_volume_indirect_label
 import hydrafit.feature.splitbuilder.generated.resources.split_volume_not_enforced
+import hydrafit.feature.splitbuilder.generated.resources.split_volume_soreness_constraint
 import hydrafit.feature.splitbuilder.generated.resources.split_volume_substituted
 import hydrafit.feature.splitbuilder.generated.resources.split_volume_unmet_available
 import hydrafit.feature.splitbuilder.generated.resources.split_volume_unmet_candidate
@@ -178,6 +183,7 @@ fun SplitBuilderRoute(
     modifier: Modifier = Modifier,
     viewModel: SplitBuilderViewModel = koinViewModel()
 ) {
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshContext() }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val weightUnit by koinInject<WeightUnitRepository>().unitFlow()
         .collectAsStateWithLifecycle(initialValue = WeightUnit.KG)
@@ -226,6 +232,7 @@ fun SplitBuilderRoute(
             onSwapCandidateSelected = viewModel::onSwapCandidateSelected,
             onSwapDialogDismissed = viewModel::onSwapDialogDismissed,
             onRetry = viewModel::refresh,
+            onReviewEquipment = { openTab(AppTab.EQUIPMENT) },
             modifier = Modifier.fillMaxSize()
         )
         SnackbarHost(
@@ -256,6 +263,7 @@ fun SplitBuilderScreen(
     onSwapCandidateSelected: (String) -> Unit,
     onSwapDialogDismissed: () -> Unit,
     onRetry: () -> Unit,
+    onReviewEquipment: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -339,6 +347,11 @@ fun SplitBuilderScreen(
             }
             Button(onClick = onRetry) {
                 Text(stringResource(Res.string.split_retry))
+            }
+            if (state.failureReason == PlanFailureReason.NO_ELIGIBLE_EXERCISES) {
+                TextButton(onClick = onReviewEquipment) {
+                    Text(stringResource(Res.string.split_review_equipment))
+                }
             }
         }
         state.plan?.let { plan ->
@@ -642,6 +655,8 @@ private fun ArmCoverageUnmetReason.labelResource(): StringResource = when (this)
         Res.string.split_volume_unmet_candidate
     ArmCoverageUnmetReason.ALL_COMPATIBLE_CANDIDATES_SKIPPED_FOR_FATIGUE ->
         Res.string.split_volume_unmet_fatigue
+    ArmCoverageUnmetReason.COMPATIBLE_CANDIDATES_ABOVE_SORENESS_THRESHOLD ->
+        Res.string.split_volume_soreness_constraint
     ArmCoverageUnmetReason.NOT_MET_WITH_AVAILABLE_CANDIDATES ->
         Res.string.split_volume_unmet_available
 }
@@ -657,6 +672,7 @@ private fun PlanFailureReason?.reasonMessage(): StringResource? = when (this) {
     PlanFailureReason.INVALID_REQUEST -> Res.string.split_error_invalid_request
     PlanFailureReason.INVALID_RESPONSE -> Res.string.split_error_invalid_response
     PlanFailureReason.NO_ELIGIBLE_EXERCISES -> Res.string.split_error_no_eligible_exercises
+    PlanFailureReason.NO_USABLE_EXERCISES -> Res.string.split_error_no_usable_exercises
     PlanFailureReason.UNKNOWN, null -> null
 }
 

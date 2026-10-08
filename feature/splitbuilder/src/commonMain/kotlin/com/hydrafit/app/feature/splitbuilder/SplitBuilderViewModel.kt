@@ -13,6 +13,7 @@ import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
 import com.hydrafit.app.core.domain.engine.WorkoutPlanInputs
 import com.hydrafit.app.core.domain.engine.toWeeklyPlan
 import com.hydrafit.app.core.domain.equipment.Exercise
@@ -22,13 +23,12 @@ import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import kotlin.coroutines.cancellation.CancellationException
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -46,7 +46,7 @@ class SplitBuilderViewModel(
 
     private val setsPerExercise = MutableStateFlow<Int?>(null)
     private val accessorySetsPerExercise = MutableStateFlow<Int?>(null)
-    private val refreshRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private var generationJob: Job? = null
 
     /** Fingerprint of the request that produced the currently shown plan; null until one exists. */
     private var lastGeneratedFingerprint: Int? = null
@@ -69,19 +69,28 @@ class SplitBuilderViewModel(
             }
         }
         viewModelScope.launch {
-            val inputs = observeWorkoutPlanInputs(
-                setsPerExercise = setsPerExercise,
-                accessorySetsPerExercise = accessorySetsPerExercise,
-                refreshRequests = refreshRequests
-            ).onEach { lastRequest = it.request }
             val accepted = planHistory.latest()
-            if (accepted == null) {
-                inputs.collectLatest { generate(it) }
-            } else {
-                // Show what the user already accepted instead of silently generating a new draft;
-                // only regenerate once an input changes or they ask for a fresh plan.
-                showAccepted(accepted)
-                inputs.drop(1).collectLatest { generate(it) }
+            if (accepted != null) showAccepted(accepted)
+            var previous: WorkoutPlanInputs? = null
+            observeWorkoutPlanInputs(
+                setsPerExercise = setsPerExercise,
+                accessorySetsPerExercise = accessorySetsPerExercise
+            ).collect { inputs ->
+                val prior = previous
+                previous = inputs
+                lastRequest = inputs.request
+                val settingsChanged = prior != null &&
+                    (
+                        prior.request.exercisePreferences != inputs.request.exercisePreferences ||
+                            prior.request.excludedExerciseIds != inputs.request.excludedExerciseIds
+                        )
+                if (settingsChanged) {
+                    // Standing exercise settings affect future picks, never the displayed plan.
+                    // An in-flight generation also retains the request it started with.
+                    _state.update { it.copy(canRegenerate = true) }
+                } else if (prior != null || accepted == null) {
+                    startGeneration(inputs)
+                }
             }
         }
     }
@@ -102,7 +111,28 @@ class SplitBuilderViewModel(
     }
 
     fun refresh() {
-        refreshRequests.tryEmit(Unit)
+        viewModelScope.launch { startGeneration(currentInputs()) }
+    }
+
+    /** Re-read expiry and ranking context on resume without generating or replacing a plan. */
+    fun refreshContext() {
+        viewModelScope.launch {
+            val current = currentInputs()
+            val previous = lastRequest
+            lastRequest = current.request
+            if (previous != current.request) _state.update { it.copy(canRegenerate = true) }
+        }
+    }
+
+    private suspend fun currentInputs(): WorkoutPlanInputs = observeWorkoutPlanInputs(
+        setsPerExercise = setsPerExercise,
+        accessorySetsPerExercise = accessorySetsPerExercise
+    ).first()
+
+    private fun startGeneration(inputs: WorkoutPlanInputs) {
+        lastRequest = inputs.request
+        generationJob?.cancel()
+        generationJob = viewModelScope.launch { generate(inputs) }
     }
 
     fun onAcceptPlan() {
@@ -226,8 +256,9 @@ class SplitBuilderViewModel(
     /** Opens the candidate dialog for one slot of the shown accepted plan. */
     fun onSwapRequested(dayIndex: Int, position: Int) {
         val plan = shownPlan ?: return
-        val request = lastRequest ?: return
         viewModelScope.launch {
+            val request = currentInputs().request
+            lastRequest = request
             val candidates = planBuilderActions.swapCandidates(plan, dayIndex, position, request)
             _state.update {
                 it.copy(
@@ -244,10 +275,11 @@ class SplitBuilderViewModel(
     /** Applies a chosen replacement, or flags the slot when the candidate is no longer valid. */
     fun onSwapCandidateSelected(exerciseId: String) {
         val plan = shownPlan ?: return
-        val request = lastRequest ?: return
         val dayIndex = _state.value.swapTargetDayIndex ?: return
         val position = _state.value.swapTargetPosition ?: return
         viewModelScope.launch {
+            val request = currentInputs().request
+            lastRequest = request
             val updated = planBuilderActions.substitute(
                 plan,
                 dayIndex,
@@ -325,7 +357,8 @@ class SplitBuilderViewModel(
                 isTransientError = false,
                 errorDetail = null,
                 fallbackReason = null,
-                volumeExplanationInvalidated = false,
+                volumeExplanationInvalidated = accepted.volumeExplanationStatus ==
+                    VolumeExplanationStatus.INVALIDATED_BY_SUBSTITUTION,
                 requestedEngine = accepted.engine,
                 daysPerWeek = accepted.days.size,
                 setsPerExercise = exercises.firstOrNull { exercise ->
@@ -364,12 +397,9 @@ class SplitBuilderViewModel(
         }
         try {
             val plan = generateWeeklySplit(request)
-            // Exclusions are a hard gate: when they (or equipment) leave no eligible exercise at all,
-            // surface an actionable failure instead of an empty week. A merely partial plan (some
-            // days empty) keeps the existing behavior.
-            if (plan.days.all { it.exercises.isEmpty() } &&
-                request.excludedExerciseIds.isNotEmpty()
-            ) {
+            // Engine preflight diagnoses hard eligibility. Empty output after that check does not
+            // prove an exclusion/equipment cause (e.g. every candidate may be sore).
+            if (plan.days.all { it.exercises.isEmpty() }) {
                 _state.update {
                     it.copy(
                         plan = null,
@@ -377,12 +407,13 @@ class SplitBuilderViewModel(
                         hasError = true,
                         isTransientError = false,
                         errorDetail = null,
-                        failureReason = PlanFailureReason.NO_ELIGIBLE_EXERCISES
+                        failureReason = PlanFailureReason.NO_USABLE_EXERCISES
                     )
                 }
                 return
             }
-            val names = exerciseCatalog.all().associate { it.id to it.name }
+            val catalog = exerciseCatalog.all()
+            val names = catalog.associate { it.id to it.name }
             lastGeneratedFingerprint = fingerprint
             // The plan now matches the current inputs, so a repeat tap would produce the same
             // result: re-lock the button for the deterministic engine.
@@ -391,7 +422,8 @@ class SplitBuilderViewModel(
                     plan = plan,
                     exerciseNames = names,
                     isLoading = false,
-                    canRegenerate = inputs.requestedEngine != PlannerEngineId.DETERMINISTIC,
+                    canRegenerate = inputs.requestedEngine != PlannerEngineId.DETERMINISTIC ||
+                        lastRequest?.let { fingerprintOf(it, catalog) != fingerprint } == true,
                     volumeExplanationInvalidated = false,
                     // Gemini only returns a fallback plan after a sanitize reject; any other failure
                     // throws, so a deterministic result for a Gemini request means an unusable reply.
@@ -440,6 +472,7 @@ class SplitBuilderViewModel(
     ): AcceptedPlan = copy(
         armCoverage = emptyList(),
         volumeAttribution = null,
+        volumeExplanationInvalidated = true,
         days = days.map { day ->
             if (day.dayIndex != dayIndex) {
                 day
@@ -488,6 +521,8 @@ class SplitBuilderViewModel(
                 .sortedBy { it.key.name }
                 .map { it.key to it.value.sorted() },
             request.suggestedWeightsKg.entries.sortedBy { it.key }.map { it.key to it.value },
+            request.exercisePreferences.entries.sortedBy { it.key }.map { it.key to it.value },
+            request.excludedExerciseIds.sorted(),
             fatigue,
             catalogSignature
         ).hashCode()

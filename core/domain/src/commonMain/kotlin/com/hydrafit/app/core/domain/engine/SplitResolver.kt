@@ -1,5 +1,7 @@
 package com.hydrafit.app.core.domain.engine
 
+import com.hydrafit.app.core.domain.equipment.MovementPattern
+
 /**
  * Resolves a [SplitType] preference into a concrete per-day focus sequence. Shared by the
  * deterministic engine (to pick movement-pattern templates) and the model-backed engines (to steer
@@ -29,5 +31,32 @@ object SplitResolver {
     fun focusSequence(preference: SplitType, daysPerWeek: Int): List<SplitFocus> {
         val cycle = focusCycle(resolveSplitType(preference, daysPerWeek))
         return List(daysPerWeek) { index -> cycle[index % cycle.size] }
+    }
+
+    /** Compound movement families for a focus, shared with candidate eligibility. */
+    fun compoundGroups(focus: SplitFocus): List<List<MovementPattern>> = when (focus) {
+        SplitFocus.PUSH -> listOf(
+            listOf(MovementPattern.HORIZONTAL_PUSH),
+            listOf(MovementPattern.VERTICAL_PUSH)
+        )
+        SplitFocus.PULL -> listOf(
+            listOf(MovementPattern.VERTICAL_PULL),
+            listOf(MovementPattern.HORIZONTAL_PULL)
+        )
+        SplitFocus.LEGS, SplitFocus.LOWER -> listOf(
+            listOf(MovementPattern.SQUAT, MovementPattern.LUNGE),
+            listOf(MovementPattern.HINGE)
+        )
+        SplitFocus.UPPER -> listOf(
+            listOf(MovementPattern.HORIZONTAL_PUSH),
+            listOf(MovementPattern.VERTICAL_PUSH),
+            listOf(MovementPattern.HORIZONTAL_PULL),
+            listOf(MovementPattern.VERTICAL_PULL)
+        )
+        SplitFocus.FULL_BODY -> listOf(
+            listOf(MovementPattern.SQUAT, MovementPattern.HINGE, MovementPattern.LUNGE),
+            listOf(MovementPattern.HORIZONTAL_PUSH, MovementPattern.VERTICAL_PUSH),
+            listOf(MovementPattern.HORIZONTAL_PULL, MovementPattern.VERTICAL_PULL)
+        )
     }
 }

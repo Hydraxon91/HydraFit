@@ -27,11 +27,7 @@ class WeeklyPlanSanitizer(
         require(request.accessorySetsPerExercise in minSets..maxSets) {
             "accessorySetsPerExercise must be between $minSets and $maxSets"
         }
-        val usable = catalog.all()
-            .filter {
-                it.isAvailableWith(request.availableEquipment) &&
-                    it.id !in request.excludedExerciseIds
-            }
+        val usable = PlannerCandidateEligibility.candidates(catalog.all(), request)
             .associateBy { it.id }
         val isDeload = request.isDeload
 
@@ -123,7 +119,8 @@ class WeeklyPlanSanitizer(
                     focuses
                 ),
                 fatigue = request.muscleFatigue,
-                isDeload = isDeload
+                isDeload = isDeload,
+                attribution = PlanAttribution.AI_GENERATED
             )
         )
     }

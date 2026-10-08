@@ -23,8 +23,24 @@ data class AcceptedPlan(
      */
     val armCoverage: List<ArmMuscleCoverage> = emptyList(),
     /** Who produced the plan; null for a legacy plan with no persisted assessment. */
-    val volumeAttribution: PlanAttribution? = null
+    val volumeAttribution: PlanAttribution? = null,
+    /** True once a user-confirmed substitution invalidates the frozen assessment. */
+    val volumeExplanationInvalidated: Boolean = false
 ) {
+    /**
+     * Derived (not a constructor parameter) so it always reflects [armCoverage] and
+     * [volumeExplanationInvalidated] after any `copy`, rather than freezing a stale default.
+     */
+    val volumeExplanationStatus: VolumeExplanationStatus
+        get() = when {
+            volumeExplanationInvalidated -> VolumeExplanationStatus.INVALIDATED_BY_SUBSTITUTION
+            armCoverage.isNotEmpty() -> VolumeExplanationStatus.AVAILABLE
+            else -> VolumeExplanationStatus.ABSENT
+        }
+
+    val volumeAssessmentVersion: Int?
+        get() = if (volumeExplanationStatus == VolumeExplanationStatus.ABSENT) null else 1
+
     /** Spreads the plan's training days across the week, starting on Monday. */
     fun scheduledDay(dayIndex: Int): DayOfWeek? {
         if (days.isEmpty() || dayIndex !in days.indices) return null

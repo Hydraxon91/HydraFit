@@ -10,6 +10,7 @@ import com.hydrafit.app.core.domain.engine.ArmMuscleCoverage
 import com.hydrafit.app.core.domain.engine.PlanAttribution
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
@@ -18,6 +19,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
@@ -191,6 +193,8 @@ class SqlDelightPlanHistoryRepositoryTest {
         val loaded = requireNotNull(repository.latest())
         assertEquals(PlanAttribution.DETERMINISTIC, loaded.volumeAttribution)
         assertEquals(coverage(), loaded.armCoverage)
+        assertEquals(VolumeExplanationStatus.AVAILABLE, loaded.volumeExplanationStatus)
+        assertEquals(1, loaded.volumeAssessmentVersion)
         // Adding the explanation does not alter the retained prescription.
         assertEquals(
             listOf("bench-press", "overhead-press"),
@@ -213,6 +217,34 @@ class SqlDelightPlanHistoryRepositoryTest {
         val afterSwap = requireNotNull(repository.latest())
         assertEquals(emptyList(), afterSwap.armCoverage)
         assertNull(afterSwap.volumeAttribution)
+        // The invalidated status survives reload, so absence is not mistaken for a legacy plan.
+        assertEquals(
+            VolumeExplanationStatus.INVALIDATED_BY_SUBSTITUTION,
+            afterSwap.volumeExplanationStatus
+        )
+    }
+
+    @Test
+    fun aFailureWhileWritingTheExplanationRollsBackTheWholeAcceptance() = runTest {
+        driver.execute(
+            identifier = null,
+            sql = "CREATE TRIGGER fail_state BEFORE INSERT ON planVolumeExplanationState " +
+                "BEGIN SELECT RAISE(ABORT, 'boom'); END",
+            parameters = 0
+        )
+
+        assertFailsWith<Exception> {
+            repository.accept(
+                plan(engine = PlannerEngineId.DETERMINISTIC, acceptedAt = 1L).copy(
+                    armCoverage = coverage(),
+                    volumeAttribution = PlanAttribution.DETERMINISTIC
+                )
+            )
+        }
+
+        assertNull(repository.latest())
+        assertEquals(0, database.planHistoryQueries.selectAllPlans().executeAsList().size)
+        assertEquals(0, database.planHistoryQueries.selectAllDays().executeAsList().size)
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.network
 
+import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlanGenerationException
@@ -45,6 +46,36 @@ class GeminiWorkoutPlannerEngineTest {
         assertEquals(3, plan.days.size)
         assertEquals(SplitFocus.PUSH, plan.days.first().focus)
         assertEquals("bench-press", plan.days.first().exercises.first().exerciseId)
+    }
+
+    @Test
+    fun excludedIdsAreNotOfferedAndSanitizerFallbackCannotRestoreThem() = runTest {
+        var body = ""
+        val transport = MockEngine { request ->
+            body = (request.body as TextContent).text
+            respond(envelope(VALID_PLAN), HttpStatusCode.OK, jsonHeaders())
+        }
+        val result = engine(transport, fallback = DeterministicWorkoutPlannerEngine(FakeCatalog))
+            .generatePlan(request().copy(excludedExerciseIds = setOf("bench-press")))
+        assertFalse(body.contains("bench-press"))
+        assertEquals(PlannerEngineId.DETERMINISTIC, result.engine)
+        assertTrue(result.days.flatMap { it.exercises }.none { it.exerciseId == "bench-press" })
+    }
+
+    @Test
+    fun anExcludedFocusFailsBeforeAnyApiCall() = runTest {
+        var calls = 0
+        val transport = MockEngine {
+            calls++
+            respond(envelope(VALID_PLAN), HttpStatusCode.OK, jsonHeaders())
+        }
+        val failure = assertFailsWith<PlanGenerationException> {
+            engine(transport).generatePlan(
+                request(daysPerWeek = 5).copy(excludedExerciseIds = setOf("barbell-squat"))
+            )
+        }
+        assertEquals(PlanFailureReason.NO_ELIGIBLE_EXERCISES, failure.reason)
+        assertEquals(0, calls)
     }
 
     @Test
@@ -574,14 +605,15 @@ class GeminiWorkoutPlannerEngineTest {
     private fun engine(
         engine: HttpClientEngine,
         apiKey: String = "test-key",
-        apiKeyProvider: ApiKeyProvider = ApiKeyProvider { apiKey }
+        apiKeyProvider: ApiKeyProvider = ApiKeyProvider { apiKey },
+        fallback: WorkoutPlannerEngine = FallbackEngine
     ) = GeminiWorkoutPlannerEngine(
         httpClient = createGeminiHttpClient(engine),
         config = GeminiConfig(),
         catalog = FakeCatalog,
         apiKeyProvider = apiKeyProvider,
         sanitizer = WeeklyPlanSanitizer(FakeCatalog),
-        fallback = FallbackEngine
+        fallback = fallback
     )
 
     private fun respondEnvelope(plan: String) = respondRaw(envelope(plan))
@@ -649,7 +681,8 @@ class GeminiWorkoutPlannerEngineTest {
             exercise("overhead-press", MovementPattern.VERTICAL_PUSH, EquipmentTag.BARBELL),
             exercise("barbell-row", MovementPattern.HORIZONTAL_PULL, EquipmentTag.BARBELL),
             exercise("barbell-curl", MovementPattern.BICEPS_ISOLATION, EquipmentTag.BARBELL),
-            exercise("dumbbell-curl", MovementPattern.BICEPS_ISOLATION, EquipmentTag.DUMBBELL)
+            exercise("dumbbell-curl", MovementPattern.BICEPS_ISOLATION, EquipmentTag.DUMBBELL),
+            exercise("barbell-squat", MovementPattern.SQUAT, EquipmentTag.BARBELL)
         )
 
         private fun exercise(id: String, pattern: MovementPattern, equipment: EquipmentTag) =

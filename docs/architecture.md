@@ -216,14 +216,20 @@ recorded sets are never rewritten.
 with the accepted plan so it always matches the calculation/output that produced it. On acceptance,
 `AcceptWeeklyPlanUseCase` freezes `WeeklyPlan.armCoverage` and an honest `PlanAttribution`
 (`DETERMINISTIC` for a built-in calculation; `AI_GENERATED` for an assessment of sanitized model
-output, never a claimed model rationale) into a separate `planVolumeExplanation` table (`SqlDelightPlanHistoryRepository`;
-migration `30.sqm`), and `SqlDelightPlanHistoryRepository` reads it back into `AcceptedPlan`. The
+output, never a claimed model rationale) into `planVolumeExplanation` plus a
+`planVolumeExplanationState` row (`AVAILABLE` / `INVALIDATED_BY_SUBSTITUTION`; migrations `30.sqm`
+and `31.sqm`). Both acceptance paths—plain `accept` and `SqlDelightWorkoutScheduleRepository`'s
+accept-and-activate "Start block"—write through the shared `AcceptedPlanWriter` inside their existing
+transaction, and `SqlDelightPlanHistoryRepository` reads the assessment back into `AcceptedPlan`. The
 slice is bounded to arm volume only: direct isolation sets versus the four-set product objective, a
 clearly labelled estimated other-involvement contribution, and the real `ArmCoverageUnmetReason`
-values. A legacy plan has no rows and shows no explanation. A user-confirmed substitution clears the
-rows in the same transaction and the UI shows that the explanation is unavailable after a manual
-substitution rather than reconstructing it from today's catalog. Persisting or adding the explanation
-never changes selected exercises, sets, reps, loads or fatigue.
+values. Only a recorded deterministic skip can report `ALL_COMPATIBLE_CANDIDATES_SKIPPED_FOR_FATIGUE`;
+an `AI_GENERATED` assessment reports the neutral `COMPATIBLE_CANDIDATES_ABOVE_SORENESS_THRESHOLD`
+instead, because the sanitizer does not run the planner's selection branch. A legacy plan has no
+state row and shows no explanation; a user-confirmed substitution deletes the assessment and marks
+the state row in the same transaction, so the UI still shows that the explanation is unavailable
+after a reopen rather than reconstructing it from today's catalog. Persisting or adding the
+explanation never changes selected exercises, sets, reps, loads or fatigue.
 
 - **Examples:** `WorkoutPlannerEngine`, `WorkoutPlannerEngineProvider`,
   `DefaultWorkoutPlannerEngineProvider`, `DeterministicWorkoutPlannerEngine`,

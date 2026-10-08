@@ -1,0 +1,25 @@
+CREATE TABLE planVolumeExplanationState (
+    planId INTEGER NOT NULL PRIMARY KEY,
+    status TEXT NOT NULL,
+    assessmentVersion INTEGER NOT NULL
+);
+
+selectAll:
+SELECT * FROM planVolumeExplanationState ORDER BY planId;
+
+upsert:
+INSERT OR REPLACE INTO planVolumeExplanationState(planId, status, assessmentVersion)
+VALUES (?, ?, ?);
+
+invalidateForSlot:
+INSERT OR REPLACE INTO planVolumeExplanationState(planId, status, assessmentVersion)
+SELECT DISTINCT day.planId, 'INVALIDATED_BY_SUBSTITUTION', 1
+FROM planHistoryDay AS day
+JOIN planHistoryEntry AS entry ON entry.dayId = day.id
+WHERE day.planId = :planId AND day.dayIndex = :dayIndex AND entry.position = :position;
+
+deleteForPlan:
+DELETE FROM planVolumeExplanationState WHERE planId = ?;
+
+deleteAll:
+DELETE FROM planVolumeExplanationState;

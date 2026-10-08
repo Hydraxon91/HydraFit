@@ -1,0 +1,10 @@
+-- Persist assessment version and distinguish substitution invalidation from legacy absence.
+-- Existing assessments are preserved verbatim; absence cannot retroactively prove a prior swap.
+CREATE TABLE planVolumeExplanationState (
+    planId INTEGER NOT NULL PRIMARY KEY,
+    status TEXT NOT NULL,
+    assessmentVersion INTEGER NOT NULL
+);
+
+INSERT INTO planVolumeExplanationState(planId, status, assessmentVersion)
+SELECT DISTINCT planId, 'AVAILABLE', 1 FROM planVolumeExplanation;

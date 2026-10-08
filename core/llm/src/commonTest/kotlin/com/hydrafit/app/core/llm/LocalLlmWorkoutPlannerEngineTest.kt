@@ -1,8 +1,11 @@
 package com.hydrafit.app.core.llm
 
+import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.OnDevicePlanProgress
 import com.hydrafit.app.core.domain.engine.OnDevicePlanProgressReporter
+import com.hydrafit.app.core.domain.engine.PlanFailureReason
+import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
@@ -18,6 +21,7 @@ import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -37,6 +41,30 @@ class LocalLlmWorkoutPlannerEngineTest {
         assertEquals(3, plan.days.size)
         assertEquals(SplitFocus.PUSH, plan.days.first().focus)
         assertEquals("bench-press", plan.days.first().exercises.first().exerciseId)
+    }
+
+    @Test
+    fun excludedIdsAreNotOfferedAndFallbackCannotRestoreThem() = runTest {
+        val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
+        val result = engine(
+            generator,
+            fallback = DeterministicWorkoutPlannerEngine(FakeCatalog)
+        ).generatePlan(request().copy(excludedExerciseIds = setOf("bench-press")))
+        assertFalse(requireNotNull(generator.lastPrompt).contains("bench-press"))
+        assertEquals(PlannerEngineId.DETERMINISTIC, result.engine)
+        assertTrue(result.days.flatMap { it.exercises }.none { it.exerciseId == "bench-press" })
+    }
+
+    @Test
+    fun excludedFocusFailsBeforeNativeGenerationOrFallback() = runTest {
+        val generator = FakeGenerator(available = false)
+        val failure = assertFailsWith<PlanGenerationException> {
+            engine(generator).generatePlan(
+                request(daysPerWeek = 5).copy(excludedExerciseIds = setOf("barbell-squat"))
+            )
+        }
+        assertEquals(PlanFailureReason.NO_ELIGIBLE_EXERCISES, failure.reason)
+        assertEquals(0, generator.generateCalls)
     }
 
     @Test
@@ -280,17 +308,19 @@ class LocalLlmWorkoutPlannerEngineTest {
         engine(generator).generatePlan(request())
 
         val schema = requireNotNull(generator.lastSchema)
-        assertTrue(schema.contains("\"enum\": [\"1\", \"2\", \"3\", \"4\"]"), schema)
+        assertTrue(schema.contains("\"enum\": [\"1\", \"2\", \"3\", \"4\", \"5\"]"), schema)
     }
 
     @Test
-    fun omitsTheIdEnumWhenNoExerciseMatchesTheEquipment() = runTest {
+    fun rejectsAnIneligibleWorkoutBeforeNativeGeneration() = runTest {
         val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
 
-        engine(generator, catalog = DumbbellOnlyCatalog).generatePlan(request())
-
-        val schema = requireNotNull(generator.lastSchema)
-        assertTrue(schema.contains("\"exerciseId\": {\"type\": \"string\"}"), schema)
+        val failure = assertFailsWith<PlanGenerationException> {
+            engine(generator, catalog = DumbbellOnlyCatalog).generatePlan(request())
+        }
+        assertEquals(PlanFailureReason.NO_ELIGIBLE_EXERCISES, failure.reason)
+        assertEquals(0, generator.generateCalls)
+        assertFalse(failure.transient)
     }
 
     @Test
@@ -480,10 +510,11 @@ class LocalLlmWorkoutPlannerEngineTest {
         generator: OnDeviceTextGenerator,
         logger: OnDevicePlannerLogger = NoopOnDevicePlannerLogger,
         catalog: ExerciseCatalog = FakeCatalog,
-        progressReporter: OnDevicePlanProgressReporter = OnDevicePlanProgressReporter.Noop
+        progressReporter: OnDevicePlanProgressReporter = OnDevicePlanProgressReporter.Noop,
+        fallback: WorkoutPlannerEngine = DeterministicStub
     ) = LocalLlmWorkoutPlannerEngine(
         generator = generator,
-        fallback = DeterministicStub,
+        fallback = fallback,
         catalog = catalog,
         sanitizer = WeeklyPlanSanitizer(catalog),
         logger = logger,
@@ -580,7 +611,8 @@ class LocalLlmWorkoutPlannerEngineTest {
             exercise("bench-press", MovementPattern.HORIZONTAL_PUSH),
             exercise("overhead-press", MovementPattern.VERTICAL_PUSH),
             exercise("barbell-row", MovementPattern.HORIZONTAL_PULL),
-            exercise("barbell-curl", MovementPattern.BICEPS_ISOLATION)
+            exercise("barbell-curl", MovementPattern.BICEPS_ISOLATION),
+            exercise("barbell-squat", MovementPattern.SQUAT)
         )
 
         private fun exercise(id: String, pattern: MovementPattern) = Exercise(

@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 enum class ArmCoverageUnmetReason {
     NO_COMPATIBLE_AVAILABLE_CANDIDATE,
     ALL_COMPATIBLE_CANDIDATES_SKIPPED_FOR_FATIGUE,
+    COMPATIBLE_CANDIDATES_ABOVE_SORENESS_THRESHOLD,
     NOT_MET_WITH_AVAILABLE_CANDIDATES
 }
 
@@ -84,7 +85,9 @@ object DirectArmCoverage {
         exercisesById: Map<String, Exercise>,
         compatibleCandidatesByMuscle: Map<MuscleGroup, List<Exercise>>,
         fatigue: Map<MuscleGroup, Double>,
-        isDeload: Boolean
+        isDeload: Boolean,
+        attribution: PlanAttribution = PlanAttribution.DETERMINISTIC,
+        skippedCandidateIds: Set<String> = emptySet()
     ): List<ArmMuscleCoverage> = armPatterns.map { (muscle, _) ->
         var directSets = 0
         var otherCredits = 0.0
@@ -107,8 +110,17 @@ object DirectArmCoverage {
                 ArmCoverageUnmetReason.NO_COMPATIBLE_AVAILABLE_CANDIDATE
             compatibleCandidatesByMuscle.getValue(muscle).all {
                 isSkippedForFatigue(it, fatigue)
-            } ->
-                ArmCoverageUnmetReason.ALL_COMPATIBLE_CANDIDATES_SKIPPED_FOR_FATIGUE
+            } -> {
+                if (attribution == PlanAttribution.DETERMINISTIC &&
+                    compatibleCandidatesByMuscle.getValue(muscle).all {
+                        it.id in skippedCandidateIds
+                    }
+                ) {
+                    ArmCoverageUnmetReason.ALL_COMPATIBLE_CANDIDATES_SKIPPED_FOR_FATIGUE
+                } else {
+                    ArmCoverageUnmetReason.COMPATIBLE_CANDIDATES_ABOVE_SORENESS_THRESHOLD
+                }
+            }
             else -> ArmCoverageUnmetReason.NOT_MET_WITH_AVAILABLE_CANDIDATES
         }
         ArmMuscleCoverage(

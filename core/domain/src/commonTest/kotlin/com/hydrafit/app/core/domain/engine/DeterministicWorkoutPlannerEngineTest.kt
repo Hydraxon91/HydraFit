@@ -1219,6 +1219,34 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun aSkippedArmPoolCannotStarveTheOtherArmForEitherCatalogOrder() {
+        val arms = listOf(
+            exercise("curl", MovementPattern.BICEPS_ISOLATION, MuscleGroup.BICEPS),
+            exercise("extension", MovementPattern.TRICEPS_ISOLATION, MuscleGroup.TRICEPS)
+        )
+        for (soreMuscle in listOf(MuscleGroup.BICEPS, MuscleGroup.TRICEPS)) {
+            for (candidates in listOf(arms, arms.reversed())) {
+                val plan = engine.plan(
+                    request(
+                        daysPerWeek = 2,
+                        fatigue = mapOf(soreMuscle to 0.9),
+                        accessorySetsPerExercise = 2
+                    ),
+                    candidates
+                )
+                val sore = plan.armCoverage.single { it.muscle == soreMuscle }
+                val fresh = plan.armCoverage.single { it.muscle != soreMuscle }
+                assertEquals(0, sore.directIsolationSets)
+                assertEquals(4, fresh.directIsolationSets)
+                assertEquals(
+                    ArmCoverageUnmetReason.ALL_COMPATIBLE_CANDIDATES_SKIPPED_FOR_FATIGUE,
+                    sore.unmetReason
+                )
+            }
+        }
+    }
+
+    @Test
     fun reportsWhenEquipmentLeavesNoCompatibleDirectArmCandidate() {
         val plan = engine.plan(
             request(daysPerWeek = 2, split = SplitType.FULL_BODY, equipment = emptySet()),

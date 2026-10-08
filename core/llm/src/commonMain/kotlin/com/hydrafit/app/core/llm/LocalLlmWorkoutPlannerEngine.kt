@@ -3,6 +3,7 @@ package com.hydrafit.app.core.llm
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.OnDevicePlanProgressReporter
 import com.hydrafit.app.core.domain.engine.PlanRequest
+import com.hydrafit.app.core.domain.engine.PlannerCandidateEligibility
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.PlannerExerciseCounts
 import com.hydrafit.app.core.domain.engine.PlannerPromptFragments
@@ -29,21 +30,24 @@ class LocalLlmWorkoutPlannerEngine(
     override val id: PlannerEngineId = PlannerEngineId.LOCAL_LLM
 
     override suspend fun generatePlan(request: PlanRequest): WeeklyPlan {
+        val exercises = catalog.all()
+        PlannerCandidateEligibility.requireWorkouts(exercises, request)
         if (!generator.isAvailable()) return fallback.generatePlan(request)
         try {
-            return generateOnDevice(request)
+            return generateOnDevice(
+                request,
+                PlannerCandidateEligibility.candidates(exercises, request)
+            )
         } finally {
             // Clear no matter how the attempt ends (success, fallback, OOM, cancellation).
             progressReporter.clear()
         }
     }
 
-    private suspend fun generateOnDevice(request: PlanRequest): WeeklyPlan {
-        val availableExercises = catalog.all()
-            .filter {
-                it.isAvailableWith(request.availableEquipment) &&
-                    it.id !in request.excludedExerciseIds
-            }
+    private suspend fun generateOnDevice(
+        request: PlanRequest,
+        availableExercises: List<Exercise>
+    ): WeeklyPlan {
         val availableIds = availableExercises.map { it.id }
         val focusSequence = SplitResolver.focusSequence(
             request.splitPreference,

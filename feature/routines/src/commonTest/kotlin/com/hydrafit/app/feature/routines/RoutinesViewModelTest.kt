@@ -48,6 +48,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -330,9 +331,34 @@ class RoutinesViewModelTest {
         )
     }
 
+    @Test
+    fun resumeAndPickerOpeningRefreshExpiredExclusionsWithoutAnEmission() = runTest(dispatcher) {
+        var now = 99L
+        val model = viewModel(
+            exclusionRepository = FakeExerciseExclusionRepository(
+                listOf(ExerciseExclusion("bench-press", 100L))
+            ),
+            timeProvider = TimeProvider { now }
+        )
+        advanceUntilIdle()
+        assertTrue(model.state.value.exercises.first { it.id == "bench-press" }.isExcluded)
+        now = 100L
+        model.refresh()
+        advanceUntilIdle()
+        assertFalse(model.state.value.exercises.first { it.id == "bench-press" }.isExcluded)
+        now = 99L
+        model.onAddExercise(0)
+        assertTrue(model.state.value.exercises.first { it.id == "bench-press" }.isExcluded)
+        now = 100L
+        model.onReplaceExercise(0, 0)
+        assertFalse(model.state.value.exercises.first { it.id == "bench-press" }.isExcluded)
+    }
+
     private fun viewModel(
         weightUnitRepository: FakeWeightUnitRepository = FakeWeightUnitRepository(),
-        routineRepository: RoutineTemplateRepository = routines
+        routineRepository: RoutineTemplateRepository = routines,
+        exclusionRepository: ExerciseExclusionRepository = FakeExerciseExclusionRepository(),
+        timeProvider: TimeProvider = this.timeProvider
     ): RoutinesViewModel {
         val preview = PreviewWorkoutScheduleUseCase()
         val createActivation = CreateTrainingActivationUseCase(schedule, preview, timeProvider)
@@ -365,7 +391,7 @@ class RoutinesViewModelTest {
             exerciseCatalog = catalog,
             timeProvider = timeProvider,
             weightUnitRepository = weightUnitRepository,
-            exclusionRepository = FakeExerciseExclusionRepository()
+            exclusionRepository = exclusionRepository
         )
     }
 
@@ -395,8 +421,10 @@ class RoutinesViewModelTest {
     )
 }
 
-private class FakeExerciseExclusionRepository : ExerciseExclusionRepository {
-    override fun observe(): Flow<List<ExerciseExclusion>> = flowOf(emptyList())
+private class FakeExerciseExclusionRepository(
+    private val exclusions: List<ExerciseExclusion> = emptyList()
+) : ExerciseExclusionRepository {
+    override fun observe(): Flow<List<ExerciseExclusion>> = flowOf(exclusions)
 
     override suspend fun exclusion(exerciseId: String): ExerciseExclusion? = null
 

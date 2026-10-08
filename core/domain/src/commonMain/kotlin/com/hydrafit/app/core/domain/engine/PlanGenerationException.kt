@@ -35,6 +35,9 @@ enum class PlanFailureReason {
      */
     NO_ELIGIBLE_EXERCISES,
 
+    /** Eligible exercises exist, but generation selected no work; not an exclusion diagnosis. */
+    NO_USABLE_EXERCISES,
+
     /** Anything not otherwise mapped. */
     UNKNOWN
 }

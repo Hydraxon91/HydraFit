@@ -331,16 +331,29 @@ On acceptance, `AcceptWeeklyPlanUseCase` freezes this assessment with a
 `PlanAttribution` (`DETERMINISTIC` vs an `AI_GENERATED` assessment, never a
 claimed model rationale) into the `planVolumeExplanation` table, read back into
 `AcceptedPlan.armCoverage`/`volumeAttribution` (legacy plans have none). A
-confirmed substitution clears the rows in the same transaction; the UI then says
-the explanation is unavailable rather than reconstructing it from today's catalog.
+`planVolumeExplanationState` row (migration `31.sqm`) records `AVAILABLE` or
+`INVALIDATED_BY_SUBSTITUTION`, so a substituted plan is distinguished from a
+legacy one after reload; both acceptance paths (`accept` and `acceptAndActivate`)
+share one writer. A confirmed substitution clears the assessment rows and marks
+the state row in the same transaction; the UI then says the explanation is
+unavailable rather than reconstructing it from today's catalog. Only a recorded
+deterministic skip reports `ALL_COMPATIBLE_CANDIDATES_SKIPPED_FOR_FATIGUE`; an
+`AI_GENERATED` assessment reports `COMPATIBLE_CANDIDATES_ABOVE_SORENESS_THRESHOLD`
+instead, because the sanitizer does not run the planner's selection branch.
 
 Gemini and local-model prompts receive advisory arm-coverage guidance, and their
 sanitized plans receive the same coverage assessment without rejection for
-missing direct work. Coverage is not persisted in accepted-plan history. The
+missing direct work. Coverage assessment is persisted with accepted plans (see
+above); it is not performed volume. The
 four-set value is a product default, not a validated minimum or optimum.
 The ordering lives in `DeterministicWorkoutPlannerEngine.rankCandidates` (with
 `pickFirstNonSore` for the skip); `SubstituteExerciseUseCase` reuses both to swap
 one slot of an accepted plan, so a replacement is ranked like a fresh pick.
+Hard equipment/exclusion eligibility is shared through
+`PlannerCandidateEligibility` (used by the deterministic engine, sanitizer,
+substitution and both model engines; the model engines and the deterministic
+engine preflight `requireWorkouts` and fail with `NO_ELIGIBLE_EXERCISES` before
+generating when a requested focus has no eligible work).
 When replacing a qualifying biceps/triceps isolation slot, coverage-preserving same-pattern
 replacements rank first; other same-pattern options remain available for explicit user choice.
 Weighted fatigue is the maximum of
@@ -433,8 +446,8 @@ Schema directory:
 
 Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseExclusion.sq`, `ExerciseOverride.sq`,
 `ExercisePreference.sq`, `PersonalRecord.sq`, `PlanHistory.sq`, `PlannerEngine.sq`,
-`PlanVolumeExplanation.sq`, `RoutineTemplate.sq`, `TrainingSchedule.sq`, `UserEquipment.sq`,
-`WorkoutLog.sq`, and `WorkoutSession.sq`.
+`PlanVolumeExplanation.sq`, `PlanVolumeExplanationState.sq`, `RoutineTemplate.sq`,
+`TrainingSchedule.sq`, `UserEquipment.sq`, `WorkoutLog.sq`, and `WorkoutSession.sq`.
 `PlanHistory.sq`'s `updateEntryExerciseIdAtPosition` swaps one entry's
 `exerciseId`/`exerciseName`/`suggestedWeightKg` in place (no schema change) for
 `SubstituteExerciseUseCase`; the entry's `sets`/`reps` are untouched. Editing a
