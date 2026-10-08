@@ -181,6 +181,17 @@ Model-proposed loads remain gated by `includeWorkoutData`. Yang et al. (2022,
 https://doi.org/10.1123/japa.2020-0493) concerns lower-limb strength retention in middle-aged and
 older adults and does not validate this horizon, sample threshold or load prescription.
 
+**Exercise preference (contract approved, not yet implemented).** An explicit, user-set
+tri-state (Prefer / Neutral / Prefer-less) will be stored per exercise in
+`:core:userdata`, independent of the catalog `exerciseOverride` (a catalog reset must not
+clear it) and reassigned by `CustomExerciseDedupe` like a personal record. It is never
+inferred from substitutions or passive acceptance and does not decay. It will reorder
+deterministic generation and substitution candidates only after the equipment, EX-01,
+soreness and coverage gates, ahead of the unvalidated fatigue/deficit heuristic, and can
+never bypass a hard gate: Prefer-less is soft and is not EX-01 exclusion. Accepted/frozen
+plans and recorded sets are never rewritten. Implementation and migration are gated under
+C2G.
+
 - **Examples:** `WorkoutPlannerEngine`, `WorkoutPlannerEngineProvider`,
   `DefaultWorkoutPlannerEngineProvider`, `DeterministicWorkoutPlannerEngine`,
   `GeminiWorkoutPlannerEngine`, `LocalLlmWorkoutPlannerEngine`, `WeeklyPlanSanitizer`,
