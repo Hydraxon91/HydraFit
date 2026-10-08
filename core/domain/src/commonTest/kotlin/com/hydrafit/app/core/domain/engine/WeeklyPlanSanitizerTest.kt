@@ -116,6 +116,45 @@ class WeeklyPlanSanitizerTest {
     }
 
     @Test
+    fun capsModelWeightByRecentPerformance() = runTest {
+        val plan = WeeklyPlan(
+            engine = PlannerEngineId.GEMINI_API,
+            days = listOf(
+                WorkoutDay(
+                    dayIndex = 0,
+                    focus = SplitFocus.FULL_BODY,
+                    exercises = listOf(
+                        PlannedExercise(
+                            "bench-press",
+                            sets = 3,
+                            reps = 8,
+                            suggestedWeightKg = 100.0
+                        ),
+                        PlannedExercise(
+                            "lateral-raise",
+                            sets = 3,
+                            reps = 12,
+                            suggestedWeightKg = 50.0
+                        )
+                    )
+                )
+            )
+        )
+
+        val sanitized = sanitizer.sanitize(
+            plan,
+            request(includeWorkoutData = true)
+                .copy(recentWeightCaps = mapOf("bench-press" to 60.0))
+        )!!
+
+        val exercises = sanitized.days.single().exercises.associateBy { it.exerciseId }
+        // Cap 60kg at BALANCED compound reps (6) = 60 x 0.85 x 0.9 = 45.9 -> 45.0, below the model's 100.
+        assertEquals(45.0, exercises.getValue("bench-press").suggestedWeightKg)
+        // No cap for the lateral raise, so the model's number stands.
+        assertEquals(50.0, exercises.getValue("lateral-raise").suggestedWeightKg)
+    }
+
+    @Test
     fun dropsUnknownExercises() = runTest {
         val plan = planOf(listOf("bench-press", "lateral-raise", "not-a-real-id"))
 

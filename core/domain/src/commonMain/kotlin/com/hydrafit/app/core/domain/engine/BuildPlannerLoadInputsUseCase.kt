@@ -8,7 +8,9 @@ import com.hydrafit.app.core.domain.workout.WorkoutSet
 /** The load-derived fields of a plan request: the progressed baseline and the recent history. */
 data class PlannerLoadInputs(
     val suggestedWeightsKg: Map<String, Double>,
-    val recentWeights: List<WeightHistoryEntry>
+    val recentWeights: List<WeightHistoryEntry>,
+    /** Recency-tempered e1RM ceiling per exercise; consumers cap their own working load with it. */
+    val recentWeightCaps: Map<String, Double> = emptyMap()
 )
 
 /**
@@ -81,7 +83,13 @@ class BuildPlannerLoadInputsUseCase(
         } else {
             emptyList()
         }
-        return PlannerLoadInputs(suggestedWeightsKg = progressed, recentWeights = recentWeights)
+        // A manual record is a deliberate assertion and must not cap an engine-proposed load either.
+        val recentWeightCaps = recentBest.filterKeys { it !in manualRecordIds }
+        return PlannerLoadInputs(
+            suggestedWeightsKg = progressed,
+            recentWeights = recentWeights,
+            recentWeightCaps = recentWeightCaps
+        )
     }
 
     /**
