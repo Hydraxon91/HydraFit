@@ -4,9 +4,14 @@ import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 
 /**
- * A muscle's weekly volume window, in involvement-weighted sets. [minSets] is the minimum
- * effective volume the planner tries not to fall below, [targetSets] the planning goal, and
- * [maxSets] the ceiling the planner refuses to add beyond.
+ * A muscle's weekly volume window, in involvement-weighted sets. These are soft planning
+ * heuristics, not validated physiological thresholds.
+ *
+ * [targetSets] is the goal the selector chases. [maxSets] is a **soft** ceiling: ordinary selection
+ * stops offering an exercise only once *every* muscle it targets is already at it, and whole-slot
+ * additions may overshoot; the direct-arm coverage priority bypasses it. [minSets] is currently
+ * **report-only** — selection keys on [targetSets], so [minSets] is not enforced and any consumer
+ * (e.g. the volume-explanation slice) should treat it as an informational threshold.
  */
 data class VolumeTarget(val minSets: Double, val targetSets: Double, val maxSets: Double) {
     init {
@@ -20,7 +25,8 @@ data class VolumeTarget(val minSets: Double, val targetSets: Double, val maxSets
  * Weekly volume targets per [TrainingGoal]. The table is uniform across muscles: a weighted set
  * counts once per unit of involvement, so a compound's secondary contributions already raise its
  * helpers' totals. Muscles that the catalog or the split cannot supply stay below target on
- * purpose — an unfilled deficit is not an error.
+ * purpose — an unfilled deficit is not an error. The values are product defaults for broad goals;
+ * they are not established per-region optima and the same window is applied to every muscle.
  */
 object WeeklyVolumeTargets {
 

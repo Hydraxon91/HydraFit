@@ -323,7 +323,11 @@ class DeterministicWorkoutPlannerEngine(
         (weeklyVolume[muscle] ?: 0.0) < target.targetSets
     }
 
-    /** True when every muscle this exercise trains is already at or beyond its weekly ceiling. */
+    /**
+     * Soft ceiling: true when every muscle this exercise targets is already at or beyond its weekly
+     * `maxSets`, checked before adding a whole slot. Additions can overshoot, and the direct-arm
+     * coverage priority bypasses this gate.
+     */
     private fun isAtMax(
         exercise: Exercise,
         weeklyVolume: Map<MuscleGroup, Double>,
