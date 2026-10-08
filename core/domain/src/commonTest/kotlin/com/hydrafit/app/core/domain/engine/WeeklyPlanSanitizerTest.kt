@@ -32,6 +32,12 @@ class WeeklyPlanSanitizerTest {
         assertEquals(TrainingGoal.BALANCED.compoundReps, compound.reps)
         assertEquals(2, isolation.sets)
         assertEquals(TrainingGoal.BALANCED.isolationReps, isolation.reps)
+        assertEquals(2, sanitized.armCoverage.size)
+        assertTrue(
+            sanitized.armCoverage.all {
+                it.unmetReason == ArmCoverageUnmetReason.NO_COMPATIBLE_AVAILABLE_CANDIDATE
+            }
+        )
     }
 
     @Test
@@ -78,6 +84,7 @@ class WeeklyPlanSanitizerTest {
         assertEquals(3, compound.sets)
         // model weight 100 x 0.8 = 80
         assertEquals(80.0, compound.suggestedWeightKg)
+        assertTrue(sanitized.armCoverage.none { it.isTargetEnforced })
     }
 
     @Test

@@ -102,9 +102,9 @@ class GeminiWorkoutPlannerEngineTest {
 
         val bodyText = (requireNotNull(captured).body as TextContent).text
         assertTrue(bodyText.contains("Training goal: ENDURANCE"), bodyText)
-        assertTrue(bodyText.contains("Scale reps to keep volume steady"), bodyText)
-        // Endurance compound volume 2 x 15 = 30 total reps
-        assertTrue(bodyText.contains("about 30 total reps for compound lifts"), bodyText)
+        assertTrue(bodyText.contains("15 reps for compound exercises"), bodyText)
+        assertTrue(bodyText.contains("15 reps for accessory exercises"), bodyText)
+        assertTrue(bodyText.contains("about 4 sets per muscle across the week"), bodyText)
     }
 
     @Test

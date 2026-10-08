@@ -145,6 +145,61 @@ class SubstituteExerciseUseCaseTest {
     }
 
     @Test
+    fun directArmSlotRanksCoveragePreservingSubstitutionsFirst() = runTest {
+        val exercises = listOf(
+            exercise("original-curl", MovementPattern.BICEPS_ISOLATION).copy(
+                primaryMuscles = setOf(MuscleGroup.BICEPS),
+                involvements = mapOf(MuscleGroup.BICEPS to 1.0)
+            ),
+            exercise("a-mismatched-curl", MovementPattern.BICEPS_ISOLATION, EquipmentTag.DUMBBELL)
+                .copy(
+                    primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
+                    involvements = mapOf(MuscleGroup.CHEST_UPPER to 1.0)
+                ),
+            exercise("z-matching-curl", MovementPattern.BICEPS_ISOLATION, EquipmentTag.DUMBBELL)
+                .copy(
+                    primaryMuscles = setOf(MuscleGroup.BICEPS),
+                    involvements = mapOf(MuscleGroup.BICEPS to 1.0)
+                )
+        )
+        val testCatalog = FakeCatalog(exercises)
+        val useCase = SubstituteExerciseUseCase(
+            testCatalog,
+            FakePlanHistoryRepository(),
+            DeterministicWorkoutPlannerEngine(testCatalog)
+        )
+        val directPlan = plan().copy(
+            days = listOf(
+                AcceptedDay(
+                    dayIndex = 0,
+                    focus = SplitFocus.PULL,
+                    exercises = listOf(
+                        AcceptedExercise(
+                            exerciseId = "original-curl",
+                            sets = 2,
+                            reps = 12,
+                            name = "Original Curl",
+                            movementPattern = MovementPattern.BICEPS_ISOLATION
+                        )
+                    )
+                )
+            )
+        )
+
+        val candidates = useCase.candidates(
+            directPlan,
+            0,
+            0,
+            request(equipment = setOf(EquipmentTag.DUMBBELL))
+        )
+
+        assertEquals(
+            listOf("z-matching-curl", "a-mismatched-curl"),
+            candidates.map { it.exerciseId }
+        )
+    }
+
+    @Test
     fun nullWhenTheSelectedCandidateIsSore() = runTest {
         val repository = FakePlanHistoryRepository()
         val useCase = useCase(repository)

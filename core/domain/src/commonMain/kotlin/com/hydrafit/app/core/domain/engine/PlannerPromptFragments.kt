@@ -43,12 +43,20 @@ object PlannerPromptFragments {
     }
 
     /** Volume/rep guidance derived from the training goal. */
-    fun volumeRepsGuidance(request: PlanRequest): String {
-        val compoundVolume = request.goal.defaultSets * request.goal.compoundReps
-        val accessoryVolume = request.goal.accessorySets * request.goal.isolationReps
-        return "Scale reps to keep volume steady: fewer sets mean more reps per set. Aim for " +
-            "about $compoundVolume total reps for compound lifts and " +
-            "$accessoryVolume for accessory exercises."
+    fun volumeRepsGuidance(request: PlanRequest): String =
+        "Use the goal's fixed rep bands: ${request.goal.compoundReps} reps for compound " +
+            "exercises and ${request.goal.isolationReps} reps for accessory exercises. The " +
+            "selected set count controls volume; do not trade fewer sets for more reps."
+
+    /** Advisory weekly direct-arm coverage; output is assessed but not rejected for missing it. */
+    fun directArmCoverageGuidance(request: PlanRequest): String = if (request.isDeload) {
+        "This is a deload: do not add work to meet the normal-week direct arm coverage objective."
+    } else {
+        "Where compatible exercises and session capacity allow, include dedicated biceps and " +
+            "triceps isolation work for about ${DirectArmCoverage.TARGET_SETS_PER_MUSCLE} sets " +
+            "per muscle across the week. Compound involvement is a separate estimate and does " +
+            "not replace this direct-work objective. This is a planning preference, not a " +
+            "guarantee of physiological adequacy."
     }
 
     /** Recent working-weight entries, or null when sharing is off or there is no history. */

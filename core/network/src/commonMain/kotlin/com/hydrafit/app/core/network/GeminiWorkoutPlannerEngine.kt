@@ -260,6 +260,7 @@ class GeminiWorkoutPlannerEngine(
                     "${request.accessorySetsPerExercise} sets for accessory exercises."
             )
             appendLine(PlannerPromptFragments.volumeRepsGuidance(request))
+            appendLine(PlannerPromptFragments.directArmCoverageGuidance(request))
             appendLine("Prefer exercises whose muscles are less fatigued.")
             val recentlyUsed = request.recentExerciseIdsByPattern
             if (recentlyUsed.isNotEmpty()) {

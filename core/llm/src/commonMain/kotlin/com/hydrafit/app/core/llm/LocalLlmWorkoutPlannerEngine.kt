@@ -173,6 +173,7 @@ class LocalLlmWorkoutPlannerEngine(
             appendLine(PlannerPromptFragments.periodizationLine(request))
             PlannerPromptFragments.deloadInstruction(request)?.let { appendLine(it) }
             appendLine(PlannerPromptFragments.volumeRepsGuidance(request))
+            appendLine(PlannerPromptFragments.directArmCoverageGuidance(request))
             appendLine(PlannerPromptFragments.equipmentLine(request))
             PlannerPromptFragments.equipmentCapsLine(request)?.let { appendLine(it) }
             appendLine(PlannerPromptFragments.fatigueLine(request, "Muscle fatigue"))

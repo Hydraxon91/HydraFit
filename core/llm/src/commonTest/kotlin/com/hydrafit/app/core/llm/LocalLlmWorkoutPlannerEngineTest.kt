@@ -140,9 +140,9 @@ class LocalLlmWorkoutPlannerEngineTest {
 
         val prompt = requireNotNull(generator.lastPrompt)
         assertTrue(prompt.contains("Training goal: STRENGTH"), prompt)
-        assertTrue(prompt.contains("Scale reps to keep volume steady"), prompt)
-        // Strength compound volume 4 x 5 = 20 total reps
-        assertTrue(prompt.contains("about 20 total reps for compound lifts"), prompt)
+        assertTrue(prompt.contains("5 reps for compound exercises"), prompt)
+        assertTrue(prompt.contains("8 reps for accessory exercises"), prompt)
+        assertTrue(prompt.contains("about 4 sets per muscle across the week"), prompt)
     }
 
     @Test

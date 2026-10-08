@@ -254,14 +254,35 @@ PLANS.md (LT-10 / OF-10A-P0), not part of the current calculation.
 
 Deterministic candidate ordering: weighted fatigue, largest remaining weighted
 volume deficit, freshness within the generated week, previous-plan compound
-rotation, equipment rank, then exercise id. The ledger accumulates selected
-sets × involvement weight; it is planned volume, not performed-history volume
-or a validated direct/indirect hypertrophy conversion. Accessories fill toward
-four exercises/day, then chase deficits up to six. Unfilled targets are possible;
-there is no direct-arm quota or final minimum-volume repair pass.
+rotation, equipment rank, then exercise id. The weighted ledger accumulates
+selected sets × involvement weight; it is planned volume, not performed-history
+volume or a validated direct/indirect hypertrophy conversion. Accessories fill
+toward four exercises/day, then chase deficits up to six. Unfilled weighted
+targets remain possible.
+
+The deterministic planner also targets four direct isolation sets each for
+BICEPS and TRICEPS per normal generated week, across all goals. A set qualifies
+only when the exercise uses the matching `BICEPS_ISOLATION` or
+`TRICEPS_ISOLATION` pattern and has positive effective involvement for that
+muscle; the involvement-weight tier is not a biological cutoff. While an arm
+target is unmet, compatible arm isolation candidates take priority over
+discretionary accessories, even when compound weighted credits already meet that
+muscle's ordinary weighted target. Equipment, soreness skip/reduction rules,
+selected set counts, and the six-exercise daily cap still apply; whole accessory
+slots may overshoot the target, and constrained plans report unmet coverage.
+Normal arm targets are not chased during deloads. `WeeklyPlan.armCoverage`
+separates direct isolation sets from estimated other involvement credits and
+reports a bounded unmet reason; it is not performed volume or a growth guarantee.
+
+Gemini and local-model prompts receive advisory arm-coverage guidance, and their
+sanitized plans receive the same coverage assessment without rejection for
+missing direct work. Coverage is not persisted in accepted-plan history. The
+four-set value is a product default, not a validated minimum or optimum.
 The ordering lives in `DeterministicWorkoutPlannerEngine.rankCandidates` (with
 `pickFirstNonSore` for the skip); `SubstituteExerciseUseCase` reuses both to swap
 one slot of an accepted plan, so a replacement is ranked like a fresh pick.
+When replacing a qualifying biceps/triceps isolation slot, coverage-preserving same-pattern
+replacements rank first; other same-pattern options remain available for explicit user choice.
 Weighted fatigue is the maximum of
 `involvementWeight * muscleFatigue`; skip/reduce decisions instead use raw
 fatigue of targeted muscles. The engine reads `reduceThreshold`, `skipThreshold`

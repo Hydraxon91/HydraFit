@@ -120,7 +120,7 @@ class SubstituteExerciseUseCase(
                 exercise.id !in context.sameDayIds &&
                 exercise.id !in crossDayExclusions
         }
-        return rankingEngine.rankCandidates(
+        val ranked = rankingEngine.rankCandidates(
             candidates = filtered,
             fatigue = context.request.muscleFatigue,
             weekUsed = context.weekUsed,
@@ -128,6 +128,10 @@ class SubstituteExerciseUseCase(
             weeklyVolume = context.weeklyVolume,
             target = WeeklyVolumeTargets.forGoal(context.request.goal)
         )
+        val replacedExercise = exercises.firstOrNull { it.id == context.entry.exerciseId }
+        val directMuscle = replacedExercise?.let { DirectArmCoverage.muscleFor(it) }
+            ?: return ranked
+        return ranked.sortedBy { !DirectArmCoverage.qualifies(it, directMuscle) }
     }
 
     private fun contextFor(

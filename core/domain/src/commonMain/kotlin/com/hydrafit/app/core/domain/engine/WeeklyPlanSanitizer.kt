@@ -84,9 +84,22 @@ class WeeklyPlanSanitizer(
             weekNumber = request.weekNumber,
             cycleNumber = request.cycleNumber
         )
-        return varietyEnforcer.enforce(trimmed, request) { id ->
+        val enforced = varietyEnforcer.enforce(trimmed, request) { id ->
             usable[id]?.movementPattern?.isCompound ?: true
-        }
+        } ?: return null
+        val focuses = SplitResolver.focusSequence(request.splitPreference, request.daysPerWeek)
+        return enforced.copy(
+            armCoverage = DirectArmCoverage.assess(
+                days = enforced.days,
+                exercisesById = usable,
+                compatibleCandidatesByMuscle = DirectArmCoverage.compatibleCandidates(
+                    usable.values.toList(),
+                    focuses
+                ),
+                fatigue = request.muscleFatigue,
+                isDeload = isDeload
+            )
+        )
     }
 
     private fun setsFor(exercise: Exercise, request: PlanRequest, isDeload: Boolean): Int {

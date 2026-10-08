@@ -43,6 +43,7 @@ class DeterministicWorkoutPlannerEngine(
         // Running involvement-weighted sets per muscle, accumulated across the week so each day can
         // chase the largest remaining volume deficit.
         val weeklyVolume = MuscleGroup.entries.associateWith { 0.0 }.toMutableMap()
+        val directArmSets = MuscleGroup.entries.associateWith { 0 }.toMutableMap()
         val target = WeeklyVolumeTargets.forGoal(request.goal)
 
         val days = List(request.daysPerWeek) { index ->
@@ -55,6 +56,7 @@ class DeterministicWorkoutPlannerEngine(
                     availableExercises,
                     weekUsed,
                     weeklyVolume,
+                    directArmSets,
                     target,
                     request.muscleFatigue,
                     request.setsPerExercise,
@@ -68,11 +70,22 @@ class DeterministicWorkoutPlannerEngine(
             )
         }
 
+        val compatibleArmCandidates = DirectArmCoverage.compatibleCandidates(
+            availableExercises,
+            List(request.daysPerWeek) { index -> focusCycle[index % focusCycle.size] }
+        )
         return WeeklyPlan(
             engine = id,
             days = days,
             weekNumber = request.weekNumber,
-            cycleNumber = request.cycleNumber
+            cycleNumber = request.cycleNumber,
+            armCoverage = DirectArmCoverage.assess(
+                days = days,
+                exercisesById = availableExercises.associateBy { it.id },
+                compatibleCandidatesByMuscle = compatibleArmCandidates,
+                fatigue = request.muscleFatigue,
+                isDeload = isDeload
+            )
         )
     }
 
@@ -81,6 +94,7 @@ class DeterministicWorkoutPlannerEngine(
         exercises: List<Exercise>,
         weekUsed: MutableSet<String>,
         weeklyVolume: MutableMap<MuscleGroup, Double>,
+        directArmSets: MutableMap<MuscleGroup, Int>,
         target: VolumeTarget,
         fatigue: Map<MuscleGroup, Double>,
         setsPerExercise: Int,
@@ -126,6 +140,9 @@ class DeterministicWorkoutPlannerEngine(
             candidate.effectiveInvolvements.forEach { (muscle, weight) ->
                 weeklyVolume[muscle] = weeklyVolume.getValue(muscle) + planned.sets * weight
             }
+            DirectArmCoverage.muscleFor(candidate)?.let { muscle ->
+                directArmSets[muscle] = directArmSets.getValue(muscle) + planned.sets
+            }
             return true
         }
 
@@ -142,18 +159,31 @@ class DeterministicWorkoutPlannerEngine(
             )
         }
 
-        // Fill isolation slots by deficit: always toward TARGET_MIN, then only while a muscle is
-        // still below its target, capped at TARGET_MAX.
+        // Pursue unmet direct arm coverage first, then fill toward TARGET_MIN and chase weighted
+        // deficits up to TARGET_MAX.
         val isolationPool = isolationPatterns(focus)
         while (picks.size < PlannerExerciseCounts.TARGET_MAX_PER_DAY) {
             val pastMinimum = picks.size >= PlannerExerciseCounts.TARGET_MIN_PER_DAY
             val candidates = exercises.filter {
                 it.movementPattern in isolationPool &&
-                    it.id !in used &&
-                    !isAtMax(it, weeklyVolume, target) &&
-                    (!pastMinimum || hasDeficit(it, weeklyVolume, target))
+                    it.id !in used
             }
-            if (!pick(candidates)) break
+            val directArmCandidates = if (isDeload) {
+                emptyList()
+            } else {
+                candidates.filter { DirectArmCoverage.needsCoverage(it, directArmSets) }
+            }
+            if (directArmCandidates.isNotEmpty() && pick(directArmCandidates)) {
+                // Dedicated arm coverage takes precedence over the weighted ceiling: compound
+                // credits must not make qualifying direct work ineligible.
+                continue
+            }
+            val remaining = candidates.filter { candidate ->
+                !DirectArmCoverage.needsCoverage(candidate, directArmSets) &&
+                    !isAtMax(candidate, weeklyVolume, target) &&
+                    (!pastMinimum || hasDeficit(candidate, weeklyVolume, target))
+            }
+            if (!pick(remaining)) break
         }
 
         return picks
@@ -305,11 +335,7 @@ class DeterministicWorkoutPlannerEngine(
      * used for the skip/reduce decision so a low-weight stabiliser can't veto an exercise.
      */
     private fun targetedFatigue(exercise: Exercise, fatigue: Map<MuscleGroup, Double>): Double =
-        exercise.effectiveInvolvements
-            .filterValues { it >= fatigueConfig.targetedInvolvementCutoff }
-            .keys
-            .maxOfOrNull { fatigue[it] ?: 0.0 }
-            ?: 0.0
+        DirectArmCoverage.targetedFatigue(exercise, fatigue, fatigueConfig)
 
     /** Prefers barbell > dumbbell > machine/kettlebell > band > pull-up bar > bodyweight. */
     private fun equipmentRank(exercise: Exercise): Int = exercise.requiredEquipment
@@ -349,30 +375,8 @@ class DeterministicWorkoutPlannerEngine(
     }
 
     /** The isolation families a focus fills after its compounds, by largest remaining deficit. */
-    private fun isolationPatterns(focus: SplitFocus): List<MovementPattern> = when (focus) {
-        SplitFocus.PUSH -> listOf(
-            MovementPattern.TRICEPS_ISOLATION,
-            MovementPattern.SHOULDER_ISOLATION
-        )
-        SplitFocus.PULL -> listOf(MovementPattern.BICEPS_ISOLATION)
-        SplitFocus.LEGS, SplitFocus.LOWER -> listOf(
-            MovementPattern.LEG_ISOLATION,
-            MovementPattern.CALF_RAISE,
-            MovementPattern.CORE
-        )
-        SplitFocus.UPPER -> listOf(
-            MovementPattern.BICEPS_ISOLATION,
-            MovementPattern.TRICEPS_ISOLATION
-        )
-        SplitFocus.FULL_BODY -> listOf(
-            MovementPattern.BICEPS_ISOLATION,
-            MovementPattern.TRICEPS_ISOLATION,
-            MovementPattern.SHOULDER_ISOLATION,
-            MovementPattern.LEG_ISOLATION,
-            MovementPattern.CALF_RAISE,
-            MovementPattern.CORE
-        )
-    }
+    private fun isolationPatterns(focus: SplitFocus): List<MovementPattern> =
+        DirectArmCoverage.isolationPatternsFor(focus)
 
     companion object {
         const val MIN_DAYS = 2

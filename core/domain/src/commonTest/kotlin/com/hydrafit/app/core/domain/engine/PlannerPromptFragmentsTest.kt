@@ -76,9 +76,19 @@ class PlannerPromptFragmentsTest {
     @Test
     fun derivesVolumeGuidanceFromTheGoal() {
         assertEquals(
-            "Scale reps to keep volume steady: fewer sets mean more reps per set. Aim for " +
-                "about 18 total reps for compound lifts and 24 for accessory exercises.",
+            "Use the goal's fixed rep bands: 6 reps for compound exercises and 12 reps for " +
+                "accessory exercises. The selected set count controls volume; do not trade fewer " +
+                "sets for more reps.",
             PlannerPromptFragments.volumeRepsGuidance(request(goal = TrainingGoal.BALANCED))
+        )
+    }
+
+    @Test
+    fun givesAdvisoryDirectArmCoverageAndExemptsDeloads() {
+        assertTrue(PlannerPromptFragments.directArmCoverageGuidance(request()).contains("4 sets"))
+        assertTrue(
+            PlannerPromptFragments.directArmCoverageGuidance(request(isDeload = true))
+                .contains("do not add work")
         )
     }
 

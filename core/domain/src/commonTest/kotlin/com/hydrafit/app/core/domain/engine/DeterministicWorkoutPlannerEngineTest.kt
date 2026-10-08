@@ -974,13 +974,193 @@ class DeterministicWorkoutPlannerEngineTest {
             listOf(bench, pushdown, shoulderFly)
         )
 
-        // The bench already loaded triceps, so shoulders carry the larger deficit even though the
-        // triceps pushdown has the better equipment rank; deficit is ranked first.
+        // Unmet direct triceps coverage takes precedence over discretionary shoulder isolation.
         val day0 = plan.days.first().exercises.map { it.exerciseId }
         assertTrue(
-            day0.indexOf("z-fly") in 0 until day0.indexOf("a-pushdown"),
+            day0.indexOf("a-pushdown") in 0 until day0.indexOf("z-fly"),
             "day0=$day0"
         )
+    }
+
+    @Test
+    fun providesDirectArmCoverageAcrossAllGoalsEvenWhenCompoundCreditsAreHigh() {
+        val exercises = listOf(
+            exercise("squat", MovementPattern.SQUAT, MuscleGroup.QUADS),
+            exercise("press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER).copy(
+                involvements = mapOf(
+                    MuscleGroup.CHEST_UPPER to 1.0,
+                    MuscleGroup.TRICEPS to 1.0
+                )
+            ),
+            exercise("row", MovementPattern.HORIZONTAL_PULL, MuscleGroup.UPPER_BACK).copy(
+                involvements = mapOf(
+                    MuscleGroup.UPPER_BACK to 1.0,
+                    MuscleGroup.BICEPS to 1.0
+                )
+            ),
+            exercise("curl", MovementPattern.BICEPS_ISOLATION, MuscleGroup.BICEPS),
+            exercise("extension", MovementPattern.TRICEPS_ISOLATION, MuscleGroup.TRICEPS)
+        )
+
+        TrainingGoal.entries.forEach { goal ->
+            val plan = engine.plan(
+                request(
+                    daysPerWeek = 2,
+                    split = SplitType.FULL_BODY,
+                    equipment = everything,
+                    goal = goal,
+                    setsPerExercise = 8,
+                    accessorySetsPerExercise = 2
+                ),
+                exercises
+            )
+
+            val biceps = plan.armCoverage.single { it.muscle == MuscleGroup.BICEPS }
+            val triceps = plan.armCoverage.single { it.muscle == MuscleGroup.TRICEPS }
+            assertEquals(4, biceps.directIsolationSets, "goal=$goal biceps=$biceps")
+            assertEquals(4, triceps.directIsolationSets, "goal=$goal triceps=$triceps")
+            assertEquals(8.0, biceps.estimatedOtherInvolvementCredits, "goal=$goal")
+            assertEquals(8.0, triceps.estimatedOtherInvolvementCredits, "goal=$goal")
+        }
+    }
+
+    @Test
+    fun providesDirectArmCoverageAcrossSupportedTrainingFrequencies() {
+        (2..6).forEach { daysPerWeek ->
+            val plan = engine.plan(
+                request(daysPerWeek = daysPerWeek, equipment = everything),
+                richCatalog()
+            )
+
+            assertTrue(
+                plan.armCoverage.all { it.directIsolationSets >= it.targetSets },
+                "daysPerWeek=$daysPerWeek coverage=${plan.armCoverage}"
+            )
+        }
+    }
+
+    @Test
+    fun selectedAccessorySetCountDeterminesWhetherCoverageFitsAvailableDays() {
+        val exercises = listOf(
+            exercise("squat", MovementPattern.SQUAT, MuscleGroup.QUADS),
+            exercise("press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER),
+            exercise("row", MovementPattern.HORIZONTAL_PULL, MuscleGroup.UPPER_BACK),
+            exercise("curl", MovementPattern.BICEPS_ISOLATION, MuscleGroup.BICEPS),
+            exercise("extension", MovementPattern.TRICEPS_ISOLATION, MuscleGroup.TRICEPS)
+        )
+
+        val lowSets = engine.plan(
+            request(
+                daysPerWeek = 2,
+                split = SplitType.FULL_BODY,
+                equipment = everything,
+                accessorySetsPerExercise = 1
+            ),
+            exercises
+        )
+        val normalSets = engine.plan(
+            request(
+                daysPerWeek = 2,
+                split = SplitType.FULL_BODY,
+                equipment = everything,
+                accessorySetsPerExercise = 2
+            ),
+            exercises
+        )
+
+        assertTrue(lowSets.armCoverage.any { it.directIsolationSets < it.targetSets })
+        assertTrue(
+            lowSets.armCoverage.all {
+                it.directIsolationSets >= it.targetSets ||
+                    it.unmetReason == ArmCoverageUnmetReason.NOT_MET_WITH_AVAILABLE_CANDIDATES
+            }
+        )
+        assertTrue(normalSets.armCoverage.all { it.directIsolationSets >= it.targetSets })
+        assertTrue(
+            lowSets.days.all {
+                it.exercises.size <= PlannerExerciseCounts.TARGET_MAX_PER_DAY
+            }
+        )
+    }
+
+    @Test
+    fun customIsolationPatternMustInvolveTheMatchingArmMuscleToCount() {
+        val mismatchedCurl = exercise(
+            "misclassified-curl",
+            MovementPattern.BICEPS_ISOLATION,
+            MuscleGroup.TRICEPS
+        )
+
+        val plan = engine.plan(
+            request(daysPerWeek = 2, split = SplitType.FULL_BODY, equipment = everything),
+            listOf(mismatchedCurl)
+        )
+
+        assertEquals(
+            0,
+            plan.armCoverage.single { it.muscle == MuscleGroup.BICEPS }.directIsolationSets
+        )
+    }
+
+    @Test
+    fun reportsWhenEquipmentLeavesNoCompatibleDirectArmCandidate() {
+        val plan = engine.plan(
+            request(daysPerWeek = 2, split = SplitType.FULL_BODY, equipment = emptySet()),
+            listOf(
+                exercise(
+                    "curl",
+                    MovementPattern.BICEPS_ISOLATION,
+                    MuscleGroup.BICEPS,
+                    setOf(EquipmentTag.DUMBBELL)
+                ),
+                exercise(
+                    "extension",
+                    MovementPattern.TRICEPS_ISOLATION,
+                    MuscleGroup.TRICEPS,
+                    setOf(EquipmentTag.CABLE_MACHINE)
+                )
+            )
+        )
+
+        assertTrue(
+            plan.armCoverage.all {
+                it.unmetReason == ArmCoverageUnmetReason.NO_COMPATIBLE_AVAILABLE_CANDIDATE
+            }
+        )
+    }
+
+    @Test
+    fun doesNotForceSoreCandidatesToMeetDirectArmCoverage() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 2,
+                split = SplitType.FULL_BODY,
+                equipment = everything,
+                fatigue = mapOf(MuscleGroup.BICEPS to 0.9, MuscleGroup.TRICEPS to 0.9)
+            ),
+            listOf(
+                exercise("curl", MovementPattern.BICEPS_ISOLATION, MuscleGroup.BICEPS),
+                exercise("extension", MovementPattern.TRICEPS_ISOLATION, MuscleGroup.TRICEPS)
+            )
+        )
+
+        assertTrue(
+            plan.armCoverage.all {
+                it.unmetReason ==
+                    ArmCoverageUnmetReason.ALL_COMPATIBLE_CANDIDATES_SKIPPED_FOR_FATIGUE
+            }
+        )
+        assertTrue(plan.days.flatMap { it.exercises }.isEmpty())
+    }
+
+    @Test
+    fun marksNormalArmTargetsAsNotEnforcedDuringDeload() {
+        val plan = engine.plan(
+            request(daysPerWeek = 2, equipment = everything, isDeload = true),
+            richCatalog()
+        )
+
+        assertTrue(plan.armCoverage.none { it.isTargetEnforced })
     }
 
     @Test
@@ -1082,9 +1262,9 @@ class DeterministicWorkoutPlannerEngineTest {
 
         assertEquals(
             "FULL_BODY[back-squat:3:6:null,bench-press:3:6:null,pull-up:3:6:null," +
-                "calf-raise:2:12:null,curl:2:12:null,plank:2:12:null];" +
+                "curl:2:12:null,calf-raise:2:12:null,plank:2:12:null];" +
                 "FULL_BODY[rdl:3:6:null,ohp:3:6:null,barbell-row:3:6:null," +
-                "calf-raise:2:12:null,curl:2:12:null,plank:2:12:null]",
+                "curl:2:12:null,calf-raise:2:12:null,plank:2:12:null]",
             render(plan)
         )
     }

@@ -6,7 +6,8 @@ data class WeeklyPlan(
     val engine: PlannerEngineId,
     val days: List<WorkoutDay>,
     val weekNumber: Int = 1,
-    val cycleNumber: Int = 1
+    val cycleNumber: Int = 1,
+    val armCoverage: List<ArmMuscleCoverage> = emptyList()
 ) {
     /** Spreads the plan's training days across the week, starting on Monday. */
     fun scheduledDay(dayIndex: Int): DayOfWeek? {

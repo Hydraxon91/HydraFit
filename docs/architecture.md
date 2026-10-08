@@ -143,7 +143,25 @@ three implementations selected by `DefaultWorkoutPlannerEngineProvider` from the
 preference. `GeminiWorkoutPlannerEngine` and `LocalLlmWorkoutPlannerEngine` both funnel output
 through the shared `WeeklyPlanSanitizer` + `PlanVarietyEnforcer`; the deterministic engine returns
 directly. The deterministic candidate ordering (`rankCandidates`/`pickFirstNonSore`) is reused by
-`SubstituteExerciseUseCase` to swap one slot of an accepted plan.
+`SubstituteExerciseUseCase` to swap one slot of an accepted plan; when the replaced slot is
+qualifying direct arm work, coverage-preserving replacements are ranked first while other same-pattern
+replacements remain available for explicit user choice.
+
+The deterministic engine additionally pursues **four prescribed direct isolation sets each for
+BICEPS and TRICEPS per normal generated week, regardless of goal**. A qualifying set must use the
+corresponding arm-isolation movement pattern and have positive effective involvement for that arm;
+catalog weight tiers are not used as a physiological directness threshold. Eligible direct-arm
+accessories are prioritized before discretionary accessories while coverage is unmet. Equipment,
+the existing soreness skip/reduction rules, selected per-exercise sets, and the six-exercise daily
+cap remain in force, so coverage may be unmet or exceed four by whole-slot increments. The objective
+is not pursued during deloads. `WeeklyPlan.armCoverage` reports planned direct sets, separate
+involvement-weighted contributions from non-direct exercises as estimates, and a bounded unmet
+reason; it is planning output, not a prediction of growth or performed work.
+
+The model engines receive the same advisory prompt and the sanitizer computes the same coverage
+summary, but missing direct-arm coverage does not reject a model-generated plan. Coverage is not
+persisted with accepted-plan history; history and explicit substitutions retain their existing
+semantics. The four-set objective is a product planning default, not a validated minimum or optimum.
 
 - **Examples:** `WorkoutPlannerEngine`, `WorkoutPlannerEngineProvider`,
   `DefaultWorkoutPlannerEngineProvider`, `DeterministicWorkoutPlannerEngine`,
