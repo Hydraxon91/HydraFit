@@ -11,6 +11,10 @@ inspection procedure and report format.
 scope containment and verification requirements. If the intended review
 scope is unclear, clarify it before starting.
 
+**Plan Mode is required.** Perform every review in Plan Mode. If the session
+is in Build Mode, stop and ask the user to switch to Plan Mode before
+reviewing; an approved implementation chunk does not waive this requirement.
+
 ## Review, Rule-Setting and Fix Discipline
 
 A full or partial codebase review means inspecting real source to identify
@@ -116,6 +120,11 @@ Do not imply that a deferred decision is an approved default.
 An approved review verdict means the reviewed scope satisfies the stated
 review criteria and evidenced verification requirements. It does not
 authorize fixes, commits, pushes or another phase.
+
+A builder's verification of its own fixes is not a review verdict. Begin the
+bounded review only when the user requests it and Plan Mode is active; passing
+tests, a green build or a self-check of closed findings does not substitute for
+the review.
 
 Review documents, RG rule changes, RF triage documents and fix implementation
 follow the approval and commit discipline in `AGENTS.md`.

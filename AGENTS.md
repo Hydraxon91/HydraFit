@@ -170,6 +170,16 @@ bounded, already-implemented scope (a session, work chunk or commit range),
 also follow `docs/post-execution-review.md`. If the intended scope is unclear,
 clarify it before starting.
 
+**Plan Mode is required for reviews.** Perform any codebase review (including a
+bounded post-execution review) in Plan Mode. If the session is in Build Mode,
+stop and ask the user to switch to Plan Mode before reviewing; an approved
+implementation chunk does not waive this requirement.
+
+**Verification is not approval.** A builder may verify its own fixes, but begin
+the bounded review only when the user requests it and Plan Mode is active.
+Passing tests, a green build, or a self-check of closed findings is not a review
+verdict, and it does not authorize a commit, push, tag or release.
+
 ## Review-Derived Rules (0.2.2)
 
 Added by the 0.2.2 review (RG); rationale lives in `docs/architecture.md` and

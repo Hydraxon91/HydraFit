@@ -23,6 +23,12 @@ unclear, clarify it before starting.
 ## Mandatory discipline
 
 - Read `AGENTS.md` and `docs/review-discipline.md` before reviewing.
+- **Plan Mode is required.** Perform post-execution reviews in Plan Mode. If the
+  session is in Build Mode, stop and ask the user to switch to Plan Mode before
+  reviewing; an approved implementation chunk does not waive this requirement.
+- **Stop at the review boundary.** A builder may verify its own fixes, but that
+  verification is not a review approval. Begin the bounded review only when the
+  user requests it and Plan Mode is active.
 - **Review is read-only.** Do not fix findings, change configuration, create
   commits or push. Writing the review report requires its own approved
   documentation scope.
@@ -38,6 +44,11 @@ unclear, clarify it before starting.
 - Compare the actual work with the explicitly approved plan.
 - Identify completed steps, unfinished steps and relevant pre-existing issues.
 - Read changed source plus its relevant consumers, helpers and tests.
+
+For a re-review of corrective work, inspect the corrective changes, their
+downstream consumers, and the previously declared review scope. Closing
+findings does not by itself establish that the entire release delta is
+approved.
 
 If the base or approved scope cannot be established, report the limitation
 before issuing an approval.
@@ -78,6 +89,9 @@ before issuing an approval.
 
 - Inspect actual test/build evidence and identify the revision it covers.
 - Confirm required downstream checks were run.
+- Distinguish automated checks, emulator smoke, and pinned release-upgrade
+  verification (for example, the latest shipped tag upgrading to the candidate
+  with retained data). One does not stand in for another.
 - Assess whether tests exercise the contract and failure paths, rather than
   merely mirror implementation details.
 - Name skipped, unavailable or unverified checks.
@@ -114,11 +128,15 @@ require the applicable fix-plan approval.
 
 ### Verdict
 
-`[APPROVED]` or `[REJECTED]`, with a concise reason.
+`[APPROVED]`, `[REJECTED]` or `[INCOMPLETE]`, with a concise reason.
 
 APPROVED means the reviewed scope has no unresolved blocking findings and its
 required verification is evidenced. It does not mean the implementation is
 perfect or authorize committing, pushing or starting another phase.
+
+INCOMPLETE means the declared scope has not been fully inspected or required
+evidence is unavailable. List what remains; do not substitute a
+findings-closure spot-check for a full-range review.
 
 ### Findings
 
