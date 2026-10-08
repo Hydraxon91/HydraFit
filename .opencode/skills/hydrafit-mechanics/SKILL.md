@@ -261,7 +261,9 @@ The weighted ledger accumulates
 selected sets × involvement weight; it is planned volume, not performed-history
 volume or a validated direct/indirect hypertrophy conversion. Accessories fill
 toward four exercises/day, then chase deficits up to six. Unfilled weighted
-targets remain possible.
+targets remain possible. The weekly `minSets`/`targetSets`/`maxSets` window is a
+soft heuristic: the selector chases `targetSets`, treats `maxSets` as a pre-pick
+gate with possible whole-slot overshoot, and ignores `minSets` (report-only).
 
 The isolation pool is focus-scoped and determines reachability (a catalog
 exercise whose pattern is in no pool is never auto-selected): push adds
