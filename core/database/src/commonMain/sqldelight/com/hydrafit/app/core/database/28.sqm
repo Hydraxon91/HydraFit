@@ -1,0 +1,9 @@
+-- C2G exercise preference: a dedicated per-exercise soft preference store, keyed by exercise id and
+-- independent of exerciseOverride, so a catalog reset cannot clear it. Absence of a row means
+-- NEUTRAL. The preference is explicit user data (never inferred, never decaying) and is required
+-- future OF-01 backup data; OF-01 itself is not implemented here.
+
+CREATE TABLE exercisePreference (
+    exerciseId TEXT NOT NULL PRIMARY KEY,
+    preference TEXT NOT NULL
+);

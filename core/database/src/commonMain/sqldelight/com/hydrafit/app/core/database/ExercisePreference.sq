@@ -1,0 +1,20 @@
+CREATE TABLE exercisePreference (
+    exerciseId TEXT NOT NULL PRIMARY KEY,
+    preference TEXT NOT NULL
+);
+
+selectAll:
+SELECT * FROM exercisePreference ORDER BY exerciseId;
+
+selectById:
+SELECT preference FROM exercisePreference WHERE exerciseId = ?;
+
+upsert:
+INSERT OR REPLACE INTO exercisePreference(exerciseId, preference)
+VALUES (?, ?);
+
+deleteById:
+DELETE FROM exercisePreference WHERE exerciseId = ?;
+
+updateExerciseId:
+UPDATE exercisePreference SET exerciseId = :newId WHERE exerciseId = :oldId;

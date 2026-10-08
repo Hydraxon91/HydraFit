@@ -126,7 +126,8 @@ class SubstituteExerciseUseCase(
             weekUsed = context.weekUsed,
             recentExerciseIdsByPattern = context.request.recentExerciseIdsByPattern,
             weeklyVolume = context.weeklyVolume,
-            target = WeeklyVolumeTargets.forGoal(context.request.goal)
+            target = WeeklyVolumeTargets.forGoal(context.request.goal),
+            exercisePreferences = context.request.exercisePreferences
         )
         val replacedExercise = exercises.firstOrNull { it.id == context.entry.exerciseId }
         val directMuscle = replacedExercise?.let { DirectArmCoverage.muscleFor(it) }

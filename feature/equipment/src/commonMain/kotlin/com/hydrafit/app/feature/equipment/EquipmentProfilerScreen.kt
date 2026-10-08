@@ -37,6 +37,7 @@ import com.hydrafit.app.core.domain.equipment.Equipment
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.equipment.ExercisePreference
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.unit.formatWeight
@@ -69,6 +70,10 @@ import hydrafit.feature.equipment.generated.resources.equipment_personal_records
 import hydrafit.feature.equipment.generated.resources.equipment_pr_exercise
 import hydrafit.feature.equipment.generated.resources.equipment_pr_reps
 import hydrafit.feature.equipment.generated.resources.equipment_pr_weight
+import hydrafit.feature.equipment.generated.resources.equipment_preference_less
+import hydrafit.feature.equipment.generated.resources.equipment_preference_neutral
+import hydrafit.feature.equipment.generated.resources.equipment_preference_prefer
+import hydrafit.feature.equipment.generated.resources.equipment_preference_section
 import hydrafit.feature.equipment.generated.resources.equipment_profiler_title
 import hydrafit.feature.equipment.generated.resources.equipment_remove
 import hydrafit.feature.equipment.generated.resources.equipment_save_error
@@ -120,11 +125,15 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun EquipmentProfilerRoute(
     modifier: Modifier = Modifier,
-    viewModel: EquipmentProfilerViewModel = koinViewModel()
+    viewModel: EquipmentProfilerViewModel = koinViewModel(),
+    planningSettings: ExercisePlanningSettingsViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val exercisePreferences by planningSettings.preferences.collectAsStateWithLifecycle()
     EquipmentProfilerScreen(
         state = state,
+        exercisePreferences = exercisePreferences,
+        onExercisePreferenceChanged = planningSettings::onPreferenceChanged,
         onTagToggled = viewModel::onTagToggled,
         onNewEquipmentNameChanged = viewModel::onNewEquipmentNameChanged,
         onAddEquipment = viewModel::onAddEquipment,
@@ -161,6 +170,8 @@ fun EquipmentProfilerRoute(
 @Composable
 fun EquipmentProfilerScreen(
     state: EquipmentProfilerUiState,
+    exercisePreferences: Map<String, ExercisePreference>,
+    onExercisePreferenceChanged: (String, ExercisePreference) -> Unit,
     onTagToggled: (EquipmentTag) -> Unit,
     onNewEquipmentNameChanged: (String) -> Unit,
     onAddEquipment: () -> Unit,
@@ -290,6 +301,10 @@ fun EquipmentProfilerScreen(
         ExerciseEditorDialog(
             state = state.exerciseEditor,
             equipment = state.equipment,
+            preference = state.exerciseEditor.exerciseId
+                ?.let { exercisePreferences[it] }
+                ?: ExercisePreference.NEUTRAL,
+            onPreferenceChanged = onExercisePreferenceChanged,
             onNameChanged = onEditorNameChanged,
             onPatternChanged = onEditorPatternChanged,
             onEquipmentToggled = onEditorEquipmentToggled,
@@ -534,6 +549,8 @@ private fun EquipmentEditorDialog(
 private fun ExerciseEditorDialog(
     state: ExerciseEditorState,
     equipment: List<Equipment>,
+    preference: ExercisePreference,
+    onPreferenceChanged: (String, ExercisePreference) -> Unit,
     onNameChanged: (String) -> Unit,
     onPatternChanged: (MovementPattern) -> Unit,
     onEquipmentToggled: (EquipmentTag) -> Unit,
@@ -648,6 +665,41 @@ private fun ExerciseEditorDialog(
                             selected = item.id in state.equipment,
                             onClick = { onEquipmentToggled(item.id) },
                             label = { Text(item.name) }
+                        )
+                    }
+                }
+                state.exerciseId?.let { exerciseId ->
+                    Text(
+                        text = stringResource(Res.string.equipment_preference_section),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = preference == ExercisePreference.PREFER,
+                            onClick = {
+                                onPreferenceChanged(exerciseId, ExercisePreference.PREFER)
+                            },
+                            label = {
+                                Text(stringResource(Res.string.equipment_preference_prefer))
+                            }
+                        )
+                        FilterChip(
+                            selected = preference == ExercisePreference.NEUTRAL,
+                            onClick = {
+                                onPreferenceChanged(exerciseId, ExercisePreference.NEUTRAL)
+                            },
+                            label = {
+                                Text(stringResource(Res.string.equipment_preference_neutral))
+                            }
+                        )
+                        FilterChip(
+                            selected = preference == ExercisePreference.PREFER_LESS,
+                            onClick = {
+                                onPreferenceChanged(exerciseId, ExercisePreference.PREFER_LESS)
+                            },
+                            label = {
+                                Text(stringResource(Res.string.equipment_preference_less))
+                            }
                         )
                     }
                 }

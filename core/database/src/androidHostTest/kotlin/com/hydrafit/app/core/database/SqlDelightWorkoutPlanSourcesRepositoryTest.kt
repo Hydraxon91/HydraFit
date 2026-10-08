@@ -5,6 +5,7 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.ExercisePreference
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.AfterTest
@@ -41,19 +42,22 @@ class SqlDelightWorkoutPlanSourcesRepositoryTest {
         val equipmentCatalog = SqlDelightEquipmentRepository(database)
         SeedEquipmentCatalog(database).seed()
         val records = SqlDelightPersonalRecordRepository(database, TimeProvider { 0L })
+        val exercisePreferences = SqlDelightExercisePreferenceRepository(database)
         val sources = SqlDelightWorkoutPlanSourcesRepository(
             equipment,
             preference,
             workoutLog,
             goal,
             equipmentCatalog,
-            records
+            records,
+            exercisePreferences
         )
         equipment.setSelected(setOf(EquipmentTag.BARBELL, EquipmentTag.BENCH))
         preference.setEngine(PlannerEngineId.GEMINI_API)
         preference.setDaysPerWeek(5)
         goal.setGoal(TrainingGoal.HYPERTROPHY)
         equipmentCatalog.setMaxWeight(EquipmentTag.CABLE_MACHINE, 100.0)
+        exercisePreferences.set("barbell-bench-press", ExercisePreference.PREFER)
         workoutLog.add(
             WorkoutSet(
                 exerciseId = "barbell-bench-press",
@@ -72,5 +76,9 @@ class SqlDelightWorkoutPlanSourcesRepositoryTest {
         assertEquals(100L, result.loggedSets.single().timestampMillis)
         assertEquals(80.0, result.loggedWorkoutSets.single().weightKg)
         assertEquals(mapOf(EquipmentTag.CABLE_MACHINE to 100.0), result.equipmentMaxWeights)
+        assertEquals(
+            mapOf("barbell-bench-press" to ExercisePreference.PREFER),
+            result.exercisePreferences
+        )
     }
 }

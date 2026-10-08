@@ -3,6 +3,7 @@ package com.hydrafit.app.core.domain.engine
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.equipment.ExercisePreference
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.FatigueCalculator
 import com.hydrafit.app.core.domain.fatigue.FatigueReplayFixture
@@ -1363,6 +1364,119 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun preferenceRanksAheadOfDeficitAndFatigueAndPreferLessStaysSelectable() {
+        val target = WeeklyVolumeTargets.forGoal(TrainingGoal.BALANCED)
+        val noVolume = MuscleGroup.entries.associateWith { 0.0 }
+        val preferred =
+            exercise("preferred", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+        val neutral = exercise("neutral", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.SIDE_DELTS)
+        // Chest is already at target, so the neutral shoulder exercise has the larger deficit.
+        val volume = noVolume.toMutableMap().apply {
+            this[MuscleGroup.CHEST_UPPER] = target.targetSets
+        }
+
+        fun rank(vararg preferences: Pair<String, ExercisePreference>) = engine.rankCandidates(
+            candidates = listOf(preferred, neutral),
+            fatigue = emptyMap(),
+            weekUsed = emptySet(),
+            recentExerciseIdsByPattern = emptyMap(),
+            weeklyVolume = volume,
+            target = target,
+            exercisePreferences = preferences.toMap()
+        ).map { it.id }
+
+        // Without a preference, the larger deficit wins.
+        assertEquals(listOf("neutral", "preferred"), rank())
+        // Prefer outranks the deficit/fatigue heuristic.
+        assertEquals(
+            listOf("preferred", "neutral"),
+            rank("preferred" to ExercisePreference.PREFER)
+        )
+        // Prefer-less is soft: it orders below neutral but is never removed.
+        assertEquals(
+            listOf("preferred", "neutral"),
+            rank("neutral" to ExercisePreference.PREFER_LESS)
+        )
+        // Ties within one level fall back to the existing deficit order.
+        assertEquals(
+            listOf("neutral", "preferred"),
+            rank(
+                "neutral" to ExercisePreference.PREFER,
+                "preferred" to ExercisePreference.PREFER
+            )
+        )
+    }
+
+    @Test
+    fun preferLessNeverExcludesAnExerciseFromGeneration() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                split = SplitType.PUSH_PULL_LEGS,
+                exercisePreferences = mapOf("pushdown" to ExercisePreference.PREFER_LESS)
+            ),
+            listOf(
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER),
+                exercise("pushdown", MovementPattern.TRICEPS_ISOLATION, MuscleGroup.TRICEPS)
+            )
+        )
+
+        assertTrue(
+            plan.days.first { it.focus == SplitFocus.PUSH }
+                .exercises.any { it.exerciseId == "pushdown" }
+        )
+    }
+
+    @Test
+    fun preferenceDoesNotBypassTheSorenessSkip() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                split = SplitType.PUSH_PULL_LEGS,
+                fatigue = mapOf(MuscleGroup.CHEST_UPPER to 0.9, MuscleGroup.SIDE_DELTS to 0.0),
+                exercisePreferences = mapOf("preferred-sore" to ExercisePreference.PREFER)
+            ),
+            listOf(
+                exercise(
+                    "preferred-sore",
+                    MovementPattern.HORIZONTAL_PUSH,
+                    MuscleGroup.CHEST_UPPER
+                ),
+                exercise("fresh", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.SIDE_DELTS)
+            )
+        )
+
+        val horizontalPush = plan.days.first { it.focus == SplitFocus.PUSH }
+            .exercises.single()
+        assertEquals("fresh", horizontalPush.exerciseId)
+    }
+
+    @Test
+    fun preferenceDoesNotBypassTheEquipmentGate() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                split = SplitType.PUSH_PULL_LEGS,
+                equipment = emptySet(),
+                exercisePreferences = mapOf("preferred" to ExercisePreference.PREFER)
+            ),
+            listOf(
+                exercise(
+                    "preferred",
+                    MovementPattern.HORIZONTAL_PUSH,
+                    MuscleGroup.CHEST_UPPER,
+                    required = setOf(EquipmentTag.BARBELL)
+                ),
+                exercise("available", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.SIDE_DELTS)
+            )
+        )
+
+        val horizontalPush = plan.days.first { it.focus == SplitFocus.PUSH }
+            .exercises.single()
+        assertEquals("available", horizontalPush.exerciseId)
+    }
+
+    @Test
     fun pickFirstNonSoreSkipsTargetedOverSkipThreshold() {
         val sore = Exercise(
             id = "sore",
@@ -1433,6 +1547,7 @@ class DeterministicWorkoutPlannerEngineTest {
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
         suggestedWeightsKg: Map<String, Double> = emptyMap(),
         equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
+        exercisePreferences: Map<String, ExercisePreference> = emptyMap(),
         isDeload: Boolean = false
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
@@ -1446,6 +1561,7 @@ class DeterministicWorkoutPlannerEngineTest {
         recentExerciseIdsByPattern = recentExerciseIdsByPattern,
         suggestedWeightsKg = suggestedWeightsKg,
         equipmentMaxWeights = equipmentMaxWeights,
+        exercisePreferences = exercisePreferences,
         isDeload = isDeload
     )
 

@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.ExercisePreference
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 
@@ -23,6 +24,12 @@ data class PlanRequest(
      */
     val recentWeightCaps: Map<String, Double> = emptyMap(),
     val withheldWeightExerciseIds: Set<String> = emptySet(),
+    /**
+     * Explicit user preference per exercise id, used only as a soft ordering tier among candidates
+     * that already passed the equipment, EX-01, soreness and coverage gates. Absence means
+     * [ExercisePreference.NEUTRAL]. It never makes an exercise required and never excludes one.
+     */
+    val exercisePreferences: Map<String, ExercisePreference> = emptyMap(),
     /** Heaviest weight each piece of equipment can provide; equipment absent here is unlimited. */
     val equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
     val includeWorkoutData: Boolean = false,

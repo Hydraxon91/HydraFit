@@ -9,6 +9,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
+import com.hydrafit.app.core.userdata.equipment.ExercisePreferenceRepository
 import com.hydrafit.app.core.userdata.equipment.PersonalRecordRepository
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import com.hydrafit.app.core.userdata.settings.TrainingGoalRepository
@@ -22,7 +23,8 @@ class SqlDelightWorkoutPlanSourcesRepository(
     private val workoutLogRepository: WorkoutLogRepository,
     private val trainingGoalRepository: TrainingGoalRepository,
     private val equipmentRepository: EquipmentRepository,
-    private val personalRecordRepository: PersonalRecordRepository
+    private val personalRecordRepository: PersonalRecordRepository,
+    private val exercisePreferenceRepository: ExercisePreferenceRepository
 ) : WorkoutPlanSourcesRepository {
 
     override fun observe(): Flow<WorkoutPlanSources> {
@@ -46,13 +48,19 @@ class SqlDelightWorkoutPlanSourcesRepository(
                 personalRecords = records
             )
         }
+        // Pair the preference flow with the log context so the outer combine keeps its five-flow
+        // shape rather than dropping to an untyped vararg combine.
+        val preferencesWithLog = combine(
+            logContext,
+            exercisePreferenceRepository.observe()
+        ) { context, preferences -> context to preferences }
         return combine(
             equipmentSelectionRepository.selectedFlow(),
             enginePreferenceRepository.engineFlow(),
             enginePreferenceRepository.daysPerWeekFlow(),
             trainingGoalRepository.goalFlow(),
-            logContext
-        ) { equipment, engine, daysPerWeek, goal, context ->
+            preferencesWithLog
+        ) { equipment, engine, daysPerWeek, goal, (context, preferences) ->
             WorkoutPlanSources(
                 availableEquipment = equipment,
                 selectedEngine = engine,
@@ -62,7 +70,8 @@ class SqlDelightWorkoutPlanSourcesRepository(
                 loggedWorkoutSets = context.loggedWorkoutSets,
                 workoutDataSharingEnabled = context.sharingEnabled,
                 equipmentMaxWeights = context.equipmentMaxWeights,
-                personalRecords = context.personalRecords
+                personalRecords = context.personalRecords,
+                exercisePreferences = preferences
             )
         }.distinctUntilChanged()
     }

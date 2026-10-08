@@ -63,6 +63,7 @@ class ObserveWorkoutPlanInputsUseCase(
                 recentWeightCaps = loadInputs.recentWeightCaps,
                 withheldWeightExerciseIds = loadInputs.withheldWeightExerciseIds,
                 equipmentMaxWeights = current.equipmentMaxWeights,
+                exercisePreferences = current.exercisePreferences,
                 includeWorkoutData = current.workoutDataSharingEnabled,
                 recentWeights = loadInputs.recentWeights,
                 weekNumber = weekNumber,

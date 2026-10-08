@@ -2,6 +2,7 @@ package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExercisePreference
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.FatigueConfig
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
@@ -70,6 +71,7 @@ class DeterministicWorkoutPlannerEngine(
                     request.recentWeightCaps,
                     request.withheldWeightExerciseIds,
                     request.equipmentMaxWeights,
+                    request.exercisePreferences,
                     isDeload
                 )
             )
@@ -110,6 +112,7 @@ class DeterministicWorkoutPlannerEngine(
         recentWeightCaps: Map<String, Double>,
         withheldWeightExerciseIds: Set<String>,
         equipmentMaxWeights: Map<EquipmentTag, Double>,
+        exercisePreferences: Map<String, ExercisePreference>,
         isDeload: Boolean
     ): List<PlannedExercise> {
         val used = mutableSetOf<String>()
@@ -126,7 +129,8 @@ class DeterministicWorkoutPlannerEngine(
                     weekUsed = weekUsed,
                     recentExerciseIdsByPattern = recentExerciseIdsByPattern,
                     weeklyVolume = weeklyVolume,
-                    target = target
+                    target = target,
+                    exercisePreferences = exercisePreferences
                 ),
                 fatigue
             ) ?: return false
@@ -211,10 +215,12 @@ class DeterministicWorkoutPlannerEngine(
     }
 
     /**
-     * Orders candidate exercises for selection: the largest remaining weekly deficit first, then
-     * recovery, then freshness within the generated week, previous-plan compound rotation, equipment
-     * preference, and finally id for a stable order. Extracted from [selectExercises] so the same
-     * ranking can drive substitution of an accepted plan's slot ([SubstituteExerciseUseCase]).
+     * Orders candidate exercises for selection: explicit user preference first (a soft tier above
+     * the unvalidated heuristic, never bypassing a hard gate), then the largest remaining weekly
+     * deficit, then recovery, then freshness within the generated week, previous-plan compound
+     * rotation, equipment preference, and finally id for a stable order. Extracted from
+     * [selectExercises] so the same ranking can drive substitution of an accepted plan's slot
+     * ([SubstituteExerciseUseCase]).
      */
     internal fun rankCandidates(
         candidates: List<Exercise>,
@@ -222,10 +228,14 @@ class DeterministicWorkoutPlannerEngine(
         weekUsed: Set<String>,
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>>,
         weeklyVolume: Map<MuscleGroup, Double>,
-        target: VolumeTarget
+        target: VolumeTarget,
+        exercisePreferences: Map<String, ExercisePreference> = emptyMap()
     ): List<Exercise> {
         val comparator = compareBy<Exercise>(
-            // Coverage first: address the largest remaining shortfall, then use the (unvalidated)
+            // Explicit user preference ranks first among candidates that already passed the hard
+            // gates. Prefer-less is soft: it only orders below neutral, it never removes a candidate.
+            { (exercisePreferences[it.id] ?: ExercisePreference.NEUTRAL).ordinal },
+            // Coverage next: address the largest remaining shortfall, then use the (unvalidated)
             // fatigue estimate only to break ties, so a negligible fatigue difference cannot
             // override a much larger coverage deficit.
             { -deficitScore(it, weeklyVolume, target) },

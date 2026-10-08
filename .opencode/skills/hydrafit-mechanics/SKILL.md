@@ -146,7 +146,8 @@ SqlDelightWorkoutPlanSourcesRepository.observe()
 ```text
 daysPerWeek, availableEquipment, muscleFatigue, splitPreference, nowMillis,
 goal, setsPerExercise, accessorySetsPerExercise,
-recentExerciseIdsByPattern, suggestedWeightsKg, equipmentMaxWeights,
+recentExerciseIdsByPattern, suggestedWeightsKg, recentWeightCaps,
+withheldWeightExerciseIds, equipmentMaxWeights, exercisePreferences,
 includeWorkoutData, recentWeights, weekNumber, cycleNumber, isDeload
 ```
 
@@ -274,11 +275,15 @@ PLANS.md (LT-10 / OF-10A-P0), not part of the current calculation.
 
 ### Selection, schedule, and periodization
 
-Deterministic candidate ordering: largest remaining weighted volume deficit,
-weighted fatigue, freshness within the generated week, previous-plan compound
-rotation, equipment rank, then exercise id. Coverage is the primary key so a
-negligible difference in the unvalidated fatigue estimate cannot override a much
-larger coverage deficit; fatigue is used within a class, not as a tolerance.
+Deterministic candidate ordering: explicit user preference (`PlanRequest.exercisePreferences`,
+`PREFER` < `NEUTRAL` < `PREFER_LESS`; absent ids are neutral), largest remaining
+weighted volume deficit, weighted fatigue, freshness within the generated week,
+previous-plan compound rotation, equipment rank, then exercise id. Preference is a soft
+first tier among candidates that already passed the equipment, soreness and direct-arm
+coverage gates; it is never inferred, never decays and `PREFER_LESS` never removes a
+candidate (it is not EX-01 exclusion). Coverage is the next key so a negligible difference
+in the unvalidated fatigue estimate cannot override a much larger coverage deficit; fatigue
+is used within a class, not as a tolerance.
 The weighted ledger accumulates
 selected sets × involvement weight; it is planned volume, not performed-history
 volume or a validated direct/indirect hypertrophy conversion. Accessories fill
@@ -414,8 +419,9 @@ Schema directory:
 `core/database/src/commonMain/sqldelight/com/hydrafit/app/core/database/`.
 
 Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseOverride.sq`,
-`PersonalRecord.sq`, `PlanHistory.sq`, `PlannerEngine.sq`, `RoutineTemplate.sq`,
-`TrainingSchedule.sq`, `UserEquipment.sq`, `WorkoutLog.sq`, and `WorkoutSession.sq`.
+`ExercisePreference.sq`, `PersonalRecord.sq`, `PlanHistory.sq`, `PlannerEngine.sq`,
+`RoutineTemplate.sq`, `TrainingSchedule.sq`, `UserEquipment.sq`, `WorkoutLog.sq`, and
+`WorkoutSession.sq`.
 `PlanHistory.sq`'s `updateEntryExerciseIdAtPosition` swaps one entry's
 `exerciseId`/`exerciseName`/`suggestedWeightKg` in place (no schema change) for
 `SubstituteExerciseUseCase`; the entry's `sets`/`reps` are untouched. Editing a

@@ -48,6 +48,7 @@ class CustomExerciseDedupe(private val database: HydraFitDatabase) {
                 )
                 mergePersonalRecord(custom.id, canonical.id)
                 mergeOverride(custom, canonical)
+                mergePreference(custom.id, canonical.id)
                 database.exerciseOverrideQueries.deleteById(custom.id)
                 database.exerciseQueries.deleteById(custom.id)
             }
@@ -78,6 +79,27 @@ class CustomExerciseDedupe(private val database: HydraFitDatabase) {
             )
         }
         database.personalRecordQueries.deleteById(customId)
+    }
+
+    /**
+     * Moves an explicit preference onto the merged seeded id. When the canonical id already has an
+     * explicit preference (including an explicitly stored NEUTRAL), that choice wins and the custom
+     * row is discarded; otherwise the custom preference is reassigned.
+     */
+    private fun mergePreference(customId: String, canonicalId: String) {
+        val hasCustomPreference =
+            database.exercisePreferenceQueries.selectById(customId).executeAsOneOrNull() != null
+        if (!hasCustomPreference) return
+        val canonicalPreference =
+            database.exercisePreferenceQueries.selectById(canonicalId).executeAsOneOrNull()
+        if (canonicalPreference == null) {
+            database.exercisePreferenceQueries.updateExerciseId(
+                newId = canonicalId,
+                oldId = customId
+            )
+        } else {
+            database.exercisePreferenceQueries.deleteById(customId)
+        }
     }
 
     private fun mergeOverride(custom: Exercise, canonical: CatalogExercise) {

@@ -3,6 +3,7 @@ package com.hydrafit.app.core.domain.engine
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.equipment.ExercisePreference
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.workout.LoadKind
@@ -200,6 +201,31 @@ class SubstituteExerciseUseCaseTest {
     }
 
     @Test
+    fun preferenceReordersSubstitutionCandidatesLikeGeneration() = runTest {
+        val useCase = useCase(FakePlanHistoryRepository())
+
+        val baseline = useCase.candidates(
+            plan(),
+            0,
+            0,
+            request(equipment = setOf(EquipmentTag.DUMBBELL))
+        )
+        assertEquals(listOf("dumbbell-bench", "push-up"), baseline.map { it.exerciseId })
+
+        val preferred = useCase.candidates(
+            plan(),
+            0,
+            0,
+            request(
+                equipment = setOf(EquipmentTag.DUMBBELL),
+                exercisePreferences = mapOf("push-up" to ExercisePreference.PREFER)
+            )
+        )
+        // The explicit preference reorders the same available alternatives the way generation would.
+        assertEquals(listOf("push-up", "dumbbell-bench"), preferred.map { it.exerciseId })
+    }
+
+    @Test
     fun nullWhenTheSelectedCandidateIsSore() = runTest {
         val repository = FakePlanHistoryRepository()
         val useCase = useCase(repository)
@@ -225,14 +251,16 @@ class SubstituteExerciseUseCaseTest {
     private fun request(
         equipment: Set<EquipmentTag>,
         fatigue: Map<MuscleGroup, Double> = emptyMap(),
-        equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap()
+        equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
+        exercisePreferences: Map<String, ExercisePreference> = emptyMap()
     ) = PlanRequest(
         daysPerWeek = 3,
         availableEquipment = equipment,
         muscleFatigue = fatigue,
         nowMillis = 0L,
         goal = TrainingGoal.BALANCED,
-        equipmentMaxWeights = equipmentMaxWeights
+        equipmentMaxWeights = equipmentMaxWeights,
+        exercisePreferences = exercisePreferences
     )
 
     private fun plan() = AcceptedPlan(

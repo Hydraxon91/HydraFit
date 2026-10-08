@@ -19,6 +19,7 @@ import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.equipment.ExercisePreference
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.routine.ArchiveRoutineTemplateUseCase
 import com.hydrafit.app.core.domain.routine.ConvertPlanToTemplateUseCase
@@ -67,8 +68,10 @@ import com.hydrafit.app.core.llm.OnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.network.GeminiWorkoutPlannerEngine
+import com.hydrafit.app.core.userdata.equipment.ExercisePreferenceRepository
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
+import com.hydrafit.app.feature.equipment.ExercisePlanningSettingsViewModel
 import com.hydrafit.app.feature.equipment.equipmentModule
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapModule
 import com.hydrafit.app.feature.logger.loggerModule
@@ -214,6 +217,29 @@ class KoinModulesVerificationTest {
         }
     }
 
+    /**
+     * The preference ViewModel is registered with a lambda `viewModel { }`, which `verify()` cannot
+     * reflect, so resolve it from a real container over the equipment module to prove its new
+     * binding and `get()` chain.
+     */
+    @Test
+    fun theExercisePlanningSettingsViewModelResolvesAtRuntime() {
+        val koin = koinApplication {
+            modules(
+                module {
+                    single<ExercisePreferenceRepository> { FakeExercisePreferenceRepository }
+                },
+                equipmentModule
+            )
+        }.koin
+
+        try {
+            assertNotNull(koin.get<ExercisePlanningSettingsViewModel>())
+        } finally {
+            koin.close()
+        }
+    }
+
     private object FakeApiKeyStore : ApiKeyStore {
         override fun load(): String? = "test-key"
 
@@ -224,6 +250,15 @@ class KoinModulesVerificationTest {
 
     private object FakeAppVersionProvider : AppVersionProvider {
         override val versionName: String = "test"
+    }
+
+    private object FakeExercisePreferenceRepository : ExercisePreferenceRepository {
+        override fun observe(): Flow<Map<String, ExercisePreference>> = flowOf(emptyMap())
+
+        override suspend fun preference(exerciseId: String): ExercisePreference =
+            ExercisePreference.NEUTRAL
+
+        override suspend fun set(exerciseId: String, preference: ExercisePreference) = Unit
     }
 
     private object FakeOnDeviceTextGenerator : OnDeviceTextGenerator {

@@ -401,6 +401,51 @@ class CustomExerciseDedupeTest {
     }
 
     @Test
+    fun movesACustomsSolePreferenceToTheCanonicalExercise() {
+        insertCustom(involvements = trapBarSeedInvolvements())
+        database.exercisePreferenceQueries.upsert(
+            exerciseId = "user-trap-bar-deadlift",
+            preference = "PREFER"
+        )
+
+        CustomExerciseDedupe(database).run()
+
+        assertEquals(
+            "PREFER",
+            database.exercisePreferenceQueries.selectById("trap-bar-deadlift").executeAsOne()
+        )
+        assertNull(
+            database.exercisePreferenceQueries.selectById("user-trap-bar-deadlift")
+                .executeAsOneOrNull()
+        )
+    }
+
+    @Test
+    fun keepsTheCanonicalPreferenceWhenBothAreExplicit() {
+        insertCustom(involvements = trapBarSeedInvolvements())
+        database.exercisePreferenceQueries.upsert(
+            exerciseId = "user-trap-bar-deadlift",
+            preference = "PREFER"
+        )
+        database.exercisePreferenceQueries.upsert(
+            exerciseId = "trap-bar-deadlift",
+            preference = "PREFER_LESS"
+        )
+
+        CustomExerciseDedupe(database).run()
+
+        // The canonical exercise's explicit choice wins, including an explicit NEUTRAL.
+        assertEquals(
+            "PREFER_LESS",
+            database.exercisePreferenceQueries.selectById("trap-bar-deadlift").executeAsOne()
+        )
+        assertNull(
+            database.exercisePreferenceQueries.selectById("user-trap-bar-deadlift")
+                .executeAsOneOrNull()
+        )
+    }
+
+    @Test
     fun mergesACustomExerciseIntoTheSeededOneAndMovesItsHistory() {
         insertLegacyCustom()
         database.workoutLogQueries.insertSet(
