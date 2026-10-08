@@ -205,8 +205,8 @@ class DeterministicWorkoutPlannerEngine(
     }
 
     /**
-     * Orders candidate exercises for selection: recovery first, then the largest remaining weekly
-     * deficit, then freshness within the generated week, previous-plan compound rotation, equipment
+     * Orders candidate exercises for selection: the largest remaining weekly deficit first, then
+     * recovery, then freshness within the generated week, previous-plan compound rotation, equipment
      * preference, and finally id for a stable order. Extracted from [selectExercises] so the same
      * ranking can drive substitution of an accepted plan's slot ([SubstituteExerciseUseCase]).
      */
@@ -219,8 +219,11 @@ class DeterministicWorkoutPlannerEngine(
         target: VolumeTarget
     ): List<Exercise> {
         val comparator = compareBy<Exercise>(
-            { weightedFatigue(it, fatigue) },
+            // Coverage first: address the largest remaining shortfall, then use the (unvalidated)
+            // fatigue estimate only to break ties, so a negligible fatigue difference cannot
+            // override a much larger coverage deficit.
             { -deficitScore(it, weeklyVolume, target) },
+            { weightedFatigue(it, fatigue) },
             { it.id in weekUsed },
             { it.id in recentExerciseIdsByPattern[it.movementPattern].orEmpty() },
             { equipmentRank(it) },

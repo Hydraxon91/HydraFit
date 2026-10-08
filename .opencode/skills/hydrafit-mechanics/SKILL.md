@@ -252,9 +252,12 @@ PLANS.md (LT-10 / OF-10A-P0), not part of the current calculation.
 
 ### Selection, schedule, and periodization
 
-Deterministic candidate ordering: weighted fatigue, largest remaining weighted
-volume deficit, freshness within the generated week, previous-plan compound
-rotation, equipment rank, then exercise id. The weighted ledger accumulates
+Deterministic candidate ordering: largest remaining weighted volume deficit,
+weighted fatigue, freshness within the generated week, previous-plan compound
+rotation, equipment rank, then exercise id. Coverage is the primary key so a
+negligible difference in the unvalidated fatigue estimate cannot override a much
+larger coverage deficit; fatigue is used within a class, not as a tolerance.
+The weighted ledger accumulates
 selected sets × involvement weight; it is planned volume, not performed-history
 volume or a validated direct/indirect hypertrophy conversion. Accessories fill
 toward four exercises/day, then chase deficits up to six. Unfilled weighted

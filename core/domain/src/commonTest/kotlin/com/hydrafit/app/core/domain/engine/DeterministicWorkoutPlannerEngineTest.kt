@@ -593,19 +593,20 @@ class DeterministicWorkoutPlannerEngineTest {
             MovementPattern.HORIZONTAL_PUSH,
             MuscleGroup.SIDE_DELTS
         ).copy(involvements = mapOf(MuscleGroup.SIDE_DELTS to 1.0))
+        val target = WeeklyVolumeTargets.forGoal(TrainingGoal.BALANCED)
+        // Both muscles at target so the deficits tie and the maximum weighted involvement decides.
+        val atTarget = MuscleGroup.entries.associateWith { target.targetSets }
         for (candidates in listOf(listOf(chest, shoulders), listOf(shoulders, chest))) {
-            val plan = engine.plan(
-                request(
-                    daysPerWeek = 3,
-                    split = SplitType.PUSH_PULL_LEGS,
-                    fatigue = FatigueCalculator().calculate(sets, 0L)
-                ),
-                candidates
+            val ranked = engine.rankCandidates(
+                candidates = candidates,
+                fatigue = FatigueCalculator().calculate(sets, 0L),
+                weekUsed = emptySet(),
+                recentExerciseIdsByPattern = emptyMap(),
+                weeklyVolume = atTarget,
+                target = target
             )
-            // New: max(0.7 × 2/3, 0.3 × 4/7) < 4/7. Linear normalization chose shoulders.
-            val picked = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.single()
-            assertEquals("chest", picked.exerciseId)
-            assertEquals(2, picked.sets)
+            // max(0.7 × 2/3, 0.3 × 4/7) < 4/7, so chest outranks shoulders on weighted fatigue.
+            assertEquals("chest", ranked.first().id)
         }
     }
 
@@ -766,36 +767,36 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
-    fun ordersCandidatesByWeightedFatigue() {
-        val evenlyLoaded = Exercise(
-            id = "even",
-            name = "even",
+    fun ordersCandidatesByWeightedFatigueWhenDeficitsTie() {
+        val chestLeaning = Exercise(
+            id = "chest",
+            name = "chest",
             requiredEquipment = emptySet(),
             primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
             movementPattern = MovementPattern.HORIZONTAL_PUSH,
-            involvements = mapOf(MuscleGroup.CHEST_UPPER to 1.0, MuscleGroup.SIDE_DELTS to 1.0)
+            involvements = mapOf(MuscleGroup.CHEST_UPPER to 0.7, MuscleGroup.SIDE_DELTS to 0.3)
         )
-        val lightlyLoaded = Exercise(
-            id = "light",
-            name = "light",
+        val deltLeaning = Exercise(
+            id = "delt",
+            name = "delt",
             requiredEquipment = emptySet(),
             primaryMuscles = setOf(MuscleGroup.SIDE_DELTS),
             movementPattern = MovementPattern.HORIZONTAL_PUSH,
-            involvements = mapOf(MuscleGroup.CHEST_UPPER to 0.3)
+            involvements = mapOf(MuscleGroup.SIDE_DELTS to 0.7, MuscleGroup.CHEST_UPPER to 0.3)
         )
         val plan = engine.plan(
             request(
                 daysPerWeek = 3,
                 split = SplitType.PUSH_PULL_LEGS,
-                fatigue = mapOf(MuscleGroup.CHEST_UPPER to 0.4, MuscleGroup.SIDE_DELTS to 0.4)
+                fatigue = mapOf(MuscleGroup.CHEST_UPPER to 0.4, MuscleGroup.SIDE_DELTS to 0.1)
             ),
-            listOf(evenlyLoaded, lightlyLoaded)
+            listOf(chestLeaning, deltLeaning)
         )
 
+        // Equal 0.7 maximum involvement gives equal deficits, so weighted fatigue breaks the tie:
+        // chest = max(0.7 x 0.4, 0.3 x 0.1) = 0.28; delt = max(0.3 x 0.4, 0.7 x 0.1) = 0.12.
         val push = plan.days.first { it.focus == SplitFocus.PUSH }
-
-        // even = 0.4; light = 0.3 x 0.4 = 0.12 -> the lightly loaded option wins.
-        assertEquals("light", push.exercises.first().exerciseId)
+        assertEquals("delt", push.exercises.first().exerciseId)
     }
 
     @Test
@@ -1276,11 +1277,28 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
-    fun rankCandidatesOrdersByFatigueThenDeficitThenFreshness() {
+    fun rankCandidatesOrdersByDeficitThenFatigueThenFreshness() {
         val target = WeeklyVolumeTargets.forGoal(TrainingGoal.BALANCED)
         val noVolume = MuscleGroup.entries.associateWith { 0.0 }
 
-        // Fatigue dominates: the lower weighted fatigue sorts first.
+        // Coverage dominates: a larger deficit outranks a lower fatigue estimate.
+        val deficit = exercise("deficit", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.SIDE_DELTS)
+        val satisfied =
+            exercise("satisfied", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+        val satisfiedVolume = noVolume.toMutableMap().apply {
+            this[MuscleGroup.CHEST_UPPER] = target.targetSets
+        }
+        val byDeficit = engine.rankCandidates(
+            candidates = listOf(deficit, satisfied),
+            fatigue = mapOf(MuscleGroup.SIDE_DELTS to 0.5, MuscleGroup.CHEST_UPPER to 0.0),
+            weekUsed = emptySet(),
+            recentExerciseIdsByPattern = emptyMap(),
+            weeklyVolume = satisfiedVolume,
+            target = target
+        )
+        assertEquals(listOf("deficit", "satisfied"), byDeficit.map { it.id })
+
+        // With deficits tied, the lower weighted fatigue sorts first.
         val highFatigue = exercise("high", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
         val lowFatigue = exercise("low", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.SIDE_DELTS)
         val byFatigue = engine.rankCandidates(
@@ -1293,24 +1311,7 @@ class DeterministicWorkoutPlannerEngineTest {
         )
         assertEquals(listOf("low", "high"), byFatigue.map { it.id })
 
-        // With fatigue tied, the larger remaining deficit sorts first.
-        val satisfied =
-            exercise("satisfied", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
-        val lacking = exercise("lacking", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.SIDE_DELTS)
-        val volumes = noVolume.toMutableMap().apply {
-            this[MuscleGroup.CHEST_UPPER] = target.targetSets
-        }
-        val byDeficit = engine.rankCandidates(
-            candidates = listOf(satisfied, lacking),
-            fatigue = emptyMap(),
-            weekUsed = emptySet(),
-            recentExerciseIdsByPattern = emptyMap(),
-            weeklyVolume = volumes,
-            target = target
-        )
-        assertEquals(listOf("lacking", "satisfied"), byDeficit.map { it.id })
-
-        // With fatigue and deficit tied, an exercise not yet used this week sorts first.
+        // With deficit and fatigue tied, an exercise not yet used this week sorts first.
         val used = exercise("used", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
         val fresh = exercise("fresh", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
         val byFreshness = engine.rankCandidates(
