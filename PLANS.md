@@ -18,6 +18,7 @@
 | M2 — Data Ownership & Exercise Library | FUTURE | OF-01 and catalog expansion (formerly targeted at 0.2.5), plus separately scoped offline instructions. Catalog expansion implemented in 0.2.3 (2026-10-06; CAT-P0/P1/P2/P3 — `d9f6c20`, `30282fe`). OF-01 remains future. Does not depend on AI repair. |
 | Oct 6 live-testing follow-up | IN PROGRESS | Read-only phone audit DONE; confirmed low direct arm volume alongside substantial indirect credit. LT-01–03 DONE (`d690e3c`): weight retention on resume, separator-equivalent search, newest-insertion tie order; LT-03 tied-time emulator check deferred. VOL-01 C1/C2 DONE (2026-10-08, pushed with CI green); C2A deload correction DONE (`c71e695`); C2B/C2C coverage hardening DONE (`9c6c74f`); C2D option (b) approved with corrective policy decisions (2026-10-08); C2E load-suitability implementation DONE (corrective, 2026-10-08); C2F exercise-preference contract approved (2026-10-08, no code); C2G exercise-preference implementation DONE; C3 EX-01 persistent exclusions DONE; C4 bounded OF-03 volume-explanation slice DONE. Scheduling, rest/effort, warm-ups, substitutions, progression integrity, summaries and name suggestions mapped below; see `docs/live-testing-2026-10-06.md`. |
 | Oct 7 live-testing follow-up | IN PROGRESS | Read-only code inspection DONE; observations mapped to EX-02 (exercise load semantics), OF-02 (logging timing + rest coaching), OF-10B (supersets, expanded), PYR-01 (per-set prescriptions/pyramids), item 9 B1 (RIR, already covered) and an OF-13-linked session-divider slice. EX-02 contract approved 2026-10-07, implemented, and verified (emulator `v0.2.3` → candidate upgrade; bounded review APPROVED). The remaining Oct 7 items (OF-02, OF-10B, PYR-01, OF-13 slice) stay future. See `docs/live-testing-2026-10-07.md` and "EX-02 — exercise load semantics". |
+| Oct 8 live-testing follow-up | IN PROGRESS | Read-only inspection DONE. Recorded with homes and gates: **LT-13** (Logger "Planned today" load prompt + per-draft edit), **EX-03** (high-risk exercise caution; sources required), **CAT-P6** (legacy involvement repair — confirmed upgrade-only defect, patch-level candidate), **LT-12 / CAT-02** (custom-exercise profile suggestions) and **CAT-P7** (catalog variation expansion). Recommended order: CAT-P6 → LT-13 → CAT-02 → EX-03/CAT-P7 after sourcing. Implementation remains separately gated. See `docs/live-testing-2026-10-08.md`. |
 | M8 — Optional AI Reliability | DEFERRED | Retain local AI; research reliability, speed and licensing after core planner-facing contracts settle. Replaces the former 0.2.4 release slot; no replacement release number assigned. |
 | Item 2 P2d — existing-row time correction | DONE | Landed in 0.2.1 as Q2 (5898c45, 5ab6b42, a64d9cc). |
 | Deterministic planner — volume-driven selection | DONE | 0.2.1 addition Q4 (Option C; honor the rep band); Q4a–Q4d done (f80b71a, c8e3c8a, 4f0ce72); Q4e is a user-side catalog fix, not part of the artifact; see "0.2.1 — next release". |
@@ -27,7 +28,7 @@
 | RIR guidance & rough estimation | PLANNED | Item 9: B1 guidance/quick-picks in M4; B2/B3 remain decision-gated, not required for M4. |
 | Open Questions / Later | LATER | See section below; nothing scheduled. |
 | 0.2.4 review snapshot | DONE | bf959ee^..HEAD (`eb310de`); 12 findings (R4-01..R4-12): 2 minor docs drift + 1 nit deferred to VOL-01 + 9 nit-positive confirmations of Chunk A + Settings chunk. See `docs/review-0.2.4-snapshot.md`. RF (docs sync on R4-01) gated separately. |
-| M3 routines & scheduling (OF-11 + OF-12-P0/P1) | DONE | Implemented on `main`, pending the 0.3.0 release (not yet tagged). Routine authoring + scheduling per the 2026-10-07 routine/scheduling contract (`6e5b00a`…`04259cf`); emulator-verified for authoring, activation, the Logger occurrence card, and Finish/Skip. The mid-transaction rollback seam (PER-17) is covered by `SqlDelightWorkoutScheduleRepositoryTest`. Remaining M3 items: EX-01 exclusions and EQ-01 equipment profiles. See "M3 — routines & scheduling — SHIPPED". |
+| M3 routines & scheduling (OF-11 + OF-12-P0/P1) | DONE | Shipped in 0.3.0 (`v0.3.0`). Routine authoring + scheduling per the 2026-10-07 routine/scheduling contract (`6e5b00a`…`04259cf`); emulator-verified for authoring, activation, the Logger occurrence card, and Finish/Skip. The mid-transaction rollback seam (PER-17) is covered by `SqlDelightWorkoutScheduleRepositoryTest`. Remaining M3 items: EX-01 exclusions and EQ-01 equipment profiles. See "M3 — routines & scheduling — SHIPPED". |
 
 > **Next work sequence (revised 2026-10-08).** 0.3.0 and 0.3.1 are shipped. The next feature-release target is the provisional **0.4.0 — More deliberate workout planning** roadmap below; its implementation remains separately gated chunk by chunk. Any 0.3.x release is trigger-based for a verified corrective or small usability fix, not a required waypoint. After 0.4.0, the existing proposed sequence resumes with OF-01 (0.5.0 provisional) and then a separately selected M4 guided-training scope. See "Release versioning" and "0.4.0 — More deliberate workout planning".
 
@@ -146,7 +147,7 @@ CAT-P1's hold condition (C1–C5) is met. Later release numbers are provisional 
 | LT-02 | Search treats hyphens/dashes and whitespace equivalently in Logger and Equipment | DONE (`d690e3c`); M1, separate enhancement; search-only normalization, unchanged IDs/dedupe |
 | LT-03 | Recent sets sort performed time descending, then ID descending for ties | DONE (`d690e3c`); M1, separate behavior fix; update pinned tie-order test; no invented timestamp increments |
 | LT-04 | Explicit activation/start date, chosen weekdays by default, optional next-workout sequence; missed work stays pending | OF-11/OF-12, M3; occurrence/completion contract first |
-| LT-05 / VOL-01 | Separate direct arm work from estimated compound credit; audited accepted plan had 2 direct biceps and 4 direct triceps sets | VOL-01 C1/C2 DONE; bounded OF-03 explanation slice remains C4-gated; performed-volume visibility remains OF-08 |
+| LT-05 / VOL-01 | Separate direct arm work from estimated compound credit; audited accepted plan had 2 direct biceps and 4 direct triceps sets | VOL-01 C1/C2 DONE; bounded OF-03 explanation slice DONE (C4, shipped in 0.4.0); performed-volume visibility remains OF-08 |
 | LT-06 | Editable goal/exercise-aware rest ranges; live-event countdown cancels on session end | OF-02, M4; lifecycle/alerts contract first |
 | LT-07 | Explain optional RIR; optional equivalent RPE presentation, prior report as context rather than automatically recorded effort | Item 9 B1, M4; B2/B3 remain decision-gated |
 | LT-08 / WU-01 | Optional general/dynamic preparation and specific ramp sets; no unsupported viral lymphatic/longevity claims | M4 alongside OF-02; content/provenance with CAT-01; timed metric persistence gated by OF-10C |
@@ -390,6 +391,38 @@ optional preference, not a proven-superior default (Cardozo & Destro 2023).
 
 **Session dividers.** `WorkoutSet.sessionId` is not carried into `LoggedSetRow`;
 add a divider on session change without grouping all null rows into one session.
+
+### Oct 8 live-testing follow-up — recorded, implementation gated
+
+Findings and evidence live in [the 2026-10-08 record](docs/live-testing-2026-10-08.md).
+Approval on 2026-10-08 covers recording and direction, not application edits. Item ids are
+stable once recorded; later release numbers stay provisional.
+
+| Reference | Direction / importance | Home / next gate |
+| --- | --- | --- |
+| LT-13 | Logger "Planned today" drafts: prompt for a load when the plan supplied none, and allow per-draft editing of reps/weight/RIR/time via an overflow menu | OF-02, M4 Logger slice; decide the field set and one-off vs persistent edit first |
+| EX-03 | Explicit acknowledgment for a sourced set of high-risk movements (deadlift / clean-and-press class); informational only, no injury inference or rehab advice | New item; M2/CAT-01; requires a peer-reviewed/professional-body source list before any code |
+| CAT-P6 | Corrective: upgraded built-ins still hold legacy involvement strings (`BACK:`/`SHOULDERS:`) that decode below the 0.7 primary threshold and under-weight those rows; add the missing catalog-wide guardrail regression test | Patch-level candidate; the repair mechanism (`.sqm` vs idempotent startup repair) is a gated decision |
+| LT-12 / CAT-02 | Custom-exercise muscle-group and movement-pattern suggestions (preview/confirm), reusing the existing sourced guardrail mapping | Optional M2 editor enhancement; already homed |
+| CAT-P7 | Expand seeded catalog variations (pec-deck/machine fly, handle fly, close-/wide-grip cable rows); the lat-pulldown grips largely exist already | M2 catalog batch via CAT-P0 sourcing; one EMG/biomechanics source per row |
+
+**CAT-P6 — legacy involvement repair (corrective).** Confirmed from source: pre-MUS-P1 the seed
+authored broad groups (`dumbbell-row` → `BACK`, `dumbbell-shoulder-press` → `SHOULDERS`);
+`updateInvolvements` fills only NULL rows and `normalizeLegacyInvolvementWeights` rewrites
+numbers, not names, so upgraded installs keep strings whose read-time expansion
+(`ExerciseEncoding.kt`) never reaches the guardrail's 0.7 primary threshold. This both trips the
+editor advisory and silently under-weights the row in planner coverage; fresh installs are
+unaffected. Historical `workoutSet` snapshots are not rewritten. Recommended mechanism: an
+idempotent startup repair of legacy-named built-in rows plus a catalog-wide guardrail regression
+test; patch-level release.
+
+**LT-13 — Logger drafts.** Draft rows currently offer only Confirm/Dismiss
+(`WorkoutLoggerScreen.kt:402-436`) and a null load logs as no weight. Add an overflow editor and
+reuse the existing `legacyResolution` prompt pattern when a recommendation is absent.
+
+**EX-03 / CAT-P7 — sourcing first.** Neither may add code or rows without a recorded source
+(EX-03: NSCA/ACSM plus injury-surveillance literature; CAT-P7: EMG/biomechanics per row, per
+CAT-P0).
 
 ## Retained roadmap items (originally v0.2.0 → v0.3.0, approved 2026-10-01)
 
@@ -1097,6 +1130,8 @@ These stable references are separately approved slices, not implicit additions t
 - **Forearm/grip accessories (later scope proposal).** `FOREARMS` already exists; the seeded catalog has 11 secondary `FOREARMS:0.3` contributions and no forearm-primary exercise. A future rep-based wrist-flexion/extension catalog + selection slice can reuse `FOREARMS`, but needs sourced maps and a genuine movement-pattern/pool contract; do not mislabel wrist work as biceps isolation or add wrist-flexor/extensor muscle groups solely for catalog completeness. Carries, hangs, wrist rollers and grippers need a separate duration/distance/force/device-rating and progression contract under OF-10C. Never encode seconds as reps or use a gripper rating as an Epley load. See the 2026-10-08 deterministic-engine research notes above.
 
 ## Decisions Made
+
+- **2026-10-08 — live-testing follow-up direction (approved; recording only).** Record the 2026-10-08 findings in `docs/live-testing-2026-10-08.md` and their homes: **LT-13** (Logger "Planned today" load prompt and per-draft edit → OF-02), **EX-03** (high-risk exercise caution; sourced, no injury inference or rehab advice), **CAT-P6** (corrective legacy-involvement repair for upgraded installs, patch-level, with a catalog-wide guardrail regression test), **LT-12 / CAT-02** (custom-exercise profile suggestions) and **CAT-P7** (sourced catalog variation expansion). Recommended order: CAT-P6 → LT-13 → LT-12/CAT-02 → EX-03/CAT-P7 after sourcing. This entry authorizes documentation/direction only; every implementation chunk, migration, schema change and release keeps its own gate, and the CAT-P6 patch classification is a recommendation, not an assigned release number.
 
 - **2026-10-08 — OF-03 volume-explanation slice contract (approved and implemented, C4).** Explanations are persisted, not reconstructed: on acceptance `AcceptWeeklyPlanUseCase` freezes the VOL-01 `armCoverage` plus a `PlanAttribution` (deterministic calculation vs an assessment of sanitized AI output, never a fabricated deterministic rationale) into a dedicated `planVolumeExplanation` table behind `SqlDelightPlanHistoryRepository` (additive migration `30.sqm`), read back into `AcceptedPlan`. Legacy plans have no rows and show no explanation. A user-confirmed substitution clears the rows in the same transaction and the UI states the explanation is unavailable after a manual substitution rather than reconstructing it from today's catalog. The bounded vocabulary reuses the existing `ArmMuscleCoverage` reasons (no compatible candidate / candidates skipped for fatigue / not met despite available candidates), reports direct isolation sets against the four-set product objective and a clearly labelled estimated other-involvement contribution, and marks the objective unenforced on a deload. Adding the explanation never changes selected exercises, sets, reps, loads or fatigue. Load, progression and deload explanations remain out of this slice. **Post-review corrective (2026-10-08).** Both acceptance paths (`accept` and the Start-block `acceptAndActivate`) now write through one `AcceptedPlanWriter`, so the assessment is not lost when starting a block. A `planVolumeExplanationState` row (additive `31.sqm`) distinguishes a legacy plan from one invalidated by a substitution, so the "unavailable after a manual substitution" state survives a reopen. Only a recorded deterministic skip may report `ALL_COMPATIBLE_CANDIDATES_SKIPPED_FOR_FATIGUE`; an `AI_GENERATED` assessment reports the neutral `COMPATIBLE_CANDIDATES_ABOVE_SORENESS_THRESHOLD` because the sanitizer does not run the selection branch (and pre-`31.sqm` AI rows are re-read to that neutral reason without altering their frozen numbers). The `NO_ELIGIBLE_EXERCISES` diagnosis is produced by a shared `PlannerCandidateEligibility.requireWorkouts` preflight (equipment/exclusions only), distinct from `NO_USABLE_EXERCISES` for an empty output with eligible work. A fully-sore arm pool no longer starves the other arm. Preference/exclusion edits refresh eligibility and the swap context without replacing the displayed registered/accepted plan.
 
