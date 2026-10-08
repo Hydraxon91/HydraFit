@@ -280,7 +280,9 @@ only when the exercise uses the matching `BICEPS_ISOLATION` or
 muscle; the involvement-weight tier is not a biological cutoff. While an arm
 target is unmet, compatible arm isolation candidates take priority over
 discretionary accessories, even when compound weighted credits already meet that
-muscle's ordinary weighted target. Equipment, soreness skip/reduction rules,
+muscle's ordinary weighted target. When both arms are still below target, the
+arm with fewer direct sets is fed first so one arm cannot take every slot.
+Equipment, soreness skip/reduction rules,
 selected set counts, and the six-exercise daily cap still apply; whole accessory
 slots may overshoot the target, and constrained plans report unmet coverage.
 Normal arm targets are not chased during deloads. `WeeklyPlan.armCoverage`

@@ -177,7 +177,16 @@ class DeterministicWorkoutPlannerEngine(
             } else {
                 candidates.filter { DirectArmCoverage.needsCoverage(it, directArmSets) }
             }
-            if (directArmCandidates.isNotEmpty() && pick(directArmCandidates)) {
+            // Fairness: feed the arm with fewer direct sets first, so one arm cannot consume every
+            // accessory slot while the other stays under target.
+            val leastCoveredArm = directArmCandidates
+                .mapNotNull { exercise ->
+                    DirectArmCoverage.muscleFor(exercise)?.let { muscle -> muscle to exercise }
+                }
+                .groupBy({ it.first }, { it.second })
+                .minByOrNull { (muscle, _) -> directArmSets[muscle] ?: 0 }
+                ?.value
+            if (leastCoveredArm != null && pick(leastCoveredArm)) {
                 // Dedicated arm coverage takes precedence over the weighted ceiling: compound
                 // credits must not make qualifying direct work ineligible.
                 continue

@@ -1130,6 +1130,37 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun balancesDirectArmCoverageWhenOneArmIsFresher() {
+        // Four compounds fill the upper days, leaving only two isolation slots each. Without
+        // fairness the much-fresher biceps would take all four slots and starve the triceps.
+        val exercises = listOf(
+            exercise("bench", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER),
+            exercise("ohp", MovementPattern.VERTICAL_PUSH, MuscleGroup.SIDE_DELTS),
+            exercise("row", MovementPattern.HORIZONTAL_PULL, MuscleGroup.UPPER_BACK),
+            exercise("pullup", MovementPattern.VERTICAL_PULL, MuscleGroup.LATS),
+            exercise("curl-a", MovementPattern.BICEPS_ISOLATION, MuscleGroup.BICEPS),
+            exercise("curl-b", MovementPattern.BICEPS_ISOLATION, MuscleGroup.BICEPS),
+            exercise("extension", MovementPattern.TRICEPS_ISOLATION, MuscleGroup.TRICEPS)
+        )
+
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 4,
+                split = SplitType.UPPER_LOWER,
+                equipment = everything,
+                accessorySetsPerExercise = 1,
+                fatigue = mapOf(MuscleGroup.BICEPS to 0.0, MuscleGroup.TRICEPS to 0.5)
+            ),
+            exercises
+        )
+
+        val biceps = plan.armCoverage.single { it.muscle == MuscleGroup.BICEPS }
+        val triceps = plan.armCoverage.single { it.muscle == MuscleGroup.TRICEPS }
+        assertEquals(biceps.directIsolationSets, triceps.directIsolationSets)
+        assertTrue(triceps.directIsolationSets > 0, "triceps=$triceps biceps=$biceps")
+    }
+
+    @Test
     fun customIsolationPatternMustInvolveTheMatchingArmMuscleToCount() {
         val mismatchedCurl = exercise(
             "misclassified-curl",
