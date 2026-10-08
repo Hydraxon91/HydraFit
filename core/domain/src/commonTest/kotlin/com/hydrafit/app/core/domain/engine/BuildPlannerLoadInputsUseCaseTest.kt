@@ -25,7 +25,6 @@ class BuildPlannerLoadInputsUseCaseTest {
                 exercise("ab-roll", ExerciseLoadCapability.BODYWEIGHT_ONLY)
             )
         ),
-        suggestWeights = SuggestWeightsUseCase(),
         buildRecentWeights = BuildRecentWeightsUseCase(),
         progressWeights = ProgressWeightsUseCase()
     )
@@ -34,7 +33,10 @@ class BuildPlannerLoadInputsUseCaseTest {
     fun legacyExternalSetsSeedTheBaseline() = runTest {
         val result = useCase(
             sources = sources(
-                listOf(set("bench-press", day = 1, kind = LoadKind.LEGACY_UNSPECIFIED))
+                listOf(
+                    set("bench-press", day = 99, kind = LoadKind.LEGACY_UNSPECIFIED),
+                    set("bench-press", day = 100, kind = LoadKind.LEGACY_UNSPECIFIED)
+                )
             ),
             latestPlan = null,
             pauseIncrements = false,
@@ -89,7 +91,28 @@ class BuildPlannerLoadInputsUseCaseTest {
     }
 
     @Test
-    fun aStaleMaximumIsTemperedByRecentPerformance() = runTest {
+    fun aStaleMaximumIsWithheldWhenRecentEvidenceIsInsufficient() = runTest {
+        val sets = listOf(
+            set("bench-press", day = 1, weightKg = 120.0, kind = LoadKind.EXTERNAL),
+            set("bench-press", day = 90, weightKg = 100.0, kind = LoadKind.EXTERNAL)
+        )
+
+        val result = useCase(
+            sources = sources(sets),
+            latestPlan = null,
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        // Only one set falls inside the window, so neither the stale history nor that single set
+        // produces an automatic numeric suggestion.
+        assertTrue("bench-press" in result.withheldWeightExerciseIds)
+        assertTrue("bench-press" !in result.suggestedWeightsKg)
+    }
+
+    @Test
+    fun twoRecentSetsBoundHistoryAndProgressionConsistently() = runTest {
         val sets = listOf(
             set("bench-press", day = 1, weightKg = 120.0, kind = LoadKind.EXTERNAL),
             set("bench-press", day = 90, weightKg = 100.0, kind = LoadKind.EXTERNAL),
@@ -104,31 +127,52 @@ class BuildPlannerLoadInputsUseCaseTest {
             nowMillis = NOW_MILLIS
         )
 
-        // The old 120kg x 8 (Epley 152) is outside the window; the recent best bounds the suggestion.
         assertEquals(126.66666666666667, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
+        assertEquals(result.suggestedWeightsKg, result.recentWeightCaps)
     }
 
     @Test
-    fun aStaleMaximumIsKeptWhenRecentHistoryIsTooThin() = runTest {
-        val sets = listOf(
-            set("bench-press", day = 1, weightKg = 120.0, kind = LoadKind.EXTERNAL),
-            set("bench-press", day = 90, weightKg = 100.0, kind = LoadKind.EXTERNAL)
-        )
-
+    fun strongerEstimateStillInsideTheRecentWindowRemainsTheBound() = runTest {
         val result = useCase(
-            sources = sources(sets),
+            sources = sources(
+                listOf(
+                    set("bench-press", day = 90, weightKg = 120.0, kind = LoadKind.EXTERNAL),
+                    set("bench-press", day = 92, weightKg = 100.0, kind = LoadKind.EXTERNAL)
+                )
+            ),
             latestPlan = null,
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
         )
 
-        // Only one recent set: the temper does not apply, so the all-time best is kept.
         assertEquals(152.0, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
     }
 
     @Test
-    fun aManualRecordIsNotTemperedByRecentSets() = runTest {
+    fun deloadWeekProvenanceDoesNotProveIntentOrExcludeLightWorkingEvidence() = runTest {
+        val lightDeloadSets = listOf(
+            set("bench-press", day = 90, weightKg = 60.0, kind = LoadKind.EXTERNAL)
+                .copy(weekNumber = 4),
+            set("bench-press", day = 92, weightKg = 60.0, kind = LoadKind.EXTERNAL)
+                .copy(weekNumber = 4)
+        )
+        val result = useCase(
+            sources = sources(
+                listOf(set("bench-press", day = 1, weightKg = 120.0, kind = LoadKind.EXTERNAL)) +
+                    lightDeloadSets
+            ),
+            latestPlan = null,
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        assertEquals(76.0, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
+    }
+
+    @Test
+    fun anEligibleManualRecordIsAFloorForRecentEvidence() = runTest {
         val sets = listOf(
             set("bench-press", day = 90, weightKg = 100.0, kind = LoadKind.EXTERNAL),
             set("bench-press", day = 92, weightKg = 100.0, kind = LoadKind.EXTERNAL)
@@ -145,12 +189,119 @@ class BuildPlannerLoadInputsUseCaseTest {
             nowMillis = NOW_MILLIS
         )
 
-        // Epley(130 x 1) = 134.333; a manual record is a deliberate assertion and is not capped.
+        // Epley(130 x 1) = 134.333; the eligible manual estimate is the floor above recent evidence.
         assertEquals(134.33333333333334, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
     }
 
+    @Test
+    fun futureSetsAreExcludedAndCutoffEqualityIsIncluded() = runTest {
+        val sets = listOf(
+            set("bench-press", day = 58, kind = LoadKind.EXTERNAL),
+            set("bench-press", day = 100, kind = LoadKind.EXTERNAL),
+            set("bench-press", day = 101, kind = LoadKind.EXTERNAL)
+        )
+        val result = useCase(
+            sources = sources(sets),
+            latestPlan = null,
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        assertEquals(126.66666666666667, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
+    }
+
+    @Test
+    fun futureSetsAreNotIncludedInModelHistoryContext() = runTest {
+        val source = sources(
+            listOf(
+                set("bench-press", day = 99, kind = LoadKind.EXTERNAL),
+                set("bench-press", day = 100, kind = LoadKind.EXTERNAL),
+                set("bench-press", day = 101, weightKg = 500.0, kind = LoadKind.EXTERNAL)
+            )
+        ).copy(workoutDataSharingEnabled = true)
+
+        val result = useCase(
+            sources = source,
+            latestPlan = null,
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        assertTrue(result.recentWeights.all { it.performedAtMillis <= NOW_MILLIS })
+    }
+
+    @Test
+    fun warmupsAndUnusableLoadsOrRepsDoNotQualifyAsRecentEvidence() = runTest {
+        val sets = listOf(
+            set("bench-press", day = 99, weightKg = 100.0, kind = LoadKind.EXTERNAL),
+            set("bench-press", day = 100, weightKg = 100.0, kind = LoadKind.EXTERNAL),
+            set("bench-press", day = 100, weightKg = 500.0, kind = LoadKind.EXTERNAL)
+                .copy(isWarmup = true),
+            set("bench-press", day = 100, weightKg = 500.0, kind = LoadKind.EXTERNAL)
+                .copy(weightKg = null),
+            set("bench-press", day = 100, weightKg = 500.0, kind = LoadKind.EXTERNAL)
+                .copy(weightKg = 0.0),
+            set("bench-press", day = 100, weightKg = 500.0, kind = LoadKind.EXTERNAL)
+                .copy(reps = 16)
+        )
+
+        val result = useCase(
+            sources = sources(sets),
+            latestPlan = null,
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        assertEquals(126.66666666666667, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
+    }
+
+    @Test
+    fun manualRecordDoesNotExemptAStaleHistoryWhenItIsBelowRecentEvidence() = runTest {
+        val logged = listOf(
+            set("bench-press", day = 1, weightKg = 120.0, kind = LoadKind.EXTERNAL),
+            set("bench-press", day = 90, weightKg = 100.0, kind = LoadKind.EXTERNAL),
+            set("bench-press", day = 92, weightKg = 100.0, kind = LoadKind.EXTERNAL)
+        ) + WorkoutSet(
+            exerciseId = "bench-press",
+            reps = 8,
+            weightKg = 90.0,
+            loadKind = LoadKind.EXTERNAL,
+            performedAtMillis = 0L
+        )
+        val result = useCase(
+            sources = sources(logged).copy(
+                personalRecords = listOf(PersonalRecord("bench-press", 50.0, 1))
+            ),
+            latestPlan = null,
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        assertEquals(126.66666666666667, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
+    }
+
+    @Test
+    fun ineligibleManualRecordDoesNotRestoreAnExpiredHistoricalSuggestion() = runTest {
+        val result = useCase(
+            sources = sources(
+                listOf(set("bench-press", day = 1, weightKg = 120.0, kind = LoadKind.EXTERNAL))
+            ).copy(personalRecords = listOf(PersonalRecord("bench-press", 100.0, 16))),
+            latestPlan = null,
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        assertTrue("bench-press" in result.withheldWeightExerciseIds)
+        assertTrue("bench-press" !in result.suggestedWeightsKg)
+    }
+
     private fun completedExternalSessions(exerciseId: String): List<WorkoutSet> =
-        listOf(3L, 2L, 1L).flatMap { day ->
+        listOf(100L, 99L, 98L).flatMap { day ->
             List(3) { set(exerciseId, day = day, kind = LoadKind.EXTERNAL) }
         }
 

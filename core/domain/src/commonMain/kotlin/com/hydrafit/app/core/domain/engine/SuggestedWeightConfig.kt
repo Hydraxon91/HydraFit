@@ -31,6 +31,15 @@ data class SuggestedWeightConfig(
 
     fun roundToIncrement(weightKg: Double): Double = round(weightKg / roundToKg) * roundToKg
 
+    fun hasUsableEstimate(reps: Int): Boolean = reps in 1..maxRepsForEstimate
+
+    /** Converts an e1RM bound using the prescribed reps and the existing load rounding policy. */
+    fun workingWeightFor(
+        estimatedOneRepMaxKg: Double,
+        reps: Int,
+        intensityScale: Double = 1.0
+    ): Double = roundToIncrement(estimatedOneRepMaxKg * intensityForReps(reps) * intensityScale)
+
     /** The closest tabulated NSCA intensity for a rep count, clamped to the table's bounds. */
     private fun curveFor(reps: Int): Double {
         val clamped = reps.coerceIn(nscaCurve.keys.min(), nscaCurve.keys.max())

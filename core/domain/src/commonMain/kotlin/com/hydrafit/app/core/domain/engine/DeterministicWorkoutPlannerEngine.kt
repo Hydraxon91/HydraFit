@@ -67,6 +67,8 @@ class DeterministicWorkoutPlannerEngine(
                     request.goal,
                     request.recentExerciseIdsByPattern,
                     request.suggestedWeightsKg,
+                    request.recentWeightCaps,
+                    request.withheldWeightExerciseIds,
                     request.equipmentMaxWeights,
                     isDeload
                 )
@@ -105,6 +107,8 @@ class DeterministicWorkoutPlannerEngine(
         goal: TrainingGoal,
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>>,
         suggestedWeightsKg: Map<String, Double>,
+        recentWeightCaps: Map<String, Double>,
+        withheldWeightExerciseIds: Set<String>,
         equipmentMaxWeights: Map<EquipmentTag, Double>,
         isDeload: Boolean
     ): List<PlannedExercise> {
@@ -134,6 +138,8 @@ class DeterministicWorkoutPlannerEngine(
                 accessorySetsPerExercise,
                 goal,
                 suggestedWeightsKg,
+                recentWeightCaps,
+                withheldWeightExerciseIds,
                 equipmentMaxWeights,
                 isDeload
             )
@@ -250,6 +256,8 @@ class DeterministicWorkoutPlannerEngine(
         accessorySetsPerExercise: Int,
         goal: TrainingGoal,
         suggestedWeightsKg: Map<String, Double>,
+        recentWeightCaps: Map<String, Double>,
+        withheldWeightExerciseIds: Set<String>,
         equipmentMaxWeights: Map<EquipmentTag, Double>,
         isDeload: Boolean
     ): PlannedExercise {
@@ -268,14 +276,23 @@ class DeterministicWorkoutPlannerEngine(
         // added-load exercise is prescribed without a generated number, even if a stale baseline
         // exists for its id.
         val suggestedWeightKg = if (WorkoutLoadPolicy.allowsAutomaticLoad(capability)) {
-            suggestedWeightsKg[candidate.id]?.let { oneRepMax ->
-                val working = weightConfig.roundToIncrement(
-                    oneRepMax * weightConfig.intensityForReps(reps) * intensityScale(isDeload)
-                )
-                EquipmentWeightLimit.clamp(
-                    working,
-                    EquipmentWeightLimit.ceilingFor(candidate, equipmentMaxWeights)
-                )
+            if (candidate.id in withheldWeightExerciseIds) {
+                null
+            } else {
+                suggestedWeightsKg[candidate.id]?.let { suggestedOneRepMax ->
+                    val oneRepMax = recentWeightCaps[candidate.id]
+                        ?.let { minOf(suggestedOneRepMax, it) }
+                        ?: suggestedOneRepMax
+                    val working = weightConfig.workingWeightFor(
+                        oneRepMax,
+                        reps,
+                        intensityScale(isDeload)
+                    )
+                    EquipmentWeightLimit.clamp(
+                        working,
+                        EquipmentWeightLimit.ceilingFor(candidate, equipmentMaxWeights)
+                    )
+                }
             }
         } else {
             null

@@ -51,24 +51,34 @@ class WeeklyPlanSanitizer(
                             planned.suggestedWeightKg
                                 ?.takeIf {
                                     request.includeWorkoutData &&
+                                        exercise.id !in request.withheldWeightExerciseIds &&
                                         it > 0.0 &&
                                         it <= MAX_SUGGESTED_WEIGHT_KG
                                 }
                                 ?.let { weight ->
-                                    val clamped = EquipmentWeightLimit.clamp(
-                                        weight * if (isDeload) {
-                                            periodization.deloadIntensityScale
-                                        } else {
-                                            1.0
-                                        },
+                                    val proposed = weight * if (isDeload) {
+                                        periodization.deloadIntensityScale
+                                    } else {
+                                        1.0
+                                    }
+                                    val bound = request.recentWeightCaps[exercise.id]?.let {
+                                        weightConfig.workingWeightFor(
+                                            it,
+                                            reps,
+                                            if (isDeload) {
+                                                periodization.deloadIntensityScale
+                                            } else {
+                                                1.0
+                                            }
+                                        )
+                                    }
+                                    EquipmentWeightLimit.clamp(
+                                        if (bound == null) proposed else minOf(proposed, bound),
                                         EquipmentWeightLimit.ceilingFor(
                                             exercise,
                                             request.equipmentMaxWeights
                                         )
                                     )
-                                    // A stale all-time maximum must not license an unreachable load,
-                                    // so the model's number is also bounded by recent performance.
-                                    minOf(clamped, recencyWorkingCap(request, exercise.id, reps))
                                 }
                         } else {
                             null
@@ -112,18 +122,6 @@ class WeeklyPlanSanitizer(
                 fatigue = request.muscleFatigue,
                 isDeload = isDeload
             )
-        )
-    }
-
-    /**
-     * The working-load ceiling implied by the recency-tempered e1RM cap, or
-     * [Double.POSITIVE_INFINITY] when the engine provided no cap for this exercise.
-     */
-    private fun recencyWorkingCap(request: PlanRequest, exerciseId: String, reps: Int): Double {
-        val capE1rm = request.recentWeightCaps[exerciseId] ?: return Double.POSITIVE_INFINITY
-        return weightConfig.roundToIncrement(
-            capE1rm * weightConfig.intensityForReps(reps) *
-                if (request.isDeload) periodization.deloadIntensityScale else 1.0
         )
     }
 

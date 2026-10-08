@@ -60,8 +60,8 @@ import org.koin.dsl.module
 
 val domainModule: Module = module {
     single { CalculateMuscleFatigueUseCase() }
-    single { DeterministicWorkoutPlannerEngine(get()) }
-    single { WeeklyPlanSanitizer(get()) }
+    single { DeterministicWorkoutPlannerEngine(get(), weightConfig = get(), periodization = get()) }
+    single { WeeklyPlanSanitizer(get(), periodization = get(), weightConfig = get()) }
     single<OnDevicePlanProgressReporter> { DefaultOnDevicePlanProgressReporter() }
     single {
         LocalLlmWorkoutPlannerEngine(

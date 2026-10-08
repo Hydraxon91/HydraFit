@@ -166,6 +166,21 @@ summary, but missing direct-arm coverage does not reject a model-generated plan.
 persisted with accepted-plan history; history and explicit substitutions retain their existing
 semantics. The four-set objective is a product planning default, not a validated minimum or optimum.
 
+Planner load inputs use the best eligible external or compatible-legacy Epley estimate in the
+inclusive interval `[now − 42 days, now]`, requiring at least two qualifying sets. Those values are
+product defaults, not research-derived capacity thresholds; sets need not come from separate
+sessions and do not prove maximum capacity. Future-dated logged sets are excluded from planner load
+baseline, recent evidence and progression inputs. Light/deload intent and actual execution quality
+are not inferred, so a qualifying intentionally light set may lower the computed suggestion.
+Insufficient or expired recent evidence withholds an automatic numeric load rather than restoring an
+all-history maximum. An eligible external manual PR is a floor on the recent estimate, not an
+exercise-wide exemption. Progression is applied after tempering, and the progressed e1RM bound is
+shared by the Deterministic engine and `WeeklyPlanSanitizer`; both use the configured rep estimate,
+existing intensity/buffer, deload scaling, nearest-increment rounding, then equipment ceiling.
+Model-proposed loads remain gated by `includeWorkoutData`. Yang et al. (2022,
+https://doi.org/10.1123/japa.2020-0493) concerns lower-limb strength retention in middle-aged and
+older adults and does not validate this horizon, sample threshold or load prescription.
+
 - **Examples:** `WorkoutPlannerEngine`, `WorkoutPlannerEngineProvider`,
   `DefaultWorkoutPlannerEngineProvider`, `DeterministicWorkoutPlannerEngine`,
   `GeminiWorkoutPlannerEngine`, `LocalLlmWorkoutPlannerEngine`, `WeeklyPlanSanitizer`,

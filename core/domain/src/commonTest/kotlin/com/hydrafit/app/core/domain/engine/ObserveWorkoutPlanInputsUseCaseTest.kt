@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
+import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutSet
@@ -269,6 +270,12 @@ class ObserveWorkoutPlanInputsUseCaseTest {
                         reps = 5,
                         weightKg = 100.0,
                         performedAtMillis = 1L
+                    ),
+                    WorkoutSet(
+                        exerciseId = "bench-press",
+                        reps = 5,
+                        weightKg = 100.0,
+                        performedAtMillis = 2L
                     )
                 )
             )
@@ -276,7 +283,7 @@ class ObserveWorkoutPlanInputsUseCaseTest {
         val useCase = useCase(
             sources = sources,
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
-            timeProvider = TimeProvider { 0L },
+            timeProvider = TimeProvider { 2L },
             planHistoryRepository = FakePlanHistoryRepository()
         )
 
@@ -325,6 +332,12 @@ class ObserveWorkoutPlanInputsUseCaseTest {
                         reps = 5,
                         weightKg = 120.0,
                         performedAtMillis = 1L
+                    ),
+                    WorkoutSet(
+                        exerciseId = "bench-press",
+                        reps = 5,
+                        weightKg = 120.0,
+                        performedAtMillis = 2L
                     )
                 )
             )
@@ -332,7 +345,7 @@ class ObserveWorkoutPlanInputsUseCaseTest {
         val useCase = useCase(
             sources = sources,
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
-            timeProvider = TimeProvider { 0L },
+            timeProvider = TimeProvider { 2L },
             planHistoryRepository = FakePlanHistoryRepository()
         )
 
@@ -356,7 +369,7 @@ class ObserveWorkoutPlanInputsUseCaseTest {
                         exerciseId = "bench-press",
                         reps = 5,
                         weightKg = 100.0,
-                        performedAtMillis = 1L
+                        performedAtMillis = 0L
                     )
                 )
             )
@@ -421,7 +434,7 @@ class ObserveWorkoutPlanInputsUseCaseTest {
         val useCase = useCase(
             sources = sources,
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
-            timeProvider = TimeProvider { 0L },
+            timeProvider = TimeProvider { 4L * 24L * 60L * 60L * 1000L },
             planHistoryRepository = FakePlanHistoryRepository(accepted)
         )
 
@@ -429,6 +442,7 @@ class ObserveWorkoutPlanInputsUseCaseTest {
 
         // Baseline 1RM estimate 100x8 -> 126.667, then +2.5 after three completed sessions.
         assertEquals(129.16666666666666, request.suggestedWeightsKg["bench-press"])
+        assertEquals(request.suggestedWeightsKg, request.recentWeightCaps)
     }
 
     @Test
@@ -475,7 +489,7 @@ class ObserveWorkoutPlanInputsUseCaseTest {
                 )
             ),
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
-            timeProvider = TimeProvider { 0L },
+            timeProvider = TimeProvider { 4L * 24L * 60L * 60L * 1000L },
             planHistoryRepository = FakePlanHistoryRepository(accepted)
         )
 
@@ -572,7 +586,6 @@ class ObserveWorkoutPlanInputsUseCaseTest {
         planHistoryRepository = planHistoryRepository,
         buildPlannerLoadInputs = BuildPlannerLoadInputsUseCase(
             catalog = FakeCatalog,
-            suggestWeights = SuggestWeightsUseCase(),
             buildRecentWeights = BuildRecentWeightsUseCase(),
             progressWeights = ProgressWeightsUseCase()
         ),
@@ -580,7 +593,16 @@ class ObserveWorkoutPlanInputsUseCaseTest {
     )
 
     private object FakeCatalog : ExerciseCatalog {
-        override suspend fun all(): List<Exercise> = emptyList()
+        override suspend fun all(): List<Exercise> = listOf(
+            Exercise(
+                id = "bench-press",
+                name = "Bench Press",
+                requiredEquipment = setOf(EquipmentTag.BARBELL),
+                primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
+                movementPattern = MovementPattern.HORIZONTAL_PUSH,
+                loadCapability = ExerciseLoadCapability.EXTERNAL
+            )
+        )
     }
 
     private class FakeWorkoutPlanSourcesRepository(initial: WorkoutPlanSources) :

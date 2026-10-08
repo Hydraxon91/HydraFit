@@ -218,21 +218,32 @@ Verbatim NSCA curve, reps to fraction of 1RM:
 `curveFor` clamps reps to the table's bounds and uses `0.7` if a custom curve
 lacks that key. It does not interpolate between entries.
 
-The deterministic engine computes:
+The deterministic engine and model sanitizer share the same e1RM-to-working-load
+conversion (`SuggestedWeightConfig.workingWeightFor`): prescribed reps, the existing
+intensity/buffer, deload scale, nearest-increment rounding, then equipment ceiling.
+The model sanitizer retains a below-bound proposal and clips only proposals above
+the shared bound.
 
 ```text
 working = roundToIncrement(progressed1RM * intensityForReps(reps) * deloadScale)
 suggestedWeightKg = EquipmentWeightLimit.clamp(working, ceilingFor(exercise))
 ```
 
-The progressed 1RM baseline is tempered by the best recent qualifying estimate
-(last 42 days, at least two external working sets) in
-`BuildPlannerLoadInputsUseCase`, so a stale all-time maximum cannot keep
-prescribing an unreachable load; a manual PR is a deliberate user assertion and is
-not capped. The same cap bounds model-proposed external weights in
-`WeeklyPlanSanitizer` (via `PlanRequest.recentWeightCaps`), so an AI plan cannot
-exceed recent performance either. The window shape is a product default justified
-by detraining strength-maintenance evidence, not an exact physiological constant.
+`BuildPlannerLoadInputsUseCase` uses the best eligible external or compatible-legacy
+Epley estimate in the inclusive `[now − 42 days, now]` interval, with at least two
+sets. Horizon and sample size are product/engineering defaults, not validated
+capacity thresholds; same-session sets count but do not prove maximum capacity.
+Future-dated sets are excluded from planner baseline, recency and progression inputs.
+No execution-quality, actual RIR, intentionally-light-work or deload-intent inference
+is made; qualifying light work can lower the suggestion. Insufficient or expired
+evidence withholds an automatic numeric load instead of falling back to all-time
+history. An eligible external manual PR is a floor, not an exemption. Progression
+follows tempering, and its resulting e1RM bound is carried in
+`PlanRequest.recentWeightCaps` for both Deterministic and `WeeklyPlanSanitizer`.
+Yang et al. 2022 (https://doi.org/10.1123/japa.2020-0493) concerns lower-limb
+strength retention in middle-aged/older adults; it does not establish this lookback
+window, sample threshold or prescription ceiling. See PLANS.md C2D for the approved
+contract and its scope limits.
 
 Reps under shipped Option C: chosen set count is the volume knob; reps stay fixed
 at the goal's compound/isolation values. The older volume-constant formula is

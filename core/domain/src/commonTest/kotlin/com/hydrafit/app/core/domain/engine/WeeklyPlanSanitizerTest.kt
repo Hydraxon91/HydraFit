@@ -155,6 +155,109 @@ class WeeklyPlanSanitizerTest {
     }
 
     @Test
+    fun appliesTheSameProgressionAdjustedBoundWithoutRoundingDownModelSuggestions() = runTest {
+        val plan = planOf(listOf("bench-press", "lateral-raise")).copy(
+            engine = PlannerEngineId.GEMINI_API,
+            days = listOf(
+                dayOf(0, listOf("bench-press", "lateral-raise")).copy(
+                    exercises = listOf(
+                        PlannedExercise(
+                            exerciseId = "bench-press",
+                            sets = 3,
+                            reps = 8,
+                            suggestedWeightKg = 120.0
+                        ),
+                        PlannedExercise(
+                            exerciseId = "lateral-raise",
+                            sets = 3,
+                            reps = 8,
+                            suggestedWeightKg = 10.0
+                        )
+                    )
+                )
+            )
+        )
+
+        val sanitized = sanitizer.sanitize(
+            plan,
+            request(includeWorkoutData = true).copy(
+                recentWeightCaps = mapOf("bench-press" to 129.1666666667)
+            )
+        )!!
+        val weights = sanitized.days.single().exercises.associate {
+            it.exerciseId to it.suggestedWeightKg
+        }
+
+        assertEquals(100.0, weights.getValue("bench-press"))
+        assertEquals(10.0, weights.getValue("lateral-raise"))
+    }
+
+    @Test
+    fun withholdsModelWeightWhenEvidenceIsInsufficient() = runTest {
+        val plan = planOf(listOf("bench-press", "lateral-raise")).copy(
+            days = listOf(
+                dayOf(0, listOf("bench-press", "lateral-raise")).copy(
+                    exercises = listOf(
+                        PlannedExercise(
+                            exerciseId = "bench-press",
+                            sets = 3,
+                            reps = 8,
+                            suggestedWeightKg = 100.0
+                        ),
+                        PlannedExercise("lateral-raise", sets = 3, reps = 8)
+                    )
+                )
+            )
+        )
+
+        val sanitized = sanitizer.sanitize(
+            plan,
+            request(includeWorkoutData = true).copy(
+                withheldWeightExerciseIds = setOf("bench-press")
+            )
+        )!!
+
+        assertNull(sanitized.days.single().exercises.first().suggestedWeightKg)
+    }
+
+    @Test
+    fun appliesDeloadScaleAndEquipmentCeilingAfterTheSharedRecentBound() = runTest {
+        val plan = planOf(listOf("bench-press", "lateral-raise")).copy(
+            days = listOf(
+                dayOf(0, listOf("bench-press", "lateral-raise")).copy(
+                    exercises = listOf(
+                        PlannedExercise(
+                            exerciseId = "bench-press",
+                            sets = 3,
+                            reps = 8,
+                            suggestedWeightKg = 100.0
+                        ),
+                        PlannedExercise("lateral-raise", sets = 3, reps = 8)
+                    )
+                )
+            )
+        )
+
+        val belowBoundEquipment = sanitizer.sanitize(
+            plan,
+            request(includeWorkoutData = true, isDeload = true).copy(
+                recentWeightCaps = mapOf("bench-press" to 126.6666666667),
+                equipmentMaxWeights = mapOf(EquipmentTag.BARBELL to 30.0)
+            )
+        )!!
+        val aboveBoundEquipment = sanitizer.sanitize(
+            plan,
+            request(includeWorkoutData = true, isDeload = true).copy(
+                recentWeightCaps = mapOf("bench-press" to 126.6666666667),
+                equipmentMaxWeights = mapOf(EquipmentTag.BARBELL to 200.0)
+            )
+        )!!
+
+        assertEquals(30.0, belowBoundEquipment.days.single().exercises.first().suggestedWeightKg)
+        assertEquals(77.5, aboveBoundEquipment.days.single().exercises.first().suggestedWeightKg)
+    }
+
+    @Test
     fun dropsUnknownExercises() = runTest {
         val plan = planOf(listOf("bench-press", "lateral-raise", "not-a-real-id"))
 
@@ -304,7 +407,8 @@ class WeeklyPlanSanitizerTest {
         setsPerExercise: Int = goal.defaultSets,
         accessorySetsPerExercise: Int = goal.accessorySets,
         includeWorkoutData: Boolean = false,
-        isDeload: Boolean = false
+        isDeload: Boolean = false,
+        equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap()
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
         availableEquipment = setOf(EquipmentTag.BARBELL),
@@ -313,6 +417,7 @@ class WeeklyPlanSanitizerTest {
         goal = goal,
         setsPerExercise = setsPerExercise,
         accessorySetsPerExercise = accessorySetsPerExercise,
+        equipmentMaxWeights = equipmentMaxWeights,
         includeWorkoutData = includeWorkoutData,
         isDeload = isDeload
     )

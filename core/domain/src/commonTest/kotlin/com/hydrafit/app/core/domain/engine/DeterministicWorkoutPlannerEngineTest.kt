@@ -717,6 +717,43 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun usesTheProgressionAdjustedBoundForTheSameWorkingLoadConversionAsModelSanitization() {
+        val progressedEstimate = 129.16666666666667
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                split = SplitType.PUSH_PULL_LEGS,
+                suggestedWeightsKg = mapOf("bench-press" to 150.0)
+            ).copy(recentWeightCaps = mapOf("bench-press" to progressedEstimate)),
+            listOf(
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+            )
+        )
+
+        val benchPress = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.single()
+
+        // Balanced compound at six reps: 129.1667 × 0.765 = 98.8125 -> nearest 2.5 kg = 100 kg.
+        assertEquals(100.0, benchPress.suggestedWeightKg)
+    }
+
+    @Test
+    fun omitsAutomaticLoadWhenRecentEvidenceIsWithheld() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                split = SplitType.PUSH_PULL_LEGS,
+                suggestedWeightsKg = mapOf("bench-press" to 150.0)
+            ).copy(withheldWeightExerciseIds = setOf("bench-press")),
+            listOf(
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+            )
+        )
+
+        val benchPress = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.single()
+        assertNull(benchPress.suggestedWeightKg)
+    }
+
+    @Test
     fun setOverrideChangesVolumeNotTheRepBand() {
         val plan = engine.plan(
             request(

@@ -20,7 +20,6 @@ import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.ProgressWeightsUseCase
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SubstituteExerciseUseCase
-import com.hydrafit.app.core.domain.engine.SuggestWeightsUseCase
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
@@ -883,7 +882,6 @@ class SplitBuilderViewModelTest {
         planHistoryRepository = planHistoryRepository,
         buildPlannerLoadInputs = BuildPlannerLoadInputsUseCase(
             catalog = FakeExerciseCatalog(),
-            suggestWeights = SuggestWeightsUseCase(),
             buildRecentWeights = BuildRecentWeightsUseCase(),
             progressWeights = ProgressWeightsUseCase()
         ),

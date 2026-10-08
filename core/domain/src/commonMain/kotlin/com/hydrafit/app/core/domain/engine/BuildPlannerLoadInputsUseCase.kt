@@ -9,8 +9,10 @@ import com.hydrafit.app.core.domain.workout.WorkoutSet
 data class PlannerLoadInputs(
     val suggestedWeightsKg: Map<String, Double>,
     val recentWeights: List<WeightHistoryEntry>,
-    /** Recency-tempered e1RM ceiling per exercise; consumers cap their own working load with it. */
-    val recentWeightCaps: Map<String, Double> = emptyMap()
+    /** Progression-adjusted e1RM bound shared by all engines. */
+    val recentWeightCaps: Map<String, Double> = emptyMap(),
+    /** External-load exercises without sufficient evidence must not receive model-invented loads. */
+    val withheldWeightExerciseIds: Set<String> = emptySet()
 )
 
 /**
@@ -26,9 +28,9 @@ data class PlannerLoadInputs(
  */
 class BuildPlannerLoadInputsUseCase(
     private val catalog: ExerciseCatalog,
-    private val suggestWeights: SuggestWeightsUseCase,
     private val buildRecentWeights: BuildRecentWeightsUseCase,
-    private val progressWeights: ProgressWeightsUseCase
+    private val progressWeights: ProgressWeightsUseCase,
+    private val weightConfig: SuggestedWeightConfig = SuggestedWeightConfig()
 ) {
     suspend operator fun invoke(
         sources: WorkoutPlanSources,
@@ -43,61 +45,64 @@ class BuildPlannerLoadInputsUseCase(
         fun contributesToLoadMath(exerciseId: String, kind: LoadKind): Boolean =
             WorkoutLoadPolicy.contributesToLoadMath(capabilityOf(exerciseId), kind)
 
-        // A logged set's Epley 1RM, lifted to at least any manually entered personal record. Only
-        // load that is external resistance (or a compatible legacy number) enters the baseline.
-        // Recency temper: a stale all-time maximum should not prescribe an unreachable working load,
-        // so a history-derived estimate is bounded by the best recent qualifying estimate. An explicit
-        // manual PR is a deliberate user assertion and is left uncapped.
-        val recentBest = recentBestByExercise(sources.loggedWorkoutSets, nowMillis) { id, kind ->
+        val loadSets = sources.loggedWorkoutSets.filter {
+            it.performedAtMillis <= nowMillis && contributesToLoadMath(it.exerciseId, it.loadKind)
+        }
+        val recentBest = recentBestByExercise(loadSets, nowMillis) { id, kind ->
             contributesToLoadMath(id, kind)
         }
-        val manualRecordIds = sources.personalRecords.map { it.exerciseId }.toSet()
-        val baseline = suggestWeights(
-            sources.loggedWorkoutSets.filter { contributesToLoadMath(it.exerciseId, it.loadKind) }
-        ).mapValues { (exerciseId, estimate) ->
-            if (exerciseId in manualRecordIds) {
-                estimate
-            } else {
-                recentBest[exerciseId]?.let { minOf(estimate, it) } ?: estimate
+        val manualRecords = sources.personalRecords
+            .filter { record ->
+                record.loadKind == LoadKind.EXTERNAL &&
+                    contributesToLoadMath(record.exerciseId, record.loadKind) &&
+                    record.weightKg.isFinite() &&
+                    record.weightKg > 0.0 &&
+                    weightConfig.hasUsableEstimate(record.reps)
             }
-        }.toMutableMap()
-        sources.personalRecords
-            .filter { contributesToLoadMath(it.exerciseId, it.loadKind) }
-            .forEach { record ->
-                baseline[record.exerciseId] = maxOf(
-                    baseline[record.exerciseId] ?: 0.0,
-                    OneRepMax.estimate(record.weightKg, record.reps)
-                )
+            .groupBy { it.exerciseId }
+            .mapValues { (_, records) ->
+                records.maxOf { OneRepMax.estimate(it.weightKg, it.reps) }
             }
+        val externalExerciseIds = capabilityByExercise
+            .filterValues { WorkoutLoadPolicy.allowsAutomaticLoad(it) }
+            .keys
+        val baseline = externalExerciseIds.mapNotNull { exerciseId ->
+            val estimate = recentBest[exerciseId] ?: manualRecords[exerciseId]
+                ?: return@mapNotNull null
+            exerciseId to maxOf(estimate, manualRecords[exerciseId] ?: 0.0)
+        }.toMap()
 
         val progressed = progressWeights(
             baseline = baseline,
             prescriptions = externalPrescriptions(latestPlan),
-            sets = sources.loggedWorkoutSets.filter { it.loadKind == LoadKind.EXTERNAL },
+            sets = loadSets.filter { it.loadKind == LoadKind.EXTERNAL },
             pauseIncrements = pauseIncrements,
             utcOffsetMillis = utcOffsetMillis
         )
 
         val recentWeights = if (sources.workoutDataSharingEnabled) {
-            buildRecentWeights(sources.loggedWorkoutSets, utcOffsetMillis)
+            buildRecentWeights(
+                sources.loggedWorkoutSets.filter { it.performedAtMillis <= nowMillis },
+                utcOffsetMillis
+            )
         } else {
             emptyList()
         }
-        // A manual record is a deliberate assertion and must not cap an engine-proposed load either.
-        val recentWeightCaps = recentBest.filterKeys { it !in manualRecordIds }
+        // The progressed estimate is the same bound used by deterministic and model-backed engines.
+        val recentWeightCaps = progressed
+        val withheldWeightExerciseIds = externalExerciseIds - progressed.keys
         return PlannerLoadInputs(
             suggestedWeightsKg = progressed,
             recentWeights = recentWeights,
-            recentWeightCaps = recentWeightCaps
+            recentWeightCaps = recentWeightCaps,
+            withheldWeightExerciseIds = withheldWeightExerciseIds
         )
     }
 
     /**
      * The best Epley estimate per exercise among qualifying external working sets inside the recent
-     * window. Exercises with fewer than [MIN_RECENT_SETS] such sets are omitted, so a single stray set
-     * cannot temper the suggestion. The window approximates "current capacity"; ~6 weeks is chosen
-     * from detraining strength-maintenance evidence (see PLANS.md C2D), not an exact physiological
-     * constant.
+     * window. Exercises with fewer than [MIN_RECENT_SETS] such sets are omitted. The window and
+     * sample threshold are product defaults, not validated measures of current capacity.
      */
     private fun recentBestByExercise(
         sets: List<WorkoutSet>,
@@ -107,11 +112,11 @@ class BuildPlannerLoadInputsUseCase(
         val cutoff = nowMillis - RECENT_WINDOW_MILLIS
         return sets
             .filter { set ->
-                set.performedAtMillis >= cutoff &&
+                set.performedAtMillis in cutoff..nowMillis &&
                     contributesToLoadMath(set.exerciseId, set.loadKind) &&
                     !set.isWarmup &&
-                    (set.weightKg ?: 0.0) > 0.0 &&
-                    set.reps in 1..SuggestedWeightConfig.DEFAULT_MAX_REPS
+                    set.weightKg?.let { it.isFinite() && it > 0.0 } == true &&
+                    weightConfig.hasUsableEstimate(set.reps)
             }
             .groupBy { it.exerciseId }
             .filterValues { it.size >= MIN_RECENT_SETS }
@@ -139,10 +144,10 @@ class BuildPlannerLoadInputsUseCase(
         .orEmpty()
 
     companion object {
-        /** Recent-performance window; ~6 weeks per detraining strength-maintenance evidence. */
+        /** Product default recent-performance window; not a research-derived prescription horizon. */
         const val RECENT_WINDOW_DAYS = 42L
 
-        /** Minimum recent qualifying sets before the temper applies, so one stray set cannot cap. */
+        /** Product default minimum recent sample; not proof of maximum capacity. */
         const val MIN_RECENT_SETS = 2
 
         const val RECENT_WINDOW_MILLIS = RECENT_WINDOW_DAYS * 24L * 60L * 60L * 1000L

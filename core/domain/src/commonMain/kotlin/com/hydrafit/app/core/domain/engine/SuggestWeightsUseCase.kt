@@ -12,7 +12,7 @@ class SuggestWeightsUseCase(private val config: SuggestedWeightConfig = Suggeste
     operator fun invoke(sets: List<WorkoutSet>): Map<String, Double> = sets.mapNotNull { set ->
         val weight = set.weightKg
         if (set.isWarmup || weight == null || weight <= 0.0) return@mapNotNull null
-        if (set.reps !in 1..config.maxRepsForEstimate) return@mapNotNull null
+        if (!config.hasUsableEstimate(set.reps)) return@mapNotNull null
         set.exerciseId to OneRepMax.estimate(weight, set.reps)
     }
         .groupBy({ it.first }, { it.second })

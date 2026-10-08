@@ -28,6 +28,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -44,6 +45,23 @@ class GeminiWorkoutPlannerEngineTest {
         assertEquals(3, plan.days.size)
         assertEquals(SplitFocus.PUSH, plan.days.first().focus)
         assertEquals("bench-press", plan.days.first().exercises.first().exerciseId)
+    }
+
+    @Test
+    fun delegatesRecentEvidenceWithholdingToTheSharedSanitizer() = runTest {
+        val weightedPlan = VALID_PLAN.replace(
+            "\"exerciseId\":\"bench-press\"",
+            "\"exerciseId\":\"bench-press\",\"suggestedWeightKg\":100.0"
+        )
+        val plan = engine(respondEnvelope(weightedPlan)).generatePlan(
+            request(includeWorkoutData = true).copy(
+                withheldWeightExerciseIds = setOf("bench-press")
+            )
+        )
+
+        assertNull(
+            plan.days.first().exercises.first { it.exerciseId == "bench-press" }.suggestedWeightKg
+        )
     }
 
     @Test

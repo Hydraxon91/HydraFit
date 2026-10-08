@@ -18,10 +18,11 @@ data class PlanRequest(
     val recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
     val suggestedWeightsKg: Map<String, Double> = emptyMap(),
     /**
-     * Recency-tempered estimated-1RM ceiling per exercise, in kilograms; consumers convert it to a
-     * working load at the prescribed reps. Empty means uncapped. See [BuildPlannerLoadInputsUseCase].
+     * Progression-adjusted estimated-1RM bound per exercise, in kilograms; engines convert it to a
+     * working load at prescribed reps. Missing evidence is represented by [withheldWeightExerciseIds].
      */
     val recentWeightCaps: Map<String, Double> = emptyMap(),
+    val withheldWeightExerciseIds: Set<String> = emptySet(),
     /** Heaviest weight each piece of equipment can provide; equipment absent here is unlimited. */
     val equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
     val includeWorkoutData: Boolean = false,

@@ -40,6 +40,25 @@ class LocalLlmWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun delegatesRecentEvidenceWithholdingToTheSharedSanitizer() = runTest {
+        val weightedPlan = INDEXED_PLAN.replace(
+            "\"sets\":3,\"reps\":8",
+            "\"sets\":3,\"reps\":8,\"suggestedWeightKg\":100.0"
+        )
+        val plan = engine(
+            FakeGenerator(available = true, responses = listOf(weightedPlan))
+        ).generatePlan(
+            request(includeWorkoutData = true).copy(
+                withheldWeightExerciseIds = setOf("bench-press")
+            )
+        )
+
+        assertNull(
+            plan.days.first().exercises.first { it.exerciseId == "bench-press" }.suggestedWeightKg
+        )
+    }
+
+    @Test
     fun appliesRequestedSetsAndVolumeAwareReps() = runTest {
         val generator = FakeGenerator(available = true, responses = listOf(MIXED_REPS_PLAN))
 
