@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.workout.LoadKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
@@ -96,6 +97,22 @@ class WeeklyPlanSanitizerTest {
 
         assertEquals(3, sanitized.weekNumber)
         assertEquals(2, sanitized.cycleNumber)
+    }
+
+    @Test
+    fun rejectsAccessorySetsOutsideSupportedRange() = runTest {
+        assertFailsWith<IllegalArgumentException> {
+            sanitizer.sanitize(
+                planOf(listOf("bench-press", "lateral-raise")),
+                request(accessorySetsPerExercise = 0)
+            )
+        }
+        assertFailsWith<IllegalArgumentException> {
+            sanitizer.sanitize(
+                planOf(listOf("bench-press", "lateral-raise")),
+                request(accessorySetsPerExercise = 9)
+            )
+        }
     }
 
     @Test

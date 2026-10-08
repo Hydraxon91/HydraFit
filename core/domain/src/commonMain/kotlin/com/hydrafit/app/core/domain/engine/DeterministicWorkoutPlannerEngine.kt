@@ -30,6 +30,9 @@ class DeterministicWorkoutPlannerEngine(
         require(request.setsPerExercise in MIN_SETS..MAX_SETS) {
             "setsPerExercise must be between $MIN_SETS and $MAX_SETS"
         }
+        require(request.accessorySetsPerExercise in MIN_SETS..MAX_SETS) {
+            "accessorySetsPerExercise must be between $MIN_SETS and $MAX_SETS"
+        }
 
         val focusCycle =
             SplitResolver.focusCycle(

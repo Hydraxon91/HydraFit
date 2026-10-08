@@ -65,6 +65,16 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun rejectsAccessorySetsOutsideSupportedRange() {
+        assertFailsWith<IllegalArgumentException> {
+            engine.plan(request(daysPerWeek = 2, accessorySetsPerExercise = 0), catalog())
+        }
+        assertFailsWith<IllegalArgumentException> {
+            engine.plan(request(daysPerWeek = 2, accessorySetsPerExercise = 9), catalog())
+        }
+    }
+
+    @Test
     fun autoSelectsFullBodyForTwoOrThreeDays() {
         val focuses = engine.plan(request(daysPerWeek = 2), catalog()).days.map { it.focus }
 

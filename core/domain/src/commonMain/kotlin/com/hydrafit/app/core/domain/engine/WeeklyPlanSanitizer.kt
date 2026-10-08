@@ -18,6 +18,14 @@ class WeeklyPlanSanitizer(
 ) {
 
     suspend fun sanitize(plan: WeeklyPlan, request: PlanRequest): WeeklyPlan? {
+        val minSets = DeterministicWorkoutPlannerEngine.MIN_SETS
+        val maxSets = DeterministicWorkoutPlannerEngine.MAX_SETS
+        require(request.setsPerExercise in minSets..maxSets) {
+            "setsPerExercise must be between $minSets and $maxSets"
+        }
+        require(request.accessorySetsPerExercise in minSets..maxSets) {
+            "accessorySetsPerExercise must be between $minSets and $maxSets"
+        }
         val usable = catalog.all()
             .filter { it.isAvailableWith(request.availableEquipment) }
             .associateBy { it.id }
