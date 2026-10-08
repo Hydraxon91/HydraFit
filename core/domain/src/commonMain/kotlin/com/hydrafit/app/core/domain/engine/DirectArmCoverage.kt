@@ -54,7 +54,8 @@ object DirectArmCoverage {
     fun isolationPatternsFor(focus: SplitFocus): List<MovementPattern> = when (focus) {
         SplitFocus.PUSH -> listOf(
             MovementPattern.TRICEPS_ISOLATION,
-            MovementPattern.SHOULDER_ISOLATION
+            MovementPattern.SHOULDER_ISOLATION,
+            MovementPattern.CHEST_FLY
         )
         SplitFocus.PULL -> listOf(MovementPattern.BICEPS_ISOLATION)
         SplitFocus.LEGS, SplitFocus.LOWER -> listOf(
@@ -64,12 +65,14 @@ object DirectArmCoverage {
         )
         SplitFocus.UPPER -> listOf(
             MovementPattern.BICEPS_ISOLATION,
-            MovementPattern.TRICEPS_ISOLATION
+            MovementPattern.TRICEPS_ISOLATION,
+            MovementPattern.SHOULDER_ISOLATION
         )
         SplitFocus.FULL_BODY -> listOf(
             MovementPattern.BICEPS_ISOLATION,
             MovementPattern.TRICEPS_ISOLATION,
             MovementPattern.SHOULDER_ISOLATION,
+            MovementPattern.CHEST_FLY,
             MovementPattern.LEG_ISOLATION,
             MovementPattern.CALF_RAISE,
             MovementPattern.CORE

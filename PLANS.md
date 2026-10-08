@@ -113,6 +113,19 @@ This orders the C2B–C2G proposals plus the smaller review findings into one wo
 6. **C2G — preference implementation.** Implement only the C2F decision; additive `.sqm` migration + OF-01 backup coverage if persisted; Koin verification if bindings change.
 7. **Separate (later catalog scope):** rep-based forearm/grip accessories (catalog + approved pattern/pool contract); timed/distance/force grip under OF-10C.
 
+**Evidence basis (peer-reviewed where it exists; product/robustness otherwise).** Each hardening change is classified so no product policy is presented as validated physiology:
+
+| Change | Evidence basis | Classification |
+| --- | --- | --- |
+| Accessory-set range validation (1–8) | None needed; consistency with the existing `PrescriptionBounds` (routine/occurrence slots) and the engine's own compound-set range. | Correctness / robustness |
+| Chest fly reachable (push/full-body) | Pinto et al. 2025 (J Strength Cond Res, https://doi.org/10.1519/JSC.0000000000005045): one and three sets of pec-deck training increased pectoralis clavicular and sternocostal thickness in untrained young men. Supports a fly-type chest exercise as legitimate; does not mandate it. | Evidence-consistent, functional |
+| Lunge reachable (leg/lower squat group) | Standard compound; no trial isolates lunge selection. General resistance-training evidence covers squat-pattern lower-body work. | Product / functional |
+| Shoulder isolation reachable (upper) | Weak specific evidence; the 2026 ACSM overview (https://doi.org/10.1249/MSS.0000000000003897) classifies single- vs multi-joint hypertrophy effect as insufficient to determine. Enables a conventional accessory without a physiological claim. | Product / functional |
+| Compound repeat allowed when alternatives are exhausted | Kassiano et al. 2022 (https://doi.org/10.1519/JSC.0000000000004258): systematic variation may help and excessive novelty can hinder; no evidence requires unique compounds within a week. | Evidence-consistent |
+| Coverage/priority ahead of tiny fatigue differences | No peer-reviewed source validates HydraFit's `0.65`/`0.80`/cutoff values as readiness measures; the fatigue index is a planner heuristic (see the 2026-10-08 research context). Coverage follows the volume evidence; the fatigue numbers do not. | Product (algorithm), evidence-limited |
+| Keep `maxSets` a soft pre-pick ceiling | ACSM 2026 states the exact optimizing set count cannot be established and describes diminishing returns (~18–20 weekly sets), not a hard cap. | Evidence-limited / product |
+| `minSets` becomes report-only | Planning-metrics decision; selecting on `targetSets` already chases low volume. No physiological threshold claimed. | Product / functional |
+
 **Out of scope of the hardening order:** fatigue-constant calibration (BACK chunk 3), LT-10 / OF-10A-P0 progression-history integrity, per-set pyramids (PYR-01), any fourth engine, and any schema change not required by an approved decision.
 
 **Release verification:** any schema change requires its additive `.sqm` migration and migration coverage in the same change. Cross-cutting/schema work requires the full host-test suite, ktlint, `:androidApp:assembleDebug` and iOS compile. Changed bindings/constructors require Koin verification. UI changes require emulator smoke and screenshot review. A bounded post-execution review follows `docs/review-discipline.md` and `docs/post-execution-review.md`.

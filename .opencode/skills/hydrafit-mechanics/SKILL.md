@@ -260,6 +260,15 @@ volume or a validated direct/indirect hypertrophy conversion. Accessories fill
 toward four exercises/day, then chase deficits up to six. Unfilled weighted
 targets remain possible.
 
+The isolation pool is focus-scoped and determines reachability (a catalog
+exercise whose pattern is in no pool is never auto-selected): push adds
+triceps/shoulder isolation plus chest fly; pull adds biceps isolation; upper adds
+biceps/triceps/shoulder isolation; legs/lower adds leg isolation, calf raises and
+core; full-body is the union. Lunge competes in the leg/lower squat group rather
+than being full-body-only. These are product reachability choices informed by
+general resistance-training evidence (e.g. pec-deck/chest-fly regional
+hypertrophy), not a claim that each isolation exercise is optimal.
+
 The deterministic planner also targets four direct isolation sets each for
 BICEPS and TRICEPS per normal generated week, across all goals. A set qualifies
 only when the exercise uses the matching `BICEPS_ISOLATION` or

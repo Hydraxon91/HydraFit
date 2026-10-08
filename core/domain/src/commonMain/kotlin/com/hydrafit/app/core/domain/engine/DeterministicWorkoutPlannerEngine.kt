@@ -363,7 +363,7 @@ class DeterministicWorkoutPlannerEngine(
             listOf(MovementPattern.HORIZONTAL_PULL)
         )
         SplitFocus.LEGS, SplitFocus.LOWER -> listOf(
-            listOf(MovementPattern.SQUAT),
+            listOf(MovementPattern.SQUAT, MovementPattern.LUNGE),
             listOf(MovementPattern.HINGE)
         )
         SplitFocus.UPPER -> listOf(

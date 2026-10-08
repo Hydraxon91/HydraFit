@@ -227,6 +227,42 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun chestFlyIsSelectableOnAPushDay() {
+        val plan = engine.plan(
+            request(daysPerWeek = 3, split = SplitType.PUSH_PULL_LEGS, equipment = everything),
+            listOf(exercise("fly", MovementPattern.CHEST_FLY, MuscleGroup.CHEST_UPPER))
+        )
+
+        val pushIds = plan.days.first { it.focus == SplitFocus.PUSH }
+            .exercises.map { it.exerciseId }
+        assertTrue("fly" in pushIds, "pushIds=$pushIds")
+    }
+
+    @Test
+    fun lungeIsSelectableOnALegsDay() {
+        val plan = engine.plan(
+            request(daysPerWeek = 3, split = SplitType.PUSH_PULL_LEGS, equipment = everything),
+            listOf(exercise("lunge", MovementPattern.LUNGE, MuscleGroup.QUADS))
+        )
+
+        val legsIds = plan.days.first { it.focus == SplitFocus.LEGS }
+            .exercises.map { it.exerciseId }
+        assertTrue("lunge" in legsIds, "legsIds=$legsIds")
+    }
+
+    @Test
+    fun shoulderIsolationIsSelectableOnAnUpperDay() {
+        val plan = engine.plan(
+            request(daysPerWeek = 4, split = SplitType.UPPER_LOWER, equipment = everything),
+            listOf(exercise("lateral", MovementPattern.SHOULDER_ISOLATION, MuscleGroup.SIDE_DELTS))
+        )
+
+        val upperIds = plan.days.first { it.focus == SplitFocus.UPPER }
+            .exercises.map { it.exerciseId }
+        assertTrue("lateral" in upperIds, "upperIds=$upperIds")
+    }
+
+    @Test
     fun neverRepeatsAPatternWithinADay() {
         val exercises = listOf(
             exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER),
