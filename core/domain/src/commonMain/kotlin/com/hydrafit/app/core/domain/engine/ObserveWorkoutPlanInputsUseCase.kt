@@ -35,7 +35,8 @@ class ObserveWorkoutPlanInputsUseCase(
             sources = current,
             latestPlan = latestPlan,
             pauseIncrements = latestPlan?.let { periodization.isDeload(it.weekNumber) } ?: false,
-            utcOffsetMillis = utcOffsetMillis
+            utcOffsetMillis = utcOffsetMillis,
+            nowMillis = nowMillis
         )
         // Accessory slots are exempt from week-over-week rotation: only compound patterns rotate.
         val recentExerciseIdsByPattern = latestPlan

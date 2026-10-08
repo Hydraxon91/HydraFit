@@ -225,6 +225,13 @@ working = roundToIncrement(progressed1RM * intensityForReps(reps) * deloadScale)
 suggestedWeightKg = EquipmentWeightLimit.clamp(working, ceilingFor(exercise))
 ```
 
+The progressed 1RM baseline is tempered by the best recent qualifying estimate
+(last 42 days, at least two external working sets) in
+`BuildPlannerLoadInputsUseCase`, so a stale all-time maximum cannot keep
+prescribing an unreachable load; a manual PR is a deliberate user assertion and is
+not capped. The window shape is a product default justified by detraining
+strength-maintenance evidence, not an exact physiological constant.
+
 Reps under shipped Option C: chosen set count is the volume knob; reps stay fixed
 at the goal's compound/isolation values. The older volume-constant formula is
 superseded. `VolumeAwareReps.repsFor` validates a positive set count but does not

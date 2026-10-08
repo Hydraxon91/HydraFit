@@ -38,7 +38,8 @@ class BuildPlannerLoadInputsUseCaseTest {
             ),
             latestPlan = null,
             pauseIncrements = false,
-            utcOffsetMillis = 0L
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
         )
 
         // Epley(100kg x 8) = 126.666...
@@ -52,7 +53,8 @@ class BuildPlannerLoadInputsUseCaseTest {
             sources = sources(completed),
             latestPlan = plan("bench-press", weightKg = 80.0, kind = LoadKind.LEGACY_UNSPECIFIED),
             pauseIncrements = false,
-            utcOffsetMillis = 0L
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
         )
 
         // Three completed external sessions, but the accepted plan is legacy: no increment.
@@ -66,7 +68,8 @@ class BuildPlannerLoadInputsUseCaseTest {
             sources = sources(completed),
             latestPlan = plan("bench-press", weightKg = 80.0, kind = LoadKind.EXTERNAL),
             pauseIncrements = false,
-            utcOffsetMillis = 0L
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
         )
 
         assertEquals(129.16666666666667, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
@@ -78,10 +81,72 @@ class BuildPlannerLoadInputsUseCaseTest {
             sources = sources(listOf(set("ab-roll", day = 1, weightKg = 32.5))),
             latestPlan = null,
             pauseIncrements = false,
-            utcOffsetMillis = 0L
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
         )
 
         assertTrue(result.suggestedWeightsKg.isEmpty())
+    }
+
+    @Test
+    fun aStaleMaximumIsTemperedByRecentPerformance() = runTest {
+        val sets = listOf(
+            set("bench-press", day = 1, weightKg = 120.0, kind = LoadKind.EXTERNAL),
+            set("bench-press", day = 90, weightKg = 100.0, kind = LoadKind.EXTERNAL),
+            set("bench-press", day = 92, weightKg = 100.0, kind = LoadKind.EXTERNAL)
+        )
+
+        val result = useCase(
+            sources = sources(sets),
+            latestPlan = null,
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        // The old 120kg x 8 (Epley 152) is outside the window; the recent best bounds the suggestion.
+        assertEquals(126.66666666666667, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
+    }
+
+    @Test
+    fun aStaleMaximumIsKeptWhenRecentHistoryIsTooThin() = runTest {
+        val sets = listOf(
+            set("bench-press", day = 1, weightKg = 120.0, kind = LoadKind.EXTERNAL),
+            set("bench-press", day = 90, weightKg = 100.0, kind = LoadKind.EXTERNAL)
+        )
+
+        val result = useCase(
+            sources = sources(sets),
+            latestPlan = null,
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        // Only one recent set: the temper does not apply, so the all-time best is kept.
+        assertEquals(152.0, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
+    }
+
+    @Test
+    fun aManualRecordIsNotTemperedByRecentSets() = runTest {
+        val sets = listOf(
+            set("bench-press", day = 90, weightKg = 100.0, kind = LoadKind.EXTERNAL),
+            set("bench-press", day = 92, weightKg = 100.0, kind = LoadKind.EXTERNAL)
+        )
+        val withRecord = sources(sets).copy(
+            personalRecords = listOf(PersonalRecord("bench-press", 130.0, 1))
+        )
+
+        val result = useCase(
+            sources = withRecord,
+            latestPlan = null,
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        // Epley(130 x 1) = 134.333; a manual record is a deliberate assertion and is not capped.
+        assertEquals(134.33333333333334, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
     }
 
     private fun completedExternalSessions(exerciseId: String): List<WorkoutSet> =
@@ -149,5 +214,6 @@ class BuildPlannerLoadInputsUseCaseTest {
 
     private companion object {
         const val DAY_MILLIS = 86_400_000L
+        const val NOW_MILLIS = 100 * DAY_MILLIS
     }
 }
