@@ -50,7 +50,9 @@ data class SplitBuilderUiState(
     /** The schedule dialog shown when starting the plan as a block; null when closed. */
     val scheduleDialog: SplitScheduleDialogState? = null,
     /** One-shot: true after "Save as routine" succeeds, until the screen shows the confirmation. */
-    val routineSaved: Boolean = false
+    val routineSaved: Boolean = false,
+    /** True after a confirmed swap invalidated the shown plan's persisted volume explanation. */
+    val volumeExplanationInvalidated: Boolean = false
 ) {
     val usedFallbackEngine: Boolean
         get() = plan != null && requestedEngine != null && plan.engine != requestedEngine

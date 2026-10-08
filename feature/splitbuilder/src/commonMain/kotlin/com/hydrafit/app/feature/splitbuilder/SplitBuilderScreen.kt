@@ -45,13 +45,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.ArmCoverageUnmetReason
+import com.hydrafit.app.core.domain.engine.ArmMuscleCoverage
 import com.hydrafit.app.core.domain.engine.OnDevicePlanProgress
 import com.hydrafit.app.core.domain.engine.OnDevicePlanProgressReporter
 import com.hydrafit.app.core.domain.engine.PeriodizationConfig
+import com.hydrafit.app.core.domain.engine.PlanAttribution
 import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SwapCandidate
+import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.TimeProvider
@@ -103,6 +107,8 @@ import hydrafit.feature.splitbuilder.generated.resources.split_history
 import hydrafit.feature.splitbuilder.generated.resources.split_history_entry
 import hydrafit.feature.splitbuilder.generated.resources.split_loading
 import hydrafit.feature.splitbuilder.generated.resources.split_loading_progress
+import hydrafit.feature.splitbuilder.generated.resources.split_muscle_biceps
+import hydrafit.feature.splitbuilder.generated.resources.split_muscle_triceps
 import hydrafit.feature.splitbuilder.generated.resources.split_plan_accepted
 import hydrafit.feature.splitbuilder.generated.resources.split_regenerate
 import hydrafit.feature.splitbuilder.generated.resources.split_retry
@@ -128,6 +134,16 @@ import hydrafit.feature.splitbuilder.generated.resources.split_swap_dialog_cance
 import hydrafit.feature.splitbuilder.generated.resources.split_swap_dialog_empty
 import hydrafit.feature.splitbuilder.generated.resources.split_swap_dialog_title
 import hydrafit.feature.splitbuilder.generated.resources.split_swap_no_candidates
+import hydrafit.feature.splitbuilder.generated.resources.split_volume_ai
+import hydrafit.feature.splitbuilder.generated.resources.split_volume_deterministic
+import hydrafit.feature.splitbuilder.generated.resources.split_volume_direct_label
+import hydrafit.feature.splitbuilder.generated.resources.split_volume_explanation_title
+import hydrafit.feature.splitbuilder.generated.resources.split_volume_indirect_label
+import hydrafit.feature.splitbuilder.generated.resources.split_volume_not_enforced
+import hydrafit.feature.splitbuilder.generated.resources.split_volume_substituted
+import hydrafit.feature.splitbuilder.generated.resources.split_volume_unmet_available
+import hydrafit.feature.splitbuilder.generated.resources.split_volume_unmet_candidate
+import hydrafit.feature.splitbuilder.generated.resources.split_volume_unmet_fatigue
 import hydrafit.feature.splitbuilder.generated.resources.split_week
 import hydrafit.feature.splitbuilder.generated.resources.weekday_friday
 import hydrafit.feature.splitbuilder.generated.resources.weekday_monday
@@ -348,6 +364,15 @@ fun SplitBuilderScreen(
                 ),
                 style = MaterialTheme.typography.labelLarge
             )
+            VolumeExplanationCard(
+                coverage = plan.armCoverage,
+                attribution = if (plan.engine == PlannerEngineId.DETERMINISTIC) {
+                    PlanAttribution.DETERMINISTIC
+                } else {
+                    PlanAttribution.AI_GENERATED
+                },
+                invalidated = state.volumeExplanationInvalidated
+            )
             if (state.isPlanAccepted) {
                 Text(
                     text = stringResource(Res.string.split_plan_accepted),
@@ -542,6 +567,84 @@ private fun SplitFocus.labelResource(): StringResource = when (this) {
 /** One decimal place, e.g. "8.4"; the progress line only needs a rough rate. */
 private fun formatTokensPerSecond(value: Double): String =
     ((value * 10.0).roundToInt() / 10.0).toString()
+
+@Composable
+private fun VolumeExplanationCard(
+    coverage: List<ArmMuscleCoverage>,
+    attribution: PlanAttribution,
+    invalidated: Boolean
+) {
+    if (invalidated) {
+        Text(
+            text = stringResource(Res.string.split_volume_substituted),
+            style = MaterialTheme.typography.bodySmall
+        )
+        return
+    }
+    if (coverage.isEmpty()) return
+    Text(
+        text = stringResource(Res.string.split_volume_explanation_title),
+        style = MaterialTheme.typography.titleSmall
+    )
+    Text(
+        text = stringResource(
+            when (attribution) {
+                PlanAttribution.AI_GENERATED -> Res.string.split_volume_ai
+                PlanAttribution.DETERMINISTIC -> Res.string.split_volume_deterministic
+            }
+        ),
+        style = MaterialTheme.typography.bodySmall
+    )
+    coverage.forEach { entry ->
+        val name = when (entry.muscle) {
+            MuscleGroup.BICEPS -> stringResource(Res.string.split_muscle_biceps)
+            MuscleGroup.TRICEPS -> stringResource(Res.string.split_muscle_triceps)
+            else -> entry.muscle.name
+        }
+        Text(
+            text = stringResource(
+                Res.string.split_volume_direct_label,
+                name,
+                entry.directIsolationSets,
+                entry.targetSets
+            ),
+            style = MaterialTheme.typography.bodySmall
+        )
+        Text(
+            text = stringResource(
+                Res.string.split_volume_indirect_label,
+                formatVolumeCredits(entry.estimatedOtherInvolvementCredits)
+            ),
+            style = MaterialTheme.typography.bodySmall
+        )
+        if (!entry.isTargetEnforced) {
+            Text(
+                text = stringResource(Res.string.split_volume_not_enforced),
+                style = MaterialTheme.typography.bodySmall
+            )
+        } else {
+            entry.unmetReason?.let { reason ->
+                Text(
+                    text = stringResource(reason.labelResource()),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+private fun formatVolumeCredits(value: Double): String =
+    ((value * 10.0).roundToInt() / 10.0).toString()
+
+private fun ArmCoverageUnmetReason.labelResource(): StringResource = when (this) {
+    ArmCoverageUnmetReason.NO_COMPATIBLE_AVAILABLE_CANDIDATE ->
+        Res.string.split_volume_unmet_candidate
+    ArmCoverageUnmetReason.ALL_COMPATIBLE_CANDIDATES_SKIPPED_FOR_FATIGUE ->
+        Res.string.split_volume_unmet_fatigue
+    ArmCoverageUnmetReason.NOT_MET_WITH_AVAILABLE_CANDIDATES ->
+        Res.string.split_volume_unmet_available
+}
 
 /** A specific message for a mapped failure; null falls back to the generic transient/error text. */
 private fun PlanFailureReason?.reasonMessage(): StringResource? = when (this) {

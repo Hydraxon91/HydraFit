@@ -1,0 +1,15 @@
+-- C4 / OF-03 volume-explanation slice: persist the VOL-01 volume assessment frozen when a plan is
+-- accepted, plus an honest attribution. A separate table (rather than columns on planHistory) keeps
+-- the migration additive and keeps past plans explanation-absent. Legacy plans have no rows here.
+
+CREATE TABLE planVolumeExplanation (
+    planId INTEGER NOT NULL,
+    muscle TEXT NOT NULL,
+    targetSets INTEGER NOT NULL,
+    isTargetEnforced INTEGER NOT NULL,
+    directIsolationSets INTEGER NOT NULL,
+    estimatedOtherInvolvementCredits REAL NOT NULL,
+    unmetReason TEXT,
+    attribution TEXT NOT NULL,
+    PRIMARY KEY (planId, muscle)
+);

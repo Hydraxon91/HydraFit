@@ -94,6 +94,41 @@ class AcceptWeeklyPlanUseCaseTest {
         assertEquals(1L, requireNotNull(useCase().first()).acceptedAtMillis)
     }
 
+    @Test
+    fun recordsDeterministicAndAiAttributionForTheVolumeExplanation() = runTest {
+        val deterministic = FakePlanHistoryRepository()
+        AcceptWeeklyPlanUseCase(deterministic, FakeCatalog, TimeProvider { 0L })(
+            WeeklyPlan(
+                engine = PlannerEngineId.DETERMINISTIC,
+                days = emptyList(),
+                armCoverage = coverage()
+            )
+        )
+        assertEquals(PlanAttribution.DETERMINISTIC, deterministic.stored?.volumeAttribution)
+        assertEquals(coverage(), deterministic.stored?.armCoverage)
+
+        val ai = FakePlanHistoryRepository()
+        AcceptWeeklyPlanUseCase(ai, FakeCatalog, TimeProvider { 0L })(
+            WeeklyPlan(
+                engine = PlannerEngineId.GEMINI_API,
+                days = emptyList(),
+                armCoverage = coverage()
+            )
+        )
+        assertEquals(PlanAttribution.AI_GENERATED, ai.stored?.volumeAttribution)
+    }
+
+    private fun coverage() = listOf(
+        ArmMuscleCoverage(
+            muscle = MuscleGroup.BICEPS,
+            targetSets = 4,
+            isTargetEnforced = true,
+            directIsolationSets = 4,
+            estimatedOtherInvolvementCredits = 1.0,
+            unmetReason = null
+        )
+    )
+
     private class FakePlanHistoryRepository : PlanHistoryRepository {
         private val state = MutableStateFlow<AcceptedPlan?>(null)
 

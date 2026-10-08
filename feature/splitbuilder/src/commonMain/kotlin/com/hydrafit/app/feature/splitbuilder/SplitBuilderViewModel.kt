@@ -269,7 +269,8 @@ class SplitBuilderViewModel(
                     swapTargetDayIndex = null,
                     swapTargetPosition = null,
                     swapCandidates = emptyList(),
-                    swapNoCandidates = false
+                    swapNoCandidates = false,
+                    volumeExplanationInvalidated = true
                 )
             }
         }
@@ -324,6 +325,7 @@ class SplitBuilderViewModel(
                 isTransientError = false,
                 errorDetail = null,
                 fallbackReason = null,
+                volumeExplanationInvalidated = false,
                 requestedEngine = accepted.engine,
                 daysPerWeek = accepted.days.size,
                 setsPerExercise = exercises.firstOrNull { exercise ->
@@ -353,6 +355,7 @@ class SplitBuilderViewModel(
                 errorDetail = null,
                 failureReason = null,
                 fallbackReason = null,
+                volumeExplanationInvalidated = false,
                 daysPerWeek = request.daysPerWeek,
                 setsPerExercise = request.setsPerExercise,
                 accessorySetsPerExercise = request.accessorySetsPerExercise,
@@ -389,6 +392,7 @@ class SplitBuilderViewModel(
                     exerciseNames = names,
                     isLoading = false,
                     canRegenerate = inputs.requestedEngine != PlannerEngineId.DETERMINISTIC,
+                    volumeExplanationInvalidated = false,
                     // Gemini only returns a fallback plan after a sanitize reject; any other failure
                     // throws, so a deterministic result for a Gemini request means an unusable reply.
                     fallbackReason = if (
@@ -434,6 +438,8 @@ class SplitBuilderViewModel(
         position: Int,
         replacement: AcceptedExercise
     ): AcceptedPlan = copy(
+        armCoverage = emptyList(),
+        volumeAttribution = null,
         days = days.map { day ->
             if (day.dayIndex != dayIndex) {
                 day

@@ -1,0 +1,33 @@
+CREATE TABLE planVolumeExplanation (
+    planId INTEGER NOT NULL,
+    muscle TEXT NOT NULL,
+    targetSets INTEGER NOT NULL,
+    isTargetEnforced INTEGER NOT NULL,
+    directIsolationSets INTEGER NOT NULL,
+    estimatedOtherInvolvementCredits REAL NOT NULL,
+    unmetReason TEXT,
+    attribution TEXT NOT NULL,
+    PRIMARY KEY (planId, muscle)
+);
+
+selectAll:
+SELECT * FROM planVolumeExplanation;
+
+insert:
+INSERT OR REPLACE INTO planVolumeExplanation(
+    planId,
+    muscle,
+    targetSets,
+    isTargetEnforced,
+    directIsolationSets,
+    estimatedOtherInvolvementCredits,
+    unmetReason,
+    attribution
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteForPlan:
+DELETE FROM planVolumeExplanation WHERE planId = ?;
+
+deleteAll:
+DELETE FROM planVolumeExplanation;

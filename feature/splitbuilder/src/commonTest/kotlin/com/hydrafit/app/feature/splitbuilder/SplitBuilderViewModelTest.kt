@@ -4,6 +4,7 @@ import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
 import com.hydrafit.app.core.domain.engine.AcceptedDay
 import com.hydrafit.app.core.domain.engine.AcceptedExercise
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.ArmMuscleCoverage
 import com.hydrafit.app.core.domain.engine.BuildPlannerLoadInputsUseCase
 import com.hydrafit.app.core.domain.engine.BuildRecentWeightsUseCase
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
@@ -11,6 +12,7 @@ import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
 import com.hydrafit.app.core.domain.engine.PeriodizationConfig
+import com.hydrafit.app.core.domain.engine.PlanAttribution
 import com.hydrafit.app.core.domain.engine.PlanBuilderActions
 import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlanGenerationException
@@ -683,6 +685,44 @@ class SplitBuilderViewModelTest {
             "back-squat",
             history.latest()!!.days.single().exercises.single().exerciseId
         )
+    }
+
+    @Test
+    fun confirmedSwapInvalidatesTheVolumeExplanation() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        history.accept(
+            acceptedPlan().copy(
+                id = 1L,
+                armCoverage = listOf(
+                    ArmMuscleCoverage(
+                        muscle = MuscleGroup.BICEPS,
+                        targetSets = 4,
+                        isTargetEnforced = true,
+                        directIsolationSets = 4,
+                        estimatedOtherInvolvementCredits = 1.0,
+                        unmetReason = null
+                    )
+                ),
+                volumeAttribution = PlanAttribution.DETERMINISTIC
+            )
+        )
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL, EquipmentTag.BARBELL),
+            planHistory = history
+        )
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.volumeExplanationInvalidated)
+        assertEquals(1, viewModel.state.value.plan!!.armCoverage.size)
+
+        viewModel.onSwapRequested(0, 0)
+        advanceUntilIdle()
+        viewModel.onSwapCandidateSelected("back-squat")
+        advanceUntilIdle()
+
+        val state = viewModel.state.value
+        assertTrue(state.volumeExplanationInvalidated)
+        assertTrue(state.plan!!.armCoverage.isEmpty())
     }
 
     @Test

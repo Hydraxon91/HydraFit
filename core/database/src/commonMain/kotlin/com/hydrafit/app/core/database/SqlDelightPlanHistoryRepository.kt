@@ -6,10 +6,14 @@ import app.cash.sqldelight.coroutines.mapToOneOrNull
 import com.hydrafit.app.core.domain.engine.AcceptedDay
 import com.hydrafit.app.core.domain.engine.AcceptedExercise
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.ArmCoverageUnmetReason
+import com.hydrafit.app.core.domain.engine.ArmMuscleCoverage
+import com.hydrafit.app.core.domain.engine.PlanAttribution
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.workout.LoadKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -18,13 +22,20 @@ import kotlinx.coroutines.flow.combine
 class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
     PlanHistoryRepository {
     private val queries = database.planHistoryQueries
+    private val volumeQueries = database.planVolumeExplanationQueries
 
     override fun observeLatest(): Flow<AcceptedPlan?> {
         val plans = queries.selectLatestPlan().asFlow().mapToOneOrNull(Dispatchers.Default)
         val days = queries.selectAllDays().asFlow().mapToList(Dispatchers.Default)
         val entries = queries.selectAllEntries().asFlow().mapToList(Dispatchers.Default)
-        return combine(plans, days, entries) { plan, allDays, allEntries ->
-            plan?.toAcceptedPlan(allDays, allEntries)
+        val explanations = volumeQueries.selectAll().asFlow().mapToList(Dispatchers.Default)
+        return combine(plans, days, entries, explanations) {
+                plan,
+                allDays,
+                allEntries,
+                allExplanations
+            ->
+            plan?.toAcceptedPlan(allDays, allEntries, allExplanations)
         }
     }
 
@@ -32,8 +43,14 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
         val plans = queries.selectAllPlans().asFlow().mapToList(Dispatchers.Default)
         val days = queries.selectAllDays().asFlow().mapToList(Dispatchers.Default)
         val entries = queries.selectAllEntries().asFlow().mapToList(Dispatchers.Default)
-        return combine(plans, days, entries) { planRows, allDays, allEntries ->
-            planRows.map { it.toAcceptedPlan(allDays, allEntries) }
+        val explanations = volumeQueries.selectAll().asFlow().mapToList(Dispatchers.Default)
+        return combine(plans, days, entries, explanations) {
+                planRows,
+                allDays,
+                allEntries,
+                allExplanations
+            ->
+            planRows.map { it.toAcceptedPlan(allDays, allEntries, allExplanations) }
         }
     }
 
@@ -41,7 +58,8 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
         val plan = queries.selectLatestPlan().executeAsOneOrNull() ?: return null
         return plan.toAcceptedPlan(
             queries.selectAllDays().executeAsList(),
-            queries.selectAllEntries().executeAsList()
+            queries.selectAllEntries().executeAsList(),
+            volumeQueries.selectAll().executeAsList()
         )
     }
 
@@ -72,6 +90,22 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
                     )
                 }
             }
+            val attribution = plan.volumeAttribution
+            if (attribution != null) {
+                plan.armCoverage.forEach { coverage ->
+                    val credits = coverage.estimatedOtherInvolvementCredits
+                    volumeQueries.insert(
+                        planId = planId,
+                        muscle = coverage.muscle.name,
+                        targetSets = coverage.targetSets.toLong(),
+                        isTargetEnforced = if (coverage.isTargetEnforced) 1L else 0L,
+                        directIsolationSets = coverage.directIsolationSets.toLong(),
+                        estimatedOtherInvolvementCredits = credits,
+                        unmetReason = coverage.unmetReason?.name,
+                        attribution = attribution.name
+                    )
+                }
+            }
         }
     }
 
@@ -96,6 +130,9 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
                 planId = planId,
                 dayIndex = dayIndex.toLong()
             )
+            // A manual substitution invalidates the frozen volume assessment: it no longer describes
+            // the plan, and it must not be silently reconstructed from today's catalog.
+            volumeQueries.deleteForPlan(planId)
         }
     }
 
@@ -105,6 +142,7 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
             database.trainingScheduleQueries.clearActivationSourcePlan(planId)
             queries.deleteEntriesForPlan(planId)
             queries.deleteDaysForPlan(planId)
+            volumeQueries.deleteForPlan(planId)
             queries.deletePlan(planId)
         }
     }
@@ -114,13 +152,15 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
             database.trainingScheduleQueries.clearAllActivationSourcePlans()
             queries.deleteAllEntries()
             queries.deleteAllDays()
+            volumeQueries.deleteAll()
             queries.deleteAllPlans()
         }
     }
 
     private fun PlanHistory.toAcceptedPlan(
         allDays: List<PlanHistoryDay>,
-        allEntries: List<PlanHistoryEntry>
+        allEntries: List<PlanHistoryEntry>,
+        allExplanations: List<PlanVolumeExplanation>
     ): AcceptedPlan {
         val entriesByDay = allEntries.groupBy { it.dayId }
         val days = allDays
@@ -152,7 +192,28 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
             days = days,
             weekNumber = weekNumber.toInt(),
             cycleNumber = cycleNumber.toInt(),
-            id = id
+            id = id,
+            armCoverage = allExplanations
+                .filter { it.planId == id }
+                .mapNotNull { it.toCoverage() },
+            volumeAttribution = allExplanations
+                .firstOrNull { it.planId == id }
+                ?.attribution
+                ?.let { name -> PlanAttribution.entries.firstOrNull { it.name == name } }
+        )
+    }
+
+    private fun PlanVolumeExplanation.toCoverage(): ArmMuscleCoverage? {
+        val resolved = MuscleGroup.entries.firstOrNull { it.name == muscle } ?: return null
+        return ArmMuscleCoverage(
+            muscle = resolved,
+            targetSets = targetSets.toInt(),
+            isTargetEnforced = isTargetEnforced != 0L,
+            directIsolationSets = directIsolationSets.toInt(),
+            estimatedOtherInvolvementCredits = estimatedOtherInvolvementCredits,
+            unmetReason = unmetReason?.let { name ->
+                ArmCoverageUnmetReason.entries.firstOrNull { it.name == name }
+            }
         )
     }
 

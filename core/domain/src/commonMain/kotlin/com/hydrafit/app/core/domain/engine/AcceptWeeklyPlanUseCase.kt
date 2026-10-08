@@ -21,6 +21,12 @@ class AcceptWeeklyPlanUseCase(
             acceptedAtMillis = timeProvider.nowMillis(),
             weekNumber = plan.weekNumber,
             cycleNumber = plan.cycleNumber,
+            armCoverage = plan.armCoverage,
+            volumeAttribution = when {
+                plan.armCoverage.isEmpty() -> null
+                plan.engine == PlannerEngineId.DETERMINISTIC -> PlanAttribution.DETERMINISTIC
+                else -> PlanAttribution.AI_GENERATED
+            },
             days = plan.days.map { day ->
                 AcceptedDay(
                     dayIndex = day.dayIndex,

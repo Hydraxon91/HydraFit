@@ -327,6 +327,12 @@ slots may overshoot the target, and constrained plans report unmet coverage.
 Normal arm targets are not chased during deloads. `WeeklyPlan.armCoverage`
 separates direct isolation sets from estimated other involvement credits and
 reports a bounded unmet reason; it is not performed volume or a growth guarantee.
+On acceptance, `AcceptWeeklyPlanUseCase` freezes this assessment with a
+`PlanAttribution` (`DETERMINISTIC` vs an `AI_GENERATED` assessment, never a
+claimed model rationale) into the `planVolumeExplanation` table, read back into
+`AcceptedPlan.armCoverage`/`volumeAttribution` (legacy plans have none). A
+confirmed substitution clears the rows in the same transaction; the UI then says
+the explanation is unavailable rather than reconstructing it from today's catalog.
 
 Gemini and local-model prompts receive advisory arm-coverage guidance, and their
 sanitized plans receive the same coverage assessment without rejection for
@@ -427,8 +433,8 @@ Schema directory:
 
 Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseExclusion.sq`, `ExerciseOverride.sq`,
 `ExercisePreference.sq`, `PersonalRecord.sq`, `PlanHistory.sq`, `PlannerEngine.sq`,
-`RoutineTemplate.sq`, `TrainingSchedule.sq`, `UserEquipment.sq`, `WorkoutLog.sq`, and
-`WorkoutSession.sq`.
+`PlanVolumeExplanation.sq`, `RoutineTemplate.sq`, `TrainingSchedule.sq`, `UserEquipment.sq`,
+`WorkoutLog.sq`, and `WorkoutSession.sq`.
 `PlanHistory.sq`'s `updateEntryExerciseIdAtPosition` swaps one entry's
 `exerciseId`/`exerciseName`/`suggestedWeightKg` in place (no schema change) for
 `SubstituteExerciseUseCase`; the entry's `sets`/`reps` are untouched. Editing a

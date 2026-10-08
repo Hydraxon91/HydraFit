@@ -5,10 +5,14 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.engine.AcceptedDay
 import com.hydrafit.app.core.domain.engine.AcceptedExercise
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.ArmCoverageUnmetReason
+import com.hydrafit.app.core.domain.engine.ArmMuscleCoverage
+import com.hydrafit.app.core.domain.engine.PlanAttribution
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.workout.LoadKind
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -174,6 +178,71 @@ class SqlDelightPlanHistoryRepositoryTest {
         assertEquals("Barbell Bench Press", untouched.name)
         assertEquals(82.5, untouched.suggestedWeightKg)
     }
+
+    @Test
+    fun persistsTheVolumeExplanationAndClearsItOnSubstitution() = runTest {
+        repository.accept(
+            plan(engine = PlannerEngineId.DETERMINISTIC, acceptedAt = 1L).copy(
+                armCoverage = coverage(),
+                volumeAttribution = PlanAttribution.DETERMINISTIC
+            )
+        )
+
+        val loaded = requireNotNull(repository.latest())
+        assertEquals(PlanAttribution.DETERMINISTIC, loaded.volumeAttribution)
+        assertEquals(coverage(), loaded.armCoverage)
+        // Adding the explanation does not alter the retained prescription.
+        assertEquals(
+            listOf("bench-press", "overhead-press"),
+            loaded.days.first().exercises.map {
+                it.exerciseId
+            }
+        )
+
+        repository.substitute(
+            planId = loaded.id,
+            dayIndex = 0,
+            position = 1,
+            newExerciseId = "dumbbell-press",
+            newExerciseName = "Dumbbell Press",
+            newWeightKg = null,
+            newLoadCapability = ExerciseLoadCapability.EXTERNAL,
+            newLoadKind = LoadKind.EXTERNAL
+        )
+
+        val afterSwap = requireNotNull(repository.latest())
+        assertEquals(emptyList(), afterSwap.armCoverage)
+        assertNull(afterSwap.volumeAttribution)
+    }
+
+    @Test
+    fun aLegacyPlanHasNoVolumeExplanation() = runTest {
+        repository.accept(plan(engine = PlannerEngineId.DETERMINISTIC, acceptedAt = 1L))
+
+        val loaded = requireNotNull(repository.latest())
+
+        assertEquals(emptyList(), loaded.armCoverage)
+        assertNull(loaded.volumeAttribution)
+    }
+
+    private fun coverage() = listOf(
+        ArmMuscleCoverage(
+            muscle = MuscleGroup.BICEPS,
+            targetSets = 4,
+            isTargetEnforced = true,
+            directIsolationSets = 4,
+            estimatedOtherInvolvementCredits = 1.5,
+            unmetReason = null
+        ),
+        ArmMuscleCoverage(
+            muscle = MuscleGroup.TRICEPS,
+            targetSets = 4,
+            isTargetEnforced = true,
+            directIsolationSets = 2,
+            estimatedOtherInvolvementCredits = 0.75,
+            unmetReason = ArmCoverageUnmetReason.ALL_COMPATIBLE_CANDIDATES_SKIPPED_FOR_FATIGUE
+        )
+    )
 
     private fun plan(
         engine: PlannerEngineId,

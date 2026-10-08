@@ -212,6 +212,19 @@ exclusions leave entirely without eligible work surfaces a non-transient `NO_ELI
 failure; a merely partial plan keeps its existing behavior. Accepted/frozen plans, occurrences and
 recorded sets are never rewritten.
 
+**Volume explanation (implemented, C4 / OF-03 slice).** The VOL-01 volume assessment is persisted
+with the accepted plan so it always matches the calculation/output that produced it. On acceptance,
+`AcceptWeeklyPlanUseCase` freezes `WeeklyPlan.armCoverage` and an honest `PlanAttribution`
+(`DETERMINISTIC` for a built-in calculation; `AI_GENERATED` for an assessment of sanitized model
+output, never a claimed model rationale) into a separate `planVolumeExplanation` table (`SqlDelightPlanHistoryRepository`;
+migration `30.sqm`), and `SqlDelightPlanHistoryRepository` reads it back into `AcceptedPlan`. The
+slice is bounded to arm volume only: direct isolation sets versus the four-set product objective, a
+clearly labelled estimated other-involvement contribution, and the real `ArmCoverageUnmetReason`
+values. A legacy plan has no rows and shows no explanation. A user-confirmed substitution clears the
+rows in the same transaction and the UI shows that the explanation is unavailable after a manual
+substitution rather than reconstructing it from today's catalog. Persisting or adding the explanation
+never changes selected exercises, sets, reps, loads or fatigue.
+
 - **Examples:** `WorkoutPlannerEngine`, `WorkoutPlannerEngineProvider`,
   `DefaultWorkoutPlannerEngineProvider`, `DeterministicWorkoutPlannerEngine`,
   `GeminiWorkoutPlannerEngine`, `LocalLlmWorkoutPlannerEngine`, `WeeklyPlanSanitizer`,
