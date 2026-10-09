@@ -21,6 +21,16 @@ class ExportBackupUseCaseTest {
     }
 
     @Test
+    fun rejectsAFileThatOmitsARequiredField() = runTest {
+        val useCase = ExportBackupUseCase(FakeBackupRepository(emptyBackupFile()))
+        val complete = useCase(appVersion = "9.9.9", exportedAtMillis = 1L)
+        val withoutWorkoutSets = complete.replace(Regex("\"workoutSets\":\\[[^]]*\\],?"), "")
+
+        val failure = assertFailsWith<BackupException> { BackupJson.decode(withoutWorkoutSets) }
+        assertEquals(BackupFailure.MALFORMED, failure.failure)
+    }
+
+    @Test
     fun rejectsAPayloadAboveTheSizeLimit() = runTest {
         val huge = emptyBackupFile().copy(
             customExercises = listOf(
@@ -51,7 +61,33 @@ private class FakeBackupRepository(private val file: BackupFile) : BackupReposit
 }
 
 internal fun emptyBackupFile(): BackupFile = BackupFile(
+    format = BACKUP_FORMAT,
+    formatVersion = BACKUP_FORMAT_VERSION,
     appVersion = "test",
     exportedAtMillis = 0L,
-    catalog = BackupCatalogManifest(emptyList())
+    catalog = BackupCatalogManifest(emptyList()),
+    settings = null,
+    customExercises = emptyList(),
+    exerciseOverrides = emptyList(),
+    equipment = emptyList(),
+    selectedEquipment = emptyList(),
+    workoutSets = emptyList(),
+    workoutSessions = emptyList(),
+    plans = emptyList(),
+    planDays = emptyList(),
+    planEntries = emptyList(),
+    volumeExplanations = emptyList(),
+    volumeExplanationStates = emptyList(),
+    routines = emptyList(),
+    routineWorkouts = emptyList(),
+    routineEntries = emptyList(),
+    activations = emptyList(),
+    activationWorkouts = emptyList(),
+    activationEntries = emptyList(),
+    occurrences = emptyList(),
+    occurrenceEntries = emptyList(),
+    scheduleState = null,
+    personalRecords = emptyList(),
+    preferences = emptyList(),
+    exclusions = emptyList()
 )

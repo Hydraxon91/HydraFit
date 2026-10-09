@@ -2,6 +2,8 @@ package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.backup.ApplyStagedBackupUseCase
+import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT
+import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT_VERSION
 import com.hydrafit.app.core.domain.backup.BackupApplyError
 import com.hydrafit.app.core.domain.backup.BackupCatalog
 import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
@@ -66,11 +68,7 @@ class DatabaseStartupMaintenanceTest {
         ),
         repository = object : BackupRepository {
             override suspend fun export(appVersion: String, exportedAtMillis: Long): BackupFile =
-                BackupFile(
-                    appVersion = appVersion,
-                    exportedAtMillis = exportedAtMillis,
-                    catalog = BackupCatalogManifest(emptyList())
-                )
+                emptyBackupFile(appVersion, exportedAtMillis)
 
             override suspend fun restore(file: BackupFile) = Unit
         },
@@ -95,3 +93,35 @@ class DatabaseStartupMaintenanceTest {
         timeProvider = TimeProvider { 0L }
     )
 }
+
+private fun emptyBackupFile(appVersion: String, exportedAtMillis: Long): BackupFile = BackupFile(
+    format = BACKUP_FORMAT,
+    formatVersion = BACKUP_FORMAT_VERSION,
+    appVersion = appVersion,
+    exportedAtMillis = exportedAtMillis,
+    catalog = BackupCatalogManifest(emptyList()),
+    settings = null,
+    customExercises = emptyList(),
+    exerciseOverrides = emptyList(),
+    equipment = emptyList(),
+    selectedEquipment = emptyList(),
+    workoutSets = emptyList(),
+    workoutSessions = emptyList(),
+    plans = emptyList(),
+    planDays = emptyList(),
+    planEntries = emptyList(),
+    volumeExplanations = emptyList(),
+    volumeExplanationStates = emptyList(),
+    routines = emptyList(),
+    routineWorkouts = emptyList(),
+    routineEntries = emptyList(),
+    activations = emptyList(),
+    activationWorkouts = emptyList(),
+    activationEntries = emptyList(),
+    occurrences = emptyList(),
+    occurrenceEntries = emptyList(),
+    scheduleState = null,
+    personalRecords = emptyList(),
+    preferences = emptyList(),
+    exclusions = emptyList()
+)

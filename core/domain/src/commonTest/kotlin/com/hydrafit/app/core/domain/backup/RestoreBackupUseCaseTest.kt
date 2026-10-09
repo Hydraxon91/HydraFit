@@ -18,11 +18,7 @@ class RestoreBackupUseCaseTest {
         val useCase =
             RestoreBackupUseCase(PreviewBackupUseCase(BackupValidator(catalog)), repository)
         val text = BackupJson.encode(
-            BackupFile(
-                appVersion = "t",
-                exportedAtMillis = 1L,
-                catalog = BackupCatalogManifest(emptyList())
-            )
+            emptyBackupFile().copy(appVersion = "t", exportedAtMillis = 1L)
         )
 
         useCase(text)

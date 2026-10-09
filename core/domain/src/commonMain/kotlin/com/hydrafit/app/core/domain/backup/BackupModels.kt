@@ -11,39 +11,40 @@ const val BACKUP_FORMAT_VERSION: Int = 1
 /**
  * A whole logical snapshot of the supported offline data. Rows are stored flat with their persisted
  * ids so restore can rebuild relationships exactly; the envelope carries the format identity, a
- * catalog fingerprint and the export time. Nullable fields are explicit `null` rather than omitted.
+ * catalog fingerprint and the export time. Every field is required: a v1 file must state each one
+ * explicitly, and nullable fields are present as `null` rather than omitted.
  */
 @Serializable
 data class BackupFile(
-    val format: String = BACKUP_FORMAT,
-    val formatVersion: Int = BACKUP_FORMAT_VERSION,
+    val format: String,
+    val formatVersion: Int,
     val appVersion: String,
     val exportedAtMillis: Long,
     val catalog: BackupCatalogManifest,
-    val settings: BackupSettingsRecord? = null,
-    val customExercises: List<BackupExerciseRecord> = emptyList(),
-    val exerciseOverrides: List<BackupExerciseOverrideRecord> = emptyList(),
-    val equipment: List<BackupEquipmentRecord> = emptyList(),
-    val selectedEquipment: List<String> = emptyList(),
-    val workoutSets: List<BackupWorkoutSetRecord> = emptyList(),
-    val workoutSessions: List<BackupWorkoutSessionRecord> = emptyList(),
-    val plans: List<BackupPlanRecord> = emptyList(),
-    val planDays: List<BackupPlanDayRecord> = emptyList(),
-    val planEntries: List<BackupPlanEntryRecord> = emptyList(),
-    val volumeExplanations: List<BackupVolumeExplanationRecord> = emptyList(),
-    val volumeExplanationStates: List<BackupVolumeExplanationStateRecord> = emptyList(),
-    val routines: List<BackupRoutineRecord> = emptyList(),
-    val routineWorkouts: List<BackupRoutineWorkoutRecord> = emptyList(),
-    val routineEntries: List<BackupRoutineEntryRecord> = emptyList(),
-    val activations: List<BackupActivationRecord> = emptyList(),
-    val activationWorkouts: List<BackupActivationWorkoutRecord> = emptyList(),
-    val activationEntries: List<BackupActivationEntryRecord> = emptyList(),
-    val occurrences: List<BackupOccurrenceRecord> = emptyList(),
-    val occurrenceEntries: List<BackupOccurrenceEntryRecord> = emptyList(),
-    val scheduleState: BackupScheduleStateRecord? = null,
-    val personalRecords: List<BackupPersonalRecordRecord> = emptyList(),
-    val preferences: List<BackupPreferenceRecord> = emptyList(),
-    val exclusions: List<BackupExclusionRecord> = emptyList()
+    val settings: BackupSettingsRecord?,
+    val customExercises: List<BackupExerciseRecord>,
+    val exerciseOverrides: List<BackupExerciseOverrideRecord>,
+    val equipment: List<BackupEquipmentRecord>,
+    val selectedEquipment: List<String>,
+    val workoutSets: List<BackupWorkoutSetRecord>,
+    val workoutSessions: List<BackupWorkoutSessionRecord>,
+    val plans: List<BackupPlanRecord>,
+    val planDays: List<BackupPlanDayRecord>,
+    val planEntries: List<BackupPlanEntryRecord>,
+    val volumeExplanations: List<BackupVolumeExplanationRecord>,
+    val volumeExplanationStates: List<BackupVolumeExplanationStateRecord>,
+    val routines: List<BackupRoutineRecord>,
+    val routineWorkouts: List<BackupRoutineWorkoutRecord>,
+    val routineEntries: List<BackupRoutineEntryRecord>,
+    val activations: List<BackupActivationRecord>,
+    val activationWorkouts: List<BackupActivationWorkoutRecord>,
+    val activationEntries: List<BackupActivationEntryRecord>,
+    val occurrences: List<BackupOccurrenceRecord>,
+    val occurrenceEntries: List<BackupOccurrenceEntryRecord>,
+    val scheduleState: BackupScheduleStateRecord?,
+    val personalRecords: List<BackupPersonalRecordRecord>,
+    val preferences: List<BackupPreferenceRecord>,
+    val exclusions: List<BackupExclusionRecord>
 )
 
 /** The seeded exercise ids the exporting install had; used to report and check catalog compatibility. */

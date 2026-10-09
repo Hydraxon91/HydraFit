@@ -1,5 +1,7 @@
 package com.hydrafit.app.core.database
 
+import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT
+import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT_VERSION
 import com.hydrafit.app.core.domain.backup.BackupActivationEntryRecord
 import com.hydrafit.app.core.domain.backup.BackupActivationRecord
 import com.hydrafit.app.core.domain.backup.BackupActivationWorkoutRecord
@@ -37,6 +39,8 @@ class SqlDelightBackupRepository(private val database: HydraFitDatabase) : Backu
     override suspend fun export(appVersion: String, exportedAtMillis: Long): BackupFile =
         database.transactionWithResult {
             BackupFile(
+                format = BACKUP_FORMAT,
+                formatVersion = BACKUP_FORMAT_VERSION,
                 appVersion = appVersion,
                 exportedAtMillis = exportedAtMillis,
                 catalog = BackupCatalogManifest(

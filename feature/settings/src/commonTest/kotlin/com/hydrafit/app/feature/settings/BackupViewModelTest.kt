@@ -1,5 +1,7 @@
 package com.hydrafit.app.feature.settings
 
+import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT
+import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT_VERSION
 import com.hydrafit.app.core.domain.backup.BackupCatalog
 import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
 import com.hydrafit.app.core.domain.backup.BackupFailure
@@ -130,11 +132,7 @@ class BackupViewModelTest {
 }
 
 private class FakeBackupRepository : BackupRepository {
-    var exported: BackupFile = BackupFile(
-        appVersion = "t",
-        exportedAtMillis = 1L,
-        catalog = BackupCatalogManifest(emptyList())
-    )
+    var exported: BackupFile = emptyBackupFile()
     var restored: BackupFile? = null
 
     override suspend fun export(appVersion: String, exportedAtMillis: Long): BackupFile = exported
@@ -143,6 +141,38 @@ private class FakeBackupRepository : BackupRepository {
         restored = file
     }
 }
+
+private fun emptyBackupFile(): BackupFile = BackupFile(
+    format = BACKUP_FORMAT,
+    formatVersion = BACKUP_FORMAT_VERSION,
+    appVersion = "t",
+    exportedAtMillis = 1L,
+    catalog = BackupCatalogManifest(emptyList()),
+    settings = null,
+    customExercises = emptyList(),
+    exerciseOverrides = emptyList(),
+    equipment = emptyList(),
+    selectedEquipment = emptyList(),
+    workoutSets = emptyList(),
+    workoutSessions = emptyList(),
+    plans = emptyList(),
+    planDays = emptyList(),
+    planEntries = emptyList(),
+    volumeExplanations = emptyList(),
+    volumeExplanationStates = emptyList(),
+    routines = emptyList(),
+    routineWorkouts = emptyList(),
+    routineEntries = emptyList(),
+    activations = emptyList(),
+    activationWorkouts = emptyList(),
+    activationEntries = emptyList(),
+    occurrences = emptyList(),
+    occurrenceEntries = emptyList(),
+    scheduleState = null,
+    personalRecords = emptyList(),
+    preferences = emptyList(),
+    exclusions = emptyList()
+)
 
 private class FakeBackupFileStore(
     override val isSupported: Boolean = true,

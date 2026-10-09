@@ -2,6 +2,8 @@ package com.hydrafit.app
 
 import com.hydrafit.app.core.database.DatabaseDriverFactory
 import com.hydrafit.app.core.database.databaseModule
+import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT
+import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT_VERSION
 import com.hydrafit.app.core.domain.backup.BackupCatalog
 import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
 import com.hydrafit.app.core.domain.backup.BackupFile
@@ -282,11 +284,7 @@ class KoinModulesVerificationTest {
 
     private object FakeBackupRepository : BackupRepository {
         override suspend fun export(appVersion: String, exportedAtMillis: Long): BackupFile =
-            BackupFile(
-                appVersion = appVersion,
-                exportedAtMillis = exportedAtMillis,
-                catalog = BackupCatalogManifest(emptyList())
-            )
+            emptyBackupFile(appVersion, exportedAtMillis)
 
         override suspend fun restore(file: BackupFile) = Unit
     }
@@ -520,3 +518,35 @@ class KoinModulesVerificationTest {
         override suspend fun isTemplateReferenced(templateId: Long): Boolean = false
     }
 }
+
+private fun emptyBackupFile(appVersion: String, exportedAtMillis: Long): BackupFile = BackupFile(
+    format = BACKUP_FORMAT,
+    formatVersion = BACKUP_FORMAT_VERSION,
+    appVersion = appVersion,
+    exportedAtMillis = exportedAtMillis,
+    catalog = BackupCatalogManifest(emptyList()),
+    settings = null,
+    customExercises = emptyList(),
+    exerciseOverrides = emptyList(),
+    equipment = emptyList(),
+    selectedEquipment = emptyList(),
+    workoutSets = emptyList(),
+    workoutSessions = emptyList(),
+    plans = emptyList(),
+    planDays = emptyList(),
+    planEntries = emptyList(),
+    volumeExplanations = emptyList(),
+    volumeExplanationStates = emptyList(),
+    routines = emptyList(),
+    routineWorkouts = emptyList(),
+    routineEntries = emptyList(),
+    activations = emptyList(),
+    activationWorkouts = emptyList(),
+    activationEntries = emptyList(),
+    occurrences = emptyList(),
+    occurrenceEntries = emptyList(),
+    scheduleState = null,
+    personalRecords = emptyList(),
+    preferences = emptyList(),
+    exclusions = emptyList()
+)

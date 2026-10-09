@@ -101,7 +101,7 @@ class BackupValidatorTest {
         assertEquals(expected, failure.failure)
     }
 
-    private fun validFile() = BackupFile(
+    private fun validFile() = emptyBackupFile().copy(
         appVersion = "t",
         exportedAtMillis = 1L,
         catalog = BackupCatalogManifest(listOf("back-squat")),
