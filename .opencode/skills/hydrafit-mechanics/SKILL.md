@@ -557,6 +557,29 @@ to stay within the constructor budget. When a block is active the Logger shows
 the selected/oldest-unresolved occurrence's remaining sets as drafts, stamps
 `occurrenceId`/`occurrenceEntryId` on logged sets, and exposes Finish/partial/
 Skip (the only queue advances); with no block it keeps the accepted-plan path.
+Planned-set draft editing is one-off: the in-memory editor changes only the values
+written by that draft's confirmation, never the accepted plan, routine or frozen
+activation/occurrence. Reps, capability-appropriate load, optional RIR and optional
+performed time can be edited; a draft's set count remains prescription-owned. An
+external draft with null load requires an explicit choice (use the last numeric
+external set, enter a weight, or log without weight); zero remains a recorded
+numeric load. Bodyweight drafts remain bodyweight unless a BODYWEIGHT_ADDABLE
+exercise's added-load field is explicitly revealed; clearing an existing ADDED
+amount preserves ADDED+null. LEGACY_UNSPECIFIED still uses the `legacyResolution` decision queue.
+Repeated draft submissions are guarded by one in-flight write. The guard spans the "Use last
+logged" lookup, and cancel/reopen or context replacement invalidates that delayed lookup.
+Backdated session reuse is scoped to the timestamp. If a multi-set write fails partway through,
+successful writes remain and the not-yet-recorded sets are kept as a retry that carries the same
+confirmed one-off values (reps, load, RIR, explicit performed time including Use-now) and frozen
+occurrence slot. Repeated failures retain the remaining count and cumulative saved-set feedback;
+a resolved legacy retry does not reuse its stale decision dialog. The retry survives an occurrence
+refresh and is retried through the normal confirm path. Retry state is in memory only, so a process
+restart starts over. A Confirm-all batch is scoped to its plan/occurrence context and stops
+continuing when that context changes, without undoing successful writes. A legacy resolution dialog
+takes precedence over an open draft editor, which remains in state until resolution is dismissed.
+Cancel leaves the draft pending; canceling the editor discards its in-memory edits. These actions
+stay within the six existing Logger ViewModel dependencies; no draft-actions Koin aggregate is
+registered.
 
 Feature navigation: each feature exports a `FeatureDestination` whose `graph` is
 `(NavController) -> NavGraphBuilder.() -> Unit`; the shell passes its `NavController`, so a feature

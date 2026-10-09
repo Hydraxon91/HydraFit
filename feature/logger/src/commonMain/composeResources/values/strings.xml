@@ -53,4 +53,15 @@
     <string name="logger_load_added">Bodyweight + %1$s %2$s</string>
     <string name="logger_load_added_none">Bodyweight + added load</string>
     <string name="logger_load_legacy">%1$s %2$s (recorded, unconfirmed)</string>
+    <string name="logger_draft_edit">Edit draft</string>
+    <string name="logger_draft_edit_title">Edit %1$s</string>
+    <string name="logger_draft_load_prompt_title">No recommended weight</string>
+    <string name="logger_draft_load_prompt_body">No weight was recommended for %1$s. Choose how to log this draft.</string>
+    <string name="logger_draft_load_use_last">Use last logged</string>
+    <string name="logger_draft_load_enter">Enter weight</string>
+    <string name="logger_draft_load_without">Log without weight</string>
+    <string name="logger_draft_more_options">More options</string>
+    <string name="logger_draft_reset">Reset to plan</string>
+    <string name="logger_draft_write_partial">Some sets were saved, but the rest could not be. The remaining sets are still pending; retry to continue.</string>
+    <string name="logger_draft_write_none">The sets could not be saved. The remaining sets are still pending; retry to continue.</string>
 </resources>

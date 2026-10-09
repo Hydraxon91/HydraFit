@@ -2,6 +2,7 @@ package com.hydrafit.app.feature.logger
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -19,6 +20,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -50,6 +53,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.LoadKind
@@ -70,6 +74,17 @@ import hydrafit.feature.logger.generated.resources.logger_confirm
 import hydrafit.feature.logger.generated.resources.logger_confirm_all
 import hydrafit.feature.logger.generated.resources.logger_delete_set
 import hydrafit.feature.logger.generated.resources.logger_dismiss
+import hydrafit.feature.logger.generated.resources.logger_draft_edit
+import hydrafit.feature.logger.generated.resources.logger_draft_edit_title
+import hydrafit.feature.logger.generated.resources.logger_draft_load_enter
+import hydrafit.feature.logger.generated.resources.logger_draft_load_prompt_body
+import hydrafit.feature.logger.generated.resources.logger_draft_load_prompt_title
+import hydrafit.feature.logger.generated.resources.logger_draft_load_use_last
+import hydrafit.feature.logger.generated.resources.logger_draft_load_without
+import hydrafit.feature.logger.generated.resources.logger_draft_more_options
+import hydrafit.feature.logger.generated.resources.logger_draft_reset
+import hydrafit.feature.logger.generated.resources.logger_draft_write_none
+import hydrafit.feature.logger.generated.resources.logger_draft_write_partial
 import hydrafit.feature.logger.generated.resources.logger_edit_time
 import hydrafit.feature.logger.generated.resources.logger_end_session
 import hydrafit.feature.logger.generated.resources.logger_finish
@@ -144,6 +159,19 @@ fun WorkoutLoggerRoute(
         onRecentSetSelected = viewModel::onRecentSetSelected,
         onRevealWeight = viewModel::onRevealWeight,
         onConfirmDraft = viewModel::confirmDraft,
+        onEditDraft = viewModel::editDraft,
+        onDraftRepsChanged = viewModel::onDraftRepsChanged,
+        onDraftWeightChanged = viewModel::onDraftWeightChanged,
+        onDraftRirChanged = viewModel::onDraftRirChanged,
+        onDraftWeightRevealed = viewModel::onDraftWeightRevealed,
+        onDraftPerformedAtChanged = viewModel::onDraftPerformedAtChanged,
+        onCancelDraftEdit = viewModel::cancelDraftEdit,
+        onResetDraftEdit = viewModel::resetDraftEdit,
+        onConfirmDraftEdit = viewModel::confirmDraftEdit,
+        onCancelMissingLoadPrompt = viewModel::cancelMissingLoadPrompt,
+        onUseLastLoggedLoad = viewModel::useLastLoggedLoad,
+        onEnterMissingLoad = viewModel::enterMissingLoad,
+        onLogMissingLoadWithoutWeight = viewModel::logMissingLoadWithoutWeight,
         onConfirmAllDrafts = viewModel::confirmAllDrafts,
         onDismissDraft = viewModel::dismissDraft,
         onResolveLegacyAsBodyweight = viewModel::resolveLegacyAsBodyweight,
@@ -179,6 +207,19 @@ fun WorkoutLoggerScreen(
     onRecentSetSelected: (LoggedSetRow) -> Unit,
     onRevealWeight: () -> Unit,
     onConfirmDraft: (DraftSet) -> Unit,
+    onEditDraft: (DraftSet) -> Unit,
+    onDraftRepsChanged: (String) -> Unit,
+    onDraftWeightChanged: (String) -> Unit,
+    onDraftRirChanged: (String) -> Unit,
+    onDraftWeightRevealed: () -> Unit,
+    onDraftPerformedAtChanged: (Long?) -> Boolean,
+    onCancelDraftEdit: () -> Unit,
+    onResetDraftEdit: () -> Unit,
+    onConfirmDraftEdit: () -> Unit,
+    onCancelMissingLoadPrompt: () -> Unit,
+    onUseLastLoggedLoad: () -> Unit,
+    onEnterMissingLoad: () -> Unit,
+    onLogMissingLoadWithoutWeight: () -> Unit,
     onConfirmAllDrafts: () -> Unit,
     onDismissDraft: (DraftSet) -> Unit,
     onResolveLegacyAsBodyweight: () -> Unit,
@@ -410,13 +451,17 @@ fun WorkoutLoggerScreen(
                         text = stringResource(Res.string.logger_planned_today),
                         style = MaterialTheme.typography.titleMedium
                     )
-                    TextButton(onClick = onConfirmAllDrafts) {
+                    TextButton(
+                        onClick = onConfirmAllDrafts,
+                        enabled = !state.draftWriteInProgress
+                    ) {
                         Text(stringResource(Res.string.logger_confirm_all))
                     }
                 }
             }
             items(state.draftSets) { draft ->
                 val weight = loadWeightText(draft.loadKind, draft.weightKg, state.weightUnit)
+                var expanded by remember(draft) { mutableStateOf(false) }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -425,13 +470,44 @@ fun WorkoutLoggerScreen(
                         text = "${draft.name}  ${draft.sets} x ${draft.reps} · ~$weight",
                         modifier = Modifier.weight(1f)
                     )
-                    TextButton(onClick = { onConfirmDraft(draft) }) {
+                    TextButton(
+                        onClick = { onConfirmDraft(draft) },
+                        enabled = !state.draftWriteInProgress
+                    ) {
                         Text(stringResource(Res.string.logger_confirm))
                     }
                     TextButton(onClick = { onDismissDraft(draft) }) {
                         Text(stringResource(Res.string.logger_dismiss))
                     }
+                    Box {
+                        TextButton(onClick = { expanded = true }) {
+                            Text(stringResource(Res.string.logger_draft_more_options))
+                        }
+                        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(Res.string.logger_draft_edit)) },
+                                onClick = {
+                                    expanded = false
+                                    onEditDraft(draft)
+                                }
+                            )
+                        }
+                    }
                 }
+            }
+        }
+        state.draftWriteRetry?.let { retry ->
+            item {
+                Text(
+                    text = stringResource(
+                        if (retry.anyRecorded) {
+                            Res.string.logger_draft_write_partial
+                        } else {
+                            Res.string.logger_draft_write_none
+                        }
+                    ),
+                    color = MaterialTheme.colorScheme.error
+                )
             }
         }
         item {
@@ -615,6 +691,206 @@ fun WorkoutLoggerScreen(
                 }
             }
         )
+    }
+
+    if (state.legacyResolution == null) {
+        state.draftEdit?.let { edit ->
+            val capability = edit.draft.loadCapability
+            DraftEditDialog(
+                edit = edit,
+                weightUnit = state.weightUnit,
+                utcOffsetMillis = state.utcOffsetMillis,
+                nowMillis = nowMillis(),
+                canRevealWeight = capability == ExerciseLoadCapability.BODYWEIGHT_ADDABLE,
+                showWeight = when (capability) {
+                    ExerciseLoadCapability.BODYWEIGHT_ONLY -> false
+                    ExerciseLoadCapability.BODYWEIGHT_ADDABLE -> edit.weightRevealed
+                    else -> true
+                },
+                onRepsChanged = onDraftRepsChanged,
+                onWeightChanged = onDraftWeightChanged,
+                onRirChanged = onDraftRirChanged,
+                onRevealWeight = onDraftWeightRevealed,
+                onTimeChanged = onDraftPerformedAtChanged,
+                onCancel = onCancelDraftEdit,
+                onReset = onResetDraftEdit,
+                onConfirm = onConfirmDraftEdit
+            )
+        }
+    }
+    state.missingLoadPrompt?.let { draft ->
+        AlertDialog(
+            onDismissRequest = onCancelMissingLoadPrompt,
+            title = { Text(stringResource(Res.string.logger_draft_load_prompt_title)) },
+            text = { Text(stringResource(Res.string.logger_draft_load_prompt_body, draft.name)) },
+            confirmButton = {
+                TextButton(onClick = onUseLastLoggedLoad) {
+                    Text(stringResource(Res.string.logger_draft_load_use_last))
+                }
+            },
+            dismissButton = {
+                Column {
+                    TextButton(onClick = onEnterMissingLoad) {
+                        Text(stringResource(Res.string.logger_draft_load_enter))
+                    }
+                    TextButton(onClick = onLogMissingLoadWithoutWeight) {
+                        Text(stringResource(Res.string.logger_draft_load_without))
+                    }
+                    TextButton(onClick = onCancelMissingLoadPrompt) {
+                        Text(stringResource(Res.string.logger_cancel))
+                    }
+                }
+            }
+        )
+    }
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun DraftEditDialog(
+    edit: DraftEdit,
+    weightUnit: WeightUnit,
+    utcOffsetMillis: Long,
+    nowMillis: Long,
+    canRevealWeight: Boolean,
+    showWeight: Boolean,
+    onRepsChanged: (String) -> Unit,
+    onWeightChanged: (String) -> Unit,
+    onRirChanged: (String) -> Unit,
+    onRevealWeight: () -> Unit,
+    onTimeChanged: (Long?) -> Boolean,
+    onCancel: () -> Unit,
+    onReset: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    var showDate by remember { mutableStateOf(false) }
+    var showTime by remember { mutableStateOf(false) }
+    var date by remember { mutableStateOf<Long?>(null) }
+    var timeError by remember { mutableStateOf(false) }
+    val anchor = edit.performedAtMillis ?: nowMillis
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text(stringResource(Res.string.logger_draft_edit_title, edit.draft.name)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = edit.reps,
+                    onValueChange = onRepsChanged,
+                    label = { Text(stringResource(Res.string.logger_reps_label)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+                if (showWeight) {
+                    OutlinedTextField(
+                        value = edit.weightInput,
+                        onValueChange = onWeightChanged,
+                        label = {
+                            Text(stringResource(Res.string.logger_weight_label, weightUnit.label))
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true
+                    )
+                } else {
+                    Text(stringResource(Res.string.logger_load_bodyweight))
+                    if (canRevealWeight) {
+                        TextButton(onClick = onRevealWeight) {
+                            Text(stringResource(Res.string.logger_add_weight))
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = edit.rir,
+                    onValueChange = onRirChanged,
+                    label = { Text(stringResource(Res.string.logger_rir_label)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+                TextButton(onClick = {
+                    showDate = true
+                    timeError = false
+                }) {
+                    Text(stringResource(Res.string.logger_set_time))
+                }
+                TextButton(onClick = {
+                    timeError = false
+                    onTimeChanged(null)
+                }) {
+                    Text(stringResource(Res.string.logger_use_now))
+                }
+                if (timeError) Text(stringResource(Res.string.logger_future_time_error))
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = (edit.reps.toIntOrNull() ?: 0) > 0) {
+                Text(stringResource(Res.string.logger_confirm))
+            }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onReset) {
+                    Text(stringResource(Res.string.logger_draft_reset))
+                }
+                TextButton(onClick = onCancel) { Text(stringResource(Res.string.logger_cancel)) }
+            }
+        }
+    )
+    if (showDate) {
+        val picker = rememberDatePickerState(
+            initialSelectedDateMillis =
+            date ?: localDateStartOfDayUtcMillis(anchor, utcOffsetMillis)
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDate = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    date = picker.selectedDateMillis
+                    showDate = false
+                    showTime =
+                        true
+                }) {
+                    Text(stringResource(Res.string.logger_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showDate = false
+                }) { Text(stringResource(Res.string.logger_cancel)) }
+            }
+        ) { DatePicker(state = picker) }
+    }
+    if (showTime) {
+        val parts = localDateTimeParts(anchor, utcOffsetMillis)
+        val picker =
+            rememberTimePickerState(
+                initialHour = parts.hour,
+                initialMinute = parts.minute,
+                is24Hour = true
+            )
+        TimePickerDialog(
+            onDismissRequest = { showTime = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val selectedDate = date
+                    if (selectedDate != null) {
+                        val picked =
+                            pickedLocalDateTimeToEpochMillis(
+                                selectedDate,
+                                picker.hour,
+                                picker.minute,
+                                utcOffsetMillis
+                            )
+                        timeError = !onTimeChanged(picked)
+                    }
+                    showTime = false
+                }) { Text(stringResource(Res.string.logger_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showTime = false
+                }) { Text(stringResource(Res.string.logger_cancel)) }
+            },
+            title = { Text(stringResource(Res.string.logger_pick_time_title)) }
+        ) { TimePicker(state = picker) }
     }
 }
 

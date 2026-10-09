@@ -24,6 +24,7 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -70,6 +71,10 @@ class WorkoutLoggerViewModel(
      * session. Cleared whenever the chosen time or the force-new toggle changes.
      */
     private var resolvedBackdatedSessionId: String? = null
+    private var resolvedBackdatedSessionKey: Pair<Long, Boolean>? = null
+    private var draftSubmissionInProgress = false
+    private var draftContextRevision = 0L
+    private var missingLoadPromptRevision = 0L
 
     init {
         _state.update { it.copy(utcOffsetMillis = timeProvider.utcOffsetMillis()) }
@@ -100,12 +105,20 @@ class WorkoutLoggerViewModel(
         }
         viewModelScope.launch {
             loggingActions.observeActiveActivation().collect { activation ->
+                if (activeActivation != activation) draftContextRevision++
                 activeActivation = activation
                 occurrencesJob?.cancel()
                 if (activation == null) {
                     currentOccurrences = emptyList()
                     currentOccurrence = null
-                    _state.update { it.copy(activeOccurrence = null) }
+                    // Leaving the active block ends any in-flight batch or partial-write retry.
+                    _state.update {
+                        it.copy(
+                            activeOccurrence = null,
+                            confirmingAllDrafts = false,
+                            draftWriteRetry = null
+                        )
+                    }
                     updateTodayPlan(acceptedPlan)
                 } else {
                     occurrencesJob = viewModelScope.launch {
@@ -199,6 +212,7 @@ class WorkoutLoggerViewModel(
     fun onPerformedAtChanged(millis: Long?): Boolean {
         if (millis != null && millis > timeProvider.nowMillis()) return false
         resolvedBackdatedSessionId = null
+        resolvedBackdatedSessionKey = null
         _state.update { it.copy(performedAtMillis = millis) }
         return true
     }
@@ -209,6 +223,7 @@ class WorkoutLoggerViewModel(
      */
     fun onForceNewSessionChanged(forceNewSession: Boolean) {
         resolvedBackdatedSessionId = null
+        resolvedBackdatedSessionKey = null
         _state.update { it.copy(forceNewSession = forceNewSession) }
     }
 
@@ -361,7 +376,8 @@ class WorkoutLoggerViewModel(
             logMutations(set, utcOffsetMillis)
             return
         }
-        val cached = resolvedBackdatedSessionId
+        val cacheKey = set.performedAtMillis to current.forceNewSession
+        val cached = resolvedBackdatedSessionId.takeIf { resolvedBackdatedSessionKey == cacheKey }
         if (cached != null) {
             logMutations.logInto(set, cached)
             return
@@ -369,6 +385,7 @@ class WorkoutLoggerViewModel(
         val session = logMutations.logBackdated(set, utcOffsetMillis, current.forceNewSession)
         if (session.id != current.activeSession?.id) {
             resolvedBackdatedSessionId = session.id
+            resolvedBackdatedSessionKey = cacheKey
         }
     }
 
@@ -419,6 +436,7 @@ class WorkoutLoggerViewModel(
             localEpochDay(nowMillis, utcOffsetMillis)
         )
         val rebuildDrafts = draftsKey != lastDraftsKey
+        if (rebuildDrafts) draftContextRevision++
         val rebuiltDrafts = if (rebuildDrafts) {
             satisfiedDraftFree(
                 drafts = acceptedToday?.exercises.orEmpty().map { exercise ->
@@ -428,7 +446,8 @@ class WorkoutLoggerViewModel(
                         sets = exercise.sets,
                         reps = exercise.reps,
                         weightKg = exercise.suggestedWeightKg,
-                        loadKind = exercise.loadKind
+                        loadKind = exercise.loadKind,
+                        loadCapability = exercise.loadCapability
                     )
                 },
                 nowMillis = nowMillis,
@@ -443,6 +462,11 @@ class WorkoutLoggerViewModel(
                 todayFocus = acceptedToday?.focus,
                 // Today's planned exercises become drafts the user must confirm before they count.
                 draftSets = rebuiltDrafts ?: current.draftSets,
+                draftEdit = if (rebuildDrafts) null else current.draftEdit,
+                missingLoadPrompt = if (rebuildDrafts) null else current.missingLoadPrompt,
+                legacyResolution = if (rebuildDrafts) null else current.legacyResolution,
+                draftWriteRetry = if (rebuildDrafts) null else current.draftWriteRetry,
+                confirmingAllDrafts = if (rebuildDrafts) false else current.confirmingAllDrafts,
                 reps = current.reps,
                 weightInput = if (rebuildDrafts) {
                     current.selectedExerciseId
@@ -482,17 +506,322 @@ class WorkoutLoggerViewModel(
 
     /** Logs every set of a draft and removes it from the pending list. */
     fun confirmDraft(draft: DraftSet) {
-        val resolution = legacyResolutionFor(listOf(draft))
-        if (resolution != null) {
-            _state.update { it.copy(legacyResolution = resolution) }
+        if (draftSubmissionInProgress || draft !in _state.value.draftSets) return
+        val retry = retryFor(draft)
+        val edit = _state.value.draftEdit?.takeIf { it.draft == draft || editedDraft(it) == draft }
+        // A resolved retry already decided this draft's load; otherwise an unconfirmed legacy number
+        // always needs the explicit decision, even when an editor is open.
+        if (retry == null) {
+            legacyResolutionFor(listOf(draft))?.let { resolution ->
+                _state.update { it.copy(legacyResolution = resolution) }
+                return
+            }
+        }
+        val resolved = when {
+            edit != null -> editedDraft(edit)
+            retry != null -> retry.draft
+            else -> draft
+        }
+        if (retry == null && resolved.loadKind == LoadKind.EXTERNAL && resolved.weightKg == null) {
+            setMissingLoadPrompt(draft)
             return
         }
-        viewModelScope.launch {
-            logDraft(draft)
-            _state.update { it.copy(draftSets = it.draftSets - draft) }
-            refreshRecentSets()
-            if (activeActivation != null) refreshOccurrence()
+        launchDraftWrite { contextRevision ->
+            val written = writeDraft(draft, resolved, edit ?: retry?.edit, contextRevision)
+            if (written) {
+                removeDraft(draft)
+                refreshRecentSets()
+                if (activeActivation != null) refreshOccurrence()
+            }
+            written && _state.value.confirmingAllDrafts
         }
+    }
+
+    fun editDraft(draft: DraftSet) {
+        val current = _state.value
+        val retry = retryFor(draft)
+        val base = retry?.draft ?: draft
+        val retryEdit = retry?.edit
+        _state.update {
+            it.copy(
+                draftEdit = DraftEdit(
+                    draft = draft,
+                    reps = base.reps.toString(),
+                    weightInput = weightInputFor(base.weightKg, current.weightUnit),
+                    rir = retryEdit?.rir.orEmpty(),
+                    weightRevealed = base.loadKind == LoadKind.ADDED,
+                    performedAtMillis = if (retryEdit != null) {
+                        retryEdit.performedAtMillis
+                    } else {
+                        current.performedAtMillis
+                    },
+                    performedAtExplicit = retryEdit?.performedAtExplicit ?: false
+                )
+            )
+        }
+    }
+
+    fun onDraftRepsChanged(value: String) = updateDraftEdit {
+        copy(reps = value.filter(Char::isDigit))
+    }
+
+    fun onDraftWeightChanged(value: String) = updateDraftEdit {
+        copy(weightInput = value.filter { it.isDigit() || it == '.' })
+    }
+
+    fun onDraftRirChanged(value: String) {
+        val digits = value.filter(Char::isDigit)
+        val withinRange =
+            digits.toIntOrNull()?.let { it <= FatigueConfig.DEFAULT_MAX_RIR.toInt() } ?: false
+        if (digits.isEmpty() || withinRange) updateDraftEdit { copy(rir = digits) }
+    }
+
+    fun onDraftWeightRevealed() = updateDraftEdit { copy(weightRevealed = true) }
+
+    fun onDraftPerformedAtChanged(millis: Long?): Boolean {
+        if (millis != null && millis > timeProvider.nowMillis()) return false
+        resolvedBackdatedSessionId = null
+        resolvedBackdatedSessionKey = null
+        updateDraftEdit { copy(performedAtMillis = millis, performedAtExplicit = true) }
+        return true
+    }
+
+    fun cancelDraftEdit() {
+        if (draftSubmissionInProgress) return
+        _state.update { it.copy(draftEdit = null, confirmingAllDrafts = false) }
+    }
+
+    fun resetDraftEdit() {
+        val draft = _state.value.draftEdit?.draft ?: return
+        editDraft(draft)
+    }
+
+    fun confirmDraftEdit() {
+        val draft = _state.value.draftEdit?.draft ?: return
+        if (_state.value.draftEdit?.reps?.toIntOrNull()?.let { it > 0 } != true) return
+        confirmDraft(draft)
+    }
+
+    fun cancelMissingLoadPrompt() {
+        missingLoadPromptRevision++
+        _state.update { it.copy(missingLoadPrompt = null, confirmingAllDrafts = false) }
+    }
+
+    fun enterMissingLoad() {
+        val draft = _state.value.missingLoadPrompt ?: return
+        _state.update { it.copy(missingLoadPrompt = null) }
+        if (_state.value.draftEdit?.draft != draft) editDraft(draft)
+    }
+
+    fun logMissingLoadWithoutWeight() {
+        val draft = _state.value.missingLoadPrompt ?: return
+        if (draftSubmissionInProgress) return
+        val edit = _state.value.draftEdit?.takeIf { it.draft == draft }
+        val resolved = (edit?.let { editedDraft(it) } ?: draft)
+            .copy(loadKind = LoadKind.EXTERNAL, weightKg = null)
+        _state.update { it.copy(missingLoadPrompt = null) }
+        launchDraftWrite { contextRevision ->
+            val written = writeDraft(draft, resolved, edit, contextRevision)
+            if (written) {
+                removeDraft(draft)
+                refreshRecentSets()
+                if (activeActivation != null) refreshOccurrence()
+            }
+            written && _state.value.confirmingAllDrafts
+        }
+    }
+
+    fun useLastLoggedLoad() {
+        val draft = _state.value.missingLoadPrompt ?: return
+        val promptRevision = missingLoadPromptRevision
+        val contextRevision = draftContextRevision
+        // Claim the guard across the suspending history lookup so a Cancel or a second action cannot
+        // race the write; re-validate the prompt once the lookup returns.
+        if (!beginDraftSubmission()) return
+        viewModelScope.launch {
+            var shouldContinue = false
+            try {
+                val last = getWorkoutLog()
+                    .filter {
+                        it.exerciseId == draft.exerciseId &&
+                            !it.isWarmup &&
+                            it.loadKind == LoadKind.EXTERNAL &&
+                            it.weightKg != null
+                    }
+                    .maxWithOrNull(compareBy<WorkoutSet> { it.performedAtMillis }.thenBy { it.id })
+                if (missingLoadPromptRevision != promptRevision ||
+                    draftContextRevision != contextRevision ||
+                    _state.value.missingLoadPrompt != draft
+                ) {
+                    return@launch
+                }
+                missingLoadPromptRevision++
+                _state.update { it.copy(missingLoadPrompt = null) }
+                if (last == null) {
+                    if (_state.value.draftEdit?.draft != draft) editDraft(draft)
+                } else {
+                    val edit = _state.value.draftEdit?.takeIf { it.draft == draft }
+                    val resolved = (edit?.let { editedDraft(it) } ?: draft)
+                        .copy(loadKind = LoadKind.EXTERNAL, weightKg = last.weightKg)
+                    val written = writeDraft(draft, resolved, edit, contextRevision)
+                    if (written) {
+                        removeDraft(draft)
+                        refreshRecentSets()
+                        if (activeActivation != null) refreshOccurrence()
+                    }
+                    shouldContinue = written && _state.value.confirmingAllDrafts
+                }
+            } finally {
+                endDraftSubmission()
+            }
+            if (shouldContinue) continueConfirmAllDrafts()
+        }
+    }
+
+    private fun updateDraftEdit(transform: DraftEdit.() -> DraftEdit) {
+        _state.update { state -> state.copy(draftEdit = state.draftEdit?.transform()) }
+    }
+
+    private fun editedDraft(edit: DraftEdit): DraftSet {
+        val capability = edit.draft.loadCapability
+        val typed = edit.weightInput.toDoubleOrNull()?.let {
+            _state.value.weightUnit.displayToKilograms(it)
+        }
+        val (kind, weight) = when (capability) {
+            ExerciseLoadCapability.EXTERNAL -> LoadKind.EXTERNAL to typed
+            ExerciseLoadCapability.BODYWEIGHT_ONLY -> LoadKind.BODYWEIGHT to null
+            ExerciseLoadCapability.BODYWEIGHT_ADDABLE -> when {
+                edit.weightRevealed && typed != null -> LoadKind.ADDED to typed
+                edit.draft.loadKind == LoadKind.ADDED -> LoadKind.ADDED to null
+                else -> LoadKind.BODYWEIGHT to null
+            }
+            ExerciseLoadCapability.UNSPECIFIED -> edit.draft.loadKind to edit.draft.weightKg
+        }
+        return edit.draft.copy(
+            reps = edit.reps.toIntOrNull() ?: 0,
+            weightKg = weight,
+            loadKind = kind
+        )
+    }
+
+    /**
+     * Claims the single-submission guard, marking the write in progress. Returns false when a write
+     * is already running so overlapping confirmations cannot double-log a draft.
+     */
+    private fun beginDraftSubmission(): Boolean {
+        if (draftSubmissionInProgress) return false
+        draftSubmissionInProgress = true
+        _state.update { it.copy(draftWriteInProgress = true) }
+        return true
+    }
+
+    /** Releases the submission guard after a write, however it ended. */
+    private fun endDraftSubmission() {
+        draftSubmissionInProgress = false
+        _state.update { it.copy(draftWriteInProgress = false) }
+    }
+
+    private fun setMissingLoadPrompt(draft: DraftSet) {
+        missingLoadPromptRevision++
+        _state.update { it.copy(missingLoadPrompt = draft) }
+    }
+
+    /**
+     * Runs at most one draft submission at a time. [block] performs the write and returns true when a
+     * Confirm-all batch should continue; the guard is held for the whole block, so a second action
+     * (or a suspending lookup) cannot overlap it.
+     */
+    private fun launchDraftWrite(block: suspend (Long) -> Boolean) {
+        val contextRevision = draftContextRevision
+        if (!beginDraftSubmission()) return
+        viewModelScope.launch {
+            var shouldContinue = false
+            try {
+                shouldContinue = block(contextRevision)
+            } finally {
+                endDraftSubmission()
+            }
+            if (shouldContinue) continueConfirmAllDrafts()
+        }
+    }
+
+    /**
+     * Writes [resolved] (the confirmed values for [source]) set by set. On success the return is true
+     * and the caller clears the row. On a partial failure the return is false and the not-yet-written
+     * sets are kept as a [DraftWriteRetry] with the same one-off values, so a retry resumes exactly
+     * the remaining sets. The row and retry are not persisted; a process restart starts over.
+     */
+    private suspend fun writeDraft(
+        source: DraftSet,
+        resolved: DraftSet,
+        edit: DraftEdit?,
+        contextRevision: Long = draftContextRevision
+    ): Boolean {
+        var completed = 0
+        return try {
+            logDraft(resolved, edit, contextRevision) { completed++ }
+            true
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            if (contextRevision != draftContextRevision) {
+                throw CancellationException("Draft context changed")
+            }
+            val priorRetry = _state.value.draftWriteRetry?.takeIf {
+                it.source == source || it.draft == source
+            }
+            val remaining = resolved.copy(sets = (source.sets - completed).coerceAtLeast(1))
+            val retrySource = priorRetry?.source ?: source
+            val savedSets = (priorRetry?.savedSets ?: 0) + completed
+            _state.update {
+                it.copy(
+                    draftSets = it.draftSets.map { row ->
+                        if (row == source || row == priorRetry?.draft) remaining else row
+                    },
+                    draftEdit = null,
+                    missingLoadPrompt = null,
+                    draftWriteRetry = DraftWriteRetry(retrySource, remaining, edit, savedSets),
+                    legacyResolution = it.legacyResolution?.let { resolution ->
+                        if (resolution.current.draft == source) {
+                            resolution.items.drop(1).takeIf { items -> items.isNotEmpty() }
+                                ?.let(::LegacyResolution)
+                        } else {
+                            resolution
+                        }
+                    },
+                    confirmingAllDrafts = false
+                )
+            }
+            false
+        }
+    }
+
+    /** Removes a cleared draft and any transient state that referenced it. */
+    private fun removeDraft(draft: DraftSet) {
+        _state.update {
+            it.copy(
+                draftSets = it.draftSets - draft,
+                draftEdit = it.draftEdit?.takeUnless { edit -> edit.draft == draft },
+                missingLoadPrompt = it.missingLoadPrompt?.takeUnless { pending ->
+                    pending == draft
+                },
+                draftWriteRetry = it.draftWriteRetry?.takeUnless { retry ->
+                    retry.source == draft || retry.draft == draft
+                }
+            )
+        }
+    }
+
+    /** The pending retry for [draft], if any, matched by its source row or its remaining row. */
+    private fun retryFor(draft: DraftSet): DraftWriteRetry? =
+        _state.value.draftWriteRetry?.takeIf { it.source == draft || it.draft == draft }
+
+    /** The confirmed values and editor state to write for [draft], honoring an open editor or retry. */
+    private fun resolveForWrite(draft: DraftSet): Pair<DraftSet, DraftEdit?> {
+        val edit = _state.value.draftEdit?.takeIf { it.draft == draft || editedDraft(it) == draft }
+        if (edit != null) return editedDraft(edit) to edit
+        val retry = retryFor(draft)
+        return (retry?.draft ?: draft) to retry?.edit
     }
 
     /**
@@ -500,24 +829,118 @@ class WorkoutLoggerViewModel(
      * stored load meaning is unconfirmed, so a legacy number is never silently logged as external.
      */
     fun confirmAllDrafts() {
+        if (draftSubmissionInProgress || _state.value.confirmingAllDrafts) return
+        _state.update { it.copy(confirmingAllDrafts = true) }
+        continueConfirmAllDrafts()
+    }
+
+    private fun continueConfirmAllDrafts() {
+        if (!_state.value.confirmingAllDrafts) return
+        if (draftSubmissionInProgress) return
         val drafts = _state.value.draftSets
-        if (drafts.isEmpty()) return
-        val resolution = legacyResolutionFor(drafts)
+        if (drafts.isEmpty()) {
+            _state.update { it.copy(confirmingAllDrafts = false) }
+            return
+        }
+        // A resolved retry already decided its load; only unresolved legacy drafts need the queue.
+        val resolution = legacyResolutionFor(drafts.filter { retryFor(it) == null })
         if (resolution != null) {
             _state.update { it.copy(legacyResolution = resolution) }
             return
         }
+        drafts.firstOrNull { draft ->
+            retryFor(draft) == null &&
+                draft.loadKind == LoadKind.EXTERNAL &&
+                draft.weightKg == null
+        }?.let { missing ->
+            setMissingLoadPrompt(missing)
+            return
+        }
+        val contextRevision = draftContextRevision
+        val batchStartRetry = _state.value.draftWriteRetry
+        if (!beginDraftSubmission()) return
         viewModelScope.launch {
-            drafts.forEach { logDraft(it) }
-            _state.update { it.copy(draftSets = emptyList()) }
+            var currentIndex = 0
+            var completed = 0
+            var failed = false
+            var currentResolved: DraftSet? = null
+            var currentEdit: DraftEdit? = null
+            try {
+                drafts.forEachIndexed { index, draft ->
+                    currentIndex = index
+                    completed = 0
+                    val (resolved, edit) = resolveForWrite(draft)
+                    currentResolved = resolved
+                    currentEdit = edit
+                    logDraft(resolved, edit, contextRevision) { completed++ }
+                }
+                if (contextRevision != draftContextRevision) {
+                    throw CancellationException("Draft context changed")
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                val source = drafts[currentIndex]
+                val priorRetry = retryFor(source)
+                val resolved = currentResolved ?: resolveForWrite(source).first
+                val edit = currentEdit ?: priorRetry?.edit
+                val remaining = resolved.copy(sets = (source.sets - completed).coerceAtLeast(1))
+                val retrySource = priorRetry?.source ?: source
+                val savedSets = (batchStartRetry?.savedSets ?: 0) +
+                    drafts.take(currentIndex).sumOf { it.sets } + completed
+                _state.update {
+                    it.copy(
+                        draftSets = listOf(remaining) + drafts.drop(currentIndex + 1),
+                        draftEdit = null,
+                        missingLoadPrompt = null,
+                        draftWriteRetry = DraftWriteRetry(retrySource, remaining, edit, savedSets),
+                        legacyResolution = it.legacyResolution?.let { resolution ->
+                            if (resolution.current.draft == source) {
+                                resolution.items.drop(1).takeIf { items -> items.isNotEmpty() }
+                                    ?.let(::LegacyResolution)
+                            } else {
+                                resolution
+                            }
+                        },
+                        confirmingAllDrafts = false
+                    )
+                }
+                failed = true
+            } finally {
+                endDraftSubmission()
+            }
+            if (!failed) {
+                _state.update {
+                    it.copy(
+                        draftSets = emptyList(),
+                        draftEdit = null,
+                        missingLoadPrompt = null,
+                        draftWriteRetry = null,
+                        confirmingAllDrafts = false
+                    )
+                }
+            }
             refreshRecentSets()
-            if (activeActivation != null) refreshOccurrence()
+            // Do not rebuild occurrence drafts after a failure: it would discard the retry row.
+            if (activeActivation != null && !failed) refreshOccurrence()
         }
     }
 
     /** Removes a draft without logging anything. */
     fun dismissDraft(draft: DraftSet) {
-        _state.update { it.copy(draftSets = it.draftSets - draft) }
+        if (draftSubmissionInProgress) return
+        _state.update {
+            it.copy(
+                draftSets = it.draftSets - draft,
+                draftEdit = it.draftEdit?.takeUnless { edit -> edit.draft == draft },
+                missingLoadPrompt = it.missingLoadPrompt?.takeUnless { pending ->
+                    pending == draft
+                },
+                draftWriteRetry = it.draftWriteRetry?.takeUnless { retry ->
+                    retry.source == draft || retry.draft == draft
+                }
+            )
+        }
     }
 
     /** Logs the current legacy draft as bodyweight/no added load and advances the queue. */
@@ -532,27 +955,49 @@ class WorkoutLoggerViewModel(
 
     /** Closes the resolution without logging; the drafts stay pending. */
     fun dismissLegacyResolution() {
-        _state.update { it.copy(legacyResolution = null) }
+        if (draftSubmissionInProgress) return
+        val item = _state.value.legacyResolution?.current
+        _state.update {
+            it.copy(
+                legacyResolution = null,
+                confirmingAllDrafts = false,
+                draftWriteRetry = it.draftWriteRetry?.takeUnless { retry ->
+                    item != null && (retry.source == item.draft || retry.draft == item.draft)
+                }
+            )
+        }
     }
 
     private fun resolveLegacy(kind: LoadKind, weightKg: Double?) {
+        if (draftSubmissionInProgress) return
         val resolution = _state.value.legacyResolution ?: return
         val item = resolution.current
-        viewModelScope.launch {
-            logDraft(item.draft.copy(loadKind = kind, weightKg = weightKg))
-            val remaining = resolution.items.drop(1)
-            _state.update { state ->
-                state.copy(
-                    draftSets = state.draftSets - item.draft,
-                    legacyResolution = if (remaining.isEmpty()) {
-                        null
-                    } else {
-                        LegacyResolution(remaining)
-                    }
-                )
+        val retry = retryFor(item.draft)
+        val edit = _state.value.draftEdit?.takeIf { it.draft == item.draft }
+        val editForWrite = edit ?: retry?.edit
+        val base = when {
+            edit != null -> editedDraft(edit)
+            retry != null -> retry.draft
+            else -> item.draft
+        }
+        val resolved = base.copy(loadKind = kind, weightKg = weightKg)
+        launchDraftWrite { contextRevision ->
+            val written = writeDraft(item.draft, resolved, editForWrite, contextRevision)
+            if (written) {
+                val remaining = resolution.items.drop(1)
+                _state.update { state ->
+                    state.copy(
+                        draftSets = state.draftSets - item.draft,
+                        legacyResolution = remaining.takeIf { it.isNotEmpty() }
+                            ?.let(::LegacyResolution),
+                        draftEdit = null,
+                        draftWriteRetry = null
+                    )
+                }
+                refreshRecentSets()
+                if (activeActivation != null) refreshOccurrence()
             }
-            refreshRecentSets()
-            if (activeActivation != null) refreshOccurrence()
+            written && _state.value.confirmingAllDrafts && _state.value.legacyResolution == null
         }
     }
 
@@ -562,17 +1007,33 @@ class WorkoutLoggerViewModel(
         if (legacy.isEmpty()) return null
         return LegacyResolution(
             legacy.map { draft ->
-                val capability = exercises.firstOrNull { it.id == draft.exerciseId }?.loadCapability
-                    ?: ExerciseLoadCapability.UNSPECIFIED
-                LegacyResolutionItem(draft, capability)
+                LegacyResolutionItem(draft, draft.loadCapability)
             }
         )
     }
 
-    private suspend fun logDraft(draft: DraftSet) {
-        val link = occurrenceLink(draft.exerciseId)
+    private suspend fun logDraft(
+        draft: DraftSet,
+        edit: DraftEdit? = null,
+        contextRevision: Long = draftContextRevision,
+        onSetLogged: () -> Unit = {}
+    ) {
+        val link = if (draft.occurrenceId != null) {
+            draft.occurrenceId to draft.occurrenceEntryId
+        } else {
+            occurrenceLink(draft.exerciseId)
+        }
         repeat(draft.sets.coerceAtLeast(1)) {
-            val current = _state.value
+            if (contextRevision != draftContextRevision) {
+                throw CancellationException("Draft context changed")
+            }
+            val current = _state.value.copy(
+                performedAtMillis = if (edit?.performedAtExplicit == true) {
+                    edit.performedAtMillis
+                } else {
+                    _state.value.performedAtMillis
+                }
+            )
             logResolved(
                 WorkoutSet(
                     exerciseId = draft.exerciseId,
@@ -585,10 +1046,12 @@ class WorkoutLoggerViewModel(
                     cycleNumber = activeActivation?.cycleNumber ?: acceptedPlan?.cycleNumber,
                     dayIndex = acceptedToday?.dayIndex,
                     occurrenceId = link?.first,
-                    occurrenceEntryId = link?.second
+                    occurrenceEntryId = link?.second,
+                    rir = edit?.rir?.toIntOrNull()
                 ),
                 current
             )
+            onSetLogged()
         }
     }
 
@@ -638,13 +1101,25 @@ class WorkoutLoggerViewModel(
         val selectedId = scheduleState?.selectedOccurrenceId
         val occurrence = currentOccurrences.firstOrNull { it.id == selectedId }
             ?: currentOccurrences.filterNot { it.isResolved }.minByOrNull { it.queuePosition }
+        val previousOccurrenceId = currentOccurrence?.id
         if (occurrence == null) {
+            if (currentOccurrence != null) draftContextRevision++
             currentOccurrence = null
             _state.update {
-                it.copy(activeOccurrence = null, draftSets = emptyList(), todayFocus = null)
+                it.copy(
+                    activeOccurrence = null,
+                    draftSets = emptyList(),
+                    draftEdit = null,
+                    missingLoadPrompt = null,
+                    legacyResolution = null,
+                    draftWriteRetry = null,
+                    confirmingAllDrafts = false,
+                    todayFocus = null
+                )
             }
             return
         }
+        if (currentOccurrence != occurrence) draftContextRevision++
         currentOccurrence = occurrence
         val performed = performedSetsByEntry(occurrence.id)
         val drafts = occurrence.entries.mapNotNull { entry ->
@@ -658,10 +1133,23 @@ class WorkoutLoggerViewModel(
                     remaining,
                     entry.reps,
                     entry.weightKg,
-                    entry.loadKind
+                    entry.loadKind,
+                    loadCapability = entry.loadCapability,
+                    occurrenceId = occurrence.id,
+                    occurrenceEntryId = entry.id
                 )
             }
         }
+        // A partial-write retry keeps its not-yet-recorded row and one-off values across a refresh.
+        val retry = _state.value.draftWriteRetry
+        val retrySlot = retry?.source
+        val displayDrafts = if (retry != null && retrySlot != null) {
+            val index = drafts.indexOfFirst { it.sameSlotAs(retrySlot) }
+            if (index >= 0) drafts.toMutableList().also { it[index] = retry.draft } else drafts
+        } else {
+            drafts
+        }
+        val retryPreserved = retrySlot != null && drafts.any { it.sameSlotAs(retrySlot) }
         val workout = activation.workouts.firstOrNull { it.id == occurrence.activationWorkoutId }
         val prescribed = occurrence.entries.sumOf { it.sets }
         val performedTotal = occurrence.entries.sumOf {
@@ -675,11 +1163,31 @@ class WorkoutLoggerViewModel(
                     performedSets = performedTotal,
                     prescribedSets = prescribed
                 ),
-                draftSets = drafts,
+                draftSets = displayDrafts,
+                draftEdit = it.draftEdit?.takeIf { edit -> edit.draft in displayDrafts },
+                missingLoadPrompt = it.missingLoadPrompt?.takeIf { draft ->
+                    draft in displayDrafts
+                },
+                legacyResolution = it.legacyResolution?.takeIf { resolution ->
+                    resolution.items.all { item -> item.draft in displayDrafts }
+                },
+                draftWriteRetry = retry.takeIf { retryPreserved },
+                // A batch continuation is scoped to one occurrence: switching away ends it.
+                confirmingAllDrafts = it.confirmingAllDrafts &&
+                    previousOccurrenceId == occurrence.id &&
+                    displayDrafts.isNotEmpty(),
                 todayFocus = workout?.focus
             )
         }
     }
+
+    /** True when both drafts describe the same frozen slot: the same occurrence entry, else exercise. */
+    private fun DraftSet.sameSlotAs(other: DraftSet): Boolean =
+        if (occurrenceEntryId != null || other.occurrenceEntryId != null) {
+            occurrenceEntryId == other.occurrenceEntryId
+        } else {
+            exerciseId == other.exerciseId
+        }
 
     /** The occurrence + entry a set for [exerciseId] belongs to, when a block is active. */
     private fun occurrenceLink(exerciseId: String): Pair<Long, Long?>? {

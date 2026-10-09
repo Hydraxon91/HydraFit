@@ -400,6 +400,412 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun repeatedDraftConfirmationIsIgnoredAndPartialFailureRetriesOnlyRemainingSets() =
+        runTest(dispatcher) {
+            val repository = FakeWorkoutLogRepository(failOnAddAttempt = 2)
+            val viewModel = viewModel(
+                repository = repository,
+                timeMillis = MONDAY,
+                acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+            )
+            advanceUntilIdle()
+            val draft = viewModel.state.value.draftSets.single()
+
+            viewModel.confirmDraft(draft)
+            viewModel.confirmDraft(draft)
+            advanceUntilIdle()
+
+            assertEquals(1, repository.all().size)
+            assertEquals(2, viewModel.state.value.draftSets.single().sets)
+            assertNotNull(viewModel.state.value.draftWriteRetry)
+
+            viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+            advanceUntilIdle()
+
+            assertEquals(3, repository.all().size)
+            assertTrue(viewModel.state.value.draftSets.isEmpty())
+            assertNull(viewModel.state.value.draftWriteRetry)
+        }
+
+    @Test
+    fun confirmAllKeepsOnlyRemainingSetsAfterAPartialWriteFailure() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempt = 2)
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(
+                listOf("back-squat", "bench-press"),
+                suggestedWeightKg = 80.0
+            )
+        )
+        advanceUntilIdle()
+
+        viewModel.confirmAllDrafts()
+        advanceUntilIdle()
+
+        assertEquals(1, repository.all().size)
+        assertEquals(listOf(2, 3), viewModel.state.value.draftSets.map { it.sets })
+        assertNotNull(viewModel.state.value.draftWriteRetry)
+        assertFalse(viewModel.state.value.confirmingAllDrafts)
+
+        viewModel.confirmAllDrafts()
+        advanceUntilIdle()
+
+        assertEquals(6, repository.all().size)
+        assertTrue(viewModel.state.value.draftSets.isEmpty())
+    }
+
+    @Test
+    fun editedConfirmAllRetryKeepsRirAndExplicitTimeAfterPartialFailure() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempts = setOf(2))
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        advanceUntilIdle()
+        val draft = viewModel.state.value.draftSets.single()
+        val chosen = MONDAY - DAY
+
+        viewModel.editDraft(draft)
+        viewModel.onDraftRepsChanged("6")
+        viewModel.onDraftRirChanged("2")
+        viewModel.onDraftPerformedAtChanged(chosen)
+        viewModel.confirmAllDrafts()
+        advanceUntilIdle()
+        assertEquals(1, repository.all().size)
+
+        viewModel.confirmAllDrafts()
+        advanceUntilIdle()
+
+        assertEquals(3, repository.all().size)
+        assertTrue(
+            repository.all().all {
+                it.reps == 6 && it.rir == 2 && it.performedAtMillis == chosen
+            }
+        )
+    }
+
+    @Test
+    fun confirmAllFailureFeedbackCountsPreviouslyCompletedDrafts() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempts = setOf(4))
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(
+                listOf("back-squat", "bench-press"),
+                suggestedWeightKg = 80.0
+            )
+        )
+        advanceUntilIdle()
+
+        viewModel.confirmAllDrafts()
+        advanceUntilIdle()
+
+        assertEquals(3, repository.all().size)
+        assertEquals(listOf("bench-press"), viewModel.state.value.draftSets.map { it.exerciseId })
+        assertEquals(3, viewModel.state.value.draftWriteRetry?.savedSets)
+        assertTrue(viewModel.state.value.draftWriteRetry?.anyRecorded == true)
+    }
+
+    @Test
+    fun repeatedLegacyRetryUsesRemainingCountAndEventuallyCompletes() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempts = setOf(2, 3))
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(
+                listOf("back-squat"),
+                suggestedWeightKg = 100.0,
+                loadKind = LoadKind.LEGACY_UNSPECIFIED
+            )
+        )
+        advanceUntilIdle()
+        viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+        viewModel.resolveLegacyAsExternal()
+        advanceUntilIdle()
+        assertEquals(1, repository.all().size)
+        assertNull(viewModel.state.value.legacyResolution)
+        assertEquals(2, viewModel.state.value.draftSets.single().sets)
+
+        viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+        advanceUntilIdle()
+        assertEquals(1, repository.all().size)
+        assertEquals(2, viewModel.state.value.draftSets.single().sets)
+        assertTrue(viewModel.state.value.draftWriteRetry?.anyRecorded == true)
+
+        viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+        advanceUntilIdle()
+        assertEquals(3, repository.all().size)
+        assertTrue(viewModel.state.value.draftSets.isEmpty())
+    }
+
+    @Test
+    fun retryEditorPreservesExplicitUseNowAsNull() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempts = setOf(2))
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        advanceUntilIdle()
+        val draft = viewModel.state.value.draftSets.single()
+        viewModel.onPerformedAtChanged(MONDAY - DAY)
+        viewModel.editDraft(draft)
+        viewModel.onDraftPerformedAtChanged(null)
+        viewModel.confirmDraftEdit()
+        advanceUntilIdle()
+
+        viewModel.editDraft(viewModel.state.value.draftSets.single())
+        assertTrue(viewModel.state.value.draftEdit?.performedAtExplicit == true)
+        assertNull(viewModel.state.value.draftEdit?.performedAtMillis)
+        viewModel.confirmDraftEdit()
+        advanceUntilIdle()
+
+        assertEquals(3, repository.all().size)
+        assertTrue(repository.all().all { it.performedAtMillis == MONDAY })
+    }
+
+    @Test
+    fun cancellingUseLastDuringItsLookupLogsNothing() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = 5,
+                    weightKg = 90.0,
+                    performedAtMillis = MONDAY - DAY
+                )
+            )
+        )
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"))
+        )
+        advanceUntilIdle()
+        viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+        advanceUntilIdle()
+        assertNotNull(viewModel.state.value.missingLoadPrompt)
+
+        val gate = CompletableDeferred<Unit>()
+        repository.allGate = gate
+        viewModel.useLastLoggedLoad()
+        runCurrent()
+
+        viewModel.cancelMissingLoadPrompt()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(1, repository.all().size)
+        assertEquals(listOf("back-squat"), viewModel.state.value.draftSets.map { it.exerciseId })
+        assertNull(viewModel.state.value.draftEdit)
+    }
+
+    @Test
+    fun cancelAndReopenEqualUseLastPromptDoesNotReuseOldLookup() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = 5,
+                    weightKg = 90.0,
+                    performedAtMillis = MONDAY - DAY
+                )
+            )
+        )
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"))
+        )
+        advanceUntilIdle()
+        val draft = viewModel.state.value.draftSets.single()
+        viewModel.confirmDraft(draft)
+        advanceUntilIdle()
+        val gate = CompletableDeferred<Unit>()
+        repository.allGate = gate
+
+        viewModel.useLastLoggedLoad()
+        runCurrent()
+        viewModel.cancelMissingLoadPrompt()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        viewModel.confirmDraft(draft)
+        advanceUntilIdle()
+        assertEquals(1, repository.all().size)
+        assertEquals(draft, viewModel.state.value.missingLoadPrompt)
+    }
+
+    @Test
+    fun useLastLoggedLoadWithNoHistoryOpensTheEditorWithoutLogging() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"))
+        )
+        advanceUntilIdle()
+        viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+        advanceUntilIdle()
+
+        viewModel.useLastLoggedLoad()
+        advanceUntilIdle()
+
+        assertTrue(repository.all().isEmpty())
+        assertNotNull(viewModel.state.value.draftEdit)
+        assertNull(viewModel.state.value.missingLoadPrompt)
+        assertEquals(listOf("back-squat"), viewModel.state.value.draftSets.map { it.exerciseId })
+    }
+
+    @Test
+    fun partialRetryKeepsEditedRepsRirAndTime() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempt = 2)
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        advanceUntilIdle()
+        val draft = viewModel.state.value.draftSets.single()
+        val chosen = MONDAY - DAY
+
+        viewModel.editDraft(draft)
+        viewModel.onDraftRepsChanged("6")
+        viewModel.onDraftRirChanged("2")
+        assertTrue(viewModel.onDraftPerformedAtChanged(chosen))
+        viewModel.confirmDraftEdit()
+        advanceUntilIdle()
+
+        assertEquals(1, repository.all().size)
+        assertNotNull(viewModel.state.value.draftWriteRetry)
+
+        viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+        advanceUntilIdle()
+
+        assertEquals(3, repository.all().size)
+        assertTrue(
+            repository.all().all {
+                it.reps == 6 && it.rir == 2 && it.performedAtMillis == chosen
+            }
+        )
+    }
+
+    @Test
+    fun partialRetrySurvivesAnOccurrenceRefresh() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempt = 2)
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+        val draft = viewModel.state.value.draftSets.single()
+
+        viewModel.editDraft(draft)
+        viewModel.onDraftRepsChanged("7")
+        viewModel.confirmDraftEdit()
+        advanceUntilIdle()
+        assertEquals(1, repository.all().size)
+        assertNotNull(viewModel.state.value.draftWriteRetry)
+
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        advanceUntilIdle()
+
+        val retryDraft = viewModel.state.value.draftSets.single()
+        assertEquals(1, retryDraft.sets)
+        assertEquals(7, retryDraft.reps)
+        assertNotNull(viewModel.state.value.draftWriteRetry)
+    }
+
+    @Test
+    fun switchingOccurrenceDuringAPendingConfirmAllEndsTheBatch() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), batchOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+
+        viewModel.confirmAllDrafts()
+        assertTrue(viewModel.state.value.confirmingAllDrafts)
+        assertNotNull(viewModel.state.value.missingLoadPrompt)
+
+        schedule.set(blockActivation(), batchOccurrences(), selectedOccurrenceId = 31L)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.confirmingAllDrafts)
+        assertNull(viewModel.state.value.missingLoadPrompt)
+        assertEquals(listOf("deadlift"), viewModel.state.value.draftSets.map { it.exerciseId })
+    }
+
+    @Test
+    fun switchingOccurrenceDuringAnExecutingBatchStopsOldContinuation() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), batchOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+        val gate = CompletableDeferred<Unit>()
+        repository.addGate = gate
+
+        viewModel.confirmAllDrafts()
+        viewModel.logMissingLoadWithoutWeight()
+        runCurrent()
+        schedule.set(blockActivation(), batchOccurrences(), selectedOccurrenceId = 31L)
+        runCurrent()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(1, repository.all().size)
+        assertEquals(30L, repository.all().single().occurrenceId)
+        assertEquals(listOf("deadlift"), viewModel.state.value.draftSets.map { it.exerciseId })
+    }
+
+    private fun batchOccurrences() = listOf(
+        WorkoutOccurrence(
+            id = 30L,
+            activationId = 5L,
+            activationWorkoutId = 9L,
+            queuePosition = 0,
+            status = OccurrenceStatus.PENDING,
+            entries = listOf(
+                OccurrenceEntry(
+                    id = 40L,
+                    sourceActivationEntryId = 20L,
+                    position = 0,
+                    exerciseId = "back-squat",
+                    exerciseName = "Back Squat",
+                    movementPattern = MovementPattern.SQUAT,
+                    sets = 2,
+                    reps = 8,
+                    weightKg = null
+                )
+            )
+        ),
+        WorkoutOccurrence(
+            id = 31L,
+            activationId = 5L,
+            activationWorkoutId = 10L,
+            queuePosition = 1,
+            status = OccurrenceStatus.PENDING,
+            entries = listOf(
+                OccurrenceEntry(
+                    id = 41L,
+                    sourceActivationEntryId = 21L,
+                    position = 0,
+                    exerciseId = "deadlift",
+                    exerciseName = "Deadlift",
+                    movementPattern = MovementPattern.HINGE,
+                    sets = 2,
+                    reps = 5,
+                    weightKg = 140.0
+                )
+            )
+        )
+    )
+
+    @Test
     fun dismissingADraftLogsNothing() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val viewModel = viewModel(
@@ -417,6 +823,417 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun missingExternalDraftLoadRequiresAnExplicitChoiceAndCanLogWithoutWeight() =
+        runTest(dispatcher) {
+            val repository = FakeWorkoutLogRepository()
+            val viewModel = viewModel(
+                repository = repository,
+                timeMillis = MONDAY,
+                acceptedPlan = acceptedPlan(listOf("back-squat"))
+            )
+            advanceUntilIdle()
+            val draft = viewModel.state.value.draftSets.single()
+
+            viewModel.confirmDraft(draft)
+            advanceUntilIdle()
+            assertNotNull(viewModel.state.value.missingLoadPrompt)
+            assertTrue(repository.all().isEmpty())
+
+            viewModel.cancelMissingLoadPrompt()
+            assertEquals(listOf(draft), viewModel.state.value.draftSets)
+            viewModel.editDraft(draft)
+            viewModel.onDraftRepsChanged("6")
+            viewModel.onDraftRirChanged("1")
+            viewModel.confirmDraft(draft)
+            advanceUntilIdle()
+            viewModel.logMissingLoadWithoutWeight()
+            advanceUntilIdle()
+
+            assertEquals(3, repository.all().size)
+            assertTrue(
+                repository.all().all {
+                    it.loadKind == LoadKind.EXTERNAL &&
+                        it.weightKg == null &&
+                        it.reps == 6 &&
+                        it.rir == 1
+                }
+            )
+            assertTrue(viewModel.state.value.draftSets.isEmpty())
+        }
+
+    @Test
+    fun useLastLoggedLoadConfirmsEverySetWithLatestExternalWeight() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = 5,
+                    weightKg = 80.0,
+                    performedAtMillis = MONDAY - DAY
+                ),
+                WorkoutSet(
+                    id = 2L,
+                    exerciseId = "back-squat",
+                    reps = 5,
+                    weightKg = 90.0,
+                    performedAtMillis = MONDAY - 1
+                )
+            )
+        )
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"))
+        )
+        advanceUntilIdle()
+
+        viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+        advanceUntilIdle()
+        viewModel.useLastLoggedLoad()
+        advanceUntilIdle()
+
+        val logged = repository.all().filter { it.id > 2L }
+        assertEquals(3, logged.size)
+        assertTrue(logged.all { it.weightKg == 90.0 && it.loadKind == LoadKind.EXTERNAL })
+        assertTrue(viewModel.state.value.draftSets.isEmpty())
+    }
+
+    @Test
+    fun enterMissingLoadOpensEditorAndUsesTypedWeight() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"))
+        )
+        advanceUntilIdle()
+        val draft = viewModel.state.value.draftSets.single()
+
+        viewModel.confirmDraft(draft)
+        advanceUntilIdle()
+        viewModel.enterMissingLoad()
+        viewModel.onDraftWeightChanged("75")
+        viewModel.confirmDraftEdit()
+        advanceUntilIdle()
+
+        assertEquals(3, repository.all().size)
+        assertTrue(repository.all().all { it.loadKind == LoadKind.EXTERNAL && it.weightKg == 75.0 })
+    }
+
+    @Test
+    fun resetDraftEditRestoresDraftValues() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        advanceUntilIdle()
+        val draft = viewModel.state.value.draftSets.single()
+
+        viewModel.editDraft(draft)
+        viewModel.onDraftRepsChanged("12")
+        viewModel.onDraftWeightChanged("120")
+        viewModel.resetDraftEdit()
+        viewModel.confirmDraftEdit()
+        advanceUntilIdle()
+
+        assertEquals(3, repository.all().size)
+        assertTrue(repository.all().all { it.reps == draft.reps && it.weightKg == draft.weightKg })
+    }
+
+    @Test
+    fun legacyDraftWithMissingEditedLoadStillUsesLegacyResolutionFirst() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(
+                listOf("back-squat"),
+                suggestedWeightKg = 80.0,
+                loadKind = LoadKind.LEGACY_UNSPECIFIED
+            )
+        )
+        advanceUntilIdle()
+        val draft = viewModel.state.value.draftSets.single()
+
+        viewModel.editDraft(draft)
+        viewModel.onDraftWeightChanged("")
+        viewModel.confirmDraftEdit()
+        advanceUntilIdle()
+
+        assertNotNull(viewModel.state.value.legacyResolution)
+        assertNull(viewModel.state.value.missingLoadPrompt)
+        assertTrue(repository.all().isEmpty())
+    }
+
+    @Test
+    fun dismissingDraftAlsoClearsItsEditAndMissingLoadPrompt() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"))
+        )
+        advanceUntilIdle()
+        val draft = viewModel.state.value.draftSets.single()
+        viewModel.editDraft(draft)
+        viewModel.confirmDraft(draft)
+        advanceUntilIdle()
+
+        viewModel.dismissDraft(draft)
+
+        assertNull(viewModel.state.value.draftEdit)
+        assertNull(viewModel.state.value.missingLoadPrompt)
+        assertTrue(viewModel.state.value.draftSets.isEmpty())
+    }
+
+    @Test
+    fun confirmingAllClearsTransientDraftUiState() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        advanceUntilIdle()
+        val draft = viewModel.state.value.draftSets.single()
+        viewModel.editDraft(draft)
+
+        viewModel.confirmAllDrafts()
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.draftEdit)
+        assertNull(viewModel.state.value.missingLoadPrompt)
+        assertTrue(viewModel.state.value.draftSets.isEmpty())
+        assertEquals(3, repository.all().size)
+    }
+
+    @Test
+    fun confirmAllContinuesThroughMissingLoadPromptsWithoutDuplicateSets() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat", "bench-press"))
+        )
+        advanceUntilIdle()
+
+        viewModel.confirmAllDrafts()
+        assertEquals("back-squat", viewModel.state.value.missingLoadPrompt?.exerciseId)
+        viewModel.enterMissingLoad()
+        viewModel.onDraftWeightChanged("60")
+        viewModel.confirmDraftEdit()
+        advanceUntilIdle()
+
+        assertEquals(3, repository.all().size)
+        assertTrue(repository.all().all { it.weightKg == 60.0 })
+        assertEquals("bench-press", viewModel.state.value.missingLoadPrompt?.exerciseId)
+        assertEquals(1, viewModel.state.value.draftSets.size)
+
+        viewModel.logMissingLoadWithoutWeight()
+        advanceUntilIdle()
+
+        assertEquals(6, repository.all().size)
+        assertEquals(6, repository.all().map { it.id }.toSet().size)
+        assertTrue(viewModel.state.value.draftSets.isEmpty())
+        assertNull(viewModel.state.value.missingLoadPrompt)
+        assertFalse(viewModel.state.value.confirmingAllDrafts)
+    }
+
+    @Test
+    fun cancellingMissingLoadPromptStopsConfirmAllAfterAlreadyLoggedDrafts() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat", "bench-press"))
+        )
+        advanceUntilIdle()
+
+        viewModel.confirmAllDrafts()
+        viewModel.logMissingLoadWithoutWeight()
+        advanceUntilIdle()
+        assertEquals("bench-press", viewModel.state.value.missingLoadPrompt?.exerciseId)
+
+        viewModel.cancelMissingLoadPrompt()
+
+        assertEquals(3, repository.all().size)
+        assertEquals(
+            listOf("bench-press"),
+            viewModel.state.value.draftSets.map {
+                it.exerciseId
+            }
+        )
+        assertNull(viewModel.state.value.missingLoadPrompt)
+        assertFalse(viewModel.state.value.confirmingAllDrafts)
+    }
+
+    @Test
+    fun editingUsesTheLoadCapabilityFrozenInTheAcceptedPlanWhenCatalogEntryIsMissing() =
+        runTest(dispatcher) {
+            val repository = FakeWorkoutLogRepository()
+            val viewModel = viewModel(
+                repository = repository,
+                timeMillis = MONDAY,
+                acceptedPlan = acceptedPlan(
+                    listOf("removed-custom-exercise"),
+                    loadKind = LoadKind.EXTERNAL
+                )
+            )
+            advanceUntilIdle()
+            val draft = viewModel.state.value.draftSets.single()
+
+            assertEquals(ExerciseLoadCapability.EXTERNAL, draft.loadCapability)
+            viewModel.editDraft(draft)
+            viewModel.onDraftWeightChanged("75")
+            viewModel.confirmDraftEdit()
+            advanceUntilIdle()
+
+            assertEquals(3, repository.all().size)
+            assertTrue(
+                repository.all().all {
+                    it.exerciseId == "removed-custom-exercise" &&
+                        it.loadKind == LoadKind.EXTERNAL &&
+                        it.weightKg == 75.0
+                }
+            )
+        }
+
+    @Test
+    fun editingDraftAppliesRepsLoadRirAndTimeOnlyToRecordedSets() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val plan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY, acceptedPlan = plan)
+        advanceUntilIdle()
+        val draft = viewModel.state.value.draftSets.single()
+        val chosen = MONDAY - DAY
+
+        viewModel.editDraft(draft)
+        viewModel.onDraftRepsChanged("6")
+        viewModel.onDraftWeightChanged("0")
+        viewModel.onDraftRirChanged("2")
+        assertTrue(viewModel.onDraftPerformedAtChanged(chosen))
+        viewModel.confirmDraftEdit()
+        advanceUntilIdle()
+
+        assertEquals(3, repository.all().size)
+        assertTrue(
+            repository.all().all {
+                it.reps == 6 &&
+                    it.weightKg == 0.0 &&
+                    it.loadKind == LoadKind.EXTERNAL &&
+                    it.rir == 2 &&
+                    it.performedAtMillis == chosen
+            }
+        )
+        assertEquals(100.0, plan.days.single().exercises.single().suggestedWeightKg)
+    }
+
+    @Test
+    fun draftUseNowOverridesTheScreenBackdatedTime() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        advanceUntilIdle()
+        val draft = viewModel.state.value.draftSets.single()
+        val backdated = MONDAY - DAY
+        viewModel.onPerformedAtChanged(backdated)
+        viewModel.editDraft(draft)
+        assertTrue(viewModel.onDraftPerformedAtChanged(null))
+        viewModel.confirmDraftEdit()
+        advanceUntilIdle()
+
+        assertTrue(repository.all().all { it.performedAtMillis == MONDAY })
+    }
+
+    @Test
+    fun cancellingDraftEditLeavesDraftAndCreatesNoRecord() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        advanceUntilIdle()
+        val draft = viewModel.state.value.draftSets.single()
+
+        viewModel.editDraft(draft)
+        viewModel.onDraftRepsChanged("5")
+        viewModel.cancelDraftEdit()
+
+        assertEquals(listOf(draft), viewModel.state.value.draftSets)
+        assertTrue(repository.all().isEmpty())
+    }
+
+    @Test
+    fun editingBodyweightAddableDraftRequiresRevealAndStoresAddedLoad() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val bodyweightViewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("pull-up"))
+        )
+        advanceUntilIdle()
+        val draft = bodyweightViewModel.state.value.draftSets.single()
+
+        bodyweightViewModel.editDraft(draft)
+        bodyweightViewModel.onDraftWeightChanged("10")
+        bodyweightViewModel.confirmDraftEdit()
+        advanceUntilIdle()
+        assertTrue(
+            repository.all().all {
+                it.loadKind == LoadKind.BODYWEIGHT && it.weightKg == null
+            }
+        )
+
+        val secondRepository = FakeWorkoutLogRepository()
+        val revealed = viewModel(
+            repository = secondRepository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(listOf("pull-up"))
+        )
+        advanceUntilIdle()
+        val secondDraft = revealed.state.value.draftSets.single()
+        revealed.editDraft(secondDraft)
+        revealed.onDraftWeightRevealed()
+        revealed.onDraftWeightChanged("10")
+        revealed.confirmDraftEdit()
+        advanceUntilIdle()
+
+        assertTrue(
+            secondRepository.all().all {
+                it.loadKind == LoadKind.ADDED && it.weightKg == 10.0
+            }
+        )
+    }
+
+    @Test
+    fun clearingAnAddedLoadDraftPreservesAddedKindWithNoAmount() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = acceptedPlan(
+                listOf("pull-up"),
+                loadKind = LoadKind.ADDED,
+                suggestedWeightKg = 10.0
+            )
+        )
+        advanceUntilIdle()
+        val draft = viewModel.state.value.draftSets.single()
+
+        viewModel.editDraft(draft)
+        viewModel.onDraftWeightChanged("")
+        viewModel.confirmDraftEdit()
+        advanceUntilIdle()
+
+        assertTrue(repository.all().all { it.loadKind == LoadKind.ADDED && it.weightKg == null })
+    }
+
+    @Test
     fun confirmAllDraftsLogsEverything() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val viewModel = viewModel(
@@ -428,6 +1245,19 @@ class WorkoutLoggerViewModelTest {
 
         viewModel.confirmAllDrafts()
         advanceUntilIdle()
+
+        while (viewModel.state.value.missingLoadPrompt != null) {
+            viewModel.logMissingLoadWithoutWeight()
+            advanceUntilIdle()
+            if (viewModel.state.value.draftSets.isNotEmpty()) {
+                viewModel.confirmAllDrafts()
+                advanceUntilIdle()
+            }
+        }
+        if (viewModel.state.value.draftSets.isNotEmpty()) {
+            viewModel.confirmAllDrafts()
+            advanceUntilIdle()
+        }
 
         assertEquals(6, repository.all().size)
         assertTrue(viewModel.state.value.draftSets.isEmpty())
@@ -1445,6 +2275,10 @@ class WorkoutLoggerViewModelTest {
 
         viewModel.confirmDraft(viewModel.state.value.draftSets.single())
         advanceUntilIdle()
+        if (viewModel.state.value.missingLoadPrompt != null) {
+            viewModel.logMissingLoadWithoutWeight()
+            advanceUntilIdle()
+        }
 
         assertEquals(3, logs.all().size)
         assertEquals(1, sessions.all().size)
@@ -1581,6 +2415,10 @@ class WorkoutLoggerViewModelTest {
         viewModel.onPerformedAtChanged(chosen)
         viewModel.confirmDraft(viewModel.state.value.draftSets.single())
         advanceUntilIdle()
+        if (viewModel.state.value.missingLoadPrompt != null) {
+            viewModel.logMissingLoadWithoutWeight()
+            advanceUntilIdle()
+        }
 
         assertEquals(3, logs.all().size)
         assertTrue(logs.all().all { it.performedAtMillis == chosen })
@@ -1657,9 +2495,47 @@ class WorkoutLoggerViewModelTest {
         viewModel.onPerformedAtChanged(chosen)
         viewModel.confirmDraft(viewModel.state.value.draftSets.single())
         advanceUntilIdle()
+        if (viewModel.state.value.missingLoadPrompt != null) {
+            viewModel.logMissingLoadWithoutWeight()
+            advanceUntilIdle()
+        }
 
         assertEquals(3, repository.all().size)
         assertTrue(repository.all().all { it.performedAtMillis == chosen })
+    }
+
+    @Test
+    fun changingDraftTimeDoesNotReuseThePreviouslyResolvedBackdatedSession() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val plan = acceptedPlan(
+            listOf("back-squat", "bench-press"),
+            suggestedWeightKg = 80.0
+        )
+        val planned = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = plan
+        )
+        advanceUntilIdle()
+        val drafts = planned.state.value.draftSets
+        val firstTime = MONDAY - DAY
+        val secondTime = MONDAY - 2 * DAY
+
+        planned.editDraft(drafts.first())
+        assertTrue(planned.onDraftPerformedAtChanged(firstTime))
+        planned.confirmDraftEdit()
+        advanceUntilIdle()
+        val secondDraft = planned.state.value.draftSets.single()
+        planned.editDraft(secondDraft)
+        assertTrue(planned.onDraftPerformedAtChanged(secondTime))
+        planned.confirmDraftEdit()
+        advanceUntilIdle()
+
+        assertEquals(
+            setOf(firstTime, secondTime),
+            repository.all().map { it.performedAtMillis }.toSet()
+        )
+        assertEquals(2, repository.all().map { it.sessionId }.toSet().size)
     }
 
     @Test
@@ -1792,6 +2668,28 @@ class WorkoutLoggerViewModelTest {
         assertEquals(40L, set.occurrenceEntryId)
         assertEquals(30L, schedule.scheduleState().selectedOccurrenceId)
         assertEquals(1, viewModel.state.value.activeOccurrence?.performedSets)
+    }
+
+    @Test
+    fun editedDraftSetsKeepTheirOccurrenceAttribution() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+        val draft = viewModel.state.value.draftSets.single()
+
+        viewModel.editDraft(draft)
+        viewModel.onDraftRepsChanged("7")
+        viewModel.confirmDraftEdit()
+        advanceUntilIdle()
+
+        assertEquals(2, repository.all().size)
+        assertTrue(
+            repository.all().all {
+                it.reps == 7 && it.occurrenceId == 30L && it.occurrenceEntryId == 40L
+            }
+        )
     }
 
     @Test
@@ -1950,6 +2848,11 @@ class WorkoutLoggerViewModelTest {
                         name = id,
                         movementPattern = MovementPattern.CORE,
                         suggestedWeightKg = suggestedWeightKg,
+                        loadCapability = when (id) {
+                            "plank" -> ExerciseLoadCapability.BODYWEIGHT_ONLY
+                            "pull-up" -> ExerciseLoadCapability.BODYWEIGHT_ADDABLE
+                            else -> ExerciseLoadCapability.EXTERNAL
+                        },
                         loadKind = loadKind
                     )
                 }
@@ -2045,12 +2948,28 @@ class WorkoutLoggerViewModelTest {
         )
     }
 
-    private class FakeWorkoutLogRepository(initial: List<WorkoutSet> = emptyList()) :
-        WorkoutLogRepository {
+    private class FakeWorkoutLogRepository(
+        initial: List<WorkoutSet> = emptyList(),
+        failOnAddAttempt: Int? = null,
+        private val failOnAddAttempts: Set<Int> = setOfNotNull(failOnAddAttempt)
+    ) : WorkoutLogRepository {
         private val sets = initial.toMutableList()
         private var nextId = (initial.maxOfOrNull { it.id } ?: 0L) + 1L
+        private var addAttempts = 0
+
+        /** When set, the next [all] call suspends until it completes, to test a delayed lookup. */
+        var allGate: CompletableDeferred<Unit>? = null
+        var addGate: CompletableDeferred<Unit>? = null
 
         override suspend fun add(set: WorkoutSet) {
+            addAttempts++
+            addGate?.let { gate ->
+                addGate = null
+                gate.await()
+            }
+            if (addAttempts in failOnAddAttempts) {
+                error("Injected add failure")
+            }
             sets.add(set.copy(id = nextId++))
         }
 
@@ -2065,7 +2984,13 @@ class WorkoutLoggerViewModelTest {
             if (index >= 0) sets[index] = sets[index].copy(performedAtMillis = performedAtMillis)
         }
 
-        override suspend fun all(): List<WorkoutSet> = sets.toList()
+        override suspend fun all(): List<WorkoutSet> {
+            allGate?.let { gate ->
+                allGate = null
+                gate.await()
+            }
+            return sets.toList()
+        }
 
         override suspend fun lastSetBySession(sessionId: String): WorkoutSet? =
             sets.filter { it.sessionId == sessionId }

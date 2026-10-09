@@ -71,12 +71,48 @@ data class DraftSet(
     val sets: Int,
     val reps: Int,
     val weightKg: Double?,
-    val loadKind: LoadKind = LoadKind.EXTERNAL
+    val loadKind: LoadKind = LoadKind.EXTERNAL,
+    /** Load semantics frozen with the prescription; the live catalog may have changed since. */
+    val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL,
+    /** Frozen occurrence slot identity, when this draft came from an active workout. */
+    val occurrenceId: Long? = null,
+    val occurrenceEntryId: Long? = null
 )
+
+/** One-off values for the draft currently being edited; never written back to its prescription. */
+data class DraftEdit(
+    val draft: DraftSet,
+    val reps: String,
+    val weightInput: String,
+    val rir: String,
+    val weightRevealed: Boolean,
+    val performedAtMillis: Long?,
+    val performedAtExplicit: Boolean = false
+)
+
+/**
+ * A draft submission that stopped partway through. [source] is the pending row that was being
+ * written, [draft] holds the not-yet-recorded sets with the same confirmed one-off values, and
+ * [edit] preserves the editor's RIR and performed-time choice for the retry. In-memory only: it is
+ * never written back to a prescription and is dropped on success, dismissal or a context change.
+ */
+data class DraftWriteRetry(
+    val source: DraftSet,
+    val draft: DraftSet,
+    val edit: DraftEdit?,
+    val savedSets: Int = (source.sets - draft.sets).coerceAtLeast(0)
+) {
+    /** True when at least one set of [source] was recorded before any retry failure. */
+    val anyRecorded: Boolean get() = savedSets > 0
+}
 
 /** One draft whose stored prescription has no established load meaning and needs a decision. */
 data class LegacyResolutionItem(val draft: DraftSet, val capability: ExerciseLoadCapability) {
-    /** True when the exercise is external today, so recording the number as external is allowed. */
+    /**
+     * True when the load semantics frozen with the prescription are external, so recording the
+     * stored number as external load is allowed. This uses the frozen capability, not the live
+     * catalog, which may have changed since the prescription was saved.
+     */
     val canBeExternal: Boolean get() = capability == ExerciseLoadCapability.EXTERNAL
 }
 
@@ -103,6 +139,12 @@ data class WorkoutLoggerUiState(
     val isWarmup: Boolean = false,
     val recentSets: List<LoggedSetRow> = emptyList(),
     val draftSets: List<DraftSet> = emptyList(),
+    val draftEdit: DraftEdit? = null,
+    val missingLoadPrompt: DraftSet? = null,
+    val confirmingAllDrafts: Boolean = false,
+    val draftWriteInProgress: Boolean = false,
+    /** A partially written draft awaiting retry, or null when none. */
+    val draftWriteRetry: DraftWriteRetry? = null,
     /** The current workout of the active block, or null when no block is active. */
     val activeOccurrence: ActiveOccurrence? = null,
     /** A finish/skip error to surface (e.g. the workout changed elsewhere). */

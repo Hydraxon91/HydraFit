@@ -25,7 +25,7 @@ Source baseline: `8f1b2ae` (0.4.0 shipped). **Confirmed** means traced in curren
 
 ## 1. Logger "Planned today" drafts (LT-13)
 
-### Current behavior (confirmed in source)
+### Original observation (before LT-13)
 
 - The draft model carries `sets`, `reps`, `weightKg` and `loadKind`
   (`feature/logger/.../WorkoutLoggerUiState.kt:67-75`).
@@ -38,17 +38,34 @@ Source baseline: `8f1b2ae` (0.4.0 shipped). **Confirmed** means traced in curren
   (`WorkoutLoggerUiState.kt:77-86`, `WorkoutLoggerViewModel.kt:485-488`).
 - Manual logging already collects weight/reps/RIR, so the mechanism exists on the other path.
 
-### Direction
+### Direction at the time of the observation
 
 Give each draft an overflow/edit affordance (rather than a third inline button, which the
 reported row width cannot carry) to adjust the values that will be logged, and prompt for a
 load when a plan supplied none. Reuse the existing `legacyResolution` prompt pattern for the
 "no recommended weight" case.
 
-**Unresolved decisions (do not default silently):** which fields the editor exposes
-(reps / weight / RIR / time); whether an edit is a one-off for that confirm or persists back
-to the plan/routine; whether time can be set per draft at all; how the edit interacts with the
-legacy-resolution queue; whether a blank weight blocks Confirm or only warns.
+**Contract approved 2026-10-09 and implemented in 0.5-LT13:** expose reps, capability-appropriate
+load, optional RIR and optional performed time; keep the prescribed set count fixed. Edits are
+one-off for that draft's confirmation and never update an accepted plan, routine, activation or
+occurrence prescription. Canceling the editor creates no record and discards the edit; confirming
+records the draft's sets once. `LEGACY_UNSPECIFIED` continues through `legacyResolution`. An
+`EXTERNAL` draft with no recommended load prompts with Use last logged, Enter weight, Log without
+weight, and Cancel; a zero load is a numeric value, not missing. Bodyweight remains `BODYWEIGHT`
+unless an addable exercise's load field is explicitly revealed, in which case the edited number is
+`ADDED`; clearing an existing `ADDED` amount preserves `ADDED`+null. Optional performed time applies
+to every set in that draft and session reuse is scoped to that timestamp. Repeated confirmations are
+guarded, including across the "Use last logged" lookup. A failed multi-set write leaves successful
+sets recorded and keeps the not-yet-recorded sets as a retry that carries the same confirmed values
+(reps, load, RIR, performed time) and occurrence slot; the retry survives an occurrence refresh and
+is retried through the normal confirm path. Repeated failures retain the current remainder and
+cumulative saved-set feedback; a resolved legacy retry does not reopen or reuse its stale decision
+dialog. Explicit Use-now remains distinct from inheriting the screen time. Retry state is in memory
+only, so it is not persisted across process restart. A Confirm-all batch is scoped to its plan/
+occurrence and stops continuing when that context changes, without undoing successful writes. A
+delayed Use-last lookup is invalidated by cancel/reopen or context replacement. A legacy load
+decision is the active dialog ahead of an open draft editor, which remains available once legacy
+resolution is dismissed. No schema change.
 
 ---
 
@@ -230,10 +247,8 @@ unless it is revived.)
 4. **CAT-P7 — catalog variations** only after its sourced list is researched and reviewed.
    **EX-03 is deferred** (see §2) and is not scheduled.
 
-**Unresolved decisions (do not default silently):**
-
-- LT-13: editable field set; one-off vs persistent edit; time policy; legacy-resolution
-  interaction; whether blank weight blocks Confirm.
+**Resolved:** LT-13's field set, one-off semantics, missing-load prompt and legacy-resolution
+interaction are recorded above. Other items remain as listed below.
 - CAT-P6: **resolved** — mechanism (b) idempotent startup repair, no historical snapshot affected
   (`workoutSet` snapshots are never rewritten), shipped as the patch release `v0.4.1`.
   **Follow-up (open):** which of the five fresh-install pattern conflicts to fix and how
