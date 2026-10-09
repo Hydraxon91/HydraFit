@@ -44,7 +44,22 @@
   the user switches between freely (e.g. a planner model and a builder
   model). Because the session context carries over, an approved plan is
   implemented in place — no separate handoff message is needed.
-- PLANS.md edits are status lines only unless I approve more.
+- PLANS.md edits are status lines only unless I approve more, except the bounded
+  completion cleanup below.
+- **Completion cleanup (standing authorization):** at the end of a feature or
+  approved work chunk, after its acceptance criteria and required verification
+  pass, its post-execution review is complete, all required review fixes are
+  resolved, and the user explicitly approves the reviewed work, append its
+  completed PLANS.md detail verbatim to a dated section of `docs/plans-archive.md`. Preserve source
+  order and existing archive bytes; replace completed detail with short linked
+  stubs retaining stable item/phase ids, completion evidence and verification
+  limits, and shorten only completed status rows. Keep every open follow-up,
+  deferred check and durable decision active in PLANS.md; never archive a mixed
+  unfinished feature wholesale. Stop and ask if completion or classification is
+  ambiguous. Verify exact archival preservation and links, then include cleanup
+  in the completion report. This exception authorizes only mechanical archive,
+  stub and completed-status edits beyond the status-lines-only restriction; it
+  authorizes no new work, review, commit or push and generates no handoff/starter.
 - Generate a session handoff or session starter only when the user explicitly
   requests that artifact. Ending a phase, planning, building, reviewing or
   finishing a session does not trigger one. Ordinary completion reports results,
@@ -103,9 +118,9 @@ While executing an approved chunk:
 ### Documentation & Code Sync
 
 - **A change updates the living docs that describe it, in the same change.** If you alter behavior, architecture, the data model or stored encoding, the fatigue/planner formulas or calibration, the seeded catalog/muscle set, module boundaries, CI, or tooling, update the affected doc(s) and the `hydrafit-mechanics` skill as part of that same approved scope and commit — the same way a schema change ships its migration and a fix ships its regression test.
-- **Living docs (keep current):** `docs/architecture.md`, `docs/fatigue-formula.md`, `docs/performance-0.2.3.md`, `docs/exercise-catalog-sources.md`, `docs/exercise-catalog-rows-c1p1.md`, `docs/maestro-evaluation.md`, `docs/qa.md`, `docs/session-handoff.md`, `README.md`, `AGENTS.md`, `PLANS.md`, and `.opencode/skills/hydrafit-mechanics/SKILL.md`.
+- **Living docs (keep current):** `docs/architecture.md`, `docs/fatigue-formula.md`, `docs/performance-0.2.3.md`, `docs/exercise-catalog-sources.md`, `docs/exercise-catalog-rows-c1p1.md`, `docs/maestro-evaluation.md`, `docs/qa.md`, `docs/session-handoff.md`, `docs/agent-ui-verification.md`, `docs/agent-ci-release.md`, `docs/agent-project-reference.md`, `README.md`, `AGENTS.md`, `PLANS.md`, `.opencode/skills/hydrafit-mechanics/SKILL.md`, and its `references/*.md` topic files.
 - **Historical records are immutable:** dated review/handoff docs (`docs/code-review-0.2.2.md`, `docs/plans-archive.md`, `docs/review-*`) are never rewritten to match new code; only forward-looking docs are kept in sync.
-- **Scope note:** updating a doc your change invalidates is part of that change, not "scope creep" — but inventing new docs or rewriting unrelated ones is still out of scope. `PLANS.md` remains status-lines-only per the session rule; durable decisions move to "Decisions Made" only when approved.
+- **Scope note:** updating a doc your change invalidates is part of that change, not "scope creep" — but inventing new docs or rewriting unrelated ones is still out of scope. `PLANS.md` remains status-lines-only except the bounded completion cleanup in Session rules; durable decisions move to "Decisions Made" only when approved.
 - **If you can't update a doc in scope** (e.g. it needs a decision), say so and record it in `PLANS.md` rather than leaving the doc wrong.
 
 ### Reuse Existing Architecture
@@ -209,7 +224,7 @@ already follow) or **[target, new code only]**.
   enum (`:core:domain`) is the single source of truth for the set and its size.
   When it changes, every living doc that states the count or enumerates the set
   must be updated in the same change. Today those docs are `PLANS.md`, the
-  `hydrafit-mechanics` skill, `docs/fatigue-formula.md`,
+  `hydrafit-mechanics` skill's `references/catalog.md`, `docs/fatigue-formula.md`,
   `docs/performance-0.2.3.md` and `docs/review-0.2.3.md`. (R4-01)
 
 ## Tool Call Discipline
@@ -257,106 +272,61 @@ This table is the authoritative commit workflow; approval to edit files alone is
 - **Commit message should describe the one thing, not summarize everything.** If it's hard to write a single clear sentence for what changed, that's a sign the commit should be split.
 - **Don't bundle unrelated fixes "while you're in there."** If an unrelated issue is noticed while working on something else, mention it and ask, or commit it separately — don't fold it into the current commit.
 
-## CI/CD Pipeline & GitHub Actions
+## Required task references
 
-The repository will enforce a staged GitHub Actions pipeline. Any changes you make to the codebase *must* keep this pipeline green. As the project grows, this pipeline should scale toward a DAG-style, fail-fast structure similar to a production Android app's CI.
+Detailed procedures are loaded by task, not at every session start. They remain
+mandatory requirements, not optional guidance; this guide retains universal rules
+and approval gates. Read all applicable references before the corresponding work:
 
-### Pipeline Workflows
+- **Implementation:** read `docs/agent-project-reference.md` Project Structure &
+  Conventions for every affected module; before setup/tooling work read its relevant
+  setup/configuration sections, and before selecting build/test commands read Key
+  Commands. Do not re-run a task just to change the output view. Clean builds are
+  reserved for dependency/configuration changes, not routine edits.
+- **Mechanics:** load `hydrafit-mechanics` for its advertised tasks, then read every
+  affected topic reference selected by its index, including downstream consumers.
+  Do not load all topics by default. Update the owning reference when behavior changes.
+- **CI/signing/release/tagging/PR work:** read `docs/agent-ci-release.md` before
+  proposing or executing it. All code changes must keep CI green; ktlint/detekt run
+  on every PR. Changes go through a PR requiring passing CI before merge; direct
+  pushes to `main` should be restricted. Any new dependency's license and transitive
+  hygiene checks belong in the PR description. Never log API keys or payloads that
+  might contain them; redact before logging. Commit/push approval and post-push CI
+  monitoring remain governed by Commit Discipline above.
+- **Emulator inspection/interaction/UI verification:** read
+  `docs/agent-ui-verification.md` and load `hydrafit-ui-testing` first; before UI
+  verification select the applicable `docs/qa.md` checks, including cross-cutting
+  checks (release verification uses the release checklist). Report unverified checks.
+- **Compose UI design/implementation:** load `hydrafit-ui-quality`. For user-facing
+  copy, living docs or comments, load `hydrafit-writing`. These skills do not override
+  approval, scope or verification rules. Adapted anti-slop material is MIT-licensed;
+  attribution is in `.opencode/skills/anti-slop-LICENSE.txt`.
 
-1. **`build-and-test.yml` (primary pipeline, on pushes/PRs to `main`):**
-    - **Stage 1 (immediate parallel execution):**
-        - `lint` — runs `./gradlew ktlintCheck` (no dependencies; starts immediately).
-        - `unit-tests` — runs `./gradlew testAndroidHostTest` across `:core:domain`, `:core:userdata`, `:core:database`, and `:feature:*` (no dependencies; starts immediately).
-        - `ios-compile` — on `macos-latest`, compiles the iOS targets (no dependencies; starts immediately).
-    - **Stage 2 (build-dependent):**
-        - `assemble-debug-apk` — runs after `lint` and `unit-tests` pass; builds `./gradlew :androidApp:assembleDebug` and uploads the `androidApp-debug-apk` artifact (14-day retention).
+Paths in this guide and the task procedures are relative to the repository root.
+Mechanics reference links are relative to its skill directory, as its index states.
 
-2. **`nightly.yml` (scheduled `0 3 * * *` UTC, plus manual `workflow_dispatch`):**
-    - Mirrors the primary jobs (`lint`, `unit-tests`, `ios-compile`, `assemble-debug-apk`); concurrency group `nightly-${{ github.ref }}` with `cancel-in-progress: false`.
+## Architecture boundaries
 
-3. **`release.yml` (on `v*.*.*` tags):**
-    - `lint` and `unit-tests` gate the `build-release` job (job-scoped `permissions: contents: write`); concurrency group `release-${{ github.ref }}` with `cancel-in-progress: false`.
-    - `build-release` verifies the four `RELEASE_*` secrets are present (it fails rather than publish an unsigned APK), decodes `RELEASE_KEYSTORE_BASE64` under `$RUNNER_TEMP` and exports `RELEASE_KEYSTORE_PATH`, runs `./gradlew :androidApp:assembleRelease`, attaches the signed APK to a GitHub Release via `gh`, and deletes the decoded keystore.
-    - **Version strategy:** `versionName` comes from the tag (leading `v` stripped), `versionCode` from `GITHUB_RUN_NUMBER`; local builds keep the `0.5.0-dev` / `1` defaults. A tag containing `-` (e.g. `v0.1.0-rc.1`) publishes a pre-release.
-    - **Required secrets:** `RELEASE_KEYSTORE_BASE64` (base64-encoded keystore) plus same-named `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD`. `GEMINI_API_KEY` is not a CI secret — no CI job calls the Gemini engine.
+HydraFit is offline-first, Android-first Kotlin/Compose Multiplatform with optional
+Gemini/Local planning and a default Deterministic engine behind `WorkoutPlannerEngine`.
+Keep SQLDelight, Koin, Ktor and LiteRT-LM within the existing architecture and approval locks.
 
-### Security & Compliance Constraints
-
-- **Static Analysis:** ktlint/detekt must run on every PR. Avoid introducing patterns that trip common Android lint/security checks (e.g., hardcoded secrets, insecure HTTP, unvalidated deep links).
-- **Dependency Hygiene:** If you add a new third-party dependency, note its license and check it isn't pulling in an abandoned or flagged transitive dependency — call this out in the PR description rather than silently adding it.
-- **No Secrets in Logs:** Never `println`/log the Gemini API key or any request/response payload that might contain it, even for debugging. Redact before logging.
-
-### Branch Protection & Merging
-
-- Direct pushes to `main` should be restricted once the repo has CI. All changes should go through a Pull Request, requiring a passing CI run before merging. Use the PR template below for descriptions.
-- Since this is a solo portfolio project, peer approval isn't required — but the PR description discipline still matters, since this repo may be read by recruiters or collaborators.
-
-## Project Overview
-
-HydraFit is an **open-source, offline-first fitness planning app** built with Kotlin Multiplatform and Compose Multiplatform, Android-first with iOS as a future target. Its core feature is a swappable workout-planning strategy engine (Deterministic / Gemini API / Local On-Device LLM) sitting behind a single `WorkoutPlannerEngine` interface, combined with equipment-based filtering and a muscle fatigue tracking system.
-
-Tech stack:
-- **Kotlin Multiplatform (KMP)** — `commonMain` for shared logic, `androidMain`/`iosMain` for platform-specific glue
-- **Compose Multiplatform** — declarative UI, shared across platforms
-- **SQLDelight** — typed, multiplatform-tested local database
-- **Ktor** — HTTP client for the Gemini API engine
-- **Koin** — dependency injection, enabling engine strategy swaps
-- **Google LiteRT-LM** (`litertlm-android`) — on-device Gemma model execution (experimental engine; MediaPipe's mobile LLM Inference was deprecated)
-- **GitHub Actions** — CI/CD (lint, unit tests, debug APK build/publish)
-
-## Architecture
-
-```
-HydraFit/
-├── androidApp/            # Android entry point only: Application class, MainActivity, manifest — no feature or domain logic
-├── shared/                # Shared app shell (commonMain + platform source sets): root Composable, navigation host, Koin startup, feature registration aggregation — no feature or domain logic
-├── core/
-│   ├── domain/             # KMP module (commonMain only): models, use cases, WorkoutPlannerEngine interface — no platform APIs
-│   ├── userdata/           # Shared user profile, body metrics, goals, unit preferences, settings — used by any feature, owned by none
-│   ├── navigation/         # Shared navigation contract: FeatureDestination (route + label + graph) exported by each feature and aggregated by the shell
-│   ├── database/           # SQLDelight schema (.sq files), versioned .sqm migrations, generated queries, repository implementations
-│   ├── network/            # Ktor client setup, Gemini API DTOs, response_schema definitions
-│   └── llm/                # On-device text generation (LiteRT-LM), model management, local planner engine
-├── feature/
-│   ├── equipment/          # Equipment Profiler UI + ViewModels
-│   ├── splitbuilder/       # Adaptive Weekly Split Builder UI + ViewModels
-│   ├── fatigueheatmap/     # Muscle Fatigue Heatmap UI + ViewModels
-│   ├── logger/             # Offline Workout Logger UI + ViewModels
-│   ├── routines/           # Manual routine authoring + training-block scheduling UI + ViewModels
-│   └── settings/           # Planner engine, API key, and on-device model settings UI + ViewModels
-└── .github/workflows/      # CI/CD pipeline definitions
-```
-
-`core/domain` is a Kotlin Multiplatform module (android + iOS targets) with all code in `commonMain` and no platform APIs — never add Android or platform-specific APIs here.
-
-## Quick Start
-
-### Prerequisites
-- Android Studio (latest stable, with KMP plugin support)
-- JDK 17+
-- Kotlin Multiplatform Mobile plugin (for iOS target, if building on macOS)
-
-### Local Development
-Use the bounded commands under Key Commands. Redirect build/test output to a log and inspect it separately; do not re-run a task just to change the output view.
-
-## Local Configuration (`local.properties`)
-
-Required in root `local.properties` (gitignored, never committed):
-
-```properties
-# Gemini API Engine
-GEMINI_API_KEY=your_google_ai_studio_key_here
-
-# Release signing (only needed for release builds)
-RELEASE_KEYSTORE_PATH=/path/to/keystore.jks
-RELEASE_KEYSTORE_PASSWORD=changeme
-RELEASE_KEY_ALIAS=hydrafit
-RELEASE_KEY_PASSWORD=changeme
-```
-
-> **CI/CD:** Signed release builds require four GitHub Actions Secrets (Settings → Secrets and Actions): `RELEASE_KEYSTORE_BASE64` (the base64-encoded keystore) plus the same-named `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD`. `release.yml` decodes the keystore under `$RUNNER_TEMP` and exports `RELEASE_KEYSTORE_PATH` for the build, so `RELEASE_KEYSTORE_PATH` is a local-only key, not a CI secret. `GEMINI_API_KEY` is **not** currently a CI secret — no CI job calls the Gemini engine, so CI builds embed an empty key.
-
-> A `local.properties.template` (with placeholder values, no real secrets) should exist at the repo root and be kept up to date whenever a new config key is introduced.
+- `androidApp` is the Android entry point; `shared` is the app shell/composition root,
+  not a home for feature, domain or data logic. If no module fits new logic, ask first.
+  `shared` may reference database/network types only inside DI wiring files.
+- `core/domain` is KMP (Android + iOS), with all code in `commonMain` and no platform
+  APIs. Use cases have one public `invoke`/`execute` entry point. Repository ports live
+  in domain/userdata; SQLDelight implementations live in database, HTTP in network.
+  Domain/feature data access uses generated queries through those implementations,
+  never direct database access. No engine-specific logic outside its implementation.
+- `core/userdata` owns shared profile, metrics, goals, units and settings. Ask before
+  placing plausibly shared user data in a feature. Each feature owns its UI/state,
+  thin ViewModels and exported Koin/navigation entries. ViewModels forward business
+  actions to domain use cases. Features depend on domain/userdata, never database,
+  network or another feature; `shared` explicitly aggregates registrations.
+- Preserve existing naming/style; the detailed module conventions remain in the
+  mandatory project reference. Schema migrations and graph verification remain
+  required above.
 
 ## Localization (i18n)
 
@@ -364,179 +334,23 @@ RELEASE_KEY_PASSWORD=changeme
 - English is the baseline language; adding a new language means adding a new resource file, not touching any Kotlin code.
 - Before adding any new UI string, check whether an equivalent string already exists (e.g., a generic "Save"/"Cancel") before creating a duplicate key.
 
-## Key Commands
-
-```bash
-# Build debug APK
-perl -e 'alarm 600; exec @ARGV' ./gradlew :androidApp:assembleDebug > assemble-output.log 2>&1
-
-# Run all unit tests, redirect output
-perl -e 'alarm 600; exec @ARGV' ./gradlew testAndroidHostTest > test-output.log 2>&1
-
-# Run tests for a single module
-perl -e 'alarm 600; exec @ARGV' ./gradlew :core:domain:testAndroidHostTest > domain-test-output.log 2>&1
-
-# Run lint/static analysis
-perl -e 'alarm 600; exec @ARGV' ./gradlew ktlintCheck > lint-output.log 2>&1
-# or, if detekt is configured
-perl -e 'alarm 600; exec @ARGV' ./gradlew detekt > detekt-output.log 2>&1
-
-# Clean build (reserve for dependency/config changes, not routine edits)
-perl -e 'alarm 600; exec @ARGV' ./gradlew clean build > build-output.log 2>&1
-```
-
-## Project Structure & Conventions
-
-### `androidApp/` and `shared/`
-- `androidApp` is the Android entry point only (Application class, `MainActivity`, manifest, Android-specific wiring). It hosts the shared UI from `shared`.
-- `shared` is the app shell: root Composable, navigation host, Koin startup, and aggregation of each feature's registered Koin module and nav graph. It contains no feature, domain, or data logic — if code could live in a `core/*` or `feature/*` module, it goes there.
-- `:shared` may import `:core:database` or `:core:network` **only inside DI wiring files**; no other `:shared` code may reference their types. Everything else in `:shared` works against `:core:domain` / `:core:userdata` interfaces.
-- Neither module may grow into a dumping ground. New logic gets a home in a `core/*` or `feature/*` module, and if none fits, ask first.
-
-### `core/domain/`
-- **Use cases** — one class per user action/query (e.g., `GenerateWeeklySplitUseCase`, `CalculateMuscleFatigueUseCase`), each with a single public `invoke`/`execute` entry point.
-- **Multiplatform, commonMain-only:** all code lives in `commonMain`; do not add platform-specific APIs (no Android/iOS imports).
-- **`WorkoutPlannerEngine` interface** — the contract all three planning strategies implement. Never add engine-specific logic outside an implementation of this interface.
-- **Repository interfaces** — prefixed with `I` or suffixed with `Repository` consistently (pick one convention on first use and stick to it); implementations live in `core/database` or `core/network`.
-
-### `core/userdata/`
-- Home for data that any feature may need and no single feature owns: user profile, body metrics (weight, height), goals, and unit preferences (kg/lb, metric/imperial).
-- If a feature is about to store something another feature could plausibly want (e.g., bodyweight, daily calorie target), stop and ask whether it belongs here instead.
-
-### `core/database/`
-- SQLDelight `.sq` files define schema and queries; generated Kotlin is the only way domain/feature layers touch the database.
-- Every schema change ships with a versioned `.sqm` migration in the same change; released schemas are never edited in place.
-- Repository implementations here fulfill the interfaces declared in `core/domain` — the direction of dependency is always `feature → domain ← database`, never `domain → database`.
-
-### `core/network/`
-- Ktor client configuration and Gemini API request/response DTOs.
-- `response_schema` structured output definitions for the Gemini engine live here, not scattered across feature modules.
-
-### `feature/*`
-- Each feature module owns its Composables, ViewModels, and feature-specific state classes.
-- ViewModels stay thin: they expose UI state and forward user actions to use cases in `core/domain`. Business logic does not live in ViewModels or Composables. A ViewModel needing more than about 6 constructor dependencies is a sign it has multiple responsibilities — see the oversized-constructor rule under Anti-Churn. Every ViewModel binding must also be covered by the Koin verification test (see Unit Testing Standards).
-- Feature modules depend on `core/domain` and `core/userdata` only — never directly on `core/database` or `core/network`, and **never on another `feature/*` module**.
-- Each feature module exposes its own Koin module and navigation graph, which `shared` aggregates. A new feature (e.g., `feature/nutrition/`) should be addable without editing existing feature modules.
-
 ## Visual Verification
 
-- For approved Compose UI design or implementation, load
-  `.opencode/skills/hydrafit-ui-quality/SKILL.md` alongside this guide. For
-  user-facing copy, living documentation, or code comments, load
-  `.opencode/skills/hydrafit-writing/SKILL.md`. These are guidance only; this
-  guide's approval, scope, QA, and verification rules take precedence. Adapted
-  anti-slop material is MIT-licensed; attribution is in
-  `.opencode/skills/anti-slop-LICENSE.txt`.
-- Before verifying UI changes, consult `docs/qa.md` and select the checks relevant
-  to the approved flow, including its cross-cutting UI checks. Release verification
-  uses the release checklist. Follow `hydrafit-ui-testing` for execution and safety;
-  report any required checks left unverified.
-- Load `hydrafit-ui-testing` before emulator interaction. Prefer reusable Maestro
-  semantic flows for navigation, forms and assertions; retain ADB scripts for
-  deployment, inspection fallback, screenshots and logcat. Read the flow contract
-  first: starting state, allowed writes, expected result, cleanup and time budget.
-- Use unique selectors or scope them to a verified row/container. Never guess
-  which repeated Save/Edit/Remove/Sets/Reps control is intended. Add narrowly
-  scoped test IDs only in an approved UI change when existing semantics fail.
-- Keyboard dismissal, scrolling and dialogs invalidate old coordinates. Verify
-  focus and exact replacement text, then resolve the next control afresh. Do not
-  treat `eraseText` as unlimited clearing or `hideKeyboard` as proof of dismissal.
-  Dismiss only a positively observed keyboard when needed; prefer tapping the
-  accessible next semantic control directly. Back-based dismissal can navigate
-  away if no keyboard is shown.
-- Set Maestro `launchApp.stopApp: false` unless restart is the test; use
-  `clearState: false` and `permissions: { all: unset }` to preserve data and avoid
-  automatic permission grants. Existing approval gates apply to Maestro too.
-  Never use cloud/AI screenshot-upload commands for local verification.
-- Set `retryTapIfNoChange: false` explicitly on write actions. A timeout after
-  Save/Log/Duplicate/Start is an unknown outcome, not permission to replay it.
-  Inspect for completion; if it cannot be established, report outcome unknown
-  and stop. Never restart or clear data to recover from uncertainty.
-- If MCP inspection fails, use one bounded Maestro CLI `hierarchy
-  --no-reinstall-driver --compact` fallback (see `.maestro/README.md`). Do not run
-  `uiautomator dump`/`inspect.sh` while Maestro owns the automation connection:
-  Android rejects a competing UiAutomation registration. ADB screenshot/logcat
-  remain usable. If neither Maestro hierarchy path works, capture diagnostic
-  evidence and stop interaction; no blind taps or tool roulette. Screenshots do
-  not replace semantic success assertions.
-- Bound each short smoke flow to 120s and the interaction/recovery portion to
-  five minutes, excluding build/deploy and intentional long-generation tests
-  with their own approved budget. Allow one evidence-based correction after the
-  initial attempt only when replay is safe. Report failed step, expected/actual
-  state, elapsed time, attempts and artifacts; never claim success from a tap's
-  exit code. These are agent rules, not a tool-level security sandbox.
-- Verify the target with `adb devices -l` and set `ANDROID_SERIAL` to a running
-  `emulator-<port>` serial. All UI scripts require this explicit target, verify
-  that it responds as an emulator, and bound ADB calls. Never let a phone become
-  the implicit target; raw ADB interactions must also specify the emulator.
-- Separate deployment, launch, interaction and inspection. After code changes,
-  use `scripts/deploy.sh` (bounded debug build, then targeted APK install), then
-  `scripts/launch.sh` to foreground the app. Use `launch.sh --restart` only when
-  a restart is intended. Do not install/restart merely to inspect the current screen.
-- Use Maestro inspection while its session is active; `scripts/inspect.sh
-  [output.xml]` is for standalone ADB inspection only when no competing automation
-  session owns the device. Both expose current UI text, accessibility
-  descriptions, states and bounds without launching/restarting HydraFit; custom
-  graphics and missing semantics still require visual inspection. After UI
-  changes, capture with `scripts/snap.sh [output.png]` and view the screenshot
-  before reporting the change as done. It only captures the current screen.
-  Replace the serial placeholder below with the running emulator's serial:
-  ```bash
-  export ANDROID_SERIAL="<emulator-serial>"
-  bash scripts/deploy.sh /tmp/hydrafit-deploy.log
-  bash scripts/launch.sh
-  # Standalone ADB only; use Maestro compact CLI while Maestro owns automation.
-  bash scripts/inspect.sh /tmp/hydrafit-ui.xml
-  bash scripts/snap.sh /tmp/hydrafit-screen.png
-  ```
-  Run each needed operation separately; deployment is not required for every
-  inspection. `deploy.sh` redirects Gradle output to its log with a 600s timeout;
-  inspect it separately and report timeout/failure before retrying.
-- Coordinate fallback only: `scripts/tap.sh <x> <y>` taps without an image or
-  fixed delay. Add
-  `--screenshot [output.png]` to wait one second and capture explicitly. Inspect
-  state after relevant transitions and take images at visual checkpoints rather
-  than after every action. For raw swipe/text/keyevent commands, use
-  `adb -s "$ANDROID_SERIAL" shell input ...` with a hard timeout. Keep flows short,
-  wait for the expected state/allow rendering before capture, and cap visual
-  iteration at two rounds, then report.
+- Read `docs/agent-ui-verification.md` and load `hydrafit-ui-testing` before any
+  emulator inspection/interaction. Use semantic selectors/assertions; never guess
+  repeated controls, use stale coordinates or claim success from a tap's exit code.
+- Target only an explicitly verified running emulator (`ANDROID_SERIAL=emulator-<port>`),
+  with bounded ADB calls. Never use a phone for UI verification. If none is running,
+  ask the user to start one; do not boot one.
+- Preserve app state and permissions: no automatic clear-state/grants, no restart
+  unless intended, no cloud/AI screenshot uploads for local verification. A timed-out
+  write is unknown: inspect for completion, stop if unknown, never replay it or
+  restart/clear data to recover. Follow the procedure's exact Maestro flags and
+  bounded fallback/retry budgets; no blind taps or competing UiAutomation dumps.
+- After UI changes, capture and view the screenshot before reporting completion;
+  screenshots do not replace semantic success assertions. Artifacts go to /tmp,
+  never the repo; emulator hierarchy scratch is `/data/local/tmp/hydrafit-ui.xml`.
 - Allowed without asking: build, install, launch, screenshot, logcat,
   taps/swipes/text input, `adb shell wm size`.
 - Needs my approval: `adb uninstall`, clearing app data, and any adb command
   that touches other apps or system settings.
-- UI verification uses the emulator only, never a personal phone. If no
-  emulator is running (`adb devices` shows nothing), ask me to start it; do
-  not boot one. (DB audits are the read-only phone pulls in Session rules.)
-- Test screenshots and UI dumps go to /tmp, never into the repo. Emulator
-  inspection uses `/data/local/tmp/hydrafit-ui.xml` as a scratch hierarchy file.
-
-## PR Template
-
-Every PR description should follow this format (template at `.github/PULL_REQUEST_TEMPLATE.md`):
-
-```markdown
-## Summary
-
-<!-- What does this PR do, and why? -->
-
-## Changes
-
-<!-- List the key changes, file by file if helpful -->
-
-## Testing
-
-<!-- How did you verify this works? -->
-
-- [ ] Unit tests pass (`./gradlew testAndroidHostTest`)
-- [ ] Lint passes (`./gradlew ktlintCheck`)
-- [ ] Debug APK builds cleanly (`./gradlew :androidApp:assembleDebug`)
-- [ ] Manual smoke test on emulator (if applicable)
-
-## Checklist
-
-- [ ] My code follows the project's Kotlin style conventions
-- [ ] I've added unit tests for new domain logic
-- [ ] No hardcoded UI strings outside resource files
-- [ ] I've updated any living doc/skill that describes the changed code
-- [ ] Commit history is clean and atomic
-```

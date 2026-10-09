@@ -5,7 +5,9 @@ description: Use before any HydraFit emulator inspection, UI interaction, Maestr
 
 # HydraFit UI testing
 
-AGENTS.md owns approvals and emulator-only safety. This skill is a recipe, not
+AGENTS.md owns approvals and emulator-only safety; read
+`docs/agent-ui-verification.md` (repository-root path) before inspection or interaction
+for the mandatory detailed procedure. This skill is a recipe, not
 permission to change app data, settings, dependencies or configuration. Never
 claim 100% automation reliability. Prefer a verified failure to a guessed success.
 
