@@ -24,6 +24,12 @@ class CorrectWorkoutSetTimeUseCaseTest {
     }
 
     private class RecordingSessionResegmenter : SessionResegmenter {
+        override suspend fun resegmentAfterSetCorrection(
+            setId: Long,
+            correction: WorkoutSetCorrection,
+            utcOffsetMillis: Long
+        ) = error("Unexpected set correction")
+
         val corrections = mutableListOf<Triple<Long, Long, Long>>()
 
         override suspend fun resegmentAfterTimeCorrection(
