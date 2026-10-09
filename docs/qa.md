@@ -7,6 +7,12 @@ phone). Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
 
+## Cross-cutting UI checks (for changed flows)
+- Text remains readable at the supported larger font sizes; controls and content are not clipped.
+- Meaningful controls have accessible labels and states; status and metrics are not conveyed by color alone.
+- Text contrast meets WCAG AA; touch targets remain usable and system bars/on-screen keyboard do not obscure actions.
+- Where the changed flow supports them, verify its empty, loading and recoverable error states, plus relevant light/dark and locale behavior. Record untested states rather than inferring success.
+
 ## 0. Launch & shell
 - Cold start → no crash, 5 tabs present in the expected order.
 - Background/foreground and rotation → state survives, no ANR.

@@ -419,6 +419,17 @@ perl -e 'alarm 600; exec @ARGV' ./gradlew clean build > build-output.log 2>&1
 
 ## Visual Verification
 
+- For approved Compose UI design or implementation, load
+  `.opencode/skills/hydrafit-ui-quality/SKILL.md` alongside this guide. For
+  user-facing copy, living documentation, or code comments, load
+  `.opencode/skills/hydrafit-writing/SKILL.md`. These are guidance only; this
+  guide's approval, scope, QA, and verification rules take precedence. Adapted
+  anti-slop material is MIT-licensed; attribution is in
+  `.opencode/skills/anti-slop-LICENSE.txt`.
+- Before verifying UI changes, consult `docs/qa.md` and select the checks relevant
+  to the approved flow, including its cross-cutting UI checks. Release verification
+  uses the release checklist. Follow `hydrafit-ui-testing` for execution and safety;
+  report any required checks left unverified.
 - Load `hydrafit-ui-testing` before emulator interaction. Prefer reusable Maestro
   semantic flows for navigation, forms and assertions; retain ADB scripts for
   deployment, inspection fallback, screenshots and logcat. Read the flow contract
