@@ -4,17 +4,21 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PersonalRecord
+import com.hydrafit.app.core.domain.equipment.CatalogProfileMatch
+import com.hydrafit.app.core.domain.equipment.CatalogProfileMatcher
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseException
+import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.equipment.ExerciseOverrideRepository
 import com.hydrafit.app.core.userdata.equipment.PersonalRecordRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,6 +39,7 @@ class EquipmentProfilerViewModel(
     val state: StateFlow<EquipmentProfilerUiState> = _state.asStateFlow()
 
     private var personalRecords: List<PersonalRecord> = emptyList()
+    private var profileRequestRevision = 0L
 
     init {
         viewModelScope.launch {
@@ -261,6 +266,7 @@ class EquipmentProfilerViewModel(
 
     fun onEditExercise(exerciseId: String) {
         val exercise = _state.value.exercises.firstOrNull { it.id == exerciseId } ?: return
+        profileRequestRevision++
         _state.update {
             it.copy(
                 exerciseEditor = ExerciseEditorState(
@@ -278,32 +284,151 @@ class EquipmentProfilerViewModel(
     }
 
     fun onNewCustomExercise() {
+        profileRequestRevision++
         _state.update {
             it.copy(exerciseEditor = ExerciseEditorState(isCustom = true, isNew = true))
         }
     }
 
     fun onEditorNameChanged(value: String) {
+        profileRequestRevision++
         _state.update {
-            it.copy(exerciseEditor = it.exerciseEditor.copy(name = value, error = null))
+            it.copy(
+                exerciseEditor = it.exerciseEditor.copy(
+                    name = value,
+                    error = null,
+                    nameConflict = false,
+                    suggestion = ExerciseProfileSuggestionState()
+                )
+            )
+        }
+    }
+
+    fun onFindProfile() {
+        val editor = _state.value.exerciseEditor
+        if (!editor.isNew ||
+            !editor.isCustom ||
+            editor.name.isBlank() ||
+            editor.suggestion.isFinding
+        ) {
+            return
+        }
+        val revision = ++profileRequestRevision
+        _state.update {
+            it.copy(
+                exerciseEditor = it.exerciseEditor.copy(
+                    suggestion = ExerciseProfileSuggestionState(isFinding = true)
+                )
+            )
+        }
+        viewModelScope.launch {
+            try {
+                val match = CatalogProfileMatcher.match(
+                    editor.name,
+                    exerciseCatalog.profileCandidates()
+                )
+                if (revision != profileRequestRevision) return@launch
+                _state.update { current ->
+                    val updated = when (match) {
+                        CatalogProfileMatch.Unknown -> current.exerciseEditor.copy(
+                            suggestion = ExerciseProfileSuggestionState(noMatch = true)
+                        )
+                        is CatalogProfileMatch.Unique ->
+                            current.exerciseEditor.previewProfile(match.candidate)
+                        is CatalogProfileMatch.Ambiguous -> current.exerciseEditor.copy(
+                            suggestion = ExerciseProfileSuggestionState(
+                                candidates = match.candidates
+                            )
+                        )
+                    }
+                    current.copy(exerciseEditor = updated)
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                if (revision != profileRequestRevision) return@launch
+                _state.update {
+                    it.copy(
+                        exerciseEditor = it.exerciseEditor.copy(
+                            suggestion = ExerciseProfileSuggestionState(failed = true)
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    fun onProfileCandidateSelected(catalogId: String) {
+        _state.update { current ->
+            val editor = current.exerciseEditor
+            val candidate = editor.suggestion.candidates.singleOrNull { it.catalogId == catalogId }
+            if (!editor.isNew || !editor.isCustom || candidate == null) return@update current
+            current.copy(exerciseEditor = editor.previewProfile(candidate))
+        }
+    }
+
+    fun onProfileGroupToggled(group: ExerciseProfileGroup) {
+        _state.update { current ->
+            val editor = current.exerciseEditor
+            if (editor.suggestion.preview == null) return@update current
+            val selected = editor.suggestion.selectedGroups
+            current.copy(
+                exerciseEditor = editor.copy(
+                    suggestion = editor.suggestion.copy(
+                        selectedGroups =
+                        if (group in selected) selected - group else selected + group
+                    )
+                )
+            )
+        }
+    }
+
+    fun onApplyProfile() {
+        _state.update { it.copy(exerciseEditor = it.exerciseEditor.applySelectedProfile()) }
+    }
+
+    fun onDismissProfileSuggestion() {
+        profileRequestRevision++
+        _state.update {
+            it.copy(
+                exerciseEditor = it.exerciseEditor.copy(
+                    suggestion = ExerciseProfileSuggestionState()
+                )
+            )
         }
     }
 
     fun onEditorPatternChanged(pattern: MovementPattern) {
         _state.update {
-            it.copy(exerciseEditor = it.exerciseEditor.copy(movementPattern = pattern))
+            it.copy(
+                exerciseEditor = it.exerciseEditor.copy(
+                    movementPattern = pattern,
+                    touchedGroups = it.exerciseEditor.touchedGroups + ExerciseProfileGroup.PATTERN
+                )
+            )
         }
     }
 
     fun onEditorUnilateralToggled(isUnilateral: Boolean) {
         _state.update {
-            it.copy(exerciseEditor = it.exerciseEditor.copy(isUnilateral = isUnilateral))
+            it.copy(
+                exerciseEditor = it.exerciseEditor.copy(
+                    isUnilateral = isUnilateral,
+                    touchedGroups = it.exerciseEditor.touchedGroups +
+                        ExerciseProfileGroup.UNILATERAL
+                )
+            )
         }
     }
 
     fun onEditorLoadCapabilityChanged(capability: ExerciseLoadCapability) {
         _state.update {
-            it.copy(exerciseEditor = it.exerciseEditor.copy(loadCapability = capability))
+            it.copy(
+                exerciseEditor = it.exerciseEditor.copy(
+                    loadCapability = capability,
+                    touchedGroups = it.exerciseEditor.touchedGroups + ExerciseProfileGroup.LOAD
+                )
+            )
         }
     }
 
@@ -315,7 +440,12 @@ class EquipmentProfilerViewModel(
             } else {
                 editor.equipment + tag
             }
-            current.copy(exerciseEditor = editor.copy(equipment = updated))
+            current.copy(
+                exerciseEditor = editor.copy(
+                    equipment = updated,
+                    touchedGroups = editor.touchedGroups + ExerciseProfileGroup.EQUIPMENT
+                )
+            )
         }
     }
 
@@ -325,7 +455,13 @@ class EquipmentProfilerViewModel(
             val editor = current.exerciseEditor
             val updated = editor.involvements.toMutableMap()
             if (weight == null) updated.remove(muscle) else updated[muscle] = weight
-            current.copy(exerciseEditor = editor.copy(involvements = updated, error = null))
+            current.copy(
+                exerciseEditor = editor.copy(
+                    involvements = updated,
+                    error = null,
+                    touchedGroups = editor.touchedGroups + ExerciseProfileGroup.INVOLVEMENTS
+                )
+            )
         }
     }
 
@@ -356,7 +492,13 @@ class EquipmentProfilerViewModel(
                 closeEditorAndRefresh()
             } catch (failure: CustomExerciseException) {
                 _state.update {
-                    it.copy(exerciseEditor = it.exerciseEditor.copy(error = failure.message))
+                    it.copy(
+                        exerciseEditor = it.exerciseEditor.copy(
+                            error = failure.message,
+                            nameConflict =
+                            failure.reason == CustomExerciseFailureReason.NAME_CONFLICT
+                        )
+                    )
                 }
             }
         }
@@ -375,7 +517,12 @@ class EquipmentProfilerViewModel(
             closeEditorAndRefresh(created.id)
         } catch (failure: CustomExerciseException) {
             _state.update {
-                it.copy(exerciseEditor = it.exerciseEditor.copy(error = failure.message))
+                it.copy(
+                    exerciseEditor = it.exerciseEditor.copy(
+                        error = failure.message,
+                        nameConflict = failure.reason == CustomExerciseFailureReason.NAME_CONFLICT
+                    )
+                )
             }
         }
     }
@@ -417,10 +564,12 @@ class EquipmentProfilerViewModel(
     }
 
     fun onDismissExerciseEditor() {
+        profileRequestRevision++
         _state.update { it.copy(exerciseEditor = ExerciseEditorState()) }
     }
 
     private suspend fun closeEditorAndRefresh(highlightId: String? = null) {
+        profileRequestRevision++
         _state.update {
             it.copy(exercises = exerciseCatalog.all(), exerciseEditor = ExerciseEditorState())
         }

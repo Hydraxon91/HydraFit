@@ -401,6 +401,24 @@ identity. `CustomExerciseFailureReason.NAME_CONFLICT` distinguishes a conflict f
 guidance. Accepted non-colliding customs keep their IDs and history/prescription/preference/exclusion/PR
 references. Startup seeding/dedupe remains unchanged; future CAT-P7 collisions remain separately gated.
 
+The Equipment editor exposes **Find profile** only for new custom creation. A unique identity opens
+the **Suggested catalog profile** preview; ambiguity requires a chooser with canonical/effective
+names, equipment and stable identity labels; unknown names stay manual. This is not a physiological
+equivalence claim. Five independent checkboxes compare current/proposed equipment, pattern, exact
+involvement map, capability (including legacy/unspecified) and unilateral flag. The map is replaced
+as a whole. Manual interactions set sticky `ExerciseProfileGroup` touches even for default/restored
+values; untouched groups start checked, touched groups unchecked. Apply-selected groups become
+protected for subsequent previews. Checkbox edits and preview Cancel never mutate editor values or
+touches; Apply is disabled with no selections and never saves. Name changes invalidate the match/
+preview without clearing values/protection; creation dismissal resets all transient state.
+
+`EquipmentProfilerViewModel` reads through its existing catalog dependency and delegates matching to
+the pure domain matcher; its six dependencies and Koin binding are unchanged. Delayed reads carry a
+request revision so old names or dismissed/reopened editors cannot acquire stale previews. Ordinary
+Save retains existing trimming/validation; name conflicts render localized distinct-name-or-cancel
+guidance, never rename/merge/redirect. No IDs, history, PRs, prescriptions, working-load suggestions,
+preferences or exclusions are copied. Pattern/muscle guardrails remain advisory.
+
 ## 2. Decision log
 
 Each row: the decision, the **recorded** rationale with a citation, recorded alternatives, and status.

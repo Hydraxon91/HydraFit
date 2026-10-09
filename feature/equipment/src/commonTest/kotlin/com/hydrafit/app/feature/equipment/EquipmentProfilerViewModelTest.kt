@@ -2,13 +2,16 @@ package com.hydrafit.app.feature.equipment
 
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PersonalRecord
+import com.hydrafit.app.core.domain.equipment.CatalogExerciseProfile
 import com.hydrafit.app.core.domain.equipment.Equipment
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.equipment.ExerciseProfile
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseException
+import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
@@ -22,15 +25,18 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
@@ -386,16 +392,307 @@ class EquipmentProfilerViewModelTest {
         assertTrue(viewModel.state.value.personalRecords.isEmpty())
     }
 
+    @Test
+    fun findIsExplicitCreationOnlyAndApplyDoesNotSaveOrRename() = runTest(dispatcher) {
+        val suggested = suggestedProfile()
+        val catalog = ProfileCatalog(listOf(suggested))
+        val custom = FakeCustomExerciseRepository()
+        val overrides = FakeExerciseOverrideRepository()
+        val records = FakePersonalRecordRepository()
+        val viewModel = viewModel(
+            catalog = catalog,
+            custom = custom,
+            overrides = overrides,
+            records = records
+        )
+        advanceUntilIdle()
+        viewModel.onFindProfile()
+        assertEquals(0, catalog.reads)
+        viewModel.onNewCustomExercise()
+        viewModel.onEditorNameChanged("  Langhantel-Bankdrücken  ")
+        assertNull(viewModel.state.value.exerciseEditor.suggestion.preview)
+        assertTrue(viewModel.state.value.exerciseEditor.involvements.isEmpty())
+        viewModel.onFindProfile()
+        advanceUntilIdle()
+        assertEquals(suggested, viewModel.state.value.exerciseEditor.suggestion.preview)
+        assertTrue(custom.created.isEmpty())
+        viewModel.onApplyProfile()
+        val editor = viewModel.state.value.exerciseEditor
+        assertEquals("  Langhantel-Bankdrücken  ", editor.name)
+        assertEquals(suggested.profile.involvements, editor.involvements)
+        assertEquals(suggested.profile.equipment, editor.equipment)
+        assertTrue(custom.created.isEmpty())
+        assertTrue(overrides.overrides.isEmpty())
+        assertTrue(records.observe().first().isEmpty())
+        viewModel.onSaveExercise()
+        advanceUntilIdle()
+        assertEquals(1, custom.created.size)
+        assertEquals(suggested.profile.involvements, custom.created.single().involvements)
+        assertEquals(ExerciseEditorState(), viewModel.state.value.exerciseEditor)
+        viewModel.onEditExercise(suggested.catalogId)
+        assertFalse(viewModel.state.value.exerciseEditor.isNew)
+        assertEquals(suggested.catalogId, viewModel.state.value.exerciseEditor.exerciseId)
+        viewModel.onFindProfile()
+        assertEquals(1, catalog.reads)
+    }
+
+    @Test
+    fun manualInteractionsStayTouchedEvenForDefaultsAndRestoredValues() = runTest(dispatcher) {
+        val viewModel = viewModel(catalog = ProfileCatalog(listOf(suggestedProfile())))
+        advanceUntilIdle()
+        viewModel.onNewCustomExercise()
+        viewModel.onEditorNameChanged("Bench")
+        viewModel.onEditorPatternChanged(MovementPattern.CORE)
+        viewModel.onEditorLoadCapabilityChanged(ExerciseLoadCapability.EXTERNAL)
+        viewModel.onEditorUnilateralToggled(false)
+        viewModel.onEditorEquipmentToggled(EquipmentTag.DUMBBELL)
+        viewModel.onEditorEquipmentToggled(EquipmentTag.DUMBBELL)
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.ABS, 1.0)
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.ABS, null)
+        val before = viewModel.state.value.exerciseEditor
+        assertEquals(ExerciseProfileGroup.entries.toSet(), before.touchedGroups)
+        viewModel.onFindProfile()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.exerciseEditor.suggestion.selectedGroups.isEmpty())
+        val preview = viewModel.state.value.exerciseEditor
+        viewModel.onApplyProfile()
+        assertEquals(preview, viewModel.state.value.exerciseEditor)
+        viewModel.onProfileGroupToggled(ExerciseProfileGroup.INVOLVEMENTS)
+        assertEquals(before.involvements, viewModel.state.value.exerciseEditor.involvements)
+        assertEquals(before.touchedGroups, viewModel.state.value.exerciseEditor.touchedGroups)
+        viewModel.onDismissProfileSuggestion()
+        assertEquals(before, viewModel.state.value.exerciseEditor)
+    }
+
+    @Test
+    fun partialApplyAndNameInvalidationPreserveProtection() = runTest(dispatcher) {
+        val viewModel = viewModel(catalog = ProfileCatalog(listOf(suggestedProfile())))
+        advanceUntilIdle()
+        viewModel.onNewCustomExercise()
+        viewModel.onEditorNameChanged("Bench")
+        viewModel.onEditorPatternChanged(MovementPattern.HINGE)
+        viewModel.onFindProfile()
+        advanceUntilIdle()
+        assertFalse(
+            ExerciseProfileGroup.PATTERN in
+                viewModel.state.value.exerciseEditor.suggestion.selectedGroups
+        )
+        viewModel.onProfileGroupToggled(ExerciseProfileGroup.LOAD)
+        viewModel.onApplyProfile()
+        val applied = viewModel.state.value.exerciseEditor
+        assertEquals(MovementPattern.HINGE, applied.movementPattern)
+        assertEquals(ExerciseLoadCapability.EXTERNAL, applied.loadCapability)
+        assertEquals(suggestedProfile().profile.involvements, applied.involvements)
+        viewModel.onFindProfile()
+        advanceUntilIdle()
+        assertEquals(
+            setOf(ExerciseProfileGroup.LOAD),
+            viewModel.state.value.exerciseEditor.suggestion.selectedGroups
+        )
+        viewModel.onEditorNameChanged("Unknown name")
+        assertEquals(applied.copy(name = "Unknown name"), viewModel.state.value.exerciseEditor)
+        viewModel.onFindProfile()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.exerciseEditor.suggestion.noMatch)
+        assertEquals(applied.involvements, viewModel.state.value.exerciseEditor.involvements)
+        viewModel.onDismissExerciseEditor()
+        viewModel.onNewCustomExercise()
+        assertEquals(
+            ExerciseEditorState(isNew = true, isCustom = true),
+            viewModel.state.value.exerciseEditor
+        )
+    }
+
+    @Test
+    fun ambiguityRequiresExplicitValidChoiceAndChooserCancelDoesNothing() = runTest(dispatcher) {
+        val first = suggestedProfile()
+        val second = first.copy(catalogId = "other", canonicalName = "Incline Bench")
+        val viewModel = viewModel(catalog = ProfileCatalog(listOf(first, second)))
+        advanceUntilIdle()
+        viewModel.onNewCustomExercise()
+        viewModel.onEditorNameChanged("Bench")
+        val before = viewModel.state.value.exerciseEditor
+        viewModel.onFindProfile()
+        advanceUntilIdle()
+        assertEquals(2, viewModel.state.value.exerciseEditor.suggestion.candidates.size)
+        assertNull(viewModel.state.value.exerciseEditor.suggestion.preview)
+        viewModel.onApplyProfile()
+        viewModel.onProfileCandidateSelected("missing")
+        assertNull(viewModel.state.value.exerciseEditor.suggestion.preview)
+        viewModel.onDismissProfileSuggestion()
+        assertEquals(before, viewModel.state.value.exerciseEditor)
+        viewModel.onFindProfile()
+        advanceUntilIdle()
+        viewModel.onProfileCandidateSelected("other")
+        assertEquals(second, viewModel.state.value.exerciseEditor.suggestion.preview)
+    }
+
+    @Test
+    fun delayedFindCannotAttachAfterNameChangeOrCancelReopen() = runTest(dispatcher) {
+        listOf(false, true).forEach { reopen ->
+            val gate = CompletableDeferred<List<CatalogExerciseProfile>>()
+            val viewModel = viewModel(catalog = ProfileCatalog(emptyList(), gate))
+            advanceUntilIdle()
+            viewModel.onNewCustomExercise()
+            viewModel.onEditorNameChanged("Bench")
+            viewModel.onFindProfile()
+            runCurrent()
+            if (reopen) {
+                viewModel.onDismissExerciseEditor()
+                viewModel.onNewCustomExercise()
+                viewModel.onEditorNameChanged("Bench")
+            } else {
+                viewModel.onEditorNameChanged("Different")
+            }
+            val before = viewModel.state.value.exerciseEditor
+            gate.complete(listOf(suggestedProfile()))
+            advanceUntilIdle()
+            assertEquals(before, viewModel.state.value.exerciseEditor)
+        }
+    }
+
+    @Test
+    fun delayedFindUsesLatestTouchesAndFailureRemainsRetryable() = runTest(dispatcher) {
+        val gate = CompletableDeferred<List<CatalogExerciseProfile>>()
+        val catalog = ProfileCatalog(emptyList(), gate)
+        val viewModel = viewModel(catalog = catalog)
+        advanceUntilIdle()
+        viewModel.onNewCustomExercise()
+        viewModel.onEditorNameChanged("Bench")
+        viewModel.onFindProfile()
+        runCurrent()
+        viewModel.onEditorPatternChanged(MovementPattern.CORE)
+        gate.complete(listOf(suggestedProfile()))
+        advanceUntilIdle()
+        assertFalse(
+            ExerciseProfileGroup.PATTERN in
+                viewModel.state.value.exerciseEditor.suggestion.selectedGroups
+        )
+        val failingCatalog = ProfileCatalog(
+            listOf(suggestedProfile()),
+            failure = IllegalStateException("read failure")
+        )
+        val failing = viewModel(catalog = failingCatalog)
+        advanceUntilIdle()
+        failing.onNewCustomExercise()
+        failing.onEditorNameChanged("Bench")
+        failing.onFindProfile()
+        advanceUntilIdle()
+        assertTrue(failing.state.value.exerciseEditor.suggestion.failed)
+        failingCatalog.failure = null
+        failing.onFindProfile()
+        advanceUntilIdle()
+        assertNotNull(failing.state.value.exerciseEditor.suggestion.preview)
+    }
+
+    @Test
+    fun allCapabilitiesSurviveApplyAndCancel() = runTest(dispatcher) {
+        ExerciseLoadCapability.entries.forEach { capability ->
+            val custom = FakeCustomExerciseRepository()
+            val viewModel = viewModel(
+                custom = custom,
+                catalog = ProfileCatalog(listOf(suggestedProfile(capability)))
+            )
+            advanceUntilIdle()
+            viewModel.onNewCustomExercise()
+            viewModel.onEditorNameChanged("Bench")
+            viewModel.onFindProfile()
+            advanceUntilIdle()
+            assertEquals(
+                capability,
+                viewModel.state.value.exerciseEditor.suggestion.preview?.profile?.loadCapability
+            )
+            viewModel.onApplyProfile()
+            assertEquals(capability, viewModel.state.value.exerciseEditor.loadCapability)
+            viewModel.onDismissExerciseEditor()
+            advanceUntilIdle()
+            assertTrue(custom.created.isEmpty())
+        }
+    }
+
+    @Test
+    fun nameConflictIsTypedAndClearedByNameEditsWithoutDiscardingProfile() = runTest(dispatcher) {
+        val custom = FakeCustomExerciseRepository(
+            addFailure = CustomExerciseException(
+                "duplicate",
+                CustomExerciseFailureReason.NAME_CONFLICT
+            )
+        )
+        val viewModel = viewModel(
+            custom = custom,
+            catalog = ProfileCatalog(listOf(suggestedProfile()))
+        )
+        advanceUntilIdle()
+        viewModel.onNewCustomExercise()
+        viewModel.onEditorNameChanged("Bench")
+        viewModel.onFindProfile()
+        advanceUntilIdle()
+        viewModel.onApplyProfile()
+        viewModel.onSaveExercise()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.exerciseEditor.nameConflict)
+        assertTrue(custom.created.isEmpty())
+        viewModel.onEditorNameChanged("Distinct name")
+        assertFalse(viewModel.state.value.exerciseEditor.nameConflict)
+        assertNull(viewModel.state.value.exerciseEditor.error)
+        assertEquals(
+            suggestedProfile().profile.involvements,
+            viewModel.state.value.exerciseEditor.involvements
+        )
+    }
+
+    private fun suggestedProfile(
+        capability: ExerciseLoadCapability = ExerciseLoadCapability.BODYWEIGHT_ADDABLE
+    ) = CatalogExerciseProfile(
+        catalogId = "bench-id",
+        canonicalName = "Canonical Bench",
+        displayName = "Bench",
+        aliases = listOf("Langhantel-Bankdrücken"),
+        profile = ExerciseProfile(
+            setOf(EquipmentTag.DUMBBELL),
+            MovementPattern.HORIZONTAL_PUSH,
+            mapOf(MuscleGroup.CHEST_UPPER to 0.83, MuscleGroup.TRICEPS to 0.17),
+            capability,
+            true
+        )
+    )
+
+    private class ProfileCatalog(
+        private val snapshot: List<CatalogExerciseProfile>,
+        private val gate: CompletableDeferred<List<CatalogExerciseProfile>>? = null,
+        var failure: Exception? = null
+    ) : ExerciseCatalog {
+        var reads = 0
+        override suspend fun all(): List<Exercise> = snapshot.map { candidate ->
+            Exercise(
+                id = candidate.catalogId,
+                name = candidate.displayName,
+                requiredEquipment = candidate.profile.equipment,
+                primaryMuscles = emptySet(),
+                movementPattern = candidate.profile.movementPattern,
+                isUnilateral = candidate.profile.isUnilateral,
+                loadCapability = candidate.profile.loadCapability,
+                involvements = candidate.profile.involvements
+            )
+        }
+        override suspend fun profileCandidates(): List<CatalogExerciseProfile> {
+            reads++
+            failure?.let { throw it }
+            return gate?.await() ?: snapshot
+        }
+    }
+
     private fun viewModel(
         equipment: FakeEquipmentRepository = FakeEquipmentRepository(),
         selection: FakeSelectionRepository = FakeSelectionRepository(emptySet()),
         overrides: FakeExerciseOverrideRepository = FakeExerciseOverrideRepository(),
         custom: FakeCustomExerciseRepository = FakeCustomExerciseRepository(),
-        records: FakePersonalRecordRepository = FakePersonalRecordRepository()
+        records: FakePersonalRecordRepository = FakePersonalRecordRepository(),
+        catalog: ExerciseCatalog? = null
     ) = EquipmentProfilerViewModel(
         equipmentRepository = equipment,
         selectionRepository = selection,
-        exerciseCatalog = FakeExerciseCatalog(overrides, custom),
+        exerciseCatalog = catalog ?: FakeExerciseCatalog(overrides, custom),
         exerciseOverrideRepository = overrides,
         customExerciseRepository = custom,
         personalRecordRepository = records
@@ -508,8 +805,10 @@ class EquipmentProfilerViewModelTest {
         }
     }
 
-    private class FakeCustomExerciseRepository(private val deleteFailure: String? = null) :
-        CustomExerciseRepository {
+    private class FakeCustomExerciseRepository(
+        private val deleteFailure: String? = null,
+        private val addFailure: CustomExerciseException? = null
+    ) : CustomExerciseRepository {
         val created = mutableListOf<Exercise>()
 
         override suspend fun add(
@@ -520,6 +819,7 @@ class EquipmentProfilerViewModelTest {
             isUnilateral: Boolean,
             loadCapability: ExerciseLoadCapability
         ): Exercise {
+            addFailure?.let { throw it }
             val exercise = Exercise(
                 id = "user-" + name.lowercase().replace(' ', '-'),
                 name = name,

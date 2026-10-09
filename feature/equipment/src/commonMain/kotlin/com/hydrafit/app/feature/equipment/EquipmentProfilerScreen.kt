@@ -48,6 +48,7 @@ import hydrafit.feature.equipment.generated.resources.equipment_add_button
 import hydrafit.feature.equipment.generated.resources.equipment_add_exercise
 import hydrafit.feature.equipment.generated.resources.equipment_add_label
 import hydrafit.feature.equipment.generated.resources.equipment_bodyweight
+import hydrafit.feature.equipment.generated.resources.equipment_cancel
 import hydrafit.feature.equipment.generated.resources.equipment_custom_section
 import hydrafit.feature.equipment.generated.resources.equipment_delete
 import hydrafit.feature.equipment.generated.resources.equipment_edit
@@ -62,16 +63,19 @@ import hydrafit.feature.equipment.generated.resources.equipment_exclude_window
 import hydrafit.feature.equipment.generated.resources.equipment_exclusion_section
 import hydrafit.feature.equipment.generated.resources.equipment_exclusions_title
 import hydrafit.feature.equipment.generated.resources.equipment_exercise_section
+import hydrafit.feature.equipment.generated.resources.equipment_find_profile
 import hydrafit.feature.equipment.generated.resources.equipment_include
 import hydrafit.feature.equipment.generated.resources.equipment_load_bodyweight
 import hydrafit.feature.equipment.generated.resources.equipment_load_bodyweight_added
 import hydrafit.feature.equipment.generated.resources.equipment_load_external
 import hydrafit.feature.equipment.generated.resources.equipment_load_section
+import hydrafit.feature.equipment.generated.resources.equipment_load_unspecified
 import hydrafit.feature.equipment.generated.resources.equipment_manage
 import hydrafit.feature.equipment.generated.resources.equipment_max_weight
 import hydrafit.feature.equipment.generated.resources.equipment_movement_pattern
 import hydrafit.feature.equipment.generated.resources.equipment_movement_pattern_hint
 import hydrafit.feature.equipment.generated.resources.equipment_muscles
+import hydrafit.feature.equipment.generated.resources.equipment_name_conflict
 import hydrafit.feature.equipment.generated.resources.equipment_name_label
 import hydrafit.feature.equipment.generated.resources.equipment_pattern_accessory_group
 import hydrafit.feature.equipment.generated.resources.equipment_pattern_compound_group
@@ -84,6 +88,9 @@ import hydrafit.feature.equipment.generated.resources.equipment_preference_less
 import hydrafit.feature.equipment.generated.resources.equipment_preference_neutral
 import hydrafit.feature.equipment.generated.resources.equipment_preference_prefer
 import hydrafit.feature.equipment.generated.resources.equipment_preference_section
+import hydrafit.feature.equipment.generated.resources.equipment_profile_failed
+import hydrafit.feature.equipment.generated.resources.equipment_profile_finding
+import hydrafit.feature.equipment.generated.resources.equipment_profile_unknown
 import hydrafit.feature.equipment.generated.resources.equipment_profiler_title
 import hydrafit.feature.equipment.generated.resources.equipment_remove
 import hydrafit.feature.equipment.generated.resources.equipment_save_error
@@ -170,6 +177,13 @@ fun EquipmentProfilerRoute(
         onEditorUnilateralToggled = viewModel::onEditorUnilateralToggled,
         onEditorLoadCapabilityChanged = viewModel::onEditorLoadCapabilityChanged,
         onEditorMuscleInvolvementChanged = viewModel::onEditorMuscleInvolvementChanged,
+        profileActions = ExerciseProfileSuggestionActions(
+            find = viewModel::onFindProfile,
+            choose = viewModel::onProfileCandidateSelected,
+            toggle = viewModel::onProfileGroupToggled,
+            apply = viewModel::onApplyProfile,
+            dismiss = viewModel::onDismissProfileSuggestion
+        ),
         onSaveExercise = viewModel::onSaveExercise,
         onResetExercise = viewModel::onResetExercise,
         onDeleteCustomExercise = viewModel::onDeleteCustomExercise,
@@ -213,6 +227,7 @@ fun EquipmentProfilerScreen(
     onEditorUnilateralToggled: (Boolean) -> Unit,
     onEditorLoadCapabilityChanged: (ExerciseLoadCapability) -> Unit,
     onEditorMuscleInvolvementChanged: (MuscleGroup, Double?) -> Unit,
+    profileActions: ExerciseProfileSuggestionActions,
     onSaveExercise: () -> Unit,
     onResetExercise: () -> Unit,
     onDeleteCustomExercise: () -> Unit,
@@ -348,7 +363,12 @@ fun EquipmentProfilerScreen(
             onDismiss = onDismissEquipmentEditor
         )
     }
-    if (state.exerciseEditor.isOpen) {
+    val suggestion = state.exerciseEditor.suggestion
+    if (state.exerciseEditor.isOpen &&
+        (suggestion.preview != null || suggestion.candidates.isNotEmpty())
+    ) {
+        ExerciseProfileSuggestionDialog(state.exerciseEditor, state.equipment, profileActions)
+    } else if (state.exerciseEditor.isOpen) {
         val editorExerciseId = state.exerciseEditor.exerciseId
         ExerciseEditorDialog(
             state = state.exerciseEditor,
@@ -364,6 +384,7 @@ fun EquipmentProfilerScreen(
             onExclude = onExcludeExercise,
             onInclude = onIncludeExercise,
             onNameChanged = onEditorNameChanged,
+            onFindProfile = profileActions.find,
             onPatternChanged = onEditorPatternChanged,
             onEquipmentToggled = onEditorEquipmentToggled,
             onUnilateralToggled = onEditorUnilateralToggled,
@@ -616,6 +637,7 @@ private fun ExerciseEditorDialog(
     onInclude: (String) -> Unit,
     onNameChanged: (String) -> Unit,
     onPatternChanged: (MovementPattern) -> Unit,
+    onFindProfile: () -> Unit,
     onEquipmentToggled: (EquipmentTag) -> Unit,
     onUnilateralToggled: (Boolean) -> Unit,
     onLoadCapabilityChanged: (ExerciseLoadCapability) -> Unit,
@@ -634,6 +656,11 @@ private fun ExerciseEditorDialog(
         },
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (state.isNew) {
+                    TextButton(onClick = onDismiss) {
+                        Text(stringResource(Res.string.equipment_cancel))
+                    }
+                }
                 if (state.isCustom && !state.isNew) {
                     TextButton(onClick = onDelete) {
                         Text(stringResource(Res.string.equipment_delete))
@@ -667,6 +694,23 @@ private fun ExerciseEditorDialog(
                     label = { Text(stringResource(Res.string.equipment_name_label)) },
                     singleLine = true
                 )
+                if (state.isNew && state.isCustom) {
+                    TextButton(
+                        onClick = onFindProfile,
+                        enabled = state.name.isNotBlank() && !state.suggestion.isFinding
+                    ) {
+                        Text(stringResource(Res.string.equipment_find_profile))
+                    }
+                    if (state.suggestion.isFinding) {
+                        Text(stringResource(Res.string.equipment_profile_finding))
+                    }
+                    if (state.suggestion.noMatch) {
+                        Text(stringResource(Res.string.equipment_profile_unknown))
+                    }
+                    if (state.suggestion.failed) {
+                        Text(stringResource(Res.string.equipment_profile_failed))
+                    }
+                }
                 MovementPatternPicker(state.movementPattern, onPatternChanged)
                 if (state.patternMismatch) {
                     Text(
@@ -695,6 +739,9 @@ private fun ExerciseEditorDialog(
                     style = MaterialTheme.typography.labelMedium
                 )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (state.loadCapability == ExerciseLoadCapability.UNSPECIFIED) {
+                        Text(stringResource(Res.string.equipment_load_unspecified))
+                    }
                     FilterChip(
                         selected = state.loadCapability == ExerciseLoadCapability.EXTERNAL,
                         onClick = { onLoadCapabilityChanged(ExerciseLoadCapability.EXTERNAL) },
@@ -802,7 +849,11 @@ private fun ExerciseEditorDialog(
                 }
                 state.error?.let { message ->
                     Text(
-                        text = message,
+                        text = if (state.nameConflict) {
+                            stringResource(Res.string.equipment_name_conflict)
+                        } else {
+                            message
+                        },
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -945,7 +996,7 @@ private fun muscleNames(muscles: Set<MuscleGroup>): String {
     return labels.joinToString(", ")
 }
 
-private fun MuscleGroup.labelResource(): StringResource = when (this) {
+internal fun MuscleGroup.labelResource(): StringResource = when (this) {
     MuscleGroup.CHEST_UPPER -> Res.string.muscle_chest_upper
     MuscleGroup.CHEST_LOWER -> Res.string.muscle_chest_lower
     MuscleGroup.LATS -> Res.string.muscle_lats
@@ -969,7 +1020,7 @@ private fun MuscleGroup.labelResource(): StringResource = when (this) {
     MuscleGroup.NECK -> Res.string.muscle_neck
 }
 
-private fun MovementPattern.labelResource(): StringResource = when (this) {
+internal fun MovementPattern.labelResource(): StringResource = when (this) {
     MovementPattern.HORIZONTAL_PUSH -> Res.string.pattern_horizontal_push
     MovementPattern.VERTICAL_PUSH -> Res.string.pattern_vertical_push
     MovementPattern.HORIZONTAL_PULL -> Res.string.pattern_horizontal_pull

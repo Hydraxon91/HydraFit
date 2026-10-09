@@ -1,5 +1,6 @@
 package com.hydrafit.app.feature.equipment
 
+import com.hydrafit.app.core.domain.equipment.CatalogExerciseProfile
 import com.hydrafit.app.core.domain.equipment.Equipment
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
@@ -22,7 +23,11 @@ data class ExerciseEditorState(
     val isUnilateral: Boolean = false,
     /** What external load this exercise can carry; drives generation, logging and display. */
     val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL,
-    val error: String? = null
+    val error: String? = null,
+    val nameConflict: Boolean = false,
+    /** Sticky manual interaction/Apply protection, not a comparison with the initial values. */
+    val touchedGroups: Set<ExerciseProfileGroup> = emptySet(),
+    val suggestion: ExerciseProfileSuggestionState = ExerciseProfileSuggestionState()
 ) {
     val isOpen: Boolean
         get() = isNew || exerciseId != null
@@ -41,10 +46,64 @@ data class ExerciseEditorState(
     val secondaryMuscles: Set<MuscleGroup>
         get() = involvements.filterValues { it < PRIMARY_THRESHOLD }.keys
 
+    fun previewProfile(candidate: CatalogExerciseProfile): ExerciseEditorState = copy(
+        suggestion = ExerciseProfileSuggestionState(
+            preview = candidate,
+            selectedGroups = ExerciseProfileGroup.entries.toSet() - touchedGroups
+        )
+    )
+
+    fun applySelectedProfile(): ExerciseEditorState {
+        val proposed = suggestion.preview?.profile ?: return this
+        val selected = suggestion.selectedGroups
+        if (!isNew || !isCustom || selected.isEmpty()) return this
+        return copy(
+            equipment =
+            if (ExerciseProfileGroup.EQUIPMENT in selected) proposed.equipment else equipment,
+            movementPattern = if (ExerciseProfileGroup.PATTERN in selected) {
+                proposed.movementPattern
+            } else {
+                movementPattern
+            },
+            involvements = if (ExerciseProfileGroup.INVOLVEMENTS in selected) {
+                proposed.involvements
+            } else {
+                involvements
+            },
+            loadCapability =
+            if (ExerciseProfileGroup.LOAD in selected) proposed.loadCapability else loadCapability,
+            isUnilateral = if (ExerciseProfileGroup.UNILATERAL in selected) {
+                proposed.isUnilateral
+            } else {
+                isUnilateral
+            },
+            touchedGroups = touchedGroups + selected,
+            suggestion = ExerciseProfileSuggestionState()
+        )
+    }
+
     companion object {
         const val PRIMARY_THRESHOLD = 0.7
     }
 }
+
+enum class ExerciseProfileGroup {
+    EQUIPMENT,
+    PATTERN,
+    INVOLVEMENTS,
+    LOAD,
+    UNILATERAL
+}
+
+/** All suggestion state is unsaved and belongs to one creation editor/name association. */
+data class ExerciseProfileSuggestionState(
+    val isFinding: Boolean = false,
+    val candidates: List<CatalogExerciseProfile> = emptyList(),
+    val preview: CatalogExerciseProfile? = null,
+    val selectedGroups: Set<ExerciseProfileGroup> = emptySet(),
+    val noMatch: Boolean = false,
+    val failed: Boolean = false
+)
 
 /** A saved best set shown in the Personal records list (name resolved for display). */
 data class PersonalRecordRow(

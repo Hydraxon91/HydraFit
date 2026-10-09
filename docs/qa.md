@@ -21,6 +21,26 @@ exact on-screen text.
 - Movement-pattern picker now groups **Compound** and **Accessory** and shows the hint that accessory patterns use the accessory set count. Selecting an accessory pattern (e.g. Core, Biceps isolation) yields the accessory set count in a plan.
 - Reset restores defaults; add/edit/delete a custom exercise; deleting one referenced by a logged set is blocked.
 - **Load capability (EX-02):** the editor's Load row offers External weight / Bodyweight / Bodyweight + added. `Ab Roll` shows Bodyweight selected; `Back Squat` shows External weight; `Pull-up` shows Bodyweight + added. Saving persists and survives relaunch (built-in edits go through the override).
+- **Catalog profile suggestions (CAT-02; emulator verification pending):** New exercise → enter
+  Pullup/Chinup or Langhantel-Bankdrücken/Kurzhantel-Bankdrücken → Find profile → Suggested catalog
+  profile shows effective equipment/pattern, exact muscle weights, load and unilateral flag. All
+  approved languages work regardless of UI locale. Existing-edit dialogs do not offer Find profile.
+- Rename a built-in → its canonical name, new display name and approved alias still find the same
+  effective profile. Give two built-ins the same effective display name → Find requires an explicit
+  chooser with names/equipment/identity labels; never automatically selects one. Unknown, partial,
+  blank or separator-only names do not populate fields.
+- Manually interact with each of the five groups (including default values or toggling back) → its
+  preview checkbox starts unchecked; untouched groups start checked. Toggle preview checks → editor
+  values/protection remain unchanged until Apply selected. Uncheck all → Apply disabled.
+- Apply a subset → only those groups change, muscle weights replace the whole map, name stays the
+  user's, no exercise is saved. Find again → applied groups remain unchecked/protected. Name edit
+  invalidates the preview without discarding values/protection. Preview Cancel changes neither;
+  creation Cancel persists nothing and reopening starts fresh. Legacy/unspecified is displayed
+  honestly and is not converted to External weight.
+- Save a canonical seeded name or its whitespace/case variant → localized choose-a-distinct-name-or-
+  cancel guidance. Non-colliding approved alias/translation names save as separate custom identities;
+  their related records remain on their custom IDs across startup. Existing advisory guardrails and
+  normal Save validation still apply. No suggestions copy prescriptions/history/preferences/PRs.
 
 ## 3. Plan — deterministic
 - Days 2–6 resolve to the right split (2–3 Full Body, 4 Upper-Lower, 5–6 PPL); per-day focus labels correct.
