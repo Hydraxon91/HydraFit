@@ -148,3 +148,33 @@ exact on-screen text.
 ## 13. Release-specific
 - Install the signed APK from `release.yml`; `versionName`/`versionCode` match the tag/run number.
 - Upgrade install over the previous build → data survives migrations.
+
+### v0.5.0 publication verification (2026-10-09)
+
+- Full release [v0.5.0](https://github.com/Hydraxon91/HydraFit/releases/tag/v0.5.0)
+  tags `5fc0c46`. Prep Build-and-Test run `37958774647` and Release run
+  `37959121105` passed; the latter's run number is 10.
+- Downloaded published APK: 24,553,307 bytes, `versionName=0.5.0`,
+  `versionCode=10`. `apksigner verify` passed, with the same signing certificate
+  SHA-256 as published v0.4.1:
+  `af9cd73b3cc6842c7ab3c2f3cd572245826089aee863e9168a761a893c35a7e1`.
+  APK SHA-256 matched GitHub's asset digest:
+  `965fdb33c4d27c9b57460e0587eebb74d7d53731da4ec07924298ff825f9c8ac`.
+- On `emulator-5554` only, the approved debug-app uninstall was followed by
+  installation of published signed v0.4.1. A synthetic logged set was created,
+  then published signed v0.5.0 was installed with `adb install -r`, without
+  clearing data. A semantic assertion confirmed the exact exercise/reps/load
+  survived; screenshot `/tmp/hydrafit-050-upgrade.png` was captured and viewed.
+  The synthetic set remains on the emulator as a QA fixture.
+- MCP inspection failed with a disconnected device-server error; bounded
+  compact Maestro CLI inspection succeeded. Initial navigation asserted an
+  incorrect heading; the first seed attempt lost its screen after `launchApp`.
+  No write had occurred. One corrected seed attempt used explicit tab navigation
+  without another launch and passed. Upgrade assertions passed on the first run.
+  Evidence: `/tmp/hydrafit-050-seed-attempt2.log` and
+  `/tmp/hydrafit-050-upgrade.log`.
+- This verifies signed artifact identity/version and one retained-record upgrade,
+  not all data relationships or the full checklist. Fresh signed v0.5.0 install,
+  full feature regression, font/theme/locale variants, and release-APK backup
+  round-trip were not repeated here; earlier candidate verification is recorded
+  separately in PLANS.md.
