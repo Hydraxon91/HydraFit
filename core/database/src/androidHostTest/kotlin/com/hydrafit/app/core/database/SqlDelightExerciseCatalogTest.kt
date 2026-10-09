@@ -2,13 +2,17 @@ package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.hydrafit.app.core.domain.equipment.CatalogProfileMatch
+import com.hydrafit.app.core.domain.equipment.CatalogProfileMatcher
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -159,6 +163,86 @@ class SqlDelightExerciseCatalogTest {
         assertTrue(exercise.primaryMuscles.isEmpty())
         assertTrue(exercise.secondaryMuscles.isEmpty())
         assertTrue(exercise.effectiveInvolvements.isEmpty())
+    }
+
+    @Test
+    fun profileReadKeepsCanonicalAndAliasesWithExactEffectiveOverrides() = runTest {
+        SeedExerciseCatalog(database).seed()
+        SeedEquipmentCatalog(database).seed()
+        ExerciseLoadCapability.entries.forEach { capability ->
+            SqlDelightExerciseOverrideRepository(database).update(
+                exerciseId = "barbell-bench-press",
+                name = "My Flat Bench",
+                requiredEquipment = setOf(EquipmentTag.DUMBBELL),
+                movementPattern = MovementPattern.CORE,
+                unilateral = true,
+                loadCapability = capability,
+                involvements = mapOf(MuscleGroup.CHEST_UPPER to 0.83, MuscleGroup.TRICEPS to 0.17)
+            )
+            val before = database.exerciseOverrideQueries.selectAll().executeAsList()
+            val snapshot = catalog.profileCandidates()
+            val names = listOf("Barbell Bench Press", "My Flat Bench", "Langhantel-Bankdrücken")
+            names.forEach { name ->
+                val candidate = assertIs<CatalogProfileMatch.Unique>(
+                    CatalogProfileMatcher.match(name, snapshot)
+                ).candidate
+                assertEquals("barbell-bench-press", candidate.catalogId)
+                assertEquals("Barbell Bench Press", candidate.canonicalName)
+                assertEquals("My Flat Bench", candidate.displayName)
+                assertEquals(setOf(EquipmentTag.DUMBBELL), candidate.profile.equipment)
+                assertEquals(MovementPattern.CORE, candidate.profile.movementPattern)
+                assertEquals(capability, candidate.profile.loadCapability)
+                assertTrue(candidate.profile.isUnilateral)
+                assertEquals(
+                    mapOf(MuscleGroup.CHEST_UPPER to 0.83, MuscleGroup.TRICEPS to 0.17),
+                    candidate.profile.involvements
+                )
+            }
+            assertEquals(before, database.exerciseOverrideQueries.selectAll().executeAsList())
+        }
+    }
+
+    @Test
+    fun profileCandidatesExcludeCustomAndNonSeedRowsAndPreserveRuntimeCollisions() = runTest {
+        SeedExerciseCatalog(database).seed()
+        database.exerciseQueries.insertCustom(
+            "user-pullup",
+            "Pullup",
+            "",
+            "CORE",
+            0L,
+            "EXTERNAL",
+            "ABS:1.0"
+        )
+        insert("non-seed", "Pullup", emptySet(), setOf(MuscleGroup.ABS), emptySet())
+        SqlDelightExerciseOverrideRepository(database).update(
+            exerciseId = "chin-up",
+            name = "Pullup",
+            requiredEquipment = setOf(EquipmentTag.PULL_UP_BAR),
+            movementPattern = null,
+            involvements = mapOf(MuscleGroup.BICEPS to 1.0)
+        )
+        val snapshot = catalog.profileCandidates()
+        assertTrue(snapshot.none { it.catalogId in setOf("user-pullup", "non-seed") })
+        val match = assertIs<CatalogProfileMatch.Ambiguous>(
+            CatalogProfileMatcher.match("Pullup", snapshot)
+        )
+        assertEquals(setOf("pull-up", "chin-up"), match.candidates.map { it.catalogId }.toSet())
+    }
+
+    @Test
+    fun profileReadDoesNotInventMissingSeedsOrRestoreClearedInvolvements() = runTest {
+        assertTrue(catalog.profileCandidates().isEmpty())
+        SeedExerciseCatalog(database).seed()
+        SqlDelightExerciseOverrideRepository(database).update(
+            exerciseId = "pull-up",
+            name = null,
+            requiredEquipment = emptySet(),
+            movementPattern = null,
+            involvements = emptyMap()
+        )
+        val profile = catalog.profileCandidates().single { it.catalogId == "pull-up" }.profile
+        assertTrue(profile.involvements.isEmpty())
     }
 
     private fun insert(

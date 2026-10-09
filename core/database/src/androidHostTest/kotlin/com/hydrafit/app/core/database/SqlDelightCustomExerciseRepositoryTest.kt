@@ -7,6 +7,7 @@ import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseException
+import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -165,6 +166,109 @@ class SqlDelightCustomExerciseRepositoryTest {
             add(equipment = setOf(EquipmentTag("NOT_REAL")))
         }
         assertFailsWith<CustomExerciseException> { add(name = "Back Squat") }
+    }
+
+    @Test
+    fun addAndUpdateRejectExactlyTheSeededStartupMergeNamesWithoutWrites() = runTest {
+        val created = repository.add(
+            "My Bench",
+            emptySet(),
+            mapOf(MuscleGroup.ABS to 1.0),
+            MovementPattern.CORE
+        )
+        val before = database.exerciseQueries.selectAll().executeAsList()
+        listOf("Barbell Bench Press", "  bArBeLl   Bench\tPress  ").forEach { name ->
+            val add = assertFailsWith<CustomExerciseException> {
+                repository.add(
+                    name,
+                    emptySet(),
+                    mapOf(MuscleGroup.ABS to 1.0),
+                    MovementPattern.CORE
+                )
+            }
+            val update = assertFailsWith<CustomExerciseException> {
+                repository.update(
+                    created.id,
+                    name,
+                    emptySet(),
+                    mapOf(MuscleGroup.ABS to 1.0),
+                    MovementPattern.CORE
+                )
+            }
+            assertEquals(CustomExerciseFailureReason.NAME_CONFLICT, add.reason)
+            assertEquals(CustomExerciseFailureReason.NAME_CONFLICT, update.reason)
+            assertEquals(before, database.exerciseQueries.selectAll().executeAsList())
+        }
+    }
+
+    @Test
+    fun retainsOtherRowDuplicateChecksAndAllowsUpdatingOwnName() = runTest {
+        val created = repository.add(
+            "My Bench",
+            emptySet(),
+            mapOf(MuscleGroup.ABS to 1.0),
+            MovementPattern.CORE
+        )
+        repository.update(
+            created.id,
+            "My Bench",
+            emptySet(),
+            mapOf(MuscleGroup.ABS to 0.7),
+            MovementPattern.CORE
+        )
+        val failure = assertFailsWith<CustomExerciseException> {
+            repository.add(
+                "MY BENCH",
+                emptySet(),
+                mapOf(MuscleGroup.ABS to 1.0),
+                MovementPattern.CORE
+            )
+        }
+        assertEquals(CustomExerciseFailureReason.NAME_CONFLICT, failure.reason)
+    }
+
+    @Test
+    fun aliasTranslationAndSearchDashNamesRemainSeparateAcrossStartupDedupe() = runTest {
+        val names = listOf(
+            "Pullup",
+            "Chinup",
+            "Langhantel-Bankdrücken",
+            "Kurzhantel-Bankdrücken",
+            "Barbell-Bench-Press"
+        )
+        names.forEach { name ->
+            val created = repository.add(
+                name,
+                emptySet(),
+                mapOf(MuscleGroup.ABS to 1.0),
+                MovementPattern.CORE
+            )
+            SqlDelightWorkoutLogRepository(database).add(
+                WorkoutSet(
+                    exerciseId = created.id,
+                    reps = 5,
+                    weightKg = 10.0,
+                    performedAtMillis = 1L
+                )
+            )
+            database.personalRecordQueries.upsert(created.id, 20.0, 5L, 1L, "EXTERNAL")
+            database.exercisePreferenceQueries.upsert(created.id, "PREFER")
+            database.exerciseExclusionQueries.upsert(created.id, null)
+            val sets = database.workoutLogQueries.selectAllSets().executeAsList()
+            val records = database.personalRecordQueries.selectAll().executeAsList()
+            val preferences = database.exercisePreferenceQueries.selectAll().executeAsList()
+            val exclusions = database.exerciseExclusionQueries.selectAll().executeAsList()
+            SeedExerciseCatalog(database).seed()
+            CustomExerciseDedupe(database).run()
+            assertEquals(created.id, catalog.all().single { it.name == name }.id)
+            assertEquals(sets, database.workoutLogQueries.selectAllSets().executeAsList())
+            assertEquals(records, database.personalRecordQueries.selectAll().executeAsList())
+            assertEquals(
+                preferences,
+                database.exercisePreferenceQueries.selectAll().executeAsList()
+            )
+            assertEquals(exclusions, database.exerciseExclusionQueries.selectAll().executeAsList())
+        }
     }
 
     @Test

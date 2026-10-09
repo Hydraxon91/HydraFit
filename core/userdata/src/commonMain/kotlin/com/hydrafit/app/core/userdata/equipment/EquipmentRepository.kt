@@ -53,4 +53,10 @@ interface CustomExerciseRepository {
 }
 
 /** Thrown when a custom exercise cannot be changed: invalid input or an existing reference. */
-class CustomExerciseException(message: String) : Exception(message)
+class CustomExerciseException(message: String, val reason: CustomExerciseFailureReason? = null) :
+    Exception(message)
+
+/** Typed validation failures that the editor renders with localized guidance. */
+enum class CustomExerciseFailureReason {
+    NAME_CONFLICT
+}

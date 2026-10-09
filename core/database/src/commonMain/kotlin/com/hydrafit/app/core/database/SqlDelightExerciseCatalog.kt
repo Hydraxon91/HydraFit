@@ -3,7 +3,9 @@ package com.hydrafit.app.core.database
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.equipment.CatalogExerciseProfile
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseProfile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -26,6 +28,27 @@ class SqlDelightExerciseCatalog(database: HydraFitDatabase) : ExerciseCatalog {
     ) { rows, overrideRows ->
         val overrides = overrideRows.associateBy { it.exerciseId }
         rows.map { row -> row.toDomain(overrides[row.id]) }
+    }
+
+    override suspend fun profileCandidates(): List<CatalogExerciseProfile> {
+        val effectiveById = all().filterNot { it.isCustom }.associateBy { it.id }
+        val aliasesById = ExerciseProfileAliases.all.groupBy { it.exerciseId }
+        return DefaultExercises.all.mapNotNull { canonical ->
+            val effective = effectiveById[canonical.id] ?: return@mapNotNull null
+            CatalogExerciseProfile(
+                catalogId = canonical.id,
+                canonicalName = canonical.name,
+                displayName = effective.name,
+                aliases = aliasesById[canonical.id].orEmpty().map { it.label },
+                profile = ExerciseProfile(
+                    equipment = effective.requiredEquipment,
+                    movementPattern = effective.movementPattern,
+                    involvements = effective.effectiveInvolvements,
+                    loadCapability = effective.loadCapability,
+                    isUnilateral = effective.isUnilateral
+                )
+            )
+        }
     }
 
     private fun com.hydrafit.app.core.database.Exercise.toDomain(

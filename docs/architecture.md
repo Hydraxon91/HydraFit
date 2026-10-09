@@ -372,6 +372,35 @@ Every prescription, snapshot and performed set carries a **load kind** (`EXTERNA
 
 ---
 
+### 1.13 Catalog profile matching and custom identity (CAT-02 v1)
+
+The approved 2026-10-09 contract separates lexical profile matching from persisted exercise identity.
+`ExerciseCatalog.profileCandidates()` is a read-only snapshot seam: seeded canonical names, effective
+display names and curated aliases identify `CatalogExerciseProfile` candidates; `ExerciseProfile`
+contains only equipment, movement pattern, exact involvement weights, load capability and unilateral
+flag. Implementations without this seam return no candidates, not invented canonical names.
+`SqlDelightExerciseCatalog` includes only present seeded, non-custom identities and resolves their
+profiles through the existing override mapping, including explicitly empty maps and `UNSPECIFIED`.
+
+`CatalogProfileMatcher` uses `ExerciseNameSearch.kt` normalization and case-insensitive **exact**
+comparison. Blank/separator-only input is unknown; equipment/grip/angle/unilateral qualifiers remain
+meaningful. Multiple labels deduplicate by catalog ID, not by profile equality. Distinct identities
+remain `Ambiguous`; none is silently selected. No partial-search auto-population, fuzzy correction,
+accent stripping, arbitrary translation, keyword inference or pattern-to-profile inference is added.
+Existing substring list search is unchanged.
+
+`ExerciseProfileAliases.kt` owns the four approved English/German editorial mappings with stable IDs,
+language and provenance. All languages participate regardless of UI locale. Target/duplicate checks
+and acknowledged seed/alias collisions use the real matcher; effective-name collisions remain runtime
+ambiguities. These mappings are not externally validated physiological-equivalence evidence.
+
+Custom add/update validation additionally rejects seeded names under `CustomExerciseDedupe.kt`'s
+existing `normalizeExerciseName` (trim, collapse whitespace, lowercase). Existing other-row duplicate
+checks remain. Search dash equivalence, aliases and translations do **not** extend Save/startup
+identity. `CustomExerciseFailureReason.NAME_CONFLICT` distinguishes a conflict for localized editor
+guidance. Accepted non-colliding customs keep their IDs and history/prescription/preference/exclusion/PR
+references. Startup seeding/dedupe remains unchanged; future CAT-P7 collisions remain separately gated.
+
 ## 2. Decision log
 
 Each row: the decision, the **recorded** rationale with a citation, recorded alternatives, and status.

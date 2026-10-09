@@ -39,6 +39,29 @@ HydraFit-authored source staying **MIT**.
 
 ## Sources
 
+### CAT-02 v1 — editorial profile-matching aliases
+
+`core/database/.../ExerciseProfileAliases.kt` owns this small pilot, approved 2026-10-09:
+
+| Stable alias ID | Language | Label | Catalog target |
+| --- | --- | --- | --- |
+| `alias-en-pullup` | en | Pullup | `pull-up` |
+| `alias-en-chinup` | en | Chinup | `chin-up` |
+| `alias-de-langhantel-bankdruecken` | de | Langhantel-Bankdrücken | `barbell-bench-press` |
+| `alias-de-kurzhantel-bankdruecken` | de | Kurzhantel-Bankdrücken | `dumbbell-bench-press` |
+
+Provenance is the approved editorial lexical mapping, **not** external physiological-equivalence
+validation. No third-party text/media or new seed profiles are introduced. All approved languages
+match irrespective of UI locale; generic Bankdrücken/Klimmzug are not approved. Data-quality tests
+validate targets, stable IDs, duplicate labels/entries and acknowledged cross-identity collisions;
+the pilot has no such collisions. Runtime display-name collisions require an explicit chooser.
+
+Profile matching reuses search separators with case-insensitive exact comparison; canonical and
+effective names remain searchable after a built-in rename. Save identity is intentionally narrower:
+custom add/update reject names existing startup normalization would merge into a seeded identity,
+without extending startup dedupe to aliases/translations/dashes. Accepted non-colliding names remain
+separate custom identities. CAT-P7 additions or future name collisions need their own decision gate.
+
 ### 1. Catalog facts — names, muscles, equipment, mechanic
 
 | Source | License / terms | Used for |

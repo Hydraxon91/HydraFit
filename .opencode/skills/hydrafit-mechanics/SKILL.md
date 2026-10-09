@@ -110,6 +110,24 @@ merged by weight, then reps, then timestamp; the custom override and row are rem
 The 21-group set and the muscle-split mechanism are recorded in PLANS.md and
 `docs/exercise-catalog-sources.md`.
 
+CAT-02 v1 separates matching from Save identity. Domain `equipment/CatalogExerciseProfile.kt`
+defines `CatalogExerciseProfile` and its five-group `ExerciseProfile`; `CatalogProfileMatcher.kt`
+returns Unknown/Unique/Ambiguous using `ExerciseNameSearch.kt` normalization plus case-insensitive
+exact comparison (blank/separators are unknown, no partial/fuzzy/accent/keyword inference).
+`ExerciseCatalog.profileCandidates()` defaults to no candidates for unsupported implementations.
+`SqlDelightExerciseCatalog` reads only present seeded/non-custom identities, retaining canonical
+names from `DefaultExercises` and applying effective overrides without rounding weights or
+converting `UNSPECIFIED`. Catalog-owned `ExerciseProfileAliases.kt` contains only the approved
+Pullup/Chinup and Langhantel-Bankdrücken/Kurzhantel-Bankdrücken pilot, in all locales, with stable IDs,
+language and editorial provenance. Labels deduplicate by catalog ID; cross-identity collisions
+stay ambiguous. Data-quality tests validate targets/duplicates/acknowledged collisions.
+
+Custom add/update additionally reject names startup dedupe would merge, using the same existing
+`normalizeExerciseName`. Other-row duplicate checks remain; aliases/translations/dash equivalence
+do not broaden identity. `CustomExerciseException.reason` is `NAME_CONFLICT` for name collisions.
+Startup dedupe behavior is unchanged, and accepted non-colliding customs keep their references.
+See `docs/architecture.md` §1.13 and `docs/exercise-catalog-sources.md` for the approved contract.
+
 `SqlDelightExerciseCatalog` overlays nullable override fields onto catalog rows.
 Display groups are derived from the resolved map: weight `>= 0.7` is primary,
 and lower positive weights are secondary. The SQL legacy primary/secondary

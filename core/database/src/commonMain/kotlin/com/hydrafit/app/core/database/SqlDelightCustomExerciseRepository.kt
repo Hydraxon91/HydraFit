@@ -6,6 +6,7 @@ import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseException
+import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
 
 class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase) :
@@ -117,8 +118,15 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
         val duplicateName = queries.selectAll().executeAsList().any { row ->
             row.id != id && row.name.equals(trimmed, ignoreCase = true)
         }
-        if (duplicateName) {
-            throw CustomExerciseException("An exercise named \"$trimmed\" already exists")
+        // Match precisely the existing startup merge rule, not search/alias separator equivalence.
+        val seededIdentity = DefaultExercises.all.any { canonical ->
+            normalizeExerciseName(canonical.name) == normalizeExerciseName(trimmed)
+        }
+        if (duplicateName || seededIdentity) {
+            throw CustomExerciseException(
+                "An exercise named \"$trimmed\" already exists",
+                CustomExerciseFailureReason.NAME_CONFLICT
+            )
         }
         return trimmed
     }
