@@ -58,7 +58,7 @@ Requires JDK 17+ and the Android SDK (Android Studio's SDK Manager is the easies
 
 ## Releases
 
-Signed release APKs are built and published by `.github/workflows/release.yml` on tags matching `v*.*.*`. The version is derived at build time — `versionName` from the tag (leading `v` stripped) and `versionCode` from the GitHub Actions run number — while local builds keep the `0.4.1-dev` / `1` defaults. A tag containing a hyphen (for example `v0.1.0-rc.1`) is published as a pre-release.
+Signed release APKs are built and published by `.github/workflows/release.yml` on tags matching `v*.*.*`. The version is derived at build time — `versionName` from the tag (leading `v` stripped) and `versionCode` from the GitHub Actions run number — while local builds keep the `0.5.0-dev` / `1` defaults. A tag containing a hyphen (for example `v0.1.0-rc.1`) is published as a pre-release.
 
 Publishing requires four repository secrets (Settings → Secrets and variables → Actions):
 
