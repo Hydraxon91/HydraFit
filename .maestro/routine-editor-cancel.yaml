@@ -1,0 +1,48 @@
+# Contract and verification status: see README.md. Never taps Save.
+appId: com.hydrafit.app
+name: Unsaved routine name and semantic cancel
+tags:
+  - smoke
+  - unsaved-editor
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Equipment$'
+- assertNotVisible: '^Routine name$'
+- tapOn:
+    text: '^Routines$'
+    retryTapIfNoChange: false
+- assertVisible: '^New routine$'
+- assertNotVisible: '^Routine name$'
+- tapOn:
+    text: '^New routine$'
+    retryTapIfNoChange: false
+- assertVisible: '^Routine name$'
+- tapOn:
+    text: '^Routine name$'
+    retryTapIfNoChange: false
+- inputText: 'HydraFit UI smoke unsaved'
+- assertVisible:
+    text: '^HydraFit UI smoke unsaved$'
+    focused: true
+# Cancel by its current semantic target; do not send Back via hideKeyboard.
+- assertVisible: '^Routine name$'
+- assertVisible: '^HydraFit UI smoke unsaved$'
+- tapOn:
+    text: '^Cancel$'
+    retryTapIfNoChange: false
+- assertNotVisible: '^Routine name$'
+- assertVisible: '^New routine$'
+- tapOn:
+    text: '^Equipment$'
+    retryTapIfNoChange: false
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Equipment$'

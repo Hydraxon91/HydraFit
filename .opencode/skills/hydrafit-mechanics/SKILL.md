@@ -677,22 +677,28 @@ NSDateFormatter `Z` offset. Stored timestamps remain UTC milliseconds.
 Current bucketing uses the supplied offset; it is not a historical timezone or
 DST lookup for each recorded timestamp.
 
-Run UI helpers with `bash scripts/<name>.sh`; AGENTS.md Visual Verification owns
-the workflow and emulator-only restrictions. `emulator-common.sh` verifies an
-explicit `ANDROID_SERIAL=emulator-<port>` and bounds every ADB call to 120s.
+Load `hydrafit-ui-testing` before emulator work. Maestro semantic flows are the
+preferred interaction path; `.maestro/README.md` owns reusable flow contracts and
+their verification status. AGENTS.md Visual Verification owns the workflow and
+emulator-only restrictions. Run supporting UI helpers with `bash scripts/<name>.sh`;
+`emulator-common.sh` verifies an explicit `ANDROID_SERIAL=emulator-<port>` and
+bounds every ADB call to 120s.
 
 | Helper | Behavior |
 | --- | --- |
 | `deploy.sh [build-log]` | 600s-bounded `assembleDebug`, then targeted `adb install -r`; no launch. Default log `/tmp/hydrafit-deploy.log`. |
 | `launch.sh [--restart]` | Foreground HydraFit; force-stop first only with `--restart`. |
-| `inspect.sh [output.xml]` | Dump current UI hierarchy to `/tmp/hydrafit-ui.xml` by default; no launch/restart. Reads emulator scratch `/data/local/tmp/hydrafit-ui.xml` only after a successful dump. |
+| `inspect.sh [output.xml]` | Standalone ADB hierarchy only when no competing automation session owns the device; conflicts with active Maestro. Reads emulator scratch `/data/local/tmp/hydrafit-ui.xml` only after a successful dump; no launch/restart. |
 | `snap.sh [output.png]` | Capture current screen only; default `/tmp/hydrafit-screen.png`. |
 | `tap.sh x y [--screenshot [output.png]]` | Tap without delay/image by default; optional image after one second. |
 
 Deployment is only needed after relevant app changes; capture/inspection must not
-reset the state being tested. Prefer hierarchy text/states/bounds for navigation
-and images for layout, colour and custom graphics. These scripts do not implement
-semantic selectors or readiness assertions; verify expected transitions explicitly.
+reset the state being tested. Prefer semantic selectors and assertions for
+navigation and images for layout, colour and custom graphics. These scripts do
+not implement semantic selectors or readiness assertions. An unusable MCP
+hierarchy permits one bounded Maestro compact CLI fallback, not a competing ADB
+dump (see `.maestro/README.md`); if that fails, stop interaction.
+Do not navigate by stale coordinates or replay an uncertain write.
 
 Gradle task lookup by subsystem:
 

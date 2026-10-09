@@ -3,16 +3,27 @@
 Standing rules live in AGENTS.md "Session rules". Starter prompts point
 to them; they do not restate or reword them.
 
-## When a phase ends, write two things
+## Generate only on explicit request
 
-1. Handoff report (in chat), always covering:
+Ending a phase or session, completing planning/building/review, and receiving a
+starter prompt do not request another handoff or starter. Give the ordinary
+completion report (results, verification and blockers), then stop. Do not ask the
+user to request these artifacts as a routine closing ritual.
+
+When explicitly requested, produce only the requested artifact(s): asking for a
+handoff does not also request a starter, or vice versa. Apply the checks below to
+the requested artifact; starter-specific checks are not applicable to a handoff
+alone. If no previous starter is available, check standing rules and the approved
+scope instead; do not invent a previous prompt.
+
+1. Handoff report (in chat), covering applicable items:
    - hashes (code and docs)
    - final names of new tables/columns/classes/use cases
    - rules chosen
    - deviations from PLANS.md
    - gaps found for later phases (also written into PLANS.md)
    - anything unverified
-2. Starter prompt for the next phase, using the shape below.
+2. Starter prompt for the next phase, only if requested, using the shape below.
 
 ## Starter prompt shape
 
@@ -34,7 +45,8 @@ to them; they do not restate or reword them.
   it silently.
 - Phase-specific steps (e.g. a real-data check) go after implementation
   and before the diff is shown.
-- Stop condition: what to report at the end (the next handoff).
+- Stop condition: report results, verification and blockers, then stop. Explicitly
+  say: "Do not generate a handoff or session starter unless I request it."
 
 ## Self-review before presenting
 
@@ -64,7 +76,7 @@ failure first, then report as a short table: Check | Pass/Fail | Evidence.
    "as discussed", or earlier-chat references.
 8. Order. Plan gate before implementation; phase-specific checks after
    implementation and before the diff; verification includes downstream
-   consumers; handoff last.
+   consumers; completion report last. A handoff/starter appears only if requested.
 9. Real-data checks. State how the check exercises the real code path
    (e.g. run the real calculator twice), not a reimplementation of the
    rule under test. If that is not possible, say so in the prompt.
@@ -72,6 +84,10 @@ failure first, then report as a short table: Check | Pass/Fail | Evidence.
     "do not touch" list for this one.
 11. Hygiene. The prompt is one self-contained block with no commentary
     inside it; review notes go outside the block, labeled.
+12. No recursion. The starter does not require another handoff/starter after
+    planning, building, reviewing or completing its scope. An old automatic
+    artifact instruction is removed with this policy as the reason, not carried
+    forward under Check 1.
 
 ## Real-data check
 
@@ -94,9 +110,9 @@ the real-data check, not Step 0.
   approval (Check 8).
 - Facts written from memory instead of git/grep (Check 5).
 
-## Before finishing
+## Before presenting a requested starter
 
 Compare the new starter prompt with the previous one. List any rule or
 step present before and missing now, and say why. Don't drop or weaken a
-constraint without telling me. Confirm the plan gate and the real-data
-cleanup step are present.
+constraint without telling me. Confirm the plan gate, the no-recursion stop
+condition and, when applicable, the real-data cleanup step are present.

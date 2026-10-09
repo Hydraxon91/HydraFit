@@ -1,8 +1,11 @@
 # Maestro local evaluation (QL-03)
 
 Status: local CLI install, MCP configuration, comparative pilot and a live OpenCode
-MCP session are complete (2026-10-05). Only the formal adoption decision (QL-03-P3)
-remains.
+MCP session are complete (2026-10-05). Semantic-first local adoption and bounded
+agent guidance were approved on 2026-10-09. QL-03-P3 local adoption is complete:
+flat CLI inspection bypasses the MCP-path failure, and both starter flows pass
+syntax/runtime smoke. Full safety coverage and smaller-model efficiency remain
+unverified; see the verification limits below.
 
 ## Scope
 
@@ -156,10 +159,69 @@ to its pre-pilot state (11 sets).
 ## Recommendation
 
 Adopt Maestro for **navigable, semantic UI flows** (navigation, form entry, assertions)
-and keep the ADB scripts for **current-screen inspection and path-specific screenshots**.
+and keep the ADB scripts for **standalone inspection and path-specific screenshots**.
+Standalone ADB hierarchy inspection requires no competing automation owner; use
+the compact Maestro CLI fallback while Maestro is active (see adoption below).
 Use `device_id: emulator-5554` explicitly, keep analytics disabled, and add `eraseText`
 when entering text into pre-filled fields. Before promoting flows to CI, add a cleanup
 step for any flow that writes data, and re-check device targeting with a phone attached.
+
+## Approved local workflow (2026-10-09)
+
+AGENTS.md Visual Verification is authoritative. Load `hydrafit-ui-testing` before
+emulator work; the mechanics skill points to it rather than duplicating recipes.
+Use semantic Maestro flows for interactions and assertions, with scripts for
+deployment, visual capture and logcat. MCP inspection failure gets one bounded
+Maestro `hierarchy --no-reinstall-driver --compact` fallback, not a competing
+ADB automation connection. Commands and syntax checks live in `.maestro/README.md`.
+
+Each flow has a starting-state/mutation/postcondition/cleanup/time contract.
+Repeated controls require verified row scoping; ambiguous matches are blockers.
+Keyboard/scroll/dialog transitions invalidate coordinates. Foreground without
+restart via explicit `stopApp: false`, preserve data with `clearState: false`,
+and avoid default permission grants via `permissions: { all: unset }`.
+`eraseText` is bounded (50 characters by default); exact field values and focus
+must be verified, and keyboard-command success alone is not proof of dismissal.
+
+Write taps explicitly disable `retryTapIfNoChange`. A timed-out write has an
+unknown outcome until inspection establishes completion/non-completion; do not
+replay, restart or delete uncertain records. One evidence-based safe correction
+is allowed, with a 120s short-flow hard limit and five-minute interaction budget.
+CLI supports a host timeout; MCP `run` has no per-run hard-timeout argument.
+Cloud/AI screenshot-upload tools remain outside local verification.
+
+`.maestro/README.md` describes two non-persistent starter flows and their exact
+verification limits. On 2026-10-09 MCP inspection returned
+`RangeError: Value exceeds the maximum depth of 32`; returning a JSON string from
+Code Mode also failed. The flat CLI hierarchy succeeded on the same screen
+(156 nodes, maximum tree depth 17), isolating the failure to the MCP integration
+path rather than an unreadable UI. The exact component imposing that limit is
+still untraced. ADB dump failures (exit 137, including compressed dump) are traced
+to Android's `UiAutomationService ... already registered!` with Maestro
+instrumentation active. Screenshots/logcat remain usable; no driver kill,
+reinstallation or app restart is needed for the successful CLI fallback.
+
+Both files pass Maestro 2.11.0 `check-syntax` and runtime smoke on
+`emulator-5554`: navigation 10/10 steps (11.2s command span), unsaved name/Cancel
+18/18 (21.4s command span), each after one evidence-based correction. The
+navigation oracle now checks tab selection rather than an off-screen search
+field. The editor flow navigates from Equipment and returns there after verified
+Cancel; it avoids `hideKeyboard`, which failed and left the app on Equipment in
+the first attempt. Positively observe a shown keyboard before any required
+Back-based dismissal; prefer direct semantic targets when accessible.
+
+The final screenshot was captured and viewed. No Save, clear-state, app restart
+or driver reinstall was requested. No persistent synthetic records were
+intentionally created and no DB audit was performed. Wrong-screen negatives,
+visible-soft-keyboard relayout/dismissal, repeated-row selectors, uncertain-write,
+disconnect and failed-cleanup recovery remain unverified. This is bounded smoke
+verification, not full safety acceptance or a smaller-model efficiency benchmark.
+
+These are agent rules, not enforced YAML restrictions. Existing scripts enforce
+emulator targeting and per-call ADB timeouts. OpenCode's MCP permissions gate a
+tool, not the commands inside `run`; no guarded runner or bypass restrictions
+were implemented, and no OpenCode configuration was changed. Such enforcement
+requires a separately approved tooling/configuration scope.
 
 ## Cleanup performed
 
@@ -170,7 +232,8 @@ step for any flow that writes data, and re-check device targeting with a phone a
 
 ## Follow-ups
 
-- QL-03-P3: the connection is now confirmed live; record the formal adoption decision.
-- Decide whether to check in a small, safe smoke flow (no data writes) under a future
-  plan; none was committed here.
+- Local adoption and starter smoke validation are complete. The external MCP
+  integration-depth failure remains bypassed, not fixed. Include wrong-screen,
+  visible keyboard, duplicate-label and uncertain-write recovery tests before
+  claiming broad safety coverage; measured smaller-model efficiency remains unverified.
 - Review the nonstandard `providers` key in the global config separately.

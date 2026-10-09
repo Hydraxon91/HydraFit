@@ -45,9 +45,12 @@
   model). Because the session context carries over, an approved plan is
   implemented in place — no separate handoff message is needed.
 - PLANS.md edits are status lines only unless I approve more.
-- Ending a session or writing a starter prompt: follow
-  docs/session-handoff.md, and present it only after its self-review has
-  passed.
+- Generate a session handoff or session starter only when the user explicitly
+  requests that artifact. Ending a phase, planning, building, reviewing or
+  finishing a session does not trigger one. Ordinary completion reports results,
+  verification and blockers, then stops. Requested artifacts follow
+  docs/session-handoff.md and its self-review; starters must not instruct the next
+  session to generate another handoff or starter automatically.
 
 ## Important Rule for AI Agents
 
@@ -416,6 +419,40 @@ perl -e 'alarm 600; exec @ARGV' ./gradlew clean build > build-output.log 2>&1
 
 ## Visual Verification
 
+- Load `hydrafit-ui-testing` before emulator interaction. Prefer reusable Maestro
+  semantic flows for navigation, forms and assertions; retain ADB scripts for
+  deployment, inspection fallback, screenshots and logcat. Read the flow contract
+  first: starting state, allowed writes, expected result, cleanup and time budget.
+- Use unique selectors or scope them to a verified row/container. Never guess
+  which repeated Save/Edit/Remove/Sets/Reps control is intended. Add narrowly
+  scoped test IDs only in an approved UI change when existing semantics fail.
+- Keyboard dismissal, scrolling and dialogs invalidate old coordinates. Verify
+  focus and exact replacement text, then resolve the next control afresh. Do not
+  treat `eraseText` as unlimited clearing or `hideKeyboard` as proof of dismissal.
+  Dismiss only a positively observed keyboard when needed; prefer tapping the
+  accessible next semantic control directly. Back-based dismissal can navigate
+  away if no keyboard is shown.
+- Set Maestro `launchApp.stopApp: false` unless restart is the test; use
+  `clearState: false` and `permissions: { all: unset }` to preserve data and avoid
+  automatic permission grants. Existing approval gates apply to Maestro too.
+  Never use cloud/AI screenshot-upload commands for local verification.
+- Set `retryTapIfNoChange: false` explicitly on write actions. A timeout after
+  Save/Log/Duplicate/Start is an unknown outcome, not permission to replay it.
+  Inspect for completion; if it cannot be established, report outcome unknown
+  and stop. Never restart or clear data to recover from uncertainty.
+- If MCP inspection fails, use one bounded Maestro CLI `hierarchy
+  --no-reinstall-driver --compact` fallback (see `.maestro/README.md`). Do not run
+  `uiautomator dump`/`inspect.sh` while Maestro owns the automation connection:
+  Android rejects a competing UiAutomation registration. ADB screenshot/logcat
+  remain usable. If neither Maestro hierarchy path works, capture diagnostic
+  evidence and stop interaction; no blind taps or tool roulette. Screenshots do
+  not replace semantic success assertions.
+- Bound each short smoke flow to 120s and the interaction/recovery portion to
+  five minutes, excluding build/deploy and intentional long-generation tests
+  with their own approved budget. Allow one evidence-based correction after the
+  initial attempt only when replay is safe. Report failed step, expected/actual
+  state, elapsed time, attempts and artifacts; never claim success from a tap's
+  exit code. These are agent rules, not a tool-level security sandbox.
 - Verify the target with `adb devices -l` and set `ANDROID_SERIAL` to a running
   `emulator-<port>` serial. All UI scripts require this explicit target, verify
   that it responds as an emulator, and bound ADB calls. Never let a phone become
@@ -424,8 +461,10 @@ perl -e 'alarm 600; exec @ARGV' ./gradlew clean build > build-output.log 2>&1
   use `scripts/deploy.sh` (bounded debug build, then targeted APK install), then
   `scripts/launch.sh` to foreground the app. Use `launch.sh --restart` only when
   a restart is intended. Do not install/restart merely to inspect the current screen.
-- Use `scripts/inspect.sh [output.xml]` for current UI text, accessibility
-  descriptions, states and bounds. It does not launch/restart the app; custom
+- Use Maestro inspection while its session is active; `scripts/inspect.sh
+  [output.xml]` is for standalone ADB inspection only when no competing automation
+  session owns the device. Both expose current UI text, accessibility
+  descriptions, states and bounds without launching/restarting HydraFit; custom
   graphics and missing semantics still require visual inspection. After UI
   changes, capture with `scripts/snap.sh [output.png]` and view the screenshot
   before reporting the change as done. It only captures the current screen.
@@ -434,13 +473,15 @@ perl -e 'alarm 600; exec @ARGV' ./gradlew clean build > build-output.log 2>&1
   export ANDROID_SERIAL="<emulator-serial>"
   bash scripts/deploy.sh /tmp/hydrafit-deploy.log
   bash scripts/launch.sh
+  # Standalone ADB only; use Maestro compact CLI while Maestro owns automation.
   bash scripts/inspect.sh /tmp/hydrafit-ui.xml
   bash scripts/snap.sh /tmp/hydrafit-screen.png
   ```
   Run each needed operation separately; deployment is not required for every
   inspection. `deploy.sh` redirects Gradle output to its log with a 600s timeout;
   inspect it separately and report timeout/failure before retrying.
-- `scripts/tap.sh <x> <y>` taps without an image or fixed delay. Add
+- Coordinate fallback only: `scripts/tap.sh <x> <y>` taps without an image or
+  fixed delay. Add
   `--screenshot [output.png]` to wait one second and capture explicitly. Inspect
   state after relevant transitions and take images at visual checkpoints rather
   than after every action. For raw swipe/text/keyevent commands, use

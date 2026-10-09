@@ -1130,7 +1130,7 @@ These stable references are separately approved slices, not implicit additions t
 
 #### QL-03 — Local Maestro MCP evaluation (M1 early priority)
 
-**Status / scheduling:** prioritized by the user on 2026-10-05 for early M1 evaluation. P0–P2 are **DONE** (CLI 2.11.0 installed, local MCP configured and confirmed live in an OpenCode session, comparative pilot complete; evidence in `docs/maestro-evaluation.md`). Only the QL-03-P3 adoption decision remains. This does not replace or delay M1/0.2.3 performance and APK-size investigation.
+**Status / scheduling:** prioritized by the user on 2026-10-05 for early M1 evaluation. P0–P2 are **DONE** (CLI 2.11.0 installed, local MCP configured and confirmed live in an OpenCode session, comparative pilot complete; evidence in `docs/maestro-evaluation.md`). QL-03-P3 local semantic-first adoption **DONE** 2026-10-09: bounded flat CLI hierarchy fallback verified, both starter flows pass Maestro syntax/runtime smoke (10/10 navigation, 18/18 unsaved editor/Cancel; see `.maestro/README.md`). The external MCP depth error is bypassed, not fixed; competing ADB UiAutomation dumps are avoided. Full keyboard/negative/recovery coverage, guarded execution/configuration restrictions and measured smaller-model efficiency remain unimplemented/unverified. This does not replace or delay M1/0.2.3 performance and APK-size investigation.
 
 **Goal:** use structured UI inspection and semantic interactions for agent navigation and repeatable smoke flows, retaining screenshots for appearance/custom graphics. Evaluate local Maestro CLI/MCP on the existing Android Studio emulator; cloud execution is outside this scope.
 
