@@ -44,6 +44,24 @@ class LocalLlmWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun sanitizesAndRetainsTheP7CableFlyCandidate() = runTest {
+        val p7Plan = MIXED_REPS_PLAN.replaceFirst("\"bench-press\"", "\"flat-bench-cable-fly\"")
+        val plan = engine(
+            FakeGenerator(available = true, responses = listOf(p7Plan))
+        ).generatePlan(
+            request(
+                availableEquipment = setOf(
+                    EquipmentTag.BARBELL,
+                    EquipmentTag.CABLE_MACHINE,
+                    EquipmentTag.BENCH
+                )
+            )
+        )
+
+        assertEquals("flat-bench-cable-fly", plan.days.first().exercises.first().exerciseId)
+    }
+
+    @Test
     fun excludedIdsAreNotOfferedAndFallbackCannotRestoreThem() = runTest {
         val generator = FakeGenerator(available = true, responses = listOf(THREE_DAY_PLAN))
         val result = engine(
@@ -530,6 +548,7 @@ class LocalLlmWorkoutPlannerEngineTest {
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
         suggestedWeightsKg: Map<String, Double> = emptyMap(),
         equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
+        availableEquipment: Set<EquipmentTag> = setOf(EquipmentTag.BARBELL),
         weekNumber: Int = 1,
         cycleNumber: Int = 1,
         includeWorkoutData: Boolean = false,
@@ -537,7 +556,7 @@ class LocalLlmWorkoutPlannerEngineTest {
         recentWeights: List<WeightHistoryEntry> = emptyList()
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
-        availableEquipment = setOf(EquipmentTag.BARBELL),
+        availableEquipment = availableEquipment,
         muscleFatigue = emptyMap(),
         splitPreference = splitPreference,
         nowMillis = 0L,
@@ -611,6 +630,17 @@ class LocalLlmWorkoutPlannerEngineTest {
             exercise("bench-press", MovementPattern.HORIZONTAL_PUSH),
             exercise("overhead-press", MovementPattern.VERTICAL_PUSH),
             exercise("barbell-row", MovementPattern.HORIZONTAL_PULL),
+            Exercise(
+                id = "flat-bench-cable-fly",
+                name = "Flat Bench Cable Fly",
+                requiredEquipment = setOf(EquipmentTag.CABLE_MACHINE, EquipmentTag.BENCH),
+                primaryMuscles = setOf(MuscleGroup.CHEST_UPPER, MuscleGroup.CHEST_LOWER),
+                movementPattern = MovementPattern.CHEST_FLY,
+                involvements = mapOf(
+                    MuscleGroup.CHEST_UPPER to 0.7,
+                    MuscleGroup.CHEST_LOWER to 0.7
+                )
+            ),
             exercise("barbell-curl", MovementPattern.BICEPS_ISOLATION),
             exercise("barbell-squat", MovementPattern.SQUAT)
         )

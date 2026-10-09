@@ -53,6 +53,30 @@ class SeedExerciseCatalogTest {
     }
 
     @Test
+    fun seedsP7ProfilesAndCapabilityConsistentlyAndIdempotently() = runTest {
+        val seeder = SeedExerciseCatalog(database)
+        seeder.seed()
+        val first = SqlDelightExerciseCatalog(database).all().associateBy { it.id }
+        seeder.seed()
+        val second = SqlDelightExerciseCatalog(database).all().associateBy { it.id }
+
+        DefaultExercisesCatalogP7.all.forEach { expected ->
+            val actual = requireNotNull(second[expected.id])
+            assertEquals(expected.name, actual.name)
+            assertEquals(expected.requiredEquipment, actual.requiredEquipment)
+            assertEquals(expected.movementPattern, actual.movementPattern)
+            assertEquals(expected.isUnilateral, actual.isUnilateral)
+            assertEquals(expected.loadCapability, actual.loadCapability)
+            assertEquals(expected.effectiveInvolvements, actual.effectiveInvolvements)
+            assertEquals(actual, first[expected.id])
+        }
+        assertEquals(
+            com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability.BODYWEIGHT_ONLY,
+            second.getValue("bicycle-crunch").loadCapability
+        )
+    }
+
+    @Test
     fun backfillsMovementPatternsForExistingRows() = runTest {
         val bench = DefaultExercises.all.first { it.id == "barbell-bench-press" }
         database.exerciseQueries.insert(

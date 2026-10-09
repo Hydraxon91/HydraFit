@@ -60,7 +60,44 @@ Profile matching reuses search separators with case-insensitive exact comparison
 effective names remain searchable after a built-in rename. Save identity is intentionally narrower:
 custom add/update reject names existing startup normalization would merge into a seeded identity,
 without extending startup dedupe to aliases/translations/dashes. Accepted non-colliding names remain
-separate custom identities. CAT-P7 additions or future name collisions need their own decision gate.
+separate custom identities. CAT-P7 seed-name collisions follow the approved preservation contract
+below; other future catalog batches require their own decision gate.
+
+### CAT-P7 — general catalog variations (approved batch)
+
+The approved CAT-P7 batch adds ten distinct canonical identities in the existing movement
+patterns and equipment tags. The source dataset is pinned to
+[`f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5`](https://github.com/yuhonas/free-exercise-db/tree/f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5).
+The row links below point to the exact dataset records. Its Unlicense dedicates the data to the
+public domain; no instructions or media are copied. Names, equipment and movement descriptions are
+facts, with HydraFit's displayed labels curated for clarity.
+
+| id | name | requiredEquipment | movementPattern | unilateral | loadCapability | involvements | source / modeled basis |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `flat-bench-cable-fly` | Flat Bench Cable Fly | CABLE_MACHINE, BENCH | CHEST_FLY | false | EXTERNAL | CHEST_UPPER:0.7,CHEST_LOWER:0.7 | [Flat Bench Cable Flyes](https://raw.githubusercontent.com/yuhonas/free-exercise-db/f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Flat_Bench_Cable_Flyes.json); modeled (fly), ref: dumbbell fly |
+| `single-arm-cable-crossover` | Single-Arm Cable Crossover | CABLE_MACHINE | CHEST_FLY | true | EXTERNAL | CHEST_UPPER:0.7,CHEST_LOWER:0.7 | [Single-Arm Cable Crossover](https://raw.githubusercontent.com/yuhonas/free-exercise-db/f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Single-Arm_Cable_Crossover.json); modeled (fly), ref: dumbbell fly |
+| `seated-single-arm-cable-row` | Seated Single-Arm Cable Row | CABLE_MACHINE | HORIZONTAL_PULL | true | EXTERNAL | UPPER_BACK:0.7,LATS:0.5,BICEPS:0.5 | [Seated One-arm Cable Pulley Rows](https://raw.githubusercontent.com/yuhonas/free-exercise-db/f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Seated_One-arm_Cable_Pulley_Rows.json); modeled (row), ref: barbell row |
+| `dumbbell-floor-press` | Dumbbell Floor Press | DUMBBELL | HORIZONTAL_PUSH | false | EXTERNAL | TRICEPS:0.7,CHEST_UPPER:0.5,CHEST_LOWER:0.5,FRONT_DELTS:0.5 | [Dumbbell Floor Press](https://raw.githubusercontent.com/yuhonas/free-exercise-db/f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Dumbbell_Floor_Press.json); modeled (press), ref: barbell bench press |
+| `seated-arnold-dumbbell-press` | Seated Arnold Dumbbell Press | DUMBBELL, BENCH | VERTICAL_PUSH | false | EXTERNAL | FRONT_DELTS:0.7,SIDE_DELTS:0.7,TRICEPS:0.5 | [Arnold Dumbbell Press](https://raw.githubusercontent.com/yuhonas/free-exercise-db/f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Arnold_Dumbbell_Press.json); modeled (overhead press), ref: overhead press |
+| `single-arm-kettlebell-row` | Single-Arm Kettlebell Row | KETTLEBELL | HORIZONTAL_PULL | true | EXTERNAL | UPPER_BACK:0.7,LATS:0.5,BICEPS:0.5 | [One-Arm Kettlebell Row](https://raw.githubusercontent.com/yuhonas/free-exercise-db/f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/One-Arm_Kettlebell_Row.json); modeled (row), ref: barbell row |
+| `single-leg-kettlebell-deadlift` | Single-Leg Kettlebell Deadlift | KETTLEBELL | HINGE | true | EXTERNAL | HAMSTRINGS:1.0,GLUTES:0.5,LOWER_BACK:0.3 | [Kettlebell One-Legged Deadlift](https://raw.githubusercontent.com/yuhonas/free-exercise-db/f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Kettlebell_One-Legged_Deadlift.json); modeled (hinge), ref: conventional deadlift; sourced form holds load ipsilaterally |
+| `incline-dumbbell-curl` | Incline Dumbbell Curl | DUMBBELL, BENCH | BICEPS_ISOLATION | false | EXTERNAL | BICEPS:1.0 | [Incline Dumbbell Curl](https://raw.githubusercontent.com/yuhonas/free-exercise-db/f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Incline_Dumbbell_Curl.json); modeled (curl), ref: dumbbell curl |
+| `single-leg-cable-kickback` | Single-Leg Cable Kickback | CABLE_MACHINE | LEG_ISOLATION | true | EXTERNAL | GLUTES:1.0,HAMSTRINGS:0.5 | [One-Legged Cable Kickback](https://raw.githubusercontent.com/yuhonas/free-exercise-db/f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/One-Legged_Cable_Kickback.json); modeled (hip extension), ref: glute bridge |
+| `bicycle-crunch` | Bicycle Crunch | BODYWEIGHT | CORE | false | BODYWEIGHT_ONLY | ABS:1.0,OBLIQUES:0.5 | [Air Bike](https://raw.githubusercontent.com/yuhonas/free-exercise-db/f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Air_Bike.json); dataset label is “Air Bike,” but the described floor exercise is a bicycle-style alternating trunk curl; involvement tiers modeled from crunch, obliques family-modeled |
+
+These involvement weights are modeled CAT-P0 tier parameters; no row-specific EMG figure is
+claimed. Equipment and execution distinctions are source-backed, while HydraFit movement-pattern
+and per-muscle tier mapping are editorial. The cable tag does not encode bench/pulley geometry or
+ankle-cuff setup. The unilateral kettlebell hinge records the sourced ipsilateral-load execution;
+contralateral variants are not implied. No aliases are added. Each row is a distinct identity;
+qualified names stay qualified to avoid matching broader existing exercises. New seed IDs are
+excluded from startup custom-name dedupe so pre-existing custom identities and their references
+survive; existing same-name custom profiles may be edited without renaming, while newly introduced
+seed-name collisions remain rejected.
+
+The bicycle-crunch source row is an evidence limitation: its source title may also suggest a cardio
+machine, while its recorded equipment is body-only and its exercise description is floor-based.
+HydraFit uses the clarifying label “Bicycle Crunch”; “Air Bike” is not registered as an alias.
 
 ### 1. Catalog facts — names, muscles, equipment, mechanic
 

@@ -49,6 +49,22 @@ class GeminiWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun sanitizesAndRetainsTheP7CableFlyCandidate() = runTest {
+        val p7Plan = VALID_PLAN.replaceFirst("\"bench-press\"", "\"flat-bench-cable-fly\"")
+        val plan = engine(respondEnvelope(p7Plan)).generatePlan(
+            request(
+                availableEquipment = setOf(
+                    EquipmentTag.BARBELL,
+                    EquipmentTag.CABLE_MACHINE,
+                    EquipmentTag.BENCH
+                )
+            )
+        )
+
+        assertEquals("flat-bench-cable-fly", plan.days.first().exercises.first().exerciseId)
+    }
+
+    @Test
     fun excludedIdsAreNotOfferedAndSanitizerFallbackCannotRestoreThem() = runTest {
         var body = ""
         val transport = MockEngine { request ->
@@ -649,10 +665,11 @@ class GeminiWorkoutPlannerEngineTest {
         cycleNumber: Int = 1,
         includeWorkoutData: Boolean = false,
         isDeload: Boolean = false,
+        availableEquipment: Set<EquipmentTag> = setOf(EquipmentTag.BARBELL),
         recentWeights: List<WeightHistoryEntry> = emptyList()
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
-        availableEquipment = setOf(EquipmentTag.BARBELL),
+        availableEquipment = availableEquipment,
         muscleFatigue = emptyMap(),
         nowMillis = 0L,
         goal = goal,
@@ -680,6 +697,17 @@ class GeminiWorkoutPlannerEngineTest {
             exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, EquipmentTag.BARBELL),
             exercise("overhead-press", MovementPattern.VERTICAL_PUSH, EquipmentTag.BARBELL),
             exercise("barbell-row", MovementPattern.HORIZONTAL_PULL, EquipmentTag.BARBELL),
+            Exercise(
+                id = "flat-bench-cable-fly",
+                name = "Flat Bench Cable Fly",
+                requiredEquipment = setOf(EquipmentTag.CABLE_MACHINE, EquipmentTag.BENCH),
+                primaryMuscles = setOf(MuscleGroup.CHEST_UPPER, MuscleGroup.CHEST_LOWER),
+                movementPattern = MovementPattern.CHEST_FLY,
+                involvements = mapOf(
+                    MuscleGroup.CHEST_UPPER to 0.7,
+                    MuscleGroup.CHEST_LOWER to 0.7
+                )
+            ),
             exercise("barbell-curl", MovementPattern.BICEPS_ISOLATION, EquipmentTag.BARBELL),
             exercise("dumbbell-curl", MovementPattern.BICEPS_ISOLATION, EquipmentTag.DUMBBELL),
             exercise("barbell-squat", MovementPattern.SQUAT, EquipmentTag.BARBELL)

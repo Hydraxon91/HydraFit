@@ -12,7 +12,10 @@ internal fun normalizeExerciseName(name: String): String =
 
 class CustomExerciseDedupe(private val database: HydraFitDatabase) {
     fun run() {
-        val canonicalByName = DefaultExercises.all.associateBy { normalizeExerciseName(it.name) }
+        val protectedP7Ids = DefaultExercisesCatalogP7.all.map { it.id }.toSet()
+        val canonicalByName = DefaultExercises.all
+            .filterNot { it.id in protectedP7Ids }
+            .associateBy { normalizeExerciseName(it.name) }
         val customRows = database.exerciseQueries.selectAll().executeAsList()
             .filter { it.isCustom == 1L }
         val merges = customRows.mapNotNull { row ->

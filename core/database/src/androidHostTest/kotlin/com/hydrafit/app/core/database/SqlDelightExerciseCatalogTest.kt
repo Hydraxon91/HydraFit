@@ -231,6 +231,24 @@ class SqlDelightExerciseCatalogTest {
     }
 
     @Test
+    fun p7CanonicalProfilesAreAvailableToExactProfileMatching() = runTest {
+        SeedExerciseCatalog(database).seed()
+
+        val candidate = assertIs<CatalogProfileMatch.Unique>(
+            CatalogProfileMatcher.match("Single-Arm Cable Crossover", catalog.profileCandidates())
+        ).candidate
+
+        assertEquals("single-arm-cable-crossover", candidate.catalogId)
+        assertEquals(MovementPattern.CHEST_FLY, candidate.profile.movementPattern)
+        assertEquals(setOf(EquipmentTag.CABLE_MACHINE), candidate.profile.equipment)
+        assertTrue(candidate.profile.isUnilateral)
+        assertEquals(
+            mapOf(MuscleGroup.CHEST_UPPER to 0.7, MuscleGroup.CHEST_LOWER to 0.7),
+            candidate.profile.involvements
+        )
+    }
+
+    @Test
     fun profileReadDoesNotInventMissingSeedsOrRestoreClearedInvolvements() = runTest {
         assertTrue(catalog.profileCandidates().isEmpty())
         SeedExerciseCatalog(database).seed()

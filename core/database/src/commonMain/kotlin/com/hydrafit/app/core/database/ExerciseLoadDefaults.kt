@@ -28,7 +28,8 @@ internal object ExerciseLoadDefaults {
         "reverse-crunch",
         "scissor-kick",
         "stomach-vacuum",
-        "toe-touchers"
+        "toe-touchers",
+        "bicycle-crunch"
     )
 
     /** Bodyweight work that may optionally carry added kilograms. */

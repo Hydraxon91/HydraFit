@@ -241,6 +241,33 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun p7FlatBenchCableFlyIsReachableWithItsRequiredEquipment() {
+        val p7Fly = Exercise(
+            id = "flat-bench-cable-fly",
+            name = "Flat Bench Cable Fly",
+            requiredEquipment = setOf(EquipmentTag.CABLE_MACHINE, EquipmentTag.BENCH),
+            primaryMuscles = setOf(MuscleGroup.CHEST_UPPER, MuscleGroup.CHEST_LOWER),
+            movementPattern = MovementPattern.CHEST_FLY,
+            involvements = mapOf(
+                MuscleGroup.CHEST_UPPER to 0.7,
+                MuscleGroup.CHEST_LOWER to 0.7
+            )
+        )
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                split = SplitType.PUSH_PULL_LEGS,
+                equipment = setOf(EquipmentTag.CABLE_MACHINE, EquipmentTag.BENCH)
+            ),
+            listOf(p7Fly)
+        )
+
+        val pushIds = plan.days.first { it.focus == SplitFocus.PUSH }
+            .exercises.map { it.exerciseId }
+        assertTrue("flat-bench-cable-fly" in pushIds, "pushIds=$pushIds")
+    }
+
+    @Test
     fun lungeIsSelectableOnALegsDay() {
         val plan = engine.plan(
             request(daysPerWeek = 3, split = SplitType.PUSH_PULL_LEGS, equipment = everything),

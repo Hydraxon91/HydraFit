@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.database
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.equipment.MovementPatternGuardrail
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
@@ -21,6 +22,7 @@ class DefaultExercisesDataQualityTest {
 
     private val catalog = DefaultExercises.all
     private val newBatch = DefaultExercisesCatalogC1.all
+    private val p7Batch = DefaultExercisesCatalogP7.all
     private val builtInEquipmentIds = EquipmentTag.BUILT_IN.map { it.id }.toSet()
     private val tierScale = setOf(0.3, 0.5, 0.7, 1.0)
 
@@ -145,4 +147,150 @@ class DefaultExercisesDataQualityTest {
     fun newBatchIsTheExpectedSize() {
         assertEquals(112, newBatch.size)
     }
+
+    @Test
+    fun p7RowsUseApprovedIdsEquipmentPatternsAndTieredInvolvements() {
+        val expected = mapOf(
+            "flat-bench-cable-fly" to p7(
+                setOf(EquipmentTag.CABLE_MACHINE, EquipmentTag.BENCH),
+                MovementPattern.CHEST_FLY,
+                mapOf(MuscleGroup.CHEST_UPPER to 0.7, MuscleGroup.CHEST_LOWER to 0.7)
+            ),
+            "single-arm-cable-crossover" to p7(
+                setOf(EquipmentTag.CABLE_MACHINE),
+                MovementPattern.CHEST_FLY,
+                mapOf(MuscleGroup.CHEST_UPPER to 0.7, MuscleGroup.CHEST_LOWER to 0.7),
+                unilateral = true
+            ),
+            "seated-single-arm-cable-row" to p7(
+                setOf(EquipmentTag.CABLE_MACHINE),
+                MovementPattern.HORIZONTAL_PULL,
+                mapOf(
+                    MuscleGroup.UPPER_BACK to 0.7,
+                    MuscleGroup.LATS to 0.5,
+                    MuscleGroup.BICEPS to 0.5
+                ),
+                unilateral = true
+            ),
+            "dumbbell-floor-press" to p7(
+                setOf(EquipmentTag.DUMBBELL),
+                MovementPattern.HORIZONTAL_PUSH,
+                mapOf(
+                    MuscleGroup.TRICEPS to 0.7,
+                    MuscleGroup.CHEST_UPPER to 0.5,
+                    MuscleGroup.CHEST_LOWER to 0.5,
+                    MuscleGroup.FRONT_DELTS to 0.5
+                )
+            ),
+            "seated-arnold-dumbbell-press" to p7(
+                setOf(EquipmentTag.DUMBBELL, EquipmentTag.BENCH),
+                MovementPattern.VERTICAL_PUSH,
+                mapOf(
+                    MuscleGroup.FRONT_DELTS to 0.7,
+                    MuscleGroup.SIDE_DELTS to 0.7,
+                    MuscleGroup.TRICEPS to 0.5
+                )
+            ),
+            "single-arm-kettlebell-row" to p7(
+                setOf(EquipmentTag.KETTLEBELL),
+                MovementPattern.HORIZONTAL_PULL,
+                mapOf(
+                    MuscleGroup.UPPER_BACK to 0.7,
+                    MuscleGroup.LATS to 0.5,
+                    MuscleGroup.BICEPS to 0.5
+                ),
+                unilateral = true
+            ),
+            "single-leg-kettlebell-deadlift" to p7(
+                setOf(EquipmentTag.KETTLEBELL),
+                MovementPattern.HINGE,
+                mapOf(
+                    MuscleGroup.HAMSTRINGS to 1.0,
+                    MuscleGroup.GLUTES to 0.5,
+                    MuscleGroup.LOWER_BACK to 0.3
+                ),
+                unilateral = true
+            ),
+            "incline-dumbbell-curl" to p7(
+                setOf(EquipmentTag.DUMBBELL, EquipmentTag.BENCH),
+                MovementPattern.BICEPS_ISOLATION,
+                mapOf(MuscleGroup.BICEPS to 1.0)
+            ),
+            "single-leg-cable-kickback" to p7(
+                setOf(EquipmentTag.CABLE_MACHINE),
+                MovementPattern.LEG_ISOLATION,
+                mapOf(MuscleGroup.GLUTES to 1.0, MuscleGroup.HAMSTRINGS to 0.5),
+                unilateral = true
+            ),
+            "bicycle-crunch" to p7(
+                setOf(EquipmentTag.BODYWEIGHT),
+                MovementPattern.CORE,
+                mapOf(MuscleGroup.ABS to 1.0, MuscleGroup.OBLIQUES to 0.5),
+                loadCapability = ExerciseLoadCapability.BODYWEIGHT_ONLY
+            )
+        )
+        val actual = p7Batch.associate { exercise ->
+            exercise.id to p7(
+                exercise.requiredEquipment,
+                exercise.movementPattern,
+                exercise.involvements,
+                exercise.isUnilateral,
+                exercise.loadCapability
+            )
+        }
+        assertEquals(expected, actual)
+        assertEquals(
+            mapOf(
+                "flat-bench-cable-fly" to "Flat Bench Cable Fly",
+                "single-arm-cable-crossover" to "Single-Arm Cable Crossover",
+                "seated-single-arm-cable-row" to "Seated Single-Arm Cable Row",
+                "dumbbell-floor-press" to "Dumbbell Floor Press",
+                "seated-arnold-dumbbell-press" to "Seated Arnold Dumbbell Press",
+                "single-arm-kettlebell-row" to "Single-Arm Kettlebell Row",
+                "single-leg-kettlebell-deadlift" to "Single-Leg Kettlebell Deadlift",
+                "incline-dumbbell-curl" to "Incline Dumbbell Curl",
+                "single-leg-cable-kickback" to "Single-Leg Cable Kickback",
+                "bicycle-crunch" to "Bicycle Crunch"
+            ),
+            p7Batch.associate { it.id to it.name }
+        )
+        p7Batch.forEach { exercise ->
+            assertTrue(exercise.involvements.isNotEmpty(), "${exercise.id} has no explicit map")
+            assertTrue(
+                exercise.involvements.values.all { it in tierScale },
+                "${exercise.id} has off-tier weights"
+            )
+            assertTrue(
+                exercise.requiredEquipment.all { it.id in builtInEquipmentIds },
+                "${exercise.id} has unresolved equipment"
+            )
+        }
+    }
+
+    @Test
+    fun p7AddsNoMovementPatternGuardrailConflicts() {
+        val conflicts = p7Batch.filter { exercise ->
+            MovementPatternGuardrail.conflicts(
+                exercise.movementPattern,
+                exercise.effectiveInvolvements
+            )
+        }
+        assertTrue(conflicts.isEmpty(), "P7 pattern conflicts: ${conflicts.map { it.id }}")
+    }
+
+    private fun p7(
+        equipment: Set<EquipmentTag>,
+        pattern: MovementPattern,
+        involvements: Map<MuscleGroup, Double>,
+        unilateral: Boolean = false,
+        loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL
+    ) = ExpectedP7Row(equipment, pattern, unilateral, loadCapability, involvements)
+
+    private data class ExpectedP7Row(
+        val equipment: Set<EquipmentTag>,
+        val pattern: MovementPattern,
+        val unilateral: Boolean,
+        val loadCapability: ExerciseLoadCapability,
+        val involvements: Map<MuscleGroup, Double>
+    )
 }

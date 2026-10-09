@@ -106,7 +106,9 @@ merged into the seeded id. History and plan entries are reassigned; the custom's
 differing equipment, pattern, unilateral flag, load capability and involvement weights are
 preserved as a canonical override (values matching the built-in are not materialized, and a
 legacy `UNSPECIFIED` custom never overwrites the curated default); personal records are
-merged by weight, then reps, then timestamp; the custom override and row are removed.
+merged by weight, then reps, then timestamp; the custom override and row are removed for
+legacy catalog identities. CAT-P7 seed IDs are excluded from startup name dedupe so a
+pre-existing same-name custom and its references remain intact.
 The 21-group set and the muscle-split mechanism are recorded in PLANS.md and
 `docs/exercise-catalog-sources.md`.
 
@@ -122,10 +124,12 @@ Pullup/Chinup and Langhantel-Bankdrücken/Kurzhantel-Bankdrücken pilot, in all 
 language and editorial provenance. Labels deduplicate by catalog ID; cross-identity collisions
 stay ambiguous. Data-quality tests validate targets/duplicates/acknowledged collisions.
 
-Custom add/update additionally reject names startup dedupe would merge, using the same existing
-`normalizeExerciseName`. Other-row duplicate checks remain; aliases/translations/dash equivalence
+Custom add/update reject newly introduced names that collide with a seeded identity, using the same
+existing `normalizeExerciseName`. An existing custom matching a CAT-P7 seed can be edited without
+changing its normalized name; other-row duplicate checks remain. Aliases/translations/dash equivalence
 do not broaden identity. `CustomExerciseException.reason` is `NAME_CONFLICT` for name collisions.
-Startup dedupe behavior is unchanged, and accepted non-colliding customs keep their references.
+Legacy startup dedupe is unchanged for non-P7 identities; P7-matching existing customs keep their
+IDs and references.
 See `docs/architecture.md` §1.13 and `docs/exercise-catalog-sources.md` for the approved contract.
 
 Equipment new-custom creation exposes explicit Find profile, ambiguity chooser and
@@ -155,7 +159,10 @@ for an empty explicit map is primary muscles at `1.0` plus secondary muscles at
 Editor tiers: None, Low `0.3`, Mid `0.5`, High `0.7`, Primary `1.0`.
 Stored values are doubles, not a tier enum.
 
-`DefaultExercises.kt` is the seed catalog (baseline + `DefaultExercisesCatalogC1`).
+`DefaultExercises.kt` is the seed catalog (baseline + `DefaultExercisesCatalogC1` +
+`DefaultExercisesCatalogP7`). CAT-P7 adds ten sourced identities, all using existing equipment tags,
+patterns and muscles; row provenance is in `docs/exercise-catalog-sources.md`. P7 load capability is
+explicitly curated, not inferred from equipment; bicycle crunch is `BODYWEIGHT_ONLY`.
 `SeedExerciseCatalog` inserts missing rows, backfills involvements only where null,
 then idempotently normalizes legacy built-in weights onto the editor tier scale
 (`0.6 → 0.7`, `0.4 → 0.5`, `0.2 → 0.3`). It then rewrites built-in rows that still

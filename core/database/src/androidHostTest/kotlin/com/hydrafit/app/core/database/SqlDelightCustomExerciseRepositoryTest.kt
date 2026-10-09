@@ -202,6 +202,47 @@ class SqlDelightCustomExerciseRepositoryTest {
     }
 
     @Test
+    fun rejectsNewP7NameButAllowsExistingCollidingCustomProfileEdit() = runTest {
+        val addFailure = assertFailsWith<CustomExerciseException> {
+            repository.add(
+                "Bicycle Crunch",
+                emptySet(),
+                mapOf(MuscleGroup.ABS to 1.0),
+                MovementPattern.CORE
+            )
+        }
+        assertEquals(CustomExerciseFailureReason.NAME_CONFLICT, addFailure.reason)
+
+        database.exerciseQueries.insertCustom(
+            id = "user-bicycle-crunch",
+            name = "Bicycle Crunch",
+            requiredEquipment = "BODYWEIGHT",
+            movementPattern = "CORE",
+            isUnilateral = 0L,
+            loadCapability = "BODYWEIGHT_ONLY",
+            involvements = "ABS:1.0"
+        )
+        SeedExerciseCatalog(database).seed()
+        CustomExerciseDedupe(database).run()
+
+        repository.update(
+            "user-bicycle-crunch",
+            "Bicycle Crunch",
+            emptySet(),
+            mapOf(MuscleGroup.ABS to 1.0, MuscleGroup.OBLIQUES to 0.5),
+            MovementPattern.CORE
+        )
+        assertEquals(
+            "user-bicycle-crunch",
+            catalog.all().single { it.id == "user-bicycle-crunch" }.id
+        )
+        assertEquals(
+            "Bicycle Crunch",
+            catalog.all().single { it.id == "user-bicycle-crunch" }.name
+        )
+    }
+
+    @Test
     fun retainsOtherRowDuplicateChecksAndAllowsUpdatingOwnName() = runTest {
         val created = repository.add(
             "My Bench",

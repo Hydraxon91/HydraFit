@@ -403,12 +403,17 @@ language and provenance. All languages participate regardless of UI locale. Targ
 and acknowledged seed/alias collisions use the real matcher; effective-name collisions remain runtime
 ambiguities. These mappings are not externally validated physiological-equivalence evidence.
 
-Custom add/update validation additionally rejects seeded names under `CustomExerciseDedupe.kt`'s
-existing `normalizeExerciseName` (trim, collapse whitespace, lowercase). Existing other-row duplicate
-checks remain. Search dash equivalence, aliases and translations do **not** extend Save/startup
-identity. `CustomExerciseFailureReason.NAME_CONFLICT` distinguishes a conflict for localized editor
-guidance. Accepted non-colliding customs keep their IDs and history/prescription/preference/exclusion/PR
-references. Startup seeding/dedupe remains unchanged; future CAT-P7 collisions remain separately gated.
+Custom add/update validation rejects newly introduced seeded names under
+`CustomExerciseDedupe.kt`'s existing `normalizeExerciseName` (trim, collapse whitespace, lowercase).
+Existing other-row duplicate checks remain. Search dash equivalence, aliases and translations do
+**not** extend Save/startup identity. `CustomExerciseFailureReason.NAME_CONFLICT` distinguishes a
+conflict for localized editor guidance. Accepted non-colliding names keep their IDs and
+history/prescription/preference/exclusion/PR references. CAT-P7 seed IDs are excluded from startup
+name dedupe: pre-existing custom rows whose names match those new seeds retain their IDs and
+references. Such a custom may be edited without changing its normalized colliding name; adding a
+custom or renaming another custom into a seeded identity remains rejected. Legacy startup dedupe for
+all other seeded names is unchanged. CAT-P7 canonical profiles remain seed-owned and custom rows are
+not added to profile candidates; effective-name collisions between seed identities remain ambiguous.
 
 The Equipment editor exposes **Find profile** only for new custom creation. A unique identity opens
 the **Suggested catalog profile** preview; ambiguity requires a chooser with canonical/effective

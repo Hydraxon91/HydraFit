@@ -2,6 +2,8 @@ package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -10,6 +12,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.test.runTest
 
 class CustomExerciseDedupeTest {
 
@@ -53,6 +56,55 @@ class CustomExerciseDedupeTest {
 
         assertNull(database.exerciseQueries.selectById("user-trap").executeAsOneOrNull())
         assertNotNull(database.exerciseQueries.selectById("trap-bar-deadlift").executeAsOneOrNull())
+    }
+
+    @Test
+    fun leavesCustomRowsNamedLikeP7SeedsAndTheirReferencesUntouched() = runTest {
+        insertCustom(
+            id = "user-bicycle-crunch",
+            name = "Bicycle Crunch",
+            equipment = "BODYWEIGHT",
+            pattern = "CORE",
+            involvements = "ABS:1.0,OBLIQUES:0.5"
+        )
+        SqlDelightWorkoutLogRepository(database).add(
+            WorkoutSet(
+                exerciseId = "user-bicycle-crunch",
+                reps = 12,
+                weightKg = null,
+                loadKind = LoadKind.BODYWEIGHT,
+                performedAtMillis = 1L
+            )
+        )
+        insertPlanHistoryEntry("user-bicycle-crunch")
+        database.personalRecordQueries.upsert("user-bicycle-crunch", 0.0, 12L, 1L, "BODYWEIGHT")
+        database.exercisePreferenceQueries.upsert("user-bicycle-crunch", "PREFER")
+        database.exerciseExclusionQueries.upsert("user-bicycle-crunch", null)
+        val setBefore = database.workoutLogQueries.selectAllSets().executeAsList()
+        val planEntriesBefore = database.planHistoryQueries.selectAllEntries().executeAsList()
+        val recordsBefore = database.personalRecordQueries.selectAll().executeAsList()
+        val preferencesBefore = database.exercisePreferenceQueries.selectAll().executeAsList()
+        val exclusionsBefore = database.exerciseExclusionQueries.selectAll().executeAsList()
+
+        SeedExerciseCatalog(database).seed()
+        CustomExerciseDedupe(database).run()
+
+        assertNotNull(customExerciseOrNull("user-bicycle-crunch"))
+        assertEquals(setBefore, database.workoutLogQueries.selectAllSets().executeAsList())
+        assertEquals("user-bicycle-crunch", setBefore.single().exerciseId)
+        assertEquals(
+            planEntriesBefore,
+            database.planHistoryQueries.selectAllEntries().executeAsList()
+        )
+        assertEquals(recordsBefore, database.personalRecordQueries.selectAll().executeAsList())
+        assertEquals(
+            preferencesBefore,
+            database.exercisePreferenceQueries.selectAll().executeAsList()
+        )
+        assertEquals(
+            exclusionsBefore,
+            database.exerciseExclusionQueries.selectAll().executeAsList()
+        )
     }
 
     @Test

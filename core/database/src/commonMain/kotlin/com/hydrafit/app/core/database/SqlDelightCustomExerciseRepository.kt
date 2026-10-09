@@ -115,14 +115,23 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
             val names = unknown.joinToString { it.id }
             throw CustomExerciseException("Unknown equipment: $names")
         }
-        val duplicateName = queries.selectAll().executeAsList().any { row ->
-            row.id != id && row.name.equals(trimmed, ignoreCase = true)
+        val rows = queries.selectAll().executeAsList()
+        val current = rows.firstOrNull { it.id == id }
+        val retainedP7Collision = current?.isCustom == 1L &&
+            DefaultExercisesCatalogP7.all.any { seeded ->
+                normalizeExerciseName(seeded.name) == normalizeExerciseName(current.name) &&
+                    normalizeExerciseName(seeded.name) == normalizeExerciseName(trimmed)
+            }
+        val duplicateName = rows.any { row ->
+            row.id != id &&
+                row.name.equals(trimmed, ignoreCase = true) &&
+                !(retainedP7Collision && row.id in DefaultExercisesCatalogP7.all.map { it.id })
         }
         // Match precisely the existing startup merge rule, not search/alias separator equivalence.
         val seededIdentity = DefaultExercises.all.any { canonical ->
             normalizeExerciseName(canonical.name) == normalizeExerciseName(trimmed)
         }
-        if (duplicateName || seededIdentity) {
+        if (duplicateName || (seededIdentity && !retainedP7Collision)) {
             throw CustomExerciseException(
                 "An exercise named \"$trimmed\" already exists",
                 CustomExerciseFailureReason.NAME_CONFLICT

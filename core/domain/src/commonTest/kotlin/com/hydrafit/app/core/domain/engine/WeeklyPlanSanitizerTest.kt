@@ -32,6 +32,18 @@ class WeeklyPlanSanitizerTest {
     }
 
     @Test
+    fun sanitizesTheP7UnilateralCableCrossoverWhenItsEquipmentIsAvailable() = runTest {
+        val sanitized = sanitizer.sanitize(
+            planOf(listOf("bench-press", "single-arm-cable-crossover", "barbell-row")),
+            request(availableEquipment = setOf(EquipmentTag.BARBELL, EquipmentTag.CABLE_MACHINE))
+        )!!
+
+        assertTrue(
+            sanitized.days.single().exercises.any { it.exerciseId == "single-arm-cable-crossover" }
+        )
+    }
+
+    @Test
     fun appliesRequestedSetsAndVolumeAwareReps() = runTest {
         val plan = planOf(listOf("bench-press", "lateral-raise"))
 
@@ -451,11 +463,12 @@ class WeeklyPlanSanitizerTest {
         accessorySetsPerExercise: Int = goal.accessorySets,
         includeWorkoutData: Boolean = false,
         isDeload: Boolean = false,
+        availableEquipment: Set<EquipmentTag> = setOf(EquipmentTag.BARBELL),
         equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
         excludedExerciseIds: Set<String> = emptySet()
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
-        availableEquipment = setOf(EquipmentTag.BARBELL),
+        availableEquipment = availableEquipment,
         muscleFatigue = emptyMap(),
         nowMillis = 0L,
         goal = goal,
@@ -472,6 +485,18 @@ class WeeklyPlanSanitizerTest {
             exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, EquipmentTag.BARBELL),
             exercise("overhead-press", MovementPattern.VERTICAL_PUSH, EquipmentTag.BARBELL),
             exercise("barbell-row", MovementPattern.HORIZONTAL_PULL, EquipmentTag.BARBELL),
+            Exercise(
+                id = "single-arm-cable-crossover",
+                name = "Single-Arm Cable Crossover",
+                requiredEquipment = setOf(EquipmentTag.CABLE_MACHINE),
+                primaryMuscles = setOf(MuscleGroup.CHEST_UPPER, MuscleGroup.CHEST_LOWER),
+                movementPattern = MovementPattern.CHEST_FLY,
+                isUnilateral = true,
+                involvements = mapOf(
+                    MuscleGroup.CHEST_UPPER to 0.7,
+                    MuscleGroup.CHEST_LOWER to 0.7
+                )
+            ),
             exercise("lateral-raise", MovementPattern.SHOULDER_ISOLATION, EquipmentTag.BARBELL),
             exercise("dumbbell-curl", MovementPattern.BICEPS_ISOLATION, EquipmentTag.DUMBBELL),
             exercise(
