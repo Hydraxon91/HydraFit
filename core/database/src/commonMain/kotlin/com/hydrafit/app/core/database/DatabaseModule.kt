@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.database
 
+import com.hydrafit.app.core.domain.backup.BackupRepository
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
@@ -47,6 +48,7 @@ val databaseModule: Module = module {
     single<RoutineTemplateRepository> { SqlDelightRoutineTemplateRepository(get()) }
     single<WorkoutScheduleRepository> { SqlDelightWorkoutScheduleRepository(get()) }
     single<PersonalRecordRepository> { SqlDelightPersonalRecordRepository(get(), get()) }
+    single<BackupRepository> { SqlDelightBackupRepository(get()) }
     single<WorkoutPlanSourcesRepository> {
         SqlDelightWorkoutPlanSourcesRepository(
             get(),

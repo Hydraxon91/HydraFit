@@ -1,5 +1,6 @@
 package com.hydrafit.app
 
+import com.hydrafit.app.core.domain.backup.ExportBackupUseCase
 import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
 import com.hydrafit.app.core.domain.engine.BuildPlannerLoadInputsUseCase
 import com.hydrafit.app.core.domain.engine.BuildRecentWeightsUseCase
@@ -60,6 +61,7 @@ import org.koin.dsl.module
 
 val domainModule: Module = module {
     single { CalculateMuscleFatigueUseCase() }
+    singleOf(::ExportBackupUseCase)
     single { DeterministicWorkoutPlannerEngine(get(), weightConfig = get(), periodization = get()) }
     single { WeeklyPlanSanitizer(get(), periodization = get(), weightConfig = get()) }
     single<OnDevicePlanProgressReporter> { DefaultOnDevicePlanProgressReporter() }
