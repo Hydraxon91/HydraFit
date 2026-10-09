@@ -6,7 +6,7 @@
 
 | Item | Status | Next action |
 | --- | --- | --- |
-| Product roadmap — M1–M8 | IN PROGRESS | 0.2.0–0.3.1 shipped; M1 (Foundation & Performance) done in 0.2.3. **0.4.0 — More deliberate workout planning** is SHIPPED (`v0.4.0`): VOL-01 direct/indirect arm volume, EX-01 persistent exclusions, exercise preferences and a bounded OF-03 volume-explanation slice (C1–C5, bounded post-execution review APPROVED, pinned `v0.3.1` → candidate upgrade verified). 0.3.x releases remain trigger-based correctives. Later minor numbers remain provisional. Keep local AI and improve it later in M8. See "Product milestones" and "0.4.0 — More deliberate workout planning". |
+| Product roadmap — M1–M8 | IN PROGRESS | 0.2.0–0.4.1 shipped; M1 (Foundation & Performance) done in 0.2.3. **0.4.0 — More deliberate workout planning** shipped as `v0.4.0`, followed by corrective `v0.4.1`: VOL-01 direct/indirect arm volume, EX-01 persistent exclusions, exercise preferences and a bounded OF-03 volume-explanation slice (C1–C5; bounded post-execution review APPROVED; pinned `v0.3.1` → candidate upgrade verified). Further 0.4.x releases are trigger-based correctives, not planned feature releases. The approved 0.5.0 roadmap groups LT-13 Logger draft editing, CAT-02 custom-exercise profile suggestions, CAT-P7 general catalog variation expansion and OF-01 local backup/restore; decisions and implementation chunks remain separately gated. Keep local AI and improve it later in M8. See "Product milestones", "Release versioning" and "0.5.0 — Better logging, richer library & data ownership". |
 | Release 0.2.0 | SHIPPED | Tag `v0.2.0` (signed APK via `release.yml`) is published with a GitHub Release. The stale `v0.1.0` validation pre-release remains (optional cleanup). |
 | Release 0.2.1 | SHIPPED | Tag `v0.2.1` (signed APK via `release.yml`). Q2 (P2d), Q1, Q4a–Q4d, Q5, Q6 and Q3 (release) done. Q4e is a user-side catalog fix (not part of the shipped artifact). On-device LLM documented as non-functional; follow-up deferred to M8 (formerly targeted at 0.2.4). |
 | Release 0.2.2 — code review & architecture | SHIPPED | Tag `v0.2.2` (signed APK, ~58.1 MB) published with a changelog. R0–RG and RF triage done; all RF fixes implemented (S4-001 `04083ea`, S2-001 `4b2d95d`, S4-004 `b6ff315`, S3-007 `cf1dd5e`, S1-008 `2e1d6bf`, S2-005 `c7918bc`, S3-004 `6c38b17`, S3-001 `a07134e`, S1-007 `c0efda1`), CI green. See "0.2.2 — code review and architecture". |
@@ -31,7 +31,7 @@
 | 0.2.4 review snapshot | DONE | bf959ee^..HEAD (`eb310de`); 12 findings (R4-01..R4-12): 2 minor docs drift + 1 nit deferred to VOL-01 + 9 nit-positive confirmations of Chunk A + Settings chunk. See `docs/review-0.2.4-snapshot.md`. RF (docs sync on R4-01) gated separately. |
 | M3 routines & scheduling (OF-11 + OF-12-P0/P1) | DONE | Shipped in 0.3.0 (`v0.3.0`). Routine authoring + scheduling per the 2026-10-07 routine/scheduling contract (`6e5b00a`…`04259cf`); emulator-verified for authoring, activation, the Logger occurrence card, and Finish/Skip. The mid-transaction rollback seam (PER-17) is covered by `SqlDelightWorkoutScheduleRepositoryTest`. Remaining M3 items: EX-01 exclusions and EQ-01 equipment profiles. See "M3 — routines & scheduling — SHIPPED". |
 
-> **Next work sequence (revised 2026-10-08).** 0.3.0 and 0.3.1 are shipped. The next feature-release target is the provisional **0.4.0 — More deliberate workout planning** roadmap below; its implementation remains separately gated chunk by chunk. Any 0.3.x release is trigger-based for a verified corrective or small usability fix, not a required waypoint. After 0.4.0, the existing proposed sequence resumes with OF-01 (0.5.0 provisional) and then a separately selected M4 guided-training scope. See "Release versioning" and "0.4.0 — More deliberate workout planning".
+> **Next work sequence (revised 2026-10-09).** 0.4.0 and corrective 0.4.1 are shipped. No further 0.4.x feature release is planned; patches remain trigger-based for verified corrections. The approved 0.5.0 roadmap groups LT-13 → CAT-02 → CAT-P7 → OF-01, with CAT-P7 sourcing allowed to start earlier and OF-01 format finalization following the selected editor/catalog contracts. This records release direction and sequencing only; open decisions, implementation chunks and release publication retain their gates. After 0.5.0, select a bounded M4 guided-training scope. See "Release versioning" and "0.5.0 — Better logging, richer library & data ownership".
 
 > **Archived 2026-10-03** (into [docs/plans-archive.md](docs/plans-archive.md#2026-10-03--v021-and-v022-released)): the complete 0.2.1 and 0.2.2 release plans (0.2.1 Q1–Q6; 0.2.2 review phases, RF triage, R0 inventory/slices). **Archived 2026-10-02** (into [docs/plans-archive.md](docs/plans-archive.md#2026-10-02--v020-feature-cycle-release-pipeline-and-dropped-item)): Roadmap 2b S1–S5, items 1/2/2b/3, release pipeline C1–C6, and the dropped item 5. Earlier archives: the BACK fatigue investigation and the fatigue-model redesign.
 
@@ -43,7 +43,7 @@
 
 ## Product milestones
 
-**Approved direction (2026-10-05):** deliver the core offline training experience before a dedicated AI improvement round; retain local AI and investigate how to improve it while keeping HydraFit source MIT. Stable milestone ids describe delivery themes, not monolithic work chunks. The next release is **0.3.0 — Build Your Training** (scope in "0.3.0 — Build Your Training"); later minor numbers are provisional and assigned at their scope gates (see "Release versioning"). Milestones and releases are related but not one-to-one. Released versions/history are unchanged.
+**Approved direction (2026-10-05):** deliver the core offline training experience before a dedicated AI improvement round; retain local AI and investigate how to improve it while keeping HydraFit source MIT. Stable milestone ids describe delivery themes, not monolithic work chunks. **0.4.0 — More deliberate workout planning** and corrective **0.4.1** are shipped. The proposed **0.5.0** grouping is LT-13, CAT-02, CAT-P7 and OF-01, with its detailed scope and gates below. Milestones and releases are related but not one-to-one. Released versions/history are unchanged.
 
 | Id | Milestone | Planned scope / references | Re-entry or completion gate |
 | --- | --- | --- | --- |
@@ -66,8 +66,8 @@ Versions are assigned when a release scope is agreed; they do **not** grant impl
 | --- | --- |
 | **0.3.0** | Build Your Training — the bounded scope in "0.3.0 — Build Your Training". |
 | **0.3.x** | Corrective releases for that shipped contract: bug fixes, compatibility and small usability corrections. |
-| **0.4.0 (provisional)** | Planner quality: VOL-01, EX-01 and a bounded OF-03 volume-explanation slice, subject to the roadmap and scope gates below. |
-| **0.5.0 (provisional)** | Data ownership centered on OF-01, if delivered as the next separate feature release. |
+| **0.4.0** | SHIPPED — VOL-01, EX-01 and a bounded OF-03 volume-explanation slice. `v0.4.1` shipped as a corrective patch. |
+| **0.5.0 (provisional)** | Proposed coherent release grouping LT-13, CAT-02, CAT-P7 and OF-01; release scope remains subject to the decisions and gates below. |
 | **Later minor releases** | Guided training, progress/recovery, interchange and advanced controls; assigned at their scope gates. |
 | **1.0.0** | A separately defined stability/readiness milestone — not "every backlog idea implemented". |
 
@@ -75,6 +75,24 @@ Versions are assigned when a release scope is agreed; they do **not** grant impl
 - Provisional numbers are not promises; a small corrective item is not promoted to a minor version, and no dates or feature-completion claims are attached.
 - M8 (AI reliability) has no reserved version yet.
 - Development builds use a `-dev` string; release versions still come from tags via the existing `release.yml` workflow.
+
+### 0.5.0 — Better logging, richer library & data ownership (roadmap approved 2026-10-09; implementation gated)
+
+**Target promise:** let users correct planned-set drafts before logging, configure recognized custom exercises with offline catalog suggestions, broaden the seeded catalog with sourced variations across exercise families, and protect supported training data with local backup/restore. The proposed release grouping is **LT-13 + CAT-02 + CAT-P7 + OF-01**. This is roadmap direction, not implementation authorization; behavior decisions and each implementation chunk retain their own gates.
+
+**Recommended sequence:** LT-13 → CAT-02 → CAT-P7 → OF-01 → integration/release. CAT-P7 research/sourcing may begin earlier. Finalize OF-01's format and field inventory after the selected editor/catalog contracts are settled so the backup contract covers the shipped data.
+
+| Step | Scope | Decisions / exit gate |
+| --- | --- | --- |
+| **0.5-LT13 — planned-set draft editing** | Add the Logger "Planned today" missing-load prompt and per-draft editor for approved fields (reps, load, optional RIR and performed time). Recommended boundary: edits affect only that draft's eventual recorded set, never its saved routine, accepted plan or frozen prescription. | Agree the exact field set, missing-load behavior for each EX-02 load kind, and one-off draft semantics before implementation. Cancel creates no record; confirmation records once; null/zero/bodyweight distinctions, occurrence attribution and completion remain correct. Full guided workouts and rest timers are excluded. |
+| **0.5-CAT02 — custom-exercise profile suggestions** | Offline matching of catalog names and curated aliases/translations to suggest a profile, with preview and explicit confirmation. | Agree ambiguity/unknown handling, suggested fields and preservation of manual edits. No automatic application, arbitrary muscle/load inference, identity merge, AI or network requirement. Verify localization, cancellation and manual edits. |
+| **0.5-CATP7 — general catalog variation expansion** | Identify and add a bounded, sourced set of useful seeded exercise variations across catalog families—not limited to chest flies or cable rows. Consider movement families, equipment, unilateral/bilateral options and meaningful execution variations; examples are candidates, not a complete scope. Coordinate canonical identity/aliases with CAT-02. | Approve candidate rows and provenance before seeding. Record equipment, load capability, movement pattern and involvement basis per row; distinguish direct evidence from modeled/family-inferred parameters. Classify aliases vs genuinely distinct exercises. No silent fatigue recalibration, new muscle groups, pattern changes or measurement types; separately decide or defer rows that need them. Verify fresh/upgraded consistency, dedupe, data quality, equipment filtering, planner reachability and all-engine compatibility. |
+| **0.5-OF01 — local backup/export and restore** | User-selected local backup files and recovery for supported offline data, preserving relationships and recorded history. Include the selected LT-13/CAT-02/CAT-P7 data contracts alongside existing OF-01 coverage. Exclude API credentials and model binaries. | OF-01-P0 approves versioned format, field inventory, compatibility, missing catalog ID behavior, export consistency and restore semantics. Recommendation (not yet a product decision): logical versioned JSON and replace-style restore for v1 with explicit preview/confirmation. P1 export a consistent snapshot; P2 validate all data before transactional restore; P3 Settings UI and emulator round-trip verification. Automatic rotating backups, encryption, merge restore and CSV interchange are excluded. |
+| **0.5 integration, verification & release gate** | Verify the four slices together, including backup/restore of the selected new catalog/editor data; sync affected living docs/skill and prepare a candidate for review. | Required host tests, migration coverage where applicable, Koin verification for changed bindings, ktlint, debug assembly, iOS compile, emulator UI/upgrade verification and bounded post-execution review pass before release preparation. Publication remains separately gated. |
+
+**Acceptance:** draft edits never silently mutate saved prescriptions or create duplicate performed records; profile suggestions are local and user-confirmed; catalog additions are sourced, identity-safe and consistent between fresh/upgraded installs; backup/restore round-trips supported data and relationships, while invalid files or failed restores leave current data intact. The default experience remains offline and excludes secrets/model bytes from ordinary backups.
+
+**Boundaries:** CAT-P7 means general catalog variation expansion, not a fly/row-only batch. This roadmap does not include EX-03 (deferred), CAT-01 instructions, full OF-02 guided workouts/rest timers, automatic backups, encryption, CSV import/export, planner/fatigue policy changes, new dependencies, or an AI/model change. Release numbering is provisional until the 0.5.0 scope gate confirms the coherent user-visible release.
 
 ### 0.4.0 — More deliberate workout planning (provisional)
 
@@ -405,7 +423,7 @@ stable once recorded; later release numbers stay provisional.
 | EX-03 | High-risk exercise caution (deadlift / clean-and-press class); informational only, no injury inference or rehab advice | **DEFERRED** (2026-10-08): too complex for the current systems and not wanted now; recorded for reference, not scheduled |
 | CAT-P6 | Corrective: upgraded built-ins still hold legacy involvement strings (`BACK:`/`SHOULDERS:`) that decode below the 0.7 primary threshold and under-weight those rows; add the missing catalog-wide guardrail regression test | **DONE** (`2851148`): idempotent startup repair (`repairLegacyInvolvementNames`) rewrites legacy-named built-ins from the current seed; catalog-wide `DefaultExercisesDataQualityTest` added. Shipped in `v0.4.1` |
 | LT-12 / CAT-02 | Custom-exercise muscle-group and movement-pattern suggestions (preview/confirm), reusing the existing sourced guardrail mapping | Optional M2 editor enhancement; already homed |
-| CAT-P7 | Expand seeded catalog variations (pec-deck/machine fly, handle fly, close-/wide-grip cable rows); the lat-pulldown grips largely exist already | M2 catalog batch via CAT-P0 sourcing; one EMG/biomechanics source per row |
+| CAT-P7 | General seeded-catalog variation expansion across exercise families; fly and cable-row variants are examples, not the scope limit | Proposed 0.5.0 catalog slice; first approve a bounded candidate set, canonical identity/alias rules and per-row sourcing (CAT-P0 provenance discipline) |
 
 **CAT-P6 — legacy involvement repair (corrective).** Confirmed from source: pre-MUS-P1 the seed
 authored broad groups (`dumbbell-row` → `BACK`, `dumbbell-shoulder-press` → `SHOULDERS`);
@@ -429,8 +447,13 @@ test's `knownPatternConflicts` set and not fixed in CAT-P6.
 (`WorkoutLoggerScreen.kt:402-436`) and a null load logs as no weight. Add an overflow editor and
 reuse the existing `legacyResolution` prompt pattern when a recommendation is absent.
 
-**CAT-P7 — sourcing first.** It may not add rows without a recorded source (EMG/biomechanics per
-row, per CAT-P0). **EX-03 is deferred** and needs no source unless it is revived.
+**CAT-P7 — general catalog variation expansion, sourcing first.** The purpose is
+broader useful variation across the seeded catalog, not only the earlier examples
+(pec-deck/machine fly, handle fly, cable-row grips). Define families and a bounded
+candidate list at its scope gate; identify aliases vs distinct variations and
+record the source/evidence basis per row (per CAT-P0) before adding seed data.
+No row is in scope merely because it appeared as an example. **EX-03 is deferred**
+and needs no source unless it is revived.
 
 ## Retained roadmap items (originally v0.2.0 → v0.3.0, approved 2026-10-01)
 
@@ -1138,6 +1161,8 @@ These stable references are separately approved slices, not implicit additions t
 - **Forearm/grip accessories (later scope proposal).** `FOREARMS` already exists; the seeded catalog has 11 secondary `FOREARMS:0.3` contributions and no forearm-primary exercise. A future rep-based wrist-flexion/extension catalog + selection slice can reuse `FOREARMS`, but needs sourced maps and a genuine movement-pattern/pool contract; do not mislabel wrist work as biceps isolation or add wrist-flexor/extensor muscle groups solely for catalog completeness. Carries, hangs, wrist rollers and grippers need a separate duration/distance/force/device-rating and progression contract under OF-10C. Never encode seconds as reps or use a gripper rating as an Epley load. See the 2026-10-08 deterministic-engine research notes above.
 
 ## Decisions Made
+
+- **2026-10-09 — 0.5.0 roadmap grouping (approved; documentation/sequence only).** Record LT-13 (Logger planned-set draft editing), CAT-02 (offline custom-exercise profile suggestions), CAT-P7 (general sourced catalog variation expansion across exercise families; fly/row variants are examples only) and OF-01 (local backup/export and restore) as the proposed 0.5.0 release grouping. Recommended order is LT-13 → CAT-02 → CAT-P7 → OF-01 → integration/release; CAT-P7 sourcing may begin earlier, and OF-01 format finalization follows the selected editor/catalog contracts. This does not decide LT-13 field semantics, CAT-02 matching behavior, CAT-P7 candidate rows, or OF-01 format/restore choices; those remain gated. No implementation or publication is authorized by this roadmap entry. See "0.5.0 — Better logging, richer library & data ownership".
 
 - **2026-10-08 — live-testing follow-up direction (approved; recording only).** Record the 2026-10-08 findings in `docs/live-testing-2026-10-08.md` and their homes: **LT-13** (Logger "Planned today" load prompt and per-draft edit → OF-02), **EX-03** (high-risk exercise caution; no injury inference or rehab advice), **CAT-P6** (corrective legacy-involvement repair for upgraded installs, patch-level, with a catalog-wide guardrail regression test), **LT-12 / CAT-02** (custom-exercise profile suggestions) and **CAT-P7** (sourced catalog variation expansion). Recommended order: CAT-P6 → LT-13 → LT-12/CAT-02 → CAT-P7 after sourcing; **EX-03 is deferred** (2026-10-08) as too complex for the current systems and not wanted now. This entry authorizes documentation/direction only; every implementation chunk, migration, schema change and release keeps its own gate, and the CAT-P6 patch classification is a recommendation, not an assigned release number.
 
