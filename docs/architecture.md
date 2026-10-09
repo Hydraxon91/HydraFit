@@ -435,6 +435,43 @@ protection flags, never renaming/merging/redirecting. No IDs, history, PRs, pres
 working-load suggestions, preferences or exclusions are copied. Pattern/muscle guardrails stay
 advisory.
 
+### 1.14 Local backup/export and restore (OF-01 v1)
+
+A user-selected local file captures the supported offline data as a **logical,
+versioned JSON** snapshot, and restore replaces that data wholesale.
+
+- **Examples:** domain `backup/` payload model, serialization and validation +
+  `ExportBackupUseCase`/`PreviewBackupUseCase`/`RestoreBackupUseCase`;
+  `SqlDelightBackupRepository` (one-transaction consistent read; explicit-id
+  transactional write); a platform document IO adapters pair; the Settings entry
+  point.
+- **Rules:** the file is logical (`format` + `formatVersion` 1), independent of the
+  SQLite schema and the app version, and carries a catalog compatibility
+  fingerprint; nullable fields are present as explicit `null`, not omitted. Export
+  reads every section in one transaction after `StartupReadiness`, off the main
+  thread, and rejects oversize content rather than truncating. Restore validates
+  the whole payload before any write, then replaces the included data in one
+  transaction with stored ids, ordering and relationships preserved; it never
+  re-runs identity-generating APIs (`add`/`save`/`accept`) or re-snapshots today's
+  catalog. Catalog definitions/aliases stay application-owned: a CAT-P7-named
+  custom and its same-named seed remain two identities, and unknown seed ids,
+  custom ids on canonical identities, duplicate ids and unsupported values are
+  rejected with no writes. Credentials and model bytes are excluded and left
+  untouched. Startup maintenance still runs afterward; a payload that would be
+  silently altered by `CustomExerciseDedupe` or `WorkoutSessionBackfill` is
+  rejected. The exclusive replacement window is chosen at implementation — a
+  Settings-only mutex or disabled button is insufficient, and a staged
+  next-process-start apply is the fallback.
+- **Consistency:** mirrors the §1.8 snapshot rule — frozen prescriptions,
+  performed snapshots, load kinds and stored ids round-trip unchanged.
+- **Violations / tensions:** the existing repositories cannot implement restore
+  (they generate identities and snapshot the live catalog); a dedicated
+  explicit-id write path is required, and its generated-id behavior must be
+  verified after a full replace. Cross-platform document IO is Android-only in
+  0.5.0.
+- **Ranked improvements:** (S) if backups and history need the same round-trip
+  fixtures, extract a shared test fixture rather than duplicating payload builders.
+
 ## 2. Decision log
 
 Each row: the decision, the **recorded** rationale with a citation, recorded alternatives, and status.
@@ -464,6 +501,7 @@ No rationale is invented; unrecorded items are listed as questions in §2.1.
 | D20 | Editable routine templates vs frozen activations and occurrences; one active finite block at a time | PLANS.md "Decisions Made" (2026-10-07 routine/scheduling contract) | Shared references and endless recurrence considered; copy semantics chosen | Current |
 | D21 | Explicit Finish/Skip advances the queue; logging a set, End/New session, expiry and midnight do not; progression stays the accepted-plan ordinal | PLANS.md "Decisions Made" (2026-10-07) | Occurrence-aware progression eligibility deferred to OF-10A-P0 | Current |
 | D22 | Exercise load capability vs recorded load kind; external-only generation; legacy contributes to the planner only when external today; added/bodyweight are neutral for relative load | PLANS.md "Decisions Made" (2026-10-07 live-testing) + "EX-02 — exercise load semantics" | Collapse-to-zero, equipment-derived capability and blanket historical reinterpretation rejected | Current |
+| D23 | OF-01 backup is logical versioned JSON restored by whole replacement, not a database snapshot or merge | PLANS.md "Decisions Made" (2026-10-09 OF-01 contract) | Database snapshot and merge restore recorded but excluded from v1 | Current (v1; P1–P3 implementation gated) |
 
 ### 2.1 Rationale not recorded (questions, not findings)
 

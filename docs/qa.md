@@ -131,6 +131,18 @@ exact on-screen text.
 - Kill and relaunch → all data persists, including the active block and its occurrences.
 - Optional: read-only DB pull (aggregates only) to confirm sessions/PRs were written.
 
-## 12. Release-specific
+## 12. Backup & restore
+- Settings → Backup: export to a chosen local file → success is shown only after the provider
+  confirms the write; airplane mode → export still works.
+- Preview a valid backup → shows the included categories/contents; Cancel writes nothing.
+- Restore a valid backup → after explicit confirmation the supported data is replaced; relaunch →
+  restored sets, sessions, plan history, routines, preferences/exclusions and the active block survive.
+- Invalid, truncated, oversized or unsupported-version file → a typed localized error and the
+  current data stays intact.
+- API key and imported on-device model are untouched by export/restore.
+- A restore is refused or safely staged while a draft/workout context is active, per the approved
+  replacement window.
+
+## 13. Release-specific
 - Install the signed APK from `release.yml`; `versionName`/`versionCode` match the tag/run number.
 - Upgrade install over the previous build → data survives migrations.

@@ -679,6 +679,23 @@ Test entry points:
   `suspend operator fun invoke(...)`. Ports use `Repository` suffixes, not `I`
   prefixes; capability ports include `ExerciseCatalog` and `TimeProvider`.
 
+## Local backup/export and restore (OF-01)
+
+Logical, versioned JSON (`format` + `formatVersion` 1), restored by whole replacement.
+Domain `backup/` owns the payload records, the kotlinx-serialization codec, the
+validator and the export/preview/restore use cases (bound in `shared/DomainModule.kt`).
+`SqlDelightBackupRepository` (`:core:database`) reads every section in one transaction
+after `StartupReadiness` and, on restore, deletes the included user-owned rows and
+re-inserts them with their stored ids through dedicated explicit-id queries — ordinary
+`add`/`save`/`accept` methods are never reused because they mint identities or re-snapshot
+today's catalog. Delete children before parents and insert parents before children.
+Catalog definitions/aliases are application-owned and excluded; unknown seed ids, custom
+ids on canonical identities and duplicate ids are rejected with no writes. Credentials and
+on-device model bytes are excluded. Startup seeding/dedupe/backfill still run after a
+restore, so a payload that would be silently altered is rejected. Android uses a SAF
+open/create document port; iOS has no restore action. A new persisted field is added to
+the payload (and its round-trip test) in the same change that introduces it.
+
 ## Units, time, and visual tooling details
 
 `WeightUnit` converts display/entry values; storage and planner calculations
