@@ -7,6 +7,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
@@ -135,6 +136,49 @@ class SqlDelightBackupRepositoryTest {
         repository.restore(file)
 
         assertEquals(file, repository.export(appVersion = "t", exportedAtMillis = 1L))
+    }
+
+    @Test
+    fun restoreMaterializesDefaultSettingsWhenThePayloadHasNone() = runTest {
+        seedRepresentativeData()
+        val file = repository.export(appVersion = "t", exportedAtMillis = 1L).copy(settings = null)
+        database.plannerEngineQueries.updateDaysPerWeek(2)
+        database.plannerEngineQueries.updateWeightUnit("LB")
+
+        repository.restore(file)
+
+        assertEquals("DETERMINISTIC", database.plannerEngineQueries.selectEngine().executeAsOne())
+        assertEquals(4L, database.plannerEngineQueries.selectDaysPerWeek().executeAsOne())
+        assertEquals("BALANCED", database.plannerEngineQueries.selectTrainingGoal().executeAsOne())
+        assertEquals("KG", database.plannerEngineQueries.selectWeightUnit().executeAsOne())
+    }
+
+    @Test
+    fun restoreKeepsABuiltInEquipmentLimitThePayloadOmits() = runTest {
+        seedRepresentativeData()
+        val file = repository.export(appVersion = "t", exportedAtMillis = 1L)
+            .copy(equipment = emptyList())
+        database.equipmentQueries.updateMaxWeight(999.0, "BARBELL")
+
+        repository.restore(file)
+
+        assertEquals(
+            999.0,
+            database.equipmentQueries.selectAll().executeAsList()
+                .first { it.id == "BARBELL" }.maxWeightKg
+        )
+    }
+
+    @Test
+    fun restoreDropsUserEquipmentThePayloadOmits() = runTest {
+        seedRepresentativeData()
+        val file = repository.export(appVersion = "t", exportedAtMillis = 1L)
+        database.equipmentQueries.insert("CUSTOM-2", "Extra", 0)
+
+        repository.restore(file)
+
+        val restored = database.equipmentQueries.selectAll().executeAsList()
+        assertNull(restored.firstOrNull { it.id == "CUSTOM-2" })
     }
 
     @Test
