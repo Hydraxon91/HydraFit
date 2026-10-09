@@ -108,6 +108,76 @@ class CustomExerciseDedupeTest {
     }
 
     @Test
+    fun preP7CustomKeepsProfileAndReferencesAcrossP7SeedingAndRepeatedDedupe() = runTest {
+        // An install from before CAT-P7: the P7 seed identities do not exist yet.
+        removeP7Seeds()
+        database.exerciseQueries.insertCustom(
+            id = "user-bicycle-crunch",
+            name = "Bicycle Crunch",
+            requiredEquipment = "BODYWEIGHT",
+            movementPattern = "CORE",
+            isUnilateral = 0,
+            loadCapability = "BODYWEIGHT_ONLY",
+            involvements = "ABS:0.9,OBLIQUES:0.4"
+        )
+        insertCustomReferences("user-bicycle-crunch")
+
+        // The install upgrades: current seeding introduces the same-name P7 identity.
+        SeedExerciseCatalog(database).seed()
+        CustomExerciseDedupe(database).run()
+
+        // The P7 seed is its own identity; the pre-existing custom is neither merged nor rewritten.
+        assertNotNull(database.exerciseQueries.selectById("bicycle-crunch").executeAsOneOrNull())
+        val custom = requireNotNull(customExerciseOrNull("user-bicycle-crunch"))
+        assertEquals("Bicycle Crunch", custom.name)
+        assertEquals("BODYWEIGHT", custom.requiredEquipment)
+        assertEquals("CORE", custom.movementPattern)
+        assertEquals(0L, custom.isUnilateral)
+        assertEquals("BODYWEIGHT_ONLY", custom.loadCapability)
+        assertEquals("ABS:0.9,OBLIQUES:0.4", custom.involvements)
+        assertNull(overrideOrNull("bicycle-crunch"))
+
+        assertEquals(
+            "user-bicycle-crunch",
+            database.workoutLogQueries.selectAllSets().executeAsOne().exerciseId
+        )
+        assertEquals(
+            "user-bicycle-crunch",
+            database.planHistoryQueries.selectAllEntries().executeAsOne().exerciseId
+        )
+        assertEquals(
+            "user-bicycle-crunch",
+            database.routineTemplateQueries.selectAllEntries().executeAsOne().exerciseId
+        )
+        assertEquals(
+            "user-bicycle-crunch",
+            database.trainingScheduleQueries.selectAllActivationEntries().executeAsOne().exerciseId
+        )
+        assertEquals(
+            "user-bicycle-crunch",
+            database.trainingScheduleQueries.selectAllOccurrenceEntries().executeAsOne().exerciseId
+        )
+        assertEquals(
+            "user-bicycle-crunch",
+            database.personalRecordQueries.selectAll().executeAsOne().exerciseId
+        )
+        assertEquals(
+            "user-bicycle-crunch",
+            database.exercisePreferenceQueries.selectAll().executeAsOne().exerciseId
+        )
+        assertEquals(
+            "user-bicycle-crunch",
+            database.exerciseExclusionQueries.selectAll().executeAsOne().exerciseId
+        )
+
+        // A second pass does not merge, duplicate or otherwise change the retained identity.
+        val exercisesAfterFirstRun = database.exerciseQueries.selectAll().executeAsList()
+        CustomExerciseDedupe(database).run()
+        assertEquals(exercisesAfterFirstRun, database.exerciseQueries.selectAll().executeAsList())
+        assertEquals(1, database.workoutLogQueries.selectAllSets().executeAsList().size)
+    }
+
+    @Test
     fun materializesDifferingEquipmentAsCanonicalOverride() {
         insertCustom(equipment = "BODYWEIGHT", involvements = trapBarSeedInvolvements())
 
@@ -774,6 +844,149 @@ class CustomExerciseDedupeTest {
             suggestedWeightKg = 100.0,
             loadCapability = "EXTERNAL",
             loadKind = "EXTERNAL"
+        )
+    }
+
+    /** Removes the CAT-P7 seed rows so a custom can be created as it existed before P7 shipped. */
+    private fun removeP7Seeds() {
+        val ids = DefaultExercisesCatalogP7.all.joinToString(separator = ",") { "'${it.id}'" }
+        driver.execute(
+            identifier = null,
+            sql = "DELETE FROM exercise WHERE id IN ($ids)",
+            parameters = 0
+        )
+    }
+
+    /** Creates one reference of each kind that startup dedupe can reassign, all aimed at [exerciseId]. */
+    private fun insertCustomReferences(exerciseId: String) {
+        database.workoutLogQueries.insertSet(
+            exerciseId = exerciseId,
+            reps = 12,
+            weightKg = null,
+            performedAt = 1,
+            isWarmup = 0,
+            involvements = "ABS:0.9,OBLIQUES:0.4",
+            weekNumber = null,
+            cycleNumber = null,
+            dayIndex = null,
+            rir = null,
+            sessionId = null,
+            loadKind = "BODYWEIGHT"
+        )
+        insertPlanHistoryEntry(exerciseId)
+        insertRoutineEntry(exerciseId)
+        insertActivationAndOccurrenceEntries(exerciseId)
+        database.personalRecordQueries.upsert(
+            exerciseId = exerciseId,
+            weightKg = 0.0,
+            reps = 12,
+            updatedAt = 1,
+            loadKind = "BODYWEIGHT"
+        )
+        database.exercisePreferenceQueries.upsert(exerciseId = exerciseId, preference = "PREFER")
+        database.exerciseExclusionQueries.upsert(exerciseId = exerciseId, expiresAt = null)
+    }
+
+    private fun insertRoutineEntry(exerciseId: String) {
+        database.routineTemplateQueries.insertTemplate(
+            name = "Block",
+            revision = 1,
+            createdAtMillis = 1,
+            updatedAtMillis = 1,
+            archivedAtMillis = null,
+            sourcePlanId = null
+        )
+        val templateId = database.routineTemplateQueries.lastInsertedTemplateId().executeAsOne()
+        database.routineTemplateQueries.insertWorkout(
+            templateId = templateId,
+            position = 0,
+            name = "Day",
+            focus = "FULL_BODY"
+        )
+        val workoutId = database.routineTemplateQueries.lastInsertedWorkoutId().executeAsOne()
+        database.routineTemplateQueries.insertEntry(
+            workoutId = workoutId,
+            position = 0,
+            exerciseId = exerciseId,
+            sets = 3,
+            reps = 12,
+            weightKg = null,
+            loadKind = "BODYWEIGHT"
+        )
+    }
+
+    private fun insertActivationAndOccurrenceEntries(exerciseId: String) {
+        database.trainingScheduleQueries.insertActivation(
+            templateId = null,
+            templateRevision = null,
+            sourcePlanId = null,
+            name = "Block",
+            createdAtMillis = 1,
+            startEpochDay = 1,
+            mode = "SEQUENCE",
+            weekdayMask = 0,
+            status = "ACTIVE",
+            weekNumber = 1,
+            cycleNumber = 1,
+            endedAtMillis = null,
+            revision = 1
+        )
+        val activationId =
+            database.trainingScheduleQueries.lastInsertedActivationId().executeAsOne()
+        database.trainingScheduleQueries.insertActivationWorkout(
+            activationId = activationId,
+            sourceWorkoutId = null,
+            position = 0,
+            name = "Day",
+            focus = "FULL_BODY"
+        )
+        val workoutId =
+            database.trainingScheduleQueries.lastInsertedActivationWorkoutId().executeAsOne()
+        database.trainingScheduleQueries.insertActivationEntry(
+            workoutId = workoutId,
+            position = 0,
+            exerciseId = exerciseId,
+            exerciseName = "Bicycle Crunch",
+            movementPattern = "CORE",
+            requiredEquipment = "BODYWEIGHT",
+            involvements = "ABS:0.9,OBLIQUES:0.4",
+            isUnilateral = 0,
+            sets = 3,
+            reps = 12,
+            weightKg = null,
+            loadCapability = "BODYWEIGHT_ONLY",
+            loadKind = "BODYWEIGHT"
+        )
+        database.trainingScheduleQueries.insertOccurrence(
+            activationId = activationId,
+            activationWorkoutId = workoutId,
+            queuePosition = 0,
+            scheduledEpochDay = null,
+            notBeforeEpochDay = null,
+            startedAtMillis = null,
+            resolvedAtMillis = null,
+            status = "PENDING",
+            revision = 1
+        )
+        val occurrenceId =
+            database.trainingScheduleQueries.lastInsertedOccurrenceId().executeAsOne()
+        database.trainingScheduleQueries.insertOccurrenceEntry(
+            occurrenceId = occurrenceId,
+            sourceActivationEntryId = null,
+            position = 0,
+            exerciseId = exerciseId,
+            exerciseName = "Bicycle Crunch",
+            movementPattern = "CORE",
+            requiredEquipment = "BODYWEIGHT",
+            involvements = "ABS:0.9,OBLIQUES:0.4",
+            isUnilateral = 0,
+            sets = 3,
+            reps = 12,
+            weightKg = null,
+            loadCapability = "BODYWEIGHT_ONLY",
+            loadKind = "BODYWEIGHT",
+            remainingDisposition = null,
+            terminalRemainingSets = null
         )
     }
 

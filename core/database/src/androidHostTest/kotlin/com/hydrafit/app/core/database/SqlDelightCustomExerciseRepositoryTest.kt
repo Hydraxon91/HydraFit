@@ -3,6 +3,7 @@ package com.hydrafit.app.core.database
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.workout.WorkoutSet
@@ -240,6 +241,60 @@ class SqlDelightCustomExerciseRepositoryTest {
             "Bicycle Crunch",
             catalog.all().single { it.id == "user-bicycle-crunch" }.name
         )
+    }
+
+    @Test
+    fun rejectsRenamingADifferentCustomIntoAP7SeedName() = runTest {
+        val created = repository.add(
+            "My Crunch",
+            emptySet(),
+            mapOf(MuscleGroup.ABS to 1.0),
+            MovementPattern.CORE
+        )
+        val before = database.exerciseQueries.selectAll().executeAsList()
+        listOf("Bicycle Crunch", "  bicycle   crunch  ", "BICYCLE\tCRUNCH").forEach { name ->
+            val failure = assertFailsWith<CustomExerciseException> {
+                repository.update(
+                    created.id,
+                    name,
+                    emptySet(),
+                    mapOf(MuscleGroup.ABS to 1.0),
+                    MovementPattern.CORE
+                )
+            }
+            assertEquals(CustomExerciseFailureReason.NAME_CONFLICT, failure.reason)
+        }
+        assertEquals(before, database.exerciseQueries.selectAll().executeAsList())
+    }
+
+    @Test
+    fun allowsEditingAPreExistingP7NameCollisionWithWhitespaceVariants() = runTest {
+        database.exerciseQueries.insertCustom(
+            id = "user-bicycle-crunch",
+            name = "Bicycle Crunch",
+            requiredEquipment = "BODYWEIGHT",
+            movementPattern = "CORE",
+            isUnilateral = 0,
+            loadCapability = "BODYWEIGHT_ONLY",
+            involvements = "ABS:1.0"
+        )
+        SeedExerciseCatalog(database).seed()
+        CustomExerciseDedupe(database).run()
+
+        repository.update(
+            id = "user-bicycle-crunch",
+            name = "  Bicycle   Crunch ",
+            requiredEquipment = setOf(EquipmentTag.BODYWEIGHT),
+            involvements = mapOf(MuscleGroup.ABS to 1.0, MuscleGroup.OBLIQUES to 0.5),
+            movementPattern = MovementPattern.CORE,
+            loadCapability = ExerciseLoadCapability.BODYWEIGHT_ONLY
+        )
+
+        // The name is stored trimmed (internal whitespace preserved); the normalized collision
+        // check is what permits the edit, and the profile changes still apply.
+        val stored = catalog.all().single { it.id == "user-bicycle-crunch" }
+        assertEquals("Bicycle   Crunch", stored.name)
+        assertEquals(setOf(MuscleGroup.OBLIQUES), stored.secondaryMuscles)
     }
 
     @Test
