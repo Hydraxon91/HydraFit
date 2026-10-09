@@ -21,7 +21,7 @@ exact on-screen text.
 - Movement-pattern picker now groups **Compound** and **Accessory** and shows the hint that accessory patterns use the accessory set count. Selecting an accessory pattern (e.g. Core, Biceps isolation) yields the accessory set count in a plan.
 - Reset restores defaults; add/edit/delete a custom exercise; deleting one referenced by a logged set is blocked.
 - **Load capability (EX-02):** the editor's Load row offers External weight / Bodyweight / Bodyweight + added. `Ab Roll` shows Bodyweight selected; `Back Squat` shows External weight; `Pull-up` shows Bodyweight + added. Saving persists and survives relaunch (built-in edits go through the override).
-- **Catalog profile suggestions (CAT-02; emulator verification pending):** New exercise → enter
+- **Catalog profile suggestions (CAT-02; user-confirmed emulator verification passed 2026-10-09):** New exercise → enter
   Pullup/Chinup or Langhantel-Bankdrücken/Kurzhantel-Bankdrücken → Find profile → Suggested catalog
   profile shows effective equipment/pattern, exact muscle weights, load and unilateral flag. All
   approved languages work regardless of UI locale. Existing-edit dialogs do not offer Find profile.
