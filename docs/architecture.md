@@ -457,8 +457,11 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   profile changed under the same id (`CATALOG_MISMATCH`), while additional
   receiver-only seeds are allowed. Resource limits (32 MiB, nesting depth 32,
   64 KiB per string, 250k records) are enforced before decode and after encode,
-  with a bounded read in `AndroidBackupFileStore`. Export reads every section in
-  one transaction after `StartupReadiness`, off the main thread. Validation is
+  with a bounded read in `AndroidBackupFileStore`. Export and apply run off the
+  main thread: the use cases inject `Dispatchers.Default` and the startup gate
+  runs on `Default`, so `SqlDelightBackupRepository` (which uses the caller's
+  dispatcher) never touches the database on Main. Export reads every section in
+  one transaction after `StartupReadiness`. Validation is
   all-or-nothing: unknown catalog ids, custom ids on canonical identities,
   duplicate ids or composite keys, dangling links, unsupported values and
   involvements with unknown muscles or non-finite weights are rejected with no
