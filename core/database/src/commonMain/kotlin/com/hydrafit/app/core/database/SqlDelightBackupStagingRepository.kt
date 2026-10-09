@@ -9,18 +9,19 @@ import kotlinx.coroutines.withContext
 
 /**
  * Persists the staged backup text and the last apply failure in single-row tables. All access runs on
- * [Dispatchers.IO]; the startup gate applies the staged payload before the first screen is shown.
+ * [Dispatchers.Default] (off the main thread; `Dispatchers.IO` is JVM-only and unavailable in common
+ * code); the startup gate applies the staged payload before the first screen is shown.
  */
 class SqlDelightBackupStagingRepository(private val database: HydraFitDatabase) :
     BackupStagingRepository {
 
     override suspend fun stage(payload: String, appVersion: String, stagedAtMillis: Long) {
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.Default) {
             database.backupStagingQueries.stageBackup(payload, appVersion, stagedAtMillis)
         }
     }
 
-    override suspend fun staged(): PendingBackup? = withContext(Dispatchers.IO) {
+    override suspend fun staged(): PendingBackup? = withContext(Dispatchers.Default) {
         database.backupStagingQueries.selectStagedBackup().executeAsOneOrNull()?.let { row ->
             PendingBackup(
                 payload = row.payload,
@@ -31,7 +32,7 @@ class SqlDelightBackupStagingRepository(private val database: HydraFitDatabase) 
     }
 
     override suspend fun clearStaged() {
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.Default) {
             database.backupStagingQueries.clearStagedBackup()
         }
     }
@@ -41,12 +42,12 @@ class SqlDelightBackupStagingRepository(private val database: HydraFitDatabase) 
         message: String?,
         occurredAtMillis: Long
     ) {
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.Default) {
             database.backupStagingQueries.recordApplyError(failure.name, message, occurredAtMillis)
         }
     }
 
-    override suspend fun applyError(): BackupApplyError? = withContext(Dispatchers.IO) {
+    override suspend fun applyError(): BackupApplyError? = withContext(Dispatchers.Default) {
         database.backupStagingQueries.selectApplyError().executeAsOneOrNull()?.let { row ->
             BackupApplyError(
                 failure = BackupFailure.entries.firstOrNull { it.name == row.failure }
@@ -58,7 +59,7 @@ class SqlDelightBackupStagingRepository(private val database: HydraFitDatabase) 
     }
 
     override suspend fun clearApplyError() {
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.Default) {
             database.backupStagingQueries.clearApplyError()
         }
     }
