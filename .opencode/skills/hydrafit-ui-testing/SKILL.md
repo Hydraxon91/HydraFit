@@ -23,6 +23,12 @@ claim 100% automation reliability. Prefer a verified failure to a guessed succes
    `emulator-<port>`; launchable names, phones and chromium are not targets. Set
    `ANDROID_SERIAL` for scripts and pass the returned `device_id` for MCP calls.
    If no emulator is connected, ask the user to start one.
+   Keep the development emulator on debug builds. Release/minified APK installs need separate
+   explicit approval for the target/artifact/test plus data-preservation and return-to-debug
+   steps; release preparation/tagging/publication approval does not cover installation.
+   Check version codes/signing compatibility before replacing an install. Return to debug
+   after an approved release test, or report the blocker without an unapproved downgrade,
+   uninstall or data clear. Historical release-verification records are not permission.
 4. Inspect the current hierarchy before targeting. If MCP inspection fails,
    use one bounded Maestro CLI `hierarchy --no-reinstall-driver --compact` call
    with the explicit emulator id (command in `.maestro/README.md`). Its flat CSV

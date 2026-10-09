@@ -60,6 +60,16 @@ Paths below are relative to the repository root.
   use `scripts/deploy.sh` (bounded debug build, then targeted APK install), then
   `scripts/launch.sh` to foreground the app. Use `launch.sh --restart` only when
   a restart is intended. Do not install/restart merely to inspect the current screen.
+- The development emulator stays on **debug** builds. A release/minified APK install,
+  including a published signed release, needs its own explicit approval naming the
+  emulator, artifact and bounded test; release preparation/tag/publication approval does
+  not cover installation. Check version codes and signing compatibility first and propose
+  data preservation plus a return-to-debug plan. If returning requires uninstall/data
+  removal, include that action explicitly for approval and verify the export before
+  removing the app. Logical backups exclude credentials/model files; disclose that limit.
+  Return to debug after the approved test, or stop and report a blocked return without
+  forcing a downgrade or clearing state. Historical QA/measurement evidence grants no
+  permission to install release builds again.
 - Use Maestro inspection while its session is active; `scripts/inspect.sh
   [output.xml]` is for standalone ADB inspection only when no competing automation
   session owns the device. Both expose current UI text, accessibility
@@ -87,7 +97,7 @@ Paths below are relative to the repository root.
   `adb -s "$ANDROID_SERIAL" shell input ...` with a hard timeout. Keep flows short,
   wait for the expected state/allow rendering before capture, and cap visual
   iteration at two rounds, then report.
-- Allowed without asking: build, install, launch, screenshot, logcat,
+- Allowed without asking: build, debug APK install, launch, screenshot, logcat,
   taps/swipes/text input, `adb shell wm size`.
 - Needs my approval: `adb uninstall`, clearing app data, and any adb command
   that touches other apps or system settings.

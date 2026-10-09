@@ -25,8 +25,16 @@ The repository will enforce a staged GitHub Actions pipeline. Any changes you ma
 3. **`release.yml` (on `v*.*.*` tags):**
     - `lint` and `unit-tests` gate the `build-release` job (job-scoped `permissions: contents: write`); concurrency group `release-${{ github.ref }}` with `cancel-in-progress: false`.
     - `build-release` verifies the four `RELEASE_*` secrets are present (it fails rather than publish an unsigned APK), decodes `RELEASE_KEYSTORE_BASE64` under `$RUNNER_TEMP` and exports `RELEASE_KEYSTORE_PATH`, runs `./gradlew :androidApp:assembleRelease`, attaches the signed APK to a GitHub Release via `gh`, and deletes the decoded keystore.
-    - **Version strategy:** `versionName` comes from the tag (leading `v` stripped), `versionCode` from `GITHUB_RUN_NUMBER`; local builds keep the `0.5.0-dev` / `1` defaults. A tag containing `-` (e.g. `v0.1.0-rc.1`) publishes a pre-release.
+    - **Version strategy:** `versionName` comes from the tag (leading `v` stripped), `versionCode` from `GITHUB_RUN_NUMBER`; local builds keep the `0.5.1-dev` / `1` defaults. A tag containing `-` (e.g. `v0.1.0-rc.1`) publishes a pre-release.
     - **Required secrets:** `RELEASE_KEYSTORE_BASE64` (base64-encoded keystore) plus same-named `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD`. `GEMINI_API_KEY` is not a CI secret — no CI job calls the Gemini engine.
+
+Release preparation, tagging and publication do **not** authorize installing a release/minified
+APK on the development emulator. Debug is the default. A release install needs separate explicit
+approval for the target, artifact and bounded test, with data-preservation and return-to-debug
+steps agreed first. Check version codes and signing compatibility; any necessary uninstall or
+data removal retains its own approval gate. Return to debug after the test, or report the blocker
+without silently downgrading/clearing data. Existing signed-upgrade evidence remains historical,
+not an instruction to repeat the install.
 
 ### Security & Compliance Constraints
 

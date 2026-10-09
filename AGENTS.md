@@ -342,6 +342,14 @@ Keep SQLDelight, Koin, Ktor and LiteRT-LM within the existing architecture and a
 - Target only an explicitly verified running emulator (`ANDROID_SERIAL=emulator-<port>`),
   with bounded ADB calls. Never use a phone for UI verification. If none is running,
   ask the user to start one; do not boot one.
+- **Keep the development emulator on debug builds.** Installing a release/minified APK
+  (including a published signed release) requires separate explicit approval naming the
+  emulator, artifact and bounded test. Approval to prepare, tag or publish a release is
+  not emulator-install approval. Propose data preservation and a return-to-debug plan
+  first; check version codes/signing compatibility before replacing an install. Do not
+  leave a release build installed after its approved test. Report a blocked return rather
+  than forcing a downgrade, uninstalling or clearing data without approval. Historical
+  release-test records are evidence, not standing permission to repeat those installs.
 - Preserve app state and permissions: no automatic clear-state/grants, no restart
   unless intended, no cloud/AI screenshot uploads for local verification. A timed-out
   write is unknown: inspect for completion, stop if unknown, never replay it or
@@ -350,7 +358,7 @@ Keep SQLDelight, Koin, Ktor and LiteRT-LM within the existing architecture and a
 - After UI changes, capture and view the screenshot before reporting completion;
   screenshots do not replace semantic success assertions. Artifacts go to /tmp,
   never the repo; emulator hierarchy scratch is `/data/local/tmp/hydrafit-ui.xml`.
-- Allowed without asking: build, install, launch, screenshot, logcat,
+- Allowed without asking: build, debug APK install, launch, screenshot, logcat,
   taps/swipes/text input, `adb shell wm size`.
 - Needs my approval: `adb uninstall`, clearing app data, and any adb command
   that touches other apps or system settings.
