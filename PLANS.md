@@ -1,12 +1,12 @@
 # HydraFit Plan
 
-> Read at session start. Keep only open work; completed work is archived in `docs/plans-archive.md` and left as stubs here. Durable technical decisions live under "Decisions Made".
+> Read at session start. Keep only open work; completed work is archived in `docs/plans-archive.md` and left as stubs here. Durable technical decisions live under "Decisions Made". Release grouping and pre-1.0 coverage live in [docs/roadmap.md](docs/roadmap.md); this file owns execution status and detailed item/phase contracts.
 
 ## Current status
 
 | Item | Status | Next action |
 | --- | --- | --- |
-| Product roadmap — M1–M8 | IN PROGRESS | 0.2.0–0.5.1 shipped; M1 (Foundation & Performance) done in 0.2.3. **0.4.0 — More deliberate workout planning** and corrective `v0.4.1` shipped; further 0.4.x releases remain trigger-based correctives. **0.5.0 — Better logging, richer library & data ownership** shipped 2026-10-09 as `v0.5.0` on `5fc0c46`, grouping LT-13, CAT-02, CAT-P7 and OF-01. Prep CI `37958774647` and Release `37959121105` passed; signed release upgrade verified with one retained synthetic logged set (limits in `docs/qa.md` §13). **0.5.1 — Recent-set correction** shipped 2026-10-09; Edit set corrects performed values in place (verification limits in `docs/qa.md` §6; archived detail linked below). Next scope selection is a bounded M4 guided-training slice, not implementation authorization. Keep local AI and improve it later in M8; CATP7-R01 remains deferred to provisional 0.6.0. |
+| Product roadmap — M1–M8 | IN PROGRESS | 0.2.0–0.5.1 shipped; M1 selected scope done in 0.2.3. [Approved pre-1.0 roadmap](docs/roadmap.md): 0.6.0 guided training → 0.7.0 context → 0.8.0 progress → 0.9.0 equipment/data → 0.10.0 progression → 0.11.0 advanced metrics → 0.12.0 optional AI → provisional 0.13.0 final UX/design → 1.0. All remaining work is pre-1.0 except iOS shipping/desktop; research remains evidence-gated. Select a bounded 0.6.0/M4 contract next, not implementation authorization. |
 | Release 0.2.0 | SHIPPED | `v0.2.0` signed release published; [history](docs/plans-archive.md#2026-10-09-completed-status-rows). Stale `v0.1.0` validation pre-release cleanup remains optional. |
 | Release 0.2.1 | SHIPPED | `v0.2.1`; [Q1–Q6 history](docs/plans-archive.md#2026-10-09-completed-status-rows). Q4e remains user-side, not shipped code; local AI remains experimental/non-functional, with optional M8 follow-up. |
 | Release 0.2.2 — code review & architecture | SHIPPED | `v0.2.2`; R0–RG/RF complete, CI green; [fix/commit history](docs/plans-archive.md#2026-10-09-completed-status-rows). |
@@ -19,8 +19,8 @@
 | M2 — Data Ownership & Exercise Library | FUTURE | OF-01 and catalog expansion (formerly targeted at 0.2.5), plus separately scoped offline instructions. Catalog expansion implemented in 0.2.3 (2026-10-06; CAT-P0/P1/P2/P3 — `d9f6c20`, `30282fe`). OF-01 is implemented in 0.5.0 (see the 0.5-OF01 row). Does not depend on AI repair. |
 | Oct 6 live-testing follow-up | IN PROGRESS | Read-only phone audit DONE; confirmed low direct arm volume alongside substantial indirect credit. LT-01–03 DONE (`d690e3c`): weight retention on resume, separator-equivalent search, newest-insertion tie order; LT-03 tied-time emulator check deferred. VOL-01 C1/C2 DONE (2026-10-08, pushed with CI green); C2A deload correction DONE (`c71e695`); C2B/C2C coverage hardening DONE (`9c6c74f`); C2D option (b) approved with corrective policy decisions (2026-10-08); C2E load-suitability implementation DONE (corrective, 2026-10-08); C2F exercise-preference contract approved (2026-10-08, no code); C2G exercise-preference implementation DONE; C3 EX-01 persistent exclusions DONE; C4 bounded OF-03 volume-explanation slice DONE. Scheduling, rest/effort, warm-ups, substitutions, progression integrity, summaries and name suggestions mapped below; see `docs/live-testing-2026-10-06.md`. |
 | Oct 7 live-testing follow-up | IN PROGRESS | Read-only code inspection DONE; observations mapped to EX-02 (exercise load semantics), OF-02 (logging timing + rest coaching), OF-10B (supersets, expanded), PYR-01 (per-set prescriptions/pyramids), item 9 B1 (RIR, already covered) and an OF-13-linked session-divider slice. EX-02 contract approved 2026-10-07, implemented, and verified (emulator `v0.2.3` → candidate upgrade; bounded review APPROVED). The remaining Oct 7 items (OF-02, OF-10B, PYR-01, OF-13 slice) stay future. See `docs/live-testing-2026-10-07.md` and "EX-02 — exercise load semantics". |
-| Oct 8 live-testing follow-up | IN PROGRESS | Read-only inspection DONE. Recorded with homes and gates: **LT-13** (Logger "Planned today" load prompt + per-draft edit — IMPLEMENTED), **EX-03** (high-risk exercise caution — **DEFERRED**: too complex for the current systems and not wanted now), **CAT-P6** (legacy involvement repair — confirmed upgrade-only defect, **DONE** `2851148`, shipped in `v0.4.1`), **LT-12 / CAT-02** (custom-exercise profile suggestions — IMPLEMENTED) and **CAT-P7** (catalog variation expansion — IMPLEMENTED, committed `af6b768`; bounded post-execution review APPROVED). CATP7-R01 is deferred to M8; CATP7-R02 test hardening is DONE (`d95b442`). Other Oct 8 items remain as recorded in `docs/live-testing-2026-10-08.md`. |
-| M8 — Optional AI Reliability | DEFERRED | Retain local AI; research reliability, speed and licensing after core planner-facing contracts settle. CATP7-R01 (Gemini display-name fallback can choose one of multiple same-name exercise identities) is a confirmed, nonblocking follow-up deferred by the user to a candidate 0.6.0 scope; investigate identity-safe name resolution with Gemini and local LLM compatibility in scope. No AI/LLM changes are part of CAT-P7 or 0.5.0. M8 replaces the former 0.2.4 release slot; 0.6.0 is provisional, not an implementation authorization or release commitment. |
+| Oct 8 live-testing follow-up | IN PROGRESS | LT-13, CAT-02, CAT-P7 and CAT-P6 implemented; CATP7-R02 closed (`d95b442`). EX-03 reopened for a gated 0.7.0 content contract by the 2026-10-09 roadmap decision; CAT-P6 fresh-install pattern conflicts target 0.8.0. CATP7-R01 targets 0.12.0/M8. Original observation evidence remains in `docs/live-testing-2026-10-08.md`. |
+| M8 — Optional AI Reliability | PLANNED — 0.12.0 | Retain local AI; investigate reliability, speed, licensing and CATP7-R01 identity-safe Gemini name recovery after core planner-facing contracts settle, including local numbered-ID compatibility. The 2026-10-09 roadmap supersedes provisional 0.6.0 AI placement. Required pre-1.0 investigation, optional user-facing engines; no model/provider/runtime changes or implementation authorized. |
 | Item 2 P2d — existing-row time correction | DONE | Landed in 0.2.1 as Q2 (5898c45, 5ab6b42, a64d9cc). |
 | 0.5.1 — Recent-set correction | SHIPPED | `v0.5.1`; completed implementation, verification and review detail [archived](docs/plans-archive.md#2026-10-09-corrective-051). Emulator edit/save/reopen/Cancel + Use-now smoke passed; broader UI limits remain in `docs/qa.md` §6. |
 | Deterministic planner — volume-driven selection | DONE | 0.2.1 addition Q4 (Option C; honor the rep band); Q4a–Q4d done (f80b71a, c8e3c8a, 4f0ce72); Q4e is a user-side catalog fix, not part of the artifact; see "0.2.1 — next release". |
@@ -28,11 +28,11 @@
 | BACK work chunk 4 — literal >100% report | OPEN | Capture exact value/time/build if it recurs. |
 | Settings/nav consolidation | DONE | M3 item 7. P7a (Planning-section layout + strings grouping engine/goal/consent), P7b verify and 7b credits/acknowledgments (Settings → Acknowledgments with a live app version) done (`6c5e0fd`, `07dd965`). |
 | RIR guidance & rough estimation | PLANNED | Item 9: B1 guidance/quick-picks in M4; B2/B3 remain decision-gated, not required for M4. |
-| Open Questions / Later | LATER | See section below; nothing scheduled. |
+| Open Questions / Later | MIXED | Pre-1.0 release/research homes are in [docs/roadmap.md](docs/roadmap.md); only iOS shipping and desktop are post-1.0. Behavior and evidence gates remain open. |
 | 0.2.4 review snapshot | DONE | bf959ee^..HEAD (`eb310de`); 12 findings (R4-01..R4-12): 2 minor docs drift + 1 nit deferred to VOL-01 + 9 nit-positive confirmations of Chunk A + Settings chunk. See `docs/review-0.2.4-snapshot.md`. RF (docs sync on R4-01) gated separately. |
 | M3 routines & scheduling (OF-11 + OF-12-P0/P1) | DONE | `v0.3.0`; bounded emulator flows and PER-17 rollback verified; [evidence](docs/plans-archive.md#2026-10-09-routines-m3). EX-01 later shipped in 0.4.0; optional EQ-01 remains future. |
 
-> **Next work sequence (revised 2026-10-09).** 0.2.0–0.5.1 are shipped; correctives remain trigger-based. Select a bounded M4 guided-training scope next, without implementation authorization. Keep LT-10 / OF-10A-P0 progression integrity and full OF-03 load/progression/deload explanations: recent deterministic load/volume improvements do not replace historical-target matching or those explanations. Guided workouts and session dividers remain useful UX work. EQ-01, forearm/grip and M8 are optional priorities; BACK calibration is evidence-gated, and LT-03 is deferred verification, not a feature. CATP7-R01 remains deferred to provisional 0.6.0/M8; CATP7-R02 is closed (`d95b442`). No training policy, release commitment or implementation approval changes here.
+> **Next work sequence (approved 2026-10-09).** Follow [0.6.0–0.13.0 release grouping](docs/roadmap.md#release-overview), starting with a bounded M4/0.6.0 guided-training contract. All remaining features, extensions, quality work and investigations are pre-1.0 except iOS shipping/desktop; 0.13.0 is the provisional final UX/design pass. LT-10 integrity and full OF-03 explanations remain required; recent load/volume changes do not replace them. CATP7-R01 targets 0.12.0/M8; CATP7-R02 is closed. BACK calibration remains evidence-gated, LT-03 remains verification debt, and unresolved behavior still needs decisions. No implementation or publication is authorized by release grouping.
 
 > **Archived 2026-10-03** (into [docs/plans-archive.md](docs/plans-archive.md#2026-10-03--v021-and-v022-released)): the complete 0.2.1 and 0.2.2 release plans (0.2.1 Q1–Q6; 0.2.2 review phases, RF triage, R0 inventory/slices). **Archived 2026-10-02** (into [docs/plans-archive.md](docs/plans-archive.md#2026-10-02--v020-feature-cycle-release-pipeline-and-dropped-item)): Roadmap 2b S1–S5, items 1/2/2b/3, release pipeline C1–C6, and the dropped item 5. Earlier archives: the BACK fatigue investigation and the fatigue-model redesign.
 
@@ -46,6 +46,8 @@
 
 **Approved direction (2026-10-05; status updated 2026-10-09):** deliver the core offline training experience before an optional AI improvement round; retain local AI and investigate improvements while keeping HydraFit source MIT. Stable milestone ids describe delivery themes, not monolithic work chunks. 0.4.0/0.4.1 and **0.5.0** (LT-13, CAT-02, CAT-P7, OF-01) are shipped; 0.5.1 corrective is also shipped (detail archived). Scope/evidence stubs remain below. Milestones and releases are related but not one-to-one. Released versions/history are unchanged.
 
+**2026-10-09 scope update (approved):** [docs/roadmap.md](docs/roadmap.md) schedules all remaining work before 1.0 except iOS shipping and desktop, including previously optional/deferred candidates and quality/research follow-ups. It supersedes earlier future-release placements and unscheduled/optional-priority wording, not settled training behavior or historical release evidence. AI remains optional in use; research completion needs evidence and explicit disposition, not guaranteed positive results. Final UX/design targets provisional 0.13.0.
+
 | Id | Milestone | Planned scope / references | Re-entry or completion gate |
 | --- | --- | --- | --- |
 | M1 | Foundation & Performance | QL-03 early local Maestro MCP evaluation; existing 0.2.3 performance/APK-size phases; QL-01 quality baseline; select migration/test hardening from the 0.2.2 backlog; separately scoped LT-01–03 logger usability fixes; VOL-01 C1/C2 policy and implementation (DONE 2026-10-08) | Tooling evaluated early to support UI work; measured fixes meet agreed targets and selected checks pass. Maestro adoption is not a prerequisite for performance measurement; scopes remain separately approved. |
@@ -54,10 +56,10 @@
 | M4 | Train Without Friction | OF-02; OF-03; OF-13; OF-14; OF-12-P2/P3 reminders; item 9 B1 RIR guidance; WU-01 warm-ups; early OF-10A-P0 progression-integrity contract after guided logging/explanations/history | Guided/resumed sessions, notes and history work offline; entry and completion semantics are verified. Early progression contract does not authorize advanced-policy implementation. |
 | M5 | See Your Progress & Recovery | OF-04 charts/automatic records; OF-08 anatomical map/coverage; OF-09 measurements | Metrics reconcile with history, corrections re-emit and the accessible body map refreshes under the agreed contract. |
 | M6 | Bring & Share Your Training | OF-05; OF-07; OF-06 using EQ-01 inventory decisions | Interchange/versioning, repeated imports and exact plate-count constraints pass acceptance checks. |
-| M7 | Advanced Training Controls | Separately approved OF-10A/B/C; item 8 readiness only after its open decisions | Selected advanced measurement/progression contracts are stable; deferred candidates remain explicitly out of the release scope. |
+| M7 | Advanced Training Controls | Separately approved OF-10A/B/C/D, PYR-01, item 8 readiness and item 9 B2/B3 | Pre-1.0 contracts/research require decisions and evidence; no default fatigue/progression/inference policy is authorized. |
 | M8 | Optional AI Reliability | Retained on-device planner investigation and Gemini shared-contract compatibility | Begin after core routine/schedule/catalog/prescription contracts and selected advanced metrics settle; define supported AI scope and benchmarks before experiments. |
 
-**Dependency discipline:** milestone order is preferred sequencing, not a requirement to implement every optional candidate before progressing. Record the selected scope and deferred items at each milestone gate. Cross-cutting accessibility/localization/design criteria apply throughout (QL-01). Isolated slices such as OF-08's anatomical rendering can be brought forward with explicit approval; dependency decisions still apply. M8 is not blocked forever by OF-10D or other unspecified future features.
+**Dependency discipline:** release grouping follows the approved roadmap; milestones remain delivery themes rather than monolithic chunks. All pre-1.0 entries need delivery or an explicit user-approved evidence-based disposition before 1.0. Research cannot block forever waiting for a guaranteed positive result, but omissions cannot be silently deferred. Cross-cutting accessibility/localization/design criteria apply throughout (QL-01), before the final 0.13.0 pass. Moving a slice earlier still needs explicit approval and its dependency decisions.
 
 ### Release versioning
 
@@ -70,13 +72,20 @@ Versions are assigned when a release scope is agreed; they do **not** grant impl
 | **0.4.0** | SHIPPED — VOL-01, EX-01 and a bounded OF-03 volume-explanation slice. `v0.4.1` shipped as a corrective patch. |
 | **0.5.0 — SHIPPED** | Published 2026-10-09 as `v0.5.0` on `5fc0c46`: LT-13, CAT-02, CAT-P7 and OF-01. Release workflow `37959121105` passed; signed APK `versionName=0.5.0`, `versionCode=10`. Signed `v0.4.1` → `v0.5.0` emulator upgrade retained a synthetic logged set; see `docs/qa.md` §13 for verification limits. |
 | **0.5.1 — SHIPPED** | Published 2026-10-09 as `v0.5.1` on `ca97c51`; Release `37972775517` passed (signed APK version code 11). Recent sets can correct performed time, reps, weight and RIR in place. Implementation and verification detail [archived](docs/plans-archive.md#2026-10-09-corrective-051); bounded UI limitations remain in `docs/qa.md` §6. |
-| **0.6.0 (provisional candidate)** | Optional AI reliability follow-up, including CATP7-R01 compatibility investigation; scope and release assignment remain gated. |
-| **Later minor releases** | Guided training, progress/recovery, interchange and advanced controls; assigned at their scope gates. |
-| **1.0.0** | A separately defined stability/readiness milestone — not "every backlog idea implemented". |
+| **0.6.0** | Guided Training — OF-02, RIR B1, session dividers and occurrence-only replacements. |
+| **0.7.0** | Workout Context & Confidence — explanations, notes/history, warm-ups/instructions, onboarding/reminders, EX-03 and early progression-integrity contract. |
+| **0.8.0** | Progress & Recovery — history/charts/records, anatomical map, measurements and catalog follow-ups. |
+| **0.9.0** | Equipment & Data Freedom — profiles, plate tools, imports/sharing, backup extensions and data controls. |
+| **0.10.0** | Trustworthy Progression & Flexible Prescriptions — integrity implementation, policies, per-set/pyramid targets, supersets and readiness/effort decisions. |
+| **0.11.0** | Beyond Rep-Based Sets — proper timed/distance/force contracts and drop-set/rest-pause/cardio investigation and approved slices. |
+| **0.12.0** | Optional AI Reliability — M8, CATP7-R01 and measured/licensed supported-scope improvements. |
+| **0.13.0 (provisional)** | Final UX & Design — integrated polish, accessibility/localization and remaining quality gates; basic UX checks apply throughout. |
+| **1.0.0** | All pre-1.0 roadmap work delivered or explicitly dispositioned under [readiness criteria](docs/roadmap.md#100-readiness); stability/verification gate. |
+| **Beyond 1.0** | iOS shipping, including Keychain-backed ApiKeyStore, and desktop. |
 
 - A minor version represents a coherent user-visible capability; a patch version corrects an existing release contract.
 - Provisional numbers are not promises; a small corrective item is not promoted to a minor version, and no dates or feature-completion claims are attached.
-- M8 remains deferred; **0.6.0 is a provisional candidate target only**, not a reserved release or implementation approval.
+- Future numbers are approved roadmap targets, not implementation/publication approvals. M8/CATP7-R01 now target **0.12.0**, superseding the former provisional 0.6.0 placement.
 - Development builds use a `-dev` string; release versions still come from tags via the existing `release.yml` workflow.
 
 ### 0.5.0 — Better logging, richer library & data ownership (roadmap approved 2026-10-09; implementation gated)
@@ -92,8 +101,9 @@ pinned-upgrade checks are not retroactively claimed. LT13-P01/CAT02-P01 remain
 recorded process exceptions, not retroactive authorization.
 
 **Still open/deferred:** CATP7-R01 identity-safe Gemini name recovery belongs to M8
-(provisional 0.6.0, not authorized); CATP7-R02 is closed (`d95b442`). EX-03 remains
-deferred. Full OF-02 guided workouts/rest timers, CAT-01 instructions, automatic
+(target 0.12.0, not authorized); CATP7-R02 is closed (`d95b442`). EX-03 is reopened
+for a 0.7.0 contract by the new roadmap, not implementation. Full OF-02 guided
+workouts/rest timers, CAT-01 instructions, automatic
 backups, encryption, merge restore and CSV interchange are not shipped by this
 scope. OF-01's durable contract remains under "Decisions Made".
 
@@ -109,8 +119,9 @@ C2F/C2G, EX-01 and OF-03 contracts remain under "Decisions Made".
 
 **Still open/separate (priority approved 2026-10-09):** retain LT-10 / OF-10A-P0
 progression integrity and full OF-03 load/progression/deload explanations; keep
-guided workouts/session dividers as UX work. EQ-01, forearm/grip and M8 remain
-optional priorities. BACK chunk 3 calibration is evidence-gated; LT-03 tied-time
+guided workouts/session dividers as UX work. EQ-01, forearm/grip and M8 now have
+pre-1.0 homes in the approved roadmap. BACK chunk 3 calibration is evidence-gated;
+LT-03 tied-time
 emulator work is deferred verification, not a feature. No new implementation scope
 or fatigue/catalog recalibration is authorized by this stub.
 
@@ -419,7 +430,7 @@ stable once recorded; later release numbers stay provisional.
 | Reference | Direction / importance | Home / next gate |
 | --- | --- | --- |
 | LT-13 | Logger "Planned today" drafts: prompt for a load when the plan supplied none, and allow per-draft editing of reps/weight/RIR/time via an overflow menu | OF-02, M4 Logger slice; decide the field set and one-off vs persistent edit first |
-| EX-03 | High-risk exercise caution (deadlift / clean-and-press class); informational only, no injury inference or rehab advice | **DEFERRED** (2026-10-08): too complex for the current systems and not wanted now; recorded for reference, not scheduled |
+| EX-03 | High-risk exercise caution (deadlift / clean-and-press class); informational only, no injury inference or rehab advice | **REOPENED FOR PLANNING** (2026-10-09): 0.7.0 content/evidence/trigger contract; supersedes the Oct 8 deferral, not implementation authorization |
 | CAT-P6 | Corrective: upgraded built-ins still hold legacy involvement strings (`BACK:`/`SHOULDERS:`) that decode below the 0.7 primary threshold and under-weight those rows; add the missing catalog-wide guardrail regression test | **DONE** (`2851148`): idempotent startup repair (`repairLegacyInvolvementNames`) rewrites legacy-named built-ins from the current seed; catalog-wide `DefaultExercisesDataQualityTest` added. Shipped in `v0.4.1` |
 | LT-12 / CAT-02 | Custom-exercise muscle-group and movement-pattern suggestions (preview/confirm), reusing the existing sourced guardrail mapping | Optional M2 editor enhancement; already homed |
 | CAT-P7 | General seeded-catalog variation expansion across exercise families; fly and cable-row variants are examples, not the scope limit | Proposed 0.5.0 catalog slice; first approve a bounded candidate set, canonical identity/alias rules and per-row sourcing (CAT-P0 provenance discipline) |
@@ -460,11 +471,12 @@ Verification: 975 host tests with zero failures/errors, ktlint, debug assembly, 
 simulator compilation and diff checks pass. Pinned release-upgrade verification is
 not claimed. The implementation is committed (`af6b768`). **CATP7-R01** is the confirmed
 Gemini display-name fallback ambiguity for colliding identities; deferred by user
-to a provisional 0.6.0 AI/LLM scope. **CATP7-R02** is a nonblocking test-hardening
+to a provisional 0.6.0 AI/LLM scope, now superseded by the approved 0.12.0 roadmap
+target. **CATP7-R02** is a nonblocking test-hardening
 follow-up, now CLOSED (`d95b442`) with coverage for pre-seed collision setup, edited
 profile values, rename rejection and normalized-name variants. **CATP7-R01 does not
-authorize implementation.** **EX-03 remains deferred** and needs no
-source unless revived.
+authorize implementation.** **EX-03 is revived for 0.7.0 planning** under the
+2026-10-09 roadmap; content sourcing and behavior remain gated.
 
 ## Retained roadmap items (originally v0.2.0 → v0.3.0, approved 2026-10-01)
 
@@ -581,7 +593,7 @@ found (12 majors, 50 minors, 14 nits). Remaining deferred findings still to sche
 - **Test hardening:** TS2-002..006, TS3-001/002/005/006/007, TS4-003/004/005/007, TR-002..008.
 - **Cleanup/consistency:** S1-001, S1-003, S1-004, S1-006, S1-009, S1-010, S1-011, S1-012, S2-002, S2-003, S2-006, S2-008, S2-009, S4-002, S4-003, S4-005, S4-006, S5-001, S5-002, S5-003, S5-005, S6-001, S6-003, S6-006, S6-007, S6-008.
 - **Won't fix:** S1-002.
-- **Unassigned majors to confirm:** TS4-001 (shared test fixtures), TR-001 (test redundancy) — currently have no schedule entry.
+- **Majors to confirm:** TS4-001 (shared test fixtures), TR-001 (test redundancy) — pre-1.0 quality ledger, closed by 0.13.0 after current-source confirmation and separate design/fix gates.
 
 ## 0.2.3 — performance review
 
@@ -656,7 +668,7 @@ remain separate future scopes.
 
 ## M8 — Optional AI Reliability: retain and improve local AI
 
-**Scheduling / decision:** deferred until core offline behavior and the selected planner-facing contracts in M2–M7 settle. Formerly targeted at 0.2.4; that version is not reserved. User direction (2026-10-05): keep local AI and research improvements rather than schedule its retirement. CATP7-R01 (Gemini display-name fallback can choose one of multiple same-name exercise identities) is also deferred here by user direction; 0.6.0 is a provisional candidate target only, with no implementation authorization or release commitment. Until supported by measured results, retain the local engine's explicit experimental/non-functional status and surfaced Deterministic fallback. No model/runtime/provider change is authorized by this plan.
+**Scheduling / decision:** target **0.12.0**, after core offline/planner-facing contracts settle, under the approved 2026-10-09 pre-1.0 roadmap. This supersedes former 0.2.4 and provisional 0.6.0 placements. Retain local AI and research improvements rather than retirement; CATP7-R01 identity-safe Gemini recovery belongs here with local numbered-ID compatibility verification. Until supported by measured results, retain the local engine's explicit experimental/non-functional status and surfaced Deterministic fallback. Investigation completion requires evidence and explicit disposition, not fabricated success. No model/runtime/provider change or implementation is authorized by this plan.
 
 **Why:** the Android on-device engine (LiteRT-LM) streams correctly and the app handles it (live token/tok-s progress, bounded budget, fallback, truncated-reply recovery), but the model does not reliably return a complete, variety-valid week. No model is bundled — the user imports a LiteRT-LM pack in Settings; the one tested is `gemma3-1b-it-int4.litertlm` (~584 MB). Latest phone evidence (2026-10-02): the reply came back as `{"days":[…` and parsed to `days=4/4` with 0 unknown ids, yet `PlanVarietyEnforcer` still rejected it — the model reuses the same compound exercise numbers across days, so the enforcer strips the repeats until a day falls under the floor, and the engine falls back to Deterministic. Earlier failure was a cut-off reply (mitigated by closing a truncated reply at a value boundary in `parseWeeklyPlan`). Generation is also slow (~10–20 tok/s; a week can take minutes).
 
@@ -665,7 +677,7 @@ remain separate future scopes.
 On-device re-test (emulator): attempt 1 failed at ~24 s (constrained JSON) and the engine was released then re-initialized (A working); the retry then **hung in engine initialization** (WebGPU kernel compile), before the streaming watchdog — and `am force-stop` did **not** stop the host `qemu` (~645% CPU with no app process), so the spin is the emulator's **GPU (WebGPU) emulation**, not the app thread; only killing the emulator stopped it. The streaming guard therefore could not be exercised here. Applied follow-ups: emulators now stay on the **CPU** LiteRT-LM backend (`looksLikeEmulator`) to avoid the WebGPU host spin, and a generation **exception** now falls back after one attempt (the retry loop is kept for parsed-but-rejected/incomplete plans). Bounding engine init (native, hard to cancel) remains a possible later step. Verified by module/provider tests + full host/lint/assemble/iOS.
 
 **Investigate / decide (do not pick silently):**
-- **CATP7-R01 — identity-safe Gemini name recovery (deferred; candidate 0.6.0).** When the model returns a display name rather than a canonical id, avoid silently mapping a name collision to whichever catalog row `associateBy` retains. Define and test identity-safe recovery across the preserved-custom/P7-seed collision; keep ID-based response handling unchanged unless separately approved. The local LLM uses its numbered available-exercise list, so compatibility should be verified without assuming it shares the Gemini name-fallback defect.
+- **CATP7-R01 — identity-safe Gemini name recovery (target 0.12.0).** When the model returns a display name rather than a canonical id, avoid silently mapping a name collision to whichever catalog row `associateBy` retains. Define and test identity-safe recovery across the preserved-custom/P7-seed collision; keep ID-based response handling unchanged unless separately approved. The local LLM uses its numbered available-exercise list, so compatibility should be verified without assuming it shares the Gemini name-fallback defect.
 - **Variety:** should `PlanVarietyEnforcer` repair a model week (choose substitutes) instead of rejecting it, or can the local prompt/schema make the model rotate compounds across days? The Gemini engine may benefit too.
 - **Constraint reliability:** does the async `sendMessageAsync` + `ResponseFormat.json` path enforce the schema's `minItems`/`maxItems` the same way the blocking `sendMessage` did? The day schema uses `items.anyOf` over per-day focus objects; verify whether that defeats the grammar's count enforcement.
 - **Speed:** model/pack choice (e.g. Gemma 3n-E2B, NPU packs), `maxNumTokens`/`maxOutputToken`, prompt size (the local prompt is ~4k chars), decode backend (GPU vs CPU).
@@ -696,7 +708,7 @@ gated scopes, not implied by completion of P0–P5. M2's other open work stays a
 
 ## Offline-first feature backlog
 
-**Status:** future planning approved 2026-10-05; implementation not started or authorized. Inspired by product comparison and HydraFit's core training needs, with independent HydraFit implementations. Keep this section referenceable by stable **OF-01..OF-14** ids and phase ids (e.g. **OF-01-P0**); do not renumber when priorities change.
+**Status:** backlog direction approved 2026-10-05, with remaining work grouped in the approved 2026-10-09 [pre-1.0 roadmap](docs/roadmap.md). OF-01, OF-11 and OF-12-P0/P1 are shipped; OF-03 has a shipped volume slice. Remaining implementation is not authorized. Inspired by product comparison and HydraFit's core training needs, with independent HydraFit implementations. Keep this section referenceable by stable **OF-01..OF-14** ids and phase ids (e.g. **OF-01-P0**); do not renumber when priorities change.
 
 **Scheduling:** M1–M8 define delivery order; OF numbers are stable references, not implementation order or release commitments. Item 9 remains the authoritative RIR plan; M2 catalog P0–P5 remain the authoritative catalog expansion plan. Plan/candidate contracts can be developed without completing M8 AI research; any changed shared interfaces still require compilation and downstream tests for all engines.
 
@@ -706,9 +718,9 @@ gated scopes, not implied by completion of P0–P5. M2's other open work stays a
 
 | Reference | Feature | Dependency / sequencing | Status |
 | --- | --- | --- | --- |
-| OF-01 | Local backup/export and restore | First portability foundation | 0.5.0 — contract APPROVED (2026-10-09); gated per phase |
+| OF-01 | Local backup/export and restore | First portability foundation | SHIPPED 0.5.0; separately gated extensions target 0.9.0 |
 | OF-02 | Guided workouts and rest timer | Existing accepted plans and explicit sessions | FUTURE — decisions open |
-| OF-03 | Planner target explanations | Existing planner; integrate with OF-02 | FUTURE — decisions open |
+| OF-03 | Planner target explanations | Existing planner; integrate with OF-02 | Volume slice SHIPPED 0.4.0; remainder targets 0.7.0, decisions open |
 | OF-04 | Exercise history and progress charts | Existing logged sets; shared queries may support OF-08 | FUTURE — decisions open |
 | OF-05 | Local workout CSV imports | OF-01 recovery path recommended first | FUTURE — decisions open |
 | OF-06 | Owned-plate calculator | Existing equipment inventory; standalone helper first | FUTURE — decisions open |
@@ -716,8 +728,8 @@ gated scopes, not implied by completion of P0–P5. M2's other open work stays a
 | OF-08 | Live anatomical fatigue map, volume and last-trained views | Existing heatmap; reuse OF-04 query work where applicable | FUTURE — decisions open |
 | OF-09 | Body-weight tracking | Shared measurements in `core/userdata`; extend OF-01 coverage | FUTURE — decisions open |
 | OF-10 | Progression policies and advanced logging | OF-02; settle measurement semantics before engine changes | LATER — split into separately approved slices |
-| OF-11 | Manual routines and reusable templates | M3; extends OF-01 coverage; feeds OF-02/OF-07 | FUTURE — decisions open |
-| OF-12 | Flexible scheduling, session rotation and reminders | M3 scheduling after OF-11; M4 reminders | FUTURE — decisions open |
+| OF-11 | Manual routines and reusable templates | M3; extends OF-01 coverage; feeds OF-02/OF-07 | SHIPPED 0.3.0; later guided/sharing extensions follow roadmap |
+| OF-12 | Flexible scheduling, session rotation and reminders | M3 scheduling after OF-11; M4 reminders | P0/P1 SHIPPED 0.3.0; P2/P3 reminders/integration target 0.7.0 |
 | OF-13 | Workout/exercise notes and session history | M4; existing explicit sessions; integrates OF-02/OF-04 | FUTURE — decisions open |
 | OF-14 | Onboarding and first-workout baseline setup | M4; EQ-01/OF-11/OF-12 contracts; existing settings/PR use cases | FUTURE — decisions open |
 
@@ -1094,14 +1106,21 @@ These stable references are separately approved slices, not implicit additions t
 
 ## Open Questions / Later
 
-- Desktop target remains deferred (Android-first).
-- Implement a Keychain-backed `ApiKeyStore` when the iOS app ships (currently a no-op on iOS).
+All entries except the two platform-shipping items below are pre-1.0 under
+[docs/roadmap.md](docs/roadmap.md), including evidence-gated investigations.
+Previously optional/unscheduled wording does not remove them from that scope;
+behavior remains undecided until its gate is approved.
+
+- Desktop target is beyond 1.0 (Android-first).
+- Implement a Keychain-backed `ApiKeyStore` when the iOS app ships, beyond 1.0 (currently a no-op on iOS).
 - Use MockK when a chunk needs it (approved version, not yet used).
 - Local AI quality is retained and deferred to M8. A stronger pack (e.g. Gemma 3n-E2B) remains a research candidate, not an approved model change; verify its separate license/distribution terms. The NPU guidance hint shipped, but Qualcomm QNN libs stay unbundled under the existing decision.
 - **Progression limitation.** Deterministic progression compares logged work grouped by exercise/local calendar day against the latest accepted-plan prescription, not each session's historical target; failure handling is coarse (`failureStreak = 3 → −1`) and cannot faithfully replay changed/deleted prescriptions. LT-10 / OF-10A-P0 defines the integrity contract before advanced policies; implementation remains separately gated.
 - **Forearm/grip accessories (later scope proposal).** `FOREARMS` already exists; the seeded catalog has 11 secondary `FOREARMS:0.3` contributions and no forearm-primary exercise. A future rep-based wrist-flexion/extension catalog + selection slice can reuse `FOREARMS`, but needs sourced maps and a genuine movement-pattern/pool contract; do not mislabel wrist work as biceps isolation or add wrist-flexor/extensor muscle groups solely for catalog completeness. Carries, hangs, wrist rollers and grippers need a separate duration/distance/force/device-rating and progression contract under OF-10C. Never encode seconds as reps or use a gripper rating as an Epley load. See the 2026-10-08 deterministic-engine research notes above.
 
 ## Decisions Made
+
+- **2026-10-09 — comprehensive pre-1.0 roadmap (approved; documentation/sequence only).** Group all remaining features, extensions, quality backlog and evidence-gated investigations into [docs/roadmap.md](docs/roadmap.md): 0.6.0 Guided Training; 0.7.0 Workout Context & Confidence; 0.8.0 Progress & Recovery; 0.9.0 Equipment & Data Freedom; 0.10.0 Trustworthy Progression & Flexible Prescriptions; 0.11.0 Beyond Rep-Based Sets; 0.12.0 Optional AI Reliability; provisional 0.13.0 Final UX & Design; then 1.0 readiness. Only iOS shipping (including Keychain-backed ApiKeyStore) and desktop are beyond 1.0. Reopen EX-03 and previously deferred advanced/readiness/effort candidates for gated pre-1.0 work; move CATP7-R01/M8 from provisional 0.6.0 to 0.12.0. User-facing AI remains optional and retained. Research requires evidence and explicit disposition, not guaranteed positive results; omissions need a user decision rather than silent deferral. Accessibility/basic UX apply throughout, not only at 0.13.0. Existing IDs, settled behavior and historical records remain intact. No implementation, model/provider/dependency change, publication or push is authorized.
 
 - **2026-10-09 — OF-01 local backup/export and restore v1 contract (approved).** The v1 format is **logical, versioned JSON** (`format` `"hydrafit-backup"`, `formatVersion` `1`), independent of the SQLite schema and the app version, serialized with the existing kotlinx-serialization dependency. v1 accepts only `formatVersion` 1 and rejects newer files; a future older-version conversion must be explicit and tested. Nullable fields are present as `null` (a missing field is not treated as equivalent to `null`), and a catalog compatibility fingerprint is embedded so an imported file is checked against the receiving install. **Included data:** workout sets (id, exercise id, reps, nullable weight, performed time, warm-up flag, involvement snapshot, week/cycle/day, nullable RIR, session id, occurrence links, load kind); explicit workout sessions (id, start/end bounds, stored local epoch day, occurrence); custom `exercise` rows and every nullable `exerciseOverride` field; `equipment` rows (built-in ownership and nullable max weight) and `selected_equipment`; accepted-plan history (plans, days, entries with frozen names/patterns/suggested weights/capability/load kind); persisted volume explanations and their state; routine templates/workouts/entries; frozen activations/workouts/entries; occurrences/occurrence entries including remaining disposition and terminal remaining count; the single schedule-state row; manual personal records; explicit exercise preferences (including an explicitly stored Neutral) and exclusions with expiry. Catalog definitions and aliases remain application-owned and are never imported. **Excluded:** API-key/keystore material and in-app keys; on-device model binaries, their paths and target/installation metadata; persisted document grants; and transient UI state (LT-13 in-memory draft edits/retries, CAT-02 suggestions and touched/protected flags). Restoring neither creates nor removes credentials or model files. **Restore semantics:** replace all included user-owned data in **one database transaction**, preserving stored ids, ordering and relationships, without re-running ordinary add/save/accept APIs (which generate identities or re-snapshot today's catalog); merge restore is excluded from v1; a preview and explicit confirmation precede any write. Catalog identities are preserved independently — a CAT-P7-named custom and its same-named seed remain two identities (no name guessing, no forced merge, no non-P7 startup dedupe required). Unknown seed ids, custom ids occupying canonical identities, duplicate record ids, unsupported fields/enums, non-finite numbers and invalid required relationships are rejected with no writes; legacy/empty encodings (null vs empty involvement strings, `LEGACY_UNSPECIFIED`, explicit zero vs null load) round-trip without normalization or tier rounding, and stored historical/frozen snapshots are never rewritten. A v1 payload is accepted only when it is stable under startup maintenance (no silent non-P7 custom dedupe, no null-session backfill). **Export consistency:** all sections are read in one transaction after `StartupReadiness`, off the main thread; serialization and the external file write happen after the transaction is released; oversize content is rejected rather than truncated; provider write completion is confirmed before success. **Concurrency/recovery (implemented):** restore runs as one database transaction from the Settings flow, which is the only interactive writer in a single-visible-screen app with no background writer; a full live-writer drain and a staged "apply on next process start" are recorded as the fallback and are not implemented in v1. In-memory Logger draft/session state is not explicitly invalidated, but dependent flows re-read after the committed transaction. A committed restore is reported complete even if the UI disappears; cancellation inside the transaction rolls back before commit; invalid or failed restores leave current data intact. **Settings/platform:** the stored engine selection, days-per-week, goal, weight unit and workout-data-sharing flag are preserved; credentials/model bytes are not imported and an unavailable selected engine is disclosed, not claimed. 0.5.0 ships Android document IO (SAF open/create) with shared format/validation/database code; iOS exposes no restore action and remains compile-only. **Limits (initial safeguards, to confirm by boundary tests):** 32 MiB UTF-8 total, JSON nesting depth 32, 64 KiB per string, 250,000 records. Automatic rotating backups, encryption, merge restore and CSV interchange remain excluded. This records the approved contract; P1/P2/P3 implementation, the replacement-window mechanism and any schema change retain their AGENTS.md approval/verification gates. **Update (2026-10-09, post-review hardening):** the replacement window is implemented as **staged apply at the next process start** rather than a live writer drain — restore validates and stages the file, and `DatabaseStartupMaintenance` applies it before the first screen; a failed apply rolls back, drops the staged payload and records a one-time failure surfaced and cleared in Settings. Every envelope field is required; the manifest carries a per-seed profile and validation rejects an unknown or changed seed (`CATALOG_MISMATCH`) while allowing additional receiver-only seeds; resource limits (32 MiB, depth 32, 64 KiB per string, 250k records) are enforced; and a payload that startup maintenance would alter (`CustomExerciseDedupe` on a non-CAT-P7 name, `WorkoutSessionBackfill` on a null session id) is rejected (`STARTUP_UNSTABLE`). Absence uses the new-row value: a null settings payload materialises the default planner row, an omitted built-in equipment limit keeps its value, and omitted user equipment is dropped.
 
