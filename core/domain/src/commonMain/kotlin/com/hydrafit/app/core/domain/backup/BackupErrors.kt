@@ -11,6 +11,9 @@ enum class BackupFailure {
     /** Above [BackupJson.MAX_BYTES]. */
     TOO_LARGE,
 
+    /** Above a resource limit: nesting depth, a single string, or the total record count. */
+    OVER_LIMIT,
+
     /** A referenced exercise or equipment id is not a custom in the payload or a known seeded id. */
     UNKNOWN_CATALOG_ID,
 

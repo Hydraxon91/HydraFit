@@ -7,10 +7,6 @@ package com.hydrafit.app.core.domain.backup
 class ExportBackupUseCase(private val repository: BackupRepository) {
     suspend operator fun invoke(appVersion: String, exportedAtMillis: Long): String {
         val file = repository.export(appVersion, exportedAtMillis)
-        val text = BackupJson.encode(file)
-        if (text.encodeToByteArray().size.toLong() > BackupJson.MAX_BYTES) {
-            throw BackupException(BackupFailure.TOO_LARGE)
-        }
-        return text
+        return BackupJson.encode(file)
     }
 }
