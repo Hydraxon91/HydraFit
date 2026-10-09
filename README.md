@@ -15,6 +15,7 @@ An open-source, offline-first fitness planning app for Android (Kotlin Multiplat
 - **Periodization** — 4-week cycles with a built-in deload week (reduced volume and load), tracked per accepted plan.
 - **A fully editable exercise catalog** — change any built-in exercise's equipment, movement pattern, per-muscle involvement, or unilateral flag (resettable), or add entirely custom exercises.
 - **Offline workout logger** — sets, reps, weight (kg or lb), RIR, warm-ups, bodyweight/weightless sets, and a per-hand hint for unilateral work, with one-tap quick-fill from recent sets.
+- **Recent-set corrections** — edit a saved set's time, reps, weight and optional RIR in place, preserving its identity, recorded load type and training-block attribution.
 - **Reusable routines & scheduling** — build, reorder, duplicate and archive your own routines offline, then start one (or a generated plan) as a training block on chosen weekdays or as a next-workout sequence, with an explicit Finish/Skip queue that never silently compresses missed work.
 - **Explicit workout sessions** — sessions start automatically on your first set, roll over by day and after inactivity, and can be ended or started manually, so fatigue is segmented visibly rather than guessed.
 - **Backdated logging** — record past workouts with a date/time picker (future times rejected), choosing the session they attach to.
@@ -58,7 +59,7 @@ Requires JDK 17+ and the Android SDK (Android Studio's SDK Manager is the easies
 
 ## Releases
 
-Signed release APKs are built and published by `.github/workflows/release.yml` on tags matching `v*.*.*`. The version is derived at build time — `versionName` from the tag (leading `v` stripped) and `versionCode` from the GitHub Actions run number — while local builds keep the `0.5.0-dev` / `1` defaults. A tag containing a hyphen (for example `v0.1.0-rc.1`) is published as a pre-release.
+Signed release APKs are built and published by `.github/workflows/release.yml` on tags matching `v*.*.*`. The version is derived at build time — `versionName` from the tag (leading `v` stripped) and `versionCode` from the GitHub Actions run number — while local builds keep the `0.5.1-dev` / `1` defaults. A tag containing a hyphen (for example `v0.1.0-rc.1`) is published as a pre-release. Development emulator installs use the debug APK; release/minified installs require separate approval and a data-preservation/return-to-debug plan.
 
 Publishing requires four repository secrets (Settings → Secrets and variables → Actions):
 
@@ -90,7 +91,7 @@ MIT
 
 ## Status
 
-Actively developed, solo, as a portfolio project. Not yet published to an app store; the current release is [v0.5.0](https://github.com/Hydraxon91/HydraFit/releases/tag/v0.5.0).
+Actively developed, solo, as a portfolio project. Not yet published to an app store; the current release is [v0.5.1](https://github.com/Hydraxon91/HydraFit/releases/tag/v0.5.1).
 
 Known limitations in 0.3.x:
 
