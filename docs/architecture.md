@@ -440,11 +440,12 @@ advisory.
 A user-selected local file captures the supported offline data as a **logical,
 versioned JSON** snapshot, and restore replaces that data wholesale.
 
-- **Examples:** domain `backup/` payload model, serialization and validation +
-  `ExportBackupUseCase`/`PreviewBackupUseCase`/`RestoreBackupUseCase`;
-  `SqlDelightBackupRepository` (one-transaction consistent read; explicit-id
-  transactional write); a platform document IO adapters pair; the Settings entry
-  point.
+- **Examples:** domain `backup/` (`BackupFile` and its records, `BackupJson`,
+  `BackupCatalog`, `BackupValidator`, `ExportBackupUseCase`, `PreviewBackupUseCase`,
+  `RestoreBackupUseCase`); `SqlDelightBackupRepository` (one-transaction consistent
+  read; explicit-id transactional write) and `SqlDelightBackupCatalog`; the
+  `:core:userdata` `BackupFileStore` port (`AndroidBackupFileStore` SAF implementation,
+  `UnsupportedBackupFileStore` on iOS); the Settings `BackupRoute`/`BackupViewModel`.
 - **Rules:** the file is logical (`format` + `formatVersion` 1), independent of the
   SQLite schema and the app version, and carries a catalog compatibility
   fingerprint; nullable fields are present as explicit `null`, not omitted. Export
@@ -459,9 +460,12 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   rejected with no writes. Credentials and model bytes are excluded and left
   untouched. Startup maintenance still runs afterward; a payload that would be
   silently altered by `CustomExerciseDedupe` or `WorkoutSessionBackfill` is
-  rejected. The exclusive replacement window is chosen at implementation — a
-  Settings-only mutex or disabled button is insufficient, and a staged
-  next-process-start apply is the fallback.
+  rejected. Restore runs as one transaction from the Settings flow — the only
+  interactive writer in a single-visible-screen app with no background writer. A
+  live-writer drain or a staged next-process-start apply remains the documented
+  fallback and is not implemented in v1; in-memory Logger draft/session state is
+  not explicitly invalidated, but dependent flows re-read after the committed
+  transaction.
 - **Consistency:** mirrors the §1.8 snapshot rule — frozen prescriptions,
   performed snapshots, load kinds and stored ids round-trip unchanged.
 - **Violations / tensions:** the existing repositories cannot implement restore

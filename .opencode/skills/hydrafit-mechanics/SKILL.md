@@ -692,9 +692,13 @@ today's catalog. Delete children before parents and insert parents before childr
 Catalog definitions/aliases are application-owned and excluded; unknown seed ids, custom
 ids on canonical identities and duplicate ids are rejected with no writes. Credentials and
 on-device model bytes are excluded. Startup seeding/dedupe/backfill still run after a
-restore, so a payload that would be silently altered is rejected. Android uses a SAF
-open/create document port; iOS has no restore action. A new persisted field is added to
-the payload (and its round-trip test) in the same change that introduces it.
+restore, so a payload that would be silently altered is rejected. Restore applies
+immediately in one transaction from the Settings flow (the only interactive writer in a
+single-visible-screen app); a live-writer drain or staged next-start apply is the
+documented fallback, not implemented in v1. Android uses a SAF open/create document port
+via `AndroidBackupFileStore`; iOS binds `UnsupportedBackupFileStore` and shows a note. A
+new persisted field is added to the payload (and its round-trip test) in the same change
+that introduces it.
 
 ## Units, time, and visual tooling details
 
