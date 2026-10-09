@@ -1,6 +1,17 @@
 package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.hydrafit.app.core.domain.backup.ApplyStagedBackupUseCase
+import com.hydrafit.app.core.domain.backup.BackupApplyError
+import com.hydrafit.app.core.domain.backup.BackupCatalog
+import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
+import com.hydrafit.app.core.domain.backup.BackupFailure
+import com.hydrafit.app.core.domain.backup.BackupFile
+import com.hydrafit.app.core.domain.backup.BackupRepository
+import com.hydrafit.app.core.domain.backup.BackupStagingRepository
+import com.hydrafit.app.core.domain.backup.BackupValidator
+import com.hydrafit.app.core.domain.backup.PendingBackup
+import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.time.TimeProvider
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -23,6 +34,7 @@ class DatabaseStartupMaintenanceTest {
         val database = HydraFitDatabase(driver)
 
         val maintenance = DatabaseStartupMaintenance(
+            applyStagedBackup = noStagedBackup(),
             seedExerciseCatalog = SeedExerciseCatalog(database),
             seedEquipmentCatalog = SeedEquipmentCatalog(database),
             customExerciseDedupe = CustomExerciseDedupe(database),
@@ -41,4 +53,45 @@ class DatabaseStartupMaintenanceTest {
 
         driver.close()
     }
+
+    /** An [ApplyStagedBackupUseCase] whose staging store is empty, so `start()` applies nothing. */
+    private fun noStagedBackup(): ApplyStagedBackupUseCase = ApplyStagedBackupUseCase(
+        preview = PreviewBackupUseCase(
+            BackupValidator(
+                object : BackupCatalog {
+                    override fun seedExerciseIds(): Set<String> = emptySet()
+                    override fun builtInEquipmentIds(): Set<String> = emptySet()
+                }
+            )
+        ),
+        repository = object : BackupRepository {
+            override suspend fun export(appVersion: String, exportedAtMillis: Long): BackupFile =
+                BackupFile(
+                    appVersion = appVersion,
+                    exportedAtMillis = exportedAtMillis,
+                    catalog = BackupCatalogManifest(emptyList())
+                )
+
+            override suspend fun restore(file: BackupFile) = Unit
+        },
+        staging = object : BackupStagingRepository {
+            override suspend fun stage(payload: String, appVersion: String, stagedAtMillis: Long) =
+                Unit
+
+            override suspend fun staged(): PendingBackup? = null
+
+            override suspend fun clearStaged() = Unit
+
+            override suspend fun recordApplyError(
+                failure: BackupFailure,
+                message: String?,
+                occurredAtMillis: Long
+            ) = Unit
+
+            override suspend fun applyError(): BackupApplyError? = null
+
+            override suspend fun clearApplyError() = Unit
+        },
+        timeProvider = TimeProvider { 0L }
+    )
 }

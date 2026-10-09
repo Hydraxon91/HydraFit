@@ -2,6 +2,7 @@ package com.hydrafit.app.core.database
 
 import com.hydrafit.app.core.domain.backup.BackupCatalog
 import com.hydrafit.app.core.domain.backup.BackupRepository
+import com.hydrafit.app.core.domain.backup.BackupStagingRepository
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
@@ -30,7 +31,7 @@ val databaseModule: Module = module {
     single { SeedEquipmentCatalog(get()) }
     single { CustomExerciseDedupe(get()) }
     single { WorkoutSessionBackfill(get(), get()) }
-    single { DatabaseStartupMaintenance(get(), get(), get(), get()) }
+    single { DatabaseStartupMaintenance(get(), get(), get(), get(), get()) }
     single<StartupReadiness> { get<DatabaseStartupMaintenance>() }
     single<ExerciseCatalog> { SqlDelightExerciseCatalog(get()) }
     single<EquipmentRepository> { SqlDelightEquipmentRepository(get()) }
@@ -50,6 +51,7 @@ val databaseModule: Module = module {
     single<WorkoutScheduleRepository> { SqlDelightWorkoutScheduleRepository(get()) }
     single<PersonalRecordRepository> { SqlDelightPersonalRecordRepository(get(), get()) }
     single<BackupRepository> { SqlDelightBackupRepository(get()) }
+    single<BackupStagingRepository> { SqlDelightBackupStagingRepository(get()) }
     single<BackupCatalog> { SqlDelightBackupCatalog() }
     single<WorkoutPlanSourcesRepository> {
         SqlDelightWorkoutPlanSourcesRepository(

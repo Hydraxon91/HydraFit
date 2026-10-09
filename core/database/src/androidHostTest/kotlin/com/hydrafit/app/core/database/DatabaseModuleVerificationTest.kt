@@ -1,6 +1,9 @@
 package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.hydrafit.app.core.domain.backup.ApplyStagedBackupUseCase
+import com.hydrafit.app.core.domain.backup.BackupValidator
+import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
@@ -22,7 +25,11 @@ class DatabaseModuleVerificationTest {
     @Test
     fun databaseModuleDependenciesAreResolvable() {
         databaseModule.verify(
-            extraTypes = listOf(DatabaseDriverFactory::class, TimeProvider::class)
+            extraTypes = listOf(
+                DatabaseDriverFactory::class,
+                TimeProvider::class,
+                ApplyStagedBackupUseCase::class
+            )
         )
     }
 
@@ -43,6 +50,11 @@ class DatabaseModuleVerificationTest {
                         }
                     }
                     single<TimeProvider> { TimeProvider { 0L } }
+                    // The startup gate applies a staged backup; its domain use case is bound in the
+                    // real app's domainModule, supplied here so the maintenance binding resolves.
+                    single { BackupValidator(get()) }
+                    single { PreviewBackupUseCase(get()) }
+                    single { ApplyStagedBackupUseCase(get(), get(), get(), get()) }
                 },
                 databaseModule
             )

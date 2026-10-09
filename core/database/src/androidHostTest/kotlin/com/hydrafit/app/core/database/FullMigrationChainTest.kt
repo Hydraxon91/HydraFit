@@ -31,12 +31,14 @@ class FullMigrationChainTest {
                 "VALUES ('back-squat', 100.0, 5, 1)"
         )
 
-        HydraFitDatabase.Schema.migrate(driver, 28, 32)
+        HydraFitDatabase.Schema.migrate(driver, 28, 33)
 
         assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "exercisePreference"))
         assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "exerciseExclusion"))
         assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "planVolumeExplanation"))
         assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "planVolumeExplanationState"))
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "stagedBackup"))
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "lastBackupApplyError"))
         // Pre-existing rows survive the whole chain untouched.
         assertEquals(1L, HistoricalDatabaseFixtures.count(driver, "personalRecord"))
         assertEquals(

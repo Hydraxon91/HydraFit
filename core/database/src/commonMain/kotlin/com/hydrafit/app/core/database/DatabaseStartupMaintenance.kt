@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.database
 
+import com.hydrafit.app.core.domain.backup.ApplyStagedBackupUseCase
 import com.hydrafit.app.core.domain.startup.StartupReadiness
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -12,13 +13,15 @@ import kotlinx.coroutines.launch
 /**
  * Runs the idempotent startup maintenance -- catalog seeding, custom-exercise dedupe and the legacy
  * session backfill -- off the main thread, in the same order the former synchronous `initKoin` used,
- * then reports when it is safe for the UI to read the database.
+ * then reports when it is safe for the UI to read the database. A staged backup is applied first, in
+ * the same window, before any writer exists.
  *
  * Failures are left uncaught: an exception surfaces as an unhandled coroutine exception and crashes
  * the process, matching the previous synchronous behaviour rather than masking a half-maintained
  * database or leaving the gate stuck.
  */
 class DatabaseStartupMaintenance(
+    private val applyStagedBackup: ApplyStagedBackupUseCase,
     private val seedExerciseCatalog: SeedExerciseCatalog,
     private val seedEquipmentCatalog: SeedEquipmentCatalog,
     private val customExerciseDedupe: CustomExerciseDedupe,
@@ -30,6 +33,7 @@ class DatabaseStartupMaintenance(
 
     fun start() {
         scope.launch {
+            applyStagedBackup()
             seedExerciseCatalog.seed()
             seedEquipmentCatalog.seed()
             customExerciseDedupe.run()

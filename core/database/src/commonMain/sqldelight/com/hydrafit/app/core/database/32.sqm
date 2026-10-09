@@ -1,0 +1,15 @@
+-- OF-01 staged apply. Additive: a validated backup waits here until the next process start, and the
+-- last failed apply is surfaced once in Settings. Existing rows are untouched.
+CREATE TABLE stagedBackup (
+    id INTEGER NOT NULL PRIMARY KEY,
+    payload TEXT NOT NULL,
+    appVersion TEXT NOT NULL,
+    stagedAtMillis INTEGER NOT NULL
+);
+
+CREATE TABLE lastBackupApplyError (
+    id INTEGER NOT NULL PRIMARY KEY,
+    failure TEXT NOT NULL,
+    message TEXT,
+    occurredAtMillis INTEGER NOT NULL
+);

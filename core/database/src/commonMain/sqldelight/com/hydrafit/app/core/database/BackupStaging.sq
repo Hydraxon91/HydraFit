@@ -1,0 +1,34 @@
+-- OF-01 staged apply: a validated backup waits on disk until the next process start, when the
+-- startup gate applies it before the first screen. Single-row tables (id is always 0).
+CREATE TABLE stagedBackup (
+    id INTEGER NOT NULL PRIMARY KEY,
+    payload TEXT NOT NULL,
+    appVersion TEXT NOT NULL,
+    stagedAtMillis INTEGER NOT NULL
+);
+
+-- The most recent failed apply, surfaced once in Settings and then cleared.
+CREATE TABLE lastBackupApplyError (
+    id INTEGER NOT NULL PRIMARY KEY,
+    failure TEXT NOT NULL,
+    message TEXT,
+    occurredAtMillis INTEGER NOT NULL
+);
+
+stageBackup:
+INSERT OR REPLACE INTO stagedBackup(id, payload, appVersion, stagedAtMillis) VALUES (0, ?, ?, ?);
+
+selectStagedBackup:
+SELECT * FROM stagedBackup WHERE id = 0;
+
+clearStagedBackup:
+DELETE FROM stagedBackup;
+
+recordApplyError:
+INSERT OR REPLACE INTO lastBackupApplyError(id, failure, message, occurredAtMillis) VALUES (0, ?, ?, ?);
+
+selectApplyError:
+SELECT * FROM lastBackupApplyError WHERE id = 0;
+
+clearApplyError:
+DELETE FROM lastBackupApplyError;

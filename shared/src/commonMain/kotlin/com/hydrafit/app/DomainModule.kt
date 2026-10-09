@@ -1,5 +1,6 @@
 package com.hydrafit.app
 
+import com.hydrafit.app.core.domain.backup.ApplyStagedBackupUseCase
 import com.hydrafit.app.core.domain.backup.BackupValidator
 import com.hydrafit.app.core.domain.backup.ExportBackupUseCase
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
@@ -68,6 +69,7 @@ val domainModule: Module = module {
     singleOf(::BackupValidator)
     singleOf(::PreviewBackupUseCase)
     singleOf(::RestoreBackupUseCase)
+    singleOf(::ApplyStagedBackupUseCase)
     single { DeterministicWorkoutPlannerEngine(get(), weightConfig = get(), periodization = get()) }
     single { WeeklyPlanSanitizer(get(), periodization = get(), weightConfig = get()) }
     single<OnDevicePlanProgressReporter> { DefaultOnDevicePlanProgressReporter() }
