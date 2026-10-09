@@ -58,7 +58,7 @@
     <string name="settings_backup_restore">Restore backup</string>
     <string name="settings_backup_unsupported">Backup and restore aren’t available on this platform yet.</string>
     <string name="settings_backup_exported">Backup saved.</string>
-    <string name="settings_backup_restored">Backup restored. Your data was replaced.</string>
+    <string name="settings_backup_restored">Restore staged. Close and reopen HydraFit to apply it.</string>
     <string name="settings_backup_preview_title">Restore this backup?</string>
     <string name="settings_backup_preview_body">This replaces your current data with %1$d records, including %2$d logged sets and %3$d custom exercises. This can’t be undone.</string>
     <string name="settings_backup_confirm">Replace</string>
@@ -68,6 +68,7 @@
     <string name="settings_backup_error_too_large">That backup file is too large.</string>
     <string name="settings_backup_error_over_limit">That backup is too complex or too large to restore.</string>
     <string name="settings_backup_error_startup_unstable">That backup can’t be restored as-is because it would change on next launch.</string>
+    <string name="settings_backup_error_catalog_mismatch">That backup was made with a different exercise catalog.</string>
     <string name="settings_backup_error_unknown_catalog">That backup references exercises this install doesn’t have.</string>
     <string name="settings_backup_error_duplicate_id">That backup contains duplicate records.</string>
     <string name="settings_backup_error_invalid_reference">That backup has broken links.</string>

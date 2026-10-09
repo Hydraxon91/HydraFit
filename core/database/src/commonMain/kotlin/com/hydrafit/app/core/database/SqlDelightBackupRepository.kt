@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT_VERSION
 import com.hydrafit.app.core.domain.backup.BackupActivationEntryRecord
 import com.hydrafit.app.core.domain.backup.BackupActivationRecord
 import com.hydrafit.app.core.domain.backup.BackupActivationWorkoutRecord
+import com.hydrafit.app.core.domain.backup.BackupCatalog
 import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
 import com.hydrafit.app.core.domain.backup.BackupEquipmentRecord
 import com.hydrafit.app.core.domain.backup.BackupExclusionRecord
@@ -23,6 +24,7 @@ import com.hydrafit.app.core.domain.backup.BackupRoutineEntryRecord
 import com.hydrafit.app.core.domain.backup.BackupRoutineRecord
 import com.hydrafit.app.core.domain.backup.BackupRoutineWorkoutRecord
 import com.hydrafit.app.core.domain.backup.BackupScheduleStateRecord
+import com.hydrafit.app.core.domain.backup.BackupSeedProfile
 import com.hydrafit.app.core.domain.backup.BackupSettingsRecord
 import com.hydrafit.app.core.domain.backup.BackupVolumeExplanationRecord
 import com.hydrafit.app.core.domain.backup.BackupVolumeExplanationStateRecord
@@ -34,7 +36,10 @@ import com.hydrafit.app.core.domain.backup.BackupWorkoutSetRecord
  * concurrent writes cannot produce a torn export; the payload is returned as a value, and the caller
  * serializes and writes the file after the transaction has been released.
  */
-class SqlDelightBackupRepository(private val database: HydraFitDatabase) : BackupRepository {
+class SqlDelightBackupRepository(
+    private val database: HydraFitDatabase,
+    private val catalog: BackupCatalog
+) : BackupRepository {
 
     override suspend fun export(appVersion: String, exportedAtMillis: Long): BackupFile =
         database.transactionWithResult {
@@ -44,7 +49,10 @@ class SqlDelightBackupRepository(private val database: HydraFitDatabase) : Backu
                 appVersion = appVersion,
                 exportedAtMillis = exportedAtMillis,
                 catalog = BackupCatalogManifest(
-                    seedExerciseIds = DefaultExercises.all.map { it.id }.sorted()
+                    seedExerciseIds = catalog.seedExerciseIds().sorted(),
+                    seedProfiles = catalog.seedProfiles()
+                        .map { BackupSeedProfile(it.key, it.value) }
+                        .sortedBy { it.id }
                 ),
                 settings = readSettings(),
                 customExercises = database.exerciseQueries.selectAll().executeAsList()
@@ -303,7 +311,10 @@ class SqlDelightBackupRepository(private val database: HydraFitDatabase) : Backu
                     )
                 },
                 preferences = database.exercisePreferenceQueries.selectAll().executeAsList().map {
-                    BackupPreferenceRecord(exerciseId = it.exerciseId, preference = it.preference)
+                    BackupPreferenceRecord(
+                        exerciseId = it.exerciseId,
+                        preference = it.preference
+                    )
                 },
                 exclusions = database.exerciseExclusionQueries.selectAll().executeAsList().map {
                     BackupExclusionRecord(exerciseId = it.exerciseId, expiresAt = it.expiresAt)
@@ -596,8 +607,12 @@ class SqlDelightBackupRepository(private val database: HydraFitDatabase) : Backu
                 settings?.engineId ?: "DETERMINISTIC"
             )
             database.plannerEngineQueries.updateEngine(settings?.engineId ?: "DETERMINISTIC")
-            database.plannerEngineQueries.updateDaysPerWeek((settings?.daysPerWeek ?: 4).toLong())
-            database.plannerEngineQueries.updateTrainingGoal(settings?.trainingGoal ?: "BALANCED")
+            database.plannerEngineQueries.updateDaysPerWeek(
+                (settings?.daysPerWeek ?: 4).toLong()
+            )
+            database.plannerEngineQueries.updateTrainingGoal(
+                settings?.trainingGoal ?: "BALANCED"
+            )
             database.plannerEngineQueries.updateShareWorkoutData(
                 if (settings?.shareWorkoutData == true) 1L else 0L
             )

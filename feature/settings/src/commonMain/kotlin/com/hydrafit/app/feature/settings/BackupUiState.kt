@@ -14,7 +14,8 @@ data class BackupPreviewUi(
 sealed interface BackupStatus {
     data object Exported : BackupStatus
 
-    data object Restored : BackupStatus
+    /** A validated backup is staged and will replace the data on the next process start. */
+    data object RestoreStaged : BackupStatus
 
     data class Failed(val failure: BackupFailure) : BackupStatus
 }

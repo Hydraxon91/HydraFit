@@ -6,12 +6,16 @@ import kotlin.test.assertFailsWith
 
 class BackupValidatorTest {
 
+    private val receiverProfile = "back-squat|BARBELL|SQUAT|false|EXTERNAL|"
+
     private val catalog = object : BackupCatalog {
         override fun seedExerciseIds(): Set<String> = setOf("back-squat")
 
         override fun builtInEquipmentIds(): Set<String> = setOf("BARBELL")
 
         override fun dedupeSeedKeys(): Set<String> = setOf("back squat")
+
+        override fun seedProfiles(): Map<String, String> = mapOf("back-squat" to receiverProfile)
     }
 
     private val validator = BackupValidator(catalog)
@@ -103,6 +107,42 @@ class BackupValidatorTest {
     fun rejectsDuplicateSessionIds() {
         assertFailure(BackupFailure.DUPLICATE_ID) {
             validFile().copy(workoutSessions = listOf(session("s1"), session("s1")))
+        }
+    }
+
+    @Test
+    fun acceptsAMatchingCatalogProfile() {
+        validator.validate(
+            validFile().copy(
+                catalog = BackupCatalogManifest(
+                    listOf("back-squat"),
+                    seedProfiles = listOf(BackupSeedProfile("back-squat", receiverProfile))
+                )
+            )
+        )
+    }
+
+    @Test
+    fun rejectsAChangedCatalogProfile() {
+        assertFailure(BackupFailure.CATALOG_MISMATCH) {
+            validFile().copy(
+                catalog = BackupCatalogManifest(
+                    listOf("back-squat"),
+                    seedProfiles = listOf(BackupSeedProfile("back-squat", "changed"))
+                )
+            )
+        }
+    }
+
+    @Test
+    fun rejectsASeedUnknownToThisInstall() {
+        assertFailure(BackupFailure.CATALOG_MISMATCH) {
+            validFile().copy(
+                catalog = BackupCatalogManifest(
+                    listOf("back-squat"),
+                    seedProfiles = listOf(BackupSeedProfile("not-a-seed", "x"))
+                )
+            )
         }
     }
 
@@ -243,7 +283,7 @@ class BackupValidatorTest {
     private fun validFile() = emptyBackupFile().copy(
         appVersion = "t",
         exportedAtMillis = 1L,
-        catalog = BackupCatalogManifest(listOf("back-squat")),
+        catalog = BackupCatalogManifest(listOf("back-squat"), seedProfiles = emptyList()),
         customExercises = listOf(custom()),
         workoutSessions = listOf(session("s1")),
         workoutSets = listOf(set())

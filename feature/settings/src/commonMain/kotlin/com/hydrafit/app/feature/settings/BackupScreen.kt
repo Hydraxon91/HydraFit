@@ -17,6 +17,7 @@ import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.settings_backup_cancel
 import hydrafit.feature.settings.generated.resources.settings_backup_confirm
 import hydrafit.feature.settings.generated.resources.settings_backup_description
+import hydrafit.feature.settings.generated.resources.settings_backup_error_catalog_mismatch
 import hydrafit.feature.settings.generated.resources.settings_backup_error_duplicate_id
 import hydrafit.feature.settings.generated.resources.settings_backup_error_invalid_reference
 import hydrafit.feature.settings.generated.resources.settings_backup_error_invalid_value
@@ -65,7 +66,7 @@ fun BackupRoute(modifier: Modifier = Modifier, viewModel: BackupViewModel = koin
         state.status?.let { status ->
             val message = when (status) {
                 BackupStatus.Exported -> stringResource(Res.string.settings_backup_exported)
-                BackupStatus.Restored -> stringResource(Res.string.settings_backup_restored)
+                BackupStatus.RestoreStaged -> stringResource(Res.string.settings_backup_restored)
                 is BackupStatus.Failed -> stringResource(status.failure.messageResource())
             }
             Text(text = message, style = MaterialTheme.typography.bodySmall)
@@ -106,6 +107,7 @@ private fun BackupFailure.messageResource(): StringResource = when (this) {
     BackupFailure.TOO_LARGE -> Res.string.settings_backup_error_too_large
     BackupFailure.OVER_LIMIT -> Res.string.settings_backup_error_over_limit
     BackupFailure.STARTUP_UNSTABLE -> Res.string.settings_backup_error_startup_unstable
+    BackupFailure.CATALOG_MISMATCH -> Res.string.settings_backup_error_catalog_mismatch
     BackupFailure.UNKNOWN_CATALOG_ID -> Res.string.settings_backup_error_unknown_catalog
     BackupFailure.DUPLICATE_ID -> Res.string.settings_backup_error_duplicate_id
     BackupFailure.INVALID_REFERENCE -> Res.string.settings_backup_error_invalid_reference

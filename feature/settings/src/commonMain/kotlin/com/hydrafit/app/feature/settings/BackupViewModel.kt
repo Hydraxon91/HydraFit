@@ -11,6 +11,7 @@ import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.userdata.backup.BackupFileStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,7 +20,9 @@ import kotlinx.coroutines.launch
 
 /**
  * Drives the Settings backup flow: export writes a snapshot to a chosen document, import reads and
- * validates a file into a preview, and restore replaces the data only after confirmation.
+ * validates a file into a preview, and restore stages the validated file for the next process start.
+ * A failure from a previous startup apply is surfaced once when the screen opens. Cancellation is
+ * rethrown, never reported as an I/O failure.
  */
 class BackupViewModel(
     private val exportBackup: ExportBackupUseCase,
@@ -33,15 +36,25 @@ class BackupViewModel(
     private val _state = MutableStateFlow(BackupUiState(isSupported = fileStore.isSupported))
     val state: StateFlow<BackupUiState> = _state.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            restoreBackup.consumePendingApplyError()?.let { failure ->
+                _state.update { it.copy(status = BackupStatus.Failed(failure)) }
+            }
+        }
+    }
+
     fun export(handle: String) {
+        if (_state.value.inProgress) return
         _state.update { it.copy(inProgress = true, status = null) }
         viewModelScope.launch {
-            runCatching {
+            try {
                 val text = exportBackup(appVersionProvider.versionName, timeProvider.nowMillis())
                 fileStore.write(handle, text)
-            }.onSuccess {
                 _state.update { it.copy(inProgress = false, status = BackupStatus.Exported) }
-            }.onFailure { throwable ->
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
                 _state.update {
                     it.copy(inProgress = false, status = BackupStatus.Failed(throwable.toFailure()))
                 }
@@ -50,14 +63,17 @@ class BackupViewModel(
     }
 
     fun `import`(handle: String) {
+        if (_state.value.inProgress) return
         _state.update { it.copy(inProgress = true, status = null, preview = null) }
         viewModelScope.launch {
-            runCatching {
+            try {
                 val text = fileStore.read(handle)
-                previewBackup(text) to text
-            }.onSuccess { (file, text) ->
-                _state.update { it.copy(inProgress = false, preview = file.toPreview(text)) }
-            }.onFailure { throwable ->
+                _state.update {
+                    it.copy(inProgress = false, preview = previewBackup(text).toPreview(text))
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
                 _state.update {
                     it.copy(inProgress = false, status = BackupStatus.Failed(throwable.toFailure()))
                 }
@@ -67,26 +83,25 @@ class BackupViewModel(
 
     fun confirmRestore() {
         val preview = _state.value.preview ?: return
+        if (_state.value.inProgress) return
         _state.update { it.copy(inProgress = true, status = null) }
         viewModelScope.launch {
-            runCatching { restoreBackup(preview.pendingText) }
-                .onSuccess {
-                    _state.update {
-                        it.copy(
-                            inProgress = false,
-                            preview = null,
-                            status = BackupStatus.Restored
-                        )
-                    }
+            try {
+                restoreBackup(
+                    text = preview.pendingText,
+                    appVersion = appVersionProvider.versionName,
+                    stagedAtMillis = timeProvider.nowMillis()
+                )
+                _state.update {
+                    it.copy(inProgress = false, preview = null, status = BackupStatus.RestoreStaged)
                 }
-                .onFailure { throwable ->
-                    _state.update {
-                        it.copy(
-                            inProgress = false,
-                            status = BackupStatus.Failed(throwable.toFailure())
-                        )
-                    }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
+                _state.update {
+                    it.copy(inProgress = false, status = BackupStatus.Failed(throwable.toFailure()))
                 }
+            }
         }
     }
 

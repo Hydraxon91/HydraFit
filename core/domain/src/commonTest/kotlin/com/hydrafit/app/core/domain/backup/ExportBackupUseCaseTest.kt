@@ -65,7 +65,7 @@ internal fun emptyBackupFile(): BackupFile = BackupFile(
     formatVersion = BACKUP_FORMAT_VERSION,
     appVersion = "test",
     exportedAtMillis = 0L,
-    catalog = BackupCatalogManifest(emptyList()),
+    catalog = BackupCatalogManifest(emptyList(), seedProfiles = emptyList()),
     settings = null,
     customExercises = emptyList(),
     exerciseOverrides = emptyList(),

@@ -4,10 +4,13 @@ import com.hydrafit.app.core.database.DatabaseDriverFactory
 import com.hydrafit.app.core.database.databaseModule
 import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT
 import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT_VERSION
+import com.hydrafit.app.core.domain.backup.BackupApplyError
 import com.hydrafit.app.core.domain.backup.BackupCatalog
 import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
 import com.hydrafit.app.core.domain.backup.BackupFile
 import com.hydrafit.app.core.domain.backup.BackupRepository
+import com.hydrafit.app.core.domain.backup.BackupStagingRepository
+import com.hydrafit.app.core.domain.backup.PendingBackup
 import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.BuildPlannerLoadInputsUseCase
@@ -267,6 +270,7 @@ class KoinModulesVerificationTest {
             modules(
                 module {
                     single<BackupRepository> { FakeBackupRepository }
+                    single<BackupStagingRepository> { FakeBackupStagingRepository }
                     single<BackupCatalog> { FakeBackupCatalog }
                 },
                 domainModule,
@@ -293,6 +297,24 @@ class KoinModulesVerificationTest {
         override fun seedExerciseIds(): Set<String> = emptySet()
 
         override fun builtInEquipmentIds(): Set<String> = emptySet()
+    }
+
+    private object FakeBackupStagingRepository : BackupStagingRepository {
+        override suspend fun stage(payload: String, appVersion: String, stagedAtMillis: Long) = Unit
+
+        override suspend fun staged(): PendingBackup? = null
+
+        override suspend fun clearStaged() = Unit
+
+        override suspend fun recordApplyError(
+            failure: com.hydrafit.app.core.domain.backup.BackupFailure,
+            message: String?,
+            occurredAtMillis: Long
+        ) = Unit
+
+        override suspend fun applyError(): BackupApplyError? = null
+
+        override suspend fun clearApplyError() = Unit
     }
 
     /**
@@ -524,7 +546,7 @@ private fun emptyBackupFile(appVersion: String, exportedAtMillis: Long): BackupF
     formatVersion = BACKUP_FORMAT_VERSION,
     appVersion = appVersion,
     exportedAtMillis = exportedAtMillis,
-    catalog = BackupCatalogManifest(emptyList()),
+    catalog = BackupCatalogManifest(emptyList(), seedProfiles = emptyList()),
     settings = null,
     customExercises = emptyList(),
     exerciseOverrides = emptyList(),

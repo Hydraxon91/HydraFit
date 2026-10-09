@@ -99,7 +99,7 @@ private fun emptyBackupFile(appVersion: String, exportedAtMillis: Long): BackupF
     formatVersion = BACKUP_FORMAT_VERSION,
     appVersion = appVersion,
     exportedAtMillis = exportedAtMillis,
-    catalog = BackupCatalogManifest(emptyList()),
+    catalog = BackupCatalogManifest(emptyList(), seedProfiles = emptyList()),
     settings = null,
     customExercises = emptyList(),
     exerciseOverrides = emptyList(),

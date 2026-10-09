@@ -47,9 +47,19 @@ data class BackupFile(
     val exclusions: List<BackupExclusionRecord>
 )
 
-/** The seeded exercise ids the exporting install had; used to report and check catalog compatibility. */
+/** The seeded exercise ids the exporting install had, used to report and check catalog compatibility. */
 @Serializable
-data class BackupCatalogManifest(val seedExerciseIds: List<String>)
+data class BackupCatalogManifest(
+    val seedExerciseIds: List<String>,
+    val seedProfiles: List<BackupSeedProfile>
+)
+
+/**
+ * A seed's stable profile string. A receiver may hold extra seeds; a profile that differs for an id
+ * the receiver knows is a compatibility mismatch.
+ */
+@Serializable
+data class BackupSeedProfile(val id: String, val profile: String)
 
 @Serializable
 data class BackupSettingsRecord(

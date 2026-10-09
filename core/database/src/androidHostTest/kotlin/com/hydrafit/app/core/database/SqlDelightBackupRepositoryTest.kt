@@ -23,7 +23,7 @@ class SqlDelightBackupRepositoryTest {
         database = HydraFitDatabase(driver)
         SeedExerciseCatalog(database).seed()
         SeedEquipmentCatalog(database).seed()
-        repository = SqlDelightBackupRepository(database)
+        repository = SqlDelightBackupRepository(database, SqlDelightBackupCatalog())
     }
 
     @AfterTest

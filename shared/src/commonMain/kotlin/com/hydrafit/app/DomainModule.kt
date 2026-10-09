@@ -59,15 +59,16 @@ import com.hydrafit.app.core.llm.LocalLlmWorkoutPlannerEngine
 import com.hydrafit.app.core.llm.OnDeviceEngineLifecycle
 import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.network.GeminiWorkoutPlannerEngine
+import kotlinx.coroutines.Dispatchers
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
 val domainModule: Module = module {
     single { CalculateMuscleFatigueUseCase() }
-    singleOf(::ExportBackupUseCase)
+    single { ExportBackupUseCase(get(), Dispatchers.Default) }
     singleOf(::BackupValidator)
-    singleOf(::PreviewBackupUseCase)
+    single { PreviewBackupUseCase(get(), Dispatchers.Default) }
     singleOf(::RestoreBackupUseCase)
     singleOf(::ApplyStagedBackupUseCase)
     single { DeterministicWorkoutPlannerEngine(get(), weightConfig = get(), periodization = get()) }

@@ -18,4 +18,11 @@ interface BackupCatalog {
 
     /** The receiving install's startup-dedupe name key for [name] (trim, collapse, lowercase). */
     fun dedupeNameKey(name: String): String = name.trim().replace(Regex("\\s+"), " ").lowercase()
+
+    /**
+     * A stable profile string per seeded exercise id, covering the fields that affect planning and
+     * fatigue. Used to detect a catalog whose definitions changed under the same ids. An install may
+     * hold additional seeds; those are allowed.
+     */
+    fun seedProfiles(): Map<String, String> = emptyMap()
 }

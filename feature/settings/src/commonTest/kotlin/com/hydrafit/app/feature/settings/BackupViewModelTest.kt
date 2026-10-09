@@ -2,14 +2,17 @@ package com.hydrafit.app.feature.settings
 
 import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT
 import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT_VERSION
+import com.hydrafit.app.core.domain.backup.BackupApplyError
 import com.hydrafit.app.core.domain.backup.BackupCatalog
 import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
 import com.hydrafit.app.core.domain.backup.BackupFailure
 import com.hydrafit.app.core.domain.backup.BackupFile
 import com.hydrafit.app.core.domain.backup.BackupJson
 import com.hydrafit.app.core.domain.backup.BackupRepository
+import com.hydrafit.app.core.domain.backup.BackupStagingRepository
 import com.hydrafit.app.core.domain.backup.BackupValidator
 import com.hydrafit.app.core.domain.backup.ExportBackupUseCase
+import com.hydrafit.app.core.domain.backup.PendingBackup
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
 import com.hydrafit.app.core.domain.time.TimeProvider
@@ -59,10 +62,11 @@ class BackupViewModelTest {
     }
 
     @Test
-    fun validFileShowsPreviewAndCancelWritesNothing() = runTest(dispatcher) {
+    fun validFileShowsPreviewAndCancelStagesNothing() = runTest(dispatcher) {
         val repository = FakeBackupRepository()
+        val staging = FakeBackupStagingRepository()
         val store = FakeBackupFileStore(content = BackupJson.encode(repository.exported))
-        val viewModel = viewModel(store, repository)
+        val viewModel = viewModel(store, repository, staging)
 
         viewModel.`import`("content://src")
         advanceUntilIdle()
@@ -70,7 +74,7 @@ class BackupViewModelTest {
         assertNotNull(viewModel.state.value.preview)
         viewModel.cancelPreview()
         assertNull(viewModel.state.value.preview)
-        assertNull(repository.restored)
+        assertNull(staging.staged.lastOrNull())
     }
 
     @Test
@@ -86,19 +90,35 @@ class BackupViewModelTest {
     }
 
     @Test
-    fun confirmRestoreReplacesDataAndClearsThePreview() = runTest(dispatcher) {
+    fun confirmRestoreStagesAndClearsThePreview() = runTest(dispatcher) {
         val repository = FakeBackupRepository()
+        val staging = FakeBackupStagingRepository()
         val store = FakeBackupFileStore(content = BackupJson.encode(repository.exported))
-        val viewModel = viewModel(store, repository)
+        val viewModel = viewModel(store, repository, staging)
 
         viewModel.`import`("content://src")
         advanceUntilIdle()
         viewModel.confirmRestore()
         advanceUntilIdle()
 
-        assertNotNull(repository.restored)
+        assertNotNull(staging.staged.lastOrNull())
         assertNull(viewModel.state.value.preview)
-        assertEquals(BackupStatus.Restored, viewModel.state.value.status)
+        assertEquals(BackupStatus.RestoreStaged, viewModel.state.value.status)
+    }
+
+    @Test
+    fun surfacesAPendingApplyErrorAndClearsIt() = runTest(dispatcher) {
+        val staging = FakeBackupStagingRepository()
+        staging.pendingError = BackupApplyError(BackupFailure.STARTUP_UNSTABLE, null, 1L)
+        val viewModel = viewModel(FakeBackupFileStore(), FakeBackupRepository(), staging)
+
+        advanceUntilIdle()
+
+        assertEquals(
+            BackupStatus.Failed(BackupFailure.STARTUP_UNSTABLE),
+            viewModel.state.value.status
+        )
+        assertNull(staging.pendingError)
     }
 
     @Test
@@ -111,17 +131,21 @@ class BackupViewModelTest {
         assertFalse(viewModel.state.value.isSupported)
     }
 
-    private fun viewModel(store: BackupFileStore, repository: BackupRepository): BackupViewModel {
+    private fun viewModel(
+        store: BackupFileStore,
+        repository: BackupRepository,
+        staging: BackupStagingRepository = FakeBackupStagingRepository()
+    ): BackupViewModel {
         val catalog = object : BackupCatalog {
             override fun seedExerciseIds(): Set<String> = emptySet()
 
             override fun builtInEquipmentIds(): Set<String> = emptySet()
         }
-        val preview = PreviewBackupUseCase(BackupValidator(catalog))
+        val preview = PreviewBackupUseCase(BackupValidator(catalog), dispatcher)
         return BackupViewModel(
-            exportBackup = ExportBackupUseCase(repository),
+            exportBackup = ExportBackupUseCase(repository, dispatcher),
             previewBackup = preview,
-            restoreBackup = RestoreBackupUseCase(preview, repository),
+            restoreBackup = RestoreBackupUseCase(preview, staging),
             fileStore = store,
             appVersionProvider = object : AppVersionProvider {
                 override val versionName: String = "t"
@@ -142,12 +166,54 @@ private class FakeBackupRepository : BackupRepository {
     }
 }
 
+private class FakeBackupStagingRepository : BackupStagingRepository {
+    val staged = mutableListOf<PendingBackup>()
+    var pendingError: BackupApplyError? = null
+
+    override suspend fun stage(payload: String, appVersion: String, stagedAtMillis: Long) {
+        staged += PendingBackup(payload, appVersion, stagedAtMillis)
+    }
+
+    override suspend fun staged(): PendingBackup? = staged.lastOrNull()
+
+    override suspend fun clearStaged() {
+        staged.clear()
+    }
+
+    override suspend fun recordApplyError(
+        failure: BackupFailure,
+        message: String?,
+        occurredAtMillis: Long
+    ) {
+        pendingError = BackupApplyError(failure, message, occurredAtMillis)
+    }
+
+    override suspend fun applyError(): BackupApplyError? = pendingError
+
+    override suspend fun clearApplyError() {
+        pendingError = null
+    }
+}
+
+private class FakeBackupFileStore(
+    override val isSupported: Boolean = true,
+    private var content: String = ""
+) : BackupFileStore {
+    val written = mutableListOf<String>()
+
+    override suspend fun read(handle: String): String = content
+
+    override suspend fun write(handle: String, text: String) {
+        written += text
+    }
+}
+
 private fun emptyBackupFile(): BackupFile = BackupFile(
     format = BACKUP_FORMAT,
     formatVersion = BACKUP_FORMAT_VERSION,
     appVersion = "t",
     exportedAtMillis = 1L,
-    catalog = BackupCatalogManifest(emptyList()),
+    catalog = BackupCatalogManifest(emptyList(), seedProfiles = emptyList()),
     settings = null,
     customExercises = emptyList(),
     exerciseOverrides = emptyList(),
@@ -173,16 +239,3 @@ private fun emptyBackupFile(): BackupFile = BackupFile(
     preferences = emptyList(),
     exclusions = emptyList()
 )
-
-private class FakeBackupFileStore(
-    override val isSupported: Boolean = true,
-    private var content: String = ""
-) : BackupFileStore {
-    val written = mutableListOf<String>()
-
-    override suspend fun read(handle: String): String = content
-
-    override suspend fun write(handle: String, text: String) {
-        written += text
-    }
-}

@@ -50,7 +50,7 @@ val databaseModule: Module = module {
     single<RoutineTemplateRepository> { SqlDelightRoutineTemplateRepository(get()) }
     single<WorkoutScheduleRepository> { SqlDelightWorkoutScheduleRepository(get()) }
     single<PersonalRecordRepository> { SqlDelightPersonalRecordRepository(get(), get()) }
-    single<BackupRepository> { SqlDelightBackupRepository(get()) }
+    single<BackupRepository> { SqlDelightBackupRepository(get(), get()) }
     single<BackupStagingRepository> { SqlDelightBackupStagingRepository(get()) }
     single<BackupCatalog> { SqlDelightBackupCatalog() }
     single<WorkoutPlanSourcesRepository> {

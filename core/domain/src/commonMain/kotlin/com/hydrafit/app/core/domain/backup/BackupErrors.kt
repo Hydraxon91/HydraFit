@@ -20,6 +20,12 @@ enum class BackupFailure {
      */
     STARTUP_UNSTABLE,
 
+    /**
+     * A seed the backup relies on is unknown to this install, or this install defines that seed with a
+     * different profile than the exporting install did.
+     */
+    CATALOG_MISMATCH,
+
     /** A referenced exercise or equipment id is not a custom in the payload or a known seeded id. */
     UNKNOWN_CATALOG_ID,
 

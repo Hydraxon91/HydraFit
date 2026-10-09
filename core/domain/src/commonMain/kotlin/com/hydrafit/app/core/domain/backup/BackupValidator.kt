@@ -73,6 +73,14 @@ class BackupValidator(private val catalog: BackupCatalog) {
         val knownExercises = seedExerciseIds + customIds
         val dedupeSeedKeys = catalog.dedupeSeedKeys()
 
+        // Catalog compatibility: every seed the file relies on must exist here with the same profile.
+        uniqueBy(file.catalog.seedProfiles) { it.id }
+        val receiverProfiles = catalog.seedProfiles()
+        file.catalog.seedProfiles.forEach { exported ->
+            val actual = receiverProfiles[exported.id] ?: fail(BackupFailure.CATALOG_MISMATCH)
+            if (actual != exported.profile) fail(BackupFailure.CATALOG_MISMATCH)
+        }
+
         val workoutToActivation = file.activationWorkouts.associate { it.id to it.activationId }
         val occurrenceEntryToOccurrence =
             file.occurrenceEntries.associate { it.id to it.occurrenceId }
