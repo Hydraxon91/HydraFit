@@ -109,9 +109,9 @@ data class DraftWriteRetry(
 /** One draft whose stored prescription has no established load meaning and needs a decision. */
 data class LegacyResolutionItem(val draft: DraftSet, val capability: ExerciseLoadCapability) {
     /**
-     * True when the load semantics frozen with the prescription are external, so recording the
-     * stored number as external load is allowed. This uses the frozen capability, not the live
-     * catalog, which may have changed since the prescription was saved.
+     * True when explicitly recording the stored number as external load is allowed. An explicit
+     * frozen capability takes precedence; only a legacy draft with frozen UNSPECIFIED capability
+     * consults the current catalog. The decision never changes the frozen prescription.
      */
     val canBeExternal: Boolean get() = capability == ExerciseLoadCapability.EXTERNAL
 }
@@ -143,8 +143,8 @@ data class WorkoutLoggerUiState(
     val missingLoadPrompt: DraftSet? = null,
     val confirmingAllDrafts: Boolean = false,
     val draftWriteInProgress: Boolean = false,
-    /** A partially written draft awaiting retry, or null when none. */
-    val draftWriteRetry: DraftWriteRetry? = null,
+    /** Independent partially written drafts awaiting retry in the current context. */
+    val draftWriteRetries: List<DraftWriteRetry> = emptyList(),
     /** The current workout of the active block, or null when no block is active. */
     val activeOccurrence: ActiveOccurrence? = null,
     /** A finish/skip error to surface (e.g. the workout changed elsewhere). */

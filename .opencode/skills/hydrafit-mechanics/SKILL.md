@@ -599,12 +599,20 @@ external set, enter a weight, or log without weight); zero remains a recorded
 numeric load. Bodyweight drafts remain bodyweight unless a BODYWEIGHT_ADDABLE
 exercise's added-load field is explicitly revealed; clearing an existing ADDED
 amount preserves ADDED+null. LEGACY_UNSPECIFIED still uses the `legacyResolution` decision queue.
+Only when that legacy draft's frozen capability is UNSPECIFIED does resolution consult the current
+catalog: EXTERNAL allows an explicit external choice preserving its null/zero/positive stored load;
+bodyweight-only, addable, unspecified or missing catalog entries do not. Explicit frozen capabilities
+remain authoritative. The choice affects only new performed sets, never the frozen prescription.
 Repeated draft submissions are guarded by one in-flight write. The guard spans the "Use last
 logged" lookup, and cancel/reopen or context replacement invalidates that delayed lookup.
 Backdated session reuse is scoped to the timestamp. If a multi-set write fails partway through,
 successful writes remain and the not-yet-recorded sets are kept as a retry that carries the same
 confirmed one-off values (reps, load, RIR, explicit performed time including Use-now) and frozen
-occurrence slot. Repeated failures retain the remaining count and cumulative saved-set feedback;
+occurrence slot. `WorkoutLoggerUiState.draftWriteRetries` holds independent per-draft retries;
+another draft's failure or successful legacy resolution cannot replace or clear them. Confirm-all
+retains every unattempted retry, and occurrence refresh overlays each retry on its frozen slot.
+Success/dismissal removes only that draft's retry; context replacement drops retries for the old
+context. Repeated failures retain the remaining count and cumulative saved-set feedback;
 a resolved legacy retry does not reuse its stale decision dialog. The retry survives an occurrence
 refresh and is retried through the normal confirm path. Retry state is in memory only, so a process
 restart starts over. A Confirm-all batch is scoped to its plan/occurrence context and stops

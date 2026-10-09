@@ -496,11 +496,11 @@ fun WorkoutLoggerScreen(
                 }
             }
         }
-        state.draftWriteRetry?.let { retry ->
+        if (state.draftWriteRetries.isNotEmpty()) {
             item {
                 Text(
                     text = stringResource(
-                        if (retry.anyRecorded) {
+                        if (state.draftWriteRetries.any { it.anyRecorded }) {
                             Res.string.logger_draft_write_partial
                         } else {
                             Res.string.logger_draft_write_none

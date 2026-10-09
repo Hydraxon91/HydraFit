@@ -116,7 +116,7 @@ class WorkoutLoggerViewModel(
                         it.copy(
                             activeOccurrence = null,
                             confirmingAllDrafts = false,
-                            draftWriteRetry = null
+                            draftWriteRetries = emptyList()
                         )
                     }
                     updateTodayPlan(acceptedPlan)
@@ -465,7 +465,7 @@ class WorkoutLoggerViewModel(
                 draftEdit = if (rebuildDrafts) null else current.draftEdit,
                 missingLoadPrompt = if (rebuildDrafts) null else current.missingLoadPrompt,
                 legacyResolution = if (rebuildDrafts) null else current.legacyResolution,
-                draftWriteRetry = if (rebuildDrafts) null else current.draftWriteRetry,
+                draftWriteRetries = if (rebuildDrafts) emptyList() else current.draftWriteRetries,
                 confirmingAllDrafts = if (rebuildDrafts) false else current.confirmingAllDrafts,
                 reps = current.reps,
                 weightInput = if (rebuildDrafts) {
@@ -772,9 +772,7 @@ class WorkoutLoggerViewModel(
             throw error
         } catch (_: Exception) {
             ensureDraftContext(contextRevision)
-            val priorRetry = _state.value.draftWriteRetry?.takeIf {
-                it.source == source || it.draft == source
-            }
+            val priorRetry = retryFor(source)
             val remaining = resolved.copy(sets = (source.sets - completed).coerceAtLeast(1))
             val retrySource = priorRetry?.source ?: source
             val savedSets = (priorRetry?.savedSets ?: 0) + completed
@@ -785,7 +783,9 @@ class WorkoutLoggerViewModel(
                     },
                     draftEdit = null,
                     missingLoadPrompt = null,
-                    draftWriteRetry = DraftWriteRetry(retrySource, remaining, edit, savedSets),
+                    draftWriteRetries = it.draftWriteRetries.filterNot { retry ->
+                        retry == priorRetry
+                    } + DraftWriteRetry(retrySource, remaining, edit, savedSets),
                     legacyResolution = it.legacyResolution?.let { resolution ->
                         if (resolution.current.draft == source) {
                             resolution.items.drop(1).takeIf { items -> items.isNotEmpty() }
@@ -810,7 +810,7 @@ class WorkoutLoggerViewModel(
                 missingLoadPrompt = it.missingLoadPrompt?.takeUnless { pending ->
                     pending == draft
                 },
-                draftWriteRetry = it.draftWriteRetry?.takeUnless { retry ->
+                draftWriteRetries = it.draftWriteRetries.filterNot { retry ->
                     retry.source == draft || retry.draft == draft
                 }
             )
@@ -819,7 +819,7 @@ class WorkoutLoggerViewModel(
 
     /** The pending retry for [draft], if any, matched by its source row or its remaining row. */
     private fun retryFor(draft: DraftSet): DraftWriteRetry? =
-        _state.value.draftWriteRetry?.takeIf { it.source == draft || it.draft == draft }
+        _state.value.draftWriteRetries.firstOrNull { it.source == draft || it.draft == draft }
 
     /** The confirmed values and editor state to write for [draft], honoring an open editor or retry. */
     private fun resolveForWrite(draft: DraftSet): Pair<DraftSet, DraftEdit?> {
@@ -862,7 +862,6 @@ class WorkoutLoggerViewModel(
             return
         }
         val contextRevision = draftContextRevision
-        val batchStartRetry = _state.value.draftWriteRetry
         if (!beginDraftSubmission()) return
         viewModelScope.launch {
             var currentIndex = 0
@@ -890,14 +889,16 @@ class WorkoutLoggerViewModel(
                 val edit = currentEdit ?: priorRetry?.edit
                 val remaining = resolved.copy(sets = (source.sets - completed).coerceAtLeast(1))
                 val retrySource = priorRetry?.source ?: source
-                val savedSets = (batchStartRetry?.savedSets ?: 0) +
+                val savedSets = (priorRetry?.savedSets ?: 0) +
                     drafts.take(currentIndex).sumOf { it.sets } + completed
                 _state.update {
                     it.copy(
                         draftSets = listOf(remaining) + drafts.drop(currentIndex + 1),
                         draftEdit = null,
                         missingLoadPrompt = null,
-                        draftWriteRetry = DraftWriteRetry(retrySource, remaining, edit, savedSets),
+                        draftWriteRetries = it.draftWriteRetries.filter { retry ->
+                            retry.draft in drafts.drop(currentIndex + 1)
+                        } + DraftWriteRetry(retrySource, remaining, edit, savedSets),
                         legacyResolution = it.legacyResolution?.let { resolution ->
                             if (resolution.current.draft == source) {
                                 resolution.items.drop(1).takeIf { items -> items.isNotEmpty() }
@@ -920,7 +921,7 @@ class WorkoutLoggerViewModel(
                         draftSets = emptyList(),
                         draftEdit = null,
                         missingLoadPrompt = null,
-                        draftWriteRetry = null,
+                        draftWriteRetries = emptyList(),
                         confirmingAllDrafts = false
                     )
                 }
@@ -941,7 +942,7 @@ class WorkoutLoggerViewModel(
                 missingLoadPrompt = it.missingLoadPrompt?.takeUnless { pending ->
                     pending == draft
                 },
-                draftWriteRetry = it.draftWriteRetry?.takeUnless { retry ->
+                draftWriteRetries = it.draftWriteRetries.filterNot { retry ->
                     retry.source == draft || retry.draft == draft
                 }
             )
@@ -966,7 +967,7 @@ class WorkoutLoggerViewModel(
             it.copy(
                 legacyResolution = null,
                 confirmingAllDrafts = false,
-                draftWriteRetry = it.draftWriteRetry?.takeUnless { retry ->
+                draftWriteRetries = it.draftWriteRetries.filterNot { retry ->
                     item != null && (retry.source == item.draft || retry.draft == item.draft)
                 }
             )
@@ -997,7 +998,9 @@ class WorkoutLoggerViewModel(
                         legacyResolution = remaining.takeIf { it.isNotEmpty() }
                             ?.let(::LegacyResolution),
                         draftEdit = null,
-                        draftWriteRetry = null
+                        draftWriteRetries = state.draftWriteRetries.filterNot { retry ->
+                            retry.source == item.draft || retry.draft == item.draft
+                        }
                     )
                 }
                 refreshRecentSets()
@@ -1013,7 +1016,13 @@ class WorkoutLoggerViewModel(
         if (legacy.isEmpty()) return null
         return LegacyResolution(
             legacy.map { draft ->
-                LegacyResolutionItem(draft, draft.loadCapability)
+                val capability = if (draft.loadCapability == ExerciseLoadCapability.UNSPECIFIED) {
+                    exercises.firstOrNull { it.id == draft.exerciseId }?.loadCapability
+                        ?: ExerciseLoadCapability.UNSPECIFIED
+                } else {
+                    draft.loadCapability
+                }
+                LegacyResolutionItem(draft, capability)
             }
         )
     }
@@ -1118,7 +1127,7 @@ class WorkoutLoggerViewModel(
                     draftEdit = null,
                     missingLoadPrompt = null,
                     legacyResolution = null,
-                    draftWriteRetry = null,
+                    draftWriteRetries = emptyList(),
                     confirmingAllDrafts = false,
                     todayFocus = null
                 )
@@ -1146,16 +1155,13 @@ class WorkoutLoggerViewModel(
                 )
             }
         }
-        // A partial-write retry keeps its not-yet-recorded row and one-off values across a refresh.
-        val retry = _state.value.draftWriteRetry
-        val retrySlot = retry?.source
-        val displayDrafts = if (retry != null && retrySlot != null) {
-            val index = drafts.indexOfFirst { it.sameSlotAs(retrySlot) }
-            if (index >= 0) drafts.toMutableList().also { it[index] = retry.draft } else drafts
-        } else {
-            drafts
+        // Each partial-write retry keeps its own row and one-off values across a refresh.
+        val retries = _state.value.draftWriteRetries.filter { retry ->
+            drafts.any { it.sameSlotAs(retry.source) }
         }
-        val retryPreserved = retrySlot != null && drafts.any { it.sameSlotAs(retrySlot) }
+        val displayDrafts = drafts.map { draft ->
+            retries.firstOrNull { draft.sameSlotAs(it.source) }?.draft ?: draft
+        }
         val workout = activation.workouts.firstOrNull { it.id == occurrence.activationWorkoutId }
         val prescribed = occurrence.entries.sumOf { it.sets }
         val performedTotal = occurrence.entries.sumOf {
@@ -1177,7 +1183,7 @@ class WorkoutLoggerViewModel(
                 legacyResolution = it.legacyResolution?.takeIf { resolution ->
                     resolution.items.all { item -> item.draft in displayDrafts }
                 },
-                draftWriteRetry = retry.takeIf { retryPreserved },
+                draftWriteRetries = retries,
                 // A batch continuation is scoped to one occurrence: switching away ends it.
                 confirmingAllDrafts = it.confirmingAllDrafts &&
                     previousOccurrenceId == occurrence.id &&

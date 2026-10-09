@@ -60,6 +60,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
@@ -417,14 +418,14 @@ class WorkoutLoggerViewModelTest {
 
             assertEquals(1, repository.all().size)
             assertEquals(2, viewModel.state.value.draftSets.single().sets)
-            assertNotNull(viewModel.state.value.draftWriteRetry)
+            assertEquals(1, viewModel.state.value.draftWriteRetries.size)
 
             viewModel.confirmDraft(viewModel.state.value.draftSets.single())
             advanceUntilIdle()
 
             assertEquals(3, repository.all().size)
             assertTrue(viewModel.state.value.draftSets.isEmpty())
-            assertNull(viewModel.state.value.draftWriteRetry)
+            assertTrue(viewModel.state.value.draftWriteRetries.isEmpty())
         }
 
     @Test
@@ -445,7 +446,7 @@ class WorkoutLoggerViewModelTest {
 
         assertEquals(1, repository.all().size)
         assertEquals(listOf(2, 3), viewModel.state.value.draftSets.map { it.sets })
-        assertNotNull(viewModel.state.value.draftWriteRetry)
+        assertEquals(1, viewModel.state.value.draftWriteRetries.size)
         assertFalse(viewModel.state.value.confirmingAllDrafts)
 
         viewModel.confirmAllDrafts()
@@ -504,8 +505,8 @@ class WorkoutLoggerViewModelTest {
 
         assertEquals(3, repository.all().size)
         assertEquals(listOf("bench-press"), viewModel.state.value.draftSets.map { it.exerciseId })
-        assertEquals(3, viewModel.state.value.draftWriteRetry?.savedSets)
-        assertTrue(viewModel.state.value.draftWriteRetry?.anyRecorded == true)
+        assertEquals(3, viewModel.state.value.draftWriteRetries.single().savedSets)
+        assertTrue(viewModel.state.value.draftWriteRetries.single().anyRecorded)
     }
 
     @Test
@@ -532,7 +533,7 @@ class WorkoutLoggerViewModelTest {
         advanceUntilIdle()
         assertEquals(1, repository.all().size)
         assertEquals(2, viewModel.state.value.draftSets.single().sets)
-        assertTrue(viewModel.state.value.draftWriteRetry?.anyRecorded == true)
+        assertTrue(viewModel.state.value.draftWriteRetries.single().anyRecorded)
 
         viewModel.confirmDraft(viewModel.state.value.draftSets.single())
         advanceUntilIdle()
@@ -683,7 +684,7 @@ class WorkoutLoggerViewModelTest {
         advanceUntilIdle()
 
         assertEquals(1, repository.all().size)
-        assertNotNull(viewModel.state.value.draftWriteRetry)
+        assertEquals(1, viewModel.state.value.draftWriteRetries.size)
 
         viewModel.confirmDraft(viewModel.state.value.draftSets.single())
         advanceUntilIdle()
@@ -710,7 +711,7 @@ class WorkoutLoggerViewModelTest {
         viewModel.confirmDraftEdit()
         advanceUntilIdle()
         assertEquals(1, repository.all().size)
-        assertNotNull(viewModel.state.value.draftWriteRetry)
+        assertEquals(1, viewModel.state.value.draftWriteRetries.size)
 
         schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
         advanceUntilIdle()
@@ -718,7 +719,7 @@ class WorkoutLoggerViewModelTest {
         val retryDraft = viewModel.state.value.draftSets.single()
         assertEquals(1, retryDraft.sets)
         assertEquals(7, retryDraft.reps)
-        assertNotNull(viewModel.state.value.draftWriteRetry)
+        assertEquals(1, viewModel.state.value.draftWriteRetries.size)
     }
 
     @Test
@@ -840,6 +841,452 @@ class WorkoutLoggerViewModelTest {
         assertNull(viewModel.state.value.legacyResolution)
         assertEquals(listOf("deadlift"), viewModel.state.value.draftSets.map { it.exerciseId })
     }
+
+    @Test
+    fun independentDraftRetriesKeepTheirOwnEditsAcrossFailuresAndConfirmAll() =
+        runTest(dispatcher) {
+            listOf(false, true).forEach { confirmAll ->
+                val repository = FakeWorkoutLogRepository(failOnAddAttempts = setOf(2, 4, 5))
+                val viewModel = viewModel(
+                    repository = repository,
+                    timeMillis = MONDAY,
+                    acceptedPlan = acceptedPlan(
+                        listOf("back-squat", "bench-press"),
+                        suggestedWeightKg = 80.0
+                    )
+                )
+                advanceUntilIdle()
+                val drafts = viewModel.state.value.draftSets
+                drafts.forEachIndexed { index, draft ->
+                    viewModel.editDraft(draft)
+                    viewModel.onDraftRepsChanged((6 + index).toString())
+                    viewModel.onDraftWeightChanged((90 + index).toString())
+                    viewModel.onDraftRirChanged((2 + index).toString())
+                    viewModel.onDraftPerformedAtChanged(MONDAY - (index + 1) * DAY)
+                    viewModel.confirmDraftEdit()
+                    advanceUntilIdle()
+                }
+                assertEquals(2, repository.all().size)
+                assertEquals(2, viewModel.state.value.draftWriteRetries.size)
+
+                if (confirmAll) {
+                    viewModel.confirmAllDrafts()
+                } else {
+                    viewModel.confirmDraft(viewModel.state.value.draftSets.first())
+                }
+                advanceUntilIdle()
+                assertEquals(2, viewModel.state.value.draftWriteRetries.size)
+                viewModel.onResume()
+                advanceUntilIdle()
+                if (confirmAll) {
+                    viewModel.confirmAllDrafts()
+                    advanceUntilIdle()
+                } else {
+                    viewModel.state.value.draftSets.toList().forEach { draft ->
+                        viewModel.confirmDraft(draft)
+                        advanceUntilIdle()
+                    }
+                }
+
+                assertEquals(6, repository.all().size)
+                drafts.forEachIndexed { index, draft ->
+                    val recorded = repository.all().filter { it.exerciseId == draft.exerciseId }
+                    assertEquals(3, recorded.size)
+                    assertTrue(
+                        recorded.all {
+                            it.reps == 6 + index &&
+                                it.weightKg == (90 + index).toDouble() &&
+                                it.rir == 2 + index &&
+                                it.performedAtMillis == MONDAY - (index + 1) * DAY
+                        }
+                    )
+                }
+                assertTrue(viewModel.state.value.draftSets.isEmpty())
+                assertTrue(viewModel.state.value.draftWriteRetries.isEmpty())
+            }
+        }
+
+    @Test
+    fun successfulLegacyResolutionDoesNotClearAnotherDraftRetry() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempt = 2)
+        val original = acceptedPlan(
+            listOf("back-squat", "bench-press"),
+            suggestedWeightKg = 80.0
+        )
+        val plan = original.copy(
+            days = original.days.map { day ->
+                day.copy(
+                    exercises = day.exercises.map { exercise ->
+                        if (exercise.exerciseId == "bench-press") {
+                            exercise.copy(
+                                loadKind = LoadKind.LEGACY_UNSPECIFIED,
+                                loadCapability = ExerciseLoadCapability.UNSPECIFIED
+                            )
+                        } else {
+                            exercise
+                        }
+                    }
+                )
+            }
+        )
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY, acceptedPlan = plan)
+        advanceUntilIdle()
+        val drafts = viewModel.state.value.draftSets
+        viewModel.editDraft(drafts.first())
+        viewModel.onDraftRirChanged("2")
+        viewModel.onDraftPerformedAtChanged(MONDAY - DAY)
+        viewModel.confirmDraftEdit()
+        advanceUntilIdle()
+        val retry = viewModel.state.value.draftWriteRetries.single()
+
+        viewModel.confirmDraft(drafts.last())
+        viewModel.resolveLegacyAsExternal()
+        advanceUntilIdle()
+        assertEquals(listOf(retry), viewModel.state.value.draftWriteRetries)
+        viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+        advanceUntilIdle()
+
+        assertEquals(6, repository.all().size)
+        assertTrue(
+            repository.all().filter { it.exerciseId == "back-squat" }.all {
+                it.rir == 2 && it.performedAtMillis == MONDAY - DAY
+            }
+        )
+        assertTrue(viewModel.state.value.draftWriteRetries.isEmpty())
+    }
+
+    @Test
+    fun occurrenceRefreshPreservesEveryRetryAndConfirmAllKeepsFrozenSlots() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempts = setOf(2, 4))
+        val schedule = MutableWorkoutScheduleRepository()
+        val occurrences = twoOccurrences().map { occurrence ->
+            if (occurrence.id == 30L) {
+                occurrence.copy(
+                    entries = occurrence.entries + occurrence.entries.single().copy(
+                        id = 42L,
+                        position = 1,
+                        exerciseId = "bench-press",
+                        exerciseName = "Bench Press"
+                    )
+                )
+            } else {
+                occurrence
+            }
+        }
+        schedule.set(blockActivation(), occurrences, selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+        viewModel.state.value.draftSets.toList().forEachIndexed { index, draft ->
+            viewModel.editDraft(draft)
+            viewModel.onDraftRirChanged((2 + index).toString())
+            viewModel.onDraftPerformedAtChanged(MONDAY - (index + 1) * DAY)
+            viewModel.confirmDraftEdit()
+            advanceUntilIdle()
+        }
+        val retries = viewModel.state.value.draftWriteRetries
+        assertEquals(2, retries.size)
+        schedule.set(blockActivation(), occurrences, selectedOccurrenceId = 30L)
+        advanceUntilIdle()
+        assertEquals(retries, viewModel.state.value.draftWriteRetries)
+        assertEquals(listOf(1, 1), viewModel.state.value.draftSets.map { it.sets })
+
+        viewModel.confirmAllDrafts()
+        advanceUntilIdle()
+        assertEquals(4, repository.all().size)
+        listOf(40L, 42L).forEachIndexed { index, entryId ->
+            val recorded = repository.all().filter { it.occurrenceEntryId == entryId }
+            assertEquals(2, recorded.size)
+            assertTrue(
+                recorded.all {
+                    it.occurrenceId == 30L &&
+                        it.rir == 2 + index &&
+                        it.performedAtMillis == MONDAY - (index + 1) * DAY
+                }
+            )
+        }
+        assertTrue(viewModel.state.value.draftWriteRetries.isEmpty())
+    }
+
+    @Test
+    fun dismissingOneRetryKeepsTheOtherUntilAPlanContextChange() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempts = setOf(2, 4))
+        val plan = acceptedPlan(listOf("back-squat", "bench-press"), suggestedWeightKg = 80.0)
+        val history = FakePlanHistoryRepository(plan)
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY, history = history)
+        advanceUntilIdle()
+        viewModel.state.value.draftSets.toList().forEach { draft ->
+            viewModel.confirmDraft(draft)
+            advanceUntilIdle()
+        }
+        assertEquals(2, viewModel.state.value.draftWriteRetries.size)
+        viewModel.dismissDraft(viewModel.state.value.draftSets.first())
+        assertEquals(
+            "bench-press",
+            viewModel.state.value.draftWriteRetries.single().draft.exerciseId
+        )
+
+        history.accepted = acceptedPlan(listOf("pull-up")).copy(acceptedAtMillis = 1L)
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.draftWriteRetries.isEmpty())
+        assertEquals(listOf("pull-up"), viewModel.state.value.draftSets.map { it.exerciseId })
+        assertEquals(2, repository.all().size)
+    }
+
+    @Test
+    fun migratedAcceptedDraftUsesCurrentCapabilityOnlyForExplicitLegacyResolution() =
+        runTest(dispatcher) {
+            val capabilities = listOf<ExerciseLoadCapability?>(
+                ExerciseLoadCapability.EXTERNAL,
+                ExerciseLoadCapability.BODYWEIGHT_ONLY,
+                ExerciseLoadCapability.BODYWEIGHT_ADDABLE,
+                ExerciseLoadCapability.UNSPECIFIED,
+                null
+            )
+            capabilities.forEach { capability ->
+                listOf<Double?>(null, 0.0, 80.0).forEach { weight ->
+                    val repository = FakeWorkoutLogRepository()
+                    val plan = acceptedPlan(
+                        listOf("back-squat"),
+                        suggestedWeightKg = weight,
+                        loadKind = LoadKind.LEGACY_UNSPECIFIED
+                    ).let { original ->
+                        original.copy(
+                            days = original.days.map { day ->
+                                day.copy(
+                                    exercises = day.exercises.map {
+                                        it.copy(loadCapability = ExerciseLoadCapability.UNSPECIFIED)
+                                    }
+                                )
+                            }
+                        )
+                    }
+                    val history = FakePlanHistoryRepository(plan)
+                    val catalog = object : ExerciseCatalog {
+                        override suspend fun all(): List<Exercise> = if (capability == null) {
+                            emptyList()
+                        } else {
+                            FakeExerciseCatalog.all().map { it.copy(loadCapability = capability) }
+                        }
+                    }
+                    val viewModel = viewModel(
+                        repository = repository,
+                        timeMillis = MONDAY,
+                        history = history,
+                        catalog = catalog
+                    )
+                    advanceUntilIdle()
+                    viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+                    val resolution = assertNotNull(viewModel.state.value.legacyResolution)
+                    assertEquals(
+                        capability == ExerciseLoadCapability.EXTERNAL,
+                        resolution.current.canBeExternal
+                    )
+                    assertTrue(repository.all().isEmpty())
+
+                    viewModel.dismissLegacyResolution()
+                    assertEquals(1, viewModel.state.value.draftSets.size)
+                    assertTrue(repository.all().isEmpty())
+                    viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+                    viewModel.resolveLegacyAsExternal()
+                    advanceUntilIdle()
+                    if (capability == ExerciseLoadCapability.EXTERNAL) {
+                        assertEquals(3, repository.all().size)
+                        assertTrue(
+                            repository.all().all {
+                                it.loadKind == LoadKind.EXTERNAL && it.weightKg == weight
+                            }
+                        )
+                    } else {
+                        assertTrue(repository.all().isEmpty())
+                        viewModel.resolveLegacyAsBodyweight()
+                        advanceUntilIdle()
+                        assertEquals(3, repository.all().size)
+                        assertTrue(
+                            repository.all().all {
+                                it.loadKind == LoadKind.BODYWEIGHT && it.weightKg == null
+                            }
+                        )
+                    }
+                    assertEquals(plan, history.latest())
+                }
+            }
+        }
+
+    @Test
+    fun migratedOccurrenceDraftKeepsItsStoredLoadAndFrozenSlotAfterResolution() =
+        runTest(dispatcher) {
+            listOf<Double?>(null, 0.0, 100.0).forEach { weight ->
+                val repository = FakeWorkoutLogRepository()
+                val schedule = MutableWorkoutScheduleRepository()
+                val occurrences = twoOccurrences().map { occurrence ->
+                    occurrence.copy(
+                        entries = occurrence.entries.map {
+                            it.copy(
+                                weightKg = weight,
+                                loadKind = LoadKind.LEGACY_UNSPECIFIED,
+                                loadCapability = ExerciseLoadCapability.UNSPECIFIED
+                            )
+                        }
+                    )
+                }
+                schedule.set(blockActivation(), occurrences, selectedOccurrenceId = 30L)
+                val viewModel = occurrenceViewModel(repository, schedule)
+                advanceUntilIdle()
+                viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+                assertTrue(
+                    assertNotNull(viewModel.state.value.legacyResolution).current.canBeExternal
+                )
+                assertTrue(repository.all().isEmpty())
+                viewModel.resolveLegacyAsExternal()
+                advanceUntilIdle()
+
+                assertEquals(2, repository.all().size)
+                assertTrue(
+                    repository.all().all {
+                        it.loadKind == LoadKind.EXTERNAL &&
+                            it.weightKg == weight &&
+                            it.occurrenceId == 30L &&
+                            it.occurrenceEntryId == 40L
+                    }
+                )
+                assertEquals(occurrences, schedule.observeOccurrences(5L).first())
+            }
+        }
+
+    @Test
+    fun migratedOccurrenceWithoutExternalCatalogCapabilityCannotResolveAsExternal() =
+        runTest(dispatcher) {
+            listOf<ExerciseLoadCapability?>(
+                ExerciseLoadCapability.BODYWEIGHT_ONLY,
+                ExerciseLoadCapability.BODYWEIGHT_ADDABLE,
+                ExerciseLoadCapability.UNSPECIFIED,
+                null
+            ).forEach { capability ->
+                val repository = FakeWorkoutLogRepository()
+                val schedule = MutableWorkoutScheduleRepository()
+                val occurrences = twoOccurrences().map { occurrence ->
+                    occurrence.copy(
+                        entries = occurrence.entries.map {
+                            it.copy(
+                                loadKind = LoadKind.LEGACY_UNSPECIFIED,
+                                loadCapability = ExerciseLoadCapability.UNSPECIFIED
+                            )
+                        }
+                    )
+                }
+                val catalog = object : ExerciseCatalog {
+                    override suspend fun all(): List<Exercise> = if (capability == null) {
+                        emptyList()
+                    } else {
+                        FakeExerciseCatalog.all().map { it.copy(loadCapability = capability) }
+                    }
+                }
+                schedule.set(blockActivation(), occurrences, selectedOccurrenceId = 30L)
+                val viewModel = occurrenceViewModel(repository, schedule, catalog)
+                advanceUntilIdle()
+                viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+                assertFalse(
+                    assertNotNull(viewModel.state.value.legacyResolution).current.canBeExternal
+                )
+                viewModel.resolveLegacyAsExternal()
+                advanceUntilIdle()
+                assertTrue(repository.all().isEmpty())
+                viewModel.resolveLegacyAsBodyweight()
+                advanceUntilIdle()
+                assertEquals(2, repository.all().size)
+                assertTrue(
+                    repository.all().all {
+                        it.loadKind == LoadKind.BODYWEIGHT &&
+                            it.weightKg == null &&
+                            it.occurrenceId == 30L &&
+                            it.occurrenceEntryId == 40L
+                    }
+                )
+                assertEquals(occurrences, schedule.observeOccurrences(5L).first())
+            }
+        }
+
+    @Test
+    fun typedDraftWithUnspecifiedFrozenCapabilityDoesNotUseLegacyCatalogException() =
+        runTest(dispatcher) {
+            val repository = FakeWorkoutLogRepository()
+            val plan = acceptedPlan(
+                listOf("back-squat"),
+                loadKind = LoadKind.BODYWEIGHT
+            ).let { original ->
+                original.copy(
+                    days = original.days.map { day ->
+                        day.copy(
+                            exercises = day.exercises.map {
+                                it.copy(loadCapability = ExerciseLoadCapability.UNSPECIFIED)
+                            }
+                        )
+                    }
+                )
+            }
+            val viewModel = viewModel(
+                repository = repository,
+                timeMillis = MONDAY,
+                acceptedPlan = plan
+            )
+            advanceUntilIdle()
+            viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+            advanceUntilIdle()
+
+            assertNull(viewModel.state.value.legacyResolution)
+            assertEquals(3, repository.all().size)
+            assertTrue(
+                repository.all().all {
+                    it.loadKind == LoadKind.BODYWEIGHT && it.weightKg == null
+                }
+            )
+        }
+
+    @Test
+    fun explicitFrozenCapabilitiesAreNotReplacedByCurrentCatalogDuringLegacyResolution() =
+        runTest(dispatcher) {
+            listOf(
+                ExerciseLoadCapability.EXTERNAL,
+                ExerciseLoadCapability.BODYWEIGHT_ONLY,
+                ExerciseLoadCapability.BODYWEIGHT_ADDABLE
+            ).forEach { frozen ->
+                val plan = acceptedPlan(
+                    listOf("back-squat"),
+                    suggestedWeightKg = 80.0,
+                    loadKind = LoadKind.LEGACY_UNSPECIFIED
+                ).let { original ->
+                    original.copy(
+                        days = original.days.map { day ->
+                            day.copy(
+                                exercises = day.exercises.map { it.copy(loadCapability = frozen) }
+                            )
+                        }
+                    )
+                }
+                val catalog = object : ExerciseCatalog {
+                    override suspend fun all(): List<Exercise> = FakeExerciseCatalog.all().map {
+                        it.copy(
+                            loadCapability = if (frozen == ExerciseLoadCapability.EXTERNAL) {
+                                ExerciseLoadCapability.BODYWEIGHT_ONLY
+                            } else {
+                                ExerciseLoadCapability.EXTERNAL
+                            }
+                        )
+                    }
+                }
+                val viewModel = viewModel(
+                    timeMillis = MONDAY,
+                    acceptedPlan = plan,
+                    catalog = catalog
+                )
+                advanceUntilIdle()
+                viewModel.confirmDraft(viewModel.state.value.draftSets.single())
+                assertEquals(
+                    frozen == ExerciseLoadCapability.EXTERNAL,
+                    assertNotNull(viewModel.state.value.legacyResolution).current.canBeExternal
+                )
+            }
+        }
 
     private fun oneSetPlan(plan: AcceptedPlan): AcceptedPlan = plan.copy(
         days = plan.days.map { day ->
@@ -2803,12 +3250,13 @@ class WorkoutLoggerViewModelTest {
 
     private fun occurrenceViewModel(
         repository: WorkoutLogRepository,
-        schedule: WorkoutScheduleRepository
+        schedule: WorkoutScheduleRepository,
+        catalog: ExerciseCatalog = FakeExerciseCatalog
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
         loggingActions = loggingActions(FakePlanHistoryRepository(null), repository, schedule, 0L),
-        exerciseCatalog = FakeExerciseCatalog,
+        exerciseCatalog = catalog,
         timeProvider = TimeProvider { MONDAY },
         weightUnitRepository = FakeWeightUnitRepository(WeightUnit.KG)
     )

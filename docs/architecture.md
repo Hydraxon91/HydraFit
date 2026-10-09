@@ -361,9 +361,18 @@ Every prescription, snapshot and performed set carries a **load kind** (`EXTERNA
   rewritten); typed external performances/prescriptions alone drive a streak. Added kilograms are not
   total effective resistance and never seed a generated number. `null`/`0.0`/positive stay distinct.
   A legacy draft must be explicitly resolved (external or bodyweight) before it is logged; the choice
-  affects the new performed set, never the frozen prescription. Built-in capability is backfilled by
+  affects the new performed set, never the frozen prescription. For `LEGACY_UNSPECIFIED` drafts only,
+  a frozen `UNSPECIFIED` capability consults the current catalog to offer external resolution when
+  the exercise is external today. Explicit frozen capabilities remain authoritative; missing or
+  unspecified catalog entries do not permit external resolution. Built-in capability is backfilled by
   the seed; `CustomExerciseDedupe` preserves an explicit custom capability that differs from the
   built-in.
+- **Logger draft retries (LT13-R02):** in-memory retries are owned independently by each pending
+  draft. Confirming, resolving or dismissing another draft cannot discard its confirmed RIR, time,
+  load or remaining count. Confirm-all removes retries for completed rows while retaining the failed
+  row and every unattempted retry. An occurrence refresh preserves retries by frozen slot; a plan/
+  activation/occurrence context replacement drops retries rather than transferring them. No retry
+  changes a stored prescription or survives process restart.
 - **Consistency:** high; `SqlDelightWorkoutLogRepository` maps `ADDED`/`BODYWEIGHT` sets to a neutral
   relative-load factor for fatigue while retaining the stored number for display, so historical
   fatigue results are unchanged.

@@ -79,6 +79,29 @@ exact on-screen text.
 - Planned-today focus matches the accepted plan; no accepted plan → no focus.
 - Active block: the Logger's occurrence card shows the workout name and performed/prescribed sets; **Finish** is rejected until every prescribed set is recorded ("Not every prescribed set is recorded yet"), **Finish partially** resolves with the remainder omitted, and **Skip** resolves without inventing sets; the queue advances.
 - **Load semantics (EX-02):** a bodyweight exercise hides the weight field (no numeric load); an addable bodyweight exercise reveals an "added load" field; a migrated legacy recent-set row reads "(recorded, unconfirmed)" and an added-load row reads "Bodyweight + X kg". A legacy planned draft requires resolving it as external or bodyweight before logging.
+- **Migrated legacy drafts (LT13-R01):** accepted-plan and occurrence drafts with frozen `UNSPECIFIED`
+  capability offer external resolution only when the current catalog says `EXTERNAL`. Confirming that
+  choice preserves the stored null/zero/positive load and occurrence slot without changing the
+  prescription. Explicit frozen capabilities take precedence over catalog edits; bodyweight-only,
+  addable, unspecified and missing catalog entries do not authorize external resolution through this
+  exception. Cancel records nothing. Semantic emulator verification passed 2026-10-09 on
+  `emulator-5554` with a seeded legacy draft: a frozen `UNSPECIFIED` occurrence entry pointing at a
+  catalog-`EXTERNAL` exercise showed `(recorded, unconfirmed)`, Confirm opened **Confirm the recorded
+  load** with **Log as external load** and **Log as bodyweight**, and choosing external recorded the
+  stored 60 kg as `EXTERNAL` across all three prescribed sets on the frozen `occurrenceId=7`/
+  `occurrenceEntryId=31` slot (verified read-only). The original database was restored
+  byte-identically. Negative catalog cases and null/zero/positive loads are covered by unit tests;
+  this is not pinned release-upgrade verification.
+- **Independent draft retries (LT13-R02):** partially fail two edited drafts, then retry individually
+  or with Confirm-all: each keeps its own reps/load/RIR/time and remaining count, without duplicate
+  records. Successfully resolve another legacy draft without clearing the first retry. Occurrence
+  refresh retains both frozen slots; dismissal removes only its retry, and context replacement
+  clears old retries. Automated failure-path coverage passed with the 965-test host suite (2026-10-09).
+  Separate semantic smoke passed on `emulator-5554`: open the pending occurrence editor, verify focused
+  reps/RIR fields and replacement values, Cancel, then assert the unchanged `3 x 8` bodyweight draft
+  and `3 of 6 sets` progress. No logging or database seeding was performed. All three bounded flows
+  passed on the first attempt; the final screenshot was inspected. This does not exercise injected
+  write failures or pinned release upgrades on the emulator.
 
 ## 7. Fatigue
 - Heatmap reflects logged sets per muscle; percentages shown; near-limit shows "99.9+%".
