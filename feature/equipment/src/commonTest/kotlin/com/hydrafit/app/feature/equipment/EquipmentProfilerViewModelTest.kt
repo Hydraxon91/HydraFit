@@ -641,6 +641,44 @@ class EquipmentProfilerViewModelTest {
         )
     }
 
+    @Test
+    fun nameConflictKeepEditingClearsOnlyTheConflictAndKeepsNameProfileAndTouches() =
+        runTest(dispatcher) {
+            val custom = FakeCustomExerciseRepository(
+                addFailure = CustomExerciseException(
+                    "duplicate",
+                    CustomExerciseFailureReason.NAME_CONFLICT
+                )
+            )
+            val viewModel = viewModel(
+                custom = custom,
+                catalog = ProfileCatalog(listOf(suggestedProfile()))
+            )
+            advanceUntilIdle()
+            viewModel.onNewCustomExercise()
+            viewModel.onEditorNameChanged("Bench")
+            viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.ABS, 1.0)
+            viewModel.onFindProfile()
+            advanceUntilIdle()
+            viewModel.onSaveExercise()
+            advanceUntilIdle()
+
+            val conflicted = viewModel.state.value.exerciseEditor
+            assertTrue(conflicted.nameConflict)
+            assertNotNull(conflicted.suggestion.preview)
+            assertEquals(setOf(ExerciseProfileGroup.INVOLVEMENTS), conflicted.touchedGroups)
+
+            viewModel.onDismissNameConflict()
+
+            val kept = viewModel.state.value.exerciseEditor
+            assertFalse(kept.nameConflict)
+            assertNull(kept.error)
+            assertEquals("Bench", kept.name)
+            assertEquals(conflicted.suggestion, kept.suggestion)
+            assertEquals(conflicted.touchedGroups, kept.touchedGroups)
+            assertEquals(conflicted.involvements, kept.involvements)
+        }
+
     private fun suggestedProfile(
         capability: ExerciseLoadCapability = ExerciseLoadCapability.BODYWEIGHT_ADDABLE
     ) = CatalogExerciseProfile(

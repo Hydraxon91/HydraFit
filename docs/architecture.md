@@ -415,9 +415,11 @@ preview without clearing values/protection; creation dismissal resets all transi
 `EquipmentProfilerViewModel` reads through its existing catalog dependency and delegates matching to
 the pure domain matcher; its six dependencies and Koin binding are unchanged. Delayed reads carry a
 request revision so old names or dismissed/reopened editors cannot acquire stale previews. Ordinary
-Save retains existing trimming/validation; name conflicts render localized distinct-name-or-cancel
-guidance, never rename/merge/redirect. No IDs, history, PRs, prescriptions, working-load suggestions,
-preferences or exclusions are copied. Pattern/muscle guardrails remain advisory.
+Save retains existing trimming/validation; a name conflict raises a localized "Name already in use"
+popup whose Keep editing action clears only the conflict and preserves the name, profile and
+protection flags, never renaming/merging/redirecting. No IDs, history, PRs, prescriptions,
+working-load suggestions, preferences or exclusions are copied. Pattern/muscle guardrails stay
+advisory.
 
 ## 2. Decision log
 

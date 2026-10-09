@@ -568,6 +568,13 @@ class EquipmentProfilerViewModel(
         _state.update { it.copy(exerciseEditor = ExerciseEditorState()) }
     }
 
+    /** Keeps editing after a name conflict: the name, profile and protection flags all stay. */
+    fun onDismissNameConflict() {
+        _state.update {
+            it.copy(exerciseEditor = it.exerciseEditor.copy(error = null, nameConflict = false))
+        }
+    }
+
     private suspend fun closeEditorAndRefresh(highlightId: String? = null) {
         profileRequestRevision++
         _state.update {

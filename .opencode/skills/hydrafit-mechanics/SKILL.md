@@ -137,8 +137,9 @@ replaces the involvement map as a whole and protects applied groups. No-selectio
 and disabled in UI. Checkbox edits/preview Cancel do not mutate values/touches. Name edits clear
 `suggestion` without clearing the profile/protection; dismissal resets creation state. All four
 capabilities, including legacy/unspecified, survive preview/Apply without conversion. Names remain
-the user's; Apply never saves, and ordinary Save still trims/validates. Typed name conflicts render
-localized distinct-name-or-cancel guidance. The ViewModel retains six dependencies, uses a revision
+the user's; Apply never saves, and ordinary Save still trims/validates. Typed name conflicts raise a
+localized "Name already in use" popup; Keep editing clears only the conflict and preserves the name,
+profile and protection flags. The ViewModel retains six dependencies, uses a revision
 to invalidate delayed reads, and does not add/change Koin bindings. No history, IDs, preferences,
 exclusions, PRs, prescriptions or working-load suggestions are copied.
 

@@ -37,10 +37,11 @@ exact on-screen text.
   invalidates the preview without discarding values/protection. Preview Cancel changes neither;
   creation Cancel persists nothing and reopening starts fresh. Legacy/unspecified is displayed
   honestly and is not converted to External weight.
-- Save a canonical seeded name or its whitespace/case variant → localized choose-a-distinct-name-or-
-  cancel guidance. Non-colliding approved alias/translation names save as separate custom identities;
-  their related records remain on their custom IDs across startup. Existing advisory guardrails and
-  normal Save validation still apply. No suggestions copy prescriptions/history/preferences/PRs.
+- Save a canonical seeded name or its whitespace/case variant → a "Name already in use" popup with a
+  Keep editing action; that action preserves your name, profile and protection flags, and nothing is
+  saved. Non-colliding approved alias/translation names save as separate custom identities; their
+  related records remain on their custom IDs across startup. Existing advisory guardrails and normal
+  Save validation still apply. No suggestions copy prescriptions/history/preferences/PRs.
 
 ## 3. Plan — deterministic
 - Days 2–6 resolve to the right split (2–3 Full Body, 4 Upper-Lower, 5–6 PPL); per-day focus labels correct.

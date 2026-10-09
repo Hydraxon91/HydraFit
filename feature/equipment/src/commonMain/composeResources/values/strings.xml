@@ -49,6 +49,8 @@
     <string name="equipment_profile_apply">Apply selected</string>
     <string name="equipment_cancel">Cancel</string>
     <string name="equipment_name_conflict">This name conflicts with an existing exercise or seeded catalog identity. Choose a distinct custom name or cancel.</string>
+    <string name="equipment_name_conflict_title">Name already in use</string>
+    <string name="equipment_keep_editing">Keep editing</string>
     <string name="equipment_preference_section">Planner preference</string>
     <string name="equipment_preference_prefer">Prefer</string>
     <string name="equipment_preference_neutral">Neutral</string>

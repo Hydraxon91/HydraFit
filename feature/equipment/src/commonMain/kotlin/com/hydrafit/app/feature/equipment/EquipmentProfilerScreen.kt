@@ -65,6 +65,7 @@ import hydrafit.feature.equipment.generated.resources.equipment_exclusions_title
 import hydrafit.feature.equipment.generated.resources.equipment_exercise_section
 import hydrafit.feature.equipment.generated.resources.equipment_find_profile
 import hydrafit.feature.equipment.generated.resources.equipment_include
+import hydrafit.feature.equipment.generated.resources.equipment_keep_editing
 import hydrafit.feature.equipment.generated.resources.equipment_load_bodyweight
 import hydrafit.feature.equipment.generated.resources.equipment_load_bodyweight_added
 import hydrafit.feature.equipment.generated.resources.equipment_load_external
@@ -76,6 +77,7 @@ import hydrafit.feature.equipment.generated.resources.equipment_movement_pattern
 import hydrafit.feature.equipment.generated.resources.equipment_movement_pattern_hint
 import hydrafit.feature.equipment.generated.resources.equipment_muscles
 import hydrafit.feature.equipment.generated.resources.equipment_name_conflict
+import hydrafit.feature.equipment.generated.resources.equipment_name_conflict_title
 import hydrafit.feature.equipment.generated.resources.equipment_name_label
 import hydrafit.feature.equipment.generated.resources.equipment_pattern_accessory_group
 import hydrafit.feature.equipment.generated.resources.equipment_pattern_compound_group
@@ -184,6 +186,7 @@ fun EquipmentProfilerRoute(
             apply = viewModel::onApplyProfile,
             dismiss = viewModel::onDismissProfileSuggestion
         ),
+        onDismissNameConflict = viewModel::onDismissNameConflict,
         onSaveExercise = viewModel::onSaveExercise,
         onResetExercise = viewModel::onResetExercise,
         onDeleteCustomExercise = viewModel::onDeleteCustomExercise,
@@ -228,6 +231,7 @@ fun EquipmentProfilerScreen(
     onEditorLoadCapabilityChanged: (ExerciseLoadCapability) -> Unit,
     onEditorMuscleInvolvementChanged: (MuscleGroup, Double?) -> Unit,
     profileActions: ExerciseProfileSuggestionActions,
+    onDismissNameConflict: () -> Unit,
     onSaveExercise: () -> Unit,
     onResetExercise: () -> Unit,
     onDeleteCustomExercise: () -> Unit,
@@ -395,6 +399,9 @@ fun EquipmentProfilerScreen(
             onDelete = onDeleteCustomExercise,
             onDismiss = onDismissExerciseEditor
         )
+    }
+    if (state.exerciseEditor.isOpen && state.exerciseEditor.nameConflict) {
+        NameConflictDialog(onKeepEditing = onDismissNameConflict)
     }
     if (state.personalRecordEditor.isOpen) {
         PersonalRecordDialog(
@@ -847,19 +854,30 @@ private fun ExerciseEditorDialog(
                         }
                     }
                 }
-                state.error?.let { message ->
+                val errorMessage = state.error
+                if (errorMessage != null && !state.nameConflict) {
                     Text(
-                        text = if (state.nameConflict) {
-                            stringResource(Res.string.equipment_name_conflict)
-                        } else {
-                            message
-                        },
+                        text = errorMessage,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
             }
         }
+    )
+}
+
+@Composable
+private fun NameConflictDialog(onKeepEditing: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onKeepEditing,
+        confirmButton = {
+            Button(onClick = onKeepEditing) {
+                Text(stringResource(Res.string.equipment_keep_editing))
+            }
+        },
+        title = { Text(stringResource(Res.string.equipment_name_conflict_title)) },
+        text = { Text(stringResource(Res.string.equipment_name_conflict)) }
     )
 }
 
