@@ -21,7 +21,10 @@ enum class BackupFailure {
     INVALID_REFERENCE,
 
     /** A value is not a legal enum, is non-finite, or otherwise cannot be restored. */
-    INVALID_VALUE
+    INVALID_VALUE,
+
+    /** The file could not be read from or written to the chosen location. */
+    IO
 }
 
 /** Raised by the backup use cases; [failure] carries the typed reason for the UI. */

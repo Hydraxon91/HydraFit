@@ -267,6 +267,8 @@ fun SettingsScreen(
             )
         }
 
+        BackupRoute()
+
         OutlinedButton(onClick = onOpenAcknowledgments) {
             Text(stringResource(Res.string.settings_acknowledgments))
         }

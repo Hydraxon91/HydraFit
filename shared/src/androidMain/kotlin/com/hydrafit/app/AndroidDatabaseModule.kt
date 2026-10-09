@@ -11,6 +11,8 @@ import com.hydrafit.app.core.llm.LiteRtLmTextGenerator
 import com.hydrafit.app.core.llm.OnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
+import com.hydrafit.app.core.userdata.backup.AndroidBackupFileStore
+import com.hydrafit.app.core.userdata.backup.BackupFileStore
 import com.hydrafit.app.core.userdata.llm.OnDeviceModelManager
 import com.hydrafit.app.core.userdata.settings.AndroidAppVersionProvider
 import com.hydrafit.app.core.userdata.settings.AndroidKeystoreApiKeyStore
@@ -53,6 +55,7 @@ fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = modu
         )
     }
     single<OnDevicePlannerLogger> { AndroidOnDevicePlannerLogger() }
+    single<BackupFileStore> { AndroidBackupFileStore(context.applicationContext) }
 }
 
 /** Carries the Android `BuildConfig.VERSION_NAME`, which is not reachable from `:shared`/`:core`. */

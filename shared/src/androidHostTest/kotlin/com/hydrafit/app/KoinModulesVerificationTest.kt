@@ -2,6 +2,10 @@ package com.hydrafit.app
 
 import com.hydrafit.app.core.database.DatabaseDriverFactory
 import com.hydrafit.app.core.database.databaseModule
+import com.hydrafit.app.core.domain.backup.BackupCatalog
+import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
+import com.hydrafit.app.core.domain.backup.BackupFile
+import com.hydrafit.app.core.domain.backup.BackupRepository
 import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.BuildPlannerLoadInputsUseCase
@@ -70,6 +74,8 @@ import com.hydrafit.app.core.llm.OnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.network.GeminiWorkoutPlannerEngine
+import com.hydrafit.app.core.userdata.backup.BackupFileStore
+import com.hydrafit.app.core.userdata.backup.UnsupportedBackupFileStore
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
 import com.hydrafit.app.core.userdata.equipment.ExercisePreferenceRepository
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
@@ -82,6 +88,7 @@ import com.hydrafit.app.feature.logger.loggerModule
 import com.hydrafit.app.feature.routines.RoutinesViewModel
 import com.hydrafit.app.feature.routines.routinesModule
 import com.hydrafit.app.feature.settings.AcknowledgmentsViewModel
+import com.hydrafit.app.feature.settings.BackupViewModel
 import com.hydrafit.app.feature.settings.settingsModule
 import com.hydrafit.app.feature.splitbuilder.splitBuilderModule
 import kotlin.test.Test
@@ -105,6 +112,7 @@ class KoinModulesVerificationTest {
         single<ApiKeyProvider> { ApiKeyProvider { "test-key" } }
         single<OnDeviceTextGenerator> { FakeOnDeviceTextGenerator }
         single<OnDevicePlannerLogger> { NoopOnDevicePlannerLogger }
+        single<BackupFileStore> { UnsupportedBackupFileStore() }
     }
 
     private val allModules = module {
@@ -245,6 +253,48 @@ class KoinModulesVerificationTest {
         } finally {
             koin.close()
         }
+    }
+
+    /**
+     * The backup ViewModel is a lambda `viewModel { }`, so resolve it over `settingsModule` +
+     * `domainModule` with a fake repository/catalog and the test platform module.
+     */
+    @Test
+    fun theBackupViewModelResolvesAtRuntime() {
+        val koin = koinApplication {
+            modules(
+                module {
+                    single<BackupRepository> { FakeBackupRepository }
+                    single<BackupCatalog> { FakeBackupCatalog }
+                },
+                domainModule,
+                settingsModule,
+                testPlatformModule
+            )
+        }.koin
+
+        try {
+            assertNotNull(koin.get<BackupViewModel>())
+        } finally {
+            koin.close()
+        }
+    }
+
+    private object FakeBackupRepository : BackupRepository {
+        override suspend fun export(appVersion: String, exportedAtMillis: Long): BackupFile =
+            BackupFile(
+                appVersion = appVersion,
+                exportedAtMillis = exportedAtMillis,
+                catalog = BackupCatalogManifest(emptyList())
+            )
+
+        override suspend fun restore(file: BackupFile) = Unit
+    }
+
+    private object FakeBackupCatalog : BackupCatalog {
+        override fun seedExerciseIds(): Set<String> = emptySet()
+
+        override fun builtInEquipmentIds(): Set<String> = emptySet()
     }
 
     /**

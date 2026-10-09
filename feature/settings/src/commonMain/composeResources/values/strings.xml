@@ -52,4 +52,23 @@
     <string name="acknowledgments_author">Built by Hydraxon.</string>
     <string name="acknowledgments_repo">View on GitHub</string>
     <string name="acknowledgments_back">Back</string>
+    <string name="settings_backup_section">Backup</string>
+    <string name="settings_backup_description">Save your supported data to a local file, or replace it from a backup. API keys and the on-device model aren’t included.</string>
+    <string name="settings_backup_export">Export backup</string>
+    <string name="settings_backup_restore">Restore backup</string>
+    <string name="settings_backup_unsupported">Backup and restore aren’t available on this platform yet.</string>
+    <string name="settings_backup_exported">Backup saved.</string>
+    <string name="settings_backup_restored">Backup restored. Your data was replaced.</string>
+    <string name="settings_backup_preview_title">Restore this backup?</string>
+    <string name="settings_backup_preview_body">This replaces your current data with %1$d records, including %2$d logged sets and %3$d custom exercises. This can’t be undone.</string>
+    <string name="settings_backup_confirm">Replace</string>
+    <string name="settings_backup_cancel">Cancel</string>
+    <string name="settings_backup_error_malformed">That file isn’t a valid HydraFit backup.</string>
+    <string name="settings_backup_error_unsupported_version">That backup was made by a different version and can’t be restored.</string>
+    <string name="settings_backup_error_too_large">That backup file is too large.</string>
+    <string name="settings_backup_error_unknown_catalog">That backup references exercises this install doesn’t have.</string>
+    <string name="settings_backup_error_duplicate_id">That backup contains duplicate records.</string>
+    <string name="settings_backup_error_invalid_reference">That backup has broken links.</string>
+    <string name="settings_backup_error_invalid_value">That backup contains an unsupported value.</string>
+    <string name="settings_backup_error_io">Couldn’t read or write the file. Please try again.</string>
 </resources>

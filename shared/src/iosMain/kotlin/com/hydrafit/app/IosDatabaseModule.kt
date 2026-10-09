@@ -8,6 +8,8 @@ import com.hydrafit.app.core.llm.OnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.core.llm.UnsupportedOnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
+import com.hydrafit.app.core.userdata.backup.BackupFileStore
+import com.hydrafit.app.core.userdata.backup.UnsupportedBackupFileStore
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
 import com.hydrafit.app.core.userdata.settings.IosAppVersionProvider
@@ -38,6 +40,7 @@ fun iosDatabaseModule(): Module = module {
     }
     single<OnDeviceTextGenerator> { UnsupportedOnDeviceTextGenerator() }
     single<OnDevicePlannerLogger> { NoopOnDevicePlannerLogger }
+    single<BackupFileStore> { UnsupportedBackupFileStore() }
 }
 
 /**
