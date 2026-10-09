@@ -16,5 +16,8 @@ VALUES (?, ?);
 deleteById:
 DELETE FROM exerciseExclusion WHERE exerciseId = ?;
 
+deleteAll:
+DELETE FROM exerciseExclusion;
+
 updateExerciseId:
 UPDATE exerciseExclusion SET exerciseId = :newId WHERE exerciseId = :oldId;

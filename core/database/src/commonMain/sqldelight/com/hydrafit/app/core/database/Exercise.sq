@@ -41,6 +41,10 @@ UPDATE exercise SET involvements = ? WHERE id = ? AND involvements IS NULL;
 deleteById:
 DELETE FROM exercise WHERE id = ? AND isCustom = 1;
 
+-- Restore path: seeded catalog rows are app-owned and stay; only custom rows are replaced.
+deleteAllCustom:
+DELETE FROM exercise WHERE isCustom = 1;
+
 countSetsForExercise:
 SELECT COUNT(*) FROM workoutSet WHERE exerciseId = ?;
 

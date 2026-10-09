@@ -22,3 +22,6 @@ VALUES (?, ?, ?, ?, ?, ?, ?);
 
 deleteById:
 DELETE FROM exerciseOverride WHERE exerciseId = ?;
+
+deleteAll:
+DELETE FROM exerciseOverride;

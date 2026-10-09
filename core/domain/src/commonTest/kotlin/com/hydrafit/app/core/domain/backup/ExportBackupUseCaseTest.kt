@@ -46,6 +46,8 @@ class ExportBackupUseCaseTest {
 
 private class FakeBackupRepository(private val file: BackupFile) : BackupRepository {
     override suspend fun export(appVersion: String, exportedAtMillis: Long): BackupFile = file
+
+    override suspend fun restore(file: BackupFile) = throw UnsupportedOperationException()
 }
 
 internal fun emptyBackupFile(): BackupFile = BackupFile(

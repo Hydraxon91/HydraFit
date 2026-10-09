@@ -16,5 +16,8 @@ VALUES (?, ?);
 deleteById:
 DELETE FROM exercisePreference WHERE exerciseId = ?;
 
+deleteAll:
+DELETE FROM exercisePreference;
+
 updateExerciseId:
 UPDATE exercisePreference SET exerciseId = :newId WHERE exerciseId = :oldId;

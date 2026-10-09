@@ -57,6 +57,18 @@ insertTemplate:
 INSERT INTO routineTemplate(name, revision, createdAtMillis, updatedAtMillis, archivedAtMillis, sourcePlanId)
 VALUES (?, ?, ?, ?, ?, ?);
 
+-- Restore path only: preserves the exported template/workout/entry identities.
+insertTemplateWithId:
+INSERT INTO routineTemplate(id, name, revision, createdAtMillis, updatedAtMillis, archivedAtMillis, sourcePlanId)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+insertWorkoutWithId:
+INSERT INTO routineWorkout(id, templateId, position, name, focus) VALUES (?, ?, ?, ?, ?);
+
+insertEntryWithId:
+INSERT INTO routineEntry(id, workoutId, position, exerciseId, sets, reps, weightKg, loadKind)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
 updateTemplate:
 UPDATE routineTemplate
 SET name = ?, revision = ?, updatedAtMillis = ?, archivedAtMillis = ?, sourcePlanId = ?

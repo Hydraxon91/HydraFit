@@ -21,3 +21,6 @@ VALUES (?, ?, ?, ?, ?);
 
 deleteById:
 DELETE FROM personalRecord WHERE exerciseId = ?;
+
+deleteAll:
+DELETE FROM personalRecord;

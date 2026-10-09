@@ -24,6 +24,11 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 lastInsertedSetId:
 SELECT last_insert_rowid();
 
+-- Restore path only: preserves the exported row identity and both occurrence links.
+insertSetWithId:
+INSERT INTO workoutSet(id, exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber, dayIndex, rir, sessionId, occurrenceId, occurrenceEntryId, loadKind)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
 selectAllSets:
 SELECT * FROM workoutSet ORDER BY performedAt, id;
 

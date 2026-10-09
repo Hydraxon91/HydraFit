@@ -10,6 +10,14 @@ insertSession:
 INSERT INTO workoutSession(id, startedAtMillis, endedAtMillis, localEpochDay)
 VALUES (?, ?, ?, ?);
 
+-- Restore path only: preserves the exported occurrence link in one insert.
+insertSessionWithOccurrence:
+INSERT INTO workoutSession(id, startedAtMillis, endedAtMillis, localEpochDay, occurrenceId)
+VALUES (?, ?, ?, ?, ?);
+
+deleteAllSessions:
+DELETE FROM workoutSession;
+
 assignOccurrence:
 UPDATE workoutSession SET occurrenceId = ? WHERE id = ?;
 

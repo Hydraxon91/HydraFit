@@ -32,6 +32,17 @@ CREATE TABLE planHistoryEntry (
 insertPlan:
 INSERT INTO planHistory(engineId, acceptedAt, weekNumber, cycleNumber) VALUES (?, ?, ?, ?);
 
+-- Restore path only: preserves the exported plan/day/entry identities.
+insertPlanWithId:
+INSERT INTO planHistory(id, engineId, acceptedAt, weekNumber, cycleNumber) VALUES (?, ?, ?, ?, ?);
+
+insertDayWithId:
+INSERT INTO planHistoryDay(id, planId, dayIndex, focus) VALUES (?, ?, ?, ?);
+
+insertEntryWithId:
+INSERT INTO planHistoryEntry(id, dayId, position, exerciseId, sets, reps, exerciseName, movementPattern, suggestedWeightKg, loadCapability, loadKind)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
 lastInsertedPlanId:
 SELECT last_insert_rowid();
 

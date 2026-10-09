@@ -211,6 +211,45 @@ upsertScheduleState:
 INSERT OR REPLACE INTO workoutScheduleState(id, activeActivationId, selectedOccurrenceId, legacyFallbackEnabled)
 VALUES (1, ?, ?, ?);
 
+deleteScheduleState:
+DELETE FROM workoutScheduleState;
+
+-- Restore path only: preserves the exported activation/workout/entry/occurrence identities.
+insertActivationWithId:
+INSERT INTO trainingActivation(id, templateId, templateRevision, sourcePlanId, name, createdAtMillis, startEpochDay, mode, weekdayMask, status, weekNumber, cycleNumber, endedAtMillis, revision)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+insertActivationWorkoutWithId:
+INSERT INTO activationWorkout(id, activationId, sourceWorkoutId, position, name, focus)
+VALUES (?, ?, ?, ?, ?, ?);
+
+insertActivationEntryWithId:
+INSERT INTO activationEntry(id, workoutId, position, exerciseId, exerciseName, movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, weightKg, loadCapability, loadKind)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+insertOccurrenceWithId:
+INSERT INTO workoutOccurrence(id, activationId, activationWorkoutId, queuePosition, scheduledEpochDay, notBeforeEpochDay, startedAtMillis, resolvedAtMillis, status, revision)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+insertOccurrenceEntryWithId:
+INSERT INTO occurrenceEntry(id, occurrenceId, sourceActivationEntryId, position, exerciseId, exerciseName, movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, weightKg, loadCapability, loadKind, remainingDisposition, terminalRemainingSets)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteAllOccurrenceEntries:
+DELETE FROM occurrenceEntry;
+
+deleteAllOccurrences:
+DELETE FROM workoutOccurrence;
+
+deleteAllActivationEntries:
+DELETE FROM activationEntry;
+
+deleteAllActivationWorkouts:
+DELETE FROM activationWorkout;
+
+deleteAllActivations:
+DELETE FROM trainingActivation;
+
 CREATE INDEX activationWorkout_activationId ON activationWorkout(activationId);
 CREATE INDEX activationEntry_workoutId ON activationEntry(workoutId);
 CREATE INDEX workoutOccurrence_activationId ON workoutOccurrence(activationId);
