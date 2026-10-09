@@ -441,38 +441,46 @@ A user-selected local file captures the supported offline data as a **logical,
 versioned JSON** snapshot, and restore replaces that data wholesale.
 
 - **Examples:** domain `backup/` (`BackupFile` and its records, `BackupJson`,
-  `BackupCatalog`, `BackupValidator`, `ExportBackupUseCase`, `PreviewBackupUseCase`,
-  `RestoreBackupUseCase`); `SqlDelightBackupRepository` (one-transaction consistent
-  read; explicit-id transactional write) and `SqlDelightBackupCatalog`; the
-  `:core:userdata` `BackupFileStore` port (`AndroidBackupFileStore` SAF implementation,
-  `UnsupportedBackupFileStore` on iOS); the Settings `BackupRoute`/`BackupViewModel`.
+  `BackupLimits`, `BackupCatalog`, `BackupValidator`, `ExportBackupUseCase`,
+  `PreviewBackupUseCase`, `RestoreBackupUseCase`, `ApplyStagedBackupUseCase`,
+  `BackupStagingRepository`); `SqlDelightBackupRepository` (one-transaction
+  consistent read; explicit-id transactional write), `SqlDelightBackupStagingRepository`
+  and `SqlDelightBackupCatalog`; the `:core:userdata` `BackupFileStore` port
+  (`AndroidBackupFileStore` SAF implementation, `UnsupportedBackupFileStore` on
+  iOS); the Settings `BackupRoute`/`BackupViewModel`.
 - **Rules:** the file is logical (`format` + `formatVersion` 1), independent of the
-  SQLite schema and the app version, and carries a catalog compatibility
-  fingerprint; nullable fields are present as explicit `null`, not omitted. Export
-  reads every section in one transaction after `StartupReadiness`, off the main
-  thread, and rejects oversize content rather than truncating. Restore validates
-  the whole payload before any write, then replaces the included data in one
-  transaction with stored ids, ordering and relationships preserved; it never
-  re-runs identity-generating APIs (`add`/`save`/`accept`) or re-snapshots today's
-  catalog. Catalog definitions/aliases stay application-owned: a CAT-P7-named
-  custom and its same-named seed remain two identities, and unknown seed ids,
-  custom ids on canonical identities, duplicate ids and unsupported values are
-  rejected with no writes. Credentials and model bytes are excluded and left
-  untouched. Startup maintenance still runs afterward; a payload that would be
-  silently altered by `CustomExerciseDedupe` or `WorkoutSessionBackfill` is
-  rejected. Restore runs as one transaction from the Settings flow — the only
-  interactive writer in a single-visible-screen app with no background writer. A
-  live-writer drain or a staged next-process-start apply remains the documented
-  fallback and is not implemented in v1; in-memory Logger draft/session state is
-  not explicitly invalidated, but dependent flows re-read after the committed
-  transaction.
+  SQLite schema and the app version. Every envelope field is required, so a file
+  that omits one is rejected as malformed rather than read as an empty snapshot;
+  nullable fields are present as explicit `null`, not omitted. The manifest carries
+  a per-seed profile (equipment, pattern, laterality, capability, resolved
+  involvements); validation rejects a seed the receiver does not know or whose
+  profile changed under the same id (`CATALOG_MISMATCH`), while additional
+  receiver-only seeds are allowed. Resource limits (32 MiB, nesting depth 32,
+  64 KiB per string, 250k records) are enforced before decode and after encode,
+  with a bounded read in `AndroidBackupFileStore`. Export reads every section in
+  one transaction after `StartupReadiness`, off the main thread. Validation is
+  all-or-nothing: unknown catalog ids, custom ids on canonical identities,
+  duplicate ids or composite keys, dangling links, unsupported values and
+  involvements with unknown muscles or non-finite weights are rejected with no
+  writes, as is a payload that startup maintenance would silently alter
+  (`CustomExerciseDedupe` on a non-CAT-P7 name, or `WorkoutSessionBackfill` on a
+  null session id). Restore validates the chosen file, then **stages** it; the
+  replacement transaction runs at the next process start, before seeding and
+  before the first screen, so it never races a live writer. It writes with stored
+  ids, ordering and relationships preserved and never re-runs identity-generating
+  APIs (`add`/`save`/`accept`) or re-snapshots today's catalog. A CAT-P7-named
+  custom and its same-named seed remain two identities. Credentials and model bytes
+  are excluded and left untouched. A staged apply that fails rolls back, drops the
+  staged payload and records a one-time failure the Settings screen shows and
+  clears. Absence uses the documented new-row value: a payload with no settings
+  materialises the default planner row, an omitted built-in equipment limit keeps
+  its current value, and user equipment the payload omits is dropped.
 - **Consistency:** mirrors the §1.8 snapshot rule — frozen prescriptions,
   performed snapshots, load kinds and stored ids round-trip unchanged.
 - **Violations / tensions:** the existing repositories cannot implement restore
   (they generate identities and snapshot the live catalog); a dedicated
-  explicit-id write path is required, and its generated-id behavior must be
-  verified after a full replace. Cross-platform document IO is Android-only in
-  0.5.0.
+  explicit-id write path is required. Cross-platform document IO is Android-only
+  in 0.5.0, so iOS binds `UnsupportedBackupFileStore` and the section shows a note.
 - **Ranked improvements:** (S) if backups and history need the same round-trip
   fixtures, extract a shared test fixture rather than duplicating payload builders.
 
@@ -505,7 +513,7 @@ No rationale is invented; unrecorded items are listed as questions in §2.1.
 | D20 | Editable routine templates vs frozen activations and occurrences; one active finite block at a time | PLANS.md "Decisions Made" (2026-10-07 routine/scheduling contract) | Shared references and endless recurrence considered; copy semantics chosen | Current |
 | D21 | Explicit Finish/Skip advances the queue; logging a set, End/New session, expiry and midnight do not; progression stays the accepted-plan ordinal | PLANS.md "Decisions Made" (2026-10-07) | Occurrence-aware progression eligibility deferred to OF-10A-P0 | Current |
 | D22 | Exercise load capability vs recorded load kind; external-only generation; legacy contributes to the planner only when external today; added/bodyweight are neutral for relative load | PLANS.md "Decisions Made" (2026-10-07 live-testing) + "EX-02 — exercise load semantics" | Collapse-to-zero, equipment-derived capability and blanket historical reinterpretation rejected | Current |
-| D23 | OF-01 backup is logical versioned JSON restored by whole replacement, not a database snapshot or merge | PLANS.md "Decisions Made" (2026-10-09 OF-01 contract) | Database snapshot and merge restore recorded but excluded from v1 | Current (v1; P1–P3 implementation gated) |
+| D23 | OF-01 backup is logical versioned JSON restored by whole replacement, not a database snapshot or merge | PLANS.md "Decisions Made" (2026-10-09 OF-01 contract) | Database snapshot and merge restore recorded but excluded from v1 | Current (v1: validates, stages, applies at next process start) |
 
 ### 2.1 Rationale not recorded (questions, not findings)
 

@@ -135,13 +135,15 @@ exact on-screen text.
 - Settings → Backup: export to a chosen local file → success is shown only after the provider
   confirms the write; airplane mode → export still works.
 - Preview a valid backup → shows the included categories/contents; Cancel writes nothing.
-- Restore a valid backup → after explicit confirmation the supported data is replaced; relaunch →
-  restored sets, sessions, plan history, routines, preferences/exclusions and the active block survive.
-- Invalid, truncated, oversized or unsupported-version file → a typed localized error and the
-  current data stays intact.
+- Restore a valid backup → after explicit confirmation the restore is **staged** ("Restore staged.
+  Close and reopen HydraFit to apply it."); after a relaunch → restored sets, sessions, plan history,
+  routines, preferences/exclusions and the active block survive, and current data was replaced.
+- A staged apply that fails at startup → the current data stays intact and Settings shows the typed
+  failure once, then clears it.
+- Invalid, truncated, oversized, too-deep, unsupported-version or startup-unstable file → a typed
+  localized error before any write, and the current data stays intact.
 - API key and imported on-device model are untouched by export/restore.
-- A restore is refused or safely staged while a draft/workout context is active, per the approved
-  replacement window.
+- Cancelling while a staged apply is in flight leaves the staged payload in place; do not replay it.
 
 ## 13. Release-specific
 - Install the signed APK from `release.yml`; `versionName`/`versionCode` match the tag/run number.
