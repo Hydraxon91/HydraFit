@@ -67,6 +67,7 @@
     <string name="settings_backup_error_unsupported_version">That backup was made by a different version and can’t be restored.</string>
     <string name="settings_backup_error_too_large">That backup file is too large.</string>
     <string name="settings_backup_error_over_limit">That backup is too complex or too large to restore.</string>
+    <string name="settings_backup_error_startup_unstable">That backup can’t be restored as-is because it would change on next launch.</string>
     <string name="settings_backup_error_unknown_catalog">That backup references exercises this install doesn’t have.</string>
     <string name="settings_backup_error_duplicate_id">That backup contains duplicate records.</string>
     <string name="settings_backup_error_invalid_reference">That backup has broken links.</string>

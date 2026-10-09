@@ -71,6 +71,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
         }
         val knownEquipment = builtInEquipmentIds + customEquipmentIds
         val knownExercises = seedExerciseIds + customIds
+        val dedupeSeedKeys = catalog.dedupeSeedKeys()
 
         val workoutToActivation = file.activationWorkouts.associate { it.id to it.activationId }
         val occurrenceEntryToOccurrence =
@@ -83,6 +84,9 @@ class BackupValidator(private val catalog: BackupCatalog) {
             enum(it.loadCapability, ExerciseLoadCapability.entries)
             equipment(it.requiredEquipment, knownEquipment)
             involvements(it.involvements)
+            if (catalog.dedupeNameKey(it.name) in dedupeSeedKeys) {
+                fail(BackupFailure.STARTUP_UNSTABLE)
+            }
         }
         file.exerciseOverrides.forEach {
             it.movementPattern?.let { value -> enum(value, MovementPattern.entries) }
@@ -100,6 +104,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
             it.occurrenceId?.let { id -> reference(id, occurrenceIds) }
             it.occurrenceEntryId?.let { id -> reference(id, occurrenceEntryIds) }
             it.sessionId?.let { id -> reference(id, sessionIds) }
+            if (it.sessionId == null) fail(BackupFailure.STARTUP_UNSTABLE)
             involvements(it.involvements)
             if (it.occurrenceId != null &&
                 it.occurrenceEntryId != null &&

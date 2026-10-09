@@ -14,6 +14,12 @@ enum class BackupFailure {
     /** Above a resource limit: nesting depth, a single string, or the total record count. */
     OVER_LIMIT,
 
+    /**
+     * The payload is valid but not stable under startup maintenance: a non-CAT-P7 custom would be
+     * merged by dedupe, or a legacy set with no session id would be re-segmented by the backfill.
+     */
+    STARTUP_UNSTABLE,
+
     /** A referenced exercise or equipment id is not a custom in the payload or a known seeded id. */
     UNKNOWN_CATALOG_ID,
 

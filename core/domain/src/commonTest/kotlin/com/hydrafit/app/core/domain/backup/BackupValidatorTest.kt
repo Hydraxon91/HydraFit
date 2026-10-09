@@ -8,7 +8,10 @@ class BackupValidatorTest {
 
     private val catalog = object : BackupCatalog {
         override fun seedExerciseIds(): Set<String> = setOf("back-squat")
+
         override fun builtInEquipmentIds(): Set<String> = setOf("BARBELL")
+
+        override fun dedupeSeedKeys(): Set<String> = setOf("back squat")
     }
 
     private val validator = BackupValidator(catalog)
@@ -156,6 +159,33 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun rejectsACustomThatStartupDedupeWouldMerge() {
+        assertFailure(BackupFailure.STARTUP_UNSTABLE) {
+            validFile().copy(
+                customExercises = listOf(custom(id = "user-back-squat", name = "Back Squat"))
+            )
+        }
+    }
+
+    @Test
+    fun acceptsACustomWhoseNameOnlyMatchesAProtectedP7Seed() {
+        validator.validate(
+            validFile().copy(
+                customExercises = listOf(
+                    custom(id = "user-bicycle-crunch", name = "Bicycle Crunch")
+                )
+            )
+        )
+    }
+
+    @Test
+    fun rejectsALegacySetWithNoSessionId() {
+        assertFailure(BackupFailure.STARTUP_UNSTABLE) {
+            validFile().copy(workoutSets = listOf(set(sessionId = null)))
+        }
+    }
+
+    @Test
     fun rejectsSelectedEquipmentThatIsNotKnown() {
         assertFailure(BackupFailure.UNKNOWN_CATALOG_ID) {
             validFile().copy(selectedEquipment = listOf("NOT_REAL"))
@@ -215,16 +245,18 @@ class BackupValidatorTest {
         exportedAtMillis = 1L,
         catalog = BackupCatalogManifest(listOf("back-squat")),
         customExercises = listOf(custom()),
+        workoutSessions = listOf(session("s1")),
         workoutSets = listOf(set())
     )
 
     private fun custom(
         id: String = "user-x",
+        name: String = "X",
         requiredEquipment: String = "BARBELL",
         involvements: String? = null
     ) = BackupExerciseRecord(
         id = id,
-        name = "X",
+        name = name,
         requiredEquipment = requiredEquipment,
         movementPattern = "SQUAT",
         isUnilateral = false,
@@ -238,7 +270,7 @@ class BackupValidatorTest {
         weightKg: Double? = 100.0,
         loadKind: String = "EXTERNAL",
         involvements: String? = null,
-        sessionId: String? = null,
+        sessionId: String? = "s1",
         occurrenceId: Long? = null,
         occurrenceEntryId: Long? = null
     ) = BackupWorkoutSetRecord(

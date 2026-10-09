@@ -8,4 +8,14 @@ interface BackupCatalog {
     fun seedExerciseIds(): Set<String>
 
     fun builtInEquipmentIds(): Set<String>
+
+    /**
+     * The normalized name keys of the non-CAT-P7 seeded exercises that startup
+     * `CustomExerciseDedupe` would merge a same-named custom into. CAT-P7 seed names are excluded
+     * because their pre-existing same-name customs are intentionally preserved.
+     */
+    fun dedupeSeedKeys(): Set<String> = emptySet()
+
+    /** The receiving install's startup-dedupe name key for [name] (trim, collapse, lowercase). */
+    fun dedupeNameKey(name: String): String = name.trim().replace(Regex("\\s+"), " ").lowercase()
 }

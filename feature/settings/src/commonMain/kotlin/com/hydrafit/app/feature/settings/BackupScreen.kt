@@ -23,6 +23,7 @@ import hydrafit.feature.settings.generated.resources.settings_backup_error_inval
 import hydrafit.feature.settings.generated.resources.settings_backup_error_io
 import hydrafit.feature.settings.generated.resources.settings_backup_error_malformed
 import hydrafit.feature.settings.generated.resources.settings_backup_error_over_limit
+import hydrafit.feature.settings.generated.resources.settings_backup_error_startup_unstable
 import hydrafit.feature.settings.generated.resources.settings_backup_error_too_large
 import hydrafit.feature.settings.generated.resources.settings_backup_error_unknown_catalog
 import hydrafit.feature.settings.generated.resources.settings_backup_error_unsupported_version
@@ -104,6 +105,7 @@ private fun BackupFailure.messageResource(): StringResource = when (this) {
     BackupFailure.UNSUPPORTED_VERSION -> Res.string.settings_backup_error_unsupported_version
     BackupFailure.TOO_LARGE -> Res.string.settings_backup_error_too_large
     BackupFailure.OVER_LIMIT -> Res.string.settings_backup_error_over_limit
+    BackupFailure.STARTUP_UNSTABLE -> Res.string.settings_backup_error_startup_unstable
     BackupFailure.UNKNOWN_CATALOG_ID -> Res.string.settings_backup_error_unknown_catalog
     BackupFailure.DUPLICATE_ID -> Res.string.settings_backup_error_duplicate_id
     BackupFailure.INVALID_REFERENCE -> Res.string.settings_backup_error_invalid_reference
