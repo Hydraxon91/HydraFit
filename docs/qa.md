@@ -211,10 +211,14 @@ exact on-screen text.
 
 - Published [v0.5.1](https://github.com/Hydraxon91/HydraFit/releases/tag/v0.5.1), the Recent-set
   correction for editing performed time, reps, weight and RIR on the existing row.
-- Bounded Plan-mode post-execution review approved with no blocking findings. Verification before
-  release: 1044 host tests (zero failures/errors/skips), Koin verification, ktlint, debug assembly,
-  iOS simulator compilation and `git diff --check` passed. Release workflow result is recorded
-  after publication completes.
+- Release workflow `37972775517` (run number 11) passed, including lint, host tests and signed APK
+  build/publication. Downloaded APK is 24,569,911 bytes; package `com.hydrafit.app`,
+  `versionName=0.5.1`, `versionCode=11`. `apksigner verify` passed; signing certificate SHA-256
+  matches the previously published releases: `af9cd73b3cc6842c7ab3c2f3cd572245826089aee863e9168a761a893c35a7e1`.
+  Local APK SHA-256 matches GitHub's asset digest: `b1229e44270e7827feedf804519459c43186884ef7b75e4f7aeb45e00685799b`.
+- Bounded Plan-mode post-execution review approved with no blocking findings. Before release,
+  1044 host tests (zero failures/errors/skips), Koin verification, ktlint, debug assembly, iOS
+  simulator compilation and `git diff --check` passed.
 - Debug emulator smoke on `emulator-5554` verified prefill, reps/weight/RIR edits, Use now, save,
   reopen and Cancel; the original data was restored after synthetic test cleanup. This was not a
   signed-release/minified installation or pinned-upgrade test. Remaining UI coverage is listed in

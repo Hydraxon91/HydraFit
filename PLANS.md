@@ -69,7 +69,7 @@ Versions are assigned when a release scope is agreed; they do **not** grant impl
 | **0.3.x** | Corrective releases for that shipped contract: bug fixes, compatibility and small usability corrections. |
 | **0.4.0** | SHIPPED — VOL-01, EX-01 and a bounded OF-03 volume-explanation slice. `v0.4.1` shipped as a corrective patch. |
 | **0.5.0 — SHIPPED** | Published 2026-10-09 as `v0.5.0` on `5fc0c46`: LT-13, CAT-02, CAT-P7 and OF-01. Release workflow `37959121105` passed; signed APK `versionName=0.5.0`, `versionCode=10`. Signed `v0.4.1` → `v0.5.0` emulator upgrade retained a synthetic logged set; see `docs/qa.md` §13 for verification limits. |
-| **0.5.1 — SHIPPED** | Published 2026-10-09 as `v0.5.1`; Recent sets can correct performed time, reps, weight and RIR in place. Implementation and verification detail [archived](docs/plans-archive.md#2026-10-09-corrective-051); bounded UI limitations remain in `docs/qa.md` §6. |
+| **0.5.1 — SHIPPED** | Published 2026-10-09 as `v0.5.1` on `ca97c51`; Release `37972775517` passed (signed APK version code 11). Recent sets can correct performed time, reps, weight and RIR in place. Implementation and verification detail [archived](docs/plans-archive.md#2026-10-09-corrective-051); bounded UI limitations remain in `docs/qa.md` §6. |
 | **0.6.0 (provisional candidate)** | Optional AI reliability follow-up, including CATP7-R01 compatibility investigation; scope and release assignment remain gated. |
 | **Later minor releases** | Guided training, progress/recovery, interchange and advanced controls; assigned at their scope gates. |
 | **1.0.0** | A separately defined stability/readiness milestone — not "every backlog idea implemented". |
