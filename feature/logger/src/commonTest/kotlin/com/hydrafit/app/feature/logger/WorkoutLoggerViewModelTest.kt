@@ -631,6 +631,8 @@ class WorkoutLoggerViewModelTest {
         viewModel.useLastLoggedLoad()
         runCurrent()
         viewModel.cancelMissingLoadPrompt()
+        viewModel.confirmDraft(draft)
+        assertNull(viewModel.state.value.missingLoadPrompt)
         gate.complete(Unit)
         advanceUntilIdle()
 
@@ -741,18 +743,25 @@ class WorkoutLoggerViewModelTest {
 
     @Test
     fun switchingOccurrenceDuringAnExecutingBatchStopsOldContinuation() = runTest(dispatcher) {
-        val repository = FakeWorkoutLogRepository()
+        val repository = FakeWorkoutLogRepository(failOnAddAttempts = setOf(2))
         val schedule = MutableWorkoutScheduleRepository()
-        schedule.set(blockActivation(), batchOccurrences(), selectedOccurrenceId = 30L)
+        val occurrences = batchOccurrences().map { occurrence ->
+            if (occurrence.id == 30L) {
+                occurrence.copy(entries = occurrence.entries.map { it.copy(weightKg = 100.0) })
+            } else {
+                occurrence
+            }
+        }
+        schedule.set(blockActivation(), occurrences, selectedOccurrenceId = 30L)
         val viewModel = occurrenceViewModel(repository, schedule)
         advanceUntilIdle()
         val gate = CompletableDeferred<Unit>()
         repository.addGate = gate
+        repository.addGateOnAttempt = 2
 
         viewModel.confirmAllDrafts()
-        viewModel.logMissingLoadWithoutWeight()
         runCurrent()
-        schedule.set(blockActivation(), batchOccurrences(), selectedOccurrenceId = 31L)
+        schedule.set(blockActivation(), occurrences, selectedOccurrenceId = 31L)
         runCurrent()
         gate.complete(Unit)
         advanceUntilIdle()
@@ -761,6 +770,82 @@ class WorkoutLoggerViewModelTest {
         assertEquals(30L, repository.all().single().occurrenceId)
         assertEquals(listOf("deadlift"), viewModel.state.value.draftSets.map { it.exerciseId })
     }
+
+    @Test
+    fun individualFinalWriteDoesNotRemoveEqualReplacementPlanDraft() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val firstPlan = oneSetPlan(
+            acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0)
+        )
+        val history = FakePlanHistoryRepository(firstPlan)
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = firstPlan,
+            history = history
+        )
+        advanceUntilIdle()
+        val draft = viewModel.state.value.draftSets.single()
+        val gate = CompletableDeferred<Unit>()
+        repository.addGate = gate
+
+        viewModel.confirmDraft(draft)
+        runCurrent()
+        history.accepted = firstPlan.copy(acceptedAtMillis = 1L)
+        runCurrent()
+        assertEquals(listOf(draft), viewModel.state.value.draftSets)
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(1, repository.all().size)
+        assertEquals(listOf(draft), viewModel.state.value.draftSets)
+        assertFalse(viewModel.state.value.confirmingAllDrafts)
+    }
+
+    @Test
+    fun legacyFinalWriteDoesNotAdvanceQueueAfterPlanReplacement() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val firstPlan = oneSetPlan(
+            acceptedPlan(
+                listOf("back-squat", "bench-press"),
+                suggestedWeightKg = 100.0,
+                loadKind = LoadKind.LEGACY_UNSPECIFIED
+            )
+        )
+        val history = FakePlanHistoryRepository(firstPlan)
+        val viewModel = viewModel(
+            repository = repository,
+            timeMillis = MONDAY,
+            acceptedPlan = firstPlan,
+            history = history
+        )
+        advanceUntilIdle()
+        viewModel.confirmAllDrafts()
+        advanceUntilIdle()
+        assertEquals(2, viewModel.state.value.legacyResolution?.items?.size)
+        val gate = CompletableDeferred<Unit>()
+        repository.addGate = gate
+
+        viewModel.resolveLegacyAsExternal()
+        runCurrent()
+        history.accepted = oneSetPlan(
+            acceptedPlan(listOf("deadlift"), suggestedWeightKg = 80.0)
+                .copy(acceptedAtMillis = 1L)
+        )
+        runCurrent()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(1, repository.all().size)
+        assertNull(viewModel.state.value.legacyResolution)
+        assertEquals(listOf("deadlift"), viewModel.state.value.draftSets.map { it.exerciseId })
+    }
+
+    private fun oneSetPlan(plan: AcceptedPlan): AcceptedPlan = plan.copy(
+        days = plan.days.map { day ->
+            day.copy(exercises = day.exercises.map { exercise -> exercise.copy(sets = 1) })
+        }
+    )
 
     private fun batchOccurrences() = listOf(
         WorkoutOccurrence(
@@ -2960,13 +3045,16 @@ class WorkoutLoggerViewModelTest {
         /** When set, the next [all] call suspends until it completes, to test a delayed lookup. */
         var allGate: CompletableDeferred<Unit>? = null
         var addGate: CompletableDeferred<Unit>? = null
+        var addGateOnAttempt: Int? = null
 
         override suspend fun add(set: WorkoutSet) {
             addAttempts++
-            addGate?.let { gate ->
-                addGate = null
-                gate.await()
-            }
+            addGate
+                ?.takeIf { addGateOnAttempt == null || addGateOnAttempt == addAttempts }
+                ?.let { gate ->
+                    addGate = null
+                    gate.await()
+                }
             if (addAttempts in failOnAddAttempts) {
                 error("Injected add failure")
             }

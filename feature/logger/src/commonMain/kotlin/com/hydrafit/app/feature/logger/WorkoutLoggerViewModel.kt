@@ -726,6 +726,12 @@ class WorkoutLoggerViewModel(
         _state.update { it.copy(missingLoadPrompt = draft) }
     }
 
+    private fun ensureDraftContext(contextRevision: Long) {
+        if (contextRevision != draftContextRevision) {
+            throw CancellationException("Draft context changed")
+        }
+    }
+
     /**
      * Runs at most one draft submission at a time. [block] performs the write and returns true when a
      * Confirm-all batch should continue; the guard is held for the whole block, so a second action
@@ -760,13 +766,12 @@ class WorkoutLoggerViewModel(
         var completed = 0
         return try {
             logDraft(resolved, edit, contextRevision) { completed++ }
+            ensureDraftContext(contextRevision)
             true
         } catch (error: CancellationException) {
             throw error
         } catch (_: Exception) {
-            if (contextRevision != draftContextRevision) {
-                throw CancellationException("Draft context changed")
-            }
+            ensureDraftContext(contextRevision)
             val priorRetry = _state.value.draftWriteRetry?.takeIf {
                 it.source == source || it.draft == source
             }
@@ -874,12 +879,11 @@ class WorkoutLoggerViewModel(
                     currentEdit = edit
                     logDraft(resolved, edit, contextRevision) { completed++ }
                 }
-                if (contextRevision != draftContextRevision) {
-                    throw CancellationException("Draft context changed")
-                }
+                ensureDraftContext(contextRevision)
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
+                ensureDraftContext(contextRevision)
                 val source = drafts[currentIndex]
                 val priorRetry = retryFor(source)
                 val resolved = currentResolved ?: resolveForWrite(source).first
@@ -910,6 +914,7 @@ class WorkoutLoggerViewModel(
                 endDraftSubmission()
             }
             if (!failed) {
+                ensureDraftContext(contextRevision)
                 _state.update {
                     it.copy(
                         draftSets = emptyList(),
@@ -984,6 +989,7 @@ class WorkoutLoggerViewModel(
         launchDraftWrite { contextRevision ->
             val written = writeDraft(item.draft, resolved, editForWrite, contextRevision)
             if (written) {
+                ensureDraftContext(contextRevision)
                 val remaining = resolution.items.drop(1)
                 _state.update { state ->
                     state.copy(
