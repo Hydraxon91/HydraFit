@@ -1,8 +1,13 @@
 # HydraFit — Device QA Checklist
 
-Manual acceptance pass before tagging a release. Run on a clean install of the signed release
-APK (an emulator is fine; the AGENTS UI-verification rules keep automated runs off a personal
-phone). Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
+Acceptance checks before tagging a release. Use the current **debug build** for routine development
+emulator verification. Signed-release/minified runtime or pinned-upgrade checks are separate,
+explicitly approved tests, not automatic steps authorized by this checklist or release approval.
+Name the emulator and artifact, preserve data, and agree a return-to-debug plan first; a clean
+install/uninstall or data clear needs explicit approval. Do not leave the development emulator on
+a release build. Historical release-check records below are evidence, not standing install
+permission. AGENTS keeps automated UI checks off personal phones.
+Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
 
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
@@ -79,6 +84,25 @@ exact on-screen text.
 ## 6. Log
 - Log a set: exercise search, reps, weight, RIR, warm-up, bodyweight/blank weight, "per hand" hint.
 - Recent-set quick-fill populates the fields; Delete removes a set.
+- Recent sets → **Edit set** prefills time, reps, weight and optional RIR. Cancel writes nothing;
+  Save changes updates the same row, and reopening shows the correction without another logged set.
+  Verify past-time correction, future rejection, positive reps, finite non-negative load, blank vs
+  zero load and blank vs 0–10 RIR. Check kg/lb conversion, preserved bodyweight/added/legacy meaning,
+  unchanged block progress and prescribed targets, plus recoverable save failure and retry.
+  **2026-10-09 verification:** 1044 host tests pass with zero failures/errors/skips (including
+  correction, transaction rollback and Koin regressions); ktlint, debug assembly and iOS simulator
+  compilation pass. **Emulator:** the initial debug install was rejected because release code 10
+  exceeded debug code 1 (`INSTALL_FAILED_VERSION_DOWNGRADE`). After explicit user approval, exported
+  and validated the 20-record backup before uninstalling the release and installing debug. Restore
+  preserved every stored set/session field. Semantic smoke on `emulator-5554` verified prefill,
+  reps/weight/RIR edits, Use now, Save changes, reopen and Cancel; one synthetic set was corrected
+  without duplication, with original rows unchanged. Captured and viewed
+  `/tmp/hydrafit-051-edit-set.png`. Deleted the test set and reapplied the verified backup to remove
+  its test session; final integrity passes with the original one set/one session exactly restored.
+  The backup remains outside the repo and in emulator Downloads. **Limits:** date-picker correction,
+  invalid-input/error paths and alternate load/unit types have host coverage but were not all
+  exercised in this emulator smoke. Font/theme/locale variants, TalkBack and visible-keyboard
+  relayout remain unverified.
 - Sessions: first set auto-starts a session; End session / New session; day rollover starts a new one; active-session indicator correct.
 - Backdated logging: picker opens, past time accepted, future time rejected, target session shown; row shows the backdated stamp.
 - Units kg ↔ lb conversion correct.
@@ -146,8 +170,12 @@ exact on-screen text.
 - Cancelling while a staged apply is in flight leaves the staged payload in place; do not replay it.
 
 ## 13. Release-specific
-- Install the signed APK from `release.yml`; `versionName`/`versionCode` match the tag/run number.
-- Upgrade install over the previous build → data survives migrations.
+- Signed-release/minified runtime or pinned-upgrade checks require separate explicit approval,
+  naming the emulator, artifact and bounded test, plus a data-preservation/return-to-debug plan.
+  Release preparation/tagging/publication is not install approval. Do not leave the development
+  emulator on a release build; see `AGENTS.md` and `docs/agent-ui-verification.md`.
+- For an approved release check, verify `versionName`/`versionCode` against tag/run number; an
+  upgrade should preserve data through migrations.
 
 ### v0.5.0 publication verification (2026-10-09)
 
@@ -178,3 +206,16 @@ exact on-screen text.
   full feature regression, font/theme/locale variants, and release-APK backup
   round-trip were not repeated here; earlier candidate verification is recorded
   separately in PLANS.md.
+
+### v0.5.1 corrective verification (2026-10-09)
+
+- Published [v0.5.1](https://github.com/Hydraxon91/HydraFit/releases/tag/v0.5.1), the Recent-set
+  correction for editing performed time, reps, weight and RIR on the existing row.
+- Bounded Plan-mode post-execution review approved with no blocking findings. Verification before
+  release: 1044 host tests (zero failures/errors/skips), Koin verification, ktlint, debug assembly,
+  iOS simulator compilation and `git diff --check` passed. Release workflow result is recorded
+  after publication completes.
+- Debug emulator smoke on `emulator-5554` verified prefill, reps/weight/RIR edits, Use now, save,
+  reopen and Cancel; the original data was restored after synthetic test cleanup. This was not a
+  signed-release/minified installation or pinned-upgrade test. Remaining UI coverage is listed in
+  §6; the historical v0.5.0 signed-upgrade record above is not authorization to repeat it.

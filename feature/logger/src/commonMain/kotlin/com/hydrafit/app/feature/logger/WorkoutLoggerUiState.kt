@@ -34,6 +34,24 @@ data class LoggedSetRow(
     val loadKind: LoadKind = LoadKind.LEGACY_UNSPECIFIED
 )
 
+/** A correction of an existing row; unit is frozen for the lifetime of this editor. */
+data class LoggedSetEdit(
+    val row: LoggedSetRow,
+    val weightUnit: WeightUnit,
+    val reps: String,
+    val weightInput: String,
+    val originalWeightInput: String,
+    val rir: String,
+    val performedAtMillis: Long
+) {
+    val canSave: Boolean get() = (reps.toIntOrNull() ?: 0) > 0 &&
+        (rir.isBlank() || rir.toIntOrNull()?.let { it in 0..10 } == true) &&
+        (
+            weightInput.isBlank() ||
+                weightInput.toDoubleOrNull()?.let { it.isFinite() && it >= 0 } == true
+            )
+}
+
 /**
  * How a recorded weight reads, given its load kind. Keeps a legacy number from being shown as
  * confirmed external load and labels added kilograms as added, not total resistance.
@@ -138,6 +156,9 @@ data class WorkoutLoggerUiState(
     val rir: String = "",
     val isWarmup: Boolean = false,
     val recentSets: List<LoggedSetRow> = emptyList(),
+    val loggedSetEdit: LoggedSetEdit? = null,
+    val savingLoggedSet: Boolean = false,
+    val loggedSetEditFailed: Boolean = false,
     val draftSets: List<DraftSet> = emptyList(),
     val draftEdit: DraftEdit? = null,
     val missingLoadPrompt: DraftSet? = null,

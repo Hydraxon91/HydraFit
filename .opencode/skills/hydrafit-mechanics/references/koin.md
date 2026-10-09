@@ -33,3 +33,8 @@ The shared test's `allModulesResolve` checks the aggregate graph.
 fake ports, covering missing collaborators that static verification can miss.
 Network verification supplies external types including `HttpClientEngine`.
 Platform Context/Keystore and iOS wiring are not proved by these host tests.
+
+`domainModule` also registers `CorrectWorkoutSetUseCase`, using the existing `SessionResegmenter`
+port. `WorkoutLogMutations` delegates both full performed-value and time-only corrections; its
+four use cases do not add another Logger ViewModel constructor dependency. Runtime graph tests
+resolve the new correction use case explicitly.

@@ -10,7 +10,8 @@ import kotlinx.coroutines.flow.Flow
 class WorkoutLogMutations(
     private val logWorkoutSet: LogWorkoutSetUseCase,
     private val deleteWorkoutSet: DeleteWorkoutSetUseCase,
-    private val correctWorkoutSetTime: CorrectWorkoutSetTimeUseCase
+    private val correctWorkoutSetTime: CorrectWorkoutSetTimeUseCase,
+    private val correctWorkoutSet: CorrectWorkoutSetUseCase
 ) {
     /** Streams the open session (or null) so the logger can show active-session state. */
     fun observeOpenSession(): Flow<WorkoutSession?> = logWorkoutSet.observeOpenSession()
@@ -46,4 +47,8 @@ class WorkoutLogMutations(
     /** Corrects only a logged set's performed-at time. */
     suspend fun correctTime(setId: Long, performedAtMillis: Long) =
         correctWorkoutSetTime(setId, performedAtMillis)
+
+    /** Corrects the performed values of the same recorded set. */
+    suspend fun correctSet(setId: Long, correction: WorkoutSetCorrection) =
+        correctWorkoutSet(setId, correction)
 }

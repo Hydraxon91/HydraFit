@@ -30,6 +30,7 @@ import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
+import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
@@ -44,6 +45,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
+import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -3155,28 +3157,40 @@ class WorkoutLoggerViewModelTest {
     private fun logMutations(
         repository: WorkoutLogRepository,
         sessionRepository: WorkoutSessionRepository
-    ) = WorkoutLogMutations(
-        logWorkoutSet = LogWorkoutSetUseCase(
-            repository = repository,
-            startWorkoutSession = StartWorkoutSessionUseCase(sessionRepository),
-            endWorkoutSession = EndWorkoutSessionUseCase(sessionRepository),
-            observeOpenWorkoutSession = ObserveOpenWorkoutSessionUseCase(sessionRepository),
-            config = SessionConfig()
-        ),
-        deleteWorkoutSet = DeleteWorkoutSetUseCase(repository),
-        correctWorkoutSetTime = CorrectWorkoutSetTimeUseCase(
-            resegmenter = object : SessionResegmenter {
-                override suspend fun resegmentAfterTimeCorrection(
-                    setId: Long,
-                    performedAtMillis: Long,
-                    utcOffsetMillis: Long
-                ) {
-                    repository.updateSetPerformedAt(setId, performedAtMillis)
-                }
-            },
-            timeProvider = TimeProvider { 0L }
+    ): WorkoutLogMutations {
+        val resegmenter = object : SessionResegmenter {
+            override suspend fun resegmentAfterTimeCorrection(
+                setId: Long,
+                performedAtMillis: Long,
+                utcOffsetMillis: Long
+            ) {
+                repository.updateSetPerformedAt(setId, performedAtMillis)
+            }
+
+            override suspend fun resegmentAfterSetCorrection(
+                setId: Long,
+                correction: WorkoutSetCorrection,
+                utcOffsetMillis: Long
+            ) {
+                (repository as FakeWorkoutLogRepository).correct(setId, correction)
+            }
+        }
+        return WorkoutLogMutations(
+            logWorkoutSet = LogWorkoutSetUseCase(
+                repository = repository,
+                startWorkoutSession = StartWorkoutSessionUseCase(sessionRepository),
+                endWorkoutSession = EndWorkoutSessionUseCase(sessionRepository),
+                observeOpenWorkoutSession = ObserveOpenWorkoutSessionUseCase(sessionRepository),
+                config = SessionConfig()
+            ),
+            deleteWorkoutSet = DeleteWorkoutSetUseCase(repository),
+            correctWorkoutSetTime = CorrectWorkoutSetTimeUseCase(
+                resegmenter = resegmenter,
+                timeProvider = TimeProvider { 0L }
+            ),
+            correctWorkoutSet = CorrectWorkoutSetUseCase(resegmenter, TimeProvider { MONDAY })
         )
-    )
+    }
 
     @Test
     fun logsSetsAgainstTheActiveOccurrenceWithoutAdvancingTheQueue() = runTest(dispatcher) {
@@ -3200,6 +3214,147 @@ class WorkoutLoggerViewModelTest {
         assertEquals(40L, set.occurrenceEntryId)
         assertEquals(30L, schedule.scheduleState().selectedOccurrenceId)
         assertEquals(1, viewModel.state.value.activeOccurrence?.performedSets)
+    }
+
+    @Test
+    fun recentSetEditorChangesTheSameSetAndLeavesTheNewLogInputAlone() = runTest(dispatcher) {
+        val original = WorkoutSet(
+            id = 7L,
+            exerciseId = "back-squat",
+            reps = 8,
+            weightKg = 100.0,
+            performedAtMillis = MONDAY,
+            rir = 2,
+            weekNumber = 3,
+            cycleNumber = 2,
+            dayIndex = 0,
+            occurrenceId = 30L,
+            occurrenceEntryId = 40L
+        )
+        val repository = FakeWorkoutLogRepository(listOf(original))
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+        viewModel.onRepsChanged("5")
+        viewModel.editLoggedSet(viewModel.state.value.recentSets.single())
+        assertEquals("8", viewModel.state.value.loggedSetEdit?.reps)
+        assertEquals("2", viewModel.state.value.loggedSetEdit?.rir)
+        viewModel.onLoggedSetRepsChanged("10")
+        viewModel.onLoggedSetWeightChanged("0")
+        viewModel.onLoggedSetRirChanged("")
+        assertTrue(viewModel.onLoggedSetTimeChanged(MONDAY - DAY))
+        viewModel.saveLoggedSetEdit()
+        advanceUntilIdle()
+        assertEquals(
+            listOf(
+                original.copy(
+                    reps = 10,
+                    weightKg = 0.0,
+                    rir = null,
+                    performedAtMillis = MONDAY - DAY
+                )
+            ),
+            repository.all()
+        )
+        assertEquals("5", viewModel.state.value.reps)
+        assertNull(viewModel.state.value.loggedSetEdit)
+        assertEquals(10, viewModel.state.value.recentSets.single().reps)
+    }
+
+    @Test
+    fun recentSetEditCancelAndInvalidValuesDoNotWrite() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            listOf(WorkoutSet(1L, "back-squat", 8, 100.0, performedAtMillis = MONDAY))
+        )
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+        val before = repository.all()
+        viewModel.editLoggedSet(viewModel.state.value.recentSets.single())
+        listOf("-1", "NaN", "not a weight").forEach {
+            viewModel.onLoggedSetWeightChanged(it)
+            viewModel.saveLoggedSetEdit()
+        }
+        viewModel.onLoggedSetWeightChanged("10")
+        viewModel.onLoggedSetRirChanged("11")
+        viewModel.saveLoggedSetEdit()
+        assertFalse(viewModel.onLoggedSetTimeChanged(MONDAY + 1))
+        viewModel.cancelLoggedSetEdit()
+        advanceUntilIdle()
+        assertEquals(before, repository.all())
+        assertEquals(0, repository.corrections)
+        assertNull(viewModel.state.value.loggedSetEdit)
+    }
+
+    @Test
+    fun unchangedWeightKeepsPrecisionAndChangedPoundsConvertToKg() = runTest(dispatcher) {
+        val original = WorkoutSet(1L, "back-squat", 8, 12.345678, performedAtMillis = MONDAY)
+        val repository = FakeWorkoutLogRepository(listOf(original))
+        val viewModel = viewModel(
+            repository = repository,
+            weightUnit = WeightUnit.LB,
+            timeMillis = MONDAY
+        )
+        advanceUntilIdle()
+        viewModel.editLoggedSet(viewModel.state.value.recentSets.single())
+        viewModel.onLoggedSetRepsChanged("9")
+        viewModel.saveLoggedSetEdit()
+        advanceUntilIdle()
+        assertEquals(original.weightKg, repository.all().single().weightKg)
+        viewModel.editLoggedSet(viewModel.state.value.recentSets.single())
+        viewModel.onLoggedSetWeightChanged("20")
+        viewModel.saveLoggedSetEdit()
+        advanceUntilIdle()
+        assertEquals(WeightUnit.LB.displayToKilograms(20.0), repository.all().single().weightKg)
+    }
+
+    @Test
+    fun repeatedSavesAreGuardedAndFailureKeepsEditsForRetry() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            listOf(WorkoutSet(1L, "back-squat", 8, 100.0, performedAtMillis = MONDAY))
+        )
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+        val gate = CompletableDeferred<Unit>()
+        repository.correctionGate = gate
+        repository.failCorrection = true
+        viewModel.editLoggedSet(viewModel.state.value.recentSets.single())
+        viewModel.onLoggedSetRepsChanged("10")
+        viewModel.saveLoggedSetEdit()
+        viewModel.saveLoggedSetEdit()
+        viewModel.cancelLoggedSetEdit()
+        advanceUntilIdle()
+        assertEquals(1, repository.corrections)
+        assertTrue(viewModel.state.value.savingLoggedSet)
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.loggedSetEditFailed)
+        assertEquals("10", viewModel.state.value.loggedSetEdit?.reps)
+        assertEquals(8, repository.all().single().reps)
+        repository.failCorrection = false
+        viewModel.saveLoggedSetEdit()
+        advanceUntilIdle()
+        assertEquals(10, repository.all().single().reps)
+        assertNull(viewModel.state.value.loggedSetEdit)
+    }
+
+    @Test
+    fun correctingAnOccurrenceSetKeepsItsCompletionCountAndPrescription() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("8")
+        viewModel.log()
+        advanceUntilIdle()
+        val occurrence = schedule.getOccurrence(30L)
+        viewModel.editLoggedSet(viewModel.state.value.recentSets.single())
+        viewModel.onLoggedSetRepsChanged("6")
+        viewModel.saveLoggedSetEdit()
+        advanceUntilIdle()
+        assertEquals(1, viewModel.state.value.activeOccurrence?.performedSets)
+        assertEquals(occurrence, schedule.getOccurrence(30L))
+        assertEquals(40L, repository.all().single().occurrenceEntryId)
     }
 
     @Test
@@ -3494,6 +3649,23 @@ class WorkoutLoggerViewModelTest {
         var allGate: CompletableDeferred<Unit>? = null
         var addGate: CompletableDeferred<Unit>? = null
         var addGateOnAttempt: Int? = null
+        var correctionGate: CompletableDeferred<Unit>? = null
+        var failCorrection: Boolean = false
+        var corrections: Int = 0
+
+        suspend fun correct(id: Long, correction: WorkoutSetCorrection) {
+            corrections++
+            correctionGate?.await()
+            if (failCorrection) error("Injected correction failure")
+            val index = sets.indexOfFirst { it.id == id }
+            require(index >= 0)
+            sets[index] = sets[index].copy(
+                reps = correction.reps,
+                weightKg = correction.weightKg,
+                rir = correction.rir,
+                performedAtMillis = correction.performedAtMillis
+            )
+        }
 
         override suspend fun add(set: WorkoutSet) {
             addAttempts++

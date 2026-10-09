@@ -16,6 +16,13 @@ Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseExclusion.sq`, `ExerciseOve
 routine template upserts kept workouts/slots by id and deletes the removed ones,
 so reordering preserves identity.
 
+`WorkoutLog.sq`'s `selectSetById` and `updateSetValues` support in-place recent-set correction.
+`SqlDelightSessionResegmenter.resegmentAfterSetCorrection` validates the stored load shape and
+updates reps/weight/RIR in the same transaction as time/session corrections. Only a changed time
+runs the existing full-history resegmentation algorithm; otherwise the lookup is bounded and
+session bounds stay untouched. No schema change or migration is needed; all snapshots, load kind
+and occurrence links are retained. A missing row fails instead of recreating a deleted set.
+
 `N.sqm` migrates from version N to N+1. At authoring, migrations were `1.sqm`
 through `26.sqm`, producing schema 27. Determine the next version from the
 current directory/generated Schema rather than copying this snapshot.

@@ -32,6 +32,12 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 selectAllSets:
 SELECT * FROM workoutSet ORDER BY performedAt, id;
 
+selectSetById:
+SELECT * FROM workoutSet WHERE id = ?;
+
+updateSetValues:
+UPDATE workoutSet SET reps = ?, weightKg = ?, rir = ? WHERE id = ?;
+
 selectLastSetBySession:
 SELECT * FROM workoutSet WHERE sessionId = ? ORDER BY performedAt DESC, id DESC LIMIT 1;
 

@@ -85,7 +85,7 @@ import hydrafit.feature.logger.generated.resources.logger_draft_more_options
 import hydrafit.feature.logger.generated.resources.logger_draft_reset
 import hydrafit.feature.logger.generated.resources.logger_draft_write_none
 import hydrafit.feature.logger.generated.resources.logger_draft_write_partial
-import hydrafit.feature.logger.generated.resources.logger_edit_time
+import hydrafit.feature.logger.generated.resources.logger_edit_set
 import hydrafit.feature.logger.generated.resources.logger_end_session
 import hydrafit.feature.logger.generated.resources.logger_finish
 import hydrafit.feature.logger.generated.resources.logger_finish_partial
@@ -157,6 +157,13 @@ fun WorkoutLoggerRoute(
         onLog = viewModel::log,
         onDeleteSet = viewModel::deleteSet,
         onRecentSetSelected = viewModel::onRecentSetSelected,
+        onEditLoggedSet = viewModel::editLoggedSet,
+        onLoggedSetRepsChanged = viewModel::onLoggedSetRepsChanged,
+        onLoggedSetWeightChanged = viewModel::onLoggedSetWeightChanged,
+        onLoggedSetRirChanged = viewModel::onLoggedSetRirChanged,
+        onLoggedSetTimeChanged = viewModel::onLoggedSetTimeChanged,
+        onCancelLoggedSetEdit = viewModel::cancelLoggedSetEdit,
+        onSaveLoggedSetEdit = viewModel::saveLoggedSetEdit,
         onRevealWeight = viewModel::onRevealWeight,
         onConfirmDraft = viewModel::confirmDraft,
         onEditDraft = viewModel::editDraft,
@@ -184,7 +191,6 @@ fun WorkoutLoggerRoute(
         onSkipWorkout = viewModel::skipWorkout,
         onOccurrenceMessageShown = viewModel::onOccurrenceMessageShown,
         onBackdatedDateTimePicked = viewModel::onBackdatedDateTimePicked,
-        onCorrectSetTime = viewModel::correctSetTime,
         onClearBackdated = { viewModel.onPerformedAtChanged(null) },
         onForceNewSessionChanged = viewModel::onForceNewSessionChanged,
         nowMillis = viewModel::currentTimeMillis,
@@ -205,6 +211,13 @@ fun WorkoutLoggerScreen(
     onLog: () -> Unit,
     onDeleteSet: (Long) -> Unit,
     onRecentSetSelected: (LoggedSetRow) -> Unit,
+    onEditLoggedSet: (LoggedSetRow) -> Unit,
+    onLoggedSetRepsChanged: (String) -> Unit,
+    onLoggedSetWeightChanged: (String) -> Unit,
+    onLoggedSetRirChanged: (String) -> Unit,
+    onLoggedSetTimeChanged: (Long) -> Boolean,
+    onCancelLoggedSetEdit: () -> Unit,
+    onSaveLoggedSetEdit: () -> Unit,
     onRevealWeight: () -> Unit,
     onConfirmDraft: (DraftSet) -> Unit,
     onEditDraft: (DraftSet) -> Unit,
@@ -232,7 +245,6 @@ fun WorkoutLoggerScreen(
     onSkipWorkout: () -> Unit,
     onOccurrenceMessageShown: () -> Unit,
     onBackdatedDateTimePicked: (Long, Int, Int) -> Boolean,
-    onCorrectSetTime: (Long, Long, Int, Int) -> Boolean,
     onClearBackdated: () -> Unit,
     onForceNewSessionChanged: (Boolean) -> Unit,
     nowMillis: () -> Long,
@@ -244,8 +256,6 @@ fun WorkoutLoggerScreen(
     var showTimePicker by remember { mutableStateOf(false) }
     var pendingDateUtcMillis by remember { mutableStateOf<Long?>(null) }
     var futureTimeError by remember { mutableStateOf(false) }
-    // When set, the date/time picker corrects that row instead of choosing the new-log time.
-    var correctingSetId by remember { mutableStateOf<Long?>(null) }
 
     // One scroll container for the whole screen: a fixed-height picker inside a non-scrolling
     // parent used to push the form and the recent-sets list off short viewports.
@@ -413,7 +423,6 @@ fun WorkoutLoggerScreen(
                 onSetTime = {
                     futureTimeError = false
                     pendingDateUtcMillis = null
-                    correctingSetId = null
                     showDatePicker = true
                 },
                 onUseNow = {
@@ -542,14 +551,9 @@ fun WorkoutLoggerScreen(
                     modifier = Modifier.weight(1f)
                 )
                 TextButton(
-                    onClick = {
-                        futureTimeError = false
-                        pendingDateUtcMillis = null
-                        correctingSetId = row.id
-                        showDatePicker = true
-                    }
+                    onClick = { onEditLoggedSet(row) }
                 ) {
-                    Text(stringResource(Res.string.logger_edit_time))
+                    Text(stringResource(Res.string.logger_edit_set))
                 }
                 TextButton(onClick = { onDeleteSet(row.id) }) {
                     Text(stringResource(Res.string.logger_delete_set))
@@ -559,9 +563,7 @@ fun WorkoutLoggerScreen(
     }
 
     val backdatedAnchor = state.performedAtMillis ?: nowMillis()
-    val pickerAnchor = correctingSetId
-        ?.let { id -> state.recentSets.firstOrNull { it.id == id }?.performedAtMillis }
-        ?: backdatedAnchor
+    val pickerAnchor = backdatedAnchor
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = pendingDateUtcMillis
@@ -570,7 +572,6 @@ fun WorkoutLoggerScreen(
         DatePickerDialog(
             onDismissRequest = {
                 showDatePicker = false
-                correctingSetId = null
             },
             confirmButton = {
                 TextButton(
@@ -589,7 +590,6 @@ fun WorkoutLoggerScreen(
                 TextButton(
                     onClick = {
                         showDatePicker = false
-                        correctingSetId = null
                     }
                 ) {
                     Text(stringResource(Res.string.logger_cancel))
@@ -609,30 +609,18 @@ fun WorkoutLoggerScreen(
         TimePickerDialog(
             onDismissRequest = {
                 showTimePicker = false
-                correctingSetId = null
             },
             confirmButton = {
                 TextButton(
                     onClick = {
                         pendingDateUtcMillis?.let { date ->
-                            val target = correctingSetId
-                            futureTimeError = if (target != null) {
-                                !onCorrectSetTime(
-                                    target,
-                                    date,
-                                    timePickerState.hour,
-                                    timePickerState.minute
-                                )
-                            } else {
-                                !onBackdatedDateTimePicked(
-                                    date,
-                                    timePickerState.hour,
-                                    timePickerState.minute
-                                )
-                            }
+                            futureTimeError = !onBackdatedDateTimePicked(
+                                date,
+                                timePickerState.hour,
+                                timePickerState.minute
+                            )
                         }
                         showTimePicker = false
-                        correctingSetId = null
                     }
                 ) {
                     Text(stringResource(Res.string.logger_confirm))
@@ -642,7 +630,6 @@ fun WorkoutLoggerScreen(
                 TextButton(
                     onClick = {
                         showTimePicker = false
-                        correctingSetId = null
                     }
                 ) {
                     Text(stringResource(Res.string.logger_cancel))
@@ -652,6 +639,21 @@ fun WorkoutLoggerScreen(
         ) {
             TimePicker(state = timePickerState)
         }
+    }
+    state.loggedSetEdit?.let { edit ->
+        LoggedSetEditDialog(
+            edit = edit,
+            saving = state.savingLoggedSet,
+            failed = state.loggedSetEditFailed,
+            utcOffsetMillis = state.utcOffsetMillis,
+            nowMillis = nowMillis,
+            onRepsChanged = onLoggedSetRepsChanged,
+            onWeightChanged = onLoggedSetWeightChanged,
+            onRirChanged = onLoggedSetRirChanged,
+            onTimeChanged = onLoggedSetTimeChanged,
+            onCancel = onCancelLoggedSetEdit,
+            onSave = onSaveLoggedSetEdit
+        )
     }
     state.legacyResolution?.let { resolution ->
         val draft = resolution.current.draft
@@ -896,7 +898,7 @@ private fun DraftEditDialog(
 
 /** Renders a recorded weight with honest load semantics (external vs added vs bodyweight vs legacy). */
 @Composable
-private fun loadWeightText(loadKind: LoadKind, weightKg: Double?, unit: WeightUnit): String =
+internal fun loadWeightText(loadKind: LoadKind, weightKg: Double?, unit: WeightUnit): String =
     when (val display = loadDisplayFor(loadKind, weightKg)) {
         LoadDisplay.None -> stringResource(Res.string.logger_weight_none)
         is LoadDisplay.External ->
@@ -998,10 +1000,10 @@ private fun BackdatedTimeControl(
     }
 }
 
-private fun localDateLabel(parts: LocalDateTimeParts): String =
+internal fun localDateLabel(parts: LocalDateTimeParts): String =
     "${parts.year}-${twoDigits(parts.month)}-${twoDigits(parts.day)}"
 
-private fun localTimeLabel(parts: LocalDateTimeParts): String =
+internal fun localTimeLabel(parts: LocalDateTimeParts): String =
     "${twoDigits(parts.hour)}:${twoDigits(parts.minute)}"
 
 private fun twoDigits(value: Int): String = value.toString().padStart(2, '0')

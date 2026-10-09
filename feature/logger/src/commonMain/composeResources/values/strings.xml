@@ -26,6 +26,13 @@
     <string name="logger_warmup_suffix">(warm-up)</string>
     <string name="logger_delete_set">Delete</string>
     <string name="logger_edit_time">Edit time</string>
+    <string name="logger_edit_set">Edit set</string>
+    <string name="logger_edit_set_title">Edit set: %1$s</string>
+    <string name="logger_save_set">Save changes</string>
+    <string name="logger_edit_set_failed">Changes could not be saved. Keep your edits and try again.</string>
+    <string name="logger_edit_set_invalid">Enter positive reps, a non-negative weight or leave it blank, and RIR from 0 to 10 or leave it blank.</string>
+    <string name="logger_edit_set_load_fixed">Recorded load: %1$s. Editing the weight keeps its recorded type.</string>
+    <string name="logger_recorded_at">Recorded: %1$s %2$s</string>
     <string name="logger_weight_none">-</string>
     <string name="logger_session_active">Session active</string>
     <string name="logger_session_none">No active session</string>

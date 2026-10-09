@@ -62,6 +62,7 @@ import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
+import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
@@ -74,6 +75,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
+import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
 import com.hydrafit.app.core.llm.NoopOnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDeviceTextGenerator
@@ -185,6 +187,7 @@ class KoinModulesVerificationTest {
             assertNotNull(koin.get<GetWorkoutLogUseCase>())
             assertNotNull(koin.get<DeleteWorkoutSetUseCase>())
             assertNotNull(koin.get<CorrectWorkoutSetTimeUseCase>())
+            assertNotNull(koin.get<CorrectWorkoutSetUseCase>())
             assertNotNull(koin.get<StartWorkoutSessionUseCase>())
             assertNotNull(koin.get<EndWorkoutSessionUseCase>())
             assertNotNull(koin.get<ObserveOpenWorkoutSessionUseCase>())
@@ -469,6 +472,12 @@ class KoinModulesVerificationTest {
     }
 
     private object FakeSessionResegmenter : SessionResegmenter {
+        override suspend fun resegmentAfterSetCorrection(
+            setId: Long,
+            correction: WorkoutSetCorrection,
+            utcOffsetMillis: Long
+        ) = Unit
+
         override suspend fun resegmentAfterTimeCorrection(
             setId: Long,
             performedAtMillis: Long,

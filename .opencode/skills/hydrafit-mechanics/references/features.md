@@ -47,6 +47,15 @@ Cancel leaves the draft pending; canceling the editor discards its in-memory edi
 stay within the six existing Logger ViewModel dependencies; no draft-actions Koin aggregate is
 registered.
 
+Recent sets use a separate `LoggedSetEdit` / `LoggedSetEditDialog`, reached by **Edit set** rather
+than the former time-only button. `CorrectWorkoutSetUseCase` is forwarded by `WorkoutLogMutations`;
+the Logger retains six constructor dependencies. Corrections update time/reps/weight/optional RIR
+on the same row, not a quick-fill/new log or prescription edit. Cancel writes nothing; one in-flight
+save guards repeat submissions and a failed atomic write retains the editor for retry. The entry
+unit is frozen, unchanged weight text preserves exact stored kilograms, blank is null and zero is
+numeric. Recorded load kind is authoritative (BODYWEIGHT stays non-numeric); live catalog edits do
+not reinterpret history. Block attribution, warm-up and snapshots are preserved.
+
 Feature navigation: each feature exports a `FeatureDestination` whose `graph` is
 `(NavController) -> NavGraphBuilder.() -> Unit`; the shell passes its `NavController`, so a feature
 can register an internal sub-route without a shell change. Settings uses a nested `navigation(...)`

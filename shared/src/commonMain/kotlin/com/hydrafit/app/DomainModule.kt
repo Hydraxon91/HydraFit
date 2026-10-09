@@ -47,6 +47,7 @@ import com.hydrafit.app.core.domain.schedule.SwitchScheduleModeUseCase
 import com.hydrafit.app.core.domain.schedule.WorkoutLoggingActions
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleActions
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
+import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
@@ -112,6 +113,7 @@ val domainModule: Module = module {
     singleOf(::GetWorkoutLogUseCase)
     singleOf(::DeleteWorkoutSetUseCase)
     singleOf(::CorrectWorkoutSetTimeUseCase)
+    singleOf(::CorrectWorkoutSetUseCase)
     singleOf(::WorkoutLogMutations)
     singleOf(::StartWorkoutSessionUseCase)
     singleOf(::EndWorkoutSessionUseCase)

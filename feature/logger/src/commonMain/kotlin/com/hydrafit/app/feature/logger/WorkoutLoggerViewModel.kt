@@ -23,6 +23,7 @@ import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutSet
+import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -243,6 +244,90 @@ class WorkoutLoggerViewModel(
 
     /** The current wall-clock time, used to seed the backdated pickers. */
     fun currentTimeMillis(): Long = timeProvider.nowMillis()
+
+    fun editLoggedSet(row: LoggedSetRow) {
+        if (_state.value.savingLoggedSet) return
+        val unit = _state.value.weightUnit
+        val weight = weightInputFor(row.weightKg, unit)
+        _state.update {
+            it.copy(
+                loggedSetEdit = LoggedSetEdit(
+                    row,
+                    unit,
+                    row.reps.toString(),
+                    weight,
+                    weight,
+                    row.rir?.toString().orEmpty(),
+                    row.performedAtMillis
+                ),
+                loggedSetEditFailed = false
+            )
+        }
+    }
+
+    fun onLoggedSetRepsChanged(value: String) = updateLoggedSetEdit { copy(reps = value) }
+
+    fun onLoggedSetWeightChanged(value: String) = updateLoggedSetEdit { copy(weightInput = value) }
+
+    fun onLoggedSetRirChanged(value: String) = updateLoggedSetEdit { copy(rir = value) }
+
+    fun onLoggedSetTimeChanged(millis: Long): Boolean {
+        if (millis > timeProvider.nowMillis()) return false
+        updateLoggedSetEdit { copy(performedAtMillis = millis) }
+        return true
+    }
+
+    private fun updateLoggedSetEdit(transform: LoggedSetEdit.() -> LoggedSetEdit) {
+        if (_state.value.savingLoggedSet) return
+        _state.update {
+            it.copy(loggedSetEdit = it.loggedSetEdit?.transform(), loggedSetEditFailed = false)
+        }
+    }
+
+    fun cancelLoggedSetEdit() {
+        if (!_state.value.savingLoggedSet) {
+            _state.update { it.copy(loggedSetEdit = null, loggedSetEditFailed = false) }
+        }
+    }
+
+    fun saveLoggedSetEdit() {
+        val current = _state.value
+        val edit = current.loggedSetEdit ?: return
+        if (current.savingLoggedSet || !edit.canSave) return
+        if (edit.performedAtMillis > timeProvider.nowMillis()) return
+        val weight = when {
+            edit.row.loadKind == LoadKind.BODYWEIGHT -> null
+            edit.weightInput == edit.originalWeightInput -> edit.row.weightKg
+            edit.weightInput.isBlank() -> null
+            else -> edit.weightUnit.displayToKilograms(
+                requireNotNull(edit.weightInput.toDoubleOrNull())
+            )
+        }
+        _state.update { it.copy(savingLoggedSet = true, loggedSetEditFailed = false) }
+        viewModelScope.launch {
+            try {
+                logMutations.correctSet(
+                    edit.row.id,
+                    WorkoutSetCorrection(
+                        requireNotNull(edit.reps.toIntOrNull()),
+                        weight,
+                        edit.rir.toIntOrNull(),
+                        edit.performedAtMillis
+                    )
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _state.update { it.copy(loggedSetEditFailed = true) }
+                return@launch
+            } finally {
+                _state.update { it.copy(savingLoggedSet = false) }
+            }
+            _state.update { it.copy(loggedSetEdit = null) }
+            refreshRecentSets()
+            if (activeActivation != null) refreshOccurrence()
+        }
+    }
 
     /**
      * Applies a picked local date and wall-clock time to an existing logged set. Returns false when

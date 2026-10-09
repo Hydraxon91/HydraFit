@@ -5,6 +5,13 @@ package com.hydrafit.app.core.domain.workout
  * stored sessions can never be left interleaved or with bounds inconsistent with their sets.
  */
 interface SessionResegmenter {
+    /** Updates performed values without replacing the set or its frozen attribution. */
+    suspend fun resegmentAfterSetCorrection(
+        setId: Long,
+        correction: WorkoutSetCorrection,
+        utcOffsetMillis: Long
+    )
+
     suspend fun resegmentAfterTimeCorrection(
         setId: Long,
         performedAtMillis: Long,

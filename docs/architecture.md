@@ -280,6 +280,16 @@ swapped slot is self-describing like any other accepted entry.
   1. (M) Distinguish "no override" from "cleared to empty" in the encoding (S2-001).
   2. (S) Make the plan view prefer the snapshot name (S5-001).
 
+Recent-set corrections use `CorrectWorkoutSetUseCase` through `WorkoutLogMutations`.
+`SessionResegmenter.resegmentAfterSetCorrection` updates reps, nullable weight and nullable RIR
+on the same row in one SQLDelight transaction. It invokes the existing time-resegmentation
+algorithm only when the performed time changes; unchanged time uses a bounded row lookup and
+leaves session bounds untouched. Exercise, warm-up, load kind, muscle/plan snapshots and occurrence
+links are never replaced. Recorded BODYWEIGHT stays non-numeric; EXTERNAL, ADDED and legacy loads
+retain their meaning, including distinct absent and zero values. Corrections invalidate logged-set
+flows, so fatigue and future planner inputs consume corrected history, not a second performed set.
+The UI freezes the entry unit and retains full stored precision when weight text is unchanged.
+
 ### 1.9 Additive, versioned migrations
 
 SQLDelight `.sq` files describe the current schema; every schema change ships a numbered `.sqm`
