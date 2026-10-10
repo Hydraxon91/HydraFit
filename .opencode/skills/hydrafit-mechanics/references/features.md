@@ -67,9 +67,23 @@ its sub-screen. The live app version comes from `AppVersionProvider` (`:core:use
 Guided-workout opt-in lives in Settings and defaults off. Its value is owned by
 `GuidedWorkoutPreferenceRepository` in `:core:userdata`, persisted with planner
 settings in `plannerEngine.guidedWorkoutEnabled`, and included in backup format
-2. Backup format 1 restores the preference as off. This setting is only a user
-preference; it does not itself start guided execution or change existing Logger
-behavior.
+2. Backup format 1 restores the preference as off.
+
+When the setting is on and a training-block occurrence is active, the Logger
+replaces the "Planned today" draft list with a guided card. Progress comes from
+`buildGuidedWorkoutProgress` (`:core/domain` `workout/GuidedWorkoutProgress.kt`),
+which reads each occurrence entry's frozen prescription and the working sets
+attributed to it; warm-ups and sets with no entry attribution never satisfy a
+prescription. The card lists exercises in entry order with target reps/load and
+performed/prescribed counts. "Log set" records exactly one working set for that
+entry and leaves the remaining prescribed sets pending; "Edit" opens the one-off
+draft editor and confirming it also writes a single set. Guided writes reuse the
+draft load-shape decisions (legacy resolution, missing-load prompt) through
+`writeGuidedSet`, so a single insert either lands or leaves the draft pending for
+retry. Finish/partial Finish/Skip and End/New session are unchanged, and the
+accepted plan is never edited. Off keeps the existing draft/batch flow. The Logger
+ViewModel groups its read-only preferences (units and guided flag) in
+`WorkoutLoggerSettings` to stay within its dependency budget.
 
 For routine authoring, the module is `:feature:routines`:
 `RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/

@@ -142,7 +142,9 @@ exact on-screen text.
 
 ## 9. Settings
 - Switch engine (only available engines listed), goal (Balanced/Strength/Hypertrophy/Endurance), units → each persists after relaunch.
-- Guided workouts default OFF; opting in/out persists after relaunch and does not alter the existing Logger while guided execution is unavailable.
+- Guided workouts default OFF; opting in/out persists after relaunch.
+- With guided workouts OFF, the Logger keeps its existing "Planned today" draft flow.
+- With guided workouts ON and an active block occurrence, the Logger shows the guided card: exercises in order with target vs actual sets; "Log set" records exactly one set and the remaining prescribed sets stay pending; warm-ups and unplanned exercises do not count toward progress; Edit then Confirm also records one set. Finish/partial/Skip and End/New session are unchanged.
 - API key: save, shows "configured", clear.
 - Model management: import/remove, target (NPU vs CPU/GPU) display, terms link.
 
