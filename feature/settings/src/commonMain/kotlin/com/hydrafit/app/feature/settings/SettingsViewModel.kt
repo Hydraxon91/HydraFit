@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
+import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
 import com.hydrafit.app.core.userdata.settings.TrainingGoalRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,7 +22,8 @@ class SettingsViewModel(
     private val availability: EngineAvailability,
     private val apiKeyStore: ApiKeyStore,
     private val trainingGoalRepository: TrainingGoalRepository,
-    private val weightUnitRepository: WeightUnitRepository
+    private val weightUnitRepository: WeightUnitRepository,
+    private val guidedWorkoutPreferenceRepository: GuidedWorkoutPreferenceRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState())
@@ -49,6 +51,13 @@ class SettingsViewModel(
         viewModelScope.launch {
             preference.setWorkoutDataSharingEnabled(enabled)
             _state.update { it.copy(workoutDataSharingEnabled = enabled) }
+        }
+    }
+
+    fun onGuidedWorkoutToggled(enabled: Boolean) {
+        viewModelScope.launch {
+            guidedWorkoutPreferenceRepository.setGuidedWorkoutEnabled(enabled)
+            _state.update { it.copy(guidedWorkoutEnabled = enabled) }
         }
     }
 
@@ -83,12 +92,14 @@ class SettingsViewModel(
             val goal = trainingGoalRepository.selectedGoal()
             val shareWorkoutData = preference.isWorkoutDataSharingEnabled()
             val unit = weightUnitRepository.selectedUnit()
+            val guidedWorkoutEnabled = guidedWorkoutPreferenceRepository.isGuidedWorkoutEnabled()
             _state.update {
                 it.copy(
                     availableEngines = available,
                     selectedEngine = if (stored in available) stored else available.firstOrNull(),
                     selectedGoal = goal,
                     weightUnit = unit,
+                    guidedWorkoutEnabled = guidedWorkoutEnabled,
                     workoutDataSharingEnabled = shareWorkoutData,
                     apiKeyConfigured = !apiKeyStore.load().isNullOrBlank(),
                     isLocalLlmInstalled = PlannerEngineId.LOCAL_LLM in available

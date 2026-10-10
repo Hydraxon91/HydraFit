@@ -142,6 +142,7 @@ exact on-screen text.
 
 ## 9. Settings
 - Switch engine (only available engines listed), goal (Balanced/Strength/Hypertrophy/Endurance), units → each persists after relaunch.
+- Guided workouts default OFF; opting in/out persists after relaunch and does not alter the existing Logger while guided execution is unavailable.
 - API key: save, shows "configured", clear.
 - Model management: import/remove, target (NPU vs CPU/GPU) display, terms link.
 
@@ -161,7 +162,7 @@ exact on-screen text.
 - Preview a valid backup → shows the included categories/contents; Cancel writes nothing.
 - Restore a valid backup → after explicit confirmation the restore is **staged** ("Restore staged.
   Close and reopen HydraFit to apply it."); after a relaunch → restored sets, sessions, plan history,
-  routines, preferences/exclusions and the active block survive, and current data was replaced.
+  routines, preferences/exclusions, guided-workout opt-in and the active block survive, and current data was replaced. A version 1 backup restores guided workouts OFF.
 - A staged apply that fails at startup → the current data stays intact and Settings shows the typed
   failure once, then clears it.
 - Invalid, truncated, oversized, too-deep, unsupported-version or startup-unstable file → a typed

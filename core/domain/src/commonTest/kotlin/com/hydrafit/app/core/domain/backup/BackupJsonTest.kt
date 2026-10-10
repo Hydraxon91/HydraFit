@@ -36,6 +36,28 @@ class BackupJsonTest {
     }
 
     @Test
+    fun versionOneSettingsDefaultGuidedWorkoutToOff() {
+        val legacy = emptyBackupFile().copy(
+            formatVersion = 1,
+            settings = BackupSettingsRecord(
+                engineId = "DETERMINISTIC",
+                daysPerWeek = 4,
+                trainingGoal = "BALANCED",
+                shareWorkoutData = false,
+                weightUnit = "KG"
+            )
+        )
+        val legacyJson = BackupJson.encode(legacy)
+            .replace("\"formatVersion\":2", "\"formatVersion\":1")
+            .replace(",\"guidedWorkoutEnabled\":false", "")
+
+        val decoded = BackupJson.decode(legacyJson)
+
+        assertEquals(false, decoded.settings?.guidedWorkoutEnabled)
+        assertEquals(1, decoded.formatVersion)
+    }
+
+    @Test
     fun rejectsMoreRecordsThanTheLimit() {
         val file = emptyBackupFile().copy(
             preferences = List(BackupLimits.MAX_RECORDS + 1) { index ->

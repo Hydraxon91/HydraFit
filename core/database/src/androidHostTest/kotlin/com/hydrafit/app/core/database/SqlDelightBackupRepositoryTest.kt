@@ -41,6 +41,7 @@ class SqlDelightBackupRepositoryTest {
     @Test
     fun exportsEveryIncludedSection() = runTest {
         seedRepresentativeData()
+        SqlDelightGuidedWorkoutPreferenceRepository(database).setGuidedWorkoutEnabled(true)
 
         val file = repository.export(appVersion = "0.5.0-dev", exportedAtMillis = 99L)
 
@@ -75,6 +76,7 @@ class SqlDelightBackupRepositoryTest {
         assertEquals(1, file.exclusions.size)
         assertEquals(3, file.settings?.daysPerWeek)
         assertEquals("LB", file.settings?.weightUnit)
+        assertEquals(true, file.settings?.guidedWorkoutEnabled)
     }
 
     @Test
@@ -153,6 +155,28 @@ class SqlDelightBackupRepositoryTest {
         assertEquals(4L, database.plannerEngineQueries.selectDaysPerWeek().executeAsOne())
         assertEquals("BALANCED", database.plannerEngineQueries.selectTrainingGoal().executeAsOne())
         assertEquals("KG", database.plannerEngineQueries.selectWeightUnit().executeAsOne())
+        assertEquals(
+            0L,
+            database.plannerEngineQueries.selectGuidedWorkoutEnabled().executeAsOne()
+        )
+    }
+
+    @Test
+    fun restoreOfVersionOneSettingsKeepsGuidedWorkoutsDisabled() = runTest {
+        seedRepresentativeData()
+        val exported = repository.export(appVersion = "t", exportedAtMillis = 1L)
+        val file = exported.copy(
+            formatVersion = 1,
+            settings = exported.settings?.copy(guidedWorkoutEnabled = false)
+        )
+        database.plannerEngineQueries.updateGuidedWorkoutEnabled(1L)
+
+        repository.restore(file)
+
+        assertEquals(
+            0L,
+            database.plannerEngineQueries.selectGuidedWorkoutEnabled().executeAsOne()
+        )
     }
 
     @Test

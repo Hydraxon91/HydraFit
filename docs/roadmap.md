@@ -54,7 +54,8 @@ schema, dependency, infrastructure and licensing decisions retain their gates.
 - **OF-02:** ordered workouts using existing routines, occurrences and sessions;
   targets versus actual work, remaining sets, out-of-order/unplanned logging,
   skip/partial finish and reliable resume. Opening or starting work never creates
-  performed sets.
+  performed sets. Guided workouts are opt-in and off by default; the preference
+  persists and round-trips through compatible local backups.
 - **LT-06 / OF-02 timing:** live after-set confirmation, catch-up/unknown timing,
   editable deadline-based rest countdowns, lifecycle cancellation and approved
   background alerts. Short-rest coaching uses eligible live intervals only.

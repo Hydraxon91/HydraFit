@@ -64,6 +64,13 @@ its sub-screen. The live app version comes from `AppVersionProvider` (`:core:use
 `appVersionModule` (Android, from `BuildConfig.VERSION_NAME`) and `IosDatabaseModule` (returns
 `"dev"`).
 
+Guided-workout opt-in lives in Settings and defaults off. Its value is owned by
+`GuidedWorkoutPreferenceRepository` in `:core:userdata`, persisted with planner
+settings in `plannerEngine.guidedWorkoutEnabled`, and included in backup format
+2. Backup format 1 restores the preference as off. This setting is only a user
+preference; it does not itself start guided execution or change existing Logger
+behavior.
+
 For routine authoring, the module is `:feature:routines`:
 `RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/
 `routinesDestination`), `RoutinesScreen.kt` (list, editor, exercise picker,

@@ -26,9 +26,14 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun acceptsVersionOneBackups() {
+        validator.validate(validFile().copy(formatVersion = 1))
+    }
+
+    @Test
     fun rejectsAnUnsupportedVersion() {
         assertFailure(BackupFailure.UNSUPPORTED_VERSION) {
-            validFile().copy(formatVersion = 2)
+            validFile().copy(formatVersion = BACKUP_FORMAT_VERSION + 1)
         }
     }
 

@@ -617,6 +617,9 @@ class SqlDelightBackupRepository(
                 if (settings?.shareWorkoutData == true) 1L else 0L
             )
             database.plannerEngineQueries.updateWeightUnit(settings?.weightUnit ?: "KG")
+            database.plannerEngineQueries.updateGuidedWorkoutEnabled(
+                if (settings?.guidedWorkoutEnabled == true) 1L else 0L
+            )
         }
     }
 
@@ -629,7 +632,9 @@ class SqlDelightBackupRepository(
             daysPerWeek = (queries.selectDaysPerWeek().executeAsOneOrNull() ?: 4L).toInt(),
             trainingGoal = queries.selectTrainingGoal().executeAsOneOrNull() ?: "BALANCED",
             shareWorkoutData = (queries.selectShareWorkoutData().executeAsOneOrNull() ?: 0L) != 0L,
-            weightUnit = queries.selectWeightUnit().executeAsOneOrNull() ?: "KG"
+            weightUnit = queries.selectWeightUnit().executeAsOneOrNull() ?: "KG",
+            guidedWorkoutEnabled =
+            queries.selectGuidedWorkoutEnabled().executeAsOneOrNull()?.let { it != 0L } ?: false
         )
     }
 }

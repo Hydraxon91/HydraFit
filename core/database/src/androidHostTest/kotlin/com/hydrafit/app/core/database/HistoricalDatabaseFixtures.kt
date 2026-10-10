@@ -103,6 +103,11 @@ internal object HistoricalDatabaseFixtures {
                 "exerciseId TEXT NOT NULL, reps INTEGER NOT NULL, weightKg REAL, " +
                 "performedAt INTEGER NOT NULL, isWarmup INTEGER NOT NULL DEFAULT 0, " +
                 "primaryMuscles TEXT, secondaryMuscles TEXT)",
+            "CREATE TABLE plannerEngine (id INTEGER NOT NULL PRIMARY KEY, " +
+                "engineId TEXT NOT NULL, daysPerWeek INTEGER NOT NULL DEFAULT 4, " +
+                "trainingGoal TEXT NOT NULL DEFAULT 'BALANCED', " +
+                "shareWorkoutData INTEGER NOT NULL DEFAULT 0, " +
+                "weightUnit TEXT NOT NULL DEFAULT 'KG')",
             // See v13: plan entries predate the range and are altered by later migrations.
             "CREATE TABLE planHistoryEntry (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT)"
         )
@@ -141,6 +146,11 @@ internal object HistoricalDatabaseFixtures {
                 "exerciseId TEXT NOT NULL, reps INTEGER NOT NULL, weightKg REAL, " +
                 "performedAt INTEGER NOT NULL, isWarmup INTEGER NOT NULL DEFAULT 0, " +
                 "primaryMuscles TEXT, secondaryMuscles TEXT, involvements TEXT)",
+            "CREATE TABLE plannerEngine (id INTEGER NOT NULL PRIMARY KEY, " +
+                "engineId TEXT NOT NULL, daysPerWeek INTEGER NOT NULL DEFAULT 4, " +
+                "trainingGoal TEXT NOT NULL DEFAULT 'BALANCED', " +
+                "shareWorkoutData INTEGER NOT NULL DEFAULT 0, " +
+                "weightUnit TEXT NOT NULL DEFAULT 'KG')",
             // See v13: plan entries predate the range and are altered by later migrations.
             "CREATE TABLE planHistoryEntry (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT)"
         )
@@ -184,6 +194,11 @@ internal object HistoricalDatabaseFixtures {
                 "involvements TEXT)",
             "CREATE TABLE personalRecord (exerciseId TEXT NOT NULL PRIMARY KEY, " +
                 "weightKg REAL NOT NULL, reps INTEGER NOT NULL, updatedAt INTEGER NOT NULL)",
+            "CREATE TABLE plannerEngine (id INTEGER NOT NULL PRIMARY KEY, " +
+                "engineId TEXT NOT NULL, daysPerWeek INTEGER NOT NULL DEFAULT 4, " +
+                "trainingGoal TEXT NOT NULL DEFAULT 'BALANCED', " +
+                "shareWorkoutData INTEGER NOT NULL DEFAULT 0, " +
+                "weightUnit TEXT NOT NULL DEFAULT 'KG')",
             "CREATE TABLE workoutSet (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, " +
                 "exerciseId TEXT NOT NULL, reps INTEGER NOT NULL, weightKg REAL, " +
                 "performedAt INTEGER NOT NULL, isWarmup INTEGER NOT NULL DEFAULT 0, " +

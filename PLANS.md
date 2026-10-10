@@ -719,7 +719,7 @@ gated scopes, not implied by completion of P0–P5. M2's other open work stays a
 | Reference | Feature | Dependency / sequencing | Status |
 | --- | --- | --- | --- |
 | OF-01 | Local backup/export and restore | First portability foundation | SHIPPED 0.5.0; separately gated extensions target 0.9.0 |
-| OF-02 | Guided workouts and rest timer | Existing accepted plans and explicit sessions | FUTURE — decisions open |
+| OF-02 | Guided workouts and rest timer | Existing accepted plans and explicit sessions | Setting foundation IN PROGRESS; guided execution decisions approved for staged implementation. |
 | OF-03 | Planner target explanations | Existing planner; integrate with OF-02 | Volume slice SHIPPED 0.4.0; remainder targets 0.7.0, decisions open |
 | OF-04 | Exercise history and progress charts | Existing logged sets; shared queries may support OF-08 | FUTURE — decisions open |
 | OF-05 | Local workout CSV imports | OF-01 recovery path recommended first | FUTURE — decisions open |

@@ -15,14 +15,17 @@ import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.BuildPlannerLoadInputsUseCase
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
+import com.hydrafit.app.core.domain.engine.EngineAvailability
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
 import com.hydrafit.app.core.domain.engine.OnDevicePlanProgress
 import com.hydrafit.app.core.domain.engine.PlanBuilderActions
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
+import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SubstituteExerciseUseCase
 import com.hydrafit.app.core.domain.engine.SuggestWeightsUseCase
+import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
@@ -87,6 +90,9 @@ import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
 import com.hydrafit.app.core.userdata.equipment.ExercisePreferenceRepository
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
+import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
+import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
+import com.hydrafit.app.core.userdata.settings.TrainingGoalRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import com.hydrafit.app.feature.equipment.ExercisePlanningSettingsViewModel
 import com.hydrafit.app.feature.equipment.equipmentModule
@@ -96,20 +102,27 @@ import com.hydrafit.app.feature.routines.RoutinesViewModel
 import com.hydrafit.app.feature.routines.routinesModule
 import com.hydrafit.app.feature.settings.AcknowledgmentsViewModel
 import com.hydrafit.app.feature.settings.BackupViewModel
+import com.hydrafit.app.feature.settings.SettingsViewModel
 import com.hydrafit.app.feature.settings.settingsModule
 import com.hydrafit.app.feature.splitbuilder.splitBuilderModule
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 import org.koin.test.verify.verify
 
-@OptIn(KoinExperimentalAPI::class)
+@OptIn(KoinExperimentalAPI::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class KoinModulesVerificationTest {
 
     private val testPlatformModule = module {
@@ -238,6 +251,54 @@ class KoinModulesVerificationTest {
         }
     }
 
+    @Test
+    fun guidedWorkoutSettingsViewModelResolvesFromKoin() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        val koin = koinApplication {
+            modules(
+                module {
+                    single<EngineAvailability> {
+                        object : EngineAvailability {
+                            override fun availableEngines() = listOf(PlannerEngineId.DETERMINISTIC)
+                        }
+                    }
+                    single<EnginePreferenceRepository> { FakeEnginePreferenceRepository() }
+                    single<TrainingGoalRepository> {
+                        object : TrainingGoalRepository {
+                            override suspend fun selectedGoal() = TrainingGoal.BALANCED
+                            override fun goalFlow() = flowOf(TrainingGoal.BALANCED)
+                            override suspend fun setGoal(goal: TrainingGoal) = Unit
+                        }
+                    }
+                    single<WeightUnitRepository> {
+                        object : WeightUnitRepository {
+                            override suspend fun selectedUnit() = WeightUnit.KG
+                            override fun unitFlow() = flowOf(WeightUnit.KG)
+                            override suspend fun setUnit(unit: WeightUnit) = Unit
+                        }
+                    }
+                    single<GuidedWorkoutPreferenceRepository> {
+                        object : GuidedWorkoutPreferenceRepository {
+                            override suspend fun isGuidedWorkoutEnabled() = false
+                            override fun guidedWorkoutFlow() = flowOf(false)
+                            override suspend fun setGuidedWorkoutEnabled(enabled: Boolean) = Unit
+                        }
+                    }
+                },
+                testPlatformModule,
+                settingsModule
+            )
+        }.koin
+        try {
+            koin.get<SettingsViewModel>()
+            advanceUntilIdle()
+        } finally {
+            koin.close()
+            Dispatchers.resetMain()
+        }
+    }
+
     /**
      * The preference ViewModel is registered with a lambda `viewModel { }`, which `verify()` cannot
      * reflect, so resolve it to prove its constructor `get()` chain. The repositories it depends on
@@ -359,6 +420,30 @@ class KoinModulesVerificationTest {
         override fun save(apiKey: String) = Unit
 
         override fun clear() = Unit
+    }
+
+    private class FakeEnginePreferenceRepository : EnginePreferenceRepository {
+        private var shareWorkoutData = false
+
+        override suspend fun selectedEngine() = PlannerEngineId.DETERMINISTIC
+
+        override fun engineFlow(): Flow<PlannerEngineId> = flowOf(PlannerEngineId.DETERMINISTIC)
+
+        override suspend fun setEngine(engine: PlannerEngineId) = Unit
+
+        override suspend fun selectedDaysPerWeek() = 4
+
+        override fun daysPerWeekFlow(): Flow<Int> = flowOf(4)
+
+        override suspend fun setDaysPerWeek(daysPerWeek: Int) = Unit
+
+        override suspend fun isWorkoutDataSharingEnabled() = shareWorkoutData
+
+        override fun workoutDataSharingFlow(): Flow<Boolean> = flowOf(shareWorkoutData)
+
+        override suspend fun setWorkoutDataSharingEnabled(enabled: Boolean) {
+            shareWorkoutData = enabled
+        }
     }
 
     private object FakeAppVersionProvider : AppVersionProvider {

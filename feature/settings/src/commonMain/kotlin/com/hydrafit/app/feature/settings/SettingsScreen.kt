@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -21,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -50,6 +52,8 @@ import hydrafit.feature.settings.generated.resources.settings_goal_endurance
 import hydrafit.feature.settings.generated.resources.settings_goal_hypertrophy
 import hydrafit.feature.settings.generated.resources.settings_goal_section
 import hydrafit.feature.settings.generated.resources.settings_goal_strength
+import hydrafit.feature.settings.generated.resources.settings_guided_workout
+import hydrafit.feature.settings.generated.resources.settings_guided_workout_description
 import hydrafit.feature.settings.generated.resources.settings_local_llm_slow
 import hydrafit.feature.settings.generated.resources.settings_planning_section
 import hydrafit.feature.settings.generated.resources.settings_share_data
@@ -97,6 +101,7 @@ fun SettingsRoute(
         onGoalSelected = viewModel::onGoalSelected,
         onWeightUnitSelected = viewModel::onWeightUnitSelected,
         onWorkoutDataSharingToggled = viewModel::onWorkoutDataSharingToggled,
+        onGuidedWorkoutToggled = viewModel::onGuidedWorkoutToggled,
         onApiKeyChanged = viewModel::onApiKeyChanged,
         onSaveApiKey = viewModel::saveApiKey,
         onClearApiKey = viewModel::clearApiKey,
@@ -113,6 +118,7 @@ fun SettingsScreen(
     onGoalSelected: (TrainingGoal) -> Unit,
     onWeightUnitSelected: (WeightUnit) -> Unit,
     onWorkoutDataSharingToggled: (Boolean) -> Unit,
+    onGuidedWorkoutToggled: (Boolean) -> Unit,
     onApiKeyChanged: (String) -> Unit,
     onSaveApiKey: () -> Unit,
     onClearApiKey: () -> Unit,
@@ -208,6 +214,28 @@ fun SettingsScreen(
         }
         Text(
             text = stringResource(Res.string.settings_share_data_description),
+            style = MaterialTheme.typography.bodySmall
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = state.guidedWorkoutEnabled,
+                    role = Role.Switch,
+                    onValueChange = onGuidedWorkoutToggled
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Switch(
+                checked = state.guidedWorkoutEnabled,
+                onCheckedChange = null
+            )
+            Text(stringResource(Res.string.settings_guided_workout))
+        }
+        Text(
+            text = stringResource(Res.string.settings_guided_workout_description),
             style = MaterialTheme.typography.bodySmall
         )
 

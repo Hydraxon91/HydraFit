@@ -5,14 +5,14 @@ import kotlinx.serialization.Serializable
 /** Stable file identifiers. A reader accepts only [BACKUP_FORMAT] at a version it knows. */
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
-/** The only format version this build writes and reads. */
-const val BACKUP_FORMAT_VERSION: Int = 1
+/** The format version this build writes. The reader retains compatibility with version 1. */
+const val BACKUP_FORMAT_VERSION: Int = 2
 
 /**
  * A whole logical snapshot of the supported offline data. Rows are stored flat with their persisted
  * ids so restore can rebuild relationships exactly; the envelope carries the format identity, a
- * catalog fingerprint and the export time. Every field is required: a v1 file must state each one
- * explicitly, and nullable fields are present as `null` rather than omitted.
+ * catalog fingerprint and the export time. Every top-level field is required; version 1 settings
+ * may omit [BackupSettingsRecord.guidedWorkoutEnabled], which then defaults to off.
  */
 @Serializable
 data class BackupFile(
@@ -67,7 +67,9 @@ data class BackupSettingsRecord(
     val daysPerWeek: Int,
     val trainingGoal: String,
     val shareWorkoutData: Boolean,
-    val weightUnit: String
+    val weightUnit: String,
+    /** Defaults off when decoding a version 1 backup that predates guided-workout opt-in. */
+    val guidedWorkoutEnabled: Boolean = false
 )
 
 @Serializable

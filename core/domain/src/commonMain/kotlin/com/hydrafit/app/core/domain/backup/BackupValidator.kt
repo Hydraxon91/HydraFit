@@ -26,7 +26,7 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 class BackupValidator(private val catalog: BackupCatalog) {
 
     fun validate(file: BackupFile) {
-        if (file.format != BACKUP_FORMAT || file.formatVersion != BACKUP_FORMAT_VERSION) {
+        if (file.format != BACKUP_FORMAT || file.formatVersion !in SUPPORTED_FORMAT_VERSIONS) {
             fail(BackupFailure.UNSUPPORTED_VERSION)
         }
 
@@ -270,6 +270,8 @@ class BackupValidator(private val catalog: BackupCatalog) {
     private fun fail(failure: BackupFailure): Nothing = throw BackupException(failure)
 
     private companion object {
+        val SUPPORTED_FORMAT_VERSIONS = 1..BACKUP_FORMAT_VERSION
+
         /** Muscle names accepted in an involvement snapshot, including the legacy broad names. */
         val muscleTokens: Set<String> =
             MuscleGroup.entries.map { it.name }.toSet() +

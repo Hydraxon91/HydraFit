@@ -3,7 +3,9 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 1), restored by whole replacement.
+Logical, versioned JSON (`format` + `formatVersion` 2), restored by whole replacement.
+The reader also accepts version 1 and defaults the guided-workout preference to off when
+that field is absent; exports use version 2. Unknown fields remain rejected.
 Domain `backup/` owns the payload records, the kotlinx-serialization codec, the
 validator, the limits and the export/preview/stage/apply use cases (bound in
 `shared/DomainModule.kt`). Every envelope field is required, so a file missing one is
