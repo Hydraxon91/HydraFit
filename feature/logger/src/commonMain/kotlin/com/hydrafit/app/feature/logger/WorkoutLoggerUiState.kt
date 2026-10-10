@@ -34,8 +34,13 @@ data class LoggedSetRow(
     val dayIndex: Int? = null,
     /** What [weightKg] means, so the row can label added or unconfirmed load honestly. */
     val loadKind: LoadKind = LoadKind.LEGACY_UNSPECIFIED,
-    val occurrenceId: Long? = null
+    val occurrenceId: Long? = null,
+    val sessionId: String? = null
 )
+
+/** Null identity is unrecorded, never a shared session boundary. */
+internal fun LoggedSetRow.startsSessionAfter(previous: LoggedSetRow?): Boolean =
+    sessionId != null && (previous == null || sessionId != previous.sessionId)
 
 /** A correction of an existing row; unit is frozen for the lifetime of this editor. */
 data class LoggedSetEdit(

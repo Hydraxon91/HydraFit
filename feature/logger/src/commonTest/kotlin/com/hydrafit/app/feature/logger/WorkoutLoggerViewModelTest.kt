@@ -3189,6 +3189,77 @@ class WorkoutLoggerViewModelTest {
         assertEquals(listOf(2L, 1L, 3L), viewModel.state.value.recentSets.map { it.id })
     }
 
+    @Test
+    fun recentSessionBoundariesUseOnlyAdjacentExplicitIdentities() = runTest(dispatcher) {
+        val cases = listOf(
+            listOf("a", "a", "b", "a") to listOf(true, false, true, true),
+            listOf(null, null) to listOf(false, false),
+            listOf(null, "a", null, null, "a", "a") to
+                listOf(false, true, false, false, true, false)
+        )
+        for ((identities, expected) in cases) {
+            val sets = identities.mapIndexed { index, sessionId ->
+                WorkoutSet(
+                    id = (identities.size - index).toLong(),
+                    exerciseId = "back-squat",
+                    reps = 5,
+                    weightKg = 100.0,
+                    performedAtMillis = 200L,
+                    sessionId = sessionId
+                )
+            }
+            val viewModel = viewModel(repository = FakeWorkoutLogRepository(sets.reversed()))
+            advanceUntilIdle()
+            val rows = viewModel.state.value.recentSets
+            assertEquals(sets.map { it.id }, rows.map { it.id })
+            assertEquals(identities, rows.map { it.sessionId })
+            assertEquals(
+                expected,
+                rows.mapIndexed { index, row ->
+                    row.startsSessionAfter(rows.getOrNull(index - 1))
+                }
+            )
+        }
+    }
+
+    @Test
+    fun correctionAndDeletionRefreshAdjacentSessionBoundaries() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            listOf("a", "b", "a").mapIndexed { index, sessionId ->
+                WorkoutSet(
+                    id = index + 1L,
+                    exerciseId = "back-squat",
+                    reps = 5,
+                    weightKg = 100.0,
+                    performedAtMillis = 3_000L - index * 1_000L,
+                    sessionId = sessionId
+                )
+            }
+        )
+        val viewModel = viewModel(repository = repository)
+        advanceUntilIdle()
+        fun boundaries(): List<Boolean> {
+            val rows = viewModel.state.value.recentSets
+            return rows.mapIndexed { index, row ->
+                row.startsSessionAfter(rows.getOrNull(index - 1))
+            }
+        }
+        assertEquals(listOf(true, true, true), boundaries())
+
+        assertTrue(viewModel.correctSetTime(2L, 0L, 0, 0))
+        advanceUntilIdle()
+        assertEquals(listOf(1L, 3L, 2L), viewModel.state.value.recentSets.map { it.id })
+        assertEquals(listOf(true, false, true), boundaries())
+
+        viewModel.deleteSet(1L)
+        advanceUntilIdle()
+        assertEquals(listOf(3L, 2L), viewModel.state.value.recentSets.map { it.id })
+        assertEquals(listOf(true, true), boundaries())
+        viewModel.deleteSet(2L)
+        advanceUntilIdle()
+        assertEquals(listOf(true), boundaries())
+    }
+
     private fun viewModel(
         repository: WorkoutLogRepository = FakeWorkoutLogRepository(),
         sessionRepository: WorkoutSessionRepository = FakeWorkoutSessionRepository(),
@@ -3301,6 +3372,7 @@ class WorkoutLoggerViewModelTest {
             weekNumber = 3,
             cycleNumber = 2,
             dayIndex = 0,
+            sessionId = "recorded-session",
             occurrenceId = 30L,
             occurrenceEntryId = 40L
         )

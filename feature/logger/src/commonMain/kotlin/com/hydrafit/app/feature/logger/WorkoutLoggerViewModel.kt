@@ -1813,7 +1813,8 @@ class WorkoutLoggerViewModel(
                     weekNumber = set.weekNumber,
                     dayIndex = set.dayIndex,
                     loadKind = set.loadKind,
-                    occurrenceId = set.occurrenceId
+                    occurrenceId = set.occurrenceId,
+                    sessionId = set.sessionId
                 )
             }
         _state.update { it.copy(recentSets = rows) }

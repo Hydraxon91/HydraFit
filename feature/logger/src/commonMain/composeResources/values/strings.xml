@@ -37,6 +37,8 @@
     <string name="logger_weight_none">-</string>
     <string name="logger_session_active">Session active</string>
     <string name="logger_session_none">No active session</string>
+    <string name="logger_session_recorded">Recorded session</string>
+    <string name="logger_session_not_recorded">Session not recorded</string>
     <string name="logger_end_session">End session</string>
     <string name="logger_new_session">New session</string>
     <string name="logger_time_live">Logging now</string>

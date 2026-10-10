@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -46,6 +47,8 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -124,6 +127,8 @@ import hydrafit.feature.logger.generated.resources.logger_rest_timer_use_default
 import hydrafit.feature.logger.generated.resources.logger_search_label
 import hydrafit.feature.logger.generated.resources.logger_session_active
 import hydrafit.feature.logger.generated.resources.logger_session_none
+import hydrafit.feature.logger.generated.resources.logger_session_not_recorded
+import hydrafit.feature.logger.generated.resources.logger_session_recorded
 import hydrafit.feature.logger.generated.resources.logger_set_time
 import hydrafit.feature.logger.generated.resources.logger_set_week_day
 import hydrafit.feature.logger.generated.resources.logger_skip
@@ -569,38 +574,53 @@ fun WorkoutLoggerScreen(
                 style = MaterialTheme.typography.titleMedium
             )
         }
-        items(state.recentSets) { row ->
-            val unit = state.weightUnit
-            val weight = loadWeightText(row.loadKind, row.weightKg, unit)
-            val warmupSuffix = if (row.isWarmup) {
-                " " + stringResource(Res.string.logger_warmup_suffix)
-            } else {
-                ""
-            }
-            val weekDay = if (row.weekNumber != null && row.dayIndex != null) {
-                " · " + stringResource(
-                    Res.string.logger_set_week_day,
-                    row.weekNumber,
-                    row.dayIndex + 1
-                )
-            } else {
-                ""
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clickable { onRecentSetSelected(row) }
-            ) {
-                Text(
-                    text = "${row.exerciseName}  ${row.reps} x $weight$warmupSuffix$weekDay",
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(
-                    onClick = { onEditLoggedSet(row) }
-                ) {
-                    Text(stringResource(Res.string.logger_edit_set))
+        itemsIndexed(state.recentSets) { index, row ->
+            Column {
+                if (row.startsSessionAfter(state.recentSets.getOrNull(index - 1))) {
+                    Text(
+                        text = stringResource(Res.string.logger_session_recorded),
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(bottom = 8.dp).semantics { heading() }
+                    )
                 }
-                TextButton(onClick = { onDeleteSet(row.id) }) {
-                    Text(stringResource(Res.string.logger_delete_set))
+                val unit = state.weightUnit
+                val weight = loadWeightText(row.loadKind, row.weightKg, unit)
+                val warmupSuffix = if (row.isWarmup) {
+                    " " + stringResource(Res.string.logger_warmup_suffix)
+                } else {
+                    ""
+                }
+                val weekDay = if (row.weekNumber != null && row.dayIndex != null) {
+                    " · " + stringResource(
+                        Res.string.logger_set_week_day,
+                        row.weekNumber,
+                        row.dayIndex + 1
+                    )
+                } else {
+                    ""
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { onRecentSetSelected(row) }
+                ) {
+                    Text(
+                        text = "${row.exerciseName}  ${row.reps} x $weight$warmupSuffix$weekDay",
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(
+                        onClick = { onEditLoggedSet(row) }
+                    ) {
+                        Text(stringResource(Res.string.logger_edit_set))
+                    }
+                    TextButton(onClick = { onDeleteSet(row.id) }) {
+                        Text(stringResource(Res.string.logger_delete_set))
+                    }
+                }
+                if (row.sessionId == null) {
+                    Text(
+                        text = stringResource(Res.string.logger_session_not_recorded),
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         }

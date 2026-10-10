@@ -84,6 +84,20 @@ exact on-screen text.
 ## 6. Log
 - Log a set: exercise search, reps, weight, RIR, warm-up, bodyweight/blank weight, "per hand" hint.
 - Recent-set quick-fill populates the fields; Delete removes a set.
+- Recent sets preserve performed-time descending / insertion-id descending tie order. "Recorded
+  session" heads each adjacent explicit-session group, including repeated identities after another
+  group; same-date distinct sessions remain separate. Each null-session row says "Session not
+  recorded", never sharing an inferred session. Correction/deletion refresh the boundaries; headers
+  do not quick-fill and existing row actions, load meaning and optional RIR remain unchanged.
+  **2026-10-11 divider verification:** full host tests, ktlint, debug assembly and iOS compilation
+  passed under a 300-second hard limit. Read-only debug smoke on `emulator-5554` asserted headers,
+  existing bodyweight row content and Edit set/Delete controls; screenshot
+  `/tmp/hydrafit-060-dividers.png` captured and viewed. MCP inspection failed (device server unavailable);
+  bounded compact CLI inspection worked. One assertion attempt failed after foregrounding returned
+  navigation to Equipment; explicitly selecting Log and scrolling passed on the single correction.
+  No fixture writes or Delete taps. Null-label visuals, quick-fill/edit/delete interactions,
+  font/theme/locale variants and TalkBack traversal remain unverified; host regressions cover
+  boundary/null/order/refresh logic and existing action/load/RIR behavior. B6 limits remain unchanged.
 - Recent sets → **Edit set** prefills time, reps, weight and optional RIR. Cancel writes nothing;
   Save changes updates the same row, and reopening shows the correction without another logged set.
   Verify past-time correction, future rejection, positive reps, finite non-negative load, blank vs

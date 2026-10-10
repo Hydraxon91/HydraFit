@@ -47,6 +47,12 @@ Cancel leaves the draft pending; canceling the editor discards its in-memory edi
 stay within the six existing Logger ViewModel dependencies; no draft-actions Koin aggregate is
 registered.
 
+Recent sets carry nullable stored `sessionId` in `LoggedSetRow`, retaining performed-time descending
+and insertion-id descending tie order. `startsSessionAfter` identifies adjacent explicit boundaries;
+the UI shows "Recorded session" at each boundary, including a returning identity without regrouping.
+Each null-session row instead has its own "Session not recorded" subtitle. No date/gap inference,
+ordinal identity or duration is introduced. Boundaries are derived anew after correction/deletion.
+
 Recent sets use a separate `LoggedSetEdit` / `LoggedSetEditDialog`, reached by **Edit set** rather
 than the former time-only button. `CorrectWorkoutSetUseCase` is forwarded by `WorkoutLogMutations`;
 the Logger retains six constructor dependencies. Corrections update time/reps/weight/optional RIR

@@ -731,7 +731,7 @@ gated scopes, not implied by completion of P0–P5. M2's other open work stays a
 | OF-10 | Progression policies and advanced logging | OF-02; settle measurement semantics before engine changes | LATER — split into separately approved slices |
 | OF-11 | Manual routines and reusable templates | M3; extends OF-01 coverage; feeds OF-02/OF-07 | SHIPPED 0.3.0; later guided/sharing extensions follow roadmap |
 | OF-12 | Flexible scheduling, session rotation and reminders | M3 scheduling after OF-11; M4 reminders | P0/P1 SHIPPED 0.3.0; P2/P3 reminders/integration target 0.7.0 |
-| OF-13 | Workout/exercise notes and session history | M4; existing explicit sessions; integrates OF-02/OF-04 | FUTURE — decisions open |
+| OF-13 | Workout/exercise notes and session history | M4; existing explicit sessions; integrates OF-02/OF-04 | Divider slice IMPLEMENTED (2026-10-11), pending review/commit: adjacent explicit identities use "Recorded session"; each null row uses "Session not recorded"; order unchanged. Full host tests, ktlint, debug assembly and iOS compile pass (300s limit); existing-data emulator headers/controls and screenshot checked. Null-label visuals, font/theme/locale variants and action-write UI checks remain unverified. Notes/full history remain FUTURE — decisions open. |
 | OF-14 | Onboarding and first-workout baseline setup | M4; EQ-01/OF-11/OF-12 contracts; existing settings/PR use cases | FUTURE — decisions open |
 
 ### OF-01 — Local backup/export and restore
