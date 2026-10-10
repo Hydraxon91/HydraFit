@@ -16,6 +16,10 @@
     <string name="settings_share_data_description">Lets the AI planners see your recent weights and suggest a working weight. Off by default.</string>
     <string name="settings_guided_workout">Enable guided workouts</string>
     <string name="settings_guided_workout_description">Follow an active scheduled workout one set at a time. Off by default; manual logging stays available.</string>
+    <string name="settings_rest_default_section">Default rest duration</string>
+    <string name="settings_rest_default_description">Used when an exercise has no saved rest override. Goal-based ranges are guidance only.</string>
+    <string name="settings_rest_default_seconds">Seconds (1–86400)</string>
+    <string name="settings_rest_default_save">Save default</string>
     <string name="settings_unit_section">Weight unit</string>
     <string name="settings_unit_kg">Kilograms (kg)</string>
     <string name="settings_unit_lb">Pounds (lb)</string>
