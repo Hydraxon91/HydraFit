@@ -113,7 +113,7 @@ While executing an approved chunk:
 
 - **Strict Scope Containment:** Do not refactor, rewrite, or "clean up" working code outside the immediate scope of the assigned task. If you notice messy code or technical debt nearby, point it out to the user in chat — do not touch it "while you're in there".
 - **No Style Conversions for Aesthetics:** If existing code is functional and matches the codebase style guidelines, leave it alone. Do not change working syntax unless aligning a newly written feature to it.
-- **Oversized Constructors Are a Design Signal, Not a Formatting Problem:** If a class constructor (or a Koin `get()` chain feeding it) needs more than about 6 parameters, stop. Do not reformat the line, add a line-length or `@Suppress` lint exception, or otherwise work around the warning. Instead, report it and propose a design fix: group the dependencies by responsibility and extract use cases into `core/domain` (following the existing use-case pattern) so the class depends on fewer, more meaningful collaborators. Wait for approval before implementing. Apply judgment: if a class genuinely needs many dependencies and extraction would only add indirection (for example, a DI module that just wires many bindings, or a data holder), say so and explain instead of forcing an extraction. This is an exception to "scope containment" only in that you must flag the problem; do not refactor unrelated existing code without approval.
+- **Constructor Dependencies Are a Cohesion Signal, Not a Limit:** Around seven or more injected collaborators warrants a cohesion check, not an automatic refactor or a maximum parameter count. Look for distinct responsibilities, independent reasons to change, and testing difficulty; count alone does not prove a design problem. Distinguish collaborators from configuration values, data fields and ordinary function arguments. Cohesive orchestrators may legitimately need more dependencies. Extract only when a meaningful boundary improves clarity, ownership or testability; do not introduce dependency bags or forwarding wrappers solely to lower the visible count. Formatting a long constructor or Koin binding is separate from assessing its design. Report evidenced concerns and propose any extraction for approval; do not refactor unrelated code or suppress a design warning merely to avoid assessing it.
 
 ### Documentation & Code Sync
 
@@ -288,8 +288,9 @@ and approval gates. Read all applicable references before the corresponding work
   affected topic reference selected by its index, including downstream consumers.
   Do not load all topics by default. Update the owning reference when behavior changes.
 - **CI/signing/release/tagging/PR work:** read `docs/agent-ci-release.md` before
-  proposing or executing it. All code changes must keep CI green; ktlint/detekt run
-  on every PR. Changes go through a PR requiring passing CI before merge; direct
+  proposing or executing it. All code changes must keep CI green; ktlint runs
+  on every PR, with detekt also required if configured. Changes go through a PR
+  requiring passing CI before merge; direct
   pushes to `main` should be restricted. Any new dependency's license and transitive
   hygiene checks belong in the PR description. Never log API keys or payloads that
   might contain them; redact before logging. Commit/push approval and post-push CI
@@ -316,14 +317,18 @@ Keep SQLDelight, Koin, Ktor and LiteRT-LM within the existing architecture and a
   not a home for feature, domain or data logic. If no module fits new logic, ask first.
   `shared` may reference database/network types only inside DI wiring files.
 - `core/domain` is KMP (Android + iOS), with all code in `commonMain` and no platform
-  APIs. Use cases have one public `invoke`/`execute` entry point. Repository ports live
+  APIs. Use cases normally expose one public `invoke`/`execute` entry point per action;
+  this convention is not proof of single responsibility or a mandate to split cohesive
+  operations. Repository ports live
   in domain/userdata; SQLDelight implementations live in database, HTTP in network.
   Domain/feature data access uses generated queries through those implementations,
   never direct database access. No engine-specific logic outside its implementation.
 - `core/userdata` owns shared profile, metrics, goals, units and settings. Ask before
   placing plausibly shared user data in a feature. Each feature owns its UI/state,
   thin ViewModels and exported Koin/navigation entries. ViewModels forward business
-  actions to domain use cases. Features depend on domain/userdata, never database,
+  actions to domain use cases, while owning presentation state and UI lifecycle
+  coordination; not every UI-state transition needs a domain use case. Features
+  depend on domain/userdata, never database,
   network or another feature; `shared` explicitly aggregates registrations.
 - Preserve existing naming/style; the detailed module conventions remain in the
   mandatory project reference. Schema migrations and graph verification remain

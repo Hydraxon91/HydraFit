@@ -99,8 +99,9 @@ All use cases and both model-backed engine bindings live in `:shared` (`domainMo
 
 ### 1.5 Use cases (one entry point per action)
 
-Business operations are single-purpose classes with one public `operator fun invoke(...)`, grouped in
-`:core:domain`. They are constructed by Koin.
+Business operations normally expose a public `operator fun invoke(...)` per action, grouped in
+`:core:domain` and constructed by Koin. A single entry point is a convention, not proof of single
+responsibility; cohesive operations need not be split solely to meet a method-count rule.
 
 - **Examples:** `LogWorkoutSetUseCase` (session-aware logging), `ObserveWorkoutPlanInputsUseCase`,
   `AcceptWeeklyPlanUseCase`, `SubstituteExerciseUseCase`, `SuggestWeightsUseCase`,
@@ -109,14 +110,16 @@ Business operations are single-purpose classes with one public `operator fun inv
   `CalculateMuscleFatigueUseCase`) coexist with rich ones.
 - **Violations / tensions:** `LogWorkoutSetUseCase` absorbed session lifecycle (auto-start,
   day/idle rollover, backdate attach, end/new) and a `Mutex` — an SRP drift (S1-004) that also makes
-  it the chokepoint for session rules. `ObserveWorkoutPlanInputsUseCase` has 8 constructor
-  dependencies, past the project's ~6 guideline (S1-009). `lastSetAt` now reads one row via
+  it the chokepoint for session rules. S1-009 recorded eight constructor dependencies in
+  `ObserveWorkoutPlanInputsUseCase`; the current constructor has six, including
+  `BuildPlannerLoadInputsUseCase`. Dependency count alone does not establish an SRP violation.
+  `lastSetAt` now reads one row via
   `lastSetBySession` (S1-005 resolved).
 - **Ranked improvements:**
   1. (M) Extract a `WorkoutSessionResolver`/`SessionPolicy` collaborator if session rules grow; keep
      the lock at the use-case boundary (S1-004).
-  2. (M) Group the weighting collaborators behind one domain service to shrink
-     `ObserveWorkoutPlanInputsUseCase` (S1-009).
+  2. Reassess the historical S1-009 concern against current responsibilities before proposing
+     further extraction; shrinking the constructor alone is not an improvement criterion.
 
 ### 1.6 UiState + ViewModel
 
@@ -128,12 +131,17 @@ and take the state plus callbacks.
   `SplitBuilderUiState`, `EquipmentProfilerViewModel`/`EquipmentProfilerUiState`.
 - **Consistency:** high. Screens use `collectAsStateWithLifecycle` and never touch repositories.
 - **Violations / tensions:** VMs are thin in responsibility but not always in size —
-  `WorkoutLoggerViewModel` is 458 lines and re-derives today's drafts on every resume, resurrecting
-  confirmed drafts (S4-001). `EquipmentProfilerViewModel` performs a non-atomic rename and has
-  uncaught persistence calls (S4-004). The Logger VM dropped to 6 constructor params after
-  `WorkoutLogMutations` grouped the mutating use cases (seed refuted in S4).
+  the current `WorkoutLoggerViewModel` has six constructor collaborators, including
+  `WorkoutLogMutations`, `WorkoutLoggingActions`, runtime and settings collaborators. The historical
+  S4 snapshot described 458 lines; the logger has since grown substantially. Neither its line count
+  nor its grouped dependency count establishes cohesion. S4-001 recorded draft resurrection on
+  resume; current code tracks the plan/day draft context, so that historical finding is not evidence
+  that every resume still rebuilds drafts. S4-004 recorded non-atomic rename and uncaught persistence
+  calls in `EquipmentProfilerViewModel`; those concerns require current-source verification before
+  being treated as present defects.
 - **Ranked improvements:**
-  1. (M) Fix draft resurrection by only rebuilding on a plan/day change (S4-001).
+  1. Verify current plan/day draft-context behavior before reopening S4-001; do not prescribe
+     its historical fix without confirming a remaining defect.
   2. (M) Inject the weight unit where needed and format consistently (S4-003).
 
 ### 1.7 Swappable `WorkoutPlannerEngine` strategy (+ model-backed fallbacks)
@@ -601,8 +609,8 @@ Legend: ✅ satisfied, ⚠️ mixed/violated with evidence, n/a.
 | 1.2 Ports + SQLDelight impls | ✅ | ⚠️ | ✅ | ⚠️ | ✅ | Implementations are interchangeable (LSP ✅); `WorkoutLogRepository` is wide + derived mapping (ISP ⚠️, S1-006); adding a repo method edits all fakes (OCP ⚠️, TS4-001). |
 | 1.3 Static feature aggregation | ✅ | ⚠️ | n/a | ✅ | ✅ | Adding a feature edits the shell lists — deliberate OCP tradeoff (PLANS 287). |
 | 1.4 Koin composition root | ✅ (DI module) | ✅ | n/a | ✅ | ✅ | Config duplication S6-001 weakens "one definition"; acceptable for a DI module. |
-| 1.5 Use cases | ⚠️ | ✅ | ✅ | ✅ | ✅ | `LogWorkoutSetUseCase` SRP drift (S1-004); `ObserveWorkoutPlanInputsUseCase` size (S1-009). |
-| 1.6 UiState/ViewModel | ⚠️ | ✅ | ✅ | ✅ | ✅ | VMs thin on logic but large; S4-001, S4-004. |
+| 1.5 Use cases | ⚠️ | ✅ | ✅ | ✅ | ✅ | `LogWorkoutSetUseCase` session-policy tension (S1-004); historical S1-009 dependency count alone does not establish SRP drift. |
+| 1.6 UiState/ViewModel | ⚠️ | ✅ | ✅ | ✅ | ✅ | Historical S4-001/S4-004 concerns need current verification; size and dependency count alone do not establish responsibility boundaries. |
 | 1.7 Engine strategy | ✅ | ✅ | ✅ | ✅ | ✅ | Three implementations, one interface; LSP holds at the interface; differing fallback **semantics** are per-implementation and partly contradict D8 (S3-001). |
 | 1.8 Snapshot models | ✅ | ✅ | n/a | ✅ | n/a | Value semantics; null-vs-empty conflation is a correctness edge (S2-001). |
 | 1.9 Additive migrations | ✅ | ✅ | n/a | n/a | n/a | Ordered, additive; verification gap (S2-004). |
@@ -642,6 +650,10 @@ Applied to this codebase:
 - **SRP with judgment** — reason-to-change/actor, not "one method per class". North's critique is
   real; splitting code that always changes together adds indirection. This project's own "no style
   conversions / no speculative abstractions" rules (AGENTS.md) are the guard against SOLID dogmatism.
+  Around seven injected collaborators prompts a cohesion check, not an automatic extraction.
+  Facades should offer a meaningful action surface or orchestration, not merely hide dependencies
+  to meet a numerical budget. Thin ViewModels keep domain policy elsewhere while still owning
+  presentation state and UI lifecycle coordination.
 - **Kotlin caveat:** don't write Java-in-Kotlin (getter/setter objects, deep hierarchies); idiomatic
   Kotlin usually satisfies SOLID's *intent* with less ceremony.
 
