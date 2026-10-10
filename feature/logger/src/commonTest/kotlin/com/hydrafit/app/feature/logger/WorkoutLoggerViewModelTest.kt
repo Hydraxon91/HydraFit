@@ -3576,6 +3576,7 @@ class WorkoutLoggerViewModelTest {
         assertFalse(viewModel.state.value.restDurationIsOverride)
 
         viewModel.onRestDurationChanged("240")
+        assertFalse(viewModel.state.value.restDurationIsOverride)
         runCurrent()
         assertEquals(240L, restPreferences.exerciseOverrideSeconds("back-squat"))
         assertEquals(240_000L, viewModel.state.value.restTimer?.countdown?.durationMillis)

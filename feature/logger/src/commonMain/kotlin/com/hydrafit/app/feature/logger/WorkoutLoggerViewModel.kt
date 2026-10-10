@@ -1569,9 +1569,9 @@ class WorkoutLoggerViewModel(
             ?: return
         restTimer.updateDuration(millis)
         val exerciseId = timerExerciseId ?: return
-        _state.update { it.copy(restDurationIsOverride = true) }
         viewModelScope.launch {
             settings.setExerciseRestDuration(exerciseId, millis / 1_000L)
+            _state.update { it.copy(restDurationIsOverride = true) }
         }
     }
 
