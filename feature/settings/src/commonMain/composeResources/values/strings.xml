@@ -15,7 +15,7 @@
     <string name="settings_share_data">Share workout data with AI engines</string>
     <string name="settings_share_data_description">Lets the AI planners see your recent weights and suggest a working weight. Off by default.</string>
     <string name="settings_guided_workout">Enable guided workouts</string>
-    <string name="settings_guided_workout_description">Choose whether to use guided workouts when available. Off by default; existing logging stays unchanged.</string>
+    <string name="settings_guided_workout_description">Follow an active scheduled workout one set at a time. Off by default; manual logging stays available.</string>
     <string name="settings_unit_section">Weight unit</string>
     <string name="settings_unit_kg">Kilograms (kg)</string>
     <string name="settings_unit_lb">Pounds (lb)</string>
