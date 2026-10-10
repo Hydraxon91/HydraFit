@@ -5,8 +5,8 @@ CREATE TABLE exercise (
     movementPattern TEXT NOT NULL,
     isCustom INTEGER NOT NULL DEFAULT 0,
     isUnilateral INTEGER NOT NULL DEFAULT 0,
-    loadCapability TEXT NOT NULL DEFAULT 'UNSPECIFIED',
-    involvements TEXT
+    involvements TEXT,
+    loadCapability TEXT NOT NULL DEFAULT 'UNSPECIFIED'
 );
 
 selectAll:

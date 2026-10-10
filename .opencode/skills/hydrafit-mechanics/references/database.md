@@ -18,14 +18,35 @@ so reordering preserves identity.
 
 `WorkoutLog.sq`'s `selectSetById` and `updateSetValues` support in-place recent-set correction.
 `SqlDelightSessionResegmenter.resegmentAfterSetCorrection` validates the stored load shape and
-updates reps/weight/RIR in the same transaction as time/session corrections. Only a changed time
-runs the existing full-history resegmentation algorithm; otherwise the lookup is bounded and
-session bounds stay untouched. No schema change or migration is needed; all snapshots, load kind
-and occurrence links are retained. A missing row fails instead of recreating a deleted set.
+updates reps/weight/RIR in the same transaction as time/session corrections. A changed performed
+time or changed reps/load/RIR clears timing provenance and elapsed instants atomically; a no-op
+correction preserves them. Only a changed time runs the existing full-history resegmentation
+algorithm; otherwise the lookup is bounded and session bounds stay untouched. No schema change or
+migration is needed; all snapshots, load kind and occurrence links are retained. A missing row fails
+instead of recreating a deleted set.
 
-`N.sqm` migrates from version N to N+1. At authoring, migrations were `1.sqm`
-through `26.sqm`, producing schema 27. Determine the next version from the
-current directory/generated Schema rather than copying this snapshot.
+`N.sqm` migrates from version N to N+1. Migration `34.sqm` adds the set-level
+`timingProvenance` value (`UNKNOWN` for existing rows); `35.sqm` adds the optional
+monotonic set-start/completion instants; `36.sqm` adds shared rest preferences and
+the process-restorable countdown row. Current schema version is 37. Determine the
+next version from the current directory/generated Schema rather than copying this snapshot.
+
+`restPreference` stores the global default under `GLOBAL` and exercise overrides under
+`EXERCISE:<exerciseId>`; an absent global row resolves to 120 seconds. Rest countdown
+state is separate, transient user data: it stores a monotonic deadline, duration, boot
+identity, open session, occurrence and exercise, and is not exported. Backup restore
+clears it because restored workout context is not a continuation of the prior process.
+
+`V1ToCurrentMigrationTest` migrates a v1 database (only the `exercise` table) through
+`1.sqm..36.sqm` and asserts the retained values, legacy→involvement conversion and
+the rest preference/countdown tables.
+SQLDelight `verifyMigrations` is enabled against the committed v1 seed `databases/1.db`;
+`./gradlew verifySqlDelightMigration` (run in CI) applies `1.sqm..36.sqm` to it and fails
+if the result differs from the current `.sq`. Keep `1.db` fixed — it is the immutable v1
+schema, not a current-version snapshot. When the migration chain produces a different
+column *order* than `.sq` declares, align the `.sq` order to the chain (no column
+added/removed/retyped), as done in 0.6.0 for `exercise`, `exerciseOverride` and
+`occurrenceEntry`.
 
 `core/database/build.gradle.kts` declares:
 
@@ -34,6 +55,8 @@ sqldelight {
     databases {
         create("HydraFitDatabase") {
             packageName.set("com.hydrafit.app.core.database")
+            schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
+            verifyMigrations.set(true)
         }
     }
 }

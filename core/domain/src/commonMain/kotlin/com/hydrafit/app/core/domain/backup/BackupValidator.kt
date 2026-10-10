@@ -15,6 +15,7 @@ import com.hydrafit.app.core.domain.schedule.RemainingDisposition
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 
 /**
  * Validates a whole payload before any write. Rejection is all-or-nothing: an unknown catalog id, a
@@ -26,7 +27,7 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 class BackupValidator(private val catalog: BackupCatalog) {
 
     fun validate(file: BackupFile) {
-        if (file.format != BACKUP_FORMAT || file.formatVersion != BACKUP_FORMAT_VERSION) {
+        if (file.format != BACKUP_FORMAT || file.formatVersion !in SUPPORTED_FORMAT_VERSIONS) {
             fail(BackupFailure.UNSUPPORTED_VERSION)
         }
 
@@ -58,6 +59,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
         uniqueBy(file.personalRecords) { it.exerciseId }
         uniqueBy(file.preferences) { it.exerciseId }
         uniqueBy(file.exclusions) { it.exerciseId }
+        uniqueBy(file.restPreferences) { it.exerciseId }
         uniqueBy(file.volumeExplanations) { it.planId to it.muscle }
         uniqueBy(file.volumeExplanationStates) { it.planId }
         uniqueBy(file.selectedEquipment) { it }
@@ -87,6 +89,14 @@ class BackupValidator(private val catalog: BackupCatalog) {
 
         file.selectedEquipment.forEach { equipment(it, knownEquipment) }
 
+        if (file.formatVersion >= 5 && file.restPreferences.count { it.exerciseId == null } != 1) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        file.restPreferences.forEach { preference ->
+            if (preference.durationSeconds !in 1L..86_400L) fail(BackupFailure.INVALID_VALUE)
+            preference.exerciseId?.let { exercise(it, knownExercises) }
+        }
+
         file.customExercises.forEach {
             enum(it.movementPattern, MovementPattern.entries)
             enum(it.loadCapability, ExerciseLoadCapability.entries)
@@ -108,6 +118,15 @@ class BackupValidator(private val catalog: BackupCatalog) {
         file.workoutSets.forEach {
             exercise(it.exerciseId, knownExercises)
             enum(it.loadKind, LoadKind.entries)
+            enum(it.timingProvenance, WorkoutTimingProvenance.entries)
+            if ((it.startedAtElapsedMillis == null) != (it.completedAtElapsedMillis == null)) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            it.startedAtElapsedMillis?.let { startedAt ->
+                if (startedAt < 0L || it.completedAtElapsedMillis!! < startedAt) {
+                    fail(BackupFailure.INVALID_VALUE)
+                }
+            }
             it.weightKg?.let { value -> finite(value) }
             it.occurrenceId?.let { id -> reference(id, occurrenceIds) }
             it.occurrenceEntryId?.let { id -> reference(id, occurrenceEntryIds) }
@@ -270,6 +289,8 @@ class BackupValidator(private val catalog: BackupCatalog) {
     private fun fail(failure: BackupFailure): Nothing = throw BackupException(failure)
 
     private companion object {
+        val SUPPORTED_FORMAT_VERSIONS = 1..BACKUP_FORMAT_VERSION
+
         /** Muscle names accepted in an involvement snapshot, including the legacy broad names. */
         val muscleTokens: Set<String> =
             MuscleGroup.entries.map { it.name }.toSet() +

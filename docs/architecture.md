@@ -99,8 +99,9 @@ All use cases and both model-backed engine bindings live in `:shared` (`domainMo
 
 ### 1.5 Use cases (one entry point per action)
 
-Business operations are single-purpose classes with one public `operator fun invoke(...)`, grouped in
-`:core:domain`. They are constructed by Koin.
+Business operations normally expose a public `operator fun invoke(...)` per action, grouped in
+`:core:domain` and constructed by Koin. A single entry point is a convention, not proof of single
+responsibility; cohesive operations need not be split solely to meet a method-count rule.
 
 - **Examples:** `LogWorkoutSetUseCase` (session-aware logging), `ObserveWorkoutPlanInputsUseCase`,
   `AcceptWeeklyPlanUseCase`, `SubstituteExerciseUseCase`, `SuggestWeightsUseCase`,
@@ -109,14 +110,16 @@ Business operations are single-purpose classes with one public `operator fun inv
   `CalculateMuscleFatigueUseCase`) coexist with rich ones.
 - **Violations / tensions:** `LogWorkoutSetUseCase` absorbed session lifecycle (auto-start,
   day/idle rollover, backdate attach, end/new) and a `Mutex` — an SRP drift (S1-004) that also makes
-  it the chokepoint for session rules. `ObserveWorkoutPlanInputsUseCase` has 8 constructor
-  dependencies, past the project's ~6 guideline (S1-009). `lastSetAt` now reads one row via
+  it the chokepoint for session rules. S1-009 recorded eight constructor dependencies in
+  `ObserveWorkoutPlanInputsUseCase`; the current constructor has six, including
+  `BuildPlannerLoadInputsUseCase`. Dependency count alone does not establish an SRP violation.
+  `lastSetAt` now reads one row via
   `lastSetBySession` (S1-005 resolved).
 - **Ranked improvements:**
   1. (M) Extract a `WorkoutSessionResolver`/`SessionPolicy` collaborator if session rules grow; keep
      the lock at the use-case boundary (S1-004).
-  2. (M) Group the weighting collaborators behind one domain service to shrink
-     `ObserveWorkoutPlanInputsUseCase` (S1-009).
+  2. Reassess the historical S1-009 concern against current responsibilities before proposing
+     further extraction; shrinking the constructor alone is not an improvement criterion.
 
 ### 1.6 UiState + ViewModel
 
@@ -128,12 +131,17 @@ and take the state plus callbacks.
   `SplitBuilderUiState`, `EquipmentProfilerViewModel`/`EquipmentProfilerUiState`.
 - **Consistency:** high. Screens use `collectAsStateWithLifecycle` and never touch repositories.
 - **Violations / tensions:** VMs are thin in responsibility but not always in size —
-  `WorkoutLoggerViewModel` is 458 lines and re-derives today's drafts on every resume, resurrecting
-  confirmed drafts (S4-001). `EquipmentProfilerViewModel` performs a non-atomic rename and has
-  uncaught persistence calls (S4-004). The Logger VM dropped to 6 constructor params after
-  `WorkoutLogMutations` grouped the mutating use cases (seed refuted in S4).
+  the current `WorkoutLoggerViewModel` has six constructor collaborators, including
+  `WorkoutLogMutations`, `WorkoutLoggingActions`, runtime and settings collaborators. The historical
+  S4 snapshot described 458 lines; the logger has since grown substantially. Neither its line count
+  nor its grouped dependency count establishes cohesion. S4-001 recorded draft resurrection on
+  resume; current code tracks the plan/day draft context, so that historical finding is not evidence
+  that every resume still rebuilds drafts. S4-004 recorded non-atomic rename and uncaught persistence
+  calls in `EquipmentProfilerViewModel`; those concerns require current-source verification before
+  being treated as present defects.
 - **Ranked improvements:**
-  1. (M) Fix draft resurrection by only rebuilding on a plan/day change (S4-001).
+  1. Verify current plan/day draft-context behavior before reopening S4-001; do not prescribe
+     its historical fix without confirming a remaining defect.
   2. (M) Inject the weight unit where needed and format consistently (S4-003).
 
 ### 1.7 Swappable `WorkoutPlannerEngine` strategy (+ model-backed fallbacks)
@@ -295,19 +303,23 @@ The UI freezes the entry unit and retains full stored precision when weight text
 SQLDelight `.sq` files describe the current schema; every schema change ships a numbered `.sqm`
 migration, and released schemas are never edited in place.
 
-- **Examples:** `core/database/src/commonMain/sqldelight/…` — `1.sqm`..`27.sqm`, table rebuilds in
+- **Examples:** `core/database/src/commonMain/sqldelight/…` — `1.sqm`..`35.sqm`, table rebuilds in
   `20.sqm` (dropping legacy muscle columns), additive columns (`17.sqm`, `18.sqm`, `22.sqm`,
-  `23.sqm`, `24.sqm`, `27.sqm` EX-02 load columns), new tables (`21.sqm` `personalRecord`, `25.sqm`
-  routine templates, `26.sqm` activations/occurrences/schedule cursor).
-- **Consistency:** high; the current `.sq` schema matches the cumulative migrations (manually
-  cross-checked in S2). Business-level compatibility is guarded by the review's "Phase C" invariant:
-  neutral inputs must reproduce prior figures exactly (`docs/plans-archive.md` C1-C3).
-- **Violations / tensions:** the build does not enable SQLDelight `verifyMigrations`, and migration
-  tests start at v13, so the `1.sqm..12.sqm` chain and `.sq`↔`.sqm` agreement are unverified
-  (S2-004, TS3-001).
-- **Ranked improvements:**
-  1. (M) Enable `verifyMigrations` with a checked-in schema snapshot, or add a v1→current test
-     (S2-004, TS3-001).
+  `23.sqm`, `24.sqm`, `27.sqm` EX-02 load columns, `34.sqm`/`35.sqm` timing provenance and elapsed
+  instants), new tables (`21.sqm` `personalRecord`, `25.sqm` routine templates, `26.sqm`
+  activations/occurrences/schedule cursor).
+- **Consistency:** high; the current `.sq` matches the cumulative migrations exactly, including column
+  order. A one-off 0.6.0 exception reordered columns — adding, removing and retyping nothing — in
+  `exercise`, `exerciseOverride` (`involvements` declared before `loadCapability`, since `19.sqm` added
+  it before `27.sqm`) and `occurrenceEntry` (`remainingDisposition`/`terminalRemainingSets` before
+  `loadCapability`/`loadKind`), so a fresh `.sq` create now agrees with an upgraded database. Business-level
+  compatibility is guarded by the review's "Phase C" invariant: neutral inputs must reproduce prior
+  figures exactly (`docs/plans-archive.md` C1-C3).
+- **Verification:** SQLDelight `verifyMigrations` is enabled against the committed v1 seed
+  `databases/1.db` (the immutable schema of version 1); `verifySqlDelightMigration` applies
+   `1.sqm..36.sqm` to it and fails when the result differs from the current `.sq`, so an unmigrated
+  `.sq` edit fails the build. It runs in CI. `V1ToCurrentMigrationTest` additionally migrates a v1
+  database in code, asserting retained values and the legacy→involvement conversion (S2-004, TS3-001).
 
 ### 1.10 Platform boundary via source sets + Koin (not `expect`/`actual`)
 
@@ -445,7 +457,7 @@ protection flags, never renaming/merging/redirecting. No IDs, history, PRs, pres
 working-load suggestions, preferences or exclusions are copied. Pattern/muscle guardrails stay
 advisory.
 
-### 1.14 Local backup/export and restore (OF-01 v1)
+### 1.14 Local backup/export and restore (OF-01)
 
 A user-selected local file captures the supported offline data as a **logical,
 versioned JSON** snapshot, and restore replaces that data wholesale.
@@ -458,7 +470,7 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   and `SqlDelightBackupCatalog`; the `:core:userdata` `BackupFileStore` port
   (`AndroidBackupFileStore` SAF implementation, `UnsupportedBackupFileStore` on
   iOS); the Settings `BackupRoute`/`BackupViewModel`.
-- **Rules:** the file is logical (`format` + `formatVersion` 1), independent of the
+- **Rules:** the file is logical (`format` + `formatVersion` 5), independent of the
   SQLite schema and the app version. Every envelope field is required, so a file
   that omits one is rejected as malformed rather than read as an empty snapshot;
   nullable fields are present as explicit `null`, not omitted. The manifest carries
@@ -487,7 +499,10 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   staged payload and records a one-time failure the Settings screen shows and
   clears. Absence uses the documented new-row value: a payload with no settings
   materialises the default planner row, an omitted built-in equipment limit keeps
-  its current value, and user equipment the payload omits is dropped.
+  its current value, and user equipment the payload omits is dropped. Format 5
+  includes one global rest duration and optional per-exercise overrides; formats
+  1–4 restore a 120-second global default with no overrides. Persisted countdown
+  deadlines are transient session state, excluded from backups and cleared on restore.
 - **Consistency:** mirrors the §1.8 snapshot rule — frozen prescriptions,
   performed snapshots, load kinds and stored ids round-trip unchanged.
 - **Violations / tensions:** the existing repositories cannot implement restore
@@ -496,6 +511,31 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   in 0.5.0, so iOS binds `UnsupportedBackupFileStore` and the section shows a note.
 - **Ranked improvements:** (S) if backups and history need the same round-trip
   fixtures, extract a shared test fixture rather than duplicating payload builders.
+
+### 1.15 Workout timing provenance
+
+Performed-set timestamps are not evidence of rest duration. Each set stores an explicit
+`WorkoutTimingProvenance`: `LIVE`, `CATCH_UP`, or `UNKNOWN`. Only the guided live-completion
+action writes `LIVE`; a chosen historical time writes `CATCH_UP`; ordinary manual and legacy
+sets remain `UNKNOWN`. Correcting performed time clears provenance to `UNKNOWN`. The enum is
+stored additively in migration `34.sqm`; `35.sqm` adds nullable monotonic start/completion instants.
+Existing rows default to unknown and no elapsed instants. Backup formats 4–5 require explicit
+provenance and nullable elapsed fields. Format 3 requires and preserves provenance while elapsed
+fields default to null; formats 1–2 default all timing fields to unknown/null. Rest measurement
+still requires explicit live start/completion events; provenance alone does not establish a measured
+interval.
+
+### 1.16 Rest preferences and countdown restoration
+
+The `RestPreferenceRepository` stores one global default (120 seconds when no row exists) and
+optional exercise-specific overrides. The override wins; resetting it returns to the global value.
+Training-goal rest ranges remain guidance only and do not create goal/day-specific overrides.
+Backup format 5 exports the global value and overrides; restore replaces them and clears any
+persisted countdown. Countdown persistence stores only a monotonic deadline, duration, boot
+identity and session/occurrence/exercise context. Restoration fails closed unless all identities
+match and the deadline remains in the future; it never rebuilds a deadline from wall time. Android
+uses the OS boot counter. iOS currently cannot supply a reliable boot identity and therefore does
+not restore saved countdowns. Expired or invalid state is silently cleared.
 
 ## 2. Decision log
 
@@ -538,8 +578,10 @@ maintainer; RA does not answer them.
 2. **`android:allowBackup="true"`** with no `dataExtractionRules`/`fullBackupContent`
    (`AndroidManifest.xml:8`) — no recorded decision on backing up the workout DB / secure prefs
    (S6-003).
-3. **No `verifyMigrations`/schema snapshot** (`core/database/build.gradle.kts`) — no recorded reason
-   for relying on hand-written migration tests instead (S2-004).
+3. **`verifyMigrations`/schema snapshot** — resolved (0.6.0): enabled with the committed v1
+   seed `databases/1.db`, after aligning three `.sq` tables (`exercise`, `exerciseOverride`,
+   `occurrenceEntry`) to the migration-derived column order (no column added/removed/retyped);
+   see §1.9 (S2-004).
 4. **Gemini sanitize-time silent fallback** — the recorded decision (D8) says the opposite; the
    rationale for the code's behavior is unrecorded (S3-001).
 5. **`VolumeAwareReps.repsFor` validates but otherwise ignores its `sets` parameter** (S1-010).
@@ -567,8 +609,8 @@ Legend: ✅ satisfied, ⚠️ mixed/violated with evidence, n/a.
 | 1.2 Ports + SQLDelight impls | ✅ | ⚠️ | ✅ | ⚠️ | ✅ | Implementations are interchangeable (LSP ✅); `WorkoutLogRepository` is wide + derived mapping (ISP ⚠️, S1-006); adding a repo method edits all fakes (OCP ⚠️, TS4-001). |
 | 1.3 Static feature aggregation | ✅ | ⚠️ | n/a | ✅ | ✅ | Adding a feature edits the shell lists — deliberate OCP tradeoff (PLANS 287). |
 | 1.4 Koin composition root | ✅ (DI module) | ✅ | n/a | ✅ | ✅ | Config duplication S6-001 weakens "one definition"; acceptable for a DI module. |
-| 1.5 Use cases | ⚠️ | ✅ | ✅ | ✅ | ✅ | `LogWorkoutSetUseCase` SRP drift (S1-004); `ObserveWorkoutPlanInputsUseCase` size (S1-009). |
-| 1.6 UiState/ViewModel | ⚠️ | ✅ | ✅ | ✅ | ✅ | VMs thin on logic but large; S4-001, S4-004. |
+| 1.5 Use cases | ⚠️ | ✅ | ✅ | ✅ | ✅ | `LogWorkoutSetUseCase` session-policy tension (S1-004); historical S1-009 dependency count alone does not establish SRP drift. |
+| 1.6 UiState/ViewModel | ⚠️ | ✅ | ✅ | ✅ | ✅ | Historical S4-001/S4-004 concerns need current verification; size and dependency count alone do not establish responsibility boundaries. |
 | 1.7 Engine strategy | ✅ | ✅ | ✅ | ✅ | ✅ | Three implementations, one interface; LSP holds at the interface; differing fallback **semantics** are per-implementation and partly contradict D8 (S3-001). |
 | 1.8 Snapshot models | ✅ | ✅ | n/a | ✅ | n/a | Value semantics; null-vs-empty conflation is a correctness edge (S2-001). |
 | 1.9 Additive migrations | ✅ | ✅ | n/a | n/a | n/a | Ordered, additive; verification gap (S2-004). |
@@ -608,6 +650,10 @@ Applied to this codebase:
 - **SRP with judgment** — reason-to-change/actor, not "one method per class". North's critique is
   real; splitting code that always changes together adds indirection. This project's own "no style
   conversions / no speculative abstractions" rules (AGENTS.md) are the guard against SOLID dogmatism.
+  Around seven injected collaborators prompts a cohesion check, not an automatic extraction.
+  Facades should offer a meaningful action surface or orchestration, not merely hide dependencies
+  to meet a numerical budget. Thin ViewModels keep domain policy elsewhere while still owning
+  presentation state and UI lifecycle coordination.
 - **Kotlin caveat:** don't write Java-in-Kotlin (getter/setter objects, deep hierarchies); idiomatic
   Kotlin usually satisfies SOLID's *intent* with less ceremony.
 

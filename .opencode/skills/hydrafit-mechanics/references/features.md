@@ -56,6 +56,22 @@ unit is frozen, unchanged weight text preserves exact stored kilograms, blank is
 numeric. Recorded load kind is authoritative (BODYWEIGHT stays non-numeric); live catalog edits do
 not reinterpret history. Block attribution, warm-up and snapshots are preserved.
 
+Performed sets carry `WorkoutTimingProvenance`: `LIVE` is reserved for the explicit guided
+completion action, `CATCH_UP` for an explicitly chosen performed time, and `UNKNOWN` for ordinary
+manual/guided logging and legacy rows. A live guided set stores its monotonic start and completion
+instants; correcting performed time or changing reps/load/RIR resets provenance to `UNKNOWN` and
+clears both instants atomically. A successful guided write consumes the live event on every load
+resolution path; failed writes retain it for retry. Timing source is not inferred from timestamp
+gaps. The values round-trip through backup format 5; format 3 preserves provenance but defaults
+elapsed fields to null, and formats 1–2 default timing fields to unknown/null.
+
+All three Logger RIR inputs (manual entry, planned-draft edit and recent-set edit) explain RIR as
+additional reps possible with comparable technique and range of motion, keep it optional, and offer
+explicit 0/1/2/3 quick-picks. Tapping the selected value clears it; blank remains unreported and
+preserves the existing neutral fatigue assumption. Typed values through 10 remain available. RIR is
+the only presentation in B1: there is no RPE alias/conversion, inferred effort, domain change or
+automatic selection from history/prescriptions.
+
 Feature navigation: each feature exports a `FeatureDestination` whose `graph` is
 `(NavController) -> NavGraphBuilder.() -> Unit`; the shell passes its `NavController`, so a feature
 can register an internal sub-route without a shell change. Settings uses a nested `navigation(...)`
@@ -63,6 +79,41 @@ graph (`settings` → `settings/home` + `settings/acknowledgments`) so the botto
 its sub-screen. The live app version comes from `AppVersionProvider` (`:core:userdata`), bound in
 `appVersionModule` (Android, from `BuildConfig.VERSION_NAME`) and `IosDatabaseModule` (returns
 `"dev"`).
+
+Guided-workout opt-in lives in Settings and defaults off. Its value is owned by
+`GuidedWorkoutPreferenceRepository` in `:core:userdata`, persisted with planner
+settings in `plannerEngine.guidedWorkoutEnabled`, and included in backup format
+2. Backup format 1 restores the preference as off.
+
+When the setting is on and a training-block occurrence is active, the Logger
+replaces the "Planned today" draft list with a guided card. Progress comes from
+`buildGuidedWorkoutProgress` (`:core/domain` `workout/GuidedWorkoutProgress.kt`),
+which reads each occurrence entry's frozen prescription and the working sets
+attributed to it; warm-ups and sets with no entry attribution never satisfy a
+prescription. The card lists exercises in entry order with target reps/load and
+performed/prescribed counts. "Log set" records exactly one working set for that
+entry and leaves the remaining prescribed sets pending; "Edit" opens the one-off
+draft editor and confirming it also writes a single set. Guided writes reuse the
+draft load-shape decisions (legacy resolution, missing-load prompt) through
+`writeGuidedSet`, so a single insert either lands or leaves the draft pending for
+retry. **Set completed now** is a separate explicit action: it timestamps the set
+at the live wall time and starts a deadline-based rest prompt only after the write
+succeeds. Ordinary guided confirmation, manual logging, warm-ups and backdated
+entries do not start a timer. The monotonic deadline and workout context are
+persisted for process-death restoration; restore requires matching boot, open-session
+and occurrence identity and silently clears expired or mismatched state. Global rest
+duration defaults to 120 seconds and is editable in Settings; a Logger timer edit saves
+an exercise override with a reset-to-default action. Durations are limited to 1 second–
+24 hours. These prompts are not rest measurements; alerts and coaching remain out of
+scope.
+It cancels on session/occurrence changes, guided mode being turned off, explicit
+dismissal, or successful deletion/correction of a set from its occurrence.
+Finish/partial Finish/Skip and End/New session retain their existing logging
+semantics. The accepted plan is never edited. Off keeps the existing draft/batch
+flow. The Logger ViewModel groups its preferences and rest-duration delegation in
+`WorkoutLoggerSettings` (display units and the guided flag, plus resolve/set/clear
+of per-exercise rest durations forwarded to the domain use cases), and its wall
+clock/timer factory in `WorkoutLoggerRuntime`, to stay within its dependency budget.
 
 For routine authoring, the module is `:feature:routines`:
 `RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/

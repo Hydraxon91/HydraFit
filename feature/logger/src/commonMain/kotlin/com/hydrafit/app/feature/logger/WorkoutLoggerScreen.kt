@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -56,6 +58,7 @@ import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
+import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.navigation.FeatureDestination
 import hydrafit.feature.logger.generated.resources.Res
@@ -90,6 +93,13 @@ import hydrafit.feature.logger.generated.resources.logger_end_session
 import hydrafit.feature.logger.generated.resources.logger_finish
 import hydrafit.feature.logger.generated.resources.logger_finish_partial
 import hydrafit.feature.logger.generated.resources.logger_future_time_error
+import hydrafit.feature.logger.generated.resources.logger_guided_all_done
+import hydrafit.feature.logger.generated.resources.logger_guided_log_completed_now
+import hydrafit.feature.logger.generated.resources.logger_guided_set_failed
+import hydrafit.feature.logger.generated.resources.logger_guided_set_started
+import hydrafit.feature.logger.generated.resources.logger_guided_start_set
+import hydrafit.feature.logger.generated.resources.logger_guided_target
+import hydrafit.feature.logger.generated.resources.logger_guided_title
 import hydrafit.feature.logger.generated.resources.logger_load_added
 import hydrafit.feature.logger.generated.resources.logger_load_added_none
 import hydrafit.feature.logger.generated.resources.logger_load_bodyweight
@@ -105,7 +115,12 @@ import hydrafit.feature.logger.generated.resources.logger_pick_time_title
 import hydrafit.feature.logger.generated.resources.logger_planned_today
 import hydrafit.feature.logger.generated.resources.logger_recent
 import hydrafit.feature.logger.generated.resources.logger_reps_label
-import hydrafit.feature.logger.generated.resources.logger_rir_label
+import hydrafit.feature.logger.generated.resources.logger_rest_timer_cancel
+import hydrafit.feature.logger.generated.resources.logger_rest_timer_duration
+import hydrafit.feature.logger.generated.resources.logger_rest_timer_finished
+import hydrafit.feature.logger.generated.resources.logger_rest_timer_note
+import hydrafit.feature.logger.generated.resources.logger_rest_timer_remaining
+import hydrafit.feature.logger.generated.resources.logger_rest_timer_use_default
 import hydrafit.feature.logger.generated.resources.logger_search_label
 import hydrafit.feature.logger.generated.resources.logger_session_active
 import hydrafit.feature.logger.generated.resources.logger_session_none
@@ -190,6 +205,13 @@ fun WorkoutLoggerRoute(
         onFinishWorkoutPartially = viewModel::finishWorkoutPartially,
         onSkipWorkout = viewModel::skipWorkout,
         onOccurrenceMessageShown = viewModel::onOccurrenceMessageShown,
+        onConfirmGuidedSet = viewModel::confirmGuidedSet,
+        onConfirmGuidedSetNow = viewModel::confirmGuidedSetNow,
+        onStartGuidedSet = viewModel::startGuidedSet,
+        onEditGuidedSet = viewModel::editGuidedSet,
+        onRestDurationChanged = viewModel::onRestDurationChanged,
+        onResetRestDuration = viewModel::resetExerciseRestDuration,
+        onCancelRestTimer = viewModel::cancelRestTimer,
         onBackdatedDateTimePicked = viewModel::onBackdatedDateTimePicked,
         onClearBackdated = { viewModel.onPerformedAtChanged(null) },
         onForceNewSessionChanged = viewModel::onForceNewSessionChanged,
@@ -244,6 +266,13 @@ fun WorkoutLoggerScreen(
     onFinishWorkoutPartially: () -> Unit,
     onSkipWorkout: () -> Unit,
     onOccurrenceMessageShown: () -> Unit,
+    onConfirmGuidedSet: (Long) -> Unit,
+    onConfirmGuidedSetNow: (Long) -> Unit,
+    onStartGuidedSet: (Long) -> Unit,
+    onEditGuidedSet: (Long) -> Unit,
+    onRestDurationChanged: (String) -> Unit,
+    onResetRestDuration: () -> Unit,
+    onCancelRestTimer: () -> Unit,
     onBackdatedDateTimePicked: (Long, Int, Int) -> Boolean,
     onClearBackdated: () -> Unit,
     onForceNewSessionChanged: (Boolean) -> Unit,
@@ -382,17 +411,10 @@ fun WorkoutLoggerScreen(
             }
         }
         item {
-            OutlinedTextField(
+            RirInput(
                 value = state.rir,
                 onValueChange = onRirChanged,
-                label = { Text(stringResource(Res.string.logger_rir_label)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Number,
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-                modifier = Modifier.fillMaxWidth()
+                onDone = { focusManager.clearFocus() }
             )
         }
         if (state.selectedExerciseIsUnilateral) {
@@ -449,7 +471,29 @@ fun WorkoutLoggerScreen(
                 )
             }
         }
-        if (state.draftSets.isNotEmpty()) {
+        if (state.isGuidedActive) {
+            state.guidedProgress?.let { guided ->
+                item {
+                    GuidedWorkoutSection(
+                        guided = guided,
+                        weightUnit = state.weightUnit,
+                        writeFailed = state.guidedSetWriteFailed,
+                        writeInProgress = state.draftWriteInProgress,
+                        restTimer = state.restTimer,
+                        restDurationSeconds = state.restDurationSeconds,
+                        restDurationIsOverride = state.restDurationIsOverride,
+                        onRestDurationChanged = onRestDurationChanged,
+                        onResetRestDuration = onResetRestDuration,
+                        onCancelRestTimer = onCancelRestTimer,
+                        onLogSet = onConfirmGuidedSet,
+                        onLogSetNow = onConfirmGuidedSetNow,
+                        startedSetEntryId = state.startedSetEntryId,
+                        onStartSet = onStartGuidedSet,
+                        onEditSet = onEditGuidedSet
+                    )
+                }
+            }
+        } else if (state.draftSets.isNotEmpty()) {
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -774,7 +818,10 @@ private fun DraftEditDialog(
         onDismissRequest = onCancel,
         title = { Text(stringResource(Res.string.logger_draft_edit_title, edit.draft.name)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 OutlinedTextField(
                     value = edit.reps,
                     onValueChange = onRepsChanged,
@@ -800,12 +847,9 @@ private fun DraftEditDialog(
                         }
                     }
                 }
-                OutlinedTextField(
+                RirInput(
                     value = edit.rir,
-                    onValueChange = onRirChanged,
-                    label = { Text(stringResource(Res.string.logger_rir_label)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
+                    onValueChange = onRirChanged
                 )
                 TextButton(onClick = {
                     showDate = true
@@ -1069,6 +1113,176 @@ private fun ActiveOccurrenceSection(
                     )
                     TextButton(onClick = onMessageShown) {
                         Text(stringResource(Res.string.logger_dismiss))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The ordered guided view of the active workout: each prescribed exercise with its frozen target
+ * and recorded progress. One set is confirmed per action; the remaining sets stay pending.
+ */
+@Composable
+private fun GuidedWorkoutSection(
+    guided: GuidedWorkoutProgress,
+    weightUnit: WeightUnit,
+    writeFailed: Boolean,
+    writeInProgress: Boolean,
+    restTimer: RestTimerState?,
+    restDurationSeconds: String,
+    restDurationIsOverride: Boolean,
+    onRestDurationChanged: (String) -> Unit,
+    onResetRestDuration: () -> Unit,
+    onCancelRestTimer: () -> Unit,
+    onLogSet: (Long) -> Unit,
+    onLogSetNow: (Long) -> Unit,
+    startedSetEntryId: Long?,
+    onStartSet: (Long) -> Unit,
+    onEditSet: (Long) -> Unit
+) {
+    Card {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = stringResource(Res.string.logger_guided_title),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = stringResource(
+                        Res.string.logger_active_progress,
+                        guided.performedSets,
+                        guided.prescribedSets
+                    ),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            if (writeFailed) {
+                Text(
+                    text = stringResource(Res.string.logger_guided_set_failed),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            restTimer?.let { timer ->
+                Text(
+                    text = if (timer.isFinished) {
+                        stringResource(Res.string.logger_rest_timer_finished)
+                    } else {
+                        val seconds = (timer.remainingMillis + 999L) / 1_000L
+                        stringResource(
+                            Res.string.logger_rest_timer_remaining,
+                            seconds / 60L,
+                            seconds % 60L
+                        )
+                    },
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    stringResource(Res.string.logger_rest_timer_note),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = restDurationSeconds,
+                        onValueChange = onRestDurationChanged,
+                        label = { Text(stringResource(Res.string.logger_rest_timer_duration)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = onCancelRestTimer) {
+                        Text(stringResource(Res.string.logger_rest_timer_cancel))
+                    }
+                }
+                if (restDurationIsOverride) {
+                    TextButton(onClick = onResetRestDuration) {
+                        Text(stringResource(Res.string.logger_rest_timer_use_default))
+                    }
+                }
+            }
+            if (guided.allComplete) {
+                Text(
+                    text = stringResource(Res.string.logger_guided_all_done),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            } else {
+                guided.exercises.forEach { exercise ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(exercise.exerciseName)
+                            Text(
+                                text = stringResource(
+                                    Res.string.logger_guided_target,
+                                    exercise.reps,
+                                    loadWeightText(exercise.loadKind, exercise.weightKg, weightUnit)
+                                ),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            if (startedSetEntryId == exercise.occurrenceEntryId) {
+                                Text(
+                                    text = stringResource(Res.string.logger_guided_set_started),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            Text(
+                                text = stringResource(
+                                    Res.string.logger_active_progress,
+                                    exercise.performedWorkingSets.coerceAtMost(
+                                        exercise.prescribedSets
+                                    ),
+                                    exercise.prescribedSets
+                                ),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        if (!exercise.isComplete) {
+                            Column {
+                                TextButton(
+                                    onClick = { onStartSet(exercise.occurrenceEntryId) },
+                                    enabled = !writeInProgress
+                                ) {
+                                    Text(stringResource(Res.string.logger_guided_start_set))
+                                }
+                                TextButton(
+                                    onClick = { onLogSet(exercise.occurrenceEntryId) },
+                                    enabled = !writeInProgress
+                                ) {
+                                    Text(stringResource(Res.string.logger_log_button))
+                                }
+                                TextButton(
+                                    onClick = { onLogSetNow(exercise.occurrenceEntryId) },
+                                    enabled = !writeInProgress &&
+                                        startedSetEntryId == exercise.occurrenceEntryId
+                                ) {
+                                    Text(stringResource(Res.string.logger_guided_log_completed_now))
+                                }
+                                TextButton(
+                                    onClick = { onEditSet(exercise.occurrenceEntryId) },
+                                    enabled = !writeInProgress
+                                ) {
+                                    Text(stringResource(Res.string.logger_draft_edit))
+                                }
+                            }
+                        }
                     }
                 }
             }

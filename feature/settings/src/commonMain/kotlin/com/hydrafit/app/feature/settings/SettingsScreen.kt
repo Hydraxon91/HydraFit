@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -21,6 +23,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -50,8 +54,14 @@ import hydrafit.feature.settings.generated.resources.settings_goal_endurance
 import hydrafit.feature.settings.generated.resources.settings_goal_hypertrophy
 import hydrafit.feature.settings.generated.resources.settings_goal_section
 import hydrafit.feature.settings.generated.resources.settings_goal_strength
+import hydrafit.feature.settings.generated.resources.settings_guided_workout
+import hydrafit.feature.settings.generated.resources.settings_guided_workout_description
 import hydrafit.feature.settings.generated.resources.settings_local_llm_slow
 import hydrafit.feature.settings.generated.resources.settings_planning_section
+import hydrafit.feature.settings.generated.resources.settings_rest_default_description
+import hydrafit.feature.settings.generated.resources.settings_rest_default_save
+import hydrafit.feature.settings.generated.resources.settings_rest_default_seconds
+import hydrafit.feature.settings.generated.resources.settings_rest_default_section
 import hydrafit.feature.settings.generated.resources.settings_share_data
 import hydrafit.feature.settings.generated.resources.settings_share_data_description
 import hydrafit.feature.settings.generated.resources.settings_title
@@ -88,15 +98,21 @@ fun NavGraphBuilder.settingsGraph(navController: NavController) {
 fun SettingsRoute(
     onOpenAcknowledgments: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: SettingsViewModel = koinViewModel()
+    viewModel: SettingsViewModel = koinViewModel(),
+    restDurationViewModel: RestDurationSettingsViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val restDurationState by restDurationViewModel.state.collectAsStateWithLifecycle()
     SettingsScreen(
         state = state,
+        restDurationState = restDurationState,
         onEngineSelected = viewModel::onEngineSelected,
         onGoalSelected = viewModel::onGoalSelected,
         onWeightUnitSelected = viewModel::onWeightUnitSelected,
         onWorkoutDataSharingToggled = viewModel::onWorkoutDataSharingToggled,
+        onGuidedWorkoutToggled = viewModel::onGuidedWorkoutToggled,
+        onRestDurationChanged = restDurationViewModel::onSecondsChanged,
+        onSaveRestDuration = restDurationViewModel::save,
         onApiKeyChanged = viewModel::onApiKeyChanged,
         onSaveApiKey = viewModel::saveApiKey,
         onClearApiKey = viewModel::clearApiKey,
@@ -109,10 +125,14 @@ fun SettingsRoute(
 @Composable
 fun SettingsScreen(
     state: SettingsUiState,
+    restDurationState: RestDurationSettingsUiState,
     onEngineSelected: (PlannerEngineId) -> Unit,
     onGoalSelected: (TrainingGoal) -> Unit,
     onWeightUnitSelected: (WeightUnit) -> Unit,
     onWorkoutDataSharingToggled: (Boolean) -> Unit,
+    onGuidedWorkoutToggled: (Boolean) -> Unit,
+    onRestDurationChanged: (String) -> Unit,
+    onSaveRestDuration: () -> Unit,
     onApiKeyChanged: (String) -> Unit,
     onSaveApiKey: () -> Unit,
     onClearApiKey: () -> Unit,
@@ -210,6 +230,48 @@ fun SettingsScreen(
             text = stringResource(Res.string.settings_share_data_description),
             style = MaterialTheme.typography.bodySmall
         )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = state.guidedWorkoutEnabled,
+                    role = Role.Switch,
+                    onValueChange = onGuidedWorkoutToggled
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Switch(
+                checked = state.guidedWorkoutEnabled,
+                onCheckedChange = null
+            )
+            Text(stringResource(Res.string.settings_guided_workout))
+        }
+        Text(
+            text = stringResource(Res.string.settings_guided_workout_description),
+            style = MaterialTheme.typography.bodySmall
+        )
+
+        Text(
+            text = stringResource(Res.string.settings_rest_default_section),
+            style = MaterialTheme.typography.titleMedium
+        )
+        Text(
+            text = stringResource(Res.string.settings_rest_default_description),
+            style = MaterialTheme.typography.bodySmall
+        )
+        OutlinedTextField(
+            value = restDurationState.seconds,
+            onValueChange = onRestDurationChanged,
+            label = { Text(stringResource(Res.string.settings_rest_default_seconds)) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth()
+        )
+        Button(onClick = onSaveRestDuration, enabled = restDurationState.canSave) {
+            Text(stringResource(Res.string.settings_rest_default_save))
+        }
 
         Text(
             text = stringResource(Res.string.settings_unit_section),

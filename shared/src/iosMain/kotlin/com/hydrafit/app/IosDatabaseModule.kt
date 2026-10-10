@@ -2,6 +2,7 @@ package com.hydrafit.app
 
 import com.hydrafit.app.core.database.DatabaseDriverFactory
 import com.hydrafit.app.core.database.NativeDatabaseDriverFactory
+import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.llm.NoopOnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDevicePlannerLogger
@@ -30,6 +31,7 @@ fun iosDatabaseModule(): Module = module {
             override fun utcOffsetMillis(): Long = offsetFromZoneName()
         }
     }
+    single<BootIdentityProvider> { BootIdentityProvider { null } }
     single<ApiKeyStore> { NoopApiKeyStore() }
     single<AppVersionProvider> { IosAppVersionProvider() }
     single<ApiKeyProvider> {

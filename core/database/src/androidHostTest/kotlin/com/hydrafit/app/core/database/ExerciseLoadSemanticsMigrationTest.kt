@@ -35,6 +35,12 @@ class ExerciseLoadSemanticsMigrationTest {
             value("SELECT loadKind FROM workoutSet WHERE id = 1")
         )
         assertEquals(
+            "UNKNOWN",
+            value("SELECT timingProvenance FROM workoutSet WHERE id = 1")
+        )
+        assertNull(value("SELECT startedAtElapsedMillis FROM workoutSet WHERE id = 1"))
+        assertNull(value("SELECT completedAtElapsedMillis FROM workoutSet WHERE id = 1"))
+        assertEquals(
             "LEGACY_UNSPECIFIED",
             value("SELECT loadKind FROM personalRecord WHERE exerciseId = 'barbell-bench-press'")
         )

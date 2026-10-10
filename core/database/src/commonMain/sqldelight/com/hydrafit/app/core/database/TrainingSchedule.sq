@@ -71,10 +71,10 @@ CREATE TABLE occurrenceEntry (
     sets INTEGER NOT NULL,
     reps INTEGER NOT NULL,
     weightKg REAL,
-    loadCapability TEXT NOT NULL DEFAULT 'UNSPECIFIED',
-    loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
     remainingDisposition TEXT,
     terminalRemainingSets INTEGER,
+    loadCapability TEXT NOT NULL DEFAULT 'UNSPECIFIED',
+    loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
     FOREIGN KEY (occurrenceId) REFERENCES workoutOccurrence(id)
 );
 

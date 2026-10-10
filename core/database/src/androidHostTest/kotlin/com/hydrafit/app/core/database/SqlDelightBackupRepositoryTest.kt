@@ -41,6 +41,10 @@ class SqlDelightBackupRepositoryTest {
     @Test
     fun exportsEveryIncludedSection() = runTest {
         seedRepresentativeData()
+        SqlDelightGuidedWorkoutPreferenceRepository(database).setGuidedWorkoutEnabled(true)
+        val restPreferences = SqlDelightRestPreferenceRepository(database)
+        restPreferences.setGlobalDefaultSeconds(180L)
+        restPreferences.setExerciseOverrideSeconds("back-squat", 240L)
 
         val file = repository.export(appVersion = "0.5.0-dev", exportedAtMillis = 99L)
 
@@ -54,6 +58,9 @@ class SqlDelightBackupRepositoryTest {
         assertEquals(listOf("BARBELL"), file.selectedEquipment)
         assertEquals(1, file.workoutSets.size)
         assertEquals("EXTERNAL", file.workoutSets.single().loadKind)
+        assertEquals("LIVE", file.workoutSets.single().timingProvenance)
+        assertEquals(100L, file.workoutSets.single().startedAtElapsedMillis)
+        assertEquals(150L, file.workoutSets.single().completedAtElapsedMillis)
         assertEquals("s1", file.workoutSets.single().sessionId)
         assertEquals(listOf("s1"), file.workoutSessions.map { it.id })
         assertEquals(1, file.plans.size)
@@ -75,6 +82,14 @@ class SqlDelightBackupRepositoryTest {
         assertEquals(1, file.exclusions.size)
         assertEquals(3, file.settings?.daysPerWeek)
         assertEquals("LB", file.settings?.weightUnit)
+        assertEquals(true, file.settings?.guidedWorkoutEnabled)
+        assertEquals(
+            listOf(
+                null to 180L,
+                "back-squat" to 240L
+            ),
+            file.restPreferences.map { it.exerciseId to it.durationSeconds }
+        )
     }
 
     @Test
@@ -98,16 +113,33 @@ class SqlDelightBackupRepositoryTest {
     @Test
     fun restoreReplacesIncludedDataAndPreservesStoredIds() = runTest {
         seedRepresentativeData()
+        val restPreferences = SqlDelightRestPreferenceRepository(database)
+        restPreferences.setGlobalDefaultSeconds(180L)
+        restPreferences.setExerciseOverrideSeconds("back-squat", 240L)
         val file = repository.export(appVersion = "t", exportedAtMillis = 1L)
 
         // Remove some data and add a value the restore must replace.
         database.workoutLogQueries.deleteAllSets()
         database.exerciseQueries.deleteAllCustom()
         database.exercisePreferenceQueries.upsert("back-squat", "PREFER_LESS")
+        restPreferences.setGlobalDefaultSeconds(300L)
+        restPreferences.setExerciseOverrideSeconds("bench-press", 90L)
+        val countdownRepository = SqlDelightRestCountdownRepository(database)
+        countdownRepository.save(
+            com.hydrafit.app.core.domain.workout.PersistedRestCountdown(
+                deadlineElapsedMillis = 500_000L,
+                durationMillis = 120_000L,
+                bootIdentity = "boot-test",
+                sessionId = "s1",
+                occurrenceId = 1L,
+                exerciseId = "back-squat"
+            )
+        )
 
         repository.restore(file)
 
         assertEquals(file, repository.export(appVersion = "t", exportedAtMillis = 1L))
+        assertNull(countdownRepository.load())
     }
 
     @Test
@@ -153,6 +185,28 @@ class SqlDelightBackupRepositoryTest {
         assertEquals(4L, database.plannerEngineQueries.selectDaysPerWeek().executeAsOne())
         assertEquals("BALANCED", database.plannerEngineQueries.selectTrainingGoal().executeAsOne())
         assertEquals("KG", database.plannerEngineQueries.selectWeightUnit().executeAsOne())
+        assertEquals(
+            0L,
+            database.plannerEngineQueries.selectGuidedWorkoutEnabled().executeAsOne()
+        )
+    }
+
+    @Test
+    fun restoreOfVersionOneSettingsKeepsGuidedWorkoutsDisabled() = runTest {
+        seedRepresentativeData()
+        val exported = repository.export(appVersion = "t", exportedAtMillis = 1L)
+        val file = exported.copy(
+            formatVersion = 1,
+            settings = exported.settings?.copy(guidedWorkoutEnabled = false)
+        )
+        database.plannerEngineQueries.updateGuidedWorkoutEnabled(1L)
+
+        repository.restore(file)
+
+        assertEquals(
+            0L,
+            database.plannerEngineQueries.selectGuidedWorkoutEnabled().executeAsOne()
+        )
     }
 
     @Test
@@ -236,7 +290,7 @@ class SqlDelightBackupRepositoryTest {
         )
         database.userEquipmentQueries.insertSelected("BARBELL")
         database.workoutSessionQueries.insertSession("s1", 10, 20, 1)
-        database.workoutLogQueries.insertSet(
+        database.workoutLogQueries.insertSetWithTimingProvenance(
             exerciseId = "back-squat",
             reps = 5,
             weightKg = 100.0,
@@ -248,7 +302,10 @@ class SqlDelightBackupRepositoryTest {
             dayIndex = 0,
             rir = 2,
             sessionId = "s1",
-            loadKind = "EXTERNAL"
+            loadKind = "EXTERNAL",
+            timingProvenance = "LIVE",
+            startedAtElapsedMillis = 100,
+            completedAtElapsedMillis = 150
         )
         database.planHistoryQueries.insertPlan("deterministic", 1, 1, 1)
         val planId = database.planHistoryQueries.lastInsertedPlanId().executeAsOne()

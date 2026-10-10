@@ -142,6 +142,14 @@ exact on-screen text.
 
 ## 9. Settings
 - Switch engine (only available engines listed), goal (Balanced/Strength/Hypertrophy/Endurance), units → each persists after relaunch.
+- Guided workouts default OFF; opting in/out persists after relaunch.
+- With guided workouts OFF, the Logger keeps its existing "Planned today" draft flow.
+- With guided workouts ON and an active block occurrence, the Logger shows the guided card: exercises in order with target vs actual sets; "Log set" records exactly one set and the remaining prescribed sets stay pending; warm-ups and unplanned exercises do not count toward progress; Edit then Confirm also records one set. Finish/partial/Skip and End/New session are unchanged.
+- In guided mode, "Set completed now" records one set at the live time and starts the editable rest prompt only after save succeeds. Ordinary confirmation and backdated entries do not start it. Duration accepts 1–86,400 seconds; invalid values must not crash or change the active timer. Change duration and verify the deadline is still based on the original completion time; background/resume must not restart it. It expires without logging a set and is not a rest measurement.
+- End/New session, occurrence change, guided OFF, dismiss, or successful deletion/correction of a set from the active occurrence cancels the prompt. A same-boot process death restores the remaining countdown while the occurrence context still matches; a reboot (boot-identity change) or expired/mismatched/malformed state clears it silently. Notifications, alert permissions and rest coaching are not part of this slice.
+- RIR fields in manual logging, planned-draft editing and recent-set editing explain reps in reserve, remain optional, and offer 0/1/2/3 quick-picks. Picking the selected value again clears it; typed values through 10 remain available. Zero is recorded as an explicit report, blank stays unreported, and no RPE conversion or inferred/prescribed RIR appears.
+- Set timing provenance is explicit: backdated/catch-up entries are marked catch-up; ordinary manual and legacy entries remain unknown; only the explicit guided live-completion action is marked live. Start set alone creates no performed set; completion stores monotonic start/completion instants and consumes the event after a successful write, including Use-last resolution. Correcting time, reps, load or RIR clears live eligibility; a no-op correction preserves it. Never infer rest from timestamp gaps.
+  **2026-10-10 emulator verification (`emulator-5554`, debug, guided ON, block from the generated plan):** "Start set" showed "Set started", enabled only that exercise's "Set completed now", and left the counts at `0 of 9` (no performed set). "Set completed now" logged exactly one set (`1 of 9`, `1 of 3`), started the rest prompt ("Rest prompt: 1 min 55 sec"), cleared "Set started", and disabled itself so it could not be reused (count stayed `1 of 9`). "Dismiss prompt" cancelled the prompt. All controls (Start set / Log set / Set completed now / Edit draft) stayed usable at 1080×1520. The one logged set was deleted (reverting the occurrence to `0 of 9`) and the test block was cancelled; guided ON and the pre-existing session/routines were preserved. **Limit:** the missing-load/Use-last resolution was not reachable here (the block's Day 1 is bodyweight-only) and is covered by the host regression `useLastLoadConsumesLiveCompletionSoItCannotBeReused`.
 - API key: save, shows "configured", clear.
 - Model management: import/remove, target (NPU vs CPU/GPU) display, terms link.
 
@@ -161,7 +169,7 @@ exact on-screen text.
 - Preview a valid backup → shows the included categories/contents; Cancel writes nothing.
 - Restore a valid backup → after explicit confirmation the restore is **staged** ("Restore staged.
   Close and reopen HydraFit to apply it."); after a relaunch → restored sets, sessions, plan history,
-  routines, preferences/exclusions and the active block survive, and current data was replaced.
+  routines, preferences/exclusions, guided-workout opt-in and the active block survive, and current data was replaced. A version 1 backup restores guided workouts OFF.
 - A staged apply that fails at startup → the current data stays intact and Settings shows the typed
   failure once, then clears it.
 - Invalid, truncated, oversized, too-deep, unsupported-version or startup-unstable file → a typed

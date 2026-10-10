@@ -26,9 +26,14 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun acceptsVersionOneBackups() {
+        validator.validate(validFile().copy(formatVersion = 1))
+    }
+
+    @Test
     fun rejectsAnUnsupportedVersion() {
         assertFailure(BackupFailure.UNSUPPORTED_VERSION) {
-            validFile().copy(formatVersion = 2)
+            validFile().copy(formatVersion = BACKUP_FORMAT_VERSION + 1)
         }
     }
 
@@ -37,6 +42,48 @@ class BackupValidatorTest {
         assertFailure(BackupFailure.UNKNOWN_CATALOG_ID) {
             validFile().copy(
                 workoutSets = listOf(set(exerciseId = "not-a-known-exercise"))
+            )
+        }
+    }
+
+    @Test
+    fun acceptsGlobalAndExerciseRestPreferences() {
+        validator.validate(
+            validFile().copy(
+                restPreferences = listOf(
+                    BackupRestPreferenceRecord(null, 180L),
+                    BackupRestPreferenceRecord("back-squat", 240L)
+                )
+            )
+        )
+    }
+
+    @Test
+    fun rejectsInvalidRestPreferenceValuesAndReferences() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            validFile().copy(restPreferences = listOf(BackupRestPreferenceRecord(null, 0L)))
+        }
+        assertFailure(BackupFailure.UNKNOWN_CATALOG_ID) {
+            validFile().copy(
+                restPreferences = listOf(
+                    BackupRestPreferenceRecord(null, 120L),
+                    BackupRestPreferenceRecord("missing-exercise", 120L)
+                )
+            )
+        }
+    }
+
+    @Test
+    fun currentFormatRequiresExactlyOneGlobalRestPreference() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            validFile().copy(restPreferences = emptyList())
+        }
+        assertFailure(BackupFailure.DUPLICATE_ID) {
+            validFile().copy(
+                restPreferences = listOf(
+                    BackupRestPreferenceRecord(null, 120L),
+                    BackupRestPreferenceRecord(null, 180L)
+                )
             )
         }
     }
@@ -93,6 +140,27 @@ class BackupValidatorTest {
     fun rejectsAnInvalidEnum() {
         assertFailure(BackupFailure.INVALID_VALUE) {
             validFile().copy(workoutSets = listOf(set(loadKind = "NOT_A_KIND")))
+        }
+    }
+
+    @Test
+    fun rejectsAnInvalidTimingProvenance() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            validFile().copy(workoutSets = listOf(set(timingProvenance = "NOT_A_SOURCE")))
+        }
+    }
+
+    @Test
+    fun rejectsAnIncompleteOrReversedElapsedSetInterval() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            validFile().copy(workoutSets = listOf(set(startedAtElapsedMillis = 10L)))
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            validFile().copy(
+                workoutSets = listOf(
+                    set(startedAtElapsedMillis = 20L, completedAtElapsedMillis = 10L)
+                )
+            )
         }
     }
 
@@ -309,6 +377,9 @@ class BackupValidatorTest {
         exerciseId: String = "back-squat",
         weightKg: Double? = 100.0,
         loadKind: String = "EXTERNAL",
+        timingProvenance: String = "UNKNOWN",
+        startedAtElapsedMillis: Long? = null,
+        completedAtElapsedMillis: Long? = null,
         involvements: String? = null,
         sessionId: String? = "s1",
         occurrenceId: Long? = null,
@@ -328,7 +399,10 @@ class BackupValidatorTest {
         sessionId = sessionId,
         occurrenceId = occurrenceId,
         occurrenceEntryId = occurrenceEntryId,
-        loadKind = loadKind
+        loadKind = loadKind,
+        timingProvenance = timingProvenance,
+        startedAtElapsedMillis = startedAtElapsedMillis,
+        completedAtElapsedMillis = completedAtElapsedMillis
     )
 
     private fun session(id: String) = BackupWorkoutSessionRecord(

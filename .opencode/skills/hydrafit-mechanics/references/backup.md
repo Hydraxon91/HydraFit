@@ -3,7 +3,14 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 1), restored by whole replacement.
+Logical, versioned JSON (`format` + `formatVersion` 5), restored by whole replacement.
+The reader accepts versions 1–5; version 1 defaults the guided-workout preference to off.
+Format 5 carries one global rest duration and optional per-exercise overrides; versions 1–4
+default to a 120-second global duration with no overrides. Countdown state is deliberately
+excluded and cleared during restore. Format 4–5 require per-set timing provenance and explicit nullable elapsed fields; format 3 requires
+and preserves timing provenance while elapsed fields default to null; formats 1–2 default timing
+provenance to `UNKNOWN` and elapsed fields to null. Exports use version 5.
+Unknown fields remain rejected.
 Domain `backup/` owns the payload records, the kotlinx-serialization codec, the
 validator, the limits and the export/preview/stage/apply use cases (bound in
 `shared/DomainModule.kt`). Every envelope field is required, so a file missing one is

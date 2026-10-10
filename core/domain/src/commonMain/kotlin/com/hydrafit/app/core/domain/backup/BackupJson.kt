@@ -2,7 +2,10 @@ package com.hydrafit.app.core.domain.backup
 
 import kotlinx.serialization.descriptors.elementNames
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.intOrNull
 
 /**
  * The JSON codec for the logical backup format. Defaults are encoded so every field (including an
@@ -44,10 +47,17 @@ object BackupJson {
         }
         val obj = element as? JsonObject
             ?: throw BackupException(BackupFailure.MALFORMED, "the backup is not a JSON object")
-        val missing = requiredTopLevelKeys - obj.keys
+        val version = (obj["formatVersion"] as? JsonPrimitive)?.intOrNull
+        val requiredKeys = if (version != null && version < 5) {
+            requiredTopLevelKeys - "restPreferences"
+        } else {
+            requiredTopLevelKeys
+        }
+        val missing = requiredKeys - obj.keys
         if (missing.isNotEmpty()) {
             throw BackupException(BackupFailure.MALFORMED, "missing fields: $missing")
         }
+        requireTimingFields(obj)
         val file = try {
             json.decodeFromJsonElement(BackupFile.serializer(), obj)
         } catch (e: Exception) {
@@ -55,6 +65,30 @@ object BackupJson {
         }
         requireRecordCount(file)
         return file
+    }
+
+    private fun requireTimingFields(root: JsonObject) {
+        val version = (root["formatVersion"] as? JsonPrimitive)?.intOrNull ?: return
+        val required = when (version) {
+            3 -> setOf("timingProvenance")
+            4, 5 -> setOf("timingProvenance", "startedAtElapsedMillis", "completedAtElapsedMillis")
+            else -> return
+        }
+        val sets = root["workoutSets"] as? JsonArray ?: return
+        sets.forEachIndexed { index, element ->
+            val record = element as? JsonObject
+                ?: throw BackupException(
+                    BackupFailure.MALFORMED,
+                    "workoutSets[$index] is not an object"
+                )
+            val missing = required - record.keys
+            if (missing.isNotEmpty()) {
+                throw BackupException(
+                    BackupFailure.MALFORMED,
+                    "workoutSets[$index] is missing timing fields: $missing"
+                )
+            }
+        }
     }
 
     /**
@@ -112,5 +146,5 @@ object BackupJson {
             file.routines.size + file.routineWorkouts.size + file.routineEntries.size +
             file.activations.size + file.activationWorkouts.size + file.activationEntries.size +
             file.occurrences.size + file.occurrenceEntries.size + file.personalRecords.size +
-            file.preferences.size + file.exclusions.size
+            file.preferences.size + file.exclusions.size + file.restPreferences.size
 }

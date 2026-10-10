@@ -88,7 +88,7 @@ perl -e 'alarm 600; exec @ARGV' ./gradlew :core:domain:testAndroidHostTest > dom
 
 # Run lint/static analysis
 perl -e 'alarm 600; exec @ARGV' ./gradlew ktlintCheck > lint-output.log 2>&1
-# or, if detekt is configured
+# Also run detekt if configured; it does not replace ktlint
 perl -e 'alarm 600; exec @ARGV' ./gradlew detekt > detekt-output.log 2>&1
 
 # Clean build (reserve for dependency/config changes, not routine edits)
@@ -104,7 +104,7 @@ perl -e 'alarm 600; exec @ARGV' ./gradlew clean build > build-output.log 2>&1
 - Neither module may grow into a dumping ground. New logic gets a home in a `core/*` or `feature/*` module, and if none fits, ask first.
 
 ### `core/domain/`
-- **Use cases** — one class per user action/query (e.g., `GenerateWeeklySplitUseCase`, `CalculateMuscleFatigueUseCase`), each with a single public `invoke`/`execute` entry point.
+- **Use cases** — normally one class per user action/query (e.g., `GenerateWeeklySplitUseCase`, `CalculateMuscleFatigueUseCase`), with a public `invoke`/`execute` entry point. This convention is not proof of single responsibility: assess independent reasons to change, and do not split cohesive operations merely to achieve one public method per class.
 - **Multiplatform, commonMain-only:** all code lives in `commonMain`; do not add platform-specific APIs (no Android/iOS imports).
 - **`WorkoutPlannerEngine` interface** — the contract all three planning strategies implement. Never add engine-specific logic outside an implementation of this interface.
 - **Repository interfaces** — prefixed with `I` or suffixed with `Repository` consistently (pick one convention on first use and stick to it); implementations live in `core/database` or `core/network`.
@@ -124,6 +124,6 @@ perl -e 'alarm 600; exec @ARGV' ./gradlew clean build > build-output.log 2>&1
 
 ### `feature/*`
 - Each feature module owns its Composables, ViewModels, and feature-specific state classes.
-- ViewModels stay thin: they expose UI state and forward user actions to use cases in `core/domain`. Business logic does not live in ViewModels or Composables. A ViewModel needing more than about 6 constructor dependencies is a sign it has multiple responsibilities — see the oversized-constructor rule under AGENTS.md Anti-Churn. Every ViewModel binding must also be covered by the Koin verification test (see AGENTS.md Unit Testing Standards).
+- ViewModels stay thin in domain policy: they expose and coordinate presentation state and forward business actions to use cases in `core/domain`. Domain policy does not live in ViewModels or Composables, but UI-state transitions and UI lifecycle coordination do not each require a domain use case. Around seven or more injected collaborators prompts a cohesion check, not a parameter limit or proof of multiple responsibilities — see the constructor-dependency rule under AGENTS.md Anti-Churn. Do not add dependency bags or forwarding wrappers solely to reduce the count. Every ViewModel binding must also be covered by the Koin verification test (see AGENTS.md Unit Testing Standards).
 - Feature modules depend on `core/domain` and `core/userdata` only — never directly on `core/database` or `core/network`, and **never on another `feature/*` module**.
 - Each feature module exposes its own Koin module and navigation graph, which `shared` aggregates. A new feature (e.g., `feature/nutrition/`) should be addable without editing existing feature modules.

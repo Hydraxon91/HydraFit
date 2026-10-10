@@ -20,6 +20,7 @@ import com.hydrafit.app.core.domain.backup.BackupPlanEntryRecord
 import com.hydrafit.app.core.domain.backup.BackupPlanRecord
 import com.hydrafit.app.core.domain.backup.BackupPreferenceRecord
 import com.hydrafit.app.core.domain.backup.BackupRepository
+import com.hydrafit.app.core.domain.backup.BackupRestPreferenceRecord
 import com.hydrafit.app.core.domain.backup.BackupRoutineEntryRecord
 import com.hydrafit.app.core.domain.backup.BackupRoutineRecord
 import com.hydrafit.app.core.domain.backup.BackupRoutineWorkoutRecord
@@ -30,6 +31,7 @@ import com.hydrafit.app.core.domain.backup.BackupVolumeExplanationRecord
 import com.hydrafit.app.core.domain.backup.BackupVolumeExplanationStateRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSessionRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSetRecord
+import com.hydrafit.app.core.domain.settings.DEFAULT_REST_SECONDS
 
 /**
  * Reads the logical backup snapshot from SQLDelight. Every section is read inside one transaction so
@@ -106,7 +108,10 @@ class SqlDelightBackupRepository(
                         sessionId = it.sessionId,
                         occurrenceId = it.occurrenceId,
                         occurrenceEntryId = it.occurrenceEntryId,
-                        loadKind = it.loadKind
+                        loadKind = it.loadKind,
+                        timingProvenance = it.timingProvenance,
+                        startedAtElapsedMillis = it.startedAtElapsedMillis,
+                        completedAtElapsedMillis = it.completedAtElapsedMillis
                     )
                 },
                 workoutSessions = database.workoutSessionQueries.selectAllSessions()
@@ -318,7 +323,21 @@ class SqlDelightBackupRepository(
                 },
                 exclusions = database.exerciseExclusionQueries.selectAll().executeAsList().map {
                     BackupExclusionRecord(exerciseId = it.exerciseId, expiresAt = it.expiresAt)
-                }
+                },
+                restPreferences = listOf(
+                    BackupRestPreferenceRecord(
+                        exerciseId = null,
+                        durationSeconds = database.restPreferenceQueries.selectGlobalDefault()
+                            .executeAsOneOrNull() ?: DEFAULT_REST_SECONDS
+                    )
+                ) + database.restPreferenceQueries.selectAllExerciseOverrides()
+                    .executeAsList()
+                    .map {
+                        BackupRestPreferenceRecord(
+                            exerciseId = it.exerciseId,
+                            durationSeconds = it.durationSeconds
+                        )
+                    }
             )
         }
 
@@ -328,6 +347,8 @@ class SqlDelightBackupRepository(
             // built-in equipment and credentials/model files are left untouched.
             database.exerciseOverrideQueries.deleteAll()
             database.exercisePreferenceQueries.deleteAll()
+            database.restPreferenceQueries.deleteAll()
+            database.restCountdownQueries.deletePersisted()
             database.exerciseExclusionQueries.deleteAll()
             database.personalRecordQueries.deleteAll()
             database.workoutLogQueries.deleteAllSets()
@@ -357,6 +378,18 @@ class SqlDelightBackupRepository(
                 database.equipmentQueries.updateMaxWeight(equipment.maxWeightKg, equipment.id)
             }
             file.selectedEquipment.forEach { database.userEquipmentQueries.insertSelected(it) }
+            file.restPreferences.forEach { preference ->
+                val exerciseId = preference.exerciseId
+                if (exerciseId == null) {
+                    database.restPreferenceQueries.upsertGlobalDefault(preference.durationSeconds)
+                } else {
+                    database.restPreferenceQueries.upsertExerciseOverride(
+                        exerciseId,
+                        exerciseId,
+                        preference.durationSeconds
+                    )
+                }
+            }
 
             file.workoutSessions.forEach { session ->
                 database.workoutSessionQueries.insertSessionWithOccurrence(
@@ -583,7 +616,7 @@ class SqlDelightBackupRepository(
             }
 
             file.workoutSets.forEach { set ->
-                database.workoutLogQueries.insertSetWithId(
+                database.workoutLogQueries.insertSetWithIdAndTimingProvenance(
                     id = set.id,
                     exerciseId = set.exerciseId,
                     reps = set.reps.toLong(),
@@ -598,7 +631,10 @@ class SqlDelightBackupRepository(
                     sessionId = set.sessionId,
                     occurrenceId = set.occurrenceId,
                     occurrenceEntryId = set.occurrenceEntryId,
-                    loadKind = set.loadKind
+                    loadKind = set.loadKind,
+                    timingProvenance = set.timingProvenance,
+                    startedAtElapsedMillis = set.startedAtElapsedMillis,
+                    completedAtElapsedMillis = set.completedAtElapsedMillis
                 )
             }
 
@@ -617,6 +653,9 @@ class SqlDelightBackupRepository(
                 if (settings?.shareWorkoutData == true) 1L else 0L
             )
             database.plannerEngineQueries.updateWeightUnit(settings?.weightUnit ?: "KG")
+            database.plannerEngineQueries.updateGuidedWorkoutEnabled(
+                if (settings?.guidedWorkoutEnabled == true) 1L else 0L
+            )
         }
     }
 
@@ -629,7 +668,9 @@ class SqlDelightBackupRepository(
             daysPerWeek = (queries.selectDaysPerWeek().executeAsOneOrNull() ?: 4L).toInt(),
             trainingGoal = queries.selectTrainingGoal().executeAsOneOrNull() ?: "BALANCED",
             shareWorkoutData = (queries.selectShareWorkoutData().executeAsOneOrNull() ?: 0L) != 0L,
-            weightUnit = queries.selectWeightUnit().executeAsOneOrNull() ?: "KG"
+            weightUnit = queries.selectWeightUnit().executeAsOneOrNull() ?: "KG",
+            guidedWorkoutEnabled =
+            queries.selectGuidedWorkoutEnabled().executeAsOneOrNull()?.let { it != 0L } ?: false
         )
     }
 }

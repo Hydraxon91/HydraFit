@@ -13,6 +13,7 @@ import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.SessionConfig
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutSet as DomainWorkoutSet
+import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -88,6 +89,47 @@ class SqlDelightWorkoutLogRepositoryTest {
         val logged = repository.loggedSets()
         assertEquals(3, logged.first { it.exerciseId == "barbell-bench-press" }.rir)
         assertNull(logged.first { it.exerciseId == "back-squat" }.rir)
+    }
+
+    @Test
+    fun roundTripsTimingProvenance() = runTest {
+        repository.add(
+            DomainWorkoutSet(
+                exerciseId = "barbell-bench-press",
+                reps = 5,
+                weightKg = 80.0,
+                performedAtMillis = 1,
+                timingProvenance = WorkoutTimingProvenance.LIVE,
+                startedAtElapsedMillis = 100L,
+                completedAtElapsedMillis = 150L
+            )
+        )
+
+        val set = repository.all().single()
+        assertEquals(WorkoutTimingProvenance.LIVE, set.timingProvenance)
+        assertEquals(100L, set.startedAtElapsedMillis)
+        assertEquals(150L, set.completedAtElapsedMillis)
+    }
+
+    @Test
+    fun changingPerformedTimeInvalidatesTimingProvenance() = runTest {
+        repository.add(
+            DomainWorkoutSet(
+                exerciseId = "barbell-bench-press",
+                reps = 5,
+                weightKg = 80.0,
+                performedAtMillis = 1,
+                timingProvenance = WorkoutTimingProvenance.LIVE
+            )
+        )
+        val savedSet = repository.all().single()
+
+        repository.updateSetPerformedAt(savedSet.id, 2)
+
+        val corrected = repository.all().single()
+        assertEquals(WorkoutTimingProvenance.UNKNOWN, corrected.timingProvenance)
+        assertNull(corrected.startedAtElapsedMillis)
+        assertNull(corrected.completedAtElapsedMillis)
     }
 
     @Test

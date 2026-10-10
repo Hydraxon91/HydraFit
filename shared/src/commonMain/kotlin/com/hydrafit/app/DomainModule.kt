@@ -46,6 +46,11 @@ import com.hydrafit.app.core.domain.schedule.StartWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.SwitchScheduleModeUseCase
 import com.hydrafit.app.core.domain.schedule.WorkoutLoggingActions
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleActions
+import com.hydrafit.app.core.domain.settings.ClearExerciseRestDurationUseCase
+import com.hydrafit.app.core.domain.settings.ObserveGlobalRestDurationUseCase
+import com.hydrafit.app.core.domain.settings.ResolveRestDurationUseCase
+import com.hydrafit.app.core.domain.settings.SetExerciseRestDurationUseCase
+import com.hydrafit.app.core.domain.settings.SetGlobalRestDurationUseCase
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
@@ -115,6 +120,11 @@ val domainModule: Module = module {
     singleOf(::CorrectWorkoutSetTimeUseCase)
     singleOf(::CorrectWorkoutSetUseCase)
     singleOf(::WorkoutLogMutations)
+    singleOf(::ObserveGlobalRestDurationUseCase)
+    singleOf(::SetGlobalRestDurationUseCase)
+    singleOf(::ResolveRestDurationUseCase)
+    singleOf(::SetExerciseRestDurationUseCase)
+    singleOf(::ClearExerciseRestDurationUseCase)
     singleOf(::StartWorkoutSessionUseCase)
     singleOf(::EndWorkoutSessionUseCase)
     singleOf(::ObserveOpenWorkoutSessionUseCase)

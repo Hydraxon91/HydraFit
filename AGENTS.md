@@ -113,7 +113,7 @@ While executing an approved chunk:
 
 - **Strict Scope Containment:** Do not refactor, rewrite, or "clean up" working code outside the immediate scope of the assigned task. If you notice messy code or technical debt nearby, point it out to the user in chat — do not touch it "while you're in there".
 - **No Style Conversions for Aesthetics:** If existing code is functional and matches the codebase style guidelines, leave it alone. Do not change working syntax unless aligning a newly written feature to it.
-- **Oversized Constructors Are a Design Signal, Not a Formatting Problem:** If a class constructor (or a Koin `get()` chain feeding it) needs more than about 6 parameters, stop. Do not reformat the line, add a line-length or `@Suppress` lint exception, or otherwise work around the warning. Instead, report it and propose a design fix: group the dependencies by responsibility and extract use cases into `core/domain` (following the existing use-case pattern) so the class depends on fewer, more meaningful collaborators. Wait for approval before implementing. Apply judgment: if a class genuinely needs many dependencies and extraction would only add indirection (for example, a DI module that just wires many bindings, or a data holder), say so and explain instead of forcing an extraction. This is an exception to "scope containment" only in that you must flag the problem; do not refactor unrelated existing code without approval.
+- **Constructor Dependencies Are a Cohesion Signal, Not a Limit:** Around seven or more injected collaborators warrants a cohesion check, not an automatic refactor or a maximum parameter count. Look for distinct responsibilities, independent reasons to change, and testing difficulty; count alone does not prove a design problem. Distinguish collaborators from configuration values, data fields and ordinary function arguments. Cohesive orchestrators may legitimately need more dependencies. Extract only when a meaningful boundary improves clarity, ownership or testability; do not introduce dependency bags or forwarding wrappers solely to lower the visible count. Formatting a long constructor or Koin binding is separate from assessing its design. Report evidenced concerns and propose any extraction for approval; do not refactor unrelated code or suppress a design warning merely to avoid assessing it.
 
 ### Documentation & Code Sync
 
@@ -207,7 +207,7 @@ Added by the 0.2.2 review (RG); rationale lives in `docs/architecture.md` and
 - **[target] Engine substitution is explicit, never silent.** If an engine's generated plan is rejected post-generation (e.g. a sanitize/validation failure, as in S3-001's Gemini case), the engine must not quietly substitute another engine's plan without surfacing it — either throw `PlanGenerationException` with the mapped `reason` (SplitBuilder shows reason + Retry), or return the fallback plan so `usedFallbackEngine` renders the fallback note. This does **not** apply to the Local LLM engine's existing `fallback: WorkoutPlannerEngine` constructor parameter, which is a separate, already-correct, already-tested pattern: it exists specifically to catch `OutOfMemoryError` and other generation failures *before* a plan is produced, and already surfaces via `usedFallbackEngine`. Do not add a *new, second* fallback-engine dependency to any engine to paper over a rejected/invalid plan after the fact — fix the rejection path explicitly instead. (`docs/architecture.md` §1.7; S3-001)
 - **[target] `sessionId` is the one segmentation truth.** Runtime fatigue segmentation reads `sessionId` only. A `performedAt` correction must leave sessions non-interleaved in time, with each session's bounds and `localEpochDay` consistent with its sets, and with no tolerance/threshold. Manual End/New session boundaries are preserved. The mechanism is decided in the gated fix plan. (`docs/architecture.md` §1.8; S1-007, 2b)
 - **[target] Nullable stored fields must not conflate "absent" with "explicitly empty".** If a user can clear a value, the cleared state gets its own encoding. (`docs/architecture.md` §1.8; S2-001)
-- **[target] Migrations are verified.** Every `.sqm` chain is covered by `verifyMigrations` + a schema snapshot or a v1→current test; each new table/column ships with a migration and a migration test in the same change. (`docs/architecture.md` §1.9; S2-004/TS3-001)
+- **[current] Migrations are verified.** Every `.sqm` chain is covered by `verifyMigrations` + a schema snapshot or a v1→current test; each new table/column ships with a migration and a migration test in the same change. (`docs/architecture.md` §1.9; S2-004/TS3-001)
 - **[target] No full-table reads on the write path; startup seeding/backfill runs off the main thread.** (`docs/architecture.md` §1.4/§1.5; S1-005/S6-002)
 - **[current] SOLID is review optics, not a refactor mandate.** Follow DIP/ISP deliberately; apply OCP only at real variation points; use SRP's reason-to-change reading. Do not force a new feature into an artificial seam. See `docs/architecture.md` §3.1.
 - **[target] A regression test ships in the same commit as any fix to a logged finding.** (TS-family)
@@ -245,6 +245,7 @@ Some models occasionally emit a tool call as plain text instead of a real tool c
 - **New code without a corresponding test is incomplete work.** Write the corresponding tests in the same approved work scope as a new use case or engine implementation, unless explicitly told to defer them. Run the required tests before reporting that work complete or committing it.
 - **Domain logic must be testable without an emulator.** If you find yourself needing Android context or an emulator to test something in `:core:domain`, that's a sign the abstraction is wrong — flag it rather than working around it.
 - **Test the fallback paths, not just the happy path.** The Local LLM engine's `OutOfMemoryError` → Deterministic Engine fallback needs an explicit test, not just manual verification.
+- **Countdown tests must keep coroutine time and injected clocks consistent.** Do not call `advanceUntilIdle()` while an active timer repeatedly schedules work against a fixed injected clock. Use `runCurrent()` for immediate assertions, or bounded advancement synchronized with the injected clock. Keep timer cleanup in `finally`. If a test hangs, inspect the executor and capture a bounded thread dump; do not launch another run until the stuck executor has exited. A Gradle-client timeout does not guarantee its workers stopped.
 - **Verify the Koin graph in tests, not on a device.** Koin resolves dependencies at runtime, so a missing binding or a mis-ordered `get()` chain compiles fine and crashes on first injection. Every module that registers bindings (`databaseModule`, each feature's Koin module, and the platform modules where testable) must be covered by a `koin-test` verification test (`verify()` or `checkModules`, whichever the approved Koin version supports). When you add or change a binding, a ViewModel constructor, or a module, run that verification before its step/work chunk is reported complete or committed. A Koin change without a passing verification test is incomplete work. If verification cannot cover a binding (for example, one that needs an Android `Context`), say so and name what is left unverified instead of silently skipping it.
 - **`koin-test` is a test-scope dependency only.** Adding it to `libs.versions.toml` and the relevant module's test source set is a dependency change: propose the version and the modules it goes in, and wait for approval. Never add it to a main/production source set.
 - **Run tests with output redirected to a file, not chained into filters:**
@@ -287,8 +288,9 @@ and approval gates. Read all applicable references before the corresponding work
   affected topic reference selected by its index, including downstream consumers.
   Do not load all topics by default. Update the owning reference when behavior changes.
 - **CI/signing/release/tagging/PR work:** read `docs/agent-ci-release.md` before
-  proposing or executing it. All code changes must keep CI green; ktlint/detekt run
-  on every PR. Changes go through a PR requiring passing CI before merge; direct
+  proposing or executing it. All code changes must keep CI green; ktlint runs
+  on every PR, with detekt also required if configured. Changes go through a PR
+  requiring passing CI before merge; direct
   pushes to `main` should be restricted. Any new dependency's license and transitive
   hygiene checks belong in the PR description. Never log API keys or payloads that
   might contain them; redact before logging. Commit/push approval and post-push CI
@@ -315,14 +317,18 @@ Keep SQLDelight, Koin, Ktor and LiteRT-LM within the existing architecture and a
   not a home for feature, domain or data logic. If no module fits new logic, ask first.
   `shared` may reference database/network types only inside DI wiring files.
 - `core/domain` is KMP (Android + iOS), with all code in `commonMain` and no platform
-  APIs. Use cases have one public `invoke`/`execute` entry point. Repository ports live
+  APIs. Use cases normally expose one public `invoke`/`execute` entry point per action;
+  this convention is not proof of single responsibility or a mandate to split cohesive
+  operations. Repository ports live
   in domain/userdata; SQLDelight implementations live in database, HTTP in network.
   Domain/feature data access uses generated queries through those implementations,
   never direct database access. No engine-specific logic outside its implementation.
 - `core/userdata` owns shared profile, metrics, goals, units and settings. Ask before
   placing plausibly shared user data in a feature. Each feature owns its UI/state,
   thin ViewModels and exported Koin/navigation entries. ViewModels forward business
-  actions to domain use cases. Features depend on domain/userdata, never database,
+  actions to domain use cases, while owning presentation state and UI lifecycle
+  coordination; not every UI-state transition needs a domain use case. Features
+  depend on domain/userdata, never database,
   network or another feature; `shared` explicitly aggregates registrations.
 - Preserve existing naming/style; the detailed module conventions remain in the
   mandatory project reference. Schema migrations and graph verification remain
