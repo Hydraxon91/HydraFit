@@ -783,6 +783,8 @@ record).
 - **OF-02-P2 — timer.** Implement deadline-based countdown and approved background/alert behavior; test clock/lifecycle boundaries.
 - **OF-02-P3 — UI + verification.** Emulator flow through logging, resting, background/resume and ending a session; verify heatmap/planner consumers.
 
+**Status:** occurrence guided logging shipped (default-off setting + guided card with one-set confirm); standalone accepted-plan days remain on the existing Logger draft path by design. OF-02-P2 (rest timer/alerts) and the OF-02-P3 full lifecycle/background/reboot emulator pass remain open; occurrence-only guided checks are done.
+
 **Acceptance:** each performed set is stored once; skipped/unperformed sets never become logged work. Resume obeys the approved lifecycle contract and timer state does not extend the countdown accidentally. Existing manual/backdated logging and End/New session controls remain usable.
 
 ### OF-03 — Planner target explanations
