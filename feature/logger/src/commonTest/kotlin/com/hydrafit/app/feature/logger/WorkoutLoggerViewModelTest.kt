@@ -28,6 +28,7 @@ import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.settings.RestPreferenceRepository
+import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
@@ -38,6 +39,8 @@ import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.PersistedRestCountdown
+import com.hydrafit.app.core.domain.workout.RestCountdownRepository
 import com.hydrafit.app.core.domain.workout.SessionConfig
 import com.hydrafit.app.core.domain.workout.SessionResegmenter
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
@@ -3587,6 +3590,88 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun restoresPersistedCountdownThroughViewModelAfterSameBootRecreation() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val session = WorkoutSession(
+            id = "session-restored",
+            startedAtMillis = MONDAY,
+            localEpochDay = 4L
+        )
+        val sessions = FakeWorkoutSessionRepository(session)
+        val countdowns = FakeRestCountdownRepository(
+            PersistedRestCountdown(
+                deadlineElapsedMillis = 160_000L,
+                durationMillis = 120_000L,
+                bootIdentity = "boot-current",
+                sessionId = session.id,
+                occurrenceId = 30L,
+                exerciseId = "back-squat"
+            )
+        )
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            sessions = sessions,
+            elapsedNow = { 100_000L },
+            bootIdentity = { "boot-current" },
+            restCountdownRepository = countdowns
+        )
+
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.guidedEnabled)
+        assertEquals(session.id, viewModel.state.value.activeSession?.id)
+        viewModel.onResume()
+        runCurrent()
+
+        assertEquals(60_000L, viewModel.state.value.restTimer?.remainingMillis)
+        assertEquals("back-squat", countdowns.countdown?.exerciseId)
+        viewModel.cancelRestTimer()
+    }
+
+    @Test
+    fun viewModelFailsClosedAndClearsExpiredOrWrongBootCountdowns() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val session = WorkoutSession(
+            id = "session-restored",
+            startedAtMillis = MONDAY,
+            localEpochDay = 4L
+        )
+        val sessions = FakeWorkoutSessionRepository(session)
+        val countdowns = FakeRestCountdownRepository(
+            PersistedRestCountdown(
+                deadlineElapsedMillis = 99_000L,
+                durationMillis = 120_000L,
+                bootIdentity = "boot-current",
+                sessionId = session.id,
+                occurrenceId = 30L,
+                exerciseId = "back-squat"
+            )
+        )
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            sessions = sessions,
+            elapsedNow = { 100_000L },
+            bootIdentity = { "boot-current" },
+            restCountdownRepository = countdowns
+        )
+
+        advanceUntilIdle()
+        viewModel.onResume()
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.restTimer)
+        assertNull(countdowns.countdown)
+        viewModel.cancelRestTimer()
+    }
+
+    @Test
     fun useLastLoadConsumesLiveCompletionSoItCannotBeReused() = runTimerTest {
         val repository = FakeWorkoutLogRepository(
             initial = listOf(
@@ -3907,13 +3992,21 @@ class WorkoutLoggerViewModelTest {
         catalog: ExerciseCatalog = FakeExerciseCatalog,
         guided: Boolean = false,
         elapsedNow: () -> Long = { 0L },
-        restPreferences: FakeRestPreferenceRepository = FakeRestPreferenceRepository()
+        restPreferences: FakeRestPreferenceRepository = FakeRestPreferenceRepository(),
+        sessions: FakeWorkoutSessionRepository = FakeWorkoutSessionRepository(),
+        bootIdentity: () -> String? = { null },
+        restCountdownRepository: RestCountdownRepository? = null
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
-        logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
+        logMutations = logMutations(repository, sessions),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
         loggingActions = loggingActions(FakePlanHistoryRepository(null), repository, schedule, 0L),
         exerciseCatalog = catalog,
-        runtime = WorkoutLoggerRuntime(TimeProvider { MONDAY }, elapsedNow),
+        runtime = WorkoutLoggerRuntime(
+            TimeProvider { MONDAY },
+            elapsedNow,
+            BootIdentityProvider(bootIdentity),
+            restCountdownRepository
+        ),
         settings = WorkoutLoggerSettings(
             FakeWeightUnitRepository(WeightUnit.KG),
             FakeGuidedWorkoutPreferenceRepository(guided),
@@ -4223,9 +4316,12 @@ class WorkoutLoggerViewModelTest {
         }
     }
 
-    private class FakeWorkoutSessionRepository : WorkoutSessionRepository {
-        private val sessions = mutableListOf<WorkoutSession>()
-        private val openSession = MutableStateFlow<WorkoutSession?>(null)
+    private class FakeWorkoutSessionRepository(initialSession: WorkoutSession? = null) :
+        WorkoutSessionRepository {
+        private val sessions = mutableListOf<WorkoutSession>().apply {
+            if (initialSession != null) add(initialSession)
+        }
+        private val openSession = MutableStateFlow(initialSession)
 
         override suspend fun create(session: WorkoutSession) {
             sessions.add(session)
@@ -4286,6 +4382,19 @@ class WorkoutLoggerViewModelTest {
 
         override suspend fun clearExerciseOverride(exerciseId: String) {
             exerciseOverrides.remove(exerciseId)
+        }
+    }
+
+    private class FakeRestCountdownRepository(var countdown: PersistedRestCountdown?) :
+        RestCountdownRepository {
+        override suspend fun load(): PersistedRestCountdown? = countdown
+
+        override suspend fun save(countdown: PersistedRestCountdown) {
+            this.countdown = countdown
+        }
+
+        override suspend fun clear() {
+            countdown = null
         }
     }
 
