@@ -39,6 +39,12 @@ Paths below are relative to the repository root.
   Save/Log/Duplicate/Start is an unknown outcome, not permission to replay it.
   Inspect for completion; if it cannot be established, report outcome unknown
   and stop. Never restart or clear data to recover from uncertainty.
+- If a UI test unexpectedly deletes or alters a set or other persisted data, stop
+  the affected test immediately. At most, make one bounded, read-only inspection
+  to establish what happened, then report the change and unverified checks. Do not
+  loop, recreate records, attempt restoration, or rerun the write journey without
+  explicit approval. Continue unrelated checks only if their preconditions remain
+  valid and within the original time budget; an accident never resets that budget.
 - If MCP inspection fails, use one bounded Maestro CLI `hierarchy
   --no-reinstall-driver --compact` fallback (see `.maestro/README.md`). Do not run
   `uiautomator dump`/`inspect.sh` while Maestro owns the automation connection:

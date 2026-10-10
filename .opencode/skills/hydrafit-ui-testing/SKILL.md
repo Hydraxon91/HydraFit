@@ -100,6 +100,13 @@ MCP does not expose a per-run hard timeout; when a hard bound is needed, use the
 documented bounded CLI command in `.maestro/README.md`, not an unbounded MCP run.
 On timeout, do not start another controller while the first may still be running.
 
+If a UI test unexpectedly deletes or alters a set or other persisted data, stop
+the affected test immediately. At most, make one bounded, read-only inspection to
+establish what happened, then report the change and unverified checks. Do not loop,
+recreate records, attempt restoration, or rerun the write journey without explicit
+approval. Continue unrelated checks only if their preconditions remain valid and
+within the original time budget; an accident never resets that budget.
+
 One initial attempt plus one evidence-based correction, only if safe to replay:
 
 - **Passed:** exact postcondition asserted, required visual evidence inspected,
