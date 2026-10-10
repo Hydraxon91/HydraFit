@@ -145,6 +145,8 @@ exact on-screen text.
 - Guided workouts default OFF; opting in/out persists after relaunch.
 - With guided workouts OFF, the Logger keeps its existing "Planned today" draft flow.
 - With guided workouts ON and an active block occurrence, the Logger shows the guided card: exercises in order with target vs actual sets; "Log set" records exactly one set and the remaining prescribed sets stay pending; warm-ups and unplanned exercises do not count toward progress; Edit then Confirm also records one set. Finish/partial/Skip and End/New session are unchanged.
+- In guided mode, "Set completed now" records one set at the live time and starts the editable rest prompt only after save succeeds. Ordinary confirmation and backdated entries do not start it. Duration accepts 1–86,400 seconds; invalid values must not crash or change the active timer. Change duration and verify the deadline is still based on the original completion time; background/resume must not restart it. It expires without logging a set and is not a rest measurement.
+- End/New session, occurrence change, guided OFF, dismiss, or successful deletion/correction of a set from the active occurrence cancels the prompt. Process death/reboot intentionally does not restore it. Notifications, alert permissions and rest coaching are not part of this slice.
 - API key: save, shows "configured", clear.
 - Model management: import/remove, target (NPU vs CPU/GPU) display, terms link.
 

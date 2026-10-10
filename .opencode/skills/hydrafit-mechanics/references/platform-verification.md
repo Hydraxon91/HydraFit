@@ -14,6 +14,15 @@ NSDateFormatter `Z` offset. Stored timestamps remain UTC milliseconds.
 Current bucketing uses the supplied offset; it is not a historical timezone or
 DST lookup for each recorded timestamp.
 
+Logger rest prompts use a separate monotonic elapsed clock, not wall time:
+Android uses `SystemClock.elapsedRealtime()` and iOS uses
+`clock_gettime(CLOCK_MONOTONIC)`, whose Darwin clock contract advances during
+system sleep. `RestCountdown` stores the elapsed
+completion instant plus duration; remaining time is recalculated from the
+deadline, so delayed UI ticks and wall-clock changes do not extend it. The timer
+is ViewModel-scoped and transient: backgrounding keeps elapsed time moving while
+the process remains alive, but process death/reboot does not restore a prompt.
+
 Load `hydrafit-ui-testing` before emulator work. Maestro semantic flows are the
 preferred interaction path; `.maestro/README.md` owns reusable flow contracts and
 their verification status. `docs/agent-ui-verification.md` owns the detailed workflow;

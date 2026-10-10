@@ -75,4 +75,10 @@
     <string name="logger_guided_target">Target: %1$d × %2$s</string>
     <string name="logger_guided_all_done">All prescribed sets recorded</string>
     <string name="logger_guided_set_failed">That set was not saved. The set is still pending; try again.</string>
+    <string name="logger_guided_log_completed_now">Set completed now</string>
+    <string name="logger_rest_timer_remaining">Rest prompt: %1$d min %2$d sec</string>
+    <string name="logger_rest_timer_finished">Rest prompt finished</string>
+    <string name="logger_rest_timer_duration">Rest duration (seconds)</string>
+    <string name="logger_rest_timer_note">Prompt only; this does not measure rest.</string>
+    <string name="logger_rest_timer_cancel">Dismiss prompt</string>
 </resources>

@@ -2035,7 +2035,7 @@ class WorkoutLoggerViewModelTest {
             getWorkoutLog = GetWorkoutLogUseCase(repository),
             loggingActions = loggingActions(FakePlanHistoryRepository(twoDayPlan)),
             exerciseCatalog = FakeExerciseCatalog,
-            timeProvider = TimeProvider { now },
+            runtime = WorkoutLoggerRuntime(TimeProvider { now }),
             settings = WorkoutLoggerSettings(
                 FakeWeightUnitRepository(WeightUnit.KG),
                 FakeGuidedWorkoutPreferenceRepository(false)
@@ -2119,7 +2119,7 @@ class WorkoutLoggerViewModelTest {
             getWorkoutLog = GetWorkoutLogUseCase(repository),
             loggingActions = loggingActions(history),
             exerciseCatalog = FakeExerciseCatalog,
-            timeProvider = TimeProvider { MONDAY },
+            runtime = WorkoutLoggerRuntime(TimeProvider { MONDAY }),
             settings = WorkoutLoggerSettings(
                 FakeWeightUnitRepository(WeightUnit.KG),
                 FakeGuidedWorkoutPreferenceRepository(false)
@@ -2145,7 +2145,7 @@ class WorkoutLoggerViewModelTest {
             getWorkoutLog = GetWorkoutLogUseCase(repository),
             loggingActions = loggingActions(history),
             exerciseCatalog = FakeExerciseCatalog,
-            timeProvider = TimeProvider { MONDAY },
+            runtime = WorkoutLoggerRuntime(TimeProvider { MONDAY }),
             settings = WorkoutLoggerSettings(
                 FakeWeightUnitRepository(WeightUnit.KG),
                 FakeGuidedWorkoutPreferenceRepository(false)
@@ -2202,7 +2202,7 @@ class WorkoutLoggerViewModelTest {
             getWorkoutLog = GetWorkoutLogUseCase(repository),
             loggingActions = loggingActions(FakePlanHistoryRepository(twoDayPlan)),
             exerciseCatalog = FakeExerciseCatalog,
-            timeProvider = TimeProvider { now },
+            runtime = WorkoutLoggerRuntime(TimeProvider { now }),
             settings = WorkoutLoggerSettings(
                 FakeWeightUnitRepository(WeightUnit.KG),
                 FakeGuidedWorkoutPreferenceRepository(false)
@@ -2603,7 +2603,7 @@ class WorkoutLoggerViewModelTest {
                 FakePlanHistoryRepository(acceptedPlan(listOf("plank")))
             ),
             exerciseCatalog = FakeExerciseCatalog,
-            timeProvider = TimeProvider { now },
+            runtime = WorkoutLoggerRuntime(TimeProvider { now }),
             settings = WorkoutLoggerSettings(
                 FakeWeightUnitRepository(WeightUnit.KG),
                 FakeGuidedWorkoutPreferenceRepository(false)
@@ -3153,7 +3153,7 @@ class WorkoutLoggerViewModelTest {
         getWorkoutLog = GetWorkoutLogUseCase(repository),
         loggingActions = loggingActions(history, repository, timeMillis = timeMillis),
         exerciseCatalog = catalog,
-        timeProvider = TimeProvider { timeMillis },
+        runtime = WorkoutLoggerRuntime(TimeProvider { timeMillis }),
         settings = WorkoutLoggerSettings(
             FakeWeightUnitRepository(weightUnit),
             FakeGuidedWorkoutPreferenceRepository(false)
@@ -3169,7 +3169,7 @@ class WorkoutLoggerViewModelTest {
         getWorkoutLog = GetWorkoutLogUseCase(repository),
         loggingActions = loggingActions(FakePlanHistoryRepository(null), repository),
         exerciseCatalog = FakeExerciseCatalog,
-        timeProvider = TimeProvider { now() },
+        runtime = WorkoutLoggerRuntime(TimeProvider { now() }),
         settings = WorkoutLoggerSettings(
             FakeWeightUnitRepository(WeightUnit.KG),
             FakeGuidedWorkoutPreferenceRepository(false)
@@ -3472,6 +3472,120 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun liveGuidedCompletionStartsTimerOnlyAfterSuccessfulWriteAndUsesNow() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            elapsedNow = { 50_000L }
+        )
+        advanceUntilIdle()
+        viewModel.onPerformedAtChanged(MONDAY - 60_000L)
+
+        viewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+
+        assertEquals(MONDAY, repository.all().single().performedAtMillis)
+        assertEquals(120_000L, viewModel.state.value.restTimer?.remainingMillis)
+        assertEquals("120", viewModel.state.value.restDurationSeconds)
+        viewModel.cancelRestTimer()
+    }
+
+    @Test
+    fun failedLiveGuidedWriteDoesNotStartRestAndOrdinaryConfirmNeverStartsRest() =
+        runTest(dispatcher) {
+            val failedRepository = FakeWorkoutLogRepository(failOnAddAttempt = 1)
+            val schedule = MutableWorkoutScheduleRepository()
+            schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+            val failed = occurrenceViewModel(failedRepository, schedule, guided = true)
+            advanceUntilIdle()
+
+            failed.confirmGuidedSetNow(40L)
+            advanceUntilIdle()
+
+            assertNull(failed.state.value.restTimer)
+            assertTrue(failed.state.value.guidedSetWriteFailed)
+
+            val ordinaryRepository = FakeWorkoutLogRepository()
+            val ordinarySchedule = MutableWorkoutScheduleRepository()
+            ordinarySchedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+            val ordinary = occurrenceViewModel(ordinaryRepository, ordinarySchedule, guided = true)
+            advanceUntilIdle()
+
+            ordinary.confirmGuidedSet(40L)
+            advanceUntilIdle()
+
+            assertNull(ordinary.state.value.restTimer)
+        }
+
+    @Test
+    fun endingSessionCancelsTimerAndInvalidatesAnEarlierLiveIntent() = runTest(dispatcher) {
+        val writeGate = CompletableDeferred<Unit>()
+        val repository = FakeWorkoutLogRepository().apply { addGate = writeGate }
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+        viewModel.endSession()
+        writeGate.complete(Unit)
+        runCurrent()
+
+        assertNull(viewModel.state.value.restTimer)
+        assertEquals(1, repository.all().size)
+    }
+
+    @Test
+    fun invalidDurationEnteredWhileLiveWriteIsPendingDoesNotCrashOrStartTimer() =
+        runTest(dispatcher) {
+            val writeGate = CompletableDeferred<Unit>()
+            val repository = FakeWorkoutLogRepository().apply { addGate = writeGate }
+            val schedule = MutableWorkoutScheduleRepository()
+            schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+            val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+            advanceUntilIdle()
+
+            viewModel.confirmGuidedSetNow(40L)
+            runCurrent()
+            viewModel.onRestDurationChanged("86401")
+            writeGate.complete(Unit)
+            runCurrent()
+
+            assertEquals(1, repository.all().size)
+            assertNull(viewModel.state.value.restTimer)
+            assertTrue(!viewModel.state.value.canStartRestTimer)
+        }
+
+    @Test
+    fun successfulTimeCorrectionOfTimerOccurrenceCancelsPrompt() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            elapsedNow = { 50_000L }
+        )
+        advanceUntilIdle()
+
+        viewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+        assertNotNull(viewModel.state.value.restTimer)
+        val savedSet = repository.all().single()
+
+        assertTrue(viewModel.correctSetTime(savedSet.id, MONDAY - 86_400_000L, 12, 0))
+        runCurrent()
+
+        assertNull(viewModel.state.value.restTimer)
+    }
+
+    @Test
     fun guidedEditedSetRecordsOneSetWithTheEditedValues() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
@@ -3546,13 +3660,14 @@ class WorkoutLoggerViewModelTest {
         repository: WorkoutLogRepository,
         schedule: WorkoutScheduleRepository,
         catalog: ExerciseCatalog = FakeExerciseCatalog,
-        guided: Boolean = false
+        guided: Boolean = false,
+        elapsedNow: () -> Long = { 0L }
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
         loggingActions = loggingActions(FakePlanHistoryRepository(null), repository, schedule, 0L),
         exerciseCatalog = catalog,
-        timeProvider = TimeProvider { MONDAY },
+        runtime = WorkoutLoggerRuntime(TimeProvider { MONDAY }, elapsedNow),
         settings = WorkoutLoggerSettings(
             FakeWeightUnitRepository(WeightUnit.KG),
             FakeGuidedWorkoutPreferenceRepository(guided)

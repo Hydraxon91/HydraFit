@@ -14,13 +14,13 @@ import com.hydrafit.app.core.domain.schedule.TrainingActivation
 import com.hydrafit.app.core.domain.schedule.WorkoutLoggingActions
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
-import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.localDayOfWeek
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.RestCountdown
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
@@ -39,7 +39,7 @@ class WorkoutLoggerViewModel(
     private val getWorkoutLog: GetWorkoutLogUseCase,
     private val loggingActions: WorkoutLoggingActions,
     private val exerciseCatalog: ExerciseCatalog,
-    private val timeProvider: TimeProvider,
+    private val runtime: WorkoutLoggerRuntime,
     private val settings: WorkoutLoggerSettings
 ) : ViewModel() {
 
@@ -76,9 +76,16 @@ class WorkoutLoggerViewModel(
     private var draftSubmissionInProgress = false
     private var draftContextRevision = 0L
     private var missingLoadPromptRevision = 0L
+    private val restTimer = runtime.restTimer(viewModelScope)
+    private var liveSetIntentEntryId: Long? = null
+    private var timerOccurrenceId: Long? = null
+    private var liveTimerGeneration = 0L
 
     init {
-        _state.update { it.copy(utcOffsetMillis = timeProvider.utcOffsetMillis()) }
+        _state.update { it.copy(utcOffsetMillis = runtime.utcOffsetMillis()) }
+        viewModelScope.launch {
+            restTimer.state.collect { timer -> _state.update { it.copy(restTimer = timer) } }
+        }
         viewModelScope.launch {
             // Observe the catalog so a newly added/edited custom exercise appears without a restart.
             exerciseCatalog.observeAll().collect { catalog ->
@@ -106,7 +113,11 @@ class WorkoutLoggerViewModel(
         }
         viewModelScope.launch {
             loggingActions.observeActiveActivation().collect { activation ->
-                if (activeActivation != activation) draftContextRevision++
+                if (activeActivation != activation) {
+                    draftContextRevision++
+                    invalidateRestTimer()
+                    liveSetIntentEntryId = null
+                }
                 activeActivation = activation
                 occurrencesJob?.cancel()
                 if (activation == null) {
@@ -141,6 +152,10 @@ class WorkoutLoggerViewModel(
         viewModelScope.launch {
             settings.guidedWorkoutFlow().collectLatest { enabled ->
                 _state.update { it.copy(guidedEnabled = enabled) }
+                if (!enabled) {
+                    invalidateRestTimer()
+                    liveSetIntentEntryId = null
+                }
             }
         }
         viewModelScope.launch {
@@ -150,6 +165,22 @@ class WorkoutLoggerViewModel(
             }
         }
     }
+
+    override fun onCleared() {
+        invalidateRestTimer()
+        super.onCleared()
+    }
+
+    private fun invalidateRestTimer() {
+        liveTimerGeneration++
+        timerOccurrenceId = null
+        restTimer.cancel()
+    }
+
+    private fun selectedRestDurationMillis(): Long? =
+        _state.value.restDurationSeconds.toLongOrNull()
+            ?.takeIf { it > 0L && it <= RestCountdown.MAX_DURATION_MILLIS / 1_000L }
+            ?.times(1_000L)
 
     fun onExerciseSelected(exerciseId: String) {
         val unit = _state.value.weightUnit
@@ -218,7 +249,8 @@ class WorkoutLoggerViewModel(
      * false when a future time is rejected; the current selection is left unchanged in that case.
      */
     fun onPerformedAtChanged(millis: Long?): Boolean {
-        if (millis != null && millis > timeProvider.nowMillis()) return false
+        if (millis != null && millis > runtime.nowMillis()) return false
+        liveSetIntentEntryId = null
         resolvedBackdatedSessionId = null
         resolvedBackdatedSessionKey = null
         _state.update { it.copy(performedAtMillis = millis) }
@@ -245,12 +277,12 @@ class WorkoutLoggerViewModel(
                 dateStartOfDayUtcMillis,
                 hour,
                 minute,
-                timeProvider.utcOffsetMillis()
+                runtime.utcOffsetMillis()
             )
         )
 
     /** The current wall-clock time, used to seed the backdated pickers. */
-    fun currentTimeMillis(): Long = timeProvider.nowMillis()
+    fun currentTimeMillis(): Long = runtime.nowMillis()
 
     fun editLoggedSet(row: LoggedSetRow) {
         if (_state.value.savingLoggedSet) return
@@ -279,7 +311,7 @@ class WorkoutLoggerViewModel(
     fun onLoggedSetRirChanged(value: String) = updateLoggedSetEdit { copy(rir = value) }
 
     fun onLoggedSetTimeChanged(millis: Long): Boolean {
-        if (millis > timeProvider.nowMillis()) return false
+        if (millis > runtime.nowMillis()) return false
         updateLoggedSetEdit { copy(performedAtMillis = millis) }
         return true
     }
@@ -301,7 +333,7 @@ class WorkoutLoggerViewModel(
         val current = _state.value
         val edit = current.loggedSetEdit ?: return
         if (current.savingLoggedSet || !edit.canSave) return
-        if (edit.performedAtMillis > timeProvider.nowMillis()) return
+        if (edit.performedAtMillis > runtime.nowMillis()) return
         val weight = when {
             edit.row.loadKind == LoadKind.BODYWEIGHT -> null
             edit.weightInput == edit.originalWeightInput -> edit.row.weightKg
@@ -331,6 +363,9 @@ class WorkoutLoggerViewModel(
                 _state.update { it.copy(savingLoggedSet = false) }
             }
             _state.update { it.copy(loggedSetEdit = null) }
+            if (timerOccurrenceId != null && edit.row.occurrenceId == timerOccurrenceId) {
+                cancelRestTimer()
+            }
             refreshRecentSets()
             if (activeActivation != null) refreshOccurrence()
         }
@@ -350,11 +385,17 @@ class WorkoutLoggerViewModel(
             dateStartOfDayUtcMillis,
             hour,
             minute,
-            timeProvider.utcOffsetMillis()
+            runtime.utcOffsetMillis()
         )
-        if (millis > timeProvider.nowMillis()) return false
+        if (millis > runtime.nowMillis()) return false
+        val correctedOccurrenceId = _state.value.recentSets
+            .firstOrNull { it.id == setId }
+            ?.occurrenceId
         viewModelScope.launch {
             logMutations.correctTime(setId, millis)
+            if (timerOccurrenceId != null && correctedOccurrenceId == timerOccurrenceId) {
+                cancelRestTimer()
+            }
             refreshRecentSets()
         }
         return true
@@ -398,7 +439,13 @@ class WorkoutLoggerViewModel(
 
     fun deleteSet(id: Long) {
         viewModelScope.launch {
+            val deletedOccurrenceId = _state.value.recentSets
+                .firstOrNull { it.id == id }
+                ?.occurrenceId
             logMutations.delete(id)
+            if (timerOccurrenceId != null && deletedOccurrenceId == timerOccurrenceId) {
+                cancelRestTimer()
+            }
             refreshRecentSets()
             // A deleted set changes the active occurrence's remaining/progress, so refresh it too.
             if (activeActivation != null) refreshOccurrence()
@@ -440,7 +487,7 @@ class WorkoutLoggerViewModel(
                     reps = reps,
                     weightKg = weightKg,
                     loadKind = loadKind,
-                    performedAtMillis = current.performedAtMillis ?: timeProvider.nowMillis(),
+                    performedAtMillis = current.performedAtMillis ?: runtime.nowMillis(),
                     isWarmup = current.isWarmup,
                     weekNumber = activeActivation?.weekNumber ?: acceptedPlan?.weekNumber,
                     cycleNumber = activeActivation?.cycleNumber ?: acceptedPlan?.cycleNumber,
@@ -465,7 +512,7 @@ class WorkoutLoggerViewModel(
      * draft batch lands in the same session.
      */
     private suspend fun logResolved(set: WorkoutSet, current: WorkoutLoggerUiState) {
-        val utcOffsetMillis = timeProvider.utcOffsetMillis()
+        val utcOffsetMillis = runtime.utcOffsetMillis()
         if (current.performedAtMillis == null) {
             logMutations(set, utcOffsetMillis)
             return
@@ -485,35 +532,37 @@ class WorkoutLoggerViewModel(
 
     /** Closes the open session; the next logged set auto-starts a new one. */
     fun endSession() {
-        viewModelScope.launch { logMutations.endSession(timeProvider.nowMillis()) }
+        invalidateRestTimer()
+        viewModelScope.launch { logMutations.endSession(runtime.nowMillis()) }
     }
 
     /** Closes the current session and immediately starts a new one. */
     fun newSession() {
+        invalidateRestTimer()
         viewModelScope.launch {
             logMutations.startNewSession(
-                startedAtMillis = timeProvider.nowMillis(),
-                utcOffsetMillis = timeProvider.utcOffsetMillis()
+                startedAtMillis = runtime.nowMillis(),
+                utcOffsetMillis = runtime.utcOffsetMillis()
             )
         }
     }
 
     /** Recomputes today's focus/drafts, e.g. when the screen resumes after a local midnight. */
     fun onResume() {
-        _state.update { it.copy(utcOffsetMillis = timeProvider.utcOffsetMillis()) }
+        _state.update { it.copy(utcOffsetMillis = runtime.utcOffsetMillis()) }
         viewModelScope.launch {
             refreshToday()
             // Opening the logger is an "open time": expire a session that rolled into a new day or went idle.
             logMutations.expireOpenSession(
-                nowMillis = timeProvider.nowMillis(),
-                utcOffsetMillis = timeProvider.utcOffsetMillis()
+                nowMillis = runtime.nowMillis(),
+                utcOffsetMillis = runtime.utcOffsetMillis()
             )
         }
     }
 
     private suspend fun updateTodayPlan(plan: AcceptedPlan?) {
-        val nowMillis = timeProvider.nowMillis()
-        val utcOffsetMillis = timeProvider.utcOffsetMillis()
+        val nowMillis = runtime.nowMillis()
+        val utcOffsetMillis = runtime.utcOffsetMillis()
         acceptedToday = plan?.dayFor(localDayOfWeek(nowMillis, utcOffsetMillis))
         suggestedWeightKgByExercise = acceptedToday?.exercises
             ?.mapNotNull { exercise ->
@@ -673,7 +722,8 @@ class WorkoutLoggerViewModel(
     fun onDraftWeightRevealed() = updateDraftEdit { copy(weightRevealed = true) }
 
     fun onDraftPerformedAtChanged(millis: Long?): Boolean {
-        if (millis != null && millis > timeProvider.nowMillis()) return false
+        if (millis != null && millis > runtime.nowMillis()) return false
+        if (millis != null) liveSetIntentEntryId = null
         resolvedBackdatedSessionId = null
         resolvedBackdatedSessionKey = null
         updateDraftEdit { copy(performedAtMillis = millis, performedAtExplicit = true) }
@@ -682,6 +732,7 @@ class WorkoutLoggerViewModel(
 
     fun cancelDraftEdit() {
         if (draftSubmissionInProgress) return
+        liveSetIntentEntryId = null
         _state.update { it.copy(draftEdit = null, confirmingAllDrafts = false) }
     }
 
@@ -695,7 +746,7 @@ class WorkoutLoggerViewModel(
         if (_state.value.draftEdit?.reps?.toIntOrNull()?.let { it > 0 } != true) return
         val entryId = draft.occurrenceEntryId
         if (isGuidedActive && entryId != null) {
-            confirmGuidedSet(entryId)
+            confirmGuidedSet(entryId, liveCompletion = liveSetIntentEntryId == entryId)
             return
         }
         confirmDraft(draft)
@@ -703,6 +754,7 @@ class WorkoutLoggerViewModel(
 
     fun cancelMissingLoadPrompt() {
         missingLoadPromptRevision++
+        liveSetIntentEntryId = null
         _state.update { it.copy(missingLoadPrompt = null, confirmingAllDrafts = false) }
     }
 
@@ -720,7 +772,11 @@ class WorkoutLoggerViewModel(
             .copy(loadKind = LoadKind.EXTERNAL, weightKg = null)
         _state.update { it.copy(missingLoadPrompt = null) }
         if (isGuidedActive && resolved.occurrenceEntryId != null) {
-            launchGuidedWrite(resolved, edit)
+            launchGuidedWrite(
+                resolved,
+                edit,
+                liveCompletion = liveSetIntentEntryId == resolved.occurrenceEntryId
+            )
             return
         }
         launchDraftWrite { contextRevision ->
@@ -738,6 +794,7 @@ class WorkoutLoggerViewModel(
         val draft = _state.value.missingLoadPrompt ?: return
         val promptRevision = missingLoadPromptRevision
         val contextRevision = draftContextRevision
+        val timerGeneration = liveTimerGeneration
         // Claim the guard across the suspending history lookup so a Cancel or a second action cannot
         // race the write; re-validate the prompt once the lookup returns.
         if (!beginDraftSubmission()) return
@@ -767,8 +824,19 @@ class WorkoutLoggerViewModel(
                     val resolved = (edit?.let { editedDraft(it) } ?: draft)
                         .copy(loadKind = LoadKind.EXTERNAL, weightKg = last.weightKg)
                     if (isGuidedActive && resolved.occurrenceEntryId != null) {
-                        val written = writeGuidedSet(resolved, edit, contextRevision)
+                        val liveCompletion = liveSetIntentEntryId == resolved.occurrenceEntryId
+                        val written = writeGuidedSet(
+                            resolved,
+                            edit,
+                            contextRevision,
+                            liveCompletion
+                        )
                         if (written) {
+                            val contextStillCurrent = contextRevision == draftContextRevision &&
+                                timerGeneration == liveTimerGeneration
+                            if (liveCompletion && contextStillCurrent && isGuidedActive) {
+                                startRestTimerIfDurationValid(resolved.occurrenceId)
+                            }
                             applyGuidedWriteSuccess()
                         } else {
                             _state.update { it.copy(guidedSetWriteFailed = true) }
@@ -786,6 +854,7 @@ class WorkoutLoggerViewModel(
             } finally {
                 endDraftSubmission()
             }
+            if (liveSetIntentEntryId == draft.occurrenceEntryId) liveSetIntentEntryId = null
             if (shouldContinue) continueConfirmAllDrafts()
         }
     }
@@ -1074,6 +1143,7 @@ class WorkoutLoggerViewModel(
     /** Closes the resolution without logging; the drafts stay pending. */
     fun dismissLegacyResolution() {
         if (draftSubmissionInProgress) return
+        liveSetIntentEntryId = null
         val item = _state.value.legacyResolution?.current
         _state.update {
             it.copy(
@@ -1100,7 +1170,11 @@ class WorkoutLoggerViewModel(
         }
         val resolved = base.copy(loadKind = kind, weightKg = weightKg)
         if (isGuidedActive && resolved.occurrenceEntryId != null) {
-            launchGuidedWrite(resolved, editForWrite)
+            launchGuidedWrite(
+                resolved,
+                editForWrite,
+                liveCompletion = liveSetIntentEntryId == resolved.occurrenceEntryId
+            )
             return
         }
         launchDraftWrite { contextRevision ->
@@ -1147,6 +1221,7 @@ class WorkoutLoggerViewModel(
         draft: DraftSet,
         edit: DraftEdit? = null,
         contextRevision: Long = draftContextRevision,
+        liveCompletion: Boolean = false,
         onSetLogged: () -> Unit = {}
     ) {
         val link = if (draft.occurrenceId != null) {
@@ -1171,7 +1246,11 @@ class WorkoutLoggerViewModel(
                     reps = draft.reps,
                     weightKg = if (draft.loadKind == LoadKind.BODYWEIGHT) null else draft.weightKg,
                     loadKind = draft.loadKind,
-                    performedAtMillis = current.performedAtMillis ?: timeProvider.nowMillis(),
+                    performedAtMillis = if (liveCompletion) {
+                        runtime.nowMillis()
+                    } else {
+                        current.performedAtMillis ?: runtime.nowMillis()
+                    },
                     isWarmup = false,
                     weekNumber = activeActivation?.weekNumber ?: acceptedPlan?.weekNumber,
                     cycleNumber = activeActivation?.cycleNumber ?: acceptedPlan?.cycleNumber,
@@ -1234,7 +1313,11 @@ class WorkoutLoggerViewModel(
             ?: currentOccurrences.filterNot { it.isResolved }.minByOrNull { it.queuePosition }
         val previousOccurrenceId = currentOccurrence?.id
         if (occurrence == null) {
-            if (currentOccurrence != null) draftContextRevision++
+            if (currentOccurrence != null) {
+                draftContextRevision++
+                invalidateRestTimer()
+                liveSetIntentEntryId = null
+            }
             currentOccurrence = null
             _state.update {
                 it.copy(
@@ -1252,7 +1335,13 @@ class WorkoutLoggerViewModel(
             }
             return
         }
-        if (currentOccurrence != occurrence) draftContextRevision++
+        if (currentOccurrence != occurrence) {
+            draftContextRevision++
+            if (currentOccurrence != null) {
+                invalidateRestTimer()
+                liveSetIntentEntryId = null
+            }
+        }
         currentOccurrence = occurrence
         val performed = performedSetsByEntry(occurrence.id)
         val drafts = occurrence.entries.mapNotNull { entry ->
@@ -1361,6 +1450,21 @@ class WorkoutLoggerViewModel(
 
     fun onOccurrenceMessageShown() = _state.update { it.copy(occurrenceMessage = null) }
 
+    fun onRestDurationChanged(value: String) {
+        val digits = value.filter(Char::isDigit)
+        _state.update { it.copy(restDurationSeconds = digits) }
+        val millis = digits.toLongOrNull()?.takeIf {
+            it > 0L && it <= RestCountdown.MAX_DURATION_MILLIS / 1_000L
+        }
+            ?.times(1_000L)
+            ?: return
+        restTimer.updateDuration(millis)
+    }
+
+    fun cancelRestTimer() {
+        invalidateRestTimer()
+    }
+
     /** True when guided mode is on and a workout occurrence is active. */
     private val isGuidedActive: Boolean
         get() = _state.value.guidedEnabled && currentOccurrence != null
@@ -1378,9 +1482,19 @@ class WorkoutLoggerViewModel(
      * batch path, but never writes more than one set.
      */
     fun confirmGuidedSet(occurrenceEntryId: Long) {
+        confirmGuidedSet(occurrenceEntryId, liveCompletion = false)
+    }
+
+    fun confirmGuidedSetNow(occurrenceEntryId: Long) {
+        if (!_state.value.canStartRestTimer) return
+        confirmGuidedSet(occurrenceEntryId, liveCompletion = true)
+    }
+
+    private fun confirmGuidedSet(occurrenceEntryId: Long, liveCompletion: Boolean) {
         if (draftSubmissionInProgress) return
         val draft = _state.value.draftSets.firstOrNull { it.occurrenceEntryId == occurrenceEntryId }
             ?: return
+        liveSetIntentEntryId = occurrenceEntryId.takeIf { liveCompletion }
         _state.update { it.copy(guidedSetWriteFailed = false) }
         val retry = retryFor(draft)
         if (retry == null) {
@@ -1399,24 +1513,39 @@ class WorkoutLoggerViewModel(
             setMissingLoadPrompt(draft)
             return
         }
-        launchGuidedWrite(resolved, edit ?: retry?.edit)
+        launchGuidedWrite(
+            resolved,
+            edit ?: retry?.edit,
+            liveCompletion = liveSetIntentEntryId == occurrenceEntryId
+        )
     }
 
     /** Claims the submission guard and writes a single guided set, then refreshes or reports failure. */
-    private fun launchGuidedWrite(resolved: DraftSet, edit: DraftEdit?) {
+    private fun launchGuidedWrite(
+        resolved: DraftSet,
+        edit: DraftEdit?,
+        liveCompletion: Boolean = false
+    ) {
         val contextRevision = draftContextRevision
+        val timerGeneration = liveTimerGeneration
         if (!beginDraftSubmission()) return
         viewModelScope.launch {
             val written = try {
-                writeGuidedSet(resolved, edit, contextRevision)
+                writeGuidedSet(resolved, edit, contextRevision, liveCompletion)
             } finally {
                 endDraftSubmission()
             }
             if (written) {
+                val contextStillCurrent = contextRevision == draftContextRevision &&
+                    timerGeneration == liveTimerGeneration
+                if (liveCompletion && contextStillCurrent && isGuidedActive) {
+                    startRestTimerIfDurationValid(resolved.occurrenceId)
+                }
                 applyGuidedWriteSuccess()
             } else {
                 _state.update { it.copy(guidedSetWriteFailed = true) }
             }
+            if (liveSetIntentEntryId == resolved.occurrenceEntryId) liveSetIntentEntryId = null
         }
     }
 
@@ -1427,12 +1556,13 @@ class WorkoutLoggerViewModel(
     private suspend fun writeGuidedSet(
         resolved: DraftSet,
         edit: DraftEdit?,
-        contextRevision: Long
+        contextRevision: Long,
+        liveCompletion: Boolean = false
     ): Boolean = try {
         if (contextRevision != draftContextRevision) {
             throw CancellationException("Draft context changed")
         }
-        logDraft(resolved.copy(sets = 1), edit, contextRevision)
+        logDraft(resolved.copy(sets = 1), edit, contextRevision, liveCompletion = liveCompletion)
         ensureDraftContext(contextRevision)
         true
     } catch (cancelled: CancellationException) {
@@ -1440,6 +1570,12 @@ class WorkoutLoggerViewModel(
     } catch (_: Exception) {
         ensureDraftContext(contextRevision)
         false
+    }
+
+    private fun startRestTimerIfDurationValid(occurrenceId: Long?) {
+        val durationMillis = selectedRestDurationMillis() ?: return
+        timerOccurrenceId = occurrenceId
+        restTimer.start(durationMillis)
     }
 
     /** Clears transient guided/edit state and refreshes consumers after a single guided set lands. */
@@ -1474,7 +1610,8 @@ class WorkoutLoggerViewModel(
                     isWarmup = set.isWarmup,
                     weekNumber = set.weekNumber,
                     dayIndex = set.dayIndex,
-                    loadKind = set.loadKind
+                    loadKind = set.loadKind,
+                    occurrenceId = set.occurrenceId
                 )
             }
         _state.update { it.copy(recentSets = rows) }

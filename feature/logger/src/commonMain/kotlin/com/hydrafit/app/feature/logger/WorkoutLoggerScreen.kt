@@ -92,6 +92,7 @@ import hydrafit.feature.logger.generated.resources.logger_finish
 import hydrafit.feature.logger.generated.resources.logger_finish_partial
 import hydrafit.feature.logger.generated.resources.logger_future_time_error
 import hydrafit.feature.logger.generated.resources.logger_guided_all_done
+import hydrafit.feature.logger.generated.resources.logger_guided_log_completed_now
 import hydrafit.feature.logger.generated.resources.logger_guided_set_failed
 import hydrafit.feature.logger.generated.resources.logger_guided_target
 import hydrafit.feature.logger.generated.resources.logger_guided_title
@@ -110,6 +111,11 @@ import hydrafit.feature.logger.generated.resources.logger_pick_time_title
 import hydrafit.feature.logger.generated.resources.logger_planned_today
 import hydrafit.feature.logger.generated.resources.logger_recent
 import hydrafit.feature.logger.generated.resources.logger_reps_label
+import hydrafit.feature.logger.generated.resources.logger_rest_timer_cancel
+import hydrafit.feature.logger.generated.resources.logger_rest_timer_duration
+import hydrafit.feature.logger.generated.resources.logger_rest_timer_finished
+import hydrafit.feature.logger.generated.resources.logger_rest_timer_note
+import hydrafit.feature.logger.generated.resources.logger_rest_timer_remaining
 import hydrafit.feature.logger.generated.resources.logger_rir_label
 import hydrafit.feature.logger.generated.resources.logger_search_label
 import hydrafit.feature.logger.generated.resources.logger_session_active
@@ -196,7 +202,10 @@ fun WorkoutLoggerRoute(
         onSkipWorkout = viewModel::skipWorkout,
         onOccurrenceMessageShown = viewModel::onOccurrenceMessageShown,
         onConfirmGuidedSet = viewModel::confirmGuidedSet,
+        onConfirmGuidedSetNow = viewModel::confirmGuidedSetNow,
         onEditGuidedSet = viewModel::editGuidedSet,
+        onRestDurationChanged = viewModel::onRestDurationChanged,
+        onCancelRestTimer = viewModel::cancelRestTimer,
         onBackdatedDateTimePicked = viewModel::onBackdatedDateTimePicked,
         onClearBackdated = { viewModel.onPerformedAtChanged(null) },
         onForceNewSessionChanged = viewModel::onForceNewSessionChanged,
@@ -252,7 +261,10 @@ fun WorkoutLoggerScreen(
     onSkipWorkout: () -> Unit,
     onOccurrenceMessageShown: () -> Unit,
     onConfirmGuidedSet: (Long) -> Unit,
+    onConfirmGuidedSetNow: (Long) -> Unit,
     onEditGuidedSet: (Long) -> Unit,
+    onRestDurationChanged: (String) -> Unit,
+    onCancelRestTimer: () -> Unit,
     onBackdatedDateTimePicked: (Long, Int, Int) -> Boolean,
     onClearBackdated: () -> Unit,
     onForceNewSessionChanged: (Boolean) -> Unit,
@@ -466,7 +478,13 @@ fun WorkoutLoggerScreen(
                         weightUnit = state.weightUnit,
                         writeFailed = state.guidedSetWriteFailed,
                         writeInProgress = state.draftWriteInProgress,
+                        restTimer = state.restTimer,
+                        restDurationSeconds = state.restDurationSeconds,
+                        canStartRestTimer = state.canStartRestTimer,
+                        onRestDurationChanged = onRestDurationChanged,
+                        onCancelRestTimer = onCancelRestTimer,
                         onLogSet = onConfirmGuidedSet,
+                        onLogSetNow = onConfirmGuidedSetNow,
                         onEditSet = onEditGuidedSet
                     )
                 }
@@ -1108,7 +1126,13 @@ private fun GuidedWorkoutSection(
     weightUnit: WeightUnit,
     writeFailed: Boolean,
     writeInProgress: Boolean,
+    restTimer: RestTimerState?,
+    restDurationSeconds: String,
+    canStartRestTimer: Boolean,
+    onRestDurationChanged: (String) -> Unit,
+    onCancelRestTimer: () -> Unit,
     onLogSet: (Long) -> Unit,
+    onLogSetNow: (Long) -> Unit,
     onEditSet: (Long) -> Unit
 ) {
     Card {
@@ -1142,6 +1166,42 @@ private fun GuidedWorkoutSection(
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall
                 )
+            }
+            restTimer?.let { timer ->
+                Text(
+                    text = if (timer.isFinished) {
+                        stringResource(Res.string.logger_rest_timer_finished)
+                    } else {
+                        val seconds = (timer.remainingMillis + 999L) / 1_000L
+                        stringResource(
+                            Res.string.logger_rest_timer_remaining,
+                            seconds / 60L,
+                            seconds % 60L
+                        )
+                    },
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    stringResource(Res.string.logger_rest_timer_note),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = restDurationSeconds,
+                        onValueChange = onRestDurationChanged,
+                        label = { Text(stringResource(Res.string.logger_rest_timer_duration)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = onCancelRestTimer) {
+                        Text(stringResource(Res.string.logger_rest_timer_cancel))
+                    }
+                }
             }
             if (guided.allComplete) {
                 Text(
@@ -1177,17 +1237,25 @@ private fun GuidedWorkoutSection(
                             )
                         }
                         if (!exercise.isComplete) {
-                            TextButton(
-                                onClick = { onLogSet(exercise.occurrenceEntryId) },
-                                enabled = !writeInProgress
-                            ) {
-                                Text(stringResource(Res.string.logger_log_button))
-                            }
-                            TextButton(
-                                onClick = { onEditSet(exercise.occurrenceEntryId) },
-                                enabled = !writeInProgress
-                            ) {
-                                Text(stringResource(Res.string.logger_draft_edit))
+                            Column {
+                                TextButton(
+                                    onClick = { onLogSet(exercise.occurrenceEntryId) },
+                                    enabled = !writeInProgress
+                                ) {
+                                    Text(stringResource(Res.string.logger_log_button))
+                                }
+                                TextButton(
+                                    onClick = { onLogSetNow(exercise.occurrenceEntryId) },
+                                    enabled = !writeInProgress && canStartRestTimer
+                                ) {
+                                    Text(stringResource(Res.string.logger_guided_log_completed_now))
+                                }
+                                TextButton(
+                                    onClick = { onEditSet(exercise.occurrenceEntryId) },
+                                    enabled = !writeInProgress
+                                ) {
+                                    Text(stringResource(Res.string.logger_draft_edit))
+                                }
                             }
                         }
                     }

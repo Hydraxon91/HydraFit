@@ -719,7 +719,7 @@ gated scopes, not implied by completion of P0–P5. M2's other open work stays a
 | Reference | Feature | Dependency / sequencing | Status |
 | --- | --- | --- | --- |
 | OF-01 | Local backup/export and restore | First portability foundation | SHIPPED 0.5.0; separately gated extensions target 0.9.0 |
-| OF-02 | Guided workouts and rest timer | Existing accepted plans and explicit sessions | IN PROGRESS — default-off setting shipped; occurrence guided logging (P1 slice) implemented; rest timer/timing decisions open. |
+| OF-02 | Guided workouts and rest timer | Existing accepted plans and explicit sessions | IN PROGRESS — default-off setting and occurrence guided logging shipped; transient in-process rest prompt implemented; alerts, timing provenance/coaching and full P3 lifecycle verification remain open. |
 | OF-03 | Planner target explanations | Existing planner; integrate with OF-02 | Volume slice SHIPPED 0.4.0; remainder targets 0.7.0, decisions open |
 | OF-04 | Exercise history and progress charts | Existing logged sets; shared queries may support OF-08 | FUTURE — decisions open |
 | OF-05 | Local workout CSV imports | OF-01 recovery path recommended first | FUTURE — decisions open |
@@ -783,7 +783,7 @@ record).
 - **OF-02-P2 — timer.** Implement deadline-based countdown and approved background/alert behavior; test clock/lifecycle boundaries.
 - **OF-02-P3 — UI + verification.** Emulator flow through logging, resting, background/resume and ending a session; verify heatmap/planner consumers.
 
-**Status:** occurrence guided logging shipped (default-off setting + guided card with one-set confirm); standalone accepted-plan days remain on the existing Logger draft path by design. OF-02-P2 (rest timer/alerts) and the OF-02-P3 full lifecycle/background/reboot emulator pass remain open; occurrence-only guided checks are done.
+**Status:** occurrence guided logging shipped (default-off setting + guided card with one-set confirm); standalone accepted-plan days remain on the existing Logger draft path by design. P2A adds an explicit live-completion action and transient deadline-based rest prompt; notification alerts, persisted resume, timing provenance/coaching and full P3 lifecycle/background/reboot emulator verification remain open. Occurrence-only guided checks are done; P2A visual verification remains pending.
 
 **Acceptance:** each performed set is stored once; skipped/unperformed sets never become logged work. Resume obeys the approved lifecycle contract and timer state does not extend the countdown accidentally. Existing manual/backdated logging and End/New session controls remain usable.
 

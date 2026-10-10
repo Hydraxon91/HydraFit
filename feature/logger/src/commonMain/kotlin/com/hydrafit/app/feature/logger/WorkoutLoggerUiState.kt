@@ -7,6 +7,7 @@ import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.RestCountdown
 import com.hydrafit.app.core.domain.workout.WorkoutSession
 
 data class ExerciseOption(
@@ -32,7 +33,8 @@ data class LoggedSetRow(
     val weekNumber: Int? = null,
     val dayIndex: Int? = null,
     /** What [weightKg] means, so the row can label added or unconfirmed load honestly. */
-    val loadKind: LoadKind = LoadKind.LEGACY_UNSPECIFIED
+    val loadKind: LoadKind = LoadKind.LEGACY_UNSPECIFIED,
+    val occurrenceId: Long? = null
 )
 
 /** A correction of an existing row; unit is frozen for the lifetime of this editor. */
@@ -177,6 +179,10 @@ data class WorkoutLoggerUiState(
     val guidedProgress: GuidedWorkoutProgress? = null,
     /** True when the last guided single-set write failed; the pending set is still available to retry. */
     val guidedSetWriteFailed: Boolean = false,
+    /** In-memory rest prompt started only by an explicitly live guided completion. */
+    val restTimer: RestTimerState? = null,
+    /** Editable duration in seconds; retained only for this Logger ViewModel lifetime. */
+    val restDurationSeconds: String = "120",
     /** A pending explicit load decision for legacy drafts, or null when none is waiting. */
     val legacyResolution: LegacyResolution? = null,
     val todayFocus: SplitFocus? = null,
@@ -198,6 +204,11 @@ data class WorkoutLoggerUiState(
     /** True when guided mode is on and an active occurrence is available to guide. */
     val isGuidedActive: Boolean
         get() = guidedEnabled && guidedProgress != null
+
+    val canStartRestTimer: Boolean
+        get() = restDurationSeconds.toLongOrNull()?.let {
+            it > 0L && it <= RestCountdown.MAX_DURATION_MILLIS / 1_000L
+        } == true
 
     /**
      * The open session a backdated set would attach to, or null when logging will start a new one.

@@ -97,6 +97,7 @@ import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import com.hydrafit.app.feature.equipment.ExercisePlanningSettingsViewModel
 import com.hydrafit.app.feature.equipment.equipmentModule
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapModule
+import com.hydrafit.app.feature.logger.WorkoutLoggerViewModel
 import com.hydrafit.app.feature.logger.loggerModule
 import com.hydrafit.app.feature.routines.RoutinesViewModel
 import com.hydrafit.app.feature.routines.routinesModule
@@ -411,6 +412,47 @@ class KoinModulesVerificationTest {
             assertNotNull(koin.get<RoutinesViewModel>())
         } finally {
             koin.close()
+        }
+    }
+
+    @Test
+    fun theWorkoutLoggerViewModelResolvesAtRuntime() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        val koin = koinApplication {
+            modules(
+                module {
+                    single<WorkoutPlanSourcesRepository> { FakeWorkoutPlanSourcesRepository }
+                    single<PlanHistoryRepository> { FakePlanHistoryRepository }
+                    single<ExerciseCatalog> { FakeExerciseCatalog }
+                    single<WorkoutLogRepository> { FakeWorkoutLogRepository }
+                    single<WorkoutSessionRepository> { FakeWorkoutSessionRepository }
+                    single<SessionResegmenter> { FakeSessionResegmenter }
+                    single<RoutineTemplateRepository> { FakeRoutineTemplateRepository }
+                    single<WorkoutScheduleRepository> { FakeWorkoutScheduleRepository }
+                    single<WeightUnitRepository> { FakeWeightUnitRepository }
+                    single<GuidedWorkoutPreferenceRepository> {
+                        object : GuidedWorkoutPreferenceRepository {
+                            override suspend fun isGuidedWorkoutEnabled() = false
+
+                            override fun guidedWorkoutFlow() = flowOf(false)
+
+                            override suspend fun setGuidedWorkoutEnabled(enabled: Boolean) = Unit
+                        }
+                    }
+                },
+                domainModule,
+                loggerModule,
+                testPlatformModule
+            )
+        }.koin
+
+        try {
+            assertNotNull(koin.get<WorkoutLoggerViewModel>())
+            advanceUntilIdle()
+        } finally {
+            koin.close()
+            Dispatchers.resetMain()
         }
     }
 

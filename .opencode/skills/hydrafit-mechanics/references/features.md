@@ -80,10 +80,22 @@ entry and leaves the remaining prescribed sets pending; "Edit" opens the one-off
 draft editor and confirming it also writes a single set. Guided writes reuse the
 draft load-shape decisions (legacy resolution, missing-load prompt) through
 `writeGuidedSet`, so a single insert either lands or leaves the draft pending for
-retry. Finish/partial Finish/Skip and End/New session are unchanged, and the
-accepted plan is never edited. Off keeps the existing draft/batch flow. The Logger
-ViewModel groups its read-only preferences (units and guided flag) in
-`WorkoutLoggerSettings` to stay within its dependency budget.
+retry. **Set completed now** is a separate explicit action: it timestamps the set
+at the live wall time and starts a deadline-based, in-memory rest prompt only after
+the write succeeds. Ordinary guided confirmation, manual logging, warm-ups and
+backdated entries do not start a timer. The countdown uses a platform monotonic
+clock that advances during device sleep; ticks recompute from its original
+completion instant, and changing duration does not restart it. The default is 120
+seconds, editable up to 24 hours and retained only for the Logger ViewModel lifetime. Invalid
+durations do not update or start the timer. The prompt
+is not a rest measurement; there are no alerts, coaching or process-death restore.
+It cancels on session/occurrence changes, guided mode being turned off, explicit
+dismissal, or successful deletion/correction of a set from its occurrence.
+Finish/partial Finish/Skip and End/New session retain their existing logging
+semantics. The accepted plan is never edited. Off keeps the existing draft/batch
+flow. The Logger ViewModel groups read-only preferences (units and guided flag) in
+`WorkoutLoggerSettings`, and its wall clock/timer factory in
+`WorkoutLoggerRuntime`, to stay within its dependency budget.
 
 For routine authoring, the module is `:feature:routines`:
 `RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/
