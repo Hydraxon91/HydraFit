@@ -71,4 +71,8 @@
     <string name="logger_draft_reset">Reset to plan</string>
     <string name="logger_draft_write_partial">Some sets were saved, but the rest could not be. The remaining sets are still pending; retry to continue.</string>
     <string name="logger_draft_write_none">The sets could not be saved. The remaining sets are still pending; retry to continue.</string>
+    <string name="logger_guided_title">Guided workout</string>
+    <string name="logger_guided_target">Target: %1$d × %2$s</string>
+    <string name="logger_guided_all_done">All prescribed sets recorded</string>
+    <string name="logger_guided_set_failed">That set was not saved. The set is still pending; try again.</string>
 </resources>

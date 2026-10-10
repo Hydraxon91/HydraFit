@@ -24,7 +24,7 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
-import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
+import com.hydrafit.app.core.domain.workout.buildGuidedWorkoutProgress
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,7 +40,7 @@ class WorkoutLoggerViewModel(
     private val loggingActions: WorkoutLoggingActions,
     private val exerciseCatalog: ExerciseCatalog,
     private val timeProvider: TimeProvider,
-    private val weightUnitRepository: WeightUnitRepository
+    private val settings: WorkoutLoggerSettings
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(WorkoutLoggerUiState())
@@ -117,7 +117,9 @@ class WorkoutLoggerViewModel(
                         it.copy(
                             activeOccurrence = null,
                             confirmingAllDrafts = false,
-                            draftWriteRetries = emptyList()
+                            draftWriteRetries = emptyList(),
+                            guidedProgress = null,
+                            guidedSetWriteFailed = false
                         )
                     }
                     updateTodayPlan(acceptedPlan)
@@ -132,8 +134,13 @@ class WorkoutLoggerViewModel(
             }
         }
         viewModelScope.launch {
-            weightUnitRepository.unitFlow().collectLatest { unit ->
+            settings.weightUnitFlow().collectLatest { unit ->
                 _state.update { it.copy(weightUnit = unit) }
+            }
+        }
+        viewModelScope.launch {
+            settings.guidedWorkoutFlow().collectLatest { enabled ->
+                _state.update { it.copy(guidedEnabled = enabled) }
             }
         }
         viewModelScope.launch {
@@ -393,6 +400,8 @@ class WorkoutLoggerViewModel(
         viewModelScope.launch {
             logMutations.delete(id)
             refreshRecentSets()
+            // A deleted set changes the active occurrence's remaining/progress, so refresh it too.
+            if (activeActivation != null) refreshOccurrence()
         }
     }
 
@@ -684,6 +693,11 @@ class WorkoutLoggerViewModel(
     fun confirmDraftEdit() {
         val draft = _state.value.draftEdit?.draft ?: return
         if (_state.value.draftEdit?.reps?.toIntOrNull()?.let { it > 0 } != true) return
+        val entryId = draft.occurrenceEntryId
+        if (isGuidedActive && entryId != null) {
+            confirmGuidedSet(entryId)
+            return
+        }
         confirmDraft(draft)
     }
 
@@ -705,6 +719,10 @@ class WorkoutLoggerViewModel(
         val resolved = (edit?.let { editedDraft(it) } ?: draft)
             .copy(loadKind = LoadKind.EXTERNAL, weightKg = null)
         _state.update { it.copy(missingLoadPrompt = null) }
+        if (isGuidedActive && resolved.occurrenceEntryId != null) {
+            launchGuidedWrite(resolved, edit)
+            return
+        }
         launchDraftWrite { contextRevision ->
             val written = writeDraft(draft, resolved, edit, contextRevision)
             if (written) {
@@ -748,13 +766,22 @@ class WorkoutLoggerViewModel(
                     val edit = _state.value.draftEdit?.takeIf { it.draft == draft }
                     val resolved = (edit?.let { editedDraft(it) } ?: draft)
                         .copy(loadKind = LoadKind.EXTERNAL, weightKg = last.weightKg)
-                    val written = writeDraft(draft, resolved, edit, contextRevision)
-                    if (written) {
-                        removeDraft(draft)
-                        refreshRecentSets()
-                        if (activeActivation != null) refreshOccurrence()
+                    if (isGuidedActive && resolved.occurrenceEntryId != null) {
+                        val written = writeGuidedSet(resolved, edit, contextRevision)
+                        if (written) {
+                            applyGuidedWriteSuccess()
+                        } else {
+                            _state.update { it.copy(guidedSetWriteFailed = true) }
+                        }
+                    } else {
+                        val written = writeDraft(draft, resolved, edit, contextRevision)
+                        if (written) {
+                            removeDraft(draft)
+                            refreshRecentSets()
+                            if (activeActivation != null) refreshOccurrence()
+                        }
+                        shouldContinue = written && _state.value.confirmingAllDrafts
                     }
-                    shouldContinue = written && _state.value.confirmingAllDrafts
                 }
             } finally {
                 endDraftSubmission()
@@ -1072,6 +1099,10 @@ class WorkoutLoggerViewModel(
             else -> item.draft
         }
         val resolved = base.copy(loadKind = kind, weightKg = weightKg)
+        if (isGuidedActive && resolved.occurrenceEntryId != null) {
+            launchGuidedWrite(resolved, editForWrite)
+            return
+        }
         launchDraftWrite { contextRevision ->
             val written = writeDraft(item.draft, resolved, editForWrite, contextRevision)
             if (written) {
@@ -1214,7 +1245,9 @@ class WorkoutLoggerViewModel(
                     legacyResolution = null,
                     draftWriteRetries = emptyList(),
                     confirmingAllDrafts = false,
-                    todayFocus = null
+                    todayFocus = null,
+                    guidedProgress = null,
+                    guidedSetWriteFailed = false
                 )
             }
             return
@@ -1273,7 +1306,10 @@ class WorkoutLoggerViewModel(
                 confirmingAllDrafts = it.confirmingAllDrafts &&
                     previousOccurrenceId == occurrence.id &&
                     displayDrafts.isNotEmpty(),
-                todayFocus = workout?.focus
+                todayFocus = workout?.focus,
+                guidedProgress = buildGuidedWorkoutProgress(occurrence, performed),
+                guidedSetWriteFailed = it.guidedSetWriteFailed &&
+                    previousOccurrenceId == occurrence.id
             )
         }
     }
@@ -1324,6 +1360,101 @@ class WorkoutLoggerViewModel(
     }
 
     fun onOccurrenceMessageShown() = _state.update { it.copy(occurrenceMessage = null) }
+
+    /** True when guided mode is on and a workout occurrence is active. */
+    private val isGuidedActive: Boolean
+        get() = _state.value.guidedEnabled && currentOccurrence != null
+
+    /** Opens the one-off editor for an active occurrence entry's pending set. */
+    fun editGuidedSet(occurrenceEntryId: Long) {
+        val draft = _state.value.draftSets.firstOrNull { it.occurrenceEntryId == occurrenceEntryId }
+            ?: return
+        editDraft(draft)
+    }
+
+    /**
+     * Records exactly one prescribed working set for [occurrenceEntryId], leaving any remaining
+     * prescribed sets pending. Reuses the same load-shape and legacy/missing-load decisions as the
+     * batch path, but never writes more than one set.
+     */
+    fun confirmGuidedSet(occurrenceEntryId: Long) {
+        if (draftSubmissionInProgress) return
+        val draft = _state.value.draftSets.firstOrNull { it.occurrenceEntryId == occurrenceEntryId }
+            ?: return
+        _state.update { it.copy(guidedSetWriteFailed = false) }
+        val retry = retryFor(draft)
+        if (retry == null) {
+            legacyResolutionFor(listOf(draft))?.let { resolution ->
+                _state.update { it.copy(legacyResolution = resolution) }
+                return
+            }
+        }
+        val edit = _state.value.draftEdit?.takeIf { it.draft == draft || editedDraft(it) == draft }
+        val resolved = when {
+            edit != null -> editedDraft(edit)
+            retry != null -> retry.draft
+            else -> draft
+        }
+        if (retry == null && resolved.loadKind == LoadKind.EXTERNAL && resolved.weightKg == null) {
+            setMissingLoadPrompt(draft)
+            return
+        }
+        launchGuidedWrite(resolved, edit ?: retry?.edit)
+    }
+
+    /** Claims the submission guard and writes a single guided set, then refreshes or reports failure. */
+    private fun launchGuidedWrite(resolved: DraftSet, edit: DraftEdit?) {
+        val contextRevision = draftContextRevision
+        if (!beginDraftSubmission()) return
+        viewModelScope.launch {
+            val written = try {
+                writeGuidedSet(resolved, edit, contextRevision)
+            } finally {
+                endDraftSubmission()
+            }
+            if (written) {
+                applyGuidedWriteSuccess()
+            } else {
+                _state.update { it.copy(guidedSetWriteFailed = true) }
+            }
+        }
+    }
+
+    /**
+     * Writes exactly one working set for the confirmed [resolved] values. A single insert either
+     * lands or does not, so a failure leaves the pending draft untouched for an explicit retry.
+     */
+    private suspend fun writeGuidedSet(
+        resolved: DraftSet,
+        edit: DraftEdit?,
+        contextRevision: Long
+    ): Boolean = try {
+        if (contextRevision != draftContextRevision) {
+            throw CancellationException("Draft context changed")
+        }
+        logDraft(resolved.copy(sets = 1), edit, contextRevision)
+        ensureDraftContext(contextRevision)
+        true
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        ensureDraftContext(contextRevision)
+        false
+    }
+
+    /** Clears transient guided/edit state and refreshes consumers after a single guided set lands. */
+    private suspend fun applyGuidedWriteSuccess() {
+        _state.update {
+            it.copy(
+                guidedSetWriteFailed = false,
+                missingLoadPrompt = null,
+                legacyResolution = null,
+                draftEdit = null
+            )
+        }
+        refreshRecentSets()
+        if (activeActivation != null) refreshOccurrence()
+    }
 
     private suspend fun refreshRecentSets() {
         val rows = getWorkoutLog()

@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutSession
 
@@ -170,6 +171,12 @@ data class WorkoutLoggerUiState(
     val activeOccurrence: ActiveOccurrence? = null,
     /** A finish/skip error to surface (e.g. the workout changed elsewhere). */
     val occurrenceMessage: String? = null,
+    /** Whether the guided-workout preference is on. Off leaves the Logger's existing flow unchanged. */
+    val guidedEnabled: Boolean = false,
+    /** The active occurrence's guided progress, or null when guided mode is off or no workout is active. */
+    val guidedProgress: GuidedWorkoutProgress? = null,
+    /** True when the last guided single-set write failed; the pending set is still available to retry. */
+    val guidedSetWriteFailed: Boolean = false,
     /** A pending explicit load decision for legacy drafts, or null when none is waiting. */
     val legacyResolution: LegacyResolution? = null,
     val todayFocus: SplitFocus? = null,
@@ -187,6 +194,10 @@ data class WorkoutLoggerUiState(
     /** True when a backdated time is set; the UI shows a "backdated" indicator. */
     val isBackdated: Boolean
         get() = performedAtMillis != null
+
+    /** True when guided mode is on and an active occurrence is available to guide. */
+    val isGuidedActive: Boolean
+        get() = guidedEnabled && guidedProgress != null
 
     /**
      * The open session a backdated set would attach to, or null when logging will start a new one.
