@@ -10,9 +10,10 @@ import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlinx.coroutines.flow.Flow
 
 /**
- * The read-only user preferences the Logger observes: display units and whether guided mode is on.
- * Pure delegation grouped by responsibility so the ViewModel stays within its dependency budget; it
- * owns no state of its own.
+ * The user preferences the Logger observes (display units and whether guided mode is on) plus
+ * rest-duration resolution: resolve/set/clear of per-exercise overrides is forwarded to the domain
+ * use cases. Grouped by responsibility so the ViewModel stays within its dependency budget; it owns
+ * no state of its own.
  */
 class WorkoutLoggerSettings(
     private val weightUnitRepository: WeightUnitRepository,

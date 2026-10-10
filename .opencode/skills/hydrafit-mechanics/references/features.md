@@ -110,9 +110,10 @@ It cancels on session/occurrence changes, guided mode being turned off, explicit
 dismissal, or successful deletion/correction of a set from its occurrence.
 Finish/partial Finish/Skip and End/New session retain their existing logging
 semantics. The accepted plan is never edited. Off keeps the existing draft/batch
-flow. The Logger ViewModel groups read-only preferences (units and guided flag) in
-`WorkoutLoggerSettings`, and its wall clock/timer factory in
-`WorkoutLoggerRuntime`, to stay within its dependency budget.
+flow. The Logger ViewModel groups its preferences and rest-duration delegation in
+`WorkoutLoggerSettings` (display units and the guided flag, plus resolve/set/clear
+of per-exercise rest durations forwarded to the domain use cases), and its wall
+clock/timer factory in `WorkoutLoggerRuntime`, to stay within its dependency budget.
 
 For routine authoring, the module is `:feature:routines`:
 `RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/
