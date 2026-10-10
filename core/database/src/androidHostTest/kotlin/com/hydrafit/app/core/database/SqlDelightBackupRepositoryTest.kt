@@ -55,6 +55,7 @@ class SqlDelightBackupRepositoryTest {
         assertEquals(listOf("BARBELL"), file.selectedEquipment)
         assertEquals(1, file.workoutSets.size)
         assertEquals("EXTERNAL", file.workoutSets.single().loadKind)
+        assertEquals("LIVE", file.workoutSets.single().timingProvenance)
         assertEquals("s1", file.workoutSets.single().sessionId)
         assertEquals(listOf("s1"), file.workoutSessions.map { it.id })
         assertEquals(1, file.plans.size)
@@ -260,7 +261,7 @@ class SqlDelightBackupRepositoryTest {
         )
         database.userEquipmentQueries.insertSelected("BARBELL")
         database.workoutSessionQueries.insertSession("s1", 10, 20, 1)
-        database.workoutLogQueries.insertSet(
+        database.workoutLogQueries.insertSetWithTimingProvenance(
             exerciseId = "back-squat",
             reps = 5,
             weightKg = 100.0,
@@ -272,7 +273,8 @@ class SqlDelightBackupRepositoryTest {
             dayIndex = 0,
             rir = 2,
             sessionId = "s1",
-            loadKind = "EXTERNAL"
+            loadKind = "EXTERNAL",
+            timingProvenance = "LIVE"
         )
         database.planHistoryQueries.insertPlan("deterministic", 1, 1, 1)
         val planId = database.planHistoryQueries.lastInsertedPlanId().executeAsOne()

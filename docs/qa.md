@@ -148,6 +148,7 @@ exact on-screen text.
 - In guided mode, "Set completed now" records one set at the live time and starts the editable rest prompt only after save succeeds. Ordinary confirmation and backdated entries do not start it. Duration accepts 1–86,400 seconds; invalid values must not crash or change the active timer. Change duration and verify the deadline is still based on the original completion time; background/resume must not restart it. It expires without logging a set and is not a rest measurement.
 - End/New session, occurrence change, guided OFF, dismiss, or successful deletion/correction of a set from the active occurrence cancels the prompt. Process death/reboot intentionally does not restore it. Notifications, alert permissions and rest coaching are not part of this slice.
 - RIR fields in manual logging, planned-draft editing and recent-set editing explain reps in reserve, remain optional, and offer 0/1/2/3 quick-picks. Picking the selected value again clears it; typed values through 10 remain available. Zero is recorded as an explicit report, blank stays unreported, and no RPE conversion or inferred/prescribed RIR appears.
+- Set timing provenance is explicit: backdated/catch-up entries are marked catch-up; ordinary manual and legacy entries remain unknown; only the explicit guided live-completion action is marked live. Correcting performed time clears live eligibility. Never infer rest from timestamp gaps.
 - API key: save, shows "configured", clear.
 - Model management: import/remove, target (NPU vs CPU/GPU) display, terms link.
 

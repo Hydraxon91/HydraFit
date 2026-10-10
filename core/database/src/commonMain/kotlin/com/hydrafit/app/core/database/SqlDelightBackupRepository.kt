@@ -106,7 +106,8 @@ class SqlDelightBackupRepository(
                         sessionId = it.sessionId,
                         occurrenceId = it.occurrenceId,
                         occurrenceEntryId = it.occurrenceEntryId,
-                        loadKind = it.loadKind
+                        loadKind = it.loadKind,
+                        timingProvenance = it.timingProvenance
                     )
                 },
                 workoutSessions = database.workoutSessionQueries.selectAllSessions()
@@ -583,7 +584,7 @@ class SqlDelightBackupRepository(
             }
 
             file.workoutSets.forEach { set ->
-                database.workoutLogQueries.insertSetWithId(
+                database.workoutLogQueries.insertSetWithIdAndTimingProvenance(
                     id = set.id,
                     exerciseId = set.exerciseId,
                     reps = set.reps.toLong(),
@@ -598,7 +599,8 @@ class SqlDelightBackupRepository(
                     sessionId = set.sessionId,
                     occurrenceId = set.occurrenceId,
                     occurrenceEntryId = set.occurrenceEntryId,
-                    loadKind = set.loadKind
+                    loadKind = set.loadKind,
+                    timingProvenance = set.timingProvenance
                 )
             }
 

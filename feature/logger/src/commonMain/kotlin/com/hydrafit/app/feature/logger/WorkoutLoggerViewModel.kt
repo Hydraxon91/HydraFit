@@ -24,6 +24,7 @@ import com.hydrafit.app.core.domain.workout.RestCountdown
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
+import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 import com.hydrafit.app.core.domain.workout.buildGuidedWorkoutProgress
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -494,7 +495,12 @@ class WorkoutLoggerViewModel(
                     dayIndex = acceptedToday?.dayIndex,
                     rir = current.rir.toIntOrNull(),
                     occurrenceId = link?.first,
-                    occurrenceEntryId = link?.second
+                    occurrenceEntryId = link?.second,
+                    timingProvenance = if (current.performedAtMillis != null) {
+                        WorkoutTimingProvenance.CATCH_UP
+                    } else {
+                        WorkoutTimingProvenance.UNKNOWN
+                    }
                 ),
                 current
             )
@@ -1257,7 +1263,12 @@ class WorkoutLoggerViewModel(
                     dayIndex = acceptedToday?.dayIndex,
                     occurrenceId = link?.first,
                     occurrenceEntryId = link?.second,
-                    rir = edit?.rir?.toIntOrNull()
+                    rir = edit?.rir?.toIntOrNull(),
+                    timingProvenance = when {
+                        liveCompletion -> WorkoutTimingProvenance.LIVE
+                        current.performedAtMillis != null -> WorkoutTimingProvenance.CATCH_UP
+                        else -> WorkoutTimingProvenance.UNKNOWN
+                    }
                 ),
                 current
             )

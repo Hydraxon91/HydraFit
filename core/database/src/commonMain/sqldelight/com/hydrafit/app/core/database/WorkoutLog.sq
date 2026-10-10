@@ -14,12 +14,17 @@ CREATE TABLE workoutSet (
     occurrenceId INTEGER,
     occurrenceEntryId INTEGER,
     loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
+    timingProvenance TEXT NOT NULL DEFAULT 'UNKNOWN',
     FOREIGN KEY (exerciseId) REFERENCES exercise(id)
 );
 
 insertSet:
 INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber, dayIndex, rir, sessionId, loadKind)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+insertSetWithTimingProvenance:
+INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber, dayIndex, rir, sessionId, loadKind, timingProvenance)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 lastInsertedSetId:
 SELECT last_insert_rowid();
@@ -28,6 +33,10 @@ SELECT last_insert_rowid();
 insertSetWithId:
 INSERT INTO workoutSet(id, exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber, dayIndex, rir, sessionId, occurrenceId, occurrenceEntryId, loadKind)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+insertSetWithIdAndTimingProvenance:
+INSERT INTO workoutSet(id, exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber, dayIndex, rir, sessionId, occurrenceId, occurrenceEntryId, loadKind, timingProvenance)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 selectAllSets:
 SELECT * FROM workoutSet ORDER BY performedAt, id;
@@ -54,7 +63,7 @@ selectSetsForOccurrenceEntry:
 SELECT * FROM workoutSet WHERE occurrenceEntryId = ? ORDER BY performedAt, id;
 
 updateSetPerformedAt:
-UPDATE workoutSet SET performedAt = ? WHERE id = ?;
+UPDATE workoutSet SET performedAt = ?, timingProvenance = 'UNKNOWN' WHERE id = ?;
 
 updateSetExerciseId:
 UPDATE workoutSet SET exerciseId = :newId WHERE exerciseId = :oldId;

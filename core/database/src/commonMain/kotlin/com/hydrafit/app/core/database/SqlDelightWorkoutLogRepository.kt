@@ -24,7 +24,7 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
         val seed = exerciseQueries.selectById(set.exerciseId).executeAsOneOrNull()
         val override = overrideQueries.selectById(set.exerciseId).executeAsOneOrNull()
         setQueries.transaction {
-            setQueries.insertSet(
+            setQueries.insertSetWithTimingProvenance(
                 exerciseId = set.exerciseId,
                 reps = set.reps.toLong(),
                 weightKg = set.weightKg,
@@ -36,7 +36,8 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                 dayIndex = set.dayIndex?.toLong(),
                 rir = set.rir?.toLong(),
                 sessionId = set.sessionId,
-                loadKind = set.loadKind.name
+                loadKind = set.loadKind.name,
+                timingProvenance = set.timingProvenance.name
             )
             if (set.occurrenceId != null || set.occurrenceEntryId != null) {
                 setQueries.assignOccurrence(

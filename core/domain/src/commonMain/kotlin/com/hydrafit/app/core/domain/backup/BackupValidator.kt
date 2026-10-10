@@ -15,6 +15,7 @@ import com.hydrafit.app.core.domain.schedule.RemainingDisposition
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 
 /**
  * Validates a whole payload before any write. Rejection is all-or-nothing: an unknown catalog id, a
@@ -108,6 +109,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
         file.workoutSets.forEach {
             exercise(it.exerciseId, knownExercises)
             enum(it.loadKind, LoadKind.entries)
+            enum(it.timingProvenance, WorkoutTimingProvenance.entries)
             it.weightKg?.let { value -> finite(value) }
             it.occurrenceId?.let { id -> reference(id, occurrenceIds) }
             it.occurrenceEntryId?.let { id -> reference(id, occurrenceEntryIds) }

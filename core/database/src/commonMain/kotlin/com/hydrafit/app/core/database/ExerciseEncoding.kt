@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 
 internal fun encodeEquipment(tags: Set<EquipmentTag>): String =
     tags.joinToString(separator = ",") { it.id }
@@ -73,6 +74,10 @@ internal fun decodeLoadCapability(value: String?): ExerciseLoadCapability =
 /** Decodes a stored load kind, defaulting to [LoadKind.LEGACY_UNSPECIFIED] when absent. */
 internal fun decodeLoadKind(value: String?): LoadKind =
     runCatching { LoadKind.valueOf(value ?: "") }.getOrDefault(LoadKind.LEGACY_UNSPECIFIED)
+
+internal fun decodeWorkoutTimingProvenance(value: String?): WorkoutTimingProvenance =
+    runCatching { WorkoutTimingProvenance.valueOf(value ?: "") }
+        .getOrDefault(WorkoutTimingProvenance.UNKNOWN)
 
 private inline fun <T> String.toEnumSet(transform: (String) -> T): Set<T> =
     if (isEmpty()) emptySet() else split(',').map(transform).toSet()

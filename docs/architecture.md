@@ -445,7 +445,7 @@ protection flags, never renaming/merging/redirecting. No IDs, history, PRs, pres
 working-load suggestions, preferences or exclusions are copied. Pattern/muscle guardrails stay
 advisory.
 
-### 1.14 Local backup/export and restore (OF-01 v1)
+### 1.14 Local backup/export and restore (OF-01)
 
 A user-selected local file captures the supported offline data as a **logical,
 versioned JSON** snapshot, and restore replaces that data wholesale.
@@ -458,7 +458,7 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   and `SqlDelightBackupCatalog`; the `:core:userdata` `BackupFileStore` port
   (`AndroidBackupFileStore` SAF implementation, `UnsupportedBackupFileStore` on
   iOS); the Settings `BackupRoute`/`BackupViewModel`.
-- **Rules:** the file is logical (`format` + `formatVersion` 1), independent of the
+- **Rules:** the file is logical (`format` + `formatVersion` 3), independent of the
   SQLite schema and the app version. Every envelope field is required, so a file
   that omits one is rejected as malformed rather than read as an empty snapshot;
   nullable fields are present as explicit `null`, not omitted. The manifest carries
@@ -496,6 +496,16 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   in 0.5.0, so iOS binds `UnsupportedBackupFileStore` and the section shows a note.
 - **Ranked improvements:** (S) if backups and history need the same round-trip
   fixtures, extract a shared test fixture rather than duplicating payload builders.
+
+### 1.15 Workout timing provenance
+
+Performed-set timestamps are not evidence of rest duration. Each set stores an explicit
+`WorkoutTimingProvenance`: `LIVE`, `CATCH_UP`, or `UNKNOWN`. Only the guided live-completion
+action writes `LIVE`; a chosen historical time writes `CATCH_UP`; ordinary manual and legacy
+sets remain `UNKNOWN`. Correcting performed time clears provenance to `UNKNOWN`. The enum is
+stored additively in migration `34.sqm`, defaults existing rows to unknown, and round-trips in
+backup format 3; format 1/2 rows decode as unknown. Rest measurement still requires explicit
+live start/completion events; provenance alone does not establish a measured interval.
 
 ## 2. Decision log
 

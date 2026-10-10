@@ -46,6 +46,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
+import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.AfterTest
@@ -3014,6 +3015,10 @@ class WorkoutLoggerViewModelTest {
         advanceUntilIdle()
 
         assertEquals(chosen, repository.all().single().performedAtMillis)
+        assertEquals(
+            WorkoutTimingProvenance.CATCH_UP,
+            repository.all().single().timingProvenance
+        )
         // The chosen time persists until it is cleared, so the next set is still backdated.
         assertEquals(chosen, viewModel.state.value.performedAtMillis)
     }
@@ -3035,6 +3040,10 @@ class WorkoutLoggerViewModelTest {
         advanceUntilIdle()
 
         assertEquals(MONDAY, repository.all().single().performedAtMillis)
+        assertEquals(
+            WorkoutTimingProvenance.UNKNOWN,
+            repository.all().single().timingProvenance
+        )
     }
 
     @Test
@@ -3509,6 +3518,10 @@ class WorkoutLoggerViewModelTest {
         runCurrent()
 
         assertEquals(MONDAY, repository.all().single().performedAtMillis)
+        assertEquals(
+            WorkoutTimingProvenance.LIVE,
+            repository.all().single().timingProvenance
+        )
         assertEquals(120_000L, viewModel.state.value.restTimer?.remainingMillis)
         assertEquals("120", viewModel.state.value.restDurationSeconds)
         viewModel.cancelRestTimer()

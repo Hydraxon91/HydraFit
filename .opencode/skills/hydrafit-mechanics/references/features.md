@@ -56,6 +56,12 @@ unit is frozen, unchanged weight text preserves exact stored kilograms, blank is
 numeric. Recorded load kind is authoritative (BODYWEIGHT stays non-numeric); live catalog edits do
 not reinterpret history. Block attribution, warm-up and snapshots are preserved.
 
+Performed sets carry `WorkoutTimingProvenance`: `LIVE` is reserved for the explicit guided
+completion action, `CATCH_UP` for an explicitly chosen performed time, and `UNKNOWN` for ordinary
+manual/guided logging and legacy rows. Correcting a set's performed time resets provenance to
+`UNKNOWN`; timing source is not inferred from timestamp gaps. The value is stored on the set and
+round-trips through backup format 3; formats 1/2 and pre-migration rows decode as `UNKNOWN`.
+
 All three Logger RIR inputs (manual entry, planned-draft edit and recent-set edit) explain RIR as
 additional reps possible with comparable technique and range of motion, keep it optional, and offer
 explicit 0/1/2/3 quick-picks. Tapping the selected value clears it; blank remains unreported and

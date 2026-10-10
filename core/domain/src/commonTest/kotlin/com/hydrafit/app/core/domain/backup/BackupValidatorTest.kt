@@ -102,6 +102,13 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun rejectsAnInvalidTimingProvenance() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            validFile().copy(workoutSets = listOf(set(timingProvenance = "NOT_A_SOURCE")))
+        }
+    }
+
+    @Test
     fun rejectsANonFiniteNumber() {
         assertFailure(BackupFailure.INVALID_VALUE) {
             validFile().copy(workoutSets = listOf(set(weightKg = Double.NaN)))
@@ -314,6 +321,7 @@ class BackupValidatorTest {
         exerciseId: String = "back-squat",
         weightKg: Double? = 100.0,
         loadKind: String = "EXTERNAL",
+        timingProvenance: String = "UNKNOWN",
         involvements: String? = null,
         sessionId: String? = "s1",
         occurrenceId: Long? = null,
@@ -333,7 +341,8 @@ class BackupValidatorTest {
         sessionId = sessionId,
         occurrenceId = occurrenceId,
         occurrenceEntryId = occurrenceEntryId,
-        loadKind = loadKind
+        loadKind = loadKind,
+        timingProvenance = timingProvenance
     )
 
     private fun session(id: String) = BackupWorkoutSessionRecord(

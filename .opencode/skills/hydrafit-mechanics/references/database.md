@@ -23,9 +23,10 @@ runs the existing full-history resegmentation algorithm; otherwise the lookup is
 session bounds stay untouched. No schema change or migration is needed; all snapshots, load kind
 and occurrence links are retained. A missing row fails instead of recreating a deleted set.
 
-`N.sqm` migrates from version N to N+1. At authoring, migrations were `1.sqm`
-through `26.sqm`, producing schema 27. Determine the next version from the
-current directory/generated Schema rather than copying this snapshot.
+`N.sqm` migrates from version N to N+1. Migration `34.sqm` adds the set-level
+`timingProvenance` value (`UNKNOWN` for existing rows); current schema version is
+35. Determine the next version from the current directory/generated Schema rather
+than copying this snapshot.
 
 `core/database/build.gradle.kts` declares:
 
