@@ -18,6 +18,16 @@ class RestPreferenceUseCasesTest {
         assertEquals(240L, resolve("squat"))
         ClearExerciseRestDurationUseCase(repository)("squat")
         assertEquals(180L, resolve("squat"))
+
+        assertFailsWith<IllegalArgumentException> {
+            SetExerciseRestDurationUseCase(repository)("", 240L)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            SetExerciseRestDurationUseCase(repository)("squat", 0L)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            ClearExerciseRestDurationUseCase(repository)("")
+        }
     }
 
     @Test

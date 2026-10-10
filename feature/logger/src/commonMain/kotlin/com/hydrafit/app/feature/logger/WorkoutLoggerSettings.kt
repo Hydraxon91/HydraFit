@@ -1,6 +1,9 @@
 package com.hydrafit.app.feature.logger
 
+import com.hydrafit.app.core.domain.settings.ClearExerciseRestDurationUseCase
+import com.hydrafit.app.core.domain.settings.ResolveRestDurationUseCase
 import com.hydrafit.app.core.domain.settings.RestPreferenceRepository
+import com.hydrafit.app.core.domain.settings.SetExerciseRestDurationUseCase
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
@@ -14,15 +17,20 @@ import kotlinx.coroutines.flow.Flow
 class WorkoutLoggerSettings(
     private val weightUnitRepository: WeightUnitRepository,
     private val guidedWorkoutPreferenceRepository: GuidedWorkoutPreferenceRepository,
-    private val restPreferenceRepository: RestPreferenceRepository
+    private val restPreferenceRepository: RestPreferenceRepository,
+    private val resolveRestDurationUseCase: ResolveRestDurationUseCase =
+        ResolveRestDurationUseCase(restPreferenceRepository),
+    private val setExerciseRestDurationUseCase: SetExerciseRestDurationUseCase =
+        SetExerciseRestDurationUseCase(restPreferenceRepository),
+    private val clearExerciseRestDurationUseCase: ClearExerciseRestDurationUseCase =
+        ClearExerciseRestDurationUseCase(restPreferenceRepository)
 ) {
     fun weightUnitFlow(): Flow<WeightUnit> = weightUnitRepository.unitFlow()
 
     fun guidedWorkoutFlow(): Flow<Boolean> = guidedWorkoutPreferenceRepository.guidedWorkoutFlow()
 
     suspend fun restDurationSeconds(exerciseId: String): Long =
-        restPreferenceRepository.exerciseOverrideSeconds(exerciseId)
-            ?: restPreferenceRepository.globalDefaultSeconds()
+        resolveRestDurationUseCase(exerciseId)
 
     suspend fun globalRestDurationSeconds(): Long = restPreferenceRepository.globalDefaultSeconds()
 
@@ -30,8 +38,8 @@ class WorkoutLoggerSettings(
         restPreferenceRepository.exerciseOverrideSeconds(exerciseId) != null
 
     suspend fun setExerciseRestDuration(exerciseId: String, seconds: Long) =
-        restPreferenceRepository.setExerciseOverrideSeconds(exerciseId, seconds)
+        setExerciseRestDurationUseCase(exerciseId, seconds)
 
     suspend fun clearExerciseRestDuration(exerciseId: String) =
-        restPreferenceRepository.clearExerciseOverride(exerciseId)
+        clearExerciseRestDurationUseCase(exerciseId)
 }
