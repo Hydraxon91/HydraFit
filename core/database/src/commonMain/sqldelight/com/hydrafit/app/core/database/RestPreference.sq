@@ -1,0 +1,28 @@
+CREATE TABLE restPreference (
+    preferenceKey TEXT NOT NULL PRIMARY KEY,
+    exerciseId TEXT,
+    durationSeconds INTEGER NOT NULL CHECK (durationSeconds BETWEEN 1 AND 86400)
+);
+
+selectGlobalDefault:
+SELECT durationSeconds FROM restPreference WHERE preferenceKey = 'GLOBAL';
+
+selectExerciseOverride:
+SELECT durationSeconds FROM restPreference WHERE preferenceKey = 'EXERCISE:' || ?;
+
+selectAllExerciseOverrides:
+SELECT exerciseId, durationSeconds FROM restPreference WHERE exerciseId IS NOT NULL ORDER BY exerciseId;
+
+upsertGlobalDefault:
+INSERT OR REPLACE INTO restPreference(preferenceKey, exerciseId, durationSeconds)
+VALUES ('GLOBAL', NULL, ?);
+
+upsertExerciseOverride:
+INSERT OR REPLACE INTO restPreference(preferenceKey, exerciseId, durationSeconds)
+VALUES ('EXERCISE:' || ?, ?, ?);
+
+deleteExerciseOverride:
+DELETE FROM restPreference WHERE preferenceKey = 'EXERCISE:' || ?;
+
+deleteAll:
+DELETE FROM restPreference;

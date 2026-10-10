@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.db.SqlDriver
+import com.hydrafit.app.core.domain.workout.PersistedRestCountdown
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -66,5 +67,23 @@ class V1ToCurrentMigrationTest {
         assertEquals("UNKNOWN", set.timingProvenance)
         assertNull(set.startedAtElapsedMillis)
         assertNull(set.completedAtElapsedMillis)
+
+        val restPreferences = SqlDelightRestPreferenceRepository(database)
+        assertEquals(120L, restPreferences.globalDefaultSeconds())
+        restPreferences.setGlobalDefaultSeconds(180L)
+        restPreferences.setExerciseOverrideSeconds("back-squat", 240L)
+        assertEquals(240L, restPreferences.exerciseOverrideSeconds("back-squat"))
+
+        val persistedCountdown = PersistedRestCountdown(
+            deadlineElapsedMillis = 50_000L,
+            durationMillis = 30_000L,
+            bootIdentity = "boot-1",
+            sessionId = "session-1",
+            occurrenceId = 1L,
+            exerciseId = "back-squat"
+        )
+        val countdownRepository = SqlDelightRestCountdownRepository(database)
+        countdownRepository.save(persistedCountdown)
+        assertEquals(persistedCountdown, countdownRepository.load())
     }
 }

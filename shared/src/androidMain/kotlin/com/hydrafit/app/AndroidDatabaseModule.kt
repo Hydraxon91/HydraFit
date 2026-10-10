@@ -2,8 +2,10 @@ package com.hydrafit.app
 
 import android.content.Context
 import android.net.Uri
+import android.provider.Settings
 import com.hydrafit.app.core.database.AndroidDatabaseDriverFactory
 import com.hydrafit.app.core.database.DatabaseDriverFactory
+import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.llm.AndroidOnDeviceModelManager
 import com.hydrafit.app.core.llm.AndroidOnDevicePlannerLogger
@@ -28,6 +30,15 @@ fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = modu
             override fun nowMillis(): Long = System.currentTimeMillis()
             override fun utcOffsetMillis(): Long =
                 java.util.TimeZone.getDefault().getOffset(nowMillis()).toLong()
+        }
+    }
+    single<BootIdentityProvider> {
+        BootIdentityProvider {
+            Settings.Global.getInt(
+                context.applicationContext.contentResolver,
+                Settings.Global.BOOT_COUNT,
+                -1
+            ).takeIf { it >= 0 }?.toString()
         }
     }
     single<ApiKeyStore> { AndroidKeystoreApiKeyStore(context.applicationContext) }
