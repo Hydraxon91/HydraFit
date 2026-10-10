@@ -3633,6 +3633,51 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun liveCompletionPersistsContextForSameBootViewModelRecreation() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val sessions = FakeWorkoutSessionRepository()
+        val countdowns = FakeRestCountdownRepository(null)
+        val firstViewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            sessions = sessions,
+            elapsedNow = { 100_000L },
+            bootIdentity = { "boot-current" },
+            restCountdownRepository = countdowns
+        )
+
+        advanceUntilIdle()
+        firstViewModel.startGuidedSet(40L)
+        firstViewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+
+        val stored = assertNotNull(countdowns.countdown)
+        assertEquals(firstViewModel.state.value.activeSession?.id, stored.sessionId)
+        assertEquals(30L, stored.occurrenceId)
+        assertEquals("back-squat", stored.exerciseId)
+
+        val recreatedViewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            sessions = sessions,
+            elapsedNow = { 100_000L },
+            bootIdentity = { "boot-current" },
+            restCountdownRepository = countdowns
+        )
+        runCurrent()
+        recreatedViewModel.onResume()
+        runCurrent()
+
+        assertEquals(120_000L, recreatedViewModel.state.value.restTimer?.remainingMillis)
+        recreatedViewModel.cancelRestTimer()
+        firstViewModel.cancelRestTimer()
+    }
+
+    @Test
     fun viewModelFailsClosedAndClearsExpiredOrWrongBootCountdowns() = runTimerTest {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
@@ -3666,6 +3711,46 @@ class WorkoutLoggerViewModelTest {
         advanceUntilIdle()
         viewModel.onResume()
         advanceUntilIdle()
+
+        assertNull(viewModel.state.value.restTimer)
+        assertNull(countdowns.countdown)
+        viewModel.cancelRestTimer()
+    }
+
+    @Test
+    fun viewModelClearsCountdownWhenBootIdentityChanges() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val session = WorkoutSession(
+            id = "session-restored",
+            startedAtMillis = MONDAY,
+            localEpochDay = 4L
+        )
+        val sessions = FakeWorkoutSessionRepository(session)
+        val countdowns = FakeRestCountdownRepository(
+            PersistedRestCountdown(
+                deadlineElapsedMillis = 160_000L,
+                durationMillis = 120_000L,
+                bootIdentity = "boot-previous",
+                sessionId = session.id,
+                occurrenceId = 30L,
+                exerciseId = "back-squat"
+            )
+        )
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            sessions = sessions,
+            elapsedNow = { 100_000L },
+            bootIdentity = { "boot-current" },
+            restCountdownRepository = countdowns
+        )
+
+        advanceUntilIdle()
+        viewModel.onResume()
+        runCurrent()
 
         assertNull(viewModel.state.value.restTimer)
         assertNull(countdowns.countdown)
