@@ -59,6 +59,18 @@ internal object HistoricalDatabaseFixtures {
     fun count(driver: SqlDriver, table: String, where: String? = null): Long =
         long(driver, "SELECT COUNT(*) FROM $table" + (where?.let { " WHERE $it" } ?: ""))
 
+    /**
+     * v1: only the `exercise` catalog table existed. Every other table is created by a migration,
+     * so migrating this forward exercises the whole `1.sqm..N.sqm` chain end to end.
+     */
+    fun v1(): SqlDriver = driverOf(
+        listOf(
+            "CREATE TABLE exercise (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, " +
+                "requiredEquipment TEXT NOT NULL, primaryMuscles TEXT NOT NULL, " +
+                "secondaryMuscles TEXT NOT NULL)"
+        )
+    )
+
     /** v13: separate `exerciseEdit`/`exerciseMuscleEdit` override tables; no `exerciseOverride`. */
     fun v13(): SqlDriver = driverOf(
         listOf(

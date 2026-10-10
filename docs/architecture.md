@@ -295,19 +295,23 @@ The UI freezes the entry unit and retains full stored precision when weight text
 SQLDelight `.sq` files describe the current schema; every schema change ships a numbered `.sqm`
 migration, and released schemas are never edited in place.
 
-- **Examples:** `core/database/src/commonMain/sqldelight/…` — `1.sqm`..`27.sqm`, table rebuilds in
+- **Examples:** `core/database/src/commonMain/sqldelight/…` — `1.sqm`..`35.sqm`, table rebuilds in
   `20.sqm` (dropping legacy muscle columns), additive columns (`17.sqm`, `18.sqm`, `22.sqm`,
-  `23.sqm`, `24.sqm`, `27.sqm` EX-02 load columns), new tables (`21.sqm` `personalRecord`, `25.sqm`
-  routine templates, `26.sqm` activations/occurrences/schedule cursor).
-- **Consistency:** high; the current `.sq` schema matches the cumulative migrations (manually
-  cross-checked in S2). Business-level compatibility is guarded by the review's "Phase C" invariant:
-  neutral inputs must reproduce prior figures exactly (`docs/plans-archive.md` C1-C3).
-- **Violations / tensions:** the build does not enable SQLDelight `verifyMigrations`, and migration
-  tests start at v13, so the `1.sqm..12.sqm` chain and `.sq`↔`.sqm` agreement are unverified
-  (S2-004, TS3-001).
-- **Ranked improvements:**
-  1. (M) Enable `verifyMigrations` with a checked-in schema snapshot, or add a v1→current test
-     (S2-004, TS3-001).
+  `23.sqm`, `24.sqm`, `27.sqm` EX-02 load columns, `34.sqm`/`35.sqm` timing provenance and elapsed
+  instants), new tables (`21.sqm` `personalRecord`, `25.sqm` routine templates, `26.sqm`
+  activations/occurrences/schedule cursor).
+- **Consistency:** high; the current `.sq` matches the cumulative migrations exactly, including column
+  order. A one-off 0.6.0 exception reordered columns — adding, removing and retyping nothing — in
+  `exercise`, `exerciseOverride` (`involvements` declared before `loadCapability`, since `19.sqm` added
+  it before `27.sqm`) and `occurrenceEntry` (`remainingDisposition`/`terminalRemainingSets` before
+  `loadCapability`/`loadKind`), so a fresh `.sq` create now agrees with an upgraded database. Business-level
+  compatibility is guarded by the review's "Phase C" invariant: neutral inputs must reproduce prior
+  figures exactly (`docs/plans-archive.md` C1-C3).
+- **Verification:** SQLDelight `verifyMigrations` is enabled against the committed v1 seed
+  `databases/1.db` (the immutable schema of version 1); `verifySqlDelightMigration` applies
+  `1.sqm..35.sqm` to it and fails when the result differs from the current `.sq`, so an unmigrated
+  `.sq` edit fails the build. It runs in CI. `V1ToCurrentMigrationTest` additionally migrates a v1
+  database in code, asserting retained values and the legacy→involvement conversion (S2-004, TS3-001).
 
 ### 1.10 Platform boundary via source sets + Koin (not `expect`/`actual`)
 
@@ -458,7 +462,7 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   and `SqlDelightBackupCatalog`; the `:core:userdata` `BackupFileStore` port
   (`AndroidBackupFileStore` SAF implementation, `UnsupportedBackupFileStore` on
   iOS); the Settings `BackupRoute`/`BackupViewModel`.
-- **Rules:** the file is logical (`format` + `formatVersion` 3), independent of the
+- **Rules:** the file is logical (`format` + `formatVersion` 4), independent of the
   SQLite schema and the app version. Every envelope field is required, so a file
   that omits one is rejected as malformed rather than read as an empty snapshot;
   nullable fields are present as explicit `null`, not omitted. The manifest carries
@@ -503,9 +507,12 @@ Performed-set timestamps are not evidence of rest duration. Each set stores an e
 `WorkoutTimingProvenance`: `LIVE`, `CATCH_UP`, or `UNKNOWN`. Only the guided live-completion
 action writes `LIVE`; a chosen historical time writes `CATCH_UP`; ordinary manual and legacy
 sets remain `UNKNOWN`. Correcting performed time clears provenance to `UNKNOWN`. The enum is
-stored additively in migration `34.sqm`, defaults existing rows to unknown, and round-trips in
-backup format 3; format 1/2 rows decode as unknown. Rest measurement still requires explicit
-live start/completion events; provenance alone does not establish a measured interval.
+stored additively in migration `34.sqm`; `35.sqm` adds nullable monotonic start/completion instants.
+Existing rows default to unknown and no elapsed instants. Backup format 4 requires explicit
+provenance and nullable elapsed fields. Format 3 requires and preserves provenance while elapsed
+fields default to null; formats 1–2 default all timing fields to unknown/null. Rest measurement
+still requires explicit live start/completion events; provenance alone does not establish a measured
+interval.
 
 ## 2. Decision log
 
@@ -548,8 +555,10 @@ maintainer; RA does not answer them.
 2. **`android:allowBackup="true"`** with no `dataExtractionRules`/`fullBackupContent`
    (`AndroidManifest.xml:8`) — no recorded decision on backing up the workout DB / secure prefs
    (S6-003).
-3. **No `verifyMigrations`/schema snapshot** (`core/database/build.gradle.kts`) — no recorded reason
-   for relying on hand-written migration tests instead (S2-004).
+3. **`verifyMigrations`/schema snapshot** — resolved (0.6.0): enabled with the committed v1
+   seed `databases/1.db`, after aligning three `.sq` tables (`exercise`, `exerciseOverride`,
+   `occurrenceEntry`) to the migration-derived column order (no column added/removed/retyped);
+   see §1.9 (S2-004).
 4. **Gemini sanitize-time silent fallback** — the recorded decision (D8) says the opposite; the
    rationale for the code's behavior is unrecorded (S3-001).
 5. **`VolumeAwareReps.repsFor` validates but otherwise ignores its `sets` parameter** (S1-010).

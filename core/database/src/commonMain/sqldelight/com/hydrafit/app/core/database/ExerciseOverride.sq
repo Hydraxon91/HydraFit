@@ -4,8 +4,8 @@ CREATE TABLE exerciseOverride (
     requiredEquipment TEXT,
     movementPattern TEXT,
     isUnilateral INTEGER,
-    loadCapability TEXT,
-    involvements TEXT
+    involvements TEXT,
+    loadCapability TEXT
 );
 
 selectAll:

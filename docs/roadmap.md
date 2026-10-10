@@ -230,7 +230,7 @@ retain their separate approval/Plan Mode requirements.
 
 | Track | Remaining coverage / disposition |
 | --- | --- |
-| Migration/data integrity | Full-chain `verifyMigrations` plus schema snapshot or v1-to-current coverage; each new schema/data type has migration and portability tests; restore/write interruption paths. |
+| Migration/data integrity | Full-chain coverage in place: SQLDelight `verifyMigrations` against the committed v1 seed `databases/1.db` (CI `verifySqlDelightMigration`) plus `V1ToCurrentMigrationTest`. Three `.sq` tables were order-aligned to the migration chain (no column-set change). Each new schema/data type still needs migration and portability tests; restore/write interruption paths. |
 | Test hardening | TS2-002..006; TS3-001/002/005/006/007; TS4-003/004/005/007; TR-002..008. Decide TS4-001 shared fixtures and TR-001 redundancy before implementing their scopes. |
 | Consistency findings | S1-001/003/004/006/009/010/011/012; S2-002/003/006/008/009; S4-002/003/005/006; S5-001/002/003/005; S6-001/003/006/007/008. S1-002 remains a recorded won't-fix, not reopened automatically. |
 | UI tooling — QL-03 | Keyboard/negative/recovery flows, guarded execution/configuration restrictions and measured smaller-model efficiency; retain the documented MCP-depth bypass. CI adoption is a separately gated decision, not an implied infrastructure change. |

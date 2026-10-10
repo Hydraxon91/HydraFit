@@ -646,7 +646,8 @@ approved release review, preparation and publication. Inventory and step evidenc
 are [archived verbatim](docs/plans-archive.md#2026-10-09-release-030).
 Host tests, ktlint, debug assembly and iOS compile passed; emulator `v0.2.3` →
 candidate (v25→v28) retained legacy rows and exercised author/activate/log/Finish.
-Release-mode smoke was deferred; full-chain `verifyMigrations` remains backlog.
+Release-mode smoke was deferred; full-chain `verifyMigrations` was enabled (0.6.0) with the v1
+seed `databases/1.db` after aligning three `.sq` column orders — see `docs/architecture.md` §1.9.
 EX-02's durable contract remains below.
 
 **Still separate/open:** session dividers (UX slice), LT-03 tied-time emulator
