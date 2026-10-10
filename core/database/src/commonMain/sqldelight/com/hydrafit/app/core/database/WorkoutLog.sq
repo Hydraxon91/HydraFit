@@ -15,6 +15,8 @@ CREATE TABLE workoutSet (
     occurrenceEntryId INTEGER,
     loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
     timingProvenance TEXT NOT NULL DEFAULT 'UNKNOWN',
+    startedAtElapsedMillis INTEGER,
+    completedAtElapsedMillis INTEGER,
     FOREIGN KEY (exerciseId) REFERENCES exercise(id)
 );
 
@@ -23,8 +25,8 @@ INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, involv
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 insertSetWithTimingProvenance:
-INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber, dayIndex, rir, sessionId, loadKind, timingProvenance)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber, dayIndex, rir, sessionId, loadKind, timingProvenance, startedAtElapsedMillis, completedAtElapsedMillis)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 lastInsertedSetId:
 SELECT last_insert_rowid();
@@ -35,8 +37,8 @@ INSERT INTO workoutSet(id, exerciseId, reps, weightKg, performedAt, isWarmup, in
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 insertSetWithIdAndTimingProvenance:
-INSERT INTO workoutSet(id, exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber, dayIndex, rir, sessionId, occurrenceId, occurrenceEntryId, loadKind, timingProvenance)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO workoutSet(id, exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber, dayIndex, rir, sessionId, occurrenceId, occurrenceEntryId, loadKind, timingProvenance, startedAtElapsedMillis, completedAtElapsedMillis)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 selectAllSets:
 SELECT * FROM workoutSet ORDER BY performedAt, id;
@@ -46,6 +48,12 @@ SELECT * FROM workoutSet WHERE id = ?;
 
 updateSetValues:
 UPDATE workoutSet SET reps = ?, weightKg = ?, rir = ? WHERE id = ?;
+
+updateSetValuesAndInvalidateTiming:
+UPDATE workoutSet
+SET reps = ?, weightKg = ?, rir = ?, timingProvenance = 'UNKNOWN',
+    startedAtElapsedMillis = NULL, completedAtElapsedMillis = NULL
+WHERE id = ?;
 
 selectLastSetBySession:
 SELECT * FROM workoutSet WHERE sessionId = ? ORDER BY performedAt DESC, id DESC LIMIT 1;
@@ -63,7 +71,10 @@ selectSetsForOccurrenceEntry:
 SELECT * FROM workoutSet WHERE occurrenceEntryId = ? ORDER BY performedAt, id;
 
 updateSetPerformedAt:
-UPDATE workoutSet SET performedAt = ?, timingProvenance = 'UNKNOWN' WHERE id = ?;
+UPDATE workoutSet
+SET performedAt = ?, timingProvenance = 'UNKNOWN',
+    startedAtElapsedMillis = NULL, completedAtElapsedMillis = NULL
+WHERE id = ?;
 
 updateSetExerciseId:
 UPDATE workoutSet SET exerciseId = :newId WHERE exerciseId = :oldId;

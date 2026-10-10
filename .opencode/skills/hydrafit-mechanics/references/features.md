@@ -58,9 +58,12 @@ not reinterpret history. Block attribution, warm-up and snapshots are preserved.
 
 Performed sets carry `WorkoutTimingProvenance`: `LIVE` is reserved for the explicit guided
 completion action, `CATCH_UP` for an explicitly chosen performed time, and `UNKNOWN` for ordinary
-manual/guided logging and legacy rows. Correcting a set's performed time resets provenance to
-`UNKNOWN`; timing source is not inferred from timestamp gaps. The value is stored on the set and
-round-trips through backup format 3; formats 1/2 and pre-migration rows decode as `UNKNOWN`.
+manual/guided logging and legacy rows. A live guided set stores its monotonic start and completion
+instants; correcting performed time or changing reps/load/RIR resets provenance to `UNKNOWN` and
+clears both instants atomically. A successful guided write consumes the live event on every load
+resolution path; failed writes retain it for retry. Timing source is not inferred from timestamp
+gaps. The values round-trip through backup format 4; format 3 preserves provenance but defaults
+elapsed fields to null, and formats 1–2 default timing fields to unknown/null.
 
 All three Logger RIR inputs (manual entry, planned-draft edit and recent-set edit) explain RIR as
 additional reps possible with comparable technique and range of motion, keep it optional, and offer

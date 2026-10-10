@@ -22,5 +22,8 @@ data class WorkoutSet(
     /** The occurrence's prescription slot this set fulfils, when it was logged against one. */
     val occurrenceEntryId: Long? = null,
     /** Timing source; legacy and manually backdated rows remain unknown unless explicitly classified. */
-    val timingProvenance: WorkoutTimingProvenance = WorkoutTimingProvenance.UNKNOWN
+    val timingProvenance: WorkoutTimingProvenance = WorkoutTimingProvenance.UNKNOWN,
+    /** Monotonic start/completion instants for an explicitly started live set; null otherwise. */
+    val startedAtElapsedMillis: Long? = null,
+    val completedAtElapsedMillis: Long? = null
 )

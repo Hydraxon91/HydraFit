@@ -18,7 +18,9 @@ internal fun WorkoutSet.toDomain(): DomainWorkoutSet = DomainWorkoutSet(
     sessionId = sessionId,
     occurrenceId = occurrenceId,
     occurrenceEntryId = occurrenceEntryId,
-    timingProvenance = decodeWorkoutTimingProvenance(timingProvenance)
+    timingProvenance = decodeWorkoutTimingProvenance(timingProvenance),
+    startedAtElapsedMillis = startedAtElapsedMillis,
+    completedAtElapsedMillis = completedAtElapsedMillis
 )
 
 internal fun WorkoutSession.toDomain(): DomainWorkoutSession = DomainWorkoutSession(

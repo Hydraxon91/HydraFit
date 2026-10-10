@@ -107,7 +107,9 @@ class SqlDelightBackupRepository(
                         occurrenceId = it.occurrenceId,
                         occurrenceEntryId = it.occurrenceEntryId,
                         loadKind = it.loadKind,
-                        timingProvenance = it.timingProvenance
+                        timingProvenance = it.timingProvenance,
+                        startedAtElapsedMillis = it.startedAtElapsedMillis,
+                        completedAtElapsedMillis = it.completedAtElapsedMillis
                     )
                 },
                 workoutSessions = database.workoutSessionQueries.selectAllSessions()
@@ -600,7 +602,9 @@ class SqlDelightBackupRepository(
                     occurrenceId = set.occurrenceId,
                     occurrenceEntryId = set.occurrenceEntryId,
                     loadKind = set.loadKind,
-                    timingProvenance = set.timingProvenance
+                    timingProvenance = set.timingProvenance,
+                    startedAtElapsedMillis = set.startedAtElapsedMillis,
+                    completedAtElapsedMillis = set.completedAtElapsedMillis
                 )
             }
 

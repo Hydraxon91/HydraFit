@@ -179,6 +179,8 @@ data class WorkoutLoggerUiState(
     val guidedProgress: GuidedWorkoutProgress? = null,
     /** True when the last guided single-set write failed; the pending set is still available to retry. */
     val guidedSetWriteFailed: Boolean = false,
+    /** The occurrence entry whose current set was explicitly started; it is not performed work. */
+    val startedSetEntryId: Long? = null,
     /** In-memory rest prompt started only by an explicitly live guided completion. */
     val restTimer: RestTimerState? = null,
     /** Editable duration in seconds; retained only for this Logger ViewModel lifetime. */

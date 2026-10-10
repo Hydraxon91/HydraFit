@@ -99,11 +99,16 @@ class SqlDelightWorkoutLogRepositoryTest {
                 reps = 5,
                 weightKg = 80.0,
                 performedAtMillis = 1,
-                timingProvenance = WorkoutTimingProvenance.LIVE
+                timingProvenance = WorkoutTimingProvenance.LIVE,
+                startedAtElapsedMillis = 100L,
+                completedAtElapsedMillis = 150L
             )
         )
 
-        assertEquals(WorkoutTimingProvenance.LIVE, repository.all().single().timingProvenance)
+        val set = repository.all().single()
+        assertEquals(WorkoutTimingProvenance.LIVE, set.timingProvenance)
+        assertEquals(100L, set.startedAtElapsedMillis)
+        assertEquals(150L, set.completedAtElapsedMillis)
     }
 
     @Test
@@ -121,7 +126,10 @@ class SqlDelightWorkoutLogRepositoryTest {
 
         repository.updateSetPerformedAt(savedSet.id, 2)
 
-        assertEquals(WorkoutTimingProvenance.UNKNOWN, repository.all().single().timingProvenance)
+        val corrected = repository.all().single()
+        assertEquals(WorkoutTimingProvenance.UNKNOWN, corrected.timingProvenance)
+        assertNull(corrected.startedAtElapsedMillis)
+        assertNull(corrected.completedAtElapsedMillis)
     }
 
     @Test

@@ -56,6 +56,8 @@ class SqlDelightBackupRepositoryTest {
         assertEquals(1, file.workoutSets.size)
         assertEquals("EXTERNAL", file.workoutSets.single().loadKind)
         assertEquals("LIVE", file.workoutSets.single().timingProvenance)
+        assertEquals(100L, file.workoutSets.single().startedAtElapsedMillis)
+        assertEquals(150L, file.workoutSets.single().completedAtElapsedMillis)
         assertEquals("s1", file.workoutSets.single().sessionId)
         assertEquals(listOf("s1"), file.workoutSessions.map { it.id })
         assertEquals(1, file.plans.size)
@@ -274,7 +276,9 @@ class SqlDelightBackupRepositoryTest {
             rir = 2,
             sessionId = "s1",
             loadKind = "EXTERNAL",
-            timingProvenance = "LIVE"
+            timingProvenance = "LIVE",
+            startedAtElapsedMillis = 100,
+            completedAtElapsedMillis = 150
         )
         database.planHistoryQueries.insertPlan("deterministic", 1, 1, 1)
         val planId = database.planHistoryQueries.lastInsertedPlanId().executeAsOne()

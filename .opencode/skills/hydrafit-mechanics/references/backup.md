@@ -3,9 +3,11 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 3), restored by whole replacement.
-The reader accepts versions 1–3; version 1 defaults the guided-workout preference to off,
-and versions 1–2 default workout timing provenance to `UNKNOWN`. Exports use version 3.
+Logical, versioned JSON (`format` + `formatVersion` 4), restored by whole replacement.
+The reader accepts versions 1–4; version 1 defaults the guided-workout preference to off.
+Format 4 requires per-set timing provenance and explicit nullable elapsed fields; format 3 requires
+and preserves timing provenance while elapsed fields default to null; formats 1–2 default timing
+provenance to `UNKNOWN` and elapsed fields to null. Exports use version 4.
 Unknown fields remain rejected.
 Domain `backup/` owns the payload records, the kotlinx-serialization codec, the
 validator, the limits and the export/preview/stage/apply use cases (bound in

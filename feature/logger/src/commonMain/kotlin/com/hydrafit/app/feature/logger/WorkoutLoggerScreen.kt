@@ -96,6 +96,8 @@ import hydrafit.feature.logger.generated.resources.logger_future_time_error
 import hydrafit.feature.logger.generated.resources.logger_guided_all_done
 import hydrafit.feature.logger.generated.resources.logger_guided_log_completed_now
 import hydrafit.feature.logger.generated.resources.logger_guided_set_failed
+import hydrafit.feature.logger.generated.resources.logger_guided_set_started
+import hydrafit.feature.logger.generated.resources.logger_guided_start_set
 import hydrafit.feature.logger.generated.resources.logger_guided_target
 import hydrafit.feature.logger.generated.resources.logger_guided_title
 import hydrafit.feature.logger.generated.resources.logger_load_added
@@ -204,6 +206,7 @@ fun WorkoutLoggerRoute(
         onOccurrenceMessageShown = viewModel::onOccurrenceMessageShown,
         onConfirmGuidedSet = viewModel::confirmGuidedSet,
         onConfirmGuidedSetNow = viewModel::confirmGuidedSetNow,
+        onStartGuidedSet = viewModel::startGuidedSet,
         onEditGuidedSet = viewModel::editGuidedSet,
         onRestDurationChanged = viewModel::onRestDurationChanged,
         onCancelRestTimer = viewModel::cancelRestTimer,
@@ -263,6 +266,7 @@ fun WorkoutLoggerScreen(
     onOccurrenceMessageShown: () -> Unit,
     onConfirmGuidedSet: (Long) -> Unit,
     onConfirmGuidedSetNow: (Long) -> Unit,
+    onStartGuidedSet: (Long) -> Unit,
     onEditGuidedSet: (Long) -> Unit,
     onRestDurationChanged: (String) -> Unit,
     onCancelRestTimer: () -> Unit,
@@ -474,11 +478,12 @@ fun WorkoutLoggerScreen(
                         writeInProgress = state.draftWriteInProgress,
                         restTimer = state.restTimer,
                         restDurationSeconds = state.restDurationSeconds,
-                        canStartRestTimer = state.canStartRestTimer,
                         onRestDurationChanged = onRestDurationChanged,
                         onCancelRestTimer = onCancelRestTimer,
                         onLogSet = onConfirmGuidedSet,
                         onLogSetNow = onConfirmGuidedSetNow,
+                        startedSetEntryId = state.startedSetEntryId,
+                        onStartSet = onStartGuidedSet,
                         onEditSet = onEditGuidedSet
                     )
                 }
@@ -1122,11 +1127,12 @@ private fun GuidedWorkoutSection(
     writeInProgress: Boolean,
     restTimer: RestTimerState?,
     restDurationSeconds: String,
-    canStartRestTimer: Boolean,
     onRestDurationChanged: (String) -> Unit,
     onCancelRestTimer: () -> Unit,
     onLogSet: (Long) -> Unit,
     onLogSetNow: (Long) -> Unit,
+    startedSetEntryId: Long?,
+    onStartSet: (Long) -> Unit,
     onEditSet: (Long) -> Unit
 ) {
     Card {
@@ -1219,6 +1225,12 @@ private fun GuidedWorkoutSection(
                                 ),
                                 style = MaterialTheme.typography.bodySmall
                             )
+                            if (startedSetEntryId == exercise.occurrenceEntryId) {
+                                Text(
+                                    text = stringResource(Res.string.logger_guided_set_started),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                             Text(
                                 text = stringResource(
                                     Res.string.logger_active_progress,
@@ -1233,6 +1245,12 @@ private fun GuidedWorkoutSection(
                         if (!exercise.isComplete) {
                             Column {
                                 TextButton(
+                                    onClick = { onStartSet(exercise.occurrenceEntryId) },
+                                    enabled = !writeInProgress
+                                ) {
+                                    Text(stringResource(Res.string.logger_guided_start_set))
+                                }
+                                TextButton(
                                     onClick = { onLogSet(exercise.occurrenceEntryId) },
                                     enabled = !writeInProgress
                                 ) {
@@ -1240,7 +1258,8 @@ private fun GuidedWorkoutSection(
                                 }
                                 TextButton(
                                     onClick = { onLogSetNow(exercise.occurrenceEntryId) },
-                                    enabled = !writeInProgress && canStartRestTimer
+                                    enabled = !writeInProgress &&
+                                        startedSetEntryId == exercise.occurrenceEntryId
                                 ) {
                                     Text(stringResource(Res.string.logger_guided_log_completed_now))
                                 }

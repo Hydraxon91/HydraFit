@@ -26,8 +26,11 @@ class RestTimerController(
     val state: StateFlow<RestTimerState?> = _state.asStateFlow()
     private var ticker: Job? = null
 
-    fun start(durationMillis: Long = DEFAULT_DURATION_MILLIS) {
-        val countdown = RestCountdown(elapsedNow(), durationMillis)
+    fun start(
+        durationMillis: Long = DEFAULT_DURATION_MILLIS,
+        completedAtElapsedMillis: Long = elapsedNow()
+    ) {
+        val countdown = RestCountdown(completedAtElapsedMillis, durationMillis)
         ticker?.cancel()
         publish(countdown)
         ticker = scope.launch {
@@ -81,6 +84,8 @@ class WorkoutLoggerRuntime(
     fun nowMillis(): Long = timeProvider.nowMillis()
 
     fun utcOffsetMillis(): Long = timeProvider.utcOffsetMillis()
+
+    fun elapsedRealtimeMillis(): Long = elapsedNow()
 
     fun restTimer(scope: CoroutineScope): RestTimerController =
         RestTimerController(scope, elapsedNow)

@@ -5,8 +5,8 @@ import kotlinx.serialization.Serializable
 /** Stable file identifiers. A reader accepts only [BACKUP_FORMAT] at a version it knows. */
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
-/** The format version this build writes. The reader retains compatibility with versions 1 and 2. */
-const val BACKUP_FORMAT_VERSION: Int = 3
+/** The format version this build writes. The reader retains compatibility with versions 1–3. */
+const val BACKUP_FORMAT_VERSION: Int = 4
 
 /**
  * A whole logical snapshot of the supported offline data. Rows are stored flat with their persisted
@@ -119,7 +119,9 @@ data class BackupWorkoutSetRecord(
     val occurrenceId: Long?,
     val occurrenceEntryId: Long?,
     val loadKind: String,
-    val timingProvenance: String = "UNKNOWN"
+    val timingProvenance: String = "UNKNOWN",
+    val startedAtElapsedMillis: Long? = null,
+    val completedAtElapsedMillis: Long? = null
 )
 
 @Serializable

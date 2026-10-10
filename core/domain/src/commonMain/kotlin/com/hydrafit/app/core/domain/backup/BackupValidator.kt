@@ -110,6 +110,14 @@ class BackupValidator(private val catalog: BackupCatalog) {
             exercise(it.exerciseId, knownExercises)
             enum(it.loadKind, LoadKind.entries)
             enum(it.timingProvenance, WorkoutTimingProvenance.entries)
+            if ((it.startedAtElapsedMillis == null) != (it.completedAtElapsedMillis == null)) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            it.startedAtElapsedMillis?.let { startedAt ->
+                if (startedAt < 0L || it.completedAtElapsedMillis!! < startedAt) {
+                    fail(BackupFailure.INVALID_VALUE)
+                }
+            }
             it.weightKg?.let { value -> finite(value) }
             it.occurrenceId?.let { id -> reference(id, occurrenceIds) }
             it.occurrenceEntryId?.let { id -> reference(id, occurrenceEntryIds) }

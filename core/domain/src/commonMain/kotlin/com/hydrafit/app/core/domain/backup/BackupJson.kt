@@ -2,7 +2,10 @@ package com.hydrafit.app.core.domain.backup
 
 import kotlinx.serialization.descriptors.elementNames
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.intOrNull
 
 /**
  * The JSON codec for the logical backup format. Defaults are encoded so every field (including an
@@ -48,6 +51,7 @@ object BackupJson {
         if (missing.isNotEmpty()) {
             throw BackupException(BackupFailure.MALFORMED, "missing fields: $missing")
         }
+        requireTimingFields(obj)
         val file = try {
             json.decodeFromJsonElement(BackupFile.serializer(), obj)
         } catch (e: Exception) {
@@ -55,6 +59,30 @@ object BackupJson {
         }
         requireRecordCount(file)
         return file
+    }
+
+    private fun requireTimingFields(root: JsonObject) {
+        val version = (root["formatVersion"] as? JsonPrimitive)?.intOrNull ?: return
+        val required = when (version) {
+            3 -> setOf("timingProvenance")
+            4 -> setOf("timingProvenance", "startedAtElapsedMillis", "completedAtElapsedMillis")
+            else -> return
+        }
+        val sets = root["workoutSets"] as? JsonArray ?: return
+        sets.forEachIndexed { index, element ->
+            val record = element as? JsonObject
+                ?: throw BackupException(
+                    BackupFailure.MALFORMED,
+                    "workoutSets[$index] is not an object"
+                )
+            val missing = required - record.keys
+            if (missing.isNotEmpty()) {
+                throw BackupException(
+                    BackupFailure.MALFORMED,
+                    "workoutSets[$index] is missing timing fields: $missing"
+                )
+            }
+        }
     }
 
     /**

@@ -109,6 +109,20 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun rejectsAnIncompleteOrReversedElapsedSetInterval() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            validFile().copy(workoutSets = listOf(set(startedAtElapsedMillis = 10L)))
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            validFile().copy(
+                workoutSets = listOf(
+                    set(startedAtElapsedMillis = 20L, completedAtElapsedMillis = 10L)
+                )
+            )
+        }
+    }
+
+    @Test
     fun rejectsANonFiniteNumber() {
         assertFailure(BackupFailure.INVALID_VALUE) {
             validFile().copy(workoutSets = listOf(set(weightKg = Double.NaN)))
@@ -322,6 +336,8 @@ class BackupValidatorTest {
         weightKg: Double? = 100.0,
         loadKind: String = "EXTERNAL",
         timingProvenance: String = "UNKNOWN",
+        startedAtElapsedMillis: Long? = null,
+        completedAtElapsedMillis: Long? = null,
         involvements: String? = null,
         sessionId: String? = "s1",
         occurrenceId: Long? = null,
@@ -342,7 +358,9 @@ class BackupValidatorTest {
         occurrenceId = occurrenceId,
         occurrenceEntryId = occurrenceEntryId,
         loadKind = loadKind,
-        timingProvenance = timingProvenance
+        timingProvenance = timingProvenance,
+        startedAtElapsedMillis = startedAtElapsedMillis,
+        completedAtElapsedMillis = completedAtElapsedMillis
     )
 
     private fun session(id: String) = BackupWorkoutSessionRecord(

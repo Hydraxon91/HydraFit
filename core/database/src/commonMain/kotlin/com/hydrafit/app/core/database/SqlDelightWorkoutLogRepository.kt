@@ -37,7 +37,9 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                 rir = set.rir?.toLong(),
                 sessionId = set.sessionId,
                 loadKind = set.loadKind.name,
-                timingProvenance = set.timingProvenance.name
+                timingProvenance = set.timingProvenance.name,
+                startedAtElapsedMillis = set.startedAtElapsedMillis,
+                completedAtElapsedMillis = set.completedAtElapsedMillis
             )
             if (set.occurrenceId != null || set.occurrenceEntryId != null) {
                 setQueries.assignOccurrence(
