@@ -101,6 +101,7 @@ class RestTimerController(
             stored.sessionId != currentSessionId ||
             stored.occurrenceId != currentOccurrenceId ||
             stored.exerciseId !in validExerciseIds ||
+            stored.deadlineElapsedMillis < stored.durationMillis ||
             stored.deadlineElapsedMillis <= elapsedNow()
         ) {
             repository.clear()

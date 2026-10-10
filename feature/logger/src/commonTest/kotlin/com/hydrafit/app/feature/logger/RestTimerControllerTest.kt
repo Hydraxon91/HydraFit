@@ -142,6 +142,29 @@ class RestTimerControllerTest {
     }
 
     @Test
+    fun malformedDeadlineIsSilentlyCleared() = runTest {
+        val stored = PersistedRestCountdown(
+            deadlineElapsedMillis = 10_000L,
+            durationMillis = 20_000L,
+            bootIdentity = "boot-a",
+            sessionId = "session-a",
+            occurrenceId = 5L,
+            exerciseId = "squat"
+        )
+        val repository = FakeRestCountdownRepository(stored)
+        val controller = RestTimerController(
+            CoroutineScope(coroutineContext),
+            { 1_000L },
+            { "boot-a" },
+            repository
+        )
+
+        assertNull(controller.restore("session-a", 5L, setOf("squat")))
+        assertNull(repository.countdown)
+        assertNull(controller.state.value)
+    }
+
+    @Test
     fun sessionOccurrenceAndExerciseContextMustStillMatch() = runTest {
         val stored = PersistedRestCountdown(
             deadlineElapsedMillis = 160_000L,
