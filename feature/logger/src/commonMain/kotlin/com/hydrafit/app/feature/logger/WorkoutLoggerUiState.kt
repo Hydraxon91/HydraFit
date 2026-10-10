@@ -183,8 +183,10 @@ data class WorkoutLoggerUiState(
     val startedSetEntryId: Long? = null,
     /** In-memory rest prompt started only by an explicitly live guided completion. */
     val restTimer: RestTimerState? = null,
-    /** Editable duration in seconds; retained only for this Logger ViewModel lifetime. */
+    /** Current effective duration in seconds for the active rest timer. */
     val restDurationSeconds: String = "120",
+    /** True when the current exercise uses an explicit rest-duration override. */
+    val restDurationIsOverride: Boolean = false,
     /** A pending explicit load decision for legacy drafts, or null when none is waiting. */
     val legacyResolution: LegacyResolution? = null,
     val todayFocus: SplitFocus? = null,

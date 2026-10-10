@@ -5,8 +5,14 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val loggerModule: Module = module {
-    single { WorkoutLoggerSettings(get(), get()) }
-    factory { WorkoutLoggerRuntime(get()) }
+    single { WorkoutLoggerSettings(get(), get(), get()) }
+    factory {
+        WorkoutLoggerRuntime(
+            timeProvider = get(),
+            bootIdentityProvider = get(),
+            restCountdownRepository = get()
+        )
+    }
     viewModel {
         WorkoutLoggerViewModel(
             logMutations = get(),

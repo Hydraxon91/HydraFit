@@ -82,6 +82,7 @@
     <string name="logger_rest_timer_remaining">Rest prompt: %1$d min %2$d sec</string>
     <string name="logger_rest_timer_finished">Rest prompt finished</string>
     <string name="logger_rest_timer_duration">Rest duration (seconds)</string>
+    <string name="logger_rest_timer_use_default">Use global default</string>
     <string name="logger_rest_timer_note">Prompt only; this does not measure rest.</string>
     <string name="logger_rest_timer_cancel">Dismiss prompt</string>
 </resources>

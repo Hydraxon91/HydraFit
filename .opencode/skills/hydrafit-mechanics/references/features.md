@@ -62,7 +62,7 @@ manual/guided logging and legacy rows. A live guided set stores its monotonic st
 instants; correcting performed time or changing reps/load/RIR resets provenance to `UNKNOWN` and
 clears both instants atomically. A successful guided write consumes the live event on every load
 resolution path; failed writes retain it for retry. Timing source is not inferred from timestamp
-gaps. The values round-trip through backup format 4; format 3 preserves provenance but defaults
+gaps. The values round-trip through backup format 5; format 3 preserves provenance but defaults
 elapsed fields to null, and formats 1–2 default timing fields to unknown/null.
 
 All three Logger RIR inputs (manual entry, planned-draft edit and recent-set edit) explain RIR as
@@ -97,14 +97,15 @@ draft editor and confirming it also writes a single set. Guided writes reuse the
 draft load-shape decisions (legacy resolution, missing-load prompt) through
 `writeGuidedSet`, so a single insert either lands or leaves the draft pending for
 retry. **Set completed now** is a separate explicit action: it timestamps the set
-at the live wall time and starts a deadline-based, in-memory rest prompt only after
-the write succeeds. Ordinary guided confirmation, manual logging, warm-ups and
-backdated entries do not start a timer. The countdown uses a platform monotonic
-clock that advances during device sleep; ticks recompute from its original
-completion instant, and changing duration does not restart it. The default is 120
-seconds, editable up to 24 hours and retained only for the Logger ViewModel lifetime. Invalid
-durations do not update or start the timer. The prompt
-is not a rest measurement; there are no alerts, coaching or process-death restore.
+at the live wall time and starts a deadline-based rest prompt only after the write
+succeeds. Ordinary guided confirmation, manual logging, warm-ups and backdated
+entries do not start a timer. The monotonic deadline and workout context are
+persisted for process-death restoration; restore requires matching boot, open-session
+and occurrence identity and silently clears expired or mismatched state. Global rest
+duration defaults to 120 seconds and is editable in Settings; a Logger timer edit saves
+an exercise override with a reset-to-default action. Durations are limited to 1 second–
+24 hours. These prompts are not rest measurements; alerts and coaching remain out of
+scope.
 It cancels on session/occurrence changes, guided mode being turned off, explicit
 dismissal, or successful deletion/correction of a set from its occurrence.
 Finish/partial Finish/Skip and End/New session retain their existing logging

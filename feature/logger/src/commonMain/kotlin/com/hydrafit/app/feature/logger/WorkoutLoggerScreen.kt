@@ -120,6 +120,7 @@ import hydrafit.feature.logger.generated.resources.logger_rest_timer_duration
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_finished
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_note
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_remaining
+import hydrafit.feature.logger.generated.resources.logger_rest_timer_use_default
 import hydrafit.feature.logger.generated.resources.logger_search_label
 import hydrafit.feature.logger.generated.resources.logger_session_active
 import hydrafit.feature.logger.generated.resources.logger_session_none
@@ -209,6 +210,7 @@ fun WorkoutLoggerRoute(
         onStartGuidedSet = viewModel::startGuidedSet,
         onEditGuidedSet = viewModel::editGuidedSet,
         onRestDurationChanged = viewModel::onRestDurationChanged,
+        onResetRestDuration = viewModel::resetExerciseRestDuration,
         onCancelRestTimer = viewModel::cancelRestTimer,
         onBackdatedDateTimePicked = viewModel::onBackdatedDateTimePicked,
         onClearBackdated = { viewModel.onPerformedAtChanged(null) },
@@ -269,6 +271,7 @@ fun WorkoutLoggerScreen(
     onStartGuidedSet: (Long) -> Unit,
     onEditGuidedSet: (Long) -> Unit,
     onRestDurationChanged: (String) -> Unit,
+    onResetRestDuration: () -> Unit,
     onCancelRestTimer: () -> Unit,
     onBackdatedDateTimePicked: (Long, Int, Int) -> Boolean,
     onClearBackdated: () -> Unit,
@@ -478,7 +481,9 @@ fun WorkoutLoggerScreen(
                         writeInProgress = state.draftWriteInProgress,
                         restTimer = state.restTimer,
                         restDurationSeconds = state.restDurationSeconds,
+                        restDurationIsOverride = state.restDurationIsOverride,
                         onRestDurationChanged = onRestDurationChanged,
+                        onResetRestDuration = onResetRestDuration,
                         onCancelRestTimer = onCancelRestTimer,
                         onLogSet = onConfirmGuidedSet,
                         onLogSetNow = onConfirmGuidedSetNow,
@@ -1127,7 +1132,9 @@ private fun GuidedWorkoutSection(
     writeInProgress: Boolean,
     restTimer: RestTimerState?,
     restDurationSeconds: String,
+    restDurationIsOverride: Boolean,
     onRestDurationChanged: (String) -> Unit,
+    onResetRestDuration: () -> Unit,
     onCancelRestTimer: () -> Unit,
     onLogSet: (Long) -> Unit,
     onLogSetNow: (Long) -> Unit,
@@ -1200,6 +1207,11 @@ private fun GuidedWorkoutSection(
                     )
                     TextButton(onClick = onCancelRestTimer) {
                         Text(stringResource(Res.string.logger_rest_timer_cancel))
+                    }
+                }
+                if (restDurationIsOverride) {
+                    TextButton(onClick = onResetRestDuration) {
+                        Text(stringResource(Res.string.logger_rest_timer_use_default))
                     }
                 }
             }
