@@ -42,6 +42,9 @@ class SqlDelightBackupRepositoryTest {
     fun exportsEveryIncludedSection() = runTest {
         seedRepresentativeData()
         SqlDelightGuidedWorkoutPreferenceRepository(database).setGuidedWorkoutEnabled(true)
+        val restPreferences = SqlDelightRestPreferenceRepository(database)
+        restPreferences.setGlobalDefaultSeconds(180L)
+        restPreferences.setExerciseOverrideSeconds("back-squat", 240L)
 
         val file = repository.export(appVersion = "0.5.0-dev", exportedAtMillis = 99L)
 
@@ -80,6 +83,13 @@ class SqlDelightBackupRepositoryTest {
         assertEquals(3, file.settings?.daysPerWeek)
         assertEquals("LB", file.settings?.weightUnit)
         assertEquals(true, file.settings?.guidedWorkoutEnabled)
+        assertEquals(
+            listOf(
+                null to 180L,
+                "back-squat" to 240L
+            ),
+            file.restPreferences.map { it.exerciseId to it.durationSeconds }
+        )
     }
 
     @Test
@@ -103,16 +113,33 @@ class SqlDelightBackupRepositoryTest {
     @Test
     fun restoreReplacesIncludedDataAndPreservesStoredIds() = runTest {
         seedRepresentativeData()
+        val restPreferences = SqlDelightRestPreferenceRepository(database)
+        restPreferences.setGlobalDefaultSeconds(180L)
+        restPreferences.setExerciseOverrideSeconds("back-squat", 240L)
         val file = repository.export(appVersion = "t", exportedAtMillis = 1L)
 
         // Remove some data and add a value the restore must replace.
         database.workoutLogQueries.deleteAllSets()
         database.exerciseQueries.deleteAllCustom()
         database.exercisePreferenceQueries.upsert("back-squat", "PREFER_LESS")
+        restPreferences.setGlobalDefaultSeconds(300L)
+        restPreferences.setExerciseOverrideSeconds("bench-press", 90L)
+        val countdownRepository = SqlDelightRestCountdownRepository(database)
+        countdownRepository.save(
+            com.hydrafit.app.core.domain.workout.PersistedRestCountdown(
+                deadlineElapsedMillis = 500_000L,
+                durationMillis = 120_000L,
+                bootIdentity = "boot-test",
+                sessionId = "s1",
+                occurrenceId = 1L,
+                exerciseId = "back-squat"
+            )
+        )
 
         repository.restore(file)
 
         assertEquals(file, repository.export(appVersion = "t", exportedAtMillis = 1L))
+        assertNull(countdownRepository.load())
     }
 
     @Test

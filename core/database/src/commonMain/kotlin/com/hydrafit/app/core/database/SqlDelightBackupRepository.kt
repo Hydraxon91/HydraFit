@@ -20,6 +20,7 @@ import com.hydrafit.app.core.domain.backup.BackupPlanEntryRecord
 import com.hydrafit.app.core.domain.backup.BackupPlanRecord
 import com.hydrafit.app.core.domain.backup.BackupPreferenceRecord
 import com.hydrafit.app.core.domain.backup.BackupRepository
+import com.hydrafit.app.core.domain.backup.BackupRestPreferenceRecord
 import com.hydrafit.app.core.domain.backup.BackupRoutineEntryRecord
 import com.hydrafit.app.core.domain.backup.BackupRoutineRecord
 import com.hydrafit.app.core.domain.backup.BackupRoutineWorkoutRecord
@@ -30,6 +31,7 @@ import com.hydrafit.app.core.domain.backup.BackupVolumeExplanationRecord
 import com.hydrafit.app.core.domain.backup.BackupVolumeExplanationStateRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSessionRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSetRecord
+import com.hydrafit.app.core.domain.settings.DEFAULT_REST_SECONDS
 
 /**
  * Reads the logical backup snapshot from SQLDelight. Every section is read inside one transaction so
@@ -321,7 +323,21 @@ class SqlDelightBackupRepository(
                 },
                 exclusions = database.exerciseExclusionQueries.selectAll().executeAsList().map {
                     BackupExclusionRecord(exerciseId = it.exerciseId, expiresAt = it.expiresAt)
-                }
+                },
+                restPreferences = listOf(
+                    BackupRestPreferenceRecord(
+                        exerciseId = null,
+                        durationSeconds = database.restPreferenceQueries.selectGlobalDefault()
+                            .executeAsOneOrNull() ?: DEFAULT_REST_SECONDS
+                    )
+                ) + database.restPreferenceQueries.selectAllExerciseOverrides()
+                    .executeAsList()
+                    .map {
+                        BackupRestPreferenceRecord(
+                            exerciseId = it.exerciseId,
+                            durationSeconds = it.durationSeconds
+                        )
+                    }
             )
         }
 
@@ -331,6 +347,8 @@ class SqlDelightBackupRepository(
             // built-in equipment and credentials/model files are left untouched.
             database.exerciseOverrideQueries.deleteAll()
             database.exercisePreferenceQueries.deleteAll()
+            database.restPreferenceQueries.deleteAll()
+            database.restCountdownQueries.deletePersisted()
             database.exerciseExclusionQueries.deleteAll()
             database.personalRecordQueries.deleteAll()
             database.workoutLogQueries.deleteAllSets()
@@ -360,6 +378,18 @@ class SqlDelightBackupRepository(
                 database.equipmentQueries.updateMaxWeight(equipment.maxWeightKg, equipment.id)
             }
             file.selectedEquipment.forEach { database.userEquipmentQueries.insertSelected(it) }
+            file.restPreferences.forEach { preference ->
+                val exerciseId = preference.exerciseId
+                if (exerciseId == null) {
+                    database.restPreferenceQueries.upsertGlobalDefault(preference.durationSeconds)
+                } else {
+                    database.restPreferenceQueries.upsertExerciseOverride(
+                        exerciseId,
+                        exerciseId,
+                        preference.durationSeconds
+                    )
+                }
+            }
 
             file.workoutSessions.forEach { session ->
                 database.workoutSessionQueries.insertSessionWithOccurrence(

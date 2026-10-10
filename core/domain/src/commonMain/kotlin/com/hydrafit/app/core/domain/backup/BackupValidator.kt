@@ -59,6 +59,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
         uniqueBy(file.personalRecords) { it.exerciseId }
         uniqueBy(file.preferences) { it.exerciseId }
         uniqueBy(file.exclusions) { it.exerciseId }
+        uniqueBy(file.restPreferences) { it.exerciseId }
         uniqueBy(file.volumeExplanations) { it.planId to it.muscle }
         uniqueBy(file.volumeExplanationStates) { it.planId }
         uniqueBy(file.selectedEquipment) { it }
@@ -87,6 +88,14 @@ class BackupValidator(private val catalog: BackupCatalog) {
             file.occurrenceEntries.associate { it.id to it.occurrenceId }
 
         file.selectedEquipment.forEach { equipment(it, knownEquipment) }
+
+        if (file.formatVersion >= 5 && file.restPreferences.count { it.exerciseId == null } != 1) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        file.restPreferences.forEach { preference ->
+            if (preference.durationSeconds !in 1L..86_400L) fail(BackupFailure.INVALID_VALUE)
+            preference.exerciseId?.let { exercise(it, knownExercises) }
+        }
 
         file.customExercises.forEach {
             enum(it.movementPattern, MovementPattern.entries)

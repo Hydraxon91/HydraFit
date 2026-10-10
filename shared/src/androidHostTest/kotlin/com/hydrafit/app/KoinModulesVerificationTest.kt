@@ -9,6 +9,7 @@ import com.hydrafit.app.core.domain.backup.BackupCatalog
 import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
 import com.hydrafit.app.core.domain.backup.BackupFile
 import com.hydrafit.app.core.domain.backup.BackupRepository
+import com.hydrafit.app.core.domain.backup.BackupRestPreferenceRecord
 import com.hydrafit.app.core.domain.backup.BackupStagingRepository
 import com.hydrafit.app.core.domain.backup.PendingBackup
 import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
@@ -62,6 +63,8 @@ import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleActions
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
+import com.hydrafit.app.core.domain.settings.RestPreferenceRepository
+import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
@@ -72,6 +75,8 @@ import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.PersistedRestCountdown
+import com.hydrafit.app.core.domain.workout.RestCountdownRepository
 import com.hydrafit.app.core.domain.workout.SessionResegmenter
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
@@ -128,6 +133,7 @@ class KoinModulesVerificationTest {
 
     private val testPlatformModule = module {
         single<TimeProvider> { TimeProvider { 0L } }
+        single<BootIdentityProvider> { BootIdentityProvider { null } }
         single<ApiKeyStore> { FakeApiKeyStore }
         single<AppVersionProvider> { FakeAppVersionProvider }
         single<ApiKeyProvider> { ApiKeyProvider { "test-key" } }
@@ -431,6 +437,8 @@ class KoinModulesVerificationTest {
                     single<RoutineTemplateRepository> { FakeRoutineTemplateRepository }
                     single<WorkoutScheduleRepository> { FakeWorkoutScheduleRepository }
                     single<WeightUnitRepository> { FakeWeightUnitRepository }
+                    single<RestPreferenceRepository> { FakeRestPreferenceRepository }
+                    single<RestCountdownRepository> { FakeRestCountdownRepository }
                     single<GuidedWorkoutPreferenceRepository> {
                         object : GuidedWorkoutPreferenceRepository {
                             override suspend fun isGuidedWorkoutEnabled() = false
@@ -517,6 +525,21 @@ class KoinModulesVerificationTest {
         override fun unitFlow(): Flow<WeightUnit> = flowOf(WeightUnit.KG)
 
         override suspend fun setUnit(unit: WeightUnit) = Unit
+    }
+
+    private object FakeRestPreferenceRepository : RestPreferenceRepository {
+        override fun globalDefaultSecondsFlow() = flowOf(120L)
+        override suspend fun globalDefaultSeconds() = 120L
+        override suspend fun setGlobalDefaultSeconds(seconds: Long) = Unit
+        override suspend fun exerciseOverrideSeconds(exerciseId: String): Long? = null
+        override suspend fun setExerciseOverrideSeconds(exerciseId: String, seconds: Long) = Unit
+        override suspend fun clearExerciseOverride(exerciseId: String) = Unit
+    }
+
+    private object FakeRestCountdownRepository : RestCountdownRepository {
+        override suspend fun load(): PersistedRestCountdown? = null
+        override suspend fun save(countdown: PersistedRestCountdown) = Unit
+        override suspend fun clear() = Unit
     }
 
     private object FakeOnDeviceTextGenerator : OnDeviceTextGenerator {
@@ -706,5 +729,6 @@ private fun emptyBackupFile(appVersion: String, exportedAtMillis: Long): BackupF
     scheduleState = null,
     personalRecords = emptyList(),
     preferences = emptyList(),
-    exclusions = emptyList()
+    exclusions = emptyList(),
+    restPreferences = listOf(BackupRestPreferenceRecord(null, 120L))
 )

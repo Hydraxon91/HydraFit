@@ -309,7 +309,7 @@ migration, and released schemas are never edited in place.
   figures exactly (`docs/plans-archive.md` C1-C3).
 - **Verification:** SQLDelight `verifyMigrations` is enabled against the committed v1 seed
   `databases/1.db` (the immutable schema of version 1); `verifySqlDelightMigration` applies
-  `1.sqm..35.sqm` to it and fails when the result differs from the current `.sq`, so an unmigrated
+   `1.sqm..36.sqm` to it and fails when the result differs from the current `.sq`, so an unmigrated
   `.sq` edit fails the build. It runs in CI. `V1ToCurrentMigrationTest` additionally migrates a v1
   database in code, asserting retained values and the legacy→involvement conversion (S2-004, TS3-001).
 
@@ -462,7 +462,7 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   and `SqlDelightBackupCatalog`; the `:core:userdata` `BackupFileStore` port
   (`AndroidBackupFileStore` SAF implementation, `UnsupportedBackupFileStore` on
   iOS); the Settings `BackupRoute`/`BackupViewModel`.
-- **Rules:** the file is logical (`format` + `formatVersion` 4), independent of the
+- **Rules:** the file is logical (`format` + `formatVersion` 5), independent of the
   SQLite schema and the app version. Every envelope field is required, so a file
   that omits one is rejected as malformed rather than read as an empty snapshot;
   nullable fields are present as explicit `null`, not omitted. The manifest carries
@@ -491,7 +491,10 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   staged payload and records a one-time failure the Settings screen shows and
   clears. Absence uses the documented new-row value: a payload with no settings
   materialises the default planner row, an omitted built-in equipment limit keeps
-  its current value, and user equipment the payload omits is dropped.
+  its current value, and user equipment the payload omits is dropped. Format 5
+  includes one global rest duration and optional per-exercise overrides; formats
+  1–4 restore a 120-second global default with no overrides. Persisted countdown
+  deadlines are transient session state, excluded from backups and cleared on restore.
 - **Consistency:** mirrors the §1.8 snapshot rule — frozen prescriptions,
   performed snapshots, load kinds and stored ids round-trip unchanged.
 - **Violations / tensions:** the existing repositories cannot implement restore
@@ -508,11 +511,23 @@ Performed-set timestamps are not evidence of rest duration. Each set stores an e
 action writes `LIVE`; a chosen historical time writes `CATCH_UP`; ordinary manual and legacy
 sets remain `UNKNOWN`. Correcting performed time clears provenance to `UNKNOWN`. The enum is
 stored additively in migration `34.sqm`; `35.sqm` adds nullable monotonic start/completion instants.
-Existing rows default to unknown and no elapsed instants. Backup format 4 requires explicit
+Existing rows default to unknown and no elapsed instants. Backup formats 4–5 require explicit
 provenance and nullable elapsed fields. Format 3 requires and preserves provenance while elapsed
 fields default to null; formats 1–2 default all timing fields to unknown/null. Rest measurement
 still requires explicit live start/completion events; provenance alone does not establish a measured
 interval.
+
+### 1.16 Rest preferences and countdown restoration
+
+The `RestPreferenceRepository` stores one global default (120 seconds when no row exists) and
+optional exercise-specific overrides. The override wins; resetting it returns to the global value.
+Training-goal rest ranges remain guidance only and do not create goal/day-specific overrides.
+Backup format 5 exports the global value and overrides; restore replaces them and clears any
+persisted countdown. Countdown persistence stores only a monotonic deadline, duration, boot
+identity and session/occurrence/exercise context. Restoration fails closed unless all identities
+match and the deadline remains in the future; it never rebuilds a deadline from wall time. Android
+uses the OS boot counter. iOS currently cannot supply a reliable boot identity and therefore does
+not restore saved countdowns. Expired or invalid state is silently cleared.
 
 ## 2. Decision log
 

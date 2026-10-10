@@ -102,6 +102,20 @@ class BackupJsonTest {
     }
 
     @Test
+    fun formatFiveRequiresRestPreferencesWhileFormatFourDefaultsThem() {
+        val current = BackupJson.encode(emptyBackupFile())
+        val missingCurrentPreferences = current.replace(
+            ",\"restPreferences\":[{\"exerciseId\":null,\"durationSeconds\":120}]",
+            ""
+        )
+        assertFailure(BackupFailure.MALFORMED, missingCurrentPreferences)
+
+        val old = BackupJson.encode(emptyBackupFile().copy(formatVersion = 4))
+            .replace(",\"restPreferences\":[{\"exerciseId\":null,\"durationSeconds\":120}]", "")
+        assertEquals(emptyList(), BackupJson.decode(old).restPreferences)
+    }
+
+    @Test
     fun formatsOneAndTwoDefaultMissingTimingFields() {
         val baseFile = emptyBackupFile().copy(
             workoutSets = listOf(workoutSet("UNKNOWN", null, null))
@@ -112,7 +126,7 @@ class BackupJsonTest {
             .replace(",\"completedAtElapsedMillis\":null", "")
 
         listOf(1, 2).forEach { version ->
-            val versioned = base.replace("\"formatVersion\":4", "\"formatVersion\":$version")
+            val versioned = base.replace("\"formatVersion\":5", "\"formatVersion\":$version")
             val decoded = BackupJson.decode(versioned)
             assertEquals("UNKNOWN", decoded.workoutSets.single().timingProvenance)
             assertNull(decoded.workoutSets.single().startedAtElapsedMillis)

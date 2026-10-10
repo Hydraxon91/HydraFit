@@ -47,6 +47,48 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun acceptsGlobalAndExerciseRestPreferences() {
+        validator.validate(
+            validFile().copy(
+                restPreferences = listOf(
+                    BackupRestPreferenceRecord(null, 180L),
+                    BackupRestPreferenceRecord("back-squat", 240L)
+                )
+            )
+        )
+    }
+
+    @Test
+    fun rejectsInvalidRestPreferenceValuesAndReferences() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            validFile().copy(restPreferences = listOf(BackupRestPreferenceRecord(null, 0L)))
+        }
+        assertFailure(BackupFailure.UNKNOWN_CATALOG_ID) {
+            validFile().copy(
+                restPreferences = listOf(
+                    BackupRestPreferenceRecord(null, 120L),
+                    BackupRestPreferenceRecord("missing-exercise", 120L)
+                )
+            )
+        }
+    }
+
+    @Test
+    fun currentFormatRequiresExactlyOneGlobalRestPreference() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            validFile().copy(restPreferences = emptyList())
+        }
+        assertFailure(BackupFailure.DUPLICATE_ID) {
+            validFile().copy(
+                restPreferences = listOf(
+                    BackupRestPreferenceRecord(null, 120L),
+                    BackupRestPreferenceRecord(null, 180L)
+                )
+            )
+        }
+    }
+
+    @Test
     fun rejectsACustomIdThatOccupiesASeedIdentity() {
         assertFailure(BackupFailure.UNKNOWN_CATALOG_ID) {
             validFile().copy(

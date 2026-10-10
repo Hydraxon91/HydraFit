@@ -9,6 +9,7 @@ import com.hydrafit.app.core.domain.backup.BackupFailure
 import com.hydrafit.app.core.domain.backup.BackupFile
 import com.hydrafit.app.core.domain.backup.BackupJson
 import com.hydrafit.app.core.domain.backup.BackupRepository
+import com.hydrafit.app.core.domain.backup.BackupRestPreferenceRecord
 import com.hydrafit.app.core.domain.backup.BackupStagingRepository
 import com.hydrafit.app.core.domain.backup.BackupValidator
 import com.hydrafit.app.core.domain.backup.ExportBackupUseCase
@@ -237,5 +238,6 @@ private fun emptyBackupFile(): BackupFile = BackupFile(
     scheduleState = null,
     personalRecords = emptyList(),
     preferences = emptyList(),
-    exclusions = emptyList()
+    exclusions = emptyList(),
+    restPreferences = listOf(BackupRestPreferenceRecord(null, 120L))
 )

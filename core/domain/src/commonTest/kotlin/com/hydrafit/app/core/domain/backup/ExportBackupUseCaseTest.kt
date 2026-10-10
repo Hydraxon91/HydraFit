@@ -89,5 +89,6 @@ internal fun emptyBackupFile(): BackupFile = BackupFile(
     scheduleState = null,
     personalRecords = emptyList(),
     preferences = emptyList(),
-    exclusions = emptyList()
+    exclusions = emptyList(),
+    restPreferences = listOf(BackupRestPreferenceRecord(exerciseId = null, durationSeconds = 120L))
 )

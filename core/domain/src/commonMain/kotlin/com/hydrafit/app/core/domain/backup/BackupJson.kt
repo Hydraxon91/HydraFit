@@ -47,7 +47,13 @@ object BackupJson {
         }
         val obj = element as? JsonObject
             ?: throw BackupException(BackupFailure.MALFORMED, "the backup is not a JSON object")
-        val missing = requiredTopLevelKeys - obj.keys
+        val version = (obj["formatVersion"] as? JsonPrimitive)?.intOrNull
+        val requiredKeys = if (version != null && version < 5) {
+            requiredTopLevelKeys - "restPreferences"
+        } else {
+            requiredTopLevelKeys
+        }
+        val missing = requiredKeys - obj.keys
         if (missing.isNotEmpty()) {
             throw BackupException(BackupFailure.MALFORMED, "missing fields: $missing")
         }
@@ -65,7 +71,7 @@ object BackupJson {
         val version = (root["formatVersion"] as? JsonPrimitive)?.intOrNull ?: return
         val required = when (version) {
             3 -> setOf("timingProvenance")
-            4 -> setOf("timingProvenance", "startedAtElapsedMillis", "completedAtElapsedMillis")
+            4, 5 -> setOf("timingProvenance", "startedAtElapsedMillis", "completedAtElapsedMillis")
             else -> return
         }
         val sets = root["workoutSets"] as? JsonArray ?: return
@@ -140,5 +146,5 @@ object BackupJson {
             file.routines.size + file.routineWorkouts.size + file.routineEntries.size +
             file.activations.size + file.activationWorkouts.size + file.activationEntries.size +
             file.occurrences.size + file.occurrenceEntries.size + file.personalRecords.size +
-            file.preferences.size + file.exclusions.size
+            file.preferences.size + file.exclusions.size + file.restPreferences.size
 }
