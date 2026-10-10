@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -116,7 +118,6 @@ import hydrafit.feature.logger.generated.resources.logger_rest_timer_duration
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_finished
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_note
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_remaining
-import hydrafit.feature.logger.generated.resources.logger_rir_label
 import hydrafit.feature.logger.generated.resources.logger_search_label
 import hydrafit.feature.logger.generated.resources.logger_session_active
 import hydrafit.feature.logger.generated.resources.logger_session_none
@@ -403,17 +404,10 @@ fun WorkoutLoggerScreen(
             }
         }
         item {
-            OutlinedTextField(
+            RirInput(
                 value = state.rir,
                 onValueChange = onRirChanged,
-                label = { Text(stringResource(Res.string.logger_rir_label)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Number,
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-                modifier = Modifier.fillMaxWidth()
+                onDone = { focusManager.clearFocus() }
             )
         }
         if (state.selectedExerciseIsUnilateral) {
@@ -814,7 +808,10 @@ private fun DraftEditDialog(
         onDismissRequest = onCancel,
         title = { Text(stringResource(Res.string.logger_draft_edit_title, edit.draft.name)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 OutlinedTextField(
                     value = edit.reps,
                     onValueChange = onRepsChanged,
@@ -840,12 +837,9 @@ private fun DraftEditDialog(
                         }
                     }
                 }
-                OutlinedTextField(
+                RirInput(
                     value = edit.rir,
-                    onValueChange = onRirChanged,
-                    label = { Text(stringResource(Res.string.logger_rir_label)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
+                    onValueChange = onRirChanged
                 )
                 TextButton(onClick = {
                     showDate = true

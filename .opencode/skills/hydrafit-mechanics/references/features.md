@@ -56,6 +56,13 @@ unit is frozen, unchanged weight text preserves exact stored kilograms, blank is
 numeric. Recorded load kind is authoritative (BODYWEIGHT stays non-numeric); live catalog edits do
 not reinterpret history. Block attribution, warm-up and snapshots are preserved.
 
+All three Logger RIR inputs (manual entry, planned-draft edit and recent-set edit) explain RIR as
+additional reps possible with comparable technique and range of motion, keep it optional, and offer
+explicit 0/1/2/3 quick-picks. Tapping the selected value clears it; blank remains unreported and
+preserves the existing neutral fatigue assumption. Typed values through 10 remain available. RIR is
+the only presentation in B1: there is no RPE alias/conversion, inferred effort, domain change or
+automatic selection from history/prescriptions.
+
 Feature navigation: each feature exports a `FeatureDestination` whose `graph` is
 `(NavController) -> NavGraphBuilder.() -> Unit`; the shell passes its `NavController`, so a feature
 can register an internal sub-route without a shell change. Settings uses a nested `navigation(...)`

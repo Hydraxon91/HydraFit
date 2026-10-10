@@ -37,7 +37,6 @@ import hydrafit.feature.logger.generated.resources.logger_future_time_error
 import hydrafit.feature.logger.generated.resources.logger_pick_time_title
 import hydrafit.feature.logger.generated.resources.logger_recorded_at
 import hydrafit.feature.logger.generated.resources.logger_reps_label
-import hydrafit.feature.logger.generated.resources.logger_rir_label
 import hydrafit.feature.logger.generated.resources.logger_save_set
 import hydrafit.feature.logger.generated.resources.logger_set_time
 import hydrafit.feature.logger.generated.resources.logger_use_now
@@ -103,12 +102,9 @@ internal fun LoggedSetEditDialog(
                         loadWeightText(edit.row.loadKind, edit.row.weightKg, edit.weightUnit)
                     )
                 )
-                OutlinedTextField(
+                RirInput(
                     value = edit.rir,
                     onValueChange = onRirChanged,
-                    label = { Text(stringResource(Res.string.logger_rir_label)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
                     enabled = !saving
                 )
                 Text(

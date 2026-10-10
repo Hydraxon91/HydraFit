@@ -2640,6 +2640,26 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun quickPickedZeroIsLoggedAndCanBeClearedBackToUnreported() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("100")
+        viewModel.onRirChanged(nextRirQuickPickValue(viewModel.state.value.rir, 0))
+        viewModel.log()
+        advanceUntilIdle()
+        assertEquals(0, repository.all().single().rir)
+
+        viewModel.onRirChanged(nextRirQuickPickValue(viewModel.state.value.rir, 0))
+        viewModel.log()
+        advanceUntilIdle()
+        assertEquals(null, repository.all().last().rir)
+    }
+
+    @Test
     fun ignoresOutOfRangeOrNonNumericRirInput() = runTest(dispatcher) {
         val viewModel = viewModel()
         advanceUntilIdle()

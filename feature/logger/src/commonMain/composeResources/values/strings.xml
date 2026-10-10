@@ -6,7 +6,8 @@
     <string name="logger_reps_label">Reps</string>
     <string name="logger_weight_label">Weight (%1$s)</string>
     <string name="logger_add_weight">Add weight</string>
-    <string name="logger_rir_label">RIR</string>
+    <string name="logger_rir_label">RIR (optional)</string>
+    <string name="logger_rir_explanation">Reps in reserve: how many more reps you think you could complete with similar technique and range of motion. Leave blank if unsure.</string>
     <string name="logger_per_hand">Per hand</string>
     <string name="logger_warmup">Warm-up set</string>
     <string name="logger_log_button">Log set</string>
