@@ -32,7 +32,7 @@
     <string name="routines_cancel">Cancel</string>
     <string name="routines_confirm">Confirm</string>
     <string name="routines_delete_title">Delete routine?</string>
-    <string name="routines_delete_message">\"%1$s\" will be deleted permanently.</string>
+    <string name="routines_delete_message">%1$s will be deleted permanently.</string>
 
     <string name="routines_picker_title">Choose exercise</string>
     <string name="routines_search_label">Search exercises</string>
