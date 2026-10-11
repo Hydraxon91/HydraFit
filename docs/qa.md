@@ -28,6 +28,10 @@ exact on-screen text.
 - Search filters the exercise list; built-in tags present.
 
 ## 2. Exercise catalog (Equipment → edit)
+- Deleting a custom exercise with a manual personal record is refused with localized guidance;
+  the editor, exercise and record remain. Successful deletion removes its preference, exclusion and
+  rest override atomically; exported backup validation still passes. Exercise existing logged-set/
+  plan/routine deletion guards too. Do not use existing user records as disposable QA fixtures.
 - Edit a built-in: equipment, movement pattern, per-muscle involvement tiers, unilateral flag → Save, reopen, values persisted.
 - Movement-pattern picker now groups **Compound** and **Accessory** and shows the hint that accessory patterns use the accessory set count. Selecting an accessory pattern (e.g. Core, Biceps isolation) yields the accessory set count in a plan.
 - Reset restores defaults; add/edit/delete a custom exercise; deleting one referenced by a logged set is blocked.

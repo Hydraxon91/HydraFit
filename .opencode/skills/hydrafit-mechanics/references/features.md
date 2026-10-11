@@ -177,6 +177,8 @@ The route collects `viewModel.state` with `collectAsStateWithLifecycle` and
 forwards method references to the screen. Logger also uses
 `LifecycleEventEffect(ON_RESUME)` to recompute today's focus. State updates use
 `MutableStateFlow.update { it.copy(...) }`.
+Equipment keeps the typed `PERSONAL_RECORD_REFERENCE` deletion failure in its editor state and
+renders the refusal from a shared string resource; the editor stays open and the record is retained.
 
 Each feature's resources are at
 `feature/<name>/src/commonMain/composeResources/values/strings.xml`.

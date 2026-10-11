@@ -9,6 +9,7 @@ import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.equipment.MovementPatternGuardrail
 import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
 
 /** The exercise currently open in the editor dialog, and its in-progress edits. */
 data class ExerciseEditorState(
@@ -24,6 +25,7 @@ data class ExerciseEditorState(
     /** What external load this exercise can carry; drives generation, logging and display. */
     val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL,
     val error: String? = null,
+    val errorReason: CustomExerciseFailureReason? = null,
     val nameConflict: Boolean = false,
     /** Sticky manual interaction/Apply protection, not a comparison with the initial values. */
     val touchedGroups: Set<ExerciseProfileGroup> = emptySet(),

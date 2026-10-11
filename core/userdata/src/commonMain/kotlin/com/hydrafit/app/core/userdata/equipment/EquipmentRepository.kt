@@ -58,5 +58,6 @@ class CustomExerciseException(message: String, val reason: CustomExerciseFailure
 
 /** Typed validation failures that the editor renders with localized guidance. */
 enum class CustomExerciseFailureReason {
-    NAME_CONFLICT
+    NAME_CONFLICT,
+    PERSONAL_RECORD_REFERENCE
 }

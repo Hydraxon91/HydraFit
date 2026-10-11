@@ -130,7 +130,7 @@ class SqlDelightCustomExerciseRepositoryTest {
     }
 
     @Test
-    fun successfulDeleteRemovesRestOverrideAndLeavesAValidBackup() = runTest {
+    fun successfulDeleteRemovesAllPreferencesAndLeavesAValidBackup() = runTest {
         val created = repository.add(
             name = "Disposable rest override",
             requiredEquipment = emptySet(),
@@ -139,18 +139,30 @@ class SqlDelightCustomExerciseRepositoryTest {
         )
         val restPreferences = SqlDelightRestPreferenceRepository(database)
         restPreferences.setExerciseOverrideSeconds(created.id, 240L)
+        database.exercisePreferenceQueries.upsert(created.id, "PREFER")
+        database.exerciseExclusionQueries.upsert(created.id, null)
 
         repository.delete(created.id)
 
         assertEquals(null, restPreferences.exerciseOverrideSeconds(created.id))
+        assertEquals(
+            null,
+            database.exercisePreferenceQueries.selectById(created.id).executeAsOneOrNull()
+        )
+        assertEquals(
+            null,
+            database.exerciseExclusionQueries.selectById(created.id).executeAsOneOrNull()
+        )
         val exported = SqlDelightBackupRepository(database, SqlDelightBackupCatalog())
             .export("test", 1L)
         BackupValidator(SqlDelightBackupCatalog()).validate(exported)
         assertTrue(exported.restPreferences.none { it.exerciseId == created.id })
+        assertTrue(exported.preferences.none { it.exerciseId == created.id })
+        assertTrue(exported.exclusions.none { it.exerciseId == created.id })
     }
 
     @Test
-    fun blockedDeletePreservesRestOverride() = runTest {
+    fun blockedDeletePreservesAllPreferences() = runTest {
         val created = repository.add(
             name = "Logged rest override",
             requiredEquipment = emptySet(),
@@ -159,6 +171,8 @@ class SqlDelightCustomExerciseRepositoryTest {
         )
         val restPreferences = SqlDelightRestPreferenceRepository(database)
         restPreferences.setExerciseOverrideSeconds(created.id, 240L)
+        database.exercisePreferenceQueries.upsert(created.id, "PREFER")
+        database.exerciseExclusionQueries.upsert(created.id, null)
         SqlDelightWorkoutLogRepository(database).add(
             WorkoutSet(exerciseId = created.id, reps = 5, weightKg = null, performedAtMillis = 1L)
         )
@@ -166,11 +180,54 @@ class SqlDelightCustomExerciseRepositoryTest {
         assertFailsWith<CustomExerciseException> { repository.delete(created.id) }
 
         assertEquals(240L, restPreferences.exerciseOverrideSeconds(created.id))
+        assertEquals(
+            "PREFER",
+            database.exercisePreferenceQueries.selectById(created.id).executeAsOneOrNull()
+        )
+        assertTrue(
+            database.exerciseExclusionQueries.selectById(created.id).executeAsOneOrNull() != null
+        )
         assertTrue(catalog.all().any { it.id == created.id })
     }
 
     @Test
-    fun deleteFailureRollsBackRestOverrideRemoval() = runTest {
+    fun personalRecordBlocksDeletionAndPreservesAllDependentRecords() = runTest {
+        val created = repository.add(
+            name = "Personal record without sets",
+            requiredEquipment = emptySet(),
+            involvements = mapOf(MuscleGroup.ABS to 1.0),
+            movementPattern = MovementPattern.CORE
+        )
+        database.personalRecordQueries.upsert(created.id, 20.0, 5L, 1L, "EXTERNAL")
+        database.exercisePreferenceQueries.upsert(created.id, "PREFER")
+        database.exerciseExclusionQueries.upsert(created.id, null)
+        val restPreferences = SqlDelightRestPreferenceRepository(database)
+        restPreferences.setExerciseOverrideSeconds(created.id, 240L)
+
+        val failure = assertFailsWith<CustomExerciseException> { repository.delete(created.id) }
+
+        assertTrue(failure.message!!.contains("personal record"))
+        assertEquals(CustomExerciseFailureReason.PERSONAL_RECORD_REFERENCE, failure.reason)
+        assertTrue(catalog.all().any { it.id == created.id })
+        assertEquals(
+            20.0,
+            database.personalRecordQueries.selectById(created.id).executeAsOne().weightKg
+        )
+        assertEquals(
+            "PREFER",
+            database.exercisePreferenceQueries.selectById(created.id).executeAsOneOrNull()
+        )
+        assertTrue(
+            database.exerciseExclusionQueries.selectById(created.id).executeAsOneOrNull() != null
+        )
+        assertEquals(240L, restPreferences.exerciseOverrideSeconds(created.id))
+        val exported = SqlDelightBackupRepository(database, SqlDelightBackupCatalog())
+            .export("test", 1L)
+        BackupValidator(SqlDelightBackupCatalog()).validate(exported)
+    }
+
+    @Test
+    fun deleteFailureRollsBackAllPreferenceRemoval() = runTest {
         val created = repository.add(
             name = "Rollback rest override",
             requiredEquipment = emptySet(),
@@ -179,6 +236,8 @@ class SqlDelightCustomExerciseRepositoryTest {
         )
         val restPreferences = SqlDelightRestPreferenceRepository(database)
         restPreferences.setExerciseOverrideSeconds(created.id, 240L)
+        database.exercisePreferenceQueries.upsert(created.id, "PREFER")
+        database.exerciseExclusionQueries.upsert(created.id, null)
         driver.execute(
             null,
             "CREATE TRIGGER reject_exercise_delete BEFORE DELETE ON exercise " +
@@ -189,6 +248,13 @@ class SqlDelightCustomExerciseRepositoryTest {
         assertFailsWith<Exception> { repository.delete(created.id) }
 
         assertEquals(240L, restPreferences.exerciseOverrideSeconds(created.id))
+        assertEquals(
+            "PREFER",
+            database.exercisePreferenceQueries.selectById(created.id).executeAsOneOrNull()
+        )
+        assertTrue(
+            database.exerciseExclusionQueries.selectById(created.id).executeAsOneOrNull() != null
+        )
         assertTrue(catalog.all().any { it.id == created.id })
     }
 

@@ -84,6 +84,12 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
             if (references > 0L) {
                 throw CustomExerciseException("This exercise has logged sets and can't be deleted")
             }
+            if (database.personalRecordQueries.selectById(id).executeAsOneOrNull() != null) {
+                throw CustomExerciseException(
+                    "This exercise has a personal record and can't be deleted",
+                    CustomExerciseFailureReason.PERSONAL_RECORD_REFERENCE
+                )
+            }
             val planReferences =
                 database.planHistoryQueries.countEntriesForExercise(id).executeAsOne()
             val routineReferences =
@@ -103,6 +109,8 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
                 )
             }
             database.restPreferenceQueries.deleteExerciseOverride(id)
+            database.exercisePreferenceQueries.deleteById(id)
+            database.exerciseExclusionQueries.deleteById(id)
             queries.deleteById(id)
         }
     }
