@@ -584,6 +584,12 @@ neither prescriptions nor fatigue/RIR.
 Guided confirmation freezes the Warm-up choice before any legacy/missing-load dialog; all resolution
 paths and failed-write retries retain it until success or cancellation. Warm-up Start resets coaching
 eligibility, and successful live warm-up completion does not start or persist a new rest prompt.
+The no-history "Use last logged" editor fallback retains the live completion event, including its
+original timing, through failed-write retries until success or explicit cancellation. The guided
+submission guard spans persistence and success handling. Rest setup snapshots the completion instant
+and revalidates occurrence/session identity and cancellation generation after suspending preference
+and session reads, so delayed setup cannot revive a canceled countdown or reuse one event for a
+second submission.
 
 ### 1.17 Occurrence-only exercise replacement
 

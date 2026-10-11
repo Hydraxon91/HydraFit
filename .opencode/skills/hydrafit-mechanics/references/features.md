@@ -46,8 +46,10 @@ restart starts over. A Confirm-all batch is scoped to its plan/occurrence contex
 continuing when that context changes, without undoing successful writes. A legacy resolution dialog
 takes precedence over an open draft editor, which remains in state until resolution is dismissed.
 Cancel leaves the draft pending and discards any live-set start/completion event so a later live
-completion requires a fresh Start action; canceling the editor discards its in-memory edits. These actions
-stay within the six existing Logger ViewModel dependencies; no draft-actions Koin aggregate is
+completion requires a fresh Start action; canceling the editor discards its in-memory edits.
+"Use last logged" retains the live event when it finds no load and opens the editor; only a successful
+write or explicit cancellation consumes it, including failed-write retries through that editor.
+These actions stay within the six existing Logger ViewModel dependencies; no draft-actions Koin aggregate is
 registered.
 
 Recent sets carry nullable stored `sessionId` in `LoggedSetRow`, retaining performed-time descending
@@ -119,6 +121,11 @@ retry. **Set completed now** is a separate explicit action: it timestamps the se
 at the live wall time and starts a deadline-based rest prompt only after the write
 succeeds. Ordinary guided confirmation, manual logging, warm-ups and backdated
 entries do not start a timer. The monotonic deadline and workout context are
+checked again after suspending preference/session reads. The submission guard spans the write and
+success handling, so a pending live event cannot be submitted again while rest preferences load.
+The captured completion instant is retained; End/New session, timer cancellation and occurrence
+changes during the reads prevent the old completion from reviving a prompt or coaching evidence.
+The deadline and context are
 persisted for process-death restoration; restore requires matching boot, open-session
 and occurrence identity and silently clears expired or mismatched state. Global rest
 duration defaults to 120 seconds and is editable in Settings; a Logger timer edit saves

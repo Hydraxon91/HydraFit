@@ -968,7 +968,6 @@ class WorkoutLoggerViewModel(
             } finally {
                 endDraftSubmission()
             }
-            if (liveSetIntentEntryId == draft.occurrenceEntryId) liveSetIntentEntryId = null
             if (shouldContinue) continueConfirmAllDrafts()
         }
     }
@@ -1735,18 +1734,18 @@ class WorkoutLoggerViewModel(
         val timerGeneration = liveTimerGeneration
         if (!beginDraftSubmission()) return
         viewModelScope.launch {
-            val writeResult = try {
-                writeGuidedSet(resolved, edit, contextRevision, liveCompletion)
+            try {
+                val writeResult = writeGuidedSet(resolved, edit, contextRevision, liveCompletion)
+                applyGuidedWriteResult(
+                    resolved,
+                    writeResult,
+                    contextRevision,
+                    timerGeneration,
+                    liveCompletion
+                )
             } finally {
                 endDraftSubmission()
             }
-            applyGuidedWriteResult(
-                resolved,
-                writeResult,
-                contextRevision,
-                timerGeneration,
-                liveCompletion
-            )
         }
     }
 
@@ -1770,7 +1769,9 @@ class WorkoutLoggerViewModel(
                 startRestTimerIfDurationValid(
                     resolved.occurrenceId,
                     resolved.exerciseId,
-                    writeResult.sessionId
+                    writeResult.sessionId,
+                    contextRevision,
+                    timerGeneration
                 )
             } else {
                 resetShortRestCoaching()
@@ -1818,13 +1819,28 @@ class WorkoutLoggerViewModel(
     private suspend fun startRestTimerIfDurationValid(
         occurrenceId: Long?,
         exerciseId: String,
-        sessionId: String?
+        sessionId: String?,
+        contextRevision: Long,
+        timerGeneration: Long
     ) {
         if (!_state.value.canStartRestTimer) return
+        val completedAtElapsedMillis = liveSetCompletedAtElapsedMillis ?: return
         val seconds = settings.restDurationSeconds(exerciseId).takeIf {
             it > 0L && it <= RestCountdown.MAX_DURATION_MILLIS / 1_000L
         } ?: return
         val durationMillis = seconds * 1_000L
+        val hasOverride = settings.hasExerciseRestDurationOverride(exerciseId)
+        val currentSessionId = logMutations.observeOpenSession().first()?.id
+        // Preference reads may suspend; an End/New session, dismissal or context switch must win.
+        if (contextRevision != draftContextRevision ||
+            timerGeneration != liveTimerGeneration ||
+            currentOccurrence?.id != occurrenceId ||
+            currentSessionId != sessionId ||
+            !isGuidedActive ||
+            !_state.value.canStartRestTimer
+        ) {
+            return
+        }
         val boot = runtime.bootIdentity()
         if (shortRestCoachingEnabled && boot != null && sessionId != null && occurrenceId != null) {
             shortRestCoach.completed(
@@ -1833,12 +1849,11 @@ class WorkoutLoggerViewModel(
                     occurrenceId,
                     exerciseId,
                     boot,
-                    requireNotNull(liveSetCompletedAtElapsedMillis),
+                    completedAtElapsedMillis,
                     durationMillis
                 )
             )
         }
-        val hasOverride = settings.hasExerciseRestDurationOverride(exerciseId)
         timerOccurrenceId = occurrenceId
         timerSessionId = sessionId
         timerExerciseId = exerciseId
@@ -1847,8 +1862,7 @@ class WorkoutLoggerViewModel(
         }
         restTimer.start(
             durationMillis = durationMillis,
-            completedAtElapsedMillis = liveSetCompletedAtElapsedMillis
-                ?: runtime.elapsedRealtimeMillis(),
+            completedAtElapsedMillis = completedAtElapsedMillis,
             sessionId = sessionId,
             occurrenceId = occurrenceId,
             exerciseId = exerciseId
