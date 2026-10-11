@@ -60,12 +60,12 @@ Paths below are relative to the repository root.
   remain usable. If neither Maestro hierarchy path works, capture diagnostic
   evidence and stop interaction; no blind taps or tool roulette. Screenshots do
   not replace semantic success assertions.
-- Bound each short smoke flow to 120s and the interaction/recovery portion to
-  five minutes, excluding build/deploy and intentional long-generation tests
-  with their own approved budget. Allow one evidence-based correction after the
-  initial attempt only when replay is safe. Report failed step, expected/actual
-  state, elapsed time, attempts and artifacts; never claim success from a tap's
-  exit code. These are agent rules, not a tool-level security sandbox.
+- Bound each short smoke flow to 120s, excluding build/deploy and intentional
+  long-generation tests with their own approved budget. Allow one evidence-based
+  correction after the initial attempt only when replay is safe. Report failed
+  step, expected/actual state, elapsed time, attempts and artifacts; never claim
+  success from a tap's exit code. These are agent rules, not a tool-level
+  security sandbox.
 - Verify the target with `adb devices -l` and set `ANDROID_SERIAL` to a running
   `emulator-<port>` serial. All UI scripts require this explicit target, verify
   that it responds as an emulator, and bound ADB calls. Never let a phone become

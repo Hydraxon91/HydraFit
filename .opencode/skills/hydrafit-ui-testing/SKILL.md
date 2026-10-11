@@ -101,8 +101,8 @@ claim 100% automation reliability. Prefer a verified failure to a guessed succes
 
 ## Budgets and outcomes
 
-Short smoke flows: 120s hard limit each; interaction and recovery: five minutes
-total, excluding build/deploy or separately budgeted long-generation tests.
+Short smoke flows: 120s hard limit each, excluding build/deploy or separately
+budgeted long-generation tests.
 MCP does not expose a per-run hard timeout; when a hard bound is needed, use the
 documented bounded CLI command in `.maestro/README.md`, not an unbounded MCP run.
 On timeout, do not start another controller while the first may still be running.
