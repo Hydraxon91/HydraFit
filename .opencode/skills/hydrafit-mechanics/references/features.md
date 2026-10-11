@@ -107,8 +107,9 @@ which reads each occurrence entry's frozen prescription and the working sets
 attributed to it; warm-ups and sets with no entry attribution never satisfy a
 prescription. The card lists exercises in entry order with target reps/load and
 performed/prescribed counts. "Log set" records exactly one set for that entry and
-leaves the remaining prescribed sets pending; the Warm-up toggle applies to it, so
-a warm-up is stored as a warm-up and stays out of the progress count. "Edit" opens
+leaves the remaining prescribed sets pending; the Warm-up choice is frozen at confirmation,
+survives legacy/missing-load resolution and failed-write retries, and is discarded on cancellation
+or consumed on success. A warm-up is stored as a warm-up and stays out of the progress count. "Edit" opens
 the one-off
 draft editor and confirming it also writes a single set. Guided writes reuse the
 draft load-shape decisions (legacy resolution, missing-load prompt) through
@@ -127,7 +128,8 @@ Android background alerts (explicit permission request, inexact local alarm) and
 changes even without Logger. `ShortRestCoach` consumes successful live completion → explicit Start
 set, same exercise/session/occurrence/boot; two consecutive intervals below the duration chosen at
 completion show one dismissible message per exercise/session. Unknown/catch-up/edited timing,
-warm-ups and transitions are excluded; recreation resets transient evidence.
+warm-ups and transitions are excluded; a warm-up Start breaks coaching eligibility, and a live
+warm-up completion neither starts nor persists a new rest prompt. Recreation resets transient evidence.
 At startup, reconciliation leaves a due, still-valid countdown to the triggered receiver so it can
 revalidate and post; invalid context, disabled preferences and later transitions into due state still
 cancel. Ordinary Logger restoration continues to clear expired state silently.

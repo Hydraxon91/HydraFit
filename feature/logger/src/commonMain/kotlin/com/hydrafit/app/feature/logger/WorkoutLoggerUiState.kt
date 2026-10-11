@@ -104,7 +104,7 @@ data class DraftSet(
     val occurrenceId: Long? = null,
     val occurrenceEntryId: Long? = null,
     /**
-     * A guided draft is always a prescribed working set; manual logging carries the Warm-up toggle.
+     * Prescriptions default to working sets; guided confirmation freezes the user's Warm-up choice.
      */
     val isWarmup: Boolean = false
 )

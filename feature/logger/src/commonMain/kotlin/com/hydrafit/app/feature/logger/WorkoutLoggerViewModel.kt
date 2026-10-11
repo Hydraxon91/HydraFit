@@ -38,7 +38,13 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-private data class GuidedSetWriteResult(val succeeded: Boolean, val sessionId: String?)
+private data class GuidedSetIntent(val entryId: Long, val isWarmup: Boolean)
+
+private data class GuidedSetWriteResult(
+    val succeeded: Boolean,
+    val sessionId: String?,
+    val isWarmup: Boolean
+)
 
 class WorkoutLoggerViewModel(
     private val logMutations: WorkoutLogMutations,
@@ -89,6 +95,7 @@ class WorkoutLoggerViewModel(
     private var liveSetStartedAtElapsedMillis: Long? = null
     private var liveSetCompletedAtElapsedMillis: Long? = null
     private var liveSetCompletedAtWallMillis: Long? = null
+    private var guidedSetIntent: GuidedSetIntent? = null
     private var timerOccurrenceId: Long? = null
     private var timerSessionId: String? = null
     private var timerExerciseId: String? = null
@@ -264,6 +271,7 @@ class WorkoutLoggerViewModel(
     }
 
     private fun clearLiveSetStart() {
+        guidedSetIntent = null
         liveSetIntentEntryId = null
         liveSetStartedAtElapsedMillis = null
         liveSetCompletedAtElapsedMillis = null
@@ -1635,7 +1643,7 @@ class WorkoutLoggerViewModel(
     }
 
     /**
-     * Records exactly one prescribed working set for [occurrenceEntryId], leaving any remaining
+     * Records exactly one set for [occurrenceEntryId], leaving any remaining
      * prescribed sets pending. Reuses the same load-shape and legacy/missing-load decisions as the
      * batch path, but never writes more than one set.
      */
@@ -1655,7 +1663,9 @@ class WorkoutLoggerViewModel(
         if (_state.value.performedAtMillis != null) onPerformedAtChanged(null)
         val draft = _state.value.draftSets.first { it.occurrenceEntryId == occurrenceEntryId }
         val elapsedNow = runtime.elapsedRealtimeMillis()
-        if (shortRestCoachingEnabled &&
+        if (_state.value.isWarmup) {
+            resetShortRestCoaching()
+        } else if (shortRestCoachingEnabled &&
             shortRestCoach.started(
                 sessionId = _state.value.activeSession?.id,
                 occurrenceId = requireNotNull(draft.occurrenceId),
@@ -1677,6 +1687,10 @@ class WorkoutLoggerViewModel(
         if (draftSubmissionInProgress) return
         val draft = _state.value.draftSets.firstOrNull { it.occurrenceEntryId == occurrenceEntryId }
             ?: return
+        // Load dialogs and failed writes retain the classification chosen for this confirmation.
+        if (guidedSetIntent?.entryId != occurrenceEntryId) {
+            guidedSetIntent = GuidedSetIntent(occurrenceEntryId, _state.value.isWarmup)
+        }
         liveSetIntentEntryId = occurrenceEntryId.takeIf { liveCompletion }
         if (liveCompletion && liveSetCompletedAtElapsedMillis == null) {
             liveSetCompletedAtElapsedMillis = runtime.elapsedRealtimeMillis()
@@ -1704,12 +1718,8 @@ class WorkoutLoggerViewModel(
             setMissingLoadPrompt(draft)
             return
         }
-        // The Warm-up toggle applies to the guided row's Log set / Set completed now actions too, so
-        // a warm-up is recorded as one and stays out of the prescribed-set progress.
-        val withWarmup = resolved.copy(isWarmup = _state.value.isWarmup)
-        _state.update { it.copy(isWarmup = false) }
         launchGuidedWrite(
-            withWarmup,
+            resolved,
             edit ?: retry?.edit,
             liveCompletion = liveSetIntentEntryId == occurrenceEntryId
         )
@@ -1743,8 +1753,8 @@ class WorkoutLoggerViewModel(
     /**
      * Applies the shared result of one guided-set write. Every guided resolution path routes its
      * outcome here, so a successful write always consumes the live start/completion event through
-     * [clearLiveSetStart] exactly once, and starts the rest prompt only for a live completion whose
-     * context is still current. A failure keeps the event for an explicit retry.
+     * [clearLiveSetStart] exactly once, and starts the rest prompt only for a live working-set
+     * completion whose context is still current. A failure keeps the event for an explicit retry.
      */
     private suspend fun applyGuidedWriteResult(
         resolved: DraftSet,
@@ -1756,7 +1766,7 @@ class WorkoutLoggerViewModel(
         if (writeResult.succeeded) {
             val contextStillCurrent = contextRevision == draftContextRevision &&
                 timerGeneration == liveTimerGeneration
-            if (liveCompletion && contextStillCurrent && isGuidedActive) {
+            if (liveCompletion && !writeResult.isWarmup && contextStillCurrent && isGuidedActive) {
                 startRestTimerIfDurationValid(
                     resolved.occurrenceId,
                     resolved.exerciseId,
@@ -1766,6 +1776,7 @@ class WorkoutLoggerViewModel(
                 resetShortRestCoaching()
             }
             applyGuidedWriteSuccess()
+            _state.update { it.copy(isWarmup = false) }
             clearLiveSetStart()
         } else {
             _state.update { it.copy(guidedSetWriteFailed = true) }
@@ -1773,7 +1784,7 @@ class WorkoutLoggerViewModel(
     }
 
     /**
-     * Writes exactly one working set for the confirmed [resolved] values. A single insert either
+     * Writes exactly one set for the confirmed [resolved] values. A single insert either
      * lands or does not, so a failure leaves the pending draft untouched for an explicit retry.
      */
     private suspend fun writeGuidedSet(
@@ -1781,23 +1792,27 @@ class WorkoutLoggerViewModel(
         edit: DraftEdit?,
         contextRevision: Long,
         liveCompletion: Boolean = false
-    ): GuidedSetWriteResult = try {
-        if (contextRevision != draftContextRevision) {
-            throw CancellationException("Draft context changed")
+    ): GuidedSetWriteResult {
+        val isWarmup = guidedSetIntent?.takeIf { it.entryId == resolved.occurrenceEntryId }
+            ?.isWarmup ?: resolved.isWarmup
+        return try {
+            if (contextRevision != draftContextRevision) {
+                throw CancellationException("Draft context changed")
+            }
+            val sessionId = logDraft(
+                resolved.copy(sets = 1, isWarmup = isWarmup),
+                edit,
+                contextRevision,
+                liveCompletion = liveCompletion
+            )
+            ensureDraftContext(contextRevision)
+            GuidedSetWriteResult(true, sessionId, isWarmup)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            ensureDraftContext(contextRevision)
+            GuidedSetWriteResult(false, null, isWarmup)
         }
-        val sessionId = logDraft(
-            resolved.copy(sets = 1),
-            edit,
-            contextRevision,
-            liveCompletion = liveCompletion
-        )
-        ensureDraftContext(contextRevision)
-        GuidedSetWriteResult(true, sessionId)
-    } catch (cancelled: CancellationException) {
-        throw cancelled
-    } catch (_: Exception) {
-        ensureDraftContext(contextRevision)
-        GuidedSetWriteResult(false, null)
     }
 
     private suspend fun startRestTimerIfDurationValid(

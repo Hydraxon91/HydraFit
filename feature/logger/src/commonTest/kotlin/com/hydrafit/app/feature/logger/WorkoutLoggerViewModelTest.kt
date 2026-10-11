@@ -4275,6 +4275,135 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun guidedWarmupSurvivesEveryLoadResolution() = runTimerTest {
+        for (resolution in listOf("without-weight", "last-load", "enter-load", "legacy")) {
+            val repository = FakeWorkoutLogRepository(
+                initial = listOf(
+                    WorkoutSet(
+                        id = 1L,
+                        exerciseId = "back-squat",
+                        reps = 5,
+                        weightKg = 80.0,
+                        performedAtMillis = MONDAY - DAY
+                    )
+                )
+            )
+            val schedule = MutableWorkoutScheduleRepository()
+            val occurrences = twoOccurrences().map { occurrence ->
+                occurrence.copy(
+                    entries = occurrence.entries.map {
+                        it.copy(
+                            weightKg = null,
+                            loadKind = if (resolution == "legacy") {
+                                LoadKind.LEGACY_UNSPECIFIED
+                            } else {
+                                LoadKind.EXTERNAL
+                            },
+                            loadCapability = ExerciseLoadCapability.EXTERNAL
+                        )
+                    }
+                )
+            }
+            schedule.set(blockActivation(), occurrences, selectedOccurrenceId = 30L)
+            val countdowns = FakeRestCountdownRepository(null)
+            val viewModel = occurrenceViewModel(
+                repository,
+                schedule,
+                guided = true,
+                bootIdentity = { "boot" },
+                restCountdownRepository = countdowns,
+                coaching = true
+            )
+            runCurrent()
+
+            viewModel.onWarmupToggled(true)
+            viewModel.startGuidedSet(40L)
+            viewModel.confirmGuidedSetNow(40L)
+            runCurrent()
+            when (resolution) {
+                "without-weight" -> viewModel.logMissingLoadWithoutWeight()
+                "last-load" -> viewModel.useLastLoggedLoad()
+                "enter-load" -> {
+                    viewModel.enterMissingLoad()
+                    viewModel.onDraftWeightChanged("80")
+                    viewModel.confirmDraftEdit()
+                }
+                "legacy" -> viewModel.resolveLegacyAsExternal()
+            }
+            runCurrent()
+
+            val logged = repository.all().last()
+            assertEquals(2, repository.all().size, resolution)
+            assertTrue(logged.isWarmup, resolution)
+            assertEquals(40L, logged.occurrenceEntryId, resolution)
+            assertEquals(0, viewModel.state.value.guidedProgress?.performedSets, resolution)
+            assertFalse(viewModel.state.value.isWarmup, resolution)
+            assertNull(viewModel.state.value.restTimer, resolution)
+            assertNull(countdowns.countdown, resolution)
+        }
+    }
+
+    @Test
+    fun liveWarmupsNeverStartOrPersistRestOrProduceCoaching() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val countdowns = FakeRestCountdownRepository(null)
+        var elapsed = 1_000L
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            elapsedNow = { elapsed },
+            bootIdentity = { "boot" },
+            restCountdownRepository = countdowns,
+            coaching = true
+        )
+        runCurrent()
+
+        repeat(3) {
+            viewModel.onWarmupToggled(true)
+            viewModel.startGuidedSet(40L)
+            assertNull(viewModel.state.value.shortRestCoachingExerciseName)
+            elapsed += 1_000L
+            viewModel.confirmGuidedSetNow(40L)
+            runCurrent()
+            assertNull(viewModel.state.value.restTimer)
+            assertNull(countdowns.countdown)
+            elapsed += 1_000L
+        }
+        assertTrue(repository.all().all { it.isWarmup })
+        assertEquals(0, viewModel.state.value.guidedProgress?.performedSets)
+    }
+
+    @Test
+    fun failedGuidedWarmupRetainsItsClassificationUntilSuccessfulRetry() = runTimerTest {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempt = 1)
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+        viewModel.onWarmupToggled(true)
+        viewModel.startGuidedSet(40L)
+        viewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+        assertTrue(viewModel.state.value.guidedSetWriteFailed)
+        assertTrue(repository.all().isEmpty())
+
+        viewModel.onWarmupToggled(false)
+        viewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+        assertTrue(repository.all().single().isWarmup)
+        assertNull(viewModel.state.value.restTimer)
+        assertEquals(0, viewModel.state.value.guidedProgress?.performedSets)
+
+        viewModel.confirmGuidedSet(40L)
+        runCurrent()
+        assertFalse(repository.all().last().isWarmup)
+        assertEquals(1, viewModel.state.value.guidedProgress?.performedSets)
+    }
+
+    @Test
     fun manualLogLinksThePrescribedEntryWhenTheExerciseMatchesADraft() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
@@ -4293,6 +4422,75 @@ class WorkoutLoggerViewModelTest {
         val logged = repository.all().single()
         assertEquals(30L, logged.occurrenceId)
         assertEquals(40L, logged.occurrenceEntryId)
+    }
+
+    @Test
+    fun warmupStartBreaksTheWorkingSetCoachingStreak() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        val occurrences = twoOccurrences().map { occurrence ->
+            occurrence.copy(entries = occurrence.entries.map { it.copy(sets = 5) })
+        }
+        schedule.set(blockActivation(), occurrences, selectedOccurrenceId = 30L)
+        var elapsed = 1_000L
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            elapsedNow = { elapsed },
+            bootIdentity = { "boot" },
+            coaching = true
+        )
+        runCurrent()
+        repeat(2) {
+            viewModel.startGuidedSet(40L)
+            elapsed += 1_000L
+            viewModel.confirmGuidedSetNow(40L)
+            runCurrent()
+            elapsed += 1_000L
+        }
+
+        viewModel.onWarmupToggled(true)
+        viewModel.startGuidedSet(40L)
+        assertNull(viewModel.state.value.shortRestCoachingExerciseName)
+        elapsed += 1_000L
+        viewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+
+        repeat(2) {
+            elapsed += 1_000L
+            viewModel.startGuidedSet(40L)
+            assertNull(viewModel.state.value.shortRestCoachingExerciseName)
+            elapsed += 1_000L
+            viewModel.confirmGuidedSetNow(40L)
+            runCurrent()
+        }
+        assertEquals(1, repository.all().count { it.isWarmup })
+        assertEquals(4, viewModel.state.value.guidedProgress?.performedSets)
+    }
+
+    @Test
+    fun cancelingMissingLoadDiscardsThePendingWarmupClassification() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        val occurrences = twoOccurrences().map { occurrence ->
+            occurrence.copy(entries = occurrence.entries.map { it.copy(weightKg = null) })
+        }
+        schedule.set(blockActivation(), occurrences, selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+        viewModel.onWarmupToggled(true)
+        viewModel.confirmGuidedSet(40L)
+        assertNotNull(viewModel.state.value.missingLoadPrompt)
+        viewModel.cancelMissingLoadPrompt()
+        assertTrue(repository.all().isEmpty())
+
+        viewModel.onWarmupToggled(false)
+        viewModel.confirmGuidedSet(40L)
+        viewModel.logMissingLoadWithoutWeight()
+        runCurrent()
+        assertFalse(repository.all().single().isWarmup)
+        assertEquals(1, viewModel.state.value.guidedProgress?.performedSets)
     }
 
     @Test

@@ -576,6 +576,10 @@ product default, not a recovery measurement. Catch-up, unknown/edited timing, wa
 transitions do not contribute; eligibility is transient and resets on recreation. Coaching changes
 neither prescriptions nor fatigue/RIR.
 
+Guided confirmation freezes the Warm-up choice before any legacy/missing-load dialog; all resolution
+paths and failed-write retries retain it until success or cancellation. Warm-up Start resets coaching
+eligibility, and successful live warm-up completion does not start or persist a new rest prompt.
+
 ### 1.17 Occurrence-only exercise replacement
 
 `ReplaceOccurrenceExerciseUseCase` offers eligible same-pattern alternatives for an untouched slot,
