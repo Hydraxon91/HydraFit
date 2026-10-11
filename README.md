@@ -93,7 +93,7 @@ MIT
 
 ## Status
 
-Actively developed, solo, as a portfolio project. Not yet published to an app store; the current release is [v0.5.1](https://github.com/Hydraxon91/HydraFit/releases/tag/v0.5.1).
+Actively developed, solo, as a portfolio project. Not yet published to an app store; the current release is [v0.6.1](https://github.com/Hydraxon91/HydraFit/releases/tag/v0.6.1).
 
 Known limitations in 0.3.x:
 

@@ -324,3 +324,25 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   reopen and Cancel; the original data was restored after synthetic test cleanup. This was not a
   signed-release/minified installation or pinned-upgrade test. Remaining UI coverage is listed in
   §6; the historical v0.5.0 signed-upgrade record above is not authorization to repeat it.
+
+### v0.6.0 / v0.6.1 publication verification (2026-10-11)
+
+- `v0.6.0` (Guided Training) published on `c346ee3`; Release workflow `38167070101` passed.
+- `v0.6.1` is the corrective hotfix for the shipped 0.6.0 contract — guided-logging live-event
+  handling, custom-exercise deletion/backup integrity, keyboard/inset layout — plus CI scheduling
+  and the standing rule that release/minified/signed builds are never installed on the emulator.
+  Published on `1466444`; PR #3 merged after a green Build-and-Test run; Release workflow
+  `38170634866` (run number 14) passed, including lint, host tests with `verifySqlDelightMigration`,
+  and signed APK build/publication.
+- Verification was **offline only** (no emulator release install, per the new rule). Downloaded
+  published APK `androidApp-release.apk`: 24,621,183 bytes; package `com.hydrafit.app`,
+  `versionName=0.6.1`, `versionCode=14`; `apksigner verify` passed with certificate SHA-256
+  `af9cd73b3cc6842c7ab3c2f3cd572245826089aee863e9168a761a893c35a7e1`, matching prior releases. Local
+  APK SHA-256 `49900c9da63da3ebae1d5973e684183fb484d52f77b89b2ec8d144ecdde658b5` matches GitHub's
+  asset digest.
+- Local gate before tagging: full host tests (1159, zero failures/errors/skips),
+  `verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`, `:androidApp:lintVitalRelease`
+  and both iOS compiles passed. A bounded post-execution review was APPROVED with minor follow-ups;
+  the follow-up fixes and their verification are recorded in the commits. A bounded emulator
+  navigation and unsaved-editor smoke passed on the debug build; signed-upgrade and on-device
+  runtime behavior for the release artifact remain unverified.
