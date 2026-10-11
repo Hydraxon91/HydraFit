@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
@@ -142,9 +141,7 @@ private fun AppContent() {
             NavHost(
                 navController = navController,
                 startDestination = equipmentRoute,
-                // Pad by the IME so a focused field stays reachable on every screen. The bar itself
-                // stays anchored behind the keyboard; Scaffold's bottomBar is outside this modifier.
-                modifier = Modifier.padding(innerPadding).imePadding()
+                modifier = Modifier.padding(innerPadding)
             ) {
                 destinations.forEach { destination -> destination.graph(navController)(this) }
             }
