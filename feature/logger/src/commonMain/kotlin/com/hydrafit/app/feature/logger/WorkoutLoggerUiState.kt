@@ -188,6 +188,7 @@ data class WorkoutLoggerUiState(
     val startedSetEntryId: Long? = null,
     /** In-memory rest prompt started only by an explicitly live guided completion. */
     val restTimer: RestTimerState? = null,
+    val shortRestCoachingExerciseName: String? = null,
     /** Current effective duration in seconds for the active rest timer. */
     val restDurationSeconds: String = "120",
     /** True when the current exercise uses an explicit rest-duration override. */

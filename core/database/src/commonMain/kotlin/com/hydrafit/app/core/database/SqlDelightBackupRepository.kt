@@ -337,6 +337,13 @@ class SqlDelightBackupRepository(
                             exerciseId = it.exerciseId,
                             durationSeconds = it.durationSeconds
                         )
+                    },
+                trainingGuidance = database.trainingGuidancePreferenceQueries.selectPreferences()
+                    .executeAsOneOrNull().let {
+                        com.hydrafit.app.core.domain.backup.BackupTrainingGuidanceRecord(
+                            restAlertsEnabled = it?.restAlertsEnabled == 1L,
+                            shortRestCoachingEnabled = it?.shortRestCoachingEnabled == 1L
+                        )
                     }
             )
         }
@@ -348,6 +355,7 @@ class SqlDelightBackupRepository(
             database.exerciseOverrideQueries.deleteAll()
             database.exercisePreferenceQueries.deleteAll()
             database.restPreferenceQueries.deleteAll()
+            database.trainingGuidancePreferenceQueries.deleteAll()
             database.restCountdownQueries.deletePersisted()
             database.exerciseExclusionQueries.deleteAll()
             database.personalRecordQueries.deleteAll()
@@ -378,6 +386,10 @@ class SqlDelightBackupRepository(
                 database.equipmentQueries.updateMaxWeight(equipment.maxWeightKg, equipment.id)
             }
             file.selectedEquipment.forEach { database.userEquipmentQueries.insertSelected(it) }
+            database.trainingGuidancePreferenceQueries.restorePreferences(
+                if (file.trainingGuidance.restAlertsEnabled) 1L else 0L,
+                if (file.trainingGuidance.shortRestCoachingEnabled) 1L else 0L
+            )
             file.restPreferences.forEach { preference ->
                 val exerciseId = preference.exerciseId
                 if (exerciseId == null) {

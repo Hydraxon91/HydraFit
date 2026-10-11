@@ -272,6 +272,7 @@ fun SettingsScreen(
         Button(onClick = onSaveRestDuration, enabled = restDurationState.canSave) {
             Text(stringResource(Res.string.settings_rest_default_save))
         }
+        TrainingGuidanceSettingsSection()
 
         Text(
             text = stringResource(Res.string.settings_unit_section),

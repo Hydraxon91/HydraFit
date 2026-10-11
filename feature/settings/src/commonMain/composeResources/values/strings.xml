@@ -20,6 +20,12 @@
     <string name="settings_rest_default_description">Used when an exercise has no saved rest override. Goal-based ranges are guidance only.</string>
     <string name="settings_rest_default_seconds">Seconds (1–86400)</string>
     <string name="settings_rest_default_save">Save default</string>
+    <string name="settings_rest_alerts">Background rest alerts</string>
+    <string name="settings_rest_alerts_description">Optional local notifications for live guided rest prompts. Android may delay delivery to save power; this is not a recovery measurement.</string>
+    <string name="settings_rest_alerts_denied">Notifications are blocked. The rest countdown still works; allow notifications in system settings to enable alerts.</string>
+    <string name="settings_rest_alerts_unsupported">Background rest alerts are currently available on Android only.</string>
+    <string name="settings_short_rest_coaching">Short-rest guidance</string>
+    <string name="settings_short_rest_coaching_description">Optional guidance after two consecutive live same-exercise intervals shorter than your chosen rest time. It never changes your workout.</string>
     <string name="settings_unit_section">Weight unit</string>
     <string name="settings_unit_kg">Kilograms (kg)</string>
     <string name="settings_unit_lb">Pounds (lb)</string>

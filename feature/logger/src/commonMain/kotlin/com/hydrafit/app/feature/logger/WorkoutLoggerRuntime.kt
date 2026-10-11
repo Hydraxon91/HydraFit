@@ -176,6 +176,8 @@ class WorkoutLoggerRuntime(
 
     fun elapsedRealtimeMillis(): Long = elapsedNow()
 
+    fun bootIdentity(): String? = bootIdentityProvider.currentBootIdentity()
+
     fun restTimer(scope: CoroutineScope): RestTimerController = RestTimerController(
         scope,
         elapsedNow,

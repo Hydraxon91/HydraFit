@@ -117,6 +117,7 @@ import hydrafit.feature.logger.generated.resources.logger_per_hand
 import hydrafit.feature.logger.generated.resources.logger_pick_time_title
 import hydrafit.feature.logger.generated.resources.logger_planned_today
 import hydrafit.feature.logger.generated.resources.logger_recent
+import hydrafit.feature.logger.generated.resources.logger_replace
 import hydrafit.feature.logger.generated.resources.logger_reps_label
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_cancel
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_duration
@@ -131,6 +132,8 @@ import hydrafit.feature.logger.generated.resources.logger_session_not_recorded
 import hydrafit.feature.logger.generated.resources.logger_session_recorded
 import hydrafit.feature.logger.generated.resources.logger_set_time
 import hydrafit.feature.logger.generated.resources.logger_set_week_day
+import hydrafit.feature.logger.generated.resources.logger_short_rest_coaching
+import hydrafit.feature.logger.generated.resources.logger_short_rest_dismiss
 import hydrafit.feature.logger.generated.resources.logger_skip
 import hydrafit.feature.logger.generated.resources.logger_target_current_session
 import hydrafit.feature.logger.generated.resources.logger_target_label
@@ -162,9 +165,11 @@ fun NavGraphBuilder.loggerGraph() {
 @Composable
 fun WorkoutLoggerRoute(
     modifier: Modifier = Modifier,
-    viewModel: WorkoutLoggerViewModel = koinViewModel()
+    viewModel: WorkoutLoggerViewModel = koinViewModel(),
+    replacementViewModel: OccurrenceReplacementViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val replacementState by replacementViewModel.state.collectAsStateWithLifecycle()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResume() }
     WorkoutLoggerScreen(
         state = state,
@@ -217,11 +222,21 @@ fun WorkoutLoggerRoute(
         onRestDurationChanged = viewModel::onRestDurationChanged,
         onResetRestDuration = viewModel::resetExerciseRestDuration,
         onCancelRestTimer = viewModel::cancelRestTimer,
+        onDismissShortRestCoaching = viewModel::dismissShortRestCoaching,
+        onReplaceOccurrenceEntry = { entryId ->
+            state.activeOccurrence?.occurrenceId?.let { replacementViewModel.open(it, entryId) }
+        },
         onBackdatedDateTimePicked = viewModel::onBackdatedDateTimePicked,
         onClearBackdated = { viewModel.onPerformedAtChanged(null) },
         onForceNewSessionChanged = viewModel::onForceNewSessionChanged,
         nowMillis = viewModel::currentTimeMillis,
         modifier = modifier
+    )
+    OccurrenceReplacementDialog(
+        replacementState,
+        state.weightUnit,
+        replacementViewModel::confirm,
+        replacementViewModel::dismiss
     )
 }
 
@@ -278,6 +293,8 @@ fun WorkoutLoggerScreen(
     onRestDurationChanged: (String) -> Unit,
     onResetRestDuration: () -> Unit,
     onCancelRestTimer: () -> Unit,
+    onDismissShortRestCoaching: () -> Unit,
+    onReplaceOccurrenceEntry: (Long) -> Unit,
     onBackdatedDateTimePicked: (Long, Int, Int) -> Boolean,
     onClearBackdated: () -> Unit,
     onForceNewSessionChanged: (Boolean) -> Unit,
@@ -477,6 +494,16 @@ fun WorkoutLoggerScreen(
             }
         }
         if (state.isGuidedActive) {
+            state.shortRestCoachingExerciseName?.let { name ->
+                item {
+                    Column {
+                        Text(stringResource(Res.string.logger_short_rest_coaching, name))
+                        TextButton(onClick = onDismissShortRestCoaching) {
+                            Text(stringResource(Res.string.logger_short_rest_dismiss))
+                        }
+                    }
+                }
+            }
             state.guidedProgress?.let { guided ->
                 item {
                     GuidedWorkoutSection(
@@ -494,7 +521,8 @@ fun WorkoutLoggerScreen(
                         onLogSetNow = onConfirmGuidedSetNow,
                         startedSetEntryId = state.startedSetEntryId,
                         onStartSet = onStartGuidedSet,
-                        onEditSet = onEditGuidedSet
+                        onEditSet = onEditGuidedSet,
+                        onReplace = onReplaceOccurrenceEntry
                     )
                 }
             }
@@ -542,6 +570,16 @@ fun WorkoutLoggerScreen(
                             Text(stringResource(Res.string.logger_draft_more_options))
                         }
                         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                            draft.occurrenceEntryId?.let { entryId ->
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(Res.string.logger_replace)) },
+                                    enabled = !state.draftWriteInProgress,
+                                    onClick = {
+                                        expanded = false
+                                        onReplaceOccurrenceEntry(entryId)
+                                    }
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text(stringResource(Res.string.logger_draft_edit)) },
                                 onClick = {
@@ -1160,7 +1198,8 @@ private fun GuidedWorkoutSection(
     onLogSetNow: (Long) -> Unit,
     startedSetEntryId: Long?,
     onStartSet: (Long) -> Unit,
-    onEditSet: (Long) -> Unit
+    onEditSet: (Long) -> Unit,
+    onReplace: (Long) -> Unit
 ) {
     Card {
         Column(
@@ -1249,6 +1288,12 @@ private fun GuidedWorkoutSection(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(exercise.exerciseName)
+                            TextButton(
+                                onClick = { onReplace(exercise.occurrenceEntryId) },
+                                enabled = !writeInProgress && exercise.performedWorkingSets == 0
+                            ) {
+                                Text(stringResource(Res.string.logger_replace))
+                            }
                             Text(
                                 text = stringResource(
                                     Res.string.logger_guided_target,

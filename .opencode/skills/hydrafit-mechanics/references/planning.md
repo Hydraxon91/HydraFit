@@ -225,6 +225,12 @@ four-set value is a product default, not a validated minimum or optimum.
 The ordering lives in `DeterministicWorkoutPlannerEngine.rankCandidates` (with
 `pickFirstNonSore` for the skip); `SubstituteExerciseUseCase` reuses both to swap
 one slot of an accepted plan, so a replacement is ranked like a fresh pick.
+`ReplaceOccurrenceExerciseUseCase` is a separate manual occurrence-only action: same-pattern
+equipment/exclusion/soreness-eligible alternatives are listed by name/id, and a candidate's own
+current baseline is converted at the unchanged reps with the occurrence activation's deload flag
+and equipment ceiling. Missing/withheld history produces no numeric load. Confirmation rechecks
+the preview and delegates to the atomic untouched-slot write; accepted-plan substitution is not
+reused because it mutates the master plan and preserves the old load.
 Hard equipment/exclusion eligibility is shared through
 `PlannerCandidateEligibility` (used by the deterministic engine, sanitizer,
 substitution and both model engines; the model engines and the deterministic

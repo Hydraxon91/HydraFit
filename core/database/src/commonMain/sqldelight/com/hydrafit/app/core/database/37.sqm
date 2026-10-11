@@ -1,0 +1,5 @@
+CREATE TABLE trainingGuidancePreference (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    restAlertsEnabled INTEGER NOT NULL DEFAULT 0 CHECK (restAlertsEnabled IN (0, 1)),
+    shortRestCoachingEnabled INTEGER NOT NULL DEFAULT 0 CHECK (shortRestCoachingEnabled IN (0, 1))
+);

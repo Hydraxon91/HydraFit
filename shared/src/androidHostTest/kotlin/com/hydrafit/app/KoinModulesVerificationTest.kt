@@ -51,8 +51,11 @@ import com.hydrafit.app.core.domain.schedule.EditUnstartedOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.FinishTrainingBlockUseCase
 import com.hydrafit.app.core.domain.schedule.FinishWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.MoveWorkoutOccurrenceUseCase
+import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
+import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementRepository
 import com.hydrafit.app.core.domain.schedule.PreviewWorkoutScheduleUseCase
 import com.hydrafit.app.core.domain.schedule.RepeatTrainingBlockUseCase
+import com.hydrafit.app.core.domain.schedule.ReplaceOccurrenceExerciseUseCase
 import com.hydrafit.app.core.domain.schedule.SelectWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.SkipWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.StartWorkoutOccurrenceUseCase
@@ -64,6 +67,9 @@ import com.hydrafit.app.core.domain.schedule.WorkoutScheduleActions
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.settings.RestPreferenceRepository
+import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferenceRepository
+import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferences
+import com.hydrafit.app.core.domain.startup.StartupReadiness
 import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.unit.WeightUnit
@@ -76,9 +82,11 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.PersistedRestCountdown
+import com.hydrafit.app.core.domain.workout.RestAlertScheduler
 import com.hydrafit.app.core.domain.workout.RestCountdownRepository
 import com.hydrafit.app.core.domain.workout.SessionResegmenter
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.UnsupportedRestAlertScheduler
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
@@ -102,6 +110,7 @@ import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import com.hydrafit.app.feature.equipment.ExercisePlanningSettingsViewModel
 import com.hydrafit.app.feature.equipment.equipmentModule
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapModule
+import com.hydrafit.app.feature.logger.OccurrenceReplacementViewModel
 import com.hydrafit.app.feature.logger.WorkoutLoggerViewModel
 import com.hydrafit.app.feature.logger.loggerModule
 import com.hydrafit.app.feature.routines.RoutinesViewModel
@@ -109,6 +118,7 @@ import com.hydrafit.app.feature.routines.routinesModule
 import com.hydrafit.app.feature.settings.AcknowledgmentsViewModel
 import com.hydrafit.app.feature.settings.BackupViewModel
 import com.hydrafit.app.feature.settings.SettingsViewModel
+import com.hydrafit.app.feature.settings.TrainingGuidanceSettingsViewModel
 import com.hydrafit.app.feature.settings.settingsModule
 import com.hydrafit.app.feature.splitbuilder.splitBuilderModule
 import kotlin.test.Test
@@ -116,6 +126,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -140,6 +151,17 @@ class KoinModulesVerificationTest {
         single<OnDeviceTextGenerator> { FakeOnDeviceTextGenerator }
         single<OnDevicePlannerLogger> { NoopOnDevicePlannerLogger }
         single<BackupFileStore> { UnsupportedBackupFileStore() }
+        single<RestAlertScheduler> { UnsupportedRestAlertScheduler() }
+        single<OccurrenceReplacementRepository> {
+            object : OccurrenceReplacementRepository {
+                override suspend fun replaceUntouchedEntry(
+                    occurrenceId: Long,
+                    expectedRevision: Int,
+                    replacement: OccurrenceEntry,
+                    nowMillis: Long
+                ) = error("No replacement writes are expected in graph verification")
+            }
+        }
     }
 
     private val allModules = module {
@@ -201,6 +223,7 @@ class KoinModulesVerificationTest {
             assertNotNull(koin.get<ObserveWorkoutPlanInputsUseCase>())
             assertNotNull(koin.get<AcceptWeeklyPlanUseCase>())
             assertNotNull(koin.get<SubstituteExerciseUseCase>())
+            assertNotNull(koin.get<ReplaceOccurrenceExerciseUseCase>())
             assertNotNull(koin.get<PlanBuilderActions>())
             assertNotNull(koin.get<ObserveAcceptedPlanUseCase>())
             assertNotNull(koin.get<LogWorkoutSetUseCase>())
@@ -294,11 +317,15 @@ class KoinModulesVerificationTest {
                     }
                 },
                 testPlatformModule,
+                module {
+                    single<TrainingGuidancePreferenceRepository> { FakeTrainingGuidancePreferences }
+                },
                 settingsModule
             )
         }.koin
         try {
             koin.get<SettingsViewModel>()
+            assertNotNull(koin.get<TrainingGuidanceSettingsViewModel>())
             advanceUntilIdle()
         } finally {
             koin.close()
@@ -439,6 +466,12 @@ class KoinModulesVerificationTest {
                     single<WeightUnitRepository> { FakeWeightUnitRepository }
                     single<RestPreferenceRepository> { FakeRestPreferenceRepository }
                     single<RestCountdownRepository> { FakeRestCountdownRepository }
+                    single<TrainingGuidancePreferenceRepository> { FakeTrainingGuidancePreferences }
+                    single<StartupReadiness> {
+                        object : StartupReadiness {
+                            override val isReady = MutableStateFlow(false)
+                        }
+                    }
                     single<GuidedWorkoutPreferenceRepository> {
                         object : GuidedWorkoutPreferenceRepository {
                             override suspend fun isGuidedWorkoutEnabled() = false
@@ -457,7 +490,13 @@ class KoinModulesVerificationTest {
 
         try {
             assertNotNull(koin.get<WorkoutLoggerViewModel>())
+            val replacement = koin.get<OccurrenceReplacementViewModel>()
+            replacement.open(999L, 999L)
+            assertNotNull(koin.get<com.hydrafit.app.feature.logger.RestAlertCoordinator>())
             advanceUntilIdle()
+            assertNotNull(replacement.state.value.failure)
+            replacement.dismiss()
+            assertEquals(false, replacement.state.value.open)
         } finally {
             koin.close()
             Dispatchers.resetMain()
@@ -537,9 +576,17 @@ class KoinModulesVerificationTest {
     }
 
     private object FakeRestCountdownRepository : RestCountdownRepository {
+        override fun observe() = MutableStateFlow<PersistedRestCountdown?>(null)
         override suspend fun load(): PersistedRestCountdown? = null
         override suspend fun save(countdown: PersistedRestCountdown) = Unit
         override suspend fun clear() = Unit
+    }
+
+    private object FakeTrainingGuidancePreferences : TrainingGuidancePreferenceRepository {
+        override fun observe() = flowOf(TrainingGuidancePreferences())
+        override suspend fun get() = TrainingGuidancePreferences()
+        override suspend fun setRestAlertsEnabled(enabled: Boolean) = Unit
+        override suspend fun setShortRestCoachingEnabled(enabled: Boolean) = Unit
     }
 
     private object FakeOnDeviceTextGenerator : OnDeviceTextGenerator {

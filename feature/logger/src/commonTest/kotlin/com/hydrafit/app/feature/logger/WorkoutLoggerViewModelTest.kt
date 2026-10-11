@@ -3,15 +3,25 @@ package com.hydrafit.app.feature.logger
 import com.hydrafit.app.core.domain.engine.AcceptedDay
 import com.hydrafit.app.core.domain.engine.AcceptedExercise
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.BuildPlannerLoadInputsUseCase
+import com.hydrafit.app.core.domain.engine.BuildRecentWeightsUseCase
+import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
+import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
+import com.hydrafit.app.core.domain.engine.PeriodizationConfig
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.ProgressWeightsUseCase
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
+import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
+import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.schedule.ActivationEntry
@@ -19,7 +29,11 @@ import com.hydrafit.app.core.domain.schedule.ActivationStatus
 import com.hydrafit.app.core.domain.schedule.ActivationWorkout
 import com.hydrafit.app.core.domain.schedule.FinishWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
+import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementException
+import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementFailure
+import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementRepository
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
+import com.hydrafit.app.core.domain.schedule.ReplaceOccurrenceExerciseUseCase
 import com.hydrafit.app.core.domain.schedule.SkipWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.StartWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.TrainingActivation
@@ -69,6 +83,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
@@ -2055,7 +2070,8 @@ class WorkoutLoggerViewModelTest {
             settings = WorkoutLoggerSettings(
                 FakeWeightUnitRepository(WeightUnit.KG),
                 FakeGuidedWorkoutPreferenceRepository(false),
-                FakeRestPreferenceRepository()
+                FakeRestPreferenceRepository(),
+                FakeTrainingGuidancePreferences()
             )
         )
         advanceUntilIdle()
@@ -2140,7 +2156,8 @@ class WorkoutLoggerViewModelTest {
             settings = WorkoutLoggerSettings(
                 FakeWeightUnitRepository(WeightUnit.KG),
                 FakeGuidedWorkoutPreferenceRepository(false),
-                FakeRestPreferenceRepository()
+                FakeRestPreferenceRepository(),
+                FakeTrainingGuidancePreferences()
             )
         )
         advanceUntilIdle()
@@ -2167,7 +2184,8 @@ class WorkoutLoggerViewModelTest {
             settings = WorkoutLoggerSettings(
                 FakeWeightUnitRepository(WeightUnit.KG),
                 FakeGuidedWorkoutPreferenceRepository(false),
-                FakeRestPreferenceRepository()
+                FakeRestPreferenceRepository(),
+                FakeTrainingGuidancePreferences()
             )
         )
         advanceUntilIdle()
@@ -2225,7 +2243,8 @@ class WorkoutLoggerViewModelTest {
             settings = WorkoutLoggerSettings(
                 FakeWeightUnitRepository(WeightUnit.KG),
                 FakeGuidedWorkoutPreferenceRepository(false),
-                FakeRestPreferenceRepository()
+                FakeRestPreferenceRepository(),
+                FakeTrainingGuidancePreferences()
             )
         )
         advanceUntilIdle()
@@ -2627,7 +2646,8 @@ class WorkoutLoggerViewModelTest {
             settings = WorkoutLoggerSettings(
                 FakeWeightUnitRepository(WeightUnit.KG),
                 FakeGuidedWorkoutPreferenceRepository(false),
-                FakeRestPreferenceRepository()
+                FakeRestPreferenceRepository(),
+                FakeTrainingGuidancePreferences()
             )
         )
         advanceUntilIdle()
@@ -3277,7 +3297,8 @@ class WorkoutLoggerViewModelTest {
         settings = WorkoutLoggerSettings(
             FakeWeightUnitRepository(weightUnit),
             FakeGuidedWorkoutPreferenceRepository(false),
-            FakeRestPreferenceRepository()
+            FakeRestPreferenceRepository(),
+            FakeTrainingGuidancePreferences()
         )
     )
 
@@ -3294,7 +3315,8 @@ class WorkoutLoggerViewModelTest {
         settings = WorkoutLoggerSettings(
             FakeWeightUnitRepository(WeightUnit.KG),
             FakeGuidedWorkoutPreferenceRepository(false),
-            FakeRestPreferenceRepository()
+            FakeRestPreferenceRepository(),
+            FakeTrainingGuidancePreferences()
         )
     )
 
@@ -4144,6 +4166,365 @@ class WorkoutLoggerViewModelTest {
         )
     }
 
+    @Test
+    fun coachingUsesTwoLiveRestsWithoutRecordingASetAtStartAndCanBeDismissed() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        val occurrences = twoOccurrences().map { occurrence ->
+            occurrence.copy(entries = occurrence.entries.map { it.copy(sets = 3) })
+        }
+        schedule.set(blockActivation(), occurrences, selectedOccurrenceId = 30L)
+        var elapsed = 1_000L
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            elapsedNow = { elapsed },
+            bootIdentity = { "boot" },
+            coaching = true
+        )
+        runCurrent()
+        viewModel.startGuidedSet(40L)
+        elapsed = 2_000L
+        viewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+        elapsed = 12_000L
+        viewModel.startGuidedSet(40L)
+        assertNull(viewModel.state.value.shortRestCoachingExerciseName)
+        elapsed = 13_000L
+        viewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+        elapsed = 23_000L
+        viewModel.startGuidedSet(40L)
+        assertEquals("Back Squat", viewModel.state.value.shortRestCoachingExerciseName)
+        assertEquals(2, repository.all().size)
+        viewModel.dismissShortRestCoaching()
+        assertNull(viewModel.state.value.shortRestCoachingExerciseName)
+    }
+
+    @Test
+    fun alertsWaitForReadinessReplaceDurationAndCancelWithoutALoggerViewModel() = runTimerTest {
+        val stored = PersistedRestCountdown(
+            121_000L,
+            120_000L,
+            "boot",
+            "session",
+            30L,
+            "back-squat"
+        )
+        val countdowns = FakeRestCountdownRepository(stored)
+        val preferences = FakeTrainingGuidancePreferences()
+        preferences.setRestAlertsEnabled(true)
+        val guided = FakeGuidedWorkoutPreferenceRepository(true)
+        val sessions = FakeWorkoutSessionRepository(
+            WorkoutSession("session", MONDAY, localEpochDay = 0L, occurrenceId = 30L)
+        )
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val ready = MutableStateFlow(false)
+        val scheduled = mutableListOf<PersistedRestCountdown>()
+        var cancellations = 0
+        var elapsed = 1_000L
+        val alerts = object : com.hydrafit.app.core.domain.workout.RestAlertScheduler {
+            override suspend fun schedule(countdown: PersistedRestCountdown) {
+                scheduled.add(countdown)
+            }
+            override fun cancel() {
+                cancellations++
+            }
+        }
+        val coordinator = RestAlertCoordinator(
+            countdowns,
+            preferences,
+            guided,
+            sessions,
+            schedule,
+            BootIdentityProvider { "boot" },
+            object : com.hydrafit.app.core.domain.startup.StartupReadiness {
+                override val isReady = ready
+            },
+            alerts,
+            StandardTestDispatcher(testScheduler),
+            { elapsed }
+        )
+        try {
+            coordinator.start()
+            runCurrent()
+            assertTrue(scheduled.isEmpty())
+            ready.value = true
+            runCurrent()
+            assertEquals(listOf(stored), scheduled)
+            preferences.setShortRestCoachingEnabled(true)
+            runCurrent()
+            assertEquals(1, scheduled.size)
+            val edited = stored.copy(deadlineElapsedMillis = 181_000L, durationMillis = 180_000L)
+            countdowns.save(edited)
+            runCurrent()
+            assertEquals(listOf(stored, edited), scheduled)
+            elapsed = 200_000L
+            preferences.setShortRestCoachingEnabled(false)
+            runCurrent()
+            assertEquals(0, cancellations) // A delayed alarm is not erased by an unrelated setting.
+            preferences.setRestAlertsEnabled(false)
+            runCurrent()
+            assertEquals(1, cancellations)
+            preferences.setRestAlertsEnabled(true)
+            runCurrent()
+            assertEquals(2, cancellations) // Disabling and re-enabling reconcile explicitly.
+            countdowns.save(stored.copy(deadlineElapsedMillis = 320_000L))
+            runCurrent()
+            assertEquals(3, scheduled.size)
+            schedule.set(
+                blockActivation(),
+                twoOccurrences().map { it.copy(status = OccurrenceStatus.FINISHED) },
+                selectedOccurrenceId = 30L
+            )
+            runCurrent()
+            assertEquals(3, cancellations)
+            schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+            runCurrent()
+            sessions.end("session", MONDAY)
+            runCurrent()
+            assertEquals(4, cancellations)
+        } finally {
+            coordinator.close()
+            runCurrent()
+        }
+    }
+
+    @Test
+    fun dueCountdownSurvivesCoordinatorStartupButExplicitCancellationStillWins() = runTimerTest {
+        val due = PersistedRestCountdown(
+            100_000L,
+            120_000L,
+            "boot",
+            "session",
+            30L,
+            "back-squat"
+        )
+        val countdowns = FakeRestCountdownRepository(due)
+        val preferences = FakeTrainingGuidancePreferences().also {
+            it.setRestAlertsEnabled(true)
+        }
+        val guided = FakeGuidedWorkoutPreferenceRepository(true)
+        val sessions = FakeWorkoutSessionRepository(
+            WorkoutSession("session", MONDAY, localEpochDay = 0L, occurrenceId = 30L)
+        )
+        val schedule = MutableWorkoutScheduleRepository().also {
+            it.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        }
+        val readiness = MutableStateFlow(false)
+        var schedules = 0
+        var cancellations = 0
+        val alerts = object : com.hydrafit.app.core.domain.workout.RestAlertScheduler {
+            override suspend fun schedule(countdown: PersistedRestCountdown) {
+                schedules++
+            }
+            override fun cancel() {
+                cancellations++
+            }
+        }
+        val coordinator = RestAlertCoordinator(
+            countdowns,
+            preferences,
+            guided,
+            sessions,
+            schedule,
+            BootIdentityProvider { "boot" },
+            object : com.hydrafit.app.core.domain.startup.StartupReadiness {
+                override val isReady = readiness
+            },
+            alerts,
+            StandardTestDispatcher(testScheduler),
+            { 100_000L }
+        )
+        try {
+            coordinator.start()
+            runCurrent()
+            readiness.value = true
+            runCurrent()
+            assertEquals(0, cancellations)
+            assertEquals(0, schedules)
+
+            preferences.setRestAlertsEnabled(false)
+            runCurrent()
+            assertEquals(1, cancellations)
+            assertEquals(0, schedules)
+        } finally {
+            coordinator.close()
+            runCurrent()
+        }
+    }
+
+    @Test
+    fun occurrenceReplacementViewModelLoadsChoicesAndIgnoresResultsAfterDismissal() =
+        runTest(dispatcher) {
+            val gate = CompletableDeferred<Unit>()
+            val fixture = occurrenceReplacementFixture(sourceGate = gate)
+            fixture.viewModel.open(30L, 40L)
+            runCurrent()
+
+            assertTrue(fixture.viewModel.state.value.loading)
+            fixture.viewModel.dismiss()
+            gate.complete(Unit)
+            advanceUntilIdle()
+
+            assertFalse(fixture.viewModel.state.value.open)
+            assertNull(fixture.viewModel.state.value.choices)
+        }
+
+    @Test
+    fun occurrenceReplacementViewModelLoadsCandidateChoices() = runTest(dispatcher) {
+        val fixture = occurrenceReplacementFixture()
+        fixture.viewModel.open(30L, 40L)
+        advanceUntilIdle()
+
+        val state = fixture.viewModel.state.value
+        assertTrue(state.open)
+        assertFalse(state.loading)
+        assertEquals("back-squat", state.choices?.original?.exerciseId)
+        assertEquals(listOf("front-squat"), state.choices?.alternatives?.map { it.exerciseId })
+    }
+
+    @Test
+    fun occurrenceReplacementViewModelPreventsDuplicateConfirmationWhileSaving() =
+        runTest(dispatcher) {
+            val gate = CompletableDeferred<Unit>()
+            val fixture = occurrenceReplacementFixture(replacementGate = gate)
+            fixture.viewModel.open(30L, 40L)
+            advanceUntilIdle()
+            fixture.viewModel.confirm("front-squat")
+            runCurrent()
+
+            assertTrue(fixture.viewModel.state.value.saving)
+            fixture.viewModel.confirm("front-squat")
+            runCurrent()
+            assertEquals(1, fixture.repository.calls)
+
+            gate.complete(Unit)
+            advanceUntilIdle()
+            assertFalse(fixture.viewModel.state.value.open)
+            assertEquals(1, fixture.repository.calls)
+        }
+
+    @Test
+    fun occurrenceReplacementViewModelExposesFailureAndCanRetry() = runTest(dispatcher) {
+        val fixture = occurrenceReplacementFixture()
+        fixture.repository.failNext = true
+        fixture.viewModel.open(30L, 40L)
+        advanceUntilIdle()
+        fixture.viewModel.confirm("front-squat")
+        advanceUntilIdle()
+
+        assertFalse(fixture.viewModel.state.value.saving)
+        assertEquals(
+            OccurrenceReplacementFailure.RECORDED_SLOT,
+            fixture.viewModel.state.value.failure
+        )
+        fixture.viewModel.dismiss()
+        fixture.viewModel.open(30L, 40L)
+        advanceUntilIdle()
+        fixture.viewModel.confirm("front-squat")
+        advanceUntilIdle()
+
+        assertFalse(fixture.viewModel.state.value.open)
+        assertEquals(2, fixture.repository.calls)
+    }
+
+    private fun occurrenceReplacementFixture(
+        sourceGate: CompletableDeferred<Unit>? = null,
+        replacementGate: CompletableDeferred<Unit>? = null
+    ): OccurrenceReplacementFixture {
+        val schedule = MutableWorkoutScheduleRepository().apply {
+            set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        }
+        val catalog = object : ExerciseCatalog {
+            override suspend fun all() = listOf(
+                Exercise(
+                    id = "back-squat",
+                    name = "Back Squat",
+                    requiredEquipment = setOf(EquipmentTag.BARBELL),
+                    primaryMuscles = setOf(MuscleGroup.QUADS),
+                    movementPattern = MovementPattern.SQUAT
+                ),
+                Exercise(
+                    id = "front-squat",
+                    name = "Front Squat",
+                    requiredEquipment = setOf(EquipmentTag.BARBELL),
+                    primaryMuscles = setOf(MuscleGroup.QUADS),
+                    movementPattern = MovementPattern.SQUAT
+                )
+            )
+        }
+        val history = FakePlanHistoryRepository(null)
+        val sources = object : WorkoutPlanSourcesRepository {
+            override fun observe() = flow {
+                sourceGate?.await()
+                emit(
+                    WorkoutPlanSources(
+                        availableEquipment = setOf(EquipmentTag.BARBELL),
+                        selectedEngine = PlannerEngineId.DETERMINISTIC,
+                        daysPerWeek = 1,
+                        loggedSets = emptyList()
+                    )
+                )
+            }
+        }
+        val periodization = PeriodizationConfig()
+        val inputs = ObserveWorkoutPlanInputsUseCase(
+            sources = sources,
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { MONDAY },
+            planHistoryRepository = history,
+            buildPlannerLoadInputs = BuildPlannerLoadInputsUseCase(
+                catalog = catalog,
+                buildRecentWeights = BuildRecentWeightsUseCase(),
+                progressWeights = ProgressWeightsUseCase()
+            ),
+            periodization = periodization
+        )
+        val replacementRepository = FakeOccurrenceReplacementRepository(replacementGate)
+        val replacement = ReplaceOccurrenceExerciseUseCase(
+            schedule = schedule,
+            log = FakeWorkoutLogRepository(),
+            catalog = catalog,
+            replacements = replacementRepository,
+            ranking = DeterministicWorkoutPlannerEngine(catalog),
+            weights = SuggestedWeightConfig(),
+            periodization = periodization
+        )
+        return OccurrenceReplacementFixture(
+            OccurrenceReplacementViewModel(replacement, inputs),
+            replacementRepository
+        )
+    }
+
+    private data class OccurrenceReplacementFixture(
+        val viewModel: OccurrenceReplacementViewModel,
+        val repository: FakeOccurrenceReplacementRepository
+    )
+
+    private class FakeOccurrenceReplacementRepository(
+        private val gate: CompletableDeferred<Unit>? = null
+    ) : OccurrenceReplacementRepository {
+        var calls = 0
+        var failNext = false
+
+        override suspend fun replaceUntouchedEntry(
+            occurrenceId: Long,
+            expectedRevision: Int,
+            replacement: OccurrenceEntry,
+            nowMillis: Long
+        ) {
+            calls++
+            gate?.await()
+            if (failNext) {
+                failNext = false
+                throw OccurrenceReplacementException(OccurrenceReplacementFailure.RECORDED_SLOT)
+            }
+        }
+    }
+
     private fun occurrenceViewModel(
         repository: WorkoutLogRepository,
         schedule: WorkoutScheduleRepository,
@@ -4153,7 +4534,8 @@ class WorkoutLoggerViewModelTest {
         restPreferences: FakeRestPreferenceRepository = FakeRestPreferenceRepository(),
         sessions: FakeWorkoutSessionRepository = FakeWorkoutSessionRepository(),
         bootIdentity: () -> String? = { null },
-        restCountdownRepository: RestCountdownRepository? = null
+        restCountdownRepository: RestCountdownRepository? = null,
+        coaching: Boolean = false
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessions),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
@@ -4168,7 +4550,8 @@ class WorkoutLoggerViewModelTest {
         settings = WorkoutLoggerSettings(
             FakeWeightUnitRepository(WeightUnit.KG),
             FakeGuidedWorkoutPreferenceRepository(guided),
-            restPreferences
+            restPreferences,
+            FakeTrainingGuidancePreferences(coaching)
         )
     ).also { timerViewModels.add(it) }
 
@@ -4543,8 +4926,32 @@ class WorkoutLoggerViewModelTest {
         }
     }
 
-    private class FakeRestCountdownRepository(var countdown: PersistedRestCountdown?) :
+    private class FakeTrainingGuidancePreferences(private val coaching: Boolean = false) :
+        com.hydrafit.app.core.domain.settings.TrainingGuidancePreferenceRepository {
+        private val state = MutableStateFlow(
+            com.hydrafit.app.core.domain.settings.TrainingGuidancePreferences(
+                shortRestCoachingEnabled = coaching
+            )
+        )
+        override fun observe() = state
+        override suspend fun get() = state.value
+        override suspend fun setRestAlertsEnabled(enabled: Boolean) {
+            state.value = state.value.copy(restAlertsEnabled = enabled)
+        }
+        override suspend fun setShortRestCoachingEnabled(enabled: Boolean) {
+            state.value = state.value.copy(shortRestCoachingEnabled = enabled)
+        }
+    }
+
+    private class FakeRestCountdownRepository(countdown: PersistedRestCountdown?) :
         RestCountdownRepository {
+        private val state = MutableStateFlow(countdown)
+        var countdown: PersistedRestCountdown?
+            get() = state.value
+            set(value) {
+                state.value = value
+            }
+        override fun observe() = state
         override suspend fun load(): PersistedRestCountdown? = countdown
 
         override suspend fun save(countdown: PersistedRestCountdown) {

@@ -237,7 +237,8 @@ class SwitchScheduleModeUseCase(
 
 /**
  * Re-prescribes a workout that has not started. Once any set is logged the prescription is frozen;
- * later changes must be template edits or occurrence replacement done before starting.
+ * general later changes must be template edits. The separate occurrence-replacement action may
+ * replace only an untouched slot, never a slot with attributed sets.
  */
 class EditUnstartedOccurrenceUseCase(
     private val scheduleRepository: WorkoutScheduleRepository,

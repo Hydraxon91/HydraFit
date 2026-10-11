@@ -85,5 +85,12 @@ class V1ToCurrentMigrationTest {
         val countdownRepository = SqlDelightRestCountdownRepository(database)
         countdownRepository.save(persistedCountdown)
         assertEquals(persistedCountdown, countdownRepository.load())
+        val guidance = SqlDelightTrainingGuidancePreferenceRepository(database)
+        assertEquals(false, guidance.get().restAlertsEnabled)
+        assertEquals(false, guidance.get().shortRestCoachingEnabled)
+        guidance.setRestAlertsEnabled(true)
+        guidance.setShortRestCoachingEnabled(true)
+        assertEquals(true, guidance.get().restAlertsEnabled)
+        assertEquals(true, guidance.get().shortRestCoachingEnabled)
     }
 }

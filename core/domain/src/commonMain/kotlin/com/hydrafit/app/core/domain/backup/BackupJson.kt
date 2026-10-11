@@ -48,10 +48,9 @@ object BackupJson {
         val obj = element as? JsonObject
             ?: throw BackupException(BackupFailure.MALFORMED, "the backup is not a JSON object")
         val version = (obj["formatVersion"] as? JsonPrimitive)?.intOrNull
-        val requiredKeys = if (version != null && version < 5) {
-            requiredTopLevelKeys - "restPreferences"
-        } else {
-            requiredTopLevelKeys
+        val requiredKeys = requiredTopLevelKeys - buildSet {
+            if (version != null && version < 5) add("restPreferences")
+            if (version != null && version < 6) add("trainingGuidance")
         }
         val missing = requiredKeys - obj.keys
         if (missing.isNotEmpty()) {
@@ -71,7 +70,11 @@ object BackupJson {
         val version = (root["formatVersion"] as? JsonPrimitive)?.intOrNull ?: return
         val required = when (version) {
             3 -> setOf("timingProvenance")
-            4, 5 -> setOf("timingProvenance", "startedAtElapsedMillis", "completedAtElapsedMillis")
+            4, 5, 6 -> setOf(
+                "timingProvenance",
+                "startedAtElapsedMillis",
+                "completedAtElapsedMillis"
+            )
             else -> return
         }
         val sets = root["workoutSets"] as? JsonArray ?: return

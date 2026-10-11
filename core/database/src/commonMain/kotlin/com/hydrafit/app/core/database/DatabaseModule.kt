@@ -7,8 +7,10 @@ import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
+import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.settings.RestPreferenceRepository
+import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferenceRepository
 import com.hydrafit.app.core.domain.startup.StartupReadiness
 import com.hydrafit.app.core.domain.workout.RestCountdownRepository
 import com.hydrafit.app.core.domain.workout.SessionResegmenter
@@ -51,10 +53,15 @@ val databaseModule: Module = module {
     single<TrainingGoalRepository> { SqlDelightTrainingGoalRepository(get()) }
     single<WeightUnitRepository> { SqlDelightWeightUnitRepository(get()) }
     single<RestPreferenceRepository> { SqlDelightRestPreferenceRepository(get()) }
+    single<TrainingGuidancePreferenceRepository> {
+        SqlDelightTrainingGuidancePreferenceRepository(get())
+    }
     single<RestCountdownRepository> { SqlDelightRestCountdownRepository(get()) }
     single<PlanHistoryRepository> { SqlDelightPlanHistoryRepository(get()) }
     single<RoutineTemplateRepository> { SqlDelightRoutineTemplateRepository(get()) }
-    single<WorkoutScheduleRepository> { SqlDelightWorkoutScheduleRepository(get()) }
+    single { SqlDelightWorkoutScheduleRepository(get()) }
+    single<WorkoutScheduleRepository> { get<SqlDelightWorkoutScheduleRepository>() }
+    single<OccurrenceReplacementRepository> { get<SqlDelightWorkoutScheduleRepository>() }
     single<PersonalRecordRepository> { SqlDelightPersonalRecordRepository(get(), get()) }
     single<BackupRepository> { SqlDelightBackupRepository(get(), get()) }
     single<BackupStagingRepository> { SqlDelightBackupStagingRepository(get()) }

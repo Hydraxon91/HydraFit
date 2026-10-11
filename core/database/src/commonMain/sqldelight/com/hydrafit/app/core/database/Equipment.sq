@@ -8,6 +8,9 @@ CREATE TABLE equipment (
 selectAll:
 SELECT * FROM equipment ORDER BY isBuiltIn DESC, name;
 
+selectById:
+SELECT * FROM equipment WHERE id = ?;
+
 insertIgnore:
 INSERT OR IGNORE INTO equipment(id, name, isBuiltIn) VALUES (?, ?, ?);
 

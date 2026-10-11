@@ -4,10 +4,12 @@ import com.hydrafit.app.core.domain.settings.ClearExerciseRestDurationUseCase
 import com.hydrafit.app.core.domain.settings.ResolveRestDurationUseCase
 import com.hydrafit.app.core.domain.settings.RestPreferenceRepository
 import com.hydrafit.app.core.domain.settings.SetExerciseRestDurationUseCase
+import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferenceRepository
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 /**
  * The user preferences the Logger observes (display units and whether guided mode is on) plus
@@ -19,6 +21,7 @@ class WorkoutLoggerSettings(
     private val weightUnitRepository: WeightUnitRepository,
     private val guidedWorkoutPreferenceRepository: GuidedWorkoutPreferenceRepository,
     private val restPreferenceRepository: RestPreferenceRepository,
+    private val trainingGuidancePreferenceRepository: TrainingGuidancePreferenceRepository,
     private val resolveRestDurationUseCase: ResolveRestDurationUseCase =
         ResolveRestDurationUseCase(restPreferenceRepository),
     private val setExerciseRestDurationUseCase: SetExerciseRestDurationUseCase =
@@ -29,6 +32,9 @@ class WorkoutLoggerSettings(
     fun weightUnitFlow(): Flow<WeightUnit> = weightUnitRepository.unitFlow()
 
     fun guidedWorkoutFlow(): Flow<Boolean> = guidedWorkoutPreferenceRepository.guidedWorkoutFlow()
+
+    fun shortRestCoachingFlow(): Flow<Boolean> = trainingGuidancePreferenceRepository.observe()
+        .map { it.shortRestCoachingEnabled }
 
     suspend fun restDurationSeconds(exerciseId: String): Long =
         resolveRestDurationUseCase(exerciseId)

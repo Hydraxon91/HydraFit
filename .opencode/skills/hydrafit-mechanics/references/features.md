@@ -68,7 +68,7 @@ manual/guided logging and legacy rows. A live guided set stores its monotonic st
 instants; correcting performed time or changing reps/load/RIR resets provenance to `UNKNOWN` and
 clears both instants atomically. A successful guided write consumes the live event on every load
 resolution path; failed writes retain it for retry. Timing source is not inferred from timestamp
-gaps. The values round-trip through backup format 5; format 3 preserves provenance but defaults
+gaps. The values round-trip through backup format 6; format 3 preserves provenance but defaults
 elapsed fields to null, and formats 1–2 default timing fields to unknown/null.
 
 All three Logger RIR inputs (manual entry, planned-draft edit and recent-set edit) explain RIR as
@@ -110,8 +110,16 @@ persisted for process-death restoration; restore requires matching boot, open-se
 and occurrence identity and silently clears expired or mismatched state. Global rest
 duration defaults to 120 seconds and is editable in Settings; a Logger timer edit saves
 an exercise override with a reset-to-default action. Durations are limited to 1 second–
-24 hours. These prompts are not rest measurements; alerts and coaching remain out of
-scope.
+24 hours. These prompts are not rest measurements. Separate default-off Settings opt-ins control
+Android background alerts (explicit permission request, inexact local alarm) and short-rest coaching.
+`RestAlertCoordinator` reconciles alarms at app lifetime after startup readiness, observing occurrence
+changes even without Logger. `ShortRestCoach` consumes successful live completion → explicit Start
+set, same exercise/session/occurrence/boot; two consecutive intervals below the duration chosen at
+completion show one dismissible message per exercise/session. Unknown/catch-up/edited timing,
+warm-ups and transitions are excluded; recreation resets transient evidence.
+At startup, reconciliation leaves a due, still-valid countdown to the triggered receiver so it can
+revalidate and post; invalid context, disabled preferences and later transitions into due state still
+cancel. Ordinary Logger restoration continues to clear expired state silently.
 It cancels on session/occurrence changes, guided mode being turned off, explicit
 dismissal, or successful deletion/correction of a set from its occurrence.
 Finish/partial Finish/Skip and End/New session retain their existing logging
@@ -120,6 +128,14 @@ flow. The Logger ViewModel groups its preferences and rest-duration delegation i
 `WorkoutLoggerSettings` (display units and the guided flag, plus resolve/set/clear
 of per-exercise rest durations forwarded to the domain use cases), and its wall
 clock/timer factory in `WorkoutLoggerRuntime`, to stay within its dependency budget.
+
+`OccurrenceReplacementViewModel` delegates candidate loading/confirmation to
+`ReplaceOccurrenceExerciseUseCase`, using fresh local planner inputs. The dialog is available from
+guided rows and occurrence draft menus. Any slot-attributed set, including warm-ups, rejects it;
+untouched slots in started occurrences remain eligible. Choosing a candidate confirms an occurrence-
+only change with preserved sets/reps/id and the candidate's own load history, not the original load.
+Stale context/availability fails without writing; Cancel writes nothing. No candidate points to
+existing whole-workout Skip/partial Finish, not a new slot-skip action.
 
 For routine authoring, the module is `:feature:routines`:
 `RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/

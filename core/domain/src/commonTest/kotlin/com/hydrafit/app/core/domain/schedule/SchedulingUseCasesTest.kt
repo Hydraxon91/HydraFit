@@ -27,6 +27,126 @@ import kotlinx.coroutines.test.runTest
 
 class SchedulingUseCasesTest {
 
+    @Test
+    fun occurrenceReplacementUsesItsOwnLoadAndNeverMutatesTheMasterOrOtherOccurrence() = runTest {
+        val activationId = activateRoutine(routine(), request(replaceActive = false))
+        val master = scheduleRepository.getActivation(activationId)
+        val occurrences = scheduleRepository.occurrences(activationId)
+        val occurrence = occurrences.first()
+        val replacementExercise = catalog.all().first().copy(
+            id = "alternative",
+            name = "Alternative"
+        )
+        val replacementCatalog = object : ExerciseCatalog {
+            override suspend fun all() = catalog.all() + replacementExercise
+        }
+        val writer = object : OccurrenceReplacementRepository {
+            override suspend fun replaceUntouchedEntry(
+                occurrenceId: Long,
+                expectedRevision: Int,
+                replacement: OccurrenceEntry,
+                nowMillis: Long
+            ) {
+                val current = requireNotNull(scheduleRepository.getOccurrence(occurrenceId))
+                assertEquals(expectedRevision, current.revision)
+                scheduleRepository.replaceOccurrenceEntries(occurrenceId, listOf(replacement))
+                scheduleRepository.updateOccurrence(
+                    current.copy(entries = listOf(replacement), revision = expectedRevision + 1)
+                )
+            }
+        }
+        val useCase = replacementUseCase(replacementCatalog, writer)
+        val inputs = replacementInputs().copy(suggestedWeightsKg = mapOf("alternative" to 200.0))
+        val choices = useCase.candidates(occurrence.id, occurrence.entries.single().id, inputs)
+        val candidate = choices.alternatives.single()
+        assertEquals(145.0, candidate.weightKg)
+        assertEquals(occurrence.entries.single().sets, candidate.sets)
+        assertEquals(occurrence.entries.single().reps, candidate.reps)
+        useCase(choices, "alternative", inputs)
+        assertEquals(candidate, scheduleRepository.getOccurrence(occurrence.id)?.entries?.single())
+        assertEquals(master, scheduleRepository.getActivation(activationId))
+        assertEquals(occurrences.last(), scheduleRepository.getOccurrence(occurrences.last().id))
+        assertTrue(logRepository.setsForOccurrence(occurrence.id).isEmpty())
+    }
+
+    @Test
+    fun replacementRejectsRecordedWarmupStaleRevisionAndUnavailableCandidates() = runTest {
+        val activationId = activateRoutine(routine(), request(replaceActive = false))
+        val occurrence = scheduleRepository.occurrences(activationId).first()
+        val alternative = catalog.all().first().copy(id = "alternative", name = "Alternative")
+        val replacementCatalog = object : ExerciseCatalog {
+            override suspend fun all() = catalog.all() + alternative
+        }
+        var writes = 0
+        val writer = object : OccurrenceReplacementRepository {
+            override suspend fun replaceUntouchedEntry(
+                occurrenceId: Long,
+                expectedRevision: Int,
+                replacement: OccurrenceEntry,
+                nowMillis: Long
+            ) {
+                writes++
+            }
+        }
+        val useCase = replacementUseCase(replacementCatalog, writer)
+        val inputs = replacementInputs()
+        val choices = useCase.candidates(occurrence.id, occurrence.entries.single().id, inputs)
+        assertNull(choices.alternatives.single().weightKg)
+        assertFailsWith<OccurrenceReplacementException> {
+            useCase(
+                choices,
+                alternative.id,
+                inputs.copy(excludedExerciseIds = setOf(alternative.id))
+            )
+        }
+        val unavailable = useCase.candidates(
+            occurrence.id,
+            choices.original.id,
+            inputs.copy(availableEquipment = emptySet())
+        )
+        assertTrue(unavailable.alternatives.isEmpty())
+        startOccurrence(occurrence.id)
+        assertFailsWith<OccurrenceReplacementException> { useCase(choices, alternative.id, inputs) }
+        val startedChoices = useCase.candidates(occurrence.id, choices.original.id, inputs)
+        assertEquals(choices.original, startedChoices.original)
+        logRepository.add(
+            WorkoutSet(
+                exerciseId = choices.original.exerciseId,
+                reps = 3,
+                weightKg = null,
+                performedAtMillis = now,
+                isWarmup = true,
+                occurrenceId = occurrence.id,
+                occurrenceEntryId = choices.original.id
+            )
+        )
+        val error = assertFailsWith<OccurrenceReplacementException> {
+            useCase(startedChoices, alternative.id, inputs)
+        }
+        assertEquals(OccurrenceReplacementFailure.RECORDED_SLOT, error.reason)
+        assertEquals(0, writes)
+    }
+
+    private fun replacementInputs() = com.hydrafit.app.core.domain.engine.PlanRequest(
+        daysPerWeek = 2,
+        availableEquipment = setOf(EquipmentTag("barbell")),
+        muscleFatigue = emptyMap(),
+        nowMillis = now
+    )
+
+    private fun replacementUseCase(
+        catalog: ExerciseCatalog,
+        writer: OccurrenceReplacementRepository
+    ) = ReplaceOccurrenceExerciseUseCase(
+        scheduleRepository,
+        logRepository,
+        catalog,
+        writer,
+        com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine(catalog),
+        com.hydrafit.app.core.domain.engine.SuggestedWeightConfig(),
+        com.hydrafit.app.core.domain.engine.PeriodizationConfig()
+    )
+
     private var now = 1_000L
     private val timeProvider = TimeProvider { now }
     private val catalog = FakeCatalog()

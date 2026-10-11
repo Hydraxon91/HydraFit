@@ -1,5 +1,7 @@
 package com.hydrafit.app.core.domain.workout
 
+import kotlinx.coroutines.flow.Flow
+
 /** Process-restorable timer state. Boot identity and workout context are required to resume it. */
 data class PersistedRestCountdown(
     val deadlineElapsedMillis: Long,
@@ -20,6 +22,9 @@ data class PersistedRestCountdown(
 }
 
 interface RestCountdownRepository {
+    /** Emits the current countdown and every subsequent save or clear. */
+    fun observe(): Flow<PersistedRestCountdown?>
+
     suspend fun load(): PersistedRestCountdown?
 
     suspend fun save(countdown: PersistedRestCountdown)

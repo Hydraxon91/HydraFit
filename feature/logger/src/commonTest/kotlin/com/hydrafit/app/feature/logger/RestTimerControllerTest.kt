@@ -190,8 +190,15 @@ class RestTimerControllerTest {
         assertNull(repository.countdown)
     }
 
-    private class FakeRestCountdownRepository(var countdown: PersistedRestCountdown?) :
+    private class FakeRestCountdownRepository(countdown: PersistedRestCountdown?) :
         RestCountdownRepository {
+        private val state = kotlinx.coroutines.flow.MutableStateFlow(countdown)
+        var countdown: PersistedRestCountdown?
+            get() = state.value
+            set(value) {
+                state.value = value
+            }
+        override fun observe() = state
         override suspend fun load(): PersistedRestCountdown? = countdown
 
         override suspend fun save(countdown: PersistedRestCountdown) {

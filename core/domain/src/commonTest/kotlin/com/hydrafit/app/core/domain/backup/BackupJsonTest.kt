@@ -9,6 +9,26 @@ import kotlin.test.assertNull
 class BackupJsonTest {
 
     @Test
+    fun formatSixRequiresOptInsAndOlderFormatsDefaultThemOff() {
+        val file = emptyBackupFile().copy(
+            formatVersion = 6,
+            trainingGuidance = BackupTrainingGuidanceRecord(true, true)
+        )
+        val encoded = BackupJson.encode(file)
+        assertEquals(file, BackupJson.decode(encoded))
+        val withoutGuidance = encoded.replace(
+            ",\"trainingGuidance\":{\"restAlertsEnabled\":true,\"shortRestCoachingEnabled\":true}",
+            ""
+        )
+        assertFailure(BackupFailure.MALFORMED, withoutGuidance)
+        assertEquals(
+            BackupTrainingGuidanceRecord(false, false),
+            BackupJson.decode(withoutGuidance.replace("\"formatVersion\":6", "\"formatVersion\":5"))
+                .trainingGuidance
+        )
+    }
+
+    @Test
     fun rejectsNestingDeeperThanTheLimit() {
         val brackets = BackupLimits.MAX_DEPTH + 1
         assertFailure(BackupFailure.OVER_LIMIT, "[".repeat(brackets) + "]".repeat(brackets))
@@ -126,7 +146,10 @@ class BackupJsonTest {
             .replace(",\"completedAtElapsedMillis\":null", "")
 
         listOf(1, 2).forEach { version ->
-            val versioned = base.replace("\"formatVersion\":5", "\"formatVersion\":$version")
+            val versioned = base.replace(
+                "\"formatVersion\":$BACKUP_FORMAT_VERSION",
+                "\"formatVersion\":$version"
+            )
             val decoded = BackupJson.decode(versioned)
             assertEquals("UNKNOWN", decoded.workoutSets.single().timingProvenance)
             assertNull(decoded.workoutSets.single().startedAtElapsedMillis)

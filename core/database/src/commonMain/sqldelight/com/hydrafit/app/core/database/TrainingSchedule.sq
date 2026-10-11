@@ -89,6 +89,12 @@ insertActivation:
 INSERT INTO trainingActivation(templateId, templateRevision, sourcePlanId, name, createdAtMillis, startEpochDay, mode, weekdayMask, status, weekNumber, cycleNumber, endedAtMillis, revision)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
+selectOccurrenceEntryById:
+SELECT * FROM occurrenceEntry WHERE id = ?;
+
+incrementOccurrenceRevision:
+UPDATE workoutOccurrence SET revision = revision + 1 WHERE id = ?;
+
 lastInsertedActivationId:
 SELECT last_insert_rowid();
 

@@ -19,8 +19,10 @@ import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
+import com.hydrafit.app.core.domain.workout.LiveRestCompletion
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.RestCountdown
+import com.hydrafit.app.core.domain.workout.ShortRestCoach
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
@@ -81,6 +83,8 @@ class WorkoutLoggerViewModel(
     private var draftContextRevision = 0L
     private var missingLoadPromptRevision = 0L
     private val restTimer = runtime.restTimer(viewModelScope)
+    private val shortRestCoach = ShortRestCoach()
+    private var shortRestCoachingEnabled = false
     private var liveSetIntentEntryId: Long? = null
     private var liveSetStartedAtElapsedMillis: Long? = null
     private var liveSetCompletedAtElapsedMillis: Long? = null
@@ -98,6 +102,12 @@ class WorkoutLoggerViewModel(
 
     init {
         _state.update { it.copy(utcOffsetMillis = runtime.utcOffsetMillis()) }
+        viewModelScope.launch {
+            settings.shortRestCoachingFlow().collect { enabled ->
+                shortRestCoachingEnabled = enabled
+                if (!enabled) resetShortRestCoaching()
+            }
+        }
         viewModelScope.launch {
             restTimer.state.collect { timer -> _state.update { it.copy(restTimer = timer) } }
         }
@@ -204,6 +214,7 @@ class WorkoutLoggerViewModel(
         timerSessionId = null
         timerExerciseId = null
         restTimer.cancel(clearPersisted)
+        resetShortRestCoaching()
         clearLiveSetStart()
     }
 
@@ -441,6 +452,7 @@ class WorkoutLoggerViewModel(
                 _state.update { it.copy(savingLoggedSet = false) }
             }
             _state.update { it.copy(loggedSetEdit = null) }
+            resetShortRestCoaching()
             if (timerOccurrenceId != null && edit.row.occurrenceId == timerOccurrenceId) {
                 cancelRestTimer()
             }
@@ -471,6 +483,7 @@ class WorkoutLoggerViewModel(
             ?.occurrenceId
         viewModelScope.launch {
             logMutations.correctTime(setId, millis)
+            resetShortRestCoaching()
             if (timerOccurrenceId != null && correctedOccurrenceId == timerOccurrenceId) {
                 cancelRestTimer()
             }
@@ -521,6 +534,7 @@ class WorkoutLoggerViewModel(
                 .firstOrNull { it.id == id }
                 ?.occurrenceId
             logMutations.delete(id)
+            resetShortRestCoaching()
             if (timerOccurrenceId != null && deletedOccurrenceId == timerOccurrenceId) {
                 cancelRestTimer()
             }
@@ -581,6 +595,7 @@ class WorkoutLoggerViewModel(
                 ),
                 current
             )
+            resetShortRestCoaching()
             // Keep the reps and weight so repeated sets of the same exercise do not need retyping;
             // only the warm-up flag resets between sets.
             _state.update { it.copy(isWarmup = false) }
@@ -1625,8 +1640,21 @@ class WorkoutLoggerViewModel(
         if (draftSubmissionInProgress) return
         if (_state.value.draftSets.none { it.occurrenceEntryId == occurrenceEntryId }) return
         if (_state.value.performedAtMillis != null) onPerformedAtChanged(null)
+        val draft = _state.value.draftSets.first { it.occurrenceEntryId == occurrenceEntryId }
+        val elapsedNow = runtime.elapsedRealtimeMillis()
+        if (shortRestCoachingEnabled &&
+            shortRestCoach.started(
+                sessionId = _state.value.activeSession?.id,
+                occurrenceId = requireNotNull(draft.occurrenceId),
+                exerciseId = draft.exerciseId,
+                bootIdentity = runtime.bootIdentity(),
+                startedAtElapsedMillis = elapsedNow
+            )
+        ) {
+            _state.update { it.copy(shortRestCoachingExerciseName = draft.name) }
+        }
         liveSetIntentEntryId = occurrenceEntryId
-        liveSetStartedAtElapsedMillis = runtime.elapsedRealtimeMillis()
+        liveSetStartedAtElapsedMillis = elapsedNow
         liveSetCompletedAtElapsedMillis = null
         liveSetCompletedAtWallMillis = null
         _state.update { it.copy(startedSetEntryId = occurrenceEntryId) }
@@ -1717,6 +1745,8 @@ class WorkoutLoggerViewModel(
                     resolved.exerciseId,
                     writeResult.sessionId
                 )
+            } else {
+                resetShortRestCoaching()
             }
             applyGuidedWriteSuccess()
             clearLiveSetStart()
@@ -1763,6 +1793,19 @@ class WorkoutLoggerViewModel(
             it > 0L && it <= RestCountdown.MAX_DURATION_MILLIS / 1_000L
         } ?: return
         val durationMillis = seconds * 1_000L
+        val boot = runtime.bootIdentity()
+        if (shortRestCoachingEnabled && boot != null && sessionId != null && occurrenceId != null) {
+            shortRestCoach.completed(
+                LiveRestCompletion(
+                    sessionId,
+                    occurrenceId,
+                    exerciseId,
+                    boot,
+                    requireNotNull(liveSetCompletedAtElapsedMillis),
+                    durationMillis
+                )
+            )
+        }
         val hasOverride = settings.hasExerciseRestDurationOverride(exerciseId)
         timerOccurrenceId = occurrenceId
         timerSessionId = sessionId
@@ -1792,6 +1835,15 @@ class WorkoutLoggerViewModel(
         }
         refreshRecentSets()
         if (activeActivation != null) refreshOccurrence()
+    }
+
+    fun dismissShortRestCoaching() {
+        _state.update { it.copy(shortRestCoachingExerciseName = null) }
+    }
+
+    private fun resetShortRestCoaching() {
+        shortRestCoach.resetEligibility()
+        dismissShortRestCoaching()
     }
 
     private suspend fun refreshRecentSets() {

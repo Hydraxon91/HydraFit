@@ -6,13 +6,13 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 5
+const val BACKUP_FORMAT_VERSION: Int = 6
 
 /**
  * A whole logical snapshot of the supported offline data. Rows are stored flat with their persisted
  * ids so restore can rebuild relationships exactly; the envelope carries the format identity, a
- * catalog fingerprint and the export time. Version 5 adds rest preferences; earlier formats omit
- * them and restore the global default with no exercise overrides.
+ * catalog fingerprint and the export time. Version 6 adds alert/coaching opt-ins; earlier formats
+ * default them off. Version 5 adds rest durations; earlier formats use the global default.
  */
 @Serializable
 data class BackupFile(
@@ -45,7 +45,14 @@ data class BackupFile(
     val personalRecords: List<BackupPersonalRecordRecord>,
     val preferences: List<BackupPreferenceRecord>,
     val exclusions: List<BackupExclusionRecord>,
-    val restPreferences: List<BackupRestPreferenceRecord> = emptyList()
+    val restPreferences: List<BackupRestPreferenceRecord> = emptyList(),
+    val trainingGuidance: BackupTrainingGuidanceRecord = BackupTrainingGuidanceRecord(false, false)
+)
+
+@Serializable
+data class BackupTrainingGuidanceRecord(
+    val restAlertsEnabled: Boolean,
+    val shortRestCoachingEnabled: Boolean
 )
 
 /** The seeded exercise ids the exporting install had, used to report and check catalog compatibility. */

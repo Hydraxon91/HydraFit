@@ -116,6 +116,9 @@ class SqlDelightBackupRepositoryTest {
         val restPreferences = SqlDelightRestPreferenceRepository(database)
         restPreferences.setGlobalDefaultSeconds(180L)
         restPreferences.setExerciseOverrideSeconds("back-squat", 240L)
+        val guidance = SqlDelightTrainingGuidancePreferenceRepository(database)
+        guidance.setRestAlertsEnabled(true)
+        guidance.setShortRestCoachingEnabled(true)
         val file = repository.export(appVersion = "t", exportedAtMillis = 1L)
 
         // Remove some data and add a value the restore must replace.
@@ -123,6 +126,8 @@ class SqlDelightBackupRepositoryTest {
         database.exerciseQueries.deleteAllCustom()
         database.exercisePreferenceQueries.upsert("back-squat", "PREFER_LESS")
         restPreferences.setGlobalDefaultSeconds(300L)
+        guidance.setRestAlertsEnabled(false)
+        guidance.setShortRestCoachingEnabled(false)
         restPreferences.setExerciseOverrideSeconds("bench-press", 90L)
         val countdownRepository = SqlDelightRestCountdownRepository(database)
         countdownRepository.save(

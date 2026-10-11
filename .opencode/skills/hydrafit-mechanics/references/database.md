@@ -28,7 +28,8 @@ instead of recreating a deleted set.
 `N.sqm` migrates from version N to N+1. Migration `34.sqm` adds the set-level
 `timingProvenance` value (`UNKNOWN` for existing rows); `35.sqm` adds the optional
 monotonic set-start/completion instants; `36.sqm` adds shared rest preferences and
-the process-restorable countdown row. Current schema version is 37. Determine the
+the process-restorable countdown row; `37.sqm` adds the two default-off training-guidance
+opt-ins, encoded as checked 0/1 integers. Current schema version is 38. Determine the
 next version from the current directory/generated Schema rather than copying this snapshot.
 
 `restPreference` stores the global default under `GLOBAL` and exercise overrides under
@@ -37,11 +38,17 @@ state is separate, transient user data: it stores a monotonic deadline, duration
 identity, open session, occurrence and exercise, and is not exported. Backup restore
 clears it because restored workout context is not a continuation of the prior process.
 
+`RestCountdownRepository.observe()` must emit subsequent saves/clears for app-lifetime alert
+reconciliation. `SqlDelightWorkoutScheduleRepository` also implements the narrow
+`OccurrenceReplacementRepository`: revision, active context, any slot-attributed sets (warm-ups
+included), catalog metadata, current equipment/exclusions and load ceiling are checked inside
+the replacement transaction before updating the preserved slot id and occurrence revision.
+
 `V1ToCurrentMigrationTest` migrates a v1 database (only the `exercise` table) through
-`1.sqm..36.sqm` and asserts the retained values, legacy→involvement conversion and
-the rest preference/countdown tables.
+`1.sqm..37.sqm` and asserts the retained values, legacy→involvement conversion and
+the rest preference/countdown/guidance tables.
 SQLDelight `verifyMigrations` is enabled against the committed v1 seed `databases/1.db`;
-`./gradlew verifySqlDelightMigration` (run in CI) applies `1.sqm..36.sqm` to it and fails
+`./gradlew verifySqlDelightMigration` (run in CI) applies `1.sqm..37.sqm` to it and fails
 if the result differs from the current `.sq`. Keep `1.db` fixed — it is the immutable v1
 schema, not a current-version snapshot. When the migration chain produces a different
 column *order* than `.sq` declares, align the `.sq` order to the chain (no column

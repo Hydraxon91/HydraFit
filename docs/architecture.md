@@ -470,7 +470,7 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   and `SqlDelightBackupCatalog`; the `:core:userdata` `BackupFileStore` port
   (`AndroidBackupFileStore` SAF implementation, `UnsupportedBackupFileStore` on
   iOS); the Settings `BackupRoute`/`BackupViewModel`.
-- **Rules:** the file is logical (`format` + `formatVersion` 5), independent of the
+- **Rules:** the file is logical (`format` + `formatVersion` 6), independent of the
   SQLite schema and the app version. Every envelope field is required, so a file
   that omits one is rejected as malformed rather than read as an empty snapshot;
   nullable fields are present as explicit `null`, not omitted. The manifest carries
@@ -499,10 +499,11 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   staged payload and records a one-time failure the Settings screen shows and
   clears. Absence uses the documented new-row value: a payload with no settings
   materialises the default planner row, an omitted built-in equipment limit keeps
-  its current value, and user equipment the payload omits is dropped. Format 5
+  its current value, and user equipment the payload omits is dropped. Formats 5–6
   includes one global rest duration and optional per-exercise overrides; formats
   1–4 restore a 120-second global default with no overrides. Persisted countdown
   deadlines are transient session state, excluded from backups and cleared on restore.
+  Format 6 requires the two training-guidance opt-ins; formats 1–5 default both off.
 - **Consistency:** mirrors the §1.8 snapshot rule — frozen prescriptions,
   performed snapshots, load kinds and stored ids round-trip unchanged.
 - **Violations / tensions:** the existing repositories cannot implement restore
@@ -519,7 +520,7 @@ Performed-set timestamps are not evidence of rest duration. Each set stores an e
 action writes `LIVE`; a chosen historical time writes `CATCH_UP`; ordinary manual and legacy
 sets remain `UNKNOWN`. Correcting performed time clears provenance to `UNKNOWN`. The enum is
 stored additively in migration `34.sqm`; `35.sqm` adds nullable monotonic start/completion instants.
-Existing rows default to unknown and no elapsed instants. Backup formats 4–5 require explicit
+Existing rows default to unknown and no elapsed instants. Backup formats 4–6 require explicit
 provenance and nullable elapsed fields. Format 3 requires and preserves provenance while elapsed
 fields default to null; formats 1–2 default all timing fields to unknown/null. Rest measurement
 still requires explicit live start/completion events; provenance alone does not establish a measured
@@ -530,12 +531,48 @@ interval.
 The `RestPreferenceRepository` stores one global default (120 seconds when no row exists) and
 optional exercise-specific overrides. The override wins; resetting it returns to the global value.
 Training-goal rest ranges remain guidance only and do not create goal/day-specific overrides.
-Backup format 5 exports the global value and overrides; restore replaces them and clears any
+Backup format 6 exports the global value and overrides; restore replaces them and clears any
 persisted countdown. Countdown persistence stores only a monotonic deadline, duration, boot
 identity and session/occurrence/exercise context. Restoration fails closed unless all identities
 match and the deadline remains in the future; it never rebuilds a deadline from wall time. Android
 uses the OS boot counter. iOS currently cannot supply a reliable boot identity and therefore does
 not restore saved countdowns. Expired or invalid state is silently cleared.
+
+Rest alerts and short-rest coaching are independent opt-ins, both default off, stored in
+`trainingGuidancePreference` (migration `37.sqm`). Android alerts request notification permission
+only through the Settings opt-in. One local inexact elapsed-time alarm is replaced on duration edits;
+power management may delay delivery. The receiver rechecks the stored countdown, boot, session,
+guided flag, opt-in and unresolved active occurrence before posting. App-lifetime reconciliation
+observes countdown/preferences/session/schedule/occurrence changes and removes pending and delivered
+alerts on cancellation. Expired restoration stays silent. There is no exact-alarm permission,
+foreground service, network or iOS alert implementation.
+Scheduling, cancellation and posting are serialized by the Android adapter; cancellation advances
+a delivery revision so a receiver awaiting localized strings cannot post after cancellation.
+Receiver startup work has an eight-second budget and fails closed on timeout.
+When startup reconciliation finds a due countdown with otherwise-valid context, it leaves delivery
+to the already-triggered receiver rather than cancelling its in-flight notification; invalid
+context, disabled preferences and subsequent transitions into the due state still cancel. Logger
+restoration independently clears expired countdowns silently.
+
+`ShortRestCoach` consumes only a successful live working-set completion followed by the next explicit
+Start set in the same exercise/session/occurrence/boot. Two consecutive intervals below the duration
+chosen at completion produce one dismissible message per exercise/session. This threshold is a
+product default, not a recovery measurement. Catch-up, unknown/edited timing, warm-ups and context
+transitions do not contribute; eligibility is transient and resets on recreation. Coaching changes
+neither prescriptions nor fatigue/RIR.
+
+### 1.17 Occurrence-only exercise replacement
+
+`ReplaceOccurrenceExerciseUseCase` offers eligible same-pattern alternatives for an untouched slot,
+including one in a started occurrence. Any attributed set, including a warm-up, rejects replacement.
+The candidate uses its own current planner load baseline and existing conversion/ceiling rules;
+missing history means no invented numeric load. Sets/reps and slot identity are preserved, while
+name, pattern, equipment, involvement, unilateral and load metadata are frozen for the replacement.
+Confirmation rechecks choices and revision; `OccurrenceReplacementRepository` checks revision,
+slot attribution, active context, catalog metadata, equipment and exclusions in the write transaction.
+It updates only that occurrence entry and revision, never the accepted plan, template, future
+occurrences, inventory or preferences. No-candidate choices offer Cancel and point to existing whole-
+workout Skip/partial Finish; single-slot skipping is not introduced.
 
 ## 2. Decision log
 
