@@ -38,7 +38,7 @@ schema, dependency, infrastructure and licensing decisions retain their gates.
 
 | Target | Theme | Primary references |
 | --- | --- | --- |
-| 0.6.0 | Guided Training | OF-02, LT-06/07/09, item 9 B1, OF-13 dividers |
+| 0.6.0 | Guided Training | OF-02, LT-06/07/09, item 9 B1, OF-13 dividers, phone portrait lock |
 | 0.7.0 | Workout Context & Confidence | OF-03, OF-13/14, WU-01, CAT-01, OF-12-P2/P3, EX-03, LT-10 contract |
 | 0.8.0 | Progress & Recovery | OF-04/08/09, catalog classification/research |
 | 0.9.0 | Equipment & Data Freedom | EQ-01, OF-05/06/07, QL-02, OF-01 extensions |

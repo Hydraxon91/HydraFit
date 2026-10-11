@@ -72,7 +72,7 @@ Versions are assigned when a release scope is agreed; they do **not** grant impl
 | **0.4.0** | SHIPPED — VOL-01, EX-01 and a bounded OF-03 volume-explanation slice. `v0.4.1` shipped as a corrective patch. |
 | **0.5.0 — SHIPPED** | Published 2026-10-09 as `v0.5.0` on `5fc0c46`: LT-13, CAT-02, CAT-P7 and OF-01. Release workflow `37959121105` passed; signed APK `versionName=0.5.0`, `versionCode=10`. Signed `v0.4.1` → `v0.5.0` emulator upgrade retained a synthetic logged set; see `docs/qa.md` §13 for verification limits. |
 | **0.5.1 — SHIPPED** | Published 2026-10-09 as `v0.5.1` on `ca97c51`; Release `37972775517` passed (signed APK version code 11). Recent sets can correct performed time, reps, weight and RIR in place. Implementation and verification detail [archived](docs/plans-archive.md#2026-10-09-corrective-051); bounded UI limitations remain in `docs/qa.md` §6. |
-| **0.6.0** | Guided Training — OF-02, RIR B1, session dividers and occurrence-only replacements. |
+| **0.6.0** | Guided Training — OF-02, RIR B1, session dividers, occurrence-only replacements and the phone portrait lock. |
 | **0.7.0** | Workout Context & Confidence — explanations, notes/history, warm-ups/instructions, onboarding/reminders, EX-03 and early progression-integrity contract. |
 | **0.8.0** | Progress & Recovery — history/charts/records, anatomical map, measurements and catalog follow-ups. |
 | **0.9.0** | Equipment & Data Freedom — profiles, plate tools, imports/sharing, backup extensions and data controls. |
