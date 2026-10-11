@@ -15,6 +15,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
@@ -141,6 +142,7 @@ class SqlDelightCustomExerciseRepositoryTest {
         restPreferences.setExerciseOverrideSeconds(created.id, 240L)
         database.exercisePreferenceQueries.upsert(created.id, "PREFER")
         database.exerciseExclusionQueries.upsert(created.id, null)
+        seedExerciseOverride(created.id)
 
         repository.delete(created.id)
 
@@ -153,12 +155,45 @@ class SqlDelightCustomExerciseRepositoryTest {
             null,
             database.exerciseExclusionQueries.selectById(created.id).executeAsOneOrNull()
         )
+        assertNull(database.exerciseOverrideQueries.selectById(created.id).executeAsOneOrNull())
         val exported = SqlDelightBackupRepository(database, SqlDelightBackupCatalog())
             .export("test", 1L)
         BackupValidator(SqlDelightBackupCatalog()).validate(exported)
         assertTrue(exported.restPreferences.none { it.exerciseId == created.id })
         assertTrue(exported.preferences.none { it.exerciseId == created.id })
         assertTrue(exported.exclusions.none { it.exerciseId == created.id })
+        assertTrue(exported.exerciseOverrides.none { it.exerciseId == created.id })
+    }
+
+    @Test
+    fun builtInExerciseCannotBeDeletedAndKeepsItsDependentRows() = runTest {
+        database.exercisePreferenceQueries.upsert("back-squat", "PREFER")
+        seedExerciseOverride("back-squat")
+
+        val failure = assertFailsWith<CustomExerciseException> { repository.delete("back-squat") }
+
+        assertTrue(failure.message!!.contains("custom"))
+        assertTrue(catalog.all().any { it.id == "back-squat" })
+        assertEquals(
+            "PREFER",
+            database.exercisePreferenceQueries.selectById("back-squat").executeAsOneOrNull()
+        )
+        assertTrue(
+            database.exerciseOverrideQueries.selectById("back-squat").executeAsOneOrNull() != null
+        )
+    }
+
+    /** Seeds a built-in-style override row for [exerciseId]; the UI does not write these for custom ids. */
+    private suspend fun seedExerciseOverride(exerciseId: String) {
+        SqlDelightExerciseOverrideRepository(database).update(
+            exerciseId = exerciseId,
+            name = null,
+            requiredEquipment = emptySet(),
+            movementPattern = null,
+            unilateral = null,
+            loadCapability = null,
+            involvements = emptyMap()
+        )
     }
 
     @Test
@@ -173,6 +208,7 @@ class SqlDelightCustomExerciseRepositoryTest {
         restPreferences.setExerciseOverrideSeconds(created.id, 240L)
         database.exercisePreferenceQueries.upsert(created.id, "PREFER")
         database.exerciseExclusionQueries.upsert(created.id, null)
+        seedExerciseOverride(created.id)
         SqlDelightWorkoutLogRepository(database).add(
             WorkoutSet(exerciseId = created.id, reps = 5, weightKg = null, performedAtMillis = 1L)
         )
@@ -186,6 +222,9 @@ class SqlDelightCustomExerciseRepositoryTest {
         )
         assertTrue(
             database.exerciseExclusionQueries.selectById(created.id).executeAsOneOrNull() != null
+        )
+        assertTrue(
+            database.exerciseOverrideQueries.selectById(created.id).executeAsOneOrNull() != null
         )
         assertTrue(catalog.all().any { it.id == created.id })
     }
@@ -238,6 +277,7 @@ class SqlDelightCustomExerciseRepositoryTest {
         restPreferences.setExerciseOverrideSeconds(created.id, 240L)
         database.exercisePreferenceQueries.upsert(created.id, "PREFER")
         database.exerciseExclusionQueries.upsert(created.id, null)
+        seedExerciseOverride(created.id)
         driver.execute(
             null,
             "CREATE TRIGGER reject_exercise_delete BEFORE DELETE ON exercise " +
@@ -254,6 +294,9 @@ class SqlDelightCustomExerciseRepositoryTest {
         )
         assertTrue(
             database.exerciseExclusionQueries.selectById(created.id).executeAsOneOrNull() != null
+        )
+        assertTrue(
+            database.exerciseOverrideQueries.selectById(created.id).executeAsOneOrNull() != null
         )
         assertTrue(catalog.all().any { it.id == created.id })
     }
