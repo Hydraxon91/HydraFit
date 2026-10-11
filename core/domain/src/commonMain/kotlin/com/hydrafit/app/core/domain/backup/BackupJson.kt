@@ -57,6 +57,7 @@ object BackupJson {
             throw BackupException(BackupFailure.MALFORMED, "missing fields: $missing")
         }
         requireTimingFields(obj)
+        requireSettingsFields(obj)
         val file = try {
             json.decodeFromJsonElement(BackupFile.serializer(), obj)
         } catch (e: Exception) {
@@ -64,6 +65,18 @@ object BackupJson {
         }
         requireRecordCount(file)
         return file
+    }
+
+    private fun requireSettingsFields(root: JsonObject) {
+        val version = (root["formatVersion"] as? JsonPrimitive)?.intOrNull ?: return
+        if (version !in 2..BACKUP_FORMAT_VERSION) return
+        val settings = root["settings"] as? JsonObject ?: return
+        if ("guidedWorkoutEnabled" !in settings) {
+            throw BackupException(
+                BackupFailure.MALFORMED,
+                "settings is missing guidedWorkoutEnabled"
+            )
+        }
     }
 
     private fun requireTimingFields(root: JsonObject) {

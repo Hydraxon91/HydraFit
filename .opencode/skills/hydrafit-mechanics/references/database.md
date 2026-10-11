@@ -36,7 +36,9 @@ next version from the current directory/generated Schema rather than copying thi
 `EXERCISE:<exerciseId>`; an absent global row resolves to 120 seconds. Rest countdown
 state is separate, transient user data: it stores a monotonic deadline, duration, boot
 identity, open session, occurrence and exercise, and is not exported. Backup restore
-clears it because restored workout context is not a continuation of the prior process.
+clears it because restored workout context is not a continuation of the prior process. A successful
+custom-exercise deletion removes that exercise's rest override in the same transaction; rejected or
+failed deletion leaves both the exercise and override intact, avoiding a dangling backup reference.
 
 `RestCountdownRepository.observe()` must emit subsequent saves/clears for app-lifetime alert
 reconciliation. `SqlDelightWorkoutScheduleRepository` also implements the narrow

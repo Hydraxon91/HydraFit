@@ -4006,6 +4006,63 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun cancelingLegacyResolutionDiscardsLiveSetTimingAndRequiresFreshStart() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val occurrences = twoOccurrences().map { occurrence ->
+            if (occurrence.id == 30L) {
+                occurrence.copy(
+                    entries = occurrence.entries.map {
+                        it.copy(
+                            loadCapability = ExerciseLoadCapability.UNSPECIFIED,
+                            loadKind = LoadKind.LEGACY_UNSPECIFIED
+                        )
+                    }
+                )
+            } else {
+                occurrence
+            }
+        }
+        val schedule = MutableWorkoutScheduleRepository().apply {
+            set(blockActivation(), occurrences, selectedOccurrenceId = 30L)
+        }
+        var elapsed = 10_000L
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            elapsedNow = { elapsed }
+        )
+        advanceUntilIdle()
+
+        viewModel.startGuidedSet(40L)
+        elapsed = 10_400L
+        viewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+        assertNotNull(viewModel.state.value.legacyResolution)
+        assertEquals(40L, viewModel.state.value.startedSetEntryId)
+
+        viewModel.dismissLegacyResolution()
+        assertNull(viewModel.state.value.startedSetEntryId)
+        viewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+        assertTrue(repository.all().isEmpty())
+
+        elapsed = 20_000L
+        viewModel.startGuidedSet(40L)
+        elapsed = 20_500L
+        viewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+        viewModel.resolveLegacyAsExternal()
+        runCurrent()
+
+        val recorded = repository.all().single()
+        assertEquals(WorkoutTimingProvenance.LIVE, recorded.timingProvenance)
+        assertEquals(20_000L, recorded.startedAtElapsedMillis)
+        assertEquals(20_500L, recorded.completedAtElapsedMillis)
+        viewModel.cancelRestTimer()
+    }
+
+    @Test
     fun selectingAnotherOccurrenceDuringAPendingLiveWriteDoesNotStartRestOrReuseTheEvent() =
         runTimerTest {
             val writeGate = CompletableDeferred<Unit>()

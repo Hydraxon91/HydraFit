@@ -1249,7 +1249,7 @@ class WorkoutLoggerViewModel(
     /** Closes the resolution without logging; the drafts stay pending. */
     fun dismissLegacyResolution() {
         if (draftSubmissionInProgress) return
-        liveSetIntentEntryId = null
+        clearLiveSetStart()
         val item = _state.value.legacyResolution?.current
         _state.update {
             it.copy(

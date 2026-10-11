@@ -79,6 +79,34 @@ class BackupJsonTest {
     }
 
     @Test
+    fun formatsTwoThroughSixRequireGuidedWorkoutSettingWhenSettingsArePresent() {
+        val file = emptyBackupFile().copy(
+            settings = BackupSettingsRecord(
+                engineId = "DETERMINISTIC",
+                daysPerWeek = 4,
+                trainingGoal = "BALANCED",
+                shareWorkoutData = false,
+                weightUnit = "KG"
+            )
+        )
+        val complete = BackupJson.encode(file)
+        val incomplete = complete.replace(",\"guidedWorkoutEnabled\":false", "")
+
+        listOf(2, 3, 4, 5, 6).forEach { version ->
+            val versioned = complete.replace(
+                "\"formatVersion\":$BACKUP_FORMAT_VERSION",
+                "\"formatVersion\":$version"
+            )
+            val missing = incomplete.replace(
+                "\"formatVersion\":$BACKUP_FORMAT_VERSION",
+                "\"formatVersion\":$version"
+            )
+            assertEquals(file.copy(formatVersion = version), BackupJson.decode(versioned))
+            assertFailure(BackupFailure.MALFORMED, missing)
+        }
+    }
+
+    @Test
     fun formatFourRequiresAllTimingFieldsButAcceptsExplicitNulls() {
         val file = emptyBackupFile().copy(workoutSets = listOf(workoutSet("LIVE", null, null)))
         val encoded = BackupJson.encode(file)

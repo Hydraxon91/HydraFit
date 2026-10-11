@@ -303,11 +303,12 @@ The UI freezes the entry unit and retains full stored precision when weight text
 SQLDelight `.sq` files describe the current schema; every schema change ships a numbered `.sqm`
 migration, and released schemas are never edited in place.
 
-- **Examples:** `core/database/src/commonMain/sqldelight/…` — `1.sqm`..`35.sqm`, table rebuilds in
+- **Examples:** `core/database/src/commonMain/sqldelight/…` — `1.sqm`..`37.sqm`, table rebuilds in
   `20.sqm` (dropping legacy muscle columns), additive columns (`17.sqm`, `18.sqm`, `22.sqm`,
-  `23.sqm`, `24.sqm`, `27.sqm` EX-02 load columns, `34.sqm`/`35.sqm` timing provenance and elapsed
-  instants), new tables (`21.sqm` `personalRecord`, `25.sqm` routine templates, `26.sqm`
-  activations/occurrences/schedule cursor).
+  `23.sqm`, `24.sqm`, `27.sqm` EX-02 load columns, `33.sqm` guided preference,
+  `34.sqm`/`35.sqm` timing provenance and elapsed instants), new tables (`21.sqm` `personalRecord`,
+  `25.sqm` routine templates, `26.sqm` activations/occurrences/schedule cursor, `36.sqm` rest
+  preferences/countdown, `37.sqm` training-guidance preferences).
 - **Consistency:** high; the current `.sq` matches the cumulative migrations exactly, including column
   order. A one-off 0.6.0 exception reordered columns — adding, removing and retyping nothing — in
   `exercise`, `exerciseOverride` (`involvements` declared before `loadCapability`, since `19.sqm` added
@@ -317,7 +318,7 @@ migration, and released schemas are never edited in place.
   figures exactly (`docs/plans-archive.md` C1-C3).
 - **Verification:** SQLDelight `verifyMigrations` is enabled against the committed v1 seed
   `databases/1.db` (the immutable schema of version 1); `verifySqlDelightMigration` applies
-   `1.sqm..36.sqm` to it and fails when the result differs from the current `.sq`, so an unmigrated
+   `1.sqm..37.sqm` to it and fails when the result differs from the current `.sq`, so an unmigrated
   `.sq` edit fails the build. It runs in CI. `V1ToCurrentMigrationTest` additionally migrates a v1
   database in code, asserting retained values and the legacy→involvement conversion (S2-004, TS3-001).
 

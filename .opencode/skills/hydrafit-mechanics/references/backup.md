@@ -6,6 +6,8 @@ Paths are relative to the repository root; package shorthand is defined in
 Logical, versioned JSON (`format` + `formatVersion` 6), restored by whole replacement.
 The reader accepts versions 1–6; version 1 defaults the guided-workout preference to off.
 Format 6 requires both training-guidance opt-ins; versions 1–5 default them off.
+When the optional settings record is present, `guidedWorkoutEnabled` is required in formats 2–6;
+format 1 defaults it off because that version predates the setting.
 Formats 5–6 carry one global rest duration and optional per-exercise overrides; versions 1–4
 default to a 120-second global duration with no overrides. Countdown state is deliberately
 excluded and cleared during restore. Formats 4–6 require per-set timing provenance and explicit nullable elapsed fields; format 3 requires

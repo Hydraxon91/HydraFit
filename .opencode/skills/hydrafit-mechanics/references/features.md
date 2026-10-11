@@ -43,7 +43,8 @@ refresh and is retried through the normal confirm path. Retry state is in memory
 restart starts over. A Confirm-all batch is scoped to its plan/occurrence context and stops
 continuing when that context changes, without undoing successful writes. A legacy resolution dialog
 takes precedence over an open draft editor, which remains in state until resolution is dismissed.
-Cancel leaves the draft pending; canceling the editor discards its in-memory edits. These actions
+Cancel leaves the draft pending and discards any live-set start/completion event so a later live
+completion requires a fresh Start action; canceling the editor discards its in-memory edits. These actions
 stay within the six existing Logger ViewModel dependencies; no draft-actions Koin aggregate is
 registered.
 
