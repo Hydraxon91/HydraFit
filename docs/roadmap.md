@@ -45,7 +45,7 @@ schema, dependency, infrastructure and licensing decisions retain their gates.
 | 0.10.0 | Trustworthy Progression & Flexible Prescriptions | OF-10A/B, PYR-01, item 9 B2/B3, item 8 |
 | 0.11.0 | Beyond Rep-Based Sets | OF-10C/D, timed/distance/force grip, advanced set semantics |
 | 0.12.0 | Optional AI Reliability | M8-P0–P4, CATP7-R01, AI review/performance follow-ups |
-| 0.13.0 | Final UX & Design | QL-01 final pass, full-flow integration and remaining quality gates |
+| 0.13.0 | Final UX & Design | QL-01 final pass, UX-01 adaptive tablet/foldable layouts, full-flow integration and remaining quality gates |
 | 1.0.0 | Verified Android-first completion | All pre-1.0 scopes delivered or explicitly dispositioned; stability gate |
 | Beyond 1.0 | Additional platforms | iOS shipping/Keychain-backed ApiKeyStore; desktop |
 
@@ -209,6 +209,13 @@ CATP7-R01 may move earlier as a separately approved corrective if needed.
 
 - **QL-01:** final coherent design/token/navigation/workout hierarchy pass across
   the completed product; scoped screen/component changes, not an unreviewed rewrite.
+- **UX-01:** adaptive layouts for tablets and seamless foldables. Replace the fixed
+  two-row bottom bar with a single-row bar or navigation rail when the window is wide,
+  add multi-pane where it helps, and handle posture changes so the cover screen and the
+  unfolded screen are one continuous session: the current draft, workout, scroll and
+  selection survive fold/unfold without a restart or data loss. Phones stay portrait
+  (the `values-sw600dp/` escape hatch is the entry point). No new feature module,
+  fatigue/planner change, dependency or infrastructure change.
 - Full light/dark, approved text-scale/layout, screen-reader/focus, touch-target,
   colour-independent metrics and locale/date/number/resource coverage.
 - Consistent first-run, empty, loading, error, cancel, retry and recovery states;
@@ -217,7 +224,8 @@ CATP7-R01 may move earlier as a separately approved corrective if needed.
   remaining pre-1.0 quality findings, performance budgets and verification debt.
 - Final documentation, license/attribution and supported-device/limitation pass.
 
-Gate: complete user journeys remain usable and verified after polish. UX,
+Gate: complete user journeys remain usable and verified after polish, and UX-01 stays
+coherent across cover, unfolded and rotated large-screen states. UX,
 accessibility and localization checks apply to every earlier release too; 0.13.0
 is the final integration/design pass, not permission to defer basic usability.
 
