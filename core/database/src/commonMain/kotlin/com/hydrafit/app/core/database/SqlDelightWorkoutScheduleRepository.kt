@@ -311,18 +311,21 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
             ) {
                 reject(OccurrenceReplacementFailure.STALE_CONTEXT)
             }
-            // Mirrors WorkoutSet.freezesOccurrenceSlot: an entry-linked set, or an occurrence-level
-            // set for this same exercise whose entry link was lost. Unplanned extra exercises are
-            // deliberately not attributed here, so they do not freeze unrelated slots.
-            if (database.workoutLogQueries.selectSetsForOccurrence(occurrenceId)
+            // Mirrors WorkoutSet.freezesOccurrenceSlot: a set attributed to this entry freezes it,
+            // and the entry id is authoritative, so an entry-only row (no occurrence id) still
+            // counts. An occurrence-level set freezes only this same exercise's slot whose entry
+            // link was lost. Unplanned extra exercises are deliberately not attributed here, so they
+            // do not freeze unrelated slots.
+            val frozen = database.workoutLogQueries
+                .selectSetsForOccurrenceEntry(replacement.id)
+                .executeAsList()
+                .isNotEmpty() ||
+                database.workoutLogQueries.selectSetsForOccurrence(occurrenceId)
                     .executeAsList()
                     .any { row ->
-                        when (val entryId = row.occurrenceEntryId) {
-                            null -> row.exerciseId == original.exerciseId
-                            else -> entryId == replacement.id
-                        }
+                        row.occurrenceEntryId == null && row.exerciseId == original.exerciseId
                     }
-            ) {
+            if (frozen) {
                 reject(OccurrenceReplacementFailure.RECORDED_SLOT)
             }
             val candidate = SqlDelightExerciseCatalog(database).findById(replacement.exerciseId)

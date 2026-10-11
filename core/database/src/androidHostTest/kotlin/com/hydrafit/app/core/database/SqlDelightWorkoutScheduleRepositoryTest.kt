@@ -167,6 +167,31 @@ class SqlDelightWorkoutScheduleRepositoryTest {
         assertEquals(replacement, repository.getOccurrence(occurrence.id)?.entries?.single())
     }
 
+    @Test
+    fun anEntryLinkedSetWithoutAnOccurrenceStillPreventsReplacement() = runTest {
+        SeedExerciseCatalog(database).seed()
+        val id = repository.acceptAndActivate(null, activation(), listOf(null, null), false)
+        val occurrence = repository.occurrences(id).first()
+        val entry = occurrence.entries.single()
+        // The entry id is the authoritative attribution: a stored row that names the entry but
+        // carries no occurrence id still belongs to the slot's work and must freeze it.
+        SqlDelightWorkoutLogRepository(database).add(
+            com.hydrafit.app.core.domain.workout.WorkoutSet(
+                exerciseId = entry.exerciseId,
+                reps = 2,
+                weightKg = null,
+                performedAtMillis = 1L,
+                occurrenceId = null,
+                occurrenceEntryId = entry.id
+            )
+        )
+        val error = assertFailsWith<OccurrenceReplacementException> {
+            repository.replaceUntouchedEntry(occurrence.id, occurrence.revision, entry, 1L)
+        }
+        assertEquals(OccurrenceReplacementFailure.RECORDED_SLOT, error.reason)
+        assertEquals(occurrence, repository.getOccurrence(occurrence.id))
+    }
+
     private lateinit var driver: SqlDriver
     private lateinit var database: HydraFitDatabase
     private lateinit var repository: SqlDelightWorkoutScheduleRepository

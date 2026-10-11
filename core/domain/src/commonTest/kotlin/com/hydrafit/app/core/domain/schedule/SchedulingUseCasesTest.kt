@@ -47,13 +47,19 @@ class SchedulingUseCasesTest {
             !workoutSet(occurrenceId = 10L, occurrenceEntryId = null, isWarmup = false)
                 .freezesOccurrenceSlot(10L, 20L, "bench-press")
         )
-        // Another entry's set, another occurrence, and an unattached set leave the slot untouched.
+        // The entry id is authoritative: an entry-linked set freezes its entry even when its
+        // occurrence id is missing or disagrees with the slot's occurrence.
         assertTrue(
-            !workoutSet(occurrenceId = 10L, occurrenceEntryId = 21L, isWarmup = false)
+            workoutSet(occurrenceId = 11L, occurrenceEntryId = 20L, isWarmup = false)
                 .freezesOccurrenceSlot(10L, 20L, "back-squat")
         )
         assertTrue(
-            !workoutSet(occurrenceId = 11L, occurrenceEntryId = 20L, isWarmup = false)
+            workoutSet(occurrenceId = null, occurrenceEntryId = 20L, isWarmup = false)
+                .freezesOccurrenceSlot(10L, 20L, "back-squat")
+        )
+        // Another entry's set and a fully unattached set leave the slot untouched.
+        assertTrue(
+            !workoutSet(occurrenceId = 10L, occurrenceEntryId = 21L, isWarmup = false)
                 .freezesOccurrenceSlot(10L, 20L, "back-squat")
         )
         assertTrue(

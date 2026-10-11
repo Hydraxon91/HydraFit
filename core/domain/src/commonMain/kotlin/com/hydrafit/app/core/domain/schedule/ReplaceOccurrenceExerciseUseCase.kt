@@ -18,18 +18,21 @@ enum class OccurrenceReplacementFailure { RECORDED_SLOT, STALE_CONTEXT, UNAVAILA
  * True when [set] is recorded work that freezes an occurrence slot.
  *
  * A slot is frozen by any set attributed to that entry - working or warm-up - so a swap can never
- * discard or reinterpret logged work. A set the occurrence recorded without a resolved entry also
- * freezes the slot, but only when its exercise matches: that is the same prescribed exercise whose
- * link was lost, so the swap would orphan it. An unplanned extra exercise is deliberately not
- * attributed to this slot, and freezing it would block every replacement in the occurrence.
+ * discard or reinterpret logged work. The entry id is the authoritative attribution: a set that
+ * names the entry freezes it even when its derived occurrence id is missing or disagrees, so an
+ * entry-linked row is never mistaken for an unrelated one. A set the occurrence recorded without a
+ * resolved entry also freezes the slot, but only when its exercise matches: that is the same
+ * prescribed exercise whose link was lost, so the swap would orphan it. An unplanned extra exercise
+ * is deliberately not attributed to this slot, and freezing it would block every replacement in the
+ * occurrence.
  */
 fun WorkoutSet.freezesOccurrenceSlot(
     occurrenceId: Long,
     entryId: Long,
     entryExerciseId: String
 ): Boolean {
-    if (this.occurrenceId != occurrenceId) return false
     if (occurrenceEntryId != null) return occurrenceEntryId == entryId
+    if (this.occurrenceId != occurrenceId) return false
     return exerciseId == entryExerciseId
 }
 

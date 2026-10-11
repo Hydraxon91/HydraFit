@@ -571,7 +571,9 @@ neither prescriptions nor fatigue/RIR.
 ### 1.17 Occurrence-only exercise replacement
 
 `ReplaceOccurrenceExerciseUseCase` offers eligible same-pattern alternatives for an untouched slot,
-including one in a started occurrence. Any attributed set, including a warm-up, rejects replacement.
+including one in a started occurrence. Any set attributed to the slot, including a warm-up, rejects
+replacement; the entry id is the authoritative attribution, so an entry-linked set freezes its entry
+even when its occurrence id is absent or disagrees.
 The candidate uses its own current planner load baseline and existing conversion/ceiling rules;
 missing history means no invented numeric load. Sets/reps and slot identity are preserved, while
 name, pattern, equipment, involvement, unilateral and load metadata are frozen for the replacement.
