@@ -1,0 +1,4 @@
+<resources>
+    <!-- Large screens (>= 600dp) may rotate; ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED. -->
+    <integer name="screen_orientation">-1</integer>
+</resources>

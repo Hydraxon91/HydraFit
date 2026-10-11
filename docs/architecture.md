@@ -337,6 +337,12 @@ Compose `expect`/`actual` APIs where a platform-specific UI or clock is needed.
 - **Theme:** the shared app shell follows the system theme using Material3's standard light/dark
   palettes, preserving the default light palette. Android's `enableEdgeToEdge()` follows system
   night mode for bar icons; there is no separate app theme setting.
+- **Orientation and insets:** phones are portrait-locked and large screens (>= 600dp) may rotate, via
+  a size-qualified `screenOrientation` integer; iOS locks iPhone to portrait and leaves iPad free.
+  The shell relies on Material3's default `Scaffold`/`NavigationBar` insets, whose Android
+  implementation is `systemBars.union(displayCutout)`, so a landscape display cutout is cleared
+  without app-level inset code; a custom `Scaffold` or `NavigationBar` inset would have to preserve
+  that.
 - **Violations / tensions:** real Android/iOS bindings are not exercised by Koin verification (PLANS
   records this); the synchronous `ApiKeyStore`/`OnDeviceModelManager` ports push threading discipline
   onto callers (S2-007).

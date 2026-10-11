@@ -24,9 +24,12 @@
             android:name="libcdsprpc.so"
             android:required="false" />
 
+        <!-- Phones are portrait-locked; the size-qualified integer lets tablets and unfolded
+             foldables rotate instead. -->
         <activity
             android:exported="true"
-            android:name=".MainActivity">
+            android:name=".MainActivity"
+            android:screenOrientation="@integer/screen_orientation">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

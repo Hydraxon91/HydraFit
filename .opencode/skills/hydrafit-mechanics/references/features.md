@@ -83,7 +83,9 @@ automatic selection from history/prescriptions.
 
 Feature navigation: each feature exports a `FeatureDestination` whose `graph` is
 aggregated in the shell. Its six fully labeled tabs use two rows of three; only the
-bottom row owns bottom system-bar insets. The read-only `.maestro/navigation-smoke.yaml`
+bottom row owns bottom system-bar insets. Phones are portrait-locked (`values/` vs
+`values-sw600dp/` `screenOrientation`), so the two-row bar is only ever laid out in
+portrait there; large screens may rotate. The read-only `.maestro/navigation-smoke.yaml`
 asserts selected-tab semantics after each navigation, not merely visible labels.
 The exported graph type is
 `(NavController) -> NavGraphBuilder.() -> Unit`; the shell passes its `NavController`, so a feature
