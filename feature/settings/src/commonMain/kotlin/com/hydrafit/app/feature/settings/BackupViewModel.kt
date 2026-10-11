@@ -121,7 +121,8 @@ class BackupViewModel(
             selectedEquipment.size + workoutSets.size + workoutSessions.size + plans.size +
             planDays.size + planEntries.size + volumeExplanations.size +
             volumeExplanationStates.size + planTargetExplanations.size +
-            planTargetExplanationStates.size + routines.size + routineWorkouts.size +
+            planTargetExplanationStates.size + entryTargetExplanations.size + routines.size +
+            routineWorkouts.size +
             routineEntries.size + activations.size + activationWorkouts.size +
             activationEntries.size + occurrences.size + occurrenceEntries.size +
             personalRecords.size + preferences.size + exclusions.size

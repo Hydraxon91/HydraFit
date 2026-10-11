@@ -113,7 +113,9 @@ class ReplaceOccurrenceExerciseUseCase(
                     isUnilateral = candidate.isUnilateral,
                     weightKg = weight,
                     loadCapability = candidate.loadCapability,
-                    loadKind = WorkoutLoadPolicy.defaultKind(candidate.loadCapability)
+                    loadKind = WorkoutLoadPolicy.defaultKind(candidate.loadCapability),
+                    // A replacement never inherits the replaced exercise's recorded reasoning.
+                    explanation = null
                 )
             }
         return OccurrenceReplacementChoices(

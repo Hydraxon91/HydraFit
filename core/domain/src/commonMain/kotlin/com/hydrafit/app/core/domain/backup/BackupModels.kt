@@ -6,12 +6,14 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 7
+const val BACKUP_FORMAT_VERSION: Int = 8
 
 /**
  * A whole logical snapshot of the supported offline data. Rows are stored flat with their persisted
  * ids so restore can rebuild relationships exactly; the envelope carries the format identity, a
- * catalog fingerprint and the export time. Version 7 adds the recorded plan-target explanations;
+ * catalog fingerprint and the export time. Version 8 adds the recorded reasoning of frozen
+ * activation/occurrence entries; earlier formats have none, so a restored legacy entry reports no
+ * explanation rather than a fabricated one. Version 7 adds the recorded plan-target explanations;
  * earlier formats have none, so a restored legacy plan reports no explanation rather than a
  * fabricated one. Version 6 adds alert/coaching opt-ins; earlier formats default them off. Version 5
  * adds rest durations; earlier formats use the global default.
@@ -54,7 +56,12 @@ data class BackupFile(
      * "not recorded" rather than as an empty explanation.
      */
     val planTargetExplanations: List<BackupPlanTargetExplanationRecord> = emptyList(),
-    val planTargetExplanationStates: List<BackupPlanTargetExplanationStateRecord> = emptyList()
+    val planTargetExplanationStates: List<BackupPlanTargetExplanationStateRecord> = emptyList(),
+    /**
+     * Recorded reasoning of frozen activation/occurrence entries, newest format only. Absent in
+     * formats 1–7, which restores as "not recorded" rather than as an empty explanation.
+     */
+    val entryTargetExplanations: List<BackupEntryTargetExplanationRecord> = emptyList()
 )
 
 @Serializable
@@ -248,6 +255,50 @@ data class BackupPlanTargetExplanationStateRecord(
     val deloadVolumeScale: Double,
     val deloadIntensityScale: Double,
     val explanationVersion: Int
+)
+
+/**
+ * One frozen entry's recorded reasoning. [entryKind] is `ACTIVATION` or `OCCURRENCE`; [entryId] is
+ * the entry row it describes. The columns mirror the stored explanation; a group is present only when
+ * the app recorded it for that target.
+ */
+@Serializable
+data class BackupEntryTargetExplanationRecord(
+    val entryKind: String,
+    val entryId: Long,
+    val explanationVersion: Int,
+    val baselineSource: String?,
+    val baselineRecentEstimateKg: Double?,
+    val baselineQualifyingSetCount: Int?,
+    val baselineManualFloorKg: Double?,
+    val baselineKg: Double?,
+    val progressionOutcome: String?,
+    val progressionIncrements: Int?,
+    val progressionDeltaKg: Double?,
+    val progressionRoundToKg: Double?,
+    val progressionSuccessStreakSize: Int?,
+    val progressionFailureStreakSize: Int?,
+    val conversionReps: Int?,
+    val conversionIntensityFraction: Double?,
+    val conversionDeloadIntensityScale: Double?,
+    val conversionRoundToKg: Double?,
+    val conversionUncappedWorkingKg: Double?,
+    val conversionEquipmentCeilingKg: Double?,
+    val conversionEquipmentCeilingBinds: Boolean?,
+    val aiProposedKg: Double?,
+    val aiProposedAccepted: Boolean?,
+    val aiDeloadScaled: Boolean?,
+    val aiDeloadIntensityScale: Double?,
+    val aiProgressionBoundKg: Double?,
+    val aiBoundedByProgression: Boolean?,
+    val aiEquipmentCeilingKg: Double?,
+    val aiCappedByEquipment: Boolean?,
+    val setBaseSets: Int?,
+    val setDeloadApplied: Boolean?,
+    val setDeloadVolumeScale: Double?,
+    val setFatigueEffect: String?,
+    val setFinalSets: Int?,
+    val unavailableReason: String?
 )
 
 @Serializable

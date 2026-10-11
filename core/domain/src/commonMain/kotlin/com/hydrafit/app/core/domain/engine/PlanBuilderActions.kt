@@ -76,7 +76,8 @@ class PlanBuilderActions(
                 sourcePlanId = accepted.id,
                 weekNumber = accepted.weekNumber,
                 cycleNumber = accepted.cycleNumber
-            )
+            ),
+            explanationSource = accepted
         )
     }
 
@@ -94,7 +95,8 @@ class PlanBuilderActions(
                 weekNumber = accepted.weekNumber,
                 cycleNumber = accepted.cycleNumber
             ),
-            acceptedPlan = accepted
+            acceptedPlan = accepted,
+            explanationSource = accepted
         )
     }
 

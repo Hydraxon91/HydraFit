@@ -103,6 +103,10 @@ class SqlDelightBackupRepositoryTest {
         assertEquals(1, file.volumeExplanationStates.size)
         assertEquals(1, file.planTargetExplanations.size)
         assertEquals(1, file.planTargetExplanationStates.size)
+        assertEquals(
+            setOf("ACTIVATION", "OCCURRENCE"),
+            file.entryTargetExplanations.map { it.entryKind }.toSet()
+        )
         assertEquals("APPLIED", file.planTargetExplanations.single().progressionOutcome)
         assertEquals(0.7, file.planTargetExplanationStates.single().deloadVolumeScale)
         assertEquals(1, file.routines.size)
@@ -477,6 +481,15 @@ class SqlDelightBackupRepositoryTest {
             loadCapability = "EXTERNAL",
             loadKind = "EXTERNAL"
         )
+        val activationEntryId =
+            database.trainingScheduleQueries.lastInsertedActivationEntryId().executeAsOne()
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO entryTargetExplanation(entryKind, entryId, explanationVersion, " +
+                "setBaseSets, setDeloadApplied, setDeloadVolumeScale, setFatigueEffect, " +
+                "setFinalSets) " +
+                "VALUES ('ACTIVATION', $activationEntryId, 1, 3, 0, 0.7, 'NONE', 3)"
+        )
         database.trainingScheduleQueries.insertOccurrence(
             activationId = activationId,
             activationWorkoutId = activationWorkoutId,
@@ -507,6 +520,15 @@ class SqlDelightBackupRepositoryTest {
             loadKind = "EXTERNAL",
             remainingDisposition = null,
             terminalRemainingSets = null
+        )
+        val occurrenceEntryId =
+            database.trainingScheduleQueries.lastInsertedOccurrenceEntryId().executeAsOne()
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO entryTargetExplanation(entryKind, entryId, explanationVersion, " +
+                "setBaseSets, setDeloadApplied, setDeloadVolumeScale, setFatigueEffect, " +
+                "setFinalSets) " +
+                "VALUES ('OCCURRENCE', $occurrenceEntryId, 1, 3, 0, 0.7, 'NONE', 3)"
         )
         database.trainingScheduleQueries.upsertScheduleState(
             activeActivationId = activationId,

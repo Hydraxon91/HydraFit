@@ -1,7 +1,16 @@
 package com.hydrafit.app.core.domain.schedule
 
+import com.hydrafit.app.core.domain.engine.AcceptedDay
+import com.hydrafit.app.core.domain.engine.AcceptedExercise
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
+import com.hydrafit.app.core.domain.engine.FatigueSetEffect
+import com.hydrafit.app.core.domain.engine.LoadBaselineExplanation
+import com.hydrafit.app.core.domain.engine.LoadBaselineSource
+import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.SetCountExplanation
+import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.MovementPattern
@@ -293,6 +302,68 @@ class SchedulingUseCasesTest {
         assertEquals(occurrences[0].id, scheduleRepository.scheduleState().selectedOccurrenceId)
         assertEquals(id, scheduleRepository.scheduleState().activeActivationId)
     }
+
+    @Test
+    fun freezesTheSourcePlansSlotReasoningOntoTheActivatedEntries() = runTest {
+        val recorded = slotExplanation()
+
+        val id = activateRoutine(
+            routine(),
+            request(replaceActive = false),
+            explanationSource = acceptedPlanWithReasoning(recorded)
+        )
+
+        val activation = requireNotNull(scheduleRepository.getActivation(id))
+        assertEquals(recorded, activation.workouts[0].entries[0].explanation)
+        // A workout with no matching plan day keeps no reasoning rather than borrowing one.
+        assertNull(activation.workouts[1].entries[0].explanation)
+    }
+
+    @Test
+    fun aManualRoutineHasNoPlannerReasoning() = runTest {
+        val id = activateRoutine(routine(), request(replaceActive = false))
+
+        val activation = requireNotNull(scheduleRepository.getActivation(id))
+        assertNull(activation.workouts[0].entries[0].explanation)
+    }
+
+    private fun slotExplanation() = ExerciseTargetExplanation(
+        baseline = LoadBaselineExplanation(
+            source = LoadBaselineSource.RECENT_PERFORMANCE,
+            recentEstimateKg = 100.0,
+            qualifyingSetCount = 3,
+            baselineKg = 100.0
+        ),
+        setCount = SetCountExplanation(
+            baseSets = 3,
+            deloadApplied = false,
+            deloadVolumeScale = 0.7,
+            fatigueEffect = FatigueSetEffect.NONE,
+            finalSets = 3
+        )
+    )
+
+    private fun acceptedPlanWithReasoning(recorded: ExerciseTargetExplanation) = AcceptedPlan(
+        engine = PlannerEngineId.DETERMINISTIC,
+        acceptedAtMillis = 0L,
+        days = listOf(
+            AcceptedDay(
+                dayIndex = 0,
+                focus = SplitFocus.PUSH,
+                exercises = listOf(
+                    AcceptedExercise(
+                        exerciseId = "bench-press",
+                        sets = 3,
+                        reps = 8,
+                        name = "Barbell Bench Press",
+                        movementPattern = MovementPattern.HORIZONTAL_PUSH,
+                        suggestedWeightKg = 82.5,
+                        explanation = recorded
+                    )
+                )
+            )
+        )
+    )
 
     @Test
     fun activatingRejectsASecondBlockUnlessReplacing() = runTest {

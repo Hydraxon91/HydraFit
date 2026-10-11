@@ -68,6 +68,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
         uniqueBy(file.volumeExplanationStates) { it.planId }
         uniqueBy(file.planTargetExplanations) { Triple(it.planId, it.dayIndex, it.position) }
         uniqueBy(file.planTargetExplanationStates) { it.planId }
+        uniqueBy(file.entryTargetExplanations) { it.entryKind to it.entryId }
         uniqueBy(file.selectedEquipment) { it }
 
         val customEquipmentIds = file.equipment.filter { !it.isBuiltIn }.map { it.id }.toSet()
@@ -207,6 +208,34 @@ class BackupValidator(private val catalog: BackupCatalog) {
             finite(it.deloadVolumeScale)
             finite(it.deloadIntensityScale)
         }
+        file.entryTargetExplanations.forEach {
+            when (it.entryKind) {
+                ENTRY_KIND_ACTIVATION -> reference(it.entryId, activationEntryIds)
+                ENTRY_KIND_OCCURRENCE -> reference(it.entryId, occurrenceEntryIds)
+                else -> fail(BackupFailure.INVALID_VALUE)
+            }
+            enum(it.baselineSource, LoadBaselineSource.entries)
+            enum(it.progressionOutcome, ProgressionOutcome.entries)
+            enum(it.setFatigueEffect, FatigueSetEffect.entries)
+            enum(it.unavailableReason, LoadUnavailableReason.entries)
+            listOf(
+                it.baselineRecentEstimateKg,
+                it.baselineManualFloorKg,
+                it.baselineKg,
+                it.progressionDeltaKg,
+                it.progressionRoundToKg,
+                it.conversionIntensityFraction,
+                it.conversionDeloadIntensityScale,
+                it.conversionRoundToKg,
+                it.conversionUncappedWorkingKg,
+                it.conversionEquipmentCeilingKg,
+                it.aiProposedKg,
+                it.aiDeloadIntensityScale,
+                it.aiProgressionBoundKg,
+                it.aiEquipmentCeilingKg,
+                it.setDeloadVolumeScale
+            ).forEach { value -> value?.let { finite(it) } }
+        }
 
         file.routineWorkouts.forEach {
             reference(it.templateId, routineIds)
@@ -331,6 +360,9 @@ class BackupValidator(private val catalog: BackupCatalog) {
 
     private companion object {
         val SUPPORTED_FORMAT_VERSIONS = 1..BACKUP_FORMAT_VERSION
+
+        const val ENTRY_KIND_ACTIVATION = "ACTIVATION"
+        const val ENTRY_KIND_OCCURRENCE = "OCCURRENCE"
 
         /** Muscle names accepted in an involvement snapshot, including the legacy broad names. */
         val muscleTokens: Set<String> =

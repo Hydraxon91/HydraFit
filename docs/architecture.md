@@ -258,6 +258,17 @@ already record the fatigue/deload outcome, and raw catalog ids would go stale af
 custom-exercise merge. Backup format 7 carries both tables, and restore deletes them with the plan
 sections so a restored plan can never inherit another plan's reasons.
 
+The same reasoning is snapshotted for frozen work. When a block is created from an accepted plan,
+`ActivateRoutineUseCase` copies each slot's reason onto the built activation entry by day/entry
+position with an exercise-id guard (so a mismatch leaves the entry without reasons rather than
+borrowing another exercise's), the occurrence copy inherits it at creation, and `entryTargetExplanation`
+(keyed by `ACTIVATION`/`OCCURRENCE` plus the entry id; `39.sqm`) stores it. Entry ids are
+AUTOINCREMENT, so a row left behind by a deleted entry can never be adopted by a later one. A
+replacement or prescription edit clears the entry's reason — `writeEntryExplanation` treats null as a
+real state and deletes the row — so frozen work never shows the reason of the prescription it
+replaced. A manual routine carries none. Backup format 8 carries this table, and restore deletes it
+with the schedule sections.
+
 - **Examples:** `WorkoutPlannerEngine`, `WorkoutPlannerEngineProvider`,
   `DefaultWorkoutPlannerEngineProvider`, `DeterministicWorkoutPlannerEngine`,
   `GeminiWorkoutPlannerEngine`, `LocalLlmWorkoutPlannerEngine`, `WeeklyPlanSanitizer`,

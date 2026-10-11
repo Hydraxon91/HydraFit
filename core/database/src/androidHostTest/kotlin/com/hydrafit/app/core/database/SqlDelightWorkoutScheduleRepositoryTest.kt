@@ -6,8 +6,13 @@ import com.hydrafit.app.core.domain.engine.AcceptedDay
 import com.hydrafit.app.core.domain.engine.AcceptedExercise
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ArmMuscleCoverage
+import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
+import com.hydrafit.app.core.domain.engine.FatigueSetEffect
+import com.hydrafit.app.core.domain.engine.LoadBaselineExplanation
+import com.hydrafit.app.core.domain.engine.LoadBaselineSource
 import com.hydrafit.app.core.domain.engine.PlanAttribution
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.SetCountExplanation
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
@@ -33,6 +38,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
@@ -668,7 +674,63 @@ class SqlDelightWorkoutScheduleRepositoryTest {
         ).value
     }
 
-    private fun activation() = TrainingActivation(
+    @Test
+    fun carriesAFrozenEntrysReasoningOntoItsOccurrenceAndReadsItBack() = runTest {
+        val recorded = entryExplanation()
+        val activationId = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(explanation = recorded),
+            scheduledEpochDays = listOf(null, null),
+            replaceActive = false
+        )
+
+        val stored = requireNotNull(repository.getActivation(activationId))
+        assertEquals(recorded, stored.workouts.first().entries.first().explanation)
+
+        // The occurrence copy inherits the frozen slot's reasoning at creation.
+        val occurrenceId = requireNotNull(repository.scheduleState().selectedOccurrenceId)
+        val occurrence = requireNotNull(repository.getOccurrence(occurrenceId))
+        assertEquals(recorded, occurrence.entries.first().explanation)
+    }
+
+    @Test
+    fun editingAnOccurrenceEntryClearsItsStoredReasoning() = runTest {
+        repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(explanation = entryExplanation()),
+            scheduledEpochDays = listOf(null, null),
+            replaceActive = false
+        )
+        val occurrenceId = requireNotNull(repository.scheduleState().selectedOccurrenceId)
+        val occurrence = requireNotNull(repository.getOccurrence(occurrenceId))
+        assertNotNull(occurrence.entries.first().explanation)
+
+        repository.replaceOccurrenceEntries(
+            occurrenceId = occurrenceId,
+            entries = occurrence.entries.map { it.copy(explanation = null) }
+        )
+
+        val updated = requireNotNull(repository.getOccurrence(occurrenceId))
+        assertNull(updated.entries.first().explanation)
+    }
+
+    private fun entryExplanation() = ExerciseTargetExplanation(
+        baseline = LoadBaselineExplanation(
+            source = LoadBaselineSource.RECENT_PERFORMANCE,
+            recentEstimateKg = 100.0,
+            qualifyingSetCount = 3,
+            baselineKg = 100.0
+        ),
+        setCount = SetCountExplanation(
+            baseSets = 3,
+            deloadApplied = false,
+            deloadVolumeScale = 0.7,
+            fatigueEffect = FatigueSetEffect.NONE,
+            finalSets = 3
+        )
+    )
+
+    private fun activation(explanation: ExerciseTargetExplanation? = null) = TrainingActivation(
         templateId = 7L,
         templateRevision = 3,
         sourcePlanId = null,
@@ -694,7 +756,8 @@ class SqlDelightWorkoutScheduleRepositoryTest {
                         isUnilateral = false,
                         sets = 3,
                         reps = 8,
-                        weightKg = 82.5
+                        weightKg = 82.5,
+                        explanation = explanation
                     )
                 )
             ),

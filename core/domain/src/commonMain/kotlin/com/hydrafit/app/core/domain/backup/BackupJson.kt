@@ -55,6 +55,7 @@ object BackupJson {
                 add("planTargetExplanations")
                 add("planTargetExplanationStates")
             }
+            if (version != null && version < 8) add("entryTargetExplanations")
         }
         val missing = requiredKeys - obj.keys
         if (missing.isNotEmpty()) {
@@ -161,6 +162,7 @@ object BackupJson {
             file.plans.size + file.planDays.size + file.planEntries.size +
             file.volumeExplanations.size + file.volumeExplanationStates.size +
             file.planTargetExplanations.size + file.planTargetExplanationStates.size +
+            file.entryTargetExplanations.size +
             file.routines.size + file.routineWorkouts.size + file.routineEntries.size +
             file.activations.size + file.activationWorkouts.size + file.activationEntries.size +
             file.occurrences.size + file.occurrenceEntries.size + file.personalRecords.size +

@@ -1,0 +1,76 @@
+-- Recorded reasoning for one frozen training entry, keyed by the entry row it describes. Entry ids
+-- are AUTOINCREMENT, so a row left behind by a deleted entry can never be adopted by a later entry;
+-- this is a snapshot owned by that entry, not a lookup into the accepted plan.
+CREATE TABLE entryTargetExplanation (
+    entryKind TEXT NOT NULL,
+    entryId INTEGER NOT NULL,
+    explanationVersion INTEGER,
+    baselineSource TEXT,
+    baselineRecentEstimateKg REAL,
+    baselineQualifyingSetCount INTEGER,
+    baselineManualFloorKg REAL,
+    baselineKg REAL,
+    progressionOutcome TEXT,
+    progressionIncrements INTEGER,
+    progressionDeltaKg REAL,
+    progressionRoundToKg REAL,
+    progressionSuccessStreakSize INTEGER,
+    progressionFailureStreakSize INTEGER,
+    conversionReps INTEGER,
+    conversionIntensityFraction REAL,
+    conversionDeloadIntensityScale REAL,
+    conversionRoundToKg REAL,
+    conversionUncappedWorkingKg REAL,
+    conversionEquipmentCeilingKg REAL,
+    conversionEquipmentCeilingBinds INTEGER,
+    aiProposedKg REAL,
+    aiProposedAccepted INTEGER,
+    aiDeloadScaled INTEGER,
+    aiDeloadIntensityScale REAL,
+    aiProgressionBoundKg REAL,
+    aiBoundedByProgression INTEGER,
+    aiEquipmentCeilingKg REAL,
+    aiCappedByEquipment INTEGER,
+    setBaseSets INTEGER,
+    setDeloadApplied INTEGER,
+    setDeloadVolumeScale REAL,
+    setFatigueEffect TEXT,
+    setFinalSets INTEGER,
+    unavailableReason TEXT,
+    PRIMARY KEY (entryKind, entryId)
+);
+
+selectAll:
+SELECT * FROM entryTargetExplanation;
+
+insertExplanation:
+INSERT OR REPLACE INTO entryTargetExplanation(
+    entryKind, entryId, explanationVersion, baselineSource, baselineRecentEstimateKg,
+    baselineQualifyingSetCount, baselineManualFloorKg, baselineKg, progressionOutcome,
+    progressionIncrements, progressionDeltaKg, progressionRoundToKg, progressionSuccessStreakSize,
+    progressionFailureStreakSize, conversionReps, conversionIntensityFraction,
+    conversionDeloadIntensityScale, conversionRoundToKg, conversionUncappedWorkingKg,
+    conversionEquipmentCeilingKg, conversionEquipmentCeilingBinds, aiProposedKg, aiProposedAccepted,
+    aiDeloadScaled, aiDeloadIntensityScale, aiProgressionBoundKg, aiBoundedByProgression,
+    aiEquipmentCeilingKg, aiCappedByEquipment, setBaseSets, setDeloadApplied, setDeloadVolumeScale,
+    setFatigueEffect, setFinalSets, unavailableReason
+)
+VALUES (
+    :entryKind, :entryId, :explanationVersion, :baselineSource, :baselineRecentEstimateKg,
+    :baselineQualifyingSetCount, :baselineManualFloorKg, :baselineKg, :progressionOutcome,
+    :progressionIncrements, :progressionDeltaKg, :progressionRoundToKg,
+    :progressionSuccessStreakSize, :progressionFailureStreakSize, :conversionReps,
+    :conversionIntensityFraction, :conversionDeloadIntensityScale, :conversionRoundToKg,
+    :conversionUncappedWorkingKg, :conversionEquipmentCeilingKg, :conversionEquipmentCeilingBinds,
+    :aiProposedKg, :aiProposedAccepted, :aiDeloadScaled, :aiDeloadIntensityScale,
+    :aiProgressionBoundKg, :aiBoundedByProgression, :aiEquipmentCeilingKg, :aiCappedByEquipment,
+    :setBaseSets, :setDeloadApplied, :setDeloadVolumeScale, :setFatigueEffect, :setFinalSets,
+    :unavailableReason
+);
+
+-- Clears one entry's reasoning, so a replacement or prescription edit never inherits the old reason.
+deleteForEntry:
+DELETE FROM entryTargetExplanation WHERE entryKind = ? AND entryId = ?;
+
+deleteAll:
+DELETE FROM entryTargetExplanation;
