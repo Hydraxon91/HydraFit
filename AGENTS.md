@@ -15,6 +15,12 @@
   existing results is the user's: put it in the plan and wait—never choose
   it silently. This gate does not apply to a PLANS.md status-line-only
   commit after an approved phase.
+- **Live progress:** For multi-step tasks, use OpenCode's todo tool when
+  available to keep the sidebar current. Use short, outcome-based items; mark
+  the current item in progress and update on completion, blockers, or scope
+  changes. Keep pending approval distinct from active work. Skip todos for
+  simple questions or single-step tasks. Todos do not replace the chat plan,
+  approval gates, or `PLANS.md`.
 - Gradle: wrap every run in a hard time limit (e.g. `perl -e 'alarm 600;
   exec @ARGV' ./gradlew ... > run.log 2>&1`), then read the result with
   grep/tail afterwards; never block on a run with no timeout. If a run
