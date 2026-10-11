@@ -59,6 +59,18 @@ internal object HistoricalDatabaseFixtures {
     fun count(driver: SqlDriver, table: String, where: String? = null): Long =
         long(driver, "SELECT COUNT(*) FROM $table" + (where?.let { " WHERE $it" } ?: ""))
 
+    /**
+     * v1: only the `exercise` catalog table existed. Every other table is created by a migration,
+     * so migrating this forward exercises the whole `1.sqm..N.sqm` chain end to end.
+     */
+    fun v1(): SqlDriver = driverOf(
+        listOf(
+            "CREATE TABLE exercise (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, " +
+                "requiredEquipment TEXT NOT NULL, primaryMuscles TEXT NOT NULL, " +
+                "secondaryMuscles TEXT NOT NULL)"
+        )
+    )
+
     /** v13: separate `exerciseEdit`/`exerciseMuscleEdit` override tables; no `exerciseOverride`. */
     fun v13(): SqlDriver = driverOf(
         listOf(
@@ -103,6 +115,11 @@ internal object HistoricalDatabaseFixtures {
                 "exerciseId TEXT NOT NULL, reps INTEGER NOT NULL, weightKg REAL, " +
                 "performedAt INTEGER NOT NULL, isWarmup INTEGER NOT NULL DEFAULT 0, " +
                 "primaryMuscles TEXT, secondaryMuscles TEXT)",
+            "CREATE TABLE plannerEngine (id INTEGER NOT NULL PRIMARY KEY, " +
+                "engineId TEXT NOT NULL, daysPerWeek INTEGER NOT NULL DEFAULT 4, " +
+                "trainingGoal TEXT NOT NULL DEFAULT 'BALANCED', " +
+                "shareWorkoutData INTEGER NOT NULL DEFAULT 0, " +
+                "weightUnit TEXT NOT NULL DEFAULT 'KG')",
             // See v13: plan entries predate the range and are altered by later migrations.
             "CREATE TABLE planHistoryEntry (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT)"
         )
@@ -141,6 +158,11 @@ internal object HistoricalDatabaseFixtures {
                 "exerciseId TEXT NOT NULL, reps INTEGER NOT NULL, weightKg REAL, " +
                 "performedAt INTEGER NOT NULL, isWarmup INTEGER NOT NULL DEFAULT 0, " +
                 "primaryMuscles TEXT, secondaryMuscles TEXT, involvements TEXT)",
+            "CREATE TABLE plannerEngine (id INTEGER NOT NULL PRIMARY KEY, " +
+                "engineId TEXT NOT NULL, daysPerWeek INTEGER NOT NULL DEFAULT 4, " +
+                "trainingGoal TEXT NOT NULL DEFAULT 'BALANCED', " +
+                "shareWorkoutData INTEGER NOT NULL DEFAULT 0, " +
+                "weightUnit TEXT NOT NULL DEFAULT 'KG')",
             // See v13: plan entries predate the range and are altered by later migrations.
             "CREATE TABLE planHistoryEntry (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT)"
         )
@@ -184,6 +206,11 @@ internal object HistoricalDatabaseFixtures {
                 "involvements TEXT)",
             "CREATE TABLE personalRecord (exerciseId TEXT NOT NULL PRIMARY KEY, " +
                 "weightKg REAL NOT NULL, reps INTEGER NOT NULL, updatedAt INTEGER NOT NULL)",
+            "CREATE TABLE plannerEngine (id INTEGER NOT NULL PRIMARY KEY, " +
+                "engineId TEXT NOT NULL, daysPerWeek INTEGER NOT NULL DEFAULT 4, " +
+                "trainingGoal TEXT NOT NULL DEFAULT 'BALANCED', " +
+                "shareWorkoutData INTEGER NOT NULL DEFAULT 0, " +
+                "weightUnit TEXT NOT NULL DEFAULT 'KG')",
             "CREATE TABLE workoutSet (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, " +
                 "exerciseId TEXT NOT NULL, reps INTEGER NOT NULL, weightKg REAL, " +
                 "performedAt INTEGER NOT NULL, isWarmup INTEGER NOT NULL DEFAULT 0, " +

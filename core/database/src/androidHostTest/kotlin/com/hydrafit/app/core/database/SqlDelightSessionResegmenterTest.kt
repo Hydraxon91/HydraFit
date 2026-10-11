@@ -3,6 +3,7 @@ package com.hydrafit.app.core.database
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
+import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -81,6 +82,64 @@ class SqlDelightSessionResegmenterTest {
     }
 
     @Test
+    fun changedSetValuesInvalidateTimingButNoOpCorrectionsPreserveIt() = runTest {
+        insertSession("s1", 100, 200, 0)
+        insertSet(1, "s1", 150)
+        driver.execute(
+            null,
+            "UPDATE workoutSet SET timingProvenance = 'LIVE', " +
+                "startedAtElapsedMillis = 1000, completedAtElapsedMillis = 2000 WHERE id = 1",
+            0
+        )
+
+        resegmenter.resegmentAfterSetCorrection(
+            1L,
+            WorkoutSetCorrection(reps = 5, weightKg = null, rir = null, performedAtMillis = 150),
+            0L
+        )
+        val unchanged = log.all().single()
+        assertEquals(
+            "LIVE",
+            database.workoutLogQueries.selectSetById(1L).executeAsOne().timingProvenance
+        )
+        assertEquals(1000L, unchanged.startedAtElapsedMillis)
+        assertEquals(2000L, unchanged.completedAtElapsedMillis)
+
+        listOf(
+            WorkoutSetCorrection(6, null, null, 150L),
+            WorkoutSetCorrection(6, 5.0, null, 150L),
+            WorkoutSetCorrection(6, 5.0, 2, 150L)
+        ).forEach { correction ->
+            driver.execute(
+                null,
+                "UPDATE workoutSet SET timingProvenance = 'LIVE', " +
+                    "startedAtElapsedMillis = 1000, completedAtElapsedMillis = 2000 WHERE id = 1",
+                0
+            )
+            resegmenter.resegmentAfterSetCorrection(1L, correction, 0L)
+            val corrected = log.all().single()
+            assertEquals(WorkoutTimingProvenance.UNKNOWN, corrected.timingProvenance)
+            assertEquals(null, corrected.startedAtElapsedMillis)
+            assertEquals(null, corrected.completedAtElapsedMillis)
+        }
+        driver.execute(
+            null,
+            "UPDATE workoutSet SET timingProvenance = 'LIVE', " +
+                "startedAtElapsedMillis = 1000, completedAtElapsedMillis = 2000 WHERE id = 1",
+            0
+        )
+        resegmenter.resegmentAfterSetCorrection(
+            1L,
+            WorkoutSetCorrection(6, 5.0, 2, 151L),
+            0L
+        )
+        val timeCorrected = log.all().single()
+        assertEquals(WorkoutTimingProvenance.UNKNOWN, timeCorrected.timingProvenance)
+        assertEquals(null, timeCorrected.startedAtElapsedMillis)
+        assertEquals(null, timeCorrected.completedAtElapsedMillis)
+    }
+
+    @Test
     fun unchangedTimeKeepsSessionsAndStoredLoadMeaningIncludingAbsentAndZero() = runTest {
         insertSession("s1", 100, 200, 0)
         listOf("EXTERNAL", "ADDED", "LEGACY_UNSPECIFIED").forEachIndexed { index, kind ->
@@ -131,6 +190,12 @@ class SqlDelightSessionResegmenterTest {
         insertSet(1, "s1", 100)
         insertSet(2, "s1", 150)
         insertSet(3, "s2", 1000)
+        driver.execute(
+            null,
+            "UPDATE workoutSet SET timingProvenance = 'LIVE', " +
+                "startedAtElapsedMillis = 10, completedAtElapsedMillis = 20 WHERE id = 2",
+            0
+        )
         val before = log.all()
         val bounds = sessions.all()
         driver.execute(

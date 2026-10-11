@@ -5,7 +5,9 @@ import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.RestCountdown
 import com.hydrafit.app.core.domain.workout.WorkoutSession
 
 data class ExerciseOption(
@@ -31,8 +33,14 @@ data class LoggedSetRow(
     val weekNumber: Int? = null,
     val dayIndex: Int? = null,
     /** What [weightKg] means, so the row can label added or unconfirmed load honestly. */
-    val loadKind: LoadKind = LoadKind.LEGACY_UNSPECIFIED
+    val loadKind: LoadKind = LoadKind.LEGACY_UNSPECIFIED,
+    val occurrenceId: Long? = null,
+    val sessionId: String? = null
 )
+
+/** Null identity is unrecorded, never a shared session boundary. */
+internal fun LoggedSetRow.startsSessionAfter(previous: LoggedSetRow?): Boolean =
+    sessionId != null && (previous == null || sessionId != previous.sessionId)
 
 /** A correction of an existing row; unit is frozen for the lifetime of this editor. */
 data class LoggedSetEdit(
@@ -94,7 +102,11 @@ data class DraftSet(
     val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL,
     /** Frozen occurrence slot identity, when this draft came from an active workout. */
     val occurrenceId: Long? = null,
-    val occurrenceEntryId: Long? = null
+    val occurrenceEntryId: Long? = null,
+    /**
+     * Prescriptions default to working sets; guided confirmation freezes the user's Warm-up choice.
+     */
+    val isWarmup: Boolean = false
 )
 
 /** One-off values for the draft currently being edited; never written back to its prescription. */
@@ -170,6 +182,21 @@ data class WorkoutLoggerUiState(
     val activeOccurrence: ActiveOccurrence? = null,
     /** A finish/skip error to surface (e.g. the workout changed elsewhere). */
     val occurrenceMessage: String? = null,
+    /** Whether the guided-workout preference is on. Off leaves the Logger's existing flow unchanged. */
+    val guidedEnabled: Boolean = false,
+    /** The active occurrence's guided progress, or null when guided mode is off or no workout is active. */
+    val guidedProgress: GuidedWorkoutProgress? = null,
+    /** True when the last guided single-set write failed; the pending set is still available to retry. */
+    val guidedSetWriteFailed: Boolean = false,
+    /** The occurrence entry whose current set was explicitly started; it is not performed work. */
+    val startedSetEntryId: Long? = null,
+    /** In-memory rest prompt started only by an explicitly live guided completion. */
+    val restTimer: RestTimerState? = null,
+    val shortRestCoachingExerciseName: String? = null,
+    /** Current effective duration in seconds for the active rest timer. */
+    val restDurationSeconds: String = "120",
+    /** True when the current exercise uses an explicit rest-duration override. */
+    val restDurationIsOverride: Boolean = false,
     /** A pending explicit load decision for legacy drafts, or null when none is waiting. */
     val legacyResolution: LegacyResolution? = null,
     val todayFocus: SplitFocus? = null,
@@ -187,6 +214,15 @@ data class WorkoutLoggerUiState(
     /** True when a backdated time is set; the UI shows a "backdated" indicator. */
     val isBackdated: Boolean
         get() = performedAtMillis != null
+
+    /** True when guided mode is on and an active occurrence is available to guide. */
+    val isGuidedActive: Boolean
+        get() = guidedEnabled && guidedProgress != null
+
+    val canStartRestTimer: Boolean
+        get() = restDurationSeconds.toLongOrNull()?.let {
+            it > 0L && it <= RestCountdown.MAX_DURATION_MILLIS / 1_000L
+        } == true
 
     /**
      * The open session a backdated set would attach to, or null when logging will start a new one.

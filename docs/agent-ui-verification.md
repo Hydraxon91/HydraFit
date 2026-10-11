@@ -18,6 +18,10 @@ Paths below are relative to the repository root.
   to the approved flow, including its cross-cutting UI checks. Release verification
   uses the release checklist. Follow `hydrafit-ui-testing` for execution and safety;
   report any required checks left unverified.
+- Record existing preference and permission values as cleanup baselines. A non-default
+  value is not a blocker when the approved test contract covers temporarily changing
+  that value and restoring it afterwards. This does not authorize changes outside
+  the contract or dismissing an existing unsaved draft/dialog.
 - Load `hydrafit-ui-testing` before emulator interaction. Prefer reusable Maestro
   semantic flows for navigation, forms and assertions; retain ADB scripts for
   deployment, inspection fallback, screenshots and logcat. Read the flow contract
@@ -39,19 +43,29 @@ Paths below are relative to the repository root.
   Save/Log/Duplicate/Start is an unknown outcome, not permission to replay it.
   Inspect for completion; if it cannot be established, report outcome unknown
   and stop. Never restart or clear data to recover from uncertainty.
+- If a UI test unexpectedly deletes or alters a set or other persisted data, stop
+  the affected test immediately. At most, make one bounded, read-only inspection
+  to establish what happened, then report the change and unverified checks. Do not
+  loop, recreate records, attempt restoration, or rerun the write journey without
+  explicit approval. Continue unrelated checks only if their preconditions remain
+  valid and within the original time budget; an accident never resets that budget.
 - If MCP inspection fails, use one bounded Maestro CLI `hierarchy
-  --no-reinstall-driver --compact` fallback (see `.maestro/README.md`). Do not run
+  --no-reinstall-driver --compact` fallback (see `.maestro/README.md`). If it succeeds,
+  use compact CLI inspection for the rest of that test; do not retry the failing MCP
+  hierarchy path. Fresh bounded CLI inspections after screen changes are required
+  checkpoints, not additional fallback attempts, and remain within the original
+  interaction/recovery budget. Do not run
   `uiautomator dump`/`inspect.sh` while Maestro owns the automation connection:
   Android rejects a competing UiAutomation registration. ADB screenshot/logcat
   remain usable. If neither Maestro hierarchy path works, capture diagnostic
   evidence and stop interaction; no blind taps or tool roulette. Screenshots do
   not replace semantic success assertions.
-- Bound each short smoke flow to 120s and the interaction/recovery portion to
-  five minutes, excluding build/deploy and intentional long-generation tests
-  with their own approved budget. Allow one evidence-based correction after the
-  initial attempt only when replay is safe. Report failed step, expected/actual
-  state, elapsed time, attempts and artifacts; never claim success from a tap's
-  exit code. These are agent rules, not a tool-level security sandbox.
+- Bound each short smoke flow to 120s, excluding build/deploy and intentional
+  long-generation tests with their own approved budget. Allow one evidence-based
+  correction after the initial attempt only when replay is safe. Report failed
+  step, expected/actual state, elapsed time, attempts and artifacts; never claim
+  success from a tap's exit code. These are agent rules, not a tool-level
+  security sandbox.
 - Verify the target with `adb devices -l` and set `ANDROID_SERIAL` to a running
   `emulator-<port>` serial. All UI scripts require this explicit target, verify
   that it responds as an emulator, and bound ADB calls. Never let a phone become

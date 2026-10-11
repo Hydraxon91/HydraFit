@@ -2,7 +2,10 @@ package com.hydrafit.app
 
 import com.hydrafit.app.core.database.DatabaseDriverFactory
 import com.hydrafit.app.core.database.NativeDatabaseDriverFactory
+import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.workout.RestAlertScheduler
+import com.hydrafit.app.core.domain.workout.UnsupportedRestAlertScheduler
 import com.hydrafit.app.core.llm.NoopOnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDeviceTextGenerator
@@ -30,6 +33,8 @@ fun iosDatabaseModule(): Module = module {
             override fun utcOffsetMillis(): Long = offsetFromZoneName()
         }
     }
+    single<BootIdentityProvider> { BootIdentityProvider { null } }
+    single<RestAlertScheduler> { UnsupportedRestAlertScheduler() }
     single<ApiKeyStore> { NoopApiKeyStore() }
     single<AppVersionProvider> { IosAppVersionProvider() }
     single<ApiKeyProvider> {

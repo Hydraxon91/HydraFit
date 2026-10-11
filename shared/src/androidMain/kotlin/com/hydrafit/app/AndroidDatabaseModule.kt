@@ -2,9 +2,12 @@ package com.hydrafit.app
 
 import android.content.Context
 import android.net.Uri
+import android.provider.Settings
 import com.hydrafit.app.core.database.AndroidDatabaseDriverFactory
 import com.hydrafit.app.core.database.DatabaseDriverFactory
+import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.workout.RestAlertScheduler
 import com.hydrafit.app.core.llm.AndroidOnDeviceModelManager
 import com.hydrafit.app.core.llm.AndroidOnDevicePlannerLogger
 import com.hydrafit.app.core.llm.LiteRtLmTextGenerator
@@ -18,6 +21,7 @@ import com.hydrafit.app.core.userdata.settings.AndroidAppVersionProvider
 import com.hydrafit.app.core.userdata.settings.AndroidKeystoreApiKeyStore
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
+import com.hydrafit.app.feature.logger.AndroidRestAlertScheduler
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -30,6 +34,17 @@ fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = modu
                 java.util.TimeZone.getDefault().getOffset(nowMillis()).toLong()
         }
     }
+    single<BootIdentityProvider> {
+        BootIdentityProvider {
+            Settings.Global.getInt(
+                context.applicationContext.contentResolver,
+                Settings.Global.BOOT_COUNT,
+                -1
+            ).takeIf { it >= 0 }?.toString()
+        }
+    }
+    single { AndroidRestAlertScheduler(context.applicationContext) }
+    single<RestAlertScheduler> { get<AndroidRestAlertScheduler>() }
     single<ApiKeyStore> { AndroidKeystoreApiKeyStore(context.applicationContext) }
     single<ApiKeyProvider> {
         val store = get<ApiKeyStore>()

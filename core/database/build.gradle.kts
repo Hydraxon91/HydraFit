@@ -51,6 +51,11 @@ sqldelight {
     databases {
         create("HydraFitDatabase") {
             packageName.set("com.hydrafit.app.core.database")
+            // Verify the migration chain against the committed v1 schema seed. `1.db` is the
+            // immutable schema of version 1; `verifySqlDelightMigration` applies `1.sqm..N.sqm`
+            // to it and requires the result to match the current `.sq` exactly.
+            schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
+            verifyMigrations.set(true)
         }
     }
 }

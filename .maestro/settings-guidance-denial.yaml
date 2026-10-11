@@ -1,0 +1,84 @@
+# Starts on Settings with both guidance switches OFF and permission prompt available.
+# Requires approved permission-baseline handling; see README.md.
+appId: com.hydrafit.app
+name: Guidance notification denial
+tags:
+  - settings
+  - permission
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    text: '^Settings$'
+    retryTapIfNoChange: false
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Settings$'
+- scrollUntilVisible:
+    element:
+      id: '^settings_short_rest_coaching$'
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    id: '^settings_rest_alerts$'
+    checked: false
+- assertVisible:
+    id: '^settings_short_rest_coaching$'
+    checked: false
+- tapOn:
+    id: '^settings_short_rest_coaching$'
+    retryTapIfNoChange: false
+- assertVisible:
+    id: '^settings_short_rest_coaching$'
+    checked: true
+- tapOn:
+    id: '^settings_rest_alerts$'
+    retryTapIfNoChange: false
+- assertVisible: '^Don’t allow$'
+- tapOn:
+    text: '^Don’t allow$'
+    retryTapIfNoChange: false
+- assertVisible: '^Notifications are blocked\. The rest countdown still works; allow notifications in system settings to enable alerts\.$'
+- assertVisible:
+    id: '^settings_rest_alerts$'
+    checked: false
+- scrollUntilVisible:
+    element:
+      id: '^settings_short_rest_coaching$'
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    id: '^settings_short_rest_coaching$'
+    checked: true
+- tapOn:
+    text: '^Equipment$'
+    retryTapIfNoChange: false
+- tapOn:
+    text: '^Settings$'
+    retryTapIfNoChange: false
+- scrollUntilVisible:
+    element:
+      id: '^settings_rest_alerts$'
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    id: '^settings_rest_alerts$'
+    checked: false
+- scrollUntilVisible:
+    element:
+      id: '^settings_short_rest_coaching$'
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    id: '^settings_short_rest_coaching$'
+    checked: true
+- tapOn:
+    id: '^settings_short_rest_coaching$'
+    retryTapIfNoChange: false
+- assertVisible:
+    id: '^settings_short_rest_coaching$'
+    checked: false

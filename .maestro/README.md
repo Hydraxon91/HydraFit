@@ -14,15 +14,45 @@ do not cancel someone else's draft or restart the app to establish them.
 | --- | --- | --- | --- |
 | `navigation-smoke.yaml` | Equipment tab selected, no dialog/editor | Tab navigation only | Equipment tab selected; scroll position is not asserted |
 | `routine-editor-cancel.yaml` | Equipment tab selected, no dialog/editor | Navigate to Routines, new unsaved name, semantic Cancel, return | Editor closed before returning to Equipment; Save is never tapped |
+| `logger-session-controls.yaml` | No active session, no dialog/editor | Navigate to Logger only | No active session; End disabled and New label visible/enabled; neither action is tapped |
+| `settings-guidance-denial.yaml` | Settings selected, both guidance switches OFF, English permission prompt available | Coaching ON, notification request denied, reopen Settings, coaching OFF | Alerts OFF and coaching restored OFF; external permission-flag restoration is still required |
+
+The navigation flow visits all six tabs and asserts the selected tab after each
+tap; visible navigation labels alone are not a success oracle. It is also the
+regression flow for the two-row, fully labeled navigation layout.
 
 The editor name starts blank (`RoutinesViewModel.onNewRoutine`); this flow does
 not rely on `eraseText` clearing an arbitrary existing field. The single new
 editor has one Routine name field and one Cancel action. Tests of repeated
 workout/entry fields require verified row scoping; these flows do not cover them.
 
-No persistent data is created, so there is no record deletion/cleanup. The editor
+The navigation, session-controls and editor flows create no persistent records, so there is no
+record deletion/cleanup. The editor
 flow cancels its own draft on success. If it fails, report the remaining draft
 and inspect before any safe cancellation; no blind `onFlowComplete` recovery.
+
+The denial flow writes a preference and denies a system permission. It requires its own approved
+test contract, recorded permission flags and cleanup; it is not a read-only smoke. If permission
+is fixed-denied, clearing `user-set`/`user-fixed` is an external, approval-gated setup step, not an
+automatic flow action. Restore the exact baseline flags afterwards. On failure, inspect before
+restoring the test's coaching change; do not rerun the permission write blindly.
+
+Session-control assertions do not establish layout by themselves. Capture and view the Logger
+screenshot at the tested font scale/theme; the regression checks the wrapping action layout.
+
+## 0.6.0 completion-chunk verification (2026-10-11)
+
+The corrected session-control assertions passed in light/dark mode at 1.3× font scale without
+tapping either action; screenshots were inspected. The exact final file, including foregrounding
+without restart or automatic permission changes, also passed on the final debug APK in light mode
+at 1.3× (`/tmp/hydrafit-060-final-session-controls.log`). Settings denial passed as a staged journey, including
+coaching ON before/after denial and after reopening, then restoration OFF. The combined denial
+file's runtime attempt failed on an off-screen coaching assertion after the denial message appeared;
+bounded cleanup verified coaching ON and restored it OFF. The final file adds the missing scroll
+checkpoint and is syntax-checked. The separately approved remaining-test chunk subsequently
+passed the exact final file end-to-end (`/tmp/hydrafit-060-remaining-denial.log`), restoring
+coaching OFF and denied permission with `USER_SET|USER_FIXED`. See
+`docs/qa.md` for evidence, failed attempts, cleanup and platform/accessibility limits.
 
 ## Run one named flow
 
@@ -46,6 +76,18 @@ starts a competing UiAutomation connection; while Maestro owns automation,
 Android reports `UiAutomationService ... already registered!`. Do not run that
 fallback or kill the driver. ADB screenshot/logcat do not require that connection.
 
+After a successful compact CLI fallback, use that inspection path for the rest of
+the test; do not repeatedly retry the failing MCP hierarchy. Run a fresh bounded
+CLI inspection after each relevant screen change, reading only its successful
+current output. These checkpoints are not additional fallback attempts and stay
+within the original five-minute interaction/recovery budget. A later CLI failure
+does not authorize switching to a competing `inspect.sh` connection.
+
+For separately approved write tests, record existing preference/permission values
+as restoration baselines. A non-default value is not itself a blocker when its
+temporary change and restoration are covered by the contract. This does not expand
+the contract or authorize dismissing existing unsaved work.
+
 Validate syntax before execution (no emulator needed):
 
 ```bash
@@ -67,7 +109,17 @@ budget and two-attempt maximum. A timeout is not proof that all device-side work
 stopped; inspect execution/state before recovery. MCP `run` validates syntax but
 does not expose a per-run hard timeout; prefer bounded CLI for these smoke flows.
 
-## Verification status (2026-10-09)
+## Navigation regression verification (2026-10-11)
+
+The expanded six-tab flow passed syntax validation and all 17 runtime steps on
+`emulator-5554` at 1.3× font scale, asserting selected-tab state after each tap.
+The final Equipment screenshot was inspected (`/tmp/hydrafit-r060-fixes-font13.png`);
+all labels remain intact, and only the bottom row receives bottom system-bar padding.
+Font scale was restored to 1.0. No persistent app data was changed.
+Run log: `/tmp/hydrafit-r060-fixes-navigation.log`. This does not verify TalkBack,
+rotation, alternate locales or themes.
+
+## Earlier verification status (2026-10-09)
 
 Both files pass the installed Maestro 2.11.0 `check-syntax` and runtime smoke on
 `emulator-5554`. Flat CLI inspection returned 156 nodes, maximum tree depth 17.

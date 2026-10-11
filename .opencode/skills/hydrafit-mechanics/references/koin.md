@@ -38,3 +38,12 @@ Platform Context/Keystore and iOS wiring are not proved by these host tests.
 port. `WorkoutLogMutations` delegates both full performed-value and time-only corrections; its
 four use cases do not add another Logger ViewModel constructor dependency. Runtime graph tests
 resolve the new correction use case explicitly.
+
+`databaseModule` exposes the same `SqlDelightWorkoutScheduleRepository` singleton through schedule
+and occurrence-replacement ports, and binds `TrainingGuidancePreferenceRepository`. `domainModule`
+registers `ReplaceOccurrenceExerciseUseCase`; `loggerModule` registers its separate presentation
+ViewModel plus an eager, closeable `RestAlertCoordinator`. Its collaborators all serve app-lifetime
+alarm reconciliation, not unrelated actions. Android binds the alarm/notification adapter; iOS binds
+`UnsupportedRestAlertScheduler`. Settings registers `TrainingGuidanceSettingsViewModel`. Runtime
+graph tests resolve these additions; Android Context/permission/receiver delivery remains platform
+verification, not a host-test claim.

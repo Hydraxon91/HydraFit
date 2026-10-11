@@ -14,6 +14,33 @@ NSDateFormatter `Z` offset. Stored timestamps remain UTC milliseconds.
 Current bucketing uses the supplied offset; it is not a historical timezone or
 DST lookup for each recorded timestamp.
 
+Logger rest prompts use a separate monotonic elapsed clock, not wall time:
+Android uses `SystemClock.elapsedRealtime()` and iOS uses
+`clock_gettime(CLOCK_MONOTONIC)`, whose Darwin clock contract advances during
+system sleep. `RestCountdown` stores the elapsed
+completion instant plus duration; remaining time is recalculated from the
+deadline, so delayed UI ticks and wall-clock changes do not extend it. The countdown
+deadline and workout context are persisted so process death can restore the prompt
+only when boot identity, open session and occurrence still match and the deadline has
+not passed. Android uses `Settings.Global.BOOT_COUNT`; the current iOS binding has no
+reliable boot identity and fails closed. Reboot, unknown identity, context mismatch
+or expiry silently clears the saved prompt.
+
+Optional Android rest alerts use `AlarmManager.setAndAllowWhileIdle` with an elapsed deadline;
+delivery may be delayed by power management. Notification permission is requested explicitly from
+the separate default-off Settings opt-in. The receiver revalidates current stores before posting;
+there is no exact-alarm permission or foreground service. iOS uses the unsupported scheduler.
+The Android adapter serializes schedule/cancel/post and rejects stale delivery revisions after
+resource loading; the receiver's eight-second startup budget expires without posting.
+App startup reconciliation does not cancel an initially due countdown with valid current context;
+the alarm receiver has already entered delivery and performs its own current-store validation.
+Invalid context/preferences and later transitions into the due state still cancel; ordinary expired
+Logger restoration remains silent.
+
+The shared app shell selects Material3's standard light/dark palette from the system theme;
+light mode preserves the default palette. Android's existing `enableEdgeToEdge()` follows
+system night mode for bar icon appearance; there is no separate app theme preference.
+
 Load `hydrafit-ui-testing` before emulator work. Maestro semantic flows are the
 preferred interaction path; `.maestro/README.md` owns reusable flow contracts and
 their verification status. `docs/agent-ui-verification.md` owns the detailed workflow;

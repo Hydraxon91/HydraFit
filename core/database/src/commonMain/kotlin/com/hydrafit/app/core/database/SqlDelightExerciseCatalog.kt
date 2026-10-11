@@ -14,6 +14,9 @@ class SqlDelightExerciseCatalog(database: HydraFitDatabase) : ExerciseCatalog {
     private val queries = database.exerciseQueries
     private val overrideQueries = database.exerciseOverrideQueries
 
+    internal fun findById(id: String): Exercise? = queries.selectById(id).executeAsOneOrNull()
+        ?.toDomain(overrideQueries.selectById(id).executeAsOneOrNull())
+
     override suspend fun all(): List<Exercise> {
         val overrides = overrideQueries.selectAll().executeAsList()
             .associateBy { it.exerciseId }

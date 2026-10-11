@@ -14,33 +14,45 @@ import com.hydrafit.app.core.domain.schedule.TrainingActivation
 import com.hydrafit.app.core.domain.schedule.WorkoutLoggingActions
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
-import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.localDayOfWeek
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
+import com.hydrafit.app.core.domain.workout.LiveRestCompletion
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.RestCountdown
+import com.hydrafit.app.core.domain.workout.ShortRestCoach
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
-import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
+import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
+import com.hydrafit.app.core.domain.workout.buildGuidedWorkoutProgress
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+private data class GuidedSetIntent(val entryId: Long, val isWarmup: Boolean)
+
+private data class GuidedSetWriteResult(
+    val succeeded: Boolean,
+    val sessionId: String?,
+    val isWarmup: Boolean
+)
 
 class WorkoutLoggerViewModel(
     private val logMutations: WorkoutLogMutations,
     private val getWorkoutLog: GetWorkoutLogUseCase,
     private val loggingActions: WorkoutLoggingActions,
     private val exerciseCatalog: ExerciseCatalog,
-    private val timeProvider: TimeProvider,
-    private val weightUnitRepository: WeightUnitRepository
+    private val runtime: WorkoutLoggerRuntime,
+    private val settings: WorkoutLoggerSettings
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(WorkoutLoggerUiState())
@@ -76,9 +88,36 @@ class WorkoutLoggerViewModel(
     private var draftSubmissionInProgress = false
     private var draftContextRevision = 0L
     private var missingLoadPromptRevision = 0L
+    private val restTimer = runtime.restTimer(viewModelScope)
+    private val shortRestCoach = ShortRestCoach()
+    private var shortRestCoachingEnabled = false
+    private var liveSetIntentEntryId: Long? = null
+    private var liveSetStartedAtElapsedMillis: Long? = null
+    private var liveSetCompletedAtElapsedMillis: Long? = null
+    private var liveSetCompletedAtWallMillis: Long? = null
+    private var guidedSetIntent: GuidedSetIntent? = null
+    private var timerOccurrenceId: Long? = null
+    private var timerSessionId: String? = null
+    private var timerExerciseId: String? = null
+    private var liveTimerGeneration = 0L
+    private var activationObserved = false
+    private var occurrenceContextObserved = false
+    private var guidedPreferenceObserved = false
+    private var sessionObserved = false
+    private var resumeLifecycleChecked = false
+    private var restRestoreAttempted = false
 
     init {
-        _state.update { it.copy(utcOffsetMillis = timeProvider.utcOffsetMillis()) }
+        _state.update { it.copy(utcOffsetMillis = runtime.utcOffsetMillis()) }
+        viewModelScope.launch {
+            settings.shortRestCoachingFlow().collect { enabled ->
+                shortRestCoachingEnabled = enabled
+                if (!enabled) resetShortRestCoaching()
+            }
+        }
+        viewModelScope.launch {
+            restTimer.state.collect { timer -> _state.update { it.copy(restTimer = timer) } }
+        }
         viewModelScope.launch {
             // Observe the catalog so a newly added/edited custom exercise appears without a restart.
             exerciseCatalog.observeAll().collect { catalog ->
@@ -106,42 +145,138 @@ class WorkoutLoggerViewModel(
         }
         viewModelScope.launch {
             loggingActions.observeActiveActivation().collect { activation ->
-                if (activeActivation != activation) draftContextRevision++
+                if (activeActivation != activation) {
+                    draftContextRevision++
+                    invalidateRestTimer(clearPersisted = restTimer.state.value != null)
+                    liveSetIntentEntryId = null
+                }
                 activeActivation = activation
+                activationObserved = true
                 occurrencesJob?.cancel()
                 if (activation == null) {
                     currentOccurrences = emptyList()
                     currentOccurrence = null
+                    occurrenceContextObserved = true
                     // Leaving the active block ends any in-flight batch or partial-write retry.
                     _state.update {
                         it.copy(
                             activeOccurrence = null,
                             confirmingAllDrafts = false,
-                            draftWriteRetries = emptyList()
+                            draftWriteRetries = emptyList(),
+                            guidedProgress = null,
+                            guidedSetWriteFailed = false
                         )
                     }
                     updateTodayPlan(acceptedPlan)
+                    restoreRestTimerIfReady()
                 } else {
                     occurrencesJob = viewModelScope.launch {
                         loggingActions.observeOccurrences(activation.id).collect { occurrences ->
                             currentOccurrences = occurrences
                             refreshOccurrence()
+                            occurrenceContextObserved = true
+                            restoreRestTimerIfReady()
                         }
                     }
                 }
             }
         }
         viewModelScope.launch {
-            weightUnitRepository.unitFlow().collectLatest { unit ->
+            settings.weightUnitFlow().collectLatest { unit ->
                 _state.update { it.copy(weightUnit = unit) }
+            }
+        }
+        viewModelScope.launch {
+            settings.guidedWorkoutFlow().collectLatest { enabled ->
+                _state.update { it.copy(guidedEnabled = enabled) }
+                guidedPreferenceObserved = true
+                if (!enabled) {
+                    invalidateRestTimer()
+                    liveSetIntentEntryId = null
+                }
+                restoreRestTimerIfReady()
             }
         }
         viewModelScope.launch {
             // Active-session state is derived from the persisted open session, so it survives a restart.
             logMutations.observeOpenSession().collectLatest { session ->
+                sessionObserved = true
+                if (timerSessionId != null && session?.id != timerSessionId) {
+                    invalidateRestTimer()
+                }
                 _state.update { it.copy(activeSession = session) }
+                restoreRestTimerIfReady()
             }
         }
+    }
+
+    override fun onCleared() {
+        invalidateRestTimer(clearPersisted = false)
+        super.onCleared()
+    }
+
+    private fun invalidateRestTimer(clearPersisted: Boolean = true) {
+        liveTimerGeneration++
+        timerOccurrenceId = null
+        timerSessionId = null
+        timerExerciseId = null
+        restTimer.cancel(clearPersisted)
+        resetShortRestCoaching()
+        clearLiveSetStart()
+    }
+
+    private fun restoreRestTimerIfReady() {
+        if (restRestoreAttempted ||
+            !activationObserved ||
+            !occurrenceContextObserved ||
+            !guidedPreferenceObserved ||
+            !sessionObserved ||
+            !resumeLifecycleChecked
+        ) {
+            return
+        }
+        restRestoreAttempted = true
+        val occurrence = currentOccurrence
+        val session = _state.value.activeSession
+        if (!isGuidedActive || occurrence == null || session == null || occurrence.isResolved) {
+            restTimer.cancel()
+            return
+        }
+        val contextRevision = draftContextRevision
+        viewModelScope.launch {
+            val restored = restTimer.restore(
+                currentSessionId = session.id,
+                currentOccurrenceId = occurrence.id,
+                validExerciseIds = occurrence.entries.map { it.exerciseId }.toSet()
+            ) ?: return@launch
+            if (contextRevision != draftContextRevision ||
+                currentOccurrence?.id != occurrence.id ||
+                _state.value.activeSession?.id != session.id ||
+                !isGuidedActive
+            ) {
+                restTimer.cancel()
+                return@launch
+            }
+            timerOccurrenceId = restored.occurrenceId
+            timerSessionId = restored.sessionId
+            timerExerciseId = restored.exerciseId
+            val isOverride = settings.hasExerciseRestDurationOverride(restored.exerciseId)
+            _state.update {
+                it.copy(
+                    restDurationSeconds = restored.durationMillis.div(1_000L).toString(),
+                    restDurationIsOverride = isOverride
+                )
+            }
+        }
+    }
+
+    private fun clearLiveSetStart() {
+        guidedSetIntent = null
+        liveSetIntentEntryId = null
+        liveSetStartedAtElapsedMillis = null
+        liveSetCompletedAtElapsedMillis = null
+        liveSetCompletedAtWallMillis = null
+        _state.update { it.copy(startedSetEntryId = null) }
     }
 
     fun onExerciseSelected(exerciseId: String) {
@@ -211,10 +346,11 @@ class WorkoutLoggerViewModel(
      * false when a future time is rejected; the current selection is left unchanged in that case.
      */
     fun onPerformedAtChanged(millis: Long?): Boolean {
-        if (millis != null && millis > timeProvider.nowMillis()) return false
+        if (millis != null && millis > runtime.nowMillis()) return false
+        clearLiveSetStart()
         resolvedBackdatedSessionId = null
         resolvedBackdatedSessionKey = null
-        _state.update { it.copy(performedAtMillis = millis) }
+        _state.update { it.copy(performedAtMillis = millis, startedSetEntryId = null) }
         return true
     }
 
@@ -238,12 +374,12 @@ class WorkoutLoggerViewModel(
                 dateStartOfDayUtcMillis,
                 hour,
                 minute,
-                timeProvider.utcOffsetMillis()
+                runtime.utcOffsetMillis()
             )
         )
 
     /** The current wall-clock time, used to seed the backdated pickers. */
-    fun currentTimeMillis(): Long = timeProvider.nowMillis()
+    fun currentTimeMillis(): Long = runtime.nowMillis()
 
     fun editLoggedSet(row: LoggedSetRow) {
         if (_state.value.savingLoggedSet) return
@@ -272,7 +408,7 @@ class WorkoutLoggerViewModel(
     fun onLoggedSetRirChanged(value: String) = updateLoggedSetEdit { copy(rir = value) }
 
     fun onLoggedSetTimeChanged(millis: Long): Boolean {
-        if (millis > timeProvider.nowMillis()) return false
+        if (millis > runtime.nowMillis()) return false
         updateLoggedSetEdit { copy(performedAtMillis = millis) }
         return true
     }
@@ -294,7 +430,7 @@ class WorkoutLoggerViewModel(
         val current = _state.value
         val edit = current.loggedSetEdit ?: return
         if (current.savingLoggedSet || !edit.canSave) return
-        if (edit.performedAtMillis > timeProvider.nowMillis()) return
+        if (edit.performedAtMillis > runtime.nowMillis()) return
         val weight = when {
             edit.row.loadKind == LoadKind.BODYWEIGHT -> null
             edit.weightInput == edit.originalWeightInput -> edit.row.weightKg
@@ -324,6 +460,10 @@ class WorkoutLoggerViewModel(
                 _state.update { it.copy(savingLoggedSet = false) }
             }
             _state.update { it.copy(loggedSetEdit = null) }
+            resetShortRestCoaching()
+            if (timerOccurrenceId != null && edit.row.occurrenceId == timerOccurrenceId) {
+                cancelRestTimer()
+            }
             refreshRecentSets()
             if (activeActivation != null) refreshOccurrence()
         }
@@ -343,11 +483,18 @@ class WorkoutLoggerViewModel(
             dateStartOfDayUtcMillis,
             hour,
             minute,
-            timeProvider.utcOffsetMillis()
+            runtime.utcOffsetMillis()
         )
-        if (millis > timeProvider.nowMillis()) return false
+        if (millis > runtime.nowMillis()) return false
+        val correctedOccurrenceId = _state.value.recentSets
+            .firstOrNull { it.id == setId }
+            ?.occurrenceId
         viewModelScope.launch {
             logMutations.correctTime(setId, millis)
+            resetShortRestCoaching()
+            if (timerOccurrenceId != null && correctedOccurrenceId == timerOccurrenceId) {
+                cancelRestTimer()
+            }
             refreshRecentSets()
         }
         return true
@@ -391,8 +538,17 @@ class WorkoutLoggerViewModel(
 
     fun deleteSet(id: Long) {
         viewModelScope.launch {
+            val deletedOccurrenceId = _state.value.recentSets
+                .firstOrNull { it.id == id }
+                ?.occurrenceId
             logMutations.delete(id)
+            resetShortRestCoaching()
+            if (timerOccurrenceId != null && deletedOccurrenceId == timerOccurrenceId) {
+                cancelRestTimer()
+            }
             refreshRecentSets()
+            // A deleted set changes the active occurrence's remaining/progress, so refresh it too.
+            if (activeActivation != null) refreshOccurrence()
         }
     }
 
@@ -424,24 +580,30 @@ class WorkoutLoggerViewModel(
         }
 
         viewModelScope.launch {
-            val link = occurrenceLink(exerciseId)
+            val link = slotFor(exerciseId)
             logResolved(
                 WorkoutSet(
                     exerciseId = exerciseId,
                     reps = reps,
                     weightKg = weightKg,
                     loadKind = loadKind,
-                    performedAtMillis = current.performedAtMillis ?: timeProvider.nowMillis(),
+                    performedAtMillis = current.performedAtMillis ?: runtime.nowMillis(),
                     isWarmup = current.isWarmup,
                     weekNumber = activeActivation?.weekNumber ?: acceptedPlan?.weekNumber,
                     cycleNumber = activeActivation?.cycleNumber ?: acceptedPlan?.cycleNumber,
                     dayIndex = acceptedToday?.dayIndex,
                     rir = current.rir.toIntOrNull(),
                     occurrenceId = link?.first,
-                    occurrenceEntryId = link?.second
+                    occurrenceEntryId = link?.second,
+                    timingProvenance = if (current.performedAtMillis != null) {
+                        WorkoutTimingProvenance.CATCH_UP
+                    } else {
+                        WorkoutTimingProvenance.UNKNOWN
+                    }
                 ),
                 current
             )
+            resetShortRestCoaching()
             // Keep the reps and weight so repeated sets of the same exercise do not need retyping;
             // only the warm-up flag resets between sets.
             _state.update { it.copy(isWarmup = false) }
@@ -455,56 +617,69 @@ class WorkoutLoggerViewModel(
      * attaches to the eligible open session or starts a fresh closed one, whose id is cached so a
      * draft batch lands in the same session.
      */
-    private suspend fun logResolved(set: WorkoutSet, current: WorkoutLoggerUiState) {
-        val utcOffsetMillis = timeProvider.utcOffsetMillis()
+    private suspend fun logResolved(
+        set: WorkoutSet,
+        current: WorkoutLoggerUiState,
+        returnSessionId: Boolean = false
+    ): String? {
+        val utcOffsetMillis = runtime.utcOffsetMillis()
         if (current.performedAtMillis == null) {
             logMutations(set, utcOffsetMillis)
-            return
+            return if (returnSessionId) {
+                logMutations.observeOpenSession().first()?.id
+            } else {
+                null
+            }
         }
         val cacheKey = set.performedAtMillis to current.forceNewSession
         val cached = resolvedBackdatedSessionId.takeIf { resolvedBackdatedSessionKey == cacheKey }
         if (cached != null) {
             logMutations.logInto(set, cached)
-            return
+            return cached
         }
         val session = logMutations.logBackdated(set, utcOffsetMillis, current.forceNewSession)
         if (session.id != current.activeSession?.id) {
             resolvedBackdatedSessionId = session.id
             resolvedBackdatedSessionKey = cacheKey
         }
+        return session.id
     }
 
     /** Closes the open session; the next logged set auto-starts a new one. */
     fun endSession() {
-        viewModelScope.launch { logMutations.endSession(timeProvider.nowMillis()) }
+        invalidateRestTimer()
+        viewModelScope.launch { logMutations.endSession(runtime.nowMillis()) }
     }
 
     /** Closes the current session and immediately starts a new one. */
     fun newSession() {
+        invalidateRestTimer()
         viewModelScope.launch {
             logMutations.startNewSession(
-                startedAtMillis = timeProvider.nowMillis(),
-                utcOffsetMillis = timeProvider.utcOffsetMillis()
+                startedAtMillis = runtime.nowMillis(),
+                utcOffsetMillis = runtime.utcOffsetMillis()
             )
         }
     }
 
     /** Recomputes today's focus/drafts, e.g. when the screen resumes after a local midnight. */
     fun onResume() {
-        _state.update { it.copy(utcOffsetMillis = timeProvider.utcOffsetMillis()) }
+        _state.update { it.copy(utcOffsetMillis = runtime.utcOffsetMillis()) }
         viewModelScope.launch {
             refreshToday()
             // Opening the logger is an "open time": expire a session that rolled into a new day or went idle.
             logMutations.expireOpenSession(
-                nowMillis = timeProvider.nowMillis(),
-                utcOffsetMillis = timeProvider.utcOffsetMillis()
+                nowMillis = runtime.nowMillis(),
+                utcOffsetMillis = runtime.utcOffsetMillis()
             )
+            resumeLifecycleChecked = true
+            restoreRestTimerIfReady()
         }
     }
 
     private suspend fun updateTodayPlan(plan: AcceptedPlan?) {
-        val nowMillis = timeProvider.nowMillis()
-        val utcOffsetMillis = timeProvider.utcOffsetMillis()
+        val nowMillis = runtime.nowMillis()
+        val utcOffsetMillis = runtime.utcOffsetMillis()
         acceptedToday = plan?.dayFor(localDayOfWeek(nowMillis, utcOffsetMillis))
         suggestedWeightKgByExercise = acceptedToday?.exercises
             ?.mapNotNull { exercise ->
@@ -664,7 +839,8 @@ class WorkoutLoggerViewModel(
     fun onDraftWeightRevealed() = updateDraftEdit { copy(weightRevealed = true) }
 
     fun onDraftPerformedAtChanged(millis: Long?): Boolean {
-        if (millis != null && millis > timeProvider.nowMillis()) return false
+        if (millis != null && millis > runtime.nowMillis()) return false
+        if (millis != null) clearLiveSetStart()
         resolvedBackdatedSessionId = null
         resolvedBackdatedSessionKey = null
         updateDraftEdit { copy(performedAtMillis = millis, performedAtExplicit = true) }
@@ -673,6 +849,7 @@ class WorkoutLoggerViewModel(
 
     fun cancelDraftEdit() {
         if (draftSubmissionInProgress) return
+        clearLiveSetStart()
         _state.update { it.copy(draftEdit = null, confirmingAllDrafts = false) }
     }
 
@@ -684,11 +861,17 @@ class WorkoutLoggerViewModel(
     fun confirmDraftEdit() {
         val draft = _state.value.draftEdit?.draft ?: return
         if (_state.value.draftEdit?.reps?.toIntOrNull()?.let { it > 0 } != true) return
+        val entryId = draft.occurrenceEntryId
+        if (isGuidedActive && entryId != null) {
+            confirmGuidedSet(entryId, liveCompletion = liveSetIntentEntryId == entryId)
+            return
+        }
         confirmDraft(draft)
     }
 
     fun cancelMissingLoadPrompt() {
         missingLoadPromptRevision++
+        clearLiveSetStart()
         _state.update { it.copy(missingLoadPrompt = null, confirmingAllDrafts = false) }
     }
 
@@ -705,6 +888,14 @@ class WorkoutLoggerViewModel(
         val resolved = (edit?.let { editedDraft(it) } ?: draft)
             .copy(loadKind = LoadKind.EXTERNAL, weightKg = null)
         _state.update { it.copy(missingLoadPrompt = null) }
+        if (isGuidedActive && resolved.occurrenceEntryId != null) {
+            launchGuidedWrite(
+                resolved,
+                edit,
+                liveCompletion = liveSetIntentEntryId == resolved.occurrenceEntryId
+            )
+            return
+        }
         launchDraftWrite { contextRevision ->
             val written = writeDraft(draft, resolved, edit, contextRevision)
             if (written) {
@@ -720,6 +911,7 @@ class WorkoutLoggerViewModel(
         val draft = _state.value.missingLoadPrompt ?: return
         val promptRevision = missingLoadPromptRevision
         val contextRevision = draftContextRevision
+        val timerGeneration = liveTimerGeneration
         // Claim the guard across the suspending history lookup so a Cancel or a second action cannot
         // race the write; re-validate the prompt once the lookup returns.
         if (!beginDraftSubmission()) return
@@ -748,17 +940,35 @@ class WorkoutLoggerViewModel(
                     val edit = _state.value.draftEdit?.takeIf { it.draft == draft }
                     val resolved = (edit?.let { editedDraft(it) } ?: draft)
                         .copy(loadKind = LoadKind.EXTERNAL, weightKg = last.weightKg)
-                    val written = writeDraft(draft, resolved, edit, contextRevision)
-                    if (written) {
-                        removeDraft(draft)
-                        refreshRecentSets()
-                        if (activeActivation != null) refreshOccurrence()
+                    if (isGuidedActive && resolved.occurrenceEntryId != null) {
+                        val liveCompletion = liveSetIntentEntryId == resolved.occurrenceEntryId
+                        val written = writeGuidedSet(
+                            resolved,
+                            edit,
+                            contextRevision,
+                            liveCompletion
+                        )
+                        applyGuidedWriteResult(
+                            resolved,
+                            written,
+                            contextRevision,
+                            timerGeneration,
+                            liveCompletion
+                        )
+                    } else {
+                        val written = writeDraft(draft, resolved, edit, contextRevision)
+                        if (written) {
+                            removeDraft(draft)
+                            refreshRecentSets()
+                            if (activeActivation != null) refreshOccurrence()
+                        }
+                        shouldContinue = written && _state.value.confirmingAllDrafts
                     }
-                    shouldContinue = written && _state.value.confirmingAllDrafts
                 }
             } finally {
                 endDraftSubmission()
             }
+            if (liveSetIntentEntryId == draft.occurrenceEntryId) liveSetIntentEntryId = null
             if (shouldContinue) continueConfirmAllDrafts()
         }
     }
@@ -1047,6 +1257,7 @@ class WorkoutLoggerViewModel(
     /** Closes the resolution without logging; the drafts stay pending. */
     fun dismissLegacyResolution() {
         if (draftSubmissionInProgress) return
+        clearLiveSetStart()
         val item = _state.value.legacyResolution?.current
         _state.update {
             it.copy(
@@ -1072,6 +1283,14 @@ class WorkoutLoggerViewModel(
             else -> item.draft
         }
         val resolved = base.copy(loadKind = kind, weightKg = weightKg)
+        if (isGuidedActive && resolved.occurrenceEntryId != null) {
+            launchGuidedWrite(
+                resolved,
+                editForWrite,
+                liveCompletion = liveSetIntentEntryId == resolved.occurrenceEntryId
+            )
+            return
+        }
         launchDraftWrite { contextRevision ->
             val written = writeDraft(item.draft, resolved, editForWrite, contextRevision)
             if (written) {
@@ -1116,13 +1335,15 @@ class WorkoutLoggerViewModel(
         draft: DraftSet,
         edit: DraftEdit? = null,
         contextRevision: Long = draftContextRevision,
+        liveCompletion: Boolean = false,
         onSetLogged: () -> Unit = {}
-    ) {
+    ): String? {
         val link = if (draft.occurrenceId != null) {
             draft.occurrenceId to draft.occurrenceEntryId
         } else {
             occurrenceLink(draft.exerciseId)
         }
+        var sessionId: String? = null
         repeat(draft.sets.coerceAtLeast(1)) {
             if (contextRevision != draftContextRevision) {
                 throw CancellationException("Draft context changed")
@@ -1134,25 +1355,46 @@ class WorkoutLoggerViewModel(
                     _state.value.performedAtMillis
                 }
             )
-            logResolved(
+            sessionId = logResolved(
                 WorkoutSet(
                     exerciseId = draft.exerciseId,
                     reps = draft.reps,
                     weightKg = if (draft.loadKind == LoadKind.BODYWEIGHT) null else draft.weightKg,
                     loadKind = draft.loadKind,
-                    performedAtMillis = current.performedAtMillis ?: timeProvider.nowMillis(),
-                    isWarmup = false,
+                    performedAtMillis = if (liveCompletion) {
+                        liveSetCompletedAtWallMillis ?: runtime.nowMillis()
+                    } else {
+                        current.performedAtMillis ?: runtime.nowMillis()
+                    },
+                    isWarmup = draft.isWarmup,
                     weekNumber = activeActivation?.weekNumber ?: acceptedPlan?.weekNumber,
                     cycleNumber = activeActivation?.cycleNumber ?: acceptedPlan?.cycleNumber,
                     dayIndex = acceptedToday?.dayIndex,
                     occurrenceId = link?.first,
                     occurrenceEntryId = link?.second,
-                    rir = edit?.rir?.toIntOrNull()
+                    rir = edit?.rir?.toIntOrNull(),
+                    timingProvenance = when {
+                        liveCompletion -> WorkoutTimingProvenance.LIVE
+                        current.performedAtMillis != null -> WorkoutTimingProvenance.CATCH_UP
+                        else -> WorkoutTimingProvenance.UNKNOWN
+                    },
+                    startedAtElapsedMillis = if (liveCompletion) {
+                        liveSetStartedAtElapsedMillis
+                    } else {
+                        null
+                    },
+                    completedAtElapsedMillis = if (liveCompletion) {
+                        liveSetCompletedAtElapsedMillis ?: runtime.elapsedRealtimeMillis()
+                    } else {
+                        null
+                    }
                 ),
-                current
+                current,
+                returnSessionId = liveCompletion
             )
             onSetLogged()
         }
+        return sessionId
     }
 
     /** Prefills the weight field with the accepted plan's suggestion, in the display unit. */
@@ -1203,7 +1445,11 @@ class WorkoutLoggerViewModel(
             ?: currentOccurrences.filterNot { it.isResolved }.minByOrNull { it.queuePosition }
         val previousOccurrenceId = currentOccurrence?.id
         if (occurrence == null) {
-            if (currentOccurrence != null) draftContextRevision++
+            if (currentOccurrence != null) {
+                draftContextRevision++
+                invalidateRestTimer()
+                liveSetIntentEntryId = null
+            }
             currentOccurrence = null
             _state.update {
                 it.copy(
@@ -1214,12 +1460,20 @@ class WorkoutLoggerViewModel(
                     legacyResolution = null,
                     draftWriteRetries = emptyList(),
                     confirmingAllDrafts = false,
-                    todayFocus = null
+                    todayFocus = null,
+                    guidedProgress = null,
+                    guidedSetWriteFailed = false
                 )
             }
             return
         }
-        if (currentOccurrence != occurrence) draftContextRevision++
+        if (currentOccurrence != occurrence) {
+            draftContextRevision++
+            if (currentOccurrence != null) {
+                invalidateRestTimer()
+                liveSetIntentEntryId = null
+            }
+        }
         currentOccurrence = occurrence
         val performed = performedSetsByEntry(occurrence.id)
         val drafts = occurrence.entries.mapNotNull { entry ->
@@ -1273,7 +1527,10 @@ class WorkoutLoggerViewModel(
                 confirmingAllDrafts = it.confirmingAllDrafts &&
                     previousOccurrenceId == occurrence.id &&
                     displayDrafts.isNotEmpty(),
-                todayFocus = workout?.focus
+                todayFocus = workout?.focus,
+                guidedProgress = buildGuidedWorkoutProgress(occurrence, performed),
+                guidedSetWriteFailed = it.guidedSetWriteFailed &&
+                    previousOccurrenceId == occurrence.id
             )
         }
     }
@@ -1286,12 +1543,25 @@ class WorkoutLoggerViewModel(
             exerciseId == other.exerciseId
         }
 
-    /** The occurrence + entry a set for [exerciseId] belongs to, when a block is active. */
+    /**
+     * The occurrence + entry a set for [exerciseId] belongs to, when a block is active.
+     *
+     * Attribution needs the entry id, not just the exercise: the replacement and completion guards
+     * key on it. A null entry means the set is linked to the occurrence only, which those guards
+     * would then miss, so fall back to the prescribed entry when the id alone does not match.
+     */
     private fun occurrenceLink(exerciseId: String): Pair<Long, Long?>? {
         val occurrence = currentOccurrence ?: return null
         val entry = occurrence.entries.firstOrNull { it.exerciseId == exerciseId }
         return occurrence.id to entry?.id
     }
+
+    /** The frozen slot a manual log belongs to, reusing the draft's identity when one is present. */
+    private fun slotFor(exerciseId: String): Pair<Long, Long?>? = _state.value
+        .draftSets
+        .firstOrNull { it.exerciseId == exerciseId && it.occurrenceId != null }
+        ?.let { requireNotNull(it.occurrenceId) to it.occurrenceEntryId }
+        ?: occurrenceLink(exerciseId)
 
     private suspend fun performedSetsByEntry(occurrenceId: Long): Map<Long, Int> = getWorkoutLog()
         .filter { set ->
@@ -1325,6 +1595,289 @@ class WorkoutLoggerViewModel(
 
     fun onOccurrenceMessageShown() = _state.update { it.copy(occurrenceMessage = null) }
 
+    fun onRestDurationChanged(value: String) {
+        val digits = value.filter(Char::isDigit)
+        _state.update { it.copy(restDurationSeconds = digits) }
+        val millis = digits.toLongOrNull()?.takeIf {
+            it > 0L && it <= RestCountdown.MAX_DURATION_MILLIS / 1_000L
+        }
+            ?.times(1_000L)
+            ?: return
+        restTimer.updateDuration(millis)
+        val exerciseId = timerExerciseId ?: return
+        viewModelScope.launch {
+            settings.setExerciseRestDuration(exerciseId, millis / 1_000L)
+            _state.update { it.copy(restDurationIsOverride = true) }
+        }
+    }
+
+    fun resetExerciseRestDuration() {
+        val exerciseId = timerExerciseId ?: return
+        viewModelScope.launch {
+            settings.clearExerciseRestDuration(exerciseId)
+            val seconds = settings.globalRestDurationSeconds()
+            restTimer.updateDuration(seconds * 1_000L)
+            _state.update {
+                it.copy(restDurationSeconds = seconds.toString(), restDurationIsOverride = false)
+            }
+        }
+    }
+
+    fun cancelRestTimer() {
+        liveTimerGeneration++
+        timerOccurrenceId = null
+        timerSessionId = null
+        timerExerciseId = null
+        restTimer.cancel()
+    }
+
+    /** True when guided mode is on and a workout occurrence is active. */
+    private val isGuidedActive: Boolean
+        get() = _state.value.guidedEnabled && currentOccurrence != null
+
+    /** Opens the one-off editor for an active occurrence entry's pending set. */
+    fun editGuidedSet(occurrenceEntryId: Long) {
+        val draft = _state.value.draftSets.firstOrNull { it.occurrenceEntryId == occurrenceEntryId }
+            ?: return
+        editDraft(draft)
+    }
+
+    /**
+     * Records exactly one set for [occurrenceEntryId], leaving any remaining
+     * prescribed sets pending. Reuses the same load-shape and legacy/missing-load decisions as the
+     * batch path, but never writes more than one set.
+     */
+    fun confirmGuidedSet(occurrenceEntryId: Long) {
+        confirmGuidedSet(occurrenceEntryId, liveCompletion = false)
+    }
+
+    fun confirmGuidedSetNow(occurrenceEntryId: Long) {
+        if (_state.value.startedSetEntryId != occurrenceEntryId) return
+        confirmGuidedSet(occurrenceEntryId, liveCompletion = true)
+    }
+
+    /** Records an explicit set-start intent without creating a performed set. */
+    fun startGuidedSet(occurrenceEntryId: Long) {
+        if (draftSubmissionInProgress) return
+        if (_state.value.draftSets.none { it.occurrenceEntryId == occurrenceEntryId }) return
+        if (_state.value.performedAtMillis != null) onPerformedAtChanged(null)
+        val draft = _state.value.draftSets.first { it.occurrenceEntryId == occurrenceEntryId }
+        val elapsedNow = runtime.elapsedRealtimeMillis()
+        if (_state.value.isWarmup) {
+            resetShortRestCoaching()
+        } else if (shortRestCoachingEnabled &&
+            shortRestCoach.started(
+                sessionId = _state.value.activeSession?.id,
+                occurrenceId = requireNotNull(draft.occurrenceId),
+                exerciseId = draft.exerciseId,
+                bootIdentity = runtime.bootIdentity(),
+                startedAtElapsedMillis = elapsedNow
+            )
+        ) {
+            _state.update { it.copy(shortRestCoachingExerciseName = draft.name) }
+        }
+        liveSetIntentEntryId = occurrenceEntryId
+        liveSetStartedAtElapsedMillis = elapsedNow
+        liveSetCompletedAtElapsedMillis = null
+        liveSetCompletedAtWallMillis = null
+        _state.update { it.copy(startedSetEntryId = occurrenceEntryId) }
+    }
+
+    private fun confirmGuidedSet(occurrenceEntryId: Long, liveCompletion: Boolean) {
+        if (draftSubmissionInProgress) return
+        val draft = _state.value.draftSets.firstOrNull { it.occurrenceEntryId == occurrenceEntryId }
+            ?: return
+        // Load dialogs and failed writes retain the classification chosen for this confirmation.
+        if (guidedSetIntent?.entryId != occurrenceEntryId) {
+            guidedSetIntent = GuidedSetIntent(occurrenceEntryId, _state.value.isWarmup)
+        }
+        liveSetIntentEntryId = occurrenceEntryId.takeIf { liveCompletion }
+        if (liveCompletion && liveSetCompletedAtElapsedMillis == null) {
+            liveSetCompletedAtElapsedMillis = runtime.elapsedRealtimeMillis()
+            liveSetCompletedAtWallMillis = runtime.nowMillis()
+        }
+        if (!liveCompletion) {
+            liveSetStartedAtElapsedMillis = null
+            _state.update { it.copy(startedSetEntryId = null) }
+        }
+        _state.update { it.copy(guidedSetWriteFailed = false) }
+        val retry = retryFor(draft)
+        if (retry == null) {
+            legacyResolutionFor(listOf(draft))?.let { resolution ->
+                _state.update { it.copy(legacyResolution = resolution) }
+                return
+            }
+        }
+        val edit = _state.value.draftEdit?.takeIf { it.draft == draft || editedDraft(it) == draft }
+        val resolved = when {
+            edit != null -> editedDraft(edit)
+            retry != null -> retry.draft
+            else -> draft
+        }
+        if (retry == null && resolved.loadKind == LoadKind.EXTERNAL && resolved.weightKg == null) {
+            setMissingLoadPrompt(draft)
+            return
+        }
+        launchGuidedWrite(
+            resolved,
+            edit ?: retry?.edit,
+            liveCompletion = liveSetIntentEntryId == occurrenceEntryId
+        )
+    }
+
+    /** Claims the submission guard and writes a single guided set, then refreshes or reports failure. */
+    private fun launchGuidedWrite(
+        resolved: DraftSet,
+        edit: DraftEdit?,
+        liveCompletion: Boolean = false
+    ) {
+        val contextRevision = draftContextRevision
+        val timerGeneration = liveTimerGeneration
+        if (!beginDraftSubmission()) return
+        viewModelScope.launch {
+            val writeResult = try {
+                writeGuidedSet(resolved, edit, contextRevision, liveCompletion)
+            } finally {
+                endDraftSubmission()
+            }
+            applyGuidedWriteResult(
+                resolved,
+                writeResult,
+                contextRevision,
+                timerGeneration,
+                liveCompletion
+            )
+        }
+    }
+
+    /**
+     * Applies the shared result of one guided-set write. Every guided resolution path routes its
+     * outcome here, so a successful write always consumes the live start/completion event through
+     * [clearLiveSetStart] exactly once, and starts the rest prompt only for a live working-set
+     * completion whose context is still current. A failure keeps the event for an explicit retry.
+     */
+    private suspend fun applyGuidedWriteResult(
+        resolved: DraftSet,
+        writeResult: GuidedSetWriteResult,
+        contextRevision: Long,
+        timerGeneration: Long,
+        liveCompletion: Boolean
+    ) {
+        if (writeResult.succeeded) {
+            val contextStillCurrent = contextRevision == draftContextRevision &&
+                timerGeneration == liveTimerGeneration
+            if (liveCompletion && !writeResult.isWarmup && contextStillCurrent && isGuidedActive) {
+                startRestTimerIfDurationValid(
+                    resolved.occurrenceId,
+                    resolved.exerciseId,
+                    writeResult.sessionId
+                )
+            } else {
+                resetShortRestCoaching()
+            }
+            applyGuidedWriteSuccess()
+            _state.update { it.copy(isWarmup = false) }
+            clearLiveSetStart()
+        } else {
+            _state.update { it.copy(guidedSetWriteFailed = true) }
+        }
+    }
+
+    /**
+     * Writes exactly one set for the confirmed [resolved] values. A single insert either
+     * lands or does not, so a failure leaves the pending draft untouched for an explicit retry.
+     */
+    private suspend fun writeGuidedSet(
+        resolved: DraftSet,
+        edit: DraftEdit?,
+        contextRevision: Long,
+        liveCompletion: Boolean = false
+    ): GuidedSetWriteResult {
+        val isWarmup = guidedSetIntent?.takeIf { it.entryId == resolved.occurrenceEntryId }
+            ?.isWarmup ?: resolved.isWarmup
+        return try {
+            if (contextRevision != draftContextRevision) {
+                throw CancellationException("Draft context changed")
+            }
+            val sessionId = logDraft(
+                resolved.copy(sets = 1, isWarmup = isWarmup),
+                edit,
+                contextRevision,
+                liveCompletion = liveCompletion
+            )
+            ensureDraftContext(contextRevision)
+            GuidedSetWriteResult(true, sessionId, isWarmup)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            ensureDraftContext(contextRevision)
+            GuidedSetWriteResult(false, null, isWarmup)
+        }
+    }
+
+    private suspend fun startRestTimerIfDurationValid(
+        occurrenceId: Long?,
+        exerciseId: String,
+        sessionId: String?
+    ) {
+        if (!_state.value.canStartRestTimer) return
+        val seconds = settings.restDurationSeconds(exerciseId).takeIf {
+            it > 0L && it <= RestCountdown.MAX_DURATION_MILLIS / 1_000L
+        } ?: return
+        val durationMillis = seconds * 1_000L
+        val boot = runtime.bootIdentity()
+        if (shortRestCoachingEnabled && boot != null && sessionId != null && occurrenceId != null) {
+            shortRestCoach.completed(
+                LiveRestCompletion(
+                    sessionId,
+                    occurrenceId,
+                    exerciseId,
+                    boot,
+                    requireNotNull(liveSetCompletedAtElapsedMillis),
+                    durationMillis
+                )
+            )
+        }
+        val hasOverride = settings.hasExerciseRestDurationOverride(exerciseId)
+        timerOccurrenceId = occurrenceId
+        timerSessionId = sessionId
+        timerExerciseId = exerciseId
+        _state.update {
+            it.copy(restDurationSeconds = seconds.toString(), restDurationIsOverride = hasOverride)
+        }
+        restTimer.start(
+            durationMillis = durationMillis,
+            completedAtElapsedMillis = liveSetCompletedAtElapsedMillis
+                ?: runtime.elapsedRealtimeMillis(),
+            sessionId = sessionId,
+            occurrenceId = occurrenceId,
+            exerciseId = exerciseId
+        )
+    }
+
+    /** Clears transient guided/edit state and refreshes consumers after a single guided set lands. */
+    private suspend fun applyGuidedWriteSuccess() {
+        _state.update {
+            it.copy(
+                guidedSetWriteFailed = false,
+                missingLoadPrompt = null,
+                legacyResolution = null,
+                draftEdit = null
+            )
+        }
+        refreshRecentSets()
+        if (activeActivation != null) refreshOccurrence()
+    }
+
+    fun dismissShortRestCoaching() {
+        _state.update { it.copy(shortRestCoachingExerciseName = null) }
+    }
+
+    private fun resetShortRestCoaching() {
+        shortRestCoach.resetEligibility()
+        dismissShortRestCoaching()
+    }
+
     private suspend fun refreshRecentSets() {
         val rows = getWorkoutLog()
             .sortedWith(
@@ -1343,7 +1896,9 @@ class WorkoutLoggerViewModel(
                     isWarmup = set.isWarmup,
                     weekNumber = set.weekNumber,
                     dayIndex = set.dayIndex,
-                    loadKind = set.loadKind
+                    loadKind = set.loadKind,
+                    occurrenceId = set.occurrenceId,
+                    sessionId = set.sessionId
                 )
             }
         _state.update { it.copy(recentSets = rows) }

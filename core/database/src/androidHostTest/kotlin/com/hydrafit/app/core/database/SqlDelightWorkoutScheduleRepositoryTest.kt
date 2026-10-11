@@ -17,6 +17,8 @@ import com.hydrafit.app.core.domain.schedule.ActivationEntry
 import com.hydrafit.app.core.domain.schedule.ActivationStatus
 import com.hydrafit.app.core.domain.schedule.ActivationWorkout
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
+import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementException
+import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementFailure
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
 import com.hydrafit.app.core.domain.schedule.RemainingDisposition
 import com.hydrafit.app.core.domain.schedule.ScheduleException
@@ -24,6 +26,7 @@ import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.schedule.TrainingActivation
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.time.DayOfWeek
+import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -36,6 +39,158 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 class SqlDelightWorkoutScheduleRepositoryTest {
+
+    @Test
+    fun replacementIsAtomicAndPreservesMasterFutureOccurrenceAndEntryIdentity() = runTest {
+        SeedExerciseCatalog(database).seed()
+        val id = repository.acceptAndActivate(null, activation(), listOf(null, null), false)
+        val master = repository.getActivation(id)
+        val occurrences = repository.occurrences(id)
+        val occurrence = occurrences.first()
+        val candidate = SqlDelightExerciseCatalog(database).all().first {
+            it.movementPattern == occurrence.entries.single().movementPattern &&
+                it.id != occurrence.entries.single().exerciseId
+        }
+        candidate.requiredEquipment.forEach { database.userEquipmentQueries.insertSelected(it.id) }
+        val replacement = occurrence.entries.single().copy(
+            exerciseId = candidate.id,
+            exerciseName = candidate.name,
+            requiredEquipment = candidate.requiredEquipment,
+            involvements = candidate.effectiveInvolvements,
+            isUnilateral = candidate.isUnilateral,
+            weightKg = null,
+            loadCapability = candidate.loadCapability,
+            loadKind = WorkoutLoadPolicy.defaultKind(candidate.loadCapability)
+        )
+        database.exerciseExclusionQueries.upsert(candidate.id, null)
+        assertFailsWith<OccurrenceReplacementException> {
+            repository.replaceUntouchedEntry(occurrence.id, occurrence.revision, replacement, 1L)
+        }
+        assertEquals(occurrence, repository.getOccurrence(occurrence.id))
+        database.exerciseExclusionQueries.deleteById(candidate.id)
+        assertFailsWith<OccurrenceReplacementException> {
+            repository.replaceUntouchedEntry(
+                occurrence.id,
+                occurrence.revision + 1,
+                replacement,
+                1L
+            )
+        }
+        repository.replaceUntouchedEntry(occurrence.id, occurrence.revision, replacement, 1L)
+        val changed = requireNotNull(repository.getOccurrence(occurrence.id))
+        assertEquals(replacement, changed.entries.single())
+        assertEquals(occurrence.revision + 1, changed.revision)
+        assertEquals(master, repository.getActivation(id))
+        assertEquals(occurrences.last(), repository.getOccurrence(occurrences.last().id))
+    }
+
+    @Test
+    fun aSetLoggedAfterPreviewIncludingWarmupsPreventsReplacement() = runTest {
+        SeedExerciseCatalog(database).seed()
+        val id = repository.acceptAndActivate(null, activation(), listOf(null, null), false)
+        val occurrence = repository.occurrences(id).first()
+        val entry = occurrence.entries.single()
+        SqlDelightWorkoutLogRepository(database).add(
+            com.hydrafit.app.core.domain.workout.WorkoutSet(
+                exerciseId = entry.exerciseId,
+                reps = 2,
+                weightKg = null,
+                performedAtMillis = 1L,
+                isWarmup = true,
+                occurrenceId = occurrence.id,
+                occurrenceEntryId = entry.id
+            )
+        )
+        val error = assertFailsWith<OccurrenceReplacementException> {
+            repository.replaceUntouchedEntry(occurrence.id, occurrence.revision, entry, 1L)
+        }
+        assertEquals(OccurrenceReplacementFailure.RECORDED_SLOT, error.reason)
+        assertEquals(occurrence, repository.getOccurrence(occurrence.id))
+    }
+
+    @Test
+    fun aSetLinkedToTheOccurrenceWithoutAnEntryAlsoPreventsReplacement() = runTest {
+        SeedExerciseCatalog(database).seed()
+        val id = repository.acceptAndActivate(null, activation(), listOf(null, null), false)
+        val occurrence = repository.occurrences(id).first()
+        val entry = occurrence.entries.single()
+        // Attribution may resolve the occurrence without an entry; when the exercise matches, that
+        // work still belongs to the slot, so it must not be swapped as if it were untouched.
+        SqlDelightWorkoutLogRepository(database).add(
+            com.hydrafit.app.core.domain.workout.WorkoutSet(
+                exerciseId = entry.exerciseId,
+                reps = 2,
+                weightKg = null,
+                performedAtMillis = 1L,
+                occurrenceId = occurrence.id,
+                occurrenceEntryId = null
+            )
+        )
+        val error = assertFailsWith<OccurrenceReplacementException> {
+            repository.replaceUntouchedEntry(occurrence.id, occurrence.revision, entry, 1L)
+        }
+        assertEquals(OccurrenceReplacementFailure.RECORDED_SLOT, error.reason)
+    }
+
+    @Test
+    fun anOccurrenceLevelSetForAnotherExerciseLeavesTheSlotReplaceable() = runTest {
+        SeedExerciseCatalog(database).seed()
+        val id = repository.acceptAndActivate(null, activation(), listOf(null, null), false)
+        val occurrence = repository.occurrences(id).first()
+        val entry = occurrence.entries.single()
+        val candidate = SqlDelightExerciseCatalog(database).all().first {
+            it.movementPattern == entry.movementPattern && it.id != entry.exerciseId
+        }
+        candidate.requiredEquipment.forEach { database.userEquipmentQueries.insertSelected(it.id) }
+        val replacement = entry.copy(
+            exerciseId = candidate.id,
+            exerciseName = candidate.name,
+            requiredEquipment = candidate.requiredEquipment,
+            involvements = candidate.effectiveInvolvements,
+            isUnilateral = candidate.isUnilateral,
+            weightKg = null,
+            loadCapability = candidate.loadCapability,
+            loadKind = WorkoutLoadPolicy.defaultKind(candidate.loadCapability)
+        )
+        // An unplanned extra exercise is not attributed to any slot, so it must not freeze them all.
+        SqlDelightWorkoutLogRepository(database).add(
+            com.hydrafit.app.core.domain.workout.WorkoutSet(
+                exerciseId = "unplanned-extra",
+                reps = 2,
+                weightKg = null,
+                performedAtMillis = 1L,
+                occurrenceId = occurrence.id,
+                occurrenceEntryId = null
+            )
+        )
+        repository.replaceUntouchedEntry(occurrence.id, occurrence.revision, replacement, 1L)
+        assertEquals(replacement, repository.getOccurrence(occurrence.id)?.entries?.single())
+    }
+
+    @Test
+    fun anEntryLinkedSetWithoutAnOccurrenceStillPreventsReplacement() = runTest {
+        SeedExerciseCatalog(database).seed()
+        val id = repository.acceptAndActivate(null, activation(), listOf(null, null), false)
+        val occurrence = repository.occurrences(id).first()
+        val entry = occurrence.entries.single()
+        // The entry id is the authoritative attribution: a stored row that names the entry but
+        // carries no occurrence id still belongs to the slot's work and must freeze it.
+        SqlDelightWorkoutLogRepository(database).add(
+            com.hydrafit.app.core.domain.workout.WorkoutSet(
+                exerciseId = entry.exerciseId,
+                reps = 2,
+                weightKg = null,
+                performedAtMillis = 1L,
+                occurrenceId = null,
+                occurrenceEntryId = entry.id
+            )
+        )
+        val error = assertFailsWith<OccurrenceReplacementException> {
+            repository.replaceUntouchedEntry(occurrence.id, occurrence.revision, entry, 1L)
+        }
+        assertEquals(OccurrenceReplacementFailure.RECORDED_SLOT, error.reason)
+        assertEquals(occurrence, repository.getOccurrence(occurrence.id))
+    }
 
     private lateinit var driver: SqlDriver
     private lateinit var database: HydraFitDatabase

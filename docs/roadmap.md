@@ -38,14 +38,14 @@ schema, dependency, infrastructure and licensing decisions retain their gates.
 
 | Target | Theme | Primary references |
 | --- | --- | --- |
-| 0.6.0 | Guided Training | OF-02, LT-06/07/09, item 9 B1, OF-13 dividers |
+| 0.6.0 | Guided Training | OF-02, LT-06/07/09, item 9 B1, OF-13 dividers, phone portrait lock |
 | 0.7.0 | Workout Context & Confidence | OF-03, OF-13/14, WU-01, CAT-01, OF-12-P2/P3, EX-03, LT-10 contract |
 | 0.8.0 | Progress & Recovery | OF-04/08/09, catalog classification/research |
 | 0.9.0 | Equipment & Data Freedom | EQ-01, OF-05/06/07, QL-02, OF-01 extensions |
 | 0.10.0 | Trustworthy Progression & Flexible Prescriptions | OF-10A/B, PYR-01, item 9 B2/B3, item 8 |
 | 0.11.0 | Beyond Rep-Based Sets | OF-10C/D, timed/distance/force grip, advanced set semantics |
 | 0.12.0 | Optional AI Reliability | M8-P0–P4, CATP7-R01, AI review/performance follow-ups |
-| 0.13.0 | Final UX & Design | QL-01 final pass, full-flow integration and remaining quality gates |
+| 0.13.0 | Final UX & Design | QL-01 final pass, UX-01 adaptive tablet/foldable layouts, full-flow integration and remaining quality gates |
 | 1.0.0 | Verified Android-first completion | All pre-1.0 scopes delivered or explicitly dispositioned; stability gate |
 | Beyond 1.0 | Additional platforms | iOS shipping/Keychain-backed ApiKeyStore; desktop |
 
@@ -54,7 +54,8 @@ schema, dependency, infrastructure and licensing decisions retain their gates.
 - **OF-02:** ordered workouts using existing routines, occurrences and sessions;
   targets versus actual work, remaining sets, out-of-order/unplanned logging,
   skip/partial finish and reliable resume. Opening or starting work never creates
-  performed sets.
+  performed sets. Guided workouts are opt-in and off by default; the preference
+  persists and round-trips through compatible local backups.
 - **LT-06 / OF-02 timing:** live after-set confirmation, catch-up/unknown timing,
   editable deadline-based rest countdowns, lifecycle cancellation and approved
   background alerts. Short-rest coaching uses eligible live intervals only.
@@ -208,6 +209,13 @@ CATP7-R01 may move earlier as a separately approved corrective if needed.
 
 - **QL-01:** final coherent design/token/navigation/workout hierarchy pass across
   the completed product; scoped screen/component changes, not an unreviewed rewrite.
+- **UX-01:** adaptive layouts for tablets and seamless foldables. Replace the fixed
+  two-row bottom bar with a single-row bar or navigation rail when the window is wide,
+  add multi-pane where it helps, and handle posture changes so the cover screen and the
+  unfolded screen are one continuous session: the current draft, workout, scroll and
+  selection survive fold/unfold without a restart or data loss. Phones stay portrait
+  (the `values-sw600dp/` escape hatch is the entry point). No new feature module,
+  fatigue/planner change, dependency or infrastructure change.
 - Full light/dark, approved text-scale/layout, screen-reader/focus, touch-target,
   colour-independent metrics and locale/date/number/resource coverage.
 - Consistent first-run, empty, loading, error, cancel, retry and recovery states;
@@ -216,7 +224,8 @@ CATP7-R01 may move earlier as a separately approved corrective if needed.
   remaining pre-1.0 quality findings, performance budgets and verification debt.
 - Final documentation, license/attribution and supported-device/limitation pass.
 
-Gate: complete user journeys remain usable and verified after polish. UX,
+Gate: complete user journeys remain usable and verified after polish, and UX-01 stays
+coherent across cover, unfolded and rotated large-screen states. UX,
 accessibility and localization checks apply to every earlier release too; 0.13.0
 is the final integration/design pass, not permission to defer basic usability.
 
@@ -229,7 +238,7 @@ retain their separate approval/Plan Mode requirements.
 
 | Track | Remaining coverage / disposition |
 | --- | --- |
-| Migration/data integrity | Full-chain `verifyMigrations` plus schema snapshot or v1-to-current coverage; each new schema/data type has migration and portability tests; restore/write interruption paths. |
+| Migration/data integrity | Full-chain coverage in place: SQLDelight `verifyMigrations` against the committed v1 seed `databases/1.db` (CI `verifySqlDelightMigration`) plus `V1ToCurrentMigrationTest`. Three `.sq` tables were order-aligned to the migration chain (no column-set change). Each new schema/data type still needs migration and portability tests; restore/write interruption paths. |
 | Test hardening | TS2-002..006; TS3-001/002/005/006/007; TS4-003/004/005/007; TR-002..008. Decide TS4-001 shared fixtures and TR-001 redundancy before implementing their scopes. |
 | Consistency findings | S1-001/003/004/006/009/010/011/012; S2-002/003/006/008/009; S4-002/003/005/006; S5-001/002/003/005; S6-001/003/006/007/008. S1-002 remains a recorded won't-fix, not reopened automatically. |
 | UI tooling — QL-03 | Keyboard/negative/recovery flows, guarded execution/configuration restrictions and measured smaller-model efficiency; retain the documented MCP-depth bypass. CI adoption is a separately gated decision, not an implied infrastructure change. |

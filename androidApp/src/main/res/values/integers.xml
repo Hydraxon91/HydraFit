@@ -1,0 +1,4 @@
+<resources>
+    <!-- Phone windows stay portrait; ActivityInfo.SCREEN_ORIENTATION_PORTRAIT. -->
+    <integer name="screen_orientation">1</integer>
+</resources>

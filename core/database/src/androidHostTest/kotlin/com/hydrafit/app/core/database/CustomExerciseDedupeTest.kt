@@ -169,6 +169,11 @@ class CustomExerciseDedupeTest {
             "user-bicycle-crunch",
             database.exerciseExclusionQueries.selectAll().executeAsOne().exerciseId
         )
+        assertEquals(
+            90L,
+            database.restPreferenceQueries.selectExerciseOverride("user-bicycle-crunch")
+                .executeAsOne()
+        )
 
         // A second pass does not merge, duplicate or otherwise change the retained identity.
         val exercisesAfterFirstRun = database.exerciseQueries.selectAll().executeAsList()
@@ -568,6 +573,55 @@ class CustomExerciseDedupeTest {
     }
 
     @Test
+    fun movesACustomsRestOverrideToTheCanonicalExercise() {
+        insertCustom(involvements = trapBarSeedInvolvements())
+        database.restPreferenceQueries.upsertExerciseOverride(
+            "user-trap-bar-deadlift",
+            "user-trap-bar-deadlift",
+            150L
+        )
+
+        CustomExerciseDedupe(database).run()
+
+        assertEquals(
+            150L,
+            database.restPreferenceQueries.selectExerciseOverride("trap-bar-deadlift")
+                .executeAsOne()
+        )
+        assertNull(
+            database.restPreferenceQueries.selectExerciseOverride("user-trap-bar-deadlift")
+                .executeAsOneOrNull()
+        )
+    }
+
+    @Test
+    fun keepsTheCanonicalRestOverrideWhenBothAreExplicit() {
+        insertCustom(involvements = trapBarSeedInvolvements())
+        database.restPreferenceQueries.upsertExerciseOverride(
+            "user-trap-bar-deadlift",
+            "user-trap-bar-deadlift",
+            150L
+        )
+        database.restPreferenceQueries.upsertExerciseOverride(
+            "trap-bar-deadlift",
+            "trap-bar-deadlift",
+            90L
+        )
+
+        CustomExerciseDedupe(database).run()
+
+        assertEquals(
+            90L,
+            database.restPreferenceQueries.selectExerciseOverride("trap-bar-deadlift")
+                .executeAsOne()
+        )
+        assertNull(
+            database.restPreferenceQueries.selectExerciseOverride("user-trap-bar-deadlift")
+                .executeAsOneOrNull()
+        )
+    }
+
+    @Test
     fun movesACustomsExclusionToTheCanonicalExercise() {
         insertCustom(involvements = trapBarSeedInvolvements())
         database.exerciseExclusionQueries.upsert(
@@ -885,6 +939,7 @@ class CustomExerciseDedupeTest {
         )
         database.exercisePreferenceQueries.upsert(exerciseId = exerciseId, preference = "PREFER")
         database.exerciseExclusionQueries.upsert(exerciseId = exerciseId, expiresAt = null)
+        database.restPreferenceQueries.upsertExerciseOverride(exerciseId, exerciseId, 90L)
     }
 
     private fun insertRoutineEntry(exerciseId: String) {

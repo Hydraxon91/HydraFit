@@ -2,6 +2,7 @@ package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.hydrafit.app.core.domain.backup.BackupValidator
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
@@ -126,6 +127,69 @@ class SqlDelightCustomExerciseRepositoryTest {
         database.workoutLogQueries.deleteAllSets()
         repository.delete(created.id)
         assertTrue(catalog.all().none { it.id == created.id })
+    }
+
+    @Test
+    fun successfulDeleteRemovesRestOverrideAndLeavesAValidBackup() = runTest {
+        val created = repository.add(
+            name = "Disposable rest override",
+            requiredEquipment = emptySet(),
+            involvements = mapOf(MuscleGroup.ABS to 1.0),
+            movementPattern = MovementPattern.CORE
+        )
+        val restPreferences = SqlDelightRestPreferenceRepository(database)
+        restPreferences.setExerciseOverrideSeconds(created.id, 240L)
+
+        repository.delete(created.id)
+
+        assertEquals(null, restPreferences.exerciseOverrideSeconds(created.id))
+        val exported = SqlDelightBackupRepository(database, SqlDelightBackupCatalog())
+            .export("test", 1L)
+        BackupValidator(SqlDelightBackupCatalog()).validate(exported)
+        assertTrue(exported.restPreferences.none { it.exerciseId == created.id })
+    }
+
+    @Test
+    fun blockedDeletePreservesRestOverride() = runTest {
+        val created = repository.add(
+            name = "Logged rest override",
+            requiredEquipment = emptySet(),
+            involvements = mapOf(MuscleGroup.ABS to 1.0),
+            movementPattern = MovementPattern.CORE
+        )
+        val restPreferences = SqlDelightRestPreferenceRepository(database)
+        restPreferences.setExerciseOverrideSeconds(created.id, 240L)
+        SqlDelightWorkoutLogRepository(database).add(
+            WorkoutSet(exerciseId = created.id, reps = 5, weightKg = null, performedAtMillis = 1L)
+        )
+
+        assertFailsWith<CustomExerciseException> { repository.delete(created.id) }
+
+        assertEquals(240L, restPreferences.exerciseOverrideSeconds(created.id))
+        assertTrue(catalog.all().any { it.id == created.id })
+    }
+
+    @Test
+    fun deleteFailureRollsBackRestOverrideRemoval() = runTest {
+        val created = repository.add(
+            name = "Rollback rest override",
+            requiredEquipment = emptySet(),
+            involvements = mapOf(MuscleGroup.ABS to 1.0),
+            movementPattern = MovementPattern.CORE
+        )
+        val restPreferences = SqlDelightRestPreferenceRepository(database)
+        restPreferences.setExerciseOverrideSeconds(created.id, 240L)
+        driver.execute(
+            null,
+            "CREATE TRIGGER reject_exercise_delete BEFORE DELETE ON exercise " +
+                "WHEN OLD.id = '${created.id}' BEGIN SELECT RAISE(ABORT, 'injected'); END",
+            0
+        )
+
+        assertFailsWith<Exception> { repository.delete(created.id) }
+
+        assertEquals(240L, restPreferences.exerciseOverrideSeconds(created.id))
+        assertTrue(catalog.all().any { it.id == created.id })
     }
 
     @Test

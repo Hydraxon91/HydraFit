@@ -38,7 +38,7 @@ not an instruction to repeat the install.
 
 ### Security & Compliance Constraints
 
-- **Static Analysis:** ktlint/detekt must run on every PR. Avoid introducing patterns that trip common Android lint/security checks (e.g., hardcoded secrets, insecure HTTP, unvalidated deep links).
+- **Static Analysis:** ktlint must run on every PR. Current workflows run ktlint; detekt is additionally required if configured, not a replacement for ktlint. Adding detekt remains an approval-gated tooling/configuration change. Avoid introducing patterns that trip common Android lint/security checks (e.g., hardcoded secrets, insecure HTTP, unvalidated deep links).
 - **Dependency Hygiene:** If you add a new third-party dependency, note its license and check it isn't pulling in an abandoned or flagged transitive dependency — call this out in the PR description rather than silently adding it.
 - **No Secrets in Logs:** Never `println`/log the Gemini API key or any request/response payload that might contain it, even for debugging. Redact before logging.
 

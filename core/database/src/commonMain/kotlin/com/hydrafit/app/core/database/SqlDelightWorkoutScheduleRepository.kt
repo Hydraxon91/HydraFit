@@ -5,10 +5,14 @@ import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.schedule.ActivationEntry as DomainActivationEntry
 import com.hydrafit.app.core.domain.schedule.ActivationStatus
 import com.hydrafit.app.core.domain.schedule.ActivationWorkout as DomainActivationWorkout
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry as DomainOccurrenceEntry
+import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementException
+import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementFailure
+import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementRepository
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
 import com.hydrafit.app.core.domain.schedule.RemainingDisposition
 import com.hydrafit.app.core.domain.schedule.ScheduleException
@@ -19,13 +23,15 @@ import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState as DomainWorkoutScheduleState
 import com.hydrafit.app.core.domain.schedule.toWeekdayMask
 import com.hydrafit.app.core.domain.schedule.weekdaysOf
+import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase) :
-    WorkoutScheduleRepository {
+    WorkoutScheduleRepository,
+    OccurrenceReplacementRepository {
     private val queries = database.trainingScheduleQueries
     private val planWriter = AcceptedPlanWriter(database)
 
@@ -271,6 +277,100 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
             revision = occurrence.revision.toLong(),
             id = occurrence.id
         )
+    }
+
+    override suspend fun replaceUntouchedEntry(
+        occurrenceId: Long,
+        expectedRevision: Int,
+        replacement: DomainOccurrenceEntry,
+        nowMillis: Long
+    ) {
+        database.transaction {
+            fun reject(reason: OccurrenceReplacementFailure): Nothing =
+                throw OccurrenceReplacementException(reason)
+            val occurrence = queries.selectOccurrenceById(occurrenceId).executeAsOneOrNull()
+                ?: reject(OccurrenceReplacementFailure.STALE_CONTEXT)
+            val state = queries.selectScheduleState().executeAsOneOrNull()
+            val original = queries.selectOccurrenceEntryById(replacement.id).executeAsOneOrNull()
+                ?: reject(OccurrenceReplacementFailure.STALE_CONTEXT)
+            if (state?.activeActivationId != occurrence.activationId ||
+                (
+                    state.selectedOccurrenceId != null &&
+                        state.selectedOccurrenceId != occurrenceId
+                    ) ||
+                occurrence.status in RESOLVED_STATUS_NAMES ||
+                occurrence.revision != expectedRevision.toLong() ||
+                original.occurrenceId != occurrenceId ||
+                original.sets != replacement.sets.toLong() ||
+                original.reps != replacement.reps.toLong() ||
+                original.position != replacement.position.toLong() ||
+                original.sourceActivationEntryId != replacement.sourceActivationEntryId ||
+                original.remainingDisposition != null ||
+                replacement.remainingDisposition != null ||
+                replacement.terminalRemainingSets != null
+            ) {
+                reject(OccurrenceReplacementFailure.STALE_CONTEXT)
+            }
+            // Mirrors WorkoutSet.freezesOccurrenceSlot: a set attributed to this entry freezes it,
+            // and the entry id is authoritative, so an entry-only row (no occurrence id) still
+            // counts. An occurrence-level set freezes only this same exercise's slot whose entry
+            // link was lost. Unplanned extra exercises are deliberately not attributed here, so they
+            // do not freeze unrelated slots.
+            val frozen = database.workoutLogQueries
+                .selectSetsForOccurrenceEntry(replacement.id)
+                .executeAsList()
+                .isNotEmpty() ||
+                database.workoutLogQueries.selectSetsForOccurrence(occurrenceId)
+                    .executeAsList()
+                    .any { row ->
+                        row.occurrenceEntryId == null && row.exerciseId == original.exerciseId
+                    }
+            if (frozen) {
+                reject(OccurrenceReplacementFailure.RECORDED_SLOT)
+            }
+            val candidate = SqlDelightExerciseCatalog(database).findById(replacement.exerciseId)
+                ?: reject(OccurrenceReplacementFailure.UNAVAILABLE)
+            val equipment = database.userEquipmentQueries.selectAllSelected().executeAsList()
+                .map { EquipmentTag(it) }.toSet()
+            val exclusion = database.exerciseExclusionQueries.selectById(candidate.id)
+                .executeAsOneOrNull()
+            val excluded = exclusion != null &&
+                (exclusion.expiresAt == null || exclusion.expiresAt > nowMillis)
+            if (!candidate.isAvailableWith(equipment) ||
+                excluded ||
+                candidate.id == original.exerciseId ||
+                candidate.movementPattern.name != original.movementPattern
+            ) {
+                reject(OccurrenceReplacementFailure.UNAVAILABLE)
+            }
+            if (replacement.exerciseName != candidate.name ||
+                replacement.movementPattern != candidate.movementPattern ||
+                replacement.requiredEquipment != candidate.requiredEquipment ||
+                replacement.involvements != candidate.effectiveInvolvements ||
+                replacement.isUnilateral != candidate.isUnilateral ||
+                replacement.loadCapability != candidate.loadCapability ||
+                replacement.loadKind != WorkoutLoadPolicy.defaultKind(candidate.loadCapability)
+            ) {
+                reject(OccurrenceReplacementFailure.STALE_CONTEXT)
+            }
+            val weight = replacement.weightKg
+            if (weight != null &&
+                (
+                    !weight.isFinite() ||
+                        weight < 0.0 ||
+                        !WorkoutLoadPolicy.allowsAutomaticLoad(candidate.loadCapability) ||
+                        candidate.requiredEquipment.any { tag ->
+                            val maximum = database.equipmentQueries.selectById(tag.id)
+                                .executeAsOneOrNull()?.maxWeightKg
+                            maximum != null && weight > maximum
+                        }
+                    )
+            ) {
+                reject(OccurrenceReplacementFailure.STALE_CONTEXT)
+            }
+            replacement.update(queries, replacement.position)
+            queries.incrementOccurrenceRevision(occurrenceId)
+        }
     }
 
     override suspend fun replaceOccurrenceEntries(

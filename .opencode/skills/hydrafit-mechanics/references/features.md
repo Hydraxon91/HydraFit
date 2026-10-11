@@ -15,6 +15,8 @@ to stay within the constructor budget. When a block is active the Logger shows
 the selected/oldest-unresolved occurrence's remaining sets as drafts, stamps
 `occurrenceId`/`occurrenceEntryId` on logged sets, and exposes Finish/partial/
 Skip (the only queue advances); with no block it keeps the accepted-plan path.
+Attribution reuses the frozen draft slot, so a manual log for a prescribed exercise
+still carries the entry id rather than only the occurrence.
 Planned-set draft editing is one-off: the in-memory editor changes only the values
 written by that draft's confirmation, never the accepted plan, routine or frozen
 activation/occurrence. Reps, capability-appropriate load, optional RIR and optional
@@ -43,9 +45,16 @@ refresh and is retried through the normal confirm path. Retry state is in memory
 restart starts over. A Confirm-all batch is scoped to its plan/occurrence context and stops
 continuing when that context changes, without undoing successful writes. A legacy resolution dialog
 takes precedence over an open draft editor, which remains in state until resolution is dismissed.
-Cancel leaves the draft pending; canceling the editor discards its in-memory edits. These actions
+Cancel leaves the draft pending and discards any live-set start/completion event so a later live
+completion requires a fresh Start action; canceling the editor discards its in-memory edits. These actions
 stay within the six existing Logger ViewModel dependencies; no draft-actions Koin aggregate is
 registered.
+
+Recent sets carry nullable stored `sessionId` in `LoggedSetRow`, retaining performed-time descending
+and insertion-id descending tie order. `startsSessionAfter` identifies adjacent explicit boundaries;
+the UI shows "Recorded session" at each boundary, including a returning identity without regrouping.
+Each null-session row instead has its own "Session not recorded" subtitle. No date/gap inference,
+ordinal identity or duration is introduced. Boundaries are derived anew after correction/deletion.
 
 Recent sets use a separate `LoggedSetEdit` / `LoggedSetEditDialog`, reached by **Edit set** rather
 than the former time-only button. `CorrectWorkoutSetUseCase` is forwarded by `WorkoutLogMutations`;
@@ -56,13 +65,99 @@ unit is frozen, unchanged weight text preserves exact stored kilograms, blank is
 numeric. Recorded load kind is authoritative (BODYWEIGHT stays non-numeric); live catalog edits do
 not reinterpret history. Block attribution, warm-up and snapshots are preserved.
 
+Performed sets carry `WorkoutTimingProvenance`: `LIVE` is reserved for the explicit guided
+completion action, `CATCH_UP` for an explicitly chosen performed time, and `UNKNOWN` for ordinary
+manual/guided logging and legacy rows. A live guided set stores its monotonic start and completion
+instants; correcting performed time or changing reps/load/RIR resets provenance to `UNKNOWN` and
+clears both instants atomically. A successful guided write consumes the live event on every load
+resolution path; failed writes retain it for retry. Timing source is not inferred from timestamp
+gaps. The values round-trip through backup format 6; format 3 preserves provenance but defaults
+elapsed fields to null, and formats 1–2 default timing fields to unknown/null.
+
+All three Logger RIR inputs (manual entry, planned-draft edit and recent-set edit) explain RIR as
+additional reps possible with comparable technique and range of motion, keep it optional, and offer
+explicit 0/1/2/3 quick-picks. Tapping the selected value clears it; blank remains unreported and
+preserves the existing neutral fatigue assumption. Typed values through 10 remain available. RIR is
+the only presentation in B1: there is no RPE alias/conversion, inferred effort, domain change or
+automatic selection from history/prescriptions.
+
 Feature navigation: each feature exports a `FeatureDestination` whose `graph` is
+aggregated in the shell. Its six fully labeled tabs use two rows of three; only the
+bottom row owns bottom system-bar insets. Phones are portrait-locked (`values/` vs
+`values-sw600dp/` `screenOrientation`), so the two-row bar is only ever laid out in
+portrait there; large screens may rotate. The read-only `.maestro/navigation-smoke.yaml`
+asserts selected-tab semantics after each navigation, not merely visible labels.
+The exported graph type is
 `(NavController) -> NavGraphBuilder.() -> Unit`; the shell passes its `NavController`, so a feature
 can register an internal sub-route without a shell change. Settings uses a nested `navigation(...)`
 graph (`settings` → `settings/home` + `settings/acknowledgments`) so the bottom tab stays selected on
 its sub-screen. The live app version comes from `AppVersionProvider` (`:core:userdata`), bound in
 `appVersionModule` (Android, from `BuildConfig.VERSION_NAME`) and `IosDatabaseModule` (returns
 `"dev"`).
+
+Guided-workout opt-in lives in Settings and defaults off. Its value is owned by
+`GuidedWorkoutPreferenceRepository` in `:core:userdata`, persisted with planner
+settings in `plannerEngine.guidedWorkoutEnabled`, and included in backup format
+2. Backup format 1 restores the preference as off.
+
+When the setting is on and a training-block occurrence is active, the Logger
+replaces the "Planned today" draft list with a guided card. Progress comes from
+`buildGuidedWorkoutProgress` (`:core/domain` `workout/GuidedWorkoutProgress.kt`),
+which reads each occurrence entry's frozen prescription and the working sets
+attributed to it; warm-ups and sets with no entry attribution never satisfy a
+prescription. The card lists exercises in entry order with target reps/load and
+performed/prescribed counts. "Log set" records exactly one set for that entry and
+leaves the remaining prescribed sets pending; the Warm-up choice is frozen at confirmation,
+survives legacy/missing-load resolution and failed-write retries, and is discarded on cancellation
+or consumed on success. A warm-up is stored as a warm-up and stays out of the progress count. "Edit" opens
+the one-off
+draft editor and confirming it also writes a single set. Guided writes reuse the
+draft load-shape decisions (legacy resolution, missing-load prompt) through
+`writeGuidedSet`, so a single insert either lands or leaves the draft pending for
+retry. **Set completed now** is a separate explicit action: it timestamps the set
+at the live wall time and starts a deadline-based rest prompt only after the write
+succeeds. Ordinary guided confirmation, manual logging, warm-ups and backdated
+entries do not start a timer. The monotonic deadline and workout context are
+persisted for process-death restoration; restore requires matching boot, open-session
+and occurrence identity and silently clears expired or mismatched state. Global rest
+duration defaults to 120 seconds and is editable in Settings; a Logger timer edit saves
+an exercise override with a reset-to-default action. Durations are limited to 1 second–
+24 hours. These prompts are not rest measurements. Separate default-off Settings opt-ins control
+Android background alerts (explicit permission request, inexact local alarm) and short-rest coaching.
+`RestAlertCoordinator` reconciles alarms at app lifetime after startup readiness, observing occurrence
+changes even without Logger. `ShortRestCoach` consumes successful live completion → explicit Start
+set, same exercise/session/occurrence/boot; two consecutive intervals below the duration chosen at
+completion show one dismissible message per exercise/session. Unknown/catch-up/edited timing,
+warm-ups and transitions are excluded; a warm-up Start breaks coaching eligibility, and a live
+warm-up completion neither starts nor persists a new rest prompt. Recreation resets transient evidence.
+At startup, reconciliation leaves a due, still-valid countdown to the triggered receiver so it can
+revalidate and post; invalid context, disabled preferences and later transitions into due state still
+cancel. Ordinary Logger restoration continues to clear expired state silently.
+It cancels on session/occurrence changes, guided mode being turned off, explicit
+dismissal, or successful deletion/correction of a set from its occurrence.
+Finish/partial Finish/Skip and End/New session retain their existing logging
+semantics. The accepted plan is never edited. Off keeps the existing draft/batch
+flow. The Logger ViewModel groups its preferences and rest-duration delegation in
+`WorkoutLoggerSettings` (display units and the guided flag, plus resolve/set/clear
+of per-exercise rest durations forwarded to the domain use cases), and its wall
+clock/timer factory in `WorkoutLoggerRuntime`, to stay within its dependency budget.
+
+`OccurrenceReplacementViewModel` delegates candidate loading/confirmation to
+`ReplaceOccurrenceExerciseUseCase`, using fresh local planner inputs. The dialog is available from
+guided rows and occurrence draft menus. One `freezesOccurrenceSlot` predicate backs both the domain
+guard and `replaceUntouchedEntry`: any set attributed to the slot - working or warm-up - rejects it.
+The entry id is the authoritative attribution, so an entry-linked set freezes its entry even when
+its occurrence id is absent or disagrees; an occurrence-level set for that same exercise whose entry
+link was lost also freezes the slot. A set for a
+different exercise is deliberately not attributed to the slot, so an unplanned extra exercise
+recorded during the workout does not freeze every replacement in it. The guided action stays
+enabled whenever the occurrence is writable, so a frozen slot explains itself through the
+recorded-slot message rather than being silently disabled; only a write in progress disables it.
+Untouched slots in
+started occurrences remain eligible. Choosing a candidate confirms an occurrence-
+only change with preserved sets/reps/id and the candidate's own load history, not the original load.
+Stale context/availability fails without writing; Cancel writes nothing. No candidate points to
+existing whole-workout Skip/partial Finish, not a new slot-skip action.
 
 For routine authoring, the module is `:feature:routines`:
 `RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/
@@ -84,6 +179,12 @@ forwards method references to the screen. Logger also uses
 
 Each feature's resources are at
 `feature/<name>/src/commonMain/composeResources/values/strings.xml`.
+Logger displays session status above a wrapping action row so End/New labels retain width at
+larger font scales. Settings guidance rows expose narrowly scoped `settings_rest_alerts` and
+`settings_short_rest_coaching` test tags as Android resource IDs through a platform modifier
+adapter (no-op on iOS); spoken labels and switch semantics remain unchanged.
+`.maestro/settings-guidance-denial.yaml` checks denied opt-in independently
+of coaching and restores coaching OFF; permission flags need separately approved cleanup.
 Generated imports for logger are:
 
 ```kotlin

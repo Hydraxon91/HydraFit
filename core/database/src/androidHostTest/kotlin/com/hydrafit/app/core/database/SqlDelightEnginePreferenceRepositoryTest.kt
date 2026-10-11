@@ -79,6 +79,22 @@ class SqlDelightEnginePreferenceRepositoryTest {
     }
 
     @Test
+    fun guidedWorkoutDefaultsToOffAndPersists() = runTest {
+        val guidedWorkouts = SqlDelightGuidedWorkoutPreferenceRepository(database)
+        assertEquals(false, guidedWorkouts.isGuidedWorkoutEnabled())
+        assertEquals(false, guidedWorkouts.guidedWorkoutFlow().first())
+
+        guidedWorkouts.setGuidedWorkoutEnabled(true)
+
+        assertEquals(true, guidedWorkouts.isGuidedWorkoutEnabled())
+        assertEquals(true, guidedWorkouts.guidedWorkoutFlow().first())
+        assertEquals(
+            true,
+            SqlDelightGuidedWorkoutPreferenceRepository(database).isGuidedWorkoutEnabled()
+        )
+    }
+
+    @Test
     fun fallsBackToDeterministicForUnknownStoredValue() = runTest {
         database.plannerEngineQueries.insertIgnoreRow(PlannerEngineId.DETERMINISTIC.name)
         database.plannerEngineQueries.updateEngine("NOT_AN_ENGINE")

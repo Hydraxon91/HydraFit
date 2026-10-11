@@ -45,6 +45,8 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
       - name: Run host unit tests
         run: ./gradlew testAndroidHostTest
+      - name: Verify SQLDelight migrations
+        run: ./gradlew verifySqlDelightMigration
 
   ios-compile:
     name: iOS Compile

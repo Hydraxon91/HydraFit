@@ -27,7 +27,7 @@
 | BACK work chunk 3 — calibrate Phase B/C constants | OPEN — EVIDENCE-GATED | Optional calibration of K=6, D=6, half-lives and C1/C2/C3 only if correctly timed histories show a need. The plateau is already resolved; no automatic recalibration or training-policy change. |
 | BACK work chunk 4 — literal >100% report | OPEN | Capture exact value/time/build if it recurs. |
 | Settings/nav consolidation | DONE | M3 item 7. P7a (Planning-section layout + strings grouping engine/goal/consent), P7b verify and 7b credits/acknowledgments (Settings → Acknowledgments with a live app version) done (`6c5e0fd`, `07dd965`). |
-| RIR guidance & rough estimation | PLANNED | Item 9: B1 guidance/quick-picks in M4; B2/B3 remain decision-gated, not required for M4. |
+| RIR guidance & rough estimation | B1 IMPLEMENTED | Logger guidance and 0/1/2/3 quick-picks are implemented; RIR-only, with no RPE conversion or inferred effort. Main-field screenshot checked; automated chip-state assertions and the two edit surfaces remain visually unverified. B2/B3 remain decision-gated. |
 | Open Questions / Later | MIXED | Pre-1.0 release/research homes are in [docs/roadmap.md](docs/roadmap.md); only iOS shipping and desktop are post-1.0. Behavior and evidence gates remain open. |
 | 0.2.4 review snapshot | DONE | bf959ee^..HEAD (`eb310de`); 12 findings (R4-01..R4-12): 2 minor docs drift + 1 nit deferred to VOL-01 + 9 nit-positive confirmations of Chunk A + Settings chunk. See `docs/review-0.2.4-snapshot.md`. RF (docs sync on R4-01) gated separately. |
 | M3 routines & scheduling (OF-11 + OF-12-P0/P1) | DONE | `v0.3.0`; bounded emulator flows and PER-17 rollback verified; [evidence](docs/plans-archive.md#2026-10-09-routines-m3). EX-01 later shipped in 0.4.0; optional EQ-01 remains future. |
@@ -72,14 +72,14 @@ Versions are assigned when a release scope is agreed; they do **not** grant impl
 | **0.4.0** | SHIPPED — VOL-01, EX-01 and a bounded OF-03 volume-explanation slice. `v0.4.1` shipped as a corrective patch. |
 | **0.5.0 — SHIPPED** | Published 2026-10-09 as `v0.5.0` on `5fc0c46`: LT-13, CAT-02, CAT-P7 and OF-01. Release workflow `37959121105` passed; signed APK `versionName=0.5.0`, `versionCode=10`. Signed `v0.4.1` → `v0.5.0` emulator upgrade retained a synthetic logged set; see `docs/qa.md` §13 for verification limits. |
 | **0.5.1 — SHIPPED** | Published 2026-10-09 as `v0.5.1` on `ca97c51`; Release `37972775517` passed (signed APK version code 11). Recent sets can correct performed time, reps, weight and RIR in place. Implementation and verification detail [archived](docs/plans-archive.md#2026-10-09-corrective-051); bounded UI limitations remain in `docs/qa.md` §6. |
-| **0.6.0** | Guided Training — OF-02, RIR B1, session dividers and occurrence-only replacements. |
+| **0.6.0** | Guided Training — OF-02, RIR B1, session dividers, occurrence-only replacements and the phone portrait lock. |
 | **0.7.0** | Workout Context & Confidence — explanations, notes/history, warm-ups/instructions, onboarding/reminders, EX-03 and early progression-integrity contract. |
 | **0.8.0** | Progress & Recovery — history/charts/records, anatomical map, measurements and catalog follow-ups. |
 | **0.9.0** | Equipment & Data Freedom — profiles, plate tools, imports/sharing, backup extensions and data controls. |
 | **0.10.0** | Trustworthy Progression & Flexible Prescriptions — integrity implementation, policies, per-set/pyramid targets, supersets and readiness/effort decisions. |
 | **0.11.0** | Beyond Rep-Based Sets — proper timed/distance/force contracts and drop-set/rest-pause/cardio investigation and approved slices. |
 | **0.12.0** | Optional AI Reliability — M8, CATP7-R01 and measured/licensed supported-scope improvements. |
-| **0.13.0 (provisional)** | Final UX & Design — integrated polish, accessibility/localization and remaining quality gates; basic UX checks apply throughout. |
+| **0.13.0 (provisional)** | Final UX & Design — QL-01, UX-01 adaptive tablet/foldable layouts, integrated polish, accessibility/localization and remaining quality gates; basic UX checks apply throughout. |
 | **1.0.0** | All pre-1.0 roadmap work delivered or explicitly dispositioned under [readiness criteria](docs/roadmap.md#100-readiness); stability/verification gate. |
 | **Beyond 1.0** | iOS shipping, including Keychain-backed ApiKeyStore, and desktop. |
 
@@ -646,7 +646,8 @@ approved release review, preparation and publication. Inventory and step evidenc
 are [archived verbatim](docs/plans-archive.md#2026-10-09-release-030).
 Host tests, ktlint, debug assembly and iOS compile passed; emulator `v0.2.3` →
 candidate (v25→v28) retained legacy rows and exercised author/activate/log/Finish.
-Release-mode smoke was deferred; full-chain `verifyMigrations` remains backlog.
+Release-mode smoke was deferred; full-chain `verifyMigrations` was enabled (0.6.0) with the v1
+seed `databases/1.db` after aligning three `.sq` column orders — see `docs/architecture.md` §1.9.
 EX-02's durable contract remains below.
 
 **Still separate/open:** session dividers (UX slice), LT-03 tied-time emulator
@@ -719,7 +720,7 @@ gated scopes, not implied by completion of P0–P5. M2's other open work stays a
 | Reference | Feature | Dependency / sequencing | Status |
 | --- | --- | --- | --- |
 | OF-01 | Local backup/export and restore | First portability foundation | SHIPPED 0.5.0; separately gated extensions target 0.9.0 |
-| OF-02 | Guided workouts and rest timer | Existing accepted plans and explicit sessions | FUTURE — decisions open |
+| OF-02 | Guided workouts and rest timer | Existing accepted plans and explicit sessions | IN PROGRESS — prior guided/rest work committed (`7cbd393`..`3a8b815`); B6 verification accepted with documented waivers. Alerts/coaching and occurrence replacement committed in `86b21ca`; navigation correction in `93d064b`; R060-R01–R04 in `eb75ead`, R060-R05 docs in `465e9f7`; theme/session layout/guidance tags in `ead9e1f`; doubled window insets in `a4d97af`; warm-up attribution and the shared replacement guard in `d957779`; entry-id slot-freeze guard in `b0dcf56`. Full host tests, migration verification, ktlint, Android debug build and iOS compile pass. Combined notification-denial flow: DONE (`/tmp/hydrafit-060-remaining-denial.log`). Earlier replacement Cancel/success/template preservation and Android duration rescheduling/dismissal/background delivery pass. The warm-up/attribution fix is verified in the UI (user-run: warm-up stored with its marker and no progress change, warm-up-bearing slot refused with the recorded-slot message, working set advancing progress and blocking the swap); the guided Replace action is no longer silently disabled, so working sets and warm-ups behave alike. A set from an earlier session was deleted during that verification and was not recreated; the affected earlier-session checks are unverified. Empty/stale replacement choices remain host-only; receiver posting races/context interleavings remain unverified; TalkBack: user waiver — **do not check**. Prior synthetic fixture cleaned up: sets removed, session ended, block canceled, referenced routine archived; guidance OFF, global rest 120, the possible Incline Push-up override cleared and denied notification flags restored. See [QA evidence](docs/qa.md). Full-range re-review remains INCOMPLETE; original [review snapshot](docs/review-0.6.0-snapshot.md) verdict remains historical. No push/publication. |
 | OF-03 | Planner target explanations | Existing planner; integrate with OF-02 | Volume slice SHIPPED 0.4.0; remainder targets 0.7.0, decisions open |
 | OF-04 | Exercise history and progress charts | Existing logged sets; shared queries may support OF-08 | FUTURE — decisions open |
 | OF-05 | Local workout CSV imports | OF-01 recovery path recommended first | FUTURE — decisions open |
@@ -730,7 +731,7 @@ gated scopes, not implied by completion of P0–P5. M2's other open work stays a
 | OF-10 | Progression policies and advanced logging | OF-02; settle measurement semantics before engine changes | LATER — split into separately approved slices |
 | OF-11 | Manual routines and reusable templates | M3; extends OF-01 coverage; feeds OF-02/OF-07 | SHIPPED 0.3.0; later guided/sharing extensions follow roadmap |
 | OF-12 | Flexible scheduling, session rotation and reminders | M3 scheduling after OF-11; M4 reminders | P0/P1 SHIPPED 0.3.0; P2/P3 reminders/integration target 0.7.0 |
-| OF-13 | Workout/exercise notes and session history | M4; existing explicit sessions; integrates OF-02/OF-04 | FUTURE — decisions open |
+| OF-13 | Workout/exercise notes and session history | M4; existing explicit sessions; integrates OF-02/OF-04 | Divider slice committed in `a021d94` (2026-10-11): adjacent explicit identities use "Recorded session"; each null row uses "Session not recorded"; order unchanged. Full host tests, ktlint, debug assembly and iOS compile pass (300s limit); existing-data emulator headers/controls and screenshot checked. Null-label visuals, font/theme/locale variants and action-write UI checks remain unverified. Notes/full history remain FUTURE — decisions open. |
 | OF-14 | Onboarding and first-workout baseline setup | M4; EQ-01/OF-11/OF-12 contracts; existing settings/PR use cases | FUTURE — decisions open |
 
 ### OF-01 — Local backup/export and restore
@@ -782,6 +783,8 @@ record).
 - **OF-02-P1 — guided flow.** Implement target/actual display, progress and resume using existing logging use cases; add transition tests.
 - **OF-02-P2 — timer.** Implement deadline-based countdown and approved background/alert behavior; test clock/lifecycle boundaries.
 - **OF-02-P3 — UI + verification.** Emulator flow through logging, resting, background/resume and ending a session; verify heatmap/planner consumers.
+
+**Status:** occurrence guided logging shipped (default-off setting + guided card with one-set confirm); standalone accepted-plan days remain on the existing Logger draft path by design. P2A adds an explicit live-completion action and transient deadline-based rest prompt; timing provenance is persisted. A rest-preference model (global default with per-exercise override/reset) and same-boot countdown resume (persisted deadline, boot identity and occurrence context; silent expiry; fail-closed without boot identity) are implemented and committed on `feat/0.6.0-guided-logging` (`7cbd393`..`3a8b815`). **B6 verification accepted complete by user (2026-10-11), with remaining checks waived rather than verified:** emulator covered preference bounds/persistence, override precedence/reset, deadline edits, background/resume, same-boot recreation, reboot invalidation, guided-OFF/Skip cancellation, and manual logging without a timer; `testAndroidHostTest` passed and covers backup preference inclusion/countdown exclusion plus Logger guard/cancellation and RIR logic. Logger invalid-duration UI, Finish/partial cancellation, downstream fatigue/planner behavior and planned-draft RIR visual checks remain unverified. Test-data cleanup was reported complete by the user. Default-off Android notification alerts and short-rest coaching are implemented in `86b21ca`; staged denial/persistence verification passed in the completion chunk, while receiver interleavings and the final-form combined denial flow remain open. Occurrence-only guided checks are done; the release-wide re-review remains INCOMPLETE.
 
 **Acceptance:** each performed set is stored once; skipped/unperformed sets never become logged work. Resume obeys the approved lifecycle contract and timer state does not extend the countdown accidentally. Existing manual/backdated logging and End/New session controls remain usable.
 

@@ -1,0 +1,21 @@
+CREATE TABLE restCountdown (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 0),
+    deadlineElapsedMillis INTEGER NOT NULL,
+    durationMillis INTEGER NOT NULL CHECK (durationMillis BETWEEN 1 AND 86400000),
+    bootIdentity TEXT NOT NULL,
+    sessionId TEXT NOT NULL,
+    occurrenceId INTEGER NOT NULL,
+    exerciseId TEXT NOT NULL
+);
+
+selectPersisted:
+SELECT * FROM restCountdown WHERE id = 0;
+
+upsertPersisted:
+INSERT OR REPLACE INTO restCountdown(
+    id, deadlineElapsedMillis, durationMillis, bootIdentity, sessionId, occurrenceId, exerciseId
+)
+VALUES (0, ?, ?, ?, ?, ?, ?);
+
+deletePersisted:
+DELETE FROM restCountdown WHERE id = 0;

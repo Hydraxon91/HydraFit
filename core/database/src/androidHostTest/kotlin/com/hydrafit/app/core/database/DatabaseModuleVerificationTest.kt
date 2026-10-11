@@ -7,11 +7,14 @@ import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
+import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
+import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferenceRepository
 import com.hydrafit.app.core.domain.startup.StartupReadiness
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
 import com.hydrafit.app.core.userdata.equipment.ExercisePreferenceRepository
+import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 import org.koin.core.annotation.KoinExperimentalAPI
@@ -64,6 +67,7 @@ class DatabaseModuleVerificationTest {
             assertNotNull(koin.get<StartupReadiness>())
             assertNotNull(koin.get<RoutineTemplateRepository>())
             assertNotNull(koin.get<WorkoutScheduleRepository>())
+            assertNotNull(koin.get<OccurrenceReplacementRepository>())
         } finally {
             koin.close()
             driver.close()
@@ -94,6 +98,8 @@ class DatabaseModuleVerificationTest {
         }.koin
         try {
             assertNotNull(koin.get<ExercisePreferenceRepository>())
+            assertNotNull(koin.get<GuidedWorkoutPreferenceRepository>())
+            assertNotNull(koin.get<TrainingGuidancePreferenceRepository>())
             assertNotNull(koin.get<ExerciseExclusionRepository>())
             assertNotNull(koin.get<WorkoutPlanSourcesRepository>())
             assertNotNull(koin.get<PlanHistoryRepository>())

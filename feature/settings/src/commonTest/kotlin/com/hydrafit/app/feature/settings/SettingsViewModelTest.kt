@@ -6,6 +6,7 @@ import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
+import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
 import com.hydrafit.app.core.userdata.settings.TrainingGoalRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.AfterTest
@@ -76,7 +77,8 @@ class SettingsViewModelTest {
             ),
             apiKeyStore = FakeApiKeyStore(),
             trainingGoalRepository = FakeTrainingGoalRepository(),
-            weightUnitRepository = FakeWeightUnitRepository()
+            weightUnitRepository = FakeWeightUnitRepository(),
+            guidedWorkoutPreferenceRepository = FakeGuidedWorkoutPreferenceRepository()
         )
         advanceUntilIdle()
 
@@ -95,7 +97,8 @@ class SettingsViewModelTest {
             availability = FakeEngineAvailability(listOf(PlannerEngineId.DETERMINISTIC)),
             apiKeyStore = FakeApiKeyStore(),
             trainingGoalRepository = FakeTrainingGoalRepository(),
-            weightUnitRepository = FakeWeightUnitRepository()
+            weightUnitRepository = FakeWeightUnitRepository(),
+            guidedWorkoutPreferenceRepository = FakeGuidedWorkoutPreferenceRepository()
         )
         advanceUntilIdle()
         assertFalse(viewModel.state.value.workoutDataSharingEnabled)
@@ -108,6 +111,31 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun guidedWorkoutPreferenceDefaultsOffAndCanBeEnabledAndDisabled() = runTest(dispatcher) {
+        val guidedWorkout = FakeGuidedWorkoutPreferenceRepository()
+        val viewModel = SettingsViewModel(
+            preference = FakeEnginePreferenceRepository(PlannerEngineId.DETERMINISTIC),
+            availability = FakeEngineAvailability(listOf(PlannerEngineId.DETERMINISTIC)),
+            apiKeyStore = FakeApiKeyStore(),
+            trainingGoalRepository = FakeTrainingGoalRepository(),
+            weightUnitRepository = FakeWeightUnitRepository(),
+            guidedWorkoutPreferenceRepository = guidedWorkout
+        )
+        advanceUntilIdle()
+        assertFalse(viewModel.state.value.guidedWorkoutEnabled)
+
+        viewModel.onGuidedWorkoutToggled(true)
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.guidedWorkoutEnabled)
+        assertTrue(guidedWorkout.enabled)
+
+        viewModel.onGuidedWorkoutToggled(false)
+        advanceUntilIdle()
+        assertFalse(viewModel.state.value.guidedWorkoutEnabled)
+        assertFalse(guidedWorkout.enabled)
+    }
+
+    @Test
     fun selectingATrainingGoalPersistsIt() = runTest(dispatcher) {
         val goals = FakeTrainingGoalRepository()
         val viewModel = SettingsViewModel(
@@ -115,7 +143,8 @@ class SettingsViewModelTest {
             availability = FakeEngineAvailability(listOf(PlannerEngineId.DETERMINISTIC)),
             apiKeyStore = FakeApiKeyStore(),
             trainingGoalRepository = goals,
-            weightUnitRepository = FakeWeightUnitRepository()
+            weightUnitRepository = FakeWeightUnitRepository(),
+            guidedWorkoutPreferenceRepository = FakeGuidedWorkoutPreferenceRepository()
         )
         advanceUntilIdle()
 
@@ -145,7 +174,8 @@ class SettingsViewModelTest {
             availability = FakeEngineAvailability(listOf(PlannerEngineId.DETERMINISTIC)),
             apiKeyStore = store,
             trainingGoalRepository = FakeTrainingGoalRepository(),
-            weightUnitRepository = FakeWeightUnitRepository()
+            weightUnitRepository = FakeWeightUnitRepository(),
+            guidedWorkoutPreferenceRepository = FakeGuidedWorkoutPreferenceRepository()
         )
         advanceUntilIdle()
 
@@ -166,7 +196,8 @@ class SettingsViewModelTest {
             availability = FakeEngineAvailability(listOf(PlannerEngineId.DETERMINISTIC)),
             apiKeyStore = store,
             trainingGoalRepository = FakeTrainingGoalRepository(),
-            weightUnitRepository = FakeWeightUnitRepository()
+            weightUnitRepository = FakeWeightUnitRepository(),
+            guidedWorkoutPreferenceRepository = FakeGuidedWorkoutPreferenceRepository()
         )
         advanceUntilIdle()
 
@@ -186,7 +217,8 @@ class SettingsViewModelTest {
             availability = FakeEngineAvailability(listOf(PlannerEngineId.DETERMINISTIC)),
             apiKeyStore = store,
             trainingGoalRepository = FakeTrainingGoalRepository(),
-            weightUnitRepository = FakeWeightUnitRepository()
+            weightUnitRepository = FakeWeightUnitRepository(),
+            guidedWorkoutPreferenceRepository = FakeGuidedWorkoutPreferenceRepository()
         )
         advanceUntilIdle()
         assertTrue(viewModel.state.value.apiKeyConfigured)
@@ -204,7 +236,8 @@ class SettingsViewModelTest {
             availability = FakeEngineAvailability(available),
             apiKeyStore = FakeApiKeyStore(),
             trainingGoalRepository = FakeTrainingGoalRepository(),
-            weightUnitRepository = FakeWeightUnitRepository()
+            weightUnitRepository = FakeWeightUnitRepository(),
+            guidedWorkoutPreferenceRepository = FakeGuidedWorkoutPreferenceRepository()
         )
 
     private class FakeApiKeyStore(var value: String? = null) : ApiKeyStore {
@@ -252,6 +285,17 @@ class SettingsViewModelTest {
     private class FakeEngineAvailability(private val engines: List<PlannerEngineId>) :
         EngineAvailability {
         override fun availableEngines(): List<PlannerEngineId> = engines
+    }
+
+    private class FakeGuidedWorkoutPreferenceRepository(var enabled: Boolean = false) :
+        GuidedWorkoutPreferenceRepository {
+        override suspend fun isGuidedWorkoutEnabled(): Boolean = enabled
+
+        override fun guidedWorkoutFlow(): Flow<Boolean> = flowOf(enabled)
+
+        override suspend fun setGuidedWorkoutEnabled(enabled: Boolean) {
+            this.enabled = enabled
+        }
     }
 
     private class FakeTrainingGoalRepository(var stored: TrainingGoal = TrainingGoal.BALANCED) :

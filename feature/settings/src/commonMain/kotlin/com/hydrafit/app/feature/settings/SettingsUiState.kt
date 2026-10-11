@@ -9,6 +9,7 @@ data class SettingsUiState(
     val selectedEngine: PlannerEngineId? = null,
     val selectedGoal: TrainingGoal = TrainingGoal.BALANCED,
     val weightUnit: WeightUnit = WeightUnit.KG,
+    val guidedWorkoutEnabled: Boolean = false,
     val workoutDataSharingEnabled: Boolean = false,
     val apiKeyConfigured: Boolean = false,
     val apiKeyInput: String = "",

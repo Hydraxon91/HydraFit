@@ -1,6 +1,6 @@
 # Contract and verification status: see README.md. No persistent writes.
 appId: com.hydrafit.app
-name: Equipment to Routines to Settings navigation
+name: All six navigation tabs
 tags:
   - smoke
   - read-only
@@ -16,14 +16,42 @@ tags:
       - text: '^Equipment$'
 - assertNotVisible: '^Routine name$'
 - tapOn:
+    text: '^Fatigue$'
+    retryTapIfNoChange: false
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Fatigue$'
+- tapOn:
+    text: '^Plan$'
+    retryTapIfNoChange: false
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Plan$'
+- tapOn:
+    text: '^Log$'
+    retryTapIfNoChange: false
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Log$'
+- tapOn:
     text: '^Routines$'
     retryTapIfNoChange: false
 - assertVisible: '^New routine$'
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Routines$'
 - assertNotVisible: '^Routine name$'
 - tapOn:
     text: '^Settings$'
     retryTapIfNoChange: false
-- assertVisible: '^Weight unit$'
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Settings$'
 - tapOn:
     text: '^Equipment$'
     retryTapIfNoChange: false
