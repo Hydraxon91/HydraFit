@@ -19,6 +19,9 @@ claim 100% automation reliability. Prefer a verified failure to a guessed succes
    exact expected result, cleanup and budget. Distinguish read-only navigation,
    unsaved editing, persistent writes and intentional restart/persistence tests.
    Do not navigate away from an existing draft/dialog to satisfy a precondition.
+   Record existing preference/permission values as restoration baselines. Non-default
+   values are not blockers when their temporary change and restoration are already
+   covered by the approved contract; this grants no additional mutation permission.
 3. `adb devices -l` and Maestro `list_devices` must identify a connected
    `emulator-<port>`; launchable names, phones and chromium are not targets. Set
    `ANDROID_SERIAL` for scripts and pass the returned `device_id` for MCP calls.
@@ -34,7 +37,11 @@ claim 100% automation reliability. Prefer a verified failure to a guessed succes
    with the explicit emulator id (command in `.maestro/README.md`). Its flat CSV
    retains element numbers, depth, attributes and parent references without the
    nested MCP payload. Read only this successful current output, never a stale
-   file. If both paths fail, capture with `snap.sh`, report and stop interaction;
+   file. After a successful fallback, stay on compact CLI inspection for the rest
+   of that test rather than retrying the failing MCP hierarchy path. Fetch a fresh
+   bounded CLI hierarchy after each relevant screen change; these checkpoints are
+   not additional fallback attempts and do not reset the interaction/recovery budget.
+   If both paths fail, capture with `snap.sh`, report and stop interaction;
    do not derive guessed taps from the image.
 
 ## Choose one path

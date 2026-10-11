@@ -46,6 +46,18 @@ starts a competing UiAutomation connection; while Maestro owns automation,
 Android reports `UiAutomationService ... already registered!`. Do not run that
 fallback or kill the driver. ADB screenshot/logcat do not require that connection.
 
+After a successful compact CLI fallback, use that inspection path for the rest of
+the test; do not repeatedly retry the failing MCP hierarchy. Run a fresh bounded
+CLI inspection after each relevant screen change, reading only its successful
+current output. These checkpoints are not additional fallback attempts and stay
+within the original five-minute interaction/recovery budget. A later CLI failure
+does not authorize switching to a competing `inspect.sh` connection.
+
+For separately approved write tests, record existing preference/permission values
+as restoration baselines. A non-default value is not itself a blocker when its
+temporary change and restoration are covered by the contract. This does not expand
+the contract or authorize dismissing existing unsaved work.
+
 Validate syntax before execution (no emulator needed):
 
 ```bash

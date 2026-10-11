@@ -18,6 +18,10 @@ Paths below are relative to the repository root.
   to the approved flow, including its cross-cutting UI checks. Release verification
   uses the release checklist. Follow `hydrafit-ui-testing` for execution and safety;
   report any required checks left unverified.
+- Record existing preference and permission values as cleanup baselines. A non-default
+  value is not a blocker when the approved test contract covers temporarily changing
+  that value and restoring it afterwards. This does not authorize changes outside
+  the contract or dismissing an existing unsaved draft/dialog.
 - Load `hydrafit-ui-testing` before emulator interaction. Prefer reusable Maestro
   semantic flows for navigation, forms and assertions; retain ADB scripts for
   deployment, inspection fallback, screenshots and logcat. Read the flow contract
@@ -46,7 +50,11 @@ Paths below are relative to the repository root.
   explicit approval. Continue unrelated checks only if their preconditions remain
   valid and within the original time budget; an accident never resets that budget.
 - If MCP inspection fails, use one bounded Maestro CLI `hierarchy
-  --no-reinstall-driver --compact` fallback (see `.maestro/README.md`). Do not run
+  --no-reinstall-driver --compact` fallback (see `.maestro/README.md`). If it succeeds,
+  use compact CLI inspection for the rest of that test; do not retry the failing MCP
+  hierarchy path. Fresh bounded CLI inspections after screen changes are required
+  checkpoints, not additional fallback attempts, and remain within the original
+  interaction/recovery budget. Do not run
   `uiautomator dump`/`inspect.sh` while Maestro owns the automation connection:
   Android rejects a competing UiAutomation registration. ADB screenshot/logcat
   remain usable. If neither Maestro hierarchy path works, capture diagnostic
