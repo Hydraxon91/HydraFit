@@ -18,6 +18,43 @@ exact on-screen text.
 - Text contrast meets WCAG AA; touch targets remain usable and system bars/on-screen keyboard do not obscure actions.
 - Where the changed flow supports them, verify its empty, loading and recoverable error states, plus relevant light/dark and locale behavior. Record untested states rather than inferring success.
 
+For shell/inset changes, repeat the following matrix on every affected screen rather than checking
+only the screenshot that motivated the fix. Use unsaved drafts and cancel them; do not edit or delete
+existing workout data. Check selected-tab semantics as well as visible labels, and view screenshots.
+
+| State | Expected result |
+| --- | --- |
+| Keyboard closed, normal text | Content clears system bars and navigation; no duplicated empty inset band. |
+| Keyboard open on a supported input | Focused input and relevant actions remain reachable; no duplicate IME-height gap. |
+| Keyboard dismissed | Content returns to its normal bounds without losing the unsaved draft. |
+| Supported larger text | Navigation labels, session actions and editor buttons remain readable and reachable. |
+
+Run applicable light/dark and locale variants under the existing approval rules. Record the exact
+screens/device states checked; a phone portrait check does not verify adaptive large-screen layouts.
+
+**2026-10-11 targeted hardening verification:** full `testAndroidHostTest`,
+`verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`,
+`:androidApp:lintVitalRelease`, `:shared:compileKotlinIosSimulatorArm64` and
+`:core:network:compileKotlinIosSimulatorArm64` passed under a 600-second hard limit (log:
+`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/hardening-full-gate-final.log`).
+The added Logger no-history live-editor regression failed before its fix; delayed rest-read tests
+also exposed a prematurely released submission guard and an exception after End session. An
+additional regression checks an occurrence switch during the second preference read. They pass
+with the full Logger suite after the fixes. Database tests cover preference/exclusion/rest cleanup,
+personal-record refusal, blocked deletion and rollback, with exported backup validation. Equipment
+tests cover the typed refusal reason and retained editor. Workflow YAML/job-contract checks pass;
+GitHub execution and speed improvements remain unmeasured until an approved push.
+
+The final debug APK was installed on `emulator-5554` without clearing data. Both checked-in
+`navigation-smoke.yaml` and `routine-editor-cancel.yaml` passed syntax and runtime checks on the
+first attempt; all six selected-tab assertions passed, and the test's unsaved draft was canceled.
+The final Equipment screenshot was captured and viewed (`/tmp/hydrafit-hardening-smoke.png`). MCP
+hierarchy inspection hit its existing depth limit; one successful compact CLI fallback was used
+for subsequent checkpoints. No persisted fixture, permission/system-setting change or release
+install was used. The personal-record refusal and guided write journeys remain host-tested, not
+newly emulator-verified. The full keyboard/theme/font/locale matrix above was not repeated, and
+existing TalkBack waivers remain unchanged. This is builder verification, not review approval.
+
 ## 0. Launch & shell
 - Cold start → no crash, all six tabs present in the expected order. At larger font sizes, all six labels remain readable and reachable without clipping.
 - Background/foreground and rotation → state survives, no ANR.

@@ -248,6 +248,16 @@ Some models occasionally emit a tool call as plain text instead of a real tool c
 
 ## Unit Testing Standards
 
+- **Test invariants across their producers and consumers.** For changed logging/data flows, trace
+  each important invariant from the UI action through domain/persistence to its downstream reader.
+  A consumer test with a manually constructed valid row does not prove the write path preserves it.
+  Cover relevant combinations (working/warm-up, direct/dialog completion, success/failure/retry/
+  cancel, recreation/context changes), not just each feature independently. Use controlled suspension
+  to check repeat submissions and context invalidation across asynchronous success handling.
+- **Exercise-keyed data has a lifecycle.** When adding or changing it, test deletion guards and
+  atomic cleanup, deduplication/conflict handling, and export/restore validation together with other
+  dependent records. Do not silently purge existing orphaned data without an approved repair policy.
+
 - **Unit tests are mandatory for all `:core:domain` logic**, not optional: every use case, the fatigue algorithm, and each `WorkoutPlannerEngine` implementation must ship with tests using `kotlin.test` (common) and MockK (JVM-side mocking of dependencies like repositories or the Ktor client).
 - **New code without a corresponding test is incomplete work.** Write the corresponding tests in the same approved work scope as a new use case or engine implementation, unless explicitly told to defer them. Run the required tests before reporting that work complete or committing it.
 - **Domain logic must be testable without an emulator.** If you find yourself needing Android context or an emulator to test something in `:core:domain`, that's a sign the abstraction is wrong — flag it rather than working around it.
