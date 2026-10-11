@@ -6,6 +6,13 @@ import com.hydrafit.app.core.domain.workout.WorkoutSet
 /** The target the user was following for one exercise, taken from an accepted plan. */
 data class Prescription(val exerciseId: String, val sets: Int, val reps: Int, val weightKg: Double)
 
+/** One exercise's progressed estimate together with the reasoning that produced it. */
+data class ProgressedWeight(
+    val baselineKg: Double,
+    val progressedKg: Double,
+    val explanation: LoadProgressionExplanation
+)
+
 /**
  * Applies progressive overload on top of the 1RM-derived baseline: a streak of completed sessions
  * earns increments, a streak of missed sessions gives them back, and the result never drops below
@@ -17,26 +24,93 @@ data class Prescription(val exerciseId: String, val sets: Int, val reps: Int, va
  */
 class ProgressWeightsUseCase(private val config: ProgressionConfig = ProgressionConfig()) {
 
+    /** The progressed, rounded estimate per exercise. See [explain] for the recorded reasoning. */
     operator fun invoke(
         baseline: Map<String, Double>,
         prescriptions: Map<String, Prescription>,
         sets: List<WorkoutSet>,
         pauseIncrements: Boolean = false,
         utcOffsetMillis: Long = 0L
-    ): Map<String, Double> {
-        if (pauseIncrements) return baseline
+    ): Map<String, Double> = resolve(
+        baseline,
+        prescriptions,
+        sets,
+        pauseIncrements,
+        utcOffsetMillis
+    ).mapValues { (_, resolved) -> resolved.progressedKg }
+
+    /** The recorded progression reasoning per exercise id; always consistent with [invoke]. */
+    fun explain(
+        baseline: Map<String, Double>,
+        prescriptions: Map<String, Prescription>,
+        sets: List<WorkoutSet>,
+        pauseIncrements: Boolean = false,
+        utcOffsetMillis: Long = 0L
+    ): Map<String, LoadProgressionExplanation> = resolve(
+        baseline,
+        prescriptions,
+        sets,
+        pauseIncrements,
+        utcOffsetMillis
+    ).mapValues { (_, resolved) -> resolved.explanation }
+
+    /** Both outputs from one computation, so a recorded reason can never disagree with its value. */
+    fun resolve(
+        baseline: Map<String, Double>,
+        prescriptions: Map<String, Prescription>,
+        sets: List<WorkoutSet>,
+        pauseIncrements: Boolean = false,
+        utcOffsetMillis: Long = 0L
+    ): Map<String, ProgressedWeight> {
+        if (pauseIncrements) {
+            return baseline.mapValues { (_, base) ->
+                ProgressedWeight(base, base, explanation(ProgressionOutcome.PAUSED_DELOAD))
+            }
+        }
 
         val byExercise = sets
             .filter { !it.isWarmup && (it.weightKg ?: 0.0) > 0.0 }
             .groupBy { it.exerciseId }
 
         return baseline.mapValues { (exerciseId, base) ->
-            val prescription = prescriptions[exerciseId] ?: return@mapValues base
+            val prescription = prescriptions[exerciseId]
+                ?: return@mapValues ProgressedWeight(
+                    base,
+                    base,
+                    explanation(ProgressionOutcome.NONE_NO_TYPED_PRESCRIPTION)
+                )
             val sessions = byExercise[exerciseId].orEmpty()
             val increments = incrementsFor(sessions, prescription, utcOffsetMillis)
-            base + increments * config.roundToKg
+            val delta = increments * config.roundToKg
+            ProgressedWeight(
+                baselineKg = base,
+                progressedKg = base + delta,
+                explanation = explanation(
+                    outcome = if (increments > 0) {
+                        ProgressionOutcome.APPLIED
+                    } else {
+                        ProgressionOutcome.NONE_NO_STREAK_YET
+                    },
+                    increments = increments,
+                    deltaKg = delta
+                )
+            )
         }
     }
+
+    /** The thresholds are recorded with the outcome so the rule, not an inferred gain, is explained. */
+    private fun explanation(
+        outcome: ProgressionOutcome,
+        increments: Int = 0,
+        deltaKg: Double = 0.0
+    ): LoadProgressionExplanation = LoadProgressionExplanation(
+        outcome = outcome,
+        increments = increments,
+        deltaKg = deltaKg,
+        roundToKg = config.roundToKg,
+        successStreakSize = config.successStreak,
+        failureStreakSize = config.failureStreak
+    )
 
     private fun incrementsFor(
         sessions: List<WorkoutSet>,

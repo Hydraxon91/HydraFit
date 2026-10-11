@@ -76,6 +76,7 @@ class DeterministicWorkoutPlannerEngine(
                     request.withheldWeightExerciseIds,
                     request.equipmentMaxWeights,
                     request.exercisePreferences,
+                    request.loadExplanations,
                     skippedForSoreness,
                     isDeload
                 )
@@ -98,6 +99,14 @@ class DeterministicWorkoutPlannerEngine(
                 fatigue = request.muscleFatigue,
                 isDeload = isDeload,
                 skippedCandidateIds = skippedForSoreness
+            ),
+            explanation = PlanExplanation(
+                engine = id,
+                attribution = PlanAttribution.DETERMINISTIC,
+                isDeload = isDeload,
+                deloadVolumeScale = periodization.deloadVolumeScale,
+                deloadIntensityScale = periodization.deloadIntensityScale,
+                fatigueSkippedExerciseIds = skippedForSoreness.toList()
             )
         )
     }
@@ -119,6 +128,7 @@ class DeterministicWorkoutPlannerEngine(
         withheldWeightExerciseIds: Set<String>,
         equipmentMaxWeights: Map<EquipmentTag, Double>,
         exercisePreferences: Map<String, ExercisePreference>,
+        loadExplanations: Map<String, LoadOriginExplanation>,
         skippedForSoreness: MutableSet<String>,
         isDeload: Boolean
     ): List<PlannedExercise> {
@@ -152,6 +162,7 @@ class DeterministicWorkoutPlannerEngine(
                 recentWeightCaps,
                 withheldWeightExerciseIds,
                 equipmentMaxWeights,
+                loadExplanations,
                 isDeload
             )
             used += candidate.id
@@ -275,6 +286,7 @@ class DeterministicWorkoutPlannerEngine(
         recentWeightCaps: Map<String, Double>,
         withheldWeightExerciseIds: Set<String>,
         equipmentMaxWeights: Map<EquipmentTag, Double>,
+        loadExplanations: Map<String, LoadOriginExplanation>,
         isDeload: Boolean
     ): PlannedExercise {
         val isCompound = candidate.movementPattern.isCompound
@@ -288,31 +300,23 @@ class DeterministicWorkoutPlannerEngine(
             .coerceAtLeast(1)
         val reps = volumeAwareReps.repsFor(goal, isCompound, sets)
         val capability = candidate.loadCapability
+        val scale = intensityScale(isDeload)
         // A numeric working weight is only meaningful for external resistance. A bodyweight or
         // added-load exercise is prescribed without a generated number, even if a stale baseline
         // exists for its id.
-        val suggestedWeightKg = if (WorkoutLoadPolicy.allowsAutomaticLoad(capability)) {
-            if (candidate.id in withheldWeightExerciseIds) {
-                null
-            } else {
-                suggestedWeightsKg[candidate.id]?.let { suggestedOneRepMax ->
-                    val oneRepMax = recentWeightCaps[candidate.id]
-                        ?.let { minOf(suggestedOneRepMax, it) }
-                        ?: suggestedOneRepMax
-                    val working = weightConfig.workingWeightFor(
-                        oneRepMax,
-                        reps,
-                        intensityScale(isDeload)
-                    )
-                    EquipmentWeightLimit.clamp(
-                        working,
-                        EquipmentWeightLimit.ceilingFor(candidate, equipmentMaxWeights)
-                    )
-                }
+        val allowed = WorkoutLoadPolicy.allowsAutomaticLoad(capability)
+        val withheld = candidate.id in withheldWeightExerciseIds
+        val oneRepMax = if (allowed && !withheld) {
+            suggestedWeightsKg[candidate.id]?.let { suggestedOneRepMax ->
+                recentWeightCaps[candidate.id]?.let { minOf(suggestedOneRepMax, it) }
+                    ?: suggestedOneRepMax
             }
         } else {
             null
         }
+        val ceiling = EquipmentWeightLimit.ceilingFor(candidate, equipmentMaxWeights)
+        val working = oneRepMax?.let { weightConfig.workingWeightFor(it, reps, scale) }
+        val suggestedWeightKg = working?.let { EquipmentWeightLimit.clamp(it, ceiling) }
         return PlannedExercise(
             exerciseId = candidate.id,
             sets = sets,
@@ -323,7 +327,38 @@ class DeterministicWorkoutPlannerEngine(
             } else {
                 WorkoutLoadPolicy.defaultKind(capability)
             },
-            loadCapability = capability
+            loadCapability = capability,
+            explanation = ExerciseTargetExplanation(
+                baseline = loadExplanations[candidate.id]?.baseline,
+                progression = loadExplanations[candidate.id]?.progression,
+                conversion = working?.let {
+                    LoadConversionExplanation(
+                        reps = reps,
+                        intensityFraction = weightConfig.intensityForReps(reps),
+                        deloadIntensityScale = scale,
+                        roundToKg = weightConfig.roundToKg,
+                        uncappedWorkingKg = it,
+                        equipmentCeilingKg = ceiling,
+                        equipmentCeilingBinds = ceiling != null && it > ceiling
+                    )
+                },
+                setCount = SetCountExplanation(
+                    baseSets = baseSets,
+                    deloadApplied = isDeload,
+                    deloadVolumeScale = periodization.deloadVolumeScale,
+                    fatigueEffect = if (sets < deloadedSets) {
+                        FatigueSetEffect.REDUCED
+                    } else {
+                        FatigueSetEffect.NONE
+                    },
+                    finalSets = sets
+                ),
+                unavailableReason = when {
+                    !allowed -> LoadUnavailableReason.NOT_LOAD_TRACKED
+                    oneRepMax == null -> LoadUnavailableReason.INSUFFICIENT_RECENT_EVIDENCE
+                    else -> null
+                }
+            )
         )
     }
 

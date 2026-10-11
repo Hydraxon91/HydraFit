@@ -446,6 +446,119 @@ class WeeklyPlanSanitizerTest {
         days = listOf(dayOf(0, exerciseIds))
     )
 
+    @Test
+    fun recordsTheModelProposalAndTheAppBoundItApplied() = runTest {
+        val sanitized = sanitizer.sanitize(
+            modelPlan("bench-press", suggestedWeightKg = 200.0),
+            request(includeWorkoutData = true).copy(
+                recentWeightCaps = mapOf("bench-press" to 100.0)
+            )
+        )!!
+
+        val entry = sanitized.days.single().exercises.first { it.exerciseId == "bench-press" }
+        val conversion = requireNotNull(requireNotNull(entry.explanation).conversion)
+
+        assertEquals(AiLoadAdjustment.LOWERED_TO_PROGRESSION_BOUND, conversion.aiAdjustment)
+        assertEquals(entry.suggestedWeightKg, conversion.uncappedWorkingKg)
+        assertTrue(requireNotNull(entry.suggestedWeightKg) < 200.0)
+        assertNull(entry.explanation!!.unavailableReason)
+    }
+
+    @Test
+    fun recordsAnEquipmentCeilingAppliedToAModelNumber() = runTest {
+        val sanitized = sanitizer.sanitize(
+            modelPlan("bench-press", suggestedWeightKg = 100.0),
+            request(
+                includeWorkoutData = true,
+                equipmentMaxWeights = mapOf(EquipmentTag.BARBELL to 60.0)
+            )
+        )!!
+
+        val entry = sanitized.days.single().exercises.first { it.exerciseId == "bench-press" }
+        val conversion = requireNotNull(requireNotNull(entry.explanation).conversion)
+
+        assertEquals(60.0, entry.suggestedWeightKg)
+        assertTrue(conversion.equipmentCeilingBinds)
+        assertEquals(AiLoadAdjustment.LOWERED_TO_EQUIPMENT_CEILING, conversion.aiAdjustment)
+    }
+
+    @Test
+    fun recordsWhyAModelNumberWasNotKept() = runTest {
+        val bodyweight = sanitizer.sanitize(
+            WeeklyPlan(
+                engine = PlannerEngineId.GEMINI_API,
+                days = listOf(dayOf(0, listOf("ab-roll", "bench-press")))
+            ),
+            request(includeWorkoutData = true)
+        )!!
+        assertEquals(
+            LoadUnavailableReason.NOT_LOAD_TRACKED,
+            bodyweight.days.single().exercises
+                .first { it.exerciseId == "ab-roll" }.explanation!!.unavailableReason
+        )
+
+        val notShared = sanitizer.sanitize(
+            modelPlan("bench-press", suggestedWeightKg = 80.0),
+            request()
+        )!!
+        assertEquals(
+            LoadUnavailableReason.AI_DATA_NOT_SHARED,
+            notShared.days.single().exercises
+                .first { it.exerciseId == "bench-press" }.explanation!!.unavailableReason
+        )
+
+        val omitted = sanitizer.sanitize(
+            planOf(listOf("bench-press", "lateral-raise")),
+            request(includeWorkoutData = true)
+        )!!
+        assertEquals(
+            LoadUnavailableReason.AI_PROPOSAL_OMITTED,
+            omitted.days.single().exercises
+                .first { it.exerciseId == "bench-press" }.explanation!!.unavailableReason
+        )
+
+        val rejected = sanitizer.sanitize(
+            modelPlan("bench-press", suggestedWeightKg = 2_000.0),
+            request(includeWorkoutData = true)
+        )!!
+        assertEquals(
+            LoadUnavailableReason.AI_PROPOSAL_REJECTED,
+            rejected.days.single().exercises
+                .first { it.exerciseId == "bench-press" }.explanation!!.unavailableReason
+        )
+    }
+
+    @Test
+    fun marksTheSanitizedPlanAsAiGenerated() = runTest {
+        val sanitized = sanitizer.sanitize(
+            planOf(listOf("bench-press", "lateral-raise")),
+            request()
+        )!!
+
+        assertEquals(PlanAttribution.AI_GENERATED, sanitized.explanation?.attribution)
+        assertEquals(PlannerEngineId.LOCAL_LLM, sanitized.explanation?.engine)
+    }
+
+    /** A one-day model plan with a proposed weight on one exercise and a second to meet the floor. */
+    private fun modelPlan(exerciseId: String, suggestedWeightKg: Double) = WeeklyPlan(
+        engine = PlannerEngineId.GEMINI_API,
+        days = listOf(
+            WorkoutDay(
+                dayIndex = 0,
+                focus = SplitFocus.FULL_BODY,
+                exercises = listOf(
+                    PlannedExercise(
+                        exerciseId = exerciseId,
+                        sets = 3,
+                        reps = 8,
+                        suggestedWeightKg = suggestedWeightKg
+                    ),
+                    PlannedExercise("lateral-raise", sets = 3, reps = 8)
+                )
+            )
+        )
+    )
+
     private fun dayOf(
         index: Int,
         exerciseIds: List<String>,

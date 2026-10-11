@@ -156,6 +156,70 @@ class ProgressWeightsUseCaseTest {
         assertTrue(result.isEmpty())
     }
 
+    @Test
+    fun explainsAnAppliedAdjustmentWithTheRuleThatProducedIt() {
+        val explanation = useCase.explain(
+            baseline = mapOf("bench-press" to 80.0),
+            prescriptions = prescription,
+            sets = (3 downTo 1).flatMap { completed(day = it) }
+        ).getValue("bench-press")
+
+        assertEquals(ProgressionOutcome.APPLIED, explanation.outcome)
+        assertEquals(1, explanation.increments)
+        assertEquals(2.5, explanation.deltaKg)
+        assertEquals(3, explanation.successStreakSize)
+        assertEquals(3, explanation.failureStreakSize)
+        assertEquals(2.5, explanation.roundToKg)
+    }
+
+    @Test
+    fun explainsWhyProgressionDidNotApply() {
+        val incomplete = useCase.explain(
+            baseline = mapOf("bench-press" to 80.0),
+            prescriptions = emptyMap(),
+            sets = completed(day = 1)
+        ).getValue("bench-press")
+        assertEquals(ProgressionOutcome.NONE_NO_TYPED_PRESCRIPTION, incomplete.outcome)
+        assertEquals(0, incomplete.increments)
+
+        val belowThreshold = useCase.explain(
+            baseline = mapOf("bench-press" to 80.0),
+            prescriptions = prescription,
+            sets = completed(day = 2) + completed(day = 1)
+        ).getValue("bench-press")
+        assertEquals(ProgressionOutcome.NONE_NO_STREAK_YET, belowThreshold.outcome)
+        assertEquals(0.0, belowThreshold.deltaKg)
+    }
+
+    @Test
+    fun aDeloadPauseIsReportedRatherThanReconstructedAsNoEvidence() {
+        val resolved = useCase.resolve(
+            baseline = mapOf("bench-press" to 80.0),
+            prescriptions = prescription,
+            sets = (6 downTo 1).flatMap { completed(day = it) },
+            pauseIncrements = true
+        ).getValue("bench-press")
+
+        assertEquals(ProgressionOutcome.PAUSED_DELOAD, resolved.explanation.outcome)
+        assertEquals(0.0, resolved.explanation.deltaKg)
+        assertEquals(80.0, resolved.progressedKg)
+    }
+
+    @Test
+    fun theRecordedReasonAlwaysMatchesTheReturnedValue() {
+        val baseline = mapOf("bench-press" to 80.0)
+        val sets = (6 downTo 1).flatMap { completed(day = it) }
+
+        val values = useCase(baseline, prescription, sets)
+        val resolved = useCase.resolve(baseline, prescription, sets).getValue("bench-press")
+
+        assertEquals(values.getValue("bench-press"), resolved.progressedKg)
+        assertEquals(
+            baseline.getValue("bench-press") + resolved.explanation.deltaKg,
+            resolved.progressedKg
+        )
+    }
+
     private fun completed(day: Int): List<WorkoutSet> = List(3) {
         WorkoutSet(
             exerciseId = "bench-press",

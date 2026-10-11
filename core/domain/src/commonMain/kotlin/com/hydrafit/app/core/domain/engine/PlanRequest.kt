@@ -42,5 +42,11 @@ data class PlanRequest(
     val recentWeights: List<WeightHistoryEntry> = emptyList(),
     val weekNumber: Int = 1,
     val cycleNumber: Int = 1,
-    val isDeload: Boolean = false
+    val isDeload: Boolean = false,
+    /**
+     * Recorded baseline/progression provenance per exercise id, produced by
+     * [BuildPlannerLoadInputsUseCase]. Inert data: engines record it on their output explanations
+     * and it never affects selection or prescription.
+     */
+    val loadExplanations: Map<String, LoadOriginExplanation> = emptyMap()
 )

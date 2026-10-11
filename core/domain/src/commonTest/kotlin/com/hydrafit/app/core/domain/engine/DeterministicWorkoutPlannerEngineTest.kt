@@ -1613,6 +1613,141 @@ class DeterministicWorkoutPlannerEngineTest {
         } + "]"
     }
 
+    @Test
+    fun recordsAPlanExplanationAndPerExerciseReasoningForEveryPick() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                equipment = everything,
+                suggestedWeightsKg = mapOf("bench-press" to 100.0, "back-squat" to 150.0)
+            ),
+            catalog()
+        )
+
+        val planExplanation = requireNotNull(plan.explanation)
+        assertEquals(PlannerEngineId.DETERMINISTIC, planExplanation.engine)
+        assertEquals(PlanAttribution.DETERMINISTIC, planExplanation.attribution)
+        assertFalse(planExplanation.isDeload)
+
+        val selected = plan.days.flatMap { it.exercises }
+        assertTrue(selected.isNotEmpty())
+        assertTrue(selected.any { it.suggestedWeightKg != null })
+        selected.forEach { exercise ->
+            val explanation = requireNotNull(exercise.explanation)
+            assertEquals(exercise.sets, requireNotNull(explanation.setCount).finalSets)
+            val conversion = explanation.conversion
+            if (exercise.suggestedWeightKg == null) {
+                assertNull(conversion)
+                assertTrue(explanation.unavailableReason != null)
+            } else {
+                assertEquals(exercise.reps, requireNotNull(conversion).reps)
+                assertEquals(
+                    exercise.suggestedWeightKg,
+                    requireNotNull(conversion).uncappedWorkingKg
+                )
+                assertNull(explanation.unavailableReason)
+            }
+        }
+    }
+
+    @Test
+    fun recordsTheEquipmentCeilingOnlyWhenItBinds() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                equipment = everything,
+                suggestedWeightsKg = mapOf("back-squat" to 200.0, "bench-press" to 200.0),
+                equipmentMaxWeights = mapOf(EquipmentTag.BARBELL to 60.0)
+            ),
+            catalog()
+        )
+
+        val squat = plan.days.flatMap { it.exercises }.first { it.exerciseId == "back-squat" }
+        val conversion = requireNotNull(requireNotNull(squat.explanation).conversion)
+
+        assertEquals(60.0, squat.suggestedWeightKg)
+        assertEquals(60.0, conversion.equipmentCeilingKg)
+        assertTrue(conversion.equipmentCeilingBinds)
+        assertTrue(requireNotNull(conversion.uncappedWorkingKg) > 60.0)
+    }
+
+    @Test
+    fun aDeloadRecordsTheAppliedVolumeAndIntensityScales() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                equipment = everything,
+                suggestedWeightsKg = mapOf("bench-press" to 100.0),
+                isDeload = true
+            ),
+            catalog()
+        )
+
+        assertTrue(requireNotNull(plan.explanation).isDeload)
+
+        val bench = plan.days.flatMap { it.exercises }.first { it.exerciseId == "bench-press" }
+        val explanation = requireNotNull(bench.explanation)
+        val setCount = requireNotNull(explanation.setCount)
+
+        assertTrue(setCount.deloadApplied)
+        assertEquals(PeriodizationConfig.DEFAULT_DELOAD_VOLUME_SCALE, setCount.deloadVolumeScale)
+        assertEquals(
+            PeriodizationConfig.DEFAULT_DELOAD_INTENSITY_SCALE,
+            requireNotNull(explanation.conversion).deloadIntensityScale
+        )
+    }
+
+    @Test
+    fun recordsAFatigueSetReductionInsteadOfInferringIt() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                equipment = everything,
+                fatigue = mapOf(MuscleGroup.CHEST_UPPER to 0.7)
+            ),
+            catalog()
+        )
+
+        val bench = plan.days.flatMap { it.exercises }.first { it.exerciseId == "bench-press" }
+        val setCount = requireNotNull(requireNotNull(bench.explanation).setCount)
+
+        assertEquals(FatigueSetEffect.REDUCED, setCount.fatigueEffect)
+        assertTrue(setCount.finalSets < setCount.baseSets)
+    }
+
+    @Test
+    fun carriesTheRecordedBaselineAndProgressionOntoTheSelectedSlot() {
+        val origin = LoadOriginExplanation(
+            baseline = LoadBaselineExplanation(
+                source = LoadBaselineSource.RECENT_PERFORMANCE,
+                recentEstimateKg = 100.0,
+                qualifyingSetCount = 3,
+                baselineKg = 100.0
+            ),
+            progression = LoadProgressionExplanation(
+                outcome = ProgressionOutcome.APPLIED,
+                increments = 1,
+                deltaKg = 2.5
+            )
+        )
+
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 3,
+                equipment = everything,
+                suggestedWeightsKg = mapOf("bench-press" to 102.5),
+                loadExplanations = mapOf("bench-press" to origin)
+            ),
+            catalog()
+        )
+
+        val bench = plan.days.flatMap { it.exercises }.first { it.exerciseId == "bench-press" }
+        val explanation = requireNotNull(bench.explanation)
+
+        assertEquals(origin.baseline, explanation.baseline)
+        assertEquals(origin.progression, explanation.progression)
+    }
+
     private fun request(
         daysPerWeek: Int,
         equipment: Set<EquipmentTag> = emptySet(),
@@ -1626,7 +1761,8 @@ class DeterministicWorkoutPlannerEngineTest {
         equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
         exercisePreferences: Map<String, ExercisePreference> = emptyMap(),
         excludedExerciseIds: Set<String> = emptySet(),
-        isDeload: Boolean = false
+        isDeload: Boolean = false,
+        loadExplanations: Map<String, LoadOriginExplanation> = emptyMap()
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
         availableEquipment = equipment,
@@ -1641,7 +1777,8 @@ class DeterministicWorkoutPlannerEngineTest {
         equipmentMaxWeights = equipmentMaxWeights,
         exercisePreferences = exercisePreferences,
         excludedExerciseIds = excludedExerciseIds,
-        isDeload = isDeload
+        isDeload = isDeload,
+        loadExplanations = loadExplanations
     )
 
     private fun exercise(

@@ -11,5 +11,10 @@ data class PlannedExercise(
     /** What [suggestedWeightKg] means; external for the common weighted prescription. */
     val loadKind: LoadKind = LoadKind.EXTERNAL,
     /** The exercise's load capability at generation time; external by default. */
-    val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL
+    val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL,
+    /**
+     * Recorded reasoning for this target, or null when the producer did not record one (for example
+     * a slot built only as ranking context). Inert data: it never affects selection or prescription.
+     */
+    val explanation: ExerciseTargetExplanation? = null
 )
