@@ -42,9 +42,10 @@ failed deletion leaves both the exercise and override intact, avoiding a danglin
 
 `RestCountdownRepository.observe()` must emit subsequent saves/clears for app-lifetime alert
 reconciliation. `SqlDelightWorkoutScheduleRepository` also implements the narrow
-`OccurrenceReplacementRepository`: revision, active context, any slot-attributed sets (warm-ups
-included), catalog metadata, current equipment/exclusions and load ceiling are checked inside
-the replacement transaction before updating the preserved slot id and occurrence revision.
+`OccurrenceReplacementRepository`: revision, active context, any set freezing the slot (warm-ups
+and occurrence-only rows included), catalog metadata, current equipment/exclusions and load ceiling
+are checked inside the replacement transaction before updating the preserved slot id and occurrence
+revision. The same `freezesOccurrenceSlot` predicate backs the use case's pre-check.
 
 `V1ToCurrentMigrationTest` migrates a v1 database (only the `exercise` table) through
 `1.sqm..37.sqm` and asserts the retained values, legacy→involvement conversion and

@@ -15,6 +15,8 @@ to stay within the constructor budget. When a block is active the Logger shows
 the selected/oldest-unresolved occurrence's remaining sets as drafts, stamps
 `occurrenceId`/`occurrenceEntryId` on logged sets, and exposes Finish/partial/
 Skip (the only queue advances); with no block it keeps the accepted-plan path.
+Attribution reuses the frozen draft slot, so a manual log for a prescribed exercise
+still carries the entry id rather than only the occurrence.
 Planned-set draft editing is one-off: the in-memory editor changes only the values
 written by that draft's confirmation, never the accepted plan, routine or frozen
 activation/occurrence. Reps, capability-appropriate load, optional RIR and optional
@@ -102,8 +104,10 @@ replaces the "Planned today" draft list with a guided card. Progress comes from
 which reads each occurrence entry's frozen prescription and the working sets
 attributed to it; warm-ups and sets with no entry attribution never satisfy a
 prescription. The card lists exercises in entry order with target reps/load and
-performed/prescribed counts. "Log set" records exactly one working set for that
-entry and leaves the remaining prescribed sets pending; "Edit" opens the one-off
+performed/prescribed counts. "Log set" records exactly one set for that entry and
+leaves the remaining prescribed sets pending; the Warm-up toggle applies to it, so
+a warm-up is stored as a warm-up and stays out of the progress count. "Edit" opens
+the one-off
 draft editor and confirming it also writes a single set. Guided writes reuse the
 draft load-shape decisions (legacy resolution, missing-load prompt) through
 `writeGuidedSet`, so a single insert either lands or leaves the draft pending for
@@ -136,8 +140,10 @@ clock/timer factory in `WorkoutLoggerRuntime`, to stay within its dependency bud
 
 `OccurrenceReplacementViewModel` delegates candidate loading/confirmation to
 `ReplaceOccurrenceExerciseUseCase`, using fresh local planner inputs. The dialog is available from
-guided rows and occurrence draft menus. Any slot-attributed set, including warm-ups, rejects it;
-untouched slots in started occurrences remain eligible. Choosing a candidate confirms an occurrence-
+guided rows and occurrence draft menus. One `freezesOccurrenceSlot` predicate backs both the domain
+guard and `replaceUntouchedEntry`: any set attributed to the slot - working or warm-up - rejects it,
+and a set on the occurrence whose entry could not be resolved rejects it too. Untouched slots in
+started occurrences remain eligible. Choosing a candidate confirms an occurrence-
 only change with preserved sets/reps/id and the candidate's own load history, not the original load.
 Stale context/availability fails without writing; Cancel writes nothing. No candidate points to
 existing whole-workout Skip/partial Finish, not a new slot-skip action.
