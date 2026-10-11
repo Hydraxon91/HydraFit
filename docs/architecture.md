@@ -324,12 +324,14 @@ migration, and released schemas are never edited in place.
 
 ### 1.10 Platform boundary via source sets + Koin (not `expect`/`actual`)
 
-Platform behavior is supplied by source-set-specific classes bound in platform Koin modules; the one
-`expect`/`actual` is the Settings on-device section Composable.
+Platform behavior is supplied by source-set-specific classes bound in platform Koin modules, with
+Compose `expect`/`actual` APIs where a platform-specific UI or clock is needed.
 
 - **Examples:** `AndroidDatabaseDriverFactory`/`NativeDatabaseDriverFactory`,
   `AndroidKeystoreApiKeyStore`/`NoopApiKeyStore`, `UnsupportedOnDeviceTextGenerator`,
-  `OnDeviceModelSection` (`commonMain` expect; `.android.kt`/`.ios.kt` actual).
+  `OnDeviceModelSection`, backup UI (`BackupSection`), monotonic elapsed time
+  (`elapsedRealtimeMillis`), and rest-alert permission (`rememberRestAlertPermission`) each have
+  `commonMain` declarations with Android/iOS implementations.
 - **Consistency:** high; `:core:domain` stays platform-free.
 - **Violations / tensions:** real Android/iOS bindings are not exercised by Koin verification (PLANS
   records this); the synchronous `ApiKeyStore`/`OnDeviceModelManager` ports push threading discipline
