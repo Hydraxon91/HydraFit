@@ -1,12 +1,12 @@
 # HydraFit — Device QA Checklist
 
 Acceptance checks before tagging a release. Use the current **debug build** for routine development
-emulator verification. Signed-release/minified runtime or pinned-upgrade checks are separate,
-explicitly approved tests, not automatic steps authorized by this checklist or release approval.
-Name the emulator and artifact, preserve data, and agree a return-to-debug plan first; a clean
-install/uninstall or data clear needs explicit approval. Do not leave the development emulator on
-a release build. Historical release-check records below are evidence, not standing install
-permission. AGENTS keeps automated UI checks off personal phones.
+emulator verification. **Never install a release/minified/signed APK on the emulator** — there is no
+approval path. Verify a release artifact offline (checksum, `apksigner verify`, manifest
+`versionName`/`versionCode`) and record signed-upgrade or on-device runtime behavior as unverified.
+A clean install/uninstall or data clear on the emulator still needs explicit approval. Historical
+release-check records below are evidence, not permission. AGENTS keeps automated UI checks off
+personal phones.
 Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
 
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
@@ -269,12 +269,14 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - Cancelling while a staged apply is in flight leaves the staged payload in place; do not replay it.
 
 ## 13. Release-specific
-- Signed-release/minified runtime or pinned-upgrade checks require separate explicit approval,
-  naming the emulator, artifact and bounded test, plus a data-preservation/return-to-debug plan.
-  Release preparation/tagging/publication is not install approval. Do not leave the development
-  emulator on a release build; see `AGENTS.md` and `docs/agent-ui-verification.md`.
-- For an approved release check, verify `versionName`/`versionCode` against tag/run number; an
-  upgrade should preserve data through migrations.
+- **Never install a release/minified/signed APK on the development emulator**; this replaces the
+  former approval-based step. Verify the published artifact offline instead: `versionName`/
+  `versionCode` against the tag/run number, the asset digest, and `apksigner verify` with the
+  expected certificate. Report signed-upgrade or on-device runtime behavior as unverified.
+  `adb uninstall` and data clear remain separately gated; see `AGENTS.md` and
+  `docs/agent-ui-verification.md`.
+- Offline artifact verification still confirms `versionName`/`versionCode` against the tag/run
+  number; schema compatibility is covered by the host `verifySqlDelightMigration` check.
 
 ### v0.5.0 publication verification (2026-10-09)
 

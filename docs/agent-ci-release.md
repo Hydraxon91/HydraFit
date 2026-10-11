@@ -28,13 +28,12 @@ codebase must keep every required check green; an uploaded debug artifact is not
     - **Version strategy:** `versionName` comes from the tag (leading `v` stripped), `versionCode` from `GITHUB_RUN_NUMBER`; local builds keep the `0.5.1-dev` / `1` defaults. A tag containing `-` (e.g. `v0.1.0-rc.1`) publishes a pre-release.
     - **Required secrets:** `RELEASE_KEYSTORE_BASE64` (base64-encoded keystore) plus same-named `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD`. `GEMINI_API_KEY` is not a CI secret — no CI job calls the Gemini engine.
 
-Release preparation, tagging and publication do **not** authorize installing a release/minified
-APK on the development emulator. Debug is the default. A release install needs separate explicit
-approval for the target, artifact and bounded test, with data-preservation and return-to-debug
-steps agreed first. Check version codes and signing compatibility; any necessary uninstall or
-data removal retains its own approval gate. Return to debug after the test, or report the blocker
-without silently downgrading/clearing data. Existing signed-upgrade evidence remains historical,
-not an instruction to repeat the install.
+Release preparation, tagging and publication never authorize installing a release/minified APK on
+the development emulator. The emulator stays on debug builds: a release/signed install is refused
+regardless of approval. Verify the published artifact without installing it (download, checksum,
+`apksigner verify`, manifest `versionName`/`versionCode`) and report signed-upgrade or on-device
+runtime checks as unverified. Existing signed-upgrade evidence is historical record, not a
+repeatable step. `adb uninstall` and data removal retain their own approval gate.
 
 ### Security & Compliance Constraints
 

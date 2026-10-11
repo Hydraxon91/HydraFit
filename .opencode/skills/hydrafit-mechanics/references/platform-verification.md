@@ -65,12 +65,12 @@ hierarchy permits one bounded Maestro compact CLI fallback, not a competing ADB
 dump (see `.maestro/README.md`); if that fails, stop interaction.
 Do not navigate by stale coordinates or replay an uncertain write.
 
-The development emulator stays on debug builds. Release/minified APK installation requires
-separate explicit approval naming target/artifact/test plus preservation and return-to-debug
-steps; release preparation/tagging/publication is not install permission. Check version codes
-and signing compatibility before replacing an install. Uninstall/clear/downgrade actions retain
-their approval gates. Return to debug after an approved release test or report a blocked return;
-historical upgrade/measurement records do not authorize another install.
+The development emulator stays on debug builds. Never install a release/minified APK on it
+(including a published signed release); there is no approval path. Verify a release artifact
+offline (checksum, `apksigner verify`, manifest `versionName`/`versionCode`) and report
+signed-upgrade/on-device runtime checks as unverified. Uninstall/clear/downgrade actions on the
+emulator retain their approval gates; historical upgrade/measurement records do not authorize an
+install.
 
 Gradle task lookup by subsystem:
 
