@@ -74,12 +74,17 @@ class BuildPlannerLoadInputsUseCase(
             val recentEstimate = recentBest[exerciseId]
             val manualFloor = manualRecords[exerciseId]
             val resolved = recentEstimate ?: manualFloor ?: return@mapNotNull null
+            // The source names the input that determined the baseline, so it cannot contradict the
+            // value: a higher manual floor is the source, not merely an accompanying record.
+            val source = if (recentEstimate == null ||
+                (manualFloor != null && manualFloor > recentEstimate)
+            ) {
+                LoadBaselineSource.MANUAL_PERSONAL_RECORD
+            } else {
+                LoadBaselineSource.RECENT_PERFORMANCE
+            }
             exerciseId to LoadBaselineExplanation(
-                source = if (recentEstimate != null) {
-                    LoadBaselineSource.RECENT_PERFORMANCE
-                } else {
-                    LoadBaselineSource.MANUAL_PERSONAL_RECORD
-                },
+                source = source,
                 recentEstimateKg = recentEstimate,
                 qualifyingSetCount = recentQualifyingSets[exerciseId]?.size ?: 0,
                 manualFloorKg = manualFloor,

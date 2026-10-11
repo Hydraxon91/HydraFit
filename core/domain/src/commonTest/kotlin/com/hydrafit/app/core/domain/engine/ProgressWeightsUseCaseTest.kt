@@ -192,6 +192,19 @@ class ProgressWeightsUseCaseTest {
     }
 
     @Test
+    fun aHoldCausedByMissedSessionsIsNotReportedAsThinEvidence() {
+        val hold = useCase.explain(
+            baseline = mapOf("bench-press" to 80.0),
+            prescriptions = prescription,
+            sets = missed(day = 3) + missed(day = 2) + missed(day = 1)
+        ).getValue("bench-press")
+
+        assertEquals(ProgressionOutcome.HELD_AFTER_MISSED_SESSIONS, hold.outcome)
+        assertEquals(0, hold.increments)
+        assertEquals(0.0, hold.deltaKg)
+    }
+
+    @Test
     fun aDeloadPauseIsReportedRatherThanReconstructedAsNoEvidence() {
         val resolved = useCase.resolve(
             baseline = mapOf("bench-press" to 80.0),

@@ -1646,6 +1646,8 @@ class DeterministicWorkoutPlannerEngineTest {
                     requireNotNull(conversion).uncappedWorkingKg
                 )
                 assertNull(explanation.unavailableReason)
+                // A deterministic target is not a model proposal.
+                assertNull(explanation.aiAdjustment)
             }
         }
     }

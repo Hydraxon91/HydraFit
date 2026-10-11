@@ -11,7 +11,7 @@ package com.hydrafit.app.core.domain.engine
  * readiness.
  */
 
-/** Which evidence produced the pre-progression baseline. */
+/** The evidence that determined the pre-progression baseline. */
 enum class LoadBaselineSource {
     RECENT_PERFORMANCE,
     MANUAL_PERSONAL_RECORD
@@ -20,10 +20,11 @@ enum class LoadBaselineSource {
 /**
  * The baseline stage of a numeric load, captured where it is computed.
  *
- * [recentEstimateKg] and [manualFloorKg] are the two eligible inputs; [baselineKg] is what they
- * combined to (the recent estimate, or the manual record when recent evidence was thin, raised to
- * at least the manual value). A record is only produced when a baseline exists, so "no usable
- * baseline" is reported through [LoadUnavailableReason] instead.
+ * [source] names the input that set [baselineKg]; the other eligible input is still recorded for
+ * provenance. [recentEstimateKg] and [manualFloorKg] are the two eligible inputs, and [baselineKg] is
+ * their effective maximum (the recent estimate, or the manual record when recent evidence was thin or
+ * lower). A record is only produced when a baseline exists, so "no usable baseline" is reported
+ * through [LoadUnavailableReason] instead.
  */
 data class LoadBaselineExplanation(
     val source: LoadBaselineSource,
@@ -40,8 +41,16 @@ data class LoadBaselineExplanation(
 /** What the existing progression rule did to the baseline. */
 enum class ProgressionOutcome {
     APPLIED,
-    NONE_NO_TYPED_PRESCRIPTION,
+
+    /** There is an accepted prescription but not yet a completed success streak. */
     NONE_NO_STREAK_YET,
+
+    /**
+     * The rule removed at least one increment for missed sessions and the result stayed at the
+     * baseline, so the hold is a failure-driven correction rather than simply "too little evidence".
+     */
+    HELD_AFTER_MISSED_SESSIONS,
+    NONE_NO_TYPED_PRESCRIPTION,
     PAUSED_DELOAD
 }
 
@@ -60,15 +69,42 @@ data class LoadProgressionExplanation(
     val failureStreakSize: Int = ProgressionConfig.DEFAULT_FAILURE_STREAK
 )
 
-/** An app-side adjustment applied to a model-proposed number. */
-enum class AiLoadAdjustment {
-    NONE,
-    LOWERED_TO_PROGRESSION_BOUND,
-    LOWERED_TO_EQUIPMENT_CEILING
-}
+/**
+ * A model-proposed number and each adjustment the app itself applied to it.
+ *
+ * The app never runs a model proposal through the rep-intensity conversion, so no conversion
+ * parameters are recorded here — only the proposal the model supplied and the app's own operations.
+ * Both bounds are recorded independently, because a proposal can be bound by progression and then
+ * further capped by equipment.
+ */
+data class AiLoadExplanation(
+    /** The number the model returned, before any app adjustment; null when it returned none. */
+    val proposedKg: Double?,
+    /**
+     * True when the app accepted the proposal as this exercise's numeric load. False when the
+     * proposal was unusable (out of range, withheld, not shared) or the exercise does not track an
+     * external load, in which case the bounds below are null and not reported as applied.
+     */
+    val proposedAccepted: Boolean,
+    /** True when the app scaled an accepted proposal for a deload week. */
+    val deloadScaled: Boolean,
+    val deloadIntensityScale: Double,
+    /** The progression bound the app applied, or null when it had no bound for this exercise. */
+    val progressionBoundKg: Double?,
+    /** True when [progressionBoundKg] lowered the value. */
+    val boundedByProgression: Boolean,
+    /** The equipment ceiling that applies, whether or not it bound. */
+    val equipmentCeilingKg: Double?,
+    /** True when the ceiling lowered the value. */
+    val cappedByEquipment: Boolean
+)
 
 /**
  * The observed conversion from an estimate to the prescribed working load.
+ *
+ * This describes the app's own deterministic conversion. A model proposal is described by
+ * [AiLoadExplanation] instead: it is scaled and bounded, not converted through this curve, so none
+ * of these parameters are attached to it.
  *
  * [uncappedWorkingKg] is the load before the equipment ceiling; a ceiling that applies but does not
  * bind is recorded with [equipmentCeilingBinds] false rather than described as limiting the target.
@@ -83,8 +119,7 @@ data class LoadConversionExplanation(
     val uncappedWorkingKg: Double? = null,
     /** The equipment ceiling that applies here, whether or not it bound. */
     val equipmentCeilingKg: Double? = null,
-    val equipmentCeilingBinds: Boolean = false,
-    val aiAdjustment: AiLoadAdjustment = AiLoadAdjustment.NONE
+    val equipmentCeilingBinds: Boolean = false
 )
 
 /** How fatigue affected the prescribed set count. */
@@ -121,7 +156,10 @@ enum class LoadUnavailableReason {
 data class ExerciseTargetExplanation(
     val baseline: LoadBaselineExplanation? = null,
     val progression: LoadProgressionExplanation? = null,
+    /** The app's deterministic conversion; null for a model-proposed number. */
     val conversion: LoadConversionExplanation? = null,
+    /** The model's proposal and the app's adjustments to it; null for a deterministic target. */
+    val aiAdjustment: AiLoadExplanation? = null,
     val setCount: SetCountExplanation? = null,
     val unavailableReason: LoadUnavailableReason? = null
 )

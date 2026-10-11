@@ -362,6 +362,33 @@ class BuildPlannerLoadInputsUseCaseTest {
     }
 
     @Test
+    fun aHigherManualRecordIsTheBaselineSourceNotMerelyAFloor() = runTest {
+        val result = useCase(
+            sources = sources(
+                listOf(
+                    set("bench-press", day = 99, weightKg = 80.0, kind = LoadKind.EXTERNAL),
+                    set("bench-press", day = 100, weightKg = 80.0, kind = LoadKind.EXTERNAL)
+                )
+            ).copy(
+                personalRecords = listOf(PersonalRecord("bench-press", weightKg = 120.0, reps = 8))
+            ),
+            latestPlan = null,
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        val explanation = result.loadExplanations.getValue("bench-press").baseline
+        // Recent estimate: Epley(80 x 8) = 101.33; manual record: Epley(120 x 8) = 152, so the record
+        // determines the baseline and names the source.
+        assertEquals(LoadBaselineSource.MANUAL_PERSONAL_RECORD, explanation.source)
+        assertEquals(152.0, explanation.baselineKg, 1e-9)
+        assertEquals(101.33333333333333, requireNotNull(explanation.recentEstimateKg), 1e-9)
+        assertEquals(152.0, requireNotNull(explanation.manualFloorKg), 1e-9)
+        assertEquals(2, explanation.qualifyingSetCount)
+    }
+
+    @Test
     fun recordsTheRecentPerformanceBaselineAndItsQualifyingSetCount() = runTest {
         val result = useCase(
             sources = sources(completedExternalSessions("bench-press")),

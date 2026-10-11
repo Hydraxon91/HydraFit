@@ -75,6 +75,11 @@ class WeeklyPlanSanitizer(
                         null
                     }
                     val ceilingBinds = ceiling != null && uncapped != null && uncapped > ceiling
+                    // A model number is only "accepted" when the app keeps a numeric load for this
+                    // exercise; a discarded proposal must not also claim an applied bound or ceiling.
+                    val retained = allowed && proposed != null
+                    val boundedByProgression = retained && bound != null && bound < proposed
+                    val cappedByEquipment = retained && ceilingBinds
                     val unavailableReason = when {
                         !allowed -> LoadUnavailableReason.NOT_LOAD_TRACKED
                         !request.includeWorkoutData -> LoadUnavailableReason.AI_DATA_NOT_SHARED
@@ -97,29 +102,19 @@ class WeeklyPlanSanitizer(
                         },
                         loadCapability = capability,
                         explanation = ExerciseTargetExplanation(
-                            // The sanitizer never chose the number from the app's baseline; it only
-                            // bounded it, so the model's proposal is attributed to no deterministic
-                            // baseline here.
-                            conversion = if (uncapped == null) {
-                                null
-                            } else {
-                                LoadConversionExplanation(
-                                    reps = reps,
-                                    intensityFraction = weightConfig.intensityForReps(reps),
-                                    deloadIntensityScale = intensityScale,
-                                    roundToKg = weightConfig.roundToKg,
-                                    uncappedWorkingKg = uncapped,
-                                    equipmentCeilingKg = ceiling,
-                                    equipmentCeilingBinds = ceilingBinds,
-                                    aiAdjustment = when {
-                                        bound != null && proposed != null && bound < proposed ->
-                                            AiLoadAdjustment.LOWERED_TO_PROGRESSION_BOUND
-                                        ceilingBinds ->
-                                            AiLoadAdjustment.LOWERED_TO_EQUIPMENT_CEILING
-                                        else -> AiLoadAdjustment.NONE
-                                    }
-                                )
-                            },
+                            // The model chose the number; the app only scaled and bounded it, so the
+                            // app's adjustments are recorded as separate operations rather than as a
+                            // rep-intensity conversion the sanitizer never ran.
+                            aiAdjustment = AiLoadExplanation(
+                                proposedKg = planned.suggestedWeightKg,
+                                proposedAccepted = retained,
+                                deloadScaled = isDeload && retained,
+                                deloadIntensityScale = intensityScale,
+                                progressionBoundKg = if (retained) bound else null,
+                                boundedByProgression = boundedByProgression,
+                                equipmentCeilingKg = if (retained) ceiling else null,
+                                cappedByEquipment = cappedByEquipment
+                            ),
                             setCount = SetCountExplanation(
                                 baseSets = if (exercise.movementPattern.isCompound) {
                                     request.setsPerExercise

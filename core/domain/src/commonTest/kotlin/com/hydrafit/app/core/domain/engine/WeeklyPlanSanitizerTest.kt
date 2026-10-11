@@ -9,6 +9,7 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
@@ -432,13 +433,34 @@ class WeeklyPlanSanitizerTest {
             )
         )
 
-        val sanitized = sanitizer.sanitize(plan, request(includeWorkoutData = true))!!
+        // Both an app progression bound and an equipment ceiling are available, so a discarded
+        // proposal must not report either as applied.
+        val sanitized = sanitizer.sanitize(
+            plan,
+            request(
+                includeWorkoutData = true,
+                equipmentMaxWeights = mapOf(EquipmentTag.BODYWEIGHT to 5.0)
+            ).copy(recentWeightCaps = mapOf("ab-roll" to 20.0))
+        )!!
 
         val entry = sanitized.days.single().exercises
             .first { it.exerciseId == "ab-roll" }
         assertNull(entry.suggestedWeightKg)
         assertEquals(LoadKind.BODYWEIGHT, entry.loadKind)
         assertEquals(ExerciseLoadCapability.BODYWEIGHT_ONLY, entry.loadCapability)
+
+        // The discarded number is still recorded as the model's proposal, but the app did not accept
+        // it, applied neither bound, and reports why.
+        val explanation = requireNotNull(entry.explanation)
+        val ai = requireNotNull(explanation.aiAdjustment)
+        assertEquals(32.5, ai.proposedKg)
+        assertFalse(ai.proposedAccepted)
+        assertNull(ai.progressionBoundKg)
+        assertNull(ai.equipmentCeilingKg)
+        assertFalse(ai.boundedByProgression)
+        assertFalse(ai.cappedByEquipment)
+        assertFalse(ai.deloadScaled)
+        assertEquals(LoadUnavailableReason.NOT_LOAD_TRACKED, explanation.unavailableReason)
     }
 
     private fun planOf(exerciseIds: List<String>) = WeeklyPlan(
@@ -455,13 +477,76 @@ class WeeklyPlanSanitizerTest {
             )
         )!!
 
-        val entry = sanitized.days.single().exercises.first { it.exerciseId == "bench-press" }
-        val conversion = requireNotNull(requireNotNull(entry.explanation).conversion)
+        val explanation = requireNotNull(
+            sanitized.days.single().exercises.first { it.exerciseId == "bench-press" }.explanation
+        )
+        val ai = requireNotNull(explanation.aiAdjustment)
 
-        assertEquals(AiLoadAdjustment.LOWERED_TO_PROGRESSION_BOUND, conversion.aiAdjustment)
-        assertEquals(entry.suggestedWeightKg, conversion.uncappedWorkingKg)
-        assertTrue(requireNotNull(entry.suggestedWeightKg) < 200.0)
-        assertNull(entry.explanation!!.unavailableReason)
+        // The model's raw proposal is retained, and the app's bound is a separate operation.
+        assertEquals(200.0, ai.proposedKg)
+        assertTrue(ai.proposedAccepted)
+        assertTrue(ai.boundedByProgression)
+        assertFalse(ai.cappedByEquipment)
+        assertEquals(77.5, requireNotNull(ai.progressionBoundKg), 1e-9)
+        // No rep-intensity conversion ran, so none is claimed and no bound is attributed to it.
+        assertNull(explanation.conversion)
+        assertNull(explanation.unavailableReason)
+    }
+
+    @Test
+    fun recordsADeloadScaledModelProposal() = runTest {
+        val sanitized = sanitizer.sanitize(
+            modelPlan("bench-press", suggestedWeightKg = 100.0),
+            request(includeWorkoutData = true, isDeload = true)
+        )!!
+
+        val entry = sanitized.days.single().exercises.first { it.exerciseId == "bench-press" }
+        val ai = requireNotNull(requireNotNull(entry.explanation).aiAdjustment)
+
+        assertEquals(100.0, ai.proposedKg)
+        assertTrue(ai.deloadScaled)
+        assertEquals(PeriodizationConfig.DEFAULT_DELOAD_INTENSITY_SCALE, ai.deloadIntensityScale)
+        // 100 x 0.8 = 80, with neither an app bound nor an equipment ceiling.
+        assertEquals(80.0, entry.suggestedWeightKg)
+        assertFalse(ai.boundedByProgression)
+        assertFalse(ai.cappedByEquipment)
+    }
+
+    @Test
+    fun recordsProgressionAndEquipmentBoundsIndependently() = runTest {
+        val sanitized = sanitizer.sanitize(
+            modelPlan("bench-press", suggestedWeightKg = 300.0),
+            request(
+                includeWorkoutData = true,
+                equipmentMaxWeights = mapOf(EquipmentTag.BARBELL to 60.0)
+            ).copy(recentWeightCaps = mapOf("bench-press" to 100.0))
+        )!!
+
+        val entry = sanitized.days.single().exercises.first { it.exerciseId == "bench-press" }
+        val ai = requireNotNull(requireNotNull(entry.explanation).aiAdjustment)
+
+        // Both the progression bound and the equipment ceiling constrained the value.
+        assertTrue(ai.boundedByProgression)
+        assertTrue(ai.cappedByEquipment)
+        assertEquals(60.0, entry.suggestedWeightKg)
+    }
+
+    @Test
+    fun recordsAnEquipmentCeilingThatDidNotBind() = runTest {
+        val sanitized = sanitizer.sanitize(
+            modelPlan("bench-press", suggestedWeightKg = 40.0),
+            request(
+                includeWorkoutData = true,
+                equipmentMaxWeights = mapOf(EquipmentTag.BARBELL to 200.0)
+            )
+        )!!
+
+        val entry = sanitized.days.single().exercises.first { it.exerciseId == "bench-press" }
+        val ai = requireNotNull(requireNotNull(entry.explanation).aiAdjustment)
+
+        assertEquals(200.0, ai.equipmentCeilingKg)
+        assertFalse(ai.cappedByEquipment)
+        assertEquals(40.0, entry.suggestedWeightKg)
     }
 
     @Test
@@ -475,11 +560,13 @@ class WeeklyPlanSanitizerTest {
         )!!
 
         val entry = sanitized.days.single().exercises.first { it.exerciseId == "bench-press" }
-        val conversion = requireNotNull(requireNotNull(entry.explanation).conversion)
+        val explanation = requireNotNull(entry.explanation)
+        val ai = requireNotNull(explanation.aiAdjustment)
 
         assertEquals(60.0, entry.suggestedWeightKg)
-        assertTrue(conversion.equipmentCeilingBinds)
-        assertEquals(AiLoadAdjustment.LOWERED_TO_EQUIPMENT_CEILING, conversion.aiAdjustment)
+        assertTrue(ai.cappedByEquipment)
+        assertFalse(ai.boundedByProgression)
+        assertNull(explanation.conversion)
     }
 
     @Test
@@ -521,11 +608,17 @@ class WeeklyPlanSanitizerTest {
             modelPlan("bench-press", suggestedWeightKg = 2_000.0),
             request(includeWorkoutData = true)
         )!!
+        val rejectedEntry = rejected.days.single().exercises
+            .first { it.exerciseId == "bench-press" }
+        val rejectedExplanation = requireNotNull(rejectedEntry.explanation)
         assertEquals(
             LoadUnavailableReason.AI_PROPOSAL_REJECTED,
-            rejected.days.single().exercises
-                .first { it.exerciseId == "bench-press" }.explanation!!.unavailableReason
+            rejectedExplanation.unavailableReason
         )
+        // The rejected number is still recorded as the model's raw proposal.
+        val rejectedAi = requireNotNull(rejectedExplanation.aiAdjustment)
+        assertEquals(2_000.0, rejectedAi.proposedKg)
+        assertFalse(rejectedAi.proposedAccepted)
     }
 
     @Test

@@ -80,18 +80,20 @@ class ProgressWeightsUseCase(private val config: ProgressionConfig = Progression
                     explanation(ProgressionOutcome.NONE_NO_TYPED_PRESCRIPTION)
                 )
             val sessions = byExercise[exerciseId].orEmpty()
-            val increments = incrementsFor(sessions, prescription, utcOffsetMillis)
-            val delta = increments * config.roundToKg
+            val outcome = incrementsFor(sessions, prescription, utcOffsetMillis)
+            val delta = outcome.increments * config.roundToKg
             ProgressedWeight(
                 baselineKg = base,
                 progressedKg = base + delta,
                 explanation = explanation(
-                    outcome = if (increments > 0) {
-                        ProgressionOutcome.APPLIED
-                    } else {
-                        ProgressionOutcome.NONE_NO_STREAK_YET
+                    outcome = when {
+                        outcome.increments > 0 -> ProgressionOutcome.APPLIED
+                        // A hold caused by missed sessions is not the same as "not enough completed
+                        // days yet"; the rule did remove increments and landed on the baseline.
+                        outcome.failureApplied -> ProgressionOutcome.HELD_AFTER_MISSED_SESSIONS
+                        else -> ProgressionOutcome.NONE_NO_STREAK_YET
                     },
-                    increments = increments,
+                    increments = outcome.increments,
                     deltaKg = delta
                 )
             )
@@ -112,11 +114,15 @@ class ProgressWeightsUseCase(private val config: ProgressionConfig = Progression
         failureStreakSize = config.failureStreak
     )
 
+    /**
+     * Applies the streak rule and reports whether a failure removed an increment, so a hold at the
+     * baseline can be described as failure-driven instead of looking like thin evidence.
+     */
     private fun incrementsFor(
         sessions: List<WorkoutSet>,
         prescription: Prescription,
         utcOffsetMillis: Long
-    ): Int {
+    ): ProgressionResult {
         val chronological = sessions
             .groupBy { localEpochDay(it.performedAtMillis, utcOffsetMillis) }
             .entries
@@ -125,17 +131,24 @@ class ProgressWeightsUseCase(private val config: ProgressionConfig = Progression
 
         var streak = 0
         var increments = 0
+        var failureApplied = false
         for (completed in chronological) {
             if (completed) {
                 streak = if (streak < 0) 1 else streak + 1
                 if (streak % config.successStreak == 0) increments++
             } else {
                 streak = if (streak > 0) -1 else streak - 1
-                if (-streak % config.failureStreak == 0) increments--
+                if (-streak % config.failureStreak == 0) {
+                    increments--
+                    failureApplied = true
+                }
             }
         }
-        return increments.coerceIn(0, config.maxIncrements)
+        return ProgressionResult(increments.coerceIn(0, config.maxIncrements), failureApplied)
     }
+
+    /** The streak rule's net increments and whether a missed-session streak removed any. */
+    private data class ProgressionResult(val increments: Int, val failureApplied: Boolean)
 
     private fun List<WorkoutSet>.isCompleted(prescription: Prescription): Boolean = count { set ->
         val weight = set.weightKg ?: return@count false
