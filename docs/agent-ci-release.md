@@ -20,7 +20,7 @@ codebase must keep every required check green; an uploaded debug artifact is not
         - `assemble-debug-apk` — starts immediately; runs `./gradlew :androidApp:assembleDebug :androidApp:lintVitalRelease`, then uploads the `androidApp-debug-apk` artifact (14-day retention). Release-specific Android lint runs before tagging without signing or publishing a release. Concurrent assembly reduces serial waiting but may build a debug artifact when another check fails; all existing checks remain required.
 
 2. **`nightly.yml` (scheduled `0 3 * * *` UTC, plus manual `workflow_dispatch`):**
-    - Mirrors the primary jobs (`lint`, `unit-tests`, `ios-compile`, `assemble-debug-apk`); concurrency group `nightly-${{ github.ref }}` with `cancel-in-progress: false`.
+    - Mirrors the primary jobs (`lint`, `unit-tests` including `verifySqlDelightMigration`, `ios-compile`, `assemble-debug-apk` including `lintVitalRelease`); concurrency group `nightly-${{ github.ref }}` with `cancel-in-progress: false`.
 
 3. **`release.yml` (on `v*.*.*` tags):**
     - `lint` and `unit-tests` (including explicit `verifySqlDelightMigration`) gate the `build-release` job (job-scoped `permissions: contents: write`); concurrency group `release-${{ github.ref }}` with `cancel-in-progress: false`. Verification jobs have 15-minute limits; signed assembly/publication has a 20-minute limit.
