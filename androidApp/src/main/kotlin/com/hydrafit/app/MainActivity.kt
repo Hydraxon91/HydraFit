@@ -12,6 +12,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
+        // Manifest orientation cannot use size qualifiers; resolve the phone/tablet policy here.
+        requestedOrientation = resources.getInteger(R.integer.screen_orientation)
+
         setContent {
             App()
         }
