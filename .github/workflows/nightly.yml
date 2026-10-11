@@ -16,6 +16,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout sources
         uses: actions/checkout@v6
@@ -32,6 +33,7 @@ jobs:
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout sources
         uses: actions/checkout@v6
@@ -44,10 +46,13 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
       - name: Run host unit tests
         run: ./gradlew testAndroidHostTest
+      - name: Verify SQLDelight migrations
+        run: ./gradlew verifySqlDelightMigration
 
   ios-compile:
     name: iOS Compile
     runs-on: macos-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout sources
         uses: actions/checkout@v6
@@ -63,8 +68,8 @@ jobs:
 
   assemble-debug-apk:
     name: Assemble Debug APK
-    needs: [ lint, unit-tests ]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout sources
         uses: actions/checkout@v6
@@ -81,8 +86,8 @@ jobs:
         run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0"
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
-      - name: Assemble debug APK
-        run: ./gradlew :androidApp:assembleDebug
+      - name: Assemble debug APK and check release lint
+        run: ./gradlew :androidApp:assembleDebug :androidApp:lintVitalRelease
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:

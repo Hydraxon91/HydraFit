@@ -85,6 +85,7 @@ result separately; AGENTS.md retains the timeout and logging requirements.
 :core:llm:testAndroidHostTest         local engine and fallback tests
 :feature:<name>:testAndroidHostTest   feature state tests
 :shared:testAndroidHostTest           application graph/provider tests
+:androidApp:lintVitalRelease          release-fatal Android lint before tagging (no signing)
 :shared:compileKotlinIosSimulatorArm64
 :core:network:compileKotlinIosSimulatorArm64
 ```
@@ -92,3 +93,8 @@ result separately; AGENTS.md retains the timeout and logging requirements.
 Version aliases live in `gradle/libs.versions.toml`; module build scripts use
 `alias(libs.plugins.*)`. There is no convention-plugin `buildSrc`/`build-logic`
 layer at authoring; root Gradle applies ktlint across subprojects.
+Primary/nightly CI runs lint, host tests plus explicit migration verification, iOS compile and debug
+assembly concurrently, with 15-minute job limits. Debug assembly also runs `lintVitalRelease`; an
+uploaded debug APK does not override a failed sibling check. Release verification jobs retain the
+same migration check and gate signed publication, whose job has a 20-minute limit. Signing and
+publication behavior are unchanged; see `docs/agent-ci-release.md` for the workflow contract.

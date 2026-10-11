@@ -16,6 +16,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout sources
         uses: actions/checkout@v6
@@ -32,6 +33,7 @@ jobs:
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout sources
         uses: actions/checkout@v6
@@ -44,11 +46,14 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
       - name: Run host unit tests
         run: ./gradlew testAndroidHostTest
+      - name: Verify SQLDelight migrations
+        run: ./gradlew verifySqlDelightMigration
 
   build-release:
     name: Build Signed Release APK
     needs: [ lint, unit-tests ]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
     env:
