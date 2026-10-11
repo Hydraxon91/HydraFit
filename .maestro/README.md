@@ -49,7 +49,9 @@ at 1.3× (`/tmp/hydrafit-060-final-session-controls.log`). Settings denial passe
 coaching ON before/after denial and after reopening, then restoration OFF. The combined denial
 file's runtime attempt failed on an off-screen coaching assertion after the denial message appeared;
 bounded cleanup verified coaching ON and restored it OFF. The final file adds the missing scroll
-checkpoint and is syntax-checked; its complete final-form runtime pass remains open. See
+checkpoint and is syntax-checked. The separately approved remaining-test chunk subsequently
+passed the exact final file end-to-end (`/tmp/hydrafit-060-remaining-denial.log`), restoring
+coaching OFF and denied permission with `USER_SET|USER_FIXED`. See
 `docs/qa.md` for evidence, failed attempts, cleanup and platform/accessibility limits.
 
 ## Run one named flow
