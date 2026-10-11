@@ -1,15 +1,15 @@
 # HydraFit roadmap to 1.0
 
-Approved direction: 2026-10-09. This roadmap groups the remaining backlog after
-0.5.1; it does not authorize implementation, publication, commits or pushes.
-Release numbers are planning targets, without dates. Patch releases remain
-trigger-based corrections to shipped contracts.
+Approved direction: 2026-10-09; smaller published releases approved 2026-10-11.
+The current shipped version is 0.6.1. This roadmap groups the remaining backlog;
+it does not authorize implementation, publication, commits or pushes.
+Release numbers are planning targets, without dates.
 
 ## Scope and ownership
 
 **All remaining roadmap work is pre-1.0, except iOS shipping and desktop.** This
 includes previously optional/deferred features, extensions, quality work and
-research. The final UX/design release is provisionally **0.13.0**. AI remains
+research. The final UX/design series is provisionally **0.13.x**. AI remains
 optional for users even though its reliability programme is required roadmap work.
 
 [PLANS.md](../PLANS.md) owns execution status, detailed item/phase contracts and
@@ -31,25 +31,55 @@ requires an explicit user decision before 1.0; it is not silently moved post-1.0
 
 The sequence follows the user journey: train, understand sessions, see progress,
 manage equipment/data, use advanced controls, improve optional AI, then polish.
-Each release is split into separately approved bounded work chunks. Behavioral,
-schema, dependency, infrastructure and licensing decisions retain their gates.
+Each theme is delivered through smaller published releases, not one large release
+with internal chunks. Each release has a bounded scope, its own acceptance checks
+and a separately requested code review before publication. Implementation chunks
+inside it still need approval. Behavioral, schema, dependency, infrastructure and
+licensing decisions retain their gates.
+
+## Smaller-release policy
+
+- **0.N identifies a theme; 0.N.0, 0.N.1, 0.N.2, … deliver its slices.** During
+  pre-1.0 development, patch numbers can carry features as well as corrections.
+  This replaces the former corrective-only patch policy for future releases;
+  shipped versions and their historical classification do not change.
+- Aim for one independently usable capability per release. Its persistence,
+  migration, backup/import compatibility, consumers, tests and living docs belong
+  in that same scope, not in a later integration release.
+- Corrective releases use the next available patch number and are labelled
+  **corrective**. If one interrupts a series, later provisional targets shift;
+  never reuse a tag or bundle the next feature into an urgent correction.
+- The tables below assign coverage, not detailed implementation contracts. Split
+  a slice further at its scope gate if it is still too large to review. Preserve
+  its dependencies and references rather than silently dropping the remainder.
+- Decision-only work is a prerequisite, not an empty app release. Conditional
+  research slices ship only when supported implementation is approved; otherwise
+  record findings and obtain an explicit disposition. No positive research result
+  or APK release is promised by reserving a target.
+- Accessibility, localization, failure handling and applicable cross-release
+  ledger checks travel with every affected slice. Each published slice needs its
+  verification and separately requested review; passing tests is not approval.
 
 ## Release overview
 
 | Target | Theme | Primary references |
 | --- | --- | --- |
-| 0.6.0 | Guided Training | OF-02, LT-06/07/09, item 9 B1, OF-13 dividers, phone portrait lock |
-| 0.7.0 | Workout Context & Confidence | OF-03, OF-13/14, WU-01, CAT-01, OF-12-P2/P3, EX-03, LT-10 contract |
-| 0.8.0 | Progress & Recovery | OF-04/08/09, catalog classification/research |
-| 0.9.0 | Equipment & Data Freedom | EQ-01, OF-05/06/07, QL-02, OF-01 extensions |
-| 0.10.0 | Trustworthy Progression & Flexible Prescriptions | OF-10A/B, PYR-01, item 9 B2/B3, item 8 |
-| 0.11.0 | Beyond Rep-Based Sets | OF-10C/D, timed/distance/force grip, advanced set semantics |
-| 0.12.0 | Optional AI Reliability | M8-P0–P4, CATP7-R01, AI review/performance follow-ups |
-| 0.13.0 | Final UX & Design | QL-01 final pass, UX-01 adaptive tablet/foldable layouts, full-flow integration and remaining quality gates |
+| 0.6.0–0.6.1 — shipped | Guided Training | OF-02, LT-06/07/09, item 9 B1, OF-13 dividers, phone portrait lock; corrective 0.6.1 |
+| 0.7.x | Workout Context & Confidence | OF-03, OF-13/14, WU-01, CAT-01, OF-12-P2/P3, EX-03, LT-10 contract |
+| 0.8.x | Progress & Recovery | OF-04/08/09, catalog classification/research |
+| 0.9.x | Equipment & Data Freedom | EQ-01, OF-05/06/07, QL-02, OF-01 extensions |
+| 0.10.x | Trustworthy Progression & Flexible Prescriptions | OF-10A/B, PYR-01, item 9 B2/B3, item 8 |
+| 0.11.x | Beyond Rep-Based Sets | OF-10C/D, timed/distance/force grip, advanced set semantics |
+| 0.12.x | Optional AI Reliability | M8-P0–P4, CATP7-R01, AI review/performance follow-ups |
+| 0.13.x | Final UX & Design | QL-01 final pass, UX-01 adaptive tablet/foldable layouts, full-flow integration and remaining quality gates |
 | 1.0.0 | Verified Android-first completion | All pre-1.0 scopes delivered or explicitly dispositioned; stability gate |
 | Beyond 1.0 | Additional platforms | iOS shipping/Keychain-backed ApiKeyStore; desktop |
 
 ### 0.6.0 — Guided Training
+
+Shipped in 0.6.0, followed by corrective 0.6.1. The scope below is retained as
+context, not scheduled again. Equivalent RPE presentation remains a decision
+under the later effort work; B1 shipped RIR-only guidance.
 
 - **OF-02:** ordered workouts using existing routines, occurrences and sessions;
   targets versus actual work, remaining sets, out-of-order/unplanned logging,
@@ -72,6 +102,25 @@ End/New session and background/resume/timer semantics verified offline.
 
 ### 0.7.0 — Workout Context & Confidence
 
+The heading identifies the theme's starting version; the scope is spread across
+**0.7.x**, not all included in 0.7.0.
+
+| Target | Reviewable release scope | Dependencies / references |
+| --- | --- | --- |
+| 0.7.0 | Planner explanations for load, hold/progression, equipment caps, fatigue choices and deloads | OF-03 remainder; expose existing decisions without changing policy |
+| 0.7.1 | Exercise/setup and session notes, searchable session history and correction access | OF-13; clear/save/cancel and backup coverage |
+| 0.7.2 | Finish-workout summaries | OF-13 / LT-11; reconcile with guided work and 0.7.1 history |
+| 0.7.3 | Editable preparation and specific ramp-set guidance | WU-01 / LT-08; sourced content, existing rep-based warm-up logging; persisted timing waits for 0.11.x |
+| 0.7.4 | Offline exercise instructions, first agreed content batch | CAT-01; approve ownership, portability, provenance and coverage first |
+| 0.7.5 | Informational exercise caution content | EX-03; evidence, wording and triggers approved first; no inferred risk |
+| 0.7.6 | Skippable, revisitable setup and first-workout guidance | OF-14; use shipped inventory; profiles integrate in 0.9.0 |
+| 0.7.7 | Opt-in workout reminders and guided-workout integration | OF-12-P2/P3; permission, quiet-hour, reboot and cancellation contract first |
+
+After history/summaries, settle **LT-10 / OF-10A-P0** as a separate decision-only
+contract before closing this series. It gets no standalone APK version; integrity
+implementation starts 0.10.x. CAT-01's agreed remaining content batches must receive
+additional bounded targets before 1.0; 0.7.4 alone does not close content coverage.
+
 - **OF-03 remainder:** real load, progression/hold, equipment-cap, fatigue-choice
   and deload reasons, historical fidelity and honest AI attribution. Preserve the
   shipped volume explanations; explanation work alone changes no training policy.
@@ -81,10 +130,10 @@ End/New session and background/resume/timer semantics verified offline.
 - **LT-10 / OF-10A-P0:** settle historical-target snapshots, comparable exposures,
   partial-work and execution-quality eligibility, session-versus-date grouping,
   manual PR interaction and corrected-history replay after guided/history work.
-  Policy implementation follows in 0.10.0.
+  Policy implementation follows in 0.10.x.
 - **WU-01 / LT-08:** sourced editable preparation and specific ramp sets,
   equipment/no-load behavior, skip/resume and warm-up/working-set separation.
-  Persisted timed preparation waits for 0.11.0 metric support.
+  Persisted timed preparation waits for 0.11.x metric support.
 - **CAT-01:** original offline instruction content, approved coverage and language
   fallback, custom-content ownership and portability decisions. Further content
   batches remain tracked through the pre-1.0 coverage target.
@@ -101,6 +150,20 @@ Gate: explanations match their source decisions; notes/history round-trip;
 summaries reconcile with work; instructions, setup and reminders work offline.
 
 ### 0.8.0 — Progress & Recovery
+
+| Target | Reviewable release scope | Dependencies / references |
+| --- | --- | --- |
+| 0.8.0 | Exercise history and load/repetition/e1RM/working-volume charts | OF-04; corrected history, accessible values and load conventions |
+| 0.8.1 | Automatic records and summary integration | OF-04-P3; 0.8.0 metrics, ties/imports/corrections/deletions; manual PRs stay separate |
+| 0.8.2 | Catalog pattern conflicts and approved evidence-based corrections | CAT-P6; investigate gaps/outliers first; no unapproved recalibration |
+| 0.8.3 | Rep-based forearm/wrist accessories | Sourced catalog additions and approved pattern/planner-pool contract |
+| 0.8.4 | Approved TRAPS selection and finer involvement-editing controls | Separate policy decisions first; implementation conditional on those decisions |
+| 0.8.5 | Accessible front/back anatomical fatigue map and reactive refresh | OF-08; artwork/license and refresh contract; preserve fatigue calculations |
+| 0.8.6 | Performed volume and last-trained views | OF-08; existing history and agreed accounting, distinct from modeled recovery |
+| 0.8.7 | Body-weight entries and trends | OF-09; shared ownership, edit/delete, units, optional goal line and backup |
+
+Catalog investigations and TRAPS decisions do not require positive findings or
+automatic policy changes. Record no-change outcomes explicitly where warranted.
 
 - **OF-04:** bounded exercise history and load/repetition/e1RM/working-volume
   charts with accessible values and explicit bodyweight/unilateral conventions.
@@ -126,6 +189,25 @@ existing fatigue/session calculations; new stored data survives backup/restore.
 
 Recommended order: shared equipment identity, inventory helpers, then interchange.
 
+| Target | Reviewable release scope | Dependencies / references |
+| --- | --- | --- |
+| 0.9.0 | Equipment profiles and setup integration | EQ-01 + OF-14; migrate inventory, preserve active-work/history rules |
+| 0.9.1 | Owned-plate calculator | OF-06; bar/collar weights, counts, precision and nearest attainable target |
+| 0.9.2 | Dumbbell increments and specialty-bar extensions | OF-06; separate contracts; no implicit planner/progression change |
+| 0.9.3 | FitNotes CSV import | OF-05; shared preview/mapping/conflict foundation and approved time/unit/session semantics |
+| 0.9.4 | Strong CSV import | OF-05; reuse importer foundation, provider-specific validation and repeat-import tests |
+| 0.9.5 | Hevy CSV import | OF-05; provider-specific validation and repeat-import tests |
+| 0.9.6 | Versioned plan/routine sharing and import | OF-07; privacy, identity collisions, equipment gaps and explicit acceptance |
+| 0.9.7 | PDF export | OF-07 extension; approved content/privacy contract |
+| 0.9.8 | Automatic rotating local backups | OF-01 extension; failure/recovery and retention contract |
+| 0.9.9 | Encrypted backups | OF-01 extension; key/recovery and compatibility contract |
+| 0.9.10 | Merge restore | OF-01 extension; atomicity, identity and conflict decisions |
+| 0.9.11 | CSV export | OF-01 extension; explicit field/unit/privacy contract |
+| 0.9.12 | Storage usage and scoped removal/reset controls | QL-02; confirmation, referential integrity and failure safety |
+
+Every importer/backup slice covers the stored data supported when it ships. Later
+metric and prescription releases extend these formats in their own scopes.
+
 - **EQ-01:** home/gym/travel profiles, active switching, limits, copy/delete and
   migration of the existing inventory; preserve frozen history/active-work rules.
 - **OF-06:** owned-plate counts, bar/collar weights, precision and deterministic
@@ -147,6 +229,22 @@ the chosen atomicity contract; plate arrangements never exceed owned counts.
 Later prescription/metric additions extend these formats in the same changes.
 
 ### 0.10.0 — Trustworthy Progression & Flexible Prescriptions
+
+| Target | Reviewable release scope | Dependencies / references |
+| --- | --- | --- |
+| 0.10.0 | Historical-target and comparable-work integrity | LT-10 / OF-10A-P0 contract settled in 0.7.x; corrected/deleted-history replay |
+| 0.10.1 | Approved progression and stall-handling policies | OF-10A; integrity first; equipment/periodization decisions and preserved NSCA/e1RM unless explicitly changed |
+| 0.10.2 | Ordered manual per-set prescriptions | PYR-01; targets preserved through routines, activation, logging and interchange |
+| 0.10.3 | Pyramid presets | PYR-01; manual per-set foundation and approved preset semantics |
+| 0.10.4 | Automatic per-set/pyramid generation | PYR-01; settled progression and shared engine contracts |
+| 0.10.5 | Manual two-entry supersets | OF-10B; transition/pair rest, unequal counts, skip/resume/unpairing |
+| 0.10.6 | Curated opt-in planner superset pairing | OF-10B; manual lifecycle first, separate pairing policy |
+| 0.10.7 | Prescribed RIR and approved equivalent RPE presentation | Item 9 B2 / LT-07; targets never recorded as actual effort |
+| 0.10.8 | Supported rough effort-estimation slice, if evidence permits | Item 9 B3; investigation and explicit disposition before implementation |
+| 0.10.9 | Supported readiness-input slice, if approved | Item 8; ownership, evidence, persistence and both planner/heatmap effects decided first |
+
+Effort/readiness investigations remain required even if no supported feature
+results. A reserved target is not approval for inference or a fatigue multiplier.
 
 - Implement the **LT-10 / OF-10A integrity contract** before advanced policies:
   historical targets, comparable completed work, session grouping, optional
@@ -171,6 +269,20 @@ support the changed contracts. Unsupported inference requires explicit dispositi
 
 ### 0.11.0 — Beyond Rep-Based Sets
 
+| Target | Reviewable release scope | Dependencies / references |
+| --- | --- | --- |
+| 0.11.0 | Duration-only and duration-plus-load sets | OF-10C; metric/fatigue/progression contract before schema; end-to-end logging, history, completion, charts and portability |
+| 0.11.1 | Persisted timed preparation and duration-based accessory content | WU-01 / OF-10C; 0.11.0, approved hangs/wrist-roller semantics |
+| 0.11.2 | Approved distance-based sets and carries | OF-10C; metric contract and all consumers/formats in the same release |
+| 0.11.3 | Approved force/device-rated grip metrics | OF-10C; explicit units/comparability/progression and all consumers/formats |
+| 0.11.4 | Supported drop-set clusters | OF-10D; research and cluster contract first |
+| 0.11.5 | Supported rest-pause clusters | OF-10D; research and cluster contract first |
+| 0.11.6 | Supported cardio slice | OF-10D; measurement/ownership research and approved end-to-end scope first |
+
+Distance/force and advanced-set/cardio targets are conditional on their contracts
+and evidence. Unsupported outcomes need explicit disposition, not rep-based
+approximations. Split further if a metric's complete consumer chain is too large.
+
 - **OF-10C:** settle duration-only/duration-plus-load and selected distance/force
   metric representation, fatigue applicability and progression before schema work.
 - Support proper logging, history, completion, charts, import/export and backup
@@ -185,6 +297,23 @@ Gate: measurement semantics remain faithful throughout logging and portability;
 research candidates have explicit evidence-backed decisions before completion.
 
 ### 0.12.0 — Optional AI Reliability
+
+Before experiments, complete **M8-P0**: supported requests/hardware, evaluation
+matrix, success/fallback distinction and performance targets. Candidate license
+research belongs to **M8-P1** and must precede the relevant experiments. These are
+decision/research gates, not standalone app releases.
+
+| Target | Reviewable release scope | Dependencies / references |
+| --- | --- | --- |
+| 0.12.0 | Identity-safe Gemini name recovery | CATP7-R01; canonical IDs preserved, local numbered-ID compatibility verified |
+| 0.12.1 | Approved AI validation/enforcer fixes | S1-013, S3-005/S3-006; current-source confirmation, repair/rejection decision, async schema/count checks |
+| 0.12.2 | Measured local-generation reliability improvements, if supported | M8 experiments; approved supported scope and licenses; benchmark prompt/schema/pack/backend candidates |
+| 0.12.3 | Approved engine lifecycle and resource improvements | Initialization/cancellation bounds, repeated generations, cleanup, OOM/failure fallback, Koin and shared-contract checks |
+
+M8-P1–P4 evaluation, experiments and published results span these slices. Separate
+unrelated validation findings or experiments into further releases at their scope
+gates. Complete outstanding AI measurements and explicitly disposition unsupported
+results before closing 0.12.x; fallback is never counted as local-generation success.
 
 - **M8-P0–P4:** declared supported requests/hardware, synthetic evaluation matrix,
   valid-plan versus fallback rate, cold load/latency/memory/repeat stability targets,
@@ -207,6 +336,22 @@ CATP7-R01 may move earlier as a separately approved corrective if needed.
 
 ### 0.13.0 — Final UX & Design
 
+| Target | Reviewable release scope | Dependencies / references |
+| --- | --- | --- |
+| 0.13.0 | Shared design tokens and navigation hierarchy | QL-01; agreed design direction, scoped components rather than a full rewrite |
+| 0.13.1 | Workout/logging screen polish | QL-01; preserve drafts, targets, session and timer semantics |
+| 0.13.2 | Remaining screen/component polish | QL-01; split into further screen-specific releases if too broad |
+| 0.13.3 | Adaptive tablet layouts and wide-window navigation | UX-01; rail/single-row navigation and useful multi-pane layouts |
+| 0.13.4 | Seamless foldable layouts and posture transitions | UX-01; tablet foundation, draft/workout/scroll/selection continuity |
+| 0.13.5 | Final accessibility remediation | Light/dark, text scale, screen reader/focus, touch targets and colour-independent access |
+| 0.13.6 | Final localization and instruction-coverage remediation | Locale/date/number/resources and remaining agreed content batches |
+| 0.13.7 | Final UI-state and recovery remediation | First-run/empty/loading/error/cancel/retry, separately bounded fixes |
+| 0.13.8 | Final integration and 1.0-readiness closure | Upgrade/backup/regression, remaining ledger/performance checks, docs, licenses and supported-device limits |
+
+Earlier releases already need usable, accessible, localized UI and verified
+failure states. These targets close residual findings, not postpone those duties.
+Verification-only closure does not require an otherwise empty APK release.
+
 - **QL-01:** final coherent design/token/navigation/workout hierarchy pass across
   the completed product; scoped screen/component changes, not an unreviewed rewrite.
 - **UX-01:** adaptive layouts for tablets and seamless foldables. Replace the fixed
@@ -226,13 +371,13 @@ CATP7-R01 may move earlier as a separately approved corrective if needed.
 
 Gate: complete user journeys remain usable and verified after polish, and UX-01 stays
 coherent across cover, unfolded and rotated large-screen states. UX,
-accessibility and localization checks apply to every earlier release too; 0.13.0
+accessibility and localization checks apply to every earlier release too; 0.13.x
 is the final integration/design pass, not permission to defer basic usability.
 
 ## Cross-release completion ledger
 
 These are required pre-1.0 work, attached to affected slices as early as practical
-and closed by 0.13.0. Listed historical findings need current-source confirmation;
+and closed by the end of 0.13.x. Listed historical findings need current-source confirmation;
 an already-resolved finding gets evidence, not a duplicate fix. Reviews and fixes
 retain their separate approval/Plan Mode requirements.
 
@@ -243,7 +388,7 @@ retain their separate approval/Plan Mode requirements.
 | Consistency findings | S1-001/003/004/006/009/010/011/012; S2-002/003/006/008/009; S4-002/003/005/006; S5-001/002/003/005; S6-001/003/006/007/008. S1-002 remains a recorded won't-fix, not reopened automatically. |
 | UI tooling — QL-03 | Keyboard/negative/recovery flows, guarded execution/configuration restrictions and measured smaller-model efficiency; retain the documented MCP-depth bypass. CI adoption is a separately gated decision, not an implied infrastructure change. |
 | Verification debt | LT-03 tied-time emulator check; outstanding QA/upgrade limits; feasible platform graph coverage, including Android Context/Keystore/model-manager boundaries. iOS shipping-specific verification follows its post-1.0 scope. |
-| Performance | Android-driver/on-device disk timing, physical-device frame baseline and measured repository/index follow-ups; AI timing/reliability in 0.12.0. Any physical-device execution needs separate approval; no optimization without before/after evidence. |
+| Performance | Android-driver/on-device disk timing, physical-device frame baseline and measured repository/index follow-ups; AI timing/reliability in 0.12.x. Any physical-device execution needs separate approval; no optimization without before/after evidence. |
 | BACK investigation | Chunk 3 calibrates K/D/half-lives/C1–C3 only if correctly timed evidence warrants it; otherwise record the no-change decision. Chunk 4 captures exact value/time/build if literal >100% recurs; a non-reproduced report is not a fabricated fix. |
 | Catalog/content | CAT-P6 conflicts, recorded modeled-family evidence gaps/outliers, forearm/pattern and TRAPS decisions, future sourced batches/instruction coverage; no forced EMG/physiology claims. |
 | Tool/dependency decisions | Use approved MockK only where meaningful; assess the single-glyph material-icons-extended follow-up without unsolicited dependency churn; licensing remains separately checked. |
