@@ -114,8 +114,8 @@ class SqlDelightWorkoutScheduleRepositoryTest {
         val id = repository.acceptAndActivate(null, activation(), listOf(null, null), false)
         val occurrence = repository.occurrences(id).first()
         val entry = occurrence.entries.single()
-        // Attribution may resolve the occurrence without an entry; that work still belongs to the
-        // workout, so the slot must not be swapped as if it were untouched.
+        // Attribution may resolve the occurrence without an entry; when the exercise matches, that
+        // work still belongs to the slot, so it must not be swapped as if it were untouched.
         SqlDelightWorkoutLogRepository(database).add(
             com.hydrafit.app.core.domain.workout.WorkoutSet(
                 exerciseId = entry.exerciseId,
@@ -130,6 +130,41 @@ class SqlDelightWorkoutScheduleRepositoryTest {
             repository.replaceUntouchedEntry(occurrence.id, occurrence.revision, entry, 1L)
         }
         assertEquals(OccurrenceReplacementFailure.RECORDED_SLOT, error.reason)
+    }
+
+    @Test
+    fun anOccurrenceLevelSetForAnotherExerciseLeavesTheSlotReplaceable() = runTest {
+        SeedExerciseCatalog(database).seed()
+        val id = repository.acceptAndActivate(null, activation(), listOf(null, null), false)
+        val occurrence = repository.occurrences(id).first()
+        val entry = occurrence.entries.single()
+        val candidate = SqlDelightExerciseCatalog(database).all().first {
+            it.movementPattern == entry.movementPattern && it.id != entry.exerciseId
+        }
+        candidate.requiredEquipment.forEach { database.userEquipmentQueries.insertSelected(it.id) }
+        val replacement = entry.copy(
+            exerciseId = candidate.id,
+            exerciseName = candidate.name,
+            requiredEquipment = candidate.requiredEquipment,
+            involvements = candidate.effectiveInvolvements,
+            isUnilateral = candidate.isUnilateral,
+            weightKg = null,
+            loadCapability = candidate.loadCapability,
+            loadKind = WorkoutLoadPolicy.defaultKind(candidate.loadCapability)
+        )
+        // An unplanned extra exercise is not attributed to any slot, so it must not freeze them all.
+        SqlDelightWorkoutLogRepository(database).add(
+            com.hydrafit.app.core.domain.workout.WorkoutSet(
+                exerciseId = "unplanned-extra",
+                reps = 2,
+                weightKg = null,
+                performedAtMillis = 1L,
+                occurrenceId = occurrence.id,
+                occurrenceEntryId = null
+            )
+        )
+        repository.replaceUntouchedEntry(occurrence.id, occurrence.revision, replacement, 1L)
+        assertEquals(replacement, repository.getOccurrence(occurrence.id)?.entries?.single())
     }
 
     private lateinit var driver: SqlDriver

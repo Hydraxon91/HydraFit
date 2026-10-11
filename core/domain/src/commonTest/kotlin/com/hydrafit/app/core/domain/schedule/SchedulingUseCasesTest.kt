@@ -28,42 +28,47 @@ import kotlinx.coroutines.test.runTest
 class SchedulingUseCasesTest {
 
     @Test
-    fun freezesOccurrenceSlotCoversWorkingWarmupUnattributedAndForeignSets() {
+    fun freezesOccurrenceSlotCoversWorkingWarmupMatchingAndForeignSets() {
         // Any set attributed to the slot - working or warm-up - freezes it.
         assertTrue(
             workoutSet(occurrenceId = 10L, occurrenceEntryId = 20L, isWarmup = false)
-                .freezesOccurrenceSlot(10L, 20L)
+                .freezesOccurrenceSlot(10L, 20L, "back-squat")
         )
         assertTrue(
             workoutSet(occurrenceId = 10L, occurrenceEntryId = 20L, isWarmup = true)
-                .freezesOccurrenceSlot(10L, 20L)
+                .freezesOccurrenceSlot(10L, 20L, "back-squat")
         )
-        // An occurrence-level set whose entry could not be resolved still belongs to the workout.
+        // An occurrence-level set with no resolved entry freezes only the matching exercise's slot.
         assertTrue(
             workoutSet(occurrenceId = 10L, occurrenceEntryId = null, isWarmup = false)
-                .freezesOccurrenceSlot(10L, 20L)
+                .freezesOccurrenceSlot(10L, 20L, "back-squat")
+        )
+        assertTrue(
+            !workoutSet(occurrenceId = 10L, occurrenceEntryId = null, isWarmup = false)
+                .freezesOccurrenceSlot(10L, 20L, "bench-press")
         )
         // Another entry's set, another occurrence, and an unattached set leave the slot untouched.
         assertTrue(
             !workoutSet(occurrenceId = 10L, occurrenceEntryId = 21L, isWarmup = false)
-                .freezesOccurrenceSlot(10L, 20L)
+                .freezesOccurrenceSlot(10L, 20L, "back-squat")
         )
         assertTrue(
             !workoutSet(occurrenceId = 11L, occurrenceEntryId = 20L, isWarmup = false)
-                .freezesOccurrenceSlot(10L, 20L)
+                .freezesOccurrenceSlot(10L, 20L, "back-squat")
         )
         assertTrue(
             !workoutSet(occurrenceId = null, occurrenceEntryId = null, isWarmup = false)
-                .freezesOccurrenceSlot(10L, 20L)
+                .freezesOccurrenceSlot(10L, 20L, "back-squat")
         )
     }
 
     private fun workoutSet(
         occurrenceId: Long?,
         occurrenceEntryId: Long?,
-        isWarmup: Boolean
+        isWarmup: Boolean,
+        exerciseId: String = "back-squat"
     ): WorkoutSet = WorkoutSet(
-        exerciseId = "back-squat",
+        exerciseId = exerciseId,
         reps = 5,
         weightKg = null,
         performedAtMillis = 1L,

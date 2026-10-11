@@ -142,7 +142,9 @@ clock/timer factory in `WorkoutLoggerRuntime`, to stay within its dependency bud
 `ReplaceOccurrenceExerciseUseCase`, using fresh local planner inputs. The dialog is available from
 guided rows and occurrence draft menus. One `freezesOccurrenceSlot` predicate backs both the domain
 guard and `replaceUntouchedEntry`: any set attributed to the slot - working or warm-up - rejects it,
-and a set on the occurrence whose entry could not be resolved rejects it too. The guided action stays
+and so does an occurrence-level set for that same exercise whose entry link was lost. A set for a
+different exercise is deliberately not attributed to the slot, so an unplanned extra exercise
+recorded during the workout does not freeze every replacement in it. The guided action stays
 enabled whenever the occurrence is writable, so a frozen slot explains itself through the
 recorded-slot message rather than being silently disabled; only a write in progress disables it.
 Untouched slots in

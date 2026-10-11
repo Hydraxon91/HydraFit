@@ -311,10 +311,16 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
             ) {
                 reject(OccurrenceReplacementFailure.STALE_CONTEXT)
             }
+            // Mirrors WorkoutSet.freezesOccurrenceSlot: an entry-linked set, or an occurrence-level
+            // set for this same exercise whose entry link was lost. Unplanned extra exercises are
+            // deliberately not attributed here, so they do not freeze unrelated slots.
             if (database.workoutLogQueries.selectSetsForOccurrence(occurrenceId)
                     .executeAsList()
                     .any { row ->
-                        row.occurrenceEntryId == null || row.occurrenceEntryId == replacement.id
+                        when (val entryId = row.occurrenceEntryId) {
+                            null -> row.exerciseId == original.exerciseId
+                            else -> entryId == replacement.id
+                        }
                     }
             ) {
                 reject(OccurrenceReplacementFailure.RECORDED_SLOT)
