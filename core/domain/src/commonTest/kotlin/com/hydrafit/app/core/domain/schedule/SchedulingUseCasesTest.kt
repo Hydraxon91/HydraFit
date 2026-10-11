@@ -28,6 +28,51 @@ import kotlinx.coroutines.test.runTest
 class SchedulingUseCasesTest {
 
     @Test
+    fun freezesOccurrenceSlotCoversWorkingWarmupUnattributedAndForeignSets() {
+        // Any set attributed to the slot - working or warm-up - freezes it.
+        assertTrue(
+            workoutSet(occurrenceId = 10L, occurrenceEntryId = 20L, isWarmup = false)
+                .freezesOccurrenceSlot(10L, 20L)
+        )
+        assertTrue(
+            workoutSet(occurrenceId = 10L, occurrenceEntryId = 20L, isWarmup = true)
+                .freezesOccurrenceSlot(10L, 20L)
+        )
+        // An occurrence-level set whose entry could not be resolved still belongs to the workout.
+        assertTrue(
+            workoutSet(occurrenceId = 10L, occurrenceEntryId = null, isWarmup = false)
+                .freezesOccurrenceSlot(10L, 20L)
+        )
+        // Another entry's set, another occurrence, and an unattached set leave the slot untouched.
+        assertTrue(
+            !workoutSet(occurrenceId = 10L, occurrenceEntryId = 21L, isWarmup = false)
+                .freezesOccurrenceSlot(10L, 20L)
+        )
+        assertTrue(
+            !workoutSet(occurrenceId = 11L, occurrenceEntryId = 20L, isWarmup = false)
+                .freezesOccurrenceSlot(10L, 20L)
+        )
+        assertTrue(
+            !workoutSet(occurrenceId = null, occurrenceEntryId = null, isWarmup = false)
+                .freezesOccurrenceSlot(10L, 20L)
+        )
+    }
+
+    private fun workoutSet(
+        occurrenceId: Long?,
+        occurrenceEntryId: Long?,
+        isWarmup: Boolean
+    ): WorkoutSet = WorkoutSet(
+        exerciseId = "back-squat",
+        reps = 5,
+        weightKg = null,
+        performedAtMillis = 1L,
+        isWarmup = isWarmup,
+        occurrenceId = occurrenceId,
+        occurrenceEntryId = occurrenceEntryId
+    )
+
+    @Test
     fun occurrenceReplacementUsesItsOwnLoadAndNeverMutatesTheMasterOrOtherOccurrence() = runTest {
         val activationId = activateRoutine(routine(), request(replaceActive = false))
         val master = scheduleRepository.getActivation(activationId)

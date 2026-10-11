@@ -1291,8 +1291,10 @@ private fun GuidedWorkoutSection(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(exercise.exerciseName)
                             TextButton(
+                                // A frozen slot keeps the action available so opening it explains
+                                // why the swap is refused, instead of silently removing the control.
                                 onClick = { onReplace(exercise.occurrenceEntryId) },
-                                enabled = !writeInProgress && exercise.performedWorkingSets == 0
+                                enabled = !writeInProgress
                             ) {
                                 Text(stringResource(Res.string.logger_replace))
                             }
