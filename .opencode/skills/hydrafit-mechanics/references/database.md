@@ -8,7 +8,8 @@ Schema directory:
 
 Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseExclusion.sq`, `ExerciseOverride.sq`,
 `ExercisePreference.sq`, `PersonalRecord.sq`, `PlanHistory.sq`, `PlannerEngine.sq`,
-`PlanVolumeExplanation.sq`, `PlanVolumeExplanationState.sq`, `RoutineTemplate.sq`,
+`PlanVolumeExplanation.sq`, `PlanVolumeExplanationState.sq`, `PlanTargetExplanation.sq`,
+`PlanTargetExplanationState.sq`, `RoutineTemplate.sq`,
 `TrainingSchedule.sq`, `UserEquipment.sq`, `WorkoutLog.sq`, and `WorkoutSession.sq`.
 `PlanHistory.sq`'s `updateEntryExerciseIdAtPosition` swaps one entry's
 `exerciseId`/`exerciseName`/`suggestedWeightKg` in place (no schema change) for
@@ -29,7 +30,11 @@ instead of recreating a deleted set.
 `timingProvenance` value (`UNKNOWN` for existing rows); `35.sqm` adds the optional
 monotonic set-start/completion instants; `36.sqm` adds shared rest preferences and
 the process-restorable countdown row; `37.sqm` adds the two default-off training-guidance
-opt-ins, encoded as checked 0/1 integers. Current schema version is 38. Determine the
+opt-ins, encoded as checked 0/1 integers; `38.sqm` adds `planTargetExplanation` (recorded
+per-slot target reasoning, keyed by `(planId, dayIndex, position)`) and
+`planTargetExplanationState` (plan-level deload/attribution context). Both start empty for an
+existing database, which reads as "not recorded"; the deterministic fatigue-skip candidate list is
+deliberately not persisted. Current schema version is 39. Determine the
 next version from the current directory/generated Schema rather than copying this snapshot.
 
 `restPreference` stores the global default under `GLOBAL` and exercise overrides under

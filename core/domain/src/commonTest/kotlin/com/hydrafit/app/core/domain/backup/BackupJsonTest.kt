@@ -107,6 +107,28 @@ class BackupJsonTest {
     }
 
     @Test
+    fun formatSevenRequiresTargetExplanationSectionsAndEarlierFormatsDefaultThem() {
+        val file = emptyBackupFile()
+        val encoded = BackupJson.encode(file)
+        val withoutExplanations = encoded
+            .replace(",\"planTargetExplanations\":[]", "")
+            .replace(",\"planTargetExplanationStates\":[]", "")
+
+        // A v6 file predates the sections and restores as "not recorded" rather than as empty ones.
+        assertEquals(
+            file.copy(formatVersion = 6),
+            BackupJson.decode(
+                withoutExplanations.replace(
+                    "\"formatVersion\":$BACKUP_FORMAT_VERSION",
+                    "\"formatVersion\":6"
+                )
+            )
+        )
+        // The current format must carry them.
+        assertFailure(BackupFailure.MALFORMED, withoutExplanations)
+    }
+
+    @Test
     fun formatFourRequiresAllTimingFieldsButAcceptsExplicitNulls() {
         val file = emptyBackupFile().copy(workoutSets = listOf(workoutSet("LIVE", null, null)))
         val encoded = BackupJson.encode(file)

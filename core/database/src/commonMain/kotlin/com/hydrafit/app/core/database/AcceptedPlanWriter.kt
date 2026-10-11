@@ -6,6 +6,12 @@ import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
 /** Shared insertion inside the caller's transaction (plain acceptance or accept-and-activate). */
 internal class AcceptedPlanWriter(private val database: HydraFitDatabase) {
     fun insert(plan: AcceptedPlan): Long {
+        require(
+            plan.explanation != null ||
+                plan.days.none { day -> day.exercises.any { it.explanation != null } }
+        ) {
+            "Recorded slot reasoning requires a plan-level explanation record"
+        }
         val queries = database.planHistoryQueries
         queries.insertPlan(
             plan.engine.name,
@@ -30,7 +36,57 @@ internal class AcceptedPlanWriter(private val database: HydraFitDatabase) {
                     loadCapability = exercise.loadCapability.name,
                     loadKind = exercise.loadKind.name
                 )
+                val recorded = exercise.explanation ?: return@forEachIndexed
+                val columns = recorded.toColumns()
+                database.planTargetExplanationQueries.insertExplanation(
+                    planId = planId,
+                    dayIndex = day.dayIndex.toLong(),
+                    position = position.toLong(),
+                    explanationVersion = columns.explanationVersion,
+                    baselineSource = columns.baselineSource,
+                    baselineRecentEstimateKg = columns.baselineRecentEstimateKg,
+                    baselineQualifyingSetCount = columns.baselineQualifyingSetCount,
+                    baselineManualFloorKg = columns.baselineManualFloorKg,
+                    baselineKg = columns.baselineKg,
+                    progressionOutcome = columns.progressionOutcome,
+                    progressionIncrements = columns.progressionIncrements,
+                    progressionDeltaKg = columns.progressionDeltaKg,
+                    progressionRoundToKg = columns.progressionRoundToKg,
+                    progressionSuccessStreakSize = columns.progressionSuccessStreakSize,
+                    progressionFailureStreakSize = columns.progressionFailureStreakSize,
+                    conversionReps = columns.conversionReps,
+                    conversionIntensityFraction = columns.conversionIntensityFraction,
+                    conversionDeloadIntensityScale = columns.conversionDeloadIntensityScale,
+                    conversionRoundToKg = columns.conversionRoundToKg,
+                    conversionUncappedWorkingKg = columns.conversionUncappedWorkingKg,
+                    conversionEquipmentCeilingKg = columns.conversionEquipmentCeilingKg,
+                    conversionEquipmentCeilingBinds = columns.conversionEquipmentCeilingBinds,
+                    aiProposedKg = columns.aiProposedKg,
+                    aiProposedAccepted = columns.aiProposedAccepted,
+                    aiDeloadScaled = columns.aiDeloadScaled,
+                    aiDeloadIntensityScale = columns.aiDeloadIntensityScale,
+                    aiProgressionBoundKg = columns.aiProgressionBoundKg,
+                    aiBoundedByProgression = columns.aiBoundedByProgression,
+                    aiEquipmentCeilingKg = columns.aiEquipmentCeilingKg,
+                    aiCappedByEquipment = columns.aiCappedByEquipment,
+                    setBaseSets = columns.setBaseSets,
+                    setDeloadApplied = columns.setDeloadApplied,
+                    setDeloadVolumeScale = columns.setDeloadVolumeScale,
+                    setFatigueEffect = columns.setFatigueEffect,
+                    setFinalSets = columns.setFinalSets,
+                    unavailableReason = columns.unavailableReason
+                )
             }
+        }
+        plan.explanation?.let { frozen ->
+            database.planTargetExplanationStateQueries.upsert(
+                planId = planId,
+                attribution = frozen.attribution.name,
+                isDeload = if (frozen.isDeload) 1L else 0L,
+                deloadVolumeScale = frozen.deloadVolumeScale,
+                deloadIntensityScale = frozen.deloadIntensityScale,
+                explanationVersion = frozen.version.toLong()
+            )
         }
         if (plan.volumeExplanationStatus != VolumeExplanationStatus.ABSENT) {
             val version = requireNotNull(plan.volumeAssessmentVersion)

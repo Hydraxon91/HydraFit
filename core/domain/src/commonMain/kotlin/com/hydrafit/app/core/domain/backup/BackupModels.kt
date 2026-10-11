@@ -6,13 +6,15 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 6
+const val BACKUP_FORMAT_VERSION: Int = 7
 
 /**
  * A whole logical snapshot of the supported offline data. Rows are stored flat with their persisted
  * ids so restore can rebuild relationships exactly; the envelope carries the format identity, a
- * catalog fingerprint and the export time. Version 6 adds alert/coaching opt-ins; earlier formats
- * default them off. Version 5 adds rest durations; earlier formats use the global default.
+ * catalog fingerprint and the export time. Version 7 adds the recorded plan-target explanations;
+ * earlier formats have none, so a restored legacy plan reports no explanation rather than a
+ * fabricated one. Version 6 adds alert/coaching opt-ins; earlier formats default them off. Version 5
+ * adds rest durations; earlier formats use the global default.
  */
 @Serializable
 data class BackupFile(
@@ -46,7 +48,13 @@ data class BackupFile(
     val preferences: List<BackupPreferenceRecord>,
     val exclusions: List<BackupExclusionRecord>,
     val restPreferences: List<BackupRestPreferenceRecord> = emptyList(),
-    val trainingGuidance: BackupTrainingGuidanceRecord = BackupTrainingGuidanceRecord(false, false)
+    val trainingGuidance: BackupTrainingGuidanceRecord = BackupTrainingGuidanceRecord(false, false),
+    /**
+     * Recorded plan-slot reasoning, newest format only. Absent in formats 1–6, which restores as
+     * "not recorded" rather than as an empty explanation.
+     */
+    val planTargetExplanations: List<BackupPlanTargetExplanationRecord> = emptyList(),
+    val planTargetExplanationStates: List<BackupPlanTargetExplanationStateRecord> = emptyList()
 )
 
 @Serializable
@@ -185,6 +193,61 @@ data class BackupVolumeExplanationStateRecord(
     val planId: Long,
     val status: String,
     val assessmentVersion: Int
+)
+
+/**
+ * One accepted slot's recorded reasoning. The columns mirror the stored explanation; a group is
+ * present only when the app recorded it for that target.
+ */
+@Serializable
+data class BackupPlanTargetExplanationRecord(
+    val planId: Long,
+    val dayIndex: Int,
+    val position: Int,
+    val explanationVersion: Int,
+    val baselineSource: String?,
+    val baselineRecentEstimateKg: Double?,
+    val baselineQualifyingSetCount: Int?,
+    val baselineManualFloorKg: Double?,
+    val baselineKg: Double?,
+    val progressionOutcome: String?,
+    val progressionIncrements: Int?,
+    val progressionDeltaKg: Double?,
+    val progressionRoundToKg: Double?,
+    val progressionSuccessStreakSize: Int?,
+    val progressionFailureStreakSize: Int?,
+    val conversionReps: Int?,
+    val conversionIntensityFraction: Double?,
+    val conversionDeloadIntensityScale: Double?,
+    val conversionRoundToKg: Double?,
+    val conversionUncappedWorkingKg: Double?,
+    val conversionEquipmentCeilingKg: Double?,
+    val conversionEquipmentCeilingBinds: Boolean?,
+    val aiProposedKg: Double?,
+    val aiProposedAccepted: Boolean?,
+    val aiDeloadScaled: Boolean?,
+    val aiDeloadIntensityScale: Double?,
+    val aiProgressionBoundKg: Double?,
+    val aiBoundedByProgression: Boolean?,
+    val aiEquipmentCeilingKg: Double?,
+    val aiCappedByEquipment: Boolean?,
+    val setBaseSets: Int?,
+    val setDeloadApplied: Boolean?,
+    val setDeloadVolumeScale: Double?,
+    val setFatigueEffect: String?,
+    val setFinalSets: Int?,
+    val unavailableReason: String?
+)
+
+/** Plan-level explanation context; absent for a legacy plan. */
+@Serializable
+data class BackupPlanTargetExplanationStateRecord(
+    val planId: Long,
+    val attribution: String,
+    val isDeload: Boolean,
+    val deloadVolumeScale: Double,
+    val deloadIntensityScale: Double,
+    val explanationVersion: Int
 )
 
 @Serializable

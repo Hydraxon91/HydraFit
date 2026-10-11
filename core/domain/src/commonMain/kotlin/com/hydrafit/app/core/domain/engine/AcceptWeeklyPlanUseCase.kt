@@ -27,6 +27,14 @@ class AcceptWeeklyPlanUseCase(
                 plan.engine == PlannerEngineId.DETERMINISTIC -> PlanAttribution.DETERMINISTIC
                 else -> PlanAttribution.AI_GENERATED
             },
+            explanation = plan.explanation?.let { generated ->
+                FrozenPlanExplanation(
+                    attribution = generated.attribution,
+                    isDeload = generated.isDeload,
+                    deloadVolumeScale = generated.deloadVolumeScale,
+                    deloadIntensityScale = generated.deloadIntensityScale
+                )
+            },
             days = plan.days.map { day ->
                 AcceptedDay(
                     dayIndex = day.dayIndex,
@@ -41,7 +49,8 @@ class AcceptWeeklyPlanUseCase(
                             movementPattern = exercise?.movementPattern ?: MovementPattern.CORE,
                             suggestedWeightKg = planned.suggestedWeightKg,
                             loadCapability = planned.loadCapability,
-                            loadKind = planned.loadKind
+                            loadKind = planned.loadKind,
+                            explanation = planned.explanation
                         )
                     }
                 )

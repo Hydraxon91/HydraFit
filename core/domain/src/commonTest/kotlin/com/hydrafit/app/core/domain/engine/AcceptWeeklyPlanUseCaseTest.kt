@@ -118,6 +118,131 @@ class AcceptWeeklyPlanUseCaseTest {
         assertEquals(PlanAttribution.AI_GENERATED, ai.stored?.volumeAttribution)
     }
 
+    @Test
+    fun freezesRecordedReasoningOntoTheAcceptedPlan() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val recorded = ExerciseTargetExplanation(
+            baseline = LoadBaselineExplanation(
+                source = LoadBaselineSource.RECENT_PERFORMANCE,
+                recentEstimateKg = 100.0,
+                qualifyingSetCount = 3,
+                baselineKg = 100.0
+            ),
+            progression = LoadProgressionExplanation(
+                outcome = ProgressionOutcome.APPLIED,
+                increments = 1,
+                deltaKg = 2.5
+            ),
+            conversion = LoadConversionExplanation(
+                reps = 8,
+                intensityFraction = 0.765,
+                uncappedWorkingKg = 77.5
+            ),
+            setCount = SetCountExplanation(
+                baseSets = 3,
+                deloadApplied = false,
+                deloadVolumeScale = 0.7,
+                finalSets = 3
+            )
+        )
+
+        AcceptWeeklyPlanUseCase(repository, FakeCatalog, TimeProvider { 0L })(
+            WeeklyPlan(
+                engine = PlannerEngineId.DETERMINISTIC,
+                weekNumber = 2,
+                cycleNumber = 1,
+                days = listOf(
+                    WorkoutDay(
+                        dayIndex = 0,
+                        focus = SplitFocus.PUSH,
+                        exercises = listOf(
+                            PlannedExercise(
+                                exerciseId = "bench-press",
+                                sets = 3,
+                                reps = 8,
+                                suggestedWeightKg = 77.5,
+                                explanation = recorded
+                            )
+                        )
+                    )
+                ),
+                explanation = PlanExplanation(
+                    engine = PlannerEngineId.DETERMINISTIC,
+                    attribution = PlanAttribution.DETERMINISTIC,
+                    isDeload = false,
+                    deloadVolumeScale = 0.7,
+                    deloadIntensityScale = 0.8
+                )
+            )
+        )
+
+        val accepted = requireNotNull(repository.stored)
+        // The slot record is carried verbatim; the generation-time fatigue-skip list (F3, dropped)
+        // has no persisted counterpart.
+        assertEquals(recorded, accepted.days.single().exercises.single().explanation)
+        assertEquals(
+            FrozenPlanExplanation(
+                attribution = PlanAttribution.DETERMINISTIC,
+                isDeload = false,
+                deloadVolumeScale = 0.7,
+                deloadIntensityScale = 0.8
+            ),
+            accepted.explanation
+        )
+    }
+
+    @Test
+    fun freezesTheReasoningOfARealGeneratedPlan() = runTest {
+        val origin = LoadOriginExplanation(
+            baseline = LoadBaselineExplanation(
+                source = LoadBaselineSource.RECENT_PERFORMANCE,
+                recentEstimateKg = 100.0,
+                qualifyingSetCount = 3,
+                baselineKg = 100.0
+            ),
+            progression = LoadProgressionExplanation(
+                outcome = ProgressionOutcome.APPLIED,
+                increments = 1,
+                deltaKg = 2.5
+            )
+        )
+        val generated = DeterministicWorkoutPlannerEngine(FakeCatalog).plan(
+            PlanRequest(
+                daysPerWeek = 2,
+                availableEquipment = setOf(EquipmentTag.BARBELL),
+                muscleFatigue = emptyMap(),
+                nowMillis = 0L,
+                setsPerExercise = 3,
+                accessorySetsPerExercise = 2,
+                suggestedWeightsKg = mapOf("bench-press" to 102.5),
+                recentWeightCaps = mapOf("bench-press" to 102.5),
+                loadExplanations = mapOf("bench-press" to origin)
+            ),
+            FakeCatalog.all()
+        )
+        val repository = FakePlanHistoryRepository()
+
+        AcceptWeeklyPlanUseCase(repository, FakeCatalog, TimeProvider { 0L })(generated)
+
+        val accepted = requireNotNull(repository.stored)
+        val generatedSlots = generated.days.flatMap { it.exercises }
+        assertTrue(generatedSlots.isNotEmpty())
+        assertEquals(
+            generatedSlots.map { it.exerciseId to it.explanation },
+            accepted.days.flatMap { it.exercises }.map { it.exerciseId to it.explanation }
+        )
+        assertEquals(generated.explanation?.attribution, accepted.explanation?.attribution)
+        assertEquals(generated.explanation?.isDeload, accepted.explanation?.isDeload)
+        assertEquals(
+            generated.explanation?.deloadVolumeScale,
+            accepted.explanation?.deloadVolumeScale
+        )
+        assertEquals(
+            generated.explanation?.deloadIntensityScale,
+            accepted.explanation?.deloadIntensityScale
+        )
+    }
+
     private fun coverage() = listOf(
         ArmMuscleCoverage(
             muscle = MuscleGroup.BICEPS,

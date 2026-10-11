@@ -5,10 +5,21 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.engine.AcceptedDay
 import com.hydrafit.app.core.domain.engine.AcceptedExercise
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.AiLoadExplanation
 import com.hydrafit.app.core.domain.engine.ArmCoverageUnmetReason
 import com.hydrafit.app.core.domain.engine.ArmMuscleCoverage
+import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
+import com.hydrafit.app.core.domain.engine.FatigueSetEffect
+import com.hydrafit.app.core.domain.engine.FrozenPlanExplanation
+import com.hydrafit.app.core.domain.engine.LoadBaselineExplanation
+import com.hydrafit.app.core.domain.engine.LoadBaselineSource
+import com.hydrafit.app.core.domain.engine.LoadConversionExplanation
+import com.hydrafit.app.core.domain.engine.LoadProgressionExplanation
+import com.hydrafit.app.core.domain.engine.LoadUnavailableReason
 import com.hydrafit.app.core.domain.engine.PlanAttribution
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.ProgressionOutcome
+import com.hydrafit.app.core.domain.engine.SetCountExplanation
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
@@ -20,6 +31,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
@@ -299,6 +311,235 @@ class SqlDelightPlanHistoryRepositoryTest {
         assertEquals(emptyList(), loaded.armCoverage)
         assertNull(loaded.volumeAttribution)
     }
+
+    @Test
+    fun persistsSlotReasoningWithItsPlanContext() = runTest {
+        repository.accept(explainedPlan())
+
+        val stored = repository.latest()!!
+
+        assertEquals(PlanAttribution.DETERMINISTIC, stored.explanation?.attribution)
+        assertEquals(false, stored.explanation?.isDeload)
+        assertEquals(0.7, stored.explanation?.deloadVolumeScale)
+        assertEquals(0.8, stored.explanation?.deloadIntensityScale)
+        val slot = requireNotNull(stored.days.first().exercises.first().explanation)
+        assertEquals(LoadBaselineSource.RECENT_PERFORMANCE, slot.baseline?.source)
+        assertEquals(101.0, slot.baseline?.baselineKg)
+        assertEquals(3, slot.baseline?.qualifyingSetCount)
+        assertEquals(ProgressionOutcome.APPLIED, slot.progression?.outcome)
+        assertEquals(1, slot.progression?.increments)
+        assertEquals(2.5, slot.progression?.deltaKg)
+        assertEquals(8, slot.conversion?.reps)
+        assertEquals(0.765, slot.conversion?.intensityFraction)
+        assertEquals(FatigueSetEffect.NONE, slot.setCount?.fatigueEffect)
+        assertEquals(3, slot.setCount?.finalSets)
+    }
+
+    @Test
+    fun persistsAModelProposalAndTheAppAdjustmentsAppliedToIt() = runTest {
+        repository.accept(aiExplainedPlan())
+
+        val stored = repository.latest()!!
+
+        assertNotNull(stored.explanation)
+        val slot = requireNotNull(stored.days.first().exercises.first().explanation)
+        // A model proposal is described by its own record, never by a rep-intensity conversion.
+        assertNull(slot.conversion)
+        val ai = requireNotNull(slot.aiAdjustment)
+        assertEquals(150.0, ai.proposedKg)
+        assertTrue(ai.proposedAccepted)
+        assertTrue(ai.deloadScaled)
+        assertEquals(0.8, ai.deloadIntensityScale)
+        assertEquals(77.5, ai.progressionBoundKg)
+        assertTrue(ai.boundedByProgression)
+        assertEquals(60.0, ai.equipmentCeilingKg)
+        assertTrue(ai.cappedByEquipment)
+    }
+
+    @Test
+    fun substitutingASlotClearsOnlyThatSlotsReasoning() = runTest {
+        repository.accept(explainedPlan())
+
+        repository.substitute(
+            planId = 1L,
+            dayIndex = 0,
+            position = 0,
+            newExerciseId = "barbell-row",
+            newExerciseName = "Barbell Row",
+            newWeightKg = 60.0,
+            newLoadCapability = ExerciseLoadCapability.EXTERNAL,
+            newLoadKind = LoadKind.EXTERNAL
+        )
+
+        val stored = repository.latest()!!
+
+        assertNull(stored.days.first().exercises[0].explanation)
+        assertNotNull(stored.days.first().exercises[1].explanation)
+        // The plan-level context is not a slot reason, so a substitution leaves it valid.
+        assertNotNull(stored.explanation)
+    }
+
+    @Test
+    fun aPlanWithoutRecordedReasoningReadsAsUnrecorded() = runTest {
+        repository.accept(plan(PlannerEngineId.DETERMINISTIC, acceptedAt = 1L))
+
+        val stored = repository.latest()!!
+
+        assertNull(stored.explanation)
+        assertTrue(stored.days.flatMap { it.exercises }.all { it.explanation == null })
+    }
+
+    @Test
+    fun anIncompleteStoredReasonReadsAsUnavailableWithoutAffectingTheRestOfThePlan() = runTest {
+        // A plan, one day and two slots, written directly so the fixture can hold a partial record.
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO planHistory(id, engineId, acceptedAt, weekNumber, cycleNumber) " +
+                "VALUES (5, 'DETERMINISTIC', 1, 1, 1)"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO planHistoryDay(id, planId, dayIndex, focus) VALUES (9, 5, 0, 'PUSH')"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO planHistoryEntry(id, dayId, position, exerciseId, sets, reps, " +
+                "exerciseName, movementPattern, suggestedWeightKg, loadCapability, loadKind) " +
+                "VALUES (11, 9, 0, 'bench-press', 3, 8, 'Bench Press', 'HORIZONTAL_PUSH', " +
+                "80.0, 'EXTERNAL', 'EXTERNAL')"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO planHistoryEntry(id, dayId, position, exerciseId, sets, reps, " +
+                "exerciseName, movementPattern, suggestedWeightKg, loadCapability, loadKind) " +
+                "VALUES (12, 9, 1, 'overhead-press', 3, 8, 'Overhead Press', 'VERTICAL_PUSH', " +
+                "null, 'EXTERNAL', 'EXTERNAL')"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO planTargetExplanationState VALUES (5, 'DETERMINISTIC', 0, 0.7, 0.8, 1)"
+        )
+        // Present but incomplete: the progression outcome has no matching numbers, so the whole
+        // record must be reported as unavailable.
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO planTargetExplanation(planId, dayIndex, position, explanationVersion, " +
+                "progressionOutcome) VALUES (5, 0, 0, 1, 'APPLIED')"
+        )
+        // A complete neighbouring record must still read back.
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO planTargetExplanation(planId, dayIndex, position, explanationVersion, " +
+                "setBaseSets, setDeloadApplied, setDeloadVolumeScale, setFatigueEffect, " +
+                "setFinalSets, unavailableReason) " +
+                "VALUES (5, 0, 1, 1, 3, 0, 0.7, 'NONE', 3, 'NOT_LOAD_TRACKED')"
+        )
+
+        val stored = requireNotNull(repository.latest())
+
+        val exercises = stored.days.single().exercises
+        // The partial record is unavailable, not reconstructed with defaults.
+        assertNull(exercises[0].explanation)
+        assertNotNull(exercises[1].explanation)
+        assertEquals(
+            LoadUnavailableReason.NOT_LOAD_TRACKED,
+            exercises[1].explanation?.unavailableReason
+        )
+        // The plan, its slots and the plan-level context are unaffected.
+        assertNotNull(stored.explanation)
+        assertEquals(listOf("bench-press", "overhead-press"), exercises.map { it.exerciseId })
+    }
+
+    private fun aiExplainedPlan(): AcceptedPlan {
+        val base = plan(PlannerEngineId.GEMINI_API, acceptedAt = 1L)
+        val recorded = ExerciseTargetExplanation(
+            aiAdjustment = AiLoadExplanation(
+                proposedKg = 150.0,
+                proposedAccepted = true,
+                deloadScaled = true,
+                deloadIntensityScale = 0.8,
+                progressionBoundKg = 77.5,
+                boundedByProgression = true,
+                equipmentCeilingKg = 60.0,
+                cappedByEquipment = true
+            ),
+            setCount = SetCountExplanation(
+                baseSets = 3,
+                deloadApplied = true,
+                deloadVolumeScale = 0.7,
+                fatigueEffect = FatigueSetEffect.NONE,
+                finalSets = 2
+            )
+        )
+        return base.copy(
+            explanation = FrozenPlanExplanation(
+                attribution = PlanAttribution.AI_GENERATED,
+                isDeload = true,
+                deloadVolumeScale = 0.7,
+                deloadIntensityScale = 0.8
+            ),
+            days = base.days.map { day ->
+                if (day.dayIndex != 0) {
+                    day
+                } else {
+                    day.copy(exercises = day.exercises.map { it.copy(explanation = recorded) })
+                }
+            }
+        )
+    }
+
+    private fun explainedPlan(): AcceptedPlan {
+        val base = plan(PlannerEngineId.DETERMINISTIC, acceptedAt = 1L)
+        val recorded = slotExplanation()
+        return base.copy(
+            explanation = FrozenPlanExplanation(
+                attribution = PlanAttribution.DETERMINISTIC,
+                isDeload = false,
+                deloadVolumeScale = 0.7,
+                deloadIntensityScale = 0.8
+            ),
+            days = base.days.map { day ->
+                if (day.dayIndex != 0) {
+                    day
+                } else {
+                    day.copy(exercises = day.exercises.map { it.copy(explanation = recorded) })
+                }
+            }
+        )
+    }
+
+    private fun slotExplanation() = ExerciseTargetExplanation(
+        baseline = LoadBaselineExplanation(
+            source = LoadBaselineSource.RECENT_PERFORMANCE,
+            recentEstimateKg = 101.0,
+            qualifyingSetCount = 3,
+            baselineKg = 101.0
+        ),
+        progression = LoadProgressionExplanation(
+            outcome = ProgressionOutcome.APPLIED,
+            increments = 1,
+            deltaKg = 2.5,
+            roundToKg = 2.5,
+            successStreakSize = 3,
+            failureStreakSize = 3
+        ),
+        conversion = LoadConversionExplanation(
+            reps = 8,
+            intensityFraction = 0.765,
+            deloadIntensityScale = 1.0,
+            roundToKg = 2.5,
+            uncappedWorkingKg = 80.0,
+            equipmentCeilingKg = null,
+            equipmentCeilingBinds = false
+        ),
+        setCount = SetCountExplanation(
+            baseSets = 3,
+            deloadApplied = false,
+            deloadVolumeScale = 0.7,
+            fatigueEffect = FatigueSetEffect.NONE,
+            finalSets = 3
+        )
+    )
 
     private fun coverage() = listOf(
         ArmMuscleCoverage(

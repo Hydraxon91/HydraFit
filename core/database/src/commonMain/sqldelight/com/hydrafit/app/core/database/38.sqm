@@ -1,0 +1,55 @@
+-- Persist the recorded target reasoning (load, progression, equipment, fatigue, deload) frozen at
+-- acceptance, so a restart, reopen or block repeat shows the same reasons. Absence is represented by
+-- NULL columns, never by a default: a legacy plan has no state row, and a slot whose reasons were
+-- invalidated by a confirmed substitution has no explanation row.
+CREATE TABLE planTargetExplanation (
+    planId INTEGER NOT NULL,
+    dayIndex INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    explanationVersion INTEGER,
+    baselineSource TEXT,
+    baselineRecentEstimateKg REAL,
+    baselineQualifyingSetCount INTEGER,
+    baselineManualFloorKg REAL,
+    baselineKg REAL,
+    progressionOutcome TEXT,
+    progressionIncrements INTEGER,
+    progressionDeltaKg REAL,
+    progressionRoundToKg REAL,
+    progressionSuccessStreakSize INTEGER,
+    progressionFailureStreakSize INTEGER,
+    conversionReps INTEGER,
+    conversionIntensityFraction REAL,
+    conversionDeloadIntensityScale REAL,
+    conversionRoundToKg REAL,
+    conversionUncappedWorkingKg REAL,
+    conversionEquipmentCeilingKg REAL,
+    conversionEquipmentCeilingBinds INTEGER,
+    aiProposedKg REAL,
+    aiProposedAccepted INTEGER,
+    aiDeloadScaled INTEGER,
+    aiDeloadIntensityScale REAL,
+    aiProgressionBoundKg REAL,
+    aiBoundedByProgression INTEGER,
+    aiEquipmentCeilingKg REAL,
+    aiCappedByEquipment INTEGER,
+    setBaseSets INTEGER,
+    setDeloadApplied INTEGER,
+    setDeloadVolumeScale REAL,
+    setFatigueEffect TEXT,
+    setFinalSets INTEGER,
+    unavailableReason TEXT,
+    PRIMARY KEY (planId, dayIndex, position)
+);
+
+-- Plan-level context. The deterministic fatigue-skip candidate list is deliberately not persisted:
+-- the per-slot set effect and the volume assessment already record the fatigue outcome, and raw
+-- catalog ids would go stale after a custom-exercise merge.
+CREATE TABLE planTargetExplanationState (
+    planId INTEGER NOT NULL PRIMARY KEY,
+    attribution TEXT NOT NULL,
+    isDeload INTEGER NOT NULL,
+    deloadVolumeScale REAL NOT NULL,
+    deloadIntensityScale REAL NOT NULL,
+    explanationVersion INTEGER NOT NULL
+);

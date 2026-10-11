@@ -18,6 +18,8 @@ import com.hydrafit.app.core.domain.backup.BackupPersonalRecordRecord
 import com.hydrafit.app.core.domain.backup.BackupPlanDayRecord
 import com.hydrafit.app.core.domain.backup.BackupPlanEntryRecord
 import com.hydrafit.app.core.domain.backup.BackupPlanRecord
+import com.hydrafit.app.core.domain.backup.BackupPlanTargetExplanationRecord
+import com.hydrafit.app.core.domain.backup.BackupPlanTargetExplanationStateRecord
 import com.hydrafit.app.core.domain.backup.BackupPreferenceRecord
 import com.hydrafit.app.core.domain.backup.BackupRepository
 import com.hydrafit.app.core.domain.backup.BackupRestPreferenceRecord
@@ -175,6 +177,69 @@ class SqlDelightBackupRepository(
                             planId = it.planId,
                             status = it.status,
                             assessmentVersion = it.assessmentVersion.toInt()
+                        )
+                    },
+                planTargetExplanations = database.planTargetExplanationQueries.selectAll()
+                    .executeAsList()
+                    .mapNotNull { row ->
+                        // A row with no recorded version is unreadable; the read path treats it as
+                        // "no explanation", so export omits it rather than failing the whole backup.
+                        val version = row.explanationVersion ?: return@mapNotNull null
+                        BackupPlanTargetExplanationRecord(
+                            planId = row.planId,
+                            dayIndex = row.dayIndex.toInt(),
+                            position = row.position.toInt(),
+                            explanationVersion = version.toInt(),
+                            baselineSource = row.baselineSource,
+                            baselineRecentEstimateKg = row.baselineRecentEstimateKg,
+                            baselineQualifyingSetCount = row.baselineQualifyingSetCount?.toInt(),
+                            baselineManualFloorKg = row.baselineManualFloorKg,
+                            baselineKg = row.baselineKg,
+                            progressionOutcome = row.progressionOutcome,
+                            progressionIncrements = row.progressionIncrements?.toInt(),
+                            progressionDeltaKg = row.progressionDeltaKg,
+                            progressionRoundToKg = row.progressionRoundToKg,
+                            progressionSuccessStreakSize =
+                            row.progressionSuccessStreakSize?.toInt(),
+                            progressionFailureStreakSize =
+                            row.progressionFailureStreakSize?.toInt(),
+                            conversionReps = row.conversionReps?.toInt(),
+                            conversionIntensityFraction = row.conversionIntensityFraction,
+                            conversionDeloadIntensityScale = row.conversionDeloadIntensityScale,
+                            conversionRoundToKg = row.conversionRoundToKg,
+                            conversionUncappedWorkingKg = row.conversionUncappedWorkingKg,
+                            conversionEquipmentCeilingKg = row.conversionEquipmentCeilingKg,
+                            conversionEquipmentCeilingBinds =
+                            row.conversionEquipmentCeilingBinds?.let { flag -> flag == 1L },
+                            aiProposedKg = row.aiProposedKg,
+                            aiProposedAccepted = row.aiProposedAccepted?.let { flag -> flag == 1L },
+                            aiDeloadScaled = row.aiDeloadScaled?.let { flag -> flag == 1L },
+                            aiDeloadIntensityScale = row.aiDeloadIntensityScale,
+                            aiProgressionBoundKg = row.aiProgressionBoundKg,
+                            aiBoundedByProgression =
+                            row.aiBoundedByProgression?.let { flag -> flag == 1L },
+                            aiEquipmentCeilingKg = row.aiEquipmentCeilingKg,
+                            aiCappedByEquipment = row.aiCappedByEquipment?.let { flag ->
+                                flag == 1L
+                            },
+                            setBaseSets = row.setBaseSets?.toInt(),
+                            setDeloadApplied = row.setDeloadApplied?.let { flag -> flag == 1L },
+                            setDeloadVolumeScale = row.setDeloadVolumeScale,
+                            setFatigueEffect = row.setFatigueEffect,
+                            setFinalSets = row.setFinalSets?.toInt(),
+                            unavailableReason = row.unavailableReason
+                        )
+                    },
+                planTargetExplanationStates =
+                database.planTargetExplanationStateQueries.selectAll()
+                    .executeAsList().map {
+                        BackupPlanTargetExplanationStateRecord(
+                            planId = it.planId,
+                            attribution = it.attribution,
+                            isDeload = it.isDeload != 0L,
+                            deloadVolumeScale = it.deloadVolumeScale,
+                            deloadIntensityScale = it.deloadIntensityScale,
+                            explanationVersion = it.explanationVersion.toInt()
                         )
                     },
                 routines = database.routineTemplateQueries.selectAllTemplates()
@@ -363,6 +428,8 @@ class SqlDelightBackupRepository(
             database.workoutSessionQueries.deleteAllSessions()
             database.planVolumeExplanationStateQueries.deleteAll()
             database.planVolumeExplanationQueries.deleteAll()
+            database.planTargetExplanationQueries.deleteAll()
+            database.planTargetExplanationStateQueries.deleteAll()
             database.planHistoryQueries.deleteAllEntries()
             database.planHistoryQueries.deleteAllDays()
             database.planHistoryQueries.deleteAllPlans()
@@ -499,6 +566,64 @@ class SqlDelightBackupRepository(
                     planId = state.planId,
                     status = state.status,
                     assessmentVersion = state.assessmentVersion.toLong()
+                )
+            }
+            file.planTargetExplanationStates.forEach { state ->
+                database.planTargetExplanationStateQueries.upsert(
+                    planId = state.planId,
+                    attribution = state.attribution,
+                    isDeload = if (state.isDeload) 1L else 0L,
+                    deloadVolumeScale = state.deloadVolumeScale,
+                    deloadIntensityScale = state.deloadIntensityScale,
+                    explanationVersion = state.explanationVersion.toLong()
+                )
+            }
+            file.planTargetExplanations.forEach { explanation ->
+                database.planTargetExplanationQueries.insertExplanation(
+                    planId = explanation.planId,
+                    dayIndex = explanation.dayIndex.toLong(),
+                    position = explanation.position.toLong(),
+                    explanationVersion = explanation.explanationVersion.toLong(),
+                    baselineSource = explanation.baselineSource,
+                    baselineRecentEstimateKg = explanation.baselineRecentEstimateKg,
+                    baselineQualifyingSetCount =
+                    explanation.baselineQualifyingSetCount?.toLong(),
+                    baselineManualFloorKg = explanation.baselineManualFloorKg,
+                    baselineKg = explanation.baselineKg,
+                    progressionOutcome = explanation.progressionOutcome,
+                    progressionIncrements = explanation.progressionIncrements?.toLong(),
+                    progressionDeltaKg = explanation.progressionDeltaKg,
+                    progressionRoundToKg = explanation.progressionRoundToKg,
+                    progressionSuccessStreakSize =
+                    explanation.progressionSuccessStreakSize?.toLong(),
+                    progressionFailureStreakSize =
+                    explanation.progressionFailureStreakSize?.toLong(),
+                    conversionReps = explanation.conversionReps?.toLong(),
+                    conversionIntensityFraction = explanation.conversionIntensityFraction,
+                    conversionDeloadIntensityScale = explanation.conversionDeloadIntensityScale,
+                    conversionRoundToKg = explanation.conversionRoundToKg,
+                    conversionUncappedWorkingKg = explanation.conversionUncappedWorkingKg,
+                    conversionEquipmentCeilingKg = explanation.conversionEquipmentCeilingKg,
+                    conversionEquipmentCeilingBinds =
+                    explanation.conversionEquipmentCeilingBinds?.let { if (it) 1L else 0L },
+                    aiProposedKg = explanation.aiProposedKg,
+                    aiProposedAccepted =
+                    explanation.aiProposedAccepted?.let { if (it) 1L else 0L },
+                    aiDeloadScaled = explanation.aiDeloadScaled?.let { if (it) 1L else 0L },
+                    aiDeloadIntensityScale = explanation.aiDeloadIntensityScale,
+                    aiProgressionBoundKg = explanation.aiProgressionBoundKg,
+                    aiBoundedByProgression =
+                    explanation.aiBoundedByProgression?.let { if (it) 1L else 0L },
+                    aiEquipmentCeilingKg = explanation.aiEquipmentCeilingKg,
+                    aiCappedByEquipment = explanation.aiCappedByEquipment?.let {
+                        if (it) 1L else 0L
+                    },
+                    setBaseSets = explanation.setBaseSets?.toLong(),
+                    setDeloadApplied = explanation.setDeloadApplied?.let { if (it) 1L else 0L },
+                    setDeloadVolumeScale = explanation.setDeloadVolumeScale,
+                    setFatigueEffect = explanation.setFatigueEffect,
+                    setFinalSets = explanation.setFinalSets?.toLong(),
+                    unavailableReason = explanation.unavailableReason
                 )
             }
 

@@ -51,6 +51,10 @@ object BackupJson {
         val requiredKeys = requiredTopLevelKeys - buildSet {
             if (version != null && version < 5) add("restPreferences")
             if (version != null && version < 6) add("trainingGuidance")
+            if (version != null && version < 7) {
+                add("planTargetExplanations")
+                add("planTargetExplanationStates")
+            }
         }
         val missing = requiredKeys - obj.keys
         if (missing.isNotEmpty()) {
@@ -81,14 +85,11 @@ object BackupJson {
 
     private fun requireTimingFields(root: JsonObject) {
         val version = (root["formatVersion"] as? JsonPrimitive)?.intOrNull ?: return
-        val required = when (version) {
-            3 -> setOf("timingProvenance")
-            4, 5, 6 -> setOf(
-                "timingProvenance",
-                "startedAtElapsedMillis",
-                "completedAtElapsedMillis"
-            )
-            else -> return
+        if (version < 3) return
+        val required = if (version == 3) {
+            setOf("timingProvenance")
+        } else {
+            setOf("timingProvenance", "startedAtElapsedMillis", "completedAtElapsedMillis")
         }
         val sets = root["workoutSets"] as? JsonArray ?: return
         sets.forEachIndexed { index, element ->
@@ -159,6 +160,7 @@ object BackupJson {
             file.selectedEquipment.size + file.workoutSets.size + file.workoutSessions.size +
             file.plans.size + file.planDays.size + file.planEntries.size +
             file.volumeExplanations.size + file.volumeExplanationStates.size +
+            file.planTargetExplanations.size + file.planTargetExplanationStates.size +
             file.routines.size + file.routineWorkouts.size + file.routineEntries.size +
             file.activations.size + file.activationWorkouts.size + file.activationEntries.size +
             file.occurrences.size + file.occurrenceEntries.size + file.personalRecords.size +

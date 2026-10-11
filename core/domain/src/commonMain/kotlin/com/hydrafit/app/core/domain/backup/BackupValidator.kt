@@ -1,7 +1,11 @@
 package com.hydrafit.app.core.domain.backup
 
+import com.hydrafit.app.core.domain.engine.FatigueSetEffect
+import com.hydrafit.app.core.domain.engine.LoadBaselineSource
+import com.hydrafit.app.core.domain.engine.LoadUnavailableReason
 import com.hydrafit.app.core.domain.engine.PlanAttribution
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.ProgressionOutcome
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
@@ -62,6 +66,8 @@ class BackupValidator(private val catalog: BackupCatalog) {
         uniqueBy(file.restPreferences) { it.exerciseId }
         uniqueBy(file.volumeExplanations) { it.planId to it.muscle }
         uniqueBy(file.volumeExplanationStates) { it.planId }
+        uniqueBy(file.planTargetExplanations) { Triple(it.planId, it.dayIndex, it.position) }
+        uniqueBy(file.planTargetExplanationStates) { it.planId }
         uniqueBy(file.selectedEquipment) { it }
 
         val customEquipmentIds = file.equipment.filter { !it.isBuiltIn }.map { it.id }.toSet()
@@ -165,6 +171,41 @@ class BackupValidator(private val catalog: BackupCatalog) {
         file.volumeExplanationStates.forEach {
             reference(it.planId, planIds)
             enum(it.status, VolumeExplanationStatus.entries)
+        }
+        val targetReasonPlans = file.planTargetExplanationStates.map { it.planId }.toSet()
+        if (file.planTargetExplanations.any { it.planId !in targetReasonPlans }) {
+            // A slot reason without its plan-level context would restore an inconsistent plan.
+            fail(BackupFailure.INVALID_REFERENCE)
+        }
+        file.planTargetExplanations.forEach {
+            reference(it.planId, planIds)
+            enum(it.baselineSource, LoadBaselineSource.entries)
+            enum(it.progressionOutcome, ProgressionOutcome.entries)
+            enum(it.setFatigueEffect, FatigueSetEffect.entries)
+            enum(it.unavailableReason, LoadUnavailableReason.entries)
+            listOf(
+                it.baselineRecentEstimateKg,
+                it.baselineManualFloorKg,
+                it.baselineKg,
+                it.progressionDeltaKg,
+                it.progressionRoundToKg,
+                it.conversionIntensityFraction,
+                it.conversionDeloadIntensityScale,
+                it.conversionRoundToKg,
+                it.conversionUncappedWorkingKg,
+                it.conversionEquipmentCeilingKg,
+                it.aiProposedKg,
+                it.aiDeloadIntensityScale,
+                it.aiProgressionBoundKg,
+                it.aiEquipmentCeilingKg,
+                it.setDeloadVolumeScale
+            ).forEach { value -> value?.let { finite(it) } }
+        }
+        file.planTargetExplanationStates.forEach {
+            reference(it.planId, planIds)
+            enum(it.attribution, PlanAttribution.entries)
+            finite(it.deloadVolumeScale)
+            finite(it.deloadIntensityScale)
         }
 
         file.routineWorkouts.forEach {
