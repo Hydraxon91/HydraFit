@@ -39,6 +39,8 @@ identity, open session, occurrence and exercise, and is not exported. Backup res
 clears it because restored workout context is not a continuation of the prior process. A successful
 custom-exercise deletion removes that exercise's rest override in the same transaction; rejected or
 failed deletion leaves both the exercise and override intact, avoiding a dangling backup reference.
+Startup custom-exercise dedupe reassigns a merged custom's override onto the seeded id (the canonical
+override wins on conflict), so a merge leaves no dangling override either.
 
 `RestCountdownRepository.observe()` must emit subsequent saves/clears for app-lifetime alert
 reconciliation. `SqlDelightWorkoutScheduleRepository` also implements the narrow

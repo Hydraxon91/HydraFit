@@ -201,7 +201,8 @@ second deficit window cannot double-count the same sets.
    `HACK_SQUAT_MACHINE`, `CALF_RAISE_MACHINE`); reconciled in `docs/exercise-catalog-rows-c1p1.md`.
 2. **Source set:** confirmed (`free-exercise-db` + ExRx + the EMG reviews above).
 3. **Custom/exercise dedupe:** custom exercises that duplicate a newly seeded name are merged by
-   `CustomExerciseDedupe` (normalized name match); their history, personal records and differing
-   field edits are preserved, so newly seeded names need not avoid existing custom names.
+   `CustomExerciseDedupe` (normalized name match); their history, personal records, differing
+   field edits and rest-duration overrides are preserved, so newly seeded names need not avoid
+   existing custom names.
 4. **Weight basis:** authored with per-row citations where a review reports a figure, otherwise
    labelled family-inferred / `modeled` (see the row doc); not silently back-filled.

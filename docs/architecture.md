@@ -543,6 +543,8 @@ interval.
 
 The `RestPreferenceRepository` stores one global default (120 seconds when no row exists) and
 optional exercise-specific overrides. The override wins; resetting it returns to the global value.
+`CustomExerciseDedupe` reassigns a merged custom exercise's override onto the seeded id, with the
+canonical override winning when both exist.
 Training-goal rest ranges remain guidance only and do not create goal/day-specific overrides.
 Backup format 6 exports the global value and overrides; restore replaces them and clears any
 persisted countdown. Countdown persistence stores only a monotonic deadline, duration, boot

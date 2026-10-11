@@ -53,6 +53,7 @@ class CustomExerciseDedupe(private val database: HydraFitDatabase) {
                 mergeOverride(custom, canonical)
                 mergePreference(custom.id, canonical.id)
                 mergeExclusion(custom.id, canonical.id)
+                mergeRestOverride(custom.id, canonical.id)
                 database.exerciseOverrideQueries.deleteById(custom.id)
                 database.exerciseQueries.deleteById(custom.id)
             }
@@ -131,6 +132,26 @@ class CustomExerciseDedupe(private val database: HydraFitDatabase) {
             )
         }
         database.exerciseExclusionQueries.deleteById(customId)
+    }
+
+    /**
+     * Moves an explicit exercise rest-duration override onto the merged seeded id. When the canonical
+     * id already has an override that choice wins and the custom row is discarded; otherwise the
+     * custom override is reassigned, mirroring [mergePreference].
+     */
+    private fun mergeRestOverride(customId: String, canonicalId: String) {
+        val duration = database.restPreferenceQueries.selectExerciseOverride(customId)
+            .executeAsOneOrNull() ?: return
+        val canonicalExists = database.restPreferenceQueries.selectExerciseOverride(canonicalId)
+            .executeAsOneOrNull() != null
+        if (!canonicalExists) {
+            database.restPreferenceQueries.upsertExerciseOverride(
+                canonicalId,
+                canonicalId,
+                duration
+            )
+        }
+        database.restPreferenceQueries.deleteExerciseOverride(customId)
     }
 
     private fun mergeOverride(custom: Exercise, canonical: CatalogExercise) {
