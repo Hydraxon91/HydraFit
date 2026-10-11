@@ -4155,6 +4155,30 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun backdatingAGuidedDraftDiscardsTheLiveEventAndStartsNoRest() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.startGuidedSet(40L)
+        viewModel.editGuidedSet(40L)
+        assertTrue(viewModel.onDraftPerformedAtChanged(MONDAY - 60_000L))
+        viewModel.confirmDraftEdit()
+        runCurrent()
+
+        // An explicit performed time clears the live event, so the set is recorded as catch-up and
+        // no prompt begins; the session-identity guard never has to reconcile a backdated write.
+        val recorded = repository.all().single()
+        assertEquals(WorkoutTimingProvenance.CATCH_UP, recorded.timingProvenance)
+        assertNull(recorded.startedAtElapsedMillis)
+        assertNull(recorded.completedAtElapsedMillis)
+        assertNull(viewModel.state.value.restTimer)
+        assertNull(viewModel.state.value.startedSetEntryId)
+    }
+
+    @Test
     fun guidedMissingLoadWithoutWeightStaysLiveAndConsumesTheEventOnce() = runTimerTest {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
