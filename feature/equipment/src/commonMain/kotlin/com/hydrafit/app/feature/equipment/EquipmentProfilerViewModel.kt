@@ -495,6 +495,7 @@ class EquipmentProfilerViewModel(
                     it.copy(
                         exerciseEditor = it.exerciseEditor.copy(
                             error = failure.message,
+                            errorReason = failure.reason,
                             nameConflict =
                             failure.reason == CustomExerciseFailureReason.NAME_CONFLICT
                         )
@@ -520,6 +521,7 @@ class EquipmentProfilerViewModel(
                 it.copy(
                     exerciseEditor = it.exerciseEditor.copy(
                         error = failure.message,
+                        errorReason = failure.reason,
                         nameConflict = failure.reason == CustomExerciseFailureReason.NAME_CONFLICT
                     )
                 )
@@ -557,7 +559,12 @@ class EquipmentProfilerViewModel(
                 closeEditorAndRefresh()
             } catch (failure: CustomExerciseException) {
                 _state.update {
-                    it.copy(exerciseEditor = it.exerciseEditor.copy(error = failure.message))
+                    it.copy(
+                        exerciseEditor = it.exerciseEditor.copy(
+                            error = failure.message,
+                            errorReason = failure.reason
+                        )
+                    )
                 }
             }
         }

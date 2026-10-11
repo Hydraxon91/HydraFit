@@ -80,9 +80,21 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
 
     override suspend fun delete(id: String) {
         database.transaction {
+            // Only a custom row may be deleted; a built-in id must never clear its dependent rows,
+            // because deleteById is a no-op for it (isCustom = 0) and the exercise would survive.
+            val existing = queries.selectById(id).executeAsOneOrNull()
+            if (existing != null && existing.isCustom != 1L) {
+                throw CustomExerciseException("Only custom exercises can be deleted")
+            }
             val references = queries.countSetsForExercise(id).executeAsOne()
             if (references > 0L) {
                 throw CustomExerciseException("This exercise has logged sets and can't be deleted")
+            }
+            if (database.personalRecordQueries.selectById(id).executeAsOneOrNull() != null) {
+                throw CustomExerciseException(
+                    "This exercise has a personal record and can't be deleted",
+                    CustomExerciseFailureReason.PERSONAL_RECORD_REFERENCE
+                )
             }
             val planReferences =
                 database.planHistoryQueries.countEntriesForExercise(id).executeAsOne()
@@ -102,7 +114,13 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
                     "This exercise is used by a plan or routine and can't be deleted"
                 )
             }
+            // Every exercise-keyed row must go in the same transaction, or an export would carry a
+            // reference the backup validator rejects. `exerciseOverride` is normally built-in-only
+            // but is defensively cleared here for restored/legacy rows, mirroring CustomExerciseDedupe.
+            database.exerciseOverrideQueries.deleteById(id)
             database.restPreferenceQueries.deleteExerciseOverride(id)
+            database.exercisePreferenceQueries.deleteById(id)
+            database.exerciseExclusionQueries.deleteById(id)
             queries.deleteById(id)
         }
     }

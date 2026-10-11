@@ -546,6 +546,12 @@ The `RestPreferenceRepository` stores one global default (120 seconds when no ro
 optional exercise-specific overrides. The override wins; resetting it returns to the global value.
 `CustomExerciseDedupe` reassigns a merged custom exercise's override onto the seeded id, with the
 canonical override winning when both exist.
+Custom-exercise deletion atomically removes its rest override, exercise preference, exclusion and
+`exerciseOverride` row, and refuses a non-custom id so a built-in's dependent rows cannot be cleared
+while the exercise survives. A manual personal record blocks deletion, as do logged sets and
+plan/routine references, so deletion does not discard a stored record or leave an unknown exercise
+reference in an exported backup. Rejected or failed deletion preserves all dependent records; this
+path does not repair existing orphans.
 Training-goal rest ranges remain guidance only and do not create goal/day-specific overrides.
 Backup format 6 exports the global value and overrides; restore replaces them and clears any
 persisted countdown. Countdown persistence stores only a monotonic deadline, duration, boot
@@ -580,6 +586,12 @@ neither prescriptions nor fatigue/RIR.
 Guided confirmation freezes the Warm-up choice before any legacy/missing-load dialog; all resolution
 paths and failed-write retries retain it until success or cancellation. Warm-up Start resets coaching
 eligibility, and successful live warm-up completion does not start or persist a new rest prompt.
+The no-history "Use last logged" editor fallback retains the live completion event, including its
+original timing, through failed-write retries until success or explicit cancellation. The guided
+submission guard spans persistence and success handling. Rest setup snapshots the completion instant
+and revalidates occurrence/session identity and cancellation generation after suspending preference
+and session reads, so delayed setup cannot revive a canceled countdown or reuse one event for a
+second submission.
 
 ### 1.17 Occurrence-only exercise replacement
 

@@ -313,6 +313,32 @@ class EquipmentProfilerViewModelTest {
     }
 
     @Test
+    fun personalRecordDeletionFailureKeepsTheEditorWithItsLocalizedReason() = runTest(dispatcher) {
+        val custom = FakeCustomExerciseRepository(
+            deleteFailure = "Personal record reference",
+            deleteFailureReason = CustomExerciseFailureReason.PERSONAL_RECORD_REFERENCE
+        )
+        val viewModel = viewModel(custom = custom)
+        advanceUntilIdle()
+        viewModel.onNewCustomExercise()
+        viewModel.onEditorNameChanged("Record exercise")
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.ABS, 1.0)
+        viewModel.onSaveExercise()
+        advanceUntilIdle()
+        val exerciseId = custom.created.single().id
+        viewModel.onEditExercise(exerciseId)
+
+        viewModel.onDeleteCustomExercise()
+        advanceUntilIdle()
+
+        val editor = viewModel.state.value.exerciseEditor
+        assertTrue(editor.isOpen)
+        assertEquals(exerciseId, editor.exerciseId)
+        assertEquals(CustomExerciseFailureReason.PERSONAL_RECORD_REFERENCE, editor.errorReason)
+        assertFalse(editor.nameConflict)
+    }
+
+    @Test
     fun searchFiltersTheExerciseList() = runTest(dispatcher) {
         val viewModel = viewModel()
         advanceUntilIdle()
@@ -845,7 +871,8 @@ class EquipmentProfilerViewModelTest {
 
     private class FakeCustomExerciseRepository(
         private val deleteFailure: String? = null,
-        private val addFailure: CustomExerciseException? = null
+        private val addFailure: CustomExerciseException? = null,
+        private val deleteFailureReason: CustomExerciseFailureReason? = null
     ) : CustomExerciseRepository {
         val created = mutableListOf<Exercise>()
 
@@ -885,7 +912,7 @@ class EquipmentProfilerViewModelTest {
         ) = Unit
 
         override suspend fun delete(id: String) {
-            deleteFailure?.let { throw CustomExerciseException(it) }
+            deleteFailure?.let { throw CustomExerciseException(it, deleteFailureReason) }
         }
     }
 

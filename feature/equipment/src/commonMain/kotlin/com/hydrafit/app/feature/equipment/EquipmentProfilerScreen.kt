@@ -42,6 +42,7 @@ import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.isoLocalDateTime
 import com.hydrafit.app.core.domain.unit.formatWeight
+import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
 import hydrafit.feature.equipment.generated.resources.Res
 import hydrafit.feature.equipment.generated.resources.equipment_add_button
 import hydrafit.feature.equipment.generated.resources.equipment_add_exercise
@@ -50,6 +51,7 @@ import hydrafit.feature.equipment.generated.resources.equipment_bodyweight
 import hydrafit.feature.equipment.generated.resources.equipment_cancel
 import hydrafit.feature.equipment.generated.resources.equipment_custom_section
 import hydrafit.feature.equipment.generated.resources.equipment_delete
+import hydrafit.feature.equipment.generated.resources.equipment_delete_personal_record_blocked
 import hydrafit.feature.equipment.generated.resources.equipment_edit
 import hydrafit.feature.equipment.generated.resources.equipment_edit_reset
 import hydrafit.feature.equipment.generated.resources.equipment_edit_save
@@ -855,7 +857,13 @@ private fun ExerciseEditorDialog(
                 val errorMessage = state.error
                 if (errorMessage != null && !state.nameConflict) {
                     Text(
-                        text = errorMessage,
+                        text = if (state.errorReason ==
+                            CustomExerciseFailureReason.PERSONAL_RECORD_REFERENCE
+                        ) {
+                            stringResource(Res.string.equipment_delete_personal_record_blocked)
+                        } else {
+                            errorMessage
+                        },
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall
                     )

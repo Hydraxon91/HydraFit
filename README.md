@@ -43,7 +43,7 @@ HydraFit's workout planner is built as a swappable strategy behind one interface
 - **Koin** — dependency injection; the planner engines and every feature module are swapped/wired through it, with Koin-graph verification in the test suite.
 - **Ktor** — the Gemini API client.
 - **Google LiteRT-LM** — on-device model inference.
-- **GitHub Actions CI** — lint, unit tests, an iOS compile check, and a debug APK build on every push; a nightly build; and a signed release APK published on `v*.*.*` tags.
+- **GitHub Actions CI** — lint, unit tests, SQLDelight migration verification, an iOS compile check, release-fatal Android lint, and a debug APK build on every push; a nightly build; and a signed release APK published on `v*.*.*` tags.
 
 ## Architecture, briefly
 
@@ -61,7 +61,7 @@ Requires JDK 17+ and the Android SDK (Android Studio's SDK Manager is the easies
 
 ## Releases
 
-Signed release APKs are built and published by `.github/workflows/release.yml` on tags matching `v*.*.*`. The version is derived at build time — `versionName` from the tag (leading `v` stripped) and `versionCode` from the GitHub Actions run number — while local builds keep the `0.5.1-dev` / `1` defaults. A tag containing a hyphen (for example `v0.1.0-rc.1`) is published as a pre-release. Development emulator installs use the debug APK; release/minified installs require separate approval and a data-preservation/return-to-debug plan.
+Signed release APKs are built and published by `.github/workflows/release.yml` on tags matching `v*.*.*`. The version is derived at build time — `versionName` from the tag (leading `v` stripped) and `versionCode` from the GitHub Actions run number — while local builds keep the `0.6.1-dev` / `1` defaults. A tag containing a hyphen (for example `v0.1.0-rc.1`) is published as a pre-release. Development emulator installs use the debug APK; release/minified/signed builds are never installed on the emulator.
 
 Publishing requires four repository secrets (Settings → Secrets and variables → Actions):
 

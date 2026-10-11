@@ -37,8 +37,11 @@ next version from the current directory/generated Schema rather than copying thi
 state is separate, transient user data: it stores a monotonic deadline, duration, boot
 identity, open session, occurrence and exercise, and is not exported. Backup restore
 clears it because restored workout context is not a continuation of the prior process. A successful
-custom-exercise deletion removes that exercise's rest override in the same transaction; rejected or
-failed deletion leaves both the exercise and override intact, avoiding a dangling backup reference.
+custom-exercise deletion removes that exercise's rest override, preference, exclusion and
+`exerciseOverride` row in the same transaction, and refuses a non-custom id so a built-in's
+dependent rows are never cleared. A manual personal record blocks deletion, like logged sets and
+plan/routine references; rejected or failed deletion preserves the exercise and every dependent
+record. Existing orphaned records are not automatically purged by this path.
 Startup custom-exercise dedupe reassigns a merged custom's override onto the seeded id (the canonical
 override wins on conflict), so a merge leaves no dangling override either.
 

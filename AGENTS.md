@@ -248,6 +248,16 @@ Some models occasionally emit a tool call as plain text instead of a real tool c
 
 ## Unit Testing Standards
 
+- **Test invariants across their producers and consumers.** For changed logging/data flows, trace
+  each important invariant from the UI action through domain/persistence to its downstream reader.
+  A consumer test with a manually constructed valid row does not prove the write path preserves it.
+  Cover relevant combinations (working/warm-up, direct/dialog completion, success/failure/retry/
+  cancel, recreation/context changes), not just each feature independently. Use controlled suspension
+  to check repeat submissions and context invalidation across asynchronous success handling.
+- **Exercise-keyed data has a lifecycle.** When adding or changing it, test deletion guards and
+  atomic cleanup, deduplication/conflict handling, and export/restore validation together with other
+  dependent records. Do not silently purge existing orphaned data without an approved repair policy.
+
 - **Unit tests are mandatory for all `:core:domain` logic**, not optional: every use case, the fatigue algorithm, and each `WorkoutPlannerEngine` implementation must ship with tests using `kotlin.test` (common) and MockK (JVM-side mocking of dependencies like repositories or the Ktor client).
 - **New code without a corresponding test is incomplete work.** Write the corresponding tests in the same approved work scope as a new use case or engine implementation, unless explicitly told to defer them. Run the required tests before reporting that work complete or committing it.
 - **Domain logic must be testable without an emulator.** If you find yourself needing Android context or an emulator to test something in `:core:domain`, that's a sign the abstraction is wrong — flag it rather than working around it.
@@ -355,14 +365,14 @@ Keep SQLDelight, Koin, Ktor and LiteRT-LM within the existing architecture and a
 - Target only an explicitly verified running emulator (`ANDROID_SERIAL=emulator-<port>`),
   with bounded ADB calls. Never use a phone for UI verification. If none is running,
   ask the user to start one; do not boot one.
-- **Keep the development emulator on debug builds.** Installing a release/minified APK
-  (including a published signed release) requires separate explicit approval naming the
-  emulator, artifact and bounded test. Approval to prepare, tag or publish a release is
-  not emulator-install approval. Propose data preservation and a return-to-debug plan
-  first; check version codes/signing compatibility before replacing an install. Do not
-  leave a release build installed after its approved test. Report a blocked return rather
-  than forcing a downgrade, uninstalling or clearing data without approval. Historical
-  release-test records are evidence, not standing permission to repeat those installs.
+- **The development emulator stays on debug builds. Never install a release/minified APK
+  on it — including a published signed release or a scratch release build.** There is no
+  approval path for an emulator release install; refuse and report such a request.
+  Verify a release artifact without installing it (download, checksum, `apksigner verify`,
+  manifest `versionName`/`versionCode`) and report signed-upgrade or on-device runtime
+  behavior as unverified rather than installing. Historical release-install records are
+  evidence only, never standing permission. `adb uninstall` and clearing app data still
+  need explicit approval.
 - Preserve app state and permissions: no automatic clear-state/grants, no restart
   unless intended, no cloud/AI screenshot uploads for local verification. A timed-out
   write is unknown: inspect for completion, stop if unknown, never replay it or
