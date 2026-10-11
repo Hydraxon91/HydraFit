@@ -1,5 +1,6 @@
 package com.hydrafit.app.feature.logger
 
+import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
@@ -103,6 +104,11 @@ data class DraftSet(
     /** Frozen occurrence slot identity, when this draft came from an active workout. */
     val occurrenceId: Long? = null,
     val occurrenceEntryId: Long? = null,
+    /**
+     * The frozen slot's recorded reasoning, or null when none was recorded, the slot was replaced or
+     * edited, or the draft came from a manual routine. Shown, never written back to a prescription.
+     */
+    val explanation: ExerciseTargetExplanation? = null,
     /**
      * Prescriptions default to working sets; guided confirmation freezes the user's Warm-up choice.
      */

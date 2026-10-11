@@ -48,10 +48,12 @@ import androidx.navigation.compose.composable
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ArmCoverageUnmetReason
 import com.hydrafit.app.core.domain.engine.ArmMuscleCoverage
+import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
 import com.hydrafit.app.core.domain.engine.OnDevicePlanProgress
 import com.hydrafit.app.core.domain.engine.OnDevicePlanProgressReporter
 import com.hydrafit.app.core.domain.engine.PeriodizationConfig
 import com.hydrafit.app.core.domain.engine.PlanAttribution
+import com.hydrafit.app.core.domain.engine.PlanExplanation
 import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
@@ -101,6 +103,54 @@ import hydrafit.feature.splitbuilder.generated.resources.split_error_service_una
 import hydrafit.feature.splitbuilder.generated.resources.split_error_timeout
 import hydrafit.feature.splitbuilder.generated.resources.split_error_transient
 import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_accepted
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_bounded_by_progression
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_capped_by_equipment
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_ceiling_not_binding
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_deload_scale
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_deload_scaled
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_equipment_ceiling
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_not_accepted
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_proposed
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_baseline_effective
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_baseline_manual_floor
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_baseline_qualifying_sets
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_baseline_recent_estimate
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_conversion_before_ceiling
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_conversion_ceiling
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_conversion_ceiling_binds
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_conversion_deload_scale
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_conversion_intensity
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_conversion_reps
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_conversion_rounded_to
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_details
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_hide_details
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_kilograms
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_line
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_plan_attribution_ai
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_plan_attribution_deterministic
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_plan_deload_scales
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_progression_applied
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_progression_delta
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_progression_failure_streak_size
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_progression_held_after_misses
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_progression_none_no_prescription
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_progression_none_no_streak
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_progression_paused_deload
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_progression_success_streak_size
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_sets_base
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_sets_deload_scale
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_sets_final
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_sets_reduced_for_fatigue
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_substituted
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_summary_ai
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_summary_calculated
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_summary_sets_only
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_unavailable_ai_not_shared
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_unavailable_ai_omitted
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_unavailable_ai_rejected
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_unavailable_insufficient_evidence
+import hydrafit.feature.splitbuilder.generated.resources.split_explanation_unavailable_not_load_tracked
 import hydrafit.feature.splitbuilder.generated.resources.split_fallback_invalid_response
 import hydrafit.feature.splitbuilder.generated.resources.split_fallback_note
 import hydrafit.feature.splitbuilder.generated.resources.split_generated_by
@@ -375,6 +425,9 @@ fun SplitBuilderScreen(
                 ),
                 style = MaterialTheme.typography.labelLarge
             )
+            plan.explanation?.let { explanation ->
+                PlanExplanationContext(explanation)
+            }
             VolumeExplanationCard(
                 coverage = plan.armCoverage,
                 attribution = if (plan.engine == PlannerEngineId.DETERMINISTIC) {
@@ -430,37 +483,47 @@ fun SplitBuilderScreen(
                         style = MaterialTheme.typography.titleMedium
                     )
                     day.exercises.forEachIndexed { position, exercise ->
-                        val name = state.exerciseNames[exercise.exerciseId] ?: exercise.exerciseId
-                        val weight = exercise.suggestedWeightKg?.let { kg ->
-                            stringResource(
-                                Res.string.split_suggested_weight,
-                                formatWeight(weightUnit.kilogramsToDisplay(kg)),
-                                weightUnit.label
-                            )
-                        }.orEmpty()
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = stringResource(
-                                    Res.string.split_exercise_line,
-                                    name,
-                                    exercise.sets,
-                                    exercise.reps,
-                                    weight
-                                ),
-                                modifier = Modifier.weight(1f)
-                            )
-                            if (state.isPlanAccepted) {
-                                IconButton(
-                                    onClick = { onSwapRequested(day.dayIndex, position) }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.SwapHoriz,
-                                        contentDescription = stringResource(
-                                            Res.string.split_swap_action
+                        Column {
+                            val name = state.exerciseNames[exercise.exerciseId]
+                                ?: exercise.exerciseId
+                            val weight = exercise.suggestedWeightKg?.let { kg ->
+                                stringResource(
+                                    Res.string.split_suggested_weight,
+                                    formatWeight(weightUnit.kilogramsToDisplay(kg)),
+                                    weightUnit.label
+                                )
+                            }.orEmpty()
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = stringResource(
+                                        Res.string.split_exercise_line,
+                                        name,
+                                        exercise.sets,
+                                        exercise.reps,
+                                        weight
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                )
+                                if (state.isPlanAccepted) {
+                                    IconButton(
+                                        onClick = { onSwapRequested(day.dayIndex, position) }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.SwapHoriz,
+                                            contentDescription = stringResource(
+                                                Res.string.split_swap_action
+                                            )
                                         )
-                                    )
+                                    }
                                 }
                             }
+                            TargetExplanationDisclosure(
+                                key = day.dayIndex to position,
+                                explanation = exercise.explanation,
+                                substituted = plan.explanation != null &&
+                                    exercise.explanation == null,
+                                weightUnit = weightUnit
+                            )
                         }
                     }
                 }
@@ -579,6 +642,141 @@ private fun SplitFocus.labelResource(): StringResource = when (this) {
 private fun formatTokensPerSecond(value: Double): String =
     ((value * 10.0).roundToInt() / 10.0).toString()
 
+/**
+ * What produced a slot's target, with the recorded facts behind a disclosure. A slot with no record
+ * shows the substitution note only when a confirmed swap cleared its reasons; otherwise it says
+ * nothing rather than implying a reason was lost.
+ */
+@Composable
+private fun TargetExplanationDisclosure(
+    key: Any,
+    explanation: ExerciseTargetExplanation?,
+    substituted: Boolean,
+    weightUnit: WeightUnit
+) {
+    val view = explanation?.toExplanationView()
+    if (view == null) {
+        if (substituted) {
+            Text(
+                text = stringResource(Res.string.split_explanation_substituted),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        return
+    }
+    var expanded by remember(key) { mutableStateOf(false) }
+    Text(
+        text = stringResource(view.summary.labelResource()),
+        style = MaterialTheme.typography.bodySmall
+    )
+    if (view.lines.isNotEmpty()) {
+        TextButton(onClick = { expanded = !expanded }) {
+            Text(
+                stringResource(
+                    if (expanded) {
+                        Res.string.split_explanation_hide_details
+                    } else {
+                        Res.string.split_explanation_details
+                    }
+                )
+            )
+        }
+    }
+    if (expanded) {
+        view.lines.forEach { line ->
+            Text(
+                text = explanationLineText(line, weightUnit),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+}
+
+/** The label alone for a qualitative fact, or "label: value" when the fact recorded a number. */
+@Composable
+private fun explanationLineText(line: TargetExplanationLine, weightUnit: WeightUnit): String {
+    val label = stringResource(line.reason.labelResource())
+    val value = line.value
+    if (value == null) return label
+    val rendered = when (line.valueKind) {
+        TargetExplanationValueKind.KILOGRAMS -> stringResource(
+            Res.string.split_explanation_kilograms,
+            formatWeight(weightUnit.kilogramsToDisplay(value)),
+            weightUnit.label
+        )
+        TargetExplanationValueKind.PERCENT -> formatWeight(value * 100.0) + "%"
+        else -> formatWeight(value)
+    }
+    return stringResource(Res.string.split_explanation_line, label, rendered)
+}
+
+private fun TargetExplanationReason.labelResource(): StringResource = when (this) {
+    TargetExplanationReason.SUMMARY_AI_PROPOSAL -> Res.string.split_explanation_summary_ai
+    TargetExplanationReason.SUMMARY_CALCULATED -> Res.string.split_explanation_summary_calculated
+    TargetExplanationReason.SUMMARY_SETS_ONLY -> Res.string.split_explanation_summary_sets_only
+    TargetExplanationReason.SUMMARY_UNAVAILABLE_NOT_LOAD_TRACKED ->
+        Res.string.split_explanation_unavailable_not_load_tracked
+    TargetExplanationReason.SUMMARY_UNAVAILABLE_INSUFFICIENT_EVIDENCE ->
+        Res.string.split_explanation_unavailable_insufficient_evidence
+    TargetExplanationReason.SUMMARY_UNAVAILABLE_AI_NOT_SHARED ->
+        Res.string.split_explanation_unavailable_ai_not_shared
+    TargetExplanationReason.SUMMARY_UNAVAILABLE_AI_OMITTED ->
+        Res.string.split_explanation_unavailable_ai_omitted
+    TargetExplanationReason.SUMMARY_UNAVAILABLE_AI_REJECTED ->
+        Res.string.split_explanation_unavailable_ai_rejected
+    TargetExplanationReason.BASELINE_RECENT_ESTIMATE ->
+        Res.string.split_explanation_baseline_recent_estimate
+    TargetExplanationReason.BASELINE_MANUAL_FLOOR ->
+        Res.string.split_explanation_baseline_manual_floor
+    TargetExplanationReason.BASELINE_QUALIFYING_SETS ->
+        Res.string.split_explanation_baseline_qualifying_sets
+    TargetExplanationReason.BASELINE_EFFECTIVE -> Res.string.split_explanation_baseline_effective
+    TargetExplanationReason.PROGRESSION_APPLIED -> Res.string.split_explanation_progression_applied
+    TargetExplanationReason.PROGRESSION_DELTA -> Res.string.split_explanation_progression_delta
+    TargetExplanationReason.PROGRESSION_SUCCESS_STREAK_SIZE ->
+        Res.string.split_explanation_progression_success_streak_size
+    TargetExplanationReason.PROGRESSION_FAILURE_STREAK_SIZE ->
+        Res.string.split_explanation_progression_failure_streak_size
+    TargetExplanationReason.PROGRESSION_NONE_NO_STREAK ->
+        Res.string.split_explanation_progression_none_no_streak
+    TargetExplanationReason.PROGRESSION_HELD_AFTER_MISSES ->
+        Res.string.split_explanation_progression_held_after_misses
+    TargetExplanationReason.PROGRESSION_NONE_NO_PRESCRIPTION ->
+        Res.string.split_explanation_progression_none_no_prescription
+    TargetExplanationReason.PROGRESSION_PAUSED_DELOAD ->
+        Res.string.split_explanation_progression_paused_deload
+    TargetExplanationReason.CONVERSION_REPS -> Res.string.split_explanation_conversion_reps
+    TargetExplanationReason.CONVERSION_DELOAD_SCALE ->
+        Res.string.split_explanation_conversion_deload_scale
+    TargetExplanationReason.CONVERSION_INTENSITY ->
+        Res.string.split_explanation_conversion_intensity
+    TargetExplanationReason.CONVERSION_ROUNDED_TO ->
+        Res.string.split_explanation_conversion_rounded_to
+    TargetExplanationReason.CONVERSION_BEFORE_CEILING ->
+        Res.string.split_explanation_conversion_before_ceiling
+    TargetExplanationReason.CONVERSION_CEILING -> Res.string.split_explanation_conversion_ceiling
+    TargetExplanationReason.CONVERSION_CEILING_BINDS ->
+        Res.string.split_explanation_conversion_ceiling_binds
+    TargetExplanationReason.AI_PROPOSED -> Res.string.split_explanation_ai_proposed
+    TargetExplanationReason.AI_ACCEPTED -> Res.string.split_explanation_ai_accepted
+    TargetExplanationReason.AI_NOT_ACCEPTED -> Res.string.split_explanation_ai_not_accepted
+    TargetExplanationReason.AI_BOUNDED_BY_PROGRESSION ->
+        Res.string.split_explanation_ai_bounded_by_progression
+    TargetExplanationReason.AI_CAPPED_BY_EQUIPMENT ->
+        Res.string.split_explanation_ai_capped_by_equipment
+    TargetExplanationReason.AI_EQUIPMENT_CEILING ->
+        Res.string.split_explanation_ai_equipment_ceiling
+    TargetExplanationReason.AI_CEILING_NOT_BINDING ->
+        Res.string.split_explanation_ai_ceiling_not_binding
+    TargetExplanationReason.AI_DELOAD_SCALE -> Res.string.split_explanation_ai_deload_scale
+    TargetExplanationReason.AI_DELOAD_SCALED -> Res.string.split_explanation_ai_deload_scaled
+    TargetExplanationReason.SETS_BASE -> Res.string.split_explanation_sets_base
+    TargetExplanationReason.SETS_DELOAD_SCALE -> Res.string.split_explanation_sets_deload_scale
+    TargetExplanationReason.SETS_REDUCED_FOR_FATIGUE ->
+        Res.string.split_explanation_sets_reduced_for_fatigue
+    TargetExplanationReason.SETS_FINAL -> Res.string.split_explanation_sets_final
+}
+
 @Composable
 private fun VolumeExplanationCard(
     coverage: List<ArmMuscleCoverage>,
@@ -647,6 +845,30 @@ private fun VolumeExplanationCard(
 
 private fun formatVolumeCredits(value: Double): String =
     ((value * 10.0).roundToInt() / 10.0).toString()
+
+@Composable
+private fun PlanExplanationContext(explanation: PlanExplanation) {
+    Text(
+        text = stringResource(
+            when (explanation.attribution) {
+                PlanAttribution.DETERMINISTIC ->
+                    Res.string.split_explanation_plan_attribution_deterministic
+                PlanAttribution.AI_GENERATED -> Res.string.split_explanation_plan_attribution_ai
+            }
+        ),
+        style = MaterialTheme.typography.bodySmall
+    )
+    if (explanation.isDeload) {
+        Text(
+            text = stringResource(
+                Res.string.split_explanation_plan_deload_scales,
+                formatWeight(explanation.deloadVolumeScale * 100.0) + "%",
+                formatWeight(explanation.deloadIntensityScale * 100.0) + "%"
+            ),
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
+}
 
 private fun ArmCoverageUnmetReason.labelResource(): StringResource = when (this) {
     ArmCoverageUnmetReason.NO_COMPATIBLE_AVAILABLE_CANDIDATE ->

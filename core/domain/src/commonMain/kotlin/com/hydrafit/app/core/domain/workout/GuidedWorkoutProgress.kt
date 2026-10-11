@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.domain.workout
 
+import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 
@@ -16,7 +17,12 @@ data class GuidedExerciseProgress(
     val reps: Int,
     val weightKg: Double?,
     val loadKind: LoadKind,
-    val loadCapability: ExerciseLoadCapability
+    val loadCapability: ExerciseLoadCapability,
+    /**
+     * The frozen slot's recorded reasoning, or null when none was recorded or a replacement cleared
+     * it. Inert: it never affects progress or the prescription.
+     */
+    val explanation: ExerciseTargetExplanation? = null
 ) {
     /** Prescribed working sets still unrecorded for this entry. */
     val remainingSets: Int get() = (prescribedSets - performedWorkingSets).coerceAtLeast(0)
@@ -62,7 +68,8 @@ fun buildGuidedWorkoutProgress(
                 reps = entry.reps,
                 weightKg = entry.weightKg,
                 loadKind = entry.loadKind,
-                loadCapability = entry.loadCapability
+                loadCapability = entry.loadCapability,
+                explanation = entry.explanation
             )
         }
 )

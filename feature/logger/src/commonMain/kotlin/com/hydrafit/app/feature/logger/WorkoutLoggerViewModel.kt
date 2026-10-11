@@ -707,7 +707,8 @@ class WorkoutLoggerViewModel(
                         reps = exercise.reps,
                         weightKg = exercise.suggestedWeightKg,
                         loadKind = exercise.loadKind,
-                        loadCapability = exercise.loadCapability
+                        loadCapability = exercise.loadCapability,
+                        explanation = exercise.explanation
                     )
                 },
                 nowMillis = nowMillis,
@@ -1489,7 +1490,8 @@ class WorkoutLoggerViewModel(
                     entry.loadKind,
                     loadCapability = entry.loadCapability,
                     occurrenceId = occurrence.id,
-                    occurrenceEntryId = entry.id
+                    occurrenceEntryId = entry.id,
+                    explanation = entry.explanation
                 )
             }
         }

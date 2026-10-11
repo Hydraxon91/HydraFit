@@ -57,6 +57,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
+import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.unit.WeightUnit
@@ -93,6 +94,50 @@ import hydrafit.feature.logger.generated.resources.logger_draft_write_none
 import hydrafit.feature.logger.generated.resources.logger_draft_write_partial
 import hydrafit.feature.logger.generated.resources.logger_edit_set
 import hydrafit.feature.logger.generated.resources.logger_end_session
+import hydrafit.feature.logger.generated.resources.logger_explanation_ai_accepted
+import hydrafit.feature.logger.generated.resources.logger_explanation_ai_bounded_by_progression
+import hydrafit.feature.logger.generated.resources.logger_explanation_ai_capped_by_equipment
+import hydrafit.feature.logger.generated.resources.logger_explanation_ai_ceiling_not_binding
+import hydrafit.feature.logger.generated.resources.logger_explanation_ai_deload_scale
+import hydrafit.feature.logger.generated.resources.logger_explanation_ai_deload_scaled
+import hydrafit.feature.logger.generated.resources.logger_explanation_ai_equipment_ceiling
+import hydrafit.feature.logger.generated.resources.logger_explanation_ai_not_accepted
+import hydrafit.feature.logger.generated.resources.logger_explanation_ai_proposed
+import hydrafit.feature.logger.generated.resources.logger_explanation_baseline_effective
+import hydrafit.feature.logger.generated.resources.logger_explanation_baseline_manual_floor
+import hydrafit.feature.logger.generated.resources.logger_explanation_baseline_qualifying_sets
+import hydrafit.feature.logger.generated.resources.logger_explanation_baseline_recent_estimate
+import hydrafit.feature.logger.generated.resources.logger_explanation_conversion_before_ceiling
+import hydrafit.feature.logger.generated.resources.logger_explanation_conversion_ceiling
+import hydrafit.feature.logger.generated.resources.logger_explanation_conversion_ceiling_binds
+import hydrafit.feature.logger.generated.resources.logger_explanation_conversion_deload_scale
+import hydrafit.feature.logger.generated.resources.logger_explanation_conversion_intensity
+import hydrafit.feature.logger.generated.resources.logger_explanation_conversion_reps
+import hydrafit.feature.logger.generated.resources.logger_explanation_conversion_rounded_to
+import hydrafit.feature.logger.generated.resources.logger_explanation_details
+import hydrafit.feature.logger.generated.resources.logger_explanation_hide_details
+import hydrafit.feature.logger.generated.resources.logger_explanation_kilograms
+import hydrafit.feature.logger.generated.resources.logger_explanation_line
+import hydrafit.feature.logger.generated.resources.logger_explanation_progression_applied
+import hydrafit.feature.logger.generated.resources.logger_explanation_progression_delta
+import hydrafit.feature.logger.generated.resources.logger_explanation_progression_failure_streak_size
+import hydrafit.feature.logger.generated.resources.logger_explanation_progression_held_after_misses
+import hydrafit.feature.logger.generated.resources.logger_explanation_progression_none_no_prescription
+import hydrafit.feature.logger.generated.resources.logger_explanation_progression_none_no_streak
+import hydrafit.feature.logger.generated.resources.logger_explanation_progression_paused_deload
+import hydrafit.feature.logger.generated.resources.logger_explanation_progression_success_streak_size
+import hydrafit.feature.logger.generated.resources.logger_explanation_sets_base
+import hydrafit.feature.logger.generated.resources.logger_explanation_sets_deload_scale
+import hydrafit.feature.logger.generated.resources.logger_explanation_sets_final
+import hydrafit.feature.logger.generated.resources.logger_explanation_sets_reduced_for_fatigue
+import hydrafit.feature.logger.generated.resources.logger_explanation_summary_ai
+import hydrafit.feature.logger.generated.resources.logger_explanation_summary_calculated
+import hydrafit.feature.logger.generated.resources.logger_explanation_summary_sets_only
+import hydrafit.feature.logger.generated.resources.logger_explanation_unavailable_ai_not_shared
+import hydrafit.feature.logger.generated.resources.logger_explanation_unavailable_ai_omitted
+import hydrafit.feature.logger.generated.resources.logger_explanation_unavailable_ai_rejected
+import hydrafit.feature.logger.generated.resources.logger_explanation_unavailable_insufficient_evidence
+import hydrafit.feature.logger.generated.resources.logger_explanation_unavailable_not_load_tracked
 import hydrafit.feature.logger.generated.resources.logger_finish
 import hydrafit.feature.logger.generated.resources.logger_finish_partial
 import hydrafit.feature.logger.generated.resources.logger_future_time_error
@@ -550,10 +595,16 @@ fun WorkoutLoggerScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "${draft.name}  ${draft.sets} x ${draft.reps} · ~$weight",
-                        modifier = Modifier.weight(1f)
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "${draft.name}  ${draft.sets} x ${draft.reps} · ~$weight"
+                        )
+                        TargetExplanationDisclosure(
+                            key = draft.occurrenceEntryId ?: draft.exerciseId,
+                            explanation = draft.explanation,
+                            weightUnit = state.weightUnit
+                        )
+                    }
                     TextButton(
                         onClick = { onConfirmDraft(draft) },
                         enabled = !state.draftWriteInProgress
@@ -996,6 +1047,132 @@ private fun DraftEditDialog(
     }
 }
 
+/**
+ * What produced this frozen target, with the recorded facts behind a disclosure. A slot with no
+ * record — a replacement, an edit, or a manual routine — says nothing rather than implying a reason
+ * was lost.
+ */
+@Composable
+private fun TargetExplanationDisclosure(
+    key: Any,
+    explanation: ExerciseTargetExplanation?,
+    weightUnit: WeightUnit
+) {
+    val view = explanation?.toExplanationView() ?: return
+    var expanded by remember(key) { mutableStateOf(false) }
+    Text(
+        text = stringResource(view.summary.labelResource()),
+        style = MaterialTheme.typography.bodySmall
+    )
+    if (view.lines.isNotEmpty()) {
+        TextButton(onClick = { expanded = !expanded }) {
+            Text(
+                stringResource(
+                    if (expanded) {
+                        Res.string.logger_explanation_hide_details
+                    } else {
+                        Res.string.logger_explanation_details
+                    }
+                )
+            )
+        }
+    }
+    if (expanded) {
+        view.lines.forEach { line ->
+            Text(
+                text = explanationLineText(line, weightUnit),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+}
+
+/** The label alone for a qualitative fact, or "label: value" when the fact recorded a number. */
+@Composable
+private fun explanationLineText(line: TargetExplanationLine, weightUnit: WeightUnit): String {
+    val label = stringResource(line.reason.labelResource())
+    val value = line.value
+    if (value == null) return label
+    val rendered = when (line.valueKind) {
+        TargetExplanationValueKind.KILOGRAMS -> stringResource(
+            Res.string.logger_explanation_kilograms,
+            formatWeight(weightUnit.kilogramsToDisplay(value)),
+            weightUnit.label
+        )
+        TargetExplanationValueKind.PERCENT -> formatWeight(value * 100.0) + "%"
+        else -> formatWeight(value)
+    }
+    return stringResource(Res.string.logger_explanation_line, label, rendered)
+}
+
+private fun TargetExplanationReason.labelResource(): StringResource = when (this) {
+    TargetExplanationReason.SUMMARY_AI_PROPOSAL -> Res.string.logger_explanation_summary_ai
+    TargetExplanationReason.SUMMARY_CALCULATED -> Res.string.logger_explanation_summary_calculated
+    TargetExplanationReason.SUMMARY_SETS_ONLY -> Res.string.logger_explanation_summary_sets_only
+    TargetExplanationReason.SUMMARY_UNAVAILABLE_NOT_LOAD_TRACKED ->
+        Res.string.logger_explanation_unavailable_not_load_tracked
+    TargetExplanationReason.SUMMARY_UNAVAILABLE_INSUFFICIENT_EVIDENCE ->
+        Res.string.logger_explanation_unavailable_insufficient_evidence
+    TargetExplanationReason.SUMMARY_UNAVAILABLE_AI_NOT_SHARED ->
+        Res.string.logger_explanation_unavailable_ai_not_shared
+    TargetExplanationReason.SUMMARY_UNAVAILABLE_AI_OMITTED ->
+        Res.string.logger_explanation_unavailable_ai_omitted
+    TargetExplanationReason.SUMMARY_UNAVAILABLE_AI_REJECTED ->
+        Res.string.logger_explanation_unavailable_ai_rejected
+    TargetExplanationReason.BASELINE_RECENT_ESTIMATE ->
+        Res.string.logger_explanation_baseline_recent_estimate
+    TargetExplanationReason.BASELINE_MANUAL_FLOOR ->
+        Res.string.logger_explanation_baseline_manual_floor
+    TargetExplanationReason.BASELINE_QUALIFYING_SETS ->
+        Res.string.logger_explanation_baseline_qualifying_sets
+    TargetExplanationReason.BASELINE_EFFECTIVE -> Res.string.logger_explanation_baseline_effective
+    TargetExplanationReason.PROGRESSION_APPLIED ->
+        Res.string.logger_explanation_progression_applied
+    TargetExplanationReason.PROGRESSION_DELTA -> Res.string.logger_explanation_progression_delta
+    TargetExplanationReason.PROGRESSION_SUCCESS_STREAK_SIZE ->
+        Res.string.logger_explanation_progression_success_streak_size
+    TargetExplanationReason.PROGRESSION_FAILURE_STREAK_SIZE ->
+        Res.string.logger_explanation_progression_failure_streak_size
+    TargetExplanationReason.PROGRESSION_NONE_NO_STREAK ->
+        Res.string.logger_explanation_progression_none_no_streak
+    TargetExplanationReason.PROGRESSION_HELD_AFTER_MISSES ->
+        Res.string.logger_explanation_progression_held_after_misses
+    TargetExplanationReason.PROGRESSION_NONE_NO_PRESCRIPTION ->
+        Res.string.logger_explanation_progression_none_no_prescription
+    TargetExplanationReason.PROGRESSION_PAUSED_DELOAD ->
+        Res.string.logger_explanation_progression_paused_deload
+    TargetExplanationReason.CONVERSION_REPS -> Res.string.logger_explanation_conversion_reps
+    TargetExplanationReason.CONVERSION_DELOAD_SCALE ->
+        Res.string.logger_explanation_conversion_deload_scale
+    TargetExplanationReason.CONVERSION_INTENSITY ->
+        Res.string.logger_explanation_conversion_intensity
+    TargetExplanationReason.CONVERSION_ROUNDED_TO ->
+        Res.string.logger_explanation_conversion_rounded_to
+    TargetExplanationReason.CONVERSION_BEFORE_CEILING ->
+        Res.string.logger_explanation_conversion_before_ceiling
+    TargetExplanationReason.CONVERSION_CEILING -> Res.string.logger_explanation_conversion_ceiling
+    TargetExplanationReason.CONVERSION_CEILING_BINDS ->
+        Res.string.logger_explanation_conversion_ceiling_binds
+    TargetExplanationReason.AI_PROPOSED -> Res.string.logger_explanation_ai_proposed
+    TargetExplanationReason.AI_ACCEPTED -> Res.string.logger_explanation_ai_accepted
+    TargetExplanationReason.AI_NOT_ACCEPTED -> Res.string.logger_explanation_ai_not_accepted
+    TargetExplanationReason.AI_BOUNDED_BY_PROGRESSION ->
+        Res.string.logger_explanation_ai_bounded_by_progression
+    TargetExplanationReason.AI_CAPPED_BY_EQUIPMENT ->
+        Res.string.logger_explanation_ai_capped_by_equipment
+    TargetExplanationReason.AI_EQUIPMENT_CEILING ->
+        Res.string.logger_explanation_ai_equipment_ceiling
+    TargetExplanationReason.AI_CEILING_NOT_BINDING ->
+        Res.string.logger_explanation_ai_ceiling_not_binding
+    TargetExplanationReason.AI_DELOAD_SCALE -> Res.string.logger_explanation_ai_deload_scale
+    TargetExplanationReason.AI_DELOAD_SCALED -> Res.string.logger_explanation_ai_deload_scaled
+    TargetExplanationReason.SETS_BASE -> Res.string.logger_explanation_sets_base
+    TargetExplanationReason.SETS_DELOAD_SCALE -> Res.string.logger_explanation_sets_deload_scale
+    TargetExplanationReason.SETS_REDUCED_FOR_FATIGUE ->
+        Res.string.logger_explanation_sets_reduced_for_fatigue
+    TargetExplanationReason.SETS_FINAL -> Res.string.logger_explanation_sets_final
+}
+
 /** Renders a recorded weight with honest load semantics (external vs added vs bodyweight vs legacy). */
 @Composable
 internal fun loadWeightText(loadKind: LoadKind, weightKg: Double?, unit: WeightUnit): String =
@@ -1277,6 +1454,16 @@ private fun GuidedWorkoutSection(
                     text = stringResource(Res.string.logger_guided_all_done),
                     style = MaterialTheme.typography.bodyMedium
                 )
+                guided.exercises.forEach { exercise ->
+                    Column {
+                        Text(exercise.exerciseName)
+                        TargetExplanationDisclosure(
+                            key = exercise.occurrenceEntryId,
+                            explanation = exercise.explanation,
+                            weightUnit = weightUnit
+                        )
+                    }
+                }
             } else {
                 guided.exercises.forEach { exercise ->
                     Row(
@@ -1317,6 +1504,11 @@ private fun GuidedWorkoutSection(
                                     exercise.prescribedSets
                                 ),
                                 style = MaterialTheme.typography.bodySmall
+                            )
+                            TargetExplanationDisclosure(
+                                key = exercise.occurrenceEntryId,
+                                explanation = exercise.explanation,
+                                weightUnit = weightUnit
                             )
                         }
                         if (!exercise.isComplete) {

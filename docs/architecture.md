@@ -269,6 +269,14 @@ real state and deletes the row — so frozen work never shows the reason of the 
 replaced. A manual routine carries none. Backup format 8 carries this table, and restore deletes it
 with the schedule sections.
 
+SplitBuilder renders the recorded slot details and plan-level attribution/deload context; a null slot
+after a substitution is explicitly unavailable only when the plan-level explanation context proves
+that reasons were recorded. The Logger shows the same per-slot record for planned-today drafts and
+the frozen guided occurrence; both presentations default to a compact summary with expandable,
+localized details. They render only recorded values, convert stored kilograms using the selected
+weight unit, and leave legacy/manual/replaced slots without a reason silent. AI wording attributes
+only the plan origin and app-verified adjustments, never model rationale.
+
 - **Examples:** `WorkoutPlannerEngine`, `WorkoutPlannerEngineProvider`,
   `DefaultWorkoutPlannerEngineProvider`, `DeterministicWorkoutPlannerEngine`,
   `GeminiWorkoutPlannerEngine`, `LocalLlmWorkoutPlannerEngine`, `WeeklyPlanSanitizer`,
