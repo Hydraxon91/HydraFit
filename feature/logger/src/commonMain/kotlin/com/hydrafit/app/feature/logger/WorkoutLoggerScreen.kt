@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -231,10 +230,7 @@ fun WorkoutLoggerRoute(
         onClearBackdated = { viewModel.onPerformedAtChanged(null) },
         onForceNewSessionChanged = viewModel::onForceNewSessionChanged,
         nowMillis = viewModel::currentTimeMillis,
-        // The Logger's search/entry fields are the only inputs that open the keyboard. Padding the
-        // scroll container by the IME height keeps the focused field reachable while the bottom tab
-        // bar stays anchored behind the keyboard.
-        modifier = modifier.imePadding()
+        modifier = modifier
     )
     OccurrenceReplacementDialog(
         replacementState,
