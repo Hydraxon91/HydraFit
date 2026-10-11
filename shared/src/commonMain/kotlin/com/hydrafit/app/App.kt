@@ -1,5 +1,6 @@
 package com.hydrafit.app
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarDefaults
@@ -14,6 +16,8 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -49,7 +53,7 @@ private const val STARTUP_INDICATOR_DELAY_MILLIS = 150L
 @Composable
 @Preview
 fun App() {
-    MaterialTheme {
+    MaterialTheme(colorScheme = appColorScheme(isSystemInDarkTheme())) {
         Surface(modifier = Modifier.fillMaxSize()) {
             val readiness: StartupReadiness = koinInject()
             val isReady by readiness.isReady.collectAsState()
@@ -61,6 +65,9 @@ fun App() {
         }
     }
 }
+
+internal fun appColorScheme(darkTheme: Boolean): ColorScheme =
+    if (darkTheme) darkColorScheme() else lightColorScheme()
 
 @Composable
 private fun AppContent() {

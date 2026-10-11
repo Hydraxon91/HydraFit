@@ -1,0 +1,24 @@
+# Read-only; no active session, keyboard or editor. See README.md.
+appId: com.hydrafit.app
+name: Logger session controls
+tags:
+  - smoke
+  - read-only
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    text: '^Log$'
+    retryTapIfNoChange: false
+- assertVisible: '^Log workout$'
+- assertVisible: '^No active session$'
+- assertVisible:
+    enabled: false
+    containsDescendants:
+      - text: '^End session$'
+- assertVisible:
+    text: '^New session$'
+    enabled: true

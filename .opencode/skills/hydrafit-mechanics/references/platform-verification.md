@@ -37,6 +37,10 @@ the alarm receiver has already entered delivery and performs its own current-sto
 Invalid context/preferences and later transitions into the due state still cancel; ordinary expired
 Logger restoration remains silent.
 
+The shared app shell selects Material3's standard light/dark palette from the system theme;
+light mode preserves the default palette. Android's existing `enableEdgeToEdge()` follows
+system night mode for bar icon appearance; there is no separate app theme preference.
+
 Load `hydrafit-ui-testing` before emulator work. Maestro semantic flows are the
 preferred interaction path; `.maestro/README.md` owns reusable flow contracts and
 their verification status. `docs/agent-ui-verification.md` owns the detailed workflow;

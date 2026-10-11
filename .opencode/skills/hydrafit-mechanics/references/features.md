@@ -162,6 +162,12 @@ forwards method references to the screen. Logger also uses
 
 Each feature's resources are at
 `feature/<name>/src/commonMain/composeResources/values/strings.xml`.
+Logger displays session status above a wrapping action row so End/New labels retain width at
+larger font scales. Settings guidance rows expose narrowly scoped `settings_rest_alerts` and
+`settings_short_rest_coaching` test tags as Android resource IDs through a platform modifier
+adapter (no-op on iOS); spoken labels and switch semantics remain unchanged.
+`.maestro/settings-guidance-denial.yaml` checks denied opt-in independently
+of coaching and restores coaching OFF; permission flags need separately approved cleanup.
 Generated imports for logger are:
 
 ```kotlin

@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -30,16 +31,21 @@ data class RestAlertPermission(val supported: Boolean, val request: () -> Unit)
 @Composable
 expect fun rememberRestAlertPermission(onResult: (Boolean) -> Unit): RestAlertPermission
 
+internal expect fun Modifier.guidanceTestTagsAsResourceId(): Modifier
+
 @Composable
 fun TrainingGuidanceSettingsSection(
     viewModel: TrainingGuidanceSettingsViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val permission = rememberRestAlertPermission { viewModel.setAlerts(true, it) }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        modifier = Modifier.guidanceTestTagsAsResourceId(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         if (permission.supported) {
             Row(
-                modifier = Modifier.fillMaxWidth().toggleable(
+                modifier = Modifier.fillMaxWidth().testTag("settings_rest_alerts").toggleable(
                     value = state.preferences.restAlertsEnabled,
                     role = Role.Switch,
                     onValueChange = { enabled ->
@@ -63,7 +69,7 @@ fun TrainingGuidanceSettingsSection(
             Text(stringResource(Res.string.settings_rest_alerts_unsupported))
         }
         Row(
-            modifier = Modifier.fillMaxWidth().toggleable(
+            modifier = Modifier.fillMaxWidth().testTag("settings_short_rest_coaching").toggleable(
                 value = state.preferences.shortRestCoachingEnabled,
                 role = Role.Switch,
                 onValueChange = viewModel::setCoaching

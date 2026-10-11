@@ -14,6 +14,8 @@ do not cancel someone else's draft or restart the app to establish them.
 | --- | --- | --- | --- |
 | `navigation-smoke.yaml` | Equipment tab selected, no dialog/editor | Tab navigation only | Equipment tab selected; scroll position is not asserted |
 | `routine-editor-cancel.yaml` | Equipment tab selected, no dialog/editor | Navigate to Routines, new unsaved name, semantic Cancel, return | Editor closed before returning to Equipment; Save is never tapped |
+| `logger-session-controls.yaml` | No active session, no dialog/editor | Navigate to Logger only | No active session; End disabled and New label visible/enabled; neither action is tapped |
+| `settings-guidance-denial.yaml` | Settings selected, both guidance switches OFF, English permission prompt available | Coaching ON, notification request denied, reopen Settings, coaching OFF | Alerts OFF and coaching restored OFF; external permission-flag restoration is still required |
 
 The navigation flow visits all six tabs and asserts the selected tab after each
 tap; visible navigation labels alone are not a success oracle. It is also the
@@ -24,9 +26,31 @@ not rely on `eraseText` clearing an arbitrary existing field. The single new
 editor has one Routine name field and one Cancel action. Tests of repeated
 workout/entry fields require verified row scoping; these flows do not cover them.
 
-No persistent data is created, so there is no record deletion/cleanup. The editor
+The navigation, session-controls and editor flows create no persistent records, so there is no
+record deletion/cleanup. The editor
 flow cancels its own draft on success. If it fails, report the remaining draft
 and inspect before any safe cancellation; no blind `onFlowComplete` recovery.
+
+The denial flow writes a preference and denies a system permission. It requires its own approved
+test contract, recorded permission flags and cleanup; it is not a read-only smoke. If permission
+is fixed-denied, clearing `user-set`/`user-fixed` is an external, approval-gated setup step, not an
+automatic flow action. Restore the exact baseline flags afterwards. On failure, inspect before
+restoring the test's coaching change; do not rerun the permission write blindly.
+
+Session-control assertions do not establish layout by themselves. Capture and view the Logger
+screenshot at the tested font scale/theme; the regression checks the wrapping action layout.
+
+## 0.6.0 completion-chunk verification (2026-10-11)
+
+The corrected session-control assertions passed in light/dark mode at 1.3× font scale without
+tapping either action; screenshots were inspected. The exact final file, including foregrounding
+without restart or automatic permission changes, also passed on the final debug APK in light mode
+at 1.3× (`/tmp/hydrafit-060-final-session-controls.log`). Settings denial passed as a staged journey, including
+coaching ON before/after denial and after reopening, then restoration OFF. The combined denial
+file's runtime attempt failed on an off-screen coaching assertion after the denial message appeared;
+bounded cleanup verified coaching ON and restored it OFF. The final file adds the missing scroll
+checkpoint and is syntax-checked; its complete final-form runtime pass remains open. See
+`docs/qa.md` for evidence, failed attempts, cleanup and platform/accessibility limits.
 
 ## Run one named flow
 

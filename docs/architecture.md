@@ -331,8 +331,12 @@ Compose `expect`/`actual` APIs where a platform-specific UI or clock is needed.
   `AndroidKeystoreApiKeyStore`/`NoopApiKeyStore`, `UnsupportedOnDeviceTextGenerator`,
   `OnDeviceModelSection`, backup UI (`BackupSection`), monotonic elapsed time
   (`elapsedRealtimeMillis`), and rest-alert permission (`rememberRestAlertPermission`) each have
-  `commonMain` declarations with Android/iOS implementations.
+  `commonMain` declarations with Android/iOS implementations. Settings also uses a narrow
+  modifier adapter to expose guidance test tags as Android resource IDs, with a no-op on iOS.
 - **Consistency:** high; `:core:domain` stays platform-free.
+- **Theme:** the shared app shell follows the system theme using Material3's standard light/dark
+  palettes, preserving the default light palette. Android's `enableEdgeToEdge()` follows system
+  night mode for bar icons; there is no separate app theme setting.
 - **Violations / tensions:** real Android/iOS bindings are not exercised by Koin verification (PLANS
   records this); the synchronous `ApiKeyStore`/`OnDeviceModelManager` ports push threading discipline
   onto callers (S2-007).
