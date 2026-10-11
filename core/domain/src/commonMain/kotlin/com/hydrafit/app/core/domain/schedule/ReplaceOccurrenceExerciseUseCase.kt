@@ -10,8 +10,20 @@ import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
+import com.hydrafit.app.core.domain.workout.WorkoutSet
 
 enum class OccurrenceReplacementFailure { RECORDED_SLOT, STALE_CONTEXT, UNAVAILABLE }
+
+/**
+ * True when [set] is recorded work that freezes an occurrence slot.
+ *
+ * A slot is frozen by any set attributed to that entry - working or warm-up - so a swap can never
+ * discard or reinterpret logged work. Attribution is checked against the entry id, and any set on
+ * the occurrence without a resolved entry also counts: it belongs to the workout even though the
+ * slot could not be identified, so treating it as absent would let the swap silently orphan it.
+ */
+fun WorkoutSet.freezesOccurrenceSlot(occurrenceId: Long, entryId: Long): Boolean =
+    this.occurrenceId == occurrenceId && (occurrenceEntryId == null || occurrenceEntryId == entryId)
 
 class OccurrenceReplacementException(val reason: OccurrenceReplacementFailure) :
     IllegalStateException(reason.name)
@@ -49,7 +61,8 @@ class ReplaceOccurrenceExerciseUseCase(
         }
         val original = occurrence.entries.firstOrNull { it.id == entryId }
             ?: throw OccurrenceReplacementException(OccurrenceReplacementFailure.STALE_CONTEXT)
-        if (log.setsForOccurrence(occurrenceId).any { it.occurrenceEntryId == entryId }) {
+        val recorded = log.setsForOccurrence(occurrenceId)
+        if (recorded.any { it.freezesOccurrenceSlot(occurrenceId, entryId) }) {
             throw OccurrenceReplacementException(OccurrenceReplacementFailure.RECORDED_SLOT)
         }
         val otherIds = occurrence.entries.filter { it.id != entryId }.map { it.exerciseId }.toSet()

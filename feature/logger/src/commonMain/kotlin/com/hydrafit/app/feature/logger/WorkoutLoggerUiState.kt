@@ -102,7 +102,11 @@ data class DraftSet(
     val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL,
     /** Frozen occurrence slot identity, when this draft came from an active workout. */
     val occurrenceId: Long? = null,
-    val occurrenceEntryId: Long? = null
+    val occurrenceEntryId: Long? = null,
+    /**
+     * A guided draft is always a prescribed working set; manual logging carries the Warm-up toggle.
+     */
+    val isWarmup: Boolean = false
 )
 
 /** One-off values for the draft currently being edited; never written back to its prescription. */

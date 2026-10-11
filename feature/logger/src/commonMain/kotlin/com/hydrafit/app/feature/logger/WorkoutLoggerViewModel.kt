@@ -572,7 +572,7 @@ class WorkoutLoggerViewModel(
         }
 
         viewModelScope.launch {
-            val link = occurrenceLink(exerciseId)
+            val link = slotFor(exerciseId)
             logResolved(
                 WorkoutSet(
                     exerciseId = exerciseId,
@@ -1358,7 +1358,7 @@ class WorkoutLoggerViewModel(
                     } else {
                         current.performedAtMillis ?: runtime.nowMillis()
                     },
-                    isWarmup = false,
+                    isWarmup = draft.isWarmup,
                     weekNumber = activeActivation?.weekNumber ?: acceptedPlan?.weekNumber,
                     cycleNumber = activeActivation?.cycleNumber ?: acceptedPlan?.cycleNumber,
                     dayIndex = acceptedToday?.dayIndex,
@@ -1535,12 +1535,25 @@ class WorkoutLoggerViewModel(
             exerciseId == other.exerciseId
         }
 
-    /** The occurrence + entry a set for [exerciseId] belongs to, when a block is active. */
+    /**
+     * The occurrence + entry a set for [exerciseId] belongs to, when a block is active.
+     *
+     * Attribution needs the entry id, not just the exercise: the replacement and completion guards
+     * key on it. A null entry means the set is linked to the occurrence only, which those guards
+     * would then miss, so fall back to the prescribed entry when the id alone does not match.
+     */
     private fun occurrenceLink(exerciseId: String): Pair<Long, Long?>? {
         val occurrence = currentOccurrence ?: return null
         val entry = occurrence.entries.firstOrNull { it.exerciseId == exerciseId }
         return occurrence.id to entry?.id
     }
+
+    /** The frozen slot a manual log belongs to, reusing the draft's identity when one is present. */
+    private fun slotFor(exerciseId: String): Pair<Long, Long?>? = _state.value
+        .draftSets
+        .firstOrNull { it.exerciseId == exerciseId && it.occurrenceId != null }
+        ?.let { requireNotNull(it.occurrenceId) to it.occurrenceEntryId }
+        ?: occurrenceLink(exerciseId)
 
     private suspend fun performedSetsByEntry(occurrenceId: Long): Map<Long, Int> = getWorkoutLog()
         .filter { set ->
@@ -1691,8 +1704,12 @@ class WorkoutLoggerViewModel(
             setMissingLoadPrompt(draft)
             return
         }
+        // The Warm-up toggle applies to the guided row's Log set / Set completed now actions too, so
+        // a warm-up is recorded as one and stays out of the prescribed-set progress.
+        val withWarmup = resolved.copy(isWarmup = _state.value.isWarmup)
+        _state.update { it.copy(isWarmup = false) }
         launchGuidedWrite(
-            resolved,
+            withWarmup,
             edit ?: retry?.edit,
             liveCompletion = liveSetIntentEntryId == occurrenceEntryId
         )

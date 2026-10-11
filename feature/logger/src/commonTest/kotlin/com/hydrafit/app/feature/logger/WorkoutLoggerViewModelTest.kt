@@ -4224,6 +4224,78 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun guidedLogSetHonoursTheWarmupToggleAndKeepsTheEntryLink() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        val occurrences = twoOccurrences().map { occurrence ->
+            occurrence.copy(entries = occurrence.entries.map { it.copy(sets = 3) })
+        }
+        schedule.set(blockActivation(), occurrences, selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        // The guided row's Log set uses the guided path, which must still honour the toggle.
+        viewModel.onWarmupToggled(true)
+        viewModel.confirmGuidedSet(40L)
+        advanceUntilIdle()
+
+        val logged = repository.all().single()
+        assertTrue(logged.isWarmup)
+        assertEquals(30L, logged.occurrenceId)
+        assertEquals(40L, logged.occurrenceEntryId)
+        assertEquals(
+            0,
+            viewModel.state.value.guidedProgress?.exercises?.single()?.performedWorkingSets
+        )
+    }
+
+    @Test
+    fun manualWarmupLogKeepsTheOccurrenceEntryLink() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        val occurrences = twoOccurrences().map { occurrence ->
+            occurrence.copy(entries = occurrence.entries.map { it.copy(sets = 3) })
+        }
+        schedule.set(blockActivation(), occurrences, selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        // A warm-up logged manually must still carry both occurrence and entry attribution, because
+        // the replacement and completion guards key on the entry id.
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.onWarmupToggled(true)
+        viewModel.log()
+        advanceUntilIdle()
+
+        val logged = repository.all().single()
+        assertTrue(logged.isWarmup)
+        assertEquals(30L, logged.occurrenceId)
+        assertEquals(40L, logged.occurrenceEntryId)
+    }
+
+    @Test
+    fun manualLogLinksThePrescribedEntryWhenTheExerciseMatchesADraft() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        val occurrences = twoOccurrences().map { occurrence ->
+            occurrence.copy(entries = occurrence.entries.map { it.copy(sets = 3) })
+        }
+        schedule.set(blockActivation(), occurrences, selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.log()
+        advanceUntilIdle()
+
+        val logged = repository.all().single()
+        assertEquals(30L, logged.occurrenceId)
+        assertEquals(40L, logged.occurrenceEntryId)
+    }
+
+    @Test
     fun coachingUsesTwoLiveRestsWithoutRecordingASetAtStartAndCanBeDismissed() = runTimerTest {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()

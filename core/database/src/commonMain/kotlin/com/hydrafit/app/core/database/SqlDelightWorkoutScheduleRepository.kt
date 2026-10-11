@@ -311,8 +311,11 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
             ) {
                 reject(OccurrenceReplacementFailure.STALE_CONTEXT)
             }
-            if (database.workoutLogQueries.selectSetsForOccurrenceEntry(replacement.id)
-                    .executeAsList().isNotEmpty()
+            if (database.workoutLogQueries.selectSetsForOccurrence(occurrenceId)
+                    .executeAsList()
+                    .any { row ->
+                        row.occurrenceEntryId == null || row.occurrenceEntryId == replacement.id
+                    }
             ) {
                 reject(OccurrenceReplacementFailure.RECORDED_SLOT)
             }
