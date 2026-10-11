@@ -1,11 +1,15 @@
 package com.hydrafit.app
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -92,27 +96,36 @@ private fun AppContent() {
         bottomBar = {
             val backStackEntry by navController.currentBackStackEntryAsState()
             val currentDestination = backStackEntry?.destination
-            NavigationBar {
-                destinations.forEach { destination ->
-                    NavigationBarItem(
-                        selected =
-                        currentDestination?.hierarchy?.any {
-                            it.route ==
-                                destination.route
-                        } ==
-                            true,
-                        onClick = {
-                            navController.navigate(destination.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = {},
-                        label = { Text(stringResource(destination.label)) }
-                    )
+            Column {
+                val rows = destinations.chunked(3)
+                rows.forEachIndexed { rowIndex, rowDestinations ->
+                    NavigationBar(
+                        windowInsets = if (rowIndex == rows.lastIndex) {
+                            NavigationBarDefaults.windowInsets
+                        } else {
+                            NavigationBarDefaults.windowInsets.only(WindowInsetsSides.Horizontal)
+                        }
+                    ) {
+                        rowDestinations.forEach { destination ->
+                            NavigationBarItem(
+                                selected =
+                                currentDestination?.hierarchy?.any {
+                                    it.route == destination.route
+                                } == true,
+                                onClick = {
+                                    navController.navigate(destination.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                },
+                                icon = {},
+                                label = { Text(stringResource(destination.label)) }
+                            )
+                        }
+                    }
                 }
             }
         }

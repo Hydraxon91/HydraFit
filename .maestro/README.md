@@ -15,6 +15,10 @@ do not cancel someone else's draft or restart the app to establish them.
 | `navigation-smoke.yaml` | Equipment tab selected, no dialog/editor | Tab navigation only | Equipment tab selected; scroll position is not asserted |
 | `routine-editor-cancel.yaml` | Equipment tab selected, no dialog/editor | Navigate to Routines, new unsaved name, semantic Cancel, return | Editor closed before returning to Equipment; Save is never tapped |
 
+The navigation flow visits all six tabs and asserts the selected tab after each
+tap; visible navigation labels alone are not a success oracle. It is also the
+regression flow for the two-row, fully labeled navigation layout.
+
 The editor name starts blank (`RoutinesViewModel.onNewRoutine`); this flow does
 not rely on `eraseText` clearing an arbitrary existing field. The single new
 editor has one Routine name field and one Cancel action. Tests of repeated
@@ -79,7 +83,17 @@ budget and two-attempt maximum. A timeout is not proof that all device-side work
 stopped; inspect execution/state before recovery. MCP `run` validates syntax but
 does not expose a per-run hard timeout; prefer bounded CLI for these smoke flows.
 
-## Verification status (2026-10-09)
+## Navigation regression verification (2026-10-11)
+
+The expanded six-tab flow passed syntax validation and all 17 runtime steps on
+`emulator-5554` at 1.3× font scale, asserting selected-tab state after each tap.
+The final Equipment screenshot was inspected (`/tmp/hydrafit-r060-fixes-font13.png`);
+all labels remain intact, and only the bottom row receives bottom system-bar padding.
+Font scale was restored to 1.0. No persistent app data was changed.
+Run log: `/tmp/hydrafit-r060-fixes-navigation.log`. This does not verify TalkBack,
+rotation, alternate locales or themes.
+
+## Earlier verification status (2026-10-09)
 
 Both files pass the installed Maestro 2.11.0 `check-syntax` and runtime smoke on
 `emulator-5554`. Flat CLI inspection returned 156 nodes, maximum tree depth 17.

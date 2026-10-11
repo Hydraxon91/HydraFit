@@ -79,6 +79,10 @@ the only presentation in B1: there is no RPE alias/conversion, inferred effort, 
 automatic selection from history/prescriptions.
 
 Feature navigation: each feature exports a `FeatureDestination` whose `graph` is
+aggregated in the shell. Its six fully labeled tabs use two rows of three; only the
+bottom row owns bottom system-bar insets. The read-only `.maestro/navigation-smoke.yaml`
+asserts selected-tab semantics after each navigation, not merely visible labels.
+The exported graph type is
 `(NavController) -> NavGraphBuilder.() -> Unit`; the shell passes its `NavController`, so a feature
 can register an internal sub-route without a shell change. Settings uses a nested `navigation(...)`
 graph (`settings` → `settings/home` + `settings/acknowledgments`) so the bottom tab stays selected on
