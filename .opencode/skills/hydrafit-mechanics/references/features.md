@@ -156,6 +156,18 @@ flow. The Logger ViewModel groups its preferences and rest-duration delegation i
 of per-exercise rest durations forwarded to the domain use cases), and its wall
 clock/timer factory in `WorkoutLoggerRuntime`, to stay within its dependency budget.
 
+Optional warm-up guidance (0.7.3, WU-01) is the pure `buildWarmupGuidance(occurrence)` in
+`:core:domain`, rendered as a `WarmupGuidanceSection` card above the guided workout only while guided
+mode is active and the user has not hidden it. Preparation is pattern-selected neutral items (general
+movement is timed, pattern practice is bodyweight reps); ramps are suggested for the first external
+numeric target of each movement pattern, rounded to the shared increment and kept only when positive
+and below the working weight, so a tiny or bodyweight target yields no ramp. The Logger adds no
+dependency: it builds the guidance from the occurrence it already holds. Preparation marks and the
+hidden flag are in-memory and scoped to one occurrence; the recorded ramp is an ordinary warm-up set
+written through the guided single-write path with its classification frozen, so it survives restart,
+never advances progress or starts a rest prompt, and still freezes its slot against replacement. The
+action labels are localized resources keyed by the `WarmupAction` enum, never strings in the domain.
+
 `OccurrenceReplacementViewModel` delegates candidate loading/confirmation to
 `ReplaceOccurrenceExerciseUseCase`, using fresh local planner inputs. The dialog is available from
 guided rows and occurrence draft menus. One `freezesOccurrenceSlot` predicate backs both the domain

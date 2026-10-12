@@ -712,6 +712,29 @@ It updates only that occurrence entry and revision, never the accepted plan, tem
 occurrences, inventory or preferences. No-candidate choices offer Cancel and point to existing whole-
 workout Skip/partial Finish; single-slot skipping is not introduced.
 
+### 1.18 Optional warm-up guidance (WU-01)
+
+`buildWarmupGuidance(occurrence)` in `:core:domain` derives the guided workout's optional warm-up
+guidance from the occurrence's frozen prescription only, so it can never contradict the target the
+user is asked to perform. It is pure: no repository, clock or platform API. Preparation is a fixed,
+pattern-selected list of neutral items; easy general movement is a timed checklist entry (seconds are
+never stored as reps) and pattern practice carries easy bodyweight reps. Ramp sets are suggested only
+for the first entry of each movement pattern whose frozen load is a positive numeric external load
+with `EXTERNAL` capability, so later entries of the same pattern and bodyweight, added or unknown-load
+targets get no ramp. Each ramp load rounds to the shared plate increment and is kept only when it is
+positive and strictly below the working weight; a tiny target yields no ramp instead of a zero or
+duplicate one. The frozen working weight already respects the equipment ceiling, so no separate
+ceiling is applied.
+
+The Logger holds the guidance plus in-memory preparation marks and a hidden flag, scoped to one
+occurrence and rebuilt from the occurrence on every refresh; none of it is persisted, and recording a
+ramp stores an ordinary warm-up set, so it survives restart through existing storage. A ramp is written
+through the existing guided single-write path with its warm-up classification frozen at confirmation,
+so a stale guided intent cannot reclassify it and it never advances guided progress or starts a rest
+prompt. Ramp and guided-set writes stay out of the planner baseline, recent weights, progression and
+fatigue: those paths already exclude warm-ups. The existing slot-freeze rule is unchanged — an
+attributed warm-up, including a recorded ramp, still refuses a replacement for that slot.
+
 ## 2. Decision log
 
 Each row: the decision, the **recorded** rationale with a citation, recorded alternatives, and status.

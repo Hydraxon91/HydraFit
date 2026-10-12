@@ -44,6 +44,32 @@ restoring the test's coaching change; do not rerun the permission write blindly.
 Session-control assertions do not establish layout by themselves. Capture and view the Logger
 screenshot at the tested font scale/theme; the regression checks the wrapping action layout.
 
+## 0.7.3 warm-up guidance verification (2026-10-12)
+
+Run on `emulator-5554` (debug `Medium_Phone`, 1080×2400) against the 0.7.3 build. MCP
+`inspect_screen` returned a payload deeper than the harness limit, so the documented bounded compact
+CLI hierarchy path was used for every checkpoint, plus the flat CSV at
+`/tmp/hydrafit-maestro-hierarchy.csv`/`/tmp/hf-*.csv`. `Enable guided workouts` was toggled on for the
+journey and restored to its OFF baseline afterwards; no set, session or other record was written,
+edited or deleted, and the active `Generated plan` block (all bodyweight) was left untouched.
+
+Verified with assertions and viewed screenshots:
+
+- **Guidance renders** — with guided on and the active occurrence selected, the Logger showed
+  `Warm-up`, the note, `Preparation`, and `Easy general movement · about 3 min`,
+  `Controlled shoulder circles · 10 reps`, `Light, easy press practice · 10 reps`,
+  `Light, easy pull practice · 10 reps`. No `Ramp sets` appeared, correctly, because every entry in
+  that block is bodyweight (`isn't load-tracked`). Screenshot: `/tmp/hf-c3-guidance.png`.
+- **Preparation check-off** — tapping `Controlled shoulder circles · 10 reps` check-marked that row
+  (viewed in the screenshot) and left the others unchecked.
+- **Hide / show** — `Hide` replaced the card with a `Show warm-up` button; tapping it restored
+  `Preparation` and the card.
+
+Not verified: no ramp row was rendered or logged on-device (the fixture block has no external-load
+entry; creating one is a separate fixture write), the ramp-write failure line, the accepted-plan path,
+larger text, dark mode, locale and TalkBack. The guided preference baseline was confirmed OFF by
+re-reading the database after the journey; the read-only DB copy was deleted.
+
 ## 0.7.2-C3 finish-workout summary verification (2026-10-12)
 
 Run on `emulator-5554` (debug `Medium_Phone`, 1080×2400) against the 0.7.2 build, using the compact

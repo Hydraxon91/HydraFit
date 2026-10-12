@@ -158,6 +158,28 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   invalid-input/error paths and alternate load/unit types have host coverage but were not all
   exercised in this emulator smoke. Font/theme/locale variants, TalkBack and visible-keyboard
   relayout remain unverified.
+- Warm-up guidance (0.7.3, WU-01): with guided workouts on and an active occurrence, the Logger
+  shows an optional "Warm-up" card above the guided workout: a preparation check-list (general
+  movement as a timed item, pattern practice as reps) and, for each movement pattern whose frozen
+  target is a positive numeric external load, its ramp sets. Each ramp row offers **Log warm-up**,
+  which records exactly one warm-up set with the suggestion's reps and rounded load. The card never
+  edits the prescription, **Hide**/**Show warm-up** toggles it, and preparation rows check off
+  individually. A ramp never advances guided progress, never starts a rest prompt, and still freezes
+  its slot against replacement. Preparation is pattern-selected and bodyweight/unknown-load targets
+  get no ramp.
+  **2026-10-12 host verification:** `:feature:logger` (including the new
+  `WarmupGuidancePresentationTest` and ViewModel ramp/scope/recreation cases) and `:core:domain`
+  (including `WarmupGuidanceTest`) pass with zero failures/errors/skips; `ktlintCheck` and
+  `:androidApp:assembleDebug` pass. **Emulator** (`emulator-5554`, debug, `Medium_Phone`): with
+  `Enable guided workouts` temporarily on and the active `Generated plan` block (all-bodyweight
+  targets), the card rendered with the note, `Preparation`, and the four localized rows; a
+  preparation row check-marked; **Hide** replaced it with `Show warm-up` and **Show warm-up**
+  restored it. Screenshot viewed: `/tmp/hf-c3-guidance.png`. No ramp rows appeared, correctly, because
+  no entry in that block is load-tracked. The guided preference was restored to its OFF baseline.
+  **Limits:** no ramp row was rendered or logged on-device (the fixture block has no external-load
+  entry; creating one is a separate fixture write); the ramp-write failure line, larger text, dark
+  mode, locale and TalkBack are unverified; the warm-up guidance is not exercised in the
+  accepted-plan path.
 - Sessions: first set auto-starts a session; End session / New session; day rollover starts a new one; active-session indicator correct.
 - Session history (0.7.1-C5 queries, 0.7.1-C6 browser, 0.7.1-C7 corrections): entries are keyed by
   explicit
