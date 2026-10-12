@@ -1033,6 +1033,77 @@ full browser.
 
 **Acceptance:** exercise and session notes never overwrite one another; clearing a note survives reload/backup. Search finds the expected sessions, summaries reconcile with stored sets and unknown duration stays explicit. Corrections preserve the existing session/time invariants and update downstream views.
 
+#### 0.7.1 — Notes & searchable session history
+
+**Status (2026-10-12):** release scope, chunk structure and recommendations approved
+in chat. This section records the plan only; no implementation chunk, commit,
+push, tag or publication is authorized. C0 has one outstanding behavior decision.
+This bounded split refines OF-13-P0–P3 without renumbering those broader phases;
+Finish-workout summaries remain in 0.7.2.
+
+**Scope:** persistent exercise/setup notes, separate session notes, searchable
+session history and access to the existing set-correction actions. Offline-first.
+Exclude Finish-workout summaries, charts/records, new progression policy,
+equipment profiles, occurrence-note storage and automatic setup-note snapshots.
+
+**Approved recommendations:**
+- Persistent exercise notes are keyed by exercise id; session notes are keyed by
+  explicit `sessionId`. The two never overwrite one another. Session notes stay
+  with their identity rather than following a corrected set.
+- Domain owns note/history contracts, database owns SQLDelight storage/queries,
+  and Logger owns the UI and an internal history route. No new permanent tab or
+  feature module; no cross-feature imports.
+- Plain text, maximum 2,000 characters per note. Clear is an explicit persisted
+  action that survives reload/backup; Cancel writes nothing. Storage must not
+  conflate an absent note with an explicitly cleared value.
+- Search recorded exercise names and session-note text, with local-date filters
+  and bounded pagination. Do not search current exercise setup notes as though
+  they were historical context.
+- Use explicit session identity, never inferred date/time-gap grouping. Display
+  missing-session records honestly; do not group all null identities together.
+- Show recorded timestamps and sets. Omit workout-duration calculations,
+  comparative scores and inferred diagnoses or planner instructions from notes.
+- Reuse the existing correction use case and preserve its identity, load,
+  attribution, timing and session invariants. Current setup notes shown in history
+  must be labelled as current context, not historical snapshots.
+
+**C0 outstanding decision:** `SqlDelightSessionResegmenter.kt` can reassign sets
+when performed time changes. Approve what happens when correction moves the last
+set out of a noted session. Recommendation: retain the session and its note,
+show it as having no recorded sets, and never move or delete the note automatically.
+This recommendation was proposed after the initial approval and is still awaiting
+explicit confirmation. Before implementation, settle the exact clearing encoding,
+exercise-note dedupe/conflict/deletion policy and history query details against
+current source; any new behavior tradeoff needs explicit approval.
+
+| Chunk | Status | Deliverable / acceptance and tests |
+| --- | --- | --- |
+| 0.7.1-C0 — contract | PENDING DECISION | Finalize note ownership, limits, clearing, search, legacy handling and correction behavior. No code. Concrete examples cover saved/cleared notes, exercise renames, multiple same-day sessions and corrected timestamps, including the empty noted-session case above. |
+| 0.7.1-C1 — exercise-note storage | PLANNED | Domain contracts, SQLDelight storage/additive migration and OF-01 backup support. Save/replace/clear survive reload and round-trip; exercise deletion, deduplication and conflicts follow the approved lifecycle policy. Older backups remain readable; invalid restore payloads write nothing. |
+| 0.7.1-C2 — session-note storage | PLANNED | Separate session-note persistence, additive migration and backup support. Notes never overwrite exercise notes; survive End/New session, corrections and restore. Test missing identities, transaction failure and the approved empty-session policy. |
+| 0.7.1-C3 — exercise-note UI | PLANNED | Localized Logger editor with Save/Cancel/Clear. Cancel writes nothing; failure retains draft; repeated submission and stale exercise context cannot write to the wrong exercise. Semantic emulator assertions and viewed screenshot. |
+| 0.7.1-C4 — session-note UI | PLANNED | Distinct current-session editor. Test attribution across End/New session and recreation, no accidental session creation, Save/Cancel/Clear, failure/retry, duplicate submission and stale context. Semantic emulator assertions and viewed screenshot. |
+| 0.7.1-C5 — bounded history queries | PLANNED | Domain/database listing, search, local-date filtering and pagination without browser UI. Test deterministic ordering, no duplicate/missing pages on unchanged data, explicit identities, legacy entries, renames and reactive updates after corrections/deletions. |
+| 0.7.1-C6 — history browser/details | PLANNED | Logger sub-screen with search, session details, notes and recorded sets. Verify search/filter/paging, empty/error states, back navigation, detail reconciliation and clearly current exercise-note context. Semantic emulator assertions and viewed screenshot. |
+| 0.7.1-C7 — correction access | PLANNED | Reach existing set corrections from history without a second policy. Test row identity, load semantics, attribution, Cancel/failure/retry, time resegmentation and refreshing session details and downstream readers. No new bulk/history deletion policy. |
+| 0.7.1-C8 — integration verification | PLANNED | Verify notes → persistence → backup/history → correction end to end. Full host tests, migration verification, ktlint, debug assembly, iOS compile and changed Koin graph verification; bounded emulator journeys with screenshots. Record revision-specific evidence and every unverified check. |
+| 0.7.1-C9 — post-execution review | GATED | Separately requested, read-only Plan Mode review of the complete release delta, approved contract and verification evidence under `docs/review-discipline.md` and `docs/post-execution-review.md`. Explicit verdict; stable evidenced findings, fix classification and data-integrity impact. Findings require separately approved fixes, verification and re-review. |
+
+**Execution discipline:** approve chunks individually or as an explicitly ordered
+batch after C0 closes. Each implementation chunk includes tests and affected
+living-document/mechanics-reference updates, runs relevant tests/build checks,
+then reports at its approved chunk boundary. Schema/cross-cutting changes require
+full host tests, migration verification where applicable, ktlint, debug assembly
+and iOS compile; changed bindings/constructors require Koin verification. UI checks
+follow the emulator-only, debug-build and bounded semantic-testing rules. Required
+backup and lifecycle consumers ship with their storage chunk, not later.
+
+After C8, stop for C9 in Plan Mode: builder verification is not a review verdict.
+Review approval does not authorize fixes, commits or pushing. Release preparation
+and publication follow only after required findings are resolved and reviewed work
+is explicitly approved, under separate release/push/tag approvals. No automatic
+handoff or next-release work.
+
 ### OF-14 — Onboarding and first-workout baseline setup
 
 **Milestone / goal:** M4. Offer a short, skippable/revisitable offline setup for units, equipment/profile, goal and schedule, followed by a clear first-workout path with user-entered loads or baseline learned from actual logging. AI setup remains optional and is not required to complete onboarding.
