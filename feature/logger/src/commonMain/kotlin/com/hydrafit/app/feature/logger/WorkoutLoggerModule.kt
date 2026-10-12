@@ -36,6 +36,7 @@ val loggerModule: Module = module {
             restCountdownRepository = get()
         )
     }
+    factory { WorkoutLoggerEquipment(get(), get()) }
     viewModel {
         WorkoutLoggerViewModel(
             logMutations = get(),
@@ -45,7 +46,8 @@ val loggerModule: Module = module {
             runtime = get(),
             settings = get(),
             exerciseNoteRepository = get(),
-            sessionNoteRepository = get()
+            sessionNoteRepository = get(),
+            equipment = get()
         )
     }
     viewModel { OccurrenceReplacementViewModel(get(), get()) }

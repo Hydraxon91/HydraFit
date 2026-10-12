@@ -723,8 +723,10 @@ for the first entry of each movement pattern whose frozen load is a positive num
 with `EXTERNAL` capability, so later entries of the same pattern and bodyweight, added or unknown-load
 targets get no ramp. Each ramp load rounds to the shared plate increment and is kept only when it is
 positive and strictly below the working weight; a tiny target yields no ramp instead of a zero or
-duplicate one. The frozen working weight already respects the equipment ceiling, so no separate
-ceiling is applied.
+duplicate one. Ramps are also bounded by the user's *current* equipment: an entry whose required
+equipment is not owned gets no ramp, and each suggested load is clamped to the lowest ceiling among
+that equipment (`EquipmentWeightLimit`), collapsing duplicates. This bounds the suggestion only — the
+frozen working prescription, which a manual routine can leave above the ceiling, is never rewritten.
 
 The Logger holds the guidance plus in-memory preparation marks and a hidden flag, scoped to one
 occurrence and rebuilt from the occurrence on every refresh; none of it is persisted, and recording a

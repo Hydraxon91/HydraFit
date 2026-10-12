@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.domain.workout
 
+import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
@@ -216,6 +217,58 @@ class WarmupGuidanceTest {
         )
     }
 
+    @Test
+    fun boundsRampsByTheCurrentEquipment() {
+        val barbell = entry(
+            0,
+            MovementPattern.SQUAT,
+            weightKg = 100.0,
+            requiredEquipment = setOf(EquipmentTag.BARBELL)
+        )
+        val occurrence = occurrenceWith(barbell)
+
+        // Not owned: no ramp at all.
+        assertTrue(
+            buildWarmupGuidance(
+                occurrence,
+                WarmupEquipment(selectedTags = emptySet())
+            ).ramps.isEmpty()
+        )
+
+        // Owned with a 50 kg ceiling: the 60/80 % ramps clamp onto 50 kg and collapse to one row.
+        val clamped = buildWarmupGuidance(
+            occurrence,
+            WarmupEquipment(
+                selectedTags = setOf(EquipmentTag.BARBELL),
+                maxWeights = mapOf(EquipmentTag.BARBELL to 50.0)
+            )
+        ).ramps.single()
+        assertEquals(listOf(40.0, 50.0), clamped.rampSets.map { it.weightKg })
+
+        // Unknown constraints leave the frozen target's ramps unchanged.
+        assertEquals(
+            listOf(40.0, 60.0, 80.0),
+            buildWarmupGuidance(occurrence, null).ramps.single().rampSets.map { it.weightKg }
+        )
+    }
+
+    @Test
+    fun bodyweightIsNotTreatedAsUnavailableEquipment() {
+        val pushUp = entry(
+            0,
+            MovementPattern.HORIZONTAL_PUSH,
+            weightKg = 80.0,
+            requiredEquipment = setOf(EquipmentTag.BODYWEIGHT)
+        )
+
+        val guidance = buildWarmupGuidance(
+            occurrenceWith(pushUp),
+            WarmupEquipment(selectedTags = emptySet())
+        )
+
+        assertEquals(1, guidance.ramps.size)
+    }
+
     private fun occurrenceWith(vararg entries: OccurrenceEntry) = WorkoutOccurrence(
         id = 30L,
         activationId = 5L,
@@ -230,13 +283,15 @@ class WarmupGuidanceTest {
         exerciseId: String = "back-squat",
         weightKg: Double? = 100.0,
         capability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL,
-        loadKind: LoadKind = LoadKind.EXTERNAL
+        loadKind: LoadKind = LoadKind.EXTERNAL,
+        requiredEquipment: Set<EquipmentTag> = emptySet()
     ) = OccurrenceEntry(
         id = position.toLong(),
         position = position,
         exerciseId = exerciseId,
         exerciseName = exerciseId,
         movementPattern = movementPattern,
+        requiredEquipment = requiredEquipment,
         sets = 3,
         reps = 8,
         weightKg = weightKg,

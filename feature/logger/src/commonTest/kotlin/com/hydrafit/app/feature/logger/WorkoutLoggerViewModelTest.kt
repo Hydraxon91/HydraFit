@@ -20,6 +20,7 @@ import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
+import com.hydrafit.app.core.domain.equipment.Equipment
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
@@ -76,6 +77,8 @@ import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
+import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
+import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.AfterTest
@@ -2099,7 +2102,8 @@ class WorkoutLoggerViewModelTest {
                 FakeTrainingGuidancePreferences()
             ),
             exerciseNoteRepository = FakeExerciseNoteRepository(),
-            sessionNoteRepository = FakeSessionNoteRepository()
+            sessionNoteRepository = FakeSessionNoteRepository(),
+            equipment = testEquipment()
         )
         advanceUntilIdle()
 
@@ -2187,7 +2191,8 @@ class WorkoutLoggerViewModelTest {
                 FakeTrainingGuidancePreferences()
             ),
             exerciseNoteRepository = FakeExerciseNoteRepository(),
-            sessionNoteRepository = FakeSessionNoteRepository()
+            sessionNoteRepository = FakeSessionNoteRepository(),
+            equipment = testEquipment()
         )
         advanceUntilIdle()
         assertEquals("back-squat", viewModel.state.value.draftSets.single().exerciseId)
@@ -2217,7 +2222,8 @@ class WorkoutLoggerViewModelTest {
                 FakeTrainingGuidancePreferences()
             ),
             exerciseNoteRepository = FakeExerciseNoteRepository(),
-            sessionNoteRepository = FakeSessionNoteRepository()
+            sessionNoteRepository = FakeSessionNoteRepository(),
+            equipment = testEquipment()
         )
         advanceUntilIdle()
         assertEquals("back-squat", viewModel.state.value.draftSets.single().exerciseId)
@@ -2278,7 +2284,8 @@ class WorkoutLoggerViewModelTest {
                 FakeTrainingGuidancePreferences()
             ),
             exerciseNoteRepository = FakeExerciseNoteRepository(),
-            sessionNoteRepository = FakeSessionNoteRepository()
+            sessionNoteRepository = FakeSessionNoteRepository(),
+            equipment = testEquipment()
         )
         advanceUntilIdle()
         assertEquals("back-squat", viewModel.state.value.draftSets.single().exerciseId)
@@ -2683,7 +2690,8 @@ class WorkoutLoggerViewModelTest {
                 FakeTrainingGuidancePreferences()
             ),
             exerciseNoteRepository = FakeExerciseNoteRepository(),
-            sessionNoteRepository = FakeSessionNoteRepository()
+            sessionNoteRepository = FakeSessionNoteRepository(),
+            equipment = testEquipment()
         )
         advanceUntilIdle()
         assertEquals(null, viewModel.state.value.todayFocus)
@@ -3345,7 +3353,8 @@ class WorkoutLoggerViewModelTest {
             FakeTrainingGuidancePreferences()
         ),
         exerciseNoteRepository = noteRepository,
-        sessionNoteRepository = sessionNoteRepository
+        sessionNoteRepository = sessionNoteRepository,
+        equipment = testEquipment()
     )
 
     private fun sessionViewModel(
@@ -3372,7 +3381,8 @@ class WorkoutLoggerViewModelTest {
             FakeTrainingGuidancePreferences()
         ),
         exerciseNoteRepository = noteRepository,
-        sessionNoteRepository = sessionNoteRepository
+        sessionNoteRepository = sessionNoteRepository,
+        equipment = testEquipment()
     )
 
     private fun logMutations(
@@ -4386,6 +4396,49 @@ class WorkoutLoggerViewModelTest {
         assertEquals("front-squat", recorded.exerciseId)
         assertEquals(25.0, recorded.weightKg)
         assertTrue(recorded.isWarmup)
+    }
+
+    @Test
+    fun warmupRampsRespectCurrentEquipmentAvailabilityAndCeiling() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        val occurrences = twoOccurrences().map { occurrence ->
+            occurrence.copy(
+                entries = occurrence.entries.map {
+                    it.copy(requiredEquipment = setOf(EquipmentTag.BARBELL))
+                }
+            )
+        }
+        schedule.set(blockActivation(), occurrences, selectedOccurrenceId = 30L)
+
+        // Not owned: the ramp is withheld rather than suggested for unavailable equipment.
+        val none = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+        assertTrue(none.state.value.visibleWarmupGuidance?.ramps.orEmpty().isEmpty())
+
+        // Owned with a 50 kg ceiling: the 60/80 % ramps clamp onto 50 kg and collapse to one row.
+        val owned = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            equipment = WorkoutLoggerEquipment(
+                FakeEquipment(
+                    listOf(
+                        Equipment(
+                            id = EquipmentTag.BARBELL,
+                            name = "Barbell",
+                            isBuiltIn = true,
+                            maxWeightKg = 50.0
+                        )
+                    )
+                ),
+                FakeSelection(setOf(EquipmentTag.BARBELL))
+            )
+        )
+        advanceUntilIdle()
+
+        val ramp = assertNotNull(owned.state.value.visibleWarmupGuidance).ramps.single()
+        assertEquals(listOf(40.0, 50.0), ramp.rampSets.map { it.weightKg })
     }
 
     @Test
@@ -5841,6 +5894,38 @@ class WorkoutLoggerViewModelTest {
         }
     }
 
+    private fun testEquipment() =
+        WorkoutLoggerEquipment(FakeEquipment(emptyList()), FakeSelection(emptySet()))
+
+    private class FakeEquipment(private val items: List<Equipment>) : EquipmentRepository {
+        override fun observeAll(): Flow<List<Equipment>> = flowOf(items)
+
+        override suspend fun all(): List<Equipment> = items
+
+        override suspend fun add(name: String): Equipment = error("No equipment writes expected")
+
+        override suspend fun remove(id: EquipmentTag) = error("No equipment writes expected")
+
+        override suspend fun rename(
+            id: EquipmentTag,
+            name: String,
+            maxWeightKg: Double?
+        ): Equipment = error("No equipment writes expected")
+
+        override suspend fun setMaxWeight(id: EquipmentTag, maxWeightKg: Double?) =
+            error("No equipment writes expected")
+    }
+
+    private class FakeSelection(private val selected: Set<EquipmentTag>) :
+        EquipmentSelectionRepository {
+        override suspend fun selected(): Set<EquipmentTag> = selected
+
+        override fun selectedFlow(): Flow<Set<EquipmentTag>> = flowOf(selected)
+
+        override suspend fun setSelected(tags: Set<EquipmentTag>) =
+            error("No selection writes expected")
+    }
+
     private fun occurrenceViewModel(
         repository: WorkoutLogRepository,
         schedule: WorkoutScheduleRepository,
@@ -5851,7 +5936,8 @@ class WorkoutLoggerViewModelTest {
         sessions: FakeWorkoutSessionRepository = FakeWorkoutSessionRepository(),
         bootIdentity: () -> String? = { null },
         restCountdownRepository: RestCountdownRepository? = null,
-        coaching: Boolean = false
+        coaching: Boolean = false,
+        equipment: WorkoutLoggerEquipment = testEquipment()
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessions),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
@@ -5877,7 +5963,8 @@ class WorkoutLoggerViewModelTest {
             FakeTrainingGuidancePreferences(coaching)
         ),
         exerciseNoteRepository = FakeExerciseNoteRepository(),
-        sessionNoteRepository = FakeSessionNoteRepository()
+        sessionNoteRepository = FakeSessionNoteRepository(),
+        equipment = equipment
     ).also { timerViewModels.add(it) }
 
     private fun blockActivation() = TrainingActivation(

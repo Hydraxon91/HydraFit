@@ -30,6 +30,8 @@ import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
+import com.hydrafit.app.core.domain.equipment.Equipment
+import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
@@ -109,6 +111,8 @@ import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.network.GeminiWorkoutPlannerEngine
 import com.hydrafit.app.core.userdata.backup.BackupFileStore
 import com.hydrafit.app.core.userdata.backup.UnsupportedBackupFileStore
+import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
+import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
 import com.hydrafit.app.core.userdata.equipment.ExercisePreferenceRepository
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
@@ -495,6 +499,39 @@ class KoinModulesVerificationTest {
                             override fun guidedWorkoutFlow() = flowOf(false)
 
                             override suspend fun setGuidedWorkoutEnabled(enabled: Boolean) = Unit
+                        }
+                    }
+                    single<EquipmentRepository> {
+                        object : EquipmentRepository {
+                            override fun observeAll(): Flow<List<Equipment>> = flowOf(emptyList())
+
+                            override suspend fun all(): List<Equipment> = emptyList()
+
+                            override suspend fun add(name: String): Equipment = error("unused")
+
+                            override suspend fun remove(id: EquipmentTag) = error("unused")
+
+                            override suspend fun rename(
+                                id: EquipmentTag,
+                                name: String,
+                                maxWeightKg: Double?
+                            ): Equipment = error("unused")
+
+                            override suspend fun setMaxWeight(
+                                id: EquipmentTag,
+                                maxWeightKg: Double?
+                            ) = error("unused")
+                        }
+                    }
+                    single<EquipmentSelectionRepository> {
+                        object : EquipmentSelectionRepository {
+                            override suspend fun selected(): Set<EquipmentTag> = emptySet()
+
+                            override fun selectedFlow(): Flow<Set<EquipmentTag>> =
+                                flowOf(emptySet())
+
+                            override suspend fun setSelected(tags: Set<EquipmentTag>) =
+                                error("unused")
                         }
                     }
                 },

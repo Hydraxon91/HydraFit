@@ -25,6 +25,7 @@ import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.RestCountdown
 import com.hydrafit.app.core.domain.workout.ShortRestCoach
 import com.hydrafit.app.core.domain.workout.WarmupAction
+import com.hydrafit.app.core.domain.workout.WarmupEquipment
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
@@ -59,7 +60,8 @@ class WorkoutLoggerViewModel(
     private val runtime: WorkoutLoggerRuntime,
     private val settings: WorkoutLoggerSettings,
     private val exerciseNoteRepository: com.hydrafit.app.core.domain.workout.ExerciseNoteRepository,
-    private val sessionNoteRepository: com.hydrafit.app.core.domain.workout.SessionNoteRepository
+    private val sessionNoteRepository: com.hydrafit.app.core.domain.workout.SessionNoteRepository,
+    private val equipment: WorkoutLoggerEquipment
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(WorkoutLoggerUiState())
@@ -70,6 +72,9 @@ class WorkoutLoggerViewModel(
     private var acceptedPlan: AcceptedPlan? = null
     private var acceptedToday: AcceptedDay? = null
     private var suggestedWeightKgByExercise: Map<String, Double> = emptyMap()
+
+    /** Current equipment availability/ceilings; null until the first read resolves. */
+    private var warmupEquipment: WarmupEquipment? = null
 
     /** The active block and its queue, when the user has started one; null uses the accepted plan. */
     private var activeActivation: TrainingActivation? = null
@@ -146,6 +151,13 @@ class WorkoutLoggerViewModel(
                     )
                 }
                 refreshRecentSets()
+            }
+        }
+        viewModelScope.launch {
+            // Equipment changes re-bound the ramp suggestions; the frozen prescription is untouched.
+            equipment.equipmentFlow().collectLatest { current ->
+                warmupEquipment = current
+                refreshToday()
             }
         }
         viewModelScope.launch {
@@ -1602,7 +1614,7 @@ class WorkoutLoggerViewModel(
                     displayDrafts.isNotEmpty(),
                 todayFocus = workout?.focus,
                 guidedProgress = buildGuidedWorkoutProgress(occurrence, performed),
-                warmupGuidance = buildWarmupGuidance(occurrence),
+                warmupGuidance = buildWarmupGuidance(occurrence, warmupEquipment),
                 // Preparation marks and the hidden flag belong to one workout: switching occurrence
                 // clears them, while an ordinary refresh of the same occurrence keeps them.
                 warmupPreparationChecked = if (sameOccurrence) {

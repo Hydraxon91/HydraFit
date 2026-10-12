@@ -1,6 +1,8 @@
 package com.hydrafit.app.core.domain.workout
 
+import com.hydrafit.app.core.domain.engine.EquipmentWeightLimit
 import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
+import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
@@ -87,6 +89,16 @@ data class WarmupGuidance(
 }
 
 /**
+ * Current equipment availability and ceilings for warm-up guidance. [selectedTags] is the equipment
+ * the user owns; [maxWeights] records the heaviest weight each tag can provide (absent when
+ * unlimited). Used to bound ramp suggestions only — it never rewrites the frozen prescription.
+ */
+data class WarmupEquipment(
+    val selectedTags: Set<EquipmentTag>,
+    val maxWeights: Map<EquipmentTag, Double> = emptyMap()
+)
+
+/**
  * Editable product defaults, not validated personal optima. Each ramp set is a percentage of the
  * frozen working weight with an easy rep count.
  */
@@ -123,11 +135,16 @@ private val UPPER_PULL_PATTERNS = setOf(
 /**
  * Builds the optional warm-up guidance for [occurrence]. Pure: it reads no repository or clock and
  * derives everything from the occurrence's frozen prescription, so the guidance never contradicts the
- * target the user is being asked to perform.
+ * target the user is being asked to perform. [equipment] bounds ramp availability and load against
+ * the user's current equipment; a null value means the constraints are not yet known, so ramps are
+ * suggested from the frozen target alone.
  */
-fun buildWarmupGuidance(occurrence: WorkoutOccurrence): WarmupGuidance = WarmupGuidance(
+fun buildWarmupGuidance(
+    occurrence: WorkoutOccurrence,
+    equipment: WarmupEquipment? = null
+): WarmupGuidance = WarmupGuidance(
     preparation = buildWarmupPreparation(occurrence.entries.map { it.movementPattern }),
-    ramps = buildWarmupRamps(occurrence.entries.sortedBy { it.position })
+    ramps = buildWarmupRamps(occurrence.entries.sortedBy { it.position }, equipment)
 )
 
 /**
@@ -160,18 +177,24 @@ internal fun buildWarmupPreparation(patterns: List<MovementPattern>): List<Warmu
  * One ramp plan for the first rampable entry of each movement pattern, in entry order. A pattern's
  * later entries have nothing new to rehearse, so only its first ramp is suggested. A bodyweight, added
  * or unknown-load entry has no working weight to ramp from and leaves its pattern eligible for a
- * later rampable entry of the same pattern.
+ * later rampable entry of the same pattern. When [equipment] is known, an entry whose required
+ * equipment is not all owned is skipped, and each suggested load is clamped to that equipment's
+ * ceiling.
  */
-internal fun buildWarmupRamps(entries: List<OccurrenceEntry>): List<WarmupRampPlan> {
+internal fun buildWarmupRamps(
+    entries: List<OccurrenceEntry>,
+    equipment: WarmupEquipment? = null
+): List<WarmupRampPlan> {
     val planned = mutableSetOf<MovementPattern>()
     val plans = mutableListOf<WarmupRampPlan>()
     for (entry in entries) {
         if (entry.movementPattern in planned) continue
         if (entry.loadCapability != ExerciseLoadCapability.EXTERNAL) continue
         if (entry.loadKind != LoadKind.EXTERNAL) continue
+        if (!isEquipmentAvailable(entry, equipment)) continue
         val working = entry.weightKg ?: continue
         if (!working.isFinite() || working <= 0.0) continue
-        val rampSets = rampSetsFor(working)
+        val rampSets = rampSetsFor(working, equipmentCeiling(entry, equipment))
         if (rampSets.isEmpty()) continue
         planned += entry.movementPattern
         plans += WarmupRampPlan(
@@ -189,16 +212,30 @@ internal fun buildWarmupRamps(entries: List<OccurrenceEntry>): List<WarmupRampPl
     return plans
 }
 
+/** True when the entry's required equipment is all owned; unknown constraints impose no limit. */
+private fun isEquipmentAvailable(entry: OccurrenceEntry, equipment: WarmupEquipment?): Boolean {
+    if (equipment == null) return true
+    return entry.requiredEquipment
+        .filterNot { it == EquipmentTag.BODYWEIGHT }
+        .all { it in equipment.selectedTags }
+}
+
+/** The lowest ceiling among the entry's required equipment, or null when unknown/unbounded. */
+private fun equipmentCeiling(entry: OccurrenceEntry, equipment: WarmupEquipment?): Double? =
+    equipment?.let { EquipmentWeightLimit.ceilingFor(entry.requiredEquipment, it.maxWeights) }
+
 /**
- * Rounds each profile percentage to the shared plate increment, keeping only loads that are positive
- * and strictly below the working weight. A tiny working weight can round every ramp onto itself or to
- * zero, which yields no ramp instead of an unusable or duplicate one.
+ * Rounds each profile percentage to the shared plate increment, clamps it to the equipment ceiling,
+ * and keeps only loads that are positive and strictly below the working weight. A tiny working weight
+ * can round every ramp onto itself or to zero, which yields no ramp instead of an unusable or
+ * duplicate one.
  */
-private fun rampSetsFor(workingWeightKg: Double): List<WarmupRampSet> {
+private fun rampSetsFor(workingWeightKg: Double, ceilingKg: Double?): List<WarmupRampSet> {
     val config = SuggestedWeightConfig()
     val seen = mutableSetOf<Double>()
     return RAMP_PROFILE.mapNotNull { (percent, reps) ->
-        val rounded = config.roundToIncrement(workingWeightKg * percent / 100.0)
+        val raw = config.roundToIncrement(workingWeightKg * percent / 100.0)
+        val rounded = EquipmentWeightLimit.clamp(raw, ceilingKg)
         if (rounded <= 0.0 || rounded >= workingWeightKg) return@mapNotNull null
         if (!seen.add(rounded)) return@mapNotNull null
         WarmupRampSet(percentOfWorkingWeight = percent, reps = reps, weightKg = rounded)
