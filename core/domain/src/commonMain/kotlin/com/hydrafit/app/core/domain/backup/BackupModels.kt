@@ -453,5 +453,6 @@ data class BackupRestPreferenceRecord(val exerciseId: String?, val durationSecon
 @Serializable
 data class BackupExerciseNoteRecord(val exerciseId: String, val note: String)
 
+/** One session's persistent note; empty is an explicit clear, while absence means never set. */
 @Serializable
 data class BackupSessionNoteRecord(val sessionId: String, val note: String)

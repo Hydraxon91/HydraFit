@@ -298,6 +298,16 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun rejectsSessionNotesInLegacyFormats() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            validFile().copy(
+                formatVersion = 9,
+                sessionNotes = listOf(BackupSessionNoteRecord("s1", "note"))
+            )
+        }
+    }
+
+    @Test
     fun rejectsDuplicateCompositeExplanationKeys() {
         assertFailure(BackupFailure.DUPLICATE_ID) {
             validFile().copy(
