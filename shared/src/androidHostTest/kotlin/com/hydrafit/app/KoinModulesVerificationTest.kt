@@ -89,6 +89,13 @@ import com.hydrafit.app.core.domain.workout.SessionNoteRepository
 import com.hydrafit.app.core.domain.workout.SessionResegmenter
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.UnsupportedRestAlertScheduler
+import com.hydrafit.app.core.domain.workout.WorkoutHistoryEntry
+import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
+import com.hydrafit.app.core.domain.workout.WorkoutHistoryPage
+import com.hydrafit.app.core.domain.workout.WorkoutHistoryRepository
+import com.hydrafit.app.core.domain.workout.WorkoutHistoryRequest
+import com.hydrafit.app.core.domain.workout.WorkoutHistorySetPage
+import com.hydrafit.app.core.domain.workout.WorkoutHistorySetRequest
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
@@ -113,6 +120,7 @@ import com.hydrafit.app.feature.equipment.ExercisePlanningSettingsViewModel
 import com.hydrafit.app.feature.equipment.equipmentModule
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapModule
 import com.hydrafit.app.feature.logger.OccurrenceReplacementViewModel
+import com.hydrafit.app.feature.logger.WorkoutHistoryViewModel
 import com.hydrafit.app.feature.logger.WorkoutLoggerViewModel
 import com.hydrafit.app.feature.logger.loggerModule
 import com.hydrafit.app.feature.routines.RoutinesViewModel
@@ -463,6 +471,7 @@ class KoinModulesVerificationTest {
                     single<WorkoutLogRepository> { FakeWorkoutLogRepository }
                     single<ExerciseNoteRepository> { FakeExerciseNoteRepository }
                     single<SessionNoteRepository> { FakeSessionNoteRepository }
+                    single<WorkoutHistoryRepository> { FakeWorkoutHistoryRepository }
                     single<WorkoutSessionRepository> { FakeWorkoutSessionRepository }
                     single<SessionResegmenter> { FakeSessionResegmenter }
                     single<RoutineTemplateRepository> { FakeRoutineTemplateRepository }
@@ -494,6 +503,9 @@ class KoinModulesVerificationTest {
 
         try {
             assertNotNull(koin.get<WorkoutLoggerViewModel>())
+            val history = koin.get<WorkoutHistoryViewModel>()
+            advanceUntilIdle()
+            assertEquals(true, history.state.value.showEmptyHistory)
             val replacement = koin.get<OccurrenceReplacementViewModel>()
             replacement.open(999L, 999L)
             assertNotNull(koin.get<com.hydrafit.app.feature.logger.RestAlertCoordinator>())
@@ -686,6 +698,21 @@ class KoinModulesVerificationTest {
         override suspend fun save(sessionId: String, text: String) = Unit
 
         override suspend fun clear(sessionId: String) = Unit
+    }
+
+    private object FakeWorkoutHistoryRepository : WorkoutHistoryRepository {
+        override fun observeEntries(request: WorkoutHistoryRequest): Flow<WorkoutHistoryPage> =
+            flowOf(WorkoutHistoryPage(emptyList(), hasMore = false))
+
+        override fun observeEntry(
+            key: WorkoutHistoryKey,
+            utcOffsetMillis: Long
+        ): Flow<WorkoutHistoryEntry?> = flowOf(null)
+
+        override fun observeEntrySets(
+            key: WorkoutHistoryKey,
+            request: WorkoutHistorySetRequest
+        ): Flow<WorkoutHistorySetPage> = flowOf(WorkoutHistorySetPage(emptyList(), hasMore = false))
     }
 
     private object FakeSessionResegmenter : SessionResegmenter {
