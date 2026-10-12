@@ -70,7 +70,6 @@ Verified with assertions and viewed screenshots:
   form; no dismissed-summary screen and no reopen. Screenshot: `/tmp/hf-c3-back2.png`.
 
 Two defects were found by this journey and fixed before the verification above:
-
 - **Blank screen after View in history.** The summary destination was left on the back stack while
   its state was already cleared, so system Back from history rendered an empty screen under the
   navigation bar (confirmed by hierarchy: nav items only). The handoff now pops the summary before
@@ -87,6 +86,10 @@ unresolved occurrence, so the journey cannot re-run against an already-resolved 
 
 Lesson recorded: the Logger's `LazyColumn` only exposes composed items to a hierarchy dump, so an
 unscrolled dump cannot prove a section is absent. Scroll the target into view before concluding that.
+
+The quoted totals text (`5 of 12 prescribed sets recorded`) is what this revision rendered. Review
+finding R10-09 later reworded that line to "N recorded sets · M prescribed" so an extra set is not
+shown as an arithmetic error; the reworded line is not emulator-verified.
 
 ## 0.7.2-C4 summary set correction verification (2026-10-12)
 
