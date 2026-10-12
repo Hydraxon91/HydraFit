@@ -1,6 +1,7 @@
 package com.hydrafit.app.feature.logger
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
@@ -23,15 +24,25 @@ internal val historyListRoute: String = "log/history/list"
  */
 internal val historyDetailRoute: String = "log/history/detail"
 
-/** The one Logger ViewModel shared by the Logger screen and the history screens. */
+/**
+ * The one Logger ViewModel shared by the Logger screen and the history screens.
+ *
+ * The owner is resolved once per composition: [NavController.getBackStackEntry] throws while a
+ * destination is being popped, and Navigation recomposes the exiting destination during that
+ * transition, so the lookup must not be repeated on every recomposition.
+ */
 @Composable
-internal fun sharedLoggerViewModel(navController: NavController): WorkoutLoggerViewModel =
-    koinViewModel(viewModelStoreOwner = navController.getBackStackEntry(loggerRoute))
+internal fun sharedLoggerViewModel(navController: NavController): WorkoutLoggerViewModel {
+    val owner = remember { navController.getBackStackEntry(loggerRoute) }
+    return koinViewModel(viewModelStoreOwner = owner)
+}
 
 /** The history browser's ViewModel, scoped to the history sub-graph so its filters survive details. */
 @Composable
-private fun navigationHistoryViewModel(navController: NavController): WorkoutHistoryViewModel =
-    koinViewModel(viewModelStoreOwner = navController.getBackStackEntry(historyGraphRoute))
+private fun navigationHistoryViewModel(navController: NavController): WorkoutHistoryViewModel {
+    val owner = remember { navController.getBackStackEntry(historyGraphRoute) }
+    return koinViewModel(viewModelStoreOwner = owner)
+}
 
 internal fun NavGraphBuilder.historyDestinations(navController: NavController) {
     navigation(startDestination = historyListRoute, route = historyGraphRoute) {

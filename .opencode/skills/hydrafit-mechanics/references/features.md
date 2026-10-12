@@ -205,7 +205,10 @@ through the Logger's own nested history sub-graph (`WorkoutHistoryNavigation.kt`
 stays selected and no shell change is needed. `WorkoutLoggerRoute` and the history screens share one
 `WorkoutLoggerViewModel` scoped to the Logger graph entry, which is how a correction opened from a
 recorded set reuses the existing `LoggedSetEdit`/`LoggedSetEditDialog` editor, `WorkoutLogMutations`
-and `CorrectWorkoutSetUseCase` instead of a second policy. The first page of each history read is
+and `CorrectWorkoutSetUseCase` instead of a second policy. Both screens resolve that graph-scoped
+owner once per composition with `remember`: `NavController.getBackStackEntry` throws while a
+destination is being popped, and Navigation recomposes the exiting destination during that
+transition. The first page of each history read is
 observed live and later pages are appended on request; a new first-page emission drops the pages
 derived from it, since a keyset cursor only describes the content that produced it. The bounded set
 projection also carries the stored `occurrenceId`, so a history correction keeps the Logger's
