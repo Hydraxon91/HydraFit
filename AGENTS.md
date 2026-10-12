@@ -50,6 +50,30 @@
   the user switches between freely (e.g. a planner model and a builder
   model). Because the session context carries over, an approved plan is
   implemented in place — no separate handoff message is needed.
+- **Planner/builder responsibilities:** the planner owns broad exploration,
+  resolves behavioral decisions with the user, and proposes exact files, changes,
+  reusable patterns, invariants, tests, verification, documentation updates,
+  exclusions and stop conditions. The builder uses that session context, performs
+  targeted reads needed for safe implementation, and implements and verifies only
+  the approved scope. Do not repeat broad exploration without new evidence; do not
+  prohibit necessary reads or treat the plan as a substitute for current source.
+  Review remains separately requested and requires Plan Mode.
+- **Builder reasoning:** the user switches models/settings manually. Low reasoning
+  is suitable for localized, unambiguous edits and may be tried for routine feature
+  work; thinking-off is an experiment for mechanical changes, not a general
+  requirement. Use reasoning-enabled settings for fatigue/planner logic, migrations,
+  concurrency and unclear failures. If stronger reasoning is needed, stop and ask
+  the user to switch settings in the same session rather than expanding the plan
+  into line-by-line instructions.
+- **Builder stop condition:** diagnose verification failures and attempt only
+  evidence-backed fixes within the approved scope. Stop when two attempted fixes
+  fail to resolve the same blocker, no evidence-backed next step is available, or
+  progress requires an unapproved behavioral or scope decision — whichever comes
+  first. Do not repeat unchanged failing commands, weaken tests, skip required
+  checks or add speculative workarounds to force progress. Report failure evidence,
+  attempted fixes, working-tree state and the decision or assistance needed.
+  Restore any temporary diagnostic break before stopping; preserve legitimate
+  implementation work and other agents' changes.
 - PLANS.md edits are status lines only unless I approve more, except the bounded
   completion cleanup below.
 - **Completion cleanup (standing authorization):** at the end of a feature or

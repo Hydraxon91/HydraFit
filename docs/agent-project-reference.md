@@ -30,6 +30,11 @@ or asynchronous behavior needs explicit invariants and downstream coverage.
   the approved scope. If a required check is unavailable, state that before
   implementation and clarify its effect on completion rather than implying it
   passed or was waived.
+- The planner owns broad exploration and resolves behavioral choices with the
+  user. Name exact files and intended changes, existing utilities and patterns to
+  reuse, explicit exclusions and stop conditions. Explain decisions without
+  prescribing every line; carry the approved plan into building in the same
+  session rather than generating a handoff.
 
 A compact planning table is sufficient:
 
@@ -40,7 +45,10 @@ A compact planning table is sufficient:
 ### During implementation
 
 - Read current targets, helpers and relevant consumers; keep changes within the
-  approved scope and existing approval gates.
+  approved scope and existing approval gates. Reuse prior reads in the same
+  session when still trustworthy; re-read when state may have changed. Avoid
+  repeating broad exploration without new evidence, but do not omit necessary
+  targeted reads because the planner already produced a plan.
 - Test observable contract guarantees and applicable failure paths, not only
   implementation details. For data flows, a consumer test using a manually
   constructed valid record does not prove that the write path preserves the
@@ -48,6 +56,18 @@ A compact planning table is sufficient:
 - Add required regression tests and living-document updates within the approved
   work. Stop for a newly discovered behavior decision, scope expansion or
   unavailable required verification that changes the approved expectations.
+- Follow AGENTS.md's builder reasoning guidance: low reasoning may suit routine
+  work, while mechanical changes may trial thinking-off. Ask the user to switch
+  to reasoning-enabled settings for complex logic or unclear failures; model
+  switching stays manual and in the same session.
+- Bound failure recovery: diagnose the root cause and attempt evidence-backed,
+  in-scope fixes only. Stop after two unsuccessful fixes for the same blocker,
+  when there is no evidence-backed next step, or when an unapproved decision is
+  needed — whichever comes first. Do not repeat unchanged failing commands,
+  weaken tests, skip required checks or use speculative workarounds. Restore
+  temporary diagnostic breaks, preserve legitimate work and other agents'
+  changes, and report evidence, attempted fixes, working-tree state and the
+  assistance needed. A stop does not authorize a commit of failing work.
 
 ### At completion
 
