@@ -527,3 +527,28 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   and were accepted by the user rather than agent-verified at larger font sizes or in dark mode. The
   deferred 0.13.x explanation-presentation polish and the named OF-03 verification limits are
   unchanged.
+
+### v0.7.1 publication verification (2026-10-12)
+
+- `v0.7.1` (Notes & searchable session history — OF-13 slice) published on the PR #5 merge commit
+  `b467241`. PR #5 merged after a green Build-and-Test run `38288896499` (lint, unit tests with
+  `verifySqlDelightMigration`, iOS compile, debug assembly), and the post-merge `main` run
+  `38289256047` passed as well. Release workflow `38289317846` (run number 16) passed, covering lint,
+  unit tests and the signed APK build/publication.
+- Local gate before tagging: 1,397 host tests, `verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug`, `:androidApp:lintVitalRelease` and
+  `:shared:compileKotlinIosSimulatorArm64` passed
+  (`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/r071-candidate-gate.log`). The
+  release-wide review chain (R9-01…R9-08, R2-01…R2-03, R3-01) was APPROVED at C9-R4; verdicts,
+  closures and limits are in `docs/review-0.7.1-snapshot.md` §1–§9.
+- Verification was **offline only** (no emulator release install, per the standing rule). Downloaded
+  published APK `androidApp-release.apk`: 24,707,147 bytes; package `com.hydrafit.app`,
+  `versionName=0.7.1`, `versionCode=16`; `apksigner verify` passed with certificate SHA-256
+  `af9cd73b3cc6842c7ab3c2f3cd572245826089aee863e9168a761a893c35a7e1`, matching `v0.7.0`. Local APK
+  SHA-256 `133fc7ff85c6e3172638a9167369e715d4095dfe13e73fe7ebdc50b2f6febd74` matches GitHub's asset
+  digest.
+- Limits: signed-upgrade and on-device release runtime behavior remain unverified, and the emulator
+  evidence is debug-build only with the gaps listed in `.maestro/README.md` and
+  `docs/review-0.7.1-snapshot.md` §5 (larger text, dark mode, locale, TalkBack, date-picker filtering,
+  loading/error states, very large result sets, the C3 editor's 2,000-character and failed-save paths,
+  and process-death restoration).
