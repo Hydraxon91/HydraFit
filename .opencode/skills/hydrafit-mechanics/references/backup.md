@@ -8,7 +8,10 @@ The reader accepts versions 1–10; version 1 defaults the guided-workout prefer
 Format 10 adds persistent per-session notes keyed to explicit session ids; versions 1–9 default this
 section to empty and whole replacement removes existing session notes. Format 9 adds persistent
 per-exercise setup notes; versions 1–8 default them to empty, which restores
-as "no note recorded". Format 8 requires the recorded frozen-entry reasoning section; versions 1–7
+as "no note recorded". Both note sections are gated in **both** directions: a file at or after a
+section's introduction format must carry it (an absent section is malformed, so a truncated or
+hand-edited file can never silently restore as "no notes"), and a file from before it must not carry a
+non-empty one (`INVALID_VALUE`). Format 8 requires the recorded frozen-entry reasoning section; versions 1–7
 default it to empty,
 which restores as "not recorded". Format 7 requires the recorded plan-target explanation sections;
 versions 1–6 default them to empty,
