@@ -366,3 +366,27 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   the follow-up fixes and their verification are recorded in the commits. A bounded emulator
   navigation and unsaved-editor smoke passed on the debug build; signed-upgrade and on-device
   runtime behavior for the release artifact remain unverified.
+
+### v0.7.0 publication verification (2026-10-12)
+
+- `v0.7.0` (Workout Context & Confidence — OF-03 planner target explanations) published on the
+  PR #4 merge commit `e5719bb`. PR #4 merged after a green Build-and-Test run (lint, unit tests
+  with `verifySqlDelightMigration`, iOS compile, debug assembly); Release workflow `38225151289`
+  (run number 15) passed, covering lint, unit tests and the signed APK build/publication.
+- Local gate before tagging: full host suite, `verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug`, `:androidApp:lintVitalRelease` and
+  `:shared:compileKotlinIosSimulatorArm64` passed. A full-scope OF-03 review was APPROVED with
+  minor findings; the corrective fixes (backup slot/version validation, batched entry-reason reads)
+  and their regressions were committed before tagging (`5f2afbb`, `ac347e8`, `0a96526`), and the
+  corrective follow-ups were re-reviewed APPROVED.
+- Verification was **offline only** (no emulator release install, per the standing rule). Downloaded
+  published APK `androidApp-release.apk`: 24,673,295 bytes; package `com.hydrafit.app`,
+  `versionName=0.7.0`, `versionCode=15`; `apksigner verify` passed with certificate SHA-256
+  `af9cd73b3cc6842c7ab3c2f3cd572245826089aee863e9168a761a893c35a7e1`, matching prior releases. Local
+  APK SHA-256 `b496dfdf2bf43afa07f3f0bb7109fd00f69f472411028527f45fd8cc26fdd537` matches GitHub's
+  asset digest.
+- Limits: the release artifact was not installed, so signed-upgrade and on-device runtime behavior
+  are unverified. Bounded debug-emulator checks covered Plan and Logger explanation presentation
+  and were accepted by the user rather than agent-verified at larger font sizes or in dark mode. The
+  deferred 0.13.x explanation-presentation polish and the named OF-03 verification limits are
+  unchanged.
