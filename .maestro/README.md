@@ -81,12 +81,28 @@ Two defects were found by this journey and fixed before the verification above:
 
 Not verified: `Done`'s tap was exercised only as a visible, asserted control (the pop-and-clear path
 it shares was verified through Back); the route's Loading, Failed+Retry and Unavailable states were
-not exercised in the UI (no fault injection); the summary's per-set **Edit set** correction leg did
-not run (the Logger presented the accepted-plan path instead of the pending occurrence after the
-block's first day was finished, across a relaunch, so no summary could be opened — see the open
-observation in `PLANS.md`); dark mode, larger text, locale and TalkBack were not
+not exercised in the UI (no fault injection); dark mode, larger text, locale and TalkBack were not
 checked; the combined single-flow file is not checked in. A fresh occurrence requires a block with an
 unresolved occurrence, so the journey cannot re-run against an already-resolved occurrence.
+
+Lesson recorded: the Logger's `LazyColumn` only exposes composed items to a hierarchy dump, so an
+unscrolled dump cannot prove a section is absent. Scroll the target into view before concluding that.
+
+## 0.7.2-C4 summary set correction verification (2026-10-12)
+
+Run on `emulator-5554` (debug `Medium_Phone`, 1080×2400). Fixture: Day 2 recorded with **Confirm all**
+(20 prescribed sets), then **Finish**, then one set corrected through the summary. Records are retained.
+
+`/tmp/hf-c4b.yaml` passed `check-syntax` and ran green first time: Confirm all → `20 of 20 sets` →
+Finish → the summary's prescribed-sets line → scrolled to the first `Edit set` → the existing editor
+opened as `Edit set: Bodyweight Squat`. `/tmp/hf-c4c.yaml` likewise passed first time: the reps field
+(`5`) was replaced with `9`, the keyboard hidden, **Save changes** closed the dialog, and the re-read
+summary showed `9 reps · Bodyweight` alongside the three untouched `5 reps · Bodyweight` rows.
+Screenshot viewed: `/tmp/hf-c4-corrected.png`. Every recorded row — working, extra and warm-up — carries
+its own `Edit set` action. No fatal exception in the captured logcat.
+
+Unverified for this leg: cancelling or failing a correction on-device, a correction that resegments the
+set into another session, larger text, dark mode, locale and TalkBack.
 
 ## 0.7.1-C3 exercise setup-note verification (2026-10-12)
 
