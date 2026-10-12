@@ -24,6 +24,7 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.RestCountdown
 import com.hydrafit.app.core.domain.workout.ShortRestCoach
+import com.hydrafit.app.core.domain.workout.WarmupAction
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
@@ -31,6 +32,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutSummary
 import com.hydrafit.app.core.domain.workout.WorkoutSummarySet
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 import com.hydrafit.app.core.domain.workout.buildGuidedWorkoutProgress
+import com.hydrafit.app.core.domain.workout.buildWarmupGuidance
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -1513,6 +1515,10 @@ class WorkoutLoggerViewModel(
                     confirmingAllDrafts = false,
                     todayFocus = null,
                     guidedProgress = null,
+                    warmupGuidance = null,
+                    warmupPreparationChecked = emptySet(),
+                    warmupGuidanceHidden = false,
+                    warmupRampWriteFailed = false,
                     guidedSetWriteFailed = false
                 )
             }
@@ -1558,6 +1564,8 @@ class WorkoutLoggerViewModel(
         val performedTotal = occurrence.entries.sumOf {
             (performed[it.id] ?: 0).coerceAtMost(it.sets)
         }
+        // Transient per-workout state follows the same occurrence; switching away clears it.
+        val sameOccurrence = previousOccurrenceId == occurrence.id
         _state.update {
             it.copy(
                 activeOccurrence = ActiveOccurrence(
@@ -1577,12 +1585,21 @@ class WorkoutLoggerViewModel(
                 draftWriteRetries = retries,
                 // A batch continuation is scoped to one occurrence: switching away ends it.
                 confirmingAllDrafts = it.confirmingAllDrafts &&
-                    previousOccurrenceId == occurrence.id &&
+                    sameOccurrence &&
                     displayDrafts.isNotEmpty(),
                 todayFocus = workout?.focus,
                 guidedProgress = buildGuidedWorkoutProgress(occurrence, performed),
-                guidedSetWriteFailed = it.guidedSetWriteFailed &&
-                    previousOccurrenceId == occurrence.id
+                warmupGuidance = buildWarmupGuidance(occurrence),
+                // Preparation marks and the hidden flag belong to one workout: switching occurrence
+                // clears them, while an ordinary refresh of the same occurrence keeps them.
+                warmupPreparationChecked = if (sameOccurrence) {
+                    it.warmupPreparationChecked
+                } else {
+                    emptySet()
+                },
+                warmupGuidanceHidden = sameOccurrence && it.warmupGuidanceHidden,
+                warmupRampWriteFailed = sameOccurrence && it.warmupRampWriteFailed,
+                guidedSetWriteFailed = it.guidedSetWriteFailed && sameOccurrence
             )
         }
     }
@@ -2013,6 +2030,27 @@ class WorkoutLoggerViewModel(
     private fun resetShortRestCoaching() {
         shortRestCoach.resetEligibility()
         dismissShortRestCoaching()
+    }
+
+    // ── Warm-up guidance ──────────────────────────────────────────────────
+
+    /** Checks or unchecks one preparation item; the frozen prescription is never changed. */
+    fun onWarmupPreparationToggled(action: WarmupAction) {
+        _state.update { state ->
+            val checked = state.warmupPreparationChecked
+            state.copy(
+                warmupPreparationChecked = if (action in checked) {
+                    checked - action
+                } else {
+                    checked + action
+                }
+            )
+        }
+    }
+
+    /** Hides or reopens the current workout's warm-up guidance. In-memory only. */
+    fun onToggleWarmupGuidance() {
+        _state.update { it.copy(warmupGuidanceHidden = !it.warmupGuidanceHidden) }
     }
 
     private suspend fun refreshRecentSets() {

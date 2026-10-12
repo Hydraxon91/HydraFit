@@ -232,4 +232,20 @@
     <string name="logger_summary_session_line">Started %1$s, finished %2$s</string>
     <string name="logger_summary_session_open">Started %1$s</string>
     <string name="logger_summary_note_none">No session note</string>
+    <string name="logger_warmup_guidance_title">Warm-up</string>
+    <string name="logger_warmup_guidance_note">Optional, and only a starting point. Adjust, skip or hide anything that does not help.</string>
+    <string name="logger_warmup_guidance_preparation">Preparation</string>
+    <string name="logger_warmup_guidance_ramps_title">Ramp sets</string>
+    <string name="logger_warmup_guidance_hide">Hide</string>
+    <string name="logger_warmup_guidance_show">Show warm-up</string>
+    <string name="logger_warmup_action_easy_general">Easy general movement</string>
+    <string name="logger_warmup_action_lower_body">Bodyweight squat and hinge practice</string>
+    <string name="logger_warmup_action_shoulder_circles">Controlled shoulder circles</string>
+    <string name="logger_warmup_action_light_push">Light, easy press practice</string>
+    <string name="logger_warmup_action_light_pull">Light, easy pull practice</string>
+    <string name="logger_warmup_guidance_item_reps">%1$s · %2$d reps</string>
+    <string name="logger_warmup_guidance_item_timed">%1$s · about %2$d min</string>
+    <string name="logger_warmup_guidance_ramp_line">%1$d%% × %2$d · %3$s</string>
+    <string name="logger_warmup_guidance_log_ramp">Log warm-up</string>
+    <string name="logger_warmup_guidance_ramp_failed">That warm-up set was not saved. Try again.</string>
 </resources>

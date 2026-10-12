@@ -66,6 +66,7 @@ import com.hydrafit.app.core.domain.workout.SessionConfig
 import com.hydrafit.app.core.domain.workout.SessionNoteRepository
 import com.hydrafit.app.core.domain.workout.SessionResegmenter
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.WarmupAction
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
@@ -4127,6 +4128,81 @@ class WorkoutLoggerViewModelTest {
         assertEquals(2, repository.all().size)
         assertTrue(viewModel.state.value.draftSets.isEmpty())
         assertTrue(viewModel.state.value.guidedProgress?.allComplete == true)
+    }
+
+    @Test
+    fun guidedWorkoutOffersWarmupGuidanceFromTheFrozenTarget() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        val guidance = assertNotNull(viewModel.state.value.visibleWarmupGuidance)
+        assertEquals(
+            listOf(WarmupAction.EASY_GENERAL_MOVEMENT, WarmupAction.LOWER_BODY_PRACTICE),
+            guidance.preparation.map { it.action }
+        )
+        val ramp = guidance.ramps.single()
+        assertEquals(40L, ramp.occurrenceEntryId)
+        assertEquals(100.0, ramp.workingWeightKg)
+        assertEquals(listOf(40.0, 60.0, 80.0), ramp.rampSets.map { it.weightKg })
+    }
+
+    @Test
+    fun warmupGuidanceStaysHiddenWhenGuidedModeIsOff() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = false)
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.visibleWarmupGuidance)
+    }
+
+    @Test
+    fun warmupPreparationMarkTogglesAndHidesTheGuidance() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.onWarmupPreparationToggled(WarmupAction.LOWER_BODY_PRACTICE)
+        assertEquals(
+            setOf(WarmupAction.LOWER_BODY_PRACTICE),
+            viewModel.state.value.warmupPreparationChecked
+        )
+
+        viewModel.onToggleWarmupGuidance()
+        assertTrue(viewModel.state.value.warmupGuidanceHidden)
+        assertNull(viewModel.state.value.visibleWarmupGuidance)
+
+        viewModel.onToggleWarmupGuidance()
+        assertNotNull(viewModel.state.value.visibleWarmupGuidance)
+
+        viewModel.onWarmupPreparationToggled(WarmupAction.LOWER_BODY_PRACTICE)
+        assertTrue(viewModel.state.value.warmupPreparationChecked.isEmpty())
+    }
+
+    @Test
+    fun warmupGuidanceStateIsScopedToOneOccurrence() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.onWarmupPreparationToggled(WarmupAction.EASY_GENERAL_MOVEMENT)
+        viewModel.onToggleWarmupGuidance()
+
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 31L)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.warmupPreparationChecked.isEmpty())
+        assertFalse(viewModel.state.value.warmupGuidanceHidden)
+        val next = assertNotNull(viewModel.state.value.visibleWarmupGuidance)
+        assertEquals(140.0, next.ramps.single().workingWeightKg)
     }
 
     @Test

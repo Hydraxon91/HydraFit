@@ -9,6 +9,8 @@ import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.RestCountdown
+import com.hydrafit.app.core.domain.workout.WarmupAction
+import com.hydrafit.app.core.domain.workout.WarmupGuidance
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSummary
@@ -222,6 +224,17 @@ data class WorkoutLoggerUiState(
     val guidedEnabled: Boolean = false,
     /** The active occurrence's guided progress, or null when guided mode is off or no workout is active. */
     val guidedProgress: GuidedWorkoutProgress? = null,
+    /**
+     * The active occurrence's optional warm-up guidance, or null when no workout is active. Derived
+     * from the frozen occurrence; shown only while guided mode is active and the user has not hidden it.
+     */
+    val warmupGuidance: WarmupGuidance? = null,
+    /** Preparation actions checked off in the current workout. In-memory only; never persisted. */
+    val warmupPreparationChecked: Set<WarmupAction> = emptySet(),
+    /** True when the user hid the current workout's warm-up guidance. In-memory only. */
+    val warmupGuidanceHidden: Boolean = false,
+    /** True when the last suggested ramp write failed; the suggestion stays available to retry. */
+    val warmupRampWriteFailed: Boolean = false,
     /** True when the last guided single-set write failed; the pending set is still available to retry. */
     val guidedSetWriteFailed: Boolean = false,
     /** The occurrence entry whose current set was explicitly started; it is not performed work. */
@@ -280,6 +293,13 @@ data class WorkoutLoggerUiState(
     /** True when guided mode is on and an active occurrence is available to guide. */
     val isGuidedActive: Boolean
         get() = guidedEnabled && guidedProgress != null
+
+    /**
+     * The warm-up guidance the UI shows: non-empty, while guided is active and the user has not hidden
+     * it. Null leaves the Logger's existing layout unchanged.
+     */
+    val visibleWarmupGuidance: WarmupGuidance?
+        get() = warmupGuidance?.takeIf { isGuidedActive && !warmupGuidanceHidden && !it.isEmpty }
 
     val canStartRestTimer: Boolean
         get() = restDurationSeconds.toLongOrNull()?.let {
