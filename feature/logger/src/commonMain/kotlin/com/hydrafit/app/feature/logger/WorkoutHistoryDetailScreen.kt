@@ -231,7 +231,6 @@ fun WorkoutHistoryDetailScreen(
                     WorkoutHistorySetRow(
                         set = set,
                         utcOffsetMillis = state.utcOffsetMillis,
-                        weightUnitLabel = state.weightUnit.label,
                         loadText = loadWeightText(set.loadKind, set.weightKg, state.weightUnit),
                         editing = loggerState.loggedSetEdit?.row?.id == set.id,
                         onEdit = { onEditSet(set) }
@@ -337,7 +336,6 @@ fun WorkoutHistoryDetailScreen(
 private fun WorkoutHistorySetRow(
     set: WorkoutHistorySet,
     utcOffsetMillis: Long,
-    weightUnitLabel: String,
     loadText: String,
     editing: Boolean,
     onEdit: () -> Unit
@@ -390,10 +388,6 @@ private fun WorkoutHistorySetRow(
         )
         Text(
             text = stringResource(set.timingProvenance.labelResource()),
-            style = MaterialTheme.typography.bodySmall
-        )
-        Text(
-            text = weightUnitLabel,
             style = MaterialTheme.typography.bodySmall
         )
     }
