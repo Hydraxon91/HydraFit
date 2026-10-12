@@ -1868,20 +1868,28 @@ class WorkoutLoggerViewModel(
     private fun launchGuidedWrite(
         resolved: DraftSet,
         edit: DraftEdit?,
-        liveCompletion: Boolean = false
+        liveCompletion: Boolean = false,
+        forcedWarmup: Boolean? = null
     ) {
         val contextRevision = draftContextRevision
         val timerGeneration = liveTimerGeneration
         if (!beginDraftSubmission()) return
         viewModelScope.launch {
             try {
-                val writeResult = writeGuidedSet(resolved, edit, contextRevision, liveCompletion)
+                val writeResult = writeGuidedSet(
+                    resolved,
+                    edit,
+                    contextRevision,
+                    liveCompletion,
+                    forcedWarmup
+                )
                 applyGuidedWriteResult(
                     resolved,
                     writeResult,
                     contextRevision,
                     timerGeneration,
-                    liveCompletion
+                    liveCompletion,
+                    forcedWarmup
                 )
             } finally {
                 endDraftSubmission()
@@ -1900,7 +1908,8 @@ class WorkoutLoggerViewModel(
         writeResult: GuidedSetWriteResult,
         contextRevision: Long,
         timerGeneration: Long,
-        liveCompletion: Boolean
+        liveCompletion: Boolean,
+        forcedWarmup: Boolean? = null
     ) {
         if (writeResult.succeeded) {
             val contextStillCurrent = contextRevision == draftContextRevision &&
@@ -1919,6 +1928,8 @@ class WorkoutLoggerViewModel(
             applyGuidedWriteSuccess()
             _state.update { it.copy(isWarmup = false) }
             clearLiveSetStart()
+        } else if (forcedWarmup == true) {
+            _state.update { it.copy(warmupRampWriteFailed = true) }
         } else {
             _state.update { it.copy(guidedSetWriteFailed = true) }
         }
@@ -1927,15 +1938,18 @@ class WorkoutLoggerViewModel(
     /**
      * Writes exactly one set for the confirmed [resolved] values. A single insert either
      * lands or does not, so a failure leaves the pending draft untouched for an explicit retry.
+     * [forcedWarmup] freezes the classification for a suggested ramp, which is always a warm-up.
      */
     private suspend fun writeGuidedSet(
         resolved: DraftSet,
         edit: DraftEdit?,
         contextRevision: Long,
-        liveCompletion: Boolean = false
+        liveCompletion: Boolean = false,
+        forcedWarmup: Boolean? = null
     ): GuidedSetWriteResult {
-        val isWarmup = guidedSetIntent?.takeIf { it.entryId == resolved.occurrenceEntryId }
-            ?.isWarmup ?: resolved.isWarmup
+        val isWarmup = forcedWarmup
+            ?: guidedSetIntent?.takeIf { it.entryId == resolved.occurrenceEntryId }?.isWarmup
+            ?: resolved.isWarmup
         return try {
             if (contextRevision != draftContextRevision) {
                 throw CancellationException("Draft context changed")
@@ -2014,6 +2028,7 @@ class WorkoutLoggerViewModel(
         _state.update {
             it.copy(
                 guidedSetWriteFailed = false,
+                warmupRampWriteFailed = false,
                 missingLoadPrompt = null,
                 legacyResolution = null,
                 draftEdit = null
@@ -2051,6 +2066,36 @@ class WorkoutLoggerViewModel(
     /** Hides or reopens the current workout's warm-up guidance. In-memory only. */
     fun onToggleWarmupGuidance() {
         _state.update { it.copy(warmupGuidanceHidden = !it.warmupGuidanceHidden) }
+    }
+
+    /**
+     * Records exactly one suggested ramp set as a warm-up for its frozen slot. The suggestion's reps
+     * and rounded load are frozen here, and the existing guided single-write path owns the submission
+     * guard, classification and failure handling, so a ramp is never recorded twice or as working work.
+     */
+    fun logWarmupRamp(occurrenceEntryId: Long, rampIndex: Int) {
+        if (draftSubmissionInProgress) return
+        val occurrence = currentOccurrence ?: return
+        if (_state.value.activeOccurrence?.occurrenceId != occurrence.id) return
+        val plan = _state.value.warmupGuidance?.ramps
+            ?.firstOrNull { it.occurrenceEntryId == occurrenceEntryId }
+            ?: return
+        val ramp = plan.rampSets.getOrNull(rampIndex) ?: return
+        val entry = occurrence.entries.firstOrNull { it.id == occurrenceEntryId } ?: return
+        val draft = DraftSet(
+            exerciseId = entry.exerciseId,
+            name = entry.exerciseName,
+            sets = 1,
+            reps = ramp.reps,
+            weightKg = ramp.weightKg,
+            loadKind = LoadKind.EXTERNAL,
+            loadCapability = entry.loadCapability,
+            occurrenceId = occurrence.id,
+            occurrenceEntryId = entry.id,
+            isWarmup = true
+        )
+        _state.update { it.copy(warmupRampWriteFailed = false) }
+        launchGuidedWrite(draft, edit = null, forcedWarmup = true)
     }
 
     private suspend fun refreshRecentSets() {

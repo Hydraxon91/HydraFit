@@ -219,8 +219,10 @@ import hydrafit.feature.logger.generated.resources.logger_warmup_action_shoulder
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_hide
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_item_reps
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_item_timed
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_log_ramp
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_note
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_preparation
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_ramp_failed
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_ramp_line
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_ramps_title
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_show
@@ -373,6 +375,7 @@ fun WorkoutLoggerRoute(
         onDismissShortRestCoaching = viewModel::dismissShortRestCoaching,
         onWarmupPreparationToggled = viewModel::onWarmupPreparationToggled,
         onToggleWarmupGuidance = viewModel::onToggleWarmupGuidance,
+        onLogWarmupRamp = viewModel::logWarmupRamp,
         onReplaceOccurrenceEntry = { entryId ->
             state.activeOccurrence?.occurrenceId?.let { replacementViewModel.open(it, entryId) }
         },
@@ -459,6 +462,7 @@ fun WorkoutLoggerScreen(
     onDismissShortRestCoaching: () -> Unit,
     onWarmupPreparationToggled: (WarmupAction) -> Unit,
     onToggleWarmupGuidance: () -> Unit,
+    onLogWarmupRamp: (Long, Int) -> Unit,
     onReplaceOccurrenceEntry: (Long) -> Unit,
     onBackdatedDateTimePicked: (Long, Int, Int) -> Boolean,
     onClearBackdated: () -> Unit,
@@ -906,7 +910,10 @@ fun WorkoutLoggerScreen(
                         guidance = warmup,
                         checked = state.warmupPreparationChecked,
                         weightUnit = state.weightUnit,
+                        writeInProgress = state.draftWriteInProgress,
+                        rampWriteFailed = state.warmupRampWriteFailed,
                         onPreparationToggled = onWarmupPreparationToggled,
+                        onLogRamp = onLogWarmupRamp,
                         onHide = onToggleWarmupGuidance
                     )
                 }
@@ -1739,7 +1746,10 @@ private fun WarmupGuidanceSection(
     guidance: WarmupGuidance,
     checked: Set<WarmupAction>,
     weightUnit: WeightUnit,
+    writeInProgress: Boolean,
+    rampWriteFailed: Boolean,
     onPreparationToggled: (WarmupAction) -> Unit,
+    onLogRamp: (Long, Int) -> Unit,
     onHide: () -> Unit
 ) {
     Card {
@@ -1766,6 +1776,13 @@ private fun WarmupGuidanceSection(
                 text = stringResource(Res.string.logger_warmup_guidance_note),
                 style = MaterialTheme.typography.bodySmall
             )
+            if (rampWriteFailed) {
+                Text(
+                    text = stringResource(Res.string.logger_warmup_guidance_ramp_failed),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
             Text(
                 text = stringResource(Res.string.logger_warmup_guidance_preparation),
                 style = MaterialTheme.typography.titleSmall
@@ -1793,16 +1810,29 @@ private fun WarmupGuidanceSection(
                 guidance.ramps.forEach { plan ->
                     Column {
                         Text(plan.exerciseName)
-                        plan.rampSets.forEach { ramp ->
-                            Text(
-                                text = stringResource(
-                                    Res.string.logger_warmup_guidance_ramp_line,
-                                    ramp.percentOfWorkingWeight,
-                                    ramp.reps,
-                                    loadWeightText(LoadKind.EXTERNAL, ramp.weightKg, weightUnit)
-                                ),
-                                style = MaterialTheme.typography.bodySmall
-                            )
+                        plan.rampSets.forEachIndexed { index, ramp ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(
+                                        Res.string.logger_warmup_guidance_ramp_line,
+                                        ramp.percentOfWorkingWeight,
+                                        ramp.reps,
+                                        loadWeightText(LoadKind.EXTERNAL, ramp.weightKg, weightUnit)
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                TextButton(
+                                    onClick = { onLogRamp(plan.occurrenceEntryId, index) },
+                                    enabled = !writeInProgress
+                                ) {
+                                    Text(stringResource(Res.string.logger_warmup_guidance_log_ramp))
+                                }
+                            }
                         }
                     }
                 }

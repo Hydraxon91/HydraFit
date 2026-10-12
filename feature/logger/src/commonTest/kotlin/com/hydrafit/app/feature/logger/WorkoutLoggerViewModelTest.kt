@@ -4206,6 +4206,81 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun loggingASuggestedRampRecordsOneWarmupWithoutAdvancingProgress() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.logWarmupRamp(40L, rampIndex = 0)
+        advanceUntilIdle()
+
+        val recorded = repository.all().single()
+        assertTrue(recorded.isWarmup)
+        assertEquals(40.0, recorded.weightKg)
+        assertEquals(8, recorded.reps)
+        assertEquals(40L, recorded.occurrenceEntryId)
+        assertEquals(LoadKind.EXTERNAL, recorded.loadKind)
+        assertEquals(0, viewModel.state.value.guidedProgress?.performedSets)
+        assertNull(viewModel.state.value.restTimer)
+        assertFalse(viewModel.state.value.warmupRampWriteFailed)
+    }
+
+    @Test
+    fun aRampIndexOutsideThePlanWritesNothing() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.logWarmupRamp(40L, rampIndex = 99)
+        advanceUntilIdle()
+
+        assertTrue(repository.all().isEmpty())
+    }
+
+    @Test
+    fun aFailedRampWriteKeepsTheSuggestionForRetry() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempt = 1)
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.logWarmupRamp(40L, rampIndex = 1)
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.warmupRampWriteFailed)
+        assertFalse(viewModel.state.value.guidedSetWriteFailed)
+        assertTrue(repository.all().isEmpty())
+
+        viewModel.logWarmupRamp(40L, rampIndex = 1)
+        advanceUntilIdle()
+        assertFalse(viewModel.state.value.warmupRampWriteFailed)
+        assertEquals(60.0, repository.all().single().weightKg)
+    }
+
+    @Test
+    fun aSecondRampTapDuringAnInFlightWriteIsIgnored() = runTest(dispatcher) {
+        val writeGate = CompletableDeferred<Unit>()
+        val repository = FakeWorkoutLogRepository().apply { addGate = writeGate }
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.logWarmupRamp(40L, rampIndex = 0)
+        runCurrent()
+        viewModel.logWarmupRamp(40L, rampIndex = 0)
+        runCurrent()
+        writeGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(1, repository.all().size)
+    }
+
+    @Test
     fun liveGuidedCompletionStartsTimerOnlyAfterSuccessfulWriteAndUsesNow() = runTimerTest {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
