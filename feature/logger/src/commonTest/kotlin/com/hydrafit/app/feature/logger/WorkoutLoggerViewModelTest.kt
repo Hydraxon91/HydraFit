@@ -4442,6 +4442,182 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun editingPreparationSavesTransientlyAndCancelWritesNothing() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.editWarmupPreparation(WarmupAction.LOWER_BODY_PRACTICE)
+        assertNotNull(viewModel.state.value.warmupEditor)
+        viewModel.onWarmupEditorRepsChanged("12")
+        viewModel.saveWarmupEditor()
+
+        assertNull(viewModel.state.value.warmupEditor)
+        val edited = preparationRow(viewModel, WarmupAction.LOWER_BODY_PRACTICE)
+        assertEquals(12, edited.reps)
+        assertTrue(edited.edited)
+        assertTrue(repository.all().isEmpty())
+
+        viewModel.editWarmupPreparation(WarmupAction.LOWER_BODY_PRACTICE)
+        viewModel.onWarmupEditorRepsChanged("99")
+        viewModel.cancelWarmupEditor()
+        assertNull(viewModel.state.value.warmupEditor)
+        assertEquals(12, preparationRow(viewModel, WarmupAction.LOWER_BODY_PRACTICE).reps)
+    }
+
+    @Test
+    fun resettingAnEditedPreparationRestoresItsDefault() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.editWarmupPreparation(WarmupAction.LOWER_BODY_PRACTICE)
+        viewModel.onWarmupEditorRepsChanged("12")
+        viewModel.saveWarmupEditor()
+        viewModel.editWarmupPreparation(WarmupAction.LOWER_BODY_PRACTICE)
+        viewModel.resetWarmupEditor()
+
+        val row = preparationRow(viewModel, WarmupAction.LOWER_BODY_PRACTICE)
+        assertEquals(10, row.reps)
+        assertFalse(row.edited)
+    }
+
+    @Test
+    fun skippingAndRestoringPreparationRemovesAndReturnsTheRow() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.toggleWarmupPreparationSkipped(WarmupAction.LOWER_BODY_PRACTICE)
+        val view = assertNotNull(viewModel.state.value.visibleWarmupView)
+        assertTrue(view.preparation.none { it.action == WarmupAction.LOWER_BODY_PRACTICE })
+
+        viewModel.restoreSkippedWarmupPreparation()
+        val restored = assertNotNull(viewModel.state.value.visibleWarmupView)
+        assertTrue(restored.preparation.any { it.action == WarmupAction.LOWER_BODY_PRACTICE })
+    }
+
+    @Test
+    fun anEditedRampLogsItsEditedValuesAndDropsItsPercentage() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.editWarmupRamp(40L, rampIndex = 0)
+        viewModel.onWarmupEditorRepsChanged("6")
+        viewModel.onWarmupEditorWeightChanged("45")
+        viewModel.saveWarmupEditor()
+
+        val row = assertNotNull(viewModel.state.value.visibleWarmupView)
+            .ramps.single()
+            .rows
+            .first()
+        assertEquals(6, row.reps)
+        assertEquals(45.0, row.weightKg)
+        assertNull(row.percentOfWorkingWeight)
+
+        viewModel.logWarmupRamp(40L, rampIndex = 0)
+        advanceUntilIdle()
+
+        val recorded = repository.all().single()
+        assertTrue(recorded.isWarmup)
+        assertEquals(45.0, recorded.weightKg)
+        assertEquals(6, recorded.reps)
+    }
+
+    @Test
+    fun anEditedRampAboveTheEquipmentCeilingCannotBeSaved() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        val occurrences = twoOccurrences().map { occurrence ->
+            occurrence.copy(
+                entries = occurrence.entries.map {
+                    it.copy(requiredEquipment = setOf(EquipmentTag.BARBELL))
+                }
+            )
+        }
+        schedule.set(blockActivation(), occurrences, selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            equipment = WorkoutLoggerEquipment(
+                FakeEquipment(
+                    listOf(
+                        Equipment(
+                            id = EquipmentTag.BARBELL,
+                            name = "Barbell",
+                            isBuiltIn = true,
+                            maxWeightKg = 50.0
+                        )
+                    )
+                ),
+                FakeSelection(setOf(EquipmentTag.BARBELL))
+            )
+        )
+        advanceUntilIdle()
+
+        viewModel.editWarmupRamp(40L, rampIndex = 0)
+        viewModel.onWarmupEditorWeightChanged("80")
+
+        val editor = assertNotNull(viewModel.state.value.warmupEditor)
+        assertTrue(editor.weightExceedsCeiling)
+        assertFalse(editor.canSave)
+    }
+
+    @Test
+    fun aReplacedSlotDropsItsRampEdit() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.editWarmupRamp(40L, rampIndex = 0)
+        viewModel.onWarmupEditorWeightChanged("45")
+        viewModel.saveWarmupEditor()
+        assertNull(
+            assertNotNull(viewModel.state.value.visibleWarmupView)
+                .ramps.single().rows.first().percentOfWorkingWeight
+        )
+
+        val replaced = twoOccurrences().map { occurrence ->
+            if (occurrence.id == 30L) {
+                occurrence.copy(
+                    revision = 2,
+                    entries = occurrence.entries.map { it.copy(weightKg = 60.0) }
+                )
+            } else {
+                occurrence
+            }
+        }
+        schedule.set(blockActivation(), replaced, selectedOccurrenceId = 30L)
+        advanceUntilIdle()
+
+        val row = assertNotNull(viewModel.state.value.visibleWarmupView)
+            .ramps.single().rows.first()
+        assertEquals(25.0, row.weightKg)
+        assertEquals(40, row.percentOfWorkingWeight)
+        assertTrue(viewModel.state.value.warmupRampEdits.isEmpty())
+    }
+
+    private fun preparationRow(
+        viewModel: WorkoutLoggerViewModel,
+        action: WarmupAction
+    ): WarmupPreparationRow {
+        val view = assertNotNull(viewModel.state.value.visibleWarmupView)
+        return view.preparation.first { it.action == action }
+    }
+
+    @Test
     fun liveGuidedCompletionStartsTimerOnlyAfterSuccessfulWriteAndUsesNow() = runTimerTest {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()

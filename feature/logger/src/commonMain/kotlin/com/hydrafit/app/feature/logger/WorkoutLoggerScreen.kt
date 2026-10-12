@@ -71,8 +71,6 @@ import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.WarmupAction
-import com.hydrafit.app.core.domain.workout.WarmupGuidance
-import com.hydrafit.app.core.domain.workout.WarmupPreparationItem
 import com.hydrafit.app.core.navigation.FeatureDestination
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.focus_full_body
@@ -216,16 +214,26 @@ import hydrafit.feature.logger.generated.resources.logger_warmup_action_light_pu
 import hydrafit.feature.logger.generated.resources.logger_warmup_action_light_push
 import hydrafit.feature.logger.generated.resources.logger_warmup_action_lower_body
 import hydrafit.feature.logger.generated.resources.logger_warmup_action_shoulder_circles
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_edit
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_edited_suffix
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_editor_minutes
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_editor_reset
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_editor_title
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_editor_weight_exceeds
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_hide
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_item_reps
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_item_timed
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_lock_note
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_log_ramp
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_note
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_preparation
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_ramp_failed
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_ramp_line
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_ramp_line_edited
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_ramps_title
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_restore_skipped
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_show
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_skip
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_title
 import hydrafit.feature.logger.generated.resources.logger_warmup_suffix
 import hydrafit.feature.logger.generated.resources.logger_weight_label
@@ -376,6 +384,16 @@ fun WorkoutLoggerRoute(
         onWarmupPreparationToggled = viewModel::onWarmupPreparationToggled,
         onToggleWarmupGuidance = viewModel::onToggleWarmupGuidance,
         onLogWarmupRamp = viewModel::logWarmupRamp,
+        onEditWarmupPreparation = viewModel::editWarmupPreparation,
+        onSkipWarmupPreparation = viewModel::toggleWarmupPreparationSkipped,
+        onRestoreSkippedWarmupPreparation = viewModel::restoreSkippedWarmupPreparation,
+        onEditWarmupRamp = viewModel::editWarmupRamp,
+        onWarmupEditorRepsChanged = viewModel::onWarmupEditorRepsChanged,
+        onWarmupEditorDurationChanged = viewModel::onWarmupEditorDurationChanged,
+        onWarmupEditorWeightChanged = viewModel::onWarmupEditorWeightChanged,
+        onResetWarmupEditor = viewModel::resetWarmupEditor,
+        onCancelWarmupEditor = viewModel::cancelWarmupEditor,
+        onSaveWarmupEditor = viewModel::saveWarmupEditor,
         onReplaceOccurrenceEntry = { entryId ->
             state.activeOccurrence?.occurrenceId?.let { replacementViewModel.open(it, entryId) }
         },
@@ -463,6 +481,16 @@ fun WorkoutLoggerScreen(
     onWarmupPreparationToggled: (WarmupAction) -> Unit,
     onToggleWarmupGuidance: () -> Unit,
     onLogWarmupRamp: (Long, Int) -> Unit,
+    onEditWarmupPreparation: (WarmupAction) -> Unit,
+    onSkipWarmupPreparation: (WarmupAction) -> Unit,
+    onRestoreSkippedWarmupPreparation: () -> Unit,
+    onEditWarmupRamp: (Long, Int) -> Unit,
+    onWarmupEditorRepsChanged: (String) -> Unit,
+    onWarmupEditorDurationChanged: (String) -> Unit,
+    onWarmupEditorWeightChanged: (String) -> Unit,
+    onResetWarmupEditor: () -> Unit,
+    onCancelWarmupEditor: () -> Unit,
+    onSaveWarmupEditor: () -> Unit,
     onReplaceOccurrenceEntry: (Long) -> Unit,
     onBackdatedDateTimePicked: (Long, Int, Int) -> Boolean,
     onClearBackdated: () -> Unit,
@@ -903,17 +931,22 @@ fun WorkoutLoggerScreen(
                     }
                 }
             }
-            val warmup = state.visibleWarmupGuidance
+            val warmup = state.visibleWarmupView
             if (warmup != null) {
                 item {
                     WarmupGuidanceSection(
-                        guidance = warmup,
+                        view = warmup,
                         checked = state.warmupPreparationChecked,
                         weightUnit = state.weightUnit,
                         writeInProgress = state.draftWriteInProgress,
                         rampWriteFailed = state.warmupRampWriteFailed,
+                        hasSkippedPreparation = state.warmupPreparationSkipped.isNotEmpty(),
                         onPreparationToggled = onWarmupPreparationToggled,
+                        onEditPreparation = onEditWarmupPreparation,
+                        onSkipPreparation = onSkipWarmupPreparation,
+                        onRestoreSkipped = onRestoreSkippedWarmupPreparation,
                         onLogRamp = onLogWarmupRamp,
+                        onEditRamp = onEditWarmupRamp,
                         onHide = onToggleWarmupGuidance
                     )
                 }
@@ -1187,6 +1220,18 @@ fun WorkoutLoggerScreen(
             onTimeChanged = onLoggedSetTimeChanged,
             onCancel = onCancelLoggedSetEdit,
             onSave = onSaveLoggedSetEdit
+        )
+    }
+    state.warmupEditor?.let { editor ->
+        WarmupGuidanceEditorDialog(
+            editor = editor,
+            weightUnit = state.weightUnit,
+            onRepsChanged = onWarmupEditorRepsChanged,
+            onDurationChanged = onWarmupEditorDurationChanged,
+            onWeightChanged = onWarmupEditorWeightChanged,
+            onReset = onResetWarmupEditor,
+            onCancel = onCancelWarmupEditor,
+            onSave = onSaveWarmupEditor
         )
     }
     state.legacyResolution?.let { resolution ->
@@ -1739,17 +1784,22 @@ private fun ActiveOccurrenceSection(
 /**
  * The optional warm-up guidance for the active guided workout: a preparation check-list and the
  * suggested ramp sets per movement pattern. It suggests only and never edits the frozen
- * prescription.
+ * prescription; transient edits live in the Logger's in-memory state.
  */
 @Composable
 private fun WarmupGuidanceSection(
-    guidance: WarmupGuidance,
+    view: WarmupGuidanceView,
     checked: Set<WarmupAction>,
     weightUnit: WeightUnit,
     writeInProgress: Boolean,
     rampWriteFailed: Boolean,
+    hasSkippedPreparation: Boolean,
     onPreparationToggled: (WarmupAction) -> Unit,
+    onEditPreparation: (WarmupAction) -> Unit,
+    onSkipPreparation: (WarmupAction) -> Unit,
+    onRestoreSkipped: () -> Unit,
     onLogRamp: (Long, Int) -> Unit,
+    onEditRamp: (Long, Int) -> Unit,
     onHide: () -> Unit
 ) {
     Card {
@@ -1776,6 +1826,10 @@ private fun WarmupGuidanceSection(
                 text = stringResource(Res.string.logger_warmup_guidance_note),
                 style = MaterialTheme.typography.bodySmall
             )
+            Text(
+                text = stringResource(Res.string.logger_warmup_guidance_lock_note),
+                style = MaterialTheme.typography.bodySmall
+            )
             if (rampWriteFailed) {
                 Text(
                     text = stringResource(Res.string.logger_warmup_guidance_ramp_failed),
@@ -1783,51 +1837,69 @@ private fun WarmupGuidanceSection(
                     style = MaterialTheme.typography.bodySmall
                 )
             }
-            Text(
-                text = stringResource(Res.string.logger_warmup_guidance_preparation),
-                style = MaterialTheme.typography.titleSmall
-            )
-            guidance.preparation.forEach { item ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onPreparationToggled(item.action) },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Checkbox(
-                        checked = item.action in checked,
-                        onCheckedChange = { onPreparationToggled(item.action) }
-                    )
-                    Text(warmupPreparationText(item))
+            if (view.preparation.isNotEmpty()) {
+                Text(
+                    text = stringResource(Res.string.logger_warmup_guidance_preparation),
+                    style = MaterialTheme.typography.titleSmall
+                )
+                view.preparation.forEach { row ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Checkbox(
+                            checked = row.action in checked,
+                            onCheckedChange = { onPreparationToggled(row.action) }
+                        )
+                        Text(
+                            text = warmupPreparationText(row),
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = { onEditPreparation(row.action) }) {
+                            Text(stringResource(Res.string.logger_warmup_guidance_edit))
+                        }
+                        TextButton(onClick = { onSkipPreparation(row.action) }) {
+                            Text(stringResource(Res.string.logger_warmup_guidance_skip))
+                        }
+                    }
+                }
+                if (hasSkippedPreparation) {
+                    TextButton(onClick = onRestoreSkipped) {
+                        Text(stringResource(Res.string.logger_warmup_guidance_restore_skipped))
+                    }
                 }
             }
-            if (guidance.ramps.isNotEmpty()) {
+            if (view.ramps.isNotEmpty()) {
                 Text(
                     text = stringResource(Res.string.logger_warmup_guidance_ramps_title),
                     style = MaterialTheme.typography.titleSmall
                 )
-                guidance.ramps.forEach { plan ->
+                view.ramps.forEach { plan ->
                     Column {
                         Text(plan.exerciseName)
-                        plan.rampSets.forEachIndexed { index, ramp ->
+                        plan.rows.forEach { row ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Text(
-                                    text = stringResource(
-                                        Res.string.logger_warmup_guidance_ramp_line,
-                                        ramp.percentOfWorkingWeight,
-                                        ramp.reps,
-                                        loadWeightText(LoadKind.EXTERNAL, ramp.weightKg, weightUnit)
-                                    ),
+                                    text = warmupRampText(row, weightUnit),
                                     style = MaterialTheme.typography.bodySmall,
                                     modifier = Modifier.weight(1f)
                                 )
                                 TextButton(
-                                    onClick = { onLogRamp(plan.occurrenceEntryId, index) },
+                                    onClick = {
+                                        onEditRamp(plan.occurrenceEntryId, row.key.rampIndex)
+                                    }
+                                ) {
+                                    Text(stringResource(Res.string.logger_warmup_guidance_edit))
+                                }
+                                TextButton(
+                                    onClick = {
+                                        onLogRamp(plan.occurrenceEntryId, row.key.rampIndex)
+                                    },
                                     enabled = !writeInProgress
                                 ) {
                                     Text(stringResource(Res.string.logger_warmup_guidance_log_ramp))
@@ -1843,11 +1915,11 @@ private fun WarmupGuidanceSection(
 
 /** The localized preparation line: a timed item shows minutes, a practice item shows reps. */
 @Composable
-private fun warmupPreparationText(item: WarmupPreparationItem): String {
-    val label = stringResource(item.action.labelResource())
-    val reps = item.reps
-    val durationSeconds = item.durationSeconds
-    return when {
+private fun warmupPreparationText(row: WarmupPreparationRow): String {
+    val label = stringResource(row.action.labelResource())
+    val reps = row.reps
+    val durationSeconds = row.durationSeconds
+    val base = when {
         durationSeconds != null -> stringResource(
             Res.string.logger_warmup_guidance_item_timed,
             label,
@@ -1856,6 +1928,98 @@ private fun warmupPreparationText(item: WarmupPreparationItem): String {
         reps != null -> stringResource(Res.string.logger_warmup_guidance_item_reps, label, reps)
         else -> label
     }
+    return if (row.edited) {
+        base + stringResource(Res.string.logger_warmup_guidance_edited_suffix)
+    } else {
+        base
+    }
+}
+
+/** A ramp line keeps its default percentage until it is edited, then shows only its actual values. */
+@Composable
+private fun warmupRampText(row: WarmupRampRow, weightUnit: WeightUnit): String {
+    val load = loadWeightText(LoadKind.EXTERNAL, row.weightKg, weightUnit)
+    val percent = row.percentOfWorkingWeight
+    return if (percent != null) {
+        stringResource(Res.string.logger_warmup_guidance_ramp_line, percent, row.reps, load)
+    } else {
+        stringResource(Res.string.logger_warmup_guidance_ramp_line_edited, row.reps, load)
+    }
+}
+
+/** The transient editor for one preparation or ramp value; Save changes only the in-memory guidance. */
+@Composable
+private fun WarmupGuidanceEditorDialog(
+    editor: WarmupGuidanceEditor,
+    weightUnit: WeightUnit,
+    onRepsChanged: (String) -> Unit,
+    onDurationChanged: (String) -> Unit,
+    onWeightChanged: (String) -> Unit,
+    onReset: () -> Unit,
+    onCancel: () -> Unit,
+    onSave: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text(stringResource(Res.string.logger_warmup_guidance_editor_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (editor.timed) {
+                    OutlinedTextField(
+                        value = editor.durationInput,
+                        onValueChange = onDurationChanged,
+                        label = {
+                            Text(stringResource(Res.string.logger_warmup_guidance_editor_minutes))
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = editor.repsInput,
+                        onValueChange = onRepsChanged,
+                        label = { Text(stringResource(Res.string.logger_reps_label)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                }
+                if (editor.hasWeight) {
+                    OutlinedTextField(
+                        value = editor.weightInput,
+                        onValueChange = onWeightChanged,
+                        label = {
+                            Text(stringResource(Res.string.logger_weight_label, weightUnit.label))
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true
+                    )
+                    if (editor.weightExceedsCeiling) {
+                        Text(
+                            text = stringResource(
+                                Res.string.logger_warmup_guidance_editor_weight_exceeds,
+                                loadWeightText(LoadKind.EXTERNAL, editor.ceilingKg, weightUnit)
+                            ),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+                TextButton(onClick = onReset) {
+                    Text(stringResource(Res.string.logger_warmup_guidance_editor_reset))
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onSave, enabled = editor.canSave) {
+                Text(stringResource(Res.string.logger_note_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancel) {
+                Text(stringResource(Res.string.logger_cancel))
+            }
+        }
+    )
 }
 
 /** The localized label for a suggested preparation action. */

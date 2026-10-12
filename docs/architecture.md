@@ -735,7 +735,15 @@ through the existing guided single-write path with its warm-up classification fr
 so a stale guided intent cannot reclassify it and it never advances guided progress or starts a rest
 prompt. Ramp and guided-set writes stay out of the planner baseline, recent weights, progression and
 fatigue: those paths already exclude warm-ups. The existing slot-freeze rule is unchanged — an
-attributed warm-up, including a recorded ramp, still refuses a replacement for that slot.
+attributed warm-up, including a recorded ramp, still refuses a replacement for that slot, and the card
+states that rule before any ramp is recorded.
+
+Preparation values and ramp reps/load are editable through a transient in-memory editor: Save changes
+only the shown guidance, Cancel writes nothing, and a ramp is still recorded by its own action. An
+edited ramp row shows its actual values instead of a default percentage, an edit is rejected when it
+exceeds the same equipment ceiling, and a slot whose prescription changes drops its edit so a value
+typed for the old exercise is never shown against the replacement. Edits are scoped to one workout and
+are not persisted.
 
 ## 2. Decision log
 

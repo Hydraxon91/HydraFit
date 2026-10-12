@@ -248,4 +248,14 @@
     <string name="logger_warmup_guidance_ramp_line">%1$d%% × %2$d · %3$s</string>
     <string name="logger_warmup_guidance_log_ramp">Log warm-up</string>
     <string name="logger_warmup_guidance_ramp_failed">That warm-up set was not saved. Try again.</string>
+    <string name="logger_warmup_guidance_lock_note">Recording a warm-up for an exercise locks that slot for this workout, so it can no longer be replaced.</string>
+    <string name="logger_warmup_guidance_edit">Edit</string>
+    <string name="logger_warmup_guidance_skip">Skip</string>
+    <string name="logger_warmup_guidance_restore_skipped">Restore skipped</string>
+    <string name="logger_warmup_guidance_edited_suffix"> (edited)</string>
+    <string name="logger_warmup_guidance_ramp_line_edited">%1$d × %2$s (edited)</string>
+    <string name="logger_warmup_guidance_editor_title">Edit warm-up</string>
+    <string name="logger_warmup_guidance_editor_minutes">Minutes</string>
+    <string name="logger_warmup_guidance_editor_reset">Reset to default</string>
+    <string name="logger_warmup_guidance_editor_weight_exceeds">That load is above your equipment\'s %1$s limit.</string>
 </resources>

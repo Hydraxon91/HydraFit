@@ -170,6 +170,11 @@ hidden flag are in-memory and scoped to one occurrence; the recorded ramp is an 
 written through the guided single-write path with its classification frozen, so it survives restart,
 never advances progress or starts a rest prompt, and still freezes its slot against replacement. The
 action labels are localized resources keyed by the `WarmupAction` enum, never strings in the domain.
+Preparation values and ramp reps/load are editable through a transient in-memory editor
+(`WarmupGuidanceView` + `WarmupGuidanceEditor`): Save updates only the shown guidance, Cancel writes
+nothing, an edited ramp row drops its default percentage, an edit above the equipment ceiling is
+refused, and a changed slot drops its edit. The card also states the slot-lock rule before recording.
+Skipped preparation items are in-memory and restorable.
 
 `OccurrenceReplacementViewModel` delegates candidate loading/confirmation to
 `ReplaceOccurrenceExerciseUseCase`, using fresh local planner inputs. The dialog is available from

@@ -11,6 +11,8 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.RestCountdown
 import com.hydrafit.app.core.domain.workout.WarmupAction
 import com.hydrafit.app.core.domain.workout.WarmupGuidance
+import com.hydrafit.app.core.domain.workout.WarmupPreparationItem
+import com.hydrafit.app.core.domain.workout.WarmupRampSet
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSummary
@@ -235,6 +237,14 @@ data class WorkoutLoggerUiState(
     val warmupGuidanceHidden: Boolean = false,
     /** True when the last suggested ramp write failed; the suggestion stays available to retry. */
     val warmupRampWriteFailed: Boolean = false,
+    /** Transient preparation value edits for the current workout; never persisted. */
+    val warmupPreparationEdits: Map<WarmupAction, WarmupPreparationItem> = emptyMap(),
+    /** Preparation items the user skipped for the current workout; never persisted. */
+    val warmupPreparationSkipped: Set<WarmupAction> = emptySet(),
+    /** Transient ramp value edits for the current workout, keyed by slot and row; never persisted. */
+    val warmupRampEdits: Map<WarmupRampKey, WarmupRampSet> = emptyMap(),
+    /** The guidance value open in the transient editor, or null when none is open. */
+    val warmupEditor: WarmupGuidanceEditor? = null,
     /** True when the last guided single-set write failed; the pending set is still available to retry. */
     val guidedSetWriteFailed: Boolean = false,
     /** The occurrence entry whose current set was explicitly started; it is not performed work. */
@@ -300,6 +310,20 @@ data class WorkoutLoggerUiState(
      */
     val visibleWarmupGuidance: WarmupGuidance?
         get() = warmupGuidance?.takeIf { isGuidedActive && !warmupGuidanceHidden && !it.isEmpty }
+
+    /**
+     * The warm-up guidance rows the UI renders, with the current workout's transient edits and skips
+     * applied. Null when nothing is shown.
+     */
+    val visibleWarmupView: WarmupGuidanceView?
+        get() = visibleWarmupGuidance?.let { guidance ->
+            buildWarmupGuidanceView(
+                guidance = guidance,
+                preparationEdits = warmupPreparationEdits,
+                skipped = warmupPreparationSkipped,
+                rampEdits = warmupRampEdits
+            ).takeIf { !it.isEmpty }
+        }
 
     val canStartRestTimer: Boolean
         get() = restDurationSeconds.toLongOrNull()?.let {

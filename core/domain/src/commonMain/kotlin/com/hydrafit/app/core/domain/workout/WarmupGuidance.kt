@@ -78,6 +78,15 @@ data class WarmupRampPlan(
         prescribedReps == entry.reps &&
         loadKind == entry.loadKind &&
         loadCapability == entry.loadCapability
+
+    /** True when [other] describes the same frozen prescription for the same slot. */
+    fun samePrescriptionAs(other: WarmupRampPlan): Boolean = occurrenceEntryId == other.occurrenceEntryId &&
+        exerciseId == other.exerciseId &&
+        movementPattern == other.movementPattern &&
+        workingWeightKg == other.workingWeightKg &&
+        prescribedReps == other.prescribedReps &&
+        loadKind == other.loadKind &&
+        loadCapability == other.loadCapability
 }
 
 /** The optional warm-up guidance for an active occurrence: preparation and per-pattern ramps. */

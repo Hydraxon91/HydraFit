@@ -166,7 +166,10 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   edits the prescription, **Hide**/**Show warm-up** toggles it, and preparation rows check off
   individually. A ramp never advances guided progress, never starts a rest prompt, and still freezes
   its slot against replacement. Preparation is pattern-selected and bodyweight/unknown-load targets
-  get no ramp.
+  get no ramp. The card states the slot-lock rule before a ramp is recorded. Preparation values and
+  ramp reps/load are editable through a transient editor (Save changes only the shown guidance, Cancel
+  writes nothing, an edited ramp drops its default percentage and is refused above the equipment
+  ceiling), preparation items can be skipped and restored, and a replaced slot drops its edit.
   **2026-10-12 host verification:** `:feature:logger` (including the new
   `WarmupGuidancePresentationTest` and ViewModel ramp/scope/recreation cases) and `:core:domain`
   (including `WarmupGuidanceTest`) pass with zero failures/errors/skips; `ktlintCheck` and

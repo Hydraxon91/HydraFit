@@ -1,0 +1,89 @@
+package com.hydrafit.app.feature.logger
+
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WarmupAction
+import com.hydrafit.app.core.domain.workout.WarmupGuidance
+import com.hydrafit.app.core.domain.workout.WarmupPreparationItem
+import com.hydrafit.app.core.domain.workout.WarmupRampPlan
+import com.hydrafit.app.core.domain.workout.WarmupRampSet
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+class WarmupGuidanceViewTest {
+
+    private val guidance = WarmupGuidance(
+        preparation = listOf(
+            WarmupPreparationItem(WarmupAction.EASY_GENERAL_MOVEMENT, durationSeconds = 180),
+            WarmupPreparationItem(WarmupAction.LOWER_BODY_PRACTICE, reps = 10)
+        ),
+        ramps = listOf(
+            WarmupRampPlan(
+                occurrenceEntryId = 40L,
+                exerciseId = "back-squat",
+                exerciseName = "Back Squat",
+                movementPattern = MovementPattern.SQUAT,
+                workingWeightKg = 100.0,
+                prescribedReps = 8,
+                loadKind = LoadKind.EXTERNAL,
+                loadCapability = ExerciseLoadCapability.EXTERNAL,
+                rampSets = listOf(WarmupRampSet(40, 8, 40.0))
+            )
+        )
+    )
+
+    @Test
+    fun defaultsRenderWithoutEditsAndKeepTheirPercentage() {
+        val view = buildWarmupGuidanceView(guidance)
+
+        assertEquals(2, view.preparation.size)
+        assertFalse(view.preparation.any { it.edited })
+        assertEquals(40, view.ramps.single().rows.single().percentOfWorkingWeight)
+    }
+
+    @Test
+    fun appliesPreparationEditsAndRemovesSkippedItems() {
+        val view = buildWarmupGuidanceView(
+            guidance,
+            preparationEdits = mapOf(
+                WarmupAction.LOWER_BODY_PRACTICE to
+                    WarmupPreparationItem(WarmupAction.LOWER_BODY_PRACTICE, reps = 15)
+            ),
+            skipped = setOf(WarmupAction.EASY_GENERAL_MOVEMENT)
+        )
+
+        assertEquals(listOf(WarmupAction.LOWER_BODY_PRACTICE), view.preparation.map { it.action })
+        val row = view.preparation.single()
+        assertEquals(15, row.reps)
+        assertTrue(row.edited)
+    }
+
+    @Test
+    fun anEditedRampDropsItsDefaultPercentage() {
+        val key = WarmupRampKey(occurrenceEntryId = 40L, rampIndex = 0)
+        val view = buildWarmupGuidanceView(
+            guidance,
+            rampEdits = mapOf(
+                key to WarmupRampSet(percentOfWorkingWeight = 40, reps = 6, weightKg = 45.0)
+            )
+        )
+
+        val row = view.ramps.single().rows.single()
+        assertEquals(6, row.reps)
+        assertEquals(45.0, row.weightKg)
+        assertNull(row.percentOfWorkingWeight)
+    }
+
+    @Test
+    fun anEmptyGuidanceViewReportsItselfEmpty() {
+        val empty = buildWarmupGuidanceView(
+            WarmupGuidance(preparation = emptyList(), ramps = emptyList())
+        )
+
+        assertTrue(empty.isEmpty)
+    }
+}
