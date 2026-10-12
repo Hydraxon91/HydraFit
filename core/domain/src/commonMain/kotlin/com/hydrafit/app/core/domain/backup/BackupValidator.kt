@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.domain.backup
 
 import com.hydrafit.app.core.domain.engine.FatigueSetEffect
+import com.hydrafit.app.core.domain.engine.FrozenPlanExplanation
 import com.hydrafit.app.core.domain.engine.LoadBaselineSource
 import com.hydrafit.app.core.domain.engine.LoadUnavailableReason
 import com.hydrafit.app.core.domain.engine.PlanAttribution
@@ -46,6 +47,12 @@ class BackupValidator(private val catalog: BackupCatalog) {
         val planIds = uniqueBy(file.plans) { it.id }
         val dayIds = uniqueBy(file.planDays) { it.id }
         uniqueBy(file.planEntries) { it.id }
+        val planDaysById = file.planDays.associateBy { it.id }
+        val planSlots = file.planEntries.mapNotNull { entry ->
+            planDaysById[entry.dayId]?.let { day ->
+                Triple(day.planId, day.dayIndex, entry.position)
+            }
+        }.toSet()
         val routineIds = uniqueBy(file.routines) { it.id }
         val routineWorkoutIds = uniqueBy(file.routineWorkouts) { it.id }
         uniqueBy(file.routineEntries) { it.id }
@@ -180,6 +187,12 @@ class BackupValidator(private val catalog: BackupCatalog) {
         }
         file.planTargetExplanations.forEach {
             reference(it.planId, planIds)
+            if (Triple(it.planId, it.dayIndex, it.position) !in planSlots) {
+                fail(BackupFailure.INVALID_REFERENCE)
+            }
+            if (it.explanationVersion != FrozenPlanExplanation.EXPLANATION_VERSION) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
             enum(it.baselineSource, LoadBaselineSource.entries)
             enum(it.progressionOutcome, ProgressionOutcome.entries)
             enum(it.setFatigueEffect, FatigueSetEffect.entries)
@@ -204,11 +217,17 @@ class BackupValidator(private val catalog: BackupCatalog) {
         }
         file.planTargetExplanationStates.forEach {
             reference(it.planId, planIds)
+            if (it.explanationVersion != FrozenPlanExplanation.EXPLANATION_VERSION) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
             enum(it.attribution, PlanAttribution.entries)
             finite(it.deloadVolumeScale)
             finite(it.deloadIntensityScale)
         }
         file.entryTargetExplanations.forEach {
+            if (it.explanationVersion != FrozenPlanExplanation.EXPLANATION_VERSION) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
             when (it.entryKind) {
                 ENTRY_KIND_ACTIVATION -> reference(it.entryId, activationEntryIds)
                 ENTRY_KIND_OCCURRENCE -> reference(it.entryId, occurrenceEntryIds)

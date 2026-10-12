@@ -256,6 +256,7 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
         )
 
     private fun PlanTargetExplanationState.toFrozenExplanation(): FrozenPlanExplanation? {
+        if (explanationVersion != FrozenPlanExplanation.EXPLANATION_VERSION.toLong()) return null
         val resolved = PlanAttribution.entries.firstOrNull { it.name == attribution } ?: return null
         return FrozenPlanExplanation(
             attribution = resolved,

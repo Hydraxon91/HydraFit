@@ -169,7 +169,7 @@ internal fun decodeTargetExplanation(
     setFinalSets: Long?,
     unavailableReason: String?
 ): ExerciseTargetExplanation? {
-    if (explanationVersion == null) return null
+    if (explanationVersion != FrozenPlanExplanation.EXPLANATION_VERSION.toLong()) return null
     // A recorded slot must decode completely. An incomplete or unreadable record is reported as
     // unavailable rather than reconstructed with plausible defaults, so a fabricated reason can
     // never be shown.

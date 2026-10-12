@@ -450,6 +450,34 @@ class SqlDelightPlanHistoryRepositoryTest {
         assertEquals(listOf("bench-press", "overhead-press"), exercises.map { it.exerciseId })
     }
 
+    @Test
+    fun anUnsupportedStoredSlotReasonVersionReadsAsUnavailable() = runTest {
+        repository.accept(explainedPlan())
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "UPDATE planTargetExplanation SET explanationVersion = 2 WHERE planId = 1"
+        )
+
+        val stored = requireNotNull(repository.latest())
+
+        assertNotNull(stored.explanation)
+        assertNull(stored.days.first().exercises.first().explanation)
+    }
+
+    @Test
+    fun anUnsupportedStoredPlanContextVersionHidesItsSlotReasons() = runTest {
+        repository.accept(explainedPlan())
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "UPDATE planTargetExplanationState SET explanationVersion = 2 WHERE planId = 1"
+        )
+
+        val stored = requireNotNull(repository.latest())
+
+        assertNull(stored.explanation)
+        assertTrue(stored.days.flatMap { it.exercises }.all { it.explanation == null })
+    }
+
     private fun aiExplainedPlan(): AcceptedPlan {
         val base = plan(PlannerEngineId.GEMINI_API, acceptedAt = 1L)
         val recorded = ExerciseTargetExplanation(

@@ -250,8 +250,9 @@ plus each `PlannedExercise.explanation` are written into `planTargetExplanation`
 data generated from the branches that actually ran; it never changes selection or prescription. A
 legacy plan has no state row and reads as unrecorded; a recorded slot whose reasons were cleared by a
 confirmed substitution reads as invalidated, because the read only attaches slot reasons when the
-plan-level context exists. Column groups are nullable and a present-but-incomplete record decodes as
-unavailable rather than with defaulted values, so a fabricated reason cannot be shown. **Deliberately
+  plan-level context exists. Column groups are nullable and a present-but-incomplete or unsupported-
+  version record decodes as unavailable rather than with defaulted values or v1 semantics, so a
+  fabricated reason cannot be shown; the stored row is retained. **Deliberately
 not persisted (F3, dropped):** the deterministic fatigue-skip candidate ids — the per-slot
 `setCount.fatigueEffect`, the volume assessment's own unmet reason and the persisted deload scales
 already record the fatigue/deload outcome, and raw catalog ids would go stale after a

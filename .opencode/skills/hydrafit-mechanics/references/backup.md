@@ -35,7 +35,11 @@ Catalog definitions/aliases are application-owned and excluded; unknown seed ids
 ids on canonical identities, duplicate ids/composite keys, dangling links, unsupported
 values and a payload startup maintenance would alter (`CustomExerciseDedupe` on a
 non-CAT-P7 name, `WorkoutSessionBackfill` on a null session id) are rejected with no
-writes. Credentials and on-device model bytes are excluded. Restore **stages** the
+writes. Target-explanation records must use the supported explanation version; plan-slot records
+must match an existing `(planId, dayIndex, position)` and have plan-level context, while frozen-entry
+records must reference an existing activation or occurrence entry. An unsupported explanation
+version already present in the database decodes as unavailable rather than with v1 semantics; the
+stored row is not deleted. Credentials and on-device model bytes are excluded. Restore **stages** the
 validated file in `stagedBackup`; `DatabaseStartupMaintenance` applies it at the next
 process start before seeding and before the first screen, so it never races a live
 writer. A failed apply rolls back, drops the staged row and records a one-time failure in

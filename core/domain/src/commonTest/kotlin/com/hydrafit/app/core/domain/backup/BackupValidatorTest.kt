@@ -246,6 +246,198 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun rejectsTargetReasonWithoutItsPlanContextOrSlot() {
+        validator.validate(targetReasonFile())
+        assertFailure(BackupFailure.INVALID_REFERENCE) {
+            targetReasonFile().copy(planTargetExplanationStates = emptyList())
+        }
+        assertFailure(BackupFailure.INVALID_REFERENCE) {
+            targetReasonFile().copy(
+                planTargetExplanations = listOf(targetExplanation(position = 1))
+            )
+        }
+    }
+
+    @Test
+    fun rejectsInvalidTargetReasonEnumsAndNonFiniteValues() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            targetReasonFile().copy(
+                planTargetExplanations = listOf(
+                    targetExplanation().copy(baselineSource = "NOT_A_SOURCE")
+                )
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            targetReasonFile().copy(
+                planTargetExplanations = listOf(targetExplanation().copy(baselineKg = Double.NaN))
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            targetReasonFile().copy(
+                planTargetExplanationStates = listOf(
+                    targetState().copy(attribution = "NOT_AN_ENGINE")
+                )
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            targetReasonFile().copy(
+                planTargetExplanationStates = listOf(
+                    targetState().copy(deloadIntensityScale = Double.POSITIVE_INFINITY)
+                )
+            )
+        }
+    }
+
+    @Test
+    fun rejectsUnsupportedTargetReasonVersionsAndDuplicateSlots() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            targetReasonFile().copy(
+                planTargetExplanations = listOf(targetExplanation().copy(explanationVersion = 2))
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            targetReasonFile().copy(
+                planTargetExplanationStates = listOf(targetState().copy(explanationVersion = 2))
+            )
+        }
+        assertFailure(BackupFailure.DUPLICATE_ID) {
+            targetReasonFile().copy(
+                planTargetExplanations = listOf(targetExplanation(), targetExplanation())
+            )
+        }
+    }
+
+    @Test
+    fun validatesFrozenEntryReasonReferencesKindEnumsNumbersAndVersion() {
+        val file = frozenEntryReasonFile()
+        validator.validate(file)
+        assertFailure(BackupFailure.INVALID_REFERENCE) {
+            file.copy(
+                entryTargetExplanations = listOf(entryExplanation("ACTIVATION", entryId = 999))
+            )
+        }
+        assertFailure(BackupFailure.INVALID_REFERENCE) {
+            file.copy(
+                entryTargetExplanations = listOf(entryExplanation("OCCURRENCE", entryId = 999))
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            file.copy(entryTargetExplanations = listOf(entryExplanation("UNKNOWN", 100)))
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            file.copy(
+                entryTargetExplanations = listOf(
+                    entryExplanation("ACTIVATION", 100).copy(setFatigueEffect = "NOT_AN_EFFECT")
+                )
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            file.copy(
+                entryTargetExplanations = listOf(
+                    entryExplanation("OCCURRENCE", 200).copy(aiProposedKg = Double.NaN)
+                )
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            file.copy(
+                entryTargetExplanations = listOf(
+                    entryExplanation("OCCURRENCE", 200).copy(explanationVersion = 2)
+                )
+            )
+        }
+    }
+
+    @Test
+    fun rejectsTargetReasonWhoseSlotCoordinatesDoNotMatchItsPlan() {
+        // Both plans exist and both carry context, so only the slot coordinate can reject the reason.
+        val twoPlans = targetReasonFile().copy(
+            plans = listOf(
+                BackupPlanRecord(7L, "DETERMINISTIC", 1L, 1, 1),
+                BackupPlanRecord(8L, "DETERMINISTIC", 2L, 2, 1)
+            ),
+            planTargetExplanationStates = listOf(targetState(), targetState().copy(planId = 8L))
+        )
+        validator.validate(twoPlans)
+
+        assertFailure(BackupFailure.INVALID_REFERENCE) {
+            twoPlans.copy(planTargetExplanations = listOf(targetExplanation().copy(planId = 8L)))
+        }
+        assertFailure(BackupFailure.INVALID_REFERENCE) {
+            twoPlans.copy(
+                planTargetExplanations = listOf(targetExplanation().copy(dayIndex = 5))
+            )
+        }
+    }
+
+    @Test
+    fun roundTripsRecordedTargetAndEntryReasonsThroughJson() {
+        val recordedPlanReason = targetExplanation().copy(
+            baselineSource = "RECENT_PERFORMANCE",
+            baselineRecentEstimateKg = 100.0,
+            baselineQualifyingSetCount = 3,
+            baselineKg = 100.0,
+            progressionOutcome = "APPLIED",
+            progressionIncrements = 1,
+            progressionDeltaKg = 2.5,
+            progressionRoundToKg = 2.5,
+            progressionSuccessStreakSize = 3,
+            progressionFailureStreakSize = 3,
+            conversionReps = 8,
+            conversionIntensityFraction = 0.765,
+            conversionDeloadIntensityScale = 0.8,
+            conversionRoundToKg = 2.5,
+            conversionUncappedWorkingKg = 102.5,
+            conversionEquipmentCeilingKg = 100.0,
+            conversionEquipmentCeilingBinds = true,
+            setBaseSets = 3,
+            setDeloadApplied = false,
+            setDeloadVolumeScale = 0.7,
+            setFatigueEffect = "NONE",
+            setFinalSets = 3
+        )
+        val file = frozenEntryReasonFile().copy(
+            planTargetExplanations = listOf(recordedPlanReason),
+            planTargetExplanationStates = listOf(targetState().copy(isDeload = true)),
+            entryTargetExplanations = listOf(
+                entryExplanation("ACTIVATION", 100L).copy(
+                    setBaseSets = 4,
+                    setDeloadApplied = true,
+                    setDeloadVolumeScale = 0.7,
+                    setFatigueEffect = "REDUCED",
+                    setFinalSets = 3
+                ),
+                entryExplanation("OCCURRENCE", 200L).copy(
+                    aiProposedKg = 62.5,
+                    aiProposedAccepted = true,
+                    aiDeloadScaled = false,
+                    aiDeloadIntensityScale = 1.0,
+                    aiBoundedByProgression = false,
+                    aiCappedByEquipment = false
+                )
+            )
+        )
+
+        val decoded = BackupJson.decode(BackupJson.encode(file))
+
+        validator.validate(decoded)
+        assertEquals(file.planTargetExplanations, decoded.planTargetExplanations)
+        assertEquals(file.planTargetExplanationStates, decoded.planTargetExplanationStates)
+        assertEquals(file.entryTargetExplanations, decoded.entryTargetExplanations)
+    }
+
+    @Test
+    fun rejectsDuplicateFrozenEntryReasonKeys() {
+        assertFailure(BackupFailure.DUPLICATE_ID) {
+            frozenEntryReasonFile().copy(
+                entryTargetExplanations = listOf(
+                    entryExplanation("ACTIVATION", 100),
+                    entryExplanation("ACTIVATION", 100)
+                )
+            )
+        }
+    }
+
+    @Test
     fun rejectsAnUnknownMuscleToken() {
         assertFailure(BackupFailure.INVALID_VALUE) {
             validFile().copy(customExercises = listOf(custom(involvements = "NOT_A_MUSCLE:1.0")))
@@ -355,6 +547,144 @@ class BackupValidatorTest {
         customExercises = listOf(custom()),
         workoutSessions = listOf(session("s1")),
         workoutSets = listOf(set())
+    )
+
+    private fun targetReasonFile() = validFile().copy(
+        plans = listOf(BackupPlanRecord(7L, "DETERMINISTIC", 1L, 1, 1)),
+        planDays = listOf(BackupPlanDayRecord(70L, 7L, 0, "FULL_BODY")),
+        planEntries = listOf(
+            BackupPlanEntryRecord(
+                id = 700L,
+                dayId = 70L,
+                position = 0,
+                exerciseId = "back-squat",
+                sets = 3,
+                reps = 5,
+                exerciseName = "Back Squat",
+                movementPattern = "SQUAT",
+                suggestedWeightKg = 100.0,
+                loadCapability = "EXTERNAL",
+                loadKind = "EXTERNAL"
+            )
+        ),
+        planTargetExplanations = listOf(targetExplanation()),
+        planTargetExplanationStates = listOf(targetState())
+    )
+
+    private fun targetExplanation(position: Int = 0) = BackupPlanTargetExplanationRecord(
+        planId = 7L,
+        dayIndex = 0,
+        position = position,
+        explanationVersion = 1,
+        baselineSource = null,
+        baselineRecentEstimateKg = null,
+        baselineQualifyingSetCount = null,
+        baselineManualFloorKg = null,
+        baselineKg = null,
+        progressionOutcome = null,
+        progressionIncrements = null,
+        progressionDeltaKg = null,
+        progressionRoundToKg = null,
+        progressionSuccessStreakSize = null,
+        progressionFailureStreakSize = null,
+        conversionReps = null,
+        conversionIntensityFraction = null,
+        conversionDeloadIntensityScale = null,
+        conversionRoundToKg = null,
+        conversionUncappedWorkingKg = null,
+        conversionEquipmentCeilingKg = null,
+        conversionEquipmentCeilingBinds = null,
+        aiProposedKg = null,
+        aiProposedAccepted = null,
+        aiDeloadScaled = null,
+        aiDeloadIntensityScale = null,
+        aiProgressionBoundKg = null,
+        aiBoundedByProgression = null,
+        aiEquipmentCeilingKg = null,
+        aiCappedByEquipment = null,
+        setBaseSets = null,
+        setDeloadApplied = null,
+        setDeloadVolumeScale = null,
+        setFatigueEffect = null,
+        setFinalSets = null,
+        unavailableReason = null
+    )
+
+    private fun targetState() = BackupPlanTargetExplanationStateRecord(
+        planId = 7L,
+        attribution = "DETERMINISTIC",
+        isDeload = false,
+        deloadVolumeScale = 0.7,
+        deloadIntensityScale = 0.8,
+        explanationVersion = 1
+    )
+
+    private fun frozenEntryReasonFile() = targetReasonFile().copy(
+        activations = listOf(activation(1L)),
+        activationWorkouts = listOf(activationWorkout(10L, 1L)),
+        activationEntries = listOf(activationEntry(100L, 10L)),
+        occurrences = listOf(occurrence(20L, 1L, 10L)),
+        occurrenceEntries = listOf(occurrenceEntry(200L, 20L)),
+        entryTargetExplanations = listOf(
+            entryExplanation("ACTIVATION", 100L),
+            entryExplanation("OCCURRENCE", 200L)
+        )
+    )
+
+    private fun entryExplanation(entryKind: String, entryId: Long) =
+        BackupEntryTargetExplanationRecord(
+            entryKind = entryKind,
+            entryId = entryId,
+            explanationVersion = 1,
+            baselineSource = null,
+            baselineRecentEstimateKg = null,
+            baselineQualifyingSetCount = null,
+            baselineManualFloorKg = null,
+            baselineKg = null,
+            progressionOutcome = null,
+            progressionIncrements = null,
+            progressionDeltaKg = null,
+            progressionRoundToKg = null,
+            progressionSuccessStreakSize = null,
+            progressionFailureStreakSize = null,
+            conversionReps = null,
+            conversionIntensityFraction = null,
+            conversionDeloadIntensityScale = null,
+            conversionRoundToKg = null,
+            conversionUncappedWorkingKg = null,
+            conversionEquipmentCeilingKg = null,
+            conversionEquipmentCeilingBinds = null,
+            aiProposedKg = null,
+            aiProposedAccepted = null,
+            aiDeloadScaled = null,
+            aiDeloadIntensityScale = null,
+            aiProgressionBoundKg = null,
+            aiBoundedByProgression = null,
+            aiEquipmentCeilingKg = null,
+            aiCappedByEquipment = null,
+            setBaseSets = null,
+            setDeloadApplied = null,
+            setDeloadVolumeScale = null,
+            setFatigueEffect = null,
+            setFinalSets = null,
+            unavailableReason = null
+        )
+
+    private fun activationEntry(id: Long, workoutId: Long) = BackupActivationEntryRecord(
+        id = id,
+        workoutId = workoutId,
+        position = 0,
+        exerciseId = "back-squat",
+        exerciseName = "Back Squat",
+        movementPattern = "SQUAT",
+        requiredEquipment = "BARBELL",
+        involvements = null,
+        isUnilateral = false,
+        sets = 3,
+        reps = 5,
+        weightKg = 100.0,
+        loadCapability = "EXTERNAL",
+        loadKind = "EXTERNAL"
     )
 
     private fun custom(
