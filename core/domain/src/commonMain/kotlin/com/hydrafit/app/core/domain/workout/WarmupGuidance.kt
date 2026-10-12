@@ -1,0 +1,186 @@
+package com.hydrafit.app.core.domain.workout
+
+import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
+import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
+
+/**
+ * A movement-pattern-relevant preparation action. This is stable identity only: the display name is a
+ * localized string resolved by the UI, never a user-facing string held in the domain.
+ */
+enum class WarmupAction {
+    /** Easy whole-body movement; a timed checklist item, never seconds encoded as reps. */
+    EASY_GENERAL_MOVEMENT,
+
+    /** Comfortable bodyweight squat and hinge practice. */
+    LOWER_BODY_PRACTICE,
+
+    /** Controlled shoulder circles before upper-body work. */
+    SHOULDER_CIRCLES,
+
+    /** Light, easy press practice for a push pattern. */
+    LIGHT_PUSH_PRACTICE,
+
+    /** Light, easy pull practice for a pull pattern. */
+    LIGHT_PULL_PRACTICE
+}
+
+/**
+ * One optional preparation item. A timed item carries [durationSeconds]; a practice movement carries
+ * [reps]. Exactly one of the two is set, so a timed activity is never stored or shown as reps.
+ */
+data class WarmupPreparationItem(
+    val action: WarmupAction,
+    val reps: Int? = null,
+    val durationSeconds: Int? = null
+) {
+    init {
+        require((reps == null) != (durationSeconds == null)) {
+            "A preparation item is either reps-based or timed"
+        }
+    }
+}
+
+/** One ramp suggestion, expressed as a percentage of the frozen working weight. */
+data class WarmupRampSet(
+    val percentOfWorkingWeight: Int,
+    val reps: Int,
+    /** Rounded load, always positive and strictly below the working weight. */
+    val weightKg: Double
+)
+
+/** The ramp suggestions for one exercise whose frozen target carries a numeric external load. */
+data class WarmupRampPlan(
+    val occurrenceEntryId: Long,
+    val exerciseId: String,
+    val exerciseName: String,
+    val movementPattern: MovementPattern,
+    val workingWeightKg: Double,
+    val rampSets: List<WarmupRampSet>
+)
+
+/** The optional warm-up guidance for an active occurrence: preparation and per-pattern ramps. */
+data class WarmupGuidance(
+    val preparation: List<WarmupPreparationItem>,
+    val ramps: List<WarmupRampPlan>
+) {
+    val isEmpty: Boolean get() = preparation.isEmpty() && ramps.isEmpty()
+}
+
+/**
+ * Editable product defaults, not validated personal optima. Each ramp set is a percentage of the
+ * frozen working weight with an easy rep count.
+ */
+private val RAMP_PROFILE: List<Pair<Int, Int>> = listOf(40 to 8, 60 to 5, 80 to 3)
+
+/** Easy general movement is a timed item; seconds are never stored as reps. */
+private const val EASY_GENERAL_MOVEMENT_SECONDS = 180
+
+/** Easy practice reps for a dynamic movement item. */
+private const val PRACTICE_REPS = 10
+
+private val LOWER_BODY_PATTERNS = setOf(
+    MovementPattern.SQUAT,
+    MovementPattern.HINGE,
+    MovementPattern.LUNGE,
+    MovementPattern.CALF_RAISE,
+    MovementPattern.LEG_ISOLATION
+)
+
+private val UPPER_PUSH_PATTERNS = setOf(
+    MovementPattern.HORIZONTAL_PUSH,
+    MovementPattern.VERTICAL_PUSH,
+    MovementPattern.CHEST_FLY,
+    MovementPattern.TRICEPS_ISOLATION,
+    MovementPattern.SHOULDER_ISOLATION
+)
+
+private val UPPER_PULL_PATTERNS = setOf(
+    MovementPattern.HORIZONTAL_PULL,
+    MovementPattern.VERTICAL_PULL,
+    MovementPattern.BICEPS_ISOLATION
+)
+
+/**
+ * Builds the optional warm-up guidance for [occurrence]. Pure: it reads no repository or clock and
+ * derives everything from the occurrence's frozen prescription, so the guidance never contradicts the
+ * target the user is being asked to perform.
+ */
+fun buildWarmupGuidance(occurrence: WorkoutOccurrence): WarmupGuidance = WarmupGuidance(
+    preparation = buildWarmupPreparation(occurrence.entries.map { it.movementPattern }),
+    ramps = buildWarmupRamps(occurrence.entries.sortedBy { it.position })
+)
+
+/**
+ * The preparation selection for the patterns present, in a fixed order. General movement is always
+ * offered; a pattern's dynamic practice is added only when the workout actually trains it.
+ */
+internal fun buildWarmupPreparation(patterns: List<MovementPattern>): List<WarmupPreparationItem> {
+    val items = mutableListOf(
+        WarmupPreparationItem(
+            WarmupAction.EASY_GENERAL_MOVEMENT,
+            durationSeconds = EASY_GENERAL_MOVEMENT_SECONDS
+        )
+    )
+    if (patterns.any { it in LOWER_BODY_PATTERNS }) {
+        items += WarmupPreparationItem(WarmupAction.LOWER_BODY_PRACTICE, reps = PRACTICE_REPS)
+    }
+    if (patterns.any { it in UPPER_PUSH_PATTERNS || it in UPPER_PULL_PATTERNS }) {
+        items += WarmupPreparationItem(WarmupAction.SHOULDER_CIRCLES, reps = PRACTICE_REPS)
+    }
+    if (patterns.any { it in UPPER_PUSH_PATTERNS }) {
+        items += WarmupPreparationItem(WarmupAction.LIGHT_PUSH_PRACTICE, reps = PRACTICE_REPS)
+    }
+    if (patterns.any { it in UPPER_PULL_PATTERNS }) {
+        items += WarmupPreparationItem(WarmupAction.LIGHT_PULL_PRACTICE, reps = PRACTICE_REPS)
+    }
+    return items
+}
+
+/**
+ * One ramp plan for the first rampable entry of each movement pattern, in entry order. A pattern's
+ * later entries have nothing new to rehearse, so only its first ramp is suggested. A bodyweight, added
+ * or unknown-load entry has no working weight to ramp from and leaves its pattern eligible for a
+ * later rampable entry of the same pattern.
+ */
+internal fun buildWarmupRamps(entries: List<OccurrenceEntry>): List<WarmupRampPlan> {
+    val planned = mutableSetOf<MovementPattern>()
+    val plans = mutableListOf<WarmupRampPlan>()
+    for (entry in entries) {
+        if (entry.movementPattern in planned) continue
+        if (entry.loadCapability != ExerciseLoadCapability.EXTERNAL) continue
+        if (entry.loadKind != LoadKind.EXTERNAL) continue
+        val working = entry.weightKg ?: continue
+        if (!working.isFinite() || working <= 0.0) continue
+        val rampSets = rampSetsFor(working)
+        if (rampSets.isEmpty()) continue
+        planned += entry.movementPattern
+        plans += WarmupRampPlan(
+            occurrenceEntryId = entry.id,
+            exerciseId = entry.exerciseId,
+            exerciseName = entry.exerciseName,
+            movementPattern = entry.movementPattern,
+            workingWeightKg = working,
+            rampSets = rampSets
+        )
+    }
+    return plans
+}
+
+/**
+ * Rounds each profile percentage to the shared plate increment, keeping only loads that are positive
+ * and strictly below the working weight. A tiny working weight can round every ramp onto itself or to
+ * zero, which yields no ramp instead of an unusable or duplicate one.
+ */
+private fun rampSetsFor(workingWeightKg: Double): List<WarmupRampSet> {
+    val config = SuggestedWeightConfig()
+    val seen = mutableSetOf<Double>()
+    return RAMP_PROFILE.mapNotNull { (percent, reps) ->
+        val rounded = config.roundToIncrement(workingWeightKg * percent / 100.0)
+        if (rounded <= 0.0 || rounded >= workingWeightKg) return@mapNotNull null
+        if (!seen.add(rounded)) return@mapNotNull null
+        WarmupRampSet(percentOfWorkingWeight = percent, reps = reps, weightKg = rounded)
+    }
+}
