@@ -11,6 +11,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutHistoryNameSource
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryRequest
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySetPage
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySetRequest
+import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
 import com.hydrafit.app.core.domain.workout.unicodeCaseFold
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -292,6 +293,63 @@ class SqlDelightWorkoutHistoryRepositoryTest {
     }
 
     @Test
+    fun recordedSetsCarryTheirOccurrenceAttribution() = runTest {
+        insertExercise("back-squat", "Back Squat")
+        insertSession("s1", startedAt = 100L, localEpochDay = 10L)
+        insertSet(
+            exerciseId = "back-squat",
+            sessionId = "s1",
+            performedAt = 110L,
+            occurrenceId = 77L
+        )
+        insertSet("back-squat", sessionId = "s1", performedAt = 120L)
+        val unassigned = insertSet(
+            exerciseId = "back-squat",
+            sessionId = null,
+            performedAt = 130L,
+            occurrenceId = 88L
+        )
+
+        val sets = repository.sets(WorkoutHistoryKey.Session("s1")).sets
+        assertEquals(77L, sets.single { it.performedAtMillis == 110L }.occurrenceId)
+        assertNull(sets.single { it.performedAtMillis == 120L }.occurrenceId)
+        assertEquals(
+            88L,
+            repository.sets(WorkoutHistoryKey.UnassignedSet(unassigned)).sets.single().occurrenceId
+        )
+    }
+
+    @Test
+    fun aCorrectionReProjectsTheEntryAndKeepsANotedSessionVisibleWithoutSets() = runTest {
+        insertExercise("back-squat", "Back Squat")
+        insertSession("noted", startedAt = 100L, localEpochDay = 10L)
+        insertSession("later", startedAt = 1_000L, localEpochDay = 10L)
+        insertSessionNote("noted", "Kept with the session")
+        val setId = insertSet("back-squat", sessionId = "noted", performedAt = 110L)
+
+        SqlDelightSessionResegmenter(database).resegmentAfterSetCorrection(
+            setId = setId,
+            correction = WorkoutSetCorrection(
+                reps = 5,
+                weightKg = 100.0,
+                rir = null,
+                performedAtMillis = 1_100L
+            ),
+            utcOffsetMillis = 0L
+        )
+
+        // The set moved to the nearer session; the noted session stays visible with no sets.
+        val noted = repository.entry(WorkoutHistoryKey.Session("noted"))!!
+        assertEquals(0, noted.recordedSetCount)
+        assertEquals("Kept with the session", noted.note)
+        assertTrue(repository.sets(WorkoutHistoryKey.Session("noted")).sets.isEmpty())
+        assertEquals(
+            listOf(setId),
+            repository.sets(WorkoutHistoryKey.Session("later")).sets.map { it.id }
+        )
+    }
+
+    @Test
     fun unassignedSetEntryAndItsSingleSetResolveBySetId() = runTest {
         insertExercise("back-squat", "Back Squat")
         val setId = insertSet("back-squat", sessionId = null, performedAt = 42L)
@@ -527,7 +585,8 @@ class SqlDelightWorkoutHistoryRepositoryTest {
         reps: Long = 5L,
         weightKg: Double? = 100.0,
         isWarmup: Boolean = false,
-        rir: Long? = null
+        rir: Long? = null,
+        occurrenceId: Long? = null
     ): Long {
         database.workoutLogQueries.insertSet(
             exerciseId = exerciseId,
@@ -543,6 +602,14 @@ class SqlDelightWorkoutHistoryRepositoryTest {
             sessionId = sessionId,
             loadKind = "EXTERNAL"
         )
-        return database.workoutLogQueries.lastInsertedSetId().executeAsOne()
+        val id = database.workoutLogQueries.lastInsertedSetId().executeAsOne()
+        if (occurrenceId != null) {
+            database.workoutLogQueries.assignOccurrence(
+                occurrenceId = occurrenceId,
+                occurrenceEntryId = null,
+                id = id
+            )
+        }
+        return id
     }
 }

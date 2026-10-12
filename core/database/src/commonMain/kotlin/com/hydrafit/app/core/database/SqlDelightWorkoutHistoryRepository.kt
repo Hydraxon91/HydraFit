@@ -125,7 +125,8 @@ class SqlDelightWorkoutHistoryRepository(database: HydraFitDatabase) : WorkoutHi
         isWarmup = isWarmup != 0L,
         rir = rir?.toInt(),
         performedAtMillis = performedAt,
-        timingProvenance = decodeWorkoutTimingProvenance(timingProvenance)
+        timingProvenance = decodeWorkoutTimingProvenance(timingProvenance),
+        occurrenceId = occurrenceId
     )
 
     private fun SelectUnassignedSetHistorySet.toHistorySet(): WorkoutHistorySet = WorkoutHistorySet(
@@ -138,6 +139,7 @@ class SqlDelightWorkoutHistoryRepository(database: HydraFitDatabase) : WorkoutHi
         isWarmup = isWarmup != 0L,
         rir = rir?.toInt(),
         performedAtMillis = performedAt,
-        timingProvenance = decodeWorkoutTimingProvenance(timingProvenance)
+        timingProvenance = decodeWorkoutTimingProvenance(timingProvenance),
+        occurrenceId = occurrenceId
     )
 }

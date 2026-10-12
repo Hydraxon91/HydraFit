@@ -199,6 +199,19 @@ startup.
 validation and keyset cursors; there is no history use case, and the only new Koin binding is the
 startup `SearchProjectionBackfill`.
 
+The browser (0.7.1-C6) is `WorkoutHistoryScreen`/`WorkoutHistoryDetailScreen` behind
+`WorkoutHistoryViewModel`, registered as the Logger's second presentation ViewModel and reached
+through the Logger's own nested history sub-graph (`WorkoutHistoryNavigation.kt`), so the Log tab
+stays selected and no shell change is needed. `WorkoutLoggerRoute` and the history screens share one
+`WorkoutLoggerViewModel` scoped to the Logger graph entry, which is how a correction opened from a
+recorded set reuses the existing `LoggedSetEdit`/`LoggedSetEditDialog` editor, `WorkoutLogMutations`
+and `CorrectWorkoutSetUseCase` instead of a second policy. The first page of each history read is
+observed live and later pages are appended on request; a new first-page emission drops the pages
+derived from it, since a keyset cursor only describes the content that produced it. The bounded set
+projection also carries the stored `occurrenceId`, so a history correction keeps the Logger's
+rest-prompt cancellation and attribution. Setup notes shown next to recorded sets are read once per
+distinct exercise in the loaded page and labelled current context.
+
 For routine authoring, the module is `:feature:routines`:
 `RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/
 `routinesDestination`), `RoutinesScreen.kt` (list, editor, exercise picker,

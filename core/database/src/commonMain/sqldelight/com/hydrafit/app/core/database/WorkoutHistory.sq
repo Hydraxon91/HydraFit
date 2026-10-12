@@ -203,7 +203,8 @@ SELECT
     w.isWarmup AS isWarmup,
     w.rir AS rir,
     w.performedAt AS performedAt,
-    w.timingProvenance AS timingProvenance
+    w.timingProvenance AS timingProvenance,
+    w.occurrenceId AS occurrenceId
 FROM workoutSet w
 LEFT JOIN exercise e ON e.id = w.exerciseId
 WHERE w.sessionId = :sessionId
@@ -227,7 +228,8 @@ SELECT
     w.isWarmup AS isWarmup,
     w.rir AS rir,
     w.performedAt AS performedAt,
-    w.timingProvenance AS timingProvenance
+    w.timingProvenance AS timingProvenance,
+    w.occurrenceId AS occurrenceId
 FROM workoutSet w
 LEFT JOIN exercise e ON e.id = w.exerciseId
 WHERE w.id = :setId AND w.sessionId IS NULL;

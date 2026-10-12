@@ -50,6 +50,7 @@ internal fun NavGraphBuilder.historyDestinations(navController: NavController) {
             val historyViewModel = navigationHistoryViewModel(navController)
             WorkoutHistoryDetailRoute(
                 viewModel = historyViewModel,
+                loggerViewModel = sharedLoggerViewModel(navController),
                 onBack = {
                     historyViewModel.onEntryClosed()
                     navController.popBackStack()

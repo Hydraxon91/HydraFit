@@ -39,6 +39,11 @@ port. `WorkoutLogMutations` delegates both full performed-value and time-only co
 four use cases do not add another Logger ViewModel constructor dependency. Runtime graph tests
 resolve the new correction use case explicitly.
 
+`loggerModule` also registers `WorkoutHistoryViewModel` (history repository, exercise-note
+repository, weight-unit repository and `TimeProvider`), the Logger's second presentation ViewModel.
+It holds no new port: every collaborator is already bound elsewhere in the graph, and a history
+correction reuses the Logger ViewModel's existing editor rather than a third one.
+
 `databaseModule` exposes the same `SqlDelightWorkoutScheduleRepository` singleton through schedule
 and occurrence-replacement ports, and binds `TrainingGuidancePreferenceRepository`. `domainModule`
 registers `ReplaceOccurrenceExerciseUseCase`; `loggerModule` registers its separate presentation

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -22,6 +23,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 import hydrafit.feature.logger.generated.resources.Res
+import hydrafit.feature.logger.generated.resources.logger_edit_set
 import hydrafit.feature.logger.generated.resources.logger_history_back
 import hydrafit.feature.logger.generated.resources.logger_history_detail_session
 import hydrafit.feature.logger.generated.resources.logger_history_detail_unassigned
@@ -55,25 +57,54 @@ import hydrafit.feature.logger.generated.resources.logger_recorded_at
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WorkoutHistoryDetailRoute(onBack: () -> Unit, viewModel: WorkoutHistoryViewModel) {
+fun WorkoutHistoryDetailRoute(
+    onBack: () -> Unit,
+    viewModel: WorkoutHistoryViewModel,
+    loggerViewModel: WorkoutLoggerViewModel
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val loggerState by loggerViewModel.state.collectAsStateWithLifecycle()
     WorkoutHistoryDetailScreen(
         state = state,
+        loggerState = loggerState,
+        onEditSet = { set ->
+            state.selectedKey?.let { key ->
+                loggerViewModel.editLoggedSet(set.toLoggedSetRow(key))
+            }
+        },
+        onLoggedSetRepsChanged = loggerViewModel::onLoggedSetRepsChanged,
+        onLoggedSetWeightChanged = loggerViewModel::onLoggedSetWeightChanged,
+        onLoggedSetRirChanged = loggerViewModel::onLoggedSetRirChanged,
+        onLoggedSetTimeChanged = loggerViewModel::onLoggedSetTimeChanged,
+        onCancelLoggedSetEdit = loggerViewModel::cancelLoggedSetEdit,
+        onSaveLoggedSetEdit = loggerViewModel::saveLoggedSetEdit,
         onRetryDetail = viewModel::onRetryDetail,
         onLoadMoreSets = viewModel::onLoadMoreSets,
         onRetryExerciseNote = viewModel::onRetryExerciseNote,
-        onBack = onBack
+        onBack = onBack,
+        nowMillis = loggerViewModel::currentTimeMillis
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkoutHistoryDetailScreen(
     state: WorkoutHistoryUiState,
+    loggerState: WorkoutLoggerUiState,
+    onEditSet: (WorkoutHistorySet) -> Unit,
+    onLoggedSetRepsChanged: (String) -> Unit,
+    onLoggedSetWeightChanged: (String) -> Unit,
+    onLoggedSetRirChanged: (String) -> Unit,
+    onLoggedSetTimeChanged: (Long) -> Boolean,
+    onCancelLoggedSetEdit: () -> Unit,
+    onSaveLoggedSetEdit: () -> Unit,
     onRetryDetail: () -> Unit,
     onLoadMoreSets: () -> Unit,
     onRetryExerciseNote: (String) -> Unit,
     onBack: () -> Unit,
+    nowMillis: () -> Long,
     modifier: Modifier = Modifier
 ) {
     val entry = state.detailEntry
@@ -201,7 +232,9 @@ fun WorkoutHistoryDetailScreen(
                         set = set,
                         utcOffsetMillis = state.utcOffsetMillis,
                         weightUnitLabel = state.weightUnit.label,
-                        loadText = loadWeightText(set.loadKind, set.weightKg, state.weightUnit)
+                        loadText = loadWeightText(set.loadKind, set.weightKg, state.weightUnit),
+                        editing = loggerState.loggedSetEdit?.row?.id == set.id,
+                        onEdit = { onEditSet(set) }
                     )
                 }
             }
@@ -282,6 +315,22 @@ fun WorkoutHistoryDetailScreen(
             }
         }
     }
+
+    loggerState.loggedSetEdit?.let { edit ->
+        LoggedSetEditDialog(
+            edit = edit,
+            saving = loggerState.savingLoggedSet,
+            failed = loggerState.loggedSetEditFailed,
+            utcOffsetMillis = state.utcOffsetMillis,
+            nowMillis = nowMillis,
+            onRepsChanged = onLoggedSetRepsChanged,
+            onWeightChanged = onLoggedSetWeightChanged,
+            onRirChanged = onLoggedSetRirChanged,
+            onTimeChanged = onLoggedSetTimeChanged,
+            onCancel = onCancelLoggedSetEdit,
+            onSave = onSaveLoggedSetEdit
+        )
+    }
 }
 
 @Composable
@@ -289,7 +338,9 @@ private fun WorkoutHistorySetRow(
     set: WorkoutHistorySet,
     utcOffsetMillis: Long,
     weightUnitLabel: String,
-    loadText: String
+    loadText: String,
+    editing: Boolean,
+    onEdit: () -> Unit
 ) {
     val parts = localDateTimeParts(set.performedAtMillis, utcOffsetMillis)
     Column(
@@ -325,6 +376,9 @@ private fun WorkoutHistorySetRow(
                 text = stringResource(Res.string.logger_history_rir, rir),
                 style = MaterialTheme.typography.bodyMedium
             )
+        }
+        TextButton(onClick = onEdit, enabled = !editing) {
+            Text(stringResource(Res.string.logger_edit_set))
         }
         Text(
             text = stringResource(

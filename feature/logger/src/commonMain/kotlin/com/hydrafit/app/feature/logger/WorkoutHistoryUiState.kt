@@ -97,3 +97,22 @@ internal fun noteStateOf(note: String?): HistoryNoteState = when {
     note.isEmpty() -> HistoryNoteState.CLEARED
     else -> HistoryNoteState.PRESENT
 }
+
+/**
+ * The correction target for one recorded history set. Identity, stored load meaning, warm-up flag and
+ * occurrence attribution come from the stored row, so the existing Logger editor corrects exactly the
+ * set the recent-sets list would correct, through the same use case.
+ */
+internal fun WorkoutHistorySet.toLoggedSetRow(key: WorkoutHistoryKey): LoggedSetRow = LoggedSetRow(
+    id = id,
+    performedAtMillis = performedAtMillis,
+    exerciseId = exerciseId,
+    exerciseName = exerciseName ?: exerciseId,
+    reps = reps,
+    weightKg = weightKg,
+    rir = rir,
+    isWarmup = isWarmup,
+    loadKind = loadKind,
+    occurrenceId = occurrenceId,
+    sessionId = (key as? WorkoutHistoryKey.Session)?.sessionId
+)

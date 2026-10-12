@@ -54,7 +54,9 @@ next version from the current directory/generated Schema rather than copying thi
 `SqlDelightWorkoutHistoryRepository`. A session qualifies when it has recorded sets or a
 session-note row; unassigned sets (`sessionId IS NULL`) appear individually; a stored session id with
 no session row is reported as a missing-session entry with its identity preserved. Exercise names are
-current catalog names, not historical snapshots, and exercise setup notes are never searched. Search
+current catalog names, not historical snapshots, and exercise setup notes are never searched. The
+recorded-set pages also carry the stored `occurrenceId` so a correction opened from history keeps the
+same occurrence attribution as the Logger's recent-set list. Search
 matches the case-folded projections `exercise.searchName` and `sessionNote.searchNote`, produced by
 `unicodeCaseFold` (Unicode 17.0.0 default full folding, `:core/domain`); the query pattern is folded
 the same way, so matching is Unicode-insensitive and accent-sensitive, and stays literal because

@@ -64,6 +64,8 @@ import com.hydrafit.app.core.domain.workout.SessionConfig
 import com.hydrafit.app.core.domain.workout.SessionNoteRepository
 import com.hydrafit.app.core.domain.workout.SessionResegmenter
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
+import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSession
@@ -3462,6 +3464,108 @@ class WorkoutLoggerViewModelTest {
         assertEquals("5", viewModel.state.value.reps)
         assertNull(viewModel.state.value.loggedSetEdit)
         assertEquals(10, viewModel.state.value.recentSets.single().reps)
+    }
+
+    @Test
+    fun aSetReachedFromHistoryCorrectsTheSameStoredRowThroughTheSharedEditor() =
+        runTest(dispatcher) {
+            val key = WorkoutHistoryKey.Session("recorded-session")
+            val recorded = WorkoutHistorySet(
+                id = 7L,
+                exerciseId = "back-squat",
+                exerciseName = "Back Squat",
+                reps = 8,
+                weightKg = 100.0,
+                loadKind = LoadKind.EXTERNAL,
+                isWarmup = true,
+                rir = 2,
+                performedAtMillis = MONDAY,
+                timingProvenance = WorkoutTimingProvenance.UNKNOWN,
+                occurrenceId = 30L
+            )
+            val stored = WorkoutSet(
+                id = 7L,
+                exerciseId = "back-squat",
+                reps = 8,
+                weightKg = 100.0,
+                performedAtMillis = MONDAY,
+                isWarmup = true,
+                rir = 2,
+                sessionId = "recorded-session",
+                occurrenceId = 30L
+            )
+            val repository = FakeWorkoutLogRepository(listOf(stored))
+            val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+            advanceUntilIdle()
+
+            viewModel.editLoggedSet(recorded.toLoggedSetRow(key))
+            assertEquals("8", viewModel.state.value.loggedSetEdit?.reps)
+            assertEquals("2", viewModel.state.value.loggedSetEdit?.rir)
+
+            viewModel.onLoggedSetRepsChanged("10")
+            viewModel.saveLoggedSetEdit()
+            advanceUntilIdle()
+
+            assertEquals(1, repository.corrections)
+            val corrected = repository.all().single()
+            // The same row is corrected: identity, stored load, warm-up and occurrence are untouched.
+            assertEquals(7L, corrected.id)
+            assertEquals(10, corrected.reps)
+            assertEquals(100.0, corrected.weightKg)
+            assertEquals(2, corrected.rir)
+            assertTrue(corrected.isWarmup)
+            assertEquals(30L, corrected.occurrenceId)
+            assertEquals("recorded-session", corrected.sessionId)
+            assertNull(viewModel.state.value.loggedSetEdit)
+        }
+
+    @Test
+    fun aHistoryCorrectionFailureKeepsTheEditorOpenForRetry() = runTest(dispatcher) {
+        val recorded = WorkoutHistorySet(
+            id = 7L,
+            exerciseId = "back-squat",
+            exerciseName = "Back Squat",
+            reps = 8,
+            weightKg = 100.0,
+            loadKind = LoadKind.EXTERNAL,
+            isWarmup = false,
+            rir = null,
+            performedAtMillis = MONDAY,
+            timingProvenance = WorkoutTimingProvenance.UNKNOWN
+        )
+        val repository = FakeWorkoutLogRepository(
+            listOf(
+                WorkoutSet(
+                    id = 7L,
+                    exerciseId = "back-squat",
+                    reps = 8,
+                    weightKg = 100.0,
+                    performedAtMillis = MONDAY,
+                    sessionId = "recorded-session"
+                )
+            )
+        )
+        repository.failCorrection = true
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+
+        viewModel.editLoggedSet(
+            recorded.toLoggedSetRow(WorkoutHistoryKey.Session("recorded-session"))
+        )
+        viewModel.onLoggedSetRepsChanged("10")
+        viewModel.saveLoggedSetEdit()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.loggedSetEditFailed)
+        assertEquals("10", viewModel.state.value.loggedSetEdit?.reps)
+        assertEquals(8, repository.all().single().reps)
+
+        repository.failCorrection = false
+        viewModel.saveLoggedSetEdit()
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.loggedSetEdit)
+        assertEquals(10, repository.all().single().reps)
     }
 
     @Test
