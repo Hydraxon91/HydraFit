@@ -18,7 +18,7 @@
 | M1 — Foundation & Performance | DONE | Selected scope shipped in `v0.2.3`; [measurement/test history](docs/plans-archive.md#2026-10-09-completed-status-rows). Residual measurements remain in the 0.2.3 stub; QL-03 P3 adoption is outside scope. LT-03 tied-time emulator verification remains deferred (feature test passes); LT-01/02 were emulator-verified. |
 | M2 — Data Ownership & Exercise Library | FUTURE | OF-01 and catalog expansion (formerly targeted at 0.2.5), plus separately scoped offline instructions. Catalog expansion implemented in 0.2.3 (2026-10-06; CAT-P0/P1/P2/P3 — `d9f6c20`, `30282fe`). OF-01 is implemented in 0.5.0 (see the 0.5-OF01 row). Does not depend on AI repair. |
 | Oct 6 live-testing follow-up | IN PROGRESS | Read-only phone audit DONE; confirmed low direct arm volume alongside substantial indirect credit. LT-01–03 DONE (`d690e3c`): weight retention on resume, separator-equivalent search, newest-insertion tie order; LT-03 tied-time emulator check deferred. VOL-01 C1/C2 DONE (2026-10-08, pushed with CI green); C2A deload correction DONE (`c71e695`); C2B/C2C coverage hardening DONE (`9c6c74f`); C2D option (b) approved with corrective policy decisions (2026-10-08); C2E load-suitability implementation DONE (corrective, 2026-10-08); C2F exercise-preference contract approved (2026-10-08, no code); C2G exercise-preference implementation DONE; C3 EX-01 persistent exclusions DONE; C4 bounded OF-03 volume-explanation slice DONE. Scheduling, rest/effort, warm-ups, substitutions, progression integrity, summaries and name suggestions mapped below; see `docs/live-testing-2026-10-06.md`. |
-| Oct 7 live-testing follow-up | IN PROGRESS | Read-only code inspection DONE; observations mapped to EX-02 (exercise load semantics), OF-02 (logging timing + rest coaching), OF-10B (supersets, expanded), PYR-01 (per-set prescriptions/pyramids), item 9 B1 (RIR, already covered) and an OF-13-linked session-divider slice. EX-02 contract approved 2026-10-07, implemented, and verified (emulator `v0.2.3` → candidate upgrade; bounded review APPROVED). The remaining Oct 7 items (OF-02, OF-10B, PYR-01, OF-13 slice) stay future. See `docs/live-testing-2026-10-07.md` and "EX-02 — exercise load semantics". |
+| Oct 7 live-testing follow-up | IN PROGRESS | Read-only code inspection DONE; observations mapped to EX-02 (exercise load semantics), OF-02 (logging timing + rest coaching), OF-10B (supersets, expanded), PYR-01 (per-set prescriptions/pyramids), item 9 B1 (RIR, already covered) and an OF-13-linked session-divider slice. EX-02 contract approved 2026-10-07, implemented, and verified (emulator `v0.2.3` → candidate upgrade; bounded review APPROVED). The remaining Oct 7 items (OF-02, OF-10B, PYR-01) stay future. See `docs/live-testing-2026-10-07.md` and "EX-02 — exercise load semantics". |
 | Oct 8 live-testing follow-up | IN PROGRESS | LT-13, CAT-02, CAT-P7 and CAT-P6 implemented; CATP7-R02 closed (`d95b442`). Under the smaller-release roadmap, EX-03 targets a gated 0.7.5 content contract; CAT-P6 fresh-install pattern conflicts target 0.8.2. CATP7-R01 targets 0.12.0/M8. Original observation evidence remains in `docs/live-testing-2026-10-08.md`. |
 | M8 — Optional AI Reliability | PLANNED — 0.12.x | Retain local AI; investigate reliability, speed, licensing and CATP7-R01 identity-safe Gemini name recovery after core planner-facing contracts settle, including local numbered-ID compatibility. The roadmap supersedes provisional 0.6.0 AI placement; 0.12.0 covers identity recovery, later slices cover validation, measured local improvements and lifecycle. Required pre-1.0 investigation, optional user-facing engines; no model/provider/runtime changes or implementation authorized. |
 | Item 2 P2d — existing-row time correction | DONE | Landed in 0.2.1 as Q2 (5898c45, 5ab6b42, a64d9cc). |
@@ -78,7 +78,7 @@ Versions are assigned when a release scope is agreed; they do **not** grant impl
 | **0.6.0 — SHIPPED** | Published 2026-10-11 as `v0.6.0` on `c346ee3`; Release `38167070101` passed. Guided Training — OF-02, RIR B1, session dividers, occurrence-only replacements and the phone portrait lock; [row archived](docs/plans-archive.md#2026-10-12-completed-060x-release-rows). |
 | **0.6.1 — SHIPPED** | Published 2026-10-11 as `v0.6.1` on `1466444`; Release `38170634866` (run 14) passed (signed APK `versionName=0.6.1`, `versionCode=14`); [detail archived](docs/plans-archive.md#2026-10-12-completed-060x-release-rows). Corrective for 0.6.0 guided logging, deletion/backup integrity and keyboard/inset layout, plus CI scheduling and the emulator release-install prohibition. |
 | **0.7.0 — SHIPPED** | Published 2026-10-12 as `v0.7.0` on `e5719bb` (PR #4); Release `38225151289` (run number 15) passed (signed APK `versionName=0.7.0`, `versionCode=15`). Planner target explanations (OF-03): recorded load, progression, equipment, deload and AI-adjustment reasoning frozen at acceptance and on frozen work, presented in SplitBuilder and the Logger. Artifacts verified offline only; see `docs/qa.md` §13 for limits. |
-| **0.7.1 — SHIPPED** | Published 2026-10-12 as `v0.7.1` on `b467241` (PR #5); Release `38289317846` (run number 16) passed (signed APK `versionName=0.7.1`, `versionCode=16`). Notes and searchable session history (OF-13 slice): persistent exercise setup notes, separate session notes, a bounded searchable session-history browser in the Logger and the existing set corrections reachable from history. Artifacts verified offline only; see `docs/qa.md` §13 for limits. |
+| **0.7.1 — SHIPPED** | Published 2026-10-12 as `v0.7.1` on `b467241` (PR #5); Release `38289317846` (run number 16) passed (signed APK `versionName=0.7.1`, `versionCode=16`). Notes and searchable session history (OF-13 slice): persistent exercise setup notes, separate session notes, a bounded searchable session-history browser in the Logger and the existing set corrections reachable from history. Artifacts verified offline only; see `docs/qa.md` §13 for limits; [detail archived](docs/plans-archive.md#2026-10-12-completed-071-notes-and-session-history). |
 | **0.7.x** | Workout Context & Confidence — 0.7.0 explanations; 0.7.1 notes/history; 0.7.2 summaries; 0.7.3 warm-ups; 0.7.4 first instruction batch; 0.7.5 EX-03 cautions; 0.7.6 onboarding; 0.7.7 reminders. LT-10 contract is a separate decision gate after history, not an empty APK release. |
 | **0.8.x** | Progress & Recovery — 0.8.0 charts; 0.8.1 records; 0.8.2 catalog corrections; 0.8.3 forearm accessories; 0.8.4 approved TRAPS/editing controls; 0.8.5 anatomical map; 0.8.6 volume/last-trained views; 0.8.7 measurements. |
 | **0.9.x** | Equipment & Data Freedom — 0.9.0 profiles; 0.9.1 plate calculator; 0.9.2 equipment extensions; 0.9.3–0.9.5 separate provider imports; 0.9.6 sharing; 0.9.7 PDF; 0.9.8 automatic backups; 0.9.9 encryption; 0.9.10 merge restore; 0.9.11 CSV export; 0.9.12 data controls. |
@@ -739,7 +739,7 @@ gated scopes, not implied by completion of P0–P5. M2's other open work stays a
 | OF-10 | Progression policies and advanced logging | OF-02; settle measurement semantics before engine changes | LATER — split into separately approved slices |
 | OF-11 | Manual routines and reusable templates | M3; extends OF-01 coverage; feeds OF-02/OF-07 | SHIPPED 0.3.0; later guided/sharing extensions follow roadmap |
 | OF-12 | Flexible scheduling, session rotation and reminders | M3 scheduling after OF-11; M4 reminders | P0/P1 SHIPPED 0.3.0; P2/P3 reminders/integration target 0.7.7 |
-| OF-13 | Workout/exercise notes and session history | M4; existing explicit sessions; integrates OF-02/OF-04 | Divider slice committed in `a021d94` (2026-10-11): adjacent explicit identities use "Recorded session"; each null row uses "Session not recorded"; order unchanged. Full host tests, ktlint, debug assembly and iOS compile pass (300s limit); existing-data emulator headers/controls and screenshot checked. Null-label visuals, font/theme/locale variants and action-write UI checks remain unverified. Notes/full history remain FUTURE — decisions open. |
+| OF-13 | Workout/exercise notes and session history | M4; existing explicit sessions; integrates OF-02/OF-04 | Divider slice committed in `a021d94` (2026-10-11); null-label visuals, font/theme/locale variants and action-write UI checks remain unverified. The 0.7.1 slice **SHIPPED** 2026-10-12 as `v0.7.1`: persistent exercise setup notes, separate session notes, a bounded searchable session-history browser and the existing set corrections from history (chunks C0–C9, reviewed APPROVED; [detail archived](docs/plans-archive.md#2026-10-12-completed-071-notes-and-session-history)). Still future: workout summaries (0.7.2), duration labels, and attaching OF-04 record results once OF-04-P3 is available. |
 | OF-14 | Onboarding and first-workout baseline setup | M4; EQ-01/OF-11/OF-12 contracts; existing settings/PR use cases | FUTURE — decisions open |
 
 ### OF-01 — Local backup/export and restore
@@ -1036,75 +1036,20 @@ full browser.
 
 #### 0.7.1 — Notes & searchable session history
 
-**Status (2026-10-12):** release scope, chunk structure and recommendations approved
-in chat. C0–C8 are implemented and committed, with their host, build and bounded
-emulator verification recorded in `docs/qa.md` and `.maestro/README.md`; C3's own
-emulator save/clear journey was not re-run in this batch, and C9's release-wide review
-is pending. No push, tag or publication is authorized. This bounded split refines
-OF-13-P0–P3 without renumbering those broader phases; Finish-workout summaries remain
-in 0.7.2.
+**SHIPPED** 2026-10-12 as `v0.7.1` (PR #5, merge `b467241`; Release `38289317846`, run 16). Completed
+chunks and their evidence: C0 contract; C1 exercise-note storage; C2 session-note storage; C3
+exercise-note UI (`49fd692`); C4 session-note UI (`0f61d3f`); C5 bounded history queries (`291f027`,
+`b3a871c`, `aa9fb93`); C6 history browser/details (`3d3492c`); C7 correction access (`916dd41`); C8
+integration verification (1,382 host tests at `3262531`); C9 post-execution review — **APPROVED** at
+C9-R4 (`647d3ab`). Completion evidence: 1,397 host tests plus migration verification, ktlint, debug
+assembly, iOS compile and release-specific `lintVitalRelease`, with bounded emulator journeys and
+viewed screenshots. Verification limits and every unverified check: `docs/qa.md` §13 and
+`.maestro/README.md`; review findings and closures: `docs/review-0.7.1-snapshot.md` §1–§9. Scope,
+approved recommendations and the C0 decisions:
+[archived](docs/plans-archive.md#2026-10-12-completed-071-notes-and-session-history).
 
-**Scope:** persistent exercise/setup notes, separate session notes, searchable
-session history and access to the existing set-correction actions. Offline-first.
-Exclude Finish-workout summaries, charts/records, new progression policy,
-equipment profiles, occurrence-note storage and automatic setup-note snapshots.
-
-**Approved recommendations:**
-- Persistent exercise notes are keyed by exercise id; session notes are keyed by
-  explicit `sessionId`. The two never overwrite one another. Session notes stay
-  with their identity rather than following a corrected set.
-- Domain owns note/history contracts, database owns SQLDelight storage/queries,
-  and Logger owns the UI and an internal history route. No new permanent tab or
-  feature module; no cross-feature imports.
-- Plain text, maximum 2,000 characters per note. Clear is an explicit persisted
-  action that survives reload/backup; Cancel writes nothing. Storage must not
-  conflate an absent note with an explicitly cleared value.
-- Search session-note text and current catalog exercise names (current context, not
-  a historical snapshot), with local-date filters and bounded pagination. Do not
-  search current exercise setup notes as though they were historical context.
-- Use explicit session identity, never inferred date/time-gap grouping. Display
-  missing-session records honestly; do not group all null identities together.
-- Show recorded timestamps and sets. Omit workout-duration calculations,
-  comparative scores and inferred diagnoses or planner instructions from notes.
-- Reuse the existing correction use case and preserve its identity, load,
-  attribution, timing and session invariants. Current setup notes shown in history
-  must be labelled as current context, not historical snapshots.
-
-**C0 decisions confirmed:** when correction moves the last set out of a noted
-session, retain the session and its note, show it as having no recorded sets, and
-never move or delete the note automatically. Exercise-note clear is a persisted
-empty string distinct from no row; when deduping, the canonical note wins even if
-it is explicitly cleared, otherwise move the custom note. Successful custom
-exercise deletion removes its note atomically. History query details remain to be
-finalized against current source in the relevant implementation chunk; any new
-behavior tradeoff needs explicit approval.
-
-| Chunk | Status | Deliverable / acceptance and tests |
-| --- | --- | --- |
-| 0.7.1-C0 — contract | DONE | Finalize note ownership, limits, clearing, search, legacy handling and correction behavior. No code. Concrete examples cover saved/cleared notes, exercise renames, multiple same-day sessions and corrected timestamps, including the empty noted-session case above. |
-| 0.7.1-C1 — exercise-note storage | DONE | Committed and re-review approved; full required verification passed. |
-| 0.7.1-C2 — session-note storage | DONE | Separate session-note persistence, additive migration and backup support. Notes never overwrite exercise notes; survive End/New session, corrections and restore. Test missing identities, transaction failure and the approved empty-session policy. |
-| 0.7.1-C3 — exercise-note UI | DONE | Committed in `49fd692`; host tests, ktlint and the Koin graph verification pass. The editor's own Save/Cancel/Clear journey is now recorded in `docs/qa.md` and `.maestro/README.md` (bounded `logger-exercise-note.yaml` on `emulator-5554`); larger text, dark mode, locale and TalkBack remain unverified. |
-| 0.7.1-C4 — session-note UI | DONE | Distinct current-session editor. Test attribution across End/New session and recreation, no accidental session creation, Save/Cancel/Clear, failure/retry, duplicate submission and stale context. Semantic emulator assertions and viewed screenshot. |
-| 0.7.1-C5 — bounded history queries | DONE | Committed in `291f027`, `b3a871c` and `aa9fb93`: bounded query cost, lifecycle/pagination coverage, floor-correct local days and accurate metadata docs. Unicode-insensitive search uses Unicode 17.0.0 default full-fold projections (`exercise.searchName`/`sessionNote.searchNote`, migration `42.sqm`) with a startup backfill. Host tests, ktlint, debug assembly, iOS compile and migration verification pass; reviewed under C9 (see `docs/review-0.7.1-snapshot.md`). |
-| 0.7.1-C6 — history browser/details | DONE | Committed in `3d3492c`: Logger sub-screen with search, session details, notes and recorded sets. Search/filter/paging, empty/no-matches/error states, back navigation, detail reconciliation and clearly current exercise-note context are covered by host tests and the bounded `logger-history-browser.yaml` journey; reviewed under C9 (see `docs/review-0.7.1-snapshot.md`). |
-| 0.7.1-C7 — correction access | DONE | Committed in `916dd41`: history corrections reuse the existing `LoggedSetEdit` editor and `CorrectWorkoutSetUseCase`, with the stored `occurrenceId` carried into the bounded set projection. Row identity, load semantics, attribution, Cancel/failure/retry, time resegmentation and downstream refresh are host-tested and covered by `logger-history-correction.yaml`. No new bulk/history deletion policy. Reviewed under C9 (see `docs/review-0.7.1-snapshot.md`). |
-| 0.7.1-C8 — integration verification | DONE | Notes → persistence → backup/history → correction verified end to end by `WorkoutNotesHistoryIntegrationTest`; the C8 gate at `3262531` passed 1382 host tests plus migration verification, ktlint, debug assembly, iOS compile and changed Koin graph verification, with bounded emulator journeys and viewed screenshots. Revision-specific evidence and every unverified check are recorded in `docs/qa.md` and `.maestro/README.md`. The C9 review and its finding remediation are recorded in `docs/review-0.7.1-snapshot.md`. |
-| 0.7.1-C9 — post-execution review | DONE, APPROVED | Read-only Plan Mode review of the release delta returned **INCOMPLETE** with no blocking defect: findings and closure commits are recorded in `docs/review-0.7.1-snapshot.md` (R9-01…R9-08, closed by `0191581`, `20a8fec`, `3a9f648`, `8d9ea9c`, `d1e0488`, `29b0ca7`, `b3a55fe`, `f2d510f`). A bounded re-review (C9-R2) at `d52a9f3` verified every R9 closure and returned INCOMPLETE on documentation accuracy alone; its three R2 findings were fixed in the R2 remediation commits (`a6d77e3`, `e07508d`, `37b2386`, `5589eff`). The C9-R3 confirmation found one unclosed projection writer (`R3-01`, closed by `726f307`), and the final C9-R4 confirmation at `647d3ab` returned **APPROVED** with the candidate gates recorded in `docs/qa.md` §13. |
-
-**Execution discipline:** approve chunks individually or as an explicitly ordered
-batch after C0 closes. Each implementation chunk includes tests and affected
-living-document/mechanics-reference updates, runs relevant tests/build checks,
-then reports at its approved chunk boundary. Schema/cross-cutting changes require
-full host tests, migration verification where applicable, ktlint, debug assembly
-and iOS compile; changed bindings/constructors require Koin verification. UI checks
-follow the emulator-only, debug-build and bounded semantic-testing rules. Required
-backup and lifecycle consumers ship with their storage chunk, not later.
-
-After C8, stop for C9 in Plan Mode: builder verification is not a review verdict.
-Review approval does not authorize fixes, commits or pushing. Release preparation
-and publication follow only after required findings are resolved and reviewed work
-is explicitly approved, under separate release/push/tag approvals. No automatic
+This bounded split refined OF-13-P0–P3 without renumbering those broader phases; Finish-workout
+summaries remain in 0.7.2, and OF-13 stays active for those and for duration labels. No automatic
 handoff or next-release work.
 
 ### OF-14 — Onboarding and first-workout baseline setup

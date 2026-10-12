@@ -1089,3 +1089,82 @@ INCOMPLETE and is therefore deliberately **not** archived.
 | **0.6.0 — SHIPPED** | Published 2026-10-11 as `v0.6.0` on `c346ee3`; Release `38167070101` passed. Guided Training — OF-02, RIR B1, session dividers, occurrence-only replacements and the phone portrait lock. Corrective `v0.6.1` followed. |
 | **0.6.1 — SHIPPED** | Published 2026-10-11 as `v0.6.1` on `1466444`; Release `38170634866` (run number 14) passed (signed APK `versionName=0.6.1`, `versionCode=14`). Corrective for 0.6.0 guided logging, custom-exercise deletion/backup integrity and keyboard/inset layout, plus CI scheduling and the emulator release-install prohibition. Artifacts verified offline only. |
 | 0.6.1 — guided-logging & integrity corrective | SHIPPED | `v0.6.1` on `1466444`; Release `38170634866` (run 14) passed; signed APK `versionName=0.6.1`, `versionCode=14`. Corrects 0.6.0 guided logging and deletion/backup integrity, adds keyboard/inset layout fixes and CI scheduling, and forbids release installs on the emulator. Artifact verified offline only; see `docs/qa.md` §13. |
+
+<a id="2026-10-12-completed-071-notes-and-session-history"></a>
+
+## 2026-10-12 — Completed 0.7.1 notes and session history
+
+Verbatim completed detail from `PLANS.md`'s 0.7.1 section, archived after `v0.7.1` published on
+2026-10-12 (PR #5, merge `b467241`; Release `38289317846`, run 16). The superseded 2026-10-12 status
+paragraph was dropped rather than archived: it said C0–C8 were implemented with C9 pending and that no
+push, tag or publication was authorized, all of which the SHIPPED row and `docs/qa.md` §13 now
+supersede. Completed chunk rows are shortened to stubs in `PLANS.md` with their ids, completion
+evidence and verification limits retained; nothing here is an open follow-up, so nothing was left
+behind except the OF-13 boundary that future summaries work still depends on. Shipped behaviour is
+documented in `docs/architecture.md`, `docs/qa.md` and the `hydrafit-mechanics` references; the review
+verdicts, findings and closures are in `docs/review-0.7.1-snapshot.md` §1–§9.
+
+### 0.7.1 — Notes & searchable session history
+
+**Scope:** persistent exercise/setup notes, separate session notes, searchable
+session history and access to the existing set-correction actions. Offline-first.
+Exclude Finish-workout summaries, charts/records, new progression policy,
+equipment profiles, occurrence-note storage and automatic setup-note snapshots.
+
+**Approved recommendations:**
+- Persistent exercise notes are keyed by exercise id; session notes are keyed by
+  explicit `sessionId`. The two never overwrite one another. Session notes stay
+  with their identity rather than following a corrected set.
+- Domain owns note/history contracts, database owns SQLDelight storage/queries,
+  and Logger owns the UI and an internal history route. No new permanent tab or
+  feature module; no cross-feature imports.
+- Plain text, maximum 2,000 characters per note. Clear is an explicit persisted
+  action that survives reload/backup; Cancel writes nothing. Storage must not
+  conflate an absent note with an explicitly cleared value.
+- Search session-note text and current catalog exercise names (current context, not
+  a historical snapshot), with local-date filters and bounded pagination. Do not
+  search current exercise setup notes as though they were historical context.
+- Use explicit session identity, never inferred date/time-gap grouping. Display
+  missing-session records honestly; do not group all null identities together.
+- Show recorded timestamps and sets. Omit workout-duration calculations,
+  comparative scores and inferred diagnoses or planner instructions from notes.
+- Reuse the existing correction use case and preserve its identity, load,
+  attribution, timing and session invariants. Current setup notes shown in history
+  must be labelled as current context, not historical snapshots.
+
+**C0 decisions confirmed:** when correction moves the last set out of a noted
+session, retain the session and its note, show it as having no recorded sets, and
+never move or delete the note automatically. Exercise-note clear is a persisted
+empty string distinct from no row; when deduping, the canonical note wins even if
+it is explicitly cleared, otherwise move the custom note. Successful custom
+exercise deletion removes its note atomically. History query details remain to be
+finalized against current source in the relevant implementation chunk; any new
+behavior tradeoff needs explicit approval.
+
+| Chunk | Status | Deliverable / acceptance and tests |
+| --- | --- | --- |
+| 0.7.1-C0 — contract | DONE | Finalize note ownership, limits, clearing, search, legacy handling and correction behavior. No code. Concrete examples cover saved/cleared notes, exercise renames, multiple same-day sessions and corrected timestamps, including the empty noted-session case above. |
+| 0.7.1-C1 — exercise-note storage | DONE | Committed and re-review approved; full required verification passed. |
+| 0.7.1-C2 — session-note storage | DONE | Separate session-note persistence, additive migration and backup support. Notes never overwrite exercise notes; survive End/New session, corrections and restore. Test missing identities, transaction failure and the approved empty-session policy. |
+| 0.7.1-C3 — exercise-note UI | DONE | Committed in `49fd692`; host tests, ktlint and the Koin graph verification pass. The editor's own Save/Cancel/Clear journey is now recorded in `docs/qa.md` and `.maestro/README.md` (bounded `logger-exercise-note.yaml` on `emulator-5554`); larger text, dark mode, locale and TalkBack remain unverified. |
+| 0.7.1-C4 — session-note UI | DONE | Distinct current-session editor. Test attribution across End/New session and recreation, no accidental session creation, Save/Cancel/Clear, failure/retry, duplicate submission and stale context. Semantic emulator assertions and viewed screenshot. |
+| 0.7.1-C5 — bounded history queries | DONE | Committed in `291f027`, `b3a871c` and `aa9fb93`: bounded query cost, lifecycle/pagination coverage, floor-correct local days and accurate metadata docs. Unicode-insensitive search uses Unicode 17.0.0 default full-fold projections (`exercise.searchName`/`sessionNote.searchNote`, migration `42.sqm`) with a startup backfill. Host tests, ktlint, debug assembly, iOS compile and migration verification pass; reviewed under C9 (see `docs/review-0.7.1-snapshot.md`). |
+| 0.7.1-C6 — history browser/details | DONE | Committed in `3d3492c`: Logger sub-screen with search, session details, notes and recorded sets. Search/filter/paging, empty/no-matches/error states, back navigation, detail reconciliation and clearly current exercise-note context are covered by host tests and the bounded `logger-history-browser.yaml` journey; reviewed under C9 (see `docs/review-0.7.1-snapshot.md`). |
+| 0.7.1-C7 — correction access | DONE | Committed in `916dd41`: history corrections reuse the existing `LoggedSetEdit` editor and `CorrectWorkoutSetUseCase`, with the stored `occurrenceId` carried into the bounded set projection. Row identity, load semantics, attribution, Cancel/failure/retry, time resegmentation and downstream refresh are host-tested and covered by `logger-history-correction.yaml`. No new bulk/history deletion policy. Reviewed under C9 (see `docs/review-0.7.1-snapshot.md`). |
+| 0.7.1-C8 — integration verification | DONE | Notes → persistence → backup/history → correction verified end to end by `WorkoutNotesHistoryIntegrationTest`; the C8 gate at `3262531` passed 1382 host tests plus migration verification, ktlint, debug assembly, iOS compile and changed Koin graph verification, with bounded emulator journeys and viewed screenshots. Revision-specific evidence and every unverified check are recorded in `docs/qa.md` and `.maestro/README.md`. The C9 review and its finding remediation are recorded in `docs/review-0.7.1-snapshot.md`. |
+| 0.7.1-C9 — post-execution review | DONE, APPROVED | Read-only Plan Mode review of the release delta returned **INCOMPLETE** with no blocking defect: findings and closure commits are recorded in `docs/review-0.7.1-snapshot.md` (R9-01…R9-08, closed by `0191581`, `20a8fec`, `3a9f648`, `8d9ea9c`, `d1e0488`, `29b0ca7`, `b3a55fe`, `f2d510f`). A bounded re-review (C9-R2) at `d52a9f3` verified every R9 closure and returned INCOMPLETE on documentation accuracy alone; its three R2 findings were fixed in the R2 remediation commits (`a6d77e3`, `e07508d`, `37b2386`, `5589eff`). The C9-R3 confirmation found one unclosed projection writer (`R3-01`, closed by `726f307`), and the final C9-R4 confirmation at `647d3ab` returned **APPROVED** with the candidate gates recorded in `docs/qa.md` §13. |
+
+**Execution discipline:** approve chunks individually or as an explicitly ordered
+batch after C0 closes. Each implementation chunk includes tests and affected
+living-document/mechanics-reference updates, runs relevant tests/build checks,
+then reports at its approved chunk boundary. Schema/cross-cutting changes require
+full host tests, migration verification where applicable, ktlint, debug assembly
+and iOS compile; changed bindings/constructors require Koin verification. UI checks
+follow the emulator-only, debug-build and bounded semantic-testing rules. Required
+backup and lifecycle consumers ship with their storage chunk, not later.
+
+After C8, stop for C9 in Plan Mode: builder verification is not a review verdict.
+Review approval does not authorize fixes, commits or pushing. Release preparation
+and publication follow only after required findings are resolved and reviewed work
+is explicitly approved, under separate release/push/tag approvals. No automatic
+handoff or next-release work.
