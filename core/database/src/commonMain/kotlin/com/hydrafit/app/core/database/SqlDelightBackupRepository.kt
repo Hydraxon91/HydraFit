@@ -557,10 +557,8 @@ class SqlDelightBackupRepository(
                     loadCapability = exercise.loadCapability,
                     involvements = exercise.involvements
                 )
-                database.exerciseQueries.updateSearchName(
-                    searchName = unicodeCaseFold(exercise.name),
-                    id = exercise.id
-                )
+                // The stored projection is the effective name, so a rename of this custom follows.
+                database.refreshExerciseSearchName(exercise.id)
             }
             file.exerciseOverrides.forEach { override ->
                 database.exerciseOverrideQueries.upsert(
@@ -572,6 +570,8 @@ class SqlDelightBackupRepository(
                     loadCapability = override.loadCapability,
                     involvements = override.involvements
                 )
+                // A restored rename decides the effective display name, so its projection follows.
+                database.refreshExerciseSearchName(override.exerciseId)
             }
             file.personalRecords.forEach { record ->
                 database.personalRecordQueries.upsert(

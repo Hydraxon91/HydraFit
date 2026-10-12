@@ -55,8 +55,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.navigation
 import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
@@ -149,6 +151,7 @@ import hydrafit.feature.logger.generated.resources.logger_guided_set_started
 import hydrafit.feature.logger.generated.resources.logger_guided_start_set
 import hydrafit.feature.logger.generated.resources.logger_guided_target
 import hydrafit.feature.logger.generated.resources.logger_guided_title
+import hydrafit.feature.logger.generated.resources.logger_history_open
 import hydrafit.feature.logger.generated.resources.logger_load_added
 import hydrafit.feature.logger.generated.resources.logger_load_added_none
 import hydrafit.feature.logger.generated.resources.logger_load_bodyweight
@@ -212,21 +215,37 @@ import org.koin.compose.viewmodel.koinViewModel
 
 val loggerRoute: String = "log"
 
+/** The Logger's own screen; the tab route [loggerRoute] is its parent graph. */
+private val loggerHomeRoute: String = "log/home"
+
 val loggerDestination: FeatureDestination = FeatureDestination(
     route = loggerRoute,
     label = Res.string.nav_label,
-    graph = { { loggerGraph() } }
+    graph = { navController -> { loggerGraph(navController) } }
 )
 
-fun NavGraphBuilder.loggerGraph() {
-    composable(loggerRoute) { WorkoutLoggerRoute() }
+/**
+ * A real nested graph keeps the Log tab selected on the history sub-screens, which the shell matches
+ * by destination hierarchy.
+ */
+fun NavGraphBuilder.loggerGraph(navController: NavController) {
+    navigation(startDestination = loggerHomeRoute, route = loggerRoute) {
+        composable(loggerHomeRoute) {
+            WorkoutLoggerRoute(
+                viewModel = sharedLoggerViewModel(navController),
+                onOpenHistory = { navController.navigate(historyGraphRoute) }
+            )
+        }
+        historyDestinations(navController)
+    }
 }
 
 @Composable
 fun WorkoutLoggerRoute(
     modifier: Modifier = Modifier,
-    viewModel: WorkoutLoggerViewModel = koinViewModel(),
-    replacementViewModel: OccurrenceReplacementViewModel = koinViewModel()
+    viewModel: WorkoutLoggerViewModel,
+    replacementViewModel: OccurrenceReplacementViewModel = koinViewModel(),
+    onOpenHistory: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val replacementState by replacementViewModel.state.collectAsStateWithLifecycle()
@@ -301,6 +320,7 @@ fun WorkoutLoggerRoute(
         onSessionNoteClear = viewModel::clearSessionNote,
         onSessionNoteCancel = viewModel::cancelSessionNote,
         onSessionNoteRetry = viewModel::retrySessionNoteLoad,
+        onOpenHistory = onOpenHistory,
         nowMillis = viewModel::currentTimeMillis,
         modifier = modifier
     )
@@ -382,6 +402,7 @@ fun WorkoutLoggerScreen(
     onSessionNoteClear: () -> Unit,
     onSessionNoteCancel: () -> Unit,
     onSessionNoteRetry: () -> Unit,
+    onOpenHistory: () -> Unit,
     nowMillis: () -> Long,
     modifier: Modifier = Modifier
 ) {
@@ -405,6 +426,11 @@ fun WorkoutLoggerScreen(
                 text = stringResource(Res.string.logger_title),
                 style = MaterialTheme.typography.headlineSmall
             )
+        }
+        item {
+            TextButton(onClick = onOpenHistory) {
+                Text(stringResource(Res.string.logger_history_open))
+            }
         }
         item {
             Column(

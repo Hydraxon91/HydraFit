@@ -64,6 +64,8 @@ import com.hydrafit.app.core.domain.workout.SessionConfig
 import com.hydrafit.app.core.domain.workout.SessionNoteRepository
 import com.hydrafit.app.core.domain.workout.SessionResegmenter
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
+import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSession
@@ -3465,6 +3467,108 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun aSetReachedFromHistoryCorrectsTheSameStoredRowThroughTheSharedEditor() =
+        runTest(dispatcher) {
+            val key = WorkoutHistoryKey.Session("recorded-session")
+            val recorded = WorkoutHistorySet(
+                id = 7L,
+                exerciseId = "back-squat",
+                exerciseName = "Back Squat",
+                reps = 8,
+                weightKg = 100.0,
+                loadKind = LoadKind.EXTERNAL,
+                isWarmup = true,
+                rir = 2,
+                performedAtMillis = MONDAY,
+                timingProvenance = WorkoutTimingProvenance.UNKNOWN,
+                occurrenceId = 30L
+            )
+            val stored = WorkoutSet(
+                id = 7L,
+                exerciseId = "back-squat",
+                reps = 8,
+                weightKg = 100.0,
+                performedAtMillis = MONDAY,
+                isWarmup = true,
+                rir = 2,
+                sessionId = "recorded-session",
+                occurrenceId = 30L
+            )
+            val repository = FakeWorkoutLogRepository(listOf(stored))
+            val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+            advanceUntilIdle()
+
+            viewModel.editLoggedSet(recorded.toLoggedSetRow(key))
+            assertEquals("8", viewModel.state.value.loggedSetEdit?.reps)
+            assertEquals("2", viewModel.state.value.loggedSetEdit?.rir)
+
+            viewModel.onLoggedSetRepsChanged("10")
+            viewModel.saveLoggedSetEdit()
+            advanceUntilIdle()
+
+            assertEquals(1, repository.corrections)
+            val corrected = repository.all().single()
+            // The same row is corrected: identity, stored load, warm-up and occurrence are untouched.
+            assertEquals(7L, corrected.id)
+            assertEquals(10, corrected.reps)
+            assertEquals(100.0, corrected.weightKg)
+            assertEquals(2, corrected.rir)
+            assertTrue(corrected.isWarmup)
+            assertEquals(30L, corrected.occurrenceId)
+            assertEquals("recorded-session", corrected.sessionId)
+            assertNull(viewModel.state.value.loggedSetEdit)
+        }
+
+    @Test
+    fun aHistoryCorrectionFailureKeepsTheEditorOpenForRetry() = runTest(dispatcher) {
+        val recorded = WorkoutHistorySet(
+            id = 7L,
+            exerciseId = "back-squat",
+            exerciseName = "Back Squat",
+            reps = 8,
+            weightKg = 100.0,
+            loadKind = LoadKind.EXTERNAL,
+            isWarmup = false,
+            rir = null,
+            performedAtMillis = MONDAY,
+            timingProvenance = WorkoutTimingProvenance.UNKNOWN
+        )
+        val repository = FakeWorkoutLogRepository(
+            listOf(
+                WorkoutSet(
+                    id = 7L,
+                    exerciseId = "back-squat",
+                    reps = 8,
+                    weightKg = 100.0,
+                    performedAtMillis = MONDAY,
+                    sessionId = "recorded-session"
+                )
+            )
+        )
+        repository.failCorrection = true
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+
+        viewModel.editLoggedSet(
+            recorded.toLoggedSetRow(WorkoutHistoryKey.Session("recorded-session"))
+        )
+        viewModel.onLoggedSetRepsChanged("10")
+        viewModel.saveLoggedSetEdit()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.loggedSetEditFailed)
+        assertEquals("10", viewModel.state.value.loggedSetEdit?.reps)
+        assertEquals(8, repository.all().single().reps)
+
+        repository.failCorrection = false
+        viewModel.saveLoggedSetEdit()
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.loggedSetEdit)
+        assertEquals(10, repository.all().single().reps)
+    }
+
+    @Test
     fun recentSetEditCancelAndInvalidValuesDoNotWrite() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository(
             listOf(WorkoutSet(1L, "back-squat", 8, 100.0, performedAtMillis = MONDAY))
@@ -5735,6 +5839,9 @@ class WorkoutLoggerViewModelTest {
         private val notes = mutableMapOf<String, String?>()
         var failSave = false
 
+        /** When set, [save] suspends until it completes, to test a write in flight. */
+        var saveGate: CompletableDeferred<Unit>? = null
+
         override suspend fun note(exerciseId: String): String? = notes[exerciseId]
 
         override suspend fun save(exerciseId: String, text: String) {
@@ -5744,6 +5851,7 @@ class WorkoutLoggerViewModelTest {
                 )
             }
             if (failSave) throw IllegalStateException("Save failed")
+            saveGate?.await()
             notes[exerciseId] = text
         }
 
@@ -5821,6 +5929,68 @@ class WorkoutLoggerViewModelTest {
 
         assertEquals("", noteRepo.note("back-squat"))
         assertNull(viewModel.state.value.noteExerciseId)
+    }
+
+    @Test
+    fun anEarlierNoteSaveDoesNotDismissALaterSavesConfirmation() = runTest(dispatcher) {
+        val noteRepo = FakeExerciseNoteRepository()
+        val viewModel = viewModel(noteRepository = noteRepo)
+        advanceUntilIdle()
+
+        // First save: its 2 s dismissal timer starts now.
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+        viewModel.onNoteTextChanged("first")
+        viewModel.saveNote()
+        runCurrent()
+        assertEquals(true, viewModel.state.value.noteSaved)
+
+        // Second save inside that window must own the confirmation.
+        advanceTimeBy(1_000)
+        runCurrent()
+        viewModel.onExerciseSelected("back-squat")
+        runCurrent()
+        viewModel.onNoteTextChanged("second")
+        viewModel.saveNote()
+        runCurrent()
+        assertEquals(true, viewModel.state.value.noteSaved)
+
+        // The first timer fires here; it must not clear the newer confirmation.
+        advanceTimeBy(1_100)
+        runCurrent()
+        assertEquals(true, viewModel.state.value.noteSaved)
+
+        // The second timer still dismisses its own confirmation.
+        advanceTimeBy(1_100)
+        runCurrent()
+        assertEquals(false, viewModel.state.value.noteSaved)
+    }
+
+    @Test
+    fun cancellingWhileANoteSaveIsInFlightIsIgnoredSoTheEditorCannotStrand() = runTest(dispatcher) {
+        val noteRepo = FakeExerciseNoteRepository()
+        val gate = CompletableDeferred<Unit>()
+        noteRepo.saveGate = gate
+        val viewModel = viewModel(noteRepository = noteRepo)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+        viewModel.onNoteTextChanged("saved under a gate")
+        viewModel.saveNote()
+        runCurrent()
+        assertEquals(true, viewModel.state.value.noteSaving)
+
+        // The write owns the editor state while it runs.
+        viewModel.cancelNote()
+        assertEquals(true, viewModel.state.value.noteSaving)
+
+        gate.complete(Unit)
+        runCurrent()
+        assertEquals(false, viewModel.state.value.noteSaving)
+        assertEquals(true, viewModel.state.value.noteSaved)
+        assertNull(viewModel.state.value.noteExerciseId)
+        assertEquals("saved under a gate", noteRepo.note("back-squat"))
     }
 
     @Test

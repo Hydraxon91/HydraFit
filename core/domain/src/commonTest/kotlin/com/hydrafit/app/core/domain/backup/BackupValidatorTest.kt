@@ -298,6 +298,34 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun rejectsExerciseNotesInLegacyFormats() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            validFile().copy(
+                formatVersion = 8,
+                exerciseNotes = listOf(BackupExerciseNoteRecord("back-squat", "note"))
+            )
+        }
+    }
+
+    @Test
+    fun acceptsExerciseNotesInTheirIntroductionFormat() {
+        validator.validate(
+            validFile().copy(
+                formatVersion = EXERCISE_NOTES_FORMAT_VERSION,
+                exerciseNotes = listOf(BackupExerciseNoteRecord("back-squat", "note"))
+            )
+        )
+    }
+
+    @Test
+    fun anEmptyExerciseNoteSectionStaysValidForLegacyFormats() {
+        // Versions 1-8 simply have no note section; an exported empty list must not be rejected.
+        validator.validate(
+            validFile().copy(formatVersion = 8, exerciseNotes = emptyList())
+        )
+    }
+
+    @Test
     fun rejectsSessionNotesInLegacyFormats() {
         assertFailure(BackupFailure.INVALID_VALUE) {
             validFile().copy(

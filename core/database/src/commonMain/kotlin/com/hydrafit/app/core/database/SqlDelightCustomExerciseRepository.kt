@@ -5,7 +5,6 @@ import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
-import com.hydrafit.app.core.domain.workout.unicodeCaseFold
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseException
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
@@ -40,7 +39,8 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
                 loadCapability = loadCapability.name,
                 involvements = encodeInvolvements(involvements)
             )
-            queries.updateSearchName(searchName = unicodeCaseFold(trimmed), id = id)
+            // The stored projection is the effective name, so a restored rename of this custom follows.
+            database.refreshExerciseSearchName(id)
         }
         return Exercise(
             id = id,
@@ -81,7 +81,8 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
                 involvements = encodeInvolvements(involvements),
                 id = id
             )
-            queries.updateSearchName(searchName = unicodeCaseFold(trimmed), id = id)
+            // Renaming a custom must not put its own name over a restored override's name.
+            database.refreshExerciseSearchName(id)
         }
     }
 

@@ -177,14 +177,16 @@ The Logger keeps two independent note editors, each guarded by its own editor re
 setup-note editor (`noteExerciseId`/`noteText`) is keyed to the selected exercise and cannot write a
 stale draft to a newly selected exercise. The current-session editor
 (`sessionNoteSessionId`/`sessionNoteText`) opens only with an active session, reads the note for that
-session's explicit `sessionId`, and never creates a session; opening during a write is ignored. Save
-and Clear capture the session id and editor revision before suspending, claim the editor
-synchronously so repeated submissions write once, and apply success or failure only when that context
-still matches. Cancel writes nothing; a failed Save/Clear retains the draft for retry. Because the
-explicit session identity is the only attribution, End/New (and an external active-session change)
-invalidate the editor and any in-flight read or write, so no draft or completion can attach to a
-different session; recreation reloads the persisted note for the same session. Selecting an exercise
-does not change session-note identity or draft.
+session's explicit `sessionId`, and never creates a session; opening during a write is ignored. Both
+editors capture the editor revision before suspending, claim the editor synchronously so repeated
+submissions write once, and apply success or failure — including the 2-second "saved" dismissal —
+only when that revision and the captured identity still match, so an earlier write's timer can never
+clear a later confirmation. A cancel while a write is in flight is ignored, because the in-flight
+write owns the editor state. Cancel writes nothing; a failed Save/Clear retains the draft for retry.
+Because the explicit session identity is the only attribution, End/New (and an external
+active-session change) invalidate the session editor and any in-flight read or write, so no draft or
+completion can attach to a different session; recreation reloads the persisted note for the same
+session. Selecting an exercise does not change session-note identity or draft.
 
 History search/listing support (0.7.1-C5) lives in `WorkoutHistoryRepository` (`:core:domain`), a
 read-only port backed by query-only `WorkoutHistory.sq`; the Logger's history browser (0.7.1-C6) is
@@ -193,11 +195,30 @@ unassigned set id — never inferred date grouping — and displayed exercise na
 current catalog. Search folds Unicode case (`unicodeCaseFold`, Unicode 17.0.0 default full folding
 in `:core/domain`) over the `exercise.searchName`/`sessionNote.searchNote` projections, so non-ASCII
 case variants match while accents still distinguish; the projections are a schema addition
-(`42.sqm`) written by the seeding, custom-exercise, session-note and restore paths and rebuilt at
-startup.
+(`42.sqm`) written by the seeding, custom-exercise, session-note, override-rename and restore paths
+and rebuilt at startup.
+`exercise.searchName` folds the *effective* display name (an exercise's own name, or the name its
+user override gives it), and the history set pages display the same resolved name, so a renamed
+built-in is found and shown by the name the Logger uses.
 `WorkoutHistoryRequest`/`WorkoutHistorySetRequest` own
 validation and keyset cursors; there is no history use case, and the only new Koin binding is the
 startup `SearchProjectionBackfill`.
+
+The browser (0.7.1-C6) is `WorkoutHistoryScreen`/`WorkoutHistoryDetailScreen` behind
+`WorkoutHistoryViewModel`, registered as the Logger's second presentation ViewModel and reached
+through the Logger's own nested history sub-graph (`WorkoutHistoryNavigation.kt`), so the Log tab
+stays selected and no shell change is needed. `WorkoutLoggerRoute` and the history screens share one
+`WorkoutLoggerViewModel` scoped to the Logger graph entry, which is how a correction opened from a
+recorded set reuses the existing `LoggedSetEdit`/`LoggedSetEditDialog` editor, `WorkoutLogMutations`
+and `CorrectWorkoutSetUseCase` instead of a second policy. Both screens resolve that graph-scoped
+owner once per composition with `remember`: `NavController.getBackStackEntry` throws while a
+destination is being popped, and Navigation recomposes the exiting destination during that
+transition. The first page of each history read is
+observed live and later pages are appended on request; a new first-page emission drops the pages
+derived from it, since a keyset cursor only describes the content that produced it. The bounded set
+projection also carries the stored `occurrenceId`, so a history correction keeps the Logger's
+rest-prompt cancellation and attribution. Setup notes shown next to recorded sets are read once per
+distinct exercise in the loaded page and labelled current context.
 
 For routine authoring, the module is `:feature:routines`:
 `RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/

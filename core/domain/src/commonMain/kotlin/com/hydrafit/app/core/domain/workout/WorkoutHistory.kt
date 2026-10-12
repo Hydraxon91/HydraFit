@@ -92,7 +92,13 @@ data class WorkoutHistorySet(
     val isWarmup: Boolean,
     val rir: Int?,
     val performedAtMillis: Long,
-    val timingProvenance: WorkoutTimingProvenance
+    val timingProvenance: WorkoutTimingProvenance,
+    /**
+     * The workout occurrence this set was recorded in, or null when it was not part of one. Carried
+     * so a correction reached from history keeps the same occurrence attribution as one reached from
+     * the Logger, including cancelling that occurrence's rest prompt.
+     */
+    val occurrenceId: Long? = null
 )
 
 internal const val WORKOUT_HISTORY_DEFAULT_PAGE_SIZE = 30

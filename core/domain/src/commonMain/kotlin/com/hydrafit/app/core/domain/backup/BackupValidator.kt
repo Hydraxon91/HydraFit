@@ -36,6 +36,9 @@ class BackupValidator(private val catalog: BackupCatalog) {
         if (file.format != BACKUP_FORMAT || file.formatVersion !in SUPPORTED_FORMAT_VERSIONS) {
             fail(BackupFailure.UNSUPPORTED_VERSION)
         }
+        if (file.formatVersion < EXERCISE_NOTES_FORMAT_VERSION && file.exerciseNotes.isNotEmpty()) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
         if (file.formatVersion < SESSION_NOTES_FORMAT_VERSION && file.sessionNotes.isNotEmpty()) {
             fail(BackupFailure.INVALID_VALUE)
         }

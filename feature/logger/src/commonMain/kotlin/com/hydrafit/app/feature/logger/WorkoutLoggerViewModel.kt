@@ -1998,26 +1998,39 @@ class WorkoutLoggerViewModel(
         if (noteSaving || exerciseId == null || exerciseId != current.selectedExerciseId) return
         val text = current.noteText
         if (text.length > NOTE_MAX_LENGTH) return
+        val revision = noteRevision
+        // Claim the editor synchronously so two submissions before the write runs cannot both write.
+        _state.update { it.copy(noteSaving = true, noteFailed = false, noteSaved = false) }
         viewModelScope.launch {
-            _state.update { it.copy(noteSaving = true, noteFailed = false, noteSaved = false) }
             try {
                 exerciseNoteRepository.save(exerciseId, text)
-                // Closing the editor invalidates any in-flight load so it cannot reopen it.
-                noteRevision++
-                _state.update {
-                    it.copy(
-                        noteSaving = false,
-                        noteSaved = true,
-                        noteText = "",
-                        noteExerciseId = null
-                    )
+                // A write that finished for an exercise that is no longer the editor's target must not
+                // close, alter or confirm feedback in the new context.
+                if (noteRevision == revision && _state.value.noteExerciseId == exerciseId) {
+                    // Closing the editor invalidates any in-flight load so it cannot reopen it.
+                    noteRevision++
+                    val feedbackRevision = noteRevision
+                    _state.update {
+                        it.copy(
+                            noteSaving = false,
+                            noteSaved = true,
+                            noteText = "",
+                            noteExerciseId = null
+                        )
+                    }
+                    // Auto-dismiss the success indicator after a short delay.
+                    kotlinx.coroutines.delay(2_000)
+                    // A newer editor or success bumps the revision; this delayed dismissal must not
+                    // clear feedback that belongs to a later context.
+                    if (noteRevision == feedbackRevision) {
+                        _state.update { it.copy(noteSaved = false) }
+                    }
                 }
-                // Auto-dismiss the success indicator after a short delay.
-                kotlinx.coroutines.delay(2_000)
-                _state.update { it.copy(noteSaved = false) }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
             } catch (_: Exception) {
-                _state.update {
-                    it.copy(noteSaving = false, noteFailed = true)
+                if (noteRevision == revision && _state.value.noteExerciseId == exerciseId) {
+                    _state.update { it.copy(noteSaving = false, noteFailed = true) }
                 }
             }
         }
@@ -2028,25 +2041,33 @@ class WorkoutLoggerViewModel(
         val current = _state.value
         val exerciseId = current.noteExerciseId
         if (noteSaving || exerciseId == null || exerciseId != current.selectedExerciseId) return
+        val revision = noteRevision
+        _state.update { it.copy(noteSaving = true, noteFailed = false, noteSaved = false) }
         viewModelScope.launch {
-            _state.update { it.copy(noteSaving = true, noteFailed = false, noteSaved = false) }
             try {
                 exerciseNoteRepository.clear(exerciseId)
-                // Closing the editor invalidates any in-flight load so it cannot reopen it.
-                noteRevision++
-                _state.update {
-                    it.copy(
-                        noteSaving = false,
-                        noteSaved = true,
-                        noteText = "",
-                        noteExerciseId = null
-                    )
+                if (noteRevision == revision && _state.value.noteExerciseId == exerciseId) {
+                    // Closing the editor invalidates any in-flight load so it cannot reopen it.
+                    noteRevision++
+                    val feedbackRevision = noteRevision
+                    _state.update {
+                        it.copy(
+                            noteSaving = false,
+                            noteSaved = true,
+                            noteText = "",
+                            noteExerciseId = null
+                        )
+                    }
+                    kotlinx.coroutines.delay(2_000)
+                    if (noteRevision == feedbackRevision) {
+                        _state.update { it.copy(noteSaved = false) }
+                    }
                 }
-                kotlinx.coroutines.delay(2_000)
-                _state.update { it.copy(noteSaved = false) }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
             } catch (_: Exception) {
-                _state.update {
-                    it.copy(noteSaving = false, noteFailed = true)
+                if (noteRevision == revision && _state.value.noteExerciseId == exerciseId) {
+                    _state.update { it.copy(noteSaving = false, noteFailed = true) }
                 }
             }
         }
@@ -2054,6 +2075,8 @@ class WorkoutLoggerViewModel(
 
     /** Cancels the note editor, discarding the draft. */
     fun cancelNote() {
+        // A write in flight owns the editor state; cancelling it here would strand `noteSaving`.
+        if (noteSaving) return
         // Invalidate any in-flight load so a late result cannot reopen the editor.
         noteRevision++
         _state.update {

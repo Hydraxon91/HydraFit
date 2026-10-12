@@ -4,6 +4,7 @@ import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.equipment.MovementPatternGuardrail
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.workout.unicodeCaseFold
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -27,6 +28,32 @@ class SeedExerciseCatalogTest {
     @AfterTest
     fun tearDown() {
         driver.close()
+    }
+
+    @Test
+    fun seedingKeepsARenamedBuiltInsEffectiveProjection() {
+        database.exerciseOverrideQueries.upsert(
+            exerciseId = "back-squat",
+            name = "Safety Bar Squat",
+            requiredEquipment = null,
+            movementPattern = null,
+            isUnilateral = null,
+            loadCapability = null,
+            involvements = null
+        )
+
+        SeedExerciseCatalog(database).seed()
+
+        // Seeding rewrites every built-in row, but must not put the seeded name back into the search
+        // projection the history browser matches.
+        assertEquals(
+            unicodeCaseFold("Safety Bar Squat"),
+            database.exerciseQueries.selectById("back-squat").executeAsOne().searchName
+        )
+        assertEquals(
+            "Back Squat",
+            database.exerciseQueries.selectById("back-squat").executeAsOne().name
+        )
     }
 
     @Test

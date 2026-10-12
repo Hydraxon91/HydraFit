@@ -159,14 +159,17 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   exercised in this emulator smoke. Font/theme/locale variants, TalkBack and visible-keyboard
   relayout remain unverified.
 - Sessions: first set auto-starts a session; End session / New session; day rollover starts a new one; active-session indicator correct.
-- Session history (0.7.1-C5, queries only — no browser UI until C6): entries are keyed by explicit
+- Session history (0.7.1-C5 queries, 0.7.1-C6 browser, 0.7.1-C7 corrections): entries are keyed by
+  explicit
   session id or unassigned set id, newest first. A session appears when it has recorded sets or a
   session-note row (including an explicit clear); an empty, never-noted session does not; a stored
   session id with no session row is reported as a missing-session entry. Search is a literal escaped
   substring over session-note text and current catalog exercise names, never the exercise setup note.
   Search folds Unicode case (`unicodeCaseFold`, Unicode 17.0.0 default full folding) over the
   `exercise.searchName`/`sessionNote.searchNote` projections.
-  They match case-insensitively for every script while accents still distinguish.
+  They match case-insensitively for every script while accents still distinguish. A renamed built-in
+  is found and shown by the name the rest of the app uses: the projection folds the effective name an
+  override gives it, and the recorded-set rows resolve the same name.
   Local-day bounds are inclusive, using each session's stored local day and a caller-supplied offset
   for sets without one. Keyset pages present every entry exactly once and reject a cursor that does
   not belong to the same filter.
@@ -176,11 +179,69 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   `testAndroidHostTest`, `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
   `verifySqlDelightMigration` pass (the `42.sqm` projections are covered by `verifySqlDelightMigration` and
   `V1ToCurrentMigrationTest`). Continuous
-  emission is covered by `theHistoryFlowEmitsAgainAfterARecordedSetIsInserted`. No emulator journey
-  applies because C5 adds no UI; the C6 browser and very large result sets
-  remain unverified.
-- Session note: with no active session the "Session note" entry is disabled and reads "Start a session to
-  add a note."; it never creates a session. With an active session it opens a "Current session note" editor
+  emission is covered by `theHistoryFlowEmitsAgainAfterARecordedSetIsInserted`.
+  **2026-10-12 C6/C7 host verification (at `3262531`):** 1382 host tests pass with zero
+  failures/errors/skips across `:core:domain` (548), `:core:database` (323), `:core:network` (34),
+  `:core:llm` (55), `:feature:logger` (276), `:feature:settings` (19), `:feature:equipment` (31),
+  `:feature:routines` (13), `:feature:splitbuilder` (51), `:feature:fatigueheatmap` (11) and
+  `:shared` (21); `ktlintCheck`, `:androidApp:assembleDebug`,
+  `:shared:compileKotlinIosSimulatorArm64` and `verifySqlDelightMigration` pass together
+  (`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/hydrafit-c6-c8-gate.log`).
+  **2026-10-12 post-review remediation gate:** the reviewed HEAD `d52a9f3` passes 1395 host tests with
+  zero failures/errors/skips, and the review remediation (two added projection regression tests) passes
+  1397: `:core:domain` 554, `:core:database` 330, `:feature:logger` 278,
+  `:core:network` 34, `:core:llm` 55, `:feature:settings` 19, `:feature:equipment` 31,
+  `:feature:routines` 13, `:feature:splitbuilder` 51, `:feature:fatigueheatmap` 11 and `:shared` 21.
+  `ktlintCheck`, `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
+  `verifySqlDelightMigration` pass at that revision
+  (`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/r301-gate.log`); schema version is
+  44 with `43.sqm`, and every C9 finding and its closure is recorded in
+  `docs/review-0.7.1-snapshot.md`.
+  `WorkoutNotesHistoryIntegrationTest` drives real producers and consumers: logged sets and
+  saved/cleared notes, bounded history reads (search matches catalog names and session-note text but
+  never a setup note; a cleared note keeps an otherwise empty session visible), a full
+  export → encode → validate → stage → apply backup round trip, then a correction re-read by the
+  history repository and the fatigue-facing `loggedSets()` projection with no duplicate set. It also
+  pins that a set with no session id is refused by backup validation
+  (`BackupFailure.STARTUP_UNSTABLE`) rather than silently backfilled, and that such a set still
+  corrects by its own identity.
+  **2026-10-12 C6/C7 emulator verification (`emulator-5554`, debug):** `.maestro/logger-history-browser.yaml`
+  and `.maestro/logger-history-correction.yaml` passed end-to-end on the final build; viewed
+  screenshots showed the history list (noted and explicitly cleared sessions, absent note, recorded
+  set counts) and the detail (`Dips`, `9 reps · Bodyweight`, `Working set`, `Timing not recorded`,
+  `Session note: No session note`, `Current setup note` plus "Current context, not a snapshot of this
+  set."). The correction journey logged one synthetic bodyweight set (7 reps), corrected it to 9 reps
+  through the existing **Edit set** dialog (title `Edit set: Dips`), and the detail reconciled to
+  `9 reps` with the old value gone and `Recorded sets: 1` unchanged. **A crash was found and fixed
+  during this verification:** resolving the history sub-graph's `NavBackStackEntry` on every
+  recomposition threw `IllegalArgumentException: No destination with route log/history is on the
+  NavController's back stack` while the destination was being popped and killed the process
+  (`FATAL EXCEPTION: main`); the owner is now resolved once per composition, and both flows re-passed
+  with no fatal exception in the captured logcat. `logger-session-controls.yaml` and
+  `navigation-smoke.yaml` were re-run as regressions for the nested Logger graph and passed.
+  **Limits:** the synthetic set is bodyweight, so the weight field and kg/lb display variants were not
+  exercised in the UI (host-tested); date-picker filtering, loading/error states, very large result
+  sets, larger text, dark mode, locale and TalkBack remain unverified; no pinned signed
+  release-upgrade check was performed. The write flow's synthetic sessions and sets are retained and
+  left one session open, so `logger-session-controls.yaml`'s "no active session" precondition does not
+  currently hold.
+- Exercise setup note: selecting an exercise opens its editor; the note is keyed to that exercise id,
+  Save persists plain text up to `NOTE_MAX_LENGTH` (2,000), Clear persists an explicit empty note that
+  survives reload, and Cancel writes nothing. The editor is bound to the selection, so switching
+  exercises shows that exercise's own state and never carries the previous draft.
+  **2026-10-12 bounded verification (`emulator-5554`, debug, 1080×2400):** `.maestro/logger-exercise-note.yaml`
+  passed end to end: the editor opened at `0/2000` with Save/Clear/Cancel, Save persisted
+  "C9R synthetic setup note" and closed the editor with a "Note saved" confirmation, reopening showed
+  the persisted text at `24/2000`, a real draft change was discarded by Cancel (the stored value was
+  unchanged afterwards), Clear persisted an explicit empty note, and switching to another exercise
+  showed only its empty state. Viewed screenshot:
+  `/tmp/hydrafit-c3-note6/2026-10-12_193520/.../exercise-note-persisted.png`; log
+  `/tmp/hydrafit-c3-note6.log`, no fatal exception in the captured logcat. The flow clears the note at
+  both ends, so it is state-independent; **Dips is left with an explicitly cleared note**. The editor
+  renders never-set and explicitly-cleared identically (both `0/2000`); that distinction is covered by
+  repository/validator tests and is displayed in history. Larger text, dark mode, locale, TalkBack, a
+  failed-save retry in the UI and the 2,000-character boundary in the UI remain unverified.
+- Session note: with no active session the "Session note" entry is disabled and reads "Start a session to add a note."; it never creates a session. With an active session it opens a "Current session note" editor
   that reads and writes the note for that session's explicit identity, distinct from the exercise setup-note
   editor. Save and Clear persist to the same session, Cancel writes nothing, and a failed write retains the
   draft for retry. End/New session and an external session change close the old editor, whose draft is never
@@ -412,6 +473,36 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   the follow-up fixes and their verification are recorded in the commits. A bounded emulator
   navigation and unsaved-editor smoke passed on the debug build; signed-upgrade and on-device
   runtime behavior for the release artifact remain unverified.
+
+### 0.7.1 notes & session history candidate verification (2026-10-12)
+
+- Candidate revision `647d3ab` (0.7.1 — notes and searchable session history) is **reviewed APPROVED**
+  and awaiting release preparation. Review chain: a full-scope read-only review at `3262531` returned
+  INCOMPLETE on no blocking defect (findings R9-01…R9-08, closed by `0191581`, `20a8fec`, `3a9f648`,
+  `8d9ea9c`, `d1e0488`, `29b0ca7`, `b3a55fe`, `f2d510f`); the bounded re-review at `d52a9f3` verified
+  every closure and returned INCOMPLETE on documentation accuracy alone (R2-01…R2-03, closed by
+  `a6d77e3`, `e07508d`, `37b2386`, `5589eff`); the bounded confirmation found one unclosed projection
+  writer (R3-01, closed by `726f307`) and the final bounded confirmation (C9-R4) returned
+  **APPROVED**. Verdicts and closures: `docs/review-0.7.1-snapshot.md` §1–§9.
+- Local candidate gate before tagging: **1,397 host tests, zero failures/errors/skips** (`:core:domain`
+  554, `:core:database` 330, `:feature:logger` 278, `:core:network` 34, `:core:llm` 55,
+  `:feature:settings` 19, `:feature:equipment` 31, `:feature:routines` 13, `:feature:splitbuilder` 51,
+  `:feature:fatigueheatmap` 11, `:shared` 21) plus `ktlintCheck`, `:androidApp:assembleDebug`,
+  `:shared:compileKotlinIosSimulatorArm64`, `verifySqlDelightMigration` and release-specific
+  `:androidApp:lintVitalRelease`
+  (`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/r071-candidate-gate.log`). Schema
+  version is 44 (`43.sqm` adds the `workoutSet(sessionId, performedAt)` index).
+- Emulator evidence on debug builds: `logger-history-browser.yaml` and `logger-history-correction.yaml`
+  (history search, paging, detail and correction) and `logger-exercise-note.yaml` (exercise setup-note
+  Save/Cancel/Clear) passed on `emulator-5554`, with viewed screenshots; run counts, causes and fixture
+  effects are in `.maestro/README.md`. `navigation-smoke.yaml` and `logger-session-controls.yaml`
+  passed as regressions for the nested Logger graph.
+- **Limits:** no CI evidence exists for this revision yet (the commits are local and unpushed); no
+  pinned signed release-upgrade check; no artifact verification yet, because no release APK exists.
+  Emulator coverage is a debug-build smoke with the gaps listed in `.maestro/README.md` and
+  `docs/review-0.7.1-snapshot.md` §5 (larger text, dark mode, locale, TalkBack, date-picker filtering,
+  loading/error states, very large result sets, the 2,000-character and failed-save paths in the C3
+  editor, process-death restoration).
 
 ### v0.7.0 publication verification (2026-10-12)
 

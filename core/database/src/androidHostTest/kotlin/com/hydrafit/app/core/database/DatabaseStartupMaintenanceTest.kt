@@ -109,6 +109,56 @@ class DatabaseStartupMaintenanceTest {
             driver.close()
         }
 
+    /**
+     * A projection that drifted from the name it is written by must be healed at startup, including
+     * when a user override decides the effective display name.
+     */
+    @Test
+    fun backfillsFoldedSearchProjectionsFromTheEffectiveDisplayName() = runTest(dispatcher) {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        HydraFitDatabase.Schema.create(driver)
+        val database = HydraFitDatabase(driver)
+        database.exerciseQueries.insertCustom(
+            id = "user-atlas",
+            name = "Atlas Épaules",
+            requiredEquipment = "BARBELL",
+            movementPattern = "SQUAT",
+            isUnilateral = 0L,
+            loadCapability = "EXTERNAL",
+            involvements = null
+        )
+        // A rename written without the projection, plus a stale projection on another row.
+        database.exerciseOverrideQueries.upsert(
+            exerciseId = "user-atlas",
+            name = "Atlas Renommé",
+            requiredEquipment = null,
+            movementPattern = null,
+            isUnilateral = null,
+            loadCapability = null,
+            involvements = null
+        )
+        database.exerciseQueries.updateSearchName(searchName = "stale", id = "user-atlas")
+
+        val maintenance = DatabaseStartupMaintenance(
+            applyStagedBackup = noStagedBackup(),
+            seedExerciseCatalog = SeedExerciseCatalog(database),
+            seedEquipmentCatalog = SeedEquipmentCatalog(database),
+            customExerciseDedupe = CustomExerciseDedupe(database),
+            workoutSessionBackfill = WorkoutSessionBackfill(database, TimeProvider { 0L }),
+            searchProjectionBackfill = SearchProjectionBackfill(database),
+            scope = CoroutineScope(dispatcher)
+        )
+        maintenance.start()
+        advanceUntilIdle()
+
+        assertEquals(
+            unicodeCaseFold("Atlas Renommé"),
+            database.exerciseQueries.selectById("user-atlas").executeAsOne().searchName
+        )
+
+        driver.close()
+    }
+
     /** An [ApplyStagedBackupUseCase] whose staging store is empty, so `start()` applies nothing. */
     private fun noStagedBackup(): ApplyStagedBackupUseCase = ApplyStagedBackupUseCase(
         preview = PreviewBackupUseCase(

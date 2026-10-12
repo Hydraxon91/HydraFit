@@ -42,8 +42,10 @@ UPDATE exercise SET involvements = ? WHERE id = ? AND involvements IS NULL;
 deleteById:
 DELETE FROM exercise WHERE id = ? AND isCustom = 1;
 
--- Case-folded name projection (Unicode), maintained beside `name` so history search matches
--- without SQLite's ASCII-only `NOCASE` collation. Rebuilt at startup for rows written before it.
+-- Case-folded projection of the exercise's *effective* display name (its own name, or the name a
+-- user override gives it). Maintained beside `name` so history search matches the name the app shows
+-- without SQLite's ASCII-only `NOCASE` collation. Rebuilt at startup for rows written before it or
+-- renamed while it existed.
 updateSearchName:
 UPDATE exercise SET searchName = ? WHERE id = ?;
 

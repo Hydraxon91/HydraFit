@@ -266,13 +266,30 @@ Search is a literal escaped substring over the case-folded search projections `e
 and `sessionNote.searchNote`, both produced by `unicodeCaseFold` (Unicode 17.0.0 default full
 folding, `:core/domain`) so case differences match for every script rather than only ASCII; accents
 are preserved, so `Épaules` matches `ÉPAULES` but not `Epaules`. The query pattern folds the same way
-before `LIKE` escaping. The projections are a schema addition (`42.sqm`), rewritten beside every
-name/note write and rebuilt at startup for upgraded databases. Names are current context, never a
+before `LIKE` escaping. `exercise.searchName` is the folded *effective* display name — an exercise's
+own name, or the name a user override gives it — so a renamed built-in is found and shown under the
+name the rest of the app uses; the override write paths and the startup backfill rewrite it. The
+projections are a schema addition (`42.sqm`), rewritten beside every name/note write and rebuilt at
+startup for upgraded databases. Names are current context, never a
 historical snapshot, and exercise setup notes are excluded. Local-day bounds
 are inclusive: a session uses its stored `localEpochDay`, while a set without one derives it from a
 caller-supplied UTC offset (no historical timezone lookup). Recorded sets keep their stored load kind,
-RIR, warm-up flag and timing provenance. History reads create and modify nothing; the browser UI is
-0.7.1-C6.
+RIR, warm-up flag, timing provenance and workout-occurrence attribution, so a correction reached from
+history corrects the same stored row through the existing `CorrectWorkoutSetUseCase` and keeps the
+Logger's own rest-prompt and recent-set reconciliation. Session-set reads are index-driven through
+`workoutSet(sessionId, performedAt)` (migration `43.sqm`). History reads create and modify nothing.
+
+**History browser (implemented, 0.7.1-C6).** The Logger owns an internal history sub-graph
+(`WorkoutHistoryScreen`/`WorkoutHistoryDetailScreen` behind `WorkoutHistoryViewModel`), nested under
+the `log` route so the Log tab stays selected and no shell change is needed. The first page of each
+read stays live and any further page is appended on request; a new emission on the live first page
+drops the pages derived from it, because a keyset cursor only describes the content that produced it.
+Entries are addressed by their explicit `WorkoutHistoryKey`, an inverted local-day range is reported
+without being queried, and details show recorded timestamps, stored load semantics and a session
+note whose absent and explicitly cleared states stay distinct. An open entry's exercise setup notes
+are read per distinct exercise in the loaded page and are labelled current context, not a snapshot of
+the recorded set. Corrections reuse the Logger's `LoggedSetEdit` editor and the batched Logger
+ViewModel, so no second correction policy exists.
 
 **Volume explanation (implemented, C4 / OF-03 slice).** The VOL-01 volume assessment is persisted
 with the accepted plan so it always matches the calculation/output that produced it. On acceptance,

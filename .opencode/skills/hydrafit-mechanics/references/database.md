@@ -43,9 +43,16 @@ keyed by existing session id with the same absent-versus-empty encoding and leng
 never create sessions. Existing databases start without session notes. Notes stay attached to session
 identity through resegmentation, even when a session becomes empty. `42.sqm` adds the case-folded
 search projections `exercise.searchName` and `sessionNote.searchNote` (both default empty);
-`unicodeCaseFold` in `:core/domain` rewrites them on every name/note write, and
-`SearchProjectionBackfill` rebuilds custom-exercise and session-note rows at startup for databases
-upgraded from an earlier version. Current schema version is 43.
+`unicodeCaseFold` in `:core/domain` rewrites them on every name/note write. `exercise.searchName` holds
+the folded *effective* display name and every writer that can change a name routes through
+`refreshExerciseSearchName` (seed catalog, custom-exercise add/rename, custom-exercise restore,
+override update/reset); the
+custom-exercise dedupe merge carries the existing override name forward, so it cannot change a
+projection. `SearchProjectionBackfill` rebuilds both projections for every row at startup, which heals
+databases upgraded from an earlier version as well as any drift. `43.sqm` adds
+`workoutSet_sessionId_performedAt` on `workoutSet(sessionId, performedAt)`: the history reads filter
+and group by `sessionId` and order one session's sets by `performedAt`, and without it each of those
+shapes planned a full table scan plus a temporary B-tree. Current schema version is 44.
 Determine the
 next version from the current directory/generated Schema rather than copying this snapshot.
 
@@ -54,15 +61,21 @@ next version from the current directory/generated Schema rather than copying thi
 `SqlDelightWorkoutHistoryRepository`. A session qualifies when it has recorded sets or a
 session-note row; unassigned sets (`sessionId IS NULL`) appear individually; a stored session id with
 no session row is reported as a missing-session entry with its identity preserved. Exercise names are
-current catalog names, not historical snapshots, and exercise setup notes are never searched. Search
+current catalog names, not historical snapshots, and exercise setup notes are never searched. The
+recorded-set pages also carry the stored `occurrenceId` so a correction opened from history keeps the
+same occurrence attribution as the Logger's recent-set list. Search
 matches the case-folded projections `exercise.searchName` and `sessionNote.searchNote`, produced by
 `unicodeCaseFold` (Unicode 17.0.0 default full folding, `:core/domain`); the query pattern is folded
 the same way, so matching is Unicode-insensitive and accent-sensitive, and stays literal because
 `WorkoutHistoryRequest.searchPattern` still escapes `%`, `_` and the escape character. Folding
 happens before ordering and pagination, so a match on any page is found.
+`exercise.searchName` folds the *effective* display name an override may have renamed, and the set
+pages resolve `COALESCE(exerciseOverride.name, exercise.name)`, so history shows and searches the name
+the rest of the app shows.
 Ordering is `(timestamp DESC, kindRank ASC, sortId DESC)` with set ids zero-padded so the keyset
 comparison stays numeric; each query returns `limit + 1` rows so the repository can report whether a
-further page exists. `WorkoutHistoryRequest`/`WorkoutHistorySetRequest` validate page size, day-range
+further page exists. The padded set id keeps its sign, and the repository decodes it exactly as
+projected, so a stored identity round-trips unchanged through a cursor. `WorkoutHistoryRequest`/`WorkoutHistorySetRequest` validate page size, day-range
 order and cursor/filter agreement in `:core:domain`. The projections are a schema addition
 (`42.sqm`).
 

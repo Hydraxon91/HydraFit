@@ -12,6 +12,9 @@ package com.hydrafit.app.core.domain.workout
  * Data files are copyright (c) Unicode, Inc. and distributed under the Unicode License v3; the
  * required notice is retained in `core/domain/src/commonMain/kotlin/.../UnicodeCaseFold.kt`'s
  * generated tables below.
+ *
+ * `scripts/check-case-fold-table.py <CaseFolding.txt>` re-verifies every mapping in this file against
+ * the published data, so the table can be re-checked after a Unicode release or a hand edit.
  */
 fun unicodeCaseFold(value: String): String = buildString(value.length) {
     var index = 0
@@ -72,8 +75,9 @@ internal val FOLD_RANGES: List<FoldRange> = foldRangeData().map { entry ->
     )
 }
 
-/** `source:target[,target]`, all hexadecimal; targets may be multiple code points. */
-private val FOLD_EXCEPTIONS: Map<Int, List<Int>> = foldExceptionData().associate { entry ->
+/** `source:target[,target]`, all hexadecimal; targets may be multiple code points. Internal so a test
+ *  can assert the table's invariants against the generation contract. */
+internal val FOLD_EXCEPTIONS: Map<Int, List<Int>> = foldExceptionData().associate { entry ->
     entry.substringBefore(':').toInt(16) to
         entry.substringAfter(':').split(',').map { it.toInt(16) }
 }
