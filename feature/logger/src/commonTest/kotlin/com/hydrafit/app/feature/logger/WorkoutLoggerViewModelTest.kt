@@ -82,6 +82,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -3737,14 +3738,15 @@ class WorkoutLoggerViewModelTest {
         viewModel.finishWorkout()
         advanceUntilIdle()
 
-        val summary = assertNotNull(viewModel.state.value.workoutSummary)
-        assertEquals(30L, summary.occurrenceId)
-        assertEquals("Upper", summary.workoutName)
-        assertEquals(OccurrenceStatus.FINISHED, summary.status)
-        assertEquals(2, summary.prescribedSets)
-        assertEquals(2, summary.recordedWorkingSets)
-        assertEquals(0, summary.remainingSets)
-        assertTrue(summary.isComplete)
+        val summary = assertNotNull(viewModel.state.value.summary)
+        val ready = assertIs<WorkoutSummaryScreen.Ready>(summary).summary
+        assertEquals(30L, ready.occurrenceId)
+        assertEquals("Upper", ready.workoutName)
+        assertEquals(OccurrenceStatus.FINISHED, ready.status)
+        assertEquals(2, ready.prescribedSets)
+        assertEquals(2, ready.recordedWorkingSets)
+        assertEquals(0, ready.remainingSets)
+        assertTrue(ready.isComplete)
     }
 
     @Test
@@ -3763,11 +3765,11 @@ class WorkoutLoggerViewModelTest {
         viewModel.finishWorkoutPartially()
         advanceUntilIdle()
 
-        val summary = assertNotNull(viewModel.state.value.workoutSummary)
-        assertEquals(OccurrenceStatus.FINISHED_PARTIAL, summary.status)
-        assertEquals(1, summary.recordedWorkingSets)
-        assertEquals(1, summary.remainingSets)
-        assertEquals(RemainingDisposition.OMITTED, summary.exercises.single().remainingDisposition)
+        val ready = assertIs<WorkoutSummaryScreen.Ready>(viewModel.state.value.summary).summary
+        assertEquals(OccurrenceStatus.FINISHED_PARTIAL, ready.status)
+        assertEquals(1, ready.recordedWorkingSets)
+        assertEquals(1, ready.remainingSets)
+        assertEquals(RemainingDisposition.OMITTED, ready.exercises.single().remainingDisposition)
     }
 
     @Test
@@ -3787,7 +3789,7 @@ class WorkoutLoggerViewModelTest {
         advanceUntilIdle()
 
         assertNull(viewModel.state.value.occurrenceMessage)
-        assertNull(viewModel.state.value.workoutSummary)
+        assertNull(viewModel.state.value.summary)
     }
 
     @Test
@@ -3802,7 +3804,7 @@ class WorkoutLoggerViewModelTest {
         advanceUntilIdle()
 
         assertNotNull(viewModel.state.value.occurrenceMessage)
-        assertNull(viewModel.state.value.workoutSummary)
+        assertNull(viewModel.state.value.summary)
     }
 
     @Test
@@ -3816,11 +3818,11 @@ class WorkoutLoggerViewModelTest {
 
         viewModel.finishWorkout()
         advanceUntilIdle()
-        assertNotNull(viewModel.state.value.workoutSummary)
+        assertNotNull(viewModel.state.value.summary)
 
         viewModel.onWorkoutSummaryShown()
 
-        assertNull(viewModel.state.value.workoutSummary)
+        assertNull(viewModel.state.value.summary)
         assertEquals(31L, schedule.scheduleState().selectedOccurrenceId)
     }
 
@@ -3839,7 +3841,67 @@ class WorkoutLoggerViewModelTest {
         viewModel.finishWorkout()
         advanceUntilIdle()
 
-        assertNull(viewModel.state.value.workoutSummary)
+        assertNull(viewModel.state.value.summary)
+    }
+
+    @Test
+    fun aFailedSummaryReadKeepsTheRouteOpenAndRetries() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+        logTwoSets(viewModel)
+
+        schedule.failOccurrenceReadAfterResolve = true
+        viewModel.finishWorkout()
+        advanceUntilIdle()
+        assertIs<WorkoutSummaryScreen.Failed>(viewModel.state.value.summary)
+
+        schedule.failOccurrenceReadAfterResolve = false
+        viewModel.retryWorkoutSummary()
+        advanceUntilIdle()
+
+        assertIs<WorkoutSummaryScreen.Ready>(viewModel.state.value.summary)
+    }
+
+    @Test
+    fun aSummaryIsUnavailableWhenTheOccurrenceNoLongerExists() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+        logTwoSets(viewModel)
+
+        schedule.dropOccurrenceAfterResolve = true
+        viewModel.finishWorkout()
+        advanceUntilIdle()
+
+        assertIs<WorkoutSummaryScreen.Unavailable>(viewModel.state.value.summary)
+    }
+
+    @Test
+    fun requestingHistoryFromTheSummaryRecordsTheFinishedSessionsIdentity() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+        logTwoSets(viewModel)
+        viewModel.finishWorkout()
+        advanceUntilIdle()
+        val ready = assertIs<WorkoutSummaryScreen.Ready>(viewModel.state.value.summary).summary
+
+        viewModel.onWorkoutSummaryHistoryRequested(ready)
+
+        assertNull(viewModel.state.value.summary)
+        assertEquals(
+            ready.sessions.singleOrNull()?.sessionId?.let { WorkoutHistoryKey.Session(it) },
+            viewModel.state.value.pendingHistoryKey
+        )
+        viewModel.onPendingHistoryKeyConsumed()
+        assertNull(viewModel.state.value.pendingHistoryKey)
     }
 
     /** Logs the two working sets the Upper occurrence prescribes. */
@@ -5913,6 +5975,14 @@ class WorkoutLoggerViewModelTest {
         /** Simulates the active block being replaced or cancelled as a resolve commits. */
         var cancelBlockOnResolve: Boolean = false
 
+        /** Simulates the occurrence read failing, as a storage error would, after a resolve. */
+        var failOccurrenceReadAfterResolve: Boolean = false
+
+        /** Simulates the occurrence disappearing, as a concurrent delete would, after a resolve. */
+        var dropOccurrenceAfterResolve: Boolean = false
+
+        private var resolvedOnce: Boolean = false
+
         fun set(
             activation: TrainingActivation,
             occurrences: List<WorkoutOccurrence>,
@@ -5950,8 +6020,13 @@ class WorkoutLoggerViewModelTest {
         override suspend fun occurrences(activationId: Long): List<WorkoutOccurrence> =
             occurrenceState.value.filter { it.activationId == activationId }
 
-        override suspend fun getOccurrence(id: Long): WorkoutOccurrence? =
-            occurrenceState.value.firstOrNull { it.id == id }
+        override suspend fun getOccurrence(id: Long): WorkoutOccurrence? {
+            if (resolvedOnce && failOccurrenceReadAfterResolve) {
+                error("occurrence read failed")
+            }
+            if (resolvedOnce && dropOccurrenceAfterResolve) return null
+            return occurrenceState.value.firstOrNull { it.id == id }
+        }
 
         override suspend fun acceptAndActivate(
             acceptedPlan: AcceptedPlan?,
@@ -5978,6 +6053,7 @@ class WorkoutLoggerViewModelTest {
                 .filter { it.activationId == activationState.value?.id && !it.isResolved }
                 .minByOrNull { it.queuePosition }
             state.value = state.value.copy(selectedOccurrenceId = next?.id)
+            resolvedOnce = true
             if (cancelBlockOnResolve) {
                 activationState.value = null
                 state.value = WorkoutScheduleState(

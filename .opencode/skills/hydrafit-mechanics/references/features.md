@@ -220,8 +220,24 @@ projection also carries the stored `occurrenceId`, so a history correction keeps
 rest-prompt cancellation and attribution. Setup notes shown next to recorded sets are read once per
 distinct exercise in the loaded page and labelled current context.
 
-For routine authoring, the module is `:feature:routines`:
-`RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/
+The post-finish summary (0.7.2) is a real nested destination (`log/summary`, `summaryRoute`), so
+system Back returns to the Logger and the Log tab stays selected. It carries no route argument: the
+workout is addressed by `WorkoutLoggerUiState.summary`, a `WorkoutSummaryScreen` of Loading /
+Ready(summary) / Failed / Unavailable, opened only by a successful Finish workout or Finish
+partially. Skip opens nothing, a failed finish shows only its message, and a block replaced or
+cancelled as the resolve commits drops the summary rather than overlaying a workout already left.
+`WorkoutLoggingActions.summarize` forwards to `GetWorkoutSummaryUseCase`, which reads the occurrence,
+its recorded sets, the sessions those sets span (bounded `WorkoutSessionRepository.byId` over the
+existing `selectSessionById` query), their stored notes and the current catalog names, then delegates
+to the pure C1 `buildWorkoutSummary`. Every open and every retry is a fresh read, so nothing is
+cached. "View in history" records the finished workout's single session identity in
+`WorkoutLoggerUiState.pendingHistoryKey`; the history browser consumes it once it is on the back
+stack and opens that detail. A workout spanning several sessions or only sets with no session leaves
+the key null and lands on the browser list, because the detail is keyed per session and no grouping
+is invented. Recorded start/finish instants and session notes are shown; there is no duration figure
+and no universal score.
+
+For routine authoring, the module is `:feature:routines`:`RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/
 `routinesDestination`), `RoutinesScreen.kt` (list, editor, exercise picker,
 activation dialog), `RoutinesViewModel.kt` and `RoutinesUiState.kt`. The
 ViewModel depends on the domain aggregates `RoutineTemplateActions` and
