@@ -278,6 +278,23 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - Offline artifact verification still confirms `versionName`/`versionCode` against the tag/run
   number; schema compatibility is covered by the host `verifySqlDelightMigration` check.
 
+### 0.7.0 planner-explanation candidate verification (2026-10-12)
+
+- The OF-03 explanation-test follow-up is committed as `2d2d470`. The final host gate passed:
+  `testAndroidHostTest`, `ktlintCheck`, `:androidApp:assembleDebug` and
+  `:shared:compileKotlinIosSimulatorArm64` (`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/of03-final-verification.log`).
+  The Logger and SplitBuilder explanation mapper suites each report 11 tests, zero failures/errors.
+- **UI evidence:** agent debug-emulator inspection covered Plan and Logger, including a non-guided
+  Planned today draft and the full-width explanation row; the layout screenshot was captured and
+  viewed. Per user direction, emulator checks are considered complete for this candidate. The user
+  also reports phone verification of Details expansion, guided explanations, larger-font/dark-mode
+  presentation, and the substitution notice after swapping an exercise. These are user-reported
+  checks, distinct from the agent's emulator evidence. The agent's visual checks made no persisted
+  data writes.
+- This entry records the requested candidate gates, not signed-release verification. Release-specific
+  `:androidApp:lintVitalRelease`, `verifySqlDelightMigration`, and offline verification of the eventual
+  release artifact (version, digest and signature) are not claimed here. No release APK was installed.
+
 ### v0.5.0 publication verification (2026-10-09)
 
 - Full release [v0.5.0](https://github.com/Hydraxon91/HydraFit/releases/tag/v0.5.0)
