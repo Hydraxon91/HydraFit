@@ -1128,6 +1128,61 @@ builder verification is not a review verdict. Review approval does not authorize
 pushing; release preparation and publication follow only after required findings are resolved,
 under separate release/push/tag approvals. No automatic handoff or next-release work.
 
+#### 0.7.3 — Warm-up guidance
+
+**Status (2026-10-12):** release scope, chunk structure and C0 decisions approved in chat. Implemented
+as an approved work chunk (C1–C6), each committed at its chunk boundary with its own outstanding limits
+recorded in its row below. C7 is a separately requested post-execution review in Plan Mode; C8 is
+separately approved release preparation and publication. This bounded split refines WU-01 / LT-08 and
+the `docs/roadmap.md` 0.7.3 entry without renumbering those broader phases. Persisted timed preparation,
+duration-based accessory content and OF-10C remain 0.11.x.
+
+**Scope:** optional, offline warm-up guidance for the guided workout. A movement-pattern-selected
+editable preparation list and specific non-fatiguing ramp sets for the first external-loaded entry of
+each movement pattern, derived from the occurrence's frozen prescription. Recording a ramp reuses the
+existing warm-up logging path, so it never counts as a working set and never advances guided progress.
+Excluded: any schema or backup change, a persisted preparation checklist, timed-exercise metrics
+(OF-10C), changes to planner/fatigue/progression formulas, any new dependency or AI/network
+requirement, mandatory preparation, and any injury-prevention, lymphatic, detox or longevity claim.
+
+**Approved decisions (C0, 2026-10-12):**
+- Guidance appears only in the guided workout (guided preference on with an active occurrence). Manual
+  logging and the accepted-plan path are unchanged.
+- Preparation is a fixed, pattern-selected list of neutral, optional items. Easy general movement is a
+  timed checklist entry (seconds are never stored as reps); pattern practice is bodyweight reps. Users
+  may check or hide any item; nothing blocks starting or finishing work.
+- Content carries no sourced-brand claims. Ramp percentages/reps and preparation values are editable
+  product defaults, not validated personal optima; a recorded warm-up set stays correctable through the
+  existing Logger editor.
+- A ramp is suggested only for the first entry of each movement pattern whose frozen load is a positive
+  numeric external load with `EXTERNAL` capability; later entries of the same pattern and bodyweight,
+  added or unknown-load targets get no ramp. Rounded ramp loads must stay positive and strictly below
+  the frozen working weight, which already respects the equipment ceiling.
+- Preparation check-marks and the shown/hidden state are in-memory only; recorded ramp sets survive
+  restart through existing warm-up storage.
+- The existing slot-freeze rule is preserved: an attributed warm-up (including a recorded ramp) still
+  refuses a replacement for that slot; the guidance says so before recording.
+
+| Chunk | Status | Deliverable / acceptance and tests |
+| --- | --- | --- |
+| 0.7.3-C0 — warm-up contract | DONE | Decisions above approved 2026-10-12 in chat; no code. Scope deviation recorded: preparation content lives in `:core:domain` (not a Logger file) so pattern selection is pure and host-testable; the Logger only supplies localized labels. |
+| 0.7.3-C1 — warm-up projection (domain, pure) | IN PROGRESS | `core/domain/.../workout/WarmupGuidance.kt`: `WarmupAction`, `WarmupPreparationItem`, `WarmupRampSet`, `WarmupRampPlan`, `WarmupGuidance` and pure `buildWarmupGuidance(occurrence)`; no I/O or consumer yet. Tests: `WarmupGuidanceTest` covers general/prep selection per pattern, ramp percentages and rounding, tiny-load and duplicate collapse, bodyweight/added/unknown-load exclusion, repeated patterns and entry order. Gate: `:core:domain:testAndroidHostTest`, `:core:domain:ktlintCheck`. |
+| 0.7.3-C2 — Logger guidance state + labels | PENDING | `WorkoutLoggerUiState` gains `warmupGuidance`, in-memory `warmupPreparationChecked`/`warmupGuidanceHidden` and a `warmupRampWriteFailed` flag; `WorkoutLoggerViewModel` builds guidance from the occurrence it already holds (no new dependency), toggles preparation and hidden state, and resets them on an occurrence change; the localized action labels are a pure mapping. Tests: presentation/ViewModel state transitions. Gate: `:feature:logger:testAndroidHostTest`, ktlint, `:androidApp:assembleDebug`. |
+| 0.7.3-C3 — guidance UI | PENDING | A `WarmupGuidanceSection` in `WorkoutLoggerScreen` (shown only when guided is active and guidance is present) lists preparation check-marks and each exercise's ramp plan with localized copy and a hide/show toggle; it never edits the frozen prescription. Emulator check: open → check/skip → hide → show. Gate: feature tests, ktlint, debug assembly, bounded semantic emulator journey and viewed screenshot. |
+| 0.7.3-C4 — record one suggested ramp | PENDING | A per-ramp “Log” action writes exactly one warm-up set with the suggestion's reps/load through the existing guided write path (frozen classification, one in-flight guard, no working-progress change, no rest prompt), and a failure keeps the suggestion visible for retry. Tests: single write, cancel writes nothing, repeat submission guarded, classification frozen through retry. Gate: affected producer/consumer tests, ktlint, debug assembly; full matrix if the shared write contract changes. |
+| 0.7.3-C5 — resume + stale-context safety | PENDING | Guidance and its transient state follow the occurrence across refresh, recreation, End/New session, occurrence change and replacement; a delayed ramp write cannot attach to a new workout, and recorded warm-ups stay visible. Tests: controlled-suspension ViewModel tests. Gate: affected host tests, ktlint, debug assembly, bounded emulator resume journey. |
+| 0.7.3-C6 — downstream acceptance + docs | PENDING | Guidance-produced records are traced through guided progress, finish summary, session history, fatigue and planner load/progression exclusions; corrections preserve classification and attribution. Update `docs/architecture.md`, `docs/qa.md`, `.maestro/README.md` and the mechanics `features.md`. Gate: full host suite, migration verification, ktlint, debug assembly, both iOS compiles and final emulator journeys with explicit limits. |
+
+**Execution discipline:** C1 is a pure unwired projection (module tests/ktlint); C2 uses Tier B
+producer/consumer tests, Koin verification if bindings change, ktlint and debug assembly (no binding is
+expected to change); C3/C4 use Tier C while feature-local; C5/C6 retain the full host suite, migration
+verification, ktlint, debug assembly, iOS compile and changed-graph checks. No schema or backup change
+is expected; if one proves necessary, stop and return to C0 rather than adding it silently. UI checks
+follow the emulator-only, debug-build and bounded semantic-testing rules. After C6, stop for C7 in Plan
+Mode: builder verification is not a review verdict. Review approval does not authorize fixes, commits or
+pushing; release preparation and publication follow only after required findings are resolved, under
+separate release/push/tag approvals. No automatic handoff or next-release work.
+
 ### OF-14 — Onboarding and first-workout baseline setup
 
 **Milestone / goal:** M4. Offer a short, skippable/revisitable offline setup for units, equipment/profile, goal and schedule, followed by a clear first-workout path with user-entered loads or baseline learned from actual logging. AI setup remains optional and is not required to complete onboarding.
