@@ -976,3 +976,116 @@ Archived from `PLANS.md` after implementation, verification and bounded post-exe
 | Item | Status | Next action |
 | --- | --- | --- |
 | 0.5.1 — Recent-set correction | IN PROGRESS | Approved 2026-10-09: Recent sets' Edit set corrects time/reps/weight/RIR in place, preserving snapshots, recorded load type and block attribution. Implemented; 1044 host tests (zero failures/errors/skips), Koin verification, ktlint, debug assembly, iOS simulator compile and diff checks pass. Debug emulator save/reopen/Cancel + Use-now smoke and viewed screenshot pass after user-approved export/validate → release uninstall → debug install → restore. Synthetic test cleanup returned the original set/session fields exactly; limits in `docs/qa.md` §6. Review, commit and release remain gated; version defaults/tags unchanged. |
+
+<a id="2026-10-12-completed-070"></a>
+
+## 2026-10-12 — Completed 0.7.0 planner target explanations (OF-03)
+
+Archived from `PLANS.md` after implementation, verification, the full-scope review and the corrective
+re-review were approved and `v0.7.0` was published (merge `e5719bb`, PR #4; release run
+`38225151289`). The completed plan detail is preserved verbatim; the durable decisions (A–E, F3),
+open follow-ups and verification limits remain active in `PLANS.md`.
+
+**Goal / v1 scope:** explain real reasons for suggested loads, progression/holds, equipment caps, fatigue-driven choices and deloads using localized reason codes and parameters. Explain deterministic outputs from actual calculation branches; AI-generated suggestions are identified as such rather than assigned fabricated deterministic reasons.
+
+**Proposed ownership:** explanation models at the domain planner/use-case seam; renderers/resources in SplitBuilder and Logger, independently consuming the same contract.
+
+**Producer/consumer trace (verified from source, 2026-10-11).** Load path:
+`SqlDelightWorkoutPlanSourcesRepository.observe()` → `ObserveWorkoutPlanInputsUseCase` →
+`BuildPlannerLoadInputsUseCase` → `PlanRequest` → `DeterministicWorkoutPlannerEngine` /
+`WeeklyPlanSanitizer` → `AcceptWeeklyPlanUseCase.build` → `AcceptedPlanWriter` (shared by `accept`
+and the schedule `acceptAndActivate`) → `planHistory` + `planVolumeExplanation`;
+`CreateTrainingActivationUseCase`/`ActivateRoutineUseCase` freeze `ActivationEntry`/`OccurrenceEntry`;
+`SubstituteExerciseUseCase` → `SqlDelightPlanHistoryRepository.substitute`
+(`updateEntryExerciseIdAtPosition` + `invalidateForSlot`); `ReplaceOccurrenceExerciseUseCase` →
+`replaceUntouchedEntry`. Consumers: SplitBuilder (draft + `VolumeExplanationCard`) and Logger
+(guided frozen target, planned-today drafts, accepted-plan path). Backup format 6 already carries
+volume explanations as `BackupVolumeExplanationRecord`/`BackupVolumeExplanationStateRecord`.
+Behaviors the explanations must not overstate: `BuildPlannerLoadInputsUseCase` uses an inclusive
+`[now−42d, now]` window, ≥2 qualifying non-warm-up external sets, max Epley, plus an eligible
+manual-PR floor; `ProgressWeightsUseCase` groups by local calendar day against the latest accepted
+prescription (`successStreak`/`failureStreak` 3, `roundToKg` 2.5, `maxIncrements` 5) and returns the
+baseline unchanged during a deload pause; working load is
+`roundToIncrement(e1RM × intensityForReps(reps) × deloadScale)` then the equipment clamp; the
+deterministic engine skips candidates at raw targeted fatigue ≥0.80 and reduces one set at ≥0.65;
+the sanitizer keeps an AI number only when `includeWorkoutData`, the exercise is not withheld and the
+value is positive/≤1000, then applies the same bound, deload scale and equipment ceiling.
+
+**Reason vocabulary (concepts; final enum names/types land in OF-03-P0).** Load source
+(recent-performance estimate / manual-PR floor / no usable baseline / not load-tracked); missing load
+(insufficient evidence, capability, or AI-sharing gate); conversion (baseline → intensity/buffer →
+deload scale → rounding → final, with `reps`, `intensityFraction`, `rirBuffer`, `roundToKg`, ceiling
+and pre-cap value); progression (applied, with `increments` and the rounded delta / none: no typed
+prescription, no streak yet, or deload pause); equipment (cap applied with ceiling + pre-cap value,
+or explicitly not binding); fatigue (recorded skip, set reduction, or ordering influence only when
+that branch ran); deload (volume scale, intensity scale, floor); AI (proposal retained / bound
+applied / ceiling applied / number withheld / model omitted a number); availability (recorded /
+legacy-unrecorded / invalidated-by-substitution / invalidated-by-replacement). Precision rules: "no
+adjustment" ≠ "unchanged displayed load"; rounding or a cap can hide an adjustment; fatigue/deload
+effects are shown as the resulting set count; no numeric load never means zero or impossible; modeled
+fatigue is not measured readiness; the window and thresholds are product defaults.
+
+**Phases (approved chunks; each needs its own implementation approval and ships its tests and living docs).**
+- **OF-03-P0 — contract finalization.** Trace, reason vocabulary, typed parameters,
+  provenance/availability states, per-mutation preservation/invalidation rules, synthetic fixtures,
+  exact schema/migration/backup/source file list. No behavior change.
+- **OF-03-P1A — capture calculation reasons.** Structured models plus capture in
+  `BuildPlannerLoadInputsUseCase`, `ProgressWeightsUseCase`, `DeterministicWorkoutPlannerEngine` and
+  `WeeklyPlanSanitizer`; reuse the existing load/rounding/equipment helpers. Equivalent inputs must
+  produce identical exercises, sets, reps, loads, week and cycle.
+- **OF-03-P1B — freeze, persist, transport.** Freeze on both acceptance paths through
+  `AcceptedPlanWriter`; preserve through activation/occurrence/repeat/restart; apply the approved
+  invalidation transactionally; new SQLDelight table(s) + migration + migration test; backup export,
+  validation, staged restore and compatibility.
+- **OF-03-P2 — presentation.** SplitBuilder draft and accepted, and the Logger frozen-prescription
+  explanation (guided and non-guided), localized in `commonMain` resources, correct for
+  legacy/manual/invalidated/AI states, with no effect on logging, timers, progress or skip/finish.
+- **OF-03-P3 — release verification and living docs.** Full host suite, migration verification, Koin
+  verification, ktlint, debug assembly, iOS compile; bounded debug-emulator checks; update
+  `docs/architecture.md`, `docs/qa.md`, formula docs as needed and the `hydrafit-mechanics`
+  planning/database/features/backup references.
+
+**Exact artifact list (P0 output; confirm each against source before its chunk).**
+- New domain models: explanation records + availability/provenance enums under
+  `core/domain/.../engine/` (atomic with OF-03-P1A). Reuse `PlanAttribution`.
+- Changed domain: `engine/PlannedExercise.kt`, `WeeklyPlan.kt`, `AcceptedPlan.kt`,
+  `AcceptWeeklyPlanUseCase.kt`, `PlanHistoryRepository.kt`, `BuildPlannerLoadInputsUseCase.kt`,
+  `ProgressWeightsUseCase.kt`, `DeterministicWorkoutPlannerEngine.kt`, `WeeklyPlanSanitizer.kt`;
+  `schedule/WorkoutSchedule.kt`, `schedule/ActivationUseCases.kt`,
+  `schedule/ReplaceOccurrenceExerciseUseCase.kt` (freeze/preserve/invalidate).
+- Changed backup: `backup/BackupModels.kt` (`BACKUP_FORMAT_VERSION` 7), `BackupJson.kt`,
+  `BackupValidator.kt`, `ExportBackupUseCase.kt`, `PreviewBackupUseCase.kt`,
+  `ApplyStagedBackupUseCase.kt`.
+- Database: new `PlanTargetExplanation.sq` (+ any state table), migration `38.sqm` (schema version
+  38 → 39; confirm the next number from the directory), `SqlDelightPlanHistoryRepository.kt`,
+  `AcceptedPlanWriter.kt`, `SqlDelightWorkoutScheduleRepository.kt`, `SqlDelightBackupRepository.kt`;
+  migration/repository tests and the `1.db`-based `V1ToCurrentMigrationTest` (fixture `1.db` stays
+  fixed).
+- Feature UI: `feature/splitbuilder/` (`SplitBuilderScreen.kt`, `SplitBuilderUiState.kt`,
+  `SplitBuilderViewModel.kt`, resources) and `feature/logger/` (`WorkoutLoggerScreen.kt`,
+  `WorkoutLoggerUiState.kt`, `WorkoutLoggerViewModel.kt`, resources); `feature/settings/`
+  `BackupViewModel.kt` record counts if the payload grows.
+- Docs: `docs/architecture.md`, `docs/qa.md`, affected formula docs, and the `hydrafit-mechanics`
+  planning/database/features/backup references.
+
+**Acceptance:** explanations match the calculation that produced the target and cannot become stale
+after catalog/settings changes under the chosen history contract. Adding explanations alone does not
+alter selected exercises, loads or fatigue fixtures. Additionally: explanation-free training output is
+identical for identical inputs; no mutation or restart can display another prescription's reasons;
+legacy, manual, invalidated and AI states are honest; migration and backup compatibility pass; both UI
+surfaces are localized, accessible and verified offline; every unverified check is reported.
+
+<a id="2026-10-12-completed-060x-release-rows"></a>
+
+## 2026-10-12 — Completed 0.6.x release and corrective rows
+
+Verbatim completed rows from `PLANS.md` (release-versioning and current-status tables), archived
+after 0.7.0 published. Shipped-release history is preserved here; active follow-ups stay in
+`PLANS.md` — notably OF-02 guided workouts/rest timer, whose release-wide re-review remains
+INCOMPLETE and is therefore deliberately **not** archived.
+
+| Item | Status | Next action |
+| --- | --- | --- |
+| **0.6.0 — SHIPPED** | Published 2026-10-11 as `v0.6.0` on `c346ee3`; Release `38167070101` passed. Guided Training — OF-02, RIR B1, session dividers, occurrence-only replacements and the phone portrait lock. Corrective `v0.6.1` followed. |
+| **0.6.1 — SHIPPED** | Published 2026-10-11 as `v0.6.1` on `1466444`; Release `38170634866` (run number 14) passed (signed APK `versionName=0.6.1`, `versionCode=14`). Corrective for 0.6.0 guided logging, custom-exercise deletion/backup integrity and keyboard/inset layout, plus CI scheduling and the emulator release-install prohibition. Artifacts verified offline only. |
+| 0.6.1 — guided-logging & integrity corrective | SHIPPED | `v0.6.1` on `1466444`; Release `38170634866` (run 14) passed; signed APK `versionName=0.6.1`, `versionCode=14`. Corrects 0.6.0 guided logging and deletion/backup integrity, adds keyboard/inset layout fixes and CI scheduling, and forbids release installs on the emulator. Artifact verified offline only; see `docs/qa.md` §13. |

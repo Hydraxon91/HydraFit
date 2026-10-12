@@ -23,7 +23,7 @@
 | M8 — Optional AI Reliability | PLANNED — 0.12.x | Retain local AI; investigate reliability, speed, licensing and CATP7-R01 identity-safe Gemini name recovery after core planner-facing contracts settle, including local numbered-ID compatibility. The roadmap supersedes provisional 0.6.0 AI placement; 0.12.0 covers identity recovery, later slices cover validation, measured local improvements and lifecycle. Required pre-1.0 investigation, optional user-facing engines; no model/provider/runtime changes or implementation authorized. |
 | Item 2 P2d — existing-row time correction | DONE | Landed in 0.2.1 as Q2 (5898c45, 5ab6b42, a64d9cc). |
 | 0.5.1 — Recent-set correction | SHIPPED | `v0.5.1`; completed implementation, verification and review detail [archived](docs/plans-archive.md#2026-10-09-corrective-051). Emulator edit/save/reopen/Cancel + Use-now smoke passed; broader UI limits remain in `docs/qa.md` §6. |
-| 0.6.1 — guided-logging & integrity corrective | SHIPPED | `v0.6.1` on `1466444`; Release `38170634866` (run 14) passed; signed APK `versionName=0.6.1`, `versionCode=14`. Corrects 0.6.0 guided logging and deletion/backup integrity, adds keyboard/inset layout fixes and CI scheduling, and forbids release installs on the emulator. Artifact verified offline only; see `docs/qa.md` §13. |
+| 0.6.1 — guided-logging & integrity corrective | SHIPPED | `v0.6.1` on `1466444`, Release `38170634866` (run 14); completed row [archived](docs/plans-archive.md#2026-10-12-completed-060x-release-rows). Artifact verified offline only; see `docs/qa.md` §13. |
 | Deterministic planner — volume-driven selection | DONE | 0.2.1 addition Q4 (Option C; honor the rep band); Q4a–Q4d done (f80b71a, c8e3c8a, 4f0ce72); Q4e is a user-side catalog fix, not part of the artifact; see "0.2.1 — next release". |
 | BACK work chunk 3 — calibrate Phase B/C constants | OPEN — EVIDENCE-GATED | Optional calibration of K=6, D=6, half-lives and C1/C2/C3 only if correctly timed histories show a need. The plateau is already resolved; no automatic recalibration or training-policy change. |
 | BACK work chunk 4 — literal >100% report | OPEN | Capture exact value/time/build if it recurs. |
@@ -75,8 +75,8 @@ Versions are assigned when a release scope is agreed; they do **not** grant impl
 | **0.4.0** | SHIPPED — VOL-01, EX-01 and a bounded OF-03 volume-explanation slice. `v0.4.1` shipped as a corrective patch. |
 | **0.5.0 — SHIPPED** | Published 2026-10-09 as `v0.5.0` on `5fc0c46`: LT-13, CAT-02, CAT-P7 and OF-01. Release workflow `37959121105` passed; signed APK `versionName=0.5.0`, `versionCode=10`. Signed `v0.4.1` → `v0.5.0` emulator upgrade retained a synthetic logged set; see `docs/qa.md` §13 for verification limits. |
 | **0.5.1 — SHIPPED** | Published 2026-10-09 as `v0.5.1` on `ca97c51`; Release `37972775517` passed (signed APK version code 11). Recent sets can correct performed time, reps, weight and RIR in place. Implementation and verification detail [archived](docs/plans-archive.md#2026-10-09-corrective-051); bounded UI limitations remain in `docs/qa.md` §6. |
-| **0.6.0 — SHIPPED** | Published 2026-10-11 as `v0.6.0` on `c346ee3`; Release `38167070101` passed. Guided Training — OF-02, RIR B1, session dividers, occurrence-only replacements and the phone portrait lock. Corrective `v0.6.1` followed. |
-| **0.6.1 — SHIPPED** | Published 2026-10-11 as `v0.6.1` on `1466444`; Release `38170634866` (run number 14) passed (signed APK `versionName=0.6.1`, `versionCode=14`). Corrective for 0.6.0 guided logging, custom-exercise deletion/backup integrity and keyboard/inset layout, plus CI scheduling and the emulator release-install prohibition. Artifacts verified offline only. |
+| **0.6.0 — SHIPPED** | Published 2026-10-11 as `v0.6.0` on `c346ee3`; Release `38167070101` passed. Guided Training — OF-02, RIR B1, session dividers, occurrence-only replacements and the phone portrait lock; [row archived](docs/plans-archive.md#2026-10-12-completed-060x-release-rows). |
+| **0.6.1 — SHIPPED** | Published 2026-10-11 as `v0.6.1` on `1466444`; Release `38170634866` (run 14) passed (signed APK `versionName=0.6.1`, `versionCode=14`); [detail archived](docs/plans-archive.md#2026-10-12-completed-060x-release-rows). Corrective for 0.6.0 guided logging, deletion/backup integrity and keyboard/inset layout, plus CI scheduling and the emulator release-install prohibition. |
 | **0.7.0 — SHIPPED** | Published 2026-10-12 as `v0.7.0` on `e5719bb` (PR #4); Release `38225151289` (run number 15) passed (signed APK `versionName=0.7.0`, `versionCode=15`). Planner target explanations (OF-03): recorded load, progression, equipment, deload and AI-adjustment reasoning frozen at acceptance and on frozen work, presented in SplitBuilder and the Logger. Artifacts verified offline only; see `docs/qa.md` §13 for limits. |
 | **0.7.x** | Workout Context & Confidence — 0.7.0 explanations; 0.7.1 notes/history; 0.7.2 summaries; 0.7.3 warm-ups; 0.7.4 first instruction batch; 0.7.5 EX-03 cautions; 0.7.6 onboarding; 0.7.7 reminders. LT-10 contract is a separate decision gate after history, not an empty APK release. |
 | **0.8.x** | Progress & Recovery — 0.8.0 charts; 0.8.1 records; 0.8.2 catalog corrections; 0.8.3 forearm accessories; 0.8.4 approved TRAPS/editing controls; 0.8.5 anatomical map; 0.8.6 volume/last-trained views; 0.8.7 measurements. |
@@ -728,7 +728,7 @@ gated scopes, not implied by completion of P0–P5. M2's other open work stays a
 | --- | --- | --- | --- |
 | OF-01 | Local backup/export and restore | First portability foundation | SHIPPED 0.5.0; separately gated extensions target 0.9.8–0.9.11 |
 | OF-02 | Guided workouts and rest timer | Existing accepted plans and explicit sessions | IN PROGRESS — prior guided/rest work committed (`7cbd393`..`3a8b815`); B6 verification accepted with documented waivers. Alerts/coaching and occurrence replacement committed in `86b21ca`; navigation correction in `93d064b`; R060-R01–R04 in `eb75ead`, R060-R05 docs in `465e9f7`; theme/session layout/guidance tags in `ead9e1f`; doubled window insets in `a4d97af`; warm-up attribution and the shared replacement guard in `d957779`; entry-id slot-freeze guard in `b0dcf56`. Full host tests, migration verification, ktlint, Android debug build and iOS compile pass. Combined notification-denial flow: DONE (`/tmp/hydrafit-060-remaining-denial.log`). Earlier replacement Cancel/success/template preservation and Android duration rescheduling/dismissal/background delivery pass. The warm-up/attribution fix is verified in the UI (user-run: warm-up stored with its marker and no progress change, warm-up-bearing slot refused with the recorded-slot message, working set advancing progress and blocking the swap); the guided Replace action is no longer silently disabled, so working sets and warm-ups behave alike. A set from an earlier session was deleted during that verification and was not recreated; the affected earlier-session checks are unverified. Empty/stale replacement choices remain host-only; receiver posting races/context interleavings remain unverified; TalkBack: user waiver — **do not check**. Prior synthetic fixture cleaned up: sets removed, session ended, block canceled, referenced routine archived; guidance OFF, global rest 120, the possible Incline Push-up override cleared and denied notification flags restored. See [QA evidence](docs/qa.md). Full-range re-review remains INCOMPLETE; original [review snapshot](docs/review-0.6.0-snapshot.md) verdict remains historical. No push/publication. |
-| OF-03 | Planner target explanations | Existing planner; integrate with OF-02 | Volume slice SHIPPED 0.4.0; remainder targets 0.7.0. Scope and durable decisions approved 2026-10-11; OF-03-P0 recorded, OF-03-P1A (capture) shipped in `b774296` with the review fixes in `63dc086`, and OF-03-P1B (persist, freeze onto work, backup format 8) committed in `56cf47a`; F2 sibling-table snapshots reviewed and committed in `58e80c5`. OF-03-P2 presentation is implemented for SplitBuilder and Logger with localized expandable recorded details. OF-03-P3 verification passed on the 0.7.0 candidate: full host suite, `verifySqlDelightMigration`, ktlint, Android debug assembly, release lint and iOS compile; bounded debug-emulator visual checks are user-accepted. Full-scope review APPROVED with minor findings, and the corrective fixes (backup slot/version validation, batched entry-reason reads) with their regressions are committed. F3 dropped. |
+| OF-03 | Planner target explanations | Existing planner; integrate with OF-02 | SHIPPED 0.7.0 (`v0.7.0`, merge `e5719bb`, release `38225151289`; offline-verified artifact). Durable decisions A–E/F3 and the stored-version rule remain active; completed plan detail is [archived](docs/plans-archive.md#2026-10-12-completed-070). Verification limits: larger-font/dark-mode presentation and signed-upgrade/on-device behavior unverified; presentation polish deferred to 0.13.x. |
 | OF-04 | Exercise history and progress charts | Existing logged sets; shared queries may support OF-08 | FUTURE — decisions open |
 | OF-05 | Local workout CSV imports | OF-01 recovery path recommended first | FUTURE — decisions open |
 | OF-06 | Owned-plate calculator | Existing equipment inventory; standalone helper first | FUTURE — decisions open |
@@ -797,34 +797,11 @@ record).
 
 ### OF-03 — Planner target explanations
 
-**Goal / v1 scope:** explain real reasons for suggested loads, progression/holds, equipment caps, fatigue-driven choices and deloads using localized reason codes and parameters. Explain deterministic outputs from actual calculation branches; AI-generated suggestions are identified as such rather than assigned fabricated deterministic reasons.
+**Status: SHIPPED 0.7.0.** Published as `v0.7.0` on merge `e5719bb` (PR #4); release run `38225151289` passed and the published APK was verified offline ([QA evidence](docs/qa.md) §13). The completed plan detail — goal/scope, ownership, producer/consumer trace, load-fidelity notes, reason vocabulary, phases OF-03-P0…OF-03-P3 and the exact artifact list — is [archived](docs/plans-archive.md#2026-10-12-completed-070).
 
-**Proposed ownership:** explanation models at the domain planner/use-case seam; renderers/resources in SplitBuilder and Logger, independently consuming the same contract.
+**Open follow-ups and verification limits:** LT-10/OF-10A historical-target integrity, manual-PR-interaction replay and corrected-history replay remain separate 0.7.x decision work, not part of this release. Larger-font/dark-mode explanation presentation and signed-upgrade/on-device behavior of the published artifact remain unverified; the presentation polish (summary-only detail lines and the Logger row hierarchy) is deferred to 0.13.x.
 
-**Open decisions:** none for the 0.7.0 surface below. LT-10/OF-10A historical-target integrity, manual-PR-interaction replay and corrected-history replay remain separate 0.7.x decision work, not part of this release.
-
-**Producer/consumer trace (verified from source, 2026-10-11).** Load path:
-`SqlDelightWorkoutPlanSourcesRepository.observe()` → `ObserveWorkoutPlanInputsUseCase` →
-`BuildPlannerLoadInputsUseCase` → `PlanRequest` → `DeterministicWorkoutPlannerEngine` /
-`WeeklyPlanSanitizer` → `AcceptWeeklyPlanUseCase.build` → `AcceptedPlanWriter` (shared by `accept`
-and the schedule `acceptAndActivate`) → `planHistory` + `planVolumeExplanation`;
-`CreateTrainingActivationUseCase`/`ActivateRoutineUseCase` freeze `ActivationEntry`/`OccurrenceEntry`;
-`SubstituteExerciseUseCase` → `SqlDelightPlanHistoryRepository.substitute`
-(`updateEntryExerciseIdAtPosition` + `invalidateForSlot`); `ReplaceOccurrenceExerciseUseCase` →
-`replaceUntouchedEntry`. Consumers: SplitBuilder (draft + `VolumeExplanationCard`) and Logger
-(guided frozen target, planned-today drafts, accepted-plan path). Backup format 6 already carries
-volume explanations as `BackupVolumeExplanationRecord`/`BackupVolumeExplanationStateRecord`.
-Behaviors the explanations must not overstate: `BuildPlannerLoadInputsUseCase` uses an inclusive
-`[now−42d, now]` window, ≥2 qualifying non-warm-up external sets, max Epley, plus an eligible
-manual-PR floor; `ProgressWeightsUseCase` groups by local calendar day against the latest accepted
-prescription (`successStreak`/`failureStreak` 3, `roundToKg` 2.5, `maxIncrements` 5) and returns the
-baseline unchanged during a deload pause; working load is
-`roundToIncrement(e1RM × intensityForReps(reps) × deloadScale)` then the equipment clamp; the
-deterministic engine skips candidates at raw targeted fatigue ≥0.80 and reduces one set at ≥0.65;
-the sanitizer keeps an AI number only when `includeWorkoutData`, the exercise is not withheld and the
-value is positive/≤1000, then applies the same bound, deload scale and equipment ceiling.
-
-**Approved 0.7.0 decisions (2026-10-11).**
+**Durable decisions (approved 2026-10-11; retained).**
 - **A — historical fidelity:** persist versioned structured snapshots (reason codes + typed
   parameters) frozen at acceptance; never reconstruct history from today's data. Legacy plans report
   not-recorded; language/unit changes reformat but do not reinterpret recorded values. Draft
@@ -835,6 +812,8 @@ value is positive/≤1000, then applies the same bound, deload scale and equipme
   took are explained.
 - **C — AI attribution:** record only verifiable provenance (AI proposal vs app-enforced adjustment
   vs actual deterministic fallback). Never invent a model rationale; do not expand AI data sharing.
+  The recorded model proposal stays visible in the explanation even when sharing is off: the toggle
+  governs what history is sent, not whether the model returned a number (2026-10-12).
 - **D — mutation:** slot identity is `(planId, dayIndex, position)`, with the occurrence entry id for
   frozen work. A substitution invalidates that slot's original reasons and the plan-wide selection
   context, leaves unmodified slots intact and keeps the existing volume invalidation unchanged;
@@ -849,70 +828,10 @@ value is positive/≤1000, then applies the same bound, deload scale and equipme
   and the persisted deload scales already record the fatigue/deload outcome the plan-level context
   needs, and raw catalog ids would go stale after a custom-exercise merge (which remaps exercise ids
   on plan, activation and occurrence rows). The domain field remains generation-time data only.
-
-**Reason vocabulary (concepts; final enum names/types land in OF-03-P0).** Load source
-(recent-performance estimate / manual-PR floor / no usable baseline / not load-tracked); missing load
-(insufficient evidence, capability, or AI-sharing gate); conversion (baseline → intensity/buffer →
-deload scale → rounding → final, with `reps`, `intensityFraction`, `rirBuffer`, `roundToKg`, ceiling
-and pre-cap value); progression (applied, with `increments` and the rounded delta / none: no typed
-prescription, no streak yet, or deload pause); equipment (cap applied with ceiling + pre-cap value,
-or explicitly not binding); fatigue (recorded skip, set reduction, or ordering influence only when
-that branch ran); deload (volume scale, intensity scale, floor); AI (proposal retained / bound
-applied / ceiling applied / number withheld / model omitted a number); availability (recorded /
-legacy-unrecorded / invalidated-by-substitution / invalidated-by-replacement). Precision rules: "no
-adjustment" ≠ "unchanged displayed load"; rounding or a cap can hide an adjustment; fatigue/deload
-effects are shown as the resulting set count; no numeric load never means zero or impossible; modeled
-fatigue is not measured readiness; the window and thresholds are product defaults.
-
-**Phases (approved chunks; each needs its own implementation approval and ships its tests and living docs).**
-- **OF-03-P0 — contract finalization.** Trace, reason vocabulary, typed parameters,
-  provenance/availability states, per-mutation preservation/invalidation rules, synthetic fixtures,
-  exact schema/migration/backup/source file list. No behavior change.
-- **OF-03-P1A — capture calculation reasons.** Structured models plus capture in
-  `BuildPlannerLoadInputsUseCase`, `ProgressWeightsUseCase`, `DeterministicWorkoutPlannerEngine` and
-  `WeeklyPlanSanitizer`; reuse the existing load/rounding/equipment helpers. Equivalent inputs must
-  produce identical exercises, sets, reps, loads, week and cycle.
-- **OF-03-P1B — freeze, persist, transport.** Freeze on both acceptance paths through
-  `AcceptedPlanWriter`; preserve through activation/occurrence/repeat/restart; apply the approved
-  invalidation transactionally; new SQLDelight table(s) + migration + migration test; backup export,
-  validation, staged restore and compatibility.
-- **OF-03-P2 — presentation.** SplitBuilder draft and accepted, and the Logger frozen-prescription
-  explanation (guided and non-guided), localized in `commonMain` resources, correct for
-  legacy/manual/invalidated/AI states, with no effect on logging, timers, progress or skip/finish.
-- **OF-03-P3 — release verification and living docs.** Full host suite, migration verification, Koin
-  verification, ktlint, debug assembly, iOS compile; bounded debug-emulator checks; update
-  `docs/architecture.md`, `docs/qa.md`, formula docs as needed and the `hydrafit-mechanics`
-  planning/database/features/backup references.
-
-**Exact artifact list (P0 output; confirm each against source before its chunk).**
-- New domain models: explanation records + availability/provenance enums under
-  `core/domain/.../engine/` (atomic with OF-03-P1A). Reuse `PlanAttribution`.
-- Changed domain: `engine/PlannedExercise.kt`, `WeeklyPlan.kt`, `AcceptedPlan.kt`,
-  `AcceptWeeklyPlanUseCase.kt`, `PlanHistoryRepository.kt`, `BuildPlannerLoadInputsUseCase.kt`,
-  `ProgressWeightsUseCase.kt`, `DeterministicWorkoutPlannerEngine.kt`, `WeeklyPlanSanitizer.kt`;
-  `schedule/WorkoutSchedule.kt`, `schedule/ActivationUseCases.kt`,
-  `schedule/ReplaceOccurrenceExerciseUseCase.kt` (freeze/preserve/invalidate).
-- Changed backup: `backup/BackupModels.kt` (`BACKUP_FORMAT_VERSION` 7), `BackupJson.kt`,
-  `BackupValidator.kt`, `ExportBackupUseCase.kt`, `PreviewBackupUseCase.kt`,
-  `ApplyStagedBackupUseCase.kt`.
-- Database: new `PlanTargetExplanation.sq` (+ any state table), migration `38.sqm` (schema version
-  38 → 39; confirm the next number from the directory), `SqlDelightPlanHistoryRepository.kt`,
-  `AcceptedPlanWriter.kt`, `SqlDelightWorkoutScheduleRepository.kt`, `SqlDelightBackupRepository.kt`;
-  migration/repository tests and the `1.db`-based `V1ToCurrentMigrationTest` (fixture `1.db` stays
-  fixed).
-- Feature UI: `feature/splitbuilder/` (`SplitBuilderScreen.kt`, `SplitBuilderUiState.kt`,
-  `SplitBuilderViewModel.kt`, resources) and `feature/logger/` (`WorkoutLoggerScreen.kt`,
-  `WorkoutLoggerUiState.kt`, `WorkoutLoggerViewModel.kt`, resources); `feature/settings/`
-  `BackupViewModel.kt` record counts if the payload grows.
-- Docs: `docs/architecture.md`, `docs/qa.md`, affected formula docs, and the `hydrafit-mechanics`
-  planning/database/features/backup references.
-
-**Acceptance:** explanations match the calculation that produced the target and cannot become stale
-after catalog/settings changes under the chosen history contract. Adding explanations alone does not
-alter selected exercises, loads or fatigue fixtures. Additionally: explanation-free training output is
-identical for identical inputs; no mutation or restart can display another prescription's reasons;
-legacy, manual, invalidated and AI states are honest; migration and backup compatibility pass; both UI
-surfaces are localized, accessible and verified offline; every unverified check is reported.
+- **Stored explanation versions (2026-10-12):** a target-explanation record must carry the supported
+  explanation version. Backup validation rejects unsupported versions, and a stored record with an
+  unsupported version decodes as unavailable (never interpreted with v1 semantics) while the row is
+  retained.
 
 ### OF-04 — Exercise history and progress charts
 
