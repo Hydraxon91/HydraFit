@@ -26,6 +26,7 @@ class DatabaseStartupMaintenance(
     private val seedEquipmentCatalog: SeedEquipmentCatalog,
     private val customExerciseDedupe: CustomExerciseDedupe,
     private val workoutSessionBackfill: WorkoutSessionBackfill,
+    private val searchProjectionBackfill: SearchProjectionBackfill,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 ) : StartupReadiness {
     private val _isReady = MutableStateFlow(false)
@@ -38,6 +39,7 @@ class DatabaseStartupMaintenance(
             seedEquipmentCatalog.seed()
             customExerciseDedupe.run()
             workoutSessionBackfill.backfill()
+            searchProjectionBackfill.run()
             _isReady.value = true
         }
     }

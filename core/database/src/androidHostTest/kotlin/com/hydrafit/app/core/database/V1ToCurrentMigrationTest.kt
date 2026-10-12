@@ -47,6 +47,9 @@ class V1ToCurrentMigrationTest {
         assertEquals("UNSPECIFIED", exercise.loadCapability)
         // 19.sqm/20.sqm turn the v1 legacy muscle tags into per-muscle involvements.
         assertEquals("GLUTES:0.5,QUADS:1.0", exercise.involvements)
+        // 42.sqm adds the case-folded search projections; pre-existing rows default to empty and are
+        // rebuilt by the startup backfill.
+        assertEquals("", exercise.searchName)
 
         // The newest set-level timing columns exist and default to unknown/no elapsed instants.
         database.workoutLogQueries.insertSet(

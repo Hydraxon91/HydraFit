@@ -11,7 +11,8 @@ Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseExclusion.sq`, `ExerciseNot
 `PlannerEngine.sq`,
 `PlanVolumeExplanation.sq`, `PlanVolumeExplanationState.sq`, `PlanTargetExplanation.sq`,
 `PlanTargetExplanationState.sq`, `EntryTargetExplanation.sq`, `RoutineTemplate.sq`,
-`TrainingSchedule.sq`, `UserEquipment.sq`, `WorkoutLog.sq`, and `WorkoutSession.sq`.
+`TrainingSchedule.sq`, `UserEquipment.sq`, `WorkoutLog.sq`, `WorkoutSession.sq`, `SessionNote.sq` and
+`WorkoutHistory.sq`.
 `PlanHistory.sq`'s `updateEntryExerciseIdAtPosition` swaps one entry's
 `exerciseId`/`exerciseName`/`suggestedWeightKg` in place (no schema change) for
 `SubstituteExerciseUseCase`; the entry's `sets`/`reps` are untouched. Editing a
@@ -40,9 +41,30 @@ adds `exerciseNote` (empty is an explicit clear; a missing row means never set).
 2,000-character limit and exercise identity in the same transaction. `41.sqm` adds `sessionNote`,
 keyed by existing session id with the same absent-versus-empty encoding and length limit; Save/Clear
 never create sessions. Existing databases start without session notes. Notes stay attached to session
-identity through resegmentation, even when a session becomes empty. Current schema version is 42.
+identity through resegmentation, even when a session becomes empty. `42.sqm` adds the case-folded
+search projections `exercise.searchName` and `sessionNote.searchNote` (both default empty);
+`unicodeCaseFold` in `:core/domain` rewrites them on every name/note write, and
+`SearchProjectionBackfill` rebuilds custom-exercise and session-note rows at startup for databases
+upgraded from an earlier version. Current schema version is 43.
 Determine the
 next version from the current directory/generated Schema rather than copying this snapshot.
+
+`WorkoutHistory.sq` is query-only (no schema of its own): it projects `workoutSession`, `workoutSet`,
+`sessionNote` and the current `exercise` catalog into bounded, keyset-paginated history reads behind
+`SqlDelightWorkoutHistoryRepository`. A session qualifies when it has recorded sets or a
+session-note row; unassigned sets (`sessionId IS NULL`) appear individually; a stored session id with
+no session row is reported as a missing-session entry with its identity preserved. Exercise names are
+current catalog names, not historical snapshots, and exercise setup notes are never searched. Search
+matches the case-folded projections `exercise.searchName` and `sessionNote.searchNote`, produced by
+`unicodeCaseFold` (Unicode 17.0.0 default full folding, `:core/domain`); the query pattern is folded
+the same way, so matching is Unicode-insensitive and accent-sensitive, and stays literal because
+`WorkoutHistoryRequest.searchPattern` still escapes `%`, `_` and the escape character. Folding
+happens before ordering and pagination, so a match on any page is found.
+Ordering is `(timestamp DESC, kindRank ASC, sortId DESC)` with set ids zero-padded so the keyset
+comparison stays numeric; each query returns `limit + 1` rows so the repository can report whether a
+further page exists. `WorkoutHistoryRequest`/`WorkoutHistorySetRequest` validate page size, day-range
+order and cursor/filter agreement in `:core:domain`. The projections are a schema addition
+(`42.sqm`).
 
 `restPreference` stores the global default under `GLOBAL` and exercise overrides under
 `EXERCISE:<exerciseId>`; an absent global row resolves to 120 seconds. Rest countdown
@@ -71,9 +93,10 @@ revision. The same `freezesOccurrenceSlot` predicate backs the use case's pre-ch
 the current migration chain and asserts the retained values, legacy→involvement conversion,
 rest preference/countdown/guidance and note tables; target-explanation tables are
 covered by their own scoped migration tests (`38.sqm`, `39.sqm`), and the exercise/session-note
-tables by `ExerciseNoteMigrationTest` (`40.sqm`) and `SessionNoteMigrationTest` (`41.sqm`).
+tables by `ExerciseNoteMigrationTest` (`40.sqm`) and `SessionNoteMigrationTest` (`41.sqm`); the
+`42.sqm` search projections are asserted by `V1ToCurrentMigrationTest`.
 SQLDelight `verifyMigrations` is enabled against the committed v1 seed `databases/1.db`;
-`./gradlew verifySqlDelightMigration` (run in CI) applies `1.sqm..41.sqm` to it and fails
+`./gradlew verifySqlDelightMigration` (run in CI) applies `1.sqm..42.sqm` to it and fails
 if the result differs from the current `.sq`. Keep `1.db` fixed — it is the immutable v1
 schema, not a current-version snapshot. When the migration chain produces a different
 column *order* than `.sq` declares, align the `.sq` order to the chain (no column

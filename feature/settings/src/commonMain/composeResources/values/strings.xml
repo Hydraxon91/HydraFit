@@ -59,6 +59,7 @@
     <string name="acknowledgments_credit_garcia_valverde">García-Valverde 2025, Cultura, Ciencia y Deporte 20(66):2261 — squat meta-analysis</string>
     <string name="acknowledgments_credit_free_exercise_db">yuhonas/free-exercise-db (Unlicense) — exercise names, muscles and equipment</string>
     <string name="acknowledgments_credit_exrx">ExRx.net — facts cross-check</string>
+    <string name="acknowledgments_credit_unicode">Unicode Character Database case folding (Unicode License v3) — history search</string>
     <string name="acknowledgments_license_heading">License</string>
     <string name="acknowledgments_license_text">HydraFit is open-source software released under the MIT License.</string>
     <string name="acknowledgments_author">Built by Hydraxon.</string>

@@ -1056,9 +1056,9 @@ equipment profiles, occurrence-note storage and automatic setup-note snapshots.
 - Plain text, maximum 2,000 characters per note. Clear is an explicit persisted
   action that survives reload/backup; Cancel writes nothing. Storage must not
   conflate an absent note with an explicitly cleared value.
-- Search recorded exercise names and session-note text, with local-date filters
-  and bounded pagination. Do not search current exercise setup notes as though
-  they were historical context.
+- Search session-note text and current catalog exercise names (current context, not
+  a historical snapshot), with local-date filters and bounded pagination. Do not
+  search current exercise setup notes as though they were historical context.
 - Use explicit session identity, never inferred date/time-gap grouping. Display
   missing-session records honestly; do not group all null identities together.
 - Show recorded timestamps and sets. Omit workout-duration calculations,
@@ -1083,7 +1083,7 @@ behavior tradeoff needs explicit approval.
 | 0.7.1-C2 — session-note storage | DONE | Separate session-note persistence, additive migration and backup support. Notes never overwrite exercise notes; survive End/New session, corrections and restore. Test missing identities, transaction failure and the approved empty-session policy. |
 | 0.7.1-C3 — exercise-note UI | PLANNED | Localized Logger editor with Save/Cancel/Clear. Cancel writes nothing; failure retains draft; repeated submission and stale exercise context cannot write to the wrong exercise. Semantic emulator assertions and viewed screenshot. |
 | 0.7.1-C4 — session-note UI | DONE | Distinct current-session editor. Test attribution across End/New session and recreation, no accidental session creation, Save/Cancel/Clear, failure/retry, duplicate submission and stale context. Semantic emulator assertions and viewed screenshot. |
-| 0.7.1-C5 — bounded history queries | PLANNED | Domain/database listing, search, local-date filtering and pagination without browser UI. Test deterministic ordering, no duplicate/missing pages on unchanged data, explicit identities, legacy entries, renames and reactive updates after corrections/deletions. |
+| 0.7.1-C5 — bounded history queries | IN PROGRESS | Corrective review work: bounded query cost, lifecycle/pagination coverage, floor-correct local days and accurate metadata docs. Unicode-insensitive search now uses Unicode 17.0.0 default full-fold projections (`exercise.searchName`/`sessionNote.searchNote`, migration `42.sqm`) with a startup backfill; host tests, ktlint, debug assembly, iOS compile and migration verification pass. Review and commit remain gated. |
 | 0.7.1-C6 — history browser/details | PLANNED | Logger sub-screen with search, session details, notes and recorded sets. Verify search/filter/paging, empty/error states, back navigation, detail reconciliation and clearly current exercise-note context. Semantic emulator assertions and viewed screenshot. |
 | 0.7.1-C7 — correction access | PLANNED | Reach existing set corrections from history without a second policy. Test row identity, load semantics, attribution, Cancel/failure/retry, time resegmentation and refreshing session details and downstream readers. No new bulk/history deletion policy. |
 | 0.7.1-C8 — integration verification | PLANNED | Verify notes → persistence → backup/history → correction end to end. Full host tests, migration verification, ktlint, debug assembly, iOS compile and changed Koin graph verification; bounded emulator journeys with screenshots. Record revision-specific evidence and every unverified check. |

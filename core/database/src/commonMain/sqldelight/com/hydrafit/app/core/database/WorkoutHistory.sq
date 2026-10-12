@@ -1,0 +1,233 @@
+-- Read-only history projection. No schema is defined here: these queries read workoutSession,
+-- workoutSet, sessionNote and the current exercise catalog only. Exercise names are current catalog
+-- names (current context, not a historical snapshot); exercise setup notes are never searched.
+
+-- One bounded page of history entries, newest first. A session appears once when it has recorded sets
+-- or a session-note row (including an explicit clear); unassigned sets appear individually; a stored
+-- session id with no session row is reported as a missing-session entry. Ordering is
+-- (timestamp DESC, kindRank ASC, sortId DESC) and the cursor predicate matches it exactly. Grouped
+-- set projections avoid per-session whole-table count/minimum subqueries.
+selectHistoryEntries:
+WITH orphanSets AS (
+    SELECT sessionId, MIN(performedAt) AS firstPerformedAt, COUNT(*) AS setCount
+    FROM workoutSet
+    WHERE sessionId IS NOT NULL
+    GROUP BY sessionId
+), sessionSetCounts AS (
+    SELECT o.sessionId, o.setCount
+    FROM orphanSets o
+    JOIN workoutSession s ON s.id = o.sessionId
+), missingSessionSets AS (
+    SELECT o.sessionId, o.firstPerformedAt, o.setCount
+    FROM orphanSets o
+    LEFT JOIN workoutSession s ON s.id = o.sessionId
+    WHERE s.id IS NULL
+)
+SELECT
+    entries.kindRank AS kindRank,
+    entries.sortId AS sortId,
+    COALESCE(entries.timestampMillis, 0) AS timestampMillis,
+    entries.localEpochDay AS localEpochDay,
+    entries.sessionMissing AS sessionMissing,
+    entries.note AS note,
+    entries.setCount AS setCount
+FROM (
+    SELECT
+        0 AS kindRank,
+        s.id AS sortId,
+        s.startedAtMillis AS timestampMillis,
+        s.localEpochDay AS localEpochDay,
+        0 AS sessionMissing,
+        notes.note AS note,
+        COALESCE(setCounts.setCount, 0) AS setCount,
+        CASE
+            WHEN :hasSearch = 0 THEN 1
+            WHEN notes.searchNote LIKE :searchPattern ESCAPE '\' THEN 1
+            WHEN EXISTS (
+                SELECT 1 FROM workoutSet w JOIN exercise e ON e.id = w.exerciseId
+                WHERE w.sessionId = s.id
+                  AND e.searchName LIKE :searchPattern ESCAPE '\'
+            ) THEN 1
+            ELSE 0
+        END AS matchesSearch
+    FROM workoutSession s
+    LEFT JOIN sessionNote notes ON notes.sessionId = s.id
+    LEFT JOIN sessionSetCounts setCounts ON setCounts.sessionId = s.id
+    WHERE setCounts.sessionId IS NOT NULL
+       OR EXISTS (SELECT 1 FROM sessionNote n WHERE n.sessionId = s.id)
+
+    UNION ALL
+
+    SELECT
+        0 AS kindRank,
+            orphan.sessionId AS sortId,
+        orphan.firstPerformedAt AS timestampMillis,
+        (((orphan.firstPerformedAt + :utcOffsetMillis) / 86400000) -
+            CASE WHEN (orphan.firstPerformedAt + :utcOffsetMillis) % 86400000 < 0 THEN 1 ELSE 0 END)
+            AS localEpochDay,
+        1 AS sessionMissing,
+        CAST(NULL AS TEXT) AS note,
+        orphan.setCount AS setCount,
+        CASE
+            WHEN :hasSearch = 0 THEN 1
+            WHEN EXISTS (
+                SELECT 1 FROM workoutSet w2 JOIN exercise e ON e.id = w2.exerciseId
+                WHERE w2.sessionId = orphan.sessionId
+                  AND e.searchName LIKE :searchPattern ESCAPE '\'
+            ) THEN 1
+            ELSE 0
+        END AS matchesSearch
+    FROM missingSessionSets orphan
+
+    UNION ALL
+
+    SELECT
+        1 AS kindRank,
+        printf('%+020d', w.id) AS sortId,
+        w.performedAt AS timestampMillis,
+        (((w.performedAt + :utcOffsetMillis) / 86400000) -
+            CASE WHEN (w.performedAt + :utcOffsetMillis) % 86400000 < 0 THEN 1 ELSE 0 END)
+            AS localEpochDay,
+        0 AS sessionMissing,
+        CAST(NULL AS TEXT) AS note,
+        1 AS setCount,
+        CASE
+            WHEN :hasSearch = 0 THEN 1
+            WHEN EXISTS (
+                SELECT 1 FROM exercise e
+                WHERE e.id = w.exerciseId
+                  AND e.searchName LIKE :searchPattern ESCAPE '\'
+            ) THEN 1
+            ELSE 0
+        END AS matchesSearch
+    FROM workoutSet w
+    WHERE w.sessionId IS NULL
+) AS entries
+WHERE entries.matchesSearch = 1
+  AND (
+        :hasDay = 0
+        OR (entries.localEpochDay >= :dayFrom AND entries.localEpochDay <= :dayTo)
+      )
+  AND (
+        :hasCursor = 0
+        OR entries.timestampMillis < :cursorTimestamp
+        OR (entries.timestampMillis = :cursorTimestamp AND entries.kindRank > :cursorKindRank)
+        OR (entries.timestampMillis = :cursorTimestamp AND entries.kindRank = :cursorKindRank
+            AND entries.sortId < :cursorSortId)
+      )
+ORDER BY entries.timestampMillis DESC, entries.kindRank ASC, entries.sortId DESC
+LIMIT :limit;
+
+-- One entry's metadata by explicit identity. The session id branch and the unassigned-set branch are
+-- disjoint, so an unused parameter simply matches nothing.
+selectHistoryEntry:
+WITH orphanSets AS (
+    SELECT sessionId, MIN(performedAt) AS firstPerformedAt, COUNT(*) AS setCount
+    FROM workoutSet
+    WHERE sessionId IS NOT NULL
+    GROUP BY sessionId
+), sessionSetCounts AS (
+    SELECT o.sessionId, o.setCount
+    FROM orphanSets o
+    JOIN workoutSession s ON s.id = o.sessionId
+), missingSessionSets AS (
+    SELECT o.sessionId, o.firstPerformedAt, o.setCount
+    FROM orphanSets o
+    LEFT JOIN workoutSession s ON s.id = o.sessionId
+    WHERE s.id IS NULL
+)
+SELECT
+    entries.kindRank AS kindRank,
+    COALESCE(entries.sortId, '') AS sortId,
+    COALESCE(entries.timestampMillis, 0) AS timestampMillis,
+    entries.localEpochDay AS localEpochDay,
+    entries.sessionMissing AS sessionMissing,
+    entries.note AS note,
+    entries.setCount AS setCount
+FROM (
+    SELECT
+        0 AS kindRank,
+        s.id AS sortId,
+        s.startedAtMillis AS timestampMillis,
+        s.localEpochDay AS localEpochDay,
+        0 AS sessionMissing,
+        notes.note AS note,
+        COALESCE(setCounts.setCount, 0) AS setCount
+    FROM workoutSession s
+    LEFT JOIN sessionNote notes ON notes.sessionId = s.id
+    LEFT JOIN sessionSetCounts setCounts ON setCounts.sessionId = s.id
+    WHERE s.id = :sessionId
+      AND (setCounts.sessionId IS NOT NULL OR notes.sessionId IS NOT NULL)
+
+    UNION ALL
+
+    SELECT
+        0 AS kindRank,
+        orphan.sessionId AS sortId,
+        orphan.firstPerformedAt AS timestampMillis,
+        (((orphan.firstPerformedAt + :utcOffsetMillis) / 86400000) -
+            CASE WHEN (orphan.firstPerformedAt + :utcOffsetMillis) % 86400000 < 0
+                THEN 1 ELSE 0 END) AS localEpochDay,
+        1 AS sessionMissing,
+        CAST(NULL AS TEXT) AS note,
+        orphan.setCount AS setCount
+    FROM missingSessionSets orphan
+    WHERE orphan.sessionId = :sessionId
+
+    UNION ALL
+
+    SELECT
+        1 AS kindRank,
+        printf('%+020d', w.id) AS sortId,
+        w.performedAt AS timestampMillis,
+    (((w.performedAt + :utcOffsetMillis) / 86400000) -
+        CASE WHEN (w.performedAt + :utcOffsetMillis) % 86400000 < 0 THEN 1 ELSE 0 END)
+        AS localEpochDay,
+        0 AS sessionMissing,
+        CAST(NULL AS TEXT) AS note,
+        1 AS setCount
+    FROM workoutSet w
+    WHERE w.id = :setId AND w.sessionId IS NULL
+) AS entries
+LIMIT 1;
+
+-- A bounded page of one session's recorded sets, newest first, with current catalog names.
+selectSessionHistorySets:
+SELECT
+    w.id AS id,
+    w.exerciseId AS exerciseId,
+    e.name AS exerciseName,
+    w.reps AS reps,
+    w.weightKg AS weightKg,
+    w.loadKind AS loadKind,
+    w.isWarmup AS isWarmup,
+    w.rir AS rir,
+    w.performedAt AS performedAt,
+    w.timingProvenance AS timingProvenance
+FROM workoutSet w
+LEFT JOIN exercise e ON e.id = w.exerciseId
+WHERE w.sessionId = :sessionId
+  AND (
+        :hasCursor = 0
+        OR w.performedAt < :cursorPerformedAt
+        OR (w.performedAt = :cursorPerformedAt AND w.id < :cursorSetId)
+      )
+ORDER BY w.performedAt DESC, w.id DESC
+LIMIT :limit;
+
+-- One unassigned recorded set's values, by set id.
+selectUnassignedSetHistorySet:
+SELECT
+    w.id AS id,
+    w.exerciseId AS exerciseId,
+    e.name AS exerciseName,
+    w.reps AS reps,
+    w.weightKg AS weightKg,
+    w.loadKind AS loadKind,
+    w.isWarmup AS isWarmup,
+    w.rir AS rir,
+    w.performedAt AS performedAt,
+    w.timingProvenance AS timingProvenance
+FROM workoutSet w
+LEFT JOIN exercise e ON e.id = w.exerciseId
+WHERE w.id = :setId AND w.sessionId IS NULL;

@@ -251,6 +251,29 @@ selected exercise, date or elapsed time, and a session-identity change (End/New 
 change) invalidates the editor and any in-flight read or write so a draft or completion can never be
 attributed to a different session.
 
+**Searchable session history (implemented, 0.7.1-C5 queries).** `WorkoutHistoryRepository`
+(`:core:domain`; `SqlDelightWorkoutHistoryRepository` over the query-only `WorkoutHistory.sq`)
+exposes three bounded, read-only reads: a filtered page of entries, one entry's metadata by explicit
+identity, and one entry's recorded sets. An entry is keyed by explicit identity only —
+`WorkoutHistoryKey.Session` (a stored session id, including one whose session row is missing) or
+`WorkoutHistoryKey.UnassignedSet` (a single set with no session). Null identities are never grouped
+by date or elapsed time. A session appears when it has recorded sets or a session-note row (including
+an explicit clear); an empty, never-noted session does not. Ordering is
+`(timestampMillis DESC, kindRank ASC, sortKey DESC)`, where a session's timestamp is its stored start
+and an unassigned set's is its recorded performed time. Keyset pagination reads `limit + 1` rows to
+report whether another page exists and rejects a cursor that does not belong to the same filter.
+Search is a literal escaped substring over the case-folded search projections `exercise.searchName`
+and `sessionNote.searchNote`, both produced by `unicodeCaseFold` (Unicode 17.0.0 default full
+folding, `:core/domain`) so case differences match for every script rather than only ASCII; accents
+are preserved, so `Épaules` matches `ÉPAULES` but not `Epaules`. The query pattern folds the same way
+before `LIKE` escaping. The projections are a schema addition (`42.sqm`), rewritten beside every
+name/note write and rebuilt at startup for upgraded databases. Names are current context, never a
+historical snapshot, and exercise setup notes are excluded. Local-day bounds
+are inclusive: a session uses its stored `localEpochDay`, while a set without one derives it from a
+caller-supplied UTC offset (no historical timezone lookup). Recorded sets keep their stored load kind,
+RIR, warm-up flag and timing provenance. History reads create and modify nothing; the browser UI is
+0.7.1-C6.
+
 **Volume explanation (implemented, C4 / OF-03 slice).** The VOL-01 volume assessment is persisted
 with the accepted plan so it always matches the calculation/output that produced it. On acceptance,
 `AcceptWeeklyPlanUseCase` freezes `WeeklyPlan.armCoverage` and an honest `PlanAttribution`

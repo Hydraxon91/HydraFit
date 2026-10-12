@@ -16,7 +16,9 @@ import com.hydrafit.app.core.domain.backup.BackupValidator
 import com.hydrafit.app.core.domain.backup.PendingBackup
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.workout.unicodeCaseFold
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
@@ -42,6 +44,7 @@ class DatabaseStartupMaintenanceTest {
             seedEquipmentCatalog = SeedEquipmentCatalog(database),
             customExerciseDedupe = CustomExerciseDedupe(database),
             workoutSessionBackfill = WorkoutSessionBackfill(database, TimeProvider { 0L }),
+            searchProjectionBackfill = SearchProjectionBackfill(database),
             scope = CoroutineScope(dispatcher)
         )
 
@@ -56,6 +59,55 @@ class DatabaseStartupMaintenanceTest {
 
         driver.close()
     }
+
+    @Test
+    fun backfillsFoldedSearchProjectionsForRowsWrittenBeforeTheColumnsExisted() =
+        runTest(dispatcher) {
+            val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+            HydraFitDatabase.Schema.create(driver)
+            val database = HydraFitDatabase(driver)
+
+            // Rows written before migration 42 left both projections at their empty default.
+            database.exerciseQueries.insertCustom(
+                id = "user-atlas",
+                name = "Atlas Épaules",
+                requiredEquipment = "BARBELL",
+                movementPattern = "SQUAT",
+                isUnilateral = 0L,
+                loadCapability = "EXTERNAL",
+                involvements = null
+            )
+            database.workoutSessionQueries.insertSession(
+                id = "s1",
+                startedAtMillis = 100L,
+                endedAtMillis = null,
+                localEpochDay = 10L
+            )
+            database.sessionNoteQueries.upsert("s1", "FOCUS ΣΟΦΙΑ")
+
+            val maintenance = DatabaseStartupMaintenance(
+                applyStagedBackup = noStagedBackup(),
+                seedExerciseCatalog = SeedExerciseCatalog(database),
+                seedEquipmentCatalog = SeedEquipmentCatalog(database),
+                customExerciseDedupe = CustomExerciseDedupe(database),
+                workoutSessionBackfill = WorkoutSessionBackfill(database, TimeProvider { 0L }),
+                searchProjectionBackfill = SearchProjectionBackfill(database),
+                scope = CoroutineScope(dispatcher)
+            )
+            maintenance.start()
+            advanceUntilIdle()
+
+            assertEquals(
+                unicodeCaseFold("Atlas Épaules"),
+                database.exerciseQueries.selectById("user-atlas").executeAsOne().searchName
+            )
+            assertEquals(
+                unicodeCaseFold("FOCUS ΣΟΦΙΑ"),
+                database.sessionNoteQueries.selectAll().executeAsList().single().searchNote
+            )
+
+            driver.close()
+        }
 
     /** An [ApplyStagedBackupUseCase] whose staging store is empty, so `start()` applies nothing. */
     private fun noStagedBackup(): ApplyStagedBackupUseCase = ApplyStagedBackupUseCase(

@@ -16,6 +16,7 @@ import com.hydrafit.app.core.domain.workout.ExerciseNoteRepository
 import com.hydrafit.app.core.domain.workout.RestCountdownRepository
 import com.hydrafit.app.core.domain.workout.SessionNoteRepository
 import com.hydrafit.app.core.domain.workout.SessionResegmenter
+import com.hydrafit.app.core.domain.workout.WorkoutHistoryRepository
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
@@ -38,7 +39,8 @@ val databaseModule: Module = module {
     single { SeedEquipmentCatalog(get()) }
     single { CustomExerciseDedupe(get()) }
     single { WorkoutSessionBackfill(get(), get()) }
-    single { DatabaseStartupMaintenance(get(), get(), get(), get(), get()) }
+    single { SearchProjectionBackfill(get()) }
+    single { DatabaseStartupMaintenance(get(), get(), get(), get(), get(), get()) }
     single<StartupReadiness> { get<DatabaseStartupMaintenance>() }
     single<ExerciseCatalog> { SqlDelightExerciseCatalog(get()) }
     single<EquipmentRepository> { SqlDelightEquipmentRepository(get()) }
@@ -48,6 +50,7 @@ val databaseModule: Module = module {
     single<ExerciseExclusionRepository> { SqlDelightExerciseExclusionRepository(get()) }
     single<EquipmentSelectionRepository> { SqlDelightEquipmentSelectionRepository(get()) }
     single<WorkoutLogRepository> { SqlDelightWorkoutLogRepository(get()) }
+    single<WorkoutHistoryRepository> { SqlDelightWorkoutHistoryRepository(get()) }
     single<ExerciseNoteRepository> { SqlDelightExerciseNoteRepository(get()) }
     single<SessionNoteRepository> { SqlDelightSessionNoteRepository(get()) }
     single<WorkoutSessionRepository> { SqlDelightWorkoutSessionRepository(get()) }

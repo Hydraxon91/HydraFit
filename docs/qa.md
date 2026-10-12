@@ -159,6 +159,26 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   exercised in this emulator smoke. Font/theme/locale variants, TalkBack and visible-keyboard
   relayout remain unverified.
 - Sessions: first set auto-starts a session; End session / New session; day rollover starts a new one; active-session indicator correct.
+- Session history (0.7.1-C5, queries only — no browser UI until C6): entries are keyed by explicit
+  session id or unassigned set id, newest first. A session appears when it has recorded sets or a
+  session-note row (including an explicit clear); an empty, never-noted session does not; a stored
+  session id with no session row is reported as a missing-session entry. Search is a literal escaped
+  substring over session-note text and current catalog exercise names, never the exercise setup note.
+  Search folds Unicode case (`unicodeCaseFold`, Unicode 17.0.0 default full folding) over the
+  `exercise.searchName`/`sessionNote.searchNote` projections.
+  They match case-insensitively for every script while accents still distinguish.
+  Local-day bounds are inclusive, using each session's stored local day and a caller-supplied offset
+  for sets without one. Keyset pages present every entry exactly once and reject a cursor that does
+  not belong to the same filter.
+  **2026-10-12 host verification:** `:core:domain` (547 tests) and `:core:database` (319 tests,
+  including the Unicode-fold and real-producer history tests) pass with zero failures/errors/skips;
+  `ktlintCheck`,
+  `testAndroidHostTest`, `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
+  `verifySqlDelightMigration` pass (the `42.sqm` projections are covered by `verifySqlDelightMigration` and
+  `V1ToCurrentMigrationTest`). Continuous
+  emission is covered by `theHistoryFlowEmitsAgainAfterARecordedSetIsInserted`. No emulator journey
+  applies because C5 adds no UI; the C6 browser and very large result sets
+  remain unverified.
 - Session note: with no active session the "Session note" entry is disabled and reads "Start a session to
   add a note."; it never creates a session. With an active session it opens a "Current session note" editor
   that reads and writes the note for that session's explicit identity, distinct from the exercise setup-note

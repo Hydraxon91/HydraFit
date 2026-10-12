@@ -26,6 +26,7 @@ import hydrafit.feature.settings.generated.resources.acknowledgments_credit_krau
 import hydrafit.feature.settings.generated.resources.acknowledgments_credit_martin_fuentes_ijerph
 import hydrafit.feature.settings.generated.resources.acknowledgments_credit_martin_fuentes_plos
 import hydrafit.feature.settings.generated.resources.acknowledgments_credit_oliva_lozano
+import hydrafit.feature.settings.generated.resources.acknowledgments_credit_unicode
 import hydrafit.feature.settings.generated.resources.acknowledgments_credits_heading
 import hydrafit.feature.settings.generated.resources.acknowledgments_license_heading
 import hydrafit.feature.settings.generated.resources.acknowledgments_license_text
@@ -63,7 +64,8 @@ fun AcknowledgmentsScreen(
         Res.string.acknowledgments_credit_oliva_lozano,
         Res.string.acknowledgments_credit_garcia_valverde,
         Res.string.acknowledgments_credit_free_exercise_db,
-        Res.string.acknowledgments_credit_exrx
+        Res.string.acknowledgments_credit_exrx,
+        Res.string.acknowledgments_credit_unicode
     )
 
     Column(

@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.workout.unicodeCaseFold
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseException
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
@@ -29,15 +30,18 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
             involvements = involvements
         )
         val id = uniqueId(trimmed)
-        queries.insertCustom(
-            id = id,
-            name = trimmed,
-            requiredEquipment = encodeEquipment(requiredEquipment),
-            movementPattern = movementPattern.name,
-            isUnilateral = if (isUnilateral) 1L else 0L,
-            loadCapability = loadCapability.name,
-            involvements = encodeInvolvements(involvements)
-        )
+        database.transaction {
+            queries.insertCustom(
+                id = id,
+                name = trimmed,
+                requiredEquipment = encodeEquipment(requiredEquipment),
+                movementPattern = movementPattern.name,
+                isUnilateral = if (isUnilateral) 1L else 0L,
+                loadCapability = loadCapability.name,
+                involvements = encodeInvolvements(involvements)
+            )
+            queries.updateSearchName(searchName = unicodeCaseFold(trimmed), id = id)
+        }
         return Exercise(
             id = id,
             name = trimmed,
@@ -67,15 +71,18 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
             requiredEquipment = requiredEquipment,
             involvements = involvements
         )
-        queries.updateCustom(
-            name = trimmed,
-            requiredEquipment = encodeEquipment(requiredEquipment),
-            movementPattern = movementPattern.name,
-            isUnilateral = if (isUnilateral) 1L else 0L,
-            loadCapability = loadCapability.name,
-            involvements = encodeInvolvements(involvements),
-            id = id
-        )
+        database.transaction {
+            queries.updateCustom(
+                name = trimmed,
+                requiredEquipment = encodeEquipment(requiredEquipment),
+                movementPattern = movementPattern.name,
+                isUnilateral = if (isUnilateral) 1L else 0L,
+                loadCapability = loadCapability.name,
+                involvements = encodeInvolvements(involvements),
+                id = id
+            )
+            queries.updateSearchName(searchName = unicodeCaseFold(trimmed), id = id)
+        }
     }
 
     override suspend fun delete(id: String) {

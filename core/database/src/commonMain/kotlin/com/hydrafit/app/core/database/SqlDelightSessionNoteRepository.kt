@@ -2,6 +2,7 @@ package com.hydrafit.app.core.database
 
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.SessionNoteRepository
+import com.hydrafit.app.core.domain.workout.unicodeCaseFold
 
 class SqlDelightSessionNoteRepository(database: HydraFitDatabase) : SessionNoteRepository {
     private val database = database
@@ -21,6 +22,10 @@ class SqlDelightSessionNoteRepository(database: HydraFitDatabase) : SessionNoteR
                 "Workout session does not exist: $sessionId"
             }
             queries.upsert(sessionId = sessionId, note = text)
+            queries.updateSearchNote(
+                searchNote = unicodeCaseFold(text),
+                sessionId = sessionId
+            )
         }
     }
 

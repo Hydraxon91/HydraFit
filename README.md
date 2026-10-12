@@ -107,6 +107,8 @@ Exercise catalog metadata (names, muscle targets, equipment, mechanics) is deriv
 
 No exercise media is bundled. Full source and provenance notes are in [`docs/exercise-catalog-sources.md`](docs/exercise-catalog-sources.md).
 
+History search folds Unicode case using the Unicode Character Database case-folding data (Unicode 17.0.0, `CaseFolding.txt`), copyright © Unicode, Inc., distributed under the Unicode License v3.
+
 ## License
 
 HydraFit's source is [MIT-licensed](LICENSE). Exercise-data provenance is documented above; optional model weights and runtime components have their own terms.

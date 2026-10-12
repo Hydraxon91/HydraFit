@@ -37,6 +37,7 @@ import com.hydrafit.app.core.domain.backup.BackupVolumeExplanationStateRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSessionRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSetRecord
 import com.hydrafit.app.core.domain.settings.DEFAULT_REST_SECONDS
+import com.hydrafit.app.core.domain.workout.unicodeCaseFold
 
 /**
  * Reads the logical backup snapshot from SQLDelight. Every section is read inside one transaction so
@@ -541,6 +542,10 @@ class SqlDelightBackupRepository(
             }
             file.sessionNotes.forEach {
                 database.sessionNoteQueries.upsert(it.sessionId, it.note)
+                database.sessionNoteQueries.updateSearchNote(
+                    searchNote = unicodeCaseFold(it.note),
+                    sessionId = it.sessionId
+                )
             }
             file.customExercises.forEach { exercise ->
                 database.exerciseQueries.insertCustom(
@@ -551,6 +556,10 @@ class SqlDelightBackupRepository(
                     isUnilateral = if (exercise.isUnilateral) 1L else 0L,
                     loadCapability = exercise.loadCapability,
                     involvements = exercise.involvements
+                )
+                database.exerciseQueries.updateSearchName(
+                    searchName = unicodeCaseFold(exercise.name),
+                    id = exercise.id
                 )
             }
             file.exerciseOverrides.forEach { override ->

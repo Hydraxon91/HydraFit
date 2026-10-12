@@ -1,5 +1,7 @@
 package com.hydrafit.app.core.database
 
+import com.hydrafit.app.core.domain.workout.unicodeCaseFold
+
 class SeedExerciseCatalog(private val database: HydraFitDatabase) {
     fun seed() {
         database.exerciseQueries.transaction {
@@ -29,6 +31,11 @@ class SeedExerciseCatalog(private val database: HydraFitDatabase) {
                 // but only where missing, so a user's edit is kept.
                 database.exerciseQueries.updateInvolvements(
                     involvements = encodeInvolvements(exercise.effectiveInvolvements),
+                    id = exercise.id
+                )
+                // Keep the folded search projection beside the (possibly just-inserted) name.
+                database.exerciseQueries.updateSearchName(
+                    searchName = unicodeCaseFold(exercise.name),
                     id = exercise.id
                 )
             }

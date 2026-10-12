@@ -1,0 +1,5 @@
+-- Case-folded search projections (Unicode 17.0.0 default full folding) so history search matches
+-- case-insensitively for every script instead of only ASCII. Both columns default to empty for
+-- pre-existing rows and are rebuilt by the startup backfill before the UI can read the database.
+ALTER TABLE exercise ADD COLUMN searchName TEXT NOT NULL DEFAULT '';
+ALTER TABLE sessionNote ADD COLUMN searchNote TEXT NOT NULL DEFAULT '';

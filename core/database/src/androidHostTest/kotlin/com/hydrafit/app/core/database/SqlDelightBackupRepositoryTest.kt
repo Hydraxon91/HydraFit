@@ -7,6 +7,7 @@ import com.hydrafit.app.core.domain.backup.BackupValidator
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.workout.unicodeCaseFold
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -184,6 +185,12 @@ class SqlDelightBackupRepositoryTest {
         assertNull(notes.note("s1"))
         repository.restore(exported)
         assertEquals("Session context", notes.note("s1"))
+        // The restore path rebuilds the folded search projection, not just the note text.
+        assertEquals(
+            unicodeCaseFold("Session context"),
+            database.sessionNoteQueries.selectAll().executeAsList()
+                .single { it.sessionId == "s1" }.searchNote
+        )
 
         notes.clear("s1")
         val explicitlyCleared = repository.export("test", 2L)
@@ -455,6 +462,11 @@ class SqlDelightBackupRepositoryTest {
         assertEquals(file, repository.export(appVersion = "t", exportedAtMillis = 1L))
         assertTrue(
             database.exerciseQueries.selectById("user-bicycle-crunch").executeAsOneOrNull() != null
+        )
+        // The restore path rebuilds the custom exercise's folded name projection.
+        assertEquals(
+            unicodeCaseFold("Bicycle Crunch"),
+            database.exerciseQueries.selectById("user-bicycle-crunch").executeAsOne().searchName
         )
     }
 

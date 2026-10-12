@@ -186,6 +186,19 @@ invalidate the editor and any in-flight read or write, so no draft or completion
 different session; recreation reloads the persisted note for the same session. Selecting an exercise
 does not change session-note identity or draft.
 
+History search/listing support (0.7.1-C5) lives in `WorkoutHistoryRepository` (`:core:domain`), a
+read-only port backed by query-only `WorkoutHistory.sq`; the Logger's history browser (0.7.1-C6) is
+its only consumer and adds the UI, not the policy. Entries are keyed by explicit session id or an
+unassigned set id — never inferred date grouping — and displayed exercise names resolve from the
+current catalog. Search folds Unicode case (`unicodeCaseFold`, Unicode 17.0.0 default full folding
+in `:core/domain`) over the `exercise.searchName`/`sessionNote.searchNote` projections, so non-ASCII
+case variants match while accents still distinguish; the projections are a schema addition
+(`42.sqm`) written by the seeding, custom-exercise, session-note and restore paths and rebuilt at
+startup.
+`WorkoutHistoryRequest`/`WorkoutHistorySetRequest` own
+validation and keyset cursors; there is no history use case, and the only new Koin binding is the
+startup `SearchProjectionBackfill`.
+
 For routine authoring, the module is `:feature:routines`:
 `RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/
 `routinesDestination`), `RoutinesScreen.kt` (list, editor, exercise picker,

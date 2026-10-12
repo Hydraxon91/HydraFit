@@ -6,7 +6,8 @@ CREATE TABLE exercise (
     isCustom INTEGER NOT NULL DEFAULT 0,
     isUnilateral INTEGER NOT NULL DEFAULT 0,
     involvements TEXT,
-    loadCapability TEXT NOT NULL DEFAULT 'UNSPECIFIED'
+    loadCapability TEXT NOT NULL DEFAULT 'UNSPECIFIED',
+    searchName TEXT NOT NULL DEFAULT ''
 );
 
 selectAll:
@@ -40,6 +41,11 @@ UPDATE exercise SET involvements = ? WHERE id = ? AND involvements IS NULL;
 
 deleteById:
 DELETE FROM exercise WHERE id = ? AND isCustom = 1;
+
+-- Case-folded name projection (Unicode), maintained beside `name` so history search matches
+-- without SQLite's ASCII-only `NOCASE` collation. Rebuilt at startup for rows written before it.
+updateSearchName:
+UPDATE exercise SET searchName = ? WHERE id = ?;
 
 -- Restore path: seeded catalog rows are app-owned and stay; only custom rows are replaced.
 deleteAllCustom:

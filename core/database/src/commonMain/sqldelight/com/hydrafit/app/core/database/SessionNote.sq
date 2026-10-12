@@ -1,6 +1,7 @@
 CREATE TABLE sessionNote (
     sessionId TEXT NOT NULL PRIMARY KEY REFERENCES workoutSession(id) ON DELETE CASCADE,
-    note TEXT NOT NULL
+    note TEXT NOT NULL,
+    searchNote TEXT NOT NULL DEFAULT ''
 );
 
 selectBySessionId:
@@ -11,6 +12,10 @@ SELECT * FROM sessionNote ORDER BY sessionId;
 
 upsert:
 INSERT OR REPLACE INTO sessionNote(sessionId, note) VALUES (?, ?);
+
+-- Case-folded note projection (Unicode); see `Exercise.sq`'s `updateSearchName`.
+updateSearchNote:
+UPDATE sessionNote SET searchNote = ? WHERE sessionId = ?;
 
 deleteAll:
 DELETE FROM sessionNote;
