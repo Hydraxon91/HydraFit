@@ -31,9 +31,9 @@ class GetWorkoutSummaryUseCase(
             sessions = sessions,
             sessionNotes = sessions.associate { it.id to sessionNoteRepository.note(it.id) },
             activation = scheduleRepository.getActivation(occurrence.activationId),
-            // Current names are only needed for work that belongs to no prescribed slot, so an
-            // attributed workout skips the catalog read entirely.
-            exerciseNames = if (sets.any { it.isAdditionalTo(slots) }) {
+            // Current names are needed for any set the frozen entries cannot name, including
+            // warm-ups; a fully attributed workout skips the catalog read entirely.
+            exerciseNames = if (sets.any { it.needsCatalogName(slots) }) {
                 exerciseCatalog.all().associate { it.id to it.name }
             } else {
                 emptyMap()

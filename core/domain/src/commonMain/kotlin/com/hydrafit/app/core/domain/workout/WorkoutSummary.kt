@@ -113,12 +113,20 @@ data class WorkoutSummarySession(
 }
 
 /**
+ * True when this recorded set's name cannot come from the occurrence's frozen entries, so the
+ * projection has to look it up in the current catalog: the set is linked to no prescribed [slots]
+ * entry, or to one this occurrence no longer has. Warm-ups are included, because they are named the
+ * same way.
+ */
+internal fun WorkoutSet.needsCatalogName(slots: Set<Long>): Boolean =
+    occurrenceEntryId?.let { it in slots } != true
+
+/**
  * True when this recorded set becomes additional work: a working set that no prescribed [slots]
- * entry owns. It is the one case the projection needs [exerciseNames] for, so callers can skip the
- * catalog read when every set is attributed.
+ * entry owns.
  */
 internal fun WorkoutSet.isAdditionalTo(slots: Set<Long>): Boolean =
-    !isWarmup && occurrenceEntryId?.let { it in slots } != true
+    !isWarmup && needsCatalogName(slots)
 
 /**
  * Builds the post-finish summary of [occurrence] from its recorded [sets], the [sessions] it spans

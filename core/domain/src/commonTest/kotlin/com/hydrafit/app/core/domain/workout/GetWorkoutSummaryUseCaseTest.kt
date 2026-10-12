@@ -147,19 +147,58 @@ class GetWorkoutSummaryUseCaseTest {
         assertFalse(summary.exercises.single().isReplaced)
     }
 
+    @Test
+    fun keepsTheCatalogNameForAWarmupThatBelongsToNoSlot() = runTest {
+        // R10-12: a warm-up with no entry link is named from the catalog too, even when every
+        // working set is attributed. The narrowed read must not drop its name.
+        val useCase = useCase(
+            occurrence = occurrence(entry(id = 40, sets = 1)),
+            sets = listOf(
+                set(id = 1, occurrenceEntryId = 40),
+                set(id = 2, exerciseId = "unlisted-curl", sessionId = null, isWarmup = true)
+            ),
+            catalog = listOf(exercise("unlisted-curl", "Cable Curl"))
+        )
+
+        val summary = requireNotNull(useCase(30L))
+
+        assertTrue(summary.extraSets.isEmpty())
+        assertEquals("Cable Curl", summary.warmupSets.single().exerciseName)
+    }
+
+    @Test
+    fun skipsTheCatalogWhenEveryRecordedSetIsNamedByItsEntry() = runTest {
+        var reads = 0
+        val useCase = useCase(
+            occurrence = occurrence(entry(id = 40, sets = 2)),
+            sets = listOf(
+                set(id = 1, occurrenceEntryId = 40),
+                set(id = 2, occurrenceEntryId = 40, isWarmup = true)
+            ),
+            onCatalogRead = { reads++ }
+        )
+
+        val summary = requireNotNull(useCase(30L))
+
+        assertEquals(0, reads)
+        assertEquals("back-squat", summary.warmupSets.single().exerciseName)
+        assertEquals("back-squat", summary.exercises.single().performedSets.single().exerciseName)
+    }
+
     private fun useCase(
         occurrence: WorkoutOccurrence?,
         sets: List<WorkoutSet> = emptyList(),
         sessions: List<WorkoutSession> = emptyList(),
         notes: Map<String, String?> = emptyMap(),
         activation: TrainingActivation? = activation(),
-        catalog: List<Exercise> = emptyList()
+        catalog: List<Exercise> = emptyList(),
+        onCatalogRead: () -> Unit = {}
     ) = GetWorkoutSummaryUseCase(
         scheduleRepository = FakeScheduleRepository(occurrence, activation),
         workoutLogRepository = FakeWorkoutLogRepository(sets),
         sessionRepository = FakeWorkoutSessionRepository(sessions),
         sessionNoteRepository = FakeSessionNoteRepository(notes),
-        exerciseCatalog = FakeCatalog(catalog)
+        exerciseCatalog = FakeCatalog(catalog, onCatalogRead)
     )
 
     private fun occurrence(
@@ -199,7 +238,8 @@ class GetWorkoutSummaryUseCaseTest {
         id: Long,
         exerciseId: String = "back-squat",
         sessionId: String? = "session-1",
-        occurrenceEntryId: Long? = null
+        occurrenceEntryId: Long? = null,
+        isWarmup: Boolean = false
     ) = WorkoutSet(
         id = id,
         exerciseId = exerciseId,
@@ -207,6 +247,7 @@ class GetWorkoutSummaryUseCaseTest {
         weightKg = 100.0,
         loadKind = LoadKind.EXTERNAL,
         performedAtMillis = 1_000L + id,
+        isWarmup = isWarmup,
         sessionId = sessionId,
         occurrenceId = 30L,
         occurrenceEntryId = occurrenceEntryId
@@ -243,8 +284,14 @@ class GetWorkoutSummaryUseCaseTest {
         primaryMuscles = setOf(MuscleGroup.BICEPS)
     )
 
-    private class FakeCatalog(private val exercises: List<Exercise>) : ExerciseCatalog {
-        override suspend fun all(): List<Exercise> = exercises
+    private class FakeCatalog(
+        private val exercises: List<Exercise>,
+        private val onRead: () -> Unit = {}
+    ) : ExerciseCatalog {
+        override suspend fun all(): List<Exercise> {
+            onRead()
+            return exercises
+        }
     }
 
     private class FakeScheduleRepository(
