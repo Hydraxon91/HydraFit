@@ -233,14 +233,15 @@ val loggerDestination: FeatureDestination = FeatureDestination(
 fun NavGraphBuilder.loggerGraph(navController: NavController) {
     navigation(startDestination = loggerHomeRoute, route = loggerRoute) {
         composable(loggerHomeRoute) {
+            val viewModel = sharedLoggerViewModel(navController) ?: return@composable
             WorkoutLoggerRoute(
-                viewModel = sharedLoggerViewModel(navController),
+                viewModel = viewModel,
                 onOpenHistory = { navController.navigate(historyGraphRoute) },
                 onOpenSummary = { navController.navigate(summaryRoute) }
             )
         }
         composable(summaryRoute) {
-            val viewModel = sharedLoggerViewModel(navController)
+            val viewModel = sharedLoggerViewModel(navController) ?: return@composable
             val state by viewModel.state.collectAsStateWithLifecycle()
             // The route exists only while a summary is open, so it must clear the state that opened
             // it whenever it leaves (Done, system Back or the history handoff). Without this, Back
