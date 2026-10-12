@@ -1,0 +1,7 @@
+-- Persistent per-exercise setup notes, keyed by exercise id. A row holds the user's note text; an
+-- empty note is an explicit clear, and a missing row means the note was never set. Existing
+-- databases start with no rows, which reads as "no note".
+CREATE TABLE exerciseNote (
+    exerciseId TEXT NOT NULL PRIMARY KEY,
+    note TEXT NOT NULL
+);

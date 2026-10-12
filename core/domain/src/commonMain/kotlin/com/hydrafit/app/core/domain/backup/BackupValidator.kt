@@ -20,6 +20,7 @@ import com.hydrafit.app.core.domain.schedule.RemainingDisposition
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 
 /**
@@ -76,6 +77,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
         uniqueBy(file.planTargetExplanations) { Triple(it.planId, it.dayIndex, it.position) }
         uniqueBy(file.planTargetExplanationStates) { it.planId }
         uniqueBy(file.entryTargetExplanations) { it.entryKind to it.entryId }
+        uniqueBy(file.exerciseNotes) { it.exerciseId }
         uniqueBy(file.selectedEquipment) { it }
 
         val customEquipmentIds = file.equipment.filter { !it.isBuiltIn }.map { it.id }.toSet()
@@ -319,6 +321,10 @@ class BackupValidator(private val catalog: BackupCatalog) {
             enum(it.preference, ExercisePreference.entries)
         }
         file.exclusions.forEach { exercise(it.exerciseId, knownExercises) }
+        file.exerciseNotes.forEach {
+            exercise(it.exerciseId, knownExercises)
+            if (it.note.length > NOTE_MAX_LENGTH) fail(BackupFailure.INVALID_VALUE)
+        }
 
         file.settings?.let { settings ->
             enum(settings.engineId, PlannerEngineId.entries)

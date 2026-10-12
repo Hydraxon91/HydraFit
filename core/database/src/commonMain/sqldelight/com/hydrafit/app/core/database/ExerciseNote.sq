@@ -1,0 +1,23 @@
+CREATE TABLE exerciseNote (
+    exerciseId TEXT NOT NULL PRIMARY KEY,
+    note TEXT NOT NULL
+);
+
+selectAll:
+SELECT exerciseId, note FROM exerciseNote ORDER BY exerciseId;
+
+selectById:
+SELECT exerciseId, note FROM exerciseNote WHERE exerciseId = ?;
+
+upsert:
+INSERT OR REPLACE INTO exerciseNote(exerciseId, note)
+VALUES (?, ?);
+
+deleteById:
+DELETE FROM exerciseNote WHERE exerciseId = ?;
+
+deleteAll:
+DELETE FROM exerciseNote;
+
+updateExerciseId:
+UPDATE exerciseNote SET exerciseId = :newId WHERE exerciseId = :oldId;

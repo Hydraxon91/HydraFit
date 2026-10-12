@@ -10,6 +10,7 @@ import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
 import com.hydrafit.app.core.domain.backup.BackupEntryTargetExplanationRecord
 import com.hydrafit.app.core.domain.backup.BackupEquipmentRecord
 import com.hydrafit.app.core.domain.backup.BackupExclusionRecord
+import com.hydrafit.app.core.domain.backup.BackupExerciseNoteRecord
 import com.hydrafit.app.core.domain.backup.BackupExerciseOverrideRecord
 import com.hydrafit.app.core.domain.backup.BackupExerciseRecord
 import com.hydrafit.app.core.domain.backup.BackupFile
@@ -458,7 +459,10 @@ class SqlDelightBackupRepository(
                             restAlertsEnabled = it?.restAlertsEnabled == 1L,
                             shortRestCoachingEnabled = it?.shortRestCoachingEnabled == 1L
                         )
-                    }
+                    },
+                exerciseNotes = database.exerciseNoteQueries.selectAll().executeAsList().map {
+                    BackupExerciseNoteRecord(exerciseId = it.exerciseId, note = it.note)
+                }
             )
         }
 
@@ -472,6 +476,7 @@ class SqlDelightBackupRepository(
             database.trainingGuidancePreferenceQueries.deleteAll()
             database.restCountdownQueries.deletePersisted()
             database.exerciseExclusionQueries.deleteAll()
+            database.exerciseNoteQueries.deleteAll()
             database.personalRecordQueries.deleteAll()
             database.workoutLogQueries.deleteAllSets()
             database.workoutSessionQueries.deleteAllSessions()
@@ -565,6 +570,9 @@ class SqlDelightBackupRepository(
             }
             file.exclusions.forEach {
                 database.exerciseExclusionQueries.upsert(it.exerciseId, it.expiresAt)
+            }
+            file.exerciseNotes.forEach {
+                database.exerciseNoteQueries.upsert(it.exerciseId, it.note)
             }
 
             file.plans.forEach { plan ->

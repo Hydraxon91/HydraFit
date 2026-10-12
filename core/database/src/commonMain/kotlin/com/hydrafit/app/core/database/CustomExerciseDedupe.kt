@@ -54,6 +54,7 @@ class CustomExerciseDedupe(private val database: HydraFitDatabase) {
                 mergePreference(custom.id, canonical.id)
                 mergeExclusion(custom.id, canonical.id)
                 mergeRestOverride(custom.id, canonical.id)
+                mergeNote(custom.id, canonical.id)
                 database.exerciseOverrideQueries.deleteById(custom.id)
                 database.exerciseQueries.deleteById(custom.id)
             }
@@ -152,6 +153,24 @@ class CustomExerciseDedupe(private val database: HydraFitDatabase) {
             )
         }
         database.restPreferenceQueries.deleteExerciseOverride(customId)
+    }
+
+    /**
+     * Moves a saved setup note onto the merged seeded id. When the canonical id already has a note
+     * row (including an explicit clear), that entry wins and the custom note is discarded;
+     * otherwise the custom note is reassigned, mirroring [mergePreference].
+     */
+    private fun mergeNote(customId: String, canonicalId: String) {
+        val hasCustomNote =
+            database.exerciseNoteQueries.selectById(customId).executeAsOneOrNull() != null
+        if (!hasCustomNote) return
+        val canonicalNote =
+            database.exerciseNoteQueries.selectById(canonicalId).executeAsOneOrNull()
+        if (canonicalNote == null) {
+            database.exerciseNoteQueries.updateExerciseId(newId = canonicalId, oldId = customId)
+        } else {
+            database.exerciseNoteQueries.deleteById(customId)
+        }
     }
 
     private fun mergeOverride(custom: Exercise, canonical: CatalogExercise) {

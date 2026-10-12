@@ -6,8 +6,9 @@ Paths are relative to the repository root; package shorthand is defined in
 Schema directory:
 `core/database/src/commonMain/sqldelight/com/hydrafit/app/core/database/`.
 
-Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseExclusion.sq`, `ExerciseOverride.sq`,
-`ExercisePreference.sq`, `PersonalRecord.sq`, `PlanHistory.sq`, `PlannerEngine.sq`,
+Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseExclusion.sq`, `ExerciseNote.sq`,
+`ExerciseOverride.sq`, `ExercisePreference.sq`, `PersonalRecord.sq`, `PlanHistory.sq`,
+`PlannerEngine.sq`,
 `PlanVolumeExplanation.sq`, `PlanVolumeExplanationState.sq`, `PlanTargetExplanation.sq`,
 `PlanTargetExplanationState.sq`, `EntryTargetExplanation.sq`, `RoutineTemplate.sq`,
 `TrainingSchedule.sq`, `UserEquipment.sq`, `WorkoutLog.sq`, and `WorkoutSession.sq`.
@@ -34,10 +35,13 @@ opt-ins, encoded as checked 0/1 integers; `38.sqm` adds `planTargetExplanation` 
 per-slot target reasoning, keyed by `(planId, dayIndex, position)`) and
 `planTargetExplanationState` (plan-level deload/attribution context); `39.sqm` adds
 `entryTargetExplanation` (recorded reasoning for a frozen activation/occurrence entry, keyed by
-`entryKind` + `entryId`; entry ids are AUTOINCREMENT so an abandoned row can never be adopted). Both
+`entryKind` + `entryId`; entry ids are AUTOINCREMENT so an abandoned row can never be adopted); `40.sqm`
+adds `exerciseNote` (one persistent setup note per exercise id; the note text is stored, an empty
+note is an explicit clear, and a missing row means the note was never set). Writes validate the
+2,000-character limit and exercise identity in the same transaction as the upsert. Both
 start empty for an existing database, which reads as "not recorded"; the deterministic fatigue-skip
 candidate list is
-deliberately not persisted. Current schema version is 40. Determine the
+deliberately not persisted. Current schema version is 41. Determine the
 next version from the current directory/generated Schema rather than copying this snapshot.
 
 `restPreference` stores the global default under `GLOBAL` and exercise overrides under
@@ -45,13 +49,15 @@ next version from the current directory/generated Schema rather than copying thi
 state is separate, transient user data: it stores a monotonic deadline, duration, boot
 identity, open session, occurrence and exercise, and is not exported. Backup restore
 clears it because restored workout context is not a continuation of the prior process. A successful
-custom-exercise deletion removes that exercise's rest override, preference, exclusion and
+custom-exercise deletion removes that exercise's rest override, preference, exclusion, note and
 `exerciseOverride` row in the same transaction, and refuses a non-custom id so a built-in's
 dependent rows are never cleared. A manual personal record blocks deletion, like logged sets and
 plan/routine references; rejected or failed deletion preserves the exercise and every dependent
 record. Existing orphaned records are not automatically purged by this path.
 Startup custom-exercise dedupe reassigns a merged custom's override onto the seeded id (the canonical
-override wins on conflict), so a merge leaves no dangling override either.
+override wins on conflict), so a merge leaves no dangling override either. It also moves a custom's
+setup note onto the seeded id, keeping the canonical note when both exist, mirroring the preference
+and rest-override rules.
 
 `RestCountdownRepository.observe()` must emit subsequent saves/clears for app-lifetime alert
 reconciliation. `SqlDelightWorkoutScheduleRepository` also implements the narrow
@@ -62,11 +68,12 @@ are checked inside the replacement transaction before updating the preserved slo
 revision. The same `freezesOccurrenceSlot` predicate backs the use case's pre-check.
 
 `V1ToCurrentMigrationTest` migrates a v1 database (only the `exercise` table) through
-the current migration chain and asserts the retained values, legacy→involvement conversion
-and the rest preference/countdown/guidance tables; the target-explanation tables are
-covered by their own scoped migration tests (`38.sqm`, `39.sqm`).
+the current migration chain and asserts the retained values, legacy→involvement conversion,
+rest preference/countdown/guidance and exercise-note tables; target-explanation tables are
+covered by their own scoped migration tests (`38.sqm`, `39.sqm`), and the note table by
+`ExerciseNoteMigrationTest` (`40.sqm`).
 SQLDelight `verifyMigrations` is enabled against the committed v1 seed `databases/1.db`;
-`./gradlew verifySqlDelightMigration` (run in CI) applies `1.sqm..39.sqm` to it and fails
+`./gradlew verifySqlDelightMigration` (run in CI) applies `1.sqm..40.sqm` to it and fails
 if the result differs from the current `.sq`. Keep `1.db` fixed — it is the immutable v1
 schema, not a current-version snapshot. When the migration chain produces a different
 column *order* than `.sq` declares, align the `.sq` order to the chain (no column

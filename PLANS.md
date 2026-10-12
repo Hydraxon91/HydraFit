@@ -1036,10 +1036,10 @@ full browser.
 #### 0.7.1 — Notes & searchable session history
 
 **Status (2026-10-12):** release scope, chunk structure and recommendations approved
-in chat. This section records the plan only; no implementation chunk, commit,
-push, tag or publication is authorized. C0 has one outstanding behavior decision.
-This bounded split refines OF-13-P0–P3 without renumbering those broader phases;
-Finish-workout summaries remain in 0.7.2.
+in chat. C0 is closed and C1's review findings have been corrected and verified;
+formal re-review is pending. No commit, push, tag or publication is
+authorized. This bounded split refines OF-13-P0–P3 without renumbering those broader
+phases; Finish-workout summaries remain in 0.7.2.
 
 **Scope:** persistent exercise/setup notes, separate session notes, searchable
 session history and access to the existing set-correction actions. Offline-first.
@@ -1067,19 +1067,19 @@ equipment profiles, occurrence-note storage and automatic setup-note snapshots.
   attribution, timing and session invariants. Current setup notes shown in history
   must be labelled as current context, not historical snapshots.
 
-**C0 outstanding decision:** `SqlDelightSessionResegmenter.kt` can reassign sets
-when performed time changes. Approve what happens when correction moves the last
-set out of a noted session. Recommendation: retain the session and its note,
-show it as having no recorded sets, and never move or delete the note automatically.
-This recommendation was proposed after the initial approval and is still awaiting
-explicit confirmation. Before implementation, settle the exact clearing encoding,
-exercise-note dedupe/conflict/deletion policy and history query details against
-current source; any new behavior tradeoff needs explicit approval.
+**C0 decisions confirmed:** when correction moves the last set out of a noted
+session, retain the session and its note, show it as having no recorded sets, and
+never move or delete the note automatically. Exercise-note clear is a persisted
+empty string distinct from no row; when deduping, the canonical note wins even if
+it is explicitly cleared, otherwise move the custom note. Successful custom
+exercise deletion removes its note atomically. History query details remain to be
+finalized against current source in the relevant implementation chunk; any new
+behavior tradeoff needs explicit approval.
 
 | Chunk | Status | Deliverable / acceptance and tests |
 | --- | --- | --- |
-| 0.7.1-C0 — contract | PENDING DECISION | Finalize note ownership, limits, clearing, search, legacy handling and correction behavior. No code. Concrete examples cover saved/cleared notes, exercise renames, multiple same-day sessions and corrected timestamps, including the empty noted-session case above. |
-| 0.7.1-C1 — exercise-note storage | PLANNED | Domain contracts, SQLDelight storage/additive migration and OF-01 backup support. Save/replace/clear survive reload and round-trip; exercise deletion, deduplication and conflicts follow the approved lifecycle policy. Older backups remain readable; invalid restore payloads write nothing. |
+| 0.7.1-C0 — contract | DONE | Finalize note ownership, limits, clearing, search, legacy handling and correction behavior. No code. Concrete examples cover saved/cleared notes, exercise renames, multiple same-day sessions and corrected timestamps, including the empty noted-session case above. |
+| 0.7.1-C1 — exercise-note storage | RE-REVIEW REQUIRED | Review findings corrected and full required verification passed; request a read-only re-review before marking complete. |
 | 0.7.1-C2 — session-note storage | PLANNED | Separate session-note persistence, additive migration and backup support. Notes never overwrite exercise notes; survive End/New session, corrections and restore. Test missing identities, transaction failure and the approved empty-session policy. |
 | 0.7.1-C3 — exercise-note UI | PLANNED | Localized Logger editor with Save/Cancel/Clear. Cancel writes nothing; failure retains draft; repeated submission and stale exercise context cannot write to the wrong exercise. Semantic emulator assertions and viewed screenshot. |
 | 0.7.1-C4 — session-note UI | PLANNED | Distinct current-session editor. Test attribution across End/New session and recreation, no accidental session creation, Save/Cancel/Clear, failure/retry, duplicate submission and stale context. Semantic emulator assertions and viewed screenshot. |

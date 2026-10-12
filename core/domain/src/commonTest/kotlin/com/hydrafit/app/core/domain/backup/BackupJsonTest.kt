@@ -129,6 +129,26 @@ class BackupJsonTest {
     }
 
     @Test
+    fun formatNineRequiresExerciseNotesAndEarlierFormatsDefaultThem() {
+        val file = emptyBackupFile()
+        val encoded = BackupJson.encode(file)
+        val withoutNotes = encoded.replace(",\"exerciseNotes\":[]", "")
+
+        // A v8 file predates the notes section and restores as "no note recorded".
+        assertEquals(
+            file.copy(formatVersion = 8),
+            BackupJson.decode(
+                withoutNotes.replace(
+                    "\"formatVersion\":$BACKUP_FORMAT_VERSION",
+                    "\"formatVersion\":8"
+                )
+            )
+        )
+        // The current format must carry it.
+        assertFailure(BackupFailure.MALFORMED, withoutNotes)
+    }
+
+    @Test
     fun formatFourRequiresAllTimingFieldsButAcceptsExplicitNulls() {
         val file = emptyBackupFile().copy(workoutSets = listOf(workoutSet("LIVE", null, null)))
         val encoded = BackupJson.encode(file)

@@ -223,6 +223,19 @@ non-transient `NO_ELIGIBLE_EXERCISES` failure, and a plan that had eligible work
 reported separately as `NO_USABLE_EXERCISES`; a merely partial plan keeps its existing behavior.
 Accepted/frozen plans, occurrences and recorded sets are never rewritten.
 
+**Exercise notes (implemented, 0.7.1).** A persistent plain-text setup note is stored per exercise id
+in a dedicated `exerciseNote` table (`exerciseId` primary key, non-null `note`) behind
+`ExerciseNoteRepository` (`:core:domain`, `SqlDelightExerciseNoteRepository`; migration `40.sqm`). A
+note is current context, never a historical snapshot of a logged set: it is independent of the
+catalog `ExerciseOverride` and of accepted/frozen plans, and it never rewrites recorded sets. Saving
+empty text and Clear both store an explicit empty note (a present row), which is distinct from a note
+that was never set (no row). Repository writes enforce `NOTE_MAX_LENGTH` (2,000 characters) and
+require an existing exercise identity within the write transaction.
+`CustomExerciseDedupe` moves a merged custom's note onto the seeded id, keeping the canonical note
+when both exist, mirroring the preference and rest-override rules; a successful custom-exercise
+deletion removes the note in the same transaction. Notes are included in the OF-01 backup (format 9)
+and survive export/restore.
+
 **Volume explanation (implemented, C4 / OF-03 slice).** The VOL-01 volume assessment is persisted
 with the accepted plan so it always matches the calculation/output that produced it. On acceptance,
 `AcceptWeeklyPlanUseCase` freezes `WeeklyPlan.armCoverage` and an honest `PlanAttribution`
@@ -520,7 +533,7 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   and `SqlDelightBackupCatalog`; the `:core:userdata` `BackupFileStore` port
   (`AndroidBackupFileStore` SAF implementation, `UnsupportedBackupFileStore` on
   iOS); the Settings `BackupRoute`/`BackupViewModel`.
-- **Rules:** the file is logical (`format` + `formatVersion` 6), independent of the
+- **Rules:** the file is logical (`format` + `formatVersion` 9), independent of the
   SQLite schema and the app version. Every envelope field is required, so a file
   that omits one is rejected as malformed rather than read as an empty snapshot;
   nullable fields are present as explicit `null`, not omitted. The manifest carries

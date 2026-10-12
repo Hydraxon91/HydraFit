@@ -142,9 +142,11 @@ class SqlDelightCustomExerciseRepositoryTest {
         restPreferences.setExerciseOverrideSeconds(created.id, 240L)
         database.exercisePreferenceQueries.upsert(created.id, "PREFER")
         database.exerciseExclusionQueries.upsert(created.id, null)
+        database.exerciseNoteQueries.upsert(created.id, "Disposable setup note")
         seedExerciseOverride(created.id)
 
         repository.delete(created.id)
+        val exerciseNotes = SqlDelightExerciseNoteRepository(database)
 
         assertEquals(null, restPreferences.exerciseOverrideSeconds(created.id))
         assertEquals(
@@ -155,6 +157,10 @@ class SqlDelightCustomExerciseRepositoryTest {
             null,
             database.exerciseExclusionQueries.selectById(created.id).executeAsOneOrNull()
         )
+        assertNull(database.exerciseNoteQueries.selectById(created.id).executeAsOneOrNull())
+        assertFailsWith<IllegalArgumentException> {
+            exerciseNotes.save(created.id, "stale write")
+        }
         assertNull(database.exerciseOverrideQueries.selectById(created.id).executeAsOneOrNull())
         val exported = SqlDelightBackupRepository(database, SqlDelightBackupCatalog())
             .export("test", 1L)
@@ -162,6 +168,7 @@ class SqlDelightCustomExerciseRepositoryTest {
         assertTrue(exported.restPreferences.none { it.exerciseId == created.id })
         assertTrue(exported.preferences.none { it.exerciseId == created.id })
         assertTrue(exported.exclusions.none { it.exerciseId == created.id })
+        assertTrue(exported.exerciseNotes.none { it.exerciseId == created.id })
         assertTrue(exported.exerciseOverrides.none { it.exerciseId == created.id })
     }
 
@@ -208,6 +215,7 @@ class SqlDelightCustomExerciseRepositoryTest {
         restPreferences.setExerciseOverrideSeconds(created.id, 240L)
         database.exercisePreferenceQueries.upsert(created.id, "PREFER")
         database.exerciseExclusionQueries.upsert(created.id, null)
+        database.exerciseNoteQueries.upsert(created.id, "Keep this setup")
         seedExerciseOverride(created.id)
         SqlDelightWorkoutLogRepository(database).add(
             WorkoutSet(exerciseId = created.id, reps = 5, weightKg = null, performedAtMillis = 1L)
@@ -225,6 +233,10 @@ class SqlDelightCustomExerciseRepositoryTest {
         )
         assertTrue(
             database.exerciseOverrideQueries.selectById(created.id).executeAsOneOrNull() != null
+        )
+        assertEquals(
+            "Keep this setup",
+            database.exerciseNoteQueries.selectById(created.id).executeAsOne().note
         )
         assertTrue(catalog.all().any { it.id == created.id })
     }
@@ -277,6 +289,7 @@ class SqlDelightCustomExerciseRepositoryTest {
         restPreferences.setExerciseOverrideSeconds(created.id, 240L)
         database.exercisePreferenceQueries.upsert(created.id, "PREFER")
         database.exerciseExclusionQueries.upsert(created.id, null)
+        database.exerciseNoteQueries.upsert(created.id, "Keep this setup")
         seedExerciseOverride(created.id)
         driver.execute(
             null,
@@ -297,6 +310,10 @@ class SqlDelightCustomExerciseRepositoryTest {
         )
         assertTrue(
             database.exerciseOverrideQueries.selectById(created.id).executeAsOneOrNull() != null
+        )
+        assertEquals(
+            "Keep this setup",
+            database.exerciseNoteQueries.selectById(created.id).executeAsOne().note
         )
         assertTrue(catalog.all().any { it.id == created.id })
     }

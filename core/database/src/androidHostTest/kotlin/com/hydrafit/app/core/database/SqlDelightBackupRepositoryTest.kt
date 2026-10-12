@@ -74,6 +74,9 @@ class SqlDelightBackupRepositoryTest {
     @Test
     fun exportsEveryIncludedSection() = runTest {
         seedRepresentativeData()
+        val exerciseNotes = SqlDelightExerciseNoteRepository(database)
+        exerciseNotes.save("back-squat", "Set up tall")
+        exerciseNotes.clear("barbell-bench-press")
         SqlDelightGuidedWorkoutPreferenceRepository(database).setGuidedWorkoutEnabled(true)
         val restPreferences = SqlDelightRestPreferenceRepository(database)
         restPreferences.setGlobalDefaultSeconds(180L)
@@ -131,6 +134,36 @@ class SqlDelightBackupRepositoryTest {
             ),
             file.restPreferences.map { it.exerciseId to it.durationSeconds }
         )
+        assertEquals(
+            listOf("back-squat" to "Set up tall", "barbell-bench-press" to ""),
+            file.exerciseNotes.map { it.exerciseId to it.note }
+        )
+    }
+
+    @Test
+    fun restoreDropsNotesThePayloadDoesNotOwnAndRecreatesItsOwn() = runTest {
+        seedRepresentativeData()
+        val exerciseNotes = SqlDelightExerciseNoteRepository(database)
+        exerciseNotes.save("back-squat", "Set up tall")
+        exerciseNotes.clear("barbell-bench-press")
+        val file = repository.export(appVersion = "t", exportedAtMillis = 1L)
+        // A note absent from the restored payload must not survive the whole-replacement restore.
+        database.exerciseNoteQueries.upsert("barbell-bench-press", "stale")
+
+        repository.restore(file.copy(exerciseNotes = emptyList()))
+
+        assertNull(database.exerciseNoteQueries.selectById("back-squat").executeAsOneOrNull())
+        assertNull(
+            database.exerciseNoteQueries.selectById("barbell-bench-press").executeAsOneOrNull()
+        )
+
+        repository.restore(file)
+
+        assertEquals(
+            "Set up tall",
+            database.exerciseNoteQueries.selectById("back-squat").executeAsOne().note
+        )
+        assertEquals("", exerciseNotes.note("barbell-bench-press"))
     }
 
     @Test
@@ -297,6 +330,35 @@ class SqlDelightBackupRepositoryTest {
         assertFailsWith<Exception> { repository.restore(before) }
 
         assertEquals(before, repository.export(appVersion = "t", exportedAtMillis = 1L))
+    }
+
+    @Test
+    fun invalidStagedExerciseNoteDoesNotWriteAnything() = runTest {
+        seedRepresentativeData()
+        val before = repository.export(appVersion = "t", exportedAtMillis = 1L)
+        val catalog = SqlDelightBackupCatalog()
+        val staging = SqlDelightBackupStagingRepository(database)
+        val preview = PreviewBackupUseCase(BackupValidator(catalog))
+        val applyStaged =
+            ApplyStagedBackupUseCase(preview, repository, staging, TimeProvider { 2L })
+        val invalid = before.copy(
+            exerciseNotes = listOf(
+                com.hydrafit.app.core.domain.backup.BackupExerciseNoteRecord(
+                    "back-squat",
+                    "x".repeat(com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH + 1)
+                )
+            )
+        )
+        staging.stage(BackupJson.encode(invalid), "t", 1L)
+
+        applyStaged()
+
+        assertEquals(before, repository.export(appVersion = "t", exportedAtMillis = 1L))
+        assertNull(staging.staged())
+        assertEquals(
+            com.hydrafit.app.core.domain.backup.BackupFailure.INVALID_VALUE,
+            staging.applyError()?.failure
+        )
     }
 
     @Test

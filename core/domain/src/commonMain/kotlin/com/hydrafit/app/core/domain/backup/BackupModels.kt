@@ -6,12 +6,14 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 8
+const val BACKUP_FORMAT_VERSION: Int = 9
 
 /**
  * A whole logical snapshot of the supported offline data. Rows are stored flat with their persisted
  * ids so restore can rebuild relationships exactly; the envelope carries the format identity, a
- * catalog fingerprint and the export time. Version 8 adds the recorded reasoning of frozen
+ * catalog fingerprint and the export time. Version 9 adds persistent per-exercise setup notes;
+ * earlier formats have none, so a restored legacy install reports no note rather than an explicit
+ * clear. Version 8 adds the recorded reasoning of frozen
  * activation/occurrence entries; earlier formats have none, so a restored legacy entry reports no
  * explanation rather than a fabricated one. Version 7 adds the recorded plan-target explanations;
  * earlier formats have none, so a restored legacy plan reports no explanation rather than a
@@ -61,7 +63,12 @@ data class BackupFile(
      * Recorded reasoning of frozen activation/occurrence entries, newest format only. Absent in
      * formats 1–7, which restores as "not recorded" rather than as an empty explanation.
      */
-    val entryTargetExplanations: List<BackupEntryTargetExplanationRecord> = emptyList()
+    val entryTargetExplanations: List<BackupEntryTargetExplanationRecord> = emptyList(),
+    /**
+     * Persistent exercise setup notes, newest format only. Absent in formats 1–8, which restores as
+     * "no note recorded" rather than as an explicit clear.
+     */
+    val exerciseNotes: List<BackupExerciseNoteRecord> = emptyList()
 )
 
 @Serializable
@@ -438,3 +445,7 @@ data class BackupExclusionRecord(val exerciseId: String, val expiresAt: Long?)
 
 @Serializable
 data class BackupRestPreferenceRecord(val exerciseId: String?, val durationSeconds: Long)
+
+/** One exercise's persistent setup note. The [note] may be empty, an explicit clear. */
+@Serializable
+data class BackupExerciseNoteRecord(val exerciseId: String, val note: String)

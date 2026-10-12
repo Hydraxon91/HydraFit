@@ -121,6 +121,7 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
             database.restPreferenceQueries.deleteExerciseOverride(id)
             database.exercisePreferenceQueries.deleteById(id)
             database.exerciseExclusionQueries.deleteById(id)
+            database.exerciseNoteQueries.deleteById(id)
             queries.deleteById(id)
         }
     }

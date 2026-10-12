@@ -92,5 +92,11 @@ class V1ToCurrentMigrationTest {
         guidance.setShortRestCoachingEnabled(true)
         assertEquals(true, guidance.get().restAlertsEnabled)
         assertEquals(true, guidance.get().shortRestCoachingEnabled)
+
+        // 40.sqm adds persistent per-exercise setup notes; the migrated table starts empty.
+        val exerciseNotes = SqlDelightExerciseNoteRepository(database)
+        assertNull(exerciseNotes.note("back-squat"))
+        exerciseNotes.save("back-squat", "Set up tall")
+        assertEquals("Set up tall", exerciseNotes.note("back-squat"))
     }
 }

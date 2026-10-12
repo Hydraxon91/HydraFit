@@ -174,6 +174,10 @@ class CustomExerciseDedupeTest {
             database.restPreferenceQueries.selectExerciseOverride("user-bicycle-crunch")
                 .executeAsOne()
         )
+        assertEquals(
+            "Steady tempo",
+            database.exerciseNoteQueries.selectById("user-bicycle-crunch").executeAsOne().note
+        )
 
         // A second pass does not merge, duplicate or otherwise change the retained identity.
         val exercisesAfterFirstRun = database.exerciseQueries.selectAll().executeAsList()
@@ -740,6 +744,40 @@ class CustomExerciseDedupeTest {
     }
 
     @Test
+    fun movesACustomsSoleNoteToTheCanonicalExercise() {
+        insertCustom(involvements = trapBarSeedInvolvements())
+        database.exerciseNoteQueries.upsert("user-trap-bar-deadlift", "Low handles, brace hard")
+
+        CustomExerciseDedupe(database).run()
+
+        assertEquals(
+            "Low handles, brace hard",
+            database.exerciseNoteQueries.selectById("trap-bar-deadlift").executeAsOne().note
+        )
+        assertNull(
+            database.exerciseNoteQueries.selectById("user-trap-bar-deadlift").executeAsOneOrNull()
+        )
+    }
+
+    @Test
+    fun keepsTheCanonicalExplicitClearWhenBothNotesExist() {
+        insertCustom(involvements = trapBarSeedInvolvements())
+        database.exerciseNoteQueries.upsert("user-trap-bar-deadlift", "custom note")
+        database.exerciseNoteQueries.upsert("trap-bar-deadlift", "")
+
+        CustomExerciseDedupe(database).run()
+
+        // An explicit clear is still a canonical note row and wins over the custom note.
+        assertEquals(
+            "",
+            database.exerciseNoteQueries.selectById("trap-bar-deadlift").executeAsOne().note
+        )
+        assertNull(
+            database.exerciseNoteQueries.selectById("user-trap-bar-deadlift").executeAsOneOrNull()
+        )
+    }
+
+    @Test
     fun leavesCustomExercisesWithNoSeededMatchAlone() {
         database.exerciseQueries.insertCustom(
             id = "user-my-thing",
@@ -940,6 +978,7 @@ class CustomExerciseDedupeTest {
         database.exercisePreferenceQueries.upsert(exerciseId = exerciseId, preference = "PREFER")
         database.exerciseExclusionQueries.upsert(exerciseId = exerciseId, expiresAt = null)
         database.restPreferenceQueries.upsertExerciseOverride(exerciseId, exerciseId, 90L)
+        database.exerciseNoteQueries.upsert(exerciseId, "Steady tempo")
     }
 
     private fun insertRoutineEntry(exerciseId: String) {

@@ -3,20 +3,22 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 8), restored by whole replacement.
-The reader accepts versions 1–8; version 1 defaults the guided-workout preference to off.
-Format 8 requires the recorded frozen-entry reasoning section; versions 1–7 default it to empty,
+Logical, versioned JSON (`format` + `formatVersion` 9), restored by whole replacement.
+The reader accepts versions 1–9; version 1 defaults the guided-workout preference to off.
+Format 9 adds persistent per-exercise setup notes; versions 1–8 default them to empty, which restores
+as "no note recorded". Format 8 requires the recorded frozen-entry reasoning section; versions 1–7
+default it to empty,
 which restores as "not recorded". Format 7 requires the recorded plan-target explanation sections;
 versions 1–6 default them to empty,
 which restores as "not recorded" rather than as an empty explanation. Format 6 requires both
 training-guidance opt-ins; versions 1–5 default them off.
-When the optional settings record is present, `guidedWorkoutEnabled` is required in formats 2–8;
+When the optional settings record is present, `guidedWorkoutEnabled` is required in formats 2–9;
 format 1 defaults it off because that version predates the setting.
-Formats 5–8 carry one global rest duration and optional per-exercise overrides; versions 1–4
+Formats 5–9 carry one global rest duration and optional per-exercise overrides; versions 1–4
 default to a 120-second global duration with no overrides. Countdown state is deliberately
-excluded and cleared during restore. Formats 4–8 require per-set timing provenance and explicit nullable elapsed fields; format 3 requires
+excluded and cleared during restore. Formats 4–9 require per-set timing provenance and explicit nullable elapsed fields; format 3 requires
 and preserves timing provenance while elapsed fields default to null; formats 1–2 default timing
-provenance to `UNKNOWN` and elapsed fields to null. Exports use version 8.
+provenance to `UNKNOWN` and elapsed fields to null. Exports use version 9.
 Unknown fields remain rejected.
 Domain `backup/` owns the payload records, the kotlinx-serialization codec, the
 validator, the limits and the export/preview/stage/apply use cases (bound in

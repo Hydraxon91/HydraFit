@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.domain.backup
 
+import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -228,6 +229,39 @@ class BackupValidatorTest {
                 preferences = listOf(
                     BackupPreferenceRecord("back-squat", "PREFER"),
                     BackupPreferenceRecord("back-squat", "PREFER_LESS")
+                )
+            )
+        }
+    }
+
+    @Test
+    fun validatesExerciseNoteReferencesLengthAndDuplicates() {
+        validator.validate(
+            validFile().copy(
+                exerciseNotes = listOf(
+                    BackupExerciseNoteRecord("back-squat", "x".repeat(NOTE_MAX_LENGTH))
+                )
+            )
+        )
+        // An explicit clear (empty text) is valid and distinct from absence.
+        validator.validate(
+            validFile().copy(exerciseNotes = listOf(BackupExerciseNoteRecord("back-squat", "")))
+        )
+        assertFailure(BackupFailure.UNKNOWN_CATALOG_ID) {
+            validFile().copy(exerciseNotes = listOf(BackupExerciseNoteRecord("missing", "x")))
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            validFile().copy(
+                exerciseNotes = listOf(
+                    BackupExerciseNoteRecord("back-squat", "x".repeat(NOTE_MAX_LENGTH + 1))
+                )
+            )
+        }
+        assertFailure(BackupFailure.DUPLICATE_ID) {
+            validFile().copy(
+                exerciseNotes = listOf(
+                    BackupExerciseNoteRecord("back-squat", "a"),
+                    BackupExerciseNoteRecord("back-squat", "b")
                 )
             )
         }
