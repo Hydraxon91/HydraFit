@@ -113,6 +113,14 @@ data class WorkoutSummarySession(
 }
 
 /**
+ * True when this recorded set becomes additional work: a working set that no prescribed [slots]
+ * entry owns. It is the one case the projection needs [exerciseNames] for, so callers can skip the
+ * catalog read when every set is attributed.
+ */
+internal fun WorkoutSet.isAdditionalTo(slots: Set<Long>): Boolean =
+    !isWarmup && occurrenceEntryId?.let { it in slots } != true
+
+/**
  * Builds the post-finish summary of [occurrence] from its recorded [sets], the [sessions] it spans
  * with their stored [sessionNotes], and the [activation] its prescription was frozen from.
  *
@@ -131,6 +139,7 @@ fun buildWorkoutSummary(
 ): WorkoutSummary {
     val entries = occurrence.entries.sortedBy { it.position }
     val entriesById = entries.associateBy { it.id }
+    val slotIds = entriesById.keys
     val ordered = sets.sortedWith(compareBy({ it.performedAtMillis }, { it.id }))
     val workingSets = ordered.filterNot { it.isWarmup }
     val warmupSets = ordered.filter { it.isWarmup }
@@ -186,7 +195,7 @@ fun buildWorkoutSummary(
             )
         },
         extraSets = workingSets
-            .filter { set -> set.occurrenceEntryId?.let { it in entriesById } != true }
+            .filter { it.isAdditionalTo(slotIds) }
             .map { toSummarySet(it) },
         warmupSets = warmupSets.map { toSummarySet(it) },
         sessions = sessions

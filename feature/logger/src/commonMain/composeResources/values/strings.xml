@@ -219,7 +219,9 @@
     <string name="logger_summary_resolved">Finished %1$s</string>
     <string name="logger_summary_target_sets">Target: %1$d × %2$d @ %3$s</string>
     <string name="logger_summary_target_sets_none">Target: %1$d × %2$d</string>
-    <string name="logger_summary_totals">%1$d of %2$d prescribed sets recorded</string>
+    <string name="logger_summary_totals">%1$d recorded sets · %2$d prescribed</string>
+    <string name="logger_summary_close">Close</string>
+    <string name="logger_summary_edit_set_description">Edit %1$s set %2$d, %3$d reps</string>
     <string name="logger_summary_remaining">%1$d not recorded</string>
     <string name="logger_summary_not_performed">Not performed</string>
     <string name="logger_summary_skipped">Skipped</string>

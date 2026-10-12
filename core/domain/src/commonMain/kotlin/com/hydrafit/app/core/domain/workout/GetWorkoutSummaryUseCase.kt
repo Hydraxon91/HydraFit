@@ -24,13 +24,20 @@ class GetWorkoutSummaryUseCase(
         val sets = workoutLogRepository.setsForOccurrence(occurrenceId)
         val sessions = sets.mapNotNull { it.sessionId }.distinct()
             .mapNotNull { sessionRepository.byId(it) }
+        val slots = occurrence.entries.mapTo(mutableSetOf()) { it.id }
         return buildWorkoutSummary(
             occurrence = occurrence,
             sets = sets,
             sessions = sessions,
             sessionNotes = sessions.associate { it.id to sessionNoteRepository.note(it.id) },
             activation = scheduleRepository.getActivation(occurrence.activationId),
-            exerciseNames = exerciseCatalog.all().associate { it.id to it.name }
+            // Current names are only needed for work that belongs to no prescribed slot, so an
+            // attributed workout skips the catalog read entirely.
+            exerciseNames = if (sets.any { it.isAdditionalTo(slots) }) {
+                exerciseCatalog.all().associate { it.id to it.name }
+            } else {
+                emptyMap()
+            }
         )
     }
 }

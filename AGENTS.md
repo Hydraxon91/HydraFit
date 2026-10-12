@@ -233,10 +233,9 @@ Passing tests, a green build, or a self-check of closed findings is not a review
 verdict, and it does not authorize a commit, push, tag or release.
 
 **Bounded review rounds:** one full-range review per release slice, then targeted
-reviewer closure checks under `docs/review-discipline.md` §8. Reopen the full
-range only for blockers, data-loss/corruption impact, or unmet acceptance evidence
-the builder cannot supply. Required findings and checks remain required; append
-closure evidence to the existing snapshot without rewriting historical content.
+reviewer closure checks. The bound and its reopen triggers are stated once, in
+`docs/review-discipline.md` §8, which is authoritative for them; nothing in that
+bound waives a required finding or acceptance check.
 
 ## Review-Derived Rules (0.2.2)
 

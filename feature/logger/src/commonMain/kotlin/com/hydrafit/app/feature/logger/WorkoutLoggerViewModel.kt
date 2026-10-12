@@ -1661,26 +1661,25 @@ class WorkoutLoggerViewModel(
         summaryOccurrenceId = occurrenceId
         _state.update { it.copy(summary = WorkoutSummaryScreen.Loading) }
         val loaded = try {
-            Result.success(loggingActions.summarize(occurrenceId))
+            loggingActions.summarize(occurrenceId)
         } catch (error: CancellationException) {
             throw error
         } catch (_: Exception) {
-            Result.failure<WorkoutSummary?>(IllegalStateException("summary read failed"))
+            // A failed read is not an absent workout, so the two stay distinct. A later finish or a
+            // block change owns the route now, and an older read must not reopen it.
+            if (summaryOccurrenceId == occurrenceId) {
+                _state.update { it.copy(summary = WorkoutSummaryScreen.Failed) }
+            }
+            return
         }
-        // A later finish or a block change owns the route now, so an older read must not reopen it.
         if (summaryOccurrenceId != occurrenceId) return
         _state.update {
             it.copy(
-                summary = loaded.fold(
-                    onSuccess = { summary ->
-                        if (summary == null) {
-                            WorkoutSummaryScreen.Unavailable
-                        } else {
-                            WorkoutSummaryScreen.Ready(summary)
-                        }
-                    },
-                    onFailure = { WorkoutSummaryScreen.Failed }
-                )
+                summary = if (loaded == null) {
+                    WorkoutSummaryScreen.Unavailable
+                } else {
+                    WorkoutSummaryScreen.Ready(loaded)
+                }
             )
         }
     }
@@ -1694,7 +1693,11 @@ class WorkoutLoggerViewModel(
 
     fun onOccurrenceMessageShown() = _state.update { it.copy(occurrenceMessage = null) }
 
-    /** Returns from the just-finished workout's summary without keeping it. */
+    /**
+     * Returns from the just-finished workout's summary without keeping it. The pending history key is
+     * deliberately left alone: this runs when the destination leaves composition, which happens after
+     * a handoff has already recorded the key.
+     */
     fun onWorkoutSummaryShown() {
         summaryOccurrenceId = null
         _state.update { it.copy(summary = null) }

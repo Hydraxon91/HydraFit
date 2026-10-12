@@ -4019,6 +4019,35 @@ class WorkoutLoggerViewModelTest {
         )
     }
 
+    @Test
+    fun correctingASummarySetThatWasRemovedFailsWithoutRecreatingIt() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+        logTwoSets(viewModel)
+        viewModel.finishWorkout()
+        advanceUntilIdle()
+        val ready = assertIs<WorkoutSummaryScreen.Ready>(viewModel.state.value.summary).summary
+        val set = ready.exercises.single().performedSets.first()
+
+        viewModel.editSummarySet(ready.occurrenceId, set)
+        viewModel.onLoggedSetRepsChanged("12")
+        // The row disappears between the summary read and the save, as another surface could.
+        repository.delete(set.id)
+        advanceUntilIdle()
+
+        viewModel.saveLoggedSetEdit()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.loggedSetEditFailed)
+        assertEquals("12", viewModel.state.value.loggedSetEdit?.reps)
+        // A stale correction fails; it never recreates the deleted row.
+        assertEquals(1, repository.all().size)
+        assertTrue(repository.all().none { it.id == set.id })
+    }
+
     /** Logs the two working sets the Upper occurrence prescribes. */
     private fun logTwoSets(viewModel: WorkoutLoggerViewModel) {
         viewModel.onExerciseSelected("back-squat")
