@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
@@ -69,6 +70,9 @@ import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
+import com.hydrafit.app.core.domain.workout.WarmupAction
+import com.hydrafit.app.core.domain.workout.WarmupGuidance
+import com.hydrafit.app.core.domain.workout.WarmupPreparationItem
 import com.hydrafit.app.core.navigation.FeatureDestination
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.focus_full_body
@@ -207,6 +211,20 @@ import hydrafit.feature.logger.generated.resources.logger_title
 import hydrafit.feature.logger.generated.resources.logger_today
 import hydrafit.feature.logger.generated.resources.logger_use_now
 import hydrafit.feature.logger.generated.resources.logger_warmup
+import hydrafit.feature.logger.generated.resources.logger_warmup_action_easy_general
+import hydrafit.feature.logger.generated.resources.logger_warmup_action_light_pull
+import hydrafit.feature.logger.generated.resources.logger_warmup_action_light_push
+import hydrafit.feature.logger.generated.resources.logger_warmup_action_lower_body
+import hydrafit.feature.logger.generated.resources.logger_warmup_action_shoulder_circles
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_hide
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_item_reps
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_item_timed
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_note
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_preparation
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_ramp_line
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_ramps_title
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_show
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_title
 import hydrafit.feature.logger.generated.resources.logger_warmup_suffix
 import hydrafit.feature.logger.generated.resources.logger_weight_label
 import hydrafit.feature.logger.generated.resources.logger_weight_none
@@ -353,6 +371,8 @@ fun WorkoutLoggerRoute(
         onResetRestDuration = viewModel::resetExerciseRestDuration,
         onCancelRestTimer = viewModel::cancelRestTimer,
         onDismissShortRestCoaching = viewModel::dismissShortRestCoaching,
+        onWarmupPreparationToggled = viewModel::onWarmupPreparationToggled,
+        onToggleWarmupGuidance = viewModel::onToggleWarmupGuidance,
         onReplaceOccurrenceEntry = { entryId ->
             state.activeOccurrence?.occurrenceId?.let { replacementViewModel.open(it, entryId) }
         },
@@ -437,6 +457,8 @@ fun WorkoutLoggerScreen(
     onResetRestDuration: () -> Unit,
     onCancelRestTimer: () -> Unit,
     onDismissShortRestCoaching: () -> Unit,
+    onWarmupPreparationToggled: (WarmupAction) -> Unit,
+    onToggleWarmupGuidance: () -> Unit,
     onReplaceOccurrenceEntry: (Long) -> Unit,
     onBackdatedDateTimePicked: (Long, Int, Int) -> Boolean,
     onClearBackdated: () -> Unit,
@@ -874,6 +896,24 @@ fun WorkoutLoggerScreen(
                         TextButton(onClick = onDismissShortRestCoaching) {
                             Text(stringResource(Res.string.logger_short_rest_dismiss))
                         }
+                    }
+                }
+            }
+            val warmup = state.visibleWarmupGuidance
+            if (warmup != null) {
+                item {
+                    WarmupGuidanceSection(
+                        guidance = warmup,
+                        checked = state.warmupPreparationChecked,
+                        weightUnit = state.weightUnit,
+                        onPreparationToggled = onWarmupPreparationToggled,
+                        onHide = onToggleWarmupGuidance
+                    )
+                }
+            } else if (state.warmupGuidanceHidden && state.warmupGuidance?.isEmpty == false) {
+                item {
+                    TextButton(onClick = onToggleWarmupGuidance) {
+                        Text(stringResource(Res.string.logger_warmup_guidance_show))
                     }
                 }
             }
@@ -1687,6 +1727,114 @@ private fun ActiveOccurrenceSection(
             }
         }
     }
+}
+
+/**
+ * The optional warm-up guidance for the active guided workout: a preparation check-list and the
+ * suggested ramp sets per movement pattern. It suggests only and never edits the frozen
+ * prescription.
+ */
+@Composable
+private fun WarmupGuidanceSection(
+    guidance: WarmupGuidance,
+    checked: Set<WarmupAction>,
+    weightUnit: WeightUnit,
+    onPreparationToggled: (WarmupAction) -> Unit,
+    onHide: () -> Unit
+) {
+    Card {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = stringResource(Res.string.logger_warmup_guidance_title),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                TextButton(onClick = onHide) {
+                    Text(stringResource(Res.string.logger_warmup_guidance_hide))
+                }
+            }
+            Text(
+                text = stringResource(Res.string.logger_warmup_guidance_note),
+                style = MaterialTheme.typography.bodySmall
+            )
+            Text(
+                text = stringResource(Res.string.logger_warmup_guidance_preparation),
+                style = MaterialTheme.typography.titleSmall
+            )
+            guidance.preparation.forEach { item ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onPreparationToggled(item.action) },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Checkbox(
+                        checked = item.action in checked,
+                        onCheckedChange = { onPreparationToggled(item.action) }
+                    )
+                    Text(warmupPreparationText(item))
+                }
+            }
+            if (guidance.ramps.isNotEmpty()) {
+                Text(
+                    text = stringResource(Res.string.logger_warmup_guidance_ramps_title),
+                    style = MaterialTheme.typography.titleSmall
+                )
+                guidance.ramps.forEach { plan ->
+                    Column {
+                        Text(plan.exerciseName)
+                        plan.rampSets.forEach { ramp ->
+                            Text(
+                                text = stringResource(
+                                    Res.string.logger_warmup_guidance_ramp_line,
+                                    ramp.percentOfWorkingWeight,
+                                    ramp.reps,
+                                    loadWeightText(LoadKind.EXTERNAL, ramp.weightKg, weightUnit)
+                                ),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The localized preparation line: a timed item shows minutes, a practice item shows reps. */
+@Composable
+private fun warmupPreparationText(item: WarmupPreparationItem): String {
+    val label = stringResource(item.action.labelResource())
+    val reps = item.reps
+    val durationSeconds = item.durationSeconds
+    return when {
+        durationSeconds != null -> stringResource(
+            Res.string.logger_warmup_guidance_item_timed,
+            label,
+            durationSeconds / 60
+        )
+        reps != null -> stringResource(Res.string.logger_warmup_guidance_item_reps, label, reps)
+        else -> label
+    }
+}
+
+/** The localized label for a suggested preparation action. */
+private fun WarmupAction.labelResource(): StringResource = when (this) {
+    WarmupAction.EASY_GENERAL_MOVEMENT -> Res.string.logger_warmup_action_easy_general
+    WarmupAction.LOWER_BODY_PRACTICE -> Res.string.logger_warmup_action_lower_body
+    WarmupAction.SHOULDER_CIRCLES -> Res.string.logger_warmup_action_shoulder_circles
+    WarmupAction.LIGHT_PUSH_PRACTICE -> Res.string.logger_warmup_action_light_push
+    WarmupAction.LIGHT_PULL_PRACTICE -> Res.string.logger_warmup_action_light_pull
 }
 
 /**
