@@ -8,6 +8,9 @@ const val BACKUP_FORMAT: String = "hydrafit-backup"
 /** The format version this build writes. */
 const val BACKUP_FORMAT_VERSION: Int = 10
 
+/** The first backup format that carries persistent workout-session notes. */
+const val SESSION_NOTES_FORMAT_VERSION: Int = 10
+
 /**
  * A whole logical snapshot of the supported offline data. Rows are stored flat with their persisted
  * ids so restore can rebuild relationships exactly; the envelope carries the format identity, a

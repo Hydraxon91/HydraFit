@@ -308,6 +308,16 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun acceptsSessionNotesInTheirIntroductionFormat() {
+        validator.validate(
+            validFile().copy(
+                formatVersion = SESSION_NOTES_FORMAT_VERSION,
+                sessionNotes = listOf(BackupSessionNoteRecord("s1", "note"))
+            )
+        )
+    }
+
+    @Test
     fun rejectsDuplicateCompositeExplanationKeys() {
         assertFailure(BackupFailure.DUPLICATE_ID) {
             validFile().copy(
