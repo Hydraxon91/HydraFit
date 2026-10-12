@@ -5839,6 +5839,9 @@ class WorkoutLoggerViewModelTest {
         private val notes = mutableMapOf<String, String?>()
         var failSave = false
 
+        /** When set, [save] suspends until it completes, to test a write in flight. */
+        var saveGate: CompletableDeferred<Unit>? = null
+
         override suspend fun note(exerciseId: String): String? = notes[exerciseId]
 
         override suspend fun save(exerciseId: String, text: String) {
@@ -5848,6 +5851,7 @@ class WorkoutLoggerViewModelTest {
                 )
             }
             if (failSave) throw IllegalStateException("Save failed")
+            saveGate?.await()
             notes[exerciseId] = text
         }
 
@@ -5925,6 +5929,68 @@ class WorkoutLoggerViewModelTest {
 
         assertEquals("", noteRepo.note("back-squat"))
         assertNull(viewModel.state.value.noteExerciseId)
+    }
+
+    @Test
+    fun anEarlierNoteSaveDoesNotDismissALaterSavesConfirmation() = runTest(dispatcher) {
+        val noteRepo = FakeExerciseNoteRepository()
+        val viewModel = viewModel(noteRepository = noteRepo)
+        advanceUntilIdle()
+
+        // First save: its 2 s dismissal timer starts now.
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+        viewModel.onNoteTextChanged("first")
+        viewModel.saveNote()
+        runCurrent()
+        assertEquals(true, viewModel.state.value.noteSaved)
+
+        // Second save inside that window must own the confirmation.
+        advanceTimeBy(1_000)
+        runCurrent()
+        viewModel.onExerciseSelected("back-squat")
+        runCurrent()
+        viewModel.onNoteTextChanged("second")
+        viewModel.saveNote()
+        runCurrent()
+        assertEquals(true, viewModel.state.value.noteSaved)
+
+        // The first timer fires here; it must not clear the newer confirmation.
+        advanceTimeBy(1_100)
+        runCurrent()
+        assertEquals(true, viewModel.state.value.noteSaved)
+
+        // The second timer still dismisses its own confirmation.
+        advanceTimeBy(1_100)
+        runCurrent()
+        assertEquals(false, viewModel.state.value.noteSaved)
+    }
+
+    @Test
+    fun cancellingWhileANoteSaveIsInFlightIsIgnoredSoTheEditorCannotStrand() = runTest(dispatcher) {
+        val noteRepo = FakeExerciseNoteRepository()
+        val gate = CompletableDeferred<Unit>()
+        noteRepo.saveGate = gate
+        val viewModel = viewModel(noteRepository = noteRepo)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+        viewModel.onNoteTextChanged("saved under a gate")
+        viewModel.saveNote()
+        runCurrent()
+        assertEquals(true, viewModel.state.value.noteSaving)
+
+        // The write owns the editor state while it runs.
+        viewModel.cancelNote()
+        assertEquals(true, viewModel.state.value.noteSaving)
+
+        gate.complete(Unit)
+        runCurrent()
+        assertEquals(false, viewModel.state.value.noteSaving)
+        assertEquals(true, viewModel.state.value.noteSaved)
+        assertNull(viewModel.state.value.noteExerciseId)
+        assertEquals("saved under a gate", noteRepo.note("back-squat"))
     }
 
     @Test
