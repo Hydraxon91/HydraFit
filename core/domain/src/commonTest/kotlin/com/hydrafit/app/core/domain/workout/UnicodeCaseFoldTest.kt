@@ -75,6 +75,62 @@ class UnicodeCaseFoldTest {
         }
     }
 
+    /**
+     * The generated 17.0.0 table has 1,585 mappings: 1,481 covered by delta ranges and 104
+     * multi-code-point exceptions. Any change to this contract must re-run
+     * `scripts/check-case-fold-table.py` against the published `CaseFolding.txt`.
+     */
+    @Test
+    fun theGeneratedTableKeepsItsDocumentedShape() {
+        val covered = FOLD_RANGES.sumOf { (it.end - it.start) / it.step + 1 }
+        assertEquals(199, FOLD_RANGES.size)
+        assertEquals(1_481, covered)
+        assertEquals(104, FOLD_EXCEPTIONS.size)
+        assertEquals(1_585, covered + FOLD_EXCEPTIONS.size)
+    }
+
+    /** No code point may appear in both tables: the delta ranges and the exceptions are disjoint. */
+    @Test
+    fun foldExceptionsDoNotOverlapTheDeltaRanges() {
+        val covered = buildSet {
+            FOLD_RANGES.forEach { range ->
+                var codePoint = range.start
+                while (codePoint <= range.end) {
+                    add(codePoint)
+                    codePoint += range.step
+                }
+            }
+        }
+        val overlapping = FOLD_EXCEPTIONS.keys.filter { it in covered }
+        assertTrue(overlapping.isEmpty(), "exceptions inside a delta range: $overlapping")
+    }
+
+    /** Every exception target is already fully folded, so folding is idempotent entry by entry. */
+    @Test
+    fun everyFoldExceptionTargetIsAlreadyFolded() {
+        FOLD_EXCEPTIONS.forEach { (source, targets) ->
+            val expected = stringOf(targets)
+            assertEquals(
+                expected,
+                unicodeCaseFold(expected),
+                "exception target for U+${source.toString(16)} is not fold-closed"
+            )
+        }
+    }
+
+    /** Builds a string from code points without relying on a platform-only API. */
+    private fun stringOf(codePoints: List<Int>): String = buildString {
+        codePoints.forEach { codePoint ->
+            if (codePoint <= 0xFFFF) {
+                append(codePoint.toChar())
+            } else {
+                val scalar = codePoint - 0x10000
+                append((0xD800 + (scalar shr 10)).toChar())
+                append((0xDC00 + (scalar and 0x3FF)).toChar())
+            }
+        }
+    }
+
     @Test
     fun leavesUncasedTextUnchanged() {
         assertEquals("2026-10-12 12:00", unicodeCaseFold("2026-10-12 12:00"))

@@ -14,6 +14,12 @@ NSDateFormatter `Z` offset. Stored timestamps remain UTC milliseconds.
 Current bucketing uses the supplied offset; it is not a historical timezone or
 DST lookup for each recorded timestamp.
 
+Generated data tables are re-verified by a committed script rather than by trusting the generation
+step: `python3 scripts/check-case-fold-table.py <CaseFolding.txt>` rebuilds every code point's folded
+target from `UnicodeCaseFold.kt`'s ranges and exceptions and compares that mapping with the published
+Unicode data, so the table can be re-checked after a hand edit or a Unicode release. The script reads
+the source only, is not part of the build, and is not run in CI.
+
 Logger rest prompts use a separate monotonic elapsed clock, not wall time:
 Android uses `SystemClock.elapsedRealtime()` and iOS uses
 `clock_gettime(CLOCK_MONOTONIC)`, whose Darwin clock contract advances during
