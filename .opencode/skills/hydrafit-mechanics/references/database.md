@@ -62,10 +62,11 @@ are checked inside the replacement transaction before updating the preserved slo
 revision. The same `freezesOccurrenceSlot` predicate backs the use case's pre-check.
 
 `V1ToCurrentMigrationTest` migrates a v1 database (only the `exercise` table) through
-`1.sqm..37.sqm` and asserts the retained values, legacy→involvement conversion and
-the rest preference/countdown/guidance tables.
+the current migration chain and asserts the retained values, legacy→involvement conversion
+and the rest preference/countdown/guidance tables; the target-explanation tables are
+covered by their own scoped migration tests (`38.sqm`, `39.sqm`).
 SQLDelight `verifyMigrations` is enabled against the committed v1 seed `databases/1.db`;
-`./gradlew verifySqlDelightMigration` (run in CI) applies `1.sqm..37.sqm` to it and fails
+`./gradlew verifySqlDelightMigration` (run in CI) applies `1.sqm..39.sqm` to it and fails
 if the result differs from the current `.sq`. Keep `1.db` fixed — it is the immutable v1
 schema, not a current-version snapshot. When the migration chain produces a different
 column *order* than `.sq` declares, align the `.sq` order to the chain (no column
