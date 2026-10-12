@@ -4340,6 +4340,55 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun aRampTapDuringARefreshThatChangesTheSlotWritesNothing() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        // A replacement arrives; its performed-set read suspends before new guidance is published.
+        val readGate = CompletableDeferred<Unit>()
+        repository.allGate = readGate
+        val replaced = twoOccurrences().map { occurrence ->
+            if (occurrence.id == 30L) {
+                occurrence.copy(
+                    revision = 2,
+                    entries = occurrence.entries.map {
+                        it.copy(
+                            exerciseId = "front-squat",
+                            exerciseName = "Front Squat",
+                            weightKg = 60.0
+                        )
+                    }
+                )
+            } else {
+                occurrence
+            }
+        }
+        schedule.set(blockActivation(), replaced, selectedOccurrenceId = 30L)
+        runCurrent()
+
+        viewModel.logWarmupRamp(40L, rampIndex = 0)
+        runCurrent()
+        assertTrue(repository.all().isEmpty())
+
+        readGate.complete(Unit)
+        advanceUntilIdle()
+
+        // The published suggestion is the replaced prescription, and its own tap records it.
+        val published = assertNotNull(viewModel.state.value.visibleWarmupGuidance)
+        assertEquals(60.0, published.ramps.single().workingWeightKg)
+        viewModel.logWarmupRamp(40L, rampIndex = 0)
+        advanceUntilIdle()
+
+        val recorded = repository.all().single()
+        assertEquals("front-squat", recorded.exerciseId)
+        assertEquals(25.0, recorded.weightKg)
+        assertTrue(recorded.isWarmup)
+    }
+
+    @Test
     fun liveGuidedCompletionStartsTimerOnlyAfterSuccessfulWriteAndUsesNow() = runTimerTest {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()

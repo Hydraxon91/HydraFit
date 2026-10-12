@@ -51,15 +51,32 @@ data class WarmupRampSet(
     val weightKg: Double
 )
 
-/** The ramp suggestions for one exercise whose frozen target carries a numeric external load. */
+/**
+ * The ramp suggestions for one exercise whose frozen target carries a numeric external load. The
+ * fields after [rampSets] are the frozen prescription this plan was derived from: a consumer compares
+ * them against the slot it is about to write, so a suggestion can never be recorded against a slot
+ * whose exercise, reps or load meaning has since changed.
+ */
 data class WarmupRampPlan(
     val occurrenceEntryId: Long,
     val exerciseId: String,
     val exerciseName: String,
     val movementPattern: MovementPattern,
     val workingWeightKg: Double,
+    val prescribedReps: Int,
+    val loadKind: LoadKind,
+    val loadCapability: ExerciseLoadCapability,
     val rampSets: List<WarmupRampSet>
-)
+) {
+    /** True when [entry] still carries the exact prescription this plan was built from. */
+    fun matchesPrescription(entry: OccurrenceEntry): Boolean = occurrenceEntryId == entry.id &&
+        exerciseId == entry.exerciseId &&
+        movementPattern == entry.movementPattern &&
+        workingWeightKg == entry.weightKg &&
+        prescribedReps == entry.reps &&
+        loadKind == entry.loadKind &&
+        loadCapability == entry.loadCapability
+}
 
 /** The optional warm-up guidance for an active occurrence: preparation and per-pattern ramps. */
 data class WarmupGuidance(
@@ -163,6 +180,9 @@ internal fun buildWarmupRamps(entries: List<OccurrenceEntry>): List<WarmupRampPl
             exerciseName = entry.exerciseName,
             movementPattern = entry.movementPattern,
             workingWeightKg = working,
+            prescribedReps = entry.reps,
+            loadKind = entry.loadKind,
+            loadCapability = entry.loadCapability,
             rampSets = rampSets
         )
     }

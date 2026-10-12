@@ -98,6 +98,13 @@ class WorkoutLoggerViewModel(
     private var draftSubmissionInProgress = false
     private var draftContextRevision = 0L
     private var missingLoadPromptRevision = 0L
+
+    /**
+     * Guidance freshness: bumped before each occurrence refresh's read and published when the new
+     * guidance lands, so a suggestion can only be written while it still matches the current slot.
+     */
+    private var warmupGuidanceGeneration = 0L
+    private var warmupGuidancePublishedGeneration = 0L
     private val restTimer = runtime.restTimer(viewModelScope)
     private val shortRestCoach = ShortRestCoach()
     private var shortRestCoachingEnabled = false
@@ -1493,6 +1500,9 @@ class WorkoutLoggerViewModel(
      */
     private suspend fun refreshOccurrence() {
         val activation = activeActivation ?: return
+        // Any suggestion is invalid for the duration of this refresh's read: a ramp tap arriving
+        // before the new guidance is published must not write values resolved against a stale slot.
+        val generation = ++warmupGuidanceGeneration
         val selectedId = scheduleState?.selectedOccurrenceId
         val occurrence = currentOccurrences.firstOrNull { it.id == selectedId }
             ?: currentOccurrences.filterNot { it.isResolved }.minByOrNull { it.queuePosition }
@@ -1522,6 +1532,7 @@ class WorkoutLoggerViewModel(
                     guidedSetWriteFailed = false
                 )
             }
+            warmupGuidancePublishedGeneration = generation
             return
         }
         if (currentOccurrence != occurrence) {
@@ -1531,7 +1542,6 @@ class WorkoutLoggerViewModel(
                 liveSetIntentEntryId = null
             }
         }
-        currentOccurrence = occurrence
         val performed = performedSetsByEntry(occurrence.id)
         val drafts = occurrence.entries.mapNotNull { entry ->
             val remaining = entry.sets - (performed[entry.id] ?: 0)
@@ -1566,6 +1576,9 @@ class WorkoutLoggerViewModel(
         }
         // Transient per-workout state follows the same occurrence; switching away clears it.
         val sameOccurrence = previousOccurrenceId == occurrence.id
+        // Publish the occurrence only once its performed-set read has finished, so the guidance shown
+        // and the occurrence a ramp write resolves against can never describe different prescriptions.
+        currentOccurrence = occurrence
         _state.update {
             it.copy(
                 activeOccurrence = ActiveOccurrence(
@@ -1602,6 +1615,7 @@ class WorkoutLoggerViewModel(
                 guidedSetWriteFailed = it.guidedSetWriteFailed && sameOccurrence
             )
         }
+        warmupGuidancePublishedGeneration = generation
     }
 
     /** True when both drafts describe the same frozen slot: the same occurrence entry, else exercise. */
@@ -2075,6 +2089,8 @@ class WorkoutLoggerViewModel(
      */
     fun logWarmupRamp(occurrenceEntryId: Long, rampIndex: Int) {
         if (draftSubmissionInProgress) return
+        // A refresh is resolving new guidance; the shown suggestion may no longer match its slot.
+        if (warmupGuidancePublishedGeneration != warmupGuidanceGeneration) return
         val occurrence = currentOccurrence ?: return
         if (_state.value.activeOccurrence?.occurrenceId != occurrence.id) return
         val plan = _state.value.warmupGuidance?.ramps
@@ -2082,6 +2098,9 @@ class WorkoutLoggerViewModel(
             ?: return
         val ramp = plan.rampSets.getOrNull(rampIndex) ?: return
         val entry = occurrence.entries.firstOrNull { it.id == occurrenceEntryId } ?: return
+        // Reject a suggestion whose slot no longer carries the same frozen prescription, so a value
+        // shown for an earlier exercise/reps/load can never be recorded against a replaced slot.
+        if (!plan.matchesPrescription(entry)) return
         val draft = DraftSet(
             exerciseId = entry.exerciseId,
             name = entry.exerciseName,

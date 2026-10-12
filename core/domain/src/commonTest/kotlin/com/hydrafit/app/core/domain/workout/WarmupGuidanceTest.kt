@@ -6,6 +6,7 @@ import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class WarmupGuidanceTest {
@@ -192,6 +193,27 @@ class WarmupGuidanceTest {
         )
 
         assertEquals(listOf(0L, 1L), guidance.ramps.map { it.occurrenceEntryId })
+    }
+
+    @Test
+    fun aRampPlanMatchesOnlyTheExactPrescriptionItWasBuiltFrom() {
+        val entry = entry(0, MovementPattern.SQUAT, weightKg = 100.0)
+        val plan = buildWarmupGuidance(occurrenceWith(entry)).ramps.single()
+
+        assertTrue(plan.matchesPrescription(entry))
+        assertFalse(plan.matchesPrescription(entry.copy(exerciseId = "front-squat")))
+        assertFalse(plan.matchesPrescription(entry.copy(reps = 5)))
+        assertFalse(plan.matchesPrescription(entry.copy(weightKg = 90.0)))
+        assertFalse(plan.matchesPrescription(entry.copy(movementPattern = MovementPattern.HINGE)))
+        assertFalse(
+            plan.matchesPrescription(
+                entry.copy(
+                    loadCapability = ExerciseLoadCapability.BODYWEIGHT_ONLY,
+                    loadKind = LoadKind.BODYWEIGHT,
+                    weightKg = null
+                )
+            )
+        )
     }
 
     private fun occurrenceWith(vararg entries: OccurrenceEntry) = WorkoutOccurrence(
