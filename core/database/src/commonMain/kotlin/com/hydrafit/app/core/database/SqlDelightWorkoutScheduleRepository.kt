@@ -46,8 +46,19 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
         )
         val workouts = queries.selectAllActivationWorkouts().asFlow().mapToList(Dispatchers.Default)
         val entries = queries.selectAllActivationEntries().asFlow().mapToList(Dispatchers.Default)
-        return combine(activation, workouts, entries) { row, workoutRows, entryRows ->
-            row?.toDomain(workoutRows, entryRows)
+        val explanations = database.entryTargetExplanationQueries.selectAll()
+            .asFlow().mapToList(Dispatchers.Default)
+        return combine(activation, workouts, entries, explanations) {
+                row,
+                workoutRows,
+                entryRows,
+                explanationRows
+            ->
+            row?.toDomain(
+                workoutRows,
+                entryRows,
+                entryExplanations(explanationRows, ACTIVATION_ENTRY_KIND)
+            )
         }
     }
 
@@ -57,8 +68,15 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
                 activationId
             ).asFlow().mapToList(Dispatchers.Default)
         val entries = queries.selectAllOccurrenceEntries().asFlow().mapToList(Dispatchers.Default)
-        return combine(occurrences, entries) { occurrenceRows, entryRows ->
-            occurrenceRows.map { it.toDomain(entryRows) }
+        val explanations = database.entryTargetExplanationQueries.selectAll()
+            .asFlow().mapToList(Dispatchers.Default)
+        return combine(occurrences, entries, explanations) {
+                occurrenceRows,
+                entryRows,
+                explanationRows
+            ->
+            val byEntryId = entryExplanations(explanationRows, OCCURRENCE_ENTRY_KIND)
+            occurrenceRows.map { it.toDomain(entryRows, byEntryId) }
         }
     }
 
@@ -74,23 +92,46 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
         )
     }
 
-    override suspend fun activeActivation(): DomainTrainingActivation? =
-        queries.selectActiveActivation().executeAsOneOrNull()?.toDomainWithChildren(queries)
+    override suspend fun activeActivation(): DomainTrainingActivation? {
+        val row = queries.selectActiveActivation().executeAsOneOrNull() ?: return null
+        val explanations = entryExplanations(
+            database.entryTargetExplanationQueries.selectAll().executeAsList(),
+            ACTIVATION_ENTRY_KIND
+        )
+        return row.toDomainWithChildren(queries, explanations)
+    }
 
-    override suspend fun getActivation(id: Long): DomainTrainingActivation? =
-        queries.selectActivationById(id).executeAsOneOrNull()?.toDomainWithChildren(queries)
+    override suspend fun getActivation(id: Long): DomainTrainingActivation? {
+        val row = queries.selectActivationById(id).executeAsOneOrNull() ?: return null
+        val explanations = entryExplanations(
+            database.entryTargetExplanationQueries.selectAll().executeAsList(),
+            ACTIVATION_ENTRY_KIND
+        )
+        return row.toDomainWithChildren(queries, explanations)
+    }
 
     override suspend fun occurrences(activationId: Long): List<DomainWorkoutOccurrence> {
         val occurrenceRows = queries.selectOccurrencesForActivation(activationId).executeAsList()
         val entries = occurrenceRows.flatMap {
             queries.selectOccurrenceEntriesForOccurrence(it.id).executeAsList()
         }
-        return occurrenceRows.map { it.toDomain(entries) }
+        val explanations = entryExplanations(
+            database.entryTargetExplanationQueries.selectAll().executeAsList(),
+            OCCURRENCE_ENTRY_KIND
+        )
+        return occurrenceRows.map { it.toDomain(entries, explanations) }
     }
 
     override suspend fun getOccurrence(id: Long): DomainWorkoutOccurrence? {
         val occurrence = queries.selectOccurrenceById(id).executeAsOneOrNull() ?: return null
-        return occurrence.toDomain(queries.selectOccurrenceEntriesForOccurrence(id).executeAsList())
+        val explanations = entryExplanations(
+            database.entryTargetExplanationQueries.selectAll().executeAsList(),
+            OCCURRENCE_ENTRY_KIND
+        )
+        return occurrence.toDomain(
+            queries.selectOccurrenceEntriesForOccurrence(id).executeAsList(),
+            explanations
+        )
     }
 
     override suspend fun acceptAndActivate(
@@ -489,21 +530,22 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
     }
 
     private fun TrainingActivation.toDomainWithChildren(
-        queries: TrainingScheduleQueries
+        queries: TrainingScheduleQueries,
+        explanations: Map<Long, ExerciseTargetExplanation>
     ): DomainTrainingActivation {
         val workouts = queries.selectActivationWorkoutsForActivation(id).executeAsList()
         val entries = workouts.flatMap {
             queries.selectActivationEntriesForWorkout(it.id).executeAsList()
         }
-        return toDomain(workouts, entries)
+        return toDomain(workouts, entries, explanations)
     }
 
     private fun TrainingActivation.toDomain(
         allWorkouts: List<ActivationWorkout>,
-        allEntries: List<ActivationEntry>
+        allEntries: List<ActivationEntry>,
+        explanations: Map<Long, ExerciseTargetExplanation>
     ): DomainTrainingActivation {
         val entriesByWorkout = allEntries.groupBy { it.workoutId }
-        val explanations = entryExplanations(ACTIVATION_ENTRY_KIND)
         val workouts = allWorkouts
             .filter { it.activationId == id }
             .sortedBy { it.position }
@@ -557,26 +599,24 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
     )
 
     private fun WorkoutOccurrence.toDomain(
-        allEntries: List<OccurrenceEntry>
-    ): DomainWorkoutOccurrence {
-        val explanations = entryExplanations(OCCURRENCE_ENTRY_KIND)
-        return DomainWorkoutOccurrence(
-            id = id,
-            activationId = activationId,
-            activationWorkoutId = activationWorkoutId,
-            queuePosition = queuePosition.toInt(),
-            scheduledEpochDay = scheduledEpochDay,
-            notBeforeEpochDay = notBeforeEpochDay,
-            startedAtMillis = startedAtMillis,
-            resolvedAtMillis = resolvedAtMillis,
-            status = status.toOccurrenceStatus(),
-            revision = revision.toInt(),
-            entries = allEntries
-                .filter { it.occurrenceId == id }
-                .sortedBy { it.position }
-                .map { it.toDomain(explanations[it.id]) }
-        )
-    }
+        allEntries: List<OccurrenceEntry>,
+        explanations: Map<Long, ExerciseTargetExplanation>
+    ): DomainWorkoutOccurrence = DomainWorkoutOccurrence(
+        id = id,
+        activationId = activationId,
+        activationWorkoutId = activationWorkoutId,
+        queuePosition = queuePosition.toInt(),
+        scheduledEpochDay = scheduledEpochDay,
+        notBeforeEpochDay = notBeforeEpochDay,
+        startedAtMillis = startedAtMillis,
+        resolvedAtMillis = resolvedAtMillis,
+        status = status.toOccurrenceStatus(),
+        revision = revision.toInt(),
+        entries = allEntries
+            .filter { it.occurrenceId == id }
+            .sortedBy { it.position }
+            .map { it.toDomain(explanations[it.id]) }
+    )
 
     private fun OccurrenceEntry.toDomain(
         explanation: ExerciseTargetExplanation? = null
@@ -600,15 +640,16 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
     )
 
     /** The recorded reasoning per entry id for one entry kind; a row that cannot decode is dropped. */
-    private fun entryExplanations(kind: String): Map<Long, ExerciseTargetExplanation> =
-        database.entryTargetExplanationQueries.selectAll()
-            .executeAsList()
-            .filter { it.entryKind == kind }
-            .mapNotNull { row ->
-                val explanation = row.toExplanation() ?: return@mapNotNull null
-                row.entryId to explanation
-            }
-            .toMap()
+    private fun entryExplanations(
+        rows: List<EntryTargetExplanation>,
+        kind: String
+    ): Map<Long, ExerciseTargetExplanation> = rows
+        .filter { it.entryKind == kind }
+        .mapNotNull { row ->
+            val explanation = row.toExplanation() ?: return@mapNotNull null
+            row.entryId to explanation
+        }
+        .toMap()
 
     /**
      * Persists one entry's reasoning, or clears it. A null explanation is a real state (a replaced or

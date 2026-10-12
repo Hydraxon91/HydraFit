@@ -714,6 +714,71 @@ class SqlDelightWorkoutScheduleRepositoryTest {
         assertNull(updated.entries.first().explanation)
     }
 
+    @Test
+    fun anUnsupportedStoredEntryReasonVersionReadsAsUnavailable() = runTest {
+        val activationId = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(explanation = entryExplanation()),
+            scheduledEpochDays = listOf(null, null),
+            replaceActive = false
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "UPDATE entryTargetExplanation SET explanationVersion = 2 " +
+                "WHERE entryKind = 'ACTIVATION'"
+        )
+
+        val stored = requireNotNull(repository.getActivation(activationId))
+
+        assertNull(stored.workouts.first().entries.first().explanation)
+    }
+
+    @Test
+    fun observesEachFrozenEntrysOwnReasoningWithoutMixingEntryKinds() = runTest {
+        val first = entryExplanation()
+        val second = entryExplanation().copy(
+            baseline = LoadBaselineExplanation(
+                source = LoadBaselineSource.MANUAL_PERSONAL_RECORD,
+                manualFloorKg = 80.0,
+                baselineKg = 80.0
+            )
+        )
+        val expected = mapOf("bench-press" to first, "cable-row" to second)
+        val activationId = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(explanation = first, secondExplanation = second),
+            scheduledEpochDays = listOf(null, null),
+            replaceActive = false
+        )
+
+        // The observed active block carries each entry's own reasoning.
+        val active = requireNotNull(repository.observeActiveActivation().first())
+        assertEquals(expected, active.workouts.associate { it.reasonedExercise() })
+
+        // One batched read serves every occurrence, and each entry keeps its own reason.
+        val observed = repository.observeOccurrences(activationId).first()
+        assertEquals(2, observed.size)
+        assertEquals(
+            expected,
+            observed.associate { it.entries.single().exerciseId to it.entries.single().explanation }
+        )
+
+        // Activation and occurrence rows share an entry id, so each read must stay kind-scoped:
+        // with only the activation rows left, an occurrence entry must not borrow their reasoning.
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "DELETE FROM entryTargetExplanation WHERE entryKind = 'OCCURRENCE'"
+        )
+        val reread = repository.observeOccurrences(activationId).first()
+        assertEquals(
+            listOf(null, null),
+            reread.map { it.entries.single().explanation }
+        )
+    }
+
+    private fun ActivationWorkout.reasonedExercise() =
+        entries.single().exerciseId to entries.single().explanation
+
     private fun entryExplanation() = ExerciseTargetExplanation(
         baseline = LoadBaselineExplanation(
             source = LoadBaselineSource.RECENT_PERFORMANCE,
@@ -730,7 +795,10 @@ class SqlDelightWorkoutScheduleRepositoryTest {
         )
     )
 
-    private fun activation(explanation: ExerciseTargetExplanation? = null) = TrainingActivation(
+    private fun activation(
+        explanation: ExerciseTargetExplanation? = null,
+        secondExplanation: ExerciseTargetExplanation? = null
+    ) = TrainingActivation(
         templateId = 7L,
         templateRevision = 3,
         sourcePlanId = null,
@@ -776,7 +844,8 @@ class SqlDelightWorkoutScheduleRepositoryTest {
                         isUnilateral = false,
                         sets = 3,
                         reps = 10,
-                        weightKg = 60.0
+                        weightKg = 60.0,
+                        explanation = secondExplanation
                     )
                 )
             )
