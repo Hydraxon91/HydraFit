@@ -25,7 +25,13 @@ data class AcceptedPlan(
     /** Who produced the plan; null for a legacy plan with no persisted assessment. */
     val volumeAttribution: PlanAttribution? = null,
     /** True once a user-confirmed substitution invalidates the frozen assessment. */
-    val volumeExplanationInvalidated: Boolean = false
+    val volumeExplanationInvalidated: Boolean = false,
+    /**
+     * The frozen plan-level target-explanation context, or null for a legacy plan that never recorded
+     * one. A slot whose [AcceptedExercise.explanation] is null while this is present was invalidated
+     * (a substitution clears that slot's reasons) rather than never recorded.
+     */
+    val explanation: FrozenPlanExplanation? = null
 ) {
     /**
      * Derived (not a constructor parameter) so it always reflects [armCoverage] and
@@ -68,8 +74,32 @@ data class AcceptedExercise(
     /** The exercise's load capability frozen at acceptance; external by default. */
     val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL,
     /** What [suggestedWeightKg] means; external by default (a pre-EX-02 row is read as legacy). */
-    val loadKind: LoadKind = LoadKind.EXTERNAL
+    val loadKind: LoadKind = LoadKind.EXTERNAL,
+    /**
+     * The recorded reasoning for this slot, or null for a legacy slot or one whose reasons were
+     * invalidated by a confirmed substitution.
+     */
+    val explanation: ExerciseTargetExplanation? = null
 )
+
+/**
+ * The frozen plan-level explanation context, persisted at acceptance. The deterministic
+ * fatigue-skip candidate list is deliberately not persisted: the per-slot set effect and the volume
+ * assessment already record the fatigue outcome that matters, and raw catalog ids would go stale
+ * after a custom-exercise merge.
+ */
+data class FrozenPlanExplanation(
+    val attribution: PlanAttribution,
+    val isDeload: Boolean,
+    val deloadVolumeScale: Double,
+    val deloadIntensityScale: Double,
+    val version: Int = EXPLANATION_VERSION
+) {
+    companion object {
+        /** Bumped only when the persisted shape changes; readers must handle older versions. */
+        const val EXPLANATION_VERSION: Int = 1
+    }
+}
 
 /** Renders a stored plan with the same shape the live (draft) plan uses. */
 fun AcceptedPlan.toWeeklyPlan(): WeeklyPlan = WeeklyPlan(
@@ -88,9 +118,19 @@ fun AcceptedPlan.toWeeklyPlan(): WeeklyPlan = WeeklyPlan(
                     reps = exercise.reps,
                     suggestedWeightKg = exercise.suggestedWeightKg,
                     loadKind = exercise.loadKind,
-                    loadCapability = exercise.loadCapability
+                    loadCapability = exercise.loadCapability,
+                    explanation = exercise.explanation
                 )
             }
+        )
+    },
+    explanation = explanation?.let { frozen ->
+        PlanExplanation(
+            engine = engine,
+            attribution = frozen.attribution,
+            isDeload = frozen.isDeload,
+            deloadVolumeScale = frozen.deloadVolumeScale,
+            deloadIntensityScale = frozen.deloadIntensityScale
         )
     }
 )

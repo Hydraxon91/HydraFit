@@ -3,16 +3,20 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 6), restored by whole replacement.
-The reader accepts versions 1–6; version 1 defaults the guided-workout preference to off.
-Format 6 requires both training-guidance opt-ins; versions 1–5 default them off.
-When the optional settings record is present, `guidedWorkoutEnabled` is required in formats 2–6;
+Logical, versioned JSON (`format` + `formatVersion` 8), restored by whole replacement.
+The reader accepts versions 1–8; version 1 defaults the guided-workout preference to off.
+Format 8 requires the recorded frozen-entry reasoning section; versions 1–7 default it to empty,
+which restores as "not recorded". Format 7 requires the recorded plan-target explanation sections;
+versions 1–6 default them to empty,
+which restores as "not recorded" rather than as an empty explanation. Format 6 requires both
+training-guidance opt-ins; versions 1–5 default them off.
+When the optional settings record is present, `guidedWorkoutEnabled` is required in formats 2–8;
 format 1 defaults it off because that version predates the setting.
-Formats 5–6 carry one global rest duration and optional per-exercise overrides; versions 1–4
+Formats 5–8 carry one global rest duration and optional per-exercise overrides; versions 1–4
 default to a 120-second global duration with no overrides. Countdown state is deliberately
-excluded and cleared during restore. Formats 4–6 require per-set timing provenance and explicit nullable elapsed fields; format 3 requires
+excluded and cleared during restore. Formats 4–8 require per-set timing provenance and explicit nullable elapsed fields; format 3 requires
 and preserves timing provenance while elapsed fields default to null; formats 1–2 default timing
-provenance to `UNKNOWN` and elapsed fields to null. Exports use version 6.
+provenance to `UNKNOWN` and elapsed fields to null. Exports use version 8.
 Unknown fields remain rejected.
 Domain `backup/` owns the payload records, the kotlinx-serialization codec, the
 validator, the limits and the export/preview/stage/apply use cases (bound in
@@ -31,7 +35,11 @@ Catalog definitions/aliases are application-owned and excluded; unknown seed ids
 ids on canonical identities, duplicate ids/composite keys, dangling links, unsupported
 values and a payload startup maintenance would alter (`CustomExerciseDedupe` on a
 non-CAT-P7 name, `WorkoutSessionBackfill` on a null session id) are rejected with no
-writes. Credentials and on-device model bytes are excluded. Restore **stages** the
+writes. Target-explanation records must use the supported explanation version; plan-slot records
+must match an existing `(planId, dayIndex, position)` and have plan-level context, while frozen-entry
+records must reference an existing activation or occurrence entry. An unsupported explanation
+version already present in the database decodes as unavailable rather than with v1 semantics; the
+stored row is not deleted. Credentials and on-device model bytes are excluded. Restore **stages** the
 validated file in `stagedBackup`; `DatabaseStartupMaintenance` applies it at the next
 process start before seeding and before the first screen, so it never races a live
 writer. A failed apply rolls back, drops the staged row and records a one-time failure in

@@ -17,6 +17,12 @@ the selected/oldest-unresolved occurrence's remaining sets as drafts, stamps
 Skip (the only queue advances); with no block it keeps the accepted-plan path.
 Attribution reuses the frozen draft slot, so a manual log for a prescribed exercise
 still carries the entry id rather than only the occurrence.
+Recorded planner target reasons travel with planned-today drafts and the current
+occurrence's frozen entries. A compact summary is visible with expandable localized
+detail; values use the selected weight unit. Legacy, manual, edited and replaced
+slots without a recorded explanation render no reason. AI wording reports the plan
+origin and app-verified adjustments, never model rationale. Guided progress also
+transports the occurrence entry's explanation but does not use it to calculate progress.
 Planned-set draft editing is one-off: the in-memory editor changes only the values
 written by that draft's confirmation, never the accepted plan, routine or frozen
 activation/occurrence. Reps, capability-appropriate load, optional RIR and optional
@@ -179,6 +185,12 @@ ViewModel depends on the domain aggregates `RoutineTemplateActions` and
 `SplitBuilderViewModel.onSwapRequested`/`onSwapCandidateSelected` (via
 `PlanBuilderActions`) and the `SwapCandidateDialog` in `SplitBuilderScreen.kt`;
 the dialog is only reachable while `SplitBuilderUiState.isPlanAccepted`.
+SplitBuilder shows the recorded target summary below each exercise, with expandable detail, and
+the plan-level attribution/deload scales when present. A null slot after a substitution is marked
+unavailable only when plan-level context proves reasons had been recorded. Logger planned-today
+drafts and guided occurrence entries use the same explanation vocabulary in an independent
+feature-local renderer; stored kilograms are formatted in the selected unit. Empty explanations
+stay silent, including for legacy plans and manual/replaced prescriptions.
 
 The route collects `viewModel.state` with `collectAsStateWithLifecycle` and
 forwards method references to the screen. Logger also uses

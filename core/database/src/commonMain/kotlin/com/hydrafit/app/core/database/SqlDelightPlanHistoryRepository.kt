@@ -8,6 +8,8 @@ import com.hydrafit.app.core.domain.engine.AcceptedExercise
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ArmCoverageUnmetReason
 import com.hydrafit.app.core.domain.engine.ArmMuscleCoverage
+import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
+import com.hydrafit.app.core.domain.engine.FrozenPlanExplanation
 import com.hydrafit.app.core.domain.engine.PlanAttribution
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
@@ -25,49 +27,68 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
     private val queries = database.planHistoryQueries
     private val volumeQueries = database.planVolumeExplanationQueries
     private val stateQueries = database.planVolumeExplanationStateQueries
+    private val targetQueries = database.planTargetExplanationQueries
+    private val targetStateQueries = database.planTargetExplanationStateQueries
     private val planWriter = AcceptedPlanWriter(database)
+
+    /** Every table row a plan needs, loaded once per emission. */
+    private data class PlanRows(
+        val days: List<PlanHistoryDay>,
+        val entries: List<PlanHistoryEntry>,
+        val volume: List<PlanVolumeExplanation>,
+        val volumeStates: List<PlanVolumeExplanationState>,
+        val targets: List<PlanTargetExplanation>,
+        val targetStates: List<PlanTargetExplanationState>
+    )
+
+    private fun planRowsFlow(): Flow<PlanRows> {
+        val targets = combine(
+            targetQueries.selectAll().asFlow().mapToList(Dispatchers.Default),
+            targetStateQueries.selectAll().asFlow().mapToList(Dispatchers.Default)
+        ) { explanations, states -> explanations to states }
+        return combine(
+            queries.selectAllDays().asFlow().mapToList(Dispatchers.Default),
+            queries.selectAllEntries().asFlow().mapToList(Dispatchers.Default),
+            volumeQueries.selectAll().asFlow().mapToList(Dispatchers.Default),
+            stateQueries.selectAll().asFlow().mapToList(Dispatchers.Default),
+            targets
+        ) { days, entries, volume, volumeStates, targetRows ->
+            PlanRows(
+                days = days,
+                entries = entries,
+                volume = volume,
+                volumeStates = volumeStates,
+                targets = targetRows.first,
+                targetStates = targetRows.second
+            )
+        }
+    }
 
     override fun observeLatest(): Flow<AcceptedPlan?> {
         val plans = queries.selectLatestPlan().asFlow().mapToOneOrNull(Dispatchers.Default)
-        val days = queries.selectAllDays().asFlow().mapToList(Dispatchers.Default)
-        val entries = queries.selectAllEntries().asFlow().mapToList(Dispatchers.Default)
-        val explanations = volumeQueries.selectAll().asFlow().mapToList(Dispatchers.Default)
-        val states = stateQueries.selectAll().asFlow().mapToList(Dispatchers.Default)
-        return combine(plans, days, entries, explanations, states) {
-                plan,
-                allDays,
-                allEntries,
-                allExplanations,
-                allStates
-            ->
-            plan?.toAcceptedPlan(allDays, allEntries, allExplanations, allStates)
+        return combine(plans, planRowsFlow()) { plan, rows ->
+            plan?.toAcceptedPlan(rows)
         }
     }
 
     override fun observeHistory(): Flow<List<AcceptedPlan>> {
         val plans = queries.selectAllPlans().asFlow().mapToList(Dispatchers.Default)
-        val days = queries.selectAllDays().asFlow().mapToList(Dispatchers.Default)
-        val entries = queries.selectAllEntries().asFlow().mapToList(Dispatchers.Default)
-        val explanations = volumeQueries.selectAll().asFlow().mapToList(Dispatchers.Default)
-        val states = stateQueries.selectAll().asFlow().mapToList(Dispatchers.Default)
-        return combine(plans, days, entries, explanations, states) {
-                planRows,
-                allDays,
-                allEntries,
-                allExplanations,
-                allStates
-            ->
-            planRows.map { it.toAcceptedPlan(allDays, allEntries, allExplanations, allStates) }
+        return combine(plans, planRowsFlow()) { planRows, rows ->
+            planRows.map { it.toAcceptedPlan(rows) }
         }
     }
 
     override suspend fun latest(): AcceptedPlan? {
         val plan = queries.selectLatestPlan().executeAsOneOrNull() ?: return null
         return plan.toAcceptedPlan(
-            queries.selectAllDays().executeAsList(),
-            queries.selectAllEntries().executeAsList(),
-            volumeQueries.selectAll().executeAsList(),
-            stateQueries.selectAll().executeAsList()
+            PlanRows(
+                days = queries.selectAllDays().executeAsList(),
+                entries = queries.selectAllEntries().executeAsList(),
+                volume = volumeQueries.selectAll().executeAsList(),
+                volumeStates = stateQueries.selectAll().executeAsList(),
+                targets = targetQueries.selectAll().executeAsList(),
+                targetStates = targetStateQueries.selectAll().executeAsList()
+            )
         )
     }
 
@@ -98,11 +119,13 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
                 planId = planId,
                 dayIndex = dayIndex.toLong()
             ).value
-            // Only a real slot replacement invalidates the frozen volume assessment. A missing
-            // day/position is a no-op that must leave the plan and its metadata untouched.
+            // Only a real slot replacement invalidates the frozen volume assessment and clears the
+            // replaced slot's recorded reasoning. A missing day/position is a no-op that must leave
+            // the plan and its metadata untouched.
             if (updated > 0L) {
                 volumeQueries.deleteForPlan(planId)
                 stateQueries.invalidateForSlot(planId, dayIndex.toLong(), position.toLong())
+                targetQueries.deleteExplanationForSlot(planId, dayIndex.toLong(), position.toLong())
             }
         }
     }
@@ -115,6 +138,8 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
             queries.deleteDaysForPlan(planId)
             volumeQueries.deleteForPlan(planId)
             stateQueries.deleteForPlan(planId)
+            targetQueries.deleteExplanationsForPlan(planId)
+            targetStateQueries.deleteForPlan(planId)
             queries.deletePlan(planId)
         }
     }
@@ -126,18 +151,22 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
             queries.deleteAllDays()
             volumeQueries.deleteAll()
             stateQueries.deleteAll()
+            targetQueries.deleteAll()
+            targetStateQueries.deleteAll()
             queries.deleteAllPlans()
         }
     }
 
-    private fun PlanHistory.toAcceptedPlan(
-        allDays: List<PlanHistoryDay>,
-        allEntries: List<PlanHistoryEntry>,
-        allExplanations: List<PlanVolumeExplanation>,
-        allStates: List<PlanVolumeExplanationState>
-    ): AcceptedPlan {
-        val entriesByDay = allEntries.groupBy { it.dayId }
-        val days = allDays
+    private fun PlanHistory.toAcceptedPlan(rows: PlanRows): AcceptedPlan {
+        val entriesByDay = rows.entries.groupBy { it.dayId }
+        val explanationsBySlot = rows.targets
+            .filter { it.planId == id }
+            .associateBy { it.dayIndex.toInt() to it.position.toInt() }
+        // A slot's reasons are only meaningful with their plan-level context. Recording one without
+        // the other is a write invariant (see AcceptedPlanWriter), and this read stays consistent
+        // with it rather than surfacing slot reasons for a plan that reads as legacy.
+        val recordedPlan = rows.targetStates.firstOrNull { it.planId == id }?.toFrozenExplanation()
+        val days = rows.days
             .filter { it.planId == id }
             .sortedBy { it.dayIndex }
             .map { day ->
@@ -155,12 +184,20 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
                                 movementPattern = decodeMovementPattern(row.movementPattern),
                                 suggestedWeightKg = row.suggestedWeightKg,
                                 loadCapability = decodeLoadCapability(row.loadCapability),
-                                loadKind = decodeLoadKind(row.loadKind)
+                                loadKind = decodeLoadKind(row.loadKind),
+                                explanation = if (recordedPlan == null) {
+                                    null
+                                } else {
+                                    explanationsBySlot[
+                                        day.dayIndex.toInt() to row.position.toInt()
+                                    ]?.toExplanation()
+                                }
                             )
                         }
                 )
             }
-        val explanationState = allStates.firstOrNull { it.planId == id }
+        val explanationState = rows.volumeStates.firstOrNull { it.planId == id }
+        val targetState = rows.targetStates.firstOrNull { it.planId == id }
         return AcceptedPlan(
             engine = engineId.toEngineId(),
             acceptedAtMillis = acceptedAt,
@@ -168,15 +205,65 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
             weekNumber = weekNumber.toInt(),
             cycleNumber = cycleNumber.toInt(),
             id = id,
-            armCoverage = allExplanations
+            armCoverage = rows.volume
                 .filter { it.planId == id }
                 .mapNotNull { it.toCoverage() },
-            volumeAttribution = allExplanations
+            volumeAttribution = rows.volume
                 .firstOrNull { it.planId == id }
                 ?.attribution
                 ?.let { name -> PlanAttribution.entries.firstOrNull { it.name == name } },
             volumeExplanationInvalidated = explanationState?.status ==
-                VolumeExplanationStatus.INVALIDATED_BY_SUBSTITUTION.name
+                VolumeExplanationStatus.INVALIDATED_BY_SUBSTITUTION.name,
+            explanation = recordedPlan
+        )
+    }
+
+    private fun PlanTargetExplanation.toExplanation(): ExerciseTargetExplanation? =
+        decodeTargetExplanation(
+            explanationVersion = explanationVersion,
+            baselineSource = baselineSource,
+            baselineRecentEstimateKg = baselineRecentEstimateKg,
+            baselineQualifyingSetCount = baselineQualifyingSetCount,
+            baselineManualFloorKg = baselineManualFloorKg,
+            baselineKg = baselineKg,
+            progressionOutcome = progressionOutcome,
+            progressionIncrements = progressionIncrements,
+            progressionDeltaKg = progressionDeltaKg,
+            progressionRoundToKg = progressionRoundToKg,
+            progressionSuccessStreakSize = progressionSuccessStreakSize,
+            progressionFailureStreakSize = progressionFailureStreakSize,
+            conversionReps = conversionReps,
+            conversionIntensityFraction = conversionIntensityFraction,
+            conversionDeloadIntensityScale = conversionDeloadIntensityScale,
+            conversionRoundToKg = conversionRoundToKg,
+            conversionUncappedWorkingKg = conversionUncappedWorkingKg,
+            conversionEquipmentCeilingKg = conversionEquipmentCeilingKg,
+            conversionEquipmentCeilingBinds = conversionEquipmentCeilingBinds,
+            aiProposedKg = aiProposedKg,
+            aiProposedAccepted = aiProposedAccepted,
+            aiDeloadScaled = aiDeloadScaled,
+            aiDeloadIntensityScale = aiDeloadIntensityScale,
+            aiProgressionBoundKg = aiProgressionBoundKg,
+            aiBoundedByProgression = aiBoundedByProgression,
+            aiEquipmentCeilingKg = aiEquipmentCeilingKg,
+            aiCappedByEquipment = aiCappedByEquipment,
+            setBaseSets = setBaseSets,
+            setDeloadApplied = setDeloadApplied,
+            setDeloadVolumeScale = setDeloadVolumeScale,
+            setFatigueEffect = setFatigueEffect,
+            setFinalSets = setFinalSets,
+            unavailableReason = unavailableReason
+        )
+
+    private fun PlanTargetExplanationState.toFrozenExplanation(): FrozenPlanExplanation? {
+        if (explanationVersion != FrozenPlanExplanation.EXPLANATION_VERSION.toLong()) return null
+        val resolved = PlanAttribution.entries.firstOrNull { it.name == attribution } ?: return null
+        return FrozenPlanExplanation(
+            attribution = resolved,
+            isDeload = isDeload != 0L,
+            deloadVolumeScale = deloadVolumeScale,
+            deloadIntensityScale = deloadIntensityScale,
+            version = explanationVersion.toInt()
         )
     }
 

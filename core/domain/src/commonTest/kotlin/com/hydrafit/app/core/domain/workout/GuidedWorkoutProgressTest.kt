@@ -1,5 +1,8 @@
 package com.hydrafit.app.core.domain.workout
 
+import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
+import com.hydrafit.app.core.domain.engine.FatigueSetEffect
+import com.hydrafit.app.core.domain.engine.SetCountExplanation
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
@@ -85,6 +88,33 @@ class GuidedWorkoutProgressTest {
         assertTrue(progress.exercises.isEmpty())
         assertTrue(progress.allComplete)
         assertEquals(0, progress.prescribedSets)
+    }
+
+    @Test
+    fun carriesTheFrozenSlotsRecordedReasoningWithoutUsingItForProgress() {
+        val recorded = ExerciseTargetExplanation(
+            setCount = SetCountExplanation(
+                baseSets = 3,
+                deloadApplied = false,
+                deloadVolumeScale = 0.7,
+                fatigueEffect = FatigueSetEffect.NONE,
+                finalSets = 3
+            )
+        )
+        val occurrence = occurrenceWith(
+            entry(id = 40, position = 0, sets = 3),
+            entry(id = 41, position = 1, sets = 3).copy(explanation = recorded)
+        )
+
+        val progress = buildGuidedWorkoutProgress(
+            occurrence,
+            performedWorkingSetsByEntry = mapOf(40L to 1, 41L to 1)
+        )
+
+        assertEquals(null, progress.exercises[0].explanation)
+        assertEquals(recorded, progress.exercises[1].explanation)
+        assertEquals(2, progress.exercises[0].remainingSets)
+        assertEquals(2, progress.exercises[1].remainingSets)
     }
 
     private fun occurrenceWith(vararg entries: OccurrenceEntry) = WorkoutOccurrence(

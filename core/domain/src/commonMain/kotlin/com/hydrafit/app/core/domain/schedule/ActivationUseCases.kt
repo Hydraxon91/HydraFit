@@ -108,9 +108,10 @@ class ActivateRoutineUseCase(
     suspend operator fun invoke(
         template: RoutineTemplate,
         request: ActivationRequest,
-        acceptedPlan: AcceptedPlan? = null
+        acceptedPlan: AcceptedPlan? = null,
+        explanationSource: AcceptedPlan? = null
     ): Long {
-        val workouts = buildWorkouts(template)
+        val workouts = stampExplanations(buildWorkouts(template), explanationSource)
         val provenance = request.copy(
             templateId = request.templateId ?: template.id.takeIf { it != 0L },
             templateRevision =
@@ -118,6 +119,33 @@ class ActivateRoutineUseCase(
             sourcePlanId = request.sourcePlanId ?: template.sourcePlanId
         )
         return createActivation(workouts, provenance, acceptedPlan)
+    }
+
+    /**
+     * Copies each slot's frozen reasoning from [plan] onto the built entries by workout/entry
+     * position, matching the plan's sorted day order the routine conversion uses. A null [plan] (a
+     * manual routine or a repeat) leaves every entry without planner reasons, and a mismatched
+     * exercise id leaves the entry alone rather than attributing another exercise's reasoning.
+     */
+    private fun stampExplanations(
+        workouts: List<ActivationWorkout>,
+        plan: AcceptedPlan?
+    ): List<ActivationWorkout> {
+        if (plan == null) return workouts
+        val days = plan.days.sortedBy { it.dayIndex }
+        return workouts.mapIndexed { workoutIndex, workout ->
+            val day = days.getOrNull(workoutIndex) ?: return@mapIndexed workout
+            workout.copy(
+                entries = workout.entries.map { entry ->
+                    val exercise = day.exercises.getOrNull(entry.position)
+                    if (exercise == null || exercise.exerciseId != entry.exerciseId) {
+                        entry
+                    } else {
+                        entry.copy(explanation = exercise.explanation)
+                    }
+                }
+            )
+        }
     }
 }
 

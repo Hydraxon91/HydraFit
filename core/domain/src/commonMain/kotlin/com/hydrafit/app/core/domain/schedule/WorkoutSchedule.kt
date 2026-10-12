@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.domain.schedule
 
+import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
@@ -74,7 +75,12 @@ data class ActivationEntry(
     /** The exercise's load capability frozen at activation. */
     val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL,
     /** What [weightKg] means on this frozen slot. */
-    val loadKind: LoadKind = LoadKind.EXTERNAL
+    val loadKind: LoadKind = LoadKind.EXTERNAL,
+    /**
+     * The plan slot's recorded reasoning, copied from the accepted plan when this block was created.
+     * Null for a manual routine or any entry that never had planner reasons.
+     */
+    val explanation: ExerciseTargetExplanation? = null
 )
 
 data class WorkoutOccurrence(
@@ -115,6 +121,12 @@ data class OccurrenceEntry(
     val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL,
     /** What [weightKg] means on this occurrence entry. */
     val loadKind: LoadKind = LoadKind.EXTERNAL,
+    /**
+     * The source entry's recorded reasoning, copied when this occurrence entry was created. Null when
+     * the slot was replaced or edited, or came from a manual routine: a replacement never inherits the
+     * original exercise's reasons.
+     */
+    val explanation: ExerciseTargetExplanation? = null,
     val remainingDisposition: RemainingDisposition? = null,
     val terminalRemainingSets: Int? = null
 )

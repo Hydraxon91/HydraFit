@@ -120,7 +120,9 @@ class BackupViewModel(
         val records = customExercises.size + exerciseOverrides.size + equipment.size +
             selectedEquipment.size + workoutSets.size + workoutSessions.size + plans.size +
             planDays.size + planEntries.size + volumeExplanations.size +
-            volumeExplanationStates.size + routines.size + routineWorkouts.size +
+            volumeExplanationStates.size + planTargetExplanations.size +
+            planTargetExplanationStates.size + entryTargetExplanations.size + routines.size +
+            routineWorkouts.size +
             routineEntries.size + activations.size + activationWorkouts.size +
             activationEntries.size + occurrences.size + occurrenceEntries.size +
             personalRecords.size + preferences.size + exclusions.size

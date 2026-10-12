@@ -1,7 +1,12 @@
 package com.hydrafit.app.core.domain.backup
 
+import com.hydrafit.app.core.domain.engine.FatigueSetEffect
+import com.hydrafit.app.core.domain.engine.FrozenPlanExplanation
+import com.hydrafit.app.core.domain.engine.LoadBaselineSource
+import com.hydrafit.app.core.domain.engine.LoadUnavailableReason
 import com.hydrafit.app.core.domain.engine.PlanAttribution
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.ProgressionOutcome
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
@@ -42,6 +47,12 @@ class BackupValidator(private val catalog: BackupCatalog) {
         val planIds = uniqueBy(file.plans) { it.id }
         val dayIds = uniqueBy(file.planDays) { it.id }
         uniqueBy(file.planEntries) { it.id }
+        val planDaysById = file.planDays.associateBy { it.id }
+        val planSlots = file.planEntries.mapNotNull { entry ->
+            planDaysById[entry.dayId]?.let { day ->
+                Triple(day.planId, day.dayIndex, entry.position)
+            }
+        }.toSet()
         val routineIds = uniqueBy(file.routines) { it.id }
         val routineWorkoutIds = uniqueBy(file.routineWorkouts) { it.id }
         uniqueBy(file.routineEntries) { it.id }
@@ -62,6 +73,9 @@ class BackupValidator(private val catalog: BackupCatalog) {
         uniqueBy(file.restPreferences) { it.exerciseId }
         uniqueBy(file.volumeExplanations) { it.planId to it.muscle }
         uniqueBy(file.volumeExplanationStates) { it.planId }
+        uniqueBy(file.planTargetExplanations) { Triple(it.planId, it.dayIndex, it.position) }
+        uniqueBy(file.planTargetExplanationStates) { it.planId }
+        uniqueBy(file.entryTargetExplanations) { it.entryKind to it.entryId }
         uniqueBy(file.selectedEquipment) { it }
 
         val customEquipmentIds = file.equipment.filter { !it.isBuiltIn }.map { it.id }.toSet()
@@ -165,6 +179,81 @@ class BackupValidator(private val catalog: BackupCatalog) {
         file.volumeExplanationStates.forEach {
             reference(it.planId, planIds)
             enum(it.status, VolumeExplanationStatus.entries)
+        }
+        val targetReasonPlans = file.planTargetExplanationStates.map { it.planId }.toSet()
+        if (file.planTargetExplanations.any { it.planId !in targetReasonPlans }) {
+            // A slot reason without its plan-level context would restore an inconsistent plan.
+            fail(BackupFailure.INVALID_REFERENCE)
+        }
+        file.planTargetExplanations.forEach {
+            reference(it.planId, planIds)
+            if (Triple(it.planId, it.dayIndex, it.position) !in planSlots) {
+                fail(BackupFailure.INVALID_REFERENCE)
+            }
+            if (it.explanationVersion != FrozenPlanExplanation.EXPLANATION_VERSION) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            enum(it.baselineSource, LoadBaselineSource.entries)
+            enum(it.progressionOutcome, ProgressionOutcome.entries)
+            enum(it.setFatigueEffect, FatigueSetEffect.entries)
+            enum(it.unavailableReason, LoadUnavailableReason.entries)
+            listOf(
+                it.baselineRecentEstimateKg,
+                it.baselineManualFloorKg,
+                it.baselineKg,
+                it.progressionDeltaKg,
+                it.progressionRoundToKg,
+                it.conversionIntensityFraction,
+                it.conversionDeloadIntensityScale,
+                it.conversionRoundToKg,
+                it.conversionUncappedWorkingKg,
+                it.conversionEquipmentCeilingKg,
+                it.aiProposedKg,
+                it.aiDeloadIntensityScale,
+                it.aiProgressionBoundKg,
+                it.aiEquipmentCeilingKg,
+                it.setDeloadVolumeScale
+            ).forEach { value -> value?.let { finite(it) } }
+        }
+        file.planTargetExplanationStates.forEach {
+            reference(it.planId, planIds)
+            if (it.explanationVersion != FrozenPlanExplanation.EXPLANATION_VERSION) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            enum(it.attribution, PlanAttribution.entries)
+            finite(it.deloadVolumeScale)
+            finite(it.deloadIntensityScale)
+        }
+        file.entryTargetExplanations.forEach {
+            if (it.explanationVersion != FrozenPlanExplanation.EXPLANATION_VERSION) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            when (it.entryKind) {
+                ENTRY_KIND_ACTIVATION -> reference(it.entryId, activationEntryIds)
+                ENTRY_KIND_OCCURRENCE -> reference(it.entryId, occurrenceEntryIds)
+                else -> fail(BackupFailure.INVALID_VALUE)
+            }
+            enum(it.baselineSource, LoadBaselineSource.entries)
+            enum(it.progressionOutcome, ProgressionOutcome.entries)
+            enum(it.setFatigueEffect, FatigueSetEffect.entries)
+            enum(it.unavailableReason, LoadUnavailableReason.entries)
+            listOf(
+                it.baselineRecentEstimateKg,
+                it.baselineManualFloorKg,
+                it.baselineKg,
+                it.progressionDeltaKg,
+                it.progressionRoundToKg,
+                it.conversionIntensityFraction,
+                it.conversionDeloadIntensityScale,
+                it.conversionRoundToKg,
+                it.conversionUncappedWorkingKg,
+                it.conversionEquipmentCeilingKg,
+                it.aiProposedKg,
+                it.aiDeloadIntensityScale,
+                it.aiProgressionBoundKg,
+                it.aiEquipmentCeilingKg,
+                it.setDeloadVolumeScale
+            ).forEach { value -> value?.let { finite(it) } }
         }
 
         file.routineWorkouts.forEach {
@@ -290,6 +379,9 @@ class BackupValidator(private val catalog: BackupCatalog) {
 
     private companion object {
         val SUPPORTED_FORMAT_VERSIONS = 1..BACKUP_FORMAT_VERSION
+
+        const val ENTRY_KIND_ACTIVATION = "ACTIVATION"
+        const val ENTRY_KIND_OCCURRENCE = "OCCURRENCE"
 
         /** Muscle names accepted in an involvement snapshot, including the legacy broad names. */
         val muscleTokens: Set<String> =

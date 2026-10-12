@@ -1,0 +1,23 @@
+CREATE TABLE planTargetExplanationState (
+    planId INTEGER NOT NULL PRIMARY KEY,
+    attribution TEXT NOT NULL,
+    isDeload INTEGER NOT NULL,
+    deloadVolumeScale REAL NOT NULL,
+    deloadIntensityScale REAL NOT NULL,
+    explanationVersion INTEGER NOT NULL
+);
+
+selectAll:
+SELECT * FROM planTargetExplanationState ORDER BY planId;
+
+upsert:
+INSERT OR REPLACE INTO planTargetExplanationState(
+    planId, attribution, isDeload, deloadVolumeScale, deloadIntensityScale, explanationVersion
+)
+VALUES (?, ?, ?, ?, ?, ?);
+
+deleteForPlan:
+DELETE FROM planTargetExplanationState WHERE planId = ?;
+
+deleteAll:
+DELETE FROM planTargetExplanationState;

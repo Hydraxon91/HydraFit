@@ -12,7 +12,9 @@ data class PlannerLoadInputs(
     /** Progression-adjusted e1RM bound shared by all engines. */
     val recentWeightCaps: Map<String, Double> = emptyMap(),
     /** External-load exercises without sufficient evidence must not receive model-invented loads. */
-    val withheldWeightExerciseIds: Set<String> = emptySet()
+    val withheldWeightExerciseIds: Set<String> = emptySet(),
+    /** Recorded baseline/progression provenance per exercise id; never affects selection. */
+    val loadExplanations: Map<String, LoadOriginExplanation> = emptyMap()
 )
 
 /**
@@ -48,9 +50,11 @@ class BuildPlannerLoadInputsUseCase(
         val loadSets = sources.loggedWorkoutSets.filter {
             it.performedAtMillis <= nowMillis && contributesToLoadMath(it.exerciseId, it.loadKind)
         }
-        val recentBest = recentBestByExercise(loadSets, nowMillis) { id, kind ->
-            contributesToLoadMath(id, kind)
-        }
+        val contributes = { id: String, kind: LoadKind -> contributesToLoadMath(id, kind) }
+        val recentQualifyingSets = recentQualifyingSets(loadSets, nowMillis, contributes)
+        val recentBest = recentQualifyingSets
+            .filterValues { it.size >= MIN_RECENT_SETS }
+            .mapValues { (_, group) -> group.maxOf { OneRepMax.estimate(it.weightKg!!, it.reps) } }
         val manualRecords = sources.personalRecords
             .filter { record ->
                 record.loadKind == LoadKind.EXTERNAL &&
@@ -66,19 +70,43 @@ class BuildPlannerLoadInputsUseCase(
         val externalExerciseIds = capabilityByExercise
             .filterValues { WorkoutLoadPolicy.allowsAutomaticLoad(it) }
             .keys
-        val baseline = externalExerciseIds.mapNotNull { exerciseId ->
-            val estimate = recentBest[exerciseId] ?: manualRecords[exerciseId]
-                ?: return@mapNotNull null
-            exerciseId to maxOf(estimate, manualRecords[exerciseId] ?: 0.0)
+        val baselineExplanations = externalExerciseIds.mapNotNull { exerciseId ->
+            val recentEstimate = recentBest[exerciseId]
+            val manualFloor = manualRecords[exerciseId]
+            val resolved = recentEstimate ?: manualFloor ?: return@mapNotNull null
+            // The source names the input that determined the baseline, so it cannot contradict the
+            // value: a higher manual floor is the source, not merely an accompanying record.
+            val source = if (recentEstimate == null ||
+                (manualFloor != null && manualFloor > recentEstimate)
+            ) {
+                LoadBaselineSource.MANUAL_PERSONAL_RECORD
+            } else {
+                LoadBaselineSource.RECENT_PERFORMANCE
+            }
+            exerciseId to LoadBaselineExplanation(
+                source = source,
+                recentEstimateKg = recentEstimate,
+                qualifyingSetCount = recentQualifyingSets[exerciseId]?.size ?: 0,
+                manualFloorKg = manualFloor,
+                baselineKg = maxOf(resolved, manualFloor ?: 0.0)
+            )
         }.toMap()
+        val baseline = baselineExplanations.mapValues { (_, explanation) -> explanation.baselineKg }
 
-        val progressed = progressWeights(
+        val resolved = progressWeights.resolve(
             baseline = baseline,
             prescriptions = externalPrescriptions(latestPlan),
             sets = loadSets.filter { it.loadKind == LoadKind.EXTERNAL },
             pauseIncrements = pauseIncrements,
             utcOffsetMillis = utcOffsetMillis
         )
+        val progressed = resolved.mapValues { (_, value) -> value.progressedKg }
+        val loadExplanations = baselineExplanations.mapValues { (exerciseId, explanation) ->
+            LoadOriginExplanation(
+                baseline = explanation,
+                progression = resolved.getValue(exerciseId).explanation
+            )
+        }
 
         val recentWeights = if (sources.workoutDataSharingEnabled) {
             buildRecentWeights(
@@ -95,20 +123,21 @@ class BuildPlannerLoadInputsUseCase(
             suggestedWeightsKg = progressed,
             recentWeights = recentWeights,
             recentWeightCaps = recentWeightCaps,
-            withheldWeightExerciseIds = withheldWeightExerciseIds
+            withheldWeightExerciseIds = withheldWeightExerciseIds,
+            loadExplanations = loadExplanations
         )
     }
 
     /**
-     * The best Epley estimate per exercise among qualifying external working sets inside the recent
-     * window. Exercises with fewer than [MIN_RECENT_SETS] such sets are omitted. The window and
-     * sample threshold are product defaults, not validated measures of current capacity.
+     * The qualifying external working sets per exercise inside the recent window: a positive finite
+     * weight and a usable rep count. Callers apply [MIN_RECENT_SETS]. The window, sample threshold
+     * and rep limit are product defaults, not validated measures of current capacity.
      */
-    private fun recentBestByExercise(
+    private fun recentQualifyingSets(
         sets: List<WorkoutSet>,
         nowMillis: Long,
         contributesToLoadMath: (String, LoadKind) -> Boolean
-    ): Map<String, Double> {
+    ): Map<String, List<WorkoutSet>> {
         val cutoff = nowMillis - RECENT_WINDOW_MILLIS
         return sets
             .filter { set ->
@@ -119,8 +148,6 @@ class BuildPlannerLoadInputsUseCase(
                     weightConfig.hasUsableEstimate(set.reps)
             }
             .groupBy { it.exerciseId }
-            .filterValues { it.size >= MIN_RECENT_SETS }
-            .mapValues { (_, group) -> group.maxOf { OneRepMax.estimate(it.weightKg!!, it.reps) } }
     }
 
     /**

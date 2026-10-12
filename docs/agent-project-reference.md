@@ -7,6 +7,59 @@ are relocated from AGENTS.md, not optional guidance. AGENTS.md remains
 authoritative for approvals, architecture locks and verification requirements.
 Paths below are relative to the repository root.
 
+## Implementation Readiness
+
+Use this procedure for code changes to make the approved scope and its evidence
+usable for implementation and any later post-execution review. Scale the detail
+to the risk: a localized change needs a concise plan; cross-cutting, persistent
+or asynchronous behavior needs explicit invariants and downstream coverage.
+
+### Before implementation
+
+- Record the starting commit and relevant pre-existing working-tree changes;
+  identify the requested scope, affected modules and explicit exclusions.
+- State observable acceptance criteria and invariants. Trace changed behavior
+  through relevant producers, persistence and downstream consumers.
+- Identify applicable failure cases, such as cancellation, retry, repeated
+  submission, stale context, transaction failure or legacy data. Do not turn this
+  into an exhaustive checklist when a case is irrelevant to the change.
+- Put behavior-changing ambiguities and required user decisions in the plan.
+  Distinguish approved behavior from deferred work; do not choose a default
+  silently.
+- Include needed tests, downstream verification and living-document updates in
+  the approved scope. If a required check is unavailable, state that before
+  implementation and clarify its effect on completion rather than implying it
+  passed or was waived.
+
+A compact planning table is sufficient:
+
+| Acceptance criterion / invariant | Affected path | Planned test or check |
+| --- | --- | --- |
+| Observable guarantee | Producer → storage → consumer, where applicable | Evidence that exercises the guarantee |
+
+### During implementation
+
+- Read current targets, helpers and relevant consumers; keep changes within the
+  approved scope and existing approval gates.
+- Test observable contract guarantees and applicable failure paths, not only
+  implementation details. For data flows, a consumer test using a manually
+  constructed valid record does not prove that the write path preserves the
+  invariant.
+- Add required regression tests and living-document updates within the approved
+  work. Stop for a newly discovered behavior decision, scope expansion or
+  unavailable required verification that changes the approved expectations.
+
+### At completion
+
+Report the starting commit, ending HEAD and relevant working-tree state; map
+acceptance criteria to tests/checks; list commands, results and evidence locations;
+and name documentation updates, unfinished work, failures and unverified checks.
+Verification evidence applies only to the revision and state it actually covered;
+rerun affected checks after subsequent edits. Say “Implementation verified against
+the approved contract; formal review pending” only when verification supports that
+claim, and qualify it when checks remain outstanding. This report is not a review
+verdict or commit/push authorization.
+
 ## Project Overview
 
 HydraFit is an **open-source, offline-first fitness planning app** built with Kotlin Multiplatform and Compose Multiplatform, Android-first with iOS as a future target. Its core feature is a swappable workout-planning strategy engine (Deterministic / Gemini API / Local On-Device LLM) sitting behind a single `WorkoutPlannerEngine` interface, combined with equipment-based filtering and a muscle fatigue tracking system.

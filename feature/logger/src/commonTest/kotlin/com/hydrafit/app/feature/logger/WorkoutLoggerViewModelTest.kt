@@ -7,12 +7,15 @@ import com.hydrafit.app.core.domain.engine.BuildPlannerLoadInputsUseCase
 import com.hydrafit.app.core.domain.engine.BuildRecentWeightsUseCase
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
+import com.hydrafit.app.core.domain.engine.FatigueSetEffect
 import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
 import com.hydrafit.app.core.domain.engine.PeriodizationConfig
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.ProgressWeightsUseCase
+import com.hydrafit.app.core.domain.engine.SetCountExplanation
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
@@ -835,6 +838,18 @@ class WorkoutLoggerViewModelTest {
         assertEquals(1, repository.all().size)
         assertEquals(listOf(draft), viewModel.state.value.draftSets)
         assertFalse(viewModel.state.value.confirmingAllDrafts)
+    }
+
+    @Test
+    fun plannedTodayDraftKeepsTheAcceptedSlotsRecordedReasoning() = runTest(dispatcher) {
+        val explanation = targetExplanation()
+        val plan =
+            acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0, explanation = explanation)
+        val viewModel = viewModel(acceptedPlan = plan, timeMillis = MONDAY)
+
+        advanceUntilIdle()
+
+        assertEquals(explanation, viewModel.state.value.draftSets.single().explanation)
     }
 
     @Test
@@ -3590,6 +3605,32 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun guidedOccurrenceAndRemainingDraftKeepTheFrozenReasoning() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        val explanation = targetExplanation()
+        val occurrences = twoOccurrences().map { occurrence ->
+            if (occurrence.id == 30L) {
+                occurrence.copy(
+                    entries = occurrence.entries.map { it.copy(explanation = explanation) }
+                )
+            } else {
+                occurrence
+            }
+        }
+        schedule.set(blockActivation(), occurrences, selectedOccurrenceId = 30L)
+
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        assertEquals(
+            explanation,
+            viewModel.state.value.guidedProgress?.exercises?.single()?.explanation
+        )
+        assertEquals(explanation, viewModel.state.value.draftSets.single().explanation)
+    }
+
+    @Test
     fun guidedConfirmRecordsOneSetAndKeepsTheRemainingPrescription() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
@@ -5203,7 +5244,8 @@ class WorkoutLoggerViewModelTest {
     private fun acceptedPlan(
         dayZeroExerciseIds: List<String>,
         suggestedWeightKg: Double? = null,
-        loadKind: LoadKind = LoadKind.EXTERNAL
+        loadKind: LoadKind = LoadKind.EXTERNAL,
+        explanation: ExerciseTargetExplanation? = null
     ) = AcceptedPlan(
         engine = PlannerEngineId.DETERMINISTIC,
         acceptedAtMillis = 0L,
@@ -5224,10 +5266,21 @@ class WorkoutLoggerViewModelTest {
                             "pull-up" -> ExerciseLoadCapability.BODYWEIGHT_ADDABLE
                             else -> ExerciseLoadCapability.EXTERNAL
                         },
-                        loadKind = loadKind
+                        loadKind = loadKind,
+                        explanation = explanation
                     )
                 }
             )
+        )
+    )
+
+    private fun targetExplanation() = ExerciseTargetExplanation(
+        setCount = SetCountExplanation(
+            baseSets = 3,
+            deloadApplied = false,
+            deloadVolumeScale = 0.7,
+            fatigueEffect = FatigueSetEffect.NONE,
+            finalSets = 3
         )
     )
 

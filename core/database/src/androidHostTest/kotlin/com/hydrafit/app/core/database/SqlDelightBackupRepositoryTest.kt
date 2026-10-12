@@ -39,6 +39,39 @@ class SqlDelightBackupRepositoryTest {
     }
 
     @Test
+    fun restoreClearsTargetExplanationsThePayloadDoesNotOwn() = runTest {
+        // A restored plan keeps its stored id, so a leftover explanation row could attach to it.
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO planHistory(id, engineId, acceptedAt, weekNumber, cycleNumber) " +
+                "VALUES (5, 'DETERMINISTIC', 1, 1, 1)"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO planTargetExplanationState VALUES " +
+                "(5, 'DETERMINISTIC', 0, 0.7, 0.8, 1)"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO planTargetExplanation(planId, dayIndex, position, explanationVersion) " +
+                "VALUES (5, 0, 0, 1)"
+        )
+
+        val exported = repository.export(appVersion = "dev", exportedAtMillis = 1L)
+        repository.restore(
+            exported.copy(
+                planTargetExplanations = emptyList(),
+                planTargetExplanationStates = emptyList()
+            )
+        )
+
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "planTargetExplanation"))
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "planTargetExplanationState"))
+        // The plan itself is owned by the payload and is re-created from it.
+        assertEquals(1L, HistoricalDatabaseFixtures.count(driver, "planHistory"))
+    }
+
+    @Test
     fun exportsEveryIncludedSection() = runTest {
         seedRepresentativeData()
         SqlDelightGuidedWorkoutPreferenceRepository(database).setGuidedWorkoutEnabled(true)
@@ -68,6 +101,14 @@ class SqlDelightBackupRepositoryTest {
         assertEquals(1, file.planEntries.size)
         assertEquals(1, file.volumeExplanations.size)
         assertEquals(1, file.volumeExplanationStates.size)
+        assertEquals(1, file.planTargetExplanations.size)
+        assertEquals(1, file.planTargetExplanationStates.size)
+        assertEquals(
+            setOf("ACTIVATION", "OCCURRENCE"),
+            file.entryTargetExplanations.map { it.entryKind }.toSet()
+        )
+        assertEquals("APPLIED", file.planTargetExplanations.single().progressionOutcome)
+        assertEquals(0.7, file.planTargetExplanationStates.single().deloadVolumeScale)
         assertEquals(1, file.routines.size)
         assertEquals(1, file.routineWorkouts.size)
         assertEquals(1, file.routineEntries.size)
@@ -353,6 +394,52 @@ class SqlDelightBackupRepositoryTest {
             attribution = "DETERMINISTIC"
         )
         database.planVolumeExplanationStateQueries.upsert(planId, "AVAILABLE", 1)
+        database.planTargetExplanationStateQueries.upsert(
+            planId = planId,
+            attribution = "DETERMINISTIC",
+            isDeload = 0L,
+            deloadVolumeScale = 0.7,
+            deloadIntensityScale = 0.8,
+            explanationVersion = 1L
+        )
+        database.planTargetExplanationQueries.insertExplanation(
+            planId = planId,
+            dayIndex = 0L,
+            position = 0L,
+            explanationVersion = 1L,
+            baselineSource = "RECENT_PERFORMANCE",
+            baselineRecentEstimateKg = 101.0,
+            baselineQualifyingSetCount = 3L,
+            baselineManualFloorKg = null,
+            baselineKg = 101.0,
+            progressionOutcome = "APPLIED",
+            progressionIncrements = 1L,
+            progressionDeltaKg = 2.5,
+            progressionRoundToKg = 2.5,
+            progressionSuccessStreakSize = 3L,
+            progressionFailureStreakSize = 3L,
+            conversionReps = 5L,
+            conversionIntensityFraction = 0.783,
+            conversionDeloadIntensityScale = 1.0,
+            conversionRoundToKg = 2.5,
+            conversionUncappedWorkingKg = 80.0,
+            conversionEquipmentCeilingKg = null,
+            conversionEquipmentCeilingBinds = 0L,
+            aiProposedKg = null,
+            aiProposedAccepted = null,
+            aiDeloadScaled = null,
+            aiDeloadIntensityScale = null,
+            aiProgressionBoundKg = null,
+            aiBoundedByProgression = null,
+            aiEquipmentCeilingKg = null,
+            aiCappedByEquipment = null,
+            setBaseSets = 3L,
+            setDeloadApplied = 0L,
+            setDeloadVolumeScale = 0.7,
+            setFatigueEffect = "NONE",
+            setFinalSets = 3L,
+            unavailableReason = null
+        )
         database.trainingScheduleQueries.insertActivation(
             templateId = null,
             templateRevision = null,
@@ -394,6 +481,15 @@ class SqlDelightBackupRepositoryTest {
             loadCapability = "EXTERNAL",
             loadKind = "EXTERNAL"
         )
+        val activationEntryId =
+            database.trainingScheduleQueries.lastInsertedActivationEntryId().executeAsOne()
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO entryTargetExplanation(entryKind, entryId, explanationVersion, " +
+                "setBaseSets, setDeloadApplied, setDeloadVolumeScale, setFatigueEffect, " +
+                "setFinalSets) " +
+                "VALUES ('ACTIVATION', $activationEntryId, 1, 3, 0, 0.7, 'NONE', 3)"
+        )
         database.trainingScheduleQueries.insertOccurrence(
             activationId = activationId,
             activationWorkoutId = activationWorkoutId,
@@ -424,6 +520,15 @@ class SqlDelightBackupRepositoryTest {
             loadKind = "EXTERNAL",
             remainingDisposition = null,
             terminalRemainingSets = null
+        )
+        val occurrenceEntryId =
+            database.trainingScheduleQueries.lastInsertedOccurrenceEntryId().executeAsOne()
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO entryTargetExplanation(entryKind, entryId, explanationVersion, " +
+                "setBaseSets, setDeloadApplied, setDeloadVolumeScale, setFatigueEffect, " +
+                "setFinalSets) " +
+                "VALUES ('OCCURRENCE', $occurrenceEntryId, 1, 3, 0, 0.7, 'NONE', 3)"
         )
         database.trainingScheduleQueries.upsertScheduleState(
             activeActivationId = activationId,

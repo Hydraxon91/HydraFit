@@ -242,6 +242,42 @@ the state row in the same transaction, so the UI still shows that the explanatio
 after a reopen rather than reconstructing it from today's catalog. Persisting or adding the
 explanation never changes selected exercises, sets, reps, loads or fatigue.
 
+**Target explanations (implemented, OF-03-P1B slice).** The load, progression, equipment, fatigue and
+deload reasoning behind each accepted slot is frozen at acceptance the same way: `PlanExplanation`
+plus each `PlannedExercise.explanation` are written into `planTargetExplanation` (one row per
+`(planId, dayIndex, position)`) and `planTargetExplanationState` (`38.sqm`) by the shared
+`AcceptedPlanWriter`, and read back into `AcceptedPlan`/`AcceptedExercise`. The record is descriptive
+data generated from the branches that actually ran; it never changes selection or prescription. A
+legacy plan has no state row and reads as unrecorded; a recorded slot whose reasons were cleared by a
+confirmed substitution reads as invalidated, because the read only attaches slot reasons when the
+  plan-level context exists. Column groups are nullable and a present-but-incomplete or unsupported-
+  version record decodes as unavailable rather than with defaulted values or v1 semantics, so a
+  fabricated reason cannot be shown; the stored row is retained. **Deliberately
+not persisted (F3, dropped):** the deterministic fatigue-skip candidate ids — the per-slot
+`setCount.fatigueEffect`, the volume assessment's own unmet reason and the persisted deload scales
+already record the fatigue/deload outcome, and raw catalog ids would go stale after a
+custom-exercise merge. Backup format 7 carries both tables, and restore deletes them with the plan
+sections so a restored plan can never inherit another plan's reasons.
+
+The same reasoning is snapshotted for frozen work. When a block is created from an accepted plan,
+`ActivateRoutineUseCase` copies each slot's reason onto the built activation entry by day/entry
+position with an exercise-id guard (so a mismatch leaves the entry without reasons rather than
+borrowing another exercise's), the occurrence copy inherits it at creation, and `entryTargetExplanation`
+(keyed by `ACTIVATION`/`OCCURRENCE` plus the entry id; `39.sqm`) stores it. Entry ids are
+AUTOINCREMENT, so a row left behind by a deleted entry can never be adopted by a later one. A
+replacement or prescription edit clears the entry's reason — `writeEntryExplanation` treats null as a
+real state and deletes the row — so frozen work never shows the reason of the prescription it
+replaced. A manual routine carries none. Backup format 8 carries this table, and restore deletes it
+with the schedule sections.
+
+SplitBuilder renders the recorded slot details and plan-level attribution/deload context; a null slot
+after a substitution is explicitly unavailable only when the plan-level explanation context proves
+that reasons were recorded. The Logger shows the same per-slot record for planned-today drafts and
+the frozen guided occurrence; both presentations default to a compact summary with expandable,
+localized details. They render only recorded values, convert stored kilograms using the selected
+weight unit, and leave legacy/manual/replaced slots without a reason silent. AI wording attributes
+only the plan origin and app-verified adjustments, never model rationale.
+
 - **Examples:** `WorkoutPlannerEngine`, `WorkoutPlannerEngineProvider`,
   `DefaultWorkoutPlannerEngineProvider`, `DeterministicWorkoutPlannerEngine`,
   `GeminiWorkoutPlannerEngine`, `LocalLlmWorkoutPlannerEngine`, `WeeklyPlanSanitizer`,

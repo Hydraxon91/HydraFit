@@ -73,7 +73,8 @@ class ObserveWorkoutPlanInputsUseCase(
                 recentWeights = loadInputs.recentWeights,
                 weekNumber = weekNumber,
                 cycleNumber = cycleNumber,
-                isDeload = periodization.isDeload(weekNumber)
+                isDeload = periodization.isDeload(weekNumber),
+                loadExplanations = loadInputs.loadExplanations
             ),
             requestedEngine = current.selectedEngine,
             exercisePreferences = current.exercisePreferences,

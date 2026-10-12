@@ -42,46 +42,54 @@ class WeeklyPlanSanitizer(
                         sets
                     )
                     val capability = exercise.loadCapability
+                    val intensityScale = if (isDeload) periodization.deloadIntensityScale else 1.0
                     // The model may propose a number, but the app decides its meaning: only external
                     // resistance keeps one. A bodyweight or added-load exercise is sanitized to a
                     // typed no-number prescription without discarding the selection.
-                    val suggestedWeightKg =
-                        if (WorkoutLoadPolicy.allowsAutomaticLoad(capability)) {
-                            planned.suggestedWeightKg
-                                ?.takeIf {
-                                    request.includeWorkoutData &&
-                                        exercise.id !in request.withheldWeightExerciseIds &&
-                                        it > 0.0 &&
-                                        it <= MAX_SUGGESTED_WEIGHT_KG
-                                }
-                                ?.let { weight ->
-                                    val proposed = weight * if (isDeload) {
-                                        periodization.deloadIntensityScale
-                                    } else {
-                                        1.0
-                                    }
-                                    val bound = request.recentWeightCaps[exercise.id]?.let {
-                                        weightConfig.workingWeightFor(
-                                            it,
-                                            reps,
-                                            if (isDeload) {
-                                                periodization.deloadIntensityScale
-                                            } else {
-                                                1.0
-                                            }
-                                        )
-                                    }
-                                    EquipmentWeightLimit.clamp(
-                                        if (bound == null) proposed else minOf(proposed, bound),
-                                        EquipmentWeightLimit.ceilingFor(
-                                            exercise,
-                                            request.equipmentMaxWeights
-                                        )
-                                    )
-                                }
-                        } else {
-                            null
+                    val allowed = WorkoutLoadPolicy.allowsAutomaticLoad(capability)
+                    val proposed = planned.suggestedWeightKg
+                        ?.takeIf {
+                            request.includeWorkoutData &&
+                                exercise.id !in request.withheldWeightExerciseIds &&
+                                it > 0.0 &&
+                                it <= MAX_SUGGESTED_WEIGHT_KG
                         }
+                        ?.let { weight -> weight * intensityScale }
+                    val bound = request.recentWeightCaps[exercise.id]?.let {
+                        weightConfig.workingWeightFor(it, reps, intensityScale)
+                    }
+                    val ceiling = EquipmentWeightLimit.ceilingFor(
+                        exercise,
+                        request.equipmentMaxWeights
+                    )
+                    val uncapped = if (proposed == null) {
+                        null
+                    } else if (bound == null) {
+                        proposed
+                    } else {
+                        minOf(proposed, bound)
+                    }
+                    val suggestedWeightKg = if (allowed) {
+                        uncapped?.let { EquipmentWeightLimit.clamp(it, ceiling) }
+                    } else {
+                        null
+                    }
+                    val ceilingBinds = ceiling != null && uncapped != null && uncapped > ceiling
+                    // A model number is only "accepted" when the app keeps a numeric load for this
+                    // exercise; a discarded proposal must not also claim an applied bound or ceiling.
+                    val retained = allowed && proposed != null
+                    val boundedByProgression = retained && bound != null && bound < proposed
+                    val cappedByEquipment = retained && ceilingBinds
+                    val unavailableReason = when {
+                        !allowed -> LoadUnavailableReason.NOT_LOAD_TRACKED
+                        !request.includeWorkoutData -> LoadUnavailableReason.AI_DATA_NOT_SHARED
+                        exercise.id in request.withheldWeightExerciseIds ->
+                            LoadUnavailableReason.INSUFFICIENT_RECENT_EVIDENCE
+                        planned.suggestedWeightKg == null ->
+                            LoadUnavailableReason.AI_PROPOSAL_OMITTED
+                        proposed == null -> LoadUnavailableReason.AI_PROPOSAL_REJECTED
+                        else -> null
+                    }
                     PlannedExercise(
                         exerciseId = exercise.id,
                         sets = sets,
@@ -92,7 +100,34 @@ class WeeklyPlanSanitizer(
                         } else {
                             WorkoutLoadPolicy.defaultKind(capability)
                         },
-                        loadCapability = capability
+                        loadCapability = capability,
+                        explanation = ExerciseTargetExplanation(
+                            // The model chose the number; the app only scaled and bounded it, so the
+                            // app's adjustments are recorded as separate operations rather than as a
+                            // rep-intensity conversion the sanitizer never ran.
+                            aiAdjustment = AiLoadExplanation(
+                                proposedKg = planned.suggestedWeightKg,
+                                proposedAccepted = retained,
+                                deloadScaled = isDeload && retained,
+                                deloadIntensityScale = intensityScale,
+                                progressionBoundKg = if (retained) bound else null,
+                                boundedByProgression = boundedByProgression,
+                                equipmentCeilingKg = if (retained) ceiling else null,
+                                cappedByEquipment = cappedByEquipment
+                            ),
+                            setCount = SetCountExplanation(
+                                baseSets = if (exercise.movementPattern.isCompound) {
+                                    request.setsPerExercise
+                                } else {
+                                    request.accessorySetsPerExercise
+                                },
+                                deloadApplied = isDeload,
+                                deloadVolumeScale = periodization.deloadVolumeScale,
+                                fatigueEffect = FatigueSetEffect.NONE,
+                                finalSets = sets
+                            ),
+                            unavailableReason = unavailableReason
+                        )
                     )
                 }
             )
@@ -121,6 +156,13 @@ class WeeklyPlanSanitizer(
                 fatigue = request.muscleFatigue,
                 isDeload = isDeload,
                 attribution = PlanAttribution.AI_GENERATED
+            ),
+            explanation = PlanExplanation(
+                engine = enforced.engine,
+                attribution = PlanAttribution.AI_GENERATED,
+                isDeload = isDeload,
+                deloadVolumeScale = periodization.deloadVolumeScale,
+                deloadIntensityScale = periodization.deloadIntensityScale
             )
         )
     }

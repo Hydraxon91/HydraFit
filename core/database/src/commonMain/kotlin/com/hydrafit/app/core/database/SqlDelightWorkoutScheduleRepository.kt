@@ -4,6 +4,7 @@ import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.schedule.ActivationEntry as DomainActivationEntry
@@ -45,8 +46,19 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
         )
         val workouts = queries.selectAllActivationWorkouts().asFlow().mapToList(Dispatchers.Default)
         val entries = queries.selectAllActivationEntries().asFlow().mapToList(Dispatchers.Default)
-        return combine(activation, workouts, entries) { row, workoutRows, entryRows ->
-            row?.toDomain(workoutRows, entryRows)
+        val explanations = database.entryTargetExplanationQueries.selectAll()
+            .asFlow().mapToList(Dispatchers.Default)
+        return combine(activation, workouts, entries, explanations) {
+                row,
+                workoutRows,
+                entryRows,
+                explanationRows
+            ->
+            row?.toDomain(
+                workoutRows,
+                entryRows,
+                entryExplanations(explanationRows, ACTIVATION_ENTRY_KIND)
+            )
         }
     }
 
@@ -56,8 +68,15 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
                 activationId
             ).asFlow().mapToList(Dispatchers.Default)
         val entries = queries.selectAllOccurrenceEntries().asFlow().mapToList(Dispatchers.Default)
-        return combine(occurrences, entries) { occurrenceRows, entryRows ->
-            occurrenceRows.map { it.toDomain(entryRows) }
+        val explanations = database.entryTargetExplanationQueries.selectAll()
+            .asFlow().mapToList(Dispatchers.Default)
+        return combine(occurrences, entries, explanations) {
+                occurrenceRows,
+                entryRows,
+                explanationRows
+            ->
+            val byEntryId = entryExplanations(explanationRows, OCCURRENCE_ENTRY_KIND)
+            occurrenceRows.map { it.toDomain(entryRows, byEntryId) }
         }
     }
 
@@ -73,23 +92,46 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
         )
     }
 
-    override suspend fun activeActivation(): DomainTrainingActivation? =
-        queries.selectActiveActivation().executeAsOneOrNull()?.toDomainWithChildren(queries)
+    override suspend fun activeActivation(): DomainTrainingActivation? {
+        val row = queries.selectActiveActivation().executeAsOneOrNull() ?: return null
+        val explanations = entryExplanations(
+            database.entryTargetExplanationQueries.selectAll().executeAsList(),
+            ACTIVATION_ENTRY_KIND
+        )
+        return row.toDomainWithChildren(queries, explanations)
+    }
 
-    override suspend fun getActivation(id: Long): DomainTrainingActivation? =
-        queries.selectActivationById(id).executeAsOneOrNull()?.toDomainWithChildren(queries)
+    override suspend fun getActivation(id: Long): DomainTrainingActivation? {
+        val row = queries.selectActivationById(id).executeAsOneOrNull() ?: return null
+        val explanations = entryExplanations(
+            database.entryTargetExplanationQueries.selectAll().executeAsList(),
+            ACTIVATION_ENTRY_KIND
+        )
+        return row.toDomainWithChildren(queries, explanations)
+    }
 
     override suspend fun occurrences(activationId: Long): List<DomainWorkoutOccurrence> {
         val occurrenceRows = queries.selectOccurrencesForActivation(activationId).executeAsList()
         val entries = occurrenceRows.flatMap {
             queries.selectOccurrenceEntriesForOccurrence(it.id).executeAsList()
         }
-        return occurrenceRows.map { it.toDomain(entries) }
+        val explanations = entryExplanations(
+            database.entryTargetExplanationQueries.selectAll().executeAsList(),
+            OCCURRENCE_ENTRY_KIND
+        )
+        return occurrenceRows.map { it.toDomain(entries, explanations) }
     }
 
     override suspend fun getOccurrence(id: Long): DomainWorkoutOccurrence? {
         val occurrence = queries.selectOccurrenceById(id).executeAsOneOrNull() ?: return null
-        return occurrence.toDomain(queries.selectOccurrenceEntriesForOccurrence(id).executeAsList())
+        val explanations = entryExplanations(
+            database.entryTargetExplanationQueries.selectAll().executeAsList(),
+            OCCURRENCE_ENTRY_KIND
+        )
+        return occurrence.toDomain(
+            queries.selectOccurrenceEntriesForOccurrence(id).executeAsList(),
+            explanations
+        )
     }
 
     override suspend fun acceptAndActivate(
@@ -161,7 +203,9 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
                     loadCapability = entry.loadCapability.name,
                     loadKind = entry.loadKind.name
                 )
-                queries.lastInsertedActivationEntryId().executeAsOne()
+                val entryId = queries.lastInsertedActivationEntryId().executeAsOne()
+                writeEntryExplanation(ACTIVATION_ENTRY_KIND, entryId, entry.explanation)
+                entryId
             }
 
             queries.insertOccurrence(
@@ -196,6 +240,13 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
                     loadKind = entry.loadKind.name,
                     remainingDisposition = null,
                     terminalRemainingSets = null
+                )
+                // The occurrence copy inherits the frozen slot's reasoning at creation; a later
+                // replacement or edit clears it (see applyEntryChanges and the entry update path).
+                writeEntryExplanation(
+                    OCCURRENCE_ENTRY_KIND,
+                    queries.lastInsertedOccurrenceEntryId().executeAsOne(),
+                    entry.explanation
                 )
             }
         }
@@ -394,7 +445,13 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
         }
         queries.selectOccurrenceEntryIdsForOccurrence(occurrenceId).executeAsList()
             .filterNot { it in keptIds }
-            .forEach { queries.deleteOccurrenceEntry(it) }
+            .forEach { entryId ->
+                queries.deleteOccurrenceEntry(entryId)
+                database.entryTargetExplanationQueries.deleteForEntry(
+                    OCCURRENCE_ENTRY_KIND,
+                    entryId
+                )
+            }
     }
 
     override suspend fun deleteOccurrencesForActivation(activationId: Long) {
@@ -402,6 +459,13 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
             queries.selectOccurrencesForActivation(
                 activationId
             ).executeAsList().forEach { occurrence ->
+                queries.selectOccurrenceEntryIdsForOccurrence(occurrence.id).executeAsList()
+                    .forEach { entryId ->
+                        database.entryTargetExplanationQueries.deleteForEntry(
+                            OCCURRENCE_ENTRY_KIND,
+                            entryId
+                        )
+                    }
                 queries.deleteOccurrenceEntriesForOccurrence(occurrence.id)
             }
             queries.deleteOccurrencesForActivation(activationId)
@@ -434,8 +498,10 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
             remainingDisposition = remainingDisposition?.name,
             terminalRemainingSets = terminalRemainingSets?.toLong()
         )
+        val entryId = queries.lastInsertedOccurrenceEntryId().executeAsOne()
+        writeEntryExplanation(OCCURRENCE_ENTRY_KIND, entryId, explanation)
         return copy(
-            id = queries.lastInsertedOccurrenceEntryId().executeAsOne(),
+            id = entryId,
             position = position
         )
     }
@@ -458,21 +524,26 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
             terminalRemainingSets = terminalRemainingSets?.toLong(),
             id = id
         )
+        // Always written: a null explanation clears the stored reason, so a replaced or edited slot
+        // never keeps the reason of the prescription it replaced.
+        writeEntryExplanation(OCCURRENCE_ENTRY_KIND, id, explanation)
     }
 
     private fun TrainingActivation.toDomainWithChildren(
-        queries: TrainingScheduleQueries
+        queries: TrainingScheduleQueries,
+        explanations: Map<Long, ExerciseTargetExplanation>
     ): DomainTrainingActivation {
         val workouts = queries.selectActivationWorkoutsForActivation(id).executeAsList()
         val entries = workouts.flatMap {
             queries.selectActivationEntriesForWorkout(it.id).executeAsList()
         }
-        return toDomain(workouts, entries)
+        return toDomain(workouts, entries, explanations)
     }
 
     private fun TrainingActivation.toDomain(
         allWorkouts: List<ActivationWorkout>,
-        allEntries: List<ActivationEntry>
+        allEntries: List<ActivationEntry>,
+        explanations: Map<Long, ExerciseTargetExplanation>
     ): DomainTrainingActivation {
         val entriesByWorkout = allEntries.groupBy { it.workoutId }
         val workouts = allWorkouts
@@ -486,7 +557,7 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
                     focus = row.focus?.toFocusOrNull(),
                     entries = entriesByWorkout[row.id].orEmpty()
                         .sortedBy { it.position }
-                        .map { it.toDomain() }
+                        .map { it.toDomain(explanations[it.id]) }
                 )
             }
         return DomainTrainingActivation(
@@ -508,7 +579,9 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
         )
     }
 
-    private fun ActivationEntry.toDomain(): DomainActivationEntry = DomainActivationEntry(
+    private fun ActivationEntry.toDomain(
+        explanation: ExerciseTargetExplanation? = null
+    ): DomainActivationEntry = DomainActivationEntry(
         id = id,
         position = position.toInt(),
         exerciseId = exerciseId,
@@ -521,11 +594,13 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
         reps = reps.toInt(),
         weightKg = weightKg,
         loadCapability = decodeLoadCapability(loadCapability),
-        loadKind = decodeLoadKind(loadKind)
+        loadKind = decodeLoadKind(loadKind),
+        explanation = explanation
     )
 
     private fun WorkoutOccurrence.toDomain(
-        allEntries: List<OccurrenceEntry>
+        allEntries: List<OccurrenceEntry>,
+        explanations: Map<Long, ExerciseTargetExplanation>
     ): DomainWorkoutOccurrence = DomainWorkoutOccurrence(
         id = id,
         activationId = activationId,
@@ -540,10 +615,12 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
         entries = allEntries
             .filter { it.occurrenceId == id }
             .sortedBy { it.position }
-            .map { it.toDomain() }
+            .map { it.toDomain(explanations[it.id]) }
     )
 
-    private fun OccurrenceEntry.toDomain(): DomainOccurrenceEntry = DomainOccurrenceEntry(
+    private fun OccurrenceEntry.toDomain(
+        explanation: ExerciseTargetExplanation? = null
+    ): DomainOccurrenceEntry = DomainOccurrenceEntry(
         id = id,
         sourceActivationEntryId = sourceActivationEntryId, position = position.toInt(),
         exerciseId = exerciseId,
@@ -557,9 +634,112 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
         weightKg = weightKg,
         loadCapability = decodeLoadCapability(loadCapability),
         loadKind = decodeLoadKind(loadKind),
+        explanation = explanation,
         remainingDisposition = remainingDisposition?.toRemainingDisposition(),
         terminalRemainingSets = terminalRemainingSets?.toInt()
     )
+
+    /** The recorded reasoning per entry id for one entry kind; a row that cannot decode is dropped. */
+    private fun entryExplanations(
+        rows: List<EntryTargetExplanation>,
+        kind: String
+    ): Map<Long, ExerciseTargetExplanation> = rows
+        .filter { it.entryKind == kind }
+        .mapNotNull { row ->
+            val explanation = row.toExplanation() ?: return@mapNotNull null
+            row.entryId to explanation
+        }
+        .toMap()
+
+    /**
+     * Persists one entry's reasoning, or clears it. A null explanation is a real state (a replaced or
+     * edited slot, or a manual routine), so it deletes any stored row rather than leaving a stale one.
+     */
+    private fun writeEntryExplanation(
+        entryKind: String,
+        entryId: Long,
+        explanation: ExerciseTargetExplanation?
+    ) {
+        if (explanation == null) {
+            database.entryTargetExplanationQueries.deleteForEntry(entryKind, entryId)
+            return
+        }
+        val columns = explanation.toColumns()
+        database.entryTargetExplanationQueries.insertExplanation(
+            entryKind = entryKind,
+            entryId = entryId,
+            explanationVersion = columns.explanationVersion,
+            baselineSource = columns.baselineSource,
+            baselineRecentEstimateKg = columns.baselineRecentEstimateKg,
+            baselineQualifyingSetCount = columns.baselineQualifyingSetCount,
+            baselineManualFloorKg = columns.baselineManualFloorKg,
+            baselineKg = columns.baselineKg,
+            progressionOutcome = columns.progressionOutcome,
+            progressionIncrements = columns.progressionIncrements,
+            progressionDeltaKg = columns.progressionDeltaKg,
+            progressionRoundToKg = columns.progressionRoundToKg,
+            progressionSuccessStreakSize = columns.progressionSuccessStreakSize,
+            progressionFailureStreakSize = columns.progressionFailureStreakSize,
+            conversionReps = columns.conversionReps,
+            conversionIntensityFraction = columns.conversionIntensityFraction,
+            conversionDeloadIntensityScale = columns.conversionDeloadIntensityScale,
+            conversionRoundToKg = columns.conversionRoundToKg,
+            conversionUncappedWorkingKg = columns.conversionUncappedWorkingKg,
+            conversionEquipmentCeilingKg = columns.conversionEquipmentCeilingKg,
+            conversionEquipmentCeilingBinds = columns.conversionEquipmentCeilingBinds,
+            aiProposedKg = columns.aiProposedKg,
+            aiProposedAccepted = columns.aiProposedAccepted,
+            aiDeloadScaled = columns.aiDeloadScaled,
+            aiDeloadIntensityScale = columns.aiDeloadIntensityScale,
+            aiProgressionBoundKg = columns.aiProgressionBoundKg,
+            aiBoundedByProgression = columns.aiBoundedByProgression,
+            aiEquipmentCeilingKg = columns.aiEquipmentCeilingKg,
+            aiCappedByEquipment = columns.aiCappedByEquipment,
+            setBaseSets = columns.setBaseSets,
+            setDeloadApplied = columns.setDeloadApplied,
+            setDeloadVolumeScale = columns.setDeloadVolumeScale,
+            setFatigueEffect = columns.setFatigueEffect,
+            setFinalSets = columns.setFinalSets,
+            unavailableReason = columns.unavailableReason
+        )
+    }
+
+    private fun EntryTargetExplanation.toExplanation(): ExerciseTargetExplanation? =
+        decodeTargetExplanation(
+            explanationVersion = explanationVersion,
+            baselineSource = baselineSource,
+            baselineRecentEstimateKg = baselineRecentEstimateKg,
+            baselineQualifyingSetCount = baselineQualifyingSetCount,
+            baselineManualFloorKg = baselineManualFloorKg,
+            baselineKg = baselineKg,
+            progressionOutcome = progressionOutcome,
+            progressionIncrements = progressionIncrements,
+            progressionDeltaKg = progressionDeltaKg,
+            progressionRoundToKg = progressionRoundToKg,
+            progressionSuccessStreakSize = progressionSuccessStreakSize,
+            progressionFailureStreakSize = progressionFailureStreakSize,
+            conversionReps = conversionReps,
+            conversionIntensityFraction = conversionIntensityFraction,
+            conversionDeloadIntensityScale = conversionDeloadIntensityScale,
+            conversionRoundToKg = conversionRoundToKg,
+            conversionUncappedWorkingKg = conversionUncappedWorkingKg,
+            conversionEquipmentCeilingKg = conversionEquipmentCeilingKg,
+            conversionEquipmentCeilingBinds = conversionEquipmentCeilingBinds,
+            aiProposedKg = aiProposedKg,
+            aiProposedAccepted = aiProposedAccepted,
+            aiDeloadScaled = aiDeloadScaled,
+            aiDeloadIntensityScale = aiDeloadIntensityScale,
+            aiProgressionBoundKg = aiProgressionBoundKg,
+            aiBoundedByProgression = aiBoundedByProgression,
+            aiEquipmentCeilingKg = aiEquipmentCeilingKg,
+            aiCappedByEquipment = aiCappedByEquipment,
+            setBaseSets = setBaseSets,
+            setDeloadApplied = setDeloadApplied,
+            setDeloadVolumeScale = setDeloadVolumeScale,
+            setFatigueEffect = setFatigueEffect,
+            setFinalSets = setFinalSets,
+            unavailableReason = unavailableReason
+        )
 
     private fun WorkoutScheduleState.toDomain(): DomainWorkoutScheduleState =
         DomainWorkoutScheduleState(
@@ -584,6 +764,10 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
         RemainingDisposition.entries.firstOrNull { it.name == this }
 
     private companion object {
+        /** Entry kinds for [entryTargetExplanation], which stores a reason per entry row. */
+        const val ACTIVATION_ENTRY_KIND = "ACTIVATION"
+        const val OCCURRENCE_ENTRY_KIND = "OCCURRENCE"
+
         val RESOLVED_STATUS_NAMES: Set<String> = setOf(
             OccurrenceStatus.FINISHED.name,
             OccurrenceStatus.FINISHED_PARTIAL.name,

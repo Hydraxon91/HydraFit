@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
@@ -358,6 +359,110 @@ class BuildPlannerLoadInputsUseCaseTest {
 
         assertTrue("bench-press" in result.withheldWeightExerciseIds)
         assertTrue("bench-press" !in result.suggestedWeightsKg)
+    }
+
+    @Test
+    fun aHigherManualRecordIsTheBaselineSourceNotMerelyAFloor() = runTest {
+        val result = useCase(
+            sources = sources(
+                listOf(
+                    set("bench-press", day = 99, weightKg = 80.0, kind = LoadKind.EXTERNAL),
+                    set("bench-press", day = 100, weightKg = 80.0, kind = LoadKind.EXTERNAL)
+                )
+            ).copy(
+                personalRecords = listOf(PersonalRecord("bench-press", weightKg = 120.0, reps = 8))
+            ),
+            latestPlan = null,
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        val explanation = result.loadExplanations.getValue("bench-press").baseline
+        // Recent estimate: Epley(80 x 8) = 101.33; manual record: Epley(120 x 8) = 152, so the record
+        // determines the baseline and names the source.
+        assertEquals(LoadBaselineSource.MANUAL_PERSONAL_RECORD, explanation.source)
+        assertEquals(152.0, explanation.baselineKg, 1e-9)
+        assertEquals(101.33333333333333, requireNotNull(explanation.recentEstimateKg), 1e-9)
+        assertEquals(152.0, requireNotNull(explanation.manualFloorKg), 1e-9)
+        assertEquals(2, explanation.qualifyingSetCount)
+    }
+
+    @Test
+    fun recordsTheRecentPerformanceBaselineAndItsQualifyingSetCount() = runTest {
+        val result = useCase(
+            sources = sources(completedExternalSessions("bench-press")),
+            latestPlan = null,
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        val explanation = result.loadExplanations.getValue("bench-press").baseline
+        assertEquals(LoadBaselineSource.RECENT_PERFORMANCE, explanation.source)
+        assertEquals(9, explanation.qualifyingSetCount)
+        assertEquals(126.66666666666667, explanation.baselineKg, 1e-9)
+        assertEquals(126.66666666666667, explanation.recentEstimateKg!!, 1e-9)
+        assertNull(explanation.manualFloorKg)
+    }
+
+    @Test
+    fun recordsAManualRecordBaselineAndWhyProgressionDidNotApply() = runTest {
+        val result = useCase(
+            sources = sources(sets = emptyList()).copy(
+                personalRecords = listOf(PersonalRecord("bench-press", weightKg = 100.0, reps = 8))
+            ),
+            latestPlan = null,
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        val explanation = result.loadExplanations.getValue("bench-press")
+        assertEquals(LoadBaselineSource.MANUAL_PERSONAL_RECORD, explanation.baseline.source)
+        assertNull(explanation.baseline.recentEstimateKg)
+        assertEquals(0, explanation.baseline.qualifyingSetCount)
+        assertEquals(126.66666666666667, explanation.baseline.baselineKg, 1e-9)
+        // With no accepted plan there is no typed prescription to earn a streak against.
+        assertEquals(ProgressionOutcome.NONE_NO_TYPED_PRESCRIPTION, explanation.progression.outcome)
+    }
+
+    @Test
+    fun theRecordedBaselinePlusDeltaAlwaysMatchesTheSuggestedWeight() = runTest {
+        val result = useCase(
+            sources = sources(completedExternalSessions("bench-press")),
+            latestPlan = plan("bench-press", weightKg = 80.0, kind = LoadKind.EXTERNAL),
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        val explanation = result.loadExplanations.getValue("bench-press")
+        assertEquals(ProgressionOutcome.APPLIED, explanation.progression.outcome)
+        assertEquals(
+            result.suggestedWeightsKg.getValue("bench-press"),
+            explanation.baseline.baselineKg + explanation.progression.deltaKg,
+            1e-9
+        )
+    }
+
+    @Test
+    fun aWithheldExerciseHasNoBaselineRecord() = runTest {
+        val result = useCase(
+            sources = sources(
+                listOf(
+                    set("bench-press", day = 1, weightKg = 120.0, kind = LoadKind.EXTERNAL),
+                    set("bench-press", day = 90, weightKg = 100.0, kind = LoadKind.EXTERNAL)
+                )
+            ),
+            latestPlan = null,
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        assertTrue("bench-press" in result.withheldWeightExerciseIds)
+        assertTrue("bench-press" !in result.loadExplanations)
     }
 
     private fun completedExternalSessions(exerciseId: String): List<WorkoutSet> =

@@ -35,6 +35,20 @@ unclear, clarify it before starting.
 - Review findings, fix triage and implementation are separate gated
   activities. Passing the review does **not** authorize a commit or push.
 
+## Builder preparation (not a review)
+
+Builders should use the review criteria prospectively through the
+`Implementation Readiness` procedure in `docs/agent-project-reference.md`: make
+the approved contract, affected consumers, tests and verification evidence clear
+before implementation. This preparation is not a formal review, does not issue a
+verdict and does not replace the reviewer's independent inspection of the full
+declared scope. Formal review still begins only when the user requests it and
+Plan Mode is active.
+
+For corrective work, retain traceability to the original approved scope and
+verification evidence. Closing individual findings does not by itself approve the
+entire change range.
+
 ## 1. Establish the review scope
 
 - Inspect branch, working-tree status and recent commits.
