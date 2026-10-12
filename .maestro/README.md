@@ -107,6 +107,26 @@ its own `Edit set` action. No fatal exception in the captured logcat.
 Unverified for this leg: cancelling or failing a correction on-device, a correction that resegments the
 set into another session, larger text, dark mode, locale and TalkBack.
 
+## 0.7.2 history tab-navigation fix (2026-10-12)
+
+Run on `emulator-5554` (debug `Medium_Phone`, 1080×2400) with the compact CLI hierarchy fallback
+(MCP `inspect_screen` failed again with `Device server died during 'deviceInfo'`). Fix under test:
+the Logger's shared ViewModel lookups refuse a destroyed graph entry, and the shell's bottom bar
+returns a re-selected tab to its own root instead of saving and restoring the nested screen.
+
+Journeys, each asserted from the hierarchy after the tap, with no new `AndroidRuntime` entry and no
+blank screen:
+
+- **History browser → Log tab** — lands on `Log workout`, the Logger root. Screenshot:
+  `/tmp/hf-nav-reselect.png`.
+- **Session detail → Log tab** — lands on `Log workout`.
+- **History browser → Settings → Log** — the browser returns with its search field, filters and
+  session list intact. Screenshot: `/tmp/hf-nav-restore.png`.
+
+Not verified: system Back from these screens, the summary handoff, larger text, dark mode, locale
+and TalkBack. `Enable guided workouts` was left OFF, its recorded baseline. No record was written,
+edited or deleted by these checks.
+
 ## 0.7.1-C3 exercise setup-note verification (2026-10-12)
 
 `logger-exercise-note.yaml` passed `check-syntax` and a bounded runtime pass on `emulator-5554`

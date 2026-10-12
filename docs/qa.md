@@ -500,8 +500,24 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   `isAdditionalTo` defined in terms of it so the two rules cannot drift. `keepsTheCatalogNameForAWarmup
   ThatBelongsToNoSlot` was verified to fail against the narrowed condition before being accepted, and
   `skipsTheCatalogWhenEveryRecordedSetIsNamedByItsEntry` covers the skip path.
-  **A further targeted closure confirmation under `docs/review-discipline.md` §8 is still
-  outstanding**, and this record is builder verification, not a review verdict.
+- The targeted closure round 2 under `docs/review-discipline.md` §8 returned **APPROVED** on
+  `be33187`: R10-03/R10-12 were confirmed against the projection's name fallback (warm-ups included),
+  the remaining closures and both acceptance records were re-confirmed, and the gate evidence for
+  that revision was checked. Its only item was a nonblocking `PLANS.md` status inconsistency,
+  corrected in the accompanying documentation change. The review changed no files. Approval covers
+  the reviewed scope only; release preparation, pushing, tagging and publication remain separately
+  gated.
+- **Navigation fix `617d3d6`** (history tab-navigation): re-selecting the Log tab from the history
+  browser crashed (the tab switch destroys the saved Log graph entry, which Navigation then
+  recomposes). The shared Logger lookups now refuse a destroyed entry and the shell returns a
+  re-selected tab to its own root without saving the nested screen. Verified on `emulator-5554`
+  (debug): history list → Log tab, session detail → Log tab, and history → Settings → Log all land
+  on real content with no blank screen and no `AndroidRuntime` entry. Evidence:
+  `.maestro/README.md` §0.7.2 history tab-navigation fix.
+- **Release gate on the 0.7.2 candidate** (`617d3d6`): **1,438 host tests, zero failures/errors**,
+  plus `verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`,
+  `:androidApp:lintVitalRelease`, `:shared:compileKotlinIosSimulatorArm64` and
+  `:core:network:compileKotlinIosSimulatorArm64` (`/tmp/hf-rel072-gate.log`).
 - Emulator evidence on debug builds (`emulator-5554`): a partial and a full finish, both history
   landings, Back unwinding and a summary-driven set correction, with viewed screenshots; run counts,
   causes and fixture effects are in `.maestro/README.md` §0.7.2-C3 and §0.7.2-C4.
