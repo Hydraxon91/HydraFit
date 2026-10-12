@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.workout.WorkoutSet
+import com.hydrafit.app.core.domain.workout.unicodeCaseFold
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseException
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
 import kotlin.test.AfterTest
@@ -40,6 +41,46 @@ class SqlDelightCustomExerciseRepositoryTest {
     @AfterTest
     fun tearDown() {
         driver.close()
+    }
+
+    @Test
+    fun renamingACustomKeepsARestoredOverrideNameInTheSearchProjection() = runTest {
+        val created = repository.add(
+            name = "User Trap Bar",
+            requiredEquipment = setOf(EquipmentTag.BARBELL),
+            involvements = mapOf(MuscleGroup.LATS to 1.0),
+            movementPattern = MovementPattern.HINGE,
+            isUnilateral = false,
+            loadCapability = ExerciseLoadCapability.EXTERNAL
+        )
+        // A restored or legacy payload may carry an override that renames a custom exercise, and the
+        // catalog resolves the displayed name from it.
+        database.exerciseOverrideQueries.upsert(
+            exerciseId = created.id,
+            name = "Restored Rename",
+            requiredEquipment = null,
+            movementPattern = null,
+            isUnilateral = null,
+            loadCapability = null,
+            involvements = null
+        )
+
+        repository.update(
+            id = created.id,
+            name = "User Trap Bar Renamed",
+            requiredEquipment = setOf(EquipmentTag.BARBELL),
+            involvements = mapOf(MuscleGroup.LATS to 1.0),
+            movementPattern = MovementPattern.HINGE,
+            isUnilateral = false,
+            loadCapability = ExerciseLoadCapability.EXTERNAL
+        )
+
+        // The projection matches the name the catalog shows, not the custom's own new name.
+        assertEquals(
+            unicodeCaseFold("Restored Rename"),
+            database.exerciseQueries.selectById(created.id).executeAsOne().searchName
+        )
+        assertEquals("Restored Rename", catalog.all().first { it.id == created.id }.name)
     }
 
     @Test

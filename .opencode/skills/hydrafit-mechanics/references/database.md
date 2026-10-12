@@ -45,7 +45,8 @@ identity through resegmentation, even when a session becomes empty. `42.sqm` add
 search projections `exercise.searchName` and `sessionNote.searchNote` (both default empty);
 `unicodeCaseFold` in `:core/domain` rewrites them on every name/note write. `exercise.searchName` holds
 the folded *effective* display name and every writer that can change a name routes through
-`refreshExerciseSearchName` (seed catalog, custom-exercise restore, override update/reset); the
+`refreshExerciseSearchName` (seed catalog, custom-exercise add/rename, custom-exercise restore,
+override update/reset); the
 custom-exercise dedupe merge carries the existing override name forward, so it cannot change a
 projection. `SearchProjectionBackfill` rebuilds both projections for every row at startup, which heals
 databases upgraded from an earlier version as well as any drift. `43.sqm` adds
