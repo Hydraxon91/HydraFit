@@ -120,6 +120,108 @@ class TargetExplanationTextTest {
     }
 
     @Test
+    fun anAcceptedModelProposalWithoutAdjustmentsSaysSo() {
+        val explanation = ExerciseTargetExplanation(
+            aiAdjustment = AiLoadExplanation(
+                proposedKg = 60.0,
+                proposedAccepted = true,
+                deloadScaled = false,
+                deloadIntensityScale = 1.0,
+                progressionBoundKg = null,
+                boundedByProgression = false,
+                equipmentCeilingKg = null,
+                cappedByEquipment = false
+            )
+        )
+
+        val view = requireNotNull(explanation.toExplanationView())
+
+        assertEquals(
+            listOf(
+                TargetExplanationReason.AI_PROPOSED to 60.0,
+                TargetExplanationReason.AI_ACCEPTED to null
+            ),
+            view.lines.map { it.reason to it.value }
+        )
+    }
+
+    @Test
+    fun anUnrecordedNumberIsOmittedRatherThanShownAsZero() {
+        val view = requireNotNull(
+            ExerciseTargetExplanation(
+                baseline = LoadBaselineExplanation(
+                    source = LoadBaselineSource.MANUAL_PERSONAL_RECORD,
+                    recentEstimateKg = null,
+                    qualifyingSetCount = 0,
+                    manualFloorKg = 90.0,
+                    baselineKg = 90.0
+                )
+            ).toExplanationView()
+        )
+
+        assertEquals(
+            listOf(
+                TargetExplanationReason.BASELINE_MANUAL_FLOOR to 90.0,
+                TargetExplanationReason.BASELINE_EFFECTIVE to 90.0
+            ),
+            view.lines.map { it.reason to it.value }
+        )
+    }
+
+    @Test
+    fun aNonBindingAiCeilingIsReportedWithoutSayingItCappedTheProposal() {
+        val view = requireNotNull(
+            ExerciseTargetExplanation(
+                aiAdjustment = AiLoadExplanation(
+                    proposedKg = 80.0,
+                    proposedAccepted = true,
+                    deloadScaled = false,
+                    deloadIntensityScale = 1.0,
+                    progressionBoundKg = null,
+                    boundedByProgression = false,
+                    equipmentCeilingKg = 100.0,
+                    cappedByEquipment = false
+                )
+            ).toExplanationView()
+        )
+
+        assertEquals(
+            listOf(
+                TargetExplanationReason.AI_PROPOSED to 80.0,
+                TargetExplanationReason.AI_ACCEPTED to null,
+                TargetExplanationReason.AI_EQUIPMENT_CEILING to 100.0,
+                TargetExplanationReason.AI_CEILING_NOT_BINDING to null
+            ),
+            view.lines.map { it.reason to it.value }
+        )
+    }
+
+    @Test
+    fun aNonBindingCalculatedCeilingIsReportedWithoutSayingItLimitedTheTarget() {
+        val view = requireNotNull(
+            ExerciseTargetExplanation(
+                conversion = LoadConversionExplanation(
+                    reps = 8,
+                    intensityFraction = 0.8,
+                    roundToKg = 2.5,
+                    equipmentCeilingKg = 100.0,
+                    equipmentCeilingBinds = false
+                )
+            ).toExplanationView()
+        )
+
+        assertEquals(
+            listOf(
+                TargetExplanationReason.CONVERSION_REPS to 8.0,
+                TargetExplanationReason.CONVERSION_INTENSITY to 0.8,
+                TargetExplanationReason.CONVERSION_ROUNDED_TO to 2.5,
+                TargetExplanationReason.CONVERSION_CEILING to 100.0
+            ),
+            view.lines.map { it.reason to it.value }
+        )
+    }
+
+    @Test
     fun aMissingLoadReportsWhyWithoutInventingADetail() {
         val view = requireNotNull(
             ExerciseTargetExplanation(
