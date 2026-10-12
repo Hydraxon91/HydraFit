@@ -45,9 +45,17 @@ screenshot at the tested font scale/theme; the regression checks the wrapping ac
 ## 0.7.1 history browser and correction verification (2026-10-12)
 
 Both new files passed the installed Maestro CLI `check-syntax` and a bounded runtime pass on
-`emulator-5554` (debug `Medium_Phone`, 1080×2400): `logger-history-browser.yaml` in two attempts,
-`logger-history-correction.yaml` in four attempts while its fixture setup was made
-state-independent. The browser flow covers the history entry point, the Log tab staying selected on
+`emulator-5554` (debug `Medium_Phone`, 1080×2400): `logger-history-browser.yaml` ran six times (three
+failures) and `logger-history-correction.yaml` seven times (four failures). Each final version passed
+on its first run after the crash fix, and both were re-run green on the final 0.7.1 build and again
+after the rename fix (`/tmp/hydrafit-f6-browser.log`, `/tmp/hydrafit-f6-correction.log`, no fatal
+exception in either logcat). The browser failures were a test-side selector ambiguity — `Back`
+matched the system navigation bar, then the IME's own back control — and, once those were scoped, one
+real app crash (described below). The correction failures were flow setup, not app behaviour: the
+form fields sat below the fold behind the exercise setup-note editor, the chosen bodyweight exercise
+has no weight field, a previous run's open session absorbed the logged set (fixed by tapping **New
+session** first), and the final assertion depended on a scroll position.
+The browser flow covers the history entry point, the Log tab staying selected on
 the history screens, a session-note search, the no-matches state, clearing filters, the in-app Back
 button and the return to the Logger. The correction flow taps **New session**, logs one synthetic
 bodyweight set (Dips, 7 reps), finds it as the newest history entry, checks the recorded set, the
