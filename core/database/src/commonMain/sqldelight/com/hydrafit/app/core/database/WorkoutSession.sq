@@ -34,3 +34,6 @@ SELECT * FROM workoutSession WHERE endedAtMillis IS NULL ORDER BY startedAtMilli
 
 selectAllSessions:
 SELECT * FROM workoutSession ORDER BY startedAtMillis, id;
+
+selectSessionById:
+SELECT * FROM workoutSession WHERE id = ?;

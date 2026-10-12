@@ -1,0 +1,16 @@
+CREATE TABLE sessionNote (
+    sessionId TEXT NOT NULL PRIMARY KEY REFERENCES workoutSession(id) ON DELETE CASCADE,
+    note TEXT NOT NULL
+);
+
+selectBySessionId:
+SELECT sessionId, note FROM sessionNote WHERE sessionId = ?;
+
+selectAll:
+SELECT * FROM sessionNote ORDER BY sessionId;
+
+upsert:
+INSERT OR REPLACE INTO sessionNote(sessionId, note) VALUES (?, ?);
+
+deleteAll:
+DELETE FROM sessionNote;

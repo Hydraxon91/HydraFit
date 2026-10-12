@@ -149,6 +149,23 @@ class BackupJsonTest {
     }
 
     @Test
+    fun formatTenRequiresSessionNotesAndFormatNineDefaultsThem() {
+        val file = emptyBackupFile()
+        val encoded = BackupJson.encode(file)
+        val withoutSessionNotes = encoded.replace(",\"sessionNotes\":[]", "")
+        assertEquals(
+            file.copy(formatVersion = 9),
+            BackupJson.decode(
+                withoutSessionNotes.replace(
+                    "\"formatVersion\":$BACKUP_FORMAT_VERSION",
+                    "\"formatVersion\":9"
+                )
+            )
+        )
+        assertFailure(BackupFailure.MALFORMED, withoutSessionNotes)
+    }
+
+    @Test
     fun formatFourRequiresAllTimingFieldsButAcceptsExplicitNulls() {
         val file = emptyBackupFile().copy(workoutSets = listOf(workoutSet("LIVE", null, null)))
         val encoded = BackupJson.encode(file)

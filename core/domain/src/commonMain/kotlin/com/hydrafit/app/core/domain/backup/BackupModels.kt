@@ -6,14 +6,15 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 9
+const val BACKUP_FORMAT_VERSION: Int = 10
 
 /**
  * A whole logical snapshot of the supported offline data. Rows are stored flat with their persisted
  * ids so restore can rebuild relationships exactly; the envelope carries the format identity, a
- * catalog fingerprint and the export time. Version 9 adds persistent per-exercise setup notes;
+ * catalog fingerprint and the export time. Version 10 adds persistent per-session notes;
  * earlier formats have none, so a restored legacy install reports no note rather than an explicit
- * clear. Version 8 adds the recorded reasoning of frozen
+ * clear. Version 9 adds persistent per-exercise setup notes; versions 1–8 have none. Version 8 adds
+ * the recorded reasoning of frozen
  * activation/occurrence entries; earlier formats have none, so a restored legacy entry reports no
  * explanation rather than a fabricated one. Version 7 adds the recorded plan-target explanations;
  * earlier formats have none, so a restored legacy plan reports no explanation rather than a
@@ -65,10 +66,12 @@ data class BackupFile(
      */
     val entryTargetExplanations: List<BackupEntryTargetExplanationRecord> = emptyList(),
     /**
-     * Persistent exercise setup notes, newest format only. Absent in formats 1–8, which restores as
+     * Persistent exercise setup notes, format 9 and later. Absent in formats 1–8, which restores as
      * "no note recorded" rather than as an explicit clear.
      */
-    val exerciseNotes: List<BackupExerciseNoteRecord> = emptyList()
+    val exerciseNotes: List<BackupExerciseNoteRecord> = emptyList(),
+    /** Notes keyed to a workout-session identity; absent before format 10. */
+    val sessionNotes: List<BackupSessionNoteRecord> = emptyList()
 )
 
 @Serializable
@@ -449,3 +452,6 @@ data class BackupRestPreferenceRecord(val exerciseId: String?, val durationSecon
 /** One exercise's persistent setup note. The [note] may be empty, an explicit clear. */
 @Serializable
 data class BackupExerciseNoteRecord(val exerciseId: String, val note: String)
+
+@Serializable
+data class BackupSessionNoteRecord(val sessionId: String, val note: String)

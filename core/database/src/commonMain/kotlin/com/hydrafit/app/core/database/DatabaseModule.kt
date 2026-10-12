@@ -14,6 +14,7 @@ import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferenceRepositor
 import com.hydrafit.app.core.domain.startup.StartupReadiness
 import com.hydrafit.app.core.domain.workout.ExerciseNoteRepository
 import com.hydrafit.app.core.domain.workout.RestCountdownRepository
+import com.hydrafit.app.core.domain.workout.SessionNoteRepository
 import com.hydrafit.app.core.domain.workout.SessionResegmenter
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
@@ -48,6 +49,7 @@ val databaseModule: Module = module {
     single<EquipmentSelectionRepository> { SqlDelightEquipmentSelectionRepository(get()) }
     single<WorkoutLogRepository> { SqlDelightWorkoutLogRepository(get()) }
     single<ExerciseNoteRepository> { SqlDelightExerciseNoteRepository(get()) }
+    single<SessionNoteRepository> { SqlDelightSessionNoteRepository(get()) }
     single<WorkoutSessionRepository> { SqlDelightWorkoutSessionRepository(get()) }
     single<SessionResegmenter> { SqlDelightSessionResegmenter(get()) }
     single<EnginePreferenceRepository> { SqlDelightEnginePreferenceRepository(get()) }

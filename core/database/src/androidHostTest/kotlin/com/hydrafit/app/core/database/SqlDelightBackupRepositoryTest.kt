@@ -77,6 +77,8 @@ class SqlDelightBackupRepositoryTest {
         val exerciseNotes = SqlDelightExerciseNoteRepository(database)
         exerciseNotes.save("back-squat", "Set up tall")
         exerciseNotes.clear("barbell-bench-press")
+        val sessionNotes = SqlDelightSessionNoteRepository(database)
+        sessionNotes.save("s1", "Session setup")
         SqlDelightGuidedWorkoutPreferenceRepository(database).setGuidedWorkoutEnabled(true)
         val restPreferences = SqlDelightRestPreferenceRepository(database)
         restPreferences.setGlobalDefaultSeconds(180L)
@@ -99,6 +101,10 @@ class SqlDelightBackupRepositoryTest {
         assertEquals(150L, file.workoutSets.single().completedAtElapsedMillis)
         assertEquals("s1", file.workoutSets.single().sessionId)
         assertEquals(listOf("s1"), file.workoutSessions.map { it.id })
+        assertEquals(
+            listOf("s1" to "Session setup"),
+            file.sessionNotes.map { it.sessionId to it.note }
+        )
         assertEquals(1, file.plans.size)
         assertEquals(1, file.planDays.size)
         assertEquals(1, file.planEntries.size)
@@ -164,6 +170,52 @@ class SqlDelightBackupRepositoryTest {
             database.exerciseNoteQueries.selectById("back-squat").executeAsOne().note
         )
         assertEquals("", exerciseNotes.note("barbell-bench-press"))
+    }
+
+    @Test
+    fun sessionNotesRoundTripExplicitClearAndWholeReplacementCleanup() = runTest {
+        seedRepresentativeData()
+        val notes = SqlDelightSessionNoteRepository(database)
+        notes.save("s1", "Session context")
+        val exported = repository.export("test", 1L)
+        val emptyPayload = exported.copy(sessionNotes = emptyList())
+
+        repository.restore(emptyPayload)
+        assertNull(notes.note("s1"))
+        repository.restore(exported)
+        assertEquals("Session context", notes.note("s1"))
+
+        notes.clear("s1")
+        val explicitlyCleared = repository.export("test", 2L)
+        val decoded = BackupJson.decode(BackupJson.encode(explicitlyCleared))
+        repository.restore(decoded)
+        assertEquals("", notes.note("s1"))
+    }
+
+    @Test
+    fun failedSessionNoteReplacementRollsBackSessionsAndSets() = runTest {
+        seedRepresentativeData()
+        val notes = SqlDelightSessionNoteRepository(database)
+        notes.save("s1", "Keep this note")
+        val before = repository.export("test", 1L)
+        driver.execute(
+            null,
+            "CREATE TRIGGER fail_restored_session_note BEFORE INSERT ON sessionNote " +
+                "BEGIN SELECT RAISE(ABORT, 'test failure'); END",
+            0
+        )
+
+        assertFailsWith<Exception> { repository.restore(before) }
+
+        assertEquals("Keep this note", notes.note("s1"))
+        assertEquals(
+            before.workoutSessions.map { it.id },
+            database.workoutSessionQueries.selectAllSessions().executeAsList().map { it.id }
+        )
+        assertEquals(
+            before.workoutSets.map { it.id },
+            database.workoutLogQueries.selectAllSets().executeAsList().map { it.id }
+        )
     }
 
     @Test
@@ -345,6 +397,35 @@ class SqlDelightBackupRepositoryTest {
             exerciseNotes = listOf(
                 com.hydrafit.app.core.domain.backup.BackupExerciseNoteRecord(
                     "back-squat",
+                    "x".repeat(com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH + 1)
+                )
+            )
+        )
+        staging.stage(BackupJson.encode(invalid), "t", 1L)
+
+        applyStaged()
+
+        assertEquals(before, repository.export(appVersion = "t", exportedAtMillis = 1L))
+        assertNull(staging.staged())
+        assertEquals(
+            com.hydrafit.app.core.domain.backup.BackupFailure.INVALID_VALUE,
+            staging.applyError()?.failure
+        )
+    }
+
+    @Test
+    fun invalidStagedSessionNoteDoesNotWriteAnything() = runTest {
+        seedRepresentativeData()
+        val before = repository.export(appVersion = "t", exportedAtMillis = 1L)
+        val catalog = SqlDelightBackupCatalog()
+        val staging = SqlDelightBackupStagingRepository(database)
+        val preview = PreviewBackupUseCase(BackupValidator(catalog))
+        val applyStaged =
+            ApplyStagedBackupUseCase(preview, repository, staging, TimeProvider { 2L })
+        val invalid = before.copy(
+            sessionNotes = listOf(
+                com.hydrafit.app.core.domain.backup.BackupSessionNoteRecord(
+                    "s1",
                     "x".repeat(com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH + 1)
                 )
             )

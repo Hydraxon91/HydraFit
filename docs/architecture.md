@@ -236,6 +236,14 @@ when both exist, mirroring the preference and rest-override rules; a successful 
 deletion removes the note in the same transaction. Notes are included in the OF-01 backup (format 9)
 and survive export/restore.
 
+**Session notes (implemented, 0.7.1-C2).** A separate plain-text note is keyed by explicit workout
+session identity in `sessionNote` (migration `41.sqm`) behind `SessionNoteRepository`. Missing rows
+mean never set; an empty stored value is an explicit clear. Save/Clear validate the existing session
+inside the write transaction and never create or copy a note to a new session. Notes remain attached
+to their identity through set correction/resegmentation, including when that session becomes empty.
+Session notes use the shared 2,000-character `NOTE_MAX_LENGTH` and are included in OF-01 format 10;
+formats 1–9 restore no session notes during whole replacement.
+
 **Volume explanation (implemented, C4 / OF-03 slice).** The VOL-01 volume assessment is persisted
 with the accepted plan so it always matches the calculation/output that produced it. On acceptance,
 `AcceptWeeklyPlanUseCase` freezes `WeeklyPlan.armCoverage` and an honest `PlanAttribution`
@@ -533,7 +541,7 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   and `SqlDelightBackupCatalog`; the `:core:userdata` `BackupFileStore` port
   (`AndroidBackupFileStore` SAF implementation, `UnsupportedBackupFileStore` on
   iOS); the Settings `BackupRoute`/`BackupViewModel`.
-- **Rules:** the file is logical (`format` + `formatVersion` 9), independent of the
+- **Rules:** the file is logical (`format` + `formatVersion` 10), independent of the
   SQLite schema and the app version. Every envelope field is required, so a file
   that omits one is rejected as malformed rather than read as an empty snapshot;
   nullable fields are present as explicit `null`, not omitted. The manifest carries

@@ -36,6 +36,9 @@ class BackupValidator(private val catalog: BackupCatalog) {
         if (file.format != BACKUP_FORMAT || file.formatVersion !in SUPPORTED_FORMAT_VERSIONS) {
             fail(BackupFailure.UNSUPPORTED_VERSION)
         }
+        if (file.formatVersion < 10 && file.sessionNotes.isNotEmpty()) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
 
         val seedExerciseIds = catalog.seedExerciseIds()
         val builtInEquipmentIds = catalog.builtInEquipmentIds()
@@ -78,6 +81,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
         uniqueBy(file.planTargetExplanationStates) { it.planId }
         uniqueBy(file.entryTargetExplanations) { it.entryKind to it.entryId }
         uniqueBy(file.exerciseNotes) { it.exerciseId }
+        uniqueBy(file.sessionNotes) { it.sessionId }
         uniqueBy(file.selectedEquipment) { it }
 
         val customEquipmentIds = file.equipment.filter { !it.isBuiltIn }.map { it.id }.toSet()
@@ -323,6 +327,10 @@ class BackupValidator(private val catalog: BackupCatalog) {
         file.exclusions.forEach { exercise(it.exerciseId, knownExercises) }
         file.exerciseNotes.forEach {
             exercise(it.exerciseId, knownExercises)
+            if (it.note.length > NOTE_MAX_LENGTH) fail(BackupFailure.INVALID_VALUE)
+        }
+        file.sessionNotes.forEach {
+            reference(it.sessionId, sessionIds)
             if (it.note.length > NOTE_MAX_LENGTH) fail(BackupFailure.INVALID_VALUE)
         }
 

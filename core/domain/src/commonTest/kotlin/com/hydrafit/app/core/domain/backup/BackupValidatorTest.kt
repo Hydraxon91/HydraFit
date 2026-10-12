@@ -268,6 +268,36 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun validatesSessionNoteReferencesLengthAndDuplicates() {
+        validator.validate(
+            validFile().copy(
+                sessionNotes = listOf(BackupSessionNoteRecord("s1", "x".repeat(NOTE_MAX_LENGTH)))
+            )
+        )
+        validator.validate(
+            validFile().copy(sessionNotes = listOf(BackupSessionNoteRecord("s1", "")))
+        )
+        assertFailure(BackupFailure.INVALID_REFERENCE) {
+            validFile().copy(sessionNotes = listOf(BackupSessionNoteRecord("missing", "note")))
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            validFile().copy(
+                sessionNotes = listOf(
+                    BackupSessionNoteRecord("s1", "x".repeat(NOTE_MAX_LENGTH + 1))
+                )
+            )
+        }
+        assertFailure(BackupFailure.DUPLICATE_ID) {
+            validFile().copy(
+                sessionNotes = listOf(
+                    BackupSessionNoteRecord("s1", "first"),
+                    BackupSessionNoteRecord("s1", "second")
+                )
+            )
+        }
+    }
+
+    @Test
     fun rejectsDuplicateCompositeExplanationKeys() {
         assertFailure(BackupFailure.DUPLICATE_ID) {
             validFile().copy(

@@ -30,6 +30,7 @@ import com.hydrafit.app.core.domain.backup.BackupRoutineRecord
 import com.hydrafit.app.core.domain.backup.BackupRoutineWorkoutRecord
 import com.hydrafit.app.core.domain.backup.BackupScheduleStateRecord
 import com.hydrafit.app.core.domain.backup.BackupSeedProfile
+import com.hydrafit.app.core.domain.backup.BackupSessionNoteRecord
 import com.hydrafit.app.core.domain.backup.BackupSettingsRecord
 import com.hydrafit.app.core.domain.backup.BackupVolumeExplanationRecord
 import com.hydrafit.app.core.domain.backup.BackupVolumeExplanationStateRecord
@@ -462,6 +463,9 @@ class SqlDelightBackupRepository(
                     },
                 exerciseNotes = database.exerciseNoteQueries.selectAll().executeAsList().map {
                     BackupExerciseNoteRecord(exerciseId = it.exerciseId, note = it.note)
+                },
+                sessionNotes = database.sessionNoteQueries.selectAll().executeAsList().map {
+                    BackupSessionNoteRecord(sessionId = it.sessionId, note = it.note)
                 }
             )
         }
@@ -477,6 +481,7 @@ class SqlDelightBackupRepository(
             database.restCountdownQueries.deletePersisted()
             database.exerciseExclusionQueries.deleteAll()
             database.exerciseNoteQueries.deleteAll()
+            database.sessionNoteQueries.deleteAll()
             database.personalRecordQueries.deleteAll()
             database.workoutLogQueries.deleteAllSets()
             database.workoutSessionQueries.deleteAllSessions()
@@ -533,6 +538,9 @@ class SqlDelightBackupRepository(
                     localEpochDay = session.localEpochDay,
                     occurrenceId = session.occurrenceId
                 )
+            }
+            file.sessionNotes.forEach {
+                database.sessionNoteQueries.upsert(it.sessionId, it.note)
             }
             file.customExercises.forEach { exercise ->
                 database.exerciseQueries.insertCustom(

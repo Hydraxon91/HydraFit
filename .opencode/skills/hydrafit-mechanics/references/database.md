@@ -36,12 +36,12 @@ per-slot target reasoning, keyed by `(planId, dayIndex, position)`) and
 `planTargetExplanationState` (plan-level deload/attribution context); `39.sqm` adds
 `entryTargetExplanation` (recorded reasoning for a frozen activation/occurrence entry, keyed by
 `entryKind` + `entryId`; entry ids are AUTOINCREMENT so an abandoned row can never be adopted); `40.sqm`
-adds `exerciseNote` (one persistent setup note per exercise id; the note text is stored, an empty
-note is an explicit clear, and a missing row means the note was never set). Writes validate the
-2,000-character limit and exercise identity in the same transaction as the upsert. Both
-start empty for an existing database, which reads as "not recorded"; the deterministic fatigue-skip
-candidate list is
-deliberately not persisted. Current schema version is 41. Determine the
+adds `exerciseNote` (empty is an explicit clear; a missing row means never set). Writes validate the
+2,000-character limit and exercise identity in the same transaction. `41.sqm` adds `sessionNote`,
+keyed by existing session id with the same absent-versus-empty encoding and length limit; Save/Clear
+never create sessions. Existing databases start without session notes. Notes stay attached to session
+identity through resegmentation, even when a session becomes empty. Current schema version is 42.
+Determine the
 next version from the current directory/generated Schema rather than copying this snapshot.
 
 `restPreference` stores the global default under `GLOBAL` and exercise overrides under
@@ -69,11 +69,11 @@ revision. The same `freezesOccurrenceSlot` predicate backs the use case's pre-ch
 
 `V1ToCurrentMigrationTest` migrates a v1 database (only the `exercise` table) through
 the current migration chain and asserts the retained values, legacy→involvement conversion,
-rest preference/countdown/guidance and exercise-note tables; target-explanation tables are
-covered by their own scoped migration tests (`38.sqm`, `39.sqm`), and the note table by
-`ExerciseNoteMigrationTest` (`40.sqm`).
+rest preference/countdown/guidance and note tables; target-explanation tables are
+covered by their own scoped migration tests (`38.sqm`, `39.sqm`), and the exercise/session-note
+tables by `ExerciseNoteMigrationTest` (`40.sqm`) and `SessionNoteMigrationTest` (`41.sqm`).
 SQLDelight `verifyMigrations` is enabled against the committed v1 seed `databases/1.db`;
-`./gradlew verifySqlDelightMigration` (run in CI) applies `1.sqm..40.sqm` to it and fails
+`./gradlew verifySqlDelightMigration` (run in CI) applies `1.sqm..41.sqm` to it and fails
 if the result differs from the current `.sq`. Keep `1.db` fixed — it is the immutable v1
 schema, not a current-version snapshot. When the migration chain produces a different
 column *order* than `.sq` declares, align the `.sq` order to the chain (no column

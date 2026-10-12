@@ -10,6 +10,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlinx.coroutines.test.runTest
 
 class SqlDelightSessionResegmenterTest {
@@ -58,6 +59,24 @@ class SqlDelightSessionResegmenterTest {
         assertEquals(100, byId.getValue("s1").endedAtMillis)
         assertEquals(1000, byId.getValue("s2").startedAtMillis)
         assertEquals(1050, byId.getValue("s2").endedAtMillis)
+    }
+
+    @Test
+    fun noteStaysWithSessionIdentityWhenCorrectionMovesItsLastSetAway() = runTest {
+        insertSession("noted", started = 100, ended = 100, day = 0)
+        insertSession("destination", started = 1000, ended = 1000, day = 0)
+        insertSet(1, "noted", 100)
+        val notes = SqlDelightSessionNoteRepository(database)
+        notes.save("noted", "Do not transfer me")
+
+        resegmenter.resegmentAfterTimeCorrection(1, 1000, 0)
+
+        assertEquals("destination", log.all().single().sessionId)
+        assertEquals("Do not transfer me", notes.note("noted"))
+        assertNull(notes.note("destination"))
+        val emptySession = sessions.all().first { it.id == "noted" }
+        assertEquals(100, emptySession.startedAtMillis)
+        assertEquals(100, emptySession.endedAtMillis)
     }
 
     @Test
