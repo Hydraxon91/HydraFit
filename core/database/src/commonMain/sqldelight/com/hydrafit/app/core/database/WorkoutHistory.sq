@@ -191,12 +191,14 @@ FROM (
 ) AS entries
 LIMIT 1;
 
--- A bounded page of one session's recorded sets, newest first, with current catalog names.
+-- A bounded page of one session's recorded sets, newest first, with current catalog names. The name
+-- resolved here is the *effective* display name: a user override renames the exercise everywhere else,
+-- so history must show the same name.
 selectSessionHistorySets:
 SELECT
     w.id AS id,
     w.exerciseId AS exerciseId,
-    e.name AS exerciseName,
+    COALESCE(eo.name, e.name) AS exerciseName,
     w.reps AS reps,
     w.weightKg AS weightKg,
     w.loadKind AS loadKind,
@@ -207,6 +209,7 @@ SELECT
     w.occurrenceId AS occurrenceId
 FROM workoutSet w
 LEFT JOIN exercise e ON e.id = w.exerciseId
+LEFT JOIN exerciseOverride eo ON eo.exerciseId = w.exerciseId
 WHERE w.sessionId = :sessionId
   AND (
         :hasCursor = 0
@@ -216,12 +219,12 @@ WHERE w.sessionId = :sessionId
 ORDER BY w.performedAt DESC, w.id DESC
 LIMIT :limit;
 
--- One unassigned recorded set's values, by set id.
+-- One unassigned recorded set's values, by set id, with the effective current catalog name.
 selectUnassignedSetHistorySet:
 SELECT
     w.id AS id,
     w.exerciseId AS exerciseId,
-    e.name AS exerciseName,
+    COALESCE(eo.name, e.name) AS exerciseName,
     w.reps AS reps,
     w.weightKg AS weightKg,
     w.loadKind AS loadKind,
@@ -232,4 +235,5 @@ SELECT
     w.occurrenceId AS occurrenceId
 FROM workoutSet w
 LEFT JOIN exercise e ON e.id = w.exerciseId
+LEFT JOIN exerciseOverride eo ON eo.exerciseId = w.exerciseId
 WHERE w.id = :setId AND w.sessionId IS NULL;

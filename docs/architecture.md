@@ -266,8 +266,11 @@ Search is a literal escaped substring over the case-folded search projections `e
 and `sessionNote.searchNote`, both produced by `unicodeCaseFold` (Unicode 17.0.0 default full
 folding, `:core/domain`) so case differences match for every script rather than only ASCII; accents
 are preserved, so `Épaules` matches `ÉPAULES` but not `Epaules`. The query pattern folds the same way
-before `LIKE` escaping. The projections are a schema addition (`42.sqm`), rewritten beside every
-name/note write and rebuilt at startup for upgraded databases. Names are current context, never a
+before `LIKE` escaping. `exercise.searchName` is the folded *effective* display name — an exercise's
+own name, or the name a user override gives it — so a renamed built-in is found and shown under the
+name the rest of the app uses; the override write paths and the startup backfill rewrite it. The
+projections are a schema addition (`42.sqm`), rewritten beside every name/note write and rebuilt at
+startup for upgraded databases. Names are current context, never a
 historical snapshot, and exercise setup notes are excluded. Local-day bounds
 are inclusive: a session uses its stored `localEpochDay`, while a set without one derives it from a
 caller-supplied UTC offset (no historical timezone lookup). Recorded sets keep their stored load kind,

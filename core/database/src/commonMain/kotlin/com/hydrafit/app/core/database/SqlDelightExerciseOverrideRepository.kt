@@ -6,7 +6,7 @@ import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.userdata.equipment.ExerciseOverrideRepository
 
-class SqlDelightExerciseOverrideRepository(database: HydraFitDatabase) :
+class SqlDelightExerciseOverrideRepository(private val database: HydraFitDatabase) :
     ExerciseOverrideRepository {
     private val queries = database.exerciseOverrideQueries
 
@@ -19,18 +19,25 @@ class SqlDelightExerciseOverrideRepository(database: HydraFitDatabase) :
         loadCapability: ExerciseLoadCapability?,
         involvements: Map<MuscleGroup, Double>
     ) {
-        queries.upsert(
-            exerciseId = exerciseId,
-            name = name,
-            requiredEquipment = encodeEquipment(requiredEquipment),
-            movementPattern = movementPattern?.name,
-            isUnilateral = unilateral?.let { if (it) 1L else 0L },
-            loadCapability = loadCapability?.name,
-            involvements = encodeInvolvements(involvements)
-        )
+        database.transaction {
+            queries.upsert(
+                exerciseId = exerciseId,
+                name = name,
+                requiredEquipment = encodeEquipment(requiredEquipment),
+                movementPattern = movementPattern?.name,
+                isUnilateral = unilateral?.let { if (it) 1L else 0L },
+                loadCapability = loadCapability?.name,
+                involvements = encodeInvolvements(involvements)
+            )
+            // A rename changes what history search must match, so the projection is rewritten with it.
+            database.refreshExerciseSearchName(exerciseId)
+        }
     }
 
     override suspend fun reset(exerciseId: String) {
-        queries.deleteById(exerciseId)
+        database.transaction {
+            queries.deleteById(exerciseId)
+            database.refreshExerciseSearchName(exerciseId)
+        }
     }
 }

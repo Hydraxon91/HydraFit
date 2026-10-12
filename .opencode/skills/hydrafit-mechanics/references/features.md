@@ -195,8 +195,11 @@ unassigned set id — never inferred date grouping — and displayed exercise na
 current catalog. Search folds Unicode case (`unicodeCaseFold`, Unicode 17.0.0 default full folding
 in `:core/domain`) over the `exercise.searchName`/`sessionNote.searchNote` projections, so non-ASCII
 case variants match while accents still distinguish; the projections are a schema addition
-(`42.sqm`) written by the seeding, custom-exercise, session-note and restore paths and rebuilt at
-startup.
+(`42.sqm`) written by the seeding, custom-exercise, session-note, override-rename and restore paths
+and rebuilt at startup.
+`exercise.searchName` folds the *effective* display name (an exercise's own name, or the name its
+user override gives it), and the history set pages display the same resolved name, so a renamed
+built-in is found and shown by the name the Logger uses.
 `WorkoutHistoryRequest`/`WorkoutHistorySetRequest` own
 validation and keyset cursors; there is no history use case, and the only new Koin binding is the
 startup `SearchProjectionBackfill`.

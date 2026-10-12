@@ -65,6 +65,9 @@ matches the case-folded projections `exercise.searchName` and `sessionNote.searc
 the same way, so matching is Unicode-insensitive and accent-sensitive, and stays literal because
 `WorkoutHistoryRequest.searchPattern` still escapes `%`, `_` and the escape character. Folding
 happens before ordering and pagination, so a match on any page is found.
+`exercise.searchName` folds the *effective* display name an override may have renamed, and the set
+pages resolve `COALESCE(exerciseOverride.name, exercise.name)`, so history shows and searches the name
+the rest of the app shows.
 Ordering is `(timestamp DESC, kindRank ASC, sortId DESC)` with set ids zero-padded so the keyset
 comparison stays numeric; each query returns `limit + 1` rows so the repository can report whether a
 further page exists. The padded set id keeps its sign, and the repository decodes it exactly as

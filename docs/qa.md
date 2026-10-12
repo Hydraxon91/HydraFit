@@ -167,7 +167,9 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   substring over session-note text and current catalog exercise names, never the exercise setup note.
   Search folds Unicode case (`unicodeCaseFold`, Unicode 17.0.0 default full folding) over the
   `exercise.searchName`/`sessionNote.searchNote` projections.
-  They match case-insensitively for every script while accents still distinguish.
+  They match case-insensitively for every script while accents still distinguish. A renamed built-in
+  is found and shown by the name the rest of the app uses: the projection folds the effective name an
+  override gives it, and the recorded-set rows resolve the same name.
   Local-day bounds are inclusive, using each session's stored local day and a caller-supplied offset
   for sets without one. Keyset pages present every entry exactly once and reject a cursor that does
   not belong to the same filter.

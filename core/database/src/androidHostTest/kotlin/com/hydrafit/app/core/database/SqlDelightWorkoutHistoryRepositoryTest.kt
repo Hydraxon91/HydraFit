@@ -350,6 +350,51 @@ class SqlDelightWorkoutHistoryRepositoryTest {
     }
 
     @Test
+    fun aRenamedExerciseShowsAndSearchesByItsEffectiveName() = runTest {
+        insertExercise("back-squat", "Back Squat")
+        insertSession("s1", startedAt = 100L, localEpochDay = 10L)
+        insertSet("back-squat", sessionId = "s1", performedAt = 110L)
+        val overrides = SqlDelightExerciseOverrideRepository(database)
+
+        overrides.update(
+            exerciseId = "back-squat",
+            name = "Safety Bar Squat",
+            requiredEquipment = emptySet(),
+            movementPattern = null,
+            unilateral = null,
+            loadCapability = null,
+            involvements = emptyMap()
+        )
+
+        // The recorded set shows the name the user sees, and only that name finds it.
+        assertEquals(
+            "Safety Bar Squat",
+            repository.sets(WorkoutHistoryKey.Session("s1")).sets.single().exerciseName
+        )
+        assertEquals(
+            listOf(WorkoutHistoryKey.Session("s1")),
+            repository.entries(WorkoutHistoryRequest(search = "safety bar")).map { it.key }
+        )
+        assertTrue(
+            repository.entries(WorkoutHistoryRequest(search = "back squat")).isEmpty()
+        )
+
+        overrides.reset("back-squat")
+
+        assertEquals(
+            "Back Squat",
+            repository.sets(WorkoutHistoryKey.Session("s1")).sets.single().exerciseName
+        )
+        assertTrue(
+            repository.entries(WorkoutHistoryRequest(search = "safety bar")).isEmpty()
+        )
+        assertEquals(
+            listOf(WorkoutHistoryKey.Session("s1")),
+            repository.entries(WorkoutHistoryRequest(search = "back squat")).map { it.key }
+        )
+    }
+
+    @Test
     fun unassignedSetKeysDecodeThePaddedIdExactlyAsStored() = runTest {
         insertExercise("back-squat", "Back Squat")
         insertSetWithId(id = -19L, exerciseId = "back-squat", sessionId = null, performedAt = 10L)
