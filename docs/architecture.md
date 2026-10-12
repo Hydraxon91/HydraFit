@@ -745,6 +745,14 @@ exceeds the same equipment ceiling, and a slot whose prescription changes drops 
 typed for the old exercise is never shown against the replacement. Edits are scoped to one workout and
 are not persisted.
 
+**Content provenance.** The general claim that an adequate warm-up can improve performance in the
+tasks studied is supported by the existing source in `docs/live-testing-2026-10-06.md` (Fradkin et al.
+2010, https://doi.org/10.1519/JSC.0b013e3181c643a0). The specific preparation items, the 180-second
+general-movement entry, the 10 practice reps and the 40/60/80 % × 8/5/3 ramp profile are HydraFit
+**product defaults**, not validated personal optima: no trial establishes this sequence, its values or
+that it is non-fatiguing for a given user. No lymphatic, detox or longevity claim is made, and no
+branded warm-up sequence is reproduced.
+
 ## 2. Decision log
 
 Each row: the decision, the **recorded** rationale with a citation, recorded alternatives, and status.
