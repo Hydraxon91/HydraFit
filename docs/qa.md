@@ -529,6 +529,26 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   unverified; the cancelled/failed correction retry and session-resegmenting correction paths are
   host-tested only.
 
+### v0.7.2 publication verification (2026-10-12)
+
+- `v0.7.2` (Finish-workout summaries — OF-13-P3) published on the PR #6 merge commit `5bf548e`.
+  PR #6 merged after a green Build-and-Test run `38304220274` (lint, unit tests with
+  `verifySqlDelightMigration`, iOS compile, debug assembly). Release workflow `38304538307` passed,
+  covering lint, unit tests and the signed APK build/publication.
+- Local gate before tagging (`617d3d6`): 1,438 host tests, zero failures/errors,
+  `verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`,
+  `:androidApp:lintVitalRelease`, `:shared:compileKotlinIosSimulatorArm64` and
+  `:core:network:compileKotlinIosSimulatorArm64` (`/tmp/hf-rel072-gate.log`).
+- Verification was **offline only** (no emulator release install, per the standing rule). Downloaded
+  published APK `androidApp-release.apk`: 24,723,891 bytes; package `com.hydrafit.app`,
+  `versionName=0.7.2`, `versionCode=17`; `apksigner verify` passed with certificate SHA-256
+  `af9cd73b3cc6842c7ab3c2f3cd572245826089aee863e9168a761a893c35a7e1`, matching `v0.7.1`. Local APK
+  SHA-256 `ed8b238159b7c21dd3a3a0fb5407497c4531b9b3237a202b0bee67fb4341a2f0` matches GitHub's asset
+  digest.
+- Limits: signed-upgrade and on-device release runtime behavior remain unverified, and the emulator
+  evidence is debug-build only. The `v0.7.2` tag is lightweight, unlike the annotated `v0.7.0`/`v0.7.1`
+  tags. Unverified UI states and the C6 review limits are listed in the candidate entry above.
+
 ### 0.7.1 notes & session history candidate verification (2026-10-12)
 
 - Candidate revision `647d3ab` (0.7.1 — notes and searchable session history) is **reviewed APPROVED**

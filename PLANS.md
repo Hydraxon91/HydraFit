@@ -1064,8 +1064,9 @@ Scroll explicitly before concluding a section is missing. No app defect, and no 
 implemented, verified and committed (`434ce78`…`f353e1a`), with each chunk's own outstanding limits
 recorded in its row below. C6's bounded review returned **APPROVED** at targeted closure round 2 on
 `be33187` (verdict, closures and remaining UI/CI limits: `docs/qa.md` §0.7.2). A history
-tab-navigation defect found during release verification is fixed in `617d3d6`. Release preparation is
-in progress; push, tag and publication follow the release process below. This
+tab-navigation defect found during release verification is fixed in `617d3d6`. Published as
+**v0.7.2** on the PR #6 merge commit `5bf548e` (release run `38304538307`; artifact verified offline:
+`versionName=0.7.2`, `versionCode=17`, matching certificate and asset digest). This
 bounded split refines OF-13-P3 without renumbering those broader phases; OF-13 duration labels,
 session-over-session comparable facts and OF-04 record integration remain future.
 
