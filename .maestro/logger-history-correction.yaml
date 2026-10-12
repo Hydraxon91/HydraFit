@@ -1,0 +1,95 @@
+# Write flow: logs one synthetic set, reaches it through history, corrects it with the existing
+# editor and checks the detail reconciles. Creates one session + one set that are RETAINED
+# afterwards; nothing pre-existing is edited or deleted. See README.md for the contract and status.
+appId: com.hydrafit.app
+name: Logger history correction
+tags:
+  - smoke
+  - writes
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    text: '^Log$'
+    retryTapIfNoChange: false
+- assertVisible: '^Log workout$'
+# A fresh session per run keeps the correction target unambiguous whatever ran before.
+- tapOn:
+    text: '^New session$'
+    retryTapIfNoChange: false
+- assertVisible: '^Session active$'
+# One synthetic set. Selecting an exercise opens its setup-note editor, so the form fields sit
+# below the exercise list and need bounded scrolling.
+- tapOn:
+    text: '^Dips$'
+    retryTapIfNoChange: false
+- scrollUntilVisible:
+    element:
+      text: '^Reps$'
+    direction: DOWN
+- tapOn: '^Reps$'
+- eraseText
+- inputText: '7'
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: '^Log set$'
+    direction: DOWN
+- tapOn:
+    text: '^Log set$'
+    retryTapIfNoChange: false
+- scrollUntilVisible:
+    element:
+      text: '^Workout history$'
+    direction: UP
+# The newest entry is this session.
+- tapOn:
+    text: '^Workout history$'
+    retryTapIfNoChange: false
+- assertVisible: '^Workout history$'
+- assertVisible: '^Recorded sets: 1$'
+- tapOn:
+    text: '^Recorded: .*$'
+    index: 0
+    retryTapIfNoChange: false
+- assertVisible: '^Dips$'
+- assertVisible: '^7 reps · .*$'
+- assertVisible: '^Recorded sets: 1$'
+- assertVisible: '^Current setup note$'
+- assertVisible: '^Current context, not a snapshot of this set.$'
+# Correct the same row: only the reps change.
+- tapOn:
+    text: '^Edit set$'
+    retryTapIfNoChange: false
+- assertVisible: '^Edit set: Dips$'
+- tapOn: '^Reps$'
+- eraseText
+- inputText: '9'
+- hideKeyboard
+- tapOn:
+    text: '^Save changes$'
+    retryTapIfNoChange: false
+- assertVisible: '^9 reps · .*$'
+- assertNotVisible: '^7 reps · .*$'
+- assertVisible: '^Recorded sets: 1$'
+- assertVisible: '^Dips$'
+# Leaving the detail keeps the corrected session in the list.
+- tapOn:
+    text: '^Back$'
+    retryTapIfNoChange: false
+- assertVisible: '^Workout history$'
+- assertVisible: '^Recorded sets: 1$'
+- back
+- scrollUntilVisible:
+    element:
+      text: '^Log workout$'
+    direction: UP
+- assertVisible: '^Log workout$'
+- assertVisible: '^Session active$'
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Log$'

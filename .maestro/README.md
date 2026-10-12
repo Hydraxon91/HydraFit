@@ -16,6 +16,8 @@ do not cancel someone else's draft or restart the app to establish them.
 | `routine-editor-cancel.yaml` | Equipment tab selected, no dialog/editor | Navigate to Routines, new unsaved name, semantic Cancel, return | Editor closed before returning to Equipment; Save is never tapped |
 | `logger-session-controls.yaml` | No active session, no dialog/editor | Navigate to Logger only | No active session; End disabled and New label visible/enabled; neither action is tapped |
 | `settings-guidance-denial.yaml` | Settings selected, both guidance switches OFF, English permission prompt available | Coaching ON, notification request denied, reopen Settings, coaching OFF | Alerts OFF and coaching restored OFF; external permission-flag restoration is still required |
+| `logger-history-browser.yaml` | Logger selected, no dialog/editor | History navigation, search, clear filters, Back | Logger with the Log tab still selected; no data written |
+| `logger-history-correction.yaml` | Logger selected, no dialog/editor | New session, log one synthetic set, correct its reps from history | Corrected set retained, listed once; Logger with the Log tab selected |
 
 The navigation flow visits all six tabs and asserts the selected tab after each
 tap; visible navigation labels alone are not a success oracle. It is also the
@@ -39,6 +41,35 @@ restoring the test's coaching change; do not rerun the permission write blindly.
 
 Session-control assertions do not establish layout by themselves. Capture and view the Logger
 screenshot at the tested font scale/theme; the regression checks the wrapping action layout.
+
+## 0.7.1 history browser and correction verification (2026-10-12)
+
+Both new files passed the installed Maestro CLI `check-syntax` and a bounded runtime pass on
+`emulator-5554` (debug `Medium_Phone`, 1080×2400): `logger-history-browser.yaml` in two attempts,
+`logger-history-correction.yaml` in four attempts while its fixture setup was made
+state-independent. The browser flow covers the history entry point, the Log tab staying selected on
+the history screens, a session-note search, the no-matches state, clearing filters, the in-app Back
+button and the return to the Logger. The correction flow taps **New session**, logs one synthetic
+bodyweight set (Dips, 7 reps), finds it as the newest history entry, checks the recorded set, the
+absent session note and the "Current setup note" context label, corrects the same row to 9 reps
+through **Edit set** / **Save changes**, and asserts the detail reconciles to `9 reps` with no
+second row and `Recorded sets: 1`. Viewed screenshots: `history-list.png` and
+`history-detail-fixed.png` under `/tmp/hydrafit-c8-visual/`; final logs
+`/tmp/hydrafit-c8-browser5.log` and `/tmp/hydrafit-c8-correction6.log`.
+
+The first runtime attempt of the browser flow exposed a real crash rather than a test defect:
+resolving the history sub-graph's `NavBackStackEntry` on every recomposition threw
+`IllegalArgumentException: No destination with route log/history is on the NavController's back
+stack` while the destination was being popped, and the process died with `FATAL EXCEPTION: main`
+(captured logcat). The owner is now resolved once per composition; both flows were re-run on the
+corrected build with no crash and no fatal exception in the captured logcat.
+
+The correction flow writes: each run creates one synthetic session and one set and corrects only
+those, and they are retained. Nothing pre-existing is edited or deleted. Because those fixtures leave
+a session open, `logger-session-controls.yaml`'s "no active session" precondition no longer holds
+until that session is ended. The logged exercise is bodyweight, so the weight field and kg/lb display
+variants were not exercised in the UI. Date-picker filtering, loading/error states, very large result
+sets, larger text, dark mode, locale and TalkBack remain unverified.
 
 ## 0.6.0 completion-chunk verification (2026-10-11)
 

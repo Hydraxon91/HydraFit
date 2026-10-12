@@ -1036,10 +1036,12 @@ full browser.
 #### 0.7.1 — Notes & searchable session history
 
 **Status (2026-10-12):** release scope, chunk structure and recommendations approved
-in chat. C0 is closed and C1's review findings have been corrected and verified;
-formal re-review is pending. No commit, push, tag or publication is
-authorized. This bounded split refines OF-13-P0–P3 without renumbering those broader
-phases; Finish-workout summaries remain in 0.7.2.
+in chat. C0–C8 are implemented and committed, with their host, build and bounded
+emulator verification recorded in `docs/qa.md` and `.maestro/README.md`; C3's own
+emulator save/clear journey was not re-run in this batch, and C9's release-wide review
+is pending. No push, tag or publication is authorized. This bounded split refines
+OF-13-P0–P3 without renumbering those broader phases; Finish-workout summaries remain
+in 0.7.2.
 
 **Scope:** persistent exercise/setup notes, separate session notes, searchable
 session history and access to the existing set-correction actions. Offline-first.
@@ -1081,12 +1083,12 @@ behavior tradeoff needs explicit approval.
 | 0.7.1-C0 — contract | DONE | Finalize note ownership, limits, clearing, search, legacy handling and correction behavior. No code. Concrete examples cover saved/cleared notes, exercise renames, multiple same-day sessions and corrected timestamps, including the empty noted-session case above. |
 | 0.7.1-C1 — exercise-note storage | DONE | Committed and re-review approved; full required verification passed. |
 | 0.7.1-C2 — session-note storage | DONE | Separate session-note persistence, additive migration and backup support. Notes never overwrite exercise notes; survive End/New session, corrections and restore. Test missing identities, transaction failure and the approved empty-session policy. |
-| 0.7.1-C3 — exercise-note UI | PLANNED | Localized Logger editor with Save/Cancel/Clear. Cancel writes nothing; failure retains draft; repeated submission and stale exercise context cannot write to the wrong exercise. Semantic emulator assertions and viewed screenshot. |
+| 0.7.1-C3 — exercise-note UI | DONE | Committed in `49fd692`; host tests, ktlint and the Koin graph verification pass. Its own emulator Save/Cancel/Clear journey was not re-run in this batch, so that acceptance remains unverified here. |
 | 0.7.1-C4 — session-note UI | DONE | Distinct current-session editor. Test attribution across End/New session and recreation, no accidental session creation, Save/Cancel/Clear, failure/retry, duplicate submission and stale context. Semantic emulator assertions and viewed screenshot. |
-| 0.7.1-C5 — bounded history queries | IN PROGRESS | Corrective review work: bounded query cost, lifecycle/pagination coverage, floor-correct local days and accurate metadata docs. Unicode-insensitive search now uses Unicode 17.0.0 default full-fold projections (`exercise.searchName`/`sessionNote.searchNote`, migration `42.sqm`) with a startup backfill; host tests, ktlint, debug assembly, iOS compile and migration verification pass. Review and commit remain gated. |
-| 0.7.1-C6 — history browser/details | PLANNED | Logger sub-screen with search, session details, notes and recorded sets. Verify search/filter/paging, empty/error states, back navigation, detail reconciliation and clearly current exercise-note context. Semantic emulator assertions and viewed screenshot. |
-| 0.7.1-C7 — correction access | PLANNED | Reach existing set corrections from history without a second policy. Test row identity, load semantics, attribution, Cancel/failure/retry, time resegmentation and refreshing session details and downstream readers. No new bulk/history deletion policy. |
-| 0.7.1-C8 — integration verification | PLANNED | Verify notes → persistence → backup/history → correction end to end. Full host tests, migration verification, ktlint, debug assembly, iOS compile and changed Koin graph verification; bounded emulator journeys with screenshots. Record revision-specific evidence and every unverified check. |
+| 0.7.1-C5 — bounded history queries | DONE | Committed in `291f027`, `b3a871c` and `aa9fb93`: bounded query cost, lifecycle/pagination coverage, floor-correct local days and accurate metadata docs. Unicode-insensitive search uses Unicode 17.0.0 default full-fold projections (`exercise.searchName`/`sessionNote.searchNote`, migration `42.sqm`) with a startup backfill. Host tests, ktlint, debug assembly, iOS compile and migration verification pass; C9 review pending. |
+| 0.7.1-C6 — history browser/details | DONE | Committed in `3d3492c`: Logger sub-screen with search, session details, notes and recorded sets. Search/filter/paging, empty/no-matches/error states, back navigation, detail reconciliation and clearly current exercise-note context are covered by host tests and the bounded `logger-history-browser.yaml` journey; C9 review pending. |
+| 0.7.1-C7 — correction access | DONE | Committed in `916dd41`: history corrections reuse the existing `LoggedSetEdit` editor and `CorrectWorkoutSetUseCase`, with the stored `occurrenceId` carried into the bounded set projection. Row identity, load semantics, attribution, Cancel/failure/retry, time resegmentation and downstream refresh are host-tested and covered by `logger-history-correction.yaml`. No new bulk/history deletion policy. C9 review pending. |
+| 0.7.1-C8 — integration verification | DONE | Notes → persistence → backup/history → correction verified end to end by `WorkoutNotesHistoryIntegrationTest`; 1382 host tests, migration verification, ktlint, debug assembly, iOS compile and changed Koin graph verification pass, with bounded emulator journeys and viewed screenshots. Revision-specific evidence and every unverified check are recorded in `docs/qa.md` and `.maestro/README.md`. C9 review pending. |
 | 0.7.1-C9 — post-execution review | GATED | Separately requested, read-only Plan Mode review of the complete release delta, approved contract and verification evidence under `docs/review-discipline.md` and `docs/post-execution-review.md`. Explicit verdict; stable evidenced findings, fix classification and data-integrity impact. Findings require separately approved fixes, verification and re-review. |
 
 **Execution discipline:** approve chunks individually or as an explicitly ordered

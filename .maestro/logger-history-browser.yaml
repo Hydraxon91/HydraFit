@@ -1,0 +1,74 @@
+# Read-only history browser smoke: navigation, the Log tab staying selected, search states, clear
+# filters and Back. The soft keyboard is dismissed after typing so "Search" and "Back" cannot match
+# the IME's own search key and back control.
+# Contract and verification status: see README.md.
+appId: com.hydrafit.app
+name: Logger history browser
+tags:
+  - smoke
+  - read-only
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    text: '^Log$'
+    retryTapIfNoChange: false
+- assertVisible: '^Log workout$'
+- assertVisible:
+    text: '^Workout history$'
+    enabled: true
+- tapOn:
+    text: '^Workout history$'
+    retryTapIfNoChange: false
+- assertVisible: '^Workout history$'
+- assertVisible: '^Search$'
+- assertVisible: '^Clear filters$'
+- assertVisible: '^From: any date$'
+- assertVisible: '^To: any date$'
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Log$'
+# Searching a retained session-note phrase: a match must render the note state, and a session note
+# can only match when it is non-empty, so the two outcomes are exhaustive.
+- tapOn: '^Search notes and exercise names$'
+- inputText: 'c4r'
+- hideKeyboard
+- tapOn:
+    text: '^Search$'
+    retryTapIfNoChange: false
+- runFlow:
+    when:
+      visible: '^No recorded session matches these filters.$'
+    commands:
+      - assertVisible: '^No recorded session matches these filters.$'
+- runFlow:
+    when:
+      notVisible: '^No recorded session matches these filters.$'
+    commands:
+      - assertVisible: '^Session note recorded$'
+# Clearing the filters restores the unfiltered list and empties the search draft.
+- tapOn:
+    text: '^Clear filters$'
+    retryTapIfNoChange: false
+- assertVisible: '^Search notes and exercise names$'
+# A term that cannot match anything pins the deterministic no-matches state used to scope Back.
+- tapOn: '^Search notes and exercise names$'
+- inputText: 'zzzzz'
+- hideKeyboard
+- tapOn:
+    text: '^Search$'
+    retryTapIfNoChange: false
+- assertVisible: '^No recorded session matches these filters.$'
+- tapOn:
+    text: '^Back$'
+    below: '^No recorded session matches these filters.$'
+    retryTapIfNoChange: false
+- assertVisible: '^Log workout$'
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Log$'
