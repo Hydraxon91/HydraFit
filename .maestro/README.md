@@ -18,6 +18,7 @@ do not cancel someone else's draft or restart the app to establish them.
 | `settings-guidance-denial.yaml` | Settings selected, both guidance switches OFF, English permission prompt available | Coaching ON, notification request denied, reopen Settings, coaching OFF | Alerts OFF and coaching restored OFF; external permission-flag restoration is still required |
 | `logger-history-browser.yaml` | Logger selected, no dialog/editor | History navigation, search, clear filters, Back | Logger with the Log tab still selected; no data written |
 | `logger-history-correction.yaml` | Logger selected, no dialog/editor | New session, log one synthetic set, correct its reps from history | Corrected set retained, listed once; Logger with the Log tab selected |
+| `logger-exercise-note.yaml` | Logger selected, no dialog/editor | Filter the picker, select an exercise, save/cancel/clear its setup note | Exercise left with an explicitly cleared note; Logger with the Log tab selected |
 
 The navigation flow visits all six tabs and asserts the selected tab after each
 tap; visible navigation labels alone are not a success oracle. It is also the
@@ -41,6 +42,28 @@ restoring the test's coaching change; do not rerun the permission write blindly.
 
 Session-control assertions do not establish layout by themselves. Capture and view the Logger
 screenshot at the tested font scale/theme; the regression checks the wrapping action layout.
+
+## 0.7.1-C3 exercise setup-note verification (2026-10-12)
+
+`logger-exercise-note.yaml` passed `check-syntax` and a bounded runtime pass on `emulator-5554`
+(debug, 1080×2400) after five unsuccessful attempts while the flow itself was fixed: the note editor
+sits above the picker but its fields move when the editor opens, a tap placed the text cursor mid-note
+so `eraseText` left a suffix, and a named picker row sat below the height-bounded list's fold. The
+accepted run covers selecting an exercise through a partial picker query (**Dips**), the editor
+opening at `0/2000` with Save/Clear/Cancel, **Save** persisting "C9R synthetic setup note" and closing
+the editor with a "Note saved" confirmation, reopening showing the persisted text at `24/2000`, a real
+draft change that **Cancel** discards (the stored value is unchanged afterwards), **Clear** persisting
+an explicit empty note, and switching to a different exercise (**Ab Roll**) showing only its own empty
+state. Screenshot viewed: `exercise-note-persisted.png` under
+`/tmp/hydrafit-c3-note6/2026-10-12_193520/`; log `/tmp/hydrafit-c3-note6.log` with no fatal exception
+in the captured logcat.
+
+Fixture effect: **Dips is left with an explicitly cleared setup note** (an empty note row) instead of
+the absent note it had before. The flow clears at both ends, so it is independent of any note a
+previous run left, and it never writes another exercise's note. The editor renders "never set" and
+"explicitly cleared" identically (both `0/2000`); the stored distinction is covered by the repository
+and validator tests and displayed in history. Larger text, dark mode, locale, TalkBack, a failed-save
+retry in the UI, and the 2,000-character boundary in the UI remain unverified.
 
 ## 0.7.1 history browser and correction verification (2026-10-12)
 

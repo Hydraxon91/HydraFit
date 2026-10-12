@@ -215,8 +215,23 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   release-upgrade check was performed. The write flow's synthetic sessions and sets are retained and
   left one session open, so `logger-session-controls.yaml`'s "no active session" precondition does not
   currently hold.
-- Session note: with no active session the "Session note" entry is disabled and reads "Start a session to
-  add a note."; it never creates a session. With an active session it opens a "Current session note" editor
+- Exercise setup note: selecting an exercise opens its editor; the note is keyed to that exercise id,
+  Save persists plain text up to `NOTE_MAX_LENGTH` (2,000), Clear persists an explicit empty note that
+  survives reload, and Cancel writes nothing. The editor is bound to the selection, so switching
+  exercises shows that exercise's own state and never carries the previous draft.
+  **2026-10-12 bounded verification (`emulator-5554`, debug, 1080×2400):** `.maestro/logger-exercise-note.yaml`
+  passed end to end: the editor opened at `0/2000` with Save/Clear/Cancel, Save persisted
+  "C9R synthetic setup note" and closed the editor with a "Note saved" confirmation, reopening showed
+  the persisted text at `24/2000`, a real draft change was discarded by Cancel (the stored value was
+  unchanged afterwards), Clear persisted an explicit empty note, and switching to another exercise
+  showed only its empty state. Viewed screenshot:
+  `/tmp/hydrafit-c3-note6/2026-10-12_193520/.../exercise-note-persisted.png`; log
+  `/tmp/hydrafit-c3-note6.log`, no fatal exception in the captured logcat. The flow clears the note at
+  both ends, so it is state-independent; **Dips is left with an explicitly cleared note**. The editor
+  renders never-set and explicitly-cleared identically (both `0/2000`); that distinction is covered by
+  repository/validator tests and is displayed in history. Larger text, dark mode, locale, TalkBack, a
+  failed-save retry in the UI and the 2,000-character boundary in the UI remain unverified.
+- Session note: with no active session the "Session note" entry is disabled and reads "Start a session to add a note."; it never creates a session. With an active session it opens a "Current session note" editor
   that reads and writes the note for that session's explicit identity, distinct from the exercise setup-note
   editor. Save and Clear persist to the same session, Cancel writes nothing, and a failed write retains the
   draft for retry. End/New session and an external session change close the old editor, whose draft is never

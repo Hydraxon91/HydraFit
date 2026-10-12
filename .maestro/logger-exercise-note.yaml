@@ -1,0 +1,100 @@
+# Write flow: the exercise setup-note editor's Save/Cancel/Clear acceptance for 0.7.1-C3.
+#
+# The journey filters the picker with a partial query and taps the full exercise name, so the row is
+# unambiguous (the search field renders the partial query, never the full name) and no exercise has to
+# be visible without scrolling on the day it runs. It starts by clearing the note, so it is also
+# independent of any note a previous run left behind. It ends by clearing the synthetic note, so the
+# exercise is left with an explicitly cleared note (an empty note row) instead of the absent one it
+# may have started with. See README.md for the contract and verification status.
+appId: com.hydrafit.app
+name: Logger exercise setup note
+tags:
+  - smoke
+  - writes
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    text: '^Log$'
+    retryTapIfNoChange: false
+- assertVisible: '^Log workout$'
+# Select the exercise through a partial picker query, so the row is the only "Dips" on screen.
+- tapOn: '^Search exercises$'
+- inputText: 'dip'
+- hideKeyboard
+- tapOn:
+    text: '^Dips$'
+    retryTapIfNoChange: false
+- assertVisible: '^Setup notes$'
+- assertVisible: '^Save$'
+- assertVisible: '^Clear$'
+- assertVisible: '^Cancel$'
+# A clear first makes the starting state deterministic whatever a previous run left.
+- tapOn:
+    text: '^Clear$'
+    retryTapIfNoChange: false
+- assertVisible: '^Note saved$'
+- tapOn:
+    text: '^Dips$'
+    retryTapIfNoChange: false
+- assertVisible: '^0/2000$'
+# Save persists the draft and closes the editor with a confirmation.
+- tapOn: '^Setup notes$'
+- inputText: 'C9R synthetic setup note'
+- assertVisible: '^24/2000$'
+- hideKeyboard
+- tapOn:
+    text: '^Save$'
+    retryTapIfNoChange: false
+- assertVisible: '^Note saved$'
+- assertNotVisible: '^Setup notes$'
+- assertNotVisible: '^24/2000$'
+# Reopening the same exercise shows the persisted note.
+- tapOn:
+    text: '^Dips$'
+    retryTapIfNoChange: false
+- assertVisible: '^C9R synthetic setup note$'
+- assertVisible: '^24/2000$'
+- takeScreenshot: exercise-note-persisted
+# A changed draft really is in the editor, and Cancel writes nothing. Appending one character makes
+# the draft differ from the stored value wherever the tap put the cursor, so the exact stored string
+# is provably absent from the editor before Cancel.
+- tapOn:
+    text: '^C9R synthetic setup note$'
+    retryTapIfNoChange: false
+- inputText: 'X'
+- assertNotVisible: '^C9R synthetic setup note$'
+- hideKeyboard
+- tapOn:
+    text: '^Cancel$'
+    retryTapIfNoChange: false
+- tapOn:
+    text: '^Dips$'
+    retryTapIfNoChange: false
+- assertVisible: '^C9R synthetic setup note$'
+- assertVisible: '^24/2000$'
+# Clear persists an explicit empty note.
+- tapOn:
+    text: '^Clear$'
+    retryTapIfNoChange: false
+- assertVisible: '^Note saved$'
+- tapOn:
+    text: '^Dips$'
+    retryTapIfNoChange: false
+- assertVisible: '^0/2000$'
+- assertNotVisible: '^C9R synthetic setup note$'
+# The editor is bound to the selection: a different exercise shows only its own state. The picker is
+# height-bounded, so the query must narrow the list to a name that is visible in those rows; a
+# partial query keeps the row unambiguous.
+- tapOn: '^Search exercises$'
+- eraseText
+- inputText: 'ab roll'
+- hideKeyboard
+- tapOn:
+    text: '^Ab Roll$'
+    retryTapIfNoChange: false
+- assertVisible: '^0/2000$'
+- assertNotVisible: '^C9R synthetic setup note$'
