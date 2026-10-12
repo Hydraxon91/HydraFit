@@ -1054,8 +1054,8 @@ handoff or next-release work.
 
 #### 0.7.2 — Finish-workout summaries
 
-**Status (2026-10-12):** release scope, chunk structure and C0 decisions approved in chat. C1–C5
-are not implemented and C6 is not started; no push, tag or publication is authorized. This
+**Status (2026-10-12):** release scope, chunk structure and C0 decisions approved in chat. C1 is
+implemented and verified at `434ce78`; C2–C5 are pending and C6 is not started; no push, tag or publication is authorized. This
 bounded split refines OF-13-P3 without renumbering those broader phases; OF-13 duration labels,
 session-over-session comparable facts and OF-04 record integration remain future.
 
@@ -1094,7 +1094,7 @@ the chunk and returns to C0).
 | Chunk | Status | Deliverable / acceptance and tests |
 | --- | --- | --- |
 | 0.7.2-C0 — summary contract | DONE | Decisions above approved 2026-10-12 in chat; no code. Worked examples cover full finish, partial with a replaced slot, an extra set, a warm-up, two sessions and a missing session row, exercised as C1 tests. |
-| 0.7.2-C1 — summary projection (domain, pure) | PENDING | `WorkoutSummary` model and pure `buildWorkoutSummary` over occurrence + sets + session facts + notes, with no I/O. Tests: full/partial, omitted/skipped dispositions, replaced, extras, over-logged entries, warm-ups, null sessions, missing entries and session rows, and performed/prescribed reconciliation. |
+| 0.7.2-C1 — summary projection (domain, pure) | DONE | `434ce78`: `WorkoutSummary` and pure `buildWorkoutSummary`, no I/O or consumer yet. User-reported verification: `:core:domain:testAndroidHostTest` BUILD SUCCESSFUL (full module suite green; `WorkoutSummaryTest` 12 tests / 0 failures), `:core:domain:ktlintCheck` clean. Architecture/mechanics description of the wired summary follows in C3/C5; no user-visible behavior or schema change in C1. |
 | 0.7.2-C2 — read surface + Logger wiring | PENDING | `GetWorkoutSummaryUseCase` and a bounded session read (by id / for occurrence) over the existing table; Logger ViewModel one-shot event on successful finish, consumed in the existing message style. Tests plus Koin verification for changed bindings; no schema change expected. |
 | 0.7.2-C3 — summary UI | PENDING | Logger-internal summary route with loading / failed+retry / unavailable / ready states; localized strings only; "Done" returns to the Logger and "View in history" opens the existing detail. Presentation and ViewModel tests, plus one bounded emulator journey with a viewed screenshot. |
 | 0.7.2-C4 — correction access | PENDING | Per-set correction from the summary through the existing `LoggedSetEditDialog`/`CorrectWorkoutSetUseCase`, including sets that move between sessions; edit-refresh, cancel, failure/retry and stale-row tests; bounded emulator correction check. |
@@ -1105,8 +1105,12 @@ the chunk and returns to C0).
 Each implementation chunk includes its tests and affected living-document/mechanics-reference
 updates, runs the relevant checks, then reports at its chunk boundary. No schema or backup change
 is expected; if one proves necessary, stop and return to C0 rather than adding it silently.
-Cross-cutting changes require full host tests, migration verification, ktlint, debug assembly and
-iOS compile; changed bindings or constructors require Koin verification. UI checks follow the
+Use the verification tiers in `docs/agent-project-reference.md` Key Commands: C1 is a pure
+unwired projection (module tests/ktlint evidenced above); C2 uses Tier B producer/consumer
+tests, Koin verification, ktlint and debug assembly; C3/C4 use Tier C only while their
+changes remain feature-local and preserve shared correction contracts. C5 retains the full
+host suite, migration verification, ktlint, debug assembly, iOS compile and changed graph checks.
+Tier A contract changes require the full matrix at their chunk boundary. UI checks follow the
 emulator-only, debug-build and bounded semantic-testing rules. After C5, stop for C6 in Plan Mode:
 builder verification is not a review verdict. Review approval does not authorize fixes, commits or
 pushing; release preparation and publication follow only after required findings are resolved,
@@ -1232,6 +1236,8 @@ behavior remains undecided until its gate is approved.
 - **Logger target-explanation presentation (deferred to 0.13.x).** OF-03-P2 presentation is functional and emulator-verified in 0.7.0, but the layout needs a design pass in the 0.13.x UX series (workout/screen polish): a summary-only explanation still expands to low-value set-count facts, and the per-row `Confirm`/`Dismiss`/`More options` actions sit directly under the explanation. Presentation/interaction only — no change to recorded explanation contents, planning, logging or progress. The data and behavior are settled; only the visual hierarchy is open. The per-slot substitution notice wording was reviewed on 2026-10-12 and intentionally kept as written; only its placement is open.
 
 ## Decisions Made
+
+- **2026-10-12 — bounded delivery overhead (approved).** Keep the product roadmap scope unchanged. One full-range post-execution review per slice, followed by targeted reviewer closure checks; reopen the full range for blockers, data-loss/corruption impact or unmet acceptance evidence the builder cannot supply. No required finding or check is waived; append closure evidence without rewriting historical findings. Related mechanical fixes in one file area may share a coherent commit naming finding IDs. Batch status updates at chunk/series boundaries and archive completed slices together when their `0.N.x` series closes, retaining exact archival preservation and all open follow-ups. Apply the risk tiers in `docs/agent-project-reference.md`: targeted chunk checks for localized domain/DI and feature work, full checks for Tier A and every release integration gate. Migration/portability tests, changed Koin graph verification, UI acceptance, approval gates and CI requirements remain intact. C1 evidence is retained; C2 onward uses the tiers. No push, publication or next-release work is authorized.
 
 - **2026-10-11 — smaller published pre-1.0 releases (approved; documentation/sequence only).** Retain the 0.7–0.13 themes but distribute their scope across 0.N.0, 0.N.1, 0.N.2, … as detailed in [docs/roadmap.md](docs/roadmap.md). Each published feature slice has bounded acceptance, verification and a separately requested code review. Patch versions may add features as well as correct shipped contracts, superseding the earlier corrective-only rule for future releases. Corrections use the next available number and shift later provisional targets; tags are never reused. Decision-only work has no standalone APK; research keeps its evidence/explicit-disposition gates. Preserve stable backlog ids, all remaining pre-1.0 coverage, settled behavior and shipped history. 0.13.x is the final UX/design series, not a single 0.13.0 delivery. No application implementation, dependency/infrastructure change, commit, publication or push is authorized by this decision.
 
