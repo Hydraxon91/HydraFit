@@ -10,9 +10,11 @@ import com.hydrafit.app.core.domain.workout.unicodeCaseFold
  * `override?.name ?: name`). History search matches this projection, so a renamed built-in must be
  * findable by the name the user sees.
  *
- * Only the runtime override write paths call this. The merge paths that run inside startup
- * maintenance (custom-exercise dedupe) are healed by [SearchProjectionBackfill], which recomputes the
- * same rule for every row and runs in the same pass, before `StartupReadiness` reports ready.
+ * Every writer that can change an exercise's displayed name calls this: the seed catalog, the
+ * custom-exercise restore path, and the override update/reset paths. The custom-exercise dedupe merge
+ * carries the existing override `name` forward unchanged, so it cannot change a projection and does
+ * not call this. [SearchProjectionBackfill] remains the self-healing rebuild for rows written before
+ * the projection existed and for any drift.
  */
 internal fun HydraFitDatabase.refreshExerciseSearchName(exerciseId: String) {
     val baseName = exerciseQueries.selectById(exerciseId).executeAsOneOrNull()?.name ?: return

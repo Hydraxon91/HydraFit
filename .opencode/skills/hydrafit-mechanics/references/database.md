@@ -43,9 +43,12 @@ keyed by existing session id with the same absent-versus-empty encoding and leng
 never create sessions. Existing databases start without session notes. Notes stay attached to session
 identity through resegmentation, even when a session becomes empty. `42.sqm` adds the case-folded
 search projections `exercise.searchName` and `sessionNote.searchNote` (both default empty);
-`unicodeCaseFold` in `:core/domain` rewrites them on every name/note write, and
-`SearchProjectionBackfill` rebuilds custom-exercise and session-note rows at startup for databases
-upgraded from an earlier version. `43.sqm` adds
+`unicodeCaseFold` in `:core/domain` rewrites them on every name/note write. `exercise.searchName` holds
+the folded *effective* display name and every writer that can change a name routes through
+`refreshExerciseSearchName` (seed catalog, custom-exercise restore, override update/reset); the
+custom-exercise dedupe merge carries the existing override name forward, so it cannot change a
+projection. `SearchProjectionBackfill` rebuilds both projections for every row at startup, which heals
+databases upgraded from an earlier version as well as any drift. `43.sqm` adds
 `workoutSet_sessionId_performedAt` on `workoutSet(sessionId, performedAt)`: the history reads filter
 and group by `sessionId` and order one session's sets by `performedAt`, and without it each of those
 shapes planned a full table scan plus a temporary B-tree. Current schema version is 44.

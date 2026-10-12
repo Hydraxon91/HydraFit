@@ -1,7 +1,5 @@
 package com.hydrafit.app.core.database
 
-import com.hydrafit.app.core.domain.workout.unicodeCaseFold
-
 class SeedExerciseCatalog(private val database: HydraFitDatabase) {
     fun seed() {
         database.exerciseQueries.transaction {
@@ -33,11 +31,9 @@ class SeedExerciseCatalog(private val database: HydraFitDatabase) {
                     involvements = encodeInvolvements(exercise.effectiveInvolvements),
                     id = exercise.id
                 )
-                // Keep the folded search projection beside the (possibly just-inserted) name.
-                database.exerciseQueries.updateSearchName(
-                    searchName = unicodeCaseFold(exercise.name),
-                    id = exercise.id
-                )
+                // Keep the search projection beside the (possibly just-inserted) name. The stored
+                // projection is the *effective* name, so a user's rename is not overwritten here.
+                database.refreshExerciseSearchName(exercise.id)
             }
             // Bring pre-existing built-in rows onto the CAT-P0 tier scale (0.6/0.4/0.2 -> 0.7/0.5/0.3).
             // Only affects seed-owned weights; custom rows, user overrides and logged snapshots are untouched.
