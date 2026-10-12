@@ -83,6 +83,10 @@ Gradle task lookup by subsystem:
 These are task names, not standalone invocation examples. Use the timeout/log
 wrapper in `docs/agent-project-reference.md` Key Commands and inspect the captured
 result separately; AGENTS.md retains the timeout and logging requirements.
+Select chunk checks using the verification tiers in that reference: targeted
+producer/consumer tests for localized domain/DI or feature changes, the full
+matrix for Tier A and every release integration gate. Changed bindings still
+require Koin verification; applicable UI acceptance is not deferred by tiering.
 
 ```text
 :core:domain:testAndroidHostTest      pure planner/fatigue tests

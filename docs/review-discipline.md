@@ -134,3 +134,19 @@ have its own approved scope; an explicitly approved ordered fix chunk may
 batch execution under the existing Approved Work Chunks rules.
 
 Pushing always requires separate approval.
+
+### 8. Bound post-execution review rounds
+
+For a release slice, perform one full-range review. After approved fixes,
+confirm closures with a targeted, read-only check of the fixes, affected
+consumers, regression tests and revision-specific verification evidence.
+Append closure evidence to the existing review snapshot; preserve its original
+findings and verdict as historical evidence. Closure confirmation is a reviewer
+activity in Plan Mode, not a builder self-check or a new full-range review.
+
+Reopen a full-range review only for a blocker, a finding with data-loss or
+corruption impact, or an unmet acceptance item whose evidence the builder
+cannot supply. Minor/nit closures and corrections to evidence records do not
+alone trigger another full-range round. No finding or missing acceptance check
+is waived by this bound: unresolved required items still prevent approval.
+Record the closure verdict and the exact revision it covers in the same report.

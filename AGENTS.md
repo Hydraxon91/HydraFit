@@ -26,8 +26,9 @@
   grep/tail afterwards; never block on a run with no timeout. If a run
   hangs, jstack the test executor and report; don't retry blindly.
 - Verification covers downstream consumers, not just the module you
-  edited: for cross-cutting or schema changes run the full host-test
-  suite, ktlint, assembleDebug and iOS compile before showing a diff.
+  edited: select the risk tier in `docs/agent-project-reference.md` Key
+  Commands. Tier A changes run the full matrix at their chunk boundary;
+  Tier B/C run targeted checks, with the full matrix at release integration.
 - Data access: a phone pull is read-only (`adb -s <serial> exec-out run-as
   com.hydrafit.app cat databases/hydrafit.db`, plus any `-wal`/`-journal`);
   never push, install, launch or clear. Copies live outside the repo, are
@@ -75,9 +76,11 @@
   Restore any temporary diagnostic break before stopping; preserve legitimate
   implementation work and other agents' changes.
 - PLANS.md edits are status lines only unless I approve more, except the bounded
-  completion cleanup below.
-- **Completion cleanup (standing authorization):** at the end of a feature or
-  approved work chunk, after its acceptance criteria and required verification
+  completion cleanup below. Batch status updates at approved chunk or release-series
+  boundaries rather than per implementation step; record evidence in the boundary
+  report and fold it into the next status update, without losing verification limits.
+- **Completion cleanup (standing authorization):** at the close of a `0.N.x`
+  release series, archive its completed slices together, after their acceptance criteria and required verification
   pass, its post-execution review is complete, all required review fixes are
   resolved, and the user explicitly approves the reviewed work, append its
   completed PLANS.md detail verbatim to a dated section of `docs/plans-archive.md`. Preserve source
@@ -229,6 +232,12 @@ the bounded review only when the user requests it and Plan Mode is active.
 Passing tests, a green build, or a self-check of closed findings is not a review
 verdict, and it does not authorize a commit, push, tag or release.
 
+**Bounded review rounds:** one full-range review per release slice, then targeted
+reviewer closure checks under `docs/review-discipline.md` §8. Reopen the full
+range only for blockers, data-loss/corruption impact, or unmet acceptance evidence
+the builder cannot supply. Required findings and checks remain required; append
+closure evidence to the existing snapshot without rewriting historical content.
+
 ## Review-Derived Rules (0.2.2)
 
 Added by the 0.2.2 review (RG); rationale lives in `docs/architecture.md` and
@@ -310,6 +319,10 @@ This table is the authoritative commit workflow; approval to edit files alone is
 - **Docs-only pushes don't need a CI wait.** If a push contains only edits to Markdown files (e.g. `AGENTS.md`, `PLANS.md`, or other `.md` docs), do not wait for GitHub Actions to report green — there is no code change, so the run should pass if the previous push passed. Report the push and move on; still treat any unexpected failure as a signal to investigate.
 - **Never churn code to force a perfect commit split.** If cleanly separating logical changes would mean deleting and re-adding (or temporarily reverting) code just to keep a shared file out of a commit, don't do it. Keep every commit compiling and prefer a slightly broader but honest grouping (e.g. a single "persistence-layer support for X and Y" commit) over mechanical revert/restore cycles. Atomicity means one clear intent per commit, not a self-inflicted edit dance.
 - **One commit per logical change — never bundle unrelated changes into a single commit.** Follow the authorization/order table above and stage only files required for that change.
+- Related mechanical review fixes in the same file area may share one commit
+  when they form a coherent change. Name each finding ID in the commit body and
+  retain its regression evidence and approved fix scope; unrelated fixes and
+  design decisions remain separate.
 - **A commit should touch the smallest number of files possible for the one change it represents.** If the file list includes anything not directly required for the one change being committed (e.g. an unrelated formatting change, a file touched while investigating but not actually modified for the fix), stop and either revert that unrelated change or ask whether it should be a separate commit.
 - **Commit message should describe the one thing, not summarize everything.** If it's hard to write a single clear sentence for what changed, that's a sign the commit should be split.
 - **Don't bundle unrelated fixes "while you're in there."** If an unrelated issue is noticed while working on something else, mention it and ask, or commit it separately — don't fold it into the current commit.

@@ -59,10 +59,12 @@ entire change range.
 - Identify completed steps, unfinished steps and relevant pre-existing issues.
 - Read changed source plus its relevant consumers, helpers and tests.
 
-For a re-review of corrective work, inspect the corrective changes, their
-downstream consumers, and the previously declared review scope. Closing
-findings does not by itself establish that the entire release delta is
-approved.
+After the initial full-range review, use the bounded closure procedure in
+`docs/review-discipline.md` §8. Inspect corrective changes, their downstream
+consumers, regression tests and verification evidence against the original
+scope. Reopen a full-range review only for a blocker, data-loss/corruption
+impact, or an unmet acceptance item whose evidence the builder cannot supply.
+Targeted closure does not substitute for an incomplete initial source review.
 
 If the base or approved scope cannot be established, report the limitation
 before issuing an approval.
@@ -143,6 +145,11 @@ require the applicable fix-plan approval.
 ### Verdict
 
 `[APPROVED]`, `[REJECTED]` or `[INCOMPLETE]`, with a concise reason.
+
+For targeted closure, append the checked fixes, evidence, remaining findings
+and closure verdict to the existing snapshot without rewriting its historical
+content. This is not a fresh full-range verdict: approval relies on the initial
+review plus the evidenced closure checks, with no unresolved required items.
 
 APPROVED means the reviewed scope has no unresolved blocking findings and its
 required verification is evidenced. It does not mean the implementation is
