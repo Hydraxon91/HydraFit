@@ -37,6 +37,7 @@ import androidx.compose.material3.TimePickerDialog
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -241,6 +242,10 @@ fun NavGraphBuilder.loggerGraph(navController: NavController) {
         composable(summaryRoute) {
             val viewModel = sharedLoggerViewModel(navController)
             val state by viewModel.state.collectAsStateWithLifecycle()
+            // The route exists only while a summary is open, so it must clear the state that opened
+            // it whenever it leaves (Done, system Back or the history handoff). Without this, Back
+            // pops the route while the state stays open and the Logger immediately reopens it.
+            DisposableEffect(Unit) { onDispose { viewModel.onWorkoutSummaryShown() } }
             WorkoutSummaryRoute(
                 screen = state.summary,
                 weightUnit = state.weightUnit,
@@ -251,8 +256,11 @@ fun NavGraphBuilder.loggerGraph(navController: NavController) {
                     navController.popBackStack()
                 },
                 onViewInHistory = { summary ->
-                    viewModel.onWorkoutSummaryHistoryRequested(summary)
+                    // Leave the transient summary before entering the browser, so returning from
+                    // history lands on the Logger instead of a dismissed summary.
+                    navController.popBackStack()
                     navController.navigate(historyGraphRoute)
+                    viewModel.onWorkoutSummaryHistoryRequested(summary)
                 }
             )
         }

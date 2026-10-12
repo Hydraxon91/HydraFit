@@ -224,7 +224,9 @@ The post-finish summary (0.7.2) is a real nested destination (`log/summary`, `su
 system Back returns to the Logger and the Log tab stays selected. It carries no route argument: the
 workout is addressed by `WorkoutLoggerUiState.summary`, a `WorkoutSummaryScreen` of Loading /
 Ready(summary) / Failed / Unavailable, opened only by a successful Finish workout or Finish
-partially. Skip opens nothing, a failed finish shows only its message, and a block replaced or
+partially. Leaving the route by any path clears that state on dispose, and the history handoff pops
+the summary before entering the browser, so Back from history cannot land on a dismissed summary.
+Skip opens nothing, a failed finish shows only its message, and a block replaced or
 cancelled as the resolve commits drops the summary rather than overlaying a workout already left.
 `WorkoutLoggingActions.summarize` forwards to `GetWorkoutSummaryUseCase`, which reads the occurrence,
 its recorded sets, the sessions those sets span (bounded `WorkoutSessionRepository.byId` over the
