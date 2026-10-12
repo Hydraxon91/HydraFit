@@ -52,9 +52,11 @@ import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.ExerciseNoteRepository
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
+import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.PersistedRestCountdown
 import com.hydrafit.app.core.domain.workout.RestCountdownRepository
@@ -2087,7 +2089,8 @@ class WorkoutLoggerViewModelTest {
                 FakeGuidedWorkoutPreferenceRepository(false),
                 FakeRestPreferenceRepository(),
                 FakeTrainingGuidancePreferences()
-            )
+            ),
+            exerciseNoteRepository = FakeExerciseNoteRepository()
         )
         advanceUntilIdle()
 
@@ -2173,7 +2176,8 @@ class WorkoutLoggerViewModelTest {
                 FakeGuidedWorkoutPreferenceRepository(false),
                 FakeRestPreferenceRepository(),
                 FakeTrainingGuidancePreferences()
-            )
+            ),
+            exerciseNoteRepository = FakeExerciseNoteRepository()
         )
         advanceUntilIdle()
         assertEquals("back-squat", viewModel.state.value.draftSets.single().exerciseId)
@@ -2201,7 +2205,8 @@ class WorkoutLoggerViewModelTest {
                 FakeGuidedWorkoutPreferenceRepository(false),
                 FakeRestPreferenceRepository(),
                 FakeTrainingGuidancePreferences()
-            )
+            ),
+            exerciseNoteRepository = FakeExerciseNoteRepository()
         )
         advanceUntilIdle()
         assertEquals("back-squat", viewModel.state.value.draftSets.single().exerciseId)
@@ -2260,7 +2265,8 @@ class WorkoutLoggerViewModelTest {
                 FakeGuidedWorkoutPreferenceRepository(false),
                 FakeRestPreferenceRepository(),
                 FakeTrainingGuidancePreferences()
-            )
+            ),
+            exerciseNoteRepository = FakeExerciseNoteRepository()
         )
         advanceUntilIdle()
         assertEquals("back-squat", viewModel.state.value.draftSets.single().exerciseId)
@@ -2663,7 +2669,8 @@ class WorkoutLoggerViewModelTest {
                 FakeGuidedWorkoutPreferenceRepository(false),
                 FakeRestPreferenceRepository(),
                 FakeTrainingGuidancePreferences()
-            )
+            ),
+            exerciseNoteRepository = FakeExerciseNoteRepository()
         )
         advanceUntilIdle()
         assertEquals(null, viewModel.state.value.todayFocus)
@@ -3302,7 +3309,8 @@ class WorkoutLoggerViewModelTest {
         acceptedPlan: AcceptedPlan? = null,
         history: FakePlanHistoryRepository = FakePlanHistoryRepository(acceptedPlan),
         catalog: ExerciseCatalog = FakeExerciseCatalog,
-        weightUnit: WeightUnit = WeightUnit.KG
+        weightUnit: WeightUnit = WeightUnit.KG,
+        noteRepository: ExerciseNoteRepository = FakeExerciseNoteRepository()
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessionRepository),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
@@ -3314,12 +3322,14 @@ class WorkoutLoggerViewModelTest {
             FakeGuidedWorkoutPreferenceRepository(false),
             FakeRestPreferenceRepository(),
             FakeTrainingGuidancePreferences()
-        )
+        ),
+        exerciseNoteRepository = noteRepository
     )
 
     private fun sessionViewModel(
         repository: WorkoutLogRepository,
         sessionRepository: WorkoutSessionRepository,
+        noteRepository: ExerciseNoteRepository = FakeExerciseNoteRepository(),
         now: () -> Long
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessionRepository),
@@ -3332,7 +3342,8 @@ class WorkoutLoggerViewModelTest {
             FakeGuidedWorkoutPreferenceRepository(false),
             FakeRestPreferenceRepository(),
             FakeTrainingGuidancePreferences()
-        )
+        ),
+        exerciseNoteRepository = noteRepository
     )
 
     private fun logMutations(
@@ -5137,7 +5148,8 @@ class WorkoutLoggerViewModelTest {
             FakeGuidedWorkoutPreferenceRepository(guided),
             restPreferences,
             FakeTrainingGuidancePreferences(coaching)
-        )
+        ),
+        exerciseNoteRepository = FakeExerciseNoteRepository()
     ).also { timerViewModels.add(it) }
 
     private fun blockActivation() = TrainingActivation(
@@ -5705,6 +5717,473 @@ class WorkoutLoggerViewModelTest {
         override suspend fun deleteOccurrencesForActivation(activationId: Long) = Unit
 
         override suspend fun isTemplateReferenced(templateId: Long): Boolean = false
+    }
+
+    class FakeExerciseNoteRepository : ExerciseNoteRepository {
+        private val notes = mutableMapOf<String, String?>()
+        var failSave = false
+
+        override suspend fun note(exerciseId: String): String? = notes[exerciseId]
+
+        override suspend fun save(exerciseId: String, text: String) {
+            if (text.length > NOTE_MAX_LENGTH) {
+                throw IllegalArgumentException(
+                    "Exercise notes must not exceed $NOTE_MAX_LENGTH characters"
+                )
+            }
+            if (failSave) throw IllegalStateException("Save failed")
+            notes[exerciseId] = text
+        }
+
+        override suspend fun clear(exerciseId: String) {
+            notes[exerciseId] = ""
+        }
+    }
+
+    @Test
+    fun noteLoadReturnsAbsentWhenNoNoteExists() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+
+        assertEquals("", viewModel.state.value.noteText)
+        assertEquals("back-squat", viewModel.state.value.noteExerciseId)
+    }
+
+    @Test
+    fun noteLoadPersistsSavedValue() = runTest(dispatcher) {
+        val noteRepo = FakeExerciseNoteRepository()
+        val viewModel = viewModel(noteRepository = noteRepo)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+
+        viewModel.onNoteTextChanged("Set up tall")
+        viewModel.saveNote()
+        advanceUntilIdle()
+
+        assertEquals("Set up tall", noteRepo.note("back-squat"))
+        assertNull(viewModel.state.value.noteExerciseId)
+    }
+
+    @Test
+    fun noteClearPersistsEmptyString() = runTest(dispatcher) {
+        val noteRepo = FakeExerciseNoteRepository()
+        noteRepo.save("back-squat", "initial note")
+        val viewModel = viewModel(noteRepository = noteRepo)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+
+        viewModel.clearNote()
+        advanceUntilIdle()
+
+        assertEquals("", noteRepo.note("back-squat"))
+        assertNull(viewModel.state.value.noteExerciseId)
+    }
+
+    @Test
+    fun noteCancelDiscardsDraft() = runTest(dispatcher) {
+        val noteRepo = FakeExerciseNoteRepository()
+        noteRepo.save("back-squat", "original")
+        val viewModel = viewModel(noteRepository = noteRepo)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+
+        viewModel.onNoteTextChanged("changed")
+        viewModel.cancelNote()
+        advanceUntilIdle()
+
+        assertEquals("original", noteRepo.note("back-squat"))
+        assertNull(viewModel.state.value.noteExerciseId)
+    }
+
+    @Test
+    fun noteLengthBoundaryAllowsMaxAndRejectsOver() = runTest(dispatcher) {
+        val noteRepo = FakeExerciseNoteRepository()
+        val viewModel = viewModel(noteRepository = noteRepo)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+
+        val maxText = "x".repeat(NOTE_MAX_LENGTH)
+        viewModel.onNoteTextChanged(maxText)
+        viewModel.saveNote()
+        advanceUntilIdle()
+
+        assertEquals(maxText, noteRepo.note("back-squat"))
+
+        // Reset and test over limit
+        noteRepo.clear("back-squat")
+        viewModel.cancelNote()
+        advanceUntilIdle()
+
+        val overText = "x".repeat(NOTE_MAX_LENGTH + 1)
+        viewModel.onNoteExerciseSelected("back-squat")
+        advanceUntilIdle()
+        viewModel.onNoteTextChanged(overText)
+        // Input is truncated at NOTE_MAX_LENGTH, so save succeeds with the truncated text.
+        assertEquals(NOTE_MAX_LENGTH, viewModel.state.value.noteText.length)
+        viewModel.saveNote()
+        advanceUntilIdle()
+
+        assertEquals("x".repeat(NOTE_MAX_LENGTH), noteRepo.note("back-squat"))
+    }
+
+    @Test
+    fun noteFailureRetainsDraftAndSetsFailedFlag() = runTest(dispatcher) {
+        val noteRepo = FakeExerciseNoteRepository()
+        noteRepo.failSave = true
+        val viewModel = viewModel(noteRepository = noteRepo)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+
+        viewModel.onNoteTextChanged("will fail")
+        viewModel.saveNote()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.noteFailed)
+        assertEquals("will fail", viewModel.state.value.noteText)
+        assertNull(noteRepo.note("back-squat"))
+
+        // Retry after disabling failure
+        noteRepo.failSave = false
+        viewModel.saveNote()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.noteFailed)
+        assertEquals("will fail", noteRepo.note("back-squat"))
+        assertNull(viewModel.state.value.noteExerciseId)
+    }
+
+    @Test
+    fun noteSavingBlocksConcurrentSaves() = runTest(dispatcher) {
+        val noteRepo = FakeExerciseNoteRepository()
+        val gate = CompletableDeferred<Unit>()
+        val blockingRepo = object : ExerciseNoteRepository {
+            override suspend fun note(exerciseId: String): String? = noteRepo.note(exerciseId)
+            override suspend fun save(exerciseId: String, text: String) {
+                gate.await()
+                noteRepo.save(exerciseId, text)
+            }
+            override suspend fun clear(exerciseId: String) {
+                noteRepo.clear(exerciseId)
+            }
+        }
+        val viewModel = viewModel(noteRepository = blockingRepo)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+
+        viewModel.onNoteTextChanged("first")
+        viewModel.saveNote()
+        viewModel.saveNote()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.noteSaving)
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.noteSaving)
+        assertEquals("first", noteRepo.note("back-squat"))
+    }
+
+    @Test
+    fun noteExerciseSwitchingDiscardsOldDraft() = runTest(dispatcher) {
+        val noteRepo = FakeExerciseNoteRepository()
+        noteRepo.save("back-squat", "squat note")
+        val viewModel = viewModel(noteRepository = noteRepo)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+
+        viewModel.onNoteTextChanged("changed squat")
+        viewModel.onExerciseSelected("bench-press")
+        advanceUntilIdle()
+
+        // The bench-press has no note, so it should be empty
+        assertEquals("", viewModel.state.value.noteText)
+        assertEquals("bench-press", viewModel.state.value.noteExerciseId)
+        // The squat note should be unchanged
+        assertEquals("squat note", noteRepo.note("back-squat"))
+    }
+
+    @Test
+    fun noteRecreationStartsFresh() = runTest(dispatcher) {
+        val noteRepo = FakeExerciseNoteRepository()
+        noteRepo.save("back-squat", "persistent")
+        val viewModel = viewModel(noteRepository = noteRepo)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+
+        viewModel.onNoteTextChanged("draft")
+        // Simulate ViewModel recreation by checking initial state
+        val recreated = viewModel(
+            noteRepository = FakeExerciseNoteRepository().apply {
+                save("back-squat", "persistent")
+            }
+        )
+        advanceUntilIdle()
+
+        assertEquals("", recreated.state.value.noteText)
+        assertNull(recreated.state.value.noteExerciseId)
+    }
+
+    @Test
+    fun noteExerciseSwitchDiscardsOldDraft() = runTest(dispatcher) {
+        val noteRepo = FakeExerciseNoteRepository()
+        noteRepo.save("back-squat", "squat note")
+        val viewModel = viewModel(noteRepository = noteRepo)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+
+        viewModel.onNoteTextChanged("draft for squat")
+        // Switching exercise should load the new note and discard the draft
+        viewModel.onExerciseSelected("bench-press")
+        advanceUntilIdle()
+
+        assertEquals("", viewModel.state.value.noteText)
+        assertEquals("bench-press", viewModel.state.value.noteExerciseId)
+        assertNull(noteRepo.note("bench-press"))
+        // Original draft should not be persisted
+        assertEquals("squat note", noteRepo.note("back-squat"))
+    }
+
+    @Test
+    fun noteOutOfOrderLoadKeepsLatestSelection() = runTest(dispatcher) {
+        val slowGate = CompletableDeferred<Unit>()
+        val repo = object : ExerciseNoteRepository {
+            private val notes = mutableMapOf<String, String?>()
+
+            override suspend fun note(exerciseId: String): String? {
+                if (exerciseId == "slow") slowGate.await()
+                return notes[exerciseId]
+            }
+
+            override suspend fun save(exerciseId: String, text: String) {
+                notes[exerciseId] = text
+            }
+
+            override suspend fun clear(exerciseId: String) {
+                notes[exerciseId] = ""
+            }
+        }
+        val viewModel = viewModel(noteRepository = repo)
+        advanceUntilIdle()
+
+        // Select "slow" first; its load suspends. Then select "fast", whose load completes.
+        viewModel.onNoteExerciseSelected("slow")
+        runCurrent()
+        viewModel.onNoteExerciseSelected("fast")
+        advanceUntilIdle()
+
+        assertEquals("fast", viewModel.state.value.noteExerciseId)
+
+        // The stale "slow" load now resumes; it must not overwrite the newer selection.
+        slowGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("fast", viewModel.state.value.noteExerciseId)
+    }
+
+    @Test
+    fun noteLoadFailureSetsLoadFailedFlag() = runTest(dispatcher) {
+        val blockingRepo = object : ExerciseNoteRepository {
+            var failLoad = false
+            private val notes = mutableMapOf<String, String?>()
+
+            override suspend fun note(exerciseId: String): String? {
+                if (failLoad) throw IllegalStateException("Load failed")
+                return notes[exerciseId]
+            }
+
+            override suspend fun save(exerciseId: String, text: String) {
+                notes[exerciseId] = text
+            }
+
+            override suspend fun clear(exerciseId: String) {
+                notes[exerciseId] = ""
+            }
+        }
+        val viewModel = viewModel(noteRepository = blockingRepo)
+        advanceUntilIdle()
+
+        blockingRepo.failLoad = true
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.noteLoadFailed)
+        assertEquals("back-squat", viewModel.state.value.noteExerciseId)
+
+        // Retry should succeed
+        blockingRepo.failLoad = false
+        viewModel.retryNoteLoad()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.noteLoadFailed)
+        assertEquals("", viewModel.state.value.noteText)
+    }
+
+    @Test
+    fun noteInputTruncatesAtMaxLength() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+
+        val overText = "x".repeat(NOTE_MAX_LENGTH + 10)
+        viewModel.onNoteTextChanged(overText)
+
+        assertEquals(NOTE_MAX_LENGTH, viewModel.state.value.noteText.length)
+        assertEquals("x".repeat(NOTE_MAX_LENGTH), viewModel.state.value.noteText)
+    }
+
+    @Test
+    fun noteRecentSetSelectedLoadsNote() = runTest(dispatcher) {
+        val noteRepo = FakeExerciseNoteRepository()
+        noteRepo.save("deadlift", "deadlift setup")
+        val setRow = LoggedSetRow(
+            id = 1L,
+            performedAtMillis = 1_000_000L,
+            exerciseId = "deadlift",
+            exerciseName = "Deadlift",
+            weightKg = 100.0,
+            reps = 5,
+            rir = 1,
+            isWarmup = false,
+            loadKind = LoadKind.EXTERNAL,
+            occurrenceId = 1L,
+            sessionId = "session-1"
+        )
+        val viewModel = viewModel(noteRepository = noteRepo)
+        advanceUntilIdle()
+
+        viewModel.onRecentSetSelected(setRow)
+        advanceUntilIdle()
+
+        assertEquals("deadlift", viewModel.state.value.selectedExerciseId)
+        assertEquals("deadlift", viewModel.state.value.noteExerciseId)
+        assertEquals("deadlift setup", viewModel.state.value.noteText)
+    }
+
+    @Test
+    fun noteSelectionResetsEditorBeforeNewNoteLoads() = runTest(dispatcher) {
+        val noteRepo = FakeExerciseNoteRepository()
+        noteRepo.save("back-squat", "squat note")
+        val viewModel = viewModel(noteRepository = noteRepo)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+        assertEquals("back-squat", viewModel.state.value.noteExerciseId)
+        assertEquals("squat note", viewModel.state.value.noteText)
+
+        // The editor reset is synchronous, so it must not keep showing back-squat's draft while
+        // bench-press's note is read.
+        viewModel.onExerciseSelected("bench-press")
+        assertNull(viewModel.state.value.noteExerciseId)
+        assertEquals("", viewModel.state.value.noteText)
+
+        // With no loaded editor, a write cannot target the previous exercise.
+        viewModel.saveNote()
+        assertNull(noteRepo.note("bench-press"))
+
+        advanceUntilIdle()
+        assertEquals("bench-press", viewModel.state.value.noteExerciseId)
+        assertEquals("", viewModel.state.value.noteText)
+        assertEquals("squat note", noteRepo.note("back-squat"))
+    }
+
+    @Test
+    fun noteSaveWithoutLoadedEditorIsNoOp() = runTest(dispatcher) {
+        val noteRepo = FakeExerciseNoteRepository()
+        val viewModel = viewModel(noteRepository = noteRepo)
+        advanceUntilIdle()
+
+        // No exercise selected means no editor and therefore no write target.
+        viewModel.saveNote()
+        viewModel.clearNote()
+        advanceUntilIdle()
+
+        assertNull(noteRepo.note("back-squat"))
+    }
+
+    @Test
+    fun noteSelectionIgnoredWhileWriteInFlight() = runTest(dispatcher) {
+        val saveGate = CompletableDeferred<Unit>()
+        val repo = object : ExerciseNoteRepository {
+            private val notes = mutableMapOf<String, String?>("back-squat" to "squat note")
+
+            override suspend fun note(exerciseId: String): String? = notes[exerciseId]
+
+            override suspend fun save(exerciseId: String, text: String) {
+                saveGate.await()
+                notes[exerciseId] = text
+            }
+
+            override suspend fun clear(exerciseId: String) {
+                notes[exerciseId] = ""
+            }
+        }
+        val viewModel = viewModel(noteRepository = repo)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+        assertEquals("back-squat", viewModel.state.value.noteExerciseId)
+
+        viewModel.onNoteTextChanged("edited squat")
+        viewModel.saveNote()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.noteSaving)
+
+        // A selection change during the write is ignored, so the write target cannot drift.
+        viewModel.onExerciseSelected("bench-press")
+        advanceUntilIdle()
+        assertEquals("back-squat", viewModel.state.value.selectedExerciseId)
+
+        saveGate.complete(Unit)
+        advanceUntilIdle()
+        assertFalse(viewModel.state.value.noteSaving)
+        assertEquals("edited squat", repo.note("back-squat"))
+        assertNull(repo.note("bench-press"))
+    }
+
+    @Test
+    fun noteSavedConfirmationSurvivesEditorClose() = runTest(dispatcher) {
+        val noteRepo = FakeExerciseNoteRepository()
+        val viewModel = viewModel(noteRepository = noteRepo)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+        viewModel.onNoteTextChanged("keep me")
+        viewModel.saveNote()
+        // runCurrent, not advanceUntilIdle, so the 2s auto-dismiss has not fired yet.
+        runCurrent()
+
+        assertNull(viewModel.state.value.noteExerciseId)
+        assertTrue(viewModel.state.value.noteSaved)
+
+        advanceUntilIdle()
+        assertFalse(viewModel.state.value.noteSaved)
     }
 
     private companion object {

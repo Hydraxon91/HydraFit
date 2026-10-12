@@ -144,4 +144,11 @@
     <string name="logger_explanation_sets_deload_scale">Deload volume scale</string>
     <string name="logger_explanation_sets_reduced_for_fatigue">Reduced by modeled fatigue.</string>
     <string name="logger_explanation_sets_final">Final sets</string>
+    <string name="logger_note_label">Setup notes</string>
+    <string name="logger_note_save">Save</string>
+    <string name="logger_note_clear">Clear</string>
+    <string name="logger_note_saved">Note saved</string>
+    <string name="logger_note_failed">Could not save note. Keep your edits and try again.</string>
+    <string name="logger_note_load_failed">Could not load note. Tap to retry.</string>
+    <string name="logger_note_retry">Retry</string>
 </resources>

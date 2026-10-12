@@ -77,6 +77,7 @@ import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.ExerciseNoteRepository
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
@@ -459,6 +460,7 @@ class KoinModulesVerificationTest {
                     single<PlanHistoryRepository> { FakePlanHistoryRepository }
                     single<ExerciseCatalog> { FakeExerciseCatalog }
                     single<WorkoutLogRepository> { FakeWorkoutLogRepository }
+                    single<ExerciseNoteRepository> { FakeExerciseNoteRepository }
                     single<WorkoutSessionRepository> { FakeWorkoutSessionRepository }
                     single<SessionResegmenter> { FakeSessionResegmenter }
                     single<RoutineTemplateRepository> { FakeRoutineTemplateRepository }
@@ -666,6 +668,14 @@ class KoinModulesVerificationTest {
         override fun openFlow(): Flow<WorkoutSession?> = emptyFlow()
 
         override suspend fun all(): List<WorkoutSession> = emptyList()
+    }
+
+    private object FakeExerciseNoteRepository : ExerciseNoteRepository {
+        override suspend fun note(exerciseId: String): String? = null
+
+        override suspend fun save(exerciseId: String, text: String) = Unit
+
+        override suspend fun clear(exerciseId: String) = Unit
     }
 
     private object FakeSessionResegmenter : SessionResegmenter {

@@ -21,6 +21,7 @@ import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.LiveRestCompletion
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.RestCountdown
 import com.hydrafit.app.core.domain.workout.ShortRestCoach
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
@@ -52,7 +53,8 @@ class WorkoutLoggerViewModel(
     private val loggingActions: WorkoutLoggingActions,
     private val exerciseCatalog: ExerciseCatalog,
     private val runtime: WorkoutLoggerRuntime,
-    private val settings: WorkoutLoggerSettings
+    private val settings: WorkoutLoggerSettings,
+    private val exerciseNoteRepository: com.hydrafit.app.core.domain.workout.ExerciseNoteRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(WorkoutLoggerUiState())
@@ -280,6 +282,9 @@ class WorkoutLoggerViewModel(
     }
 
     fun onExerciseSelected(exerciseId: String) {
+        // A note write is in flight; ignore the selection change so its failure stays retryable
+        // against the exercise it started with. The write is short-lived, so this is not noticeable.
+        if (noteSaving) return
         val unit = _state.value.weightUnit
         val planWeight = suggestedInputFor(exerciseId, unit)
         val planReps = suggestedRepsFor(exerciseId)
@@ -297,6 +302,8 @@ class WorkoutLoggerViewModel(
         if (planWeight.isBlank()) {
             viewModelScope.launch { prefillFromLastSet(exerciseId, unit) }
         }
+        // Load the exercise setup note when an exercise is selected.
+        onNoteExerciseSelected(exerciseId)
     }
 
     /** Fills reps and weight from the most recent non-warmup set logged for this exercise. */
@@ -323,6 +330,7 @@ class WorkoutLoggerViewModel(
      * tapped row reproduces exactly what was logged: exercise, reps, weight, warm-up flag, and RIR.
      */
     fun onRecentSetSelected(row: LoggedSetRow) {
+        if (noteSaving) return
         val unit = _state.value.weightUnit
         _state.update {
             it.copy(
@@ -335,6 +343,8 @@ class WorkoutLoggerViewModel(
                 rir = row.rir?.toString().orEmpty()
             )
         }
+        // Load the exercise setup note when a recent set is selected.
+        onNoteExerciseSelected(row.exerciseId)
     }
 
     /** The weight input string for [weightKg] in the display unit, or blank when there is none. */
@@ -1919,4 +1929,143 @@ class WorkoutLoggerViewModel(
             }
         _state.update { it.copy(recentSets = rows) }
     }
+
+    // ── Exercise setup notes ──────────────────────────────────────────────
+
+    /** The revision of the exercise whose note is currently loaded in the editor. */
+    private var noteRevision: Long = 0
+
+    /** Loads the note for [exerciseId] into the draft editor. */
+    fun onNoteExerciseSelected(exerciseId: String) {
+        if (noteSaving) return
+        val revision = ++noteRevision
+        // Close the editor for the new selection until its note is read, so the previous exercise's
+        // draft can never be shown or saved against the newly selected exercise.
+        _state.update {
+            it.copy(
+                noteExerciseId = null,
+                noteText = "",
+                noteFailed = false,
+                noteSaved = false,
+                noteLoadFailed = false
+            )
+        }
+        viewModelScope.launch {
+            val text = try {
+                exerciseNoteRepository.note(exerciseId)
+            } catch (_: Exception) {
+                // Only the latest selection may apply its result; an older load that fails after a
+                // newer selection must not clear or error the newer note.
+                if (revision == noteRevision) {
+                    _state.update {
+                        it.copy(
+                            noteExerciseId = exerciseId,
+                            noteLoadFailed = true
+                        )
+                    }
+                }
+                return@launch
+            }
+            if (revision != noteRevision) return@launch
+            _state.update {
+                it.copy(
+                    noteText = text ?: "",
+                    noteExerciseId = exerciseId,
+                    noteLoadFailed = false
+                )
+            }
+        }
+    }
+
+    /** Updates the draft note text. */
+    fun onNoteTextChanged(text: String) {
+        _state.update { it.copy(noteText = text.take(NOTE_MAX_LENGTH)) }
+    }
+
+    /** Saves the current draft note to the repository. */
+    fun saveNote() {
+        val current = _state.value
+        val exerciseId = current.noteExerciseId
+        // The editor must belong to the currently selected exercise; never write a stale draft.
+        if (noteSaving || exerciseId == null || exerciseId != current.selectedExerciseId) return
+        val text = current.noteText
+        if (text.length > NOTE_MAX_LENGTH) return
+        viewModelScope.launch {
+            _state.update { it.copy(noteSaving = true, noteFailed = false, noteSaved = false) }
+            try {
+                exerciseNoteRepository.save(exerciseId, text)
+                // Closing the editor invalidates any in-flight load so it cannot reopen it.
+                noteRevision++
+                _state.update {
+                    it.copy(
+                        noteSaving = false,
+                        noteSaved = true,
+                        noteText = "",
+                        noteExerciseId = null
+                    )
+                }
+                // Auto-dismiss the success indicator after a short delay.
+                kotlinx.coroutines.delay(2_000)
+                _state.update { it.copy(noteSaved = false) }
+            } catch (_: Exception) {
+                _state.update {
+                    it.copy(noteSaving = false, noteFailed = true)
+                }
+            }
+        }
+    }
+
+    /** Clears the note for the currently selected exercise. */
+    fun clearNote() {
+        val current = _state.value
+        val exerciseId = current.noteExerciseId
+        if (noteSaving || exerciseId == null || exerciseId != current.selectedExerciseId) return
+        viewModelScope.launch {
+            _state.update { it.copy(noteSaving = true, noteFailed = false, noteSaved = false) }
+            try {
+                exerciseNoteRepository.clear(exerciseId)
+                // Closing the editor invalidates any in-flight load so it cannot reopen it.
+                noteRevision++
+                _state.update {
+                    it.copy(
+                        noteSaving = false,
+                        noteSaved = true,
+                        noteText = "",
+                        noteExerciseId = null
+                    )
+                }
+                kotlinx.coroutines.delay(2_000)
+                _state.update { it.copy(noteSaved = false) }
+            } catch (_: Exception) {
+                _state.update {
+                    it.copy(noteSaving = false, noteFailed = true)
+                }
+            }
+        }
+    }
+
+    /** Cancels the note editor, discarding the draft. */
+    fun cancelNote() {
+        // Invalidate any in-flight load so a late result cannot reopen the editor.
+        noteRevision++
+        _state.update {
+            it.copy(
+                noteText = "",
+                noteExerciseId = null,
+                noteFailed = false,
+                noteSaved = false,
+                noteLoadFailed = false
+            )
+        }
+    }
+
+    /** Retries loading the note for the currently selected exercise. */
+    fun retryNoteLoad() {
+        val current = _state.value
+        if (current.noteExerciseId == null) return
+        onNoteExerciseSelected(current.noteExerciseId)
+    }
+
+    private val noteSaving: Boolean
+        get() = _state.value.noteSaving
 }

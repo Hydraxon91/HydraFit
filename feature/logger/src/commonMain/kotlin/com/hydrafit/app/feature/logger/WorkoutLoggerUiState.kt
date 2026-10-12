@@ -215,7 +215,19 @@ data class WorkoutLoggerUiState(
     /** When true, a backdated set always starts a fresh session instead of attaching to the open one. */
     val forceNewSession: Boolean = false,
     /** The local UTC offset, used to display and seed the backdated time picker. */
-    val utcOffsetMillis: Long = 0L
+    val utcOffsetMillis: Long = 0L,
+    /** The draft text for the exercise setup note being edited. */
+    val noteText: String = "",
+    /** The exercise id whose note is currently being edited, or null when no note editor is open. */
+    val noteExerciseId: String? = null,
+    /** True while a note save/clear is in flight. */
+    val noteSaving: Boolean = false,
+    /** True when the last note save/clear failed; the draft is retained for retry. */
+    val noteFailed: Boolean = false,
+    /** True when the last note load failed; the editor shows an error with retry. */
+    val noteLoadFailed: Boolean = false,
+    /** True briefly after a successful note save/clear to show a confirmation. */
+    val noteSaved: Boolean = false
 ) {
     /** True when a backdated time is set; the UI shows a "backdated" indicator. */
     val isBackdated: Boolean

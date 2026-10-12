@@ -64,6 +64,7 @@ import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.navigation.FeatureDestination
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.focus_full_body
@@ -158,6 +159,13 @@ import hydrafit.feature.logger.generated.resources.logger_load_use_bodyweight
 import hydrafit.feature.logger.generated.resources.logger_load_use_external
 import hydrafit.feature.logger.generated.resources.logger_log_button
 import hydrafit.feature.logger.generated.resources.logger_new_session
+import hydrafit.feature.logger.generated.resources.logger_note_clear
+import hydrafit.feature.logger.generated.resources.logger_note_failed
+import hydrafit.feature.logger.generated.resources.logger_note_label
+import hydrafit.feature.logger.generated.resources.logger_note_load_failed
+import hydrafit.feature.logger.generated.resources.logger_note_retry
+import hydrafit.feature.logger.generated.resources.logger_note_save
+import hydrafit.feature.logger.generated.resources.logger_note_saved
 import hydrafit.feature.logger.generated.resources.logger_per_hand
 import hydrafit.feature.logger.generated.resources.logger_pick_time_title
 import hydrafit.feature.logger.generated.resources.logger_planned_today
@@ -274,6 +282,12 @@ fun WorkoutLoggerRoute(
         onBackdatedDateTimePicked = viewModel::onBackdatedDateTimePicked,
         onClearBackdated = { viewModel.onPerformedAtChanged(null) },
         onForceNewSessionChanged = viewModel::onForceNewSessionChanged,
+        onNoteExerciseSelected = viewModel::onNoteExerciseSelected,
+        onNoteTextChanged = viewModel::onNoteTextChanged,
+        onSaveNote = viewModel::saveNote,
+        onClearNote = viewModel::clearNote,
+        onCancelNote = viewModel::cancelNote,
+        onRetryNoteLoad = viewModel::retryNoteLoad,
         nowMillis = viewModel::currentTimeMillis,
         modifier = modifier
     )
@@ -343,6 +357,12 @@ fun WorkoutLoggerScreen(
     onBackdatedDateTimePicked: (Long, Int, Int) -> Boolean,
     onClearBackdated: () -> Unit,
     onForceNewSessionChanged: (Boolean) -> Unit,
+    onNoteExerciseSelected: (String) -> Unit,
+    onNoteTextChanged: (String) -> Unit,
+    onSaveNote: () -> Unit,
+    onClearNote: () -> Unit,
+    onCancelNote: () -> Unit,
+    onRetryNoteLoad: () -> Unit,
     nowMillis: () -> Long,
     modifier: Modifier = Modifier
 ) {
@@ -399,6 +419,97 @@ fun WorkoutLoggerScreen(
                         stringResource(focus.labelResource())
                     ),
                     style = MaterialTheme.typography.titleMedium
+                )
+            }
+        }
+        item {
+            if (state.noteExerciseId != null) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    if (state.noteLoadFailed) {
+                        // The note could not be read, so an empty field would falsely read as "no
+                        // note". Offer a retry instead of an editable draft.
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.logger_note_load_failed),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                onClick = onRetryNoteLoad,
+                                enabled = !state.noteSaving
+                            ) {
+                                Text(stringResource(Res.string.logger_note_retry))
+                            }
+                            TextButton(
+                                onClick = onCancelNote,
+                                enabled = !state.noteSaving
+                            ) {
+                                Text(stringResource(Res.string.logger_cancel))
+                            }
+                        }
+                    } else {
+                        OutlinedTextField(
+                            value = state.noteText,
+                            onValueChange = onNoteTextChanged,
+                            label = { Text(stringResource(Res.string.logger_note_label)) },
+                            modifier = Modifier.fillMaxWidth(),
+                            maxLines = 4,
+                            supportingText = {
+                                Text(
+                                    text = "${state.noteText.length}/$NOTE_MAX_LENGTH"
+                                )
+                            }
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Button(
+                                onClick = onSaveNote,
+                                enabled = !state.noteSaving
+                            ) {
+                                Text(stringResource(Res.string.logger_note_save))
+                            }
+                            Button(
+                                onClick = onClearNote,
+                                enabled = !state.noteSaving
+                            ) {
+                                Text(stringResource(Res.string.logger_note_clear))
+                            }
+                            TextButton(
+                                onClick = onCancelNote,
+                                enabled = !state.noteSaving
+                            ) {
+                                Text(stringResource(Res.string.logger_cancel))
+                            }
+                        }
+                        if (state.noteFailed) {
+                            Text(
+                                text = stringResource(Res.string.logger_note_failed),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            // Shown independently of the editor so a successful save/clear is still confirmed after
+            // the editor closes.
+            if (state.noteSaved) {
+                Text(
+                    text = stringResource(Res.string.logger_note_saved),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
