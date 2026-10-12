@@ -85,6 +85,7 @@ import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.PersistedRestCountdown
 import com.hydrafit.app.core.domain.workout.RestAlertScheduler
 import com.hydrafit.app.core.domain.workout.RestCountdownRepository
+import com.hydrafit.app.core.domain.workout.SessionNoteRepository
 import com.hydrafit.app.core.domain.workout.SessionResegmenter
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.UnsupportedRestAlertScheduler
@@ -461,6 +462,7 @@ class KoinModulesVerificationTest {
                     single<ExerciseCatalog> { FakeExerciseCatalog }
                     single<WorkoutLogRepository> { FakeWorkoutLogRepository }
                     single<ExerciseNoteRepository> { FakeExerciseNoteRepository }
+                    single<SessionNoteRepository> { FakeSessionNoteRepository }
                     single<WorkoutSessionRepository> { FakeWorkoutSessionRepository }
                     single<SessionResegmenter> { FakeSessionResegmenter }
                     single<RoutineTemplateRepository> { FakeRoutineTemplateRepository }
@@ -676,6 +678,14 @@ class KoinModulesVerificationTest {
         override suspend fun save(exerciseId: String, text: String) = Unit
 
         override suspend fun clear(exerciseId: String) = Unit
+    }
+
+    private object FakeSessionNoteRepository : SessionNoteRepository {
+        override suspend fun note(sessionId: String): String? = null
+
+        override suspend fun save(sessionId: String, text: String) = Unit
+
+        override suspend fun clear(sessionId: String) = Unit
     }
 
     private object FakeSessionResegmenter : SessionResegmenter {

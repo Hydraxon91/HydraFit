@@ -227,7 +227,21 @@ data class WorkoutLoggerUiState(
     /** True when the last note load failed; the editor shows an error with retry. */
     val noteLoadFailed: Boolean = false,
     /** True briefly after a successful note save/clear to show a confirmation. */
-    val noteSaved: Boolean = false
+    val noteSaved: Boolean = false,
+    /** The explicit session id whose note is being edited, or null when no session-note editor is open. */
+    val sessionNoteSessionId: String? = null,
+    /** The draft text for the current session note being edited. */
+    val sessionNoteText: String = "",
+    /** True while a session-note read is in flight, before the editor can be shown. */
+    val sessionNoteLoading: Boolean = false,
+    /** True while a session-note save/clear is in flight. */
+    val sessionNoteSaving: Boolean = false,
+    /** True when the last session-note save/clear failed; the draft is retained for retry. */
+    val sessionNoteFailed: Boolean = false,
+    /** True when the last session-note load failed; the editor shows an error with retry. */
+    val sessionNoteLoadFailed: Boolean = false,
+    /** True briefly after a successful session-note save/clear to show a confirmation. */
+    val sessionNoteSaved: Boolean = false
 ) {
     /** True when a backdated time is set; the UI shows a "backdated" indicator. */
     val isBackdated: Boolean

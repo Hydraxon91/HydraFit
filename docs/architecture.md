@@ -236,13 +236,20 @@ when both exist, mirroring the preference and rest-override rules; a successful 
 deletion removes the note in the same transaction. Notes are included in the OF-01 backup (format 9)
 and survive export/restore.
 
-**Session notes (implemented, 0.7.1-C2).** A separate plain-text note is keyed by explicit workout
-session identity in `sessionNote` (migration `41.sqm`) behind `SessionNoteRepository`. Missing rows
-mean never set; an empty stored value is an explicit clear. Save/Clear validate the existing session
-inside the write transaction and never create or copy a note to a new session. Notes remain attached
-to their identity through set correction/resegmentation, including when that session becomes empty.
-Session notes use the shared 2,000-character `NOTE_MAX_LENGTH` and are included in OF-01 format 10;
-formats 1–9 restore no session notes during whole replacement.
+**Session notes (implemented, 0.7.1-C2 storage; 0.7.1-C4 editor).** A separate plain-text note is keyed
+by explicit workout session identity in `sessionNote` (migration `41.sqm`) behind
+`SessionNoteRepository`. Missing rows mean never set; an empty stored value is an explicit clear.
+Save/Clear validate the existing session inside the write transaction and never create or copy a note
+to a new session. Notes remain attached to their identity through set correction/resegmentation,
+including when that session becomes empty. Session notes use the shared 2,000-character
+`NOTE_MAX_LENGTH` and are included in OF-01 format 10; formats 1–9 restore no session notes during
+whole replacement. The Logger's current-session editor is a distinct control from the exercise
+setup-note editor: it opens only with an active session (never creating one), reads the note for that
+session's explicit `sessionId`, and labels itself as current session context. Cancel writes nothing;
+Save and its explicit Clear persist to the captured identity. The editor holds no state keyed to the
+selected exercise, date or elapsed time, and a session-identity change (End/New or an external
+change) invalidates the editor and any in-flight read or write so a draft or completion can never be
+attributed to a different session.
 
 **Volume explanation (implemented, C4 / OF-03 slice).** The VOL-01 volume assessment is persisted
 with the accepted plan so it always matches the calculation/output that produced it. On acceptance,

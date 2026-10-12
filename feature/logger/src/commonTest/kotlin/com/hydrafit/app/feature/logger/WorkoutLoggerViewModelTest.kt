@@ -61,6 +61,7 @@ import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.PersistedRestCountdown
 import com.hydrafit.app.core.domain.workout.RestCountdownRepository
 import com.hydrafit.app.core.domain.workout.SessionConfig
+import com.hydrafit.app.core.domain.workout.SessionNoteRepository
 import com.hydrafit.app.core.domain.workout.SessionResegmenter
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
@@ -94,6 +95,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -2090,7 +2092,8 @@ class WorkoutLoggerViewModelTest {
                 FakeRestPreferenceRepository(),
                 FakeTrainingGuidancePreferences()
             ),
-            exerciseNoteRepository = FakeExerciseNoteRepository()
+            exerciseNoteRepository = FakeExerciseNoteRepository(),
+            sessionNoteRepository = FakeSessionNoteRepository()
         )
         advanceUntilIdle()
 
@@ -2177,7 +2180,8 @@ class WorkoutLoggerViewModelTest {
                 FakeRestPreferenceRepository(),
                 FakeTrainingGuidancePreferences()
             ),
-            exerciseNoteRepository = FakeExerciseNoteRepository()
+            exerciseNoteRepository = FakeExerciseNoteRepository(),
+            sessionNoteRepository = FakeSessionNoteRepository()
         )
         advanceUntilIdle()
         assertEquals("back-squat", viewModel.state.value.draftSets.single().exerciseId)
@@ -2206,7 +2210,8 @@ class WorkoutLoggerViewModelTest {
                 FakeRestPreferenceRepository(),
                 FakeTrainingGuidancePreferences()
             ),
-            exerciseNoteRepository = FakeExerciseNoteRepository()
+            exerciseNoteRepository = FakeExerciseNoteRepository(),
+            sessionNoteRepository = FakeSessionNoteRepository()
         )
         advanceUntilIdle()
         assertEquals("back-squat", viewModel.state.value.draftSets.single().exerciseId)
@@ -2266,7 +2271,8 @@ class WorkoutLoggerViewModelTest {
                 FakeRestPreferenceRepository(),
                 FakeTrainingGuidancePreferences()
             ),
-            exerciseNoteRepository = FakeExerciseNoteRepository()
+            exerciseNoteRepository = FakeExerciseNoteRepository(),
+            sessionNoteRepository = FakeSessionNoteRepository()
         )
         advanceUntilIdle()
         assertEquals("back-squat", viewModel.state.value.draftSets.single().exerciseId)
@@ -2670,7 +2676,8 @@ class WorkoutLoggerViewModelTest {
                 FakeRestPreferenceRepository(),
                 FakeTrainingGuidancePreferences()
             ),
-            exerciseNoteRepository = FakeExerciseNoteRepository()
+            exerciseNoteRepository = FakeExerciseNoteRepository(),
+            sessionNoteRepository = FakeSessionNoteRepository()
         )
         advanceUntilIdle()
         assertEquals(null, viewModel.state.value.todayFocus)
@@ -3310,7 +3317,8 @@ class WorkoutLoggerViewModelTest {
         history: FakePlanHistoryRepository = FakePlanHistoryRepository(acceptedPlan),
         catalog: ExerciseCatalog = FakeExerciseCatalog,
         weightUnit: WeightUnit = WeightUnit.KG,
-        noteRepository: ExerciseNoteRepository = FakeExerciseNoteRepository()
+        noteRepository: ExerciseNoteRepository = FakeExerciseNoteRepository(),
+        sessionNoteRepository: SessionNoteRepository = FakeSessionNoteRepository()
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessionRepository),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
@@ -3323,13 +3331,15 @@ class WorkoutLoggerViewModelTest {
             FakeRestPreferenceRepository(),
             FakeTrainingGuidancePreferences()
         ),
-        exerciseNoteRepository = noteRepository
+        exerciseNoteRepository = noteRepository,
+        sessionNoteRepository = sessionNoteRepository
     )
 
     private fun sessionViewModel(
         repository: WorkoutLogRepository,
         sessionRepository: WorkoutSessionRepository,
         noteRepository: ExerciseNoteRepository = FakeExerciseNoteRepository(),
+        sessionNoteRepository: SessionNoteRepository = FakeSessionNoteRepository(),
         now: () -> Long
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessionRepository),
@@ -3343,7 +3353,8 @@ class WorkoutLoggerViewModelTest {
             FakeRestPreferenceRepository(),
             FakeTrainingGuidancePreferences()
         ),
-        exerciseNoteRepository = noteRepository
+        exerciseNoteRepository = noteRepository,
+        sessionNoteRepository = sessionNoteRepository
     )
 
     private fun logMutations(
@@ -5149,7 +5160,8 @@ class WorkoutLoggerViewModelTest {
             restPreferences,
             FakeTrainingGuidancePreferences(coaching)
         ),
-        exerciseNoteRepository = FakeExerciseNoteRepository()
+        exerciseNoteRepository = FakeExerciseNoteRepository(),
+        sessionNoteRepository = FakeSessionNoteRepository()
     ).also { timerViewModels.add(it) }
 
     private fun blockActivation() = TrainingActivation(
@@ -5740,6 +5752,31 @@ class WorkoutLoggerViewModelTest {
         }
     }
 
+    class FakeSessionNoteRepository : SessionNoteRepository {
+        val notes = mutableMapOf<String, String?>()
+        val saved = mutableListOf<Pair<String, String>>()
+        var failSave = false
+        var failClear = false
+        var failRead = false
+
+        override suspend fun note(sessionId: String): String? {
+            if (failRead) throw IllegalStateException("Read failed")
+            return notes[sessionId]
+        }
+
+        override suspend fun save(sessionId: String, text: String) {
+            if (failSave) throw IllegalStateException("Save failed")
+            notes[sessionId] = text
+            saved.add(sessionId to text)
+        }
+
+        override suspend fun clear(sessionId: String) {
+            if (failClear) throw IllegalStateException("Clear failed")
+            notes[sessionId] = ""
+            saved.add(sessionId to "")
+        }
+    }
+
     @Test
     fun noteLoadReturnsAbsentWhenNoNoteExists() = runTest(dispatcher) {
         val viewModel = viewModel()
@@ -6184,6 +6221,922 @@ class WorkoutLoggerViewModelTest {
 
         advanceUntilIdle()
         assertFalse(viewModel.state.value.noteSaved)
+    }
+
+    @Test
+    fun sessionNoteLoadsForTheActiveSessionId() = runTest(dispatcher) {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val noteRepo = FakeSessionNoteRepository()
+        val viewModel = sessionViewModel(
+            logs,
+            sessions,
+            sessionNoteRepository = noteRepo
+        ) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        val sessionId = sessions.open()!!.id
+
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+
+        assertEquals(sessionId, viewModel.state.value.sessionNoteSessionId)
+        assertEquals("", viewModel.state.value.sessionNoteText)
+        assertFalse(viewModel.state.value.sessionNoteLoadFailed)
+    }
+
+    @Test
+    fun sessionNoteSaveWritesToTheActiveSessionId() = runTest(dispatcher) {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val noteRepo = FakeSessionNoteRepository()
+        val viewModel = sessionViewModel(
+            logs,
+            sessions,
+            sessionNoteRepository = noteRepo
+        ) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        val sessionId = sessions.open()!!.id
+
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        viewModel.onSessionNoteTextChanged("Felt strong today")
+        viewModel.saveSessionNote()
+        runCurrent()
+
+        assertEquals(listOf(sessionId to "Felt strong today"), noteRepo.saved)
+        assertNull(viewModel.state.value.sessionNoteSessionId)
+        assertTrue(viewModel.state.value.sessionNoteSaved)
+
+        advanceUntilIdle()
+        assertFalse(viewModel.state.value.sessionNoteSaved)
+    }
+
+    @Test
+    fun sessionNoteClearPersistsExplicitEmptyString() = runTest(dispatcher) {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val noteRepo = FakeSessionNoteRepository()
+        val viewModel = sessionViewModel(
+            logs,
+            sessions,
+            sessionNoteRepository = noteRepo
+        ) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        val sessionId = sessions.open()!!.id
+        noteRepo.save(sessionId, "initial note")
+
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        viewModel.clearSessionNote()
+        advanceUntilIdle()
+
+        assertEquals("", noteRepo.notes[sessionId])
+        assertNull(viewModel.state.value.sessionNoteSessionId)
+    }
+
+    @Test
+    fun sessionNoteCancelWritesNothing() = runTest(dispatcher) {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val noteRepo = FakeSessionNoteRepository()
+        val viewModel = sessionViewModel(
+            logs,
+            sessions,
+            sessionNoteRepository = noteRepo
+        ) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        val sessionId = sessions.open()!!.id
+        noteRepo.save(sessionId, "original")
+
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        viewModel.onSessionNoteTextChanged("changed")
+        viewModel.cancelSessionNote()
+        advanceUntilIdle()
+
+        assertEquals("original", noteRepo.notes[sessionId])
+        assertEquals(1, noteRepo.saved.size)
+        assertNull(viewModel.state.value.sessionNoteSessionId)
+    }
+
+    @Test
+    fun sessionNoteWithoutAnActiveSessionIsInertAndCreatesNoSession() = runTest(dispatcher) {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val noteRepo = FakeSessionNoteRepository()
+        val viewModel = sessionViewModel(
+            logs,
+            sessions,
+            sessionNoteRepository = noteRepo
+        ) { MONDAY }
+        advanceUntilIdle()
+        assertNull(viewModel.state.value.activeSession)
+
+        viewModel.openSessionNote()
+        viewModel.onSessionNoteTextChanged("orphan draft")
+        viewModel.saveSessionNote()
+        viewModel.clearSessionNote()
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.sessionNoteSessionId)
+        assertTrue(noteRepo.saved.isEmpty())
+        assertTrue(sessions.all().isEmpty())
+        assertTrue(logs.all().isEmpty())
+    }
+
+    @Test
+    fun sessionNoteSaveWithoutAnOpenEditorIsNoOp() = runTest(dispatcher) {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val noteRepo = FakeSessionNoteRepository()
+        val viewModel = sessionViewModel(
+            logs,
+            sessions,
+            sessionNoteRepository = noteRepo
+        ) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+
+        // No editor was opened, so there is no session-note write target even with a session active.
+        viewModel.saveSessionNote()
+        viewModel.clearSessionNote()
+        advanceUntilIdle()
+
+        assertTrue(noteRepo.saved.isEmpty())
+    }
+
+    @Test
+    fun sessionNoteEndNewKeepsTheOldNoteAndDoesNotCarryTheDraft() = runTest(dispatcher) {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val noteRepo = FakeSessionNoteRepository()
+        val viewModel = sessionViewModel(
+            logs,
+            sessions,
+            sessionNoteRepository = noteRepo
+        ) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        val first = sessions.open()!!.id
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        viewModel.onSessionNoteTextChanged("A note")
+        viewModel.saveSessionNote()
+        advanceUntilIdle()
+        assertEquals("A note", noteRepo.notes[first])
+
+        // Reopen A's editor with an unpersisted draft, then start a new session.
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        viewModel.onSessionNoteTextChanged("draft that must not persist")
+        viewModel.newSession()
+        advanceUntilIdle()
+        val second = sessions.open()!!.id
+
+        assertEquals("", viewModel.state.value.sessionNoteText)
+        assertNull(viewModel.state.value.sessionNoteSessionId)
+        assertEquals("A note", noteRepo.notes[first])
+        assertNull(noteRepo.notes[second])
+
+        // The new session's editor starts empty and never writes A's draft.
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        assertEquals(second, viewModel.state.value.sessionNoteSessionId)
+        assertEquals("", viewModel.state.value.sessionNoteText)
+        viewModel.onSessionNoteTextChanged("B note")
+        viewModel.saveSessionNote()
+        advanceUntilIdle()
+
+        assertEquals("B note", noteRepo.notes[second])
+        assertEquals("A note", noteRepo.notes[first])
+    }
+
+    @Test
+    fun sessionNoteRecreationReloadsThePersistedNote() = runTest(dispatcher) {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val noteRepo = FakeSessionNoteRepository()
+        val first = sessionViewModel(
+            logs,
+            sessions,
+            sessionNoteRepository = noteRepo
+        ) { MONDAY }
+        advanceUntilIdle()
+
+        first.newSession()
+        advanceUntilIdle()
+        val sessionId = sessions.open()!!.id
+        first.openSessionNote()
+        advanceUntilIdle()
+        first.onSessionNoteTextChanged("persistent")
+        first.saveSessionNote()
+        advanceUntilIdle()
+
+        val recreated = sessionViewModel(
+            logs,
+            sessions,
+            sessionNoteRepository = noteRepo
+        ) { MONDAY }
+        advanceUntilIdle()
+        recreated.openSessionNote()
+        advanceUntilIdle()
+
+        assertEquals(sessionId, recreated.state.value.sessionNoteSessionId)
+        assertEquals("persistent", recreated.state.value.sessionNoteText)
+    }
+
+    @Test
+    fun sessionNoteSaveFailureRetainsDraftAndRetrySucceeds() = runTest(dispatcher) {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val noteRepo = FakeSessionNoteRepository()
+        noteRepo.failSave = true
+        val viewModel = sessionViewModel(
+            logs,
+            sessions,
+            sessionNoteRepository = noteRepo
+        ) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        val sessionId = sessions.open()!!.id
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        viewModel.onSessionNoteTextChanged("will fail")
+        viewModel.saveSessionNote()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.sessionNoteFailed)
+        assertEquals("will fail", viewModel.state.value.sessionNoteText)
+        assertEquals(sessionId, viewModel.state.value.sessionNoteSessionId)
+        assertNull(noteRepo.notes[sessionId])
+
+        noteRepo.failSave = false
+        viewModel.saveSessionNote()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.sessionNoteFailed)
+        assertEquals("will fail", noteRepo.notes[sessionId])
+        assertNull(viewModel.state.value.sessionNoteSessionId)
+    }
+
+    @Test
+    fun sessionNoteClearFailureRetainsDraftAndRetrySucceeds() = runTest(dispatcher) {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val noteRepo = FakeSessionNoteRepository()
+        val viewModel = sessionViewModel(
+            logs,
+            sessions,
+            sessionNoteRepository = noteRepo
+        ) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        val sessionId = sessions.open()!!.id
+        noteRepo.save(sessionId, "keep me")
+        noteRepo.failClear = true
+
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        viewModel.clearSessionNote()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.sessionNoteFailed)
+        assertEquals("keep me", viewModel.state.value.sessionNoteText)
+        assertEquals("keep me", noteRepo.notes[sessionId])
+
+        noteRepo.failClear = false
+        viewModel.clearSessionNote()
+        advanceUntilIdle()
+
+        assertEquals("", noteRepo.notes[sessionId])
+        assertNull(viewModel.state.value.sessionNoteSessionId)
+    }
+
+    @Test
+    fun sessionNoteDuplicateSaveWritesOnce() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        val noteRepo = FakeSessionNoteRepository()
+        val gated = object : SessionNoteRepository {
+            override suspend fun note(sessionId: String): String? = noteRepo.note(sessionId)
+
+            override suspend fun save(sessionId: String, text: String) {
+                gate.await()
+                noteRepo.save(sessionId, text)
+            }
+
+            override suspend fun clear(sessionId: String) = noteRepo.clear(sessionId)
+        }
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = sessionViewModel(logs, sessions, sessionNoteRepository = gated) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        val sessionId = sessions.open()!!.id
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        viewModel.onSessionNoteTextChanged("first")
+        viewModel.saveSessionNote()
+        viewModel.saveSessionNote()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.sessionNoteSaving)
+        assertTrue(noteRepo.saved.isEmpty())
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.sessionNoteSaving)
+        assertEquals(listOf(sessionId to "first"), noteRepo.saved)
+    }
+
+    @Test
+    fun sessionNoteStaleWriteCannotAffectAChangedSession() = runTest(dispatcher) {
+        val saveGate = CompletableDeferred<Unit>()
+        val noteRepo = FakeSessionNoteRepository()
+        val gated = object : SessionNoteRepository {
+            override suspend fun note(sessionId: String): String? = noteRepo.note(sessionId)
+
+            override suspend fun save(sessionId: String, text: String) {
+                saveGate.await()
+                noteRepo.save(sessionId, text)
+            }
+
+            override suspend fun clear(sessionId: String) = noteRepo.clear(sessionId)
+        }
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = sessionViewModel(logs, sessions, sessionNoteRepository = gated) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        val first = sessions.open()!!.id
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        viewModel.onSessionNoteTextChanged("A note")
+        viewModel.saveSessionNote()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.sessionNoteSaving)
+
+        // The write is still in flight; switching sessions must clear the editor immediately.
+        viewModel.newSession()
+        advanceUntilIdle()
+        val second = sessions.open()!!.id
+        assertNull(viewModel.state.value.sessionNoteSessionId)
+        assertFalse(viewModel.state.value.sessionNoteSaving)
+
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        viewModel.onSessionNoteTextChanged("B draft")
+
+        // The old write finishes for its original session and must not touch the new editor.
+        saveGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("A note", noteRepo.notes[first])
+        assertNull(noteRepo.notes[second])
+        assertEquals("B draft", viewModel.state.value.sessionNoteText)
+        assertEquals(second, viewModel.state.value.sessionNoteSessionId)
+        assertFalse(viewModel.state.value.sessionNoteFailed)
+        assertFalse(viewModel.state.value.sessionNoteSaved)
+    }
+
+    @Test
+    fun sessionNoteStaleLoadCannotReopenAfterSessionChange() = runTest(dispatcher) {
+        val readGate = CompletableDeferred<Unit>()
+        val noteRepo = FakeSessionNoteRepository()
+        val gated = object : SessionNoteRepository {
+            override suspend fun note(sessionId: String): String? {
+                readGate.await()
+                return noteRepo.note(sessionId)
+            }
+
+            override suspend fun save(sessionId: String, text: String) {
+                noteRepo.save(sessionId, text)
+            }
+
+            override suspend fun clear(sessionId: String) = noteRepo.clear(sessionId)
+        }
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = sessionViewModel(logs, sessions, sessionNoteRepository = gated) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        viewModel.openSessionNote()
+        runCurrent()
+        assertTrue(viewModel.state.value.sessionNoteLoading)
+
+        // The session changes while the read is suspended; the late result must not reopen it.
+        viewModel.newSession()
+        advanceUntilIdle()
+
+        readGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.sessionNoteSessionId)
+        assertFalse(viewModel.state.value.sessionNoteLoading)
+    }
+
+    @Test
+    fun sessionNoteLoadFailureSetsFlagAndRetrySucceeds() = runTest(dispatcher) {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val noteRepo = FakeSessionNoteRepository()
+        noteRepo.failRead = true
+        val viewModel = sessionViewModel(
+            logs,
+            sessions,
+            sessionNoteRepository = noteRepo
+        ) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        val sessionId = sessions.open()!!.id
+
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.sessionNoteLoadFailed)
+        assertEquals(sessionId, viewModel.state.value.sessionNoteSessionId)
+
+        noteRepo.failRead = false
+        noteRepo.save(sessionId, "readable")
+        viewModel.retrySessionNoteLoad()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.sessionNoteLoadFailed)
+        assertEquals("readable", viewModel.state.value.sessionNoteText)
+    }
+
+    @Test
+    fun sessionNoteIgnoresExerciseSelectionChanges() = runTest(dispatcher) {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val noteRepo = FakeSessionNoteRepository()
+        val viewModel = sessionViewModel(
+            logs,
+            sessions,
+            sessionNoteRepository = noteRepo
+        ) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        val sessionId = sessions.open()!!.id
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        viewModel.onSessionNoteTextChanged("session draft")
+
+        // Selecting a different exercise is exercise-note context and must not disturb the session
+        // note's identity or draft.
+        viewModel.onExerciseSelected("bench-press")
+        advanceUntilIdle()
+
+        assertEquals(sessionId, viewModel.state.value.sessionNoteSessionId)
+        assertEquals("session draft", viewModel.state.value.sessionNoteText)
+    }
+
+    @Test
+    fun sessionNoteInputTruncatesAtMaxLength() = runTest(dispatcher) {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val noteRepo = FakeSessionNoteRepository()
+        val viewModel = sessionViewModel(
+            logs,
+            sessions,
+            sessionNoteRepository = noteRepo
+        ) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+
+        viewModel.onSessionNoteTextChanged("x".repeat(NOTE_MAX_LENGTH + 10))
+
+        assertEquals(NOTE_MAX_LENGTH, viewModel.state.value.sessionNoteText.length)
+        assertEquals("x".repeat(NOTE_MAX_LENGTH), viewModel.state.value.sessionNoteText)
+    }
+
+    @Test
+    fun sessionNoteActionsDoNotWriteExerciseNotes() = runTest(dispatcher) {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val exerciseNotes = FakeExerciseNoteRepository()
+        val sessionNotes = FakeSessionNoteRepository()
+        val viewModel = sessionViewModel(
+            logs,
+            sessions,
+            noteRepository = exerciseNotes,
+            sessionNoteRepository = sessionNotes
+        ) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        viewModel.onSessionNoteTextChanged("session only")
+        viewModel.saveSessionNote()
+        advanceUntilIdle()
+
+        assertEquals(1, sessionNotes.saved.size)
+        assertNull(exerciseNotes.note("back-squat"))
+        assertNull(exerciseNotes.note("bench-press"))
+    }
+
+    @Test
+    fun sessionNoteEndSessionInvalidatesTheEditorAndNoSessionWrites() = runTest(dispatcher) {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val noteRepo = FakeSessionNoteRepository()
+        val viewModel = sessionViewModel(
+            logs,
+            sessions,
+            sessionNoteRepository = noteRepo
+        ) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        val sessionId = sessions.open()!!.id
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        viewModel.onSessionNoteTextChanged("draft that must not persist")
+
+        viewModel.endSession()
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.activeSession)
+        assertNull(viewModel.state.value.sessionNoteSessionId)
+        assertEquals("", viewModel.state.value.sessionNoteText)
+
+        // With no session, editing and saving stay inert.
+        viewModel.saveSessionNote()
+        viewModel.clearSessionNote()
+        advanceUntilIdle()
+
+        assertTrue(noteRepo.saved.isEmpty())
+        assertNull(noteRepo.notes[sessionId])
+    }
+
+    @Test
+    fun sessionNoteExternalSessionChangeInvalidatesTheEditor() = runTest(dispatcher) {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val noteRepo = FakeSessionNoteRepository()
+        val viewModel = sessionViewModel(
+            logs,
+            sessions,
+            sessionNoteRepository = noteRepo
+        ) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        val first = sessions.open()!!.id
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        viewModel.onSessionNoteTextChanged("draft")
+
+        // An external writer closes the current session and opens a different one; the Logger only
+        // observes the change, so this is not the End/New action path.
+        sessions.end(first, MONDAY)
+        sessions.create(
+            WorkoutSession(id = "external-session", startedAtMillis = MONDAY, localEpochDay = 0L)
+        )
+        advanceUntilIdle()
+
+        assertEquals("external-session", viewModel.state.value.activeSession?.id)
+        assertNull(viewModel.state.value.sessionNoteSessionId)
+        assertEquals("", viewModel.state.value.sessionNoteText)
+
+        viewModel.saveSessionNote()
+        viewModel.clearSessionNote()
+        advanceUntilIdle()
+        assertTrue(noteRepo.saved.isEmpty())
+    }
+
+    @Test
+    fun sessionNoteDuplicateClearWritesOnce() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        val noteRepo = FakeSessionNoteRepository()
+        val gated = object : SessionNoteRepository {
+            override suspend fun note(sessionId: String): String? = noteRepo.note(sessionId)
+
+            override suspend fun save(sessionId: String, text: String) {
+                noteRepo.save(sessionId, text)
+            }
+
+            override suspend fun clear(sessionId: String) {
+                gate.await()
+                noteRepo.clear(sessionId)
+            }
+        }
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = sessionViewModel(logs, sessions, sessionNoteRepository = gated) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        val sessionId = sessions.open()!!.id
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        viewModel.clearSessionNote()
+        viewModel.clearSessionNote()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.sessionNoteSaving)
+        assertTrue(noteRepo.saved.isEmpty())
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(listOf(sessionId to ""), noteRepo.saved)
+    }
+
+    @Test
+    fun sessionNoteMixedSaveAndClearSubmitsOnce() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        val noteRepo = FakeSessionNoteRepository()
+        val gated = object : SessionNoteRepository {
+            override suspend fun note(sessionId: String): String? = noteRepo.note(sessionId)
+
+            override suspend fun save(sessionId: String, text: String) {
+                gate.await()
+                noteRepo.save(sessionId, text)
+            }
+
+            override suspend fun clear(sessionId: String) = noteRepo.clear(sessionId)
+        }
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = sessionViewModel(logs, sessions, sessionNoteRepository = gated) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        val sessionId = sessions.open()!!.id
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        viewModel.onSessionNoteTextChanged("only save")
+        viewModel.saveSessionNote()
+        viewModel.clearSessionNote()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.sessionNoteSaving)
+        assertTrue(noteRepo.saved.isEmpty())
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        // Only the first submission lands; the queued Clear never writes.
+        assertEquals(listOf(sessionId to "only save"), noteRepo.saved)
+    }
+
+    @Test
+    fun sessionNoteStaleWriteFailureCannotAffectAChangedSession() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        val noteRepo = FakeSessionNoteRepository()
+        val gated = object : SessionNoteRepository {
+            override suspend fun note(sessionId: String): String? = noteRepo.note(sessionId)
+
+            override suspend fun save(sessionId: String, text: String) {
+                gate.await()
+                throw IllegalStateException("Save failed")
+            }
+
+            override suspend fun clear(sessionId: String) = noteRepo.clear(sessionId)
+        }
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = sessionViewModel(logs, sessions, sessionNoteRepository = gated) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        viewModel.onSessionNoteTextChanged("A note")
+        viewModel.saveSessionNote()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.sessionNoteSaving)
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        val second = sessions.open()!!.id
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        viewModel.onSessionNoteTextChanged("B draft")
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        // The failed write belonged to the old session and must not error the new editor.
+        assertFalse(viewModel.state.value.sessionNoteFailed)
+        assertEquals("B draft", viewModel.state.value.sessionNoteText)
+        assertEquals(second, viewModel.state.value.sessionNoteSessionId)
+        assertFalse(viewModel.state.value.sessionNoteSaved)
+    }
+
+    @Test
+    fun sessionNoteStaleLoadFailureCannotAffectANewerEditor() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        val noteRepo = FakeSessionNoteRepository()
+        val gated = object : SessionNoteRepository {
+            override suspend fun note(sessionId: String): String? {
+                gate.await()
+                throw IllegalStateException("Read failed")
+            }
+
+            override suspend fun save(sessionId: String, text: String) {
+                noteRepo.save(sessionId, text)
+            }
+
+            override suspend fun clear(sessionId: String) = noteRepo.clear(sessionId)
+        }
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = sessionViewModel(logs, sessions, sessionNoteRepository = gated) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        viewModel.openSessionNote()
+        runCurrent()
+        assertTrue(viewModel.state.value.sessionNoteLoading)
+
+        viewModel.newSession()
+        advanceUntilIdle()
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.sessionNoteLoadFailed)
+        assertNull(viewModel.state.value.sessionNoteSessionId)
+        assertFalse(viewModel.state.value.sessionNoteLoading)
+    }
+
+    @Test
+    fun sessionNoteCancelWhileLoadingDiscardsThePendingRead() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        val noteRepo = FakeSessionNoteRepository()
+        val gated = object : SessionNoteRepository {
+            override suspend fun note(sessionId: String): String? {
+                gate.await()
+                return noteRepo.note(sessionId)
+            }
+
+            override suspend fun save(sessionId: String, text: String) {
+                noteRepo.save(sessionId, text)
+            }
+
+            override suspend fun clear(sessionId: String) = noteRepo.clear(sessionId)
+        }
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = sessionViewModel(logs, sessions, sessionNoteRepository = gated) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        viewModel.openSessionNote()
+        runCurrent()
+        assertTrue(viewModel.state.value.sessionNoteLoading)
+
+        viewModel.cancelSessionNote()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.sessionNoteSessionId)
+        assertFalse(viewModel.state.value.sessionNoteLoading)
+        assertFalse(viewModel.state.value.sessionNoteLoadFailed)
+        assertEquals("", viewModel.state.value.sessionNoteText)
+    }
+
+    @Test
+    fun sessionNoteStaleClearCompletionCannotAffectAChangedSession() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        val noteRepo = FakeSessionNoteRepository()
+        val gated = object : SessionNoteRepository {
+            override suspend fun note(sessionId: String): String? = noteRepo.note(sessionId)
+
+            override suspend fun save(sessionId: String, text: String) {
+                noteRepo.save(sessionId, text)
+            }
+
+            override suspend fun clear(sessionId: String) {
+                gate.await()
+                noteRepo.clear(sessionId)
+            }
+        }
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val viewModel = sessionViewModel(logs, sessions, sessionNoteRepository = gated) { MONDAY }
+        advanceUntilIdle()
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        val first = sessions.open()!!.id
+        noteRepo.save(first, "A note")
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        assertEquals("A note", viewModel.state.value.sessionNoteText)
+
+        viewModel.clearSessionNote()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.sessionNoteSaving)
+
+        viewModel.newSession()
+        advanceUntilIdle()
+        val second = sessions.open()!!.id
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        viewModel.onSessionNoteTextChanged("B draft")
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("", noteRepo.notes[first])
+        assertNull(noteRepo.notes[second])
+        assertEquals("B draft", viewModel.state.value.sessionNoteText)
+        assertEquals(second, viewModel.state.value.sessionNoteSessionId)
+        assertFalse(viewModel.state.value.sessionNoteSaved)
+        assertFalse(viewModel.state.value.sessionNoteFailed)
+    }
+
+    @Test
+    fun sessionNoteDelayedSuccessDismissalDoesNotClearNewerFeedback() = runTest(dispatcher) {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val noteRepo = FakeSessionNoteRepository()
+        val viewModel = sessionViewModel(
+            logs,
+            sessions,
+            sessionNoteRepository = noteRepo
+        ) { MONDAY }
+        advanceUntilIdle()
+
+        // First success: its 2s confirmation timer is now pending (fires at t=2000).
+        viewModel.newSession()
+        advanceUntilIdle()
+        viewModel.openSessionNote()
+        advanceUntilIdle()
+        viewModel.onSessionNoteTextChanged("A note")
+        viewModel.saveSessionNote()
+        runCurrent()
+        assertTrue(viewModel.state.value.sessionNoteSaved)
+
+        // Move to a new session and post a newer success before the first timer expires: advance
+        // 1s so the newer confirmation timer lands well after the stale one.
+        advanceTimeBy(1_000)
+        viewModel.newSession()
+        advanceTimeBy(1)
+        val second = sessions.open()!!.id
+        viewModel.openSessionNote()
+        runCurrent()
+        viewModel.onSessionNoteTextChanged("B note")
+        viewModel.saveSessionNote()
+        runCurrent()
+        assertTrue(viewModel.state.value.sessionNoteSaved)
+
+        // Cross the stale timer only; the newer confirmation must survive it.
+        advanceTimeBy(1_100)
+        runCurrent()
+        assertTrue(viewModel.state.value.sessionNoteSaved)
+
+        // The newer confirmation still auto-dismisses on its own timer.
+        advanceTimeBy(1_000)
+        runCurrent()
+        assertFalse(viewModel.state.value.sessionNoteSaved)
+        assertEquals("B note", noteRepo.notes[second])
     }
 
     private companion object {

@@ -151,4 +151,11 @@
     <string name="logger_note_failed">Could not save note. Keep your edits and try again.</string>
     <string name="logger_note_load_failed">Could not load note. Tap to retry.</string>
     <string name="logger_note_retry">Retry</string>
+    <string name="logger_session_note_open">Session note</string>
+    <string name="logger_session_note_label">Current session note</string>
+    <string name="logger_session_note_none">Start a session to add a note.</string>
+    <string name="logger_session_note_loading">Loading session note…</string>
+    <string name="logger_session_note_saved">Session note saved</string>
+    <string name="logger_session_note_failed">Could not save session note. Keep your edits and try again.</string>
+    <string name="logger_session_note_load_failed">Could not load session note. Tap to retry.</string>
 </resources>

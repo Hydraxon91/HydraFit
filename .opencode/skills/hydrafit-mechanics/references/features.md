@@ -173,6 +173,19 @@ only change with preserved sets/reps/id and the candidate's own load history, no
 Stale context/availability fails without writing; Cancel writes nothing. No candidate points to
 existing whole-workout Skip/partial Finish, not a new slot-skip action.
 
+The Logger keeps two independent note editors, each guarded by its own editor revision. The exercise
+setup-note editor (`noteExerciseId`/`noteText`) is keyed to the selected exercise and cannot write a
+stale draft to a newly selected exercise. The current-session editor
+(`sessionNoteSessionId`/`sessionNoteText`) opens only with an active session, reads the note for that
+session's explicit `sessionId`, and never creates a session; opening during a write is ignored. Save
+and Clear capture the session id and editor revision before suspending, claim the editor
+synchronously so repeated submissions write once, and apply success or failure only when that context
+still matches. Cancel writes nothing; a failed Save/Clear retains the draft for retry. Because the
+explicit session identity is the only attribution, End/New (and an external active-session change)
+invalidate the editor and any in-flight read or write, so no draft or completion can attach to a
+different session; recreation reloads the persisted note for the same session. Selecting an exercise
+does not change session-note identity or draft.
+
 For routine authoring, the module is `:feature:routines`:
 `RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/
 `routinesDestination`), `RoutinesScreen.kt` (list, editor, exercise picker,

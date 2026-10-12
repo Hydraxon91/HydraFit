@@ -182,6 +182,13 @@ import hydrafit.feature.logger.generated.resources.logger_search_label
 import hydrafit.feature.logger.generated.resources.logger_session_active
 import hydrafit.feature.logger.generated.resources.logger_session_none
 import hydrafit.feature.logger.generated.resources.logger_session_not_recorded
+import hydrafit.feature.logger.generated.resources.logger_session_note_failed
+import hydrafit.feature.logger.generated.resources.logger_session_note_label
+import hydrafit.feature.logger.generated.resources.logger_session_note_load_failed
+import hydrafit.feature.logger.generated.resources.logger_session_note_loading
+import hydrafit.feature.logger.generated.resources.logger_session_note_none
+import hydrafit.feature.logger.generated.resources.logger_session_note_open
+import hydrafit.feature.logger.generated.resources.logger_session_note_saved
 import hydrafit.feature.logger.generated.resources.logger_session_recorded
 import hydrafit.feature.logger.generated.resources.logger_set_time
 import hydrafit.feature.logger.generated.resources.logger_set_week_day
@@ -288,6 +295,12 @@ fun WorkoutLoggerRoute(
         onClearNote = viewModel::clearNote,
         onCancelNote = viewModel::cancelNote,
         onRetryNoteLoad = viewModel::retryNoteLoad,
+        onSessionNoteOpen = viewModel::openSessionNote,
+        onSessionNoteTextChanged = viewModel::onSessionNoteTextChanged,
+        onSessionNoteSave = viewModel::saveSessionNote,
+        onSessionNoteClear = viewModel::clearSessionNote,
+        onSessionNoteCancel = viewModel::cancelSessionNote,
+        onSessionNoteRetry = viewModel::retrySessionNoteLoad,
         nowMillis = viewModel::currentTimeMillis,
         modifier = modifier
     )
@@ -363,6 +376,12 @@ fun WorkoutLoggerScreen(
     onClearNote: () -> Unit,
     onCancelNote: () -> Unit,
     onRetryNoteLoad: () -> Unit,
+    onSessionNoteOpen: () -> Unit,
+    onSessionNoteTextChanged: (String) -> Unit,
+    onSessionNoteSave: () -> Unit,
+    onSessionNoteClear: () -> Unit,
+    onSessionNoteCancel: () -> Unit,
+    onSessionNoteRetry: () -> Unit,
     nowMillis: () -> Long,
     modifier: Modifier = Modifier
 ) {
@@ -409,6 +428,129 @@ fun WorkoutLoggerScreen(
                         Text(stringResource(Res.string.logger_new_session))
                     }
                 }
+            }
+        }
+        item {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                when {
+                    state.activeSession == null -> {
+                        // A session note needs an explicit session identity; the entry point is inert
+                        // and explains why rather than creating a session.
+                        Text(
+                            text = stringResource(Res.string.logger_session_note_none),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        TextButton(onClick = onSessionNoteOpen, enabled = false) {
+                            Text(stringResource(Res.string.logger_session_note_open))
+                        }
+                    }
+
+                    state.sessionNoteSessionId != null -> {
+                        if (state.sessionNoteLoadFailed) {
+                            // The note could not be read, so an empty field would falsely read as "no
+                            // note". Offer a retry instead of an editable draft.
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = stringResource(
+                                        Res.string.logger_session_note_load_failed
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                TextButton(
+                                    onClick = onSessionNoteRetry,
+                                    enabled = !state.sessionNoteSaving
+                                ) {
+                                    Text(stringResource(Res.string.logger_note_retry))
+                                }
+                                TextButton(
+                                    onClick = onSessionNoteCancel,
+                                    enabled = !state.sessionNoteSaving
+                                ) {
+                                    Text(stringResource(Res.string.logger_cancel))
+                                }
+                            }
+                        } else {
+                            OutlinedTextField(
+                                value = state.sessionNoteText,
+                                onValueChange = onSessionNoteTextChanged,
+                                label = {
+                                    Text(stringResource(Res.string.logger_session_note_label))
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                maxLines = 4,
+                                enabled = !state.sessionNoteSaving,
+                                supportingText = {
+                                    Text("${state.sessionNoteText.length}/$NOTE_MAX_LENGTH")
+                                }
+                            )
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Button(
+                                    onClick = onSessionNoteSave,
+                                    enabled = !state.sessionNoteSaving
+                                ) {
+                                    Text(stringResource(Res.string.logger_note_save))
+                                }
+                                Button(
+                                    onClick = onSessionNoteClear,
+                                    enabled = !state.sessionNoteSaving
+                                ) {
+                                    Text(stringResource(Res.string.logger_note_clear))
+                                }
+                                TextButton(
+                                    onClick = onSessionNoteCancel,
+                                    enabled = !state.sessionNoteSaving
+                                ) {
+                                    Text(stringResource(Res.string.logger_cancel))
+                                }
+                            }
+                            if (state.sessionNoteFailed) {
+                                Text(
+                                    text = stringResource(Res.string.logger_session_note_failed),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+
+                    state.sessionNoteLoading -> {
+                        Text(
+                            text = stringResource(Res.string.logger_session_note_loading),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    else -> {
+                        TextButton(onClick = onSessionNoteOpen) {
+                            Text(stringResource(Res.string.logger_session_note_open))
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            // Shown independently of the editor so a successful save/clear is still confirmed after
+            // the editor closes.
+            if (state.sessionNoteSaved) {
+                Text(
+                    text = stringResource(Res.string.logger_session_note_saved),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
         state.todayFocus?.let { focus ->

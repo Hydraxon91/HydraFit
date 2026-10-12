@@ -54,7 +54,8 @@ class WorkoutLoggerViewModel(
     private val exerciseCatalog: ExerciseCatalog,
     private val runtime: WorkoutLoggerRuntime,
     private val settings: WorkoutLoggerSettings,
-    private val exerciseNoteRepository: com.hydrafit.app.core.domain.workout.ExerciseNoteRepository
+    private val exerciseNoteRepository: com.hydrafit.app.core.domain.workout.ExerciseNoteRepository,
+    private val sessionNoteRepository: com.hydrafit.app.core.domain.workout.SessionNoteRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(WorkoutLoggerUiState())
@@ -206,6 +207,9 @@ class WorkoutLoggerViewModel(
                 if (timerSessionId != null && session?.id != timerSessionId) {
                     invalidateRestTimer()
                 }
+                // A different session identity invalidates the session-note editor and any in-flight
+                // read or write, so a draft or result can never attach to another session.
+                if (_state.value.activeSession?.id != session?.id) resetSessionNoteState()
                 _state.update { it.copy(activeSession = session) }
                 restoreRestTimerIfReady()
             }
@@ -658,12 +662,16 @@ class WorkoutLoggerViewModel(
     /** Closes the open session; the next logged set auto-starts a new one. */
     fun endSession() {
         invalidateRestTimer()
+        // Close the session-note editor before the session changes so its draft or an in-flight
+        // write can never attach to the next session.
+        resetSessionNoteState()
         viewModelScope.launch { logMutations.endSession(runtime.nowMillis()) }
     }
 
     /** Closes the current session and immediately starts a new one. */
     fun newSession() {
         invalidateRestTimer()
+        resetSessionNoteState()
         viewModelScope.launch {
             logMutations.startNewSession(
                 startedAtMillis = runtime.nowMillis(),
@@ -2068,4 +2076,220 @@ class WorkoutLoggerViewModel(
 
     private val noteSaving: Boolean
         get() = _state.value.noteSaving
+
+    // ── Current-session notes ─────────────────────────────────────────────
+
+    /**
+     * Identifies the session-note editor state that the newest read or write belongs to, so a
+     * completion from an older editor (or the previous session) can never apply to a newer one.
+     */
+    private var sessionNoteRevision: Long = 0
+
+    /** Opens the current session-note editor, keyed to the active session's explicit id. */
+    fun openSessionNote() {
+        if (sessionNoteSaving) return
+        // A session note needs a real session identity; opening never creates one.
+        val sessionId = _state.value.activeSession?.id ?: return
+        loadSessionNote(sessionId)
+    }
+
+    private fun loadSessionNote(sessionId: String) {
+        if (sessionNoteSaving) return
+        val revision = ++sessionNoteRevision
+        // Keep the editor closed until its note is read, so an empty field never reads as "no note".
+        _state.update {
+            it.copy(
+                sessionNoteSessionId = null,
+                sessionNoteText = "",
+                sessionNoteLoading = true,
+                sessionNoteFailed = false,
+                sessionNoteSaved = false,
+                sessionNoteLoadFailed = false
+            )
+        }
+        viewModelScope.launch {
+            val text = try {
+                sessionNoteRepository.note(sessionId)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                // Only the newest editor may report a failed read; a stale failure must not error it.
+                if (revision == sessionNoteRevision) {
+                    _state.update {
+                        it.copy(
+                            sessionNoteLoading = false,
+                            sessionNoteSessionId = sessionId,
+                            sessionNoteLoadFailed = true
+                        )
+                    }
+                }
+                return@launch
+            }
+            if (revision != sessionNoteRevision) return@launch
+            _state.update {
+                it.copy(
+                    sessionNoteLoading = false,
+                    sessionNoteText = text ?: "",
+                    sessionNoteSessionId = sessionId,
+                    sessionNoteLoadFailed = false
+                )
+            }
+        }
+    }
+
+    /** Updates the session-note draft text. */
+    fun onSessionNoteTextChanged(text: String) {
+        val current = _state.value
+        if (current.sessionNoteSaving || current.sessionNoteSessionId == null) return
+        _state.update { it.copy(sessionNoteText = text.take(NOTE_MAX_LENGTH)) }
+    }
+
+    /** Saves the current session-note draft to the active session. */
+    fun saveSessionNote() {
+        val current = _state.value
+        val sessionId = current.sessionNoteSessionId
+        // The editor must belong to the currently active session; never write a stale draft.
+        if (current.sessionNoteSaving ||
+            sessionId == null ||
+            sessionId != current.activeSession?.id
+        ) {
+            return
+        }
+        val text = current.sessionNoteText
+        if (text.length > NOTE_MAX_LENGTH) return
+        val revision = sessionNoteRevision
+        // Claim the editor synchronously so two submissions before the write run cannot both write.
+        _state.update {
+            it.copy(sessionNoteSaving = true, sessionNoteFailed = false, sessionNoteSaved = false)
+        }
+        viewModelScope.launch {
+            try {
+                sessionNoteRepository.save(sessionId, text)
+                // A write that finished for a session that is no longer the editor's target must not
+                // close, alter or confirm feedback in the new context.
+                if (sessionNoteRevision == revision &&
+                    _state.value.sessionNoteSessionId == sessionId
+                ) {
+                    sessionNoteRevision++
+                    val feedbackRevision = sessionNoteRevision
+                    _state.update {
+                        it.copy(
+                            sessionNoteSaving = false,
+                            sessionNoteSaved = true,
+                            sessionNoteText = "",
+                            sessionNoteSessionId = null
+                        )
+                    }
+                    kotlinx.coroutines.delay(2_000)
+                    // A newer editor or success bumps the revision; this delayed dismissal must not
+                    // clear feedback that belongs to a later context.
+                    if (sessionNoteRevision == feedbackRevision) {
+                        _state.update { it.copy(sessionNoteSaved = false) }
+                    }
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                if (sessionNoteRevision == revision &&
+                    _state.value.sessionNoteSessionId == sessionId
+                ) {
+                    _state.update { it.copy(sessionNoteSaving = false, sessionNoteFailed = true) }
+                }
+            }
+        }
+    }
+
+    /** Persists an explicit clear for the current session-note draft's session. */
+    fun clearSessionNote() {
+        val current = _state.value
+        val sessionId = current.sessionNoteSessionId
+        if (current.sessionNoteSaving ||
+            sessionId == null ||
+            sessionId != current.activeSession?.id
+        ) {
+            return
+        }
+        val revision = sessionNoteRevision
+        _state.update {
+            it.copy(sessionNoteSaving = true, sessionNoteFailed = false, sessionNoteSaved = false)
+        }
+        viewModelScope.launch {
+            try {
+                sessionNoteRepository.clear(sessionId)
+                if (sessionNoteRevision == revision &&
+                    _state.value.sessionNoteSessionId == sessionId
+                ) {
+                    sessionNoteRevision++
+                    val feedbackRevision = sessionNoteRevision
+                    _state.update {
+                        it.copy(
+                            sessionNoteSaving = false,
+                            sessionNoteSaved = true,
+                            sessionNoteText = "",
+                            sessionNoteSessionId = null
+                        )
+                    }
+                    kotlinx.coroutines.delay(2_000)
+                    // A newer editor or success bumps the revision; this delayed dismissal must not
+                    // clear feedback that belongs to a later context.
+                    if (sessionNoteRevision == feedbackRevision) {
+                        _state.update { it.copy(sessionNoteSaved = false) }
+                    }
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                if (sessionNoteRevision == revision &&
+                    _state.value.sessionNoteSessionId == sessionId
+                ) {
+                    _state.update { it.copy(sessionNoteSaving = false, sessionNoteFailed = true) }
+                }
+            }
+        }
+    }
+
+    /** Cancels the session-note editor, discarding the draft without writing. */
+    fun cancelSessionNote() {
+        if (sessionNoteSaving) return
+        // Invalidate any in-flight read so a late result cannot reopen the editor.
+        sessionNoteRevision++
+        _state.update {
+            it.copy(
+                sessionNoteSessionId = null,
+                sessionNoteText = "",
+                sessionNoteLoading = false,
+                sessionNoteFailed = false,
+                sessionNoteSaved = false,
+                sessionNoteLoadFailed = false
+            )
+        }
+    }
+
+    /** Retries reading the note for the editor's current session. */
+    fun retrySessionNoteLoad() {
+        val sessionId = _state.value.sessionNoteSessionId ?: return
+        loadSessionNote(sessionId)
+    }
+
+    /**
+     * Drops all session-note editor state and invalidates in-flight reads/writes. Called when the
+     * active session identity changes, so a draft or result never attaches to a different session.
+     */
+    private fun resetSessionNoteState() {
+        sessionNoteRevision++
+        _state.update {
+            it.copy(
+                sessionNoteSessionId = null,
+                sessionNoteText = "",
+                sessionNoteLoading = false,
+                sessionNoteSaving = false,
+                sessionNoteFailed = false,
+                sessionNoteLoadFailed = false,
+                sessionNoteSaved = false
+            )
+        }
+    }
+
+    private val sessionNoteSaving: Boolean
+        get() = _state.value.sessionNoteSaving
 }

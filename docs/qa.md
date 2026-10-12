@@ -159,6 +159,32 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   exercised in this emulator smoke. Font/theme/locale variants, TalkBack and visible-keyboard
   relayout remain unverified.
 - Sessions: first set auto-starts a session; End session / New session; day rollover starts a new one; active-session indicator correct.
+- Session note: with no active session the "Session note" entry is disabled and reads "Start a session to
+  add a note."; it never creates a session. With an active session it opens a "Current session note" editor
+  that reads and writes the note for that session's explicit identity, distinct from the exercise setup-note
+  editor. Save and Clear persist to the same session, Cancel writes nothing, and a failed write retains the
+  draft for retry. End/New session and an external session change close the old editor, whose draft is never
+  written to the new session; reopening the same session reloads its saved note.
+  **2026-10-12 bounded verification (`emulator-5554`, debug, 1080×2400):** the `:feature:logger` (242 tests,
+  212 in the ViewModel suite) and `:shared` (21 tests, including 8 Koin-graph checks) host suites passed, and
+  `ktlintCheck` passed in its own invocation; `:androidApp:assembleDebug` and
+  `:shared:compileKotlinIosSimulatorArm64` passed together in a separate 600-second-bounded run. Host
+  regressions cover explicit attribution, End/New and external session changes, duplicate/mixed submission,
+  stale read/write success and failure, cancel-during-load, and delayed-confirmation isolation; the last
+  fails without its guard (proved by a temporary break, then restored). One bounded Maestro flow (compact CLI
+  inspection; MCP hierarchy unavailable — "exceeds the maximum depth of 32") passed every step: the disabled
+  no-session entry and explanation; session start; opening, saving "C4R synthetic note" and reloading it on
+  reopen; typing a changed draft and asserting the field no longer equals the persisted value, then Cancel and
+  reopen showing the persisted value restored exactly (Cancel wrote nothing); Clear persisting an empty state
+  on reopen; and End session returning to "No active session". Save/Clear/Cancel were each tapped
+  successfully (reachable at the current font scale). An earlier revision's Cancel leg tapped `inputText`
+  after focusing the field without asserting the edited value; field taps relocate the cursor, so that leg did
+  not prove the draft change — the corrective flow asserts the full field value around Cancel instead. The
+  wrapping action row is structural (`FlowRow`); larger text was not re-run. Screenshot:
+  `/tmp/hydrafit-c4r-session-note.png` (viewed). Several synthetic sessions were created across the runs and
+  are retained (all ended), holding only session notes ("C4R synthetic note" and explicit clears); no
+  pre-existing session, set, note, setting or permission was altered. Light/dark, larger-text, locale,
+  keyboard-relayout and TalkBack variants remain unverified.
 - Backdated logging: picker opens, past time accepted, future time rejected, target session shown; row shows the backdated stamp.
 - Units kg ↔ lb conversion correct.
 - Planned-today focus matches the accepted plan; no accepted plan → no focus.
