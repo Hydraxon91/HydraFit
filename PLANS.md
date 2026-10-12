@@ -6,7 +6,7 @@
 
 | Item | Status | Next action |
 | --- | --- | --- |
-| Product roadmap — M1–M8 | IN PROGRESS | 0.2.0–0.6.1 shipped; M1 selected scope done in 0.2.3. [Approved pre-1.0 roadmap](docs/roadmap.md): 0.7.x context → 0.8.x progress → 0.9.x equipment/data → 0.10.x progression → 0.11.x advanced metrics → 0.12.x optional AI → provisional 0.13.x final UX/design → 1.0. Smaller published feature releases approved 2026-10-11; each has its own bounded scope, verification and separately requested review. 0.7.0 scope and its durable decisions were approved 2026-10-11 (see the OF-03 section). 0.7.0 planner explanations (OF-03) are implemented, verified and reviewed; next is the 0.7.1 notes/history slice. All remaining work is pre-1.0 except iOS shipping/desktop; research remains evidence-gated. |
+| Product roadmap — M1–M8 | IN PROGRESS | 0.2.0–0.6.1 shipped; M1 selected scope done in 0.2.3. [Approved pre-1.0 roadmap](docs/roadmap.md): 0.7.x context → 0.8.x progress → 0.9.x equipment/data → 0.10.x progression → 0.11.x advanced metrics → 0.12.x optional AI → provisional 0.13.x final UX/design → 1.0. Smaller published feature releases approved 2026-10-11; each has its own bounded scope, verification and separately requested review. 0.7.0 scope and its durable decisions were approved 2026-10-11 (see the OF-03 section). 0.7.0 planner explanations (OF-03) and the 0.7.1 notes/history slice are implemented, verified and shipped; the next approved slice is 0.7.2 finish-workout summaries (split below). All remaining work is pre-1.0 except iOS shipping/desktop; research remains evidence-gated. |
 | Release 0.2.0 | SHIPPED | `v0.2.0` signed release published; [history](docs/plans-archive.md#2026-10-09-completed-status-rows). Stale `v0.1.0` validation pre-release cleanup remains optional. |
 | Release 0.2.1 | SHIPPED | `v0.2.1`; [Q1–Q6 history](docs/plans-archive.md#2026-10-09-completed-status-rows). Q4e remains user-side, not shipped code; local AI remains experimental/non-functional, with optional M8 follow-up. |
 | Release 0.2.2 — code review & architecture | SHIPPED | `v0.2.2`; R0–RG/RF complete, CI green; [fix/commit history](docs/plans-archive.md#2026-10-09-completed-status-rows). |
@@ -33,7 +33,7 @@
 | 0.2.4 review snapshot | DONE | bf959ee^..HEAD (`eb310de`); 12 findings (R4-01..R4-12): 2 minor docs drift + 1 nit deferred to VOL-01 + 9 nit-positive confirmations of Chunk A + Settings chunk. See `docs/review-0.2.4-snapshot.md`. RF (docs sync on R4-01) gated separately. |
 | M3 routines & scheduling (OF-11 + OF-12-P0/P1) | DONE | `v0.3.0`; bounded emulator flows and PER-17 rollback verified; [evidence](docs/plans-archive.md#2026-10-09-routines-m3). EX-01 later shipped in 0.4.0; optional EQ-01 remains future. |
 
-> **Next work sequence (approved 2026-10-09; smaller releases approved 2026-10-11).** Follow [0.7.x–0.13.x release grouping](docs/roadmap.md#release-overview), starting with the bounded 0.7.0 planner-explanation contract; guided training shipped in 0.6.0/0.6.1. All remaining features, extensions, quality work and investigations are pre-1.0 except iOS shipping/desktop; 0.13.x is the provisional final UX/design series. LT-10 integrity and full OF-03 explanations remain required; recent load/volume changes do not replace them. CATP7-R01 targets 0.12.0/M8; CATP7-R02 is closed. BACK calibration remains evidence-gated, LT-03 remains verification debt, and unresolved behavior still needs decisions. No implementation or publication is authorized by release grouping.
+> **Next work sequence (approved 2026-10-09; smaller releases approved 2026-10-11).** Follow [0.7.x–0.13.x release grouping](docs/roadmap.md#release-overview): 0.7.0 planner explanations and the 0.7.1 notes/history slice are shipped; the approved next slice is 0.7.2 finish-workout summaries (split below). All remaining features, extensions, quality work and investigations are pre-1.0 except iOS shipping/desktop; 0.13.x is the provisional final UX/design series. LT-10 integrity and full OF-03 explanations remain required; recent load/volume changes do not replace them. CATP7-R01 targets 0.12.0/M8; CATP7-R02 is closed. BACK calibration remains evidence-gated, LT-03 remains verification debt, and unresolved behavior still needs decisions. No implementation or publication is authorized by release grouping.
 
 > **Archived 2026-10-03** (into [docs/plans-archive.md](docs/plans-archive.md#2026-10-03--v021-and-v022-released)): the complete 0.2.1 and 0.2.2 release plans (0.2.1 Q1–Q6; 0.2.2 review phases, RF triage, R0 inventory/slices). **Archived 2026-10-02** (into [docs/plans-archive.md](docs/plans-archive.md#2026-10-02--v020-feature-cycle-release-pipeline-and-dropped-item)): Roadmap 2b S1–S5, items 1/2/2b/3, release pipeline C1–C6, and the dropped item 5. Earlier archives: the BACK fatigue investigation and the fatigue-model redesign.
 
@@ -739,7 +739,7 @@ gated scopes, not implied by completion of P0–P5. M2's other open work stays a
 | OF-10 | Progression policies and advanced logging | OF-02; settle measurement semantics before engine changes | LATER — split into separately approved slices |
 | OF-11 | Manual routines and reusable templates | M3; extends OF-01 coverage; feeds OF-02/OF-07 | SHIPPED 0.3.0; later guided/sharing extensions follow roadmap |
 | OF-12 | Flexible scheduling, session rotation and reminders | M3 scheduling after OF-11; M4 reminders | P0/P1 SHIPPED 0.3.0; P2/P3 reminders/integration target 0.7.7 |
-| OF-13 | Workout/exercise notes and session history | M4; existing explicit sessions; integrates OF-02/OF-04 | Divider slice committed in `a021d94` (2026-10-11); null-label visuals, font/theme/locale variants and action-write UI checks remain unverified. The 0.7.1 slice **SHIPPED** 2026-10-12 as `v0.7.1`: persistent exercise setup notes, separate session notes, a bounded searchable session-history browser and the existing set corrections from history (chunks C0–C9, reviewed APPROVED; [detail archived](docs/plans-archive.md#2026-10-12-completed-071-notes-and-session-history)). Still future: workout summaries (0.7.2), duration labels, and attaching OF-04 record results once OF-04-P3 is available. |
+| OF-13 | Workout/exercise notes and session history | M4; existing explicit sessions; integrates OF-02/OF-04 | Divider slice committed in `a021d94` (2026-10-11); null-label visuals, font/theme/locale variants and action-write UI checks remain unverified. The 0.7.1 slice **SHIPPED** 2026-10-12 as `v0.7.1`: persistent exercise setup notes, separate session notes, a bounded searchable session-history browser and the existing set corrections from history (chunks C0–C9, reviewed APPROVED; [detail archived](docs/plans-archive.md#2026-10-12-completed-071-notes-and-session-history)). Still future: duration labels and attaching OF-04 record results once OF-04-P3 is available; workout summaries are scoped as the approved 0.7.2 split below. |
 | OF-14 | Onboarding and first-workout baseline setup | M4; EQ-01/OF-11/OF-12 contracts; existing settings/PR use cases | FUTURE — decisions open |
 
 ### OF-01 — Local backup/export and restore
@@ -1052,6 +1052,81 @@ This bounded split refined OF-13-P0–P3 without renumbering those broader phase
 summaries remain in 0.7.2, and OF-13 stays active for those and for duration labels. No automatic
 handoff or next-release work.
 
+#### 0.7.2 — Finish-workout summaries
+
+**Retracted observation (2026-10-12):** an earlier note claimed the Logger showed the accepted-plan
+path instead of the active block's pending occurrence. That was wrong: `Current workout: Day 2` with
+Finish/Skip and Confirm all were present, simply below the fold. A hierarchy dump only reports the
+composed viewport of the Logger's `LazyColumn`, so an unscrolled dump cannot prove a section absent.
+Scroll explicitly before concluding a section is missing. No app defect, and no fix is needed.
+
+**Status (2026-10-12):** release scope, chunk structure and C0 decisions approved in chat. C1–C5 are
+implemented, verified and committed (`434ce78`…`f353e1a`), with each chunk's own outstanding limits
+recorded in its row below. C6's bounded review returned **APPROVED** at targeted closure round 2 on
+`be33187` (verdict, closures and remaining UI/CI limits: `docs/qa.md` §0.7.2). A history
+tab-navigation defect found during release verification is fixed in `617d3d6`. Release preparation is
+in progress; push, tag and publication follow the release process below. This
+bounded split refines OF-13-P3 without renumbering those broader phases; OF-13 duration labels,
+session-over-session comparable facts and OF-04 record integration remain future.
+
+**Scope:** a transient summary offered after a successful Finish workout or Finish partially,
+reconciling the just-resolved occurrence's frozen prescription with its recorded sets:
+prescribed vs performed work per exercise, remaining work from the stored resolution bookkeeping,
+extra and warm-up sets, replacement status, notes, recorded timestamps and the existing
+set-correction actions, plus a route into the 0.7.1 history detail. Offline-first. Exclude
+Skip-triggered summaries, session-over-session comparisons, duration figures, adding target/actual
+to the history detail screen, charts/records, export/share, any change to finish semantics, a new
+permanent tab or feature module, and any schema or backup change (expected; a discovered need stops
+the chunk and returns to C0).
+
+**Approved decisions (C0, 2026-10-12):**
+- The summary is keyed by the resolved occurrence: all recorded sets of that occurrence are
+  aggregated across its sessions, and session identity supplies notes and recorded timestamps.
+- It is offered only after a successful Finish workout or Finish partially; Skip offers nothing
+  even when work was recorded. It is transient — not persisted, no unseen indicator — and "Done"
+  returns to the Logger.
+- Per prescribed exercise it shows the frozen target (sets × reps @ load kind) and the performed
+  sets with their actual reps/load; remaining work follows the stored disposition (omitted or
+  skipped); extra sets and warm-ups are separate groups; session notes are read-only; exercise
+  setup notes are not duplicated in the summary.
+- A slot is labelled replaced only when provable from its source activation entry; without
+  provenance it renders as its current exercise and makes no replaced claim.
+- Session-over-session comparable facts are deferred to 0.8.x alongside OF-04, where the LT-10
+  comparable-exposure contract lives. 0.7.2 shows the workout's own recorded facts only; no
+  universal score.
+- No duration figure exists: recorded start/finish timestamps are shown and unknown stays unknown.
+  OF-13 duration labels remain future.
+- Every recorded row (working, warm-up, extra) is correctable through the existing Logger editor
+  and `CorrectWorkoutSetUseCase`; the summary refreshes after an edit and never caches.
+- The summary links into the existing history detail; target/actual is not added to the history
+  screen in this release.
+
+| Chunk | Status | Deliverable / acceptance and tests |
+| --- | --- | --- |
+| 0.7.2-C0 — summary contract | DONE | Decisions above approved 2026-10-12 in chat; no code. Worked examples cover full finish, partial with a replaced slot, an extra set, a warm-up, two sessions and a missing session row, exercised as C1 tests. |
+| 0.7.2-C1 — summary projection (domain, pure) | DONE | `434ce78`: `WorkoutSummary` and pure `buildWorkoutSummary`, no I/O or consumer yet. User-reported verification: `:core:domain:testAndroidHostTest` BUILD SUCCESSFUL (full module suite green; `WorkoutSummaryTest` 12 tests / 0 failures), `:core:domain:ktlintCheck` clean. Architecture/mechanics description of the wired summary follows in C3/C5; no user-visible behavior or schema change in C1. |
+| 0.7.2-C2 — read surface + Logger wiring | DONE | `3729468`: bounded `WorkoutSessionRepository.byId` over the existing `selectSessionById` query, `GetWorkoutSummaryUseCase` (occurrence, sets, spanned sessions, notes, current catalog names) and `WorkoutLoggingActions.summarize`, so the Logger's dependency count is unchanged. A successful full or partial finish emits the summary route; Skip offers nothing, a failed finish shows only its message, and a block replaced or cancelled as the resolve commits drops it. Verified: `:core:domain`, `:core:database`, `:feature:logger` and `:shared` host tests (including the domain runtime graph resolution), ktlint and `:androidApp:assembleDebug`. |
+| 0.7.2-C3 — summary UI | DONE (Done confirm outstanding) | Logger-internal `log/summary` route with Loading / Ready / Failed+Retry / Unavailable states, localized strings only, "Done" returning to the Logger and "View in history" opening the single recorded session's detail (browser list when the workout spans several sessions or only unassigned sets). Host: presentation and ViewModel tests, ktlint and `:androidApp:assembleDebug`. Emulator (`emulator-5554`, debug): a partial finish and a full finish were run end-to-end with semantic assertions and viewed screenshots, and both history landings were confirmed; two navigation defects found by the journey (a blank summary screen after the history handoff, and a system-Back reopen) are fixed. `Done`'s tap was not separately exercised, and the Loading/Failed/Unavailable states were not UI-exercised. Evidence and limits: `.maestro/README.md` §0.7.2-C3. |
+| 0.7.2-C4 — correction access | DONE | `WorkoutLoggerViewModel.editSummarySet` opens the existing `LoggedSetEdit`/`LoggedSetEditDialog` editor for a summary set, carrying the occurrence attribution the editor and rest-prompt cancellation need; the dialog is also rendered on the summary route, and a successful save re-reads the summary (`loadWorkoutSummary`) rather than caching. Tests cover opening the editor with its recorded values, edit-refresh, cancel writing nothing, and a failed save keeping the editor and reconciliation before a successful retry. Emulator (`emulator-5554`, debug): Day 2 recorded with Confirm all, finished, then a set corrected 5 → 9 reps through the editor; the summary re-read and showed `9 reps · Bodyweight`. ktlint and `:androidApp:assembleDebug` pass. Evidence: `.maestro/README.md` §0.7.2-C4. |
+| 0.7.2-C5 — integration verification + docs | DONE (release gate remains) | Full `testAndroidHostTest`, `verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and `:core:network:compileKotlinIosSimulatorArm64` passed. Emulator journeys ran for C3 (partial and full finishes, both history landings, Back unwinding) and C4 (summary-driven correction and refresh); evidence in `.maestro/README.md` §0.7.2-C3 and §0.7.2-C4. Living docs and the mechanics `features.md` reference updated. Release preparation, `lintVitalRelease` and publication remain separate gates. |
+| 0.7.2-C6 — post-execution review | REVIEWED — APPROVED (targeted closure round 2) | Bounded, read-only Plan Mode review of `v0.7.1`..`e102182` (13 commits, 28 files). Findings R10-01…R10-11 with severities, verification status and classification were reported in chat; no snapshot document was written. Two acceptance gaps drove the initial verdict: R10-08 (missing `docs/qa.md` §13 record) and R10-11 (C4's named stale-row test). Builder fixes landed in `457bb5f` (R10-01, R10-02, R10-05, R10-09, R10-10, R10-11) and the two acceptance gaps were recorded. Targeted closure round 1 closed 10 of 11 but found **R10-03 not closed**: its narrowed catalog read excluded warm-ups, regressing unattributed warm-up names as **R10-12**, fixed in `be33187` by scoping the read with `needsCatalogName` (warm-ups included) and defining `isAdditionalTo` in terms of it. Targeted closure round 2 at `be33187` returned **APPROVED**, re-confirming R10-12 against the projection's name fallback, the remaining closures, both acceptance records and revision-specific gate evidence; the only item it raised was a nonblocking `PLANS.md` status inconsistency, corrected in the accompanying documentation change. R10-04 and R10-07 are documented rather than changed; R10-06's dispose ownership is documented as intended. Approval does not authorize release preparation, pushing, tagging or publication. Evidence: `docs/qa.md` §0.7.2. |
+| 0.7.2-C7 — history tab-navigation fix | DONE | `617d3d6`: re-selecting the Log tab from the history browser crashed (`IllegalStateException`: a `NavBackStackEntry`'s ViewModels accessed after the entry was destroyed). The tab switch saves the Log graph, and Navigation then recomposes the exiting destination while its saved entry is still resolvable by route. The shared Logger lookups now refuse a destroyed entry as a ViewModel store owner, and the shell's `navigateToAppTab` returns a re-selected tab to its own root with `popBackStack(startRoute, saveState = false)` instead of saving and restoring the nested screen. Regression test: `WorkoutHistoryNavigationTest`. Emulator (`emulator-5554`, debug): history list → Log tab, session detail → Log tab and history → Settings → Log all land on real content, no crash and no blank screen (`.maestro/README.md` §0.7.2 history tab-navigation fix). Gate: 1,438 host tests, `verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`, `:androidApp:lintVitalRelease` and both iOS compiles. |
+
+**Execution discipline:** approve chunks individually or as an explicitly ordered batch after C0.
+Each implementation chunk includes its tests and affected living-document/mechanics-reference
+updates, runs the relevant checks, then reports at its chunk boundary. No schema or backup change
+is expected; if one proves necessary, stop and return to C0 rather than adding it silently.
+Use the verification tiers in `docs/agent-project-reference.md` Key Commands: C1 is a pure
+unwired projection (module tests/ktlint evidenced above); C2 uses Tier B producer/consumer
+tests, Koin verification, ktlint and debug assembly; C3/C4 use Tier C only while their
+changes remain feature-local and preserve shared correction contracts. C5 retains the full
+host suite, migration verification, ktlint, debug assembly, iOS compile and changed graph checks.
+Tier A contract changes require the full matrix at their chunk boundary. UI checks follow the
+emulator-only, debug-build and bounded semantic-testing rules. After C5, stop for C6 in Plan Mode:
+builder verification is not a review verdict. Review approval does not authorize fixes, commits or
+pushing; release preparation and publication follow only after required findings are resolved,
+under separate release/push/tag approvals. No automatic handoff or next-release work.
+
 ### OF-14 — Onboarding and first-workout baseline setup
 
 **Milestone / goal:** M4. Offer a short, skippable/revisitable offline setup for units, equipment/profile, goal and schedule, followed by a clear first-workout path with user-entered loads or baseline learned from actual logging. AI setup remains optional and is not required to complete onboarding.
@@ -1172,6 +1247,8 @@ behavior remains undecided until its gate is approved.
 - **Logger target-explanation presentation (deferred to 0.13.x).** OF-03-P2 presentation is functional and emulator-verified in 0.7.0, but the layout needs a design pass in the 0.13.x UX series (workout/screen polish): a summary-only explanation still expands to low-value set-count facts, and the per-row `Confirm`/`Dismiss`/`More options` actions sit directly under the explanation. Presentation/interaction only — no change to recorded explanation contents, planning, logging or progress. The data and behavior are settled; only the visual hierarchy is open. The per-slot substitution notice wording was reviewed on 2026-10-12 and intentionally kept as written; only its placement is open.
 
 ## Decisions Made
+
+- **2026-10-12 — bounded delivery overhead (approved).** Keep the product roadmap scope unchanged. One full-range post-execution review per slice, followed by targeted reviewer closure checks; reopen the full range for blockers, data-loss/corruption impact or unmet acceptance evidence the builder cannot supply. No required finding or check is waived; append closure evidence without rewriting historical findings. Related mechanical fixes in one file area may share a coherent commit naming finding IDs. Batch status updates at chunk/series boundaries and archive completed slices together when their `0.N.x` series closes, retaining exact archival preservation and all open follow-ups. Apply the risk tiers in `docs/agent-project-reference.md`: targeted chunk checks for localized domain/DI and feature work, full checks for Tier A and every release integration gate. Migration/portability tests, changed Koin graph verification, UI acceptance, approval gates and CI requirements remain intact. C1 evidence is retained; C2 onward uses the tiers. No push, publication or next-release work is authorized.
 
 - **2026-10-11 — smaller published pre-1.0 releases (approved; documentation/sequence only).** Retain the 0.7–0.13 themes but distribute their scope across 0.N.0, 0.N.1, 0.N.2, … as detailed in [docs/roadmap.md](docs/roadmap.md). Each published feature slice has bounded acceptance, verification and a separately requested code review. Patch versions may add features as well as correct shipped contracts, superseding the earlier corrective-only rule for future releases. Corrections use the next available number and shift later provisional targets; tags are never reused. Decision-only work has no standalone APK; research keeps its evidence/explicit-disposition gates. Preserve stable backlog ids, all remaining pre-1.0 coverage, settled behavior and shipped history. 0.13.x is the final UX/design series, not a single 0.13.0 delivery. No application implementation, dependency/infrastructure change, commit, publication or push is authorized by this decision.
 

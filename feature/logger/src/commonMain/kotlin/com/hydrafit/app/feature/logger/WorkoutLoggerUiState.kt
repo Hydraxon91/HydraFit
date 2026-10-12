@@ -9,7 +9,9 @@ import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.RestCountdown
+import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutSession
+import com.hydrafit.app.core.domain.workout.WorkoutSummary
 
 data class ExerciseOption(
     val id: String,
@@ -165,6 +167,24 @@ data class ActiveOccurrence(
     val prescribedSets: Int
 )
 
+/**
+ * What the post-finish summary route shows. The route is open only after a successful Finish
+ * workout or Finish partially; `null` in [WorkoutLoggerUiState.summary] means it is closed.
+ */
+sealed interface WorkoutSummaryScreen {
+    /** The recorded work is being read and reconciled with its frozen prescription. */
+    data object Loading : WorkoutSummaryScreen
+
+    /** The workout reconciled with its prescription. */
+    data class Ready(val summary: WorkoutSummary) : WorkoutSummaryScreen
+
+    /** Reading the summary failed; the route offers a retry. */
+    data object Failed : WorkoutSummaryScreen
+
+    /** The occurrence no longer exists, so there is nothing to reconcile. */
+    data object Unavailable : WorkoutSummaryScreen
+}
+
 data class WorkoutLoggerUiState(
     val exercises: List<ExerciseOption> = emptyList(),
     val exerciseSearch: String = "",
@@ -188,6 +208,16 @@ data class WorkoutLoggerUiState(
     val activeOccurrence: ActiveOccurrence? = null,
     /** A finish/skip error to surface (e.g. the workout changed elsewhere). */
     val occurrenceMessage: String? = null,
+    /**
+     * The post-finish summary route, or null when it is closed. Opened only by a successful Finish
+     * workout or Finish partially; it is transient and never persisted.
+     */
+    val summary: WorkoutSummaryScreen? = null,
+    /**
+     * A history entry the summary asked to open, consumed by the history browser once it is on the
+     * back stack. Null sends the user to the browser list instead.
+     */
+    val pendingHistoryKey: WorkoutHistoryKey? = null,
     /** Whether the guided-workout preference is on. Off leaves the Logger's existing flow unchanged. */
     val guidedEnabled: Boolean = false,
     /** The active occurrence's guided progress, or null when guided mode is off or no workout is active. */

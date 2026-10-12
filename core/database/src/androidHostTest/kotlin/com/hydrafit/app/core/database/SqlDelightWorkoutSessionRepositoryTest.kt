@@ -55,4 +55,26 @@ class SqlDelightWorkoutSessionRepositoryTest {
         assertNull(repository.open())
         assertEquals(50L, repository.all().single().endedAtMillis)
     }
+
+    @Test
+    fun byIdReturnsTheStoredSessionOrNullWhenItDoesNotExist() = runTest {
+        repository.create(
+            WorkoutSession(
+                id = "a",
+                startedAtMillis = 100L,
+                endedAtMillis = 200L,
+                localEpochDay = 5L,
+                occurrenceId = 30L
+            )
+        )
+
+        val session = repository.byId("a")
+
+        assertEquals("a", session?.id)
+        assertEquals(100L, session?.startedAtMillis)
+        assertEquals(200L, session?.endedAtMillis)
+        assertEquals(5L, session?.localEpochDay)
+        assertEquals(30L, session?.occurrenceId)
+        assertNull(repository.byId("missing"))
+    }
 }

@@ -211,17 +211,46 @@ stays selected and no shell change is needed. `WorkoutLoggerRoute` and the histo
 `WorkoutLoggerViewModel` scoped to the Logger graph entry, which is how a correction opened from a
 recorded set reuses the existing `LoggedSetEdit`/`LoggedSetEditDialog` editor, `WorkoutLogMutations`
 and `CorrectWorkoutSetUseCase` instead of a second policy. Both screens resolve that graph-scoped
-owner once per composition with `remember`: `NavController.getBackStackEntry` throws while a
-destination is being popped, and Navigation recomposes the exiting destination during that
-transition. The first page of each history read is
+owner once per composition with `remember`, and abandon it as soon as the entry's lifecycle is
+`DESTROYED`: a bottom-bar tab switch pops the Log graph with `saveState`, and Navigation then
+recomposes the exiting destination while the saved entry is still resolvable by route, so reading
+its `viewModelStore` throws. A destination that can no longer own ViewModels composes nothing while
+it leaves. Re-selecting the tab that is already showing returns it to its own root
+(`navigateToAppTab` in the shell) instead of saving and restoring the nested screen, which is what
+used to leave a blank screen behind. The first page of each history read is
 observed live and later pages are appended on request; a new first-page emission drops the pages
 derived from it, since a keyset cursor only describes the content that produced it. The bounded set
 projection also carries the stored `occurrenceId`, so a history correction keeps the Logger's
 rest-prompt cancellation and attribution. Setup notes shown next to recorded sets are read once per
 distinct exercise in the loaded page and labelled current context.
 
-For routine authoring, the module is `:feature:routines`:
-`RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/
+The post-finish summary (0.7.2) is a real nested destination (`log/summary`, `summaryRoute`), so
+system Back returns to the Logger and the Log tab stays selected. It carries no route argument: the
+workout is addressed by `WorkoutLoggerUiState.summary`, a `WorkoutSummaryScreen` of Loading /
+Ready(summary) / Failed / Unavailable, opened only by a successful Finish workout or Finish
+partially. Leaving the route by any path clears that state on dispose - route visibility stays owned
+by the ViewModel's state, so Done, system Back and the history handoff all clear it the same way
+instead of each needing its own handler - and the history handoff pops the summary before entering the
+browser, so Back from history cannot land on a dismissed summary. Skip opens nothing, a failed finish
+shows only its message, and a block replaced or
+cancelled as the resolve commits drops the summary rather than overlaying a workout already left.
+`WorkoutLoggingActions.summarize` forwards to `GetWorkoutSummaryUseCase`, which reads the occurrence,
+its recorded sets, the sessions those sets span (bounded `WorkoutSessionRepository.byId` over the
+existing `selectSessionById` query), their stored notes and the current catalog names, then delegates
+to the pure C1 `buildWorkoutSummary`. Every open and every retry is a fresh read, so nothing is
+cached. "View in history" records the finished workout's single session identity in
+`WorkoutLoggerUiState.pendingHistoryKey`; the history browser consumes it once it is on the back
+stack and opens that detail. A workout spanning several sessions or only sets with no session leaves
+the key null and lands on the browser list, because the detail is keyed per session and no grouping
+is invented. Every recorded row - working, extra or warm-up - offers **Edit set**, which opens the
+same `LoggedSetEdit`/`LoggedSetEditDialog` editor and `CorrectWorkoutSetUseCase` the Logger's recent
+sets use, so the correction has one implementation. The editor is rendered on the summary route as
+well, because its state is graph-scoped, and a successful save re-reads the summary instead of leaving
+the pre-correction reconciliation on screen. A failed save keeps the editor and the current
+reconciliation. Recorded start/finish instants and session notes are shown; there is no duration figure
+and no universal score.
+
+For routine authoring, the module is `:feature:routines`:`RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/
 `routinesDestination`), `RoutinesScreen.kt` (list, editor, exercise picker,
 activation dialog), `RoutinesViewModel.kt` and `RoutinesUiState.kt`. The
 ViewModel depends on the domain aggregates `RoutineTemplateActions` and

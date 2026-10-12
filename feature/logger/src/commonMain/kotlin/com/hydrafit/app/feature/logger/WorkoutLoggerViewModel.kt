@@ -27,6 +27,8 @@ import com.hydrafit.app.core.domain.workout.ShortRestCoach
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
+import com.hydrafit.app.core.domain.workout.WorkoutSummary
+import com.hydrafit.app.core.domain.workout.WorkoutSummarySet
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 import com.hydrafit.app.core.domain.workout.buildGuidedWorkoutProgress
 import kotlinx.coroutines.CancellationException
@@ -73,6 +75,9 @@ class WorkoutLoggerViewModel(
     private var scheduleState: WorkoutScheduleState? = null
     private var currentOccurrence: WorkoutOccurrence? = null
     private var occurrencesJob: Job? = null
+
+    /** The occurrence the open summary route belongs to, or null when no summary is open. */
+    private var summaryOccurrenceId: Long? = null
 
     /**
      * The plan identity and local day the current [WorkoutLoggerUiState.draftSets] were derived for,
@@ -159,6 +164,7 @@ class WorkoutLoggerViewModel(
                 if (activation == null) {
                     currentOccurrences = emptyList()
                     currentOccurrence = null
+                    summaryOccurrenceId = null
                     occurrenceContextObserved = true
                     // Leaving the active block ends any in-flight batch or partial-write retry.
                     _state.update {
@@ -167,7 +173,8 @@ class WorkoutLoggerViewModel(
                             confirmingAllDrafts = false,
                             draftWriteRetries = emptyList(),
                             guidedProgress = null,
-                            guidedSetWriteFailed = false
+                            guidedSetWriteFailed = false,
+                            summary = null
                         )
                     }
                     updateTodayPlan(acceptedPlan)
@@ -417,6 +424,29 @@ class WorkoutLoggerViewModel(
 
     fun onLoggedSetRepsChanged(value: String) = updateLoggedSetEdit { copy(reps = value) }
 
+    /**
+     * Opens the existing set-correction editor for one set of the finished-workout summary. The
+     * summary is keyed by occurrence, so [occurrenceId] supplies the attribution the editor and the
+     * rest-prompt cancellation need; nothing is written until the editor saves.
+     */
+    fun editSummarySet(occurrenceId: Long, set: WorkoutSummarySet) {
+        editLoggedSet(
+            LoggedSetRow(
+                id = set.id,
+                performedAtMillis = set.performedAtMillis,
+                exerciseId = set.exerciseId,
+                exerciseName = set.exerciseName ?: set.exerciseId,
+                reps = set.reps,
+                weightKg = set.weightKg,
+                rir = set.rir,
+                isWarmup = set.isWarmup,
+                loadKind = set.loadKind,
+                occurrenceId = occurrenceId,
+                sessionId = set.sessionId
+            )
+        )
+    }
+
     fun onLoggedSetWeightChanged(value: String) = updateLoggedSetEdit { copy(weightInput = value) }
 
     fun onLoggedSetRirChanged(value: String) = updateLoggedSetEdit { copy(rir = value) }
@@ -480,6 +510,9 @@ class WorkoutLoggerViewModel(
             }
             refreshRecentSets()
             if (activeActivation != null) refreshOccurrence()
+            // A correction opened from the summary must be reflected there: re-read it rather than
+            // leaving the pre-correction reconciliation on screen.
+            summaryOccurrenceId?.let { loadWorkoutSummary(it) }
         }
     }
 
@@ -1600,19 +1633,89 @@ class WorkoutLoggerViewModel(
         val occurrence = currentOccurrence ?: return
         viewModelScope.launch {
             try {
-                if (mode == null) {
+                val state = if (mode == null) {
                     loggingActions.skip(occurrence.id)
                 } else {
                     loggingActions.finish(occurrence.id, mode)
                 }
-                _state.update { it.copy(occurrenceMessage = null) }
+                // Only a finish offers a summary, and only for the block it concluded: a concurrent
+                // replacement or cancellation drops it instead of overlaying a workout already left.
+                if (mode == null || state.activeActivationId != occurrence.activationId) {
+                    _state.update { it.copy(occurrenceMessage = null, summary = null) }
+                } else {
+                    _state.update { it.copy(occurrenceMessage = null) }
+                    loadWorkoutSummary(occurrence.id)
+                }
             } catch (error: ScheduleException) {
                 _state.update { it.copy(occurrenceMessage = error.message) }
             }
         }
     }
 
+    /**
+     * Opens the summary route for [occurrenceId] and reads it. The occurrence identity is retained so
+     * a failed read can be retried without re-resolving the workout; each attempt is a fresh read, so
+     * the route never shows a cached reconciliation.
+     */
+    private suspend fun loadWorkoutSummary(occurrenceId: Long) {
+        summaryOccurrenceId = occurrenceId
+        _state.update { it.copy(summary = WorkoutSummaryScreen.Loading) }
+        val loaded = try {
+            loggingActions.summarize(occurrenceId)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            // A failed read is not an absent workout, so the two stay distinct. A later finish or a
+            // block change owns the route now, and an older read must not reopen it.
+            if (summaryOccurrenceId == occurrenceId) {
+                _state.update { it.copy(summary = WorkoutSummaryScreen.Failed) }
+            }
+            return
+        }
+        if (summaryOccurrenceId != occurrenceId) return
+        _state.update {
+            it.copy(
+                summary = if (loaded == null) {
+                    WorkoutSummaryScreen.Unavailable
+                } else {
+                    WorkoutSummaryScreen.Ready(loaded)
+                }
+            )
+        }
+    }
+
+    /** Retries a failed summary read for the workout it was opened for. */
+    fun retryWorkoutSummary() {
+        val occurrenceId = summaryOccurrenceId ?: return
+        if (_state.value.summary !is WorkoutSummaryScreen.Failed) return
+        viewModelScope.launch { loadWorkoutSummary(occurrenceId) }
+    }
+
     fun onOccurrenceMessageShown() = _state.update { it.copy(occurrenceMessage = null) }
+
+    /**
+     * Returns from the just-finished workout's summary without keeping it. The pending history key is
+     * deliberately left alone: this runs when the destination leaves composition, which happens after
+     * a handoff has already recorded the key.
+     */
+    fun onWorkoutSummaryShown() {
+        summaryOccurrenceId = null
+        _state.update { it.copy(summary = null) }
+    }
+
+    /**
+     * Leaves the summary for the recorded history. The browser consumes the selected entry once it
+     * is on the back stack; a workout with no single session only opens the browser list.
+     */
+    fun onWorkoutSummaryHistoryRequested(summary: WorkoutSummary) {
+        summaryOccurrenceId = null
+        _state.update {
+            it.copy(summary = null, pendingHistoryKey = workoutSummaryHistoryKey(summary))
+        }
+    }
+
+    /** Clears the history request once the browser has opened it. */
+    fun onPendingHistoryKeyConsumed() = _state.update { it.copy(pendingHistoryKey = null) }
 
     fun onRestDurationChanged(value: String) {
         val digits = value.filter(Char::isDigit)

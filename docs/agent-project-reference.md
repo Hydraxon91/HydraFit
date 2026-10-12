@@ -149,6 +149,35 @@ RELEASE_KEY_PASSWORD=changeme
 
 ## Key Commands
 
+### Verification tiers
+
+Choose the tier from the changed behavior and its consumers, not the number
+of files. Chunk checks provide early feedback; the release integration gate
+still runs the full matrix on the final candidate. Docs-only changes need
+diff/whitespace and reference checks, not Gradle runs.
+
+| Tier | Scope | Chunk checks |
+| --- | --- | --- |
+| A — full | Schema/migrations, backup encoding, module graph/registration, CI/signing, cross-cutting contracts, fatigue/planner/engine core | Full host suite, migration verification, ktlint, debug assembly and iOS compile; changed Koin graphs verified |
+| B — shared/domain or DI | Localized domain/userdata logic, a new use case, or a changed ViewModel constructor/binding without a Tier A contract change | Affected producer/consumer module host tests, ktlint and debug assembly; changed Koin bindings/constructors verified. Full suite and iOS compile at the release integration gate |
+| C — feature-local | UI/resources/presentation state in one feature, without domain/DI/schema changes | Feature host tests, ktlint, debug assembly; UI changes also require bounded semantic emulator checks and viewed screenshots |
+
+Pure, unwired domain projections such as 0.7.2-C1 need module host tests and
+module ktlint at their chunk boundary; debug assembly and iOS compile follow
+when wired and at integration. Query-only persistence changes can use Tier B
+when they preserve stored encoding and cross-cutting contracts; cover the
+repository and downstream consumers. A shared write/correction flow is Tier A
+if its contract changes, even when invoked from only one feature.
+
+At the release integration gate, run `testAndroidHostTest`,
+`:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+`:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
+`:core:network:compileKotlinIosSimulatorArm64`, plus
+changed Koin graph checks and applicable emulator acceptance. Keep existing
+migration, portability, failure-path and downstream tests; tiering changes when
+the full matrix runs, not whether it runs. Record explicit limits if a required
+check is unavailable. CI requirements are unchanged.
+
 ```bash
 # Build debug APK
 perl -e 'alarm 600; exec @ARGV' ./gradlew :androidApp:assembleDebug > assemble-output.log 2>&1

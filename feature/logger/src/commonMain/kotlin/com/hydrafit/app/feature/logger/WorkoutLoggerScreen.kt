@@ -37,6 +37,8 @@ import androidx.compose.material3.TimePickerDialog
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -231,10 +233,55 @@ val loggerDestination: FeatureDestination = FeatureDestination(
 fun NavGraphBuilder.loggerGraph(navController: NavController) {
     navigation(startDestination = loggerHomeRoute, route = loggerRoute) {
         composable(loggerHomeRoute) {
+            val viewModel = sharedLoggerViewModel(navController) ?: return@composable
             WorkoutLoggerRoute(
-                viewModel = sharedLoggerViewModel(navController),
-                onOpenHistory = { navController.navigate(historyGraphRoute) }
+                viewModel = viewModel,
+                onOpenHistory = { navController.navigate(historyGraphRoute) },
+                onOpenSummary = { navController.navigate(summaryRoute) }
             )
+        }
+        composable(summaryRoute) {
+            val viewModel = sharedLoggerViewModel(navController) ?: return@composable
+            val state by viewModel.state.collectAsStateWithLifecycle()
+            // The route exists only while a summary is open, so it must clear the state that opened
+            // it whenever it leaves (Done, system Back or the history handoff). Without this, Back
+            // pops the route while the state stays open and the Logger immediately reopens it.
+            DisposableEffect(Unit) { onDispose { viewModel.onWorkoutSummaryShown() } }
+            WorkoutSummaryRoute(
+                screen = state.summary,
+                weightUnit = state.weightUnit,
+                utcOffsetMillis = state.utcOffsetMillis,
+                onRetry = viewModel::retryWorkoutSummary,
+                onDone = {
+                    viewModel.onWorkoutSummaryShown()
+                    navController.popBackStack()
+                },
+                onViewInHistory = { summary ->
+                    // Leave the transient summary before entering the browser, so returning from
+                    // history lands on the Logger instead of a dismissed summary.
+                    navController.popBackStack()
+                    navController.navigate(historyGraphRoute)
+                    viewModel.onWorkoutSummaryHistoryRequested(summary)
+                },
+                onEditSet = viewModel::editSummarySet
+            )
+            // The same correction editor the Logger's recent sets use; it is graph-scoped state, so
+            // it has to be rendered on this route too.
+            state.loggedSetEdit?.let { edit ->
+                LoggedSetEditDialog(
+                    edit = edit,
+                    saving = state.savingLoggedSet,
+                    failed = state.loggedSetEditFailed,
+                    utcOffsetMillis = state.utcOffsetMillis,
+                    nowMillis = viewModel::currentTimeMillis,
+                    onRepsChanged = viewModel::onLoggedSetRepsChanged,
+                    onWeightChanged = viewModel::onLoggedSetWeightChanged,
+                    onRirChanged = viewModel::onLoggedSetRirChanged,
+                    onTimeChanged = viewModel::onLoggedSetTimeChanged,
+                    onCancel = viewModel::cancelLoggedSetEdit,
+                    onSave = viewModel::saveLoggedSetEdit
+                )
+            }
         }
         historyDestinations(navController)
     }
@@ -245,11 +292,15 @@ fun WorkoutLoggerRoute(
     modifier: Modifier = Modifier,
     viewModel: WorkoutLoggerViewModel,
     replacementViewModel: OccurrenceReplacementViewModel = koinViewModel(),
-    onOpenHistory: () -> Unit = {}
+    onOpenHistory: () -> Unit = {},
+    onOpenSummary: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val replacementState by replacementViewModel.state.collectAsStateWithLifecycle()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResume() }
+    // A finished workout opens its summary once; the route keeps the Log tab selected.
+    val summaryOpen = state.summary != null
+    LaunchedEffect(summaryOpen) { if (summaryOpen) onOpenSummary() }
     WorkoutLoggerScreen(
         state = state,
         onExerciseSelected = viewModel::onExerciseSelected,

@@ -29,7 +29,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.NavController
 import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -90,13 +92,7 @@ private fun AppContent() {
     )
     // Lets a feature (e.g. SplitBuilder after "Save as routine") open a tab without importing it.
     val openTab: (AppTab) -> Unit = { tab ->
-        tabRoutes[tab]?.let { route ->
-            navController.navigate(route) {
-                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                launchSingleTop = true
-                restoreState = true
-            }
-        }
+        tabRoutes[tab]?.let { route -> navigateToAppTab(navController, route) }
     }
 
     Scaffold(
@@ -120,13 +116,7 @@ private fun AppContent() {
                                     it.route == destination.route
                                 } == true,
                                 onClick = {
-                                    navController.navigate(destination.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = true
-                                        }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
+                                    navigateToAppTab(navController, destination.route)
                                 },
                                 icon = {},
                                 label = { Text(stringResource(destination.label)) }
@@ -146,6 +136,30 @@ private fun AppContent() {
                 destinations.forEach { destination -> destination.graph(navController)(this) }
             }
         }
+    }
+}
+
+/**
+ * Moves the bottom bar to a tab.
+ *
+ * Selecting a different tab saves the one being left so its nested screens survive a return.
+ * Re-selecting the tab that is already on screen instead returns it to its own root: the old
+ * save-and-restore re-shows the nested screen it was on, and restoring that screen recomposes a
+ * destination whose back stack entry the switch has already destroyed.
+ */
+private fun navigateToAppTab(navController: NavController, route: String) {
+    val current = navController.currentDestination
+    val isCurrentTab = current?.hierarchy?.any { it.route == route } == true
+    val tabStartRoute = (navController.graph.findNode(route) as? NavGraph)?.startDestinationRoute
+    when {
+        !isCurrentTab -> navController.navigate(route) {
+            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+        tabStartRoute != null && current?.route != tabStartRoute ->
+            navController.popBackStack(tabStartRoute, inclusive = false, saveState = false)
+        else -> Unit
     }
 }
 

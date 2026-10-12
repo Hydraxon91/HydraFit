@@ -474,6 +474,61 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   navigation and unsaved-editor smoke passed on the debug build; signed-upgrade and on-device
   runtime behavior for the release artifact remain unverified.
 
+### 0.7.2 finish-workout summaries candidate verification (2026-10-12)
+
+- Candidate revision `be33187` (0.7.2 — finish-workout summaries, OF-13-P3) passed the local gate:
+  **1,436 host tests, zero failures/errors** (`:core:domain` 574, `:core:database` 331,
+  `:feature:logger` 296, `:core:llm` 55, `:feature:splitbuilder` 51, `:core:network` 34,
+  `:feature:equipment` 31, `:shared` 21, `:feature:settings` 19, `:feature:routines` 13,
+  `:feature:fatigueheatmap` 11) plus `verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
+  `:core:network:compileKotlinIosSimulatorArm64` (`/tmp/hf-r12-gate.log`). No schema change: the
+  range contains no `.sq`/`.sqm` file, so no migration is owed.
+- The bounded post-execution review of `v0.7.1`..`e102182` returned **INCOMPLETE** on **no blocking
+  defect** (findings R10-01…R10-11, reported in chat; no snapshot document was written). Builder
+  fixes on `457bb5f`: R10-01 the Failed and Unavailable states gained a Close action; R10-02 each
+  repeated Edit set action gained an accessible description naming its exercise, position and reps;
+  R10-05 a typed failure path replaced `Result` plus a fabricated exception; R10-09 the
+  totals line reads "N recorded sets · M prescribed"; R10-10 the review-round bound is stated once in
+  `docs/review-discipline.md` §8; R10-11 the named stale-row correction test. R10-04 (the port
+  default's quadratic read) and R10-07 (a pending history key outliving the handoff) are documented
+  rather than changed; R10-06's dispose ownership is documented as the intended model.
+- **R10-03 was not closed by `457bb5f`.** Its first fix narrowed the catalog read to *additional
+  work*, which excluded warm-ups, so a warm-up belonging to no slot regressed to the "Exercise no
+  longer in the catalog" label. The targeted closure round found this as **R10-12** and the read is now
+  scoped by `needsCatalogName` — every set the frozen entries cannot name, warm-ups included — with
+  `isAdditionalTo` defined in terms of it so the two rules cannot drift. `keepsTheCatalogNameForAWarmup
+  ThatBelongsToNoSlot` was verified to fail against the narrowed condition before being accepted, and
+  `skipsTheCatalogWhenEveryRecordedSetIsNamedByItsEntry` covers the skip path.
+- The targeted closure round 2 under `docs/review-discipline.md` §8 returned **APPROVED** on
+  `be33187`: R10-03/R10-12 were confirmed against the projection's name fallback (warm-ups included),
+  the remaining closures and both acceptance records were re-confirmed, and the gate evidence for
+  that revision was checked. Its only item was a nonblocking `PLANS.md` status inconsistency,
+  corrected in the accompanying documentation change. The review changed no files. Approval covers
+  the reviewed scope only; release preparation, pushing, tagging and publication remain separately
+  gated.
+- **Navigation fix `617d3d6`** (history tab-navigation): re-selecting the Log tab from the history
+  browser crashed (the tab switch destroys the saved Log graph entry, which Navigation then
+  recomposes). The shared Logger lookups now refuse a destroyed entry and the shell returns a
+  re-selected tab to its own root without saving the nested screen. Verified on `emulator-5554`
+  (debug): history list → Log tab, session detail → Log tab, and history → Settings → Log all land
+  on real content with no blank screen and no `AndroidRuntime` entry. Evidence:
+  `.maestro/README.md` §0.7.2 history tab-navigation fix.
+- **Release gate on the 0.7.2 candidate** (`617d3d6`): **1,438 host tests, zero failures/errors**,
+  plus `verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`,
+  `:androidApp:lintVitalRelease`, `:shared:compileKotlinIosSimulatorArm64` and
+  `:core:network:compileKotlinIosSimulatorArm64` (`/tmp/hf-rel072-gate.log`).
+- Emulator evidence on debug builds (`emulator-5554`): a partial and a full finish, both history
+  landings, Back unwinding and a summary-driven set correction, with viewed screenshots; run counts,
+  causes and fixture effects are in `.maestro/README.md` §0.7.2-C3 and §0.7.2-C4.
+- **Limits:** no CI evidence exists for this revision yet (the commits are local and unpushed); no
+  pinned signed release-upgrade check and no artifact verification, because no release APK exists for
+  0.7.2; the summary's Loading, Failed+Retry and Unavailable states were not exercised in the UI (no
+  fault injection); the R10-01 Close action and the R10-09 totals wording landed after the last
+  emulator run and are **not** emulator-verified; larger text, dark mode, locale and TalkBack remain
+  unverified; the cancelled/failed correction retry and session-resegmenting correction paths are
+  host-tested only.
+
 ### 0.7.1 notes & session history candidate verification (2026-10-12)
 
 - Candidate revision `647d3ab` (0.7.1 — notes and searchable session history) is **reviewed APPROVED**
