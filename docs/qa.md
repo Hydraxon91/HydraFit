@@ -180,13 +180,23 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   `verifySqlDelightMigration` pass (the `42.sqm` projections are covered by `verifySqlDelightMigration` and
   `V1ToCurrentMigrationTest`). Continuous
   emission is covered by `theHistoryFlowEmitsAgainAfterARecordedSetIsInserted`.
-  **2026-10-12 C6/C7 host verification (final revision):** 1382 host tests pass with zero
+  **2026-10-12 C6/C7 host verification (at `3262531`):** 1382 host tests pass with zero
   failures/errors/skips across `:core:domain` (548), `:core:database` (323), `:core:network` (34),
   `:core:llm` (55), `:feature:logger` (276), `:feature:settings` (19), `:feature:equipment` (31),
   `:feature:routines` (13), `:feature:splitbuilder` (51), `:feature:fatigueheatmap` (11) and
   `:shared` (21); `ktlintCheck`, `:androidApp:assembleDebug`,
   `:shared:compileKotlinIosSimulatorArm64` and `verifySqlDelightMigration` pass together
   (`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/hydrafit-c6-c8-gate.log`).
+  **2026-10-12 post-review remediation gate:** the reviewed HEAD `d52a9f3` passes 1395 host tests with
+  zero failures/errors/skips, and the R2 remediation (one added seed-projection regression test) passes
+  1396: `:core:domain` 554, `:core:database` 329, `:feature:logger` 278,
+  `:core:network` 34, `:core:llm` 55, `:feature:settings` 19, `:feature:equipment` 31,
+  `:feature:routines` 13, `:feature:splitbuilder` 51, `:feature:fatigueheatmap` 11 and `:shared` 21.
+  `ktlintCheck`, `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
+  `verifySqlDelightMigration` pass at that revision
+  (`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/r2-gate.log`); schema version is
+  44 with `43.sqm`, and every C9 finding and its closure is recorded in
+  `docs/review-0.7.1-snapshot.md`.
   `WorkoutNotesHistoryIntegrationTest` drives real producers and consumers: logged sets and
   saved/cleared notes, bounded history reads (search matches catalog names and session-note text but
   never a setup note; a cleared note keeps an otherwise empty session visible), a full

@@ -46,15 +46,18 @@ screenshot at the tested font scale/theme; the regression checks the wrapping ac
 ## 0.7.1-C3 exercise setup-note verification (2026-10-12)
 
 `logger-exercise-note.yaml` passed `check-syntax` and a bounded runtime pass on `emulator-5554`
-(debug, 1080×2400) after five unsuccessful attempts while the flow itself was fixed: the note editor
-sits above the picker but its fields move when the editor opens, a tap placed the text cursor mid-note
-so `eraseText` left a suffix, and a named picker row sat below the height-bounded list's fold. The
-accepted run covers selecting an exercise through a partial picker query (**Dips**), the editor
-opening at `0/2000` with Save/Clear/Cancel, **Save** persisting "C9R synthetic setup note" and closing
-the editor with a "Note saved" confirmation, reopening showing the persisted text at `24/2000`, a real
-draft change that **Cancel** discards (the stored value is unchanged afterwards), **Clear** persisting
-an explicit empty note, and switching to a different exercise (**Ab Roll**) showing only its own empty
-state. Screenshot viewed: `exercise-note-persisted.png` under
+(debug, 1080×2400): it ran six times with four failures, and the final version passed on its first
+run. Each failure was flow-side and is handled by the final file: an expectation that the counter is
+still shown after a successful save (the editor closes), a state-dependent start where a previous run's
+saved note loaded instead of an empty editor (the flow clears the note first), a tap that put the text
+cursor mid-note so `eraseText` left a suffix (the Cancel leg appends one character instead of erasing),
+and a named picker row below the height-bounded list's fold (the leg now uses a uniquely matching
+partial query). The accepted run covers selecting an exercise through a partial picker query (**Dips**),
+the editor opening at `0/2000` with Save/Clear/Cancel, **Save** persisting "C9R synthetic setup note"
+and closing the editor with a "Note saved" confirmation, reopening showing the persisted text at
+`24/2000`, a real draft change that **Cancel** discards (the stored value is unchanged afterwards),
+**Clear** persisting an explicit empty note, and switching to a different exercise (**Ab Roll**) showing
+only its own empty state. Screenshot viewed: `exercise-note-persisted.png` under
 `/tmp/hydrafit-c3-note6/2026-10-12_193520/`; log `/tmp/hydrafit-c3-note6.log` with no fatal exception
 in the captured logcat.
 
