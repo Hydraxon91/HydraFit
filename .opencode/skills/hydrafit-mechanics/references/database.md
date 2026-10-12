@@ -45,7 +45,10 @@ identity through resegmentation, even when a session becomes empty. `42.sqm` add
 search projections `exercise.searchName` and `sessionNote.searchNote` (both default empty);
 `unicodeCaseFold` in `:core/domain` rewrites them on every name/note write, and
 `SearchProjectionBackfill` rebuilds custom-exercise and session-note rows at startup for databases
-upgraded from an earlier version. Current schema version is 43.
+upgraded from an earlier version. `43.sqm` adds
+`workoutSet_sessionId_performedAt` on `workoutSet(sessionId, performedAt)`: the history reads filter
+and group by `sessionId` and order one session's sets by `performedAt`, and without it each of those
+shapes planned a full table scan plus a temporary B-tree. Current schema version is 44.
 Determine the
 next version from the current directory/generated Schema rather than copying this snapshot.
 

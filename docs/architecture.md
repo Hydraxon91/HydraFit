@@ -273,7 +273,8 @@ are inclusive: a session uses its stored `localEpochDay`, while a set without on
 caller-supplied UTC offset (no historical timezone lookup). Recorded sets keep their stored load kind,
 RIR, warm-up flag, timing provenance and workout-occurrence attribution, so a correction reached from
 history corrects the same stored row through the existing `CorrectWorkoutSetUseCase` and keeps the
-Logger's own rest-prompt and recent-set reconciliation. History reads create and modify nothing.
+Logger's own rest-prompt and recent-set reconciliation. Session-set reads are index-driven through
+`workoutSet(sessionId, performedAt)` (migration `43.sqm`). History reads create and modify nothing.
 
 **History browser (implemented, 0.7.1-C6).** The Logger owns an internal history sub-graph
 (`WorkoutHistoryScreen`/`WorkoutHistoryDetailScreen` behind `WorkoutHistoryViewModel`), nested under

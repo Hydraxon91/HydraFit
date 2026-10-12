@@ -87,3 +87,6 @@ DELETE FROM workoutSet WHERE id = ?;
 
 deleteAllSets:
 DELETE FROM workoutSet;
+
+-- History reads filter and group by `sessionId` and order one session's sets by `performedAt`.
+CREATE INDEX workoutSet_sessionId_performedAt ON workoutSet(sessionId, performedAt);

@@ -1,0 +1,4 @@
+-- History reads filter and group `workoutSet` by `sessionId` and order one session's sets by
+-- `performedAt`, so both columns get one index. Without it every history read planned a full
+-- `workoutSet` scan (plus a temporary B-tree for the grouping and the per-session ordering).
+CREATE INDEX workoutSet_sessionId_performedAt ON workoutSet(sessionId, performedAt);
