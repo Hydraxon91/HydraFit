@@ -474,6 +474,39 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   navigation and unsaved-editor smoke passed on the debug build; signed-upgrade and on-device
   runtime behavior for the release artifact remain unverified.
 
+### 0.7.2 finish-workout summaries candidate verification (2026-10-12)
+
+- Candidate revision `457bb5f` (0.7.2 — finish-workout summaries, OF-13-P3) passed the local gate:
+  **1,434 host tests, zero failures/errors** (`:core:domain` 572, `:core:database` 331,
+  `:feature:logger` 296, `:core:llm` 55, `:feature:splitbuilder` 51, `:core:network` 34,
+  `:feature:equipment` 31, `:shared` 21, `:feature:settings` 19, `:feature:routines` 13,
+  `:feature:fatigueheatmap` 11) plus `verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
+  `:core:network:compileKotlinIosSimulatorArm64` (`/tmp/hf-r10-gate.log`). No schema change: the
+  range contains no `.sq`/`.sqm` file, so no migration is owed.
+- The bounded post-execution review of `v0.7.1`..`e102182` returned **INCOMPLETE** on **no blocking
+  defect** (findings R10-01…R10-11, reported in chat; no snapshot document was written). Builder
+  fixes on `457bb5f`: R10-01 the Failed and Unavailable states gained a Close action; R10-02 each
+  repeated Edit set action gained an accessible description naming its exercise, position and reps;
+  R10-03 the catalog is read only when recorded work belongs to no prescribed slot, through one shared
+  predicate; R10-05 a typed failure path replaced `Result` plus a fabricated exception; R10-09 the
+  totals line reads "N recorded sets · M prescribed"; R10-10 the review-round bound is stated once in
+  `docs/review-discipline.md` §8; R10-11 the named stale-row correction test. R10-04 (the port
+  default's quadratic read) and R10-07 (a pending history key outliving the handoff) are documented
+  rather than changed; R10-06's dispose ownership is documented as the intended model.
+  **A targeted closure confirmation under `docs/review-discipline.md` §8 is still outstanding**, and
+  this record is builder verification, not a review verdict.
+- Emulator evidence on debug builds (`emulator-5554`): a partial and a full finish, both history
+  landings, Back unwinding and a summary-driven set correction, with viewed screenshots; run counts,
+  causes and fixture effects are in `.maestro/README.md` §0.7.2-C3 and §0.7.2-C4.
+- **Limits:** no CI evidence exists for this revision yet (the commits are local and unpushed); no
+  pinned signed release-upgrade check and no artifact verification, because no release APK exists for
+  0.7.2; the summary's Loading, Failed+Retry and Unavailable states were not exercised in the UI (no
+  fault injection); the R10-01 Close action and the R10-09 totals wording landed after the last
+  emulator run and are **not** emulator-verified; larger text, dark mode, locale and TalkBack remain
+  unverified; the cancelled/failed correction retry and session-resegmenting correction paths are
+  host-tested only.
+
 ### 0.7.1 notes & session history candidate verification (2026-10-12)
 
 - Candidate revision `647d3ab` (0.7.1 — notes and searchable session history) is **reviewed APPROVED**
