@@ -139,3 +139,34 @@ The review made no file changes and its verdict authorized no fix, commit, push,
 finding was remediated only after the plan was explicitly approved as an ordered work chunk, and the
 closures above are builder verification, not a review verdict: the closed findings still require a
 bounded re-review (`C9-R2`) at the new HEAD before release preparation.
+
+## 7. Re-review (C9-R2, 2026-10-12) — addendum
+
+Appended after the fact at the owner's direction. Sections 1–6 above are the original snapshot and are
+not amended by this addendum; it records only what the bounded re-review at `d52a9f3` found and what
+happened to it.
+
+**Verified closures.** Every R9 finding was re-checked against the code and evidence at `d52a9f3`, not
+against the closure report: R9-01 (effective-name projection plus the set-page `COALESCE`, with the
+rename/reset and backfill tests), R9-02 (`43.sqm` and the `.sq` index, generated schema version 44, the
+scoped migration test and `verifySqlDelightMigration`), R9-03 (run counts re-derived from the run
+directories: 6 browser / 7 correction runs), R9-04 (both editors' guards; every `noteRevision` mutation
+is either the in-flight write or a path that refuses while a write runs, so no stuck editor is
+reachable), R9-05 (constant plus symmetric validator rule), R9-06 (signed decode, both signs covered),
+R9-07 (flow, accepted run, screenshot and logs all present), R9-08 (the checker re-run live at this
+HEAD: 1585 code points match).
+
+**Verdict: [INCOMPLETE]**, narrowly and for documentation accuracy alone. No code defect, no
+data-integrity issue and no missing required verification remained at `d52a9f3`.
+
+| ID | Severity | Status | Finding | Closure |
+| --- | --- | --- | --- | --- |
+| R2-01 | nit | confirmed (impact unreachable at the time) | `SeedExerciseCatalog` and the custom-exercise restore path wrote the **base**-name projection, and the helper's KDoc named only the dedupe merge as relying on the backfill, so the projection's writer rule was uneven and depended on startup ordering | Seed and restore now route through `refreshExerciseSearchName`; the dedupe merge deliberately does not, because `mergeOverride` carries the existing override `name` forward unchanged and therefore cannot change a projection (checked in code, so no speculative call was added). New `SeedExerciseCatalogTest` case fails before the fix and passes after, and `references/database.md` states the writer rule |
+| R2-02 | minor | confirmed | `docs/qa.md` and the `PLANS.md` C8 row presented "1382 host tests" as the release's current figure, and the C8 row still said "C9 review pending" while the C9 row recorded the review as performed | The C6/C7 paragraph is revision-labelled (`3262531`), a post-review gate record was added (reviewed HEAD `d52a9f3` 1395 tests, R2 remediation 1396, schema 44 with `43.sqm`), and the C8/C9 rows were aligned |
+| R2-03 | minor | confirmed | `.maestro/README.md` reported "five unsuccessful attempts" for the C3 flow and listed three causes; the outcomes were four failures, and one listed cause did not correspond to any of them | The count (six runs, four failures, final version passing first) and the four real causes are recorded |
+
+**Carried forward.** No CI evidence for this HEAD (commits local and unpushed); no pinned signed
+release-upgrade check; the emulator limits listed in §5. A bounded **C9-R3** confirmation of the
+corrected statements and the new gate figures is the remaining step before the delta can be called
+APPROVED; release preparation stays separately gated.
+
