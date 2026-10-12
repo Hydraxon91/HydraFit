@@ -4281,6 +4281,65 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun aRampWriteInFlightAcrossAnOccurrenceChangeLeavesTheNewContextIntact() =
+        runTest(dispatcher) {
+            val writeGate = CompletableDeferred<Unit>()
+            val repository = FakeWorkoutLogRepository().apply { addGate = writeGate }
+            val schedule = MutableWorkoutScheduleRepository()
+            schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+            val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+            advanceUntilIdle()
+
+            viewModel.logWarmupRamp(40L, rampIndex = 0)
+            runCurrent()
+            schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 31L)
+            advanceUntilIdle()
+            writeGate.complete(Unit)
+            runCurrent()
+
+            // The new workout keeps its own guidance with no stale failure or preparation marks.
+            assertFalse(viewModel.state.value.warmupRampWriteFailed)
+            assertTrue(viewModel.state.value.warmupPreparationChecked.isEmpty())
+            val next = assertNotNull(viewModel.state.value.visibleWarmupGuidance)
+            assertEquals(140.0, next.ramps.single().workingWeightKg)
+        }
+
+    @Test
+    fun warmupGuidanceIsRebuiltOnRecreationWithoutPersistingPreparationMarks() =
+        runTest(dispatcher) {
+            val repository = FakeWorkoutLogRepository()
+            val schedule = MutableWorkoutScheduleRepository()
+            schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+            val first = occurrenceViewModel(repository, schedule, guided = true)
+            advanceUntilIdle()
+            first.onWarmupPreparationToggled(WarmupAction.EASY_GENERAL_MOVEMENT)
+
+            val recreated = occurrenceViewModel(repository, schedule, guided = true)
+            advanceUntilIdle()
+
+            assertNotNull(recreated.state.value.visibleWarmupGuidance)
+            assertTrue(recreated.state.value.warmupPreparationChecked.isEmpty())
+        }
+
+    @Test
+    fun aRecordedRampStaysVisibleAsAWarmUpInRecentSets() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.logWarmupRamp(40L, rampIndex = 2)
+        advanceUntilIdle()
+
+        val row = viewModel.state.value.recentSets.single()
+        assertTrue(row.isWarmup)
+        assertEquals(80.0, row.weightKg)
+        assertEquals(3, row.reps)
+        assertEquals(0, viewModel.state.value.guidedProgress?.performedSets)
+    }
+
+    @Test
     fun liveGuidedCompletionStartsTimerOnlyAfterSuccessfulWriteAndUsesNow() = runTimerTest {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
