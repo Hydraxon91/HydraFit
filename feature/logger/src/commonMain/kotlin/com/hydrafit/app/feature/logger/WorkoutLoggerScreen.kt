@@ -591,11 +591,8 @@ fun WorkoutLoggerScreen(
             items(state.draftSets) { draft ->
                 val weight = loadWeightText(draft.loadKind, draft.weightKg, state.weightUnit)
                 var expanded by remember(draft) { mutableStateOf(false) }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
                             text = "${draft.name}  ${draft.sets} x ${draft.reps} · ~$weight"
                         )
@@ -605,37 +602,46 @@ fun WorkoutLoggerScreen(
                             weightUnit = state.weightUnit
                         )
                     }
-                    TextButton(
-                        onClick = { onConfirmDraft(draft) },
-                        enabled = !state.draftWriteInProgress
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(stringResource(Res.string.logger_confirm))
-                    }
-                    TextButton(onClick = { onDismissDraft(draft) }) {
-                        Text(stringResource(Res.string.logger_dismiss))
-                    }
-                    Box {
-                        TextButton(onClick = { expanded = true }) {
-                            Text(stringResource(Res.string.logger_draft_more_options))
+                        TextButton(
+                            onClick = { onConfirmDraft(draft) },
+                            enabled = !state.draftWriteInProgress
+                        ) {
+                            Text(stringResource(Res.string.logger_confirm))
                         }
-                        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                            draft.occurrenceEntryId?.let { entryId ->
+                        TextButton(onClick = { onDismissDraft(draft) }) {
+                            Text(stringResource(Res.string.logger_dismiss))
+                        }
+                        Box {
+                            TextButton(onClick = { expanded = true }) {
+                                Text(stringResource(Res.string.logger_draft_more_options))
+                            }
+                            DropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                draft.occurrenceEntryId?.let { entryId ->
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(Res.string.logger_replace)) },
+                                        enabled = !state.draftWriteInProgress,
+                                        onClick = {
+                                            expanded = false
+                                            onReplaceOccurrenceEntry(entryId)
+                                        }
+                                    )
+                                }
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(Res.string.logger_replace)) },
-                                    enabled = !state.draftWriteInProgress,
+                                    text = { Text(stringResource(Res.string.logger_draft_edit)) },
                                     onClick = {
                                         expanded = false
-                                        onReplaceOccurrenceEntry(entryId)
+                                        onEditDraft(draft)
                                     }
                                 )
                             }
-                            DropdownMenuItem(
-                                text = { Text(stringResource(Res.string.logger_draft_edit)) },
-                                onClick = {
-                                    expanded = false
-                                    onEditDraft(draft)
-                                }
-                            )
                         }
                     }
                 }
