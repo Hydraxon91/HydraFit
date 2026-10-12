@@ -299,8 +299,10 @@ and approval gates. Read all applicable references before the corresponding work
 - **Implementation:** read `docs/agent-project-reference.md` Project Structure &
   Conventions for every affected module; before setup/tooling work read its relevant
   setup/configuration sections, and before selecting build/test commands read Key
-  Commands. Do not re-run a task just to change the output view. Clean builds are
-  reserved for dependency/configuration changes, not routine edits.
+  Commands. For code changes, also follow its Implementation Readiness procedure
+  when planning, building and reporting verification. Do not re-run a task just to
+  change the output view. Clean builds are reserved for dependency/configuration
+  changes, not routine edits.
 - **Mechanics:** load `hydrafit-mechanics` for its advertised tasks, then read every
   affected topic reference selected by its index, including downstream consumers.
   Do not load all topics by default. Update the owning reference when behavior changes.
