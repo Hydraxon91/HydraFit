@@ -183,6 +183,16 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   entry; creating one is a separate fixture write); the ramp-write failure line, larger text, dark
   mode, locale and TalkBack are unverified; the warm-up guidance is not exercised in the
   accepted-plan path.
+  **2026-10-13 F5 ramp journey** (F1–F4 remediation build): with routine `Test` active (external
+  `band-curl` 100 kg) and `Resistance bands` temporarily owned, the ramp rows rendered
+  (`40% × 8 · 40 kg`, `60% × 5 · 60 kg`, `80% × 3 · 80 kg`), an edit applied (`6 × 45 kg (edited)`),
+  a cancelled edit changed nothing, `Log warm-up` stored `Band Curl 6 x 45 kg (warm-up) · Week 1 ·
+  Day 2` while guided progress stayed `0 of 10 sets`, and `Replace for this workout` refused the slot
+  with the recorded-sets message. The journey found and fixed a rendering defect: the percentage showed
+  `40%%` because Compose resources do not treat `%%` as an escape. Fixture cleanup: ramp set deleted,
+  `Test` block cancelled, `Resistance bands` deselected, guided workouts off; the previous
+  `Generated plan` block was cancelled as an accepted fixture effect. Evidence and limits:
+  `.maestro/README.md` §0.7.3 F5.
 - Sessions: first set auto-starts a session; End session / New session; day rollover starts a new one; active-session indicator correct.
 - Session history (0.7.1-C5 queries, 0.7.1-C6 browser, 0.7.1-C7 corrections): entries are keyed by
   explicit

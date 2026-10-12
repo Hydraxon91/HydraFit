@@ -245,7 +245,7 @@
     <string name="logger_warmup_action_light_pull">Light, easy pull practice</string>
     <string name="logger_warmup_guidance_item_reps">%1$s · %2$d reps</string>
     <string name="logger_warmup_guidance_item_timed">%1$s · about %2$d min</string>
-    <string name="logger_warmup_guidance_ramp_line">%1$d%% × %2$d · %3$s</string>
+    <string name="logger_warmup_guidance_ramp_line">%1$s × %2$d · %3$s</string>
     <string name="logger_warmup_guidance_log_ramp">Log warm-up</string>
     <string name="logger_warmup_guidance_ramp_failed">That warm-up set was not saved. Try again.</string>
     <string name="logger_warmup_guidance_lock_note">Recording a warm-up for an exercise locks that slot for this workout, so it can no longer be replaced.</string>

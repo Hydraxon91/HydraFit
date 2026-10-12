@@ -1941,7 +1941,7 @@ private fun warmupRampText(row: WarmupRampRow, weightUnit: WeightUnit): String {
     val load = loadWeightText(LoadKind.EXTERNAL, row.weightKg, weightUnit)
     val percent = row.percentOfWorkingWeight
     return if (percent != null) {
-        stringResource(Res.string.logger_warmup_guidance_ramp_line, percent, row.reps, load)
+        stringResource(Res.string.logger_warmup_guidance_ramp_line, "$percent%", row.reps, load)
     } else {
         stringResource(Res.string.logger_warmup_guidance_ramp_line_edited, row.reps, load)
     }

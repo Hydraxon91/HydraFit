@@ -44,6 +44,36 @@ restoring the test's coaching change; do not rerun the permission write blindly.
 Session-control assertions do not establish layout by themselves. Capture and view the Logger
 screenshot at the tested font scale/theme; the regression checks the wrapping action layout.
 
+## 0.7.3 F5 ramp journey verification (2026-10-13)
+
+Run on `emulator-5554` (debug `Medium_Phone`, 1080×2400) against the F1–F4 remediation build. Fixture
+(explicitly approved): started routine `Test` (its `band-curl` entry is external at 100 kg) so the active
+block became an external-load occurrence, and temporarily marked `Resistance bands` owned so the ramp is
+not withheld by current-equipment availability; `Enable guided workouts` was on. Cleanup: the logged ramp
+set was deleted, the `Test` block cancelled, `Resistance bands` deselected and guided workouts turned off.
+Accepted fixture effect: starting `Test` cancelled the previous `Generated plan` block (activation 20),
+which the UI cannot restore to ACTIVE.
+
+Verified with assertions and viewed screenshots:
+
+- **Ramp rows render** — `Ramp sets`, `Band Curl`, `40% × 8 · 40 kg`, `60% × 5 · 60 kg`,
+  `80% × 3 · 80 kg`, each with `Edit` and `Log warm-up`, above the guided workout; the card also shows
+  the slot-lock note. Screenshots: `/tmp/hf-f5-ramps.png`, `/tmp/hf-f5-ramprows.png`.
+- **Edit applies** — editing the first ramp to `6` reps and `45` kg rendered `6 × 45 kg (edited)` with no
+  percentage.
+- **Cancel writes nothing** — a further edit that was cancelled left `6 × 45 kg (edited)` unchanged.
+- **Log records one warm-up** — `Log warm-up` stored `Band Curl  6 x 45 kg (warm-up) · Week 1 · Day 2`
+  in Recent sets, and guided progress stayed `0 of 10 sets`.
+- **Slot freeze** — opening `Replace for this workout` on Band Curl showed "This exercise slot already
+  has recorded sets, including warm-ups. Its prescription cannot be replaced."
+
+Defect found and fixed by this journey: the ramp percentage rendered as `40%%`, because the resource used
+`%%` and Compose resources do not treat `%%` as an escape. The string now takes the percentage as a
+pre-formatted argument.
+
+Not verified: the ramp-write failure line, the equipment-ceiling refusal in the UI, larger text, dark
+mode, locale and TalkBack. No `FATAL EXCEPTION` appeared in the captured logcat.
+
 ## 0.7.3 warm-up guidance verification (2026-10-12)
 
 Run on `emulator-5554` (debug `Medium_Phone`, 1080×2400) against the 0.7.3 build. MCP
