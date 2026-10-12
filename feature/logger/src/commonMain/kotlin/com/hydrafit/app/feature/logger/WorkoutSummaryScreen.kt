@@ -27,6 +27,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutSummary
 import com.hydrafit.app.core.domain.workout.WorkoutSummaryExercise
 import com.hydrafit.app.core.domain.workout.WorkoutSummarySet
 import hydrafit.feature.logger.generated.resources.Res
+import hydrafit.feature.logger.generated.resources.logger_edit_set
 import hydrafit.feature.logger.generated.resources.logger_history_set_line
 import hydrafit.feature.logger.generated.resources.logger_summary_done
 import hydrafit.feature.logger.generated.resources.logger_summary_extra_sets
@@ -76,6 +77,7 @@ internal fun WorkoutSummaryRoute(
     onRetry: () -> Unit,
     onDone: () -> Unit,
     onViewInHistory: (WorkoutSummary) -> Unit,
+    onEditSet: (Long, WorkoutSummarySet) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -98,7 +100,8 @@ internal fun WorkoutSummaryRoute(
                 summary = screen.summary,
                 weightUnit = weightUnit,
                 utcOffsetMillis = utcOffsetMillis,
-                onViewInHistory = onViewInHistory
+                onViewInHistory = onViewInHistory,
+                onEditSet = { set -> onEditSet(screen.summary.occurrenceId, set) }
             )
         }
         if (screen is WorkoutSummaryScreen.Ready) {
@@ -112,7 +115,8 @@ private fun WorkoutSummaryContent(
     summary: WorkoutSummary,
     weightUnit: WeightUnit,
     utcOffsetMillis: Long,
-    onViewInHistory: (WorkoutSummary) -> Unit
+    onViewInHistory: (WorkoutSummary) -> Unit,
+    onEditSet: (WorkoutSummarySet) -> Unit
 ) {
     Text(
         text = summary.workoutName ?: stringResource(Res.string.logger_summary_title),
@@ -154,10 +158,20 @@ private fun WorkoutSummaryContent(
     )
 
     summary.exercises.forEach { exercise ->
-        SummaryExerciseSection(exercise, weightUnit)
+        SummaryExerciseSection(exercise, weightUnit, onEditSet)
     }
-    SummarySetGroup(Res.string.logger_summary_extra_sets, summary.extraSets, weightUnit)
-    SummarySetGroup(Res.string.logger_summary_warmup_sets, summary.warmupSets, weightUnit)
+    SummarySetGroup(
+        Res.string.logger_summary_extra_sets,
+        summary.extraSets,
+        weightUnit,
+        onEditSet
+    )
+    SummarySetGroup(
+        Res.string.logger_summary_warmup_sets,
+        summary.warmupSets,
+        weightUnit,
+        onEditSet
+    )
 
     if (summary.sessions.isNotEmpty()) {
         Text(
@@ -194,7 +208,11 @@ private fun WorkoutSummaryContent(
 }
 
 @Composable
-private fun SummaryExerciseSection(exercise: WorkoutSummaryExercise, weightUnit: WeightUnit) {
+private fun SummaryExerciseSection(
+    exercise: WorkoutSummaryExercise,
+    weightUnit: WeightUnit,
+    onEditSet: (WorkoutSummarySet) -> Unit
+) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.fillMaxWidth()) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -212,7 +230,7 @@ private fun SummaryExerciseSection(exercise: WorkoutSummaryExercise, weightUnit:
             text = prescribedTargetText(exercise, weightUnit),
             style = MaterialTheme.typography.bodySmall
         )
-        exercise.performedSets.forEach { set -> SummarySetLine(set, weightUnit) }
+        exercise.performedSets.forEach { set -> SummarySetLine(set, weightUnit, onEditSet) }
         if (exercise.remainingSets > 0) {
             Text(
                 text = stringResource(Res.string.logger_summary_remaining, exercise.remainingSets) +
@@ -235,25 +253,40 @@ private fun SummaryExerciseSection(exercise: WorkoutSummaryExercise, weightUnit:
 private fun SummarySetGroup(
     label: StringResource,
     sets: List<WorkoutSummarySet>,
-    weightUnit: WeightUnit
+    weightUnit: WeightUnit,
+    onEditSet: (WorkoutSummarySet) -> Unit
 ) {
     if (sets.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.fillMaxWidth()) {
         Text(text = stringResource(label), style = MaterialTheme.typography.titleMedium)
-        sets.forEach { set -> SummarySetLine(set, weightUnit) }
+        sets.forEach { set -> SummarySetLine(set, weightUnit, onEditSet) }
     }
 }
 
 @Composable
-private fun SummarySetLine(set: WorkoutSummarySet, weightUnit: WeightUnit) {
-    Text(
-        text = stringResource(
-            Res.string.logger_history_set_line,
-            set.reps,
-            loadWeightText(set.loadKind, set.weightKg, weightUnit)
-        ),
-        style = MaterialTheme.typography.bodySmall
-    )
+private fun SummarySetLine(
+    set: WorkoutSummarySet,
+    weightUnit: WeightUnit,
+    onEditSet: (WorkoutSummarySet) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = stringResource(
+                Res.string.logger_history_set_line,
+                set.reps,
+                loadWeightText(set.loadKind, set.weightKg, weightUnit)
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.weight(1f)
+        )
+        TextButton(onClick = { onEditSet(set) }) {
+            Text(stringResource(Res.string.logger_edit_set))
+        }
+    }
 }
 
 @Composable

@@ -236,7 +236,12 @@ cached. "View in history" records the finished workout's single session identity
 `WorkoutLoggerUiState.pendingHistoryKey`; the history browser consumes it once it is on the back
 stack and opens that detail. A workout spanning several sessions or only sets with no session leaves
 the key null and lands on the browser list, because the detail is keyed per session and no grouping
-is invented. Recorded start/finish instants and session notes are shown; there is no duration figure
+is invented. Every recorded row - working, extra or warm-up - offers **Edit set**, which opens the
+same `LoggedSetEdit`/`LoggedSetEditDialog` editor and `CorrectWorkoutSetUseCase` the Logger's recent
+sets use, so the correction has one implementation. The editor is rendered on the summary route as
+well, because its state is graph-scoped, and a successful save re-reads the summary instead of leaving
+the pre-correction reconciliation on screen. A failed save keeps the editor and the current
+reconciliation. Recorded start/finish instants and session notes are shown; there is no duration figure
 and no universal score.
 
 For routine authoring, the module is `:feature:routines`:`RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/

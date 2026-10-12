@@ -81,7 +81,10 @@ Two defects were found by this journey and fixed before the verification above:
 
 Not verified: `Done`'s tap was exercised only as a visible, asserted control (the pop-and-clear path
 it shares was verified through Back); the route's Loading, Failed+Retry and Unavailable states were
-not exercised in the UI (no fault injection); dark mode, larger text, locale and TalkBack were not
+not exercised in the UI (no fault injection); the summary's per-set **Edit set** correction leg did
+not run (the Logger presented the accepted-plan path instead of the pending occurrence after the
+block's first day was finished, across a relaunch, so no summary could be opened — see the open
+observation in `PLANS.md`); dark mode, larger text, locale and TalkBack were not
 checked; the combined single-flow file is not checked in. A fresh occurrence requires a block with an
 unresolved occurrence, so the journey cannot re-run against an already-resolved occurrence.
 

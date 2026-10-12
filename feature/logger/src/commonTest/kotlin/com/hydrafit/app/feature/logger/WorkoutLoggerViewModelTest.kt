@@ -3904,6 +3904,121 @@ class WorkoutLoggerViewModelTest {
         assertNull(viewModel.state.value.pendingHistoryKey)
     }
 
+    @Test
+    fun editingASummarySetOpensTheEditorWithItsRecordedValues() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+        logTwoSets(viewModel)
+        viewModel.finishWorkout()
+        advanceUntilIdle()
+        val ready = assertIs<WorkoutSummaryScreen.Ready>(viewModel.state.value.summary).summary
+        val set = ready.exercises.single().performedSets.first()
+
+        viewModel.editSummarySet(ready.occurrenceId, set)
+
+        val edit = assertNotNull(viewModel.state.value.loggedSetEdit)
+        assertEquals(set.id, edit.row.id)
+        assertEquals(set.exerciseName ?: set.exerciseId, edit.row.exerciseName)
+        assertEquals(set.reps.toString(), edit.reps)
+        // The occurrence attribution the editor and rest-prompt cancellation need.
+        assertEquals(ready.occurrenceId, edit.row.occurrenceId)
+        assertEquals(set.sessionId, edit.row.sessionId)
+    }
+
+    @Test
+    fun correctingASetFromTheSummaryRefreshesTheReconciliation() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+        logTwoSets(viewModel)
+        viewModel.finishWorkout()
+        advanceUntilIdle()
+        val ready = assertIs<WorkoutSummaryScreen.Ready>(viewModel.state.value.summary).summary
+        val set = ready.exercises.single().performedSets.first()
+
+        viewModel.editSummarySet(ready.occurrenceId, set)
+        viewModel.onLoggedSetRepsChanged("11")
+        viewModel.saveLoggedSetEdit()
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.loggedSetEdit)
+        assertEquals(11, repository.all().first { it.id == set.id }.reps)
+        // The summary is re-read, never left showing the pre-correction reconciliation.
+        val refreshed = assertIs<WorkoutSummaryScreen.Ready>(viewModel.state.value.summary).summary
+        assertEquals(listOf(11, 8), refreshed.exercises.single().performedSets.map { it.reps })
+    }
+
+    @Test
+    fun cancellingASummarySetEditWritesNothing() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+        logTwoSets(viewModel)
+        viewModel.finishWorkout()
+        advanceUntilIdle()
+        val ready = assertIs<WorkoutSummaryScreen.Ready>(viewModel.state.value.summary).summary
+        val set = ready.exercises.single().performedSets.first()
+        val before = repository.all().map { it.id to it.reps }
+
+        viewModel.editSummarySet(ready.occurrenceId, set)
+        viewModel.onLoggedSetRepsChanged("99")
+        viewModel.cancelLoggedSetEdit()
+
+        assertNull(viewModel.state.value.loggedSetEdit)
+        assertEquals(before, repository.all().map { it.id to it.reps })
+        val unchanged = assertIs<WorkoutSummaryScreen.Ready>(viewModel.state.value.summary).summary
+        assertEquals(listOf(8, 8), unchanged.exercises.single().performedSets.map { it.reps })
+    }
+
+    @Test
+    fun aFailedSummarySetEditKeepsTheEditorAndARetryRefreshes() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+        logTwoSets(viewModel)
+        viewModel.finishWorkout()
+        advanceUntilIdle()
+        val ready = assertIs<WorkoutSummaryScreen.Ready>(viewModel.state.value.summary).summary
+        val set = ready.exercises.single().performedSets.first()
+
+        repository.failCorrection = true
+        viewModel.editSummarySet(ready.occurrenceId, set)
+        viewModel.onLoggedSetRepsChanged("13")
+        viewModel.saveLoggedSetEdit()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.loggedSetEditFailed)
+        assertEquals("13", viewModel.state.value.loggedSetEdit?.reps)
+        assertEquals(8, repository.all().first { it.id == set.id }.reps)
+        // A failed write leaves the reconciliation on screen rather than reloading a stale one.
+        assertEquals(
+            listOf(8, 8),
+            assertIs<WorkoutSummaryScreen.Ready>(viewModel.state.value.summary).summary
+                .exercises.single().performedSets.map { it.reps }
+        )
+
+        repository.failCorrection = false
+        viewModel.saveLoggedSetEdit()
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.loggedSetEdit)
+        assertEquals(13, repository.all().first { it.id == set.id }.reps)
+        assertEquals(
+            listOf(13, 8),
+            assertIs<WorkoutSummaryScreen.Ready>(viewModel.state.value.summary).summary
+                .exercises.single().performedSets.map { it.reps }
+        )
+    }
+
     /** Logs the two working sets the Upper occurrence prescribes. */
     private fun logTwoSets(viewModel: WorkoutLoggerViewModel) {
         viewModel.onExerciseSelected("back-squat")

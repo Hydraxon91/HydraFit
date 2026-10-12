@@ -261,8 +261,26 @@ fun NavGraphBuilder.loggerGraph(navController: NavController) {
                     navController.popBackStack()
                     navController.navigate(historyGraphRoute)
                     viewModel.onWorkoutSummaryHistoryRequested(summary)
-                }
+                },
+                onEditSet = viewModel::editSummarySet
             )
+            // The same correction editor the Logger's recent sets use; it is graph-scoped state, so
+            // it has to be rendered on this route too.
+            state.loggedSetEdit?.let { edit ->
+                LoggedSetEditDialog(
+                    edit = edit,
+                    saving = state.savingLoggedSet,
+                    failed = state.loggedSetEditFailed,
+                    utcOffsetMillis = state.utcOffsetMillis,
+                    nowMillis = viewModel::currentTimeMillis,
+                    onRepsChanged = viewModel::onLoggedSetRepsChanged,
+                    onWeightChanged = viewModel::onLoggedSetWeightChanged,
+                    onRirChanged = viewModel::onLoggedSetRirChanged,
+                    onTimeChanged = viewModel::onLoggedSetTimeChanged,
+                    onCancel = viewModel::cancelLoggedSetEdit,
+                    onSave = viewModel::saveLoggedSetEdit
+                )
+            }
         }
         historyDestinations(navController)
     }

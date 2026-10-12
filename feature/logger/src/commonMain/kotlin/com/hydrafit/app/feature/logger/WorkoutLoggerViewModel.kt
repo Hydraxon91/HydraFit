@@ -28,6 +28,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
 import com.hydrafit.app.core.domain.workout.WorkoutSummary
+import com.hydrafit.app.core.domain.workout.WorkoutSummarySet
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 import com.hydrafit.app.core.domain.workout.buildGuidedWorkoutProgress
 import kotlinx.coroutines.CancellationException
@@ -423,6 +424,29 @@ class WorkoutLoggerViewModel(
 
     fun onLoggedSetRepsChanged(value: String) = updateLoggedSetEdit { copy(reps = value) }
 
+    /**
+     * Opens the existing set-correction editor for one set of the finished-workout summary. The
+     * summary is keyed by occurrence, so [occurrenceId] supplies the attribution the editor and the
+     * rest-prompt cancellation need; nothing is written until the editor saves.
+     */
+    fun editSummarySet(occurrenceId: Long, set: WorkoutSummarySet) {
+        editLoggedSet(
+            LoggedSetRow(
+                id = set.id,
+                performedAtMillis = set.performedAtMillis,
+                exerciseId = set.exerciseId,
+                exerciseName = set.exerciseName ?: set.exerciseId,
+                reps = set.reps,
+                weightKg = set.weightKg,
+                rir = set.rir,
+                isWarmup = set.isWarmup,
+                loadKind = set.loadKind,
+                occurrenceId = occurrenceId,
+                sessionId = set.sessionId
+            )
+        )
+    }
+
     fun onLoggedSetWeightChanged(value: String) = updateLoggedSetEdit { copy(weightInput = value) }
 
     fun onLoggedSetRirChanged(value: String) = updateLoggedSetEdit { copy(rir = value) }
@@ -486,6 +510,9 @@ class WorkoutLoggerViewModel(
             }
             refreshRecentSets()
             if (activeActivation != null) refreshOccurrence()
+            // A correction opened from the summary must be reflected there: re-read it rather than
+            // leaving the pre-correction reconciliation on screen.
+            summaryOccurrenceId?.let { loadWorkoutSummary(it) }
         }
     }
 
