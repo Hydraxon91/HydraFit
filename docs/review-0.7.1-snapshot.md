@@ -170,3 +170,25 @@ release-upgrade check; the emulator limits listed in §5. A bounded **C9-R3** co
 corrected statements and the new gate figures is the remaining step before the delta can be called
 APPROVED; release preparation stays separately gated.
 
+## 8. Confirmation (C9-R3, 2026-10-12) — addendum
+
+Appended after the fact; §1–§7 are unchanged as records. The bounded confirmation at `5589eff`
+verified the §7 closures and found one gap in them.
+
+**Confirmed.** R2-02: the corrected statements read accurately, the totals re-derive to 1,396 at that
+revision (1,395 at the reviewed HEAD, as labelled), the five checks pass at the recorded log, schema 44
+with `43.sqm`, and no stale "C9 review pending" remained. R2-03: the four recorded causes map
+one-to-one onto the four failing runs' actual failures (`note` and `note2` on the post-save and initial
+`0/2000` expectations, `note3` on the changed-draft assertion, `note4` on the picker row below the
+fold). R2-01: the seed and restore writers do route through the effective-name helper, the new test's
+failure behaves as recorded, and the dedupe exemption is justified by code.
+
+**Verdict: [INCOMPLETE]**, on one new nit.
+
+| ID | Severity | Status | Finding | Closure |
+| --- | --- | --- | --- | --- |
+| R3-01 | nit | confirmed | `SqlDelightCustomExerciseRepository.update` still wrote the custom's own name into the projection. The catalog resolves a displayed name as `override?.name ?: name` with no `isCustom` filter and the validator accepts an override for a custom id (`knownExercises = seedExerciseIds + customIds`), so a restored payload carrying a rename of a custom could show one name and search another; the helper's KDoc writer list was also incomplete | Both custom-repository writes now route through `refreshExerciseSearchName` (`insert` was already correct, a fresh id cannot have an override); the KDoc and `references/database.md` state the complete writer rule; new `renamingACustomKeepsARestoredOverrideNameInTheSearchProjection` fails against the base-name write (verified by a temporary break and restore) and passes after. The remediation gate passes 1,397 tests with the same five checks |
+
+**Carried forward.** The §5 limits are unchanged. A final bounded confirmation (C9-R4) of this closure
+and the updated figures is the remaining step before the delta can be called APPROVED.
+
