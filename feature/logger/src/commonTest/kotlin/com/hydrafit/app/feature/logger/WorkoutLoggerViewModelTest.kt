@@ -36,6 +36,7 @@ import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementException
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementFailure
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementRepository
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
+import com.hydrafit.app.core.domain.schedule.RemainingDisposition
 import com.hydrafit.app.core.domain.schedule.ReplaceOccurrenceExerciseUseCase
 import com.hydrafit.app.core.domain.schedule.SkipWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.StartWorkoutOccurrenceUseCase
@@ -54,6 +55,7 @@ import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.ExerciseNoteRepository
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
+import com.hydrafit.app.core.domain.workout.GetWorkoutSummaryUseCase
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
@@ -3324,7 +3326,14 @@ class WorkoutLoggerViewModelTest {
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessionRepository),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
-        loggingActions = loggingActions(history, repository, timeMillis = timeMillis),
+        loggingActions = loggingActions(
+            history,
+            repository,
+            sessionRepository = sessionRepository,
+            sessionNoteRepository = sessionNoteRepository,
+            catalog = catalog,
+            timeMillis = timeMillis
+        ),
         exerciseCatalog = catalog,
         runtime = WorkoutLoggerRuntime(TimeProvider { timeMillis }),
         settings = WorkoutLoggerSettings(
@@ -3346,7 +3355,12 @@ class WorkoutLoggerViewModelTest {
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessionRepository),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
-        loggingActions = loggingActions(FakePlanHistoryRepository(null), repository),
+        loggingActions = loggingActions(
+            FakePlanHistoryRepository(null),
+            repository,
+            sessionRepository = sessionRepository,
+            sessionNoteRepository = sessionNoteRepository
+        ),
         exerciseCatalog = FakeExerciseCatalog,
         runtime = WorkoutLoggerRuntime(TimeProvider { now() }),
         settings = WorkoutLoggerSettings(
@@ -3709,6 +3723,132 @@ class WorkoutLoggerViewModelTest {
 
         assertEquals(31L, schedule.scheduleState().selectedOccurrenceId)
         assertEquals("Lower", viewModel.state.value.activeOccurrence?.workoutName)
+    }
+
+    @Test
+    fun finishingAWorkoutEmitsItsSummaryForTheOccurrenceJustFinished() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+        logTwoSets(viewModel)
+
+        viewModel.finishWorkout()
+        advanceUntilIdle()
+
+        val summary = assertNotNull(viewModel.state.value.workoutSummary)
+        assertEquals(30L, summary.occurrenceId)
+        assertEquals("Upper", summary.workoutName)
+        assertEquals(OccurrenceStatus.FINISHED, summary.status)
+        assertEquals(2, summary.prescribedSets)
+        assertEquals(2, summary.recordedWorkingSets)
+        assertEquals(0, summary.remainingSets)
+        assertTrue(summary.isComplete)
+    }
+
+    @Test
+    fun finishingPartiallyEmitsASummaryThatKeepsTheOmittedWork() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("8")
+        viewModel.onWeightChanged("100")
+        viewModel.log()
+        advanceUntilIdle()
+
+        viewModel.finishWorkoutPartially()
+        advanceUntilIdle()
+
+        val summary = assertNotNull(viewModel.state.value.workoutSummary)
+        assertEquals(OccurrenceStatus.FINISHED_PARTIAL, summary.status)
+        assertEquals(1, summary.recordedWorkingSets)
+        assertEquals(1, summary.remainingSets)
+        assertEquals(RemainingDisposition.OMITTED, summary.exercises.single().remainingDisposition)
+    }
+
+    @Test
+    fun skippingAWorkoutOffersNoSummary() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("8")
+        viewModel.onWeightChanged("100")
+        viewModel.log()
+        advanceUntilIdle()
+
+        viewModel.skipWorkout()
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.occurrenceMessage)
+        assertNull(viewModel.state.value.workoutSummary)
+    }
+
+    @Test
+    fun aFinishThatFailsShowsItsMessageAndOffersNoSummary() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+
+        viewModel.finishWorkout()
+        advanceUntilIdle()
+
+        assertNotNull(viewModel.state.value.occurrenceMessage)
+        assertNull(viewModel.state.value.workoutSummary)
+    }
+
+    @Test
+    fun dismissingTheSummaryClearsIt() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+        logTwoSets(viewModel)
+
+        viewModel.finishWorkout()
+        advanceUntilIdle()
+        assertNotNull(viewModel.state.value.workoutSummary)
+
+        viewModel.onWorkoutSummaryShown()
+
+        assertNull(viewModel.state.value.workoutSummary)
+        assertEquals(31L, schedule.scheduleState().selectedOccurrenceId)
+    }
+
+    @Test
+    fun aSummaryIsDroppedWhenTheBlockChangesDuringTheFinish() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+        logTwoSets(viewModel)
+
+        // The block is replaced as the finish commits, so the concluded workout is no longer the
+        // user's current context and its summary must not be overlaid.
+        schedule.cancelBlockOnResolve = true
+        viewModel.finishWorkout()
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.workoutSummary)
+    }
+
+    /** Logs the two working sets the Upper occurrence prescribes. */
+    private fun logTwoSets(viewModel: WorkoutLoggerViewModel) {
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("8")
+        viewModel.onWeightChanged("100")
+        viewModel.log()
+        viewModel.log()
     }
 
     @Test
@@ -5250,7 +5390,14 @@ class WorkoutLoggerViewModelTest {
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessions),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
-        loggingActions = loggingActions(FakePlanHistoryRepository(null), repository, schedule, 0L),
+        loggingActions = loggingActions(
+            FakePlanHistoryRepository(null),
+            repository,
+            schedule,
+            sessionRepository = sessions,
+            catalog = catalog,
+            timeMillis = 0L
+        ),
         exerciseCatalog = catalog,
         runtime = WorkoutLoggerRuntime(
             TimeProvider { MONDAY },
@@ -5357,6 +5504,9 @@ class WorkoutLoggerViewModelTest {
         history: PlanHistoryRepository,
         workoutLog: WorkoutLogRepository = FakeWorkoutLogRepository(),
         schedule: WorkoutScheduleRepository = FakeWorkoutScheduleRepository(),
+        sessionRepository: WorkoutSessionRepository = FakeWorkoutSessionRepository(),
+        sessionNoteRepository: SessionNoteRepository = FakeSessionNoteRepository(),
+        catalog: ExerciseCatalog = FakeExerciseCatalog,
         timeMillis: Long = 0L
     ): WorkoutLoggingActions {
         val time = TimeProvider { timeMillis }
@@ -5365,7 +5515,14 @@ class WorkoutLoggerViewModelTest {
             scheduleRepository = schedule,
             startWorkoutOccurrence = StartWorkoutOccurrenceUseCase(schedule, time),
             finishWorkoutOccurrence = FinishWorkoutOccurrenceUseCase(schedule, workoutLog, time),
-            skipWorkoutOccurrence = SkipWorkoutOccurrenceUseCase(schedule, workoutLog, time)
+            skipWorkoutOccurrence = SkipWorkoutOccurrenceUseCase(schedule, workoutLog, time),
+            getWorkoutSummary = GetWorkoutSummaryUseCase(
+                scheduleRepository = schedule,
+                workoutLogRepository = workoutLog,
+                sessionRepository = sessionRepository,
+                sessionNoteRepository = sessionNoteRepository,
+                exerciseCatalog = catalog
+            )
         )
     }
 
@@ -5753,6 +5910,9 @@ class WorkoutLoggerViewModelTest {
         private val occurrenceState = MutableStateFlow<List<WorkoutOccurrence>>(emptyList())
         private val state = MutableStateFlow(WorkoutScheduleState())
 
+        /** Simulates the active block being replaced or cancelled as a resolve commits. */
+        var cancelBlockOnResolve: Boolean = false
+
         fun set(
             activation: TrainingActivation,
             occurrences: List<WorkoutOccurrence>,
@@ -5818,6 +5978,14 @@ class WorkoutLoggerViewModelTest {
                 .filter { it.activationId == activationState.value?.id && !it.isResolved }
                 .minByOrNull { it.queuePosition }
             state.value = state.value.copy(selectedOccurrenceId = next?.id)
+            if (cancelBlockOnResolve) {
+                activationState.value = null
+                state.value = WorkoutScheduleState(
+                    activeActivationId = null,
+                    selectedOccurrenceId = null,
+                    legacyFallbackEnabled = false
+                )
+            }
             return state.value
         }
 

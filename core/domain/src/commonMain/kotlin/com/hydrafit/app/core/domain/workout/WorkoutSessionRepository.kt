@@ -13,4 +13,11 @@ interface WorkoutSessionRepository {
     fun openFlow(): Flow<WorkoutSession?>
 
     suspend fun all(): List<WorkoutSession>
+
+    /**
+     * The session with [id], or null when no such session exists. A bounded single-row read for
+     * consumers resolving one recorded session identity; the database-backed implementation reads
+     * by primary key. The default filters [all] so simple and test implementations stay small.
+     */
+    suspend fun byId(id: String): WorkoutSession? = all().firstOrNull { it.id == id }
 }

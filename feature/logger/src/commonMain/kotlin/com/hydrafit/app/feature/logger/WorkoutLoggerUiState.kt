@@ -10,6 +10,7 @@ import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.RestCountdown
 import com.hydrafit.app.core.domain.workout.WorkoutSession
+import com.hydrafit.app.core.domain.workout.WorkoutSummary
 
 data class ExerciseOption(
     val id: String,
@@ -188,6 +189,11 @@ data class WorkoutLoggerUiState(
     val activeOccurrence: ActiveOccurrence? = null,
     /** A finish/skip error to surface (e.g. the workout changed elsewhere). */
     val occurrenceMessage: String? = null,
+    /**
+     * The summary of the workout just finished, or null when none is being shown. Offered only after
+     * a successful Finish workout or Finish partially; it is transient and never persisted.
+     */
+    val workoutSummary: WorkoutSummary? = null,
     /** Whether the guided-workout preference is on. Off leaves the Logger's existing flow unchanged. */
     val guidedEnabled: Boolean = false,
     /** The active occurrence's guided progress, or null when guided mode is off or no workout is active. */

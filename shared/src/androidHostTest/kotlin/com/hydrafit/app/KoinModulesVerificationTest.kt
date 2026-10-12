@@ -79,6 +79,7 @@ import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.ExerciseNoteRepository
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
+import com.hydrafit.app.core.domain.workout.GetWorkoutSummaryUseCase
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
@@ -220,6 +221,7 @@ class KoinModulesVerificationTest {
                     single<SessionResegmenter> { FakeSessionResegmenter }
                     single<RoutineTemplateRepository> { FakeRoutineTemplateRepository }
                     single<WorkoutScheduleRepository> { FakeWorkoutScheduleRepository }
+                    single<SessionNoteRepository> { FakeSessionNoteRepository }
                 },
                 domainModule,
                 testPlatformModule
@@ -238,6 +240,7 @@ class KoinModulesVerificationTest {
             assertNotNull(koin.get<ObserveAcceptedPlanUseCase>())
             assertNotNull(koin.get<LogWorkoutSetUseCase>())
             assertNotNull(koin.get<GetWorkoutLogUseCase>())
+            assertNotNull(koin.get<GetWorkoutSummaryUseCase>())
             assertNotNull(koin.get<DeleteWorkoutSetUseCase>())
             assertNotNull(koin.get<CorrectWorkoutSetTimeUseCase>())
             assertNotNull(koin.get<CorrectWorkoutSetUseCase>())

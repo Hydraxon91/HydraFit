@@ -167,7 +167,8 @@ class WorkoutLoggerViewModel(
                             confirmingAllDrafts = false,
                             draftWriteRetries = emptyList(),
                             guidedProgress = null,
-                            guidedSetWriteFailed = false
+                            guidedSetWriteFailed = false,
+                            workoutSummary = null
                         )
                     }
                     updateTodayPlan(acceptedPlan)
@@ -1600,12 +1601,21 @@ class WorkoutLoggerViewModel(
         val occurrence = currentOccurrence ?: return
         viewModelScope.launch {
             try {
-                if (mode == null) {
+                val state = if (mode == null) {
                     loggingActions.skip(occurrence.id)
                 } else {
                     loggingActions.finish(occurrence.id, mode)
                 }
-                _state.update { it.copy(occurrenceMessage = null) }
+                // Only a finish offers a summary, and only for the block it concluded: a concurrent
+                // replacement or cancellation drops it instead of overlaying a workout already left.
+                val summary = if (mode == null ||
+                    state.activeActivationId != occurrence.activationId
+                ) {
+                    null
+                } else {
+                    loggingActions.summarize(occurrence.id)
+                }
+                _state.update { it.copy(occurrenceMessage = null, workoutSummary = summary) }
             } catch (error: ScheduleException) {
                 _state.update { it.copy(occurrenceMessage = error.message) }
             }
@@ -1613,6 +1623,9 @@ class WorkoutLoggerViewModel(
     }
 
     fun onOccurrenceMessageShown() = _state.update { it.copy(occurrenceMessage = null) }
+
+    /** Returns from the just-finished workout's summary without keeping it. */
+    fun onWorkoutSummaryShown() = _state.update { it.copy(workoutSummary = null) }
 
     fun onRestDurationChanged(value: String) {
         val digits = value.filter(Char::isDigit)
