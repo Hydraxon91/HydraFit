@@ -292,8 +292,11 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   checks, distinct from the agent's emulator evidence. The agent's visual checks made no persisted
   data writes.
 - This entry records the requested candidate gates, not signed-release verification. Release-specific
-  `:androidApp:lintVitalRelease`, `verifySqlDelightMigration`, and offline verification of the eventual
-  release artifact (version, digest and signature) are not claimed here. No release APK was installed.
+  `:androidApp:lintVitalRelease` and `verifySqlDelightMigration` passed on code revision `2d2d470`
+  (the migration task was `UP-TO-DATE`) under a 600-second limit; log:
+  `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/of03-release-gates.log`.
+  No release APK exists in the local release output, so offline verification of its version, digest
+  and signature remains pending. No release APK was created, installed or published.
 
 ### v0.5.0 publication verification (2026-10-09)
 
