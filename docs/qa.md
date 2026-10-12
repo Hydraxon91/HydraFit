@@ -474,6 +474,36 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   navigation and unsaved-editor smoke passed on the debug build; signed-upgrade and on-device
   runtime behavior for the release artifact remain unverified.
 
+### 0.7.1 notes & session history candidate verification (2026-10-12)
+
+- Candidate revision `647d3ab` (0.7.1 — notes and searchable session history) is **reviewed APPROVED**
+  and awaiting release preparation. Review chain: a full-scope read-only review at `3262531` returned
+  INCOMPLETE on no blocking defect (findings R9-01…R9-08, closed by `0191581`, `20a8fec`, `3a9f648`,
+  `8d9ea9c`, `d1e0488`, `29b0ca7`, `b3a55fe`, `f2d510f`); the bounded re-review at `d52a9f3` verified
+  every closure and returned INCOMPLETE on documentation accuracy alone (R2-01…R2-03, closed by
+  `a6d77e3`, `e07508d`, `37b2386`, `5589eff`); the bounded confirmation found one unclosed projection
+  writer (R3-01, closed by `726f307`) and the final bounded confirmation (C9-R4) returned
+  **APPROVED**. Verdicts and closures: `docs/review-0.7.1-snapshot.md` §1–§9.
+- Local candidate gate before tagging: **1,397 host tests, zero failures/errors/skips** (`:core:domain`
+  554, `:core:database` 330, `:feature:logger` 278, `:core:network` 34, `:core:llm` 55,
+  `:feature:settings` 19, `:feature:equipment` 31, `:feature:routines` 13, `:feature:splitbuilder` 51,
+  `:feature:fatigueheatmap` 11, `:shared` 21) plus `ktlintCheck`, `:androidApp:assembleDebug`,
+  `:shared:compileKotlinIosSimulatorArm64`, `verifySqlDelightMigration` and release-specific
+  `:androidApp:lintVitalRelease`
+  (`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/r071-candidate-gate.log`). Schema
+  version is 44 (`43.sqm` adds the `workoutSet(sessionId, performedAt)` index).
+- Emulator evidence on debug builds: `logger-history-browser.yaml` and `logger-history-correction.yaml`
+  (history search, paging, detail and correction) and `logger-exercise-note.yaml` (exercise setup-note
+  Save/Cancel/Clear) passed on `emulator-5554`, with viewed screenshots; run counts, causes and fixture
+  effects are in `.maestro/README.md`. `navigation-smoke.yaml` and `logger-session-controls.yaml`
+  passed as regressions for the nested Logger graph.
+- **Limits:** no CI evidence exists for this revision yet (the commits are local and unpushed); no
+  pinned signed release-upgrade check; no artifact verification yet, because no release APK exists.
+  Emulator coverage is a debug-build smoke with the gaps listed in `.maestro/README.md` and
+  `docs/review-0.7.1-snapshot.md` §5 (larger text, dark mode, locale, TalkBack, date-picker filtering,
+  loading/error states, very large result sets, the 2,000-character and failed-save paths in the C3
+  editor, process-death restoration).
+
 ### v0.7.0 publication verification (2026-10-12)
 
 - `v0.7.0` (Workout Context & Confidence — OF-03 planner target explanations) published on the
