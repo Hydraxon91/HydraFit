@@ -192,3 +192,29 @@ failure behaves as recorded, and the dedupe exemption is justified by code.
 **Carried forward.** The §5 limits are unchanged. A final bounded confirmation (C9-R4) of this closure
 and the updated figures is the remaining step before the delta can be called APPROVED.
 
+## 9. Confirmation (C9-R4, 2026-10-12) — addendum
+
+Appended after the fact; §1–§8 are unchanged as records. The final bounded confirmation at `647d3ab`
+closed the loop.
+
+**Verified.** R3-01's closure was re-checked as a class rather than a point: every main-source writer of
+an exercise name was enumerated from the schema up (`SeedExerciseCatalog`, the custom repository's add
+and rename, the restored customs and overrides, the override update/reset, plus the backfill that
+recomputes the effective name), and each one now writes the effective-name projection; the only name
+writer outside that rule is `Exercise.sq`'s bare `insert`, which has no main-source caller. The helper
+KDoc and `references/database.md` list that same set. The new regression test fails against the
+base-name write and passes after (`r301-break-check.log`), no temporary break remained, and the
+documents' figures re-derive correctly (1,397 tests at the remediation gate; 1,395 at the reviewed HEAD;
+the table checker re-run passes with 1,585 code points).
+
+**Verdict: [APPROVED]** for the 0.7.1 delta (`v0.7.0`…`647d3ab`): no unresolved blocking finding, and
+the required verification is evidenced (full gate at the final revision including release-specific
+`:androidApp:lintVitalRelease`, 1,397 host tests, machine-checked Unicode table, bounded emulator
+journeys with viewed screenshots). The §5 limits stand, plus: no CI evidence exists for this revision
+because the commits are local and unpushed, and no artifact verification exists yet because no release
+APK has been produced.
+
+**Process note.** Four consecutive rounds each surfaced a nit of the same shape — a stale figure, a
+stale status line, an incomplete writer list — so figure- and claim-bearing release records are worth
+one consistency pass immediately before release preparation rather than per-round corrections.
+
