@@ -350,6 +350,31 @@ class SqlDelightWorkoutHistoryRepositoryTest {
     }
 
     @Test
+    fun unassignedSetKeysDecodeThePaddedIdExactlyAsStored() = runTest {
+        insertExercise("back-squat", "Back Squat")
+        insertSetWithId(id = -19L, exerciseId = "back-squat", sessionId = null, performedAt = 10L)
+        insertSetWithId(
+            id = Long.MAX_VALUE,
+            exerciseId = "back-squat",
+            sessionId = null,
+            performedAt = 20L
+        )
+
+        val keys = repository.entries(WorkoutHistoryRequest()).map { it.key }
+        assertTrue(WorkoutHistoryKey.UnassignedSet(-19L) in keys)
+        assertTrue(WorkoutHistoryKey.UnassignedSet(Long.MAX_VALUE) in keys)
+        // The decoded identity addresses the same set for both signs.
+        assertEquals(
+            listOf(-19L),
+            repository.sets(WorkoutHistoryKey.UnassignedSet(-19L)).sets.map { it.id }
+        )
+        assertEquals(
+            listOf(Long.MAX_VALUE),
+            repository.sets(WorkoutHistoryKey.UnassignedSet(Long.MAX_VALUE)).sets.map { it.id }
+        )
+    }
+
+    @Test
     fun unassignedSetEntryAndItsSingleSetResolveBySetId() = runTest {
         insertExercise("back-squat", "Back Squat")
         val setId = insertSet("back-squat", sessionId = null, performedAt = 42L)
@@ -611,5 +636,31 @@ class SqlDelightWorkoutHistoryRepositoryTest {
             )
         }
         return id
+    }
+
+    /** The restore path's explicit-id insert, used to exercise unusual stored identities. */
+    private fun insertSetWithId(
+        id: Long,
+        exerciseId: String,
+        sessionId: String?,
+        performedAt: Long
+    ) {
+        database.workoutLogQueries.insertSetWithId(
+            id = id,
+            exerciseId = exerciseId,
+            reps = 5L,
+            weightKg = 100.0,
+            performedAt = performedAt,
+            isWarmup = 0L,
+            involvements = null,
+            weekNumber = null,
+            cycleNumber = null,
+            dayIndex = null,
+            rir = null,
+            sessionId = sessionId,
+            occurrenceId = null,
+            occurrenceEntryId = null,
+            loadKind = "EXTERNAL"
+        )
     }
 }

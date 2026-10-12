@@ -86,7 +86,9 @@ class SqlDelightWorkoutHistoryRepository(database: HydraFitDatabase) : WorkoutHi
         if (kindRank == WORKOUT_HISTORY_SESSION_KIND_RANK) {
             WorkoutHistoryKey.Session(sortId)
         } else {
-            WorkoutHistoryKey.UnassignedSet(sortId.drop(1).toLong())
+            // The id is the signed, zero-padded form the query projected, so it parses as written and
+            // a stored id round-trips through a cursor unchanged.
+            WorkoutHistoryKey.UnassignedSet(sortId.toLong())
         }
 
     private fun nameSourceFor(setCount: Long): WorkoutHistoryNameSource = if (setCount > 0L) {

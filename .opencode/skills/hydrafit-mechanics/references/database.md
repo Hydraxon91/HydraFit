@@ -64,7 +64,8 @@ the same way, so matching is Unicode-insensitive and accent-sensitive, and stays
 happens before ordering and pagination, so a match on any page is found.
 Ordering is `(timestamp DESC, kindRank ASC, sortId DESC)` with set ids zero-padded so the keyset
 comparison stays numeric; each query returns `limit + 1` rows so the repository can report whether a
-further page exists. `WorkoutHistoryRequest`/`WorkoutHistorySetRequest` validate page size, day-range
+further page exists. The padded set id keeps its sign, and the repository decodes it exactly as
+projected, so a stored identity round-trips unchanged through a cursor. `WorkoutHistoryRequest`/`WorkoutHistorySetRequest` validate page size, day-range
 order and cursor/filter agreement in `:core:domain`. The projections are a schema addition
 (`42.sqm`).
 
