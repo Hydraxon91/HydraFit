@@ -228,6 +228,21 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   cancelled, guided workouts off, no set written). **Limits:** TalkBack speech, larger text, dark mode,
   locale and the larger-font checkmark were not checked; the R073-21 pre-equipment window is
   host-covered only, because the device never presented an unresolved equipment state.
+  **2026-10-13 R073-28 diagnostic emulator check:** temporary hooks held the first equipment refresh
+  and a newer performed-set read independently, with a 50 kg resistance-band ceiling injected in
+  memory. The pre-fix build exposed `[40,60,80]` while readiness was true and the published generation
+  lagged; the viewed screenshot showed a 60 kg ramp. With `eae4c26`'s fix, preparation remained visible,
+  `Log warm-up` was absent, and readiness stayed false until publication; releasing the reads produced
+  `[40,50]` with matching generations. Bounded CLI semantic assertions and viewed screenshots cover
+  both states (`/tmp/hydrafit-r28-pre-corrected.png`, `/tmp/hydrafit-r28-fixed-pending.png`);
+  fixed-state logs are `/tmp/hydrafit-r28-fixed-pending-device.log` and
+  `/tmp/hydrafit-r28-fixed-final-device.log`. Later lifecycle reads were also gated after the first
+  attempt showed one could publish before screenshot capture. No logging action was invoked and no
+  equipment setting was changed. All hooks were removed, with the source matching the committed fix;
+  the user confirmed block cancellation, guided mode off and normal-debug reinstallation. This is
+  controlled diagnostic reproduction, not a spontaneous race on the synchronous SQLDelight backend.
+  Host tests cover capped, unowned and known-unbounded equipment; only the capped case was reproduced
+  on the emulator. TalkBack, larger text, dark mode, locale and signed-release runtime remain unverified.
 - Sessions: first set auto-starts a session; End session / New session; day rollover starts a new one; active-session indicator correct.
 - Session history (0.7.1-C5 queries, 0.7.1-C6 browser, 0.7.1-C7 corrections): entries are keyed by
   explicit

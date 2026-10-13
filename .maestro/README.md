@@ -74,6 +74,30 @@ page.
 Not verified: TalkBack speech itself (the semantics were inspected, not spoken), larger text, dark
 mode, locale, and the checkmark's visual rendering at larger font sizes.
 
+## 0.7.3 R073-28 diagnostic race verification (2026-10-13)
+
+On `emulator-5554` (debug), the authorized `Test` block and guided mode were used with temporary
+in-memory read gates and a synthetic 50 kg resistance-band ceiling. No equipment preference or set
+was written. A superseded equipment refresh returned while a newer read remained held. The pre-fix
+build exposed `[40,60,80]` with readiness true (`current=4`, `published=2`); the viewed screenshot
+showed a 60 kg ramp. The corrected harness also held later lifecycle reads, which had published before
+the first screenshot. The fixed build kept readiness false and preparation visible with no ramp
+logging controls, then published `[40,50]` and matching generations after the preparation-row toggle
+released the gates. The toggle was returned to unchecked.
+
+Named, syntax-checked flows ran through bounded CLI with `--no-reinstall-driver`. Evidence:
+`/tmp/hydrafit-r28-pre-corrected.log`, `/tmp/hydrafit-r28-fixed-pending.log`,
+`/tmp/hydrafit-r28-fixed-release.log`; fixed device traces:
+`/tmp/hydrafit-r28-fixed-pending-device.log`, `/tmp/hydrafit-r28-fixed-final-device.log`.
+Viewed screenshots: `/tmp/hydrafit-r28-pre-corrected.png`, `/tmp/hydrafit-r28-fixed-pending.png`.
+The scratch flows are not reusable normal-build regressions because they require the removed gates.
+The ViewModel was restored byte-for-byte to the committed fix. The user confirmed cancellation of
+the test block, guided mode off and installation of normal debug. No signed APK was installed.
+
+This verifies a controlled suspended-read interleaving, not spontaneous reproduction on the current
+synchronous SQLDelight implementation. Capped equipment was device-covered; unowned/unbounded cases
+remain host-covered. TalkBack, larger text, dark mode, locale and signed-release runtime are unverified.
+
 ## 0.7.3 G-series re-verification (2026-10-13)
 
 Run on `emulator-5554` (debug `Medium_Phone`, 1080×2400) against the G1–G4 build, continuing the F5
