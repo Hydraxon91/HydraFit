@@ -3,6 +3,7 @@ package com.hydrafit.app.core.database
 class SeedExerciseCatalog(private val database: HydraFitDatabase) {
     fun seed() {
         database.exerciseQueries.transaction {
+            database.exerciseQueries.clarifyDumbbellCalfRaiseName()
             DefaultExercises.all.forEach { exercise ->
                 database.exerciseQueries.insertIgnore(
                     id = exercise.id,

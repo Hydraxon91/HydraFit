@@ -2,8 +2,11 @@ package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.MovementPatternGuardrail
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.unicodeCaseFold
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -53,6 +56,122 @@ class SeedExerciseCatalogTest {
         assertEquals(
             "Back Squat",
             database.exerciseQueries.selectById("back-squat").executeAsOne().name
+        )
+    }
+
+    @Test
+    fun calfSplitPreservesExistingIdentityOverridesAndLoggedData() = runTest {
+        database.exerciseQueries.insert(
+            id = "standing-calf-raise",
+            name = "Standing Calf Raise",
+            requiredEquipment = "DUMBBELL",
+            movementPattern = "CALF_RAISE",
+            loadCapability = "EXTERNAL"
+        )
+        database.exerciseOverrideQueries.upsert(
+            exerciseId = "standing-calf-raise",
+            name = "My calf exercise",
+            requiredEquipment = "BARBELL",
+            movementPattern = null,
+            isUnilateral = null,
+            loadCapability = null,
+            involvements = null
+        )
+        SqlDelightWorkoutLogRepository(database).add(
+            WorkoutSet(
+                exerciseId = "standing-calf-raise",
+                reps = 12,
+                weightKg = 20.0,
+                loadKind = LoadKind.EXTERNAL,
+                performedAtMillis = 1L
+            )
+        )
+        val setsBefore = database.workoutLogQueries.selectAllSets().executeAsList()
+        val overrideBefore = database.exerciseOverrideQueries.selectAll().executeAsList()
+
+        val seeder = SeedExerciseCatalog(database)
+        seeder.seed()
+        seeder.seed()
+
+        val original = database.exerciseQueries.selectById("standing-calf-raise").executeAsOne()
+        assertEquals("Dumbbell Calf Raise", original.name)
+        assertEquals("DUMBBELL", original.requiredEquipment)
+        assertEquals(unicodeCaseFold("My calf exercise"), original.searchName)
+        assertEquals(overrideBefore, database.exerciseOverrideQueries.selectAll().executeAsList())
+        assertEquals(setsBefore, database.workoutLogQueries.selectAllSets().executeAsList())
+        val catalog = SqlDelightExerciseCatalog(database).all().associateBy { it.id }
+        assertEquals("My calf exercise", catalog.getValue("standing-calf-raise").name)
+        assertEquals(
+            setOf(EquipmentTag.BARBELL),
+            catalog.getValue("standing-calf-raise").requiredEquipment
+        )
+        val machine = catalog.getValue("standing-calf-raise-machine")
+        assertEquals("Standing Calf Raise Machine", machine.name)
+        assertEquals(setOf(EquipmentTag.CALF_RAISE_MACHINE), machine.requiredEquipment)
+    }
+
+    @Test
+    fun calfLabelCorrectionRefreshesSearchAndPreservesCustomRows() {
+        database.exerciseQueries.insert(
+            "standing-calf-raise",
+            "Standing Calf Raise",
+            "DUMBBELL",
+            "CALF_RAISE",
+            "EXTERNAL"
+        )
+        SeedExerciseCatalog(database).seed()
+        assertEquals(
+            unicodeCaseFold("Dumbbell Calf Raise"),
+            database.exerciseQueries.selectById("standing-calf-raise").executeAsOne().searchName
+        )
+        // Other custom rows are not candidates for the label correction.
+        database.exerciseQueries.insertCustom(
+            "custom-calf",
+            "Standing Calf Raise",
+            "DUMBBELL",
+            "CALF_RAISE",
+            0L,
+            "EXTERNAL",
+            null
+        )
+        val customBefore = database.exerciseQueries.selectById("custom-calf").executeAsOne()
+        database.exerciseQueries.clarifyDumbbellCalfRaiseName()
+        assertEquals(
+            customBefore,
+            database.exerciseQueries.selectById("custom-calf").executeAsOne()
+        )
+    }
+
+    @Test
+    fun calfLabelCorrectionPreservesANonSeedStoredLabel() {
+        database.exerciseQueries.insert(
+            "standing-calf-raise",
+            "My stored calf label",
+            "DUMBBELL",
+            "CALF_RAISE",
+            "EXTERNAL"
+        )
+        SeedExerciseCatalog(database).seed()
+        val original = database.exerciseQueries.selectById("standing-calf-raise").executeAsOne()
+        assertEquals("My stored calf label", original.name)
+        assertEquals(unicodeCaseFold("My stored calf label"), original.searchName)
+    }
+
+    @Test
+    fun calfLabelCorrectionDoesNotRenameACustomWithTheSeedId() {
+        database.exerciseQueries.insertCustom(
+            "standing-calf-raise",
+            "Standing Calf Raise",
+            "DUMBBELL",
+            "CALF_RAISE",
+            0L,
+            "EXTERNAL",
+            null
+        )
+        database.exerciseQueries.clarifyDumbbellCalfRaiseName()
+        assertEquals(
+            "Standing Calf Raise",
+            database.exerciseQueries.selectById("standing-calf-raise").executeAsOne().name
         )
     }
 

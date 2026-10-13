@@ -24,6 +24,12 @@ insertIgnore:
 INSERT OR IGNORE INTO exercise(id, name, requiredEquipment, movementPattern, loadCapability)
 VALUES (?, ?, ?, ?, ?);
 
+-- Clarify the original dumbbell identity without repurposing its history or user overrides.
+-- Only the old seed-owned label is corrected; custom rows and other stored labels stay intact.
+clarifyDumbbellCalfRaiseName:
+UPDATE exercise SET name = 'Dumbbell Calf Raise'
+WHERE id = 'standing-calf-raise' AND isCustom = 0 AND name = 'Standing Calf Raise';
+
 insertCustom:
 INSERT INTO exercise(id, name, requiredEquipment, movementPattern, isCustom, isUnilateral, loadCapability, involvements)
 VALUES (?, ?, ?, ?, 1, ?, ?, ?);
