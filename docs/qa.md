@@ -507,6 +507,43 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - Offline artifact verification still confirms `versionName`/`versionCode` against the tag/run
   number; schema compatibility is covered by the host `verifySqlDelightMigration` check.
 
+### 0.7.5 C1–C2 caution content foundation (2026-10-13)
+
+Builder verification of the approved EX-03 / 0.7.5 content foundation (three sourced IDs:
+`conventional-deadlift`, `romanian-deadlift`, `dumbbell-rdl`). Content only — no UI is wired yet, so
+no emulator check applies.
+
+- `:core:exercisecontent:testAndroidHostTest`: `ExerciseCautionSourceTest` 8 tests and
+  `ExerciseCautionResourcesTest` 2 tests, 0 failures/errors, including runtime nonempty content and
+  German-to-English fallback.
+- `:core:database:testAndroidHostTest --tests '*ExerciseCautionSeedCoverageTest'`: 1 test, 0
+  failures; the three IDs resolve against the real `DefaultExercises.all` seed.
+- `:core:exercisecontent:ktlintCheck` and `:core:database:ktlintCheck` pass. No schema, backup, Koin
+  or catalog change.
+- Not covered here: the viewer section and the Equipment/Logger entry points (later slices). The
+  three texts are editorially accepted; any later wording change needs fresh acceptance.
+
+### v0.7.4 publication verification (2026-10-13)
+
+- Published [v0.7.4](https://github.com/Hydraxon91/HydraFit/releases/tag/v0.7.4) — offline exercise
+  instructions (CAT-01). The annotated tag `v0.7.4` targets the PR #11 merge commit `3f5804f9`
+  (`Merge pull request #11 from Hydraxon91/release/0.7.4`); the release branch head was `1ff009ca`.
+- CI: PR Build-and-Test run `38455034690` passed on `1ff009ca`; main Build-and-Test run
+  `38455821541` passed on `3f5804f9`; Release run `38457253900` (run number 19) passed. An earlier
+  PR Build-and-Test run `38452768212` (run number 203) failed on `4609aec3` with its `iOS Compile`
+  job cancelled (the runner queue exceeded the 15-minute job limit); the `ios-compile` job was then
+  temporarily disabled in `1ff009ca`, and the iOS compile tasks are run locally at the gate until
+  iOS development starts.
+- Downloaded published APK: 24,761,680 bytes, package `com.hydrafit.app`, `versionName=0.7.4`,
+  `versionCode=19`. `apksigner verify` passed, with the same signing certificate SHA-256 as
+  previously published releases:
+  `af9cd73b3cc6842c7ab3c2f3cd572245826089aee863e9168a761a893c35a7e1`. The local APK SHA-256 matched
+  GitHub's asset digest:
+  `17852bc7238f42e8cb2cb0f7c4a0ddd6fc1326548ee2a73cbe45e6e016c3a5c8`.
+- The release APK was **not** installed on the development emulator. Signed-upgrade and on-device
+  runtime behavior of the published artifact remain unverified, as do TalkBack, and font-1.3,
+  dark-mode and locale variants beyond the candidate checks recorded above.
+
 ### 0.7.4 C1–C3 review-fix verification (2026-10-13)
 
 Verified against the C2/C3 content and approved R074-01..03/calf split follow-up, now committed in
