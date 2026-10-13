@@ -1130,10 +1130,12 @@ under separate release/push/tag approvals. No automatic handoff or next-release 
 
 #### 0.7.3 — Warm-up guidance
 
-**Status (2026-10-12):** release scope, chunk structure and C0 decisions approved in chat. Implemented
+**Status (2026-10-13):** release scope, chunk structure and C0 decisions approved in chat. Implemented
 as an approved work chunk (C1–C6), each committed at its chunk boundary; evidence and outstanding limits
-are in the rows below. C7 is a separately requested post-execution review in Plan Mode (not yet
-requested); C8 is separately approved release preparation and publication. This bounded split refines
+are in the rows below. C7's post-execution review and both targeted closure checks have been requested
+and run in Plan Mode, and all three returned **REJECTED**; their findings and the F-, G- and H-series
+remediation are recorded below. C8 is separately approved release preparation and publication. This
+bounded split refines
 WU-01 / LT-08 and the `docs/roadmap.md` 0.7.3 entry without renumbering those broader phases. Persisted
 timed preparation, duration-based accessory content and OF-10C remain 0.11.x.
 
@@ -1193,12 +1195,13 @@ in progress. Each fix is a separate commit with its own tests.
 
 | Chunk | Status | Deliverable / acceptance and tests |
 | --- | --- | --- |
-| G1 — editor units | DONE | `32a2748` (R073-09, R073-10): a timed preparation item is entered in whole minutes (stored as seconds, capped at one hour); a ramp load is validated in the unit the editor opened with and its unit is frozen at open, so a pound value is compared against the kilogram ceiling. Tests: minutes/seconds round trip, zero and over-long duration refusal, pound ceiling comparison. |
+| G1 — editor units | DONE | `32a2748` (R073-09, R073-10): a timed preparation item is entered in whole minutes and stored as seconds; a ramp load is validated in the unit the editor opened with and its unit is frozen at open, so a pound value is compared against the kilogram ceiling. Tests: minutes/seconds round trip, zero and unstorable-duration refusal, pound ceiling comparison. (The one-hour cap this row first described was removed by H1.) |
 | G2 — current-equipment enforcement | DONE | `32a2748` (R073-11): `WarmupRampPlan` carries the slot's current `ceilingKg` and `WarmupRampRow` exposes `exceedsCeiling`; a retained edit above a reduced ceiling is kept, explained and refused for logging (never clamped); an open editor takes the current ceiling and closes when its slot loses its ramp; a slot with no ramp keeps no edit. Tests: mutable-equipment decrease/removal/restore, open editor across a change, refusal writes nothing. |
 | G3 — Reset and skip restoration | DONE | `83bf27e` (R073-12, R073-13): Reset stages the derived default in the open editor so Save applies it and Cancel preserves the applied guidance; the guidance view counts skipped items that still exist, so `Restore skipped` stays reachable when every row is hidden. Tests: Reset→Cancel/Save for preparation and ramp, skip-all restoration, stale-action counting. |
 | G4 — truthful capped labels | DONE | `32a2748` (R073-14): `WarmupRampSet.isEquipmentLimited` marks a load the ceiling lowered; the row shows its actual values with an equipment-limit label instead of the original percentage. Tests: domain flag per row, view row marking, an edit clears it. |
 | G5 — emulator acceptance | DONE | R073-07 closed: minutes editing, Reset→Cancel/Save, `5 × 50 kg (equipment limit)`, a retained 45 kg edit above a 30 kg ceiling refused for logging, skip-all `Restore skipped`, a recorded ramp in Recent sets and session detail, and the finish summary showing `2 recorded sets · 10 prescribed` with a separate `Warm-up sets` section. Cleanup: test sets deleted, block cancelled, band deselected, guided off. Evidence and limits: `.maestro/README.md` §0.7.3 G-series and `docs/qa.md` §6. |
 | G6 — documentation and final gate | DONE | R073-15: this status block and the stale F-series evidence corrected; `docs/architecture.md` §1.18, `docs/qa.md` §6, `.maestro/README.md` and the mechanics `features.md` updated. Full candidate gate recorded below. |
+| G7 — targeted closure review | DONE | Read-only Plan Mode closure check of `584c927..ce7f5a9`. Verdict **REJECTED**: the R073-12/13/14 closures and R073-07's summary evidence were supported; R073-16…R073-20 raised. No snapshot document. |
 
 **Remediation gate (2026-10-13, F1–F4 + F4-fix):** 1,481 host tests with zero failures/errors/skips
 (`:core:domain` 588, `:core:database` 333, `:feature:logger` 325, `:core:network` 34, `:core:llm` 55,
@@ -1218,6 +1221,29 @@ journey was verified on 2026-10-13 and is recorded in `.maestro/README.md` §0.7
 (`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/g6-gate.log`). G5's emulator
 evidence is recorded in `.maestro/README.md` §0.7.3 G-series and `docs/qa.md` §6. No schema or backup
 change.
+
+**H-series remediation (2026-10-13).** Findings R073-16…R073-20 from the G-series closure check (G7).
+Each fix is its own commit with its own regression. Emulator acceptance was explicitly waived for this
+series by the user (2026-10-13), so the UI-facing fixes are host-test-verified only.
+
+| Chunk | Status | Deliverable / acceptance and tests |
+| --- | --- | --- |
+| H1 — duration limit | DONE | `fcce335` (R073-16): the unspecified one-hour cap is removed; a timed item accepts any positive whole minutes whose stored seconds fit an `Int`, converting through `Long`. Test: 61 minutes saves as 3,660 s and the `Int`-seconds boundary is refused. |
+| H2 — exact unchanged load | DONE | `be868c1` (R073-17): the editor remembers the load and display text it opened with; unchanged text resolves to the exact kilograms, so a 40 kg default shown as 88.2 lb is no longer refused at a 40 kg ceiling. A genuinely edited value is still converted and ceiling-checked. Test fails without the fix (confirmed by temporarily disabling the shortcut). |
+| H3 — Reset frozen unit | DONE | `de89c71` (R073-18): Reset fills the fields with `editor.weightUnit` instead of the live preference. Test: the preference switched to pounds mid-edit still resets to the kilogram default. |
+| H4 — collapsed-default edits | DONE | `7a2eef3` (R073-19): the guidance view renders the union of surviving defaults and retained edits, an edit keeps its own percentage when its default collapsed, and Reset removes a collapsed-position edit on Save. Tests: view union, per-position correction with logging refusal, Reset→Cancel/Save (view and ViewModel cases fail without the union). |
+| H4-fix — ktlint wrap | DONE | `bde43db`: formatting only, caught by the H-series full-gate ktlint run the narrower per-step checks missed. |
+| H5 — wording corrections | DONE | R073-20: this status block, the G1 row, `docs/qa.md` §6 and `.maestro/README.md` corrected so no unperformed check reads as covered. |
+
+**H-series gate (2026-10-13, H1–H4):** 1,496 host tests with zero failures/errors/skips
+(`:core:domain` 588, `:core:database` 333, `:feature:logger` 340, `:core:network` 34, `:core:llm` 55,
+`:feature:settings` 19, `:feature:equipment` 31, `:feature:routines` 13, `:feature:splitbuilder` 51,
+`:feature:fatigueheatmap` 11, `:shared` 21), `verifySqlDelightMigration`, `ktlintCheck`,
+`:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
+`:core:network:compileKotlinIosSimulatorArm64` pass
+(`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/h-gate.log`). Emulator acceptance
+was waived for this series, so the H2–H4 UI behaviour is host-test-verified only; a targeted closure
+check remains the next separate gate. No schema or backup change.
 
 **Execution discipline:** C1 is a pure unwired projection (module tests/ktlint); C2 uses Tier B
 producer/consumer tests, Koin verification if bindings change, ktlint and debug assembly (no binding is

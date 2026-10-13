@@ -208,8 +208,14 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   performed work. Fixture cleanup: test sets deleted, `Test` block cancelled, `Resistance bands`
   deselected, guided workouts off. **Limits:** a warm-up-only occurrence cannot reach the summary — the
   Logger shows `Nothing logged yet; skip this workout instead` — so that check required a working set;
-  the pound-mode ceiling comparison, larger text, dark mode, locale and TalkBack remain host-covered
-  only; a logged ramp row is not consumed, so re-tapping `Log warm-up` records another warm-up.
+  the pound-mode ceiling comparison is host-covered (see the H-series note below); larger text, dark
+  mode, locale and TalkBack were not checked in this pass and have no evidence either way; a logged ramp
+  row is not consumed, so re-tapping `Log warm-up` records another warm-up.
+  **2026-10-13 H-series (host-only, no emulator run):** the G-series closure check's R073-16…R073-20 are
+  fixed and host-test-verified — the one-hour duration cap is gone, an unchanged pound display keeps its
+  exact kilograms, Reset uses the editor's frozen unit, and a retained ramp edit stays visible and
+  correctable when the ceiling collapsed its default row away. Emulator acceptance was waived for this
+  series, so none of these four UI behaviours was re-checked on a device.
 - Sessions: first set auto-starts a session; End session / New session; day rollover starts a new one; active-session indicator correct.
 - Session history (0.7.1-C5 queries, 0.7.1-C6 browser, 0.7.1-C7 corrections): entries are keyed by
   explicit

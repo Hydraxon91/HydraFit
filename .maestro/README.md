@@ -48,8 +48,9 @@ screenshot at the tested font scale/theme; the regression checks the wrapping ac
 
 Run on `emulator-5554` (debug `Medium_Phone`, 1080×2400) against the G1–G4 build, continuing the F5
 fixture: routine `Test` active (external `band-curl` 100 kg), `Resistance bands` temporarily owned with
-a 50 kg ceiling, `Enable guided workouts` on. All assertions were made against a fresh compact CLI
-hierarchy dump after each screen change; no coordinates were reused across a layout change.
+a 50 kg ceiling, `Enable guided workouts` on. Assertions were made against compact CLI hierarchy dumps
+using semantic selectors rather than reused coordinates. A fresh dump was taken after screen changes,
+but not before every layout-sensitive interaction.
 
 Verified with assertions and viewed screenshots:
 
@@ -75,8 +76,8 @@ Cleanup: the test sets were deleted, the `Test` block cancelled, `Resistance ban
 weight back to unlimited) and guided workouts turned off; the database then reported
 `guidedWorkoutEnabled=0`, no selected equipment and no active activation.
 
-Not verified: the pound-mode ceiling comparison (host-covered), larger text, dark mode, locale and
-TalkBack. A warm-up-only occurrence cannot reach the finish summary — the Logger shows
+Not verified on a device: the pound-mode ceiling comparison (host-covered), larger text, dark mode,
+locale and TalkBack. A warm-up-only occurrence cannot reach the finish summary — the Logger shows
 `Nothing logged yet; skip this workout instead` — so the summary check required one working set. A
 logged ramp row is not consumed, so re-tapping `Log warm-up` records another warm-up; the manual run
 produced one such duplicate.
