@@ -44,6 +44,43 @@ restoring the test's coaching change; do not rerun the permission write blindly.
 Session-control assertions do not establish layout by themselves. Capture and view the Logger
 screenshot at the tested font scale/theme; the regression checks the wrapping action layout.
 
+## 0.7.3 G-series re-verification (2026-10-13)
+
+Run on `emulator-5554` (debug `Medium_Phone`, 1080×2400) against the G1–G4 build, continuing the F5
+fixture: routine `Test` active (external `band-curl` 100 kg), `Resistance bands` temporarily owned with
+a 50 kg ceiling, `Enable guided workouts` on. All assertions were made against a fresh compact CLI
+hierarchy dump after each screen change; no coordinates were reused across a layout change.
+
+Verified with assertions and viewed screenshots:
+
+- **Timed preparation is edited in minutes** — the timed item opened as `3` for its 180-second default,
+  and entering `5` rendered `Easy general movement · about 5 min (edited)`.
+- **Reset applies only on Save** — `Reset to default` then Cancel kept `about 5 min (edited)`;
+  `Reset to default` then Save restored `about 3 min` with no `(edited)` suffix.
+- **Equipment-capped rows show actual values** — with a 50 kg ceiling the rows read
+  `40% × 8 · 40 kg` and `5 × 50 kg (equipment limit)` instead of `60% × 5 · 50 kg`.
+- **A retained edit above a reduced ceiling is refused, not clamped** — the edited `8 × 45 kg` stayed
+  after the ceiling dropped to 30 kg, showed `That load is above your equipment's 30 kg limit.`, and
+  tapping `Log warm-up` wrote nothing (0 warm-ups before and after).
+- **Skipping every preparation row keeps Restore reachable** — with all four rows skipped and no ramps
+  the card remained and `Restore skipped` restored the rows.
+- **A recorded ramp is a warm-up downstream** — Recent sets showed
+  `Band Curl  8 x 45 kg (warm-up) · Week 1 · Day 2` while guided progress stayed `0 of 10 sets`; the
+  session detail listed `Band Curl` / `Warm-up` / `8 reps · 45 kg`.
+- **Finish summary separates warm-ups** (manual run, screenshot reviewed in the session):
+  `2 recorded sets · 10 prescribed`, the two working sets under `Band Curl` with
+  `6 not recorded · Not performed`, and a separate `Warm-up sets` section listing the four ramps.
+
+Cleanup: the test sets were deleted, the `Test` block cancelled, `Resistance bands` deselected (max
+weight back to unlimited) and guided workouts turned off; the database then reported
+`guidedWorkoutEnabled=0`, no selected equipment and no active activation.
+
+Not verified: the pound-mode ceiling comparison (host-covered), larger text, dark mode, locale and
+TalkBack. A warm-up-only occurrence cannot reach the finish summary — the Logger shows
+`Nothing logged yet; skip this workout instead` — so the summary check required one working set. A
+logged ramp row is not consumed, so re-tapping `Log warm-up` records another warm-up; the manual run
+produced one such duplicate.
+
 ## 0.7.3 F5 ramp journey verification (2026-10-13)
 
 Run on `emulator-5554` (debug `Medium_Phone`, 1080×2400) against the F1–F4 remediation build. Fixture

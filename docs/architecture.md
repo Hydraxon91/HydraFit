@@ -739,11 +739,19 @@ attributed warm-up, including a recorded ramp, still refuses a replacement for t
 states that rule before any ramp is recorded.
 
 Preparation values and ramp reps/load are editable through a transient in-memory editor: Save changes
-only the shown guidance, Cancel writes nothing, and a ramp is still recorded by its own action. An
-edited ramp row shows its actual values instead of a default percentage, an edit is rejected when it
-exceeds the same equipment ceiling, and a slot whose prescription changes drops its edit so a value
-typed for the old exercise is never shown against the replacement. Edits are scoped to one workout and
-are not persisted.
+only the shown guidance, Cancel writes nothing, and a ramp is still recorded by its own action. A timed
+preparation item is entered in whole minutes and stored as seconds, bounded to one hour; a ramp load is
+entered and validated in the unit the editor opened with, so a mid-edit unit change cannot reinterpret
+the typed digits and a pound value is compared against the ceiling in kilograms. An edited ramp row
+shows its actual values instead of a default percentage, a default the ceiling lowered shows its actual
+values with an equipment-limit label, and a slot whose prescription changes drops its edit so a value
+typed for the old exercise is never shown against the replacement. A retained edit whose equipment
+ceiling later drops is kept, explained and refused for logging rather than silently clamped; an open
+editor takes the slot's current ceiling and closes when the slot loses its ramp, and a slot with no ramp
+keeps no edit. Reset stages the derived default in the open editor, so Save applies it while Cancel
+still preserves the guidance already in effect. Skipped preparation items are counted, so the restore
+action stays reachable even when every row is hidden. Edits are scoped to one workout and are not
+persisted, and a logged ramp row is not consumed — the suggestion stays available.
 
 **Content provenance.** The general claim that an adequate warm-up can improve performance in the
 tasks studied is supported by the existing source in `docs/live-testing-2026-10-06.md` (Fradkin et al.

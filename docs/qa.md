@@ -193,6 +193,23 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   `Test` block cancelled, `Resistance bands` deselected, guided workouts off; the previous
   `Generated plan` block was cancelled as an accepted fixture effect. Evidence and limits:
   `.maestro/README.md` §0.7.3 F5.
+  **2026-10-13 G-series re-verification** (G1–G4 build, same routine fixture): a timed preparation item
+  opened as `3` minutes for its 180-second default, and entering `5` rendered `about 5 min (edited)`;
+  `Reset to default` then Cancel kept the applied edit, and Reset then Save restored `about 3 min`; with
+  the band ceiling lowered to 50 kg the rows read `40% × 8 · 40 kg` and `5 × 50 kg (equipment limit)`;
+  an edit retained at 45 kg above a reduced 30 kg ceiling showed
+  `That load is above your equipment's 30 kg limit.` and `Log warm-up` wrote nothing; skipping every
+  preparation row kept `Restore skipped` reachable, and restoring returned the rows. A recorded ramp
+  then appeared in Recent sets as `Band Curl  8 x 45 kg (warm-up) · Week 1 · Day 2` and in the
+  session-detail list as `Band Curl` / `Warm-up` / `8 reps · 45 kg`. The finish summary (manual run,
+  screenshot reviewed in the session) reported `2 recorded sets · 10 prescribed`, listed the two
+  working sets under `Band Curl` with `6 not recorded · Not performed`, and listed the four ramps in a
+  separate `Warm-up sets` section: warm-ups are excluded from the recorded/prescribed count and from
+  performed work. Fixture cleanup: test sets deleted, `Test` block cancelled, `Resistance bands`
+  deselected, guided workouts off. **Limits:** a warm-up-only occurrence cannot reach the summary — the
+  Logger shows `Nothing logged yet; skip this workout instead` — so that check required a working set;
+  the pound-mode ceiling comparison, larger text, dark mode, locale and TalkBack remain host-covered
+  only; a logged ramp row is not consumed, so re-tapping `Log warm-up` records another warm-up.
 - Sessions: first set auto-starts a session; End session / New session; day rollover starts a new one; active-session indicator correct.
 - Session history (0.7.1-C5 queries, 0.7.1-C6 browser, 0.7.1-C7 corrections): entries are keyed by
   explicit

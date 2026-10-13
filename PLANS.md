@@ -6,7 +6,7 @@
 
 | Item | Status | Next action |
 | --- | --- | --- |
-| Product roadmap — M1–M8 | IN PROGRESS | 0.2.0–0.6.1 shipped; M1 selected scope done in 0.2.3. [Approved pre-1.0 roadmap](docs/roadmap.md): 0.7.x context → 0.8.x progress → 0.9.x equipment/data → 0.10.x progression → 0.11.x advanced metrics → 0.12.x optional AI → provisional 0.13.x final UX/design → 1.0. Smaller published feature releases approved 2026-10-11; each has its own bounded scope, verification and separately requested review. 0.7.0 scope and its durable decisions were approved 2026-10-11 (see the OF-03 section). 0.7.0 planner explanations (OF-03), the 0.7.1 notes/history slice and 0.7.2 finish-workout summaries are implemented, verified and shipped; the 0.7.3 warm-up guidance slice (WU-01) is implemented and verified as an approved work chunk (C1–C6), awaiting its separately requested post-execution review and release gates. All remaining work is pre-1.0 except iOS shipping/desktop; research remains evidence-gated. |
+| Product roadmap — M1–M8 | IN PROGRESS | 0.2.0–0.6.1 shipped; M1 selected scope done in 0.2.3. [Approved pre-1.0 roadmap](docs/roadmap.md): 0.7.x context → 0.8.x progress → 0.9.x equipment/data → 0.10.x progression → 0.11.x advanced metrics → 0.12.x optional AI → provisional 0.13.x final UX/design → 1.0. Smaller published feature releases approved 2026-10-11; each has its own bounded scope, verification and separately requested review. 0.7.0 scope and its durable decisions were approved 2026-10-11 (see the OF-03 section). 0.7.0 planner explanations (OF-03), the 0.7.1 notes/history slice and 0.7.2 finish-workout summaries are implemented, verified and shipped; the 0.7.3 warm-up guidance slice (WU-01) is implemented, twice reviewed (C7 and the F-series closure check, both REJECTED) and under the approved G-series remediation; its release gates remain separate. All remaining work is pre-1.0 except iOS shipping/desktop; research remains evidence-gated. |
 | Release 0.2.0 | SHIPPED | `v0.2.0` signed release published; [history](docs/plans-archive.md#2026-10-09-completed-status-rows). Stale `v0.1.0` validation pre-release cleanup remains optional. |
 | Release 0.2.1 | SHIPPED | `v0.2.1`; [Q1–Q6 history](docs/plans-archive.md#2026-10-09-completed-status-rows). Q4e remains user-side, not shipped code; local AI remains experimental/non-functional, with optional M8 follow-up. |
 | Release 0.2.2 — code review & architecture | SHIPPED | `v0.2.2`; R0–RG/RF complete, CI green; [fix/commit history](docs/plans-archive.md#2026-10-09-completed-status-rows). |
@@ -1174,8 +1174,10 @@ requirement, mandatory preparation, and any injury-prevention, lymphatic, detox 
 | 0.7.3-C6 — downstream acceptance + docs | DONE (review gate remains) | Downstream trace: ramps are stored as warm-ups, which the guided progress, planner load/progression and fatigue paths exclude; the finish summary and session history **include** them, labelled as warm-ups, and never as performed or additional work. Full gate: 1,463 host tests with zero failures/errors/skips (`:core:domain` 585, `:core:database` 331, `:feature:logger` 312, `:core:network` 34, `:core:llm` 55, `:feature:settings` 19, `:feature:equipment` 31, `:feature:routines` 13, `:feature:splitbuilder` 51, `:feature:fatigueheatmap` 11, `:shared` 21), `verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and `:core:network:compileKotlinIosSimulatorArm64` pass (`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/c6.log`). Living docs updated: `docs/architecture.md` §1.18, `docs/qa.md` §6, `.maestro/README.md` §0.7.3 and the mechanics `features.md`. No schema or backup change. C7 review and C8 release remain separate gates. |
 
 **Post-execution review (C7) and remediation (2026-10-13).** The bounded review of `653937a..34dce24`
-returned **REJECTED** with findings R073-01…R073-07 (no snapshot document). The approved remediation plan
-(F1–F5) is in progress; each fix is a separate commit with its own tests.
+returned **REJECTED** with findings R073-01…R073-07 (no snapshot document); the approved F1–F5
+remediation was implemented and committed. The targeted closure check of `34dce24..584c927` returned
+**REJECTED** with R073-09…R073-15 (also no snapshot document); the approved G1–G6 remediation below is
+in progress. Each fix is a separate commit with its own tests.
 
 | Chunk | Status | Deliverable / acceptance and tests |
 | --- | --- | --- |
@@ -1185,7 +1187,18 @@ returned **REJECTED** with findings R073-01…R073-07 (no snapshot document). Th
 | F4 — content provenance and real downstream tests | DONE | `53eab33` (R073-05, R073-06): `docs/architecture.md` separates the sourced general warm-up claim (Fradkin et al. 2010) from the product-selected defaults; `WarmupGuidanceIntegrationTest` logs a suggested ramp through `LogWorkoutSetUseCase` into real storage and reads it back through guided progress, summary, fatigue-facing and planner-recency consumers, then corrects it and confirms it still freezes its slot. |
 | F4-fix — ktlint wrap | DONE | `b50498e`: formatting only, caught by the full-gate ktlint run F3's narrower check missed. |
 | F5 — emulator ramp acceptance | DONE | R073-07: with routine `Test` active (external `band-curl` 100 kg) and `Resistance bands` temporarily owned, the ramp rows rendered, an edit applied (`6 × 45 kg (edited)`), a cancelled edit changed nothing, `Log warm-up` stored `Band Curl 6 x 45 kg (warm-up)` while guided progress stayed `0 of 10 sets`, and `Replace for this workout` refused the slot. The journey found and fixed **R073-08**: the percentage rendered `40%%` because Compose resources do not treat `%%` as an escape (`%1$s` with a pre-formatted argument). Fixture effect (approved): the previous `Generated plan` block was cancelled. Evidence: `.maestro/README.md` §0.7.3 F5 and `docs/qa.md` §6. |
-| F6 — targeted closure review | PENDING | Read-only Plan Mode closure checks for R073-01…R073-08 at the remediation candidate; separate gate. |
+| F6 — targeted closure review | DONE | Read-only Plan Mode closure checks for R073-01…R073-08 at `584c927`. Verdict **REJECTED**: R073-02/04/05 closures supported, R073-06/08 supported, R073-07's ramp journey evidenced but its history/summary checks not performed, and R073-01/03 left open by the new findings. No snapshot document. |
+
+**G-series remediation (2026-10-13).** Findings R073-09…R073-15 from the F-series closure check.
+
+| Chunk | Status | Deliverable / acceptance and tests |
+| --- | --- | --- |
+| G1 — editor units | DONE | `32a2748` (R073-09, R073-10): a timed preparation item is entered in whole minutes (stored as seconds, capped at one hour); a ramp load is validated in the unit the editor opened with and its unit is frozen at open, so a pound value is compared against the kilogram ceiling. Tests: minutes/seconds round trip, zero and over-long duration refusal, pound ceiling comparison. |
+| G2 — current-equipment enforcement | DONE | `32a2748` (R073-11): `WarmupRampPlan` carries the slot's current `ceilingKg` and `WarmupRampRow` exposes `exceedsCeiling`; a retained edit above a reduced ceiling is kept, explained and refused for logging (never clamped); an open editor takes the current ceiling and closes when its slot loses its ramp; a slot with no ramp keeps no edit. Tests: mutable-equipment decrease/removal/restore, open editor across a change, refusal writes nothing. |
+| G3 — Reset and skip restoration | DONE | `83bf27e` (R073-12, R073-13): Reset stages the derived default in the open editor so Save applies it and Cancel preserves the applied guidance; the guidance view counts skipped items that still exist, so `Restore skipped` stays reachable when every row is hidden. Tests: Reset→Cancel/Save for preparation and ramp, skip-all restoration, stale-action counting. |
+| G4 — truthful capped labels | DONE | `32a2748` (R073-14): `WarmupRampSet.isEquipmentLimited` marks a load the ceiling lowered; the row shows its actual values with an equipment-limit label instead of the original percentage. Tests: domain flag per row, view row marking, an edit clears it. |
+| G5 — emulator acceptance | DONE | R073-07 closed: minutes editing, Reset→Cancel/Save, `5 × 50 kg (equipment limit)`, a retained 45 kg edit above a 30 kg ceiling refused for logging, skip-all `Restore skipped`, a recorded ramp in Recent sets and session detail, and the finish summary showing `2 recorded sets · 10 prescribed` with a separate `Warm-up sets` section. Cleanup: test sets deleted, block cancelled, band deselected, guided off. Evidence and limits: `.maestro/README.md` §0.7.3 G-series and `docs/qa.md` §6. |
+| G6 — documentation and final gate | DONE | R073-15: this status block and the stale F-series evidence corrected; `docs/architecture.md` §1.18, `docs/qa.md` §6, `.maestro/README.md` and the mechanics `features.md` updated. Full candidate gate recorded below. |
 
 **Remediation gate (2026-10-13, F1–F4 + F4-fix):** 1,481 host tests with zero failures/errors/skips
 (`:core:domain` 588, `:core:database` 333, `:feature:logger` 325, `:core:network` 34, `:core:llm` 55,
@@ -1194,7 +1207,17 @@ returned **REJECTED** with findings R073-01…R073-07 (no snapshot document). Th
 `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
 `:core:network:compileKotlinIosSimulatorArm64` pass
 (`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/f-gate.log`). F5's on-device ramp
-journey remains unverified; the 0.7.3-C3 emulator evidence and its limits are unchanged.
+journey was verified on 2026-10-13 and is recorded in `.maestro/README.md` §0.7.3 F5.
+
+**G-series gate (2026-10-13, G1–G4):** 1,491 host tests with zero failures/errors/skips
+(`:core:domain` 588, `:core:database` 333, `:feature:logger` 335, `:core:network` 34, `:core:llm` 55,
+`:feature:settings` 19, `:feature:equipment` 31, `:feature:routines` 13, `:feature:splitbuilder` 51,
+`:feature:fatigueheatmap` 11, `:shared` 21), `verifySqlDelightMigration`, `ktlintCheck`,
+`:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
+`:core:network:compileKotlinIosSimulatorArm64` pass
+(`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/g6-gate.log`). G5's emulator
+evidence is recorded in `.maestro/README.md` §0.7.3 G-series and `docs/qa.md` §6. No schema or backup
+change.
 
 **Execution discipline:** C1 is a pure unwired projection (module tests/ktlint); C2 uses Tier B
 producer/consumer tests, Koin verification if bindings change, ktlint and debug assembly (no binding is
