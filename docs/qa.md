@@ -215,7 +215,10 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   fixed and host-test-verified — the one-hour duration cap is gone, an unchanged pound display keeps its
   exact kilograms, Reset uses the editor's frozen unit, and a retained ramp edit stays visible and
   correctable when the ceiling collapsed its default row away. Emulator acceptance was waived for this
-  series, so none of these four UI behaviours was re-checked on a device.
+  series, so none of these four UI behaviours was re-checked on a device. The R073-23 acceptance gap
+  is closed by host tests: every ramp position 0–2 is covered for collapse visibility, over-ceiling
+  refusal, correction that keeps its own profile percentage, successful logging with no progress or
+  rest prompt, Reset→Cancel and Reset→Save, plus a view case with two collapsed positions.
   **2026-10-13 R073-21/R073-22 device check:** the Logger withholds ramp rows until the first equipment
   snapshot resolves (preparation still shows), and each preparation row is a labeled checkbox (its
   action text plus checked state) with Edit/Skip kept separate. Emulator (`emulator-5554`, debug): with

@@ -134,6 +134,37 @@ class WarmupGuidanceViewTest {
     }
 
     @Test
+    fun retainedEditsAtSeveralCollapsedPositionsAllStayVisibleInOrder() {
+        // Two positions keep their own edits after the ceiling collapsed every default onto one row;
+        // the input map is deliberately out of order to prove the rows are sorted by position.
+        val collapsed = guidance.copy(
+            ramps = guidance.ramps.map { plan ->
+                plan.copy(
+                    ceilingKg = 30.0,
+                    rampSets = listOf(WarmupRampSet(40, 8, 30.0, isEquipmentLimited = true))
+                )
+            }
+        )
+        val view = buildWarmupGuidanceView(
+            collapsed,
+            rampEdits = mapOf(
+                WarmupRampKey(occurrenceEntryId = 40L, rampIndex = 2) to
+                    WarmupRampSet(80, 3, 65.0),
+                WarmupRampKey(occurrenceEntryId = 40L, rampIndex = 1) to
+                    WarmupRampSet(60, 5, 55.0)
+            )
+        )
+
+        val rows = view.ramps.single().rows
+        assertEquals(listOf(0, 1, 2), rows.map { it.key.rampIndex })
+        assertEquals(30.0, rows[0].weightKg)
+        assertEquals(55.0, rows[1].weightKg)
+        assertEquals(65.0, rows[2].weightKg)
+        assertTrue(rows[1].exceedsCeiling)
+        assertTrue(rows[2].exceedsCeiling)
+    }
+
+    @Test
     fun skippingEveryPreparationStillReportsSomethingToRestore() {
         val preparationOnly = WarmupGuidance(
             preparation = listOf(
