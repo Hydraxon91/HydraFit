@@ -49,6 +49,14 @@ EXIT_TIMEOUT = 4
 BOUNDS_RE = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
 Gesture = tuple[int, int, int, int]
 
+# IME/dialog/overlay markers, matched as whole tokens so a plain "dialog" tag or an
+# "inputmethodservice" class hits while a word that merely contains one does not.
+OBSTRUCTION_RE = re.compile(
+    r"(?:^|[\s_.:/-])(keyboard|keyboardview|inputmethod|inputmethodservice|"
+    r"input_method|ime|dialog|alertdialog|popupwindow|overlay)(?:$|[\s_.:/-])",
+    re.IGNORECASE,
+)
+
 
 @dataclass(frozen=True)
 class Rect:
@@ -212,39 +220,67 @@ def excluded_indexes(rows: list[Row], nested: Iterable[Row]) -> set[int]:
     return excluded
 
 
-def blocking_obstruction(rows: list[Row], container: Row) -> bool:
-    """Fail closed for known IME/dialog nodes or overlapping branches outside this list.
+def _overlap_area(rect: Rect, other: Rect) -> int:
+    width = max(0, min(rect.right, other.right) - max(rect.left, other.left))
+    height = max(0, min(rect.bottom, other.bottom) - max(rect.top, other.top))
+    return width * height
 
-    Ancestor bounds contain the list legitimately; sibling windows or controls overlapping its
-    interior do not. This detects unknown overlapping windows without guessing their package names.
-    It cannot detect overlays omitted from the accessibility hierarchy.
+
+def _describe(row: Row) -> str:
+    label = row.resource_id or row.attrs.get("class") or "unnamed node"
+    rect = row.bounds
+    if rect is None:
+        return label
+    return f"{label} at [{rect.left},{rect.top}][{rect.right},{rect.bottom}]"
+
+
+def blocking_obstruction(rows: list[Row], container: Row) -> Optional[str]:
+    """Name the region blocking a swipe, or None when the list is clear.
+
+    A known keyboard/dialog blocks wherever it overlaps the list, or when its bounds cannot be read,
+    regardless of where it sits in the tree: a keyboard that is present but clear of the list is not
+    an obstruction, because only overlap makes it one. For unidentified nodes, an ancestor's bounds
+    contain the list legitimately while a sibling window or control overlapping its interior does
+    not. Of several overlapping regions the largest overlap is reported, which names the biggest
+    visible offender and where it sits. Overlays absent from the hierarchy stay undetectable.
     """
+    container_bounds = container.bounds
+    if container_bounds is None:
+        return None
     by_index = {row.index: row for row in rows}
     allowed = set(descendants(rows, container.index)) | {container.index}
     parent = container.parent
     while parent is not None:
         allowed.add(parent)
         parent = by_index[parent].parent
-    bounds = container.bounds
+
+    best_obstruction: Optional[tuple[int, str]] = None
+    best_overlap: Optional[tuple[int, str]] = None
     for row in rows:
         metadata = " ".join(
             row.attrs.get(key, "") for key in ("resource-id", "class", "package", "window-type")
         )
-        if re.search(
-            r"(?:^|[\s_.:/-])(keyboard|keyboardview|inputmethod|inputmethodservice|"
-            r"input_method|ime|dialog|alertdialog|popupwindow|overlay)(?:$|[\s_.:/-])",
-            metadata,
-            re.IGNORECASE,
-        ):
-            return True
+        known = OBSTRUCTION_RE.search(metadata) is not None
+        if not known and row.index in allowed:
+            continue
         rect = row.bounds
-        if row.index not in allowed and rect is not None and rect.width > 0 and rect.height > 0:
-            if (
-                max(rect.left, bounds.left) < min(rect.right, bounds.right)
-                and max(rect.top, bounds.top) < min(rect.bottom, bounds.bottom)
-            ):
-                return True
-    return False
+        if rect is None:
+            if known:
+                return f"{_describe(row)} has no bounds to rule out"
+            continue
+        if rect.width <= 0 or rect.height <= 0:
+            continue
+        overlap = _overlap_area(rect, container_bounds)
+        if overlap <= 0:
+            continue
+        reason = f"{_describe(row)} overlaps the list"
+        if known:
+            if best_obstruction is None or overlap > best_obstruction[0]:
+                best_obstruction = (overlap, reason)
+        elif best_overlap is None or overlap > best_overlap[0]:
+            best_overlap = (overlap, reason)
+    chosen = best_obstruction or best_overlap
+    return chosen[1] if chosen else None
 
 
 def is_visible(target: Row, container: Row) -> bool:
@@ -390,8 +426,9 @@ class Scroller:
         if not inside and matched:
             # The id or text matched something outside the container: not this list's target.
             return ScrollStep("blocked", "the target is outside the container")
-        if blocking_obstruction(rows, container):
-            return ScrollStep("blocked", "keyboard, dialog or overlapping region detected")
+        obstruction = blocking_obstruction(rows, container)
+        if obstruction is not None:
+            return ScrollStep("blocked", obstruction)
         # A scroll container composes only what is on screen, so the target is normally absent until
         # it scrolls into view: absence means "keep going", never "blocked".
         if inside and is_visible(inside[0], container):

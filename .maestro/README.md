@@ -490,11 +490,14 @@ cycles are rejected with exit `4`. The deadline is checked immediately after ins
 the target appears visible. Argparse abbreviations are disabled, including `--dev` and
 `--expected-dev`, so abbreviated options cannot override the wrapper's verified target.
 
-Known keyboard/dialog metadata or a non-ancestor branch overlapping the list's interior blocks the
-helper before either success or a swipe. It never dismisses a keyboard/dialog or guesses a route
-around an overlay. Non-overlapping system/navigation bars do not block it. This is conservative:
-an unrecognized overlapping control also blocks; an overlay absent from the hierarchy cannot be
-detected. Establish the no-keyboard/no-dialog preconditions and keep downstream semantic assertions.
+Known keyboard/dialog metadata blocks the helper only where that node actually overlaps the list, and
+the blocked reason names the offending node and its bounds (for example the input-method package and
+its window rect), so a keyboard that is present but sits clear of the list no longer stops it. Any
+other non-ancestor branch overlapping the list's interior still blocks, as does a keyboard/dialog
+whose bounds cannot be read. It never dismisses a keyboard/dialog or guesses a route around an
+overlay. Non-overlapping system/navigation bars do not block it. An overlay absent from the hierarchy
+cannot be detected, so establish the no-keyboard/no-dialog preconditions and keep downstream semantic
+assertions.
 
 It refuses to swipe when the device is not an emulator, the container is missing, duplicated, has no
 bounds or is not scrollable, the target is ambiguous (more than one in-container match) or matched

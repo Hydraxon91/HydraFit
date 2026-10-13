@@ -96,9 +96,11 @@ claim 100% automation reliability. Prefer a verified failure to a guessed succes
   Command success alone is not proof the keyboard closed. Do not change emulator
   keyboard settings to force coverage without approval.
 - For Logger reachability, `scripts/maestro-scroll.sh` uses fresh, validated compact hierarchies
-  and excludes nested scrollables. It stops on detected keyboards/dialogs or overlapping external
-  branches; do not dismiss them or replay automatically to establish preconditions. An overlay
-  absent from the hierarchy cannot be detected, so inspection and the flow contract still matter.
+  and excludes nested scrollables. It stops on overlapping external branches, and on keyboards/dialogs
+  that overlap the list or whose bounds cannot be read, naming the offending node and bounds; a
+  keyboard sitting clear of the list does not stop it. Do not dismiss them or replay automatically to
+  establish preconditions. An overlay absent from the hierarchy cannot be detected, so inspection and
+  the flow contract still matter.
 - Use assertions for expected transitions and `enabled`/`selected`/`checked`
   states where applicable. Animation settling is not a business-success check.
   Do not use fixed sleeps, optional assertions or AI assertions to make a failing

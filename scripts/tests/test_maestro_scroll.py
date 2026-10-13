@@ -383,6 +383,46 @@ class ClosureRegressionTests(unittest.TestCase):
                     self.assertEqual("blocked", step.action)
                     swipe.assert_not_called()
 
+    def test_keyboard_that_does_not_cover_the_list_does_not_block(self):
+        # A keyboard present but sitting entirely below the list is not an obstruction: the helper
+        # must still reach an on-screen target instead of failing opaquely.
+        text = logger_screen(picker_bounds=(42, 1071, 1038, 1544), target_bounds=(74, 400, 680, 500),
+                             container_bounds=(0, 63, 1080, 760),
+                             extra=[(6, 1, attrs("resource-id=com.google.android.inputmethod.latin:id/keyboard_holder",
+                                                 bounds(0, 1517, 1080, 2274)), 0)])
+        step = ms.Scroller(target_id="logger_warmup_prep_X").plan(ms.parse_hierarchy(text))
+        self.assertEqual("done", step.action)
+
+    def test_largest_overlapping_region_is_reported(self):
+        # The message must name the offender and where it sits, not just say "something blocked".
+        text = logger_screen(picker_bounds=(42, 1071, 1038, 1544), target_bounds=(74, 4000, 680, 4100),
+                             extra=[(6, 1, attrs("resource-id=com.google.android.inputmethod.latin:id/keyboard_holder",
+                                                 bounds(0, 1517, 1080, 2274)), 0),
+                                    (7, 1, attrs("resource-id=com.google.android.inputmethod.latin:id/root",
+                                                 bounds(0, 63, 1080, 2400)), 0)])
+        step = ms.Scroller(target_id="logger_warmup_prep_X").plan(ms.parse_hierarchy(text))
+        self.assertEqual("blocked", step.action)
+        self.assertIn("inputmethod", step.reason)
+        self.assertIn("[0,63][1080,2400]", step.reason)
+
+    def test_keyboard_without_bounds_still_blocks(self):
+        text = logger_screen(picker_bounds=(42, 1071, 1038, 1544), target_bounds=(74, 800, 680, 900),
+                             extra=[(6, 1, attrs("class=android.inputmethodservice.KeyboardView"), 0)])
+        step = ms.Scroller(target_id="logger_warmup_prep_X").plan(ms.parse_hierarchy(text))
+        self.assertEqual("blocked", step.action)
+        self.assertIn("no bounds to rule out", step.reason)
+
+    def test_known_obstruction_inside_the_list_still_blocks(self):
+        # A known keyboard/dialog is evaluated wherever it sits, not exempted as part of the list.
+        for obstruction in (attrs("class=android.app.Dialog", bounds(200, 300, 900, 1200)),
+                            attrs("class=android.inputmethodservice.KeyboardView")):
+            for extra in ((6, 2, obstruction, 1), (6, 1, obstruction, 0)):
+                with self.subTest(obstruction=obstruction, parent=extra[3]):
+                    text = logger_screen(picker_bounds=(42, 1071, 1038, 1544),
+                                         target_bounds=(74, 400, 680, 500), extra=[extra])
+                    step = ms.Scroller(target_id="logger_warmup_prep_X").plan(ms.parse_hierarchy(text))
+                    self.assertEqual("blocked", step.action)
+
     def test_system_bars_outside_list_do_not_block(self):
         text = logger_screen(picker_bounds=(42, 1071, 1038, 1544), target_bounds=(74, 800, 680, 900),
                              extra=[(6, 1, attrs(bounds(0, 0, 1080, 63)), 0),
