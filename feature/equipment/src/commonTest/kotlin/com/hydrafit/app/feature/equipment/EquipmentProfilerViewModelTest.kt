@@ -70,6 +70,43 @@ class EquipmentProfilerViewModelTest {
     }
 
     @Test
+    fun instructionsUseStableIdentityAndPreserveEquipmentAndEditorState() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        val baseline = viewModel.state.value
+
+        viewModel.onOpenInstructions("back-squat")
+        assertEquals("back-squat", viewModel.state.value.instructionExercise?.id)
+        assertEquals("Back Squat", viewModel.state.value.instructionExercise?.name)
+        assertEquals(baseline, viewModel.state.value.copy(instructionExerciseId = null))
+        viewModel.onOpenInstructions("unknown")
+        assertEquals("back-squat", viewModel.state.value.instructionExerciseId)
+        viewModel.onDismissInstructions()
+        assertEquals(baseline, viewModel.state.value)
+    }
+
+    @Test
+    fun instructionTitleUsesEffectiveNameWithoutNameMatching() {
+        val exercise = Exercise(
+            id = "back-squat",
+            name = "My squat",
+            requiredEquipment = setOf(EquipmentTag.BARBELL),
+            movementPattern = MovementPattern.SQUAT,
+            primaryMuscles = setOf(MuscleGroup.QUADS)
+        )
+        val state = EquipmentProfilerUiState(
+            exercises = listOf(exercise),
+            instructionExerciseId = exercise.id
+        )
+        assertEquals("My squat", state.instructionExercise?.name)
+        assertNull(state.copy(exercises = emptyList()).instructionExercise)
+        assertTrue(
+            state.copy(exercises = listOf(exercise.copy(isCustom = true)))
+                .instructionExercise!!.isCustom
+        )
+    }
+
+    @Test
     fun editorFlagsAMismatchedMovementPattern() {
         val mismatched = ExerciseEditorState(
             movementPattern = MovementPattern.HORIZONTAL_PUSH,

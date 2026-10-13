@@ -26,8 +26,9 @@ differing equipment, pattern, unilateral flag, load capability and involvement w
 preserved as a canonical override (values matching the built-in are not materialized, and a
 legacy `UNSPECIFIED` custom never overwrites the curated default); personal records are
 merged by weight, then reps, then timestamp; the custom override and row are removed for
-legacy catalog identities. CAT-P7 seed IDs are excluded from startup name dedupe so a
-pre-existing same-name custom and its references remain intact.
+legacy catalog identities. CAT-P7 seed IDs and the clarified/new calf IDs (`standing-calf-raise`,
+`standing-calf-raise-machine`) are excluded from startup name dedupe so a pre-existing same-name
+custom and its references remain intact.
 The 21-group set and the muscle-split mechanism are recorded in PLANS.md and
 `docs/exercise-catalog-sources.md`.
 
@@ -92,3 +93,42 @@ historical set snapshots are left untouched. It runs off-main at startup via
 `DatabaseStartupMaintenance`. `DefaultExercisesDataQualityTest` asserts every
 built-in row satisfies `MovementPatternGuardrail` except five pinned fresh-install
 classification conflicts (tracked in `docs/live-testing-2026-10-08.md`).
+
+## Offline exercise instructions (CAT-01, 0.7.4)
+
+The authored batch has 17 entries after the approved calf split. `standing-calf-raise` retains its
+dumbbell equipment and identity, with canonical label **Dumbbell Calf Raise**;
+`standing-calf-raise-machine` is a new **Standing Calf Raise Machine** identity using the existing
+`CALF_RAISE_MACHINE` tag, `EXTERNAL` load capability and `CALVES:1.0`. Seeding corrects only the
+old exact built-in label and refreshes its effective search projection. Overrides, custom rows,
+other stored labels, reference IDs and frozen snapshots are not repurposed. Tests cover fresh and
+repeated seeding, upgrade label repair and custom-name identity preservation.
+
+Bundled instruction text is app-owned catalog content in `:core:exercisecontent`, not
+catalog/domain data: `DefaultExercises` rows, involvements and `exerciseOverride` are unchanged by
+it, and no `.sq`/`.sqm` migration is involved. `ExerciseInstructionSource.approvedBatch` is the
+approved authoring manifest; `keysByExerciseId` holds the authored entries, and `keysFor(exerciseId)`
+resolves only those by exact stable ID. A blank, unknown or custom ID — and an approved exercise
+whose text is not authored yet — returns null, so the UI shows the explicit unavailable state rather
+than inferred guidance. Instructions are linked by ID only, never by name, so a renamed custom
+exercise cannot inherit seeded text; CAT-02 profile suggestions do not carry instructions either.
+
+Content is display-only and read-only: it is never persisted, never included in a backup, shared
+plan or frozen prescription, and may change with an app update. It stays separate from the OF-13
+personal setup notes. Each authored entry records its provenance in
+`docs/exercise-catalog-sources.md`; text is independently written, with no copied descriptions or
+bundled media. `ExerciseInstructionDialog` only presents the text (scrollable, heading semantics)
+and holds no state, so it cannot log a set or disturb an unsaved draft in the owning feature.
+
+Common tests enforce the independent manifest and exact ID-to-section resource keys. Database
+host tests cross-check authored XML identities against `DefaultExercises.all` without introducing
+a production dependency. Exercise-content Robolectric host tests load the actual Compose string
+resources, checking nonempty sections/labels and German-to-English fallback. Robolectric 4.17
+(MIT) and coroutine-test are test-only; no emulator, network content service or production test
+framework dependency is introduced. Editorial acceptance remains separate.
+
+All 17 texts were editorially accepted unchanged on 2026-10-13. Equipment and Logger now expose
+labelled Instructions actions; feature-owned selection state and invalidation are described in
+`features.md`. Equipment uses the effective row title and explicitly requests unavailable content
+for custom rows; Logger uses manual-selection or frozen draft/guided identity and title. No name
+matching, profile copying, catalog write or prescription edit is involved.

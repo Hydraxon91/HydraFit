@@ -42,6 +42,7 @@ import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.isoLocalDateTime
 import com.hydrafit.app.core.domain.unit.formatWeight
+import com.hydrafit.app.core.exercisecontent.ExerciseInstructionDialog
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
 import hydrafit.feature.equipment.generated.resources.Res
 import hydrafit.feature.equipment.generated.resources.equipment_add_button
@@ -66,6 +67,7 @@ import hydrafit.feature.equipment.generated.resources.equipment_exclusions_title
 import hydrafit.feature.equipment.generated.resources.equipment_exercise_section
 import hydrafit.feature.equipment.generated.resources.equipment_find_profile
 import hydrafit.feature.equipment.generated.resources.equipment_include
+import hydrafit.feature.equipment.generated.resources.equipment_instructions
 import hydrafit.feature.equipment.generated.resources.equipment_keep_editing
 import hydrafit.feature.equipment.generated.resources.equipment_load_bodyweight
 import hydrafit.feature.equipment.generated.resources.equipment_load_bodyweight_added
@@ -173,6 +175,8 @@ fun EquipmentProfilerRoute(
         onDismissEquipmentEditor = viewModel::onDismissEquipmentEditor,
         onSearchChanged = viewModel::onSearchChanged,
         onEditExercise = viewModel::onEditExercise,
+        onOpenInstructions = viewModel::onOpenInstructions,
+        onDismissInstructions = viewModel::onDismissInstructions,
         onNewCustomExercise = viewModel::onNewCustomExercise,
         onEditorNameChanged = viewModel::onEditorNameChanged,
         onEditorPatternChanged = viewModel::onEditorPatternChanged,
@@ -224,6 +228,8 @@ fun EquipmentProfilerScreen(
     onDismissEquipmentEditor: () -> Unit,
     onSearchChanged: (String) -> Unit,
     onEditExercise: (String) -> Unit,
+    onOpenInstructions: (String) -> Unit,
+    onDismissInstructions: () -> Unit,
     onNewCustomExercise: () -> Unit,
     onEditorNameChanged: (String) -> Unit,
     onEditorPatternChanged: (MovementPattern) -> Unit,
@@ -246,6 +252,13 @@ fun EquipmentProfilerScreen(
     onDismissPersonalRecordEditor: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    state.instructionExercise?.let { exercise ->
+        ExerciseInstructionDialog(
+            exerciseName = exercise.name,
+            exerciseId = exercise.id.takeUnless { exercise.isCustom },
+            onDismiss = onDismissInstructions
+        )
+    }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -277,7 +290,7 @@ fun EquipmentProfilerScreen(
                 style = MaterialTheme.typography.titleMedium
             )
             state.customExercises.forEach { exercise ->
-                ExerciseSummaryRow(exercise, onEditExercise)
+                ExerciseSummaryRow(exercise, onEditExercise, onOpenInstructions)
             }
         }
         Row(
@@ -294,7 +307,7 @@ fun EquipmentProfilerScreen(
             }
         }
         state.builtInExercises.forEach { exercise ->
-            ExerciseSummaryRow(exercise, onEditExercise)
+            ExerciseSummaryRow(exercise, onEditExercise, onOpenInstructions)
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -553,7 +566,11 @@ private fun InventorySection(
 }
 
 @Composable
-private fun ExerciseSummaryRow(exercise: Exercise, onEdit: (String) -> Unit) {
+private fun ExerciseSummaryRow(
+    exercise: Exercise,
+    onEdit: (String) -> Unit,
+    onInstructions: (String) -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -566,8 +583,13 @@ private fun ExerciseSummaryRow(exercise: Exercise, onEdit: (String) -> Unit) {
                 style = MaterialTheme.typography.bodySmall
             )
         }
-        TextButton(onClick = { onEdit(exercise.id) }) {
-            Text(stringResource(Res.string.equipment_edit))
+        Column {
+            TextButton(onClick = { onInstructions(exercise.id) }) {
+                Text(stringResource(Res.string.equipment_instructions))
+            }
+            TextButton(onClick = { onEdit(exercise.id) }) {
+                Text(stringResource(Res.string.equipment_edit))
+            }
         }
     }
 }

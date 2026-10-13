@@ -151,6 +151,84 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun manualInstructionsPreserveInputsAndClearOnExerciseSwitch() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository = repository)
+        advanceUntilIdle()
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+        viewModel.onRepsChanged("7")
+        viewModel.onWeightChanged("45")
+        viewModel.onRirChanged("2")
+        val baseline = viewModel.state.value
+
+        viewModel.openManualInstructions()
+        assertEquals("back-squat", viewModel.state.value.exerciseInstructions?.exerciseId)
+        assertEquals("Back Squat", viewModel.state.value.exerciseInstructions?.exerciseName)
+        assertEquals(baseline, viewModel.state.value.copy(exerciseInstructions = null))
+        viewModel.dismissInstructions()
+        assertEquals(baseline, viewModel.state.value)
+        viewModel.openManualInstructions()
+        viewModel.onExerciseSelected("bench-press")
+        assertNull(viewModel.state.value.exerciseInstructions)
+        assertTrue(repository.all().isEmpty())
+    }
+
+    @Test
+    fun draftInstructionsPreserveEditorAndRejectStaleSlotAfterContextSwitch() =
+        runTest(dispatcher) {
+            val repository = FakeWorkoutLogRepository()
+            val schedule = MutableWorkoutScheduleRepository()
+            schedule.set(blockActivation(), batchOccurrences(), selectedOccurrenceId = 30L)
+            val viewModel = occurrenceViewModel(repository, schedule)
+            advanceUntilIdle()
+            val draft = viewModel.state.value.draftSets.first()
+            viewModel.editDraft(draft)
+            val baseline = viewModel.state.value
+            viewModel.openDraftInstructions(draft)
+            assertEquals(
+                LoggerExerciseInstructions(draft.exerciseId, draft.name),
+                viewModel.state.value.exerciseInstructions
+            )
+            assertEquals(baseline, viewModel.state.value.copy(exerciseInstructions = null))
+            viewModel.dismissInstructions()
+            assertEquals(baseline, viewModel.state.value)
+            viewModel.openDraftInstructions(draft)
+            schedule.set(blockActivation(), batchOccurrences(), selectedOccurrenceId = 31L)
+            advanceUntilIdle()
+            assertNull(viewModel.state.value.exerciseInstructions)
+            viewModel.openDraftInstructions(draft)
+            assertNull(viewModel.state.value.exerciseInstructions)
+            assertTrue(repository.all().isEmpty())
+        }
+
+    @Test
+    fun guidedInstructionsPreserveProgressAndClearOnOccurrenceSwitch() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), batchOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+        val exercise = viewModel.state.value.guidedProgress!!.exercises.first()
+        val baseline = viewModel.state.value
+        viewModel.openGuidedInstructions(exercise.occurrenceEntryId)
+        assertEquals(
+            LoggerExerciseInstructions(exercise.exerciseId, exercise.exerciseName),
+            viewModel.state.value.exerciseInstructions
+        )
+        assertEquals(baseline, viewModel.state.value.copy(exerciseInstructions = null))
+        viewModel.dismissInstructions()
+        assertEquals(baseline, viewModel.state.value)
+        viewModel.openGuidedInstructions(exercise.occurrenceEntryId)
+        schedule.set(blockActivation(), batchOccurrences(), selectedOccurrenceId = 31L)
+        runCurrent()
+        assertNull(viewModel.state.value.exerciseInstructions)
+        viewModel.openGuidedInstructions(exercise.occurrenceEntryId)
+        assertNull(viewModel.state.value.exerciseInstructions)
+        assertTrue(repository.all().isEmpty())
+    }
+
+    @Test
     fun filtersTheExercisePickerBySearchCaseInsensitively() = runTest(dispatcher) {
         val viewModel = viewModel()
         advanceUntilIdle()
@@ -164,6 +242,21 @@ class WorkoutLoggerViewModelTest {
 
         viewModel.onExerciseSearchChanged("")
         assertEquals(all, viewModel.state.value.visibleExercises.size)
+    }
+
+    @Test
+    fun instructionsAreClearedByANewSessionWithoutLoggingASet() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository = repository)
+        advanceUntilIdle()
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+        viewModel.openManualInstructions()
+        assertNotNull(viewModel.state.value.exerciseInstructions)
+        viewModel.newSession()
+        advanceUntilIdle()
+        assertNull(viewModel.state.value.exerciseInstructions)
+        assertTrue(repository.all().isEmpty())
     }
 
     @Test

@@ -108,6 +108,7 @@ require Koin verification; applicable UI acceptance is not deferred by tiering.
 :core:database:testAndroidHostTest    SQL repositories and migrations
 :core:network:testAndroidHostTest     Gemini/HTTP and network Koin verification
 :core:llm:testAndroidHostTest         local engine and fallback tests
+:core:exercisecontent:testAndroidHostTest  instruction IDs, coverage and missing-content lookup
 :feature:<name>:testAndroidHostTest   feature state tests
 :shared:testAndroidHostTest           application graph/provider tests
 :androidApp:lintVitalRelease          release-fatal Android lint before tagging (no signing)

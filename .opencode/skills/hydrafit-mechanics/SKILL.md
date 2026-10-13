@@ -29,7 +29,7 @@ links back to this index. Update the affected reference alongside behavior chang
 | Task / affected mechanism | Required reference |
 | --- | --- |
 | Fatigue calculation, replay or calibration | [Fatigue](references/fatigue.md) |
-| Muscle mappings, catalog edits, profiles or seeding | [Catalog](references/catalog.md) |
+| Muscle mappings, catalog edits, profiles, instruction content or seeding | [Catalog](references/catalog.md) |
 | Planner inputs, load semantics, defaults, selection, substitution, schedule or periodization | [Planning](references/planning.md) |
 | AI parsing, sanitization, retries, fallback or native generation | [AI runtime](references/ai-runtime.md); also Planning for load/eligibility/coverage changes |
 | SQL queries, repository persistence or migration fixtures | [Database](references/database.md); also the owning behavior topic |
@@ -50,6 +50,7 @@ Kotlin package roots:
 - Database: `core/database/src/commonMain/kotlin/com/hydrafit/app/core/database/`
 - Network: `core/network/src/commonMain/kotlin/com/hydrafit/app/core/network/`
 - Local inference: `core/llm/src/commonMain/kotlin/com/hydrafit/app/core/llm/`
+- Exercise instructions: `core/exercisecontent/src/commonMain/kotlin/com/hydrafit/app/core/exercisecontent/`
 - User-data ports: `core/userdata/src/commonMain/kotlin/com/hydrafit/app/core/userdata/`
 - Shell: `shared/src/commonMain/kotlin/com/hydrafit/app/`
 - Feature: `feature/<name>/src/commonMain/kotlin/com/hydrafit/app/feature/<name>/`
@@ -61,6 +62,7 @@ Kotlin package roots:
 | Exercise selection | Domain `engine/DeterministicWorkoutPlannerEngine.kt`, `SplitResolver.kt` |
 | AI output validation | Domain `engine/WeeklyPlanJson.kt`, `WeeklyPlanSanitizer.kt`, `PlanVarietyEnforcer.kt` |
 | Catalog edits and seeding | Database `SqlDelightExerciseCatalog.kt`, `ExerciseEncoding.kt`, `DefaultExercises.kt`, `SeedExerciseCatalog.kt` |
+| Offline exercise instructions | `:core:exercisecontent` `ExerciseInstructions.kt`, `ExerciseInstructionDialog.kt` |
 | Workout storage and snapshots | Database `SqlDelightWorkoutLogRepository.kt`; domain `workout/WorkoutSet.kt` |
 | Engine selection | Shell `DefaultWorkoutPlannerEngineProvider.kt`, `DomainModule.kt` |
 | Routine templates and scheduling | Domain `routine/RoutineTemplate.kt`, `routine/SaveRoutineTemplateUseCase.kt`, `schedule/ActivationUseCases.kt`, `schedule/OccurrenceLifecycleUseCases.kt`, `schedule/TrainingBlockUseCases.kt`; database `SqlDelightRoutineTemplateRepository.kt`, `SqlDelightWorkoutScheduleRepository.kt` |

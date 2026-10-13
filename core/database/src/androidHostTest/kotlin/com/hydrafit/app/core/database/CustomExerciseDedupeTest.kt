@@ -34,6 +34,70 @@ class CustomExerciseDedupeTest {
     }
 
     @Test
+    fun clarifiedDumbbellCalfLabelDoesNotMergeCustomHistory() {
+        assertCalfCustomIsPreserved("Dumbbell Calf Raise")
+    }
+
+    @Test
+    fun newMachineCalfLabelDoesNotMergeCustomHistory() {
+        assertCalfCustomIsPreserved("Standing Calf Raise Machine")
+    }
+
+    private fun assertCalfCustomIsPreserved(name: String) {
+        insertCustom("user-calf", name, "DUMBBELL", "CALF_RAISE")
+        insertCustomReferences("user-calf")
+        val customBefore = database.exerciseQueries.selectById("user-calf").executeAsOne()
+        val setsBefore = database.workoutLogQueries.selectAllSets().executeAsList()
+        val plansBefore = database.planHistoryQueries.selectAllEntries().executeAsList()
+        val routinesBefore = database.routineTemplateQueries.selectAllEntries().executeAsList()
+        val activationsBefore = database.trainingScheduleQueries.selectAllActivationEntries()
+            .executeAsList()
+        val occurrencesBefore = database.trainingScheduleQueries.selectAllOccurrenceEntries()
+            .executeAsList()
+        val recordsBefore = database.personalRecordQueries.selectAll().executeAsList()
+        val preferencesBefore = database.exercisePreferenceQueries.selectAll().executeAsList()
+        val exclusionsBefore = database.exerciseExclusionQueries.selectAll().executeAsList()
+
+        repeat(2) {
+            SeedExerciseCatalog(database).seed()
+            CustomExerciseDedupe(database).run()
+        }
+
+        assertEquals(customBefore, database.exerciseQueries.selectById("user-calf").executeAsOne())
+        assertEquals(setsBefore, database.workoutLogQueries.selectAllSets().executeAsList())
+        assertEquals(plansBefore, database.planHistoryQueries.selectAllEntries().executeAsList())
+        assertEquals(
+            routinesBefore,
+            database.routineTemplateQueries.selectAllEntries().executeAsList()
+        )
+        assertEquals(
+            activationsBefore,
+            database.trainingScheduleQueries.selectAllActivationEntries().executeAsList()
+        )
+        assertEquals(
+            occurrencesBefore,
+            database.trainingScheduleQueries.selectAllOccurrenceEntries().executeAsList()
+        )
+        assertEquals(recordsBefore, database.personalRecordQueries.selectAll().executeAsList())
+        assertEquals(
+            preferencesBefore,
+            database.exercisePreferenceQueries.selectAll().executeAsList()
+        )
+        assertEquals(
+            exclusionsBefore,
+            database.exerciseExclusionQueries.selectAll().executeAsList()
+        )
+        assertEquals(
+            90L,
+            database.restPreferenceQueries.selectExerciseOverride("user-calf").executeAsOne()
+        )
+        assertEquals(
+            "Steady tempo",
+            database.exerciseNoteQueries.selectById("user-calf").executeAsOne().note
+        )
+    }
+
+    @Test
     fun normalizesCaseWhitespaceAndPadding() {
         assertEquals(
             "barbell bench press",

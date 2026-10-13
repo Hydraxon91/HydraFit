@@ -6,6 +6,13 @@ Paths are relative to the repository root; package shorthand is defined in
 Schema directory:
 `core/database/src/commonMain/sqldelight/com/hydrafit/app/core/database/`.
 
+0.7.4 calf clarification adds a query-only `Exercise.sq` label repair, called in the seed
+transaction before effective search projections are refreshed. Only the exact old built-in
+`standing-calf-raise` label becomes **Dumbbell Calf Raise**; its ID/equipment/load and all overrides
+and recorded references remain intact. The machine variant is an additive seed with its own ID.
+No table/column changes or migration are involved; both calf IDs are protected from startup
+custom-name dedupe. See the catalog recipe for content, provenance and regression checks.
+
 Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseExclusion.sq`, `ExerciseNote.sq`,
 `ExerciseOverride.sq`, `ExercisePreference.sq`, `PersonalRecord.sq`, `PlanHistory.sq`,
 `PlannerEngine.sq`,

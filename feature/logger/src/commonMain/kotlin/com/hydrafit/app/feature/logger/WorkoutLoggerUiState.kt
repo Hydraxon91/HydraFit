@@ -28,6 +28,8 @@ data class ExerciseOption(
     val canAddLoad: Boolean get() = loadCapability == ExerciseLoadCapability.BODYWEIGHT_ADDABLE
 }
 
+data class LoggerExerciseInstructions(val exerciseId: String, val exerciseName: String)
+
 data class LoggedSetRow(
     val id: Long,
     val performedAtMillis: Long,
@@ -190,6 +192,7 @@ sealed interface WorkoutSummaryScreen {
 }
 
 data class WorkoutLoggerUiState(
+    val exerciseInstructions: LoggerExerciseInstructions? = null,
     val exercises: List<ExerciseOption> = emptyList(),
     val exerciseSearch: String = "",
     val selectedExerciseId: String? = null,

@@ -18,6 +18,14 @@ Paths below are relative to the repository root.
   to the approved flow, including its cross-cutting UI checks. Release verification
   uses the release checklist. Follow `hydrafit-ui-testing` for execution and safety;
   report any required checks left unverified.
+- `.opencode/agents/ui-runner.md` is an execution-only subagent for these checks.
+  It is fenced by instructions and a few denies rather than sandboxed: `edit` is
+  denied, and cloud tooling plus specific `maestro cloud`/`maestro start-device`
+  command forms are denied, while shell commands are otherwise allowed without a
+  prompt. The fence therefore constrains routine behaviour rather than guaranteeing
+  isolation, and those denies do not cover every route to cloud. It can still
+  execute an inline flow, so keep flow authoring, diagnosis and fixes with the
+  parent agent. Delegation does not relax any constraint above.
 - Record existing preference and permission values as cleanup baselines. A non-default
   value is not a blocker when the approved test contract covers temporarily changing
   that value and restoring it afterwards. This does not authorize changes outside

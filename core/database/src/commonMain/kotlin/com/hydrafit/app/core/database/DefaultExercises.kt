@@ -339,8 +339,16 @@ internal object DefaultExercises {
         ),
         ex(
             "standing-calf-raise",
-            "Standing Calf Raise",
+            "Dumbbell Calf Raise",
             setOf(EquipmentTag.DUMBBELL),
+            setOf(MuscleGroup.CALVES),
+            emptySet(),
+            MovementPattern.CALF_RAISE
+        ),
+        ex(
+            "standing-calf-raise-machine",
+            "Standing Calf Raise Machine",
+            setOf(EquipmentTag.CALF_RAISE_MACHINE),
             setOf(MuscleGroup.CALVES),
             emptySet(),
             MovementPattern.CALF_RAISE

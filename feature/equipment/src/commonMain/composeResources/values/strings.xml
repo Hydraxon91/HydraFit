@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources>
+    <string name="equipment_instructions">Instructions</string>
     <string name="equipment_profiler_title">Equipment</string>
     <string name="nav_label">Equipment</string>
     <string name="equipment_add_label">Add equipment</string>
