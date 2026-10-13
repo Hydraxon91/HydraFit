@@ -2351,6 +2351,26 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun occurrenceDayUsesStoredWorkoutPositionRatherThanListIndex() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        val baseActivation = blockActivation()
+        val activation = baseActivation.copy(
+            workouts = baseActivation.workouts.mapIndexed { index, workout ->
+                workout.copy(position = index * 2)
+            }
+        )
+        schedule.set(activation, twoOccurrences(), selectedOccurrenceId = 31L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.confirmGuidedSet(41L)
+        advanceUntilIdle()
+
+        assertEquals(2, repository.all().single().dayIndex)
+    }
+
+    @Test
     fun manualLogInsideABlockAlsoStoresTheWorkoutPosition() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
@@ -2367,6 +2387,31 @@ class WorkoutLoggerViewModelTest {
         val set = repository.all().single()
         assertEquals(30L, set.occurrenceId)
         assertEquals(0, set.dayIndex)
+    }
+
+    @Test
+    fun manualLogUsesStoredWorkoutPositionRatherThanListIndex() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        val baseActivation = blockActivation()
+        val activation = baseActivation.copy(
+            workouts = baseActivation.workouts.mapIndexed { index, workout ->
+                workout.copy(position = index * 2)
+            }
+        )
+        schedule.set(activation, twoOccurrences(), selectedOccurrenceId = 31L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("deadlift")
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("140")
+        viewModel.log()
+        advanceUntilIdle()
+
+        val set = repository.all().single()
+        assertEquals(31L, set.occurrenceId)
+        assertEquals(2, set.dayIndex)
     }
 
     @Test
@@ -6133,6 +6178,41 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun editingAnotherGuidedSlotCannotDiscardAnActiveLiveStart() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoEntryOccurrence(), selectedOccurrenceId = 30L)
+        var elapsedNow = 10_000L
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            elapsedNow = { elapsedNow }
+        )
+        advanceUntilIdle()
+
+        viewModel.startGuidedSet(40L)
+        elapsedNow = 10_400L
+        viewModel.editGuidedSet(42L)
+        assertEquals(42L, viewModel.state.value.draftEdit?.draft?.occurrenceEntryId)
+        viewModel.confirmDraftEdit()
+        runCurrent()
+
+        assertTrue(repository.all().isEmpty())
+        assertEquals(40L, viewModel.state.value.startedSetEntryId)
+
+        elapsedNow = 10_500L
+        viewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+
+        val recorded = repository.all().single()
+        assertEquals(WorkoutTimingProvenance.LIVE, recorded.timingProvenance)
+        assertEquals(10_000L, recorded.startedAtElapsedMillis)
+        assertEquals(10_500L, recorded.completedAtElapsedMillis)
+        viewModel.cancelRestTimer()
+    }
+
+    @Test
     fun startingTheNextSetCancelsThePreviousRestCountdownAndPersistedRow() = runTimerTest {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
@@ -6248,6 +6328,57 @@ class WorkoutLoggerViewModelTest {
             frozenEntryIdsFor(listOf(occurrenceSet(entryId = null, exerciseId = "bench-press")))
                 .isEmpty()
         )
+    }
+
+    @Test
+    fun endingTheActiveBlockClearsFrozenReplacementState() = runTest(dispatcher) {
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoEntryOccurrence(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(
+            FakeWorkoutLogRepository(initial = listOf(occurrenceSet(40L))),
+            schedule,
+            guided = true
+        )
+        advanceUntilIdle()
+        assertEquals(setOf(40L), viewModel.state.value.frozenEntryIds)
+
+        schedule.clearBlock()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.frozenEntryIds.isEmpty())
+        assertNull(viewModel.state.value.activeOccurrence)
+
+        val baseActivation = blockActivation()
+        val nextActivation = baseActivation.copy(
+            id = 6L,
+            workouts = baseActivation.workouts.map { workout ->
+                workout.copy(
+                    id = workout.id + 100,
+                    entries = workout.entries.map { it.copy(id = it.id + 100) }
+                )
+            }
+        )
+        val baseOccurrence = twoEntryOccurrence().first()
+        val nextOccurrence = baseOccurrence.copy(
+            id = 130L,
+            activationId = nextActivation.id,
+            activationWorkoutId = nextActivation.workouts.first().id,
+            entries = baseOccurrence.entries.map { entry ->
+                entry.copy(
+                    id = entry.id + 100,
+                    sourceActivationEntryId = entry.sourceActivationEntryId?.plus(100)
+                )
+            }
+        )
+        schedule.set(
+            nextActivation,
+            listOf(nextOccurrence),
+            selectedOccurrenceId = nextOccurrence.id
+        )
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.frozenEntryIds.isEmpty())
+        assertTrue(viewModel.state.value.canReplaceEntry(140L))
     }
 
     @Test
@@ -7378,6 +7509,7 @@ class WorkoutLoggerViewModelTest {
         workouts = listOf(
             ActivationWorkout(
                 id = 9L,
+                position = 0,
                 name = "Upper",
                 entries = listOf(
                     ActivationEntry(
@@ -7393,6 +7525,7 @@ class WorkoutLoggerViewModelTest {
             ),
             ActivationWorkout(
                 id = 10L,
+                position = 1,
                 name = "Lower",
                 entries = listOf(
                     ActivationEntry(

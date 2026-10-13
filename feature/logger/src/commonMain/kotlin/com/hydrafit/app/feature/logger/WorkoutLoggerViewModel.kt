@@ -209,6 +209,7 @@ class WorkoutLoggerViewModel(
                             confirmingAllDrafts = false,
                             draftWriteRetries = emptyList(),
                             guidedProgress = null,
+                            frozenEntryIds = emptySet(),
                             guidedSetWriteFailed = false,
                             summary = null
                         ).withWarmupCleared()
@@ -1726,7 +1727,7 @@ class WorkoutLoggerViewModel(
         val workoutId = occurrenceId
             ?.let { id -> currentOccurrences.firstOrNull { it.id == id }?.activationWorkoutId }
             ?: return null
-        return activation.workouts.indexOfFirst { it.id == workoutId }.takeIf { it >= 0 }
+        return activation.workouts.firstOrNull { it.id == workoutId }?.position
     }
 
     /** The day a new set is attributed to: its occurrence's block position, else the plan calendar. */
@@ -1952,6 +1953,7 @@ class WorkoutLoggerViewModel(
 
     private fun confirmGuidedSet(occurrenceEntryId: Long, liveCompletion: Boolean) {
         if (draftSubmissionInProgress) return
+        if (!liveCompletion && _state.value.startedSetEntryId != null) return
         val draft = _state.value.draftSets.firstOrNull { it.occurrenceEntryId == occurrenceEntryId }
             ?: return
         // Load dialogs and failed writes retain the classification chosen for this confirmation.
