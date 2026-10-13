@@ -61,6 +61,12 @@ permissions:
     resource: "git worktree list *"
     effect: allow
   - action: shell
+    resource: "git tag --list *"
+    effect: allow
+  - action: shell
+    resource: "git tag -l *"
+    effect: allow
+  - action: shell
     resource: "gh pr list *"
     effect: allow
   - action: shell
@@ -131,6 +137,15 @@ permissions:
     effect: allow
   - action: shell
     resource: "ps *"
+    effect: allow
+  - action: shell
+    resource: "sleep *"
+    effect: allow
+  - action: shell
+    resource: "true *"
+    effect: allow
+  - action: shell
+    resource: "break *"
     effect: allow
   - action: shell
     resource: "ls *"
