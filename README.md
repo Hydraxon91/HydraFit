@@ -21,6 +21,7 @@ The app currently uses standard Material 3 styling. Screenshots and a fuller des
 - Record reps, weight in kg or lb, optional reps in reserve (RIR), warm-ups and bodyweight sets. Quick-fill from recent sets, backdate a workout, or correct a saved set's time, reps, weight and RIR.
 - Turn on guided logging and editable rest prompts if you want them. Background alerts and short-rest coaching are separate, off-by-default options; Android power management can delay alerts.
 - In guided workouts, use optional preparation checklists and editable ramp-set suggestions based on your planned loads and equipment limits. Recorded ramps stay warm-ups: they do not count toward working-set progress or start a rest timer.
+- Read short offline setup and execution guidance for 17 exercises, from the Equipment catalog or the Logger. The text is bundled with the app, needs no network, and an exercise without authored guidance shows an explicit unavailable state instead of generic advice.
 - Replace an untouched scheduled exercise for today's workout without changing your routine or future workouts. Start or end sessions explicitly when you need to.
 
 ### Keep your data yours

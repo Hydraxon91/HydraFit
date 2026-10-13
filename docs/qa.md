@@ -617,6 +617,23 @@ is back to `en_US` with no override.
 - Still unverified by this agent: each of the other 16 exercises' wired UI journeys, TalkBack speech
   and measured WCAG contrast. Formal review, publication and CI remain separate.
 
+**0.7.4 C4–C6 bounded post-execution review (2026-10-13).** Read-only Plan Mode review of
+`3ecd3bca..7f80df47` (working tree clean; `.sq`/`.sqm`, dependency, Gradle, Koin-binding and
+constructor changes all absent). Verdict **APPROVED** — no blocking findings. R074R-01 (the C6
+long-content acceptance item) was resolved by the font-1.3 no-clip evidence above. Two non-blocking
+nits remain open by user decision: R074R-02 (`LoggerTestTags.draftInstructions` can collide for two
+manual drafts of the same exercise — test-only) and R074R-03 (`docs/qa.md` wording attributes the
+guided screenshots to direct viewing; they were viewed by the delegated runner). Verification limit
+noted by the review: the C6 aggregate matrix was largely `UP-TO-DATE` because the module checks had
+run minutes earlier on identical content, so it is valid for that revision but is not a from-clean
+rebuild. Approval does not authorize release preparation, pushing, tagging or publication.
+
+**0.7.4-C7 release-preparation gate.** `:androidApp:lintVitalRelease` passed on the candidate revision
+(`e265bfc1`) as the release-specific lint required before tagging; log
+`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/074-lintvital.log`. Push, PR/merge,
+CI monitoring, tag and signed publication remain separately approved steps, and the published artifact
+is verified offline rather than installed on the emulator.
+
 **C6 status: essentially complete — implementation verified; changes remain uncommitted and formally
 unreviewed.** The remaining items above are either host-covered, user-verified, or explicitly waived.
 
