@@ -78,6 +78,12 @@ signed-upgrade/on-device runtime checks as unverified. Uninstall/clear/downgrade
 emulator retain their approval gates; historical upgrade/measurement records do not authorize an
 install.
 
+Debug builds identify their exact revision without a separate field: `androidApp` appends a
+`-<short-revision>` suffix to the local `-dev` version name (`-dirty` when tracked files are modified,
+`-unavailable` when Git metadata is absent). The suffix applies only to the debug build type, and
+`BuildConfig.VERSION_NAME` — shown by Acknowledgments and written into exports — matches the installed
+manifest `versionName`, so a running build can be tied to its commit. Tagged release names are unchanged.
+
 Gradle task lookup by subsystem:
 
 These are task names, not standalone invocation examples. Use the timeout/log

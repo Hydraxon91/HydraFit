@@ -33,6 +33,25 @@ val ciVersionCode = providers.environmentVariable("GITHUB_RUN_NUMBER").orNull
     ?.toIntOrNull()
     ?: defaultVersionCode
 
+/**
+ * Runs a Git command in the repository root, returning its trimmed stdout, or null when Git
+ * metadata is unavailable (no Git binary, no repository).
+ */
+fun gitOutput(vararg args: String): String? = try {
+    providers.exec {
+        commandLine("git", "-C", rootProject.projectDir.absolutePath, *args)
+    }.standardOutput.asText.get().trim().ifEmpty { null }
+} catch (_: Exception) {
+    null
+}
+
+// Development build identity: the short revision plus a marker when tracked files are modified.
+// Releases (tagged builds) keep their plain tag name; only the debug build type carries this.
+val gitRevision = gitOutput("rev-parse", "--short", "HEAD")
+val gitTrackedFilesModified = gitOutput("status", "--porcelain", "--untracked-files=no") != null
+val devVersionSuffix = "-" + (gitRevision ?: "unavailable") +
+    if (gitTrackedFilesModified) "-dirty" else ""
+
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeCompiler)
@@ -85,6 +104,10 @@ android {
         }
     }
     buildTypes {
+        debug {
+            versionNameSuffix = devVersionSuffix
+            buildConfigField("String", "VERSION_NAME", "\"$ciVersionName$devVersionSuffix\"")
+        }
         release {
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
