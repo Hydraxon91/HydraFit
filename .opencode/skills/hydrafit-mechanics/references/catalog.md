@@ -139,7 +139,8 @@ matching, profile copying, catalog write or prescription edit is involved.
 `conventional-deadlift`, `romanian-deadlift` and `dumbbell-rdl` — as single `exercise_caution_<id>`
 resources with an exact stable-ID lookup (`cautionByExerciseId` / `cautionFor`). Lookup is
 independent of `ExerciseInstructionSource`, so two of the three carry a caution with no authored
-instruction; a blank, unknown, custom or renamed ID resolves to null and must never be presented as
-"safe". The text is bundled, nonblocking and never persisted, exported or attached to a
-prescription. Provenance is in `docs/exercise-catalog-sources.md`; the viewer section and the
-Equipment/Logger entry points follow in the rest of the 0.7.5 slices.
+instruction; a blank, unknown or custom `user-*` ID resolves to null and must never be presented as
+"safe", and a display name is never used to derive an identity. Renaming a seeded row keeps its ID
+and therefore its caution. The text is bundled, nonblocking and never persisted, exported or
+attached to a prescription. Provenance is in `docs/exercise-catalog-sources.md`; the viewer section
+and the Equipment/Logger entry points follow in the rest of the 0.7.5 slices.

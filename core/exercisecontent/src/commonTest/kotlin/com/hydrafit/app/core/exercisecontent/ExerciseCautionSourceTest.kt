@@ -79,8 +79,13 @@ class ExerciseCautionSourceTest {
         }
     }
 
+    /**
+     * Lookup is by ID only. A blank or unknown ID, a custom `user-*` ID and a display name all
+     * resolve to null; a renamed seeded row keeps its ID and therefore its caution, which is why the
+     * display-name case below ("Conventional Deadlift") must not resolve.
+     */
     @Test
-    fun blankUnknownCustomAndRenamedIdsHaveNoCaution() {
+    fun blankUnknownCustomAndDisplayNamesHaveNoCaution() {
         assertNull(ExerciseCautionSource.cautionFor(null))
         assertNull(ExerciseCautionSource.cautionFor(""))
         assertNull(ExerciseCautionSource.cautionFor("   "))

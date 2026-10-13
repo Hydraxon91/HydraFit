@@ -521,7 +521,28 @@ no emulator check applies.
 - `:core:exercisecontent:ktlintCheck` and `:core:database:ktlintCheck` pass. No schema, backup, Koin
   or catalog change.
 - Not covered here: the viewer section and the Equipment/Logger entry points (later slices). The
-  three texts are editorially accepted; any later wording change needs fresh acceptance.
+  three texts were explicitly editorially accepted 2026-10-13; any later wording change needs fresh
+  acceptance.
+
+### 0.7.5 R075 review-fix verification (2026-10-13)
+
+Bounded post-execution review of `bc7db260..5a4ac742` raised R075-01..03; the fixes are documentation
+and comment accuracy only, with no behavior change.
+
+- R075-01: the C2 editorial-acceptance claim was corrected to *pending explicit confirmation* in
+  `PLANS.md`, `docs/exercise-catalog-sources.md` and this file; C0 is recorded as covering
+  coverage/placement/trigger, not the wording (later closed by the explicit acceptance below).
+- R075-02: `ExerciseCautionSource`, `docs/architecture.md` and the mechanics `references/catalog.md`
+  now state that lookup is by ID only and never by display name, so renaming a seeded row keeps its
+  ID and its caution, while a custom `user-*` ID or a display name does not resolve. The test is
+  renamed to `blankUnknownCustomAndDisplayNamesHaveNoCaution`.
+- R075-03: the `PLANS.md` "C1/C2 are in progress" line is synchronized with the C1/C2 rows.
+- Re-verified: `:core:exercisecontent:testAndroidHostTest` (caution tests 8 + 2, 0 failures) and
+  `:core:exercisecontent:ktlintCheck` pass
+  (`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/075-r075-fix.log`). No schema,
+  backup, Koin or catalog change.
+- Closed 2026-10-13: the three caution texts were explicitly editorially accepted, so the C2 exit
+  gate is met.
 
 ### v0.7.4 publication verification (2026-10-13)
 

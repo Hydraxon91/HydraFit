@@ -844,12 +844,14 @@ and wired feature UI acceptance remain separate gates.
 **Technique considerations (EX-03, 0.7.5).** `ExerciseCautionSource` adds a small, sourced set of
 informational technique notes in the same module, keyed by stable ID and deliberately independent of
 `ExerciseInstructionSource`: an exercise can carry a caution without an authored instruction, and a
-missing caution is never a statement that an exercise is safe. Lookup is exact-ID only, so custom
-exercises, renamed rows and CAT-02 profile suggestions cannot inherit seeded text. The notes are
-bundled content — never persisted, exported or part of a prescription — and describe controllable
-technique for the built-in movement, not a risk ranking, injury-prevention claim or medical advice.
-Provenance for the 0.7.5 batch is recorded in `docs/exercise-catalog-sources.md`; the viewer section
-and the Equipment/Logger entry points ship in the following slices.
+missing caution is never a statement that an exercise is safe. Lookup is exact-ID only and never by
+display name, so a custom exercise's `user-*` ID or any seeded ID outside the batch cannot inherit a
+caution, and a CAT-02 profile suggestion changes no ID. Renaming a seeded row keeps its ID and
+therefore its caution. The notes are bundled content — never persisted, exported or part of a
+prescription — and describe controllable technique for the built-in movement, not a risk ranking,
+injury-prevention claim or medical advice. Provenance for the 0.7.5 batch is recorded in
+`docs/exercise-catalog-sources.md`; the viewer section and the Equipment/Logger entry points ship in
+the following slices.
 
 ## 2. Decision log
 

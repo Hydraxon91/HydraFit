@@ -14,9 +14,10 @@ import org.jetbrains.compose.resources.StringResource
  * app, is never written to the database, and is not part of a backup, a shared plan or a frozen
  * prescription. Lookup is by exact stable ID and is deliberately independent of
  * [ExerciseInstructionSource], so an exercise can carry a caution without an authored instruction
- * and the reverse. An exercise outside the approved set — including custom exercises, renamed rows
- * and CAT-02 profile suggestions — resolves to null, and a caller must never read that absence as a
- * statement that the exercise is safe.
+ * and the reverse. A display name is never used to derive an identity: an ID outside the approved
+ * set — a custom exercise's `user-*` ID, or any seeded ID not in the batch — resolves to null, and a
+ * caller must never read that absence as a statement that the exercise is safe. Renaming a seeded
+ * row keeps its ID, so it keeps its caution; a CAT-02 profile suggestion never changes an ID.
  *
  * The text gives controllable technique for the built-in movement. It is not medical advice, an
  * injury prediction, a rehabilitation prescription or a substitute for coaching.

@@ -304,8 +304,9 @@ separately scoped and must record their own IDs and provenance here.
 | `romanian-deadlift` | `DefaultExercises.kt`: canonical label, barbell, hinge | HydraFit-authored English "Technique considerations"; no external text source |
 | `dumbbell-rdl` | `DefaultExercises.kt`: canonical label, dumbbell, hinge | HydraFit-authored English "Technique considerations"; no external text source |
 
-The three texts were editorially accepted by the user on 2026-10-13 without changes. They live as
-single `exercise_caution_<id>` strings in
+The three texts were explicitly editorially accepted 2026-10-13 without changes, separately from the
+C0 approval of coverage, placement, trigger behavior and the C1/C2 verification split; tests and code
+review do not supply that acceptance. They live as single `exercise_caution_<id>` strings in
 `core/exercisecontent/src/commonMain/composeResources/values/strings.xml`; the manifest/lookup is
-`ExerciseCautionSource`, whose lookup is independent of the instruction batch. This is bundled
-content only — no schema, backup or catalog-fact change.
+`ExerciseCautionSource`, whose lookup is independent of the instruction batch and never by display
+name. This is bundled content only — no schema, backup or catalog-fact change.
