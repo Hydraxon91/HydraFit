@@ -254,6 +254,11 @@ data class WorkoutLoggerUiState(
     val guidedSetWriteFailed: Boolean = false,
     /** The occurrence entry whose current set was explicitly started; it is not performed work. */
     val startedSetEntryId: Long? = null,
+    /**
+     * Occurrence entry ids whose slot already holds recorded work (working or warm-up), by the domain
+     * freeze rule. Replacement is hidden for them: a swap would be refused, so offering it misleads.
+     */
+    val frozenEntryIds: Set<Long> = emptySet(),
     /** In-memory rest prompt started only by an explicitly live guided completion. */
     val restTimer: RestTimerState? = null,
     val shortRestCoachingExerciseName: String? = null,
@@ -308,6 +313,13 @@ data class WorkoutLoggerUiState(
     /** True when guided mode is on and an active occurrence is available to guide. */
     val isGuidedActive: Boolean
         get() = guidedEnabled && guidedProgress != null
+
+    /**
+     * True when replacement is available for [entryId]: its slot holds no recorded work and it is not
+     * the currently started slot. An untouched later slot stays replaceable.
+     */
+    fun canReplaceEntry(entryId: Long): Boolean =
+        entryId !in frozenEntryIds && entryId != startedSetEntryId
 
     /**
      * The warm-up guidance the UI shows: non-empty, while guided is active and the user has not hidden

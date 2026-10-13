@@ -471,6 +471,11 @@ fatigue is segmented by.
   expiry or midnight do not. Periodization stays the accepted-plan ordinal — template/routine actions
   never advance it. Chosen-weekday scheduling assigns civil-day dates and never compresses missed
   work; sequence mode keeps the oldest unresolved workout pending.
+- **Day attribution:** a set logged against an active block occurrence stores that workout's
+  zero-based position within the frozen activation as its `dayIndex`, so its "Day N" label matches
+  the block workout rather than the weekday or the occurrence queue index. A set with no active block
+  keeps the accepted plan's calendar day. The attribution is captured with the submission context, and
+  existing stored sets are never rewritten.
 - **Consistency:** the frozen prescriptions mirror the accepted-plan snapshot rule (§1.8); the
   occurrence's performed sets stay the fatigue source of truth.
 - **Shell integration:** the Routines list re-reads on screen resume (`RoutinesViewModel.refresh`),
@@ -695,14 +700,22 @@ original timing, through failed-write retries until success or explicit cancella
 submission guard spans persistence and success handling. Rest setup snapshots the completion instant
 and revalidates occurrence/session identity and cancellation generation after suspending preference
 and session reads, so delayed setup cannot revive a canceled countdown or reuse one event for a
-second submission.
+second submission. A live start owns its slot's completion: an ordinary guided confirmation is refused
+while a set is started, a repeat Start on the started slot is a no-op that preserves its timestamp, and
+only that slot's explicit live completion consumes the event. Starting the next guided set cancels the
+previous completion's prompt first (countdown, persisted row and pending/delivered alert) and only then
+records the new start, so a stale prompt cannot outlive the work that supersedes it; that cancellation
+does not reset coaching evidence.
 
 ### 1.17 Occurrence-only exercise replacement
 
 `ReplaceOccurrenceExerciseUseCase` offers eligible same-pattern alternatives for an untouched slot,
 including one in a started occurrence. Any set attributed to the slot, including a warm-up, rejects
 replacement; the entry id is the authoritative attribution, so an entry-linked set freezes its entry
-even when its occurrence id is absent or disagrees.
+even when its occurrence id is absent or disagrees. The Logger derives the same freeze rule from the
+occurrence's performed sets and hides the replacement action for a frozen slot and for the currently
+started slot, while untouched later slots stay replaceable. The domain guard remains the authority, so
+a stale or forged request is still rejected.
 The candidate uses its own current planner load baseline and existing conversion/ceiling rules;
 missing history means no invented numeric load. Sets/reps and slot identity are preserved, while
 name, pattern, equipment, involvement, unilateral and load metadata are frozen for the replacement.

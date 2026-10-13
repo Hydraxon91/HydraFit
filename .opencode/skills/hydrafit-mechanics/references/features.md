@@ -16,7 +16,10 @@ the selected/oldest-unresolved occurrence's remaining sets as drafts, stamps
 `occurrenceId`/`occurrenceEntryId` on logged sets, and exposes Finish/partial/
 Skip (the only queue advances); with no block it keeps the accepted-plan path.
 Attribution reuses the frozen draft slot, so a manual log for a prescribed exercise
-still carries the entry id rather than only the occurrence.
+still carries the entry id rather than only the occurrence. A set logged against an active block
+occurrence stores that workout's zero-based position within the frozen activation as its `dayIndex`
+(the block "Day N" label), captured with the submission context; a set with no active block keeps the
+accepted plan's calendar day, and existing stored sets are never rewritten.
 Recorded planner target reasons travel with planned-today drafts and the current
 occurrence's frozen entries. A compact summary is visible with expandable localized
 detail; values use the selected weight unit. Legacy, manual, edited and replaced
@@ -116,7 +119,9 @@ which reads each occurrence entry's frozen prescription and the working sets
 attributed to it; warm-ups and sets with no entry attribution never satisfy a
 prescription. The card lists exercises in entry order with target reps/load and
 performed/prescribed counts. "Log set" records exactly one set for that entry and
-leaves the remaining prescribed sets pending; the Warm-up choice is frozen at confirmation,
+leaves the remaining prescribed sets pending. While a set is started, an ordinary guided "Log set" is
+unavailable and a repeat "Start set" on the started slot is a no-op; only that slot's explicit
+"Set completed now" consumes the live event. The Warm-up choice is frozen at confirmation,
 survives legacy/missing-load resolution and failed-write retries, and is discarded on cancellation
 or consumed on success. A warm-up is stored as a warm-up and stays out of the progress count. "Edit" opens
 the one-off
@@ -148,7 +153,8 @@ At startup, reconciliation leaves a due, still-valid countdown to the triggered 
 revalidate and post; invalid context, disabled preferences and later transitions into due state still
 cancel. Ordinary Logger restoration continues to clear expired state silently.
 It cancels on session/occurrence changes, guided mode being turned off, explicit
-dismissal, or successful deletion/correction of a set from its occurrence.
+dismissal, starting the next set (which cancels the previous prompt before recording the new start,
+without resetting coaching evidence), or successful deletion/correction of a set from its occurrence.
 Finish/partial Finish/Skip and End/New session retain their existing logging
 semantics. The accepted plan is never edited. Off keeps the existing draft/batch
 flow. The Logger ViewModel groups its preferences and rest-duration delegation in
@@ -202,9 +208,10 @@ The entry id is the authoritative attribution, so an entry-linked set freezes it
 its occurrence id is absent or disagrees; an occurrence-level set for that same exercise whose entry
 link was lost also freezes the slot. A set for a
 different exercise is deliberately not attributed to the slot, so an unplanned extra exercise
-recorded during the workout does not freeze every replacement in it. The guided action stays
-enabled whenever the occurrence is writable, so a frozen slot explains itself through the
-recorded-slot message rather than being silently disabled; only a write in progress disables it.
+recorded during the workout does not freeze every replacement in it. The Logger hides the guided and draft-menu replacement action for a frozen slot and for the currently
+started slot — a swap that would be refused is not offered — while untouched later slots stay
+replaceable; a write in progress still disables it. The domain guard remains the authority, so a stale
+or forged request is still rejected.
 Untouched slots in
 started occurrences remain eligible. Choosing a candidate confirms an occurrence-
 only change with preserved sets/reps/id and the candidate's own load history, not the original load.

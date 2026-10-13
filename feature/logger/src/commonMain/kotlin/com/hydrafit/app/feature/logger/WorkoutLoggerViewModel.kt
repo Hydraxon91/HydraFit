@@ -15,6 +15,7 @@ import com.hydrafit.app.core.domain.schedule.TrainingActivation
 import com.hydrafit.app.core.domain.schedule.WorkoutLoggingActions
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
+import com.hydrafit.app.core.domain.schedule.freezesOccurrenceSlot
 import com.hydrafit.app.core.domain.time.localDayOfWeek
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
@@ -661,8 +662,11 @@ class WorkoutLoggerViewModel(
             ExerciseLoadCapability.UNSPECIFIED -> LoadKind.LEGACY_UNSPECIFIED to typedWeight
         }
 
+        // Capture attribution at submission: the link and its day come from the tapped context, so a
+        // later occurrence or block change cannot relabel the set.
+        val link = slotFor(exerciseId)
+        val dayIndex = dayIndexFor(link?.first)
         viewModelScope.launch {
-            val link = slotFor(exerciseId)
             logResolved(
                 WorkoutSet(
                     exerciseId = exerciseId,
@@ -673,7 +677,7 @@ class WorkoutLoggerViewModel(
                     isWarmup = current.isWarmup,
                     weekNumber = activeActivation?.weekNumber ?: acceptedPlan?.weekNumber,
                     cycleNumber = activeActivation?.cycleNumber ?: acceptedPlan?.cycleNumber,
-                    dayIndex = acceptedToday?.dayIndex,
+                    dayIndex = dayIndex,
                     rir = current.rir.toIntOrNull(),
                     occurrenceId = link?.first,
                     occurrenceEntryId = link?.second,
@@ -1429,6 +1433,8 @@ class WorkoutLoggerViewModel(
         } else {
             occurrenceLink(draft.exerciseId)
         }
+        // Attribution is captured here, under the same context revision each write below re-checks.
+        val dayIndex = dayIndexFor(link?.first)
         var sessionId: String? = null
         repeat(draft.sets.coerceAtLeast(1)) {
             if (contextRevision != draftContextRevision) {
@@ -1455,7 +1461,7 @@ class WorkoutLoggerViewModel(
                     isWarmup = draft.isWarmup,
                     weekNumber = activeActivation?.weekNumber ?: acceptedPlan?.weekNumber,
                     cycleNumber = activeActivation?.cycleNumber ?: acceptedPlan?.cycleNumber,
-                    dayIndex = acceptedToday?.dayIndex,
+                    dayIndex = dayIndex,
                     occurrenceId = link?.first,
                     occurrenceEntryId = link?.second,
                     rir = edit?.rir?.toIntOrNull(),
@@ -1551,6 +1557,7 @@ class WorkoutLoggerViewModel(
                     confirmingAllDrafts = false,
                     todayFocus = null,
                     guidedProgress = null,
+                    frozenEntryIds = emptySet(),
                     guidedSetWriteFailed = false
                 ).withWarmupCleared()
             }
@@ -1564,7 +1571,7 @@ class WorkoutLoggerViewModel(
                 liveSetIntentEntryId = null
             }
         }
-        val performed = performedSetsByEntry(occurrence.id)
+        val (performed, frozenEntryIds) = occurrenceRecordedSets(occurrence)
         // The read may suspend. If a newer refresh or a block change has started since, this result
         // is superseded: publishing it would republish a stale occurrence and guidance and would
         // leave the published generation behind the current one, refusing every later ramp tap.
@@ -1646,6 +1653,7 @@ class WorkoutLoggerViewModel(
                     displayDrafts.isNotEmpty(),
                 todayFocus = workout?.focus,
                 guidedProgress = buildGuidedWorkoutProgress(occurrence, performed),
+                frozenEntryIds = frozenEntryIds,
                 warmupGuidance = nextGuidance,
                 // Readiness and guidance share the snapshot and publication: a superseded refresh
                 // cannot expose the previous guidance's ramps while a newer read is still pending.
@@ -1707,12 +1715,47 @@ class WorkoutLoggerViewModel(
         ?.let { requireNotNull(it.occurrenceId) to it.occurrenceEntryId }
         ?: occurrenceLink(exerciseId)
 
-    private suspend fun performedSetsByEntry(occurrenceId: Long): Map<Long, Int> = getWorkoutLog()
-        .filter { set ->
-            !set.isWarmup && set.occurrenceId == occurrenceId && set.occurrenceEntryId != null
-        }
-        .groupingBy { requireNotNull(it.occurrenceEntryId) }
-        .eachCount()
+    /**
+     * The zero-based position, inside the active block's frozen workouts, of the workout the
+     * occurrence belongs to. Null when there is no active block or the occurrence is not part of it,
+     * so an unattributed set keeps its plan-calendar day. The position - never the occurrence's queue
+     * index or the weekday - is what the block's day label is derived from.
+     */
+    private fun blockDayIndex(occurrenceId: Long?): Int? {
+        val activation = activeActivation ?: return null
+        val workoutId = occurrenceId
+            ?.let { id -> currentOccurrences.firstOrNull { it.id == id }?.activationWorkoutId }
+            ?: return null
+        return activation.workouts.indexOfFirst { it.id == workoutId }.takeIf { it >= 0 }
+    }
+
+    /** The day a new set is attributed to: its occurrence's block position, else the plan calendar. */
+    private fun dayIndexFor(occurrenceId: Long?): Int? =
+        blockDayIndex(occurrenceId) ?: acceptedToday?.dayIndex
+
+    /**
+     * One read of the current occurrence's recorded sets, returning the working-set count by entry
+     * and the entry ids frozen by any recorded set (working or warm-up). Both come from one snapshot
+     * so the guidance and the replacement eligibility describe the same recorded work.
+     */
+    private suspend fun occurrenceRecordedSets(
+        occurrence: WorkoutOccurrence
+    ): Pair<Map<Long, Int>, Set<Long>> {
+        val sets = getWorkoutLog()
+        val performed = sets
+            .filter { set ->
+                !set.isWarmup && set.occurrenceId == occurrence.id && set.occurrenceEntryId != null
+            }
+            .groupingBy { requireNotNull(it.occurrenceEntryId) }
+            .eachCount()
+        val frozen = occurrence.entries
+            .filter { entry ->
+                sets.any { it.freezesOccurrenceSlot(occurrence.id, entry.id, entry.exerciseId) }
+            }
+            .map { it.id }
+            .toSet()
+        return performed to frozen
+    }
 
     /** Concludes the current workout occurrence: finish, finish partially, or skip. */
     fun finishWorkout() = resolveCurrentOccurrence(FinishMode.FULL)
@@ -1859,9 +1902,12 @@ class WorkoutLoggerViewModel(
     /**
      * Records exactly one set for [occurrenceEntryId], leaving any remaining
      * prescribed sets pending. Reuses the same load-shape and legacy/missing-load decisions as the
-     * batch path, but never writes more than one set.
+     * batch path, but never writes more than one set. A live start owns the current completion, so
+     * this is refused while any guided set is started: only that started entry's "Set completed now"
+     * may consume it, and an ordinary log must never silently close a live start as a non-live write.
      */
     fun confirmGuidedSet(occurrenceEntryId: Long) {
+        if (_state.value.startedSetEntryId != null) return
         confirmGuidedSet(occurrenceEntryId, liveCompletion = false)
     }
 
@@ -1874,6 +1920,9 @@ class WorkoutLoggerViewModel(
     fun startGuidedSet(occurrenceEntryId: Long) {
         if (draftSubmissionInProgress) return
         if (_state.value.draftSets.none { it.occurrenceEntryId == occurrenceEntryId }) return
+        // A second Start on the already-started slot would only reset its timestamp, discarding the
+        // elapsed time the live completion depends on. Starting a different untouched slot is allowed.
+        if (_state.value.startedSetEntryId == occurrenceEntryId) return
         if (_state.value.performedAtMillis != null) onPerformedAtChanged(null)
         val draft = _state.value.draftSets.first { it.occurrenceEntryId == occurrenceEntryId }
         val elapsedNow = runtime.elapsedRealtimeMillis()
@@ -1890,6 +1939,10 @@ class WorkoutLoggerViewModel(
         ) {
             _state.update { it.copy(shortRestCoachingExerciseName = draft.name) }
         }
+        // Starting work supersedes the previous completion's rest prompt: cancel its running countdown
+        // and persisted row so the alert coordinator cancels the alarm. Coaching evidence is kept, and
+        // the new start is recorded after this so the cancellation cannot clear it.
+        if (restTimer.state.value != null) cancelRestTimer()
         liveSetIntentEntryId = occurrenceEntryId
         liveSetStartedAtElapsedMillis = elapsedNow
         liveSetCompletedAtElapsedMillis = null

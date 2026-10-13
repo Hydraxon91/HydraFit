@@ -2319,6 +2319,57 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun guidedWriteStoresTheOccurrenceWorkoutPositionAsItsDay() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.confirmGuidedSet(40L)
+        advanceUntilIdle()
+
+        val set = repository.all().single()
+        assertEquals(30L, set.occurrenceId)
+        assertEquals(0, set.dayIndex)
+    }
+
+    @Test
+    fun aLaterWorkoutInTheBlockStoresItsOwnPosition() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 31L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.confirmGuidedSet(41L)
+        advanceUntilIdle()
+
+        val set = repository.all().single()
+        assertEquals(31L, set.occurrenceId)
+        assertEquals(1, set.dayIndex)
+    }
+
+    @Test
+    fun manualLogInsideABlockAlsoStoresTheWorkoutPosition() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("8")
+        viewModel.onWeightChanged("100")
+        viewModel.log()
+        advanceUntilIdle()
+
+        val set = repository.all().single()
+        assertEquals(30L, set.occurrenceId)
+        assertEquals(0, set.dayIndex)
+    }
+
+    @Test
     fun loggingASetPersistsItAndShowsItInHistory() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val viewModel = viewModel(repository)
@@ -6082,6 +6133,151 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun startingTheNextSetCancelsThePreviousRestCountdownAndPersistedRow() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val countdowns = FakeRestCountdownRepository(null)
+        var elapsed = 1_000L
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            elapsedNow = { elapsed },
+            bootIdentity = { "boot" },
+            restCountdownRepository = countdowns
+        )
+        runCurrent()
+
+        viewModel.startGuidedSet(40L)
+        elapsed = 2_000L
+        viewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+        assertNotNull(viewModel.state.value.restTimer)
+        assertNotNull(countdowns.countdown)
+
+        elapsed = 12_000L
+        viewModel.startGuidedSet(40L)
+        runCurrent()
+
+        // The new start cancels the previous prompt's countdown and persisted row; the start itself stays.
+        assertNull(viewModel.state.value.restTimer)
+        assertNull(countdowns.countdown)
+        assertEquals(40L, viewModel.state.value.startedSetEntryId)
+    }
+
+    @Test
+    fun repeatStartKeepsTheOriginalLiveStartTime() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        var elapsedNow = 10_000L
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            elapsedNow = { elapsedNow }
+        )
+        advanceUntilIdle()
+
+        viewModel.startGuidedSet(40L)
+        elapsedNow = 40_000L
+        // A repeat Start on the started slot must not re-baseline the live start.
+        viewModel.startGuidedSet(40L)
+        assertEquals(40L, viewModel.state.value.startedSetEntryId)
+
+        elapsedNow = 41_000L
+        viewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+
+        assertEquals(10_000L, repository.all().single().startedAtElapsedMillis)
+        assertEquals(41_000L, repository.all().single().completedAtElapsedMillis)
+        viewModel.cancelRestTimer()
+    }
+
+    @Test
+    fun startingADifferentSlotMovesTheLiveStart() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoEntryOccurrence(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.startGuidedSet(40L)
+        viewModel.startGuidedSet(42L)
+
+        // Selecting a different untouched slot stays possible while a set is started.
+        assertEquals(42L, viewModel.state.value.startedSetEntryId)
+        viewModel.cancelRestTimer()
+    }
+
+    @Test
+    fun ordinaryGuidedLogIsRefusedWhileASetIsStarted() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.startGuidedSet(40L)
+        viewModel.confirmGuidedSet(40L)
+        runCurrent()
+
+        // The ordinary log cannot consume the live start; the start is still owned by the slot.
+        assertTrue(repository.all().isEmpty())
+        assertEquals(40L, viewModel.state.value.startedSetEntryId)
+
+        viewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+        assertEquals(1, repository.all().size)
+        assertEquals(WorkoutTimingProvenance.LIVE, repository.all().single().timingProvenance)
+        assertNull(viewModel.state.value.startedSetEntryId)
+        viewModel.cancelRestTimer()
+    }
+
+    @Test
+    fun recordedWorkFreezesItsSlotForReplacement() = runTest(dispatcher) {
+        // Working and warm-up sets both freeze; an entry-less row freezes only its matching exercise.
+        assertEquals(setOf(40L), frozenEntryIdsFor(listOf(occurrenceSet(40L))))
+        assertEquals(setOf(40L), frozenEntryIdsFor(listOf(occurrenceSet(40L, isWarmup = true))))
+        assertEquals(
+            setOf(40L),
+            frozenEntryIdsFor(listOf(occurrenceSet(entryId = null, exerciseId = "back-squat")))
+        )
+        assertTrue(
+            frozenEntryIdsFor(listOf(occurrenceSet(entryId = null, exerciseId = "bench-press")))
+                .isEmpty()
+        )
+    }
+
+    @Test
+    fun replacementIsHiddenForFrozenAndStartedSlotsOnly() = runTest(dispatcher) {
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoEntryOccurrence(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(
+            FakeWorkoutLogRepository(initial = listOf(occurrenceSet(40L))),
+            schedule,
+            guided = true
+        )
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.canReplaceEntry(40L))
+        assertTrue(viewModel.state.value.canReplaceEntry(42L))
+    }
+
+    @Test
+    fun startedSlotHidesReplacementUntilItIsReleased() = runTest(dispatcher) {
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoEntryOccurrence(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(FakeWorkoutLogRepository(), schedule, guided = true)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.canReplaceEntry(40L))
+        viewModel.startGuidedSet(40L)
+        assertFalse(viewModel.state.value.canReplaceEntry(40L))
+    }
+
+    @Test
     fun backdatingAGuidedDraftDiscardsTheLiveEventAndStartsNoRest() = runTimerTest {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
@@ -7255,6 +7451,50 @@ class WorkoutLoggerViewModelTest {
             )
         )
     )
+
+    private suspend fun TestScope.frozenEntryIdsFor(sets: List<WorkoutSet>): Set<Long> {
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoEntryOccurrence(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(
+            FakeWorkoutLogRepository(initial = sets),
+            schedule,
+            guided = true
+        )
+        advanceUntilIdle()
+        return viewModel.state.value.frozenEntryIds
+    }
+
+    private fun occurrenceSet(
+        entryId: Long?,
+        exerciseId: String = "back-squat",
+        isWarmup: Boolean = false
+    ) = WorkoutSet(
+        id = 1L,
+        exerciseId = exerciseId,
+        reps = 8,
+        weightKg = 100.0,
+        isWarmup = isWarmup,
+        performedAtMillis = 1L,
+        occurrenceId = 30L,
+        occurrenceEntryId = entryId
+    )
+
+    private fun twoEntryOccurrence() = twoOccurrences().map { occurrence ->
+        if (occurrence.id != 30L) return@map occurrence
+        occurrence.copy(
+            entries = occurrence.entries + OccurrenceEntry(
+                id = 42L,
+                sourceActivationEntryId = 21L,
+                position = 1,
+                exerciseId = "deadlift",
+                exerciseName = "Deadlift",
+                movementPattern = MovementPattern.HINGE,
+                sets = 2,
+                reps = 5,
+                weightKg = 140.0
+            )
+        )
+    }
 
     private fun barbellOccurrences() = twoOccurrences().map { occurrence ->
         occurrence.copy(

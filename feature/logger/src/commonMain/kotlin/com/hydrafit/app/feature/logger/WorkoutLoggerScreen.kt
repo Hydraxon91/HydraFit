@@ -975,6 +975,7 @@ fun WorkoutLoggerScreen(
                         onLogSet = onConfirmGuidedSet,
                         onLogSetNow = onConfirmGuidedSetNow,
                         startedSetEntryId = state.startedSetEntryId,
+                        frozenEntryIds = state.frozenEntryIds,
                         onStartSet = onStartGuidedSet,
                         onEditSet = onEditGuidedSet,
                         onReplace = onReplaceOccurrenceEntry
@@ -1037,14 +1038,18 @@ fun WorkoutLoggerScreen(
                                 onDismissRequest = { expanded = false }
                             ) {
                                 draft.occurrenceEntryId?.let { entryId ->
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(Res.string.logger_replace)) },
-                                        enabled = !state.draftWriteInProgress,
-                                        onClick = {
-                                            expanded = false
-                                            onReplaceOccurrenceEntry(entryId)
-                                        }
-                                    )
+                                    if (state.canReplaceEntry(entryId)) {
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(stringResource(Res.string.logger_replace))
+                                            },
+                                            enabled = !state.draftWriteInProgress,
+                                            onClick = {
+                                                expanded = false
+                                                onReplaceOccurrenceEntry(entryId)
+                                            }
+                                        )
+                                    }
                                 }
                                 DropdownMenuItem(
                                     text = { Text(stringResource(Res.string.logger_draft_edit)) },
@@ -2097,6 +2102,7 @@ private fun GuidedWorkoutSection(
     onLogSet: (Long) -> Unit,
     onLogSetNow: (Long) -> Unit,
     startedSetEntryId: Long?,
+    frozenEntryIds: Set<Long>,
     onStartSet: (Long) -> Unit,
     onEditSet: (Long) -> Unit,
     onReplace: (Long) -> Unit
@@ -2198,13 +2204,17 @@ private fun GuidedWorkoutSection(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(exercise.exerciseName)
-                            TextButton(
-                                // A frozen slot keeps the action available so opening it explains
-                                // why the swap is refused, instead of silently removing the control.
-                                onClick = { onReplace(exercise.occurrenceEntryId) },
-                                enabled = !writeInProgress
+                            // A slot that already holds recorded work, or the slot currently started,
+                            // cannot be swapped: hide the action instead of offering a refused one.
+                            if (exercise.occurrenceEntryId !in frozenEntryIds &&
+                                exercise.occurrenceEntryId != startedSetEntryId
                             ) {
-                                Text(stringResource(Res.string.logger_replace))
+                                TextButton(
+                                    onClick = { onReplace(exercise.occurrenceEntryId) },
+                                    enabled = !writeInProgress
+                                ) {
+                                    Text(stringResource(Res.string.logger_replace))
+                                }
                             }
                             Text(
                                 text = stringResource(
@@ -2238,22 +2248,24 @@ private fun GuidedWorkoutSection(
                         }
                         if (!exercise.isComplete) {
                             Column {
+                                val isStartedSlot = startedSetEntryId == exercise.occurrenceEntryId
                                 TextButton(
                                     onClick = { onStartSet(exercise.occurrenceEntryId) },
-                                    enabled = !writeInProgress
+                                    enabled = !writeInProgress && !isStartedSlot
                                 ) {
                                     Text(stringResource(Res.string.logger_guided_start_set))
                                 }
                                 TextButton(
+                                    // A live start owns the completion: an ordinary log is only
+                                    // available when no guided set is started.
                                     onClick = { onLogSet(exercise.occurrenceEntryId) },
-                                    enabled = !writeInProgress
+                                    enabled = !writeInProgress && startedSetEntryId == null
                                 ) {
                                     Text(stringResource(Res.string.logger_log_button))
                                 }
                                 TextButton(
                                     onClick = { onLogSetNow(exercise.occurrenceEntryId) },
-                                    enabled = !writeInProgress &&
-                                        startedSetEntryId == exercise.occurrenceEntryId
+                                    enabled = !writeInProgress && isStartedSlot
                                 ) {
                                     Text(stringResource(Res.string.logger_guided_log_completed_now))
                                 }
