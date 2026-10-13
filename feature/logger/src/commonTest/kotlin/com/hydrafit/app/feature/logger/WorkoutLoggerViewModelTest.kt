@@ -2390,6 +2390,31 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun manualLogUsesStoredWorkoutPositionRatherThanListIndex() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        val baseActivation = blockActivation()
+        val activation = baseActivation.copy(
+            workouts = baseActivation.workouts.mapIndexed { index, workout ->
+                workout.copy(position = index * 2)
+            }
+        )
+        schedule.set(activation, twoOccurrences(), selectedOccurrenceId = 31L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("deadlift")
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("140")
+        viewModel.log()
+        advanceUntilIdle()
+
+        val set = repository.all().single()
+        assertEquals(31L, set.occurrenceId)
+        assertEquals(2, set.dayIndex)
+    }
+
+    @Test
     fun loggingASetPersistsItAndShowsItInHistory() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val viewModel = viewModel(repository)
@@ -6156,7 +6181,7 @@ class WorkoutLoggerViewModelTest {
     fun editingAnotherGuidedSlotCannotDiscardAnActiveLiveStart() = runTimerTest {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
-        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        schedule.set(blockActivation(), twoEntryOccurrence(), selectedOccurrenceId = 30L)
         var elapsedNow = 10_000L
         val viewModel = occurrenceViewModel(
             repository,
@@ -6168,7 +6193,8 @@ class WorkoutLoggerViewModelTest {
 
         viewModel.startGuidedSet(40L)
         elapsedNow = 10_400L
-        viewModel.editGuidedSet(41L)
+        viewModel.editGuidedSet(42L)
+        assertEquals(42L, viewModel.state.value.draftEdit?.draft?.occurrenceEntryId)
         viewModel.confirmDraftEdit()
         runCurrent()
 
@@ -6321,6 +6347,38 @@ class WorkoutLoggerViewModelTest {
 
         assertTrue(viewModel.state.value.frozenEntryIds.isEmpty())
         assertNull(viewModel.state.value.activeOccurrence)
+
+        val baseActivation = blockActivation()
+        val nextActivation = baseActivation.copy(
+            id = 6L,
+            workouts = baseActivation.workouts.map { workout ->
+                workout.copy(
+                    id = workout.id + 100,
+                    entries = workout.entries.map { it.copy(id = it.id + 100) }
+                )
+            }
+        )
+        val baseOccurrence = twoEntryOccurrence().first()
+        val nextOccurrence = baseOccurrence.copy(
+            id = 130L,
+            activationId = nextActivation.id,
+            activationWorkoutId = nextActivation.workouts.first().id,
+            entries = baseOccurrence.entries.map { entry ->
+                entry.copy(
+                    id = entry.id + 100,
+                    sourceActivationEntryId = entry.sourceActivationEntryId?.plus(100)
+                )
+            }
+        )
+        schedule.set(
+            nextActivation,
+            listOf(nextOccurrence),
+            selectedOccurrenceId = nextOccurrence.id
+        )
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.frozenEntryIds.isEmpty())
+        assertTrue(viewModel.state.value.canReplaceEntry(140L))
     }
 
     @Test

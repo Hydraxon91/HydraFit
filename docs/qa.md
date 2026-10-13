@@ -485,6 +485,13 @@ an ordinary guided log during a live start, cancelling the previous rest prompt 
 row, the frozen/started replacement predicate, the legacy/extra-exercise freeze rules and the block
 workout position. Logs: `/tmp/hydrafit-alert-test/{checks,tiera,logger-test}.log`.
 
+**Post-review closure (PE-01–04):** targeted closure review approved. The regression set now proves
+edit-confirm for a different slot in the active occurrence preserves the live start, manual logging
+uses a non-contiguous stored workout position, and a new block derives fresh replacement eligibility
+after the previous block ends. `:feature:logger:testAndroidHostTest` and a forced rerun of
+`:feature:logger:ktlintCommonTestSourceSetCheck` passed; logs: `/tmp/hydrafit-pe-closure-test.log` and
+`/tmp/hydrafit-pe-closure-ktlint-rerun.log`.
+
 **Emulator evidence (`emulator-5554`, debug `0.7.2-dev-af8cea1-dirty`):**
 - OCT13-01: the installed `versionName` and the Acknowledgments line both read
   `0.7.2-dev-af8cea1-dirty`; screenshot `/tmp/hydrafit-alert-test/oct1301-version.png`.
@@ -503,9 +510,9 @@ discrepancy is unexplained. The journey reinstalled the debug APK over existing 
 the remaining guided checks and cleanup. The Recent-sets result indicates a set was logged during that
 pass, but final set/session counts and cleanup were not independently verified. The rest-alert/coaching
 preferences were never touched. Automation spent more than the five-minute per-flow interaction budget.
-Larger text, dark mode, locale, TalkBack and signed-release runtime remain unverified. This was builder
-verification; the bounded post-execution review was completed separately, with targeted closure of its
-follow-up findings pending.
+Larger text, dark mode, locale, TalkBack and signed-release runtime remain unverified. The bounded
+post-execution review and targeted closure review are complete; these do not claim emulator coverage
+beyond the observations above.
 
 ### OCT13-05 notification-delivery experiment (2026-10-13)
 
