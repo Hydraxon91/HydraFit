@@ -92,3 +92,21 @@ historical set snapshots are left untouched. It runs off-main at startup via
 `DatabaseStartupMaintenance`. `DefaultExercisesDataQualityTest` asserts every
 built-in row satisfies `MovementPatternGuardrail` except five pinned fresh-install
 classification conflicts (tracked in `docs/live-testing-2026-10-08.md`).
+
+## Offline exercise instructions (CAT-01, 0.7.4)
+
+Bundled instruction text is app-owned catalog content in `:core:exercisecontent`, not
+catalog/domain data: `DefaultExercises` rows, involvements and `exerciseOverride` are unchanged by
+it, and no `.sq`/`.sqm` migration is involved. `ExerciseInstructionSource.approvedBatch` is the
+approved authoring manifest; `keysByExerciseId` holds the authored entries, and `keysFor(exerciseId)`
+resolves only those by exact stable ID. A blank, unknown or custom ID — and an approved exercise
+whose text is not authored yet — returns null, so the UI shows the explicit unavailable state rather
+than inferred guidance. Instructions are linked by ID only, never by name, so a renamed custom
+exercise cannot inherit seeded text; CAT-02 profile suggestions do not carry instructions either.
+
+Content is display-only and read-only: it is never persisted, never included in a backup, shared
+plan or frozen prescription, and may change with an app update. It stays separate from the OF-13
+personal setup notes. Each authored entry records its provenance in
+`docs/exercise-catalog-sources.md`; text is independently written, with no copied descriptions or
+bundled media. `ExerciseInstructionDialog` only presents the text (scrollable, heading semantics)
+and holds no state, so it cannot log a set or disturb an unsaved draft in the owning feature.

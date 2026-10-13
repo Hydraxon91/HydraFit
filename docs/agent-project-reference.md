@@ -105,7 +105,8 @@ HydraFit/
 │   ├── navigation/         # Shared navigation contract: FeatureDestination (route + label + graph) exported by each feature and aggregated by the shell
 │   ├── database/           # SQLDelight schema (.sq files), versioned .sqm migrations, generated queries, repository implementations
 │   ├── network/            # Ktor client setup, Gemini API DTOs, response_schema definitions
-│   └── llm/                # On-device text generation (LiteRT-LM), model management, local planner engine
+│   ├── llm/                # On-device text generation (LiteRT-LM), model management, local planner engine
+│   └── exercisecontent/    # Bundled app-owned catalog content: offline exercise instructions and their read-only viewer
 ├── feature/
 │   ├── equipment/          # Equipment Profiler UI + ViewModels
 │   ├── splitbuilder/       # Adaptive Weekly Split Builder UI + ViewModels
@@ -223,6 +224,15 @@ perl -e 'alarm 600; exec @ARGV' ./gradlew clean build > build-output.log 2>&1
 ### `core/network/`
 - Ktor client configuration and Gemini API request/response DTOs.
 - `response_schema` structured output definitions for the Gemini engine live here, not scattered across feature modules.
+
+### `core/exercisecontent/`
+- Bundles app-owned catalog content that no single feature owns: the offline exercise instructions
+  keyed by stable exercise ID, plus their read-only Compose viewer.
+- This content is not user data. It is never persisted, backed up or frozen into a plan, and it is
+  separate from the OF-13 personal setup notes. Exercises without authored text resolve to null so
+  the caller shows the explicit unavailable state instead of generic guidance.
+- It depends on Compose and its own resources only — no `:core:domain`, `:core:database`,
+  `:core:network` or `feature/*` dependency — and features depend on it for the shared viewer.
 
 ### `feature/*`
 - Each feature module owns its Composables, ViewModels, and feature-specific state classes.

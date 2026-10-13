@@ -19,8 +19,9 @@ Companion reading: `README.md` (what the app does), `PLANS.md` (current work), `
 
 HydraFit is a small, single-purpose Gradle module graph. `:core:domain` is commonMain-only Kotlin
 with no platform APIs; `:core:database`/`:core:network`/`:core:llm`/`:core:userdata` provide
-implementations and platform glue; each `:feature:*` owns UI + ViewModel; `:shared` is the
-composition root; `:androidApp` is the platform entry point.
+implementations and platform glue; `:core:exercisecontent` bundles app-owned catalog content
+(offline exercise instructions) with its read-only viewer; each `:feature:*` owns UI + ViewModel;
+`:shared` is the composition root; `:androidApp` is the platform entry point.
 
 - **Examples:** `settings.gradle.kts` (module list), `core/domain/build.gradle.kts` (no Android-only
   deps), `feature/logger/build.gradle.kts` (depends on `:core:domain`, `:core:userdata`,
@@ -791,6 +792,30 @@ general-movement entry, the 10 practice reps and the 40/60/80 % × 8/5/3 ramp pr
 **product defaults**, not validated personal optima: no trial establishes this sequence, its values or
 that it is non-fatiguing for a given user. No lymphatic, detox or longevity claim is made, and no
 branded warm-up sequence is reproduced.
+
+### 1.19 Offline exercise instructions (CAT-01)
+
+`ExerciseInstructionDialog` in `:core:exercisecontent` presents the bundled offline instructions for
+one exercise, selected by the catalog's stable exercise ID. That content is app-owned catalog
+content, not user data: it lives in the module's `commonMain` resources, is never written to the
+database, and is not part of a backup, a shared plan or a frozen prescription. It is deliberately
+separate from the OF-13 personal setup notes, and an app update may revise it.
+
+`ExerciseInstructionSource` holds the two distinct sets the UI needs. `approvedBatch` is the
+approved authoring manifest — membership means an exercise is in scope for a text batch, not that
+text exists. `keysByExerciseId` holds the authored entries, and lookup resolves only those, by exact
+ID: a blank, unknown or custom ID, and an approved exercise whose text is not authored yet, all
+resolve to null. The caller then shows the explicit unavailable state, so missing content is never
+filled with generated or generic guidance. The viewer only presents text (scrollable, with heading
+semantics) and holds no state, so opening or dismissing it cannot log a set or disturb an owning
+feature's unsaved draft. Instructions never influence the planner, fatigue or catalog facts.
+
+**Content policy.** Text is independently authored with exercise-specific setup and execution cues
+and recorded provenance in `docs/exercise-catalog-sources.md`; no copyrighted description or
+unlicensed media is copied, and no performance, injury-prevention or physiology claim is made.
+Delivery is text-first and covered by the 0.7.4 slices: the foundation (resources, ID lookup and
+viewer) ships first, then two authored content batches, then the Equipment and Logger entry points.
+The first batch is not complete catalog coverage.
 
 ## 2. Decision log
 

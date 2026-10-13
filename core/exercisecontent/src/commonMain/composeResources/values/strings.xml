@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="exercise_instruction_setup">Setup</string>
+    <string name="exercise_instruction_execution">Execution</string>
+    <string name="exercise_instruction_unavailable">Instructions for this exercise are not available in this version. Follow your own setup and technique, and use a load you can control.</string>
+    <string name="exercise_instruction_close">Close</string>
+</resources>
