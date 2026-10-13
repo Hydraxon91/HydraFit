@@ -165,12 +165,10 @@ class WorkoutLoggerViewModel(
             // Until this first resolves, availability and ceilings are unknown, so no ramp is offered.
             equipment.equipmentFlow().collectLatest { current ->
                 warmupEquipment = current
-                // Readiness is published with the equipment-bounded guidance, never ahead of it: the
-                // previous guidance was built without knowing availability or the ceiling, so marking
-                // readiness first would briefly expose its unrestricted ramps.
-                refreshToday()
                 warmupEquipmentObserved = true
-                _state.update { it.copy(warmupEquipmentKnown = true) }
+                // A refresh may return without publishing when superseded. Visible readiness belongs
+                // to the successful guidance publication, not to this collector's completion.
+                refreshToday()
             }
         }
         viewModelScope.launch {
@@ -1604,7 +1602,8 @@ class WorkoutLoggerViewModel(
         }
         // Transient per-workout state follows the same occurrence; switching away clears it.
         val sameOccurrence = previousOccurrenceId == occurrence.id
-        val nextGuidance = buildWarmupGuidance(occurrence, warmupEquipment)
+        val equipment = warmupEquipment
+        val nextGuidance = buildWarmupGuidance(occurrence, equipment)
         // A slot whose prescription changed loses its transient edits, so a value typed for the old
         // exercise can never be shown against the replacement.
         val previousRamps = _state.value.warmupGuidance?.ramps.orEmpty()
@@ -1648,6 +1647,9 @@ class WorkoutLoggerViewModel(
                 todayFocus = workout?.focus,
                 guidedProgress = buildGuidedWorkoutProgress(occurrence, performed),
                 warmupGuidance = nextGuidance,
+                // Readiness and guidance share the snapshot and publication: a superseded refresh
+                // cannot expose the previous guidance's ramps while a newer read is still pending.
+                warmupEquipmentKnown = equipment != null,
                 // Preparation marks and the hidden flag belong to one workout: switching occurrence
                 // clears them, while an ordinary refresh of the same occurrence keeps them.
                 warmupPreparationChecked = if (sameOccurrence) {

@@ -4653,6 +4653,122 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun aSupersededEquipmentRefreshKeepsReadinessHidden() = runTest(dispatcher) {
+        val cases = listOf(
+            Triple(50.0, setOf(EquipmentTag.BARBELL), listOf(40.0, 50.0)),
+            Triple(50.0, emptySet(), emptyList()),
+            Triple(null, setOf(EquipmentTag.BARBELL), listOf(40.0, 60.0, 80.0))
+        )
+        for ((ceiling, selected, expectedWeights) in cases) {
+            val repository = FakeWorkoutLogRepository()
+            val schedule = MutableWorkoutScheduleRepository()
+            schedule.set(blockActivation(), barbellOccurrences(), selectedOccurrenceId = 30L)
+            val equipment = GatedEquipment(
+                items = listOf(
+                    Equipment(
+                        id = EquipmentTag.BARBELL,
+                        name = "Barbell",
+                        isBuiltIn = true,
+                        maxWeightKg = ceiling
+                    )
+                ),
+                selected = selected
+            )
+            val viewModel = occurrenceViewModel(
+                repository,
+                schedule,
+                guided = true,
+                equipment = equipment.collaborator()
+            )
+            advanceUntilIdle()
+            assertFalse(viewModel.state.value.warmupEquipmentKnown)
+            assertTrue(assertNotNull(viewModel.state.value.visibleWarmupView).ramps.isEmpty())
+
+            val equipmentRead = CompletableDeferred<Unit>()
+            val newerRead = CompletableDeferred<Unit>()
+            try {
+                repository.allGate = equipmentRead
+                equipment.release()
+                advanceUntilIdle()
+                assertNull(repository.allGate)
+
+                // Only the occurrences change: their independent collector supersedes the equipment
+                // refresh, but cannot publish until its own performed-set read finishes.
+                repository.allGate = newerRead
+                schedule.set(
+                    blockActivation(),
+                    barbellOccurrences().map { it.copy(revision = 2) },
+                    selectedOccurrenceId = 30L
+                )
+                advanceUntilIdle()
+                assertNull(repository.allGate)
+                equipmentRead.complete(Unit)
+                advanceUntilIdle()
+
+                viewModel.logWarmupRamp(40L, rampIndex = 0)
+                advanceUntilIdle()
+                assertTrue(repository.all().isEmpty())
+                assertFalse(viewModel.state.value.warmupEquipmentKnown)
+                val pending = assertNotNull(viewModel.state.value.visibleWarmupView)
+                assertTrue(pending.preparation.isNotEmpty())
+                assertTrue(pending.ramps.isEmpty())
+
+                newerRead.complete(Unit)
+                advanceUntilIdle()
+                assertTrue(viewModel.state.value.warmupEquipmentKnown)
+                val published = assertNotNull(viewModel.state.value.visibleWarmupView)
+                assertEquals(
+                    expectedWeights,
+                    published.ramps.flatMap { it.rows }.map { it.weightKg }
+                )
+                viewModel.logWarmupRamp(40L, rampIndex = 0)
+                advanceUntilIdle()
+                assertEquals(expectedWeights.take(1), repository.all().map { it.weightKg })
+            } finally {
+                equipmentRead.complete(Unit)
+                newerRead.complete(Unit)
+                advanceUntilIdle()
+            }
+        }
+    }
+
+    @Test
+    fun equipmentObservedBeforeAnActiveBlockIsReadyWithItsFirstGuidance() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        val equipment = GatedEquipment(
+            items = listOf(
+                Equipment(
+                    id = EquipmentTag.BARBELL,
+                    name = "Barbell",
+                    isBuiltIn = true,
+                    maxWeightKg = 50.0
+                )
+            ),
+            selected = setOf(EquipmentTag.BARBELL)
+        )
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            equipment = equipment.collaborator()
+        )
+        advanceUntilIdle()
+        equipment.release()
+        advanceUntilIdle()
+        assertNull(viewModel.state.value.visibleWarmupView)
+
+        schedule.set(blockActivation(), barbellOccurrences(), selectedOccurrenceId = 30L)
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.warmupEquipmentKnown)
+        val ramp = assertNotNull(viewModel.state.value.visibleWarmupView).ramps.single()
+        assertEquals(listOf(40.0, 50.0), ramp.rows.map { it.weightKg })
+        viewModel.logWarmupRamp(40L, rampIndex = 0)
+        advanceUntilIdle()
+        assertEquals(40.0, repository.all().single().weightKg)
+    }
+
+    @Test
     fun warmupRampsUseTheFirstUncappedEquipmentSnapshot() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()

@@ -167,7 +167,11 @@ by the user's current equipment (`WorkoutLoggerEquipment` observes `EquipmentRep
 load is clamped to the lowest ceiling among that equipment — the frozen prescription is never
 rewritten. Until the first equipment snapshot resolves, only preparation is offered: no ramp is shown
 or recorded against unknown availability or an unknown ceiling (known unbounded equipment still
-offers the full profile). The Logger adds one cohesive collaborator for this, not a dependency per repository. Preparation marks and the
+offers the full profile). Visible equipment readiness is published in the same state update as
+guidance built from that snapshot, after the generation guard passes; a superseded refresh returning
+without publication cannot expose the previous guidance's ramps while a newer read is pending.
+Equipment observed before a block starts is used for that block's first guidance publication.
+The Logger adds one cohesive collaborator for this, not a dependency per repository. Preparation marks and the
 hidden flag are in-memory and scoped to one occurrence; the recorded ramp is an ordinary warm-up set
 written through the guided single-write path with its classification frozen, so it survives restart,
 never advances progress or starts a rest prompt, and still freezes its slot against replacement. The
