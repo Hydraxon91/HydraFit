@@ -498,12 +498,14 @@ workout position. Logs: `/tmp/hydrafit-alert-test/{checks,tiera,logger-test}.log
 
 **Limits and cleanup:** the guided preference read `1` before installation and `0` afterwards in both
 the app and the database, so the guided-card checks required turning it on for the journey; the
-discrepancy is unexplained. The journey reinstalled the debug APK over existing data, started the
-`Test` block (activation 30) and had it cancelled afterwards; no set or session was written (54 sets
-before and after) and the rest-alert/coaching preferences were never touched. Automation spent more
-than the five-minute per-flow interaction budget. Larger text, dark mode, locale, TalkBack and
-signed-release runtime remain unverified. This is builder verification, not review approval, and the
-chunk's formal post-execution review remains separately requested.
+discrepancy is unexplained. The journey reinstalled the debug APK over existing data and started the
+`Test` block (activation 30). The agent stopped before writing a set; the user later reported completing
+the remaining guided checks and cleanup. The Recent-sets result indicates a set was logged during that
+pass, but final set/session counts and cleanup were not independently verified. The rest-alert/coaching
+preferences were never touched. Automation spent more than the five-minute per-flow interaction budget.
+Larger text, dark mode, locale, TalkBack and signed-release runtime remain unverified. This was builder
+verification; the bounded post-execution review was completed separately, with targeted closure of its
+follow-up findings pending.
 
 ### OCT13-05 notification-delivery experiment (2026-10-13)
 
