@@ -96,12 +96,16 @@ as a child and its checked state toggling unchecked → checked → unchecked. A
 confirmed the label inside the toggle with Edit and Skip to its right. Cleanup restored the baseline:
 the block was cancelled, guided workouts turned off, and no set was written.
 
-Still unverified on a device: the ramp-row identities (`logger_warmup_ramp_*`), because the fixture
-routine has no external-load slot to render a ramp. They use the same tag/`testTagsAsResourceId`
-mechanism as the verified controls, and `LoggerTestTagsTest` pins their names. The warm-up editor
-identities (`logger_warmup_editor*`) were verified at runtime on 2026-10-13 by
-`logger-warmup-editor-cancel.yaml`. Neither warm-up flow navigates or scrolls; see "Container-aware
-scrolling" for how the row is brought into view.
+Still unverified on a device: locale and TalkBack (waived). The ramp-row identities
+(`logger_warmup_ramp_*`) were verified at runtime on 2026-10-13 with a temporary external-load
+routine (`Band Curl`, target `8 × 45 kg`), which rendered `logger_warmup_ramp_181_0/1/2` with their
+`…_edit_`/`…_log_` controls; the warm-up editor identities (`logger_warmup_editor*`) were verified by
+`logger-warmup-editor-cancel.yaml`. Both warm-up flows also passed at 1.3 font scale and in dark
+mode, with the card reflowing so labels wrapped while `Edit`/`Skip`/`Log warm-up` stayed on-row
+(details in `docs/qa.md`). `scripts/maestro-scroll.sh` also reached the preparation row at 1.3 and
+in dark mode at 1.3 (one swipe up to the picker, two swipes to the row, picker offset unchanged), so
+container-relative reachability holds under reflow. Neither warm-up flow navigates or scrolls; see
+"Container-aware scrolling" for how the row is brought into view.
 
 ## 0.7.3 R073-28 diagnostic race verification (2026-10-13)
 
