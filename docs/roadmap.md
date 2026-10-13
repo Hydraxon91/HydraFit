@@ -1,7 +1,7 @@
 # HydraFit roadmap to 1.0
 
 Approved direction: 2026-10-09; smaller published releases approved 2026-10-11.
-The current shipped version is 0.6.1. This roadmap groups the remaining backlog;
+The current shipped version is 0.7.3. This roadmap groups the remaining backlog;
 it does not authorize implementation, publication, commits or pushes.
 Release numbers are planning targets, without dates.
 
@@ -113,8 +113,34 @@ The heading identifies the theme's starting version; the scope is spread across
 | 0.7.3 | Editable preparation and specific ramp-set guidance | WU-01 / LT-08; sourced content, existing rep-based warm-up logging; persisted timing waits for 0.11.x |
 | 0.7.4 | Offline exercise instructions, first agreed content batch | CAT-01; approve ownership, portability, provenance and coverage first |
 | 0.7.5 | Informational exercise caution content | EX-03; evidence, wording and triggers approved first; no inferred risk |
-| 0.7.6 | Skippable, revisitable setup and first-workout guidance | OF-14; use shipped inventory; profiles integrate in 0.9.0 |
-| 0.7.7 | Opt-in workout reminders and guided-workout integration | OF-12-P2/P3; permission, quiet-hour, reboot and cancellation contract first |
+| 0.7.6 | Skippable, revisitable setup and first-workout guidance | OF-14; fresh/returning/restored users and optional starting loads; use shipped inventory; profiles integrate in 0.9.0 |
+| 0.7.7 | Opt-in workout reminders and guided-workout alert integration | OF-12-P2/P3 + LT-06; investigate rest-completion delivery and approve countdown/foreground/lock-screen behavior; permission, quiet-hour, reboot and cancellation contract first |
+
+**Oct 13 follow-up — before 0.7.4 instruction work:** scope the small corrective
+parts separately: development-build revision/dirty identification (OCT13-01),
+competing guided completion controls (OCT13-02), cancellation of the previous rest
+when starting a set (OCT13-03), replacement visibility for started/recorded slots
+(OCT13-04), and occurrence-based day attribution for new logs (OCT13-07). The
+proposed control contract disables ordinary guided Log set while a live set is
+active and prevents repeat Start from resetting it; Start evaluates short-rest
+coaching before canceling the old countdown/alert. Hide replacement for the live
+slot and slots frozen by working sets or warm-ups, while keeping untouched later
+slots replaceable and retaining the domain guard. New block-linked logs use the
+frozen activation workout's position; the no-block path and existing history stay
+unchanged. These are roadmap placements, not approved implementation contracts.
+Retain 0.7.4 for instructions; a separately published corrective release would
+need an explicit numbering decision and shift later targets under the release
+policy. Development identity must preserve tagged release versions; build/install
+dates are separate decisions, not part of this small correction.
+
+The read-only Oct 13 phone audit confirmed mismatched stored day labels on all
+25 sets for that day's single occurrence: block day 1 was stored as day 2, with
+week 2, Tuesday–Friday scheduling and occurrence/entry links intact. It also
+confirmed three qualifying external skull-crusher working sets, including the
+reported 10-rep result at 30 kg, but no usable numeric target in the latest accepted
+plan. This is evidence for attribution and progression follow-up, not permission
+to rewrite history or change load/progression policy. Exact installed revision and
+notification-delivery behavior remain unverified.
 
 After history/summaries, settle **LT-10 / OF-10A-P0** as a separate decision-only
 contract before closing this series. It gets no standalone APK version; integrity
@@ -130,18 +156,40 @@ additional bounded targets before 1.0; 0.7.4 alone does not close content covera
 - **LT-10 / OF-10A-P0:** settle historical-target snapshots, comparable exposures,
   partial-work and execution-quality eligibility, session-versus-date grouping,
   manual PR interaction and corrected-history replay after guided/history work.
-  Policy implementation follows in 0.10.x.
+  Include blank-load and occurrence-only replacement targets, plus below-target
+  performed reps (Oct 13 skull-crusher report); distinguish recent load estimation
+  from prescription success/failure eligibility. Separately decide whether and how
+  to repair historical day labels using preserved occurrence links: no automatic
+  rewrite is authorized by the new-log correction. Policy and any approved repair
+  implementation follow in 0.10.x.
 - **WU-01 / LT-08:** sourced editable preparation and specific ramp sets,
   equipment/no-load behavior, skip/resume and warm-up/working-set separation.
   Persisted timed preparation waits for 0.11.x metric support.
 - **CAT-01:** original offline instruction content, approved coverage and language
   fallback, custom-content ownership and portability decisions. Further content
-  batches remain tracked through the pre-1.0 coverage target.
+  batches remain tracked through the pre-1.0 coverage target. Keep 0.7.4 text-first;
+  separately scope explanatory images/animations for seeded exercises, with
+  original/permissively licensed bundled assets, attribution, offline availability,
+  accessible text alternatives, and an agreed coverage/size budget. Assign bounded
+  media batches after that decision, with coverage closure in 0.13.6; no media
+  dependency or artwork reuse is authorized by this placement.
 - **OF-14:** skippable/revisitable offline setup and first workout, unknown-load
   guidance and partial/restored-user behavior; no fictitious sets or measured PRs.
-  Integrate equipment profiles when 0.9.0 supplies them.
+  Include returning users from older versions without resetting history/settings,
+  with completion/re-entry markers and optional comfortable working-load inputs
+  distinct from measured PRs or maximal attempts. Cross-exercise load estimates
+  remain an evidence/behavior decision: never silently populate authoritative
+  prescriptions, PRs or performed records from another lift. Integrate equipment
+  profiles when 0.9.0 supplies them.
 - **OF-12-P2/P3:** local opt-in reminders, denied permissions, quiet hours,
   cancellation/rescheduling/reboot semantics and guided-workout integration.
+  Include LT-06 / OCT13-05 rest-alert investigation: completion while HydraFit is
+  foregrounded, another app is open or the screen is locked; distinguish delivery
+  from Android channel/permission presentation and inexact-alarm delays. Decide
+  an optional quiet ongoing countdown notification and a foreground completion
+  signal, preserving timer edits, Start/cancel/session/occurrence invalidation and
+  process restoration. A database audit alone does not confirm delivery failures,
+  and heads-up or exact delivery cannot be guaranteed regardless of system settings.
 - **EX-03:** reopen the previously deferred high-risk exercise caution as
   informational content. Approve evidence, wording and trigger scope first; no
   injury diagnosis, automatic rehabilitation advice or inferred user risk.
@@ -155,7 +203,7 @@ summaries reconcile with work; instructions, setup and reminders work offline.
 | --- | --- | --- |
 | 0.8.0 | Exercise history and load/repetition/e1RM/working-volume charts | OF-04; corrected history, accessible values and load conventions |
 | 0.8.1 | Automatic records and summary integration | OF-04-P3; 0.8.0 metrics, ties/imports/corrections/deletions; manual PRs stay separate |
-| 0.8.2 | Catalog pattern conflicts and approved evidence-based corrections | CAT-P6; investigate gaps/outliers first; no unapproved recalibration |
+| 0.8.2 | Catalog pattern conflicts, approved corrections and machine-fly additions | CAT-P6; sourced machine chest fly/reverse machine fly identities and equipment/pattern/planner-pool decisions; investigate gaps/outliers first; no unapproved recalibration |
 | 0.8.3 | Rep-based forearm/wrist accessories | Sourced catalog additions and approved pattern/planner-pool contract |
 | 0.8.4 | Approved TRAPS selection and finer involvement-editing controls | Separate policy decisions first; implementation conditional on those decisions |
 | 0.8.5 | Accessible front/back anatomical fatigue map and reactive refresh | OF-08; artwork/license and refresh contract; preserve fatigue calculations |
@@ -177,6 +225,12 @@ automatic policy changes. Record no-change outcomes explicitly where warranted.
 - **Catalog follow-ups:** resolve the five CAT-P6 `knownPatternConflicts` by an
   approved pattern/involvement decision; investigate recorded source gaps and
   dataset outliers without pretending modeled tiers are measured calibration.
+  Scope machine chest fly (pec deck) and reverse machine fly as distinct sourced
+  seeded identities, not aliases that reinterpret existing dumbbell/cable history.
+  Approve equipment availability/identity, external-load semantics, involvement
+  mappings and movement-pattern/planner-pool reachability; preserve custom
+  identities/overrides and verify seed upgrades and downstream consumers. Split
+  into a further bounded catalog target if 0.8.2 becomes too broad.
 - **Forearm/grip:** sourced rep-based wrist accessories with a real pattern/pool
   contract using existing FOREARMS; do not mislabel them as biceps work.
 - Decide the deferred **TRAPS selection policy** and finer involvement-editing
@@ -232,7 +286,7 @@ Later prescription/metric additions extend these formats in the same changes.
 
 | Target | Reviewable release scope | Dependencies / references |
 | --- | --- | --- |
-| 0.10.0 | Historical-target and comparable-work integrity | LT-10 / OF-10A-P0 contract settled in 0.7.x; corrected/deleted-history replay |
+| 0.10.0 | Historical-target and comparable-work integrity | LT-10 / OF-10A-P0 contract settled in 0.7.x; blank/replaced targets, failed-set eligibility, corrected/deleted-history replay and separately approved historical day-label repair |
 | 0.10.1 | Approved progression and stall-handling policies | OF-10A; integrity first; equipment/periodization decisions and preserved NSCA/e1RM unless explicitly changed |
 | 0.10.2 | Ordered manual per-set prescriptions | PYR-01; targets preserved through routines, activation, logging and interchange |
 | 0.10.3 | Pyramid presets | PYR-01; manual per-set foundation and approved preset semantics |
@@ -249,6 +303,12 @@ results. A reserved target is not approval for inference or a fatigue multiplier
 - Implement the **LT-10 / OF-10A integrity contract** before advanced policies:
   historical targets, comparable completed work, session grouping, optional
   quality reports and corrected/deleted-history replay across progression/records.
+  Cover occurrence-only replacements and initially unknown loads without comparing
+  old performances against unrelated/latest targets. Decide below-target rep
+  eligibility explicitly; history feeding a best-recent load estimate does not
+  itself mean a failed target triggers a reduction. Any historical day-label repair
+  needs its own approved attribution, ambiguity, atomicity and portability contract;
+  preserve set identities, values and links rather than inferring labels from dates.
 - **OF-10A:** agreed double progression, hold/smaller-increment/reviewed-reset and
   stall handling; scope and equipment/periodization interactions decided first.
   Preserve NSCA/e1RM unless an explicit extension/replacement is approved.
@@ -339,12 +399,12 @@ CATP7-R01 may move earlier as a separately approved corrective if needed.
 | Target | Reviewable release scope | Dependencies / references |
 | --- | --- | --- |
 | 0.13.0 | Shared design tokens and navigation hierarchy | QL-01; agreed design direction, scoped components rather than a full rewrite |
-| 0.13.1 | Workout/logging screen polish | QL-01; preserve drafts, targets, session and timer semantics |
+| 0.13.1 | Workout/logging screen polish | QL-01 + OCT13-06; decide expired-rest dismissal without interrupting duration edits; preserve drafts, targets, session and timer semantics |
 | 0.13.2 | Remaining screen/component polish | QL-01; split into further screen-specific releases if too broad |
 | 0.13.3 | Adaptive tablet layouts and wide-window navigation | UX-01; rail/single-row navigation and useful multi-pane layouts |
 | 0.13.4 | Seamless foldable layouts and posture transitions | UX-01; tablet foundation, draft/workout/scroll/selection continuity |
 | 0.13.5 | Final accessibility remediation | Light/dark, text scale, screen reader/focus, touch targets and colour-independent access |
-| 0.13.6 | Final localization and instruction-coverage remediation | Locale/date/number/resources and remaining agreed content batches |
+| 0.13.6 | Final localization and instruction-coverage remediation | Locale/date/number/resources, remaining agreed content batches and CAT-01 media coverage/disposition |
 | 0.13.7 | Final UI-state and recovery remediation | First-run/empty/loading/error/cancel/retry, separately bounded fixes |
 | 0.13.8 | Final integration and 1.0-readiness closure | Upgrade/backup/regression, remaining ledger/performance checks, docs, licenses and supported-device limits |
 
@@ -354,6 +414,11 @@ Verification-only closure does not require an otherwise empty APK release.
 
 - **QL-01:** final coherent design/token/navigation/workout hierarchy pass across
   the completed product; scoped screen/component changes, not an unreviewed rewrite.
+  OCT13-06 tracks expired-rest presentation separately from Start-set cancellation:
+  decide compact finished state versus automatic dismissal, preserve an active
+  duration edit and explicit dismiss controls, and prevent expiry from unexpectedly
+  removing focus or discarding input. Immediate auto-dismiss is not an approved
+  default; the pre-0.7.4 correction clears rest on Start without settling this choice.
 - **UX-01:** adaptive layouts for tablets and seamless foldables. Replace the fixed
   two-row bottom bar with a single-row bar or navigation rail when the window is wide,
   add multi-pane where it helps, and handle posture changes so the cover screen and the
@@ -391,6 +456,7 @@ retain their separate approval/Plan Mode requirements.
 | Performance | Android-driver/on-device disk timing, physical-device frame baseline and measured repository/index follow-ups; AI timing/reliability in 0.12.x. Any physical-device execution needs separate approval; no optimization without before/after evidence. |
 | BACK investigation | Chunk 3 calibrates K/D/half-lives/C1–C3 only if correctly timed evidence warrants it; otherwise record the no-change decision. Chunk 4 captures exact value/time/build if literal >100% recurs; a non-reproduced report is not a fabricated fix. |
 | Catalog/content | CAT-P6 conflicts, recorded modeled-family evidence gaps/outliers, forearm/pattern and TRAPS decisions, future sourced batches/instruction coverage; no forced EMG/physiology claims. |
+| Oct 13 live-testing follow-up | Before 0.7.4 instruction work: OCT13-01/02/03/04/07 small corrections, new logs only. OCT13-05 alert investigation/integration in 0.7.7; OCT13-06 expired-rest UX in 0.13.1. Machine-fly seeds in 0.8.2; returning-user/starting-load onboarding in 0.7.6; CAT-01 media batches/coverage closure by 0.13.6. LT-10 decisions in 0.7.x and integrity/any separately approved historical repair in 0.10.0. All retain behavioral, verification and implementation gates; no phone-derived rows or snapshots enter the repository. |
 | Tool/dependency decisions | Use approved MockK only where meaningful; assess the single-glyph material-icons-extended follow-up without unsolicited dependency churn; licensing remains separately checked. |
 | Release housekeeping | Explicitly decide stale v0.1.0 prerelease cleanup and confirm Q4e's user-side disposition; neither creates new shipped feature work. Destructive remote cleanup requires its own approval. |
 
