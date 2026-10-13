@@ -507,6 +507,34 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - Offline artifact verification still confirms `versionName`/`versionCode` against the tag/run
   number; schema compatibility is covered by the host `verifySqlDelightMigration` check.
 
+### 0.7.4 C1–C3 review-fix verification (2026-10-13)
+
+Verified against HEAD `a2b2a19d` plus the uncommitted C2/C3 content and approved R074-01..03/calf
+split follow-up. This is builder verification, not targeted reviewer closure or editorial acceptance.
+
+- Full Tier A gate passed: `testAndroidHostTest`, `:core:database:verifySqlDelightMigration`,
+  `ktlintCheck`, `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64`,
+  `:core:network:compileKotlinIosSimulatorArm64` and
+  `:core:exercisecontent:compileKotlinIosSimulatorArm64` (4m 19s; unchanged tasks reused Gradle
+  up-to-date results). Evidence: `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/074-fixes-tierA.log`.
+- Targeted host checks: exercise-content source tests 8/8, Robolectric actual resource/fallback
+  tests 2/2, seed coverage 1/1, seed catalog 18/18, custom dedupe 37/37; no failures/errors/skips.
+  Resource tests use SDK 35 and check all 17 authored Setup/Execution pairs and viewer labels,
+  German-to-English fallback, and distinct dumbbell/machine calf content. Common tests enforce
+  exact per-ID resource keys; database host tests validate authored XML IDs against real seed rows.
+- Existing-install label correction and repeated seeding preserve the dumbbell exercise ID,
+  equipment, logged rows and user overrides, including the effective history-search projection.
+  Both calf labels are protected against startup merging of pre-existing same-name custom records;
+  tests retain their set/plan/routine/activation/occurrence references, records, preferences,
+  exclusions, rest settings and notes. The new machine identity uses the existing machine tag.
+- `Exercise.sq` changes queries only; no schema or backup encoding changes. No Koin bindings change.
+  Robolectric 4.17 (MIT) and existing coroutine-test are Android-host-test-only dependencies;
+  Android host resources are enabled. Initial Robolectric SDK/dependency downloads are test setup,
+  not a production network requirement. No emulator or phone data was touched.
+- Remaining gates: separate editorial acceptance, requested Plan-mode targeted reviewer closure,
+  C4/C5 wiring and emulator acceptance, and C6 final integration. No release artifact, signed
+  upgrade, font/theme/locale UI variants, commit, push or CI run is claimed by this record.
+
 ### Pre-0.7.4 Oct-13 correctives candidate verification (2026-10-13)
 
 Candidate for the Oct 13 pre-0.7.4 corrective scope placed in `docs/roadmap.md`: development-build
