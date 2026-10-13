@@ -536,6 +536,79 @@ All 17 instructions were separately editorially accepted 2026-10-13 without chan
   acceptance, and C6 final integration. No release artifact, signed upgrade, font/theme/locale UI
   variants, push or CI run is claimed by this record.
 
+### 0.7.4 C4–C6 instruction access (2026-10-13)
+
+Implementation started at `3ecd3bca` with a clean working tree. R074-05 corrects the stale editorial
+status in `docs/exercise-catalog-sources.md`; all 17 texts remain unchanged. Equipment exposes a
+separate labelled action for built-in/custom rows; Logger exposes manual, planned and guided-slot
+actions, including completed guided slots. Constructors, bindings, schema and persistence are unchanged.
+
+- C4 checks passed: Equipment host tests (30 ViewModel + 3 profile-state tests), module lint and
+  debug assembly. New regressions cover effective title/stable identity, removal/custom projection
+  and opening/dismissal without changing equipment/editor state.
+- C5 checks passed: Logger host tests (289 ViewModel tests plus the existing feature suites), module
+  lint and debug assembly. New regressions compare all presentation state except viewer selection,
+  including reps/load/RIR, draft editor and guided progress; reject stale draft/guided-slot actions
+  after occurrence switching; and clear instructions on exercise/session changes without logging sets.
+- Full candidate matrix passed: `testAndroidHostTest`, `:core:database:verifySqlDelightMigration`,
+  `ktlintCheck`, `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64`,
+  `:core:network:compileKotlinIosSimulatorArm64` and
+  `:core:exercisecontent:compileKotlinIosSimulatorArm64`. Result: BUILD SUCCESSFUL in 17s;
+  30 executed tasks, 622 up-to-date. No Koin graph changes. The existing actual-resource, exact-key
+  and real-seed tests still verify all 17 entries and German-to-English fallback, not 17 UI journeys.
+  Evidence: `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/074-c6-tierA.log`;
+  targeted logs in the same directory are `074-c4.log` and `074-c5.log`.
+- Emulator: `emulator-5554`, debug, 1080×2400, English and existing light appearance. No system
+  setting, permission, catalog/preference, note, set or block write was performed. The initial screen
+  was Settings with no editor/keyboard; Logger had no active session/block and no manual selection.
+  Navigation/filtering/selection only changed transient state; manual suggestions came from existing
+  data. Final state is Logger with Back Squat selected, 7 reps/42 kg, blank RIR, no dialog, and existing
+  planned drafts retained. No manual input was edited or record cleanup required.
+- Checked-in Equipment flow passed after one absolute-screenshot-path correction; the first run
+  stopped at screenshot capture, and the inspected dialog was closed before the safe rerun.
+  Logger flow passed, including the final resource-id revision, preserving 7 reps/42 kg.
+  Container-aware scrolling reached the manual and planned instruction actions without scrolling
+  the nested picker. Scratch read-only checks opened unavailable Bodyweight Squat from both manual
+  selection and its planned draft, asserted the unavailable state and closed it.
+- Viewed screenshots: `/tmp/hydrafit-074-equipment-dialog.png`,
+  `/tmp/hydrafit-074-c5-final-flow/2026-10-13_192245/logger-exercise-instructions/takeScreenshot/logger-instructions.png`,
+  `/tmp/hydrafit-074-unavailable-assert/2026-10-13_192044/hydrafit-074-unavailable-assert/takeScreenshot/unavailable.png`
+  and `/tmp/hydrafit-074-planned/2026-10-13_192503/hydrafit-074-planned/takeScreenshot/planned-unavailable.png`.
+  Title/sections/Close fit the inspected viewport. Semantic controls were inspected; TalkBack speech
+  and measured WCAG contrast were not checked. The bounded scroll command completed, but Back Squat
+  text already fit: actual overflowing-content scrolling is not established by that command.
+
+**C6 follow-up (2026-10-13, approved fixture + locale scope).** Starting baseline: no active block,
+guided off, no open session, no custom exercise, 54 sets, no app-locale override, `en-US`, font scale
+1.0, light. All temporary state was created by this check and restored afterwards; the final read-only
+copy shows guided off, 0 ACTIVE activations, 0 open sessions, 54 sets and 0 customs, and the app locale
+is back to `en_US` with no override.
+
+- Guided runtime acceptance passed against an approved temporary `Test` activation with guided on:
+  the guided card showed `0 of 10 sets`, and both `logger_guided_instructions_184` (Band Curl) and
+  `_185` (Band Good Morning) opened the explicit unavailable state and closed with progress unchanged.
+  A previous run was interrupted mid-flow by the harness; its log showed all steps completed and a
+  fresh hierarchy confirmed both dialogs closed (no replay was performed).
+- Custom-row unavailable UI passed against an approved synthetic custom exercise (saved, then used):
+  the Equipment row's Instructions opened the explicit unavailable state with the custom title, and a
+  manual Logger selection and a planned draft of an uncovered seeded exercise showed the same state.
+  The synthetic exercise was deleted afterwards through the app; aggregates returned to 0 customs.
+- Locale fallback passed on device: with the app locale set to `de-DE` (configuration reported
+  `[de_DE,en_US]`), the Equipment Back Squat dialog still resolved English `Setup`/`Execution` headings,
+  both full English sentences and `Close`, with no blank or placeholder text. Restored to `en_US`.
+- Fixture screenshots viewed: guided-band-curl and guided-band-good-morning in
+  `/tmp/hydrafit-074-guided-instructions/**`, custom-unavailable in
+  `/tmp/hydrafit-074-custom-instructions/**`, and de-instructions in `/tmp/hydrafit-074-de-instructions-2/**`.
+- **User-verified (not agent-run):** font scale 1.3 with the Equipment and Logger instruction dialogs
+  open in light mode, and dark mode for the same dialogs. These variants were reported verified by the
+  user rather than captured by this agent, so no screenshot or semantic assertion exists here for them.
+- Still unverified by this agent: a true overflowing long-content scroll on device (Back Squat text fit),
+  each of the other 16 exercises' wired UI journeys, TalkBack speech and measured WCAG contrast.
+  Formal review, publication and CI remain separate.
+
+**C6 status: essentially complete — implementation verified; changes remain uncommitted and formally
+unreviewed.** The remaining items above are either host-covered, user-verified, or explicitly waived.
+
 ### Pre-0.7.4 Oct-13 correctives candidate verification (2026-10-13)
 
 Candidate for the Oct 13 pre-0.7.4 corrective scope placed in `docs/roadmap.md`: development-build

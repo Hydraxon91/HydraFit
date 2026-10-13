@@ -12,6 +12,8 @@ do not cancel someone else's draft or restart the app to establish them.
 
 | Flow | Starting state | Allowed changes | Expected finish |
 | --- | --- | --- | --- |
+| `equipment-exercise-instructions.yaml` | Equipment filtered to exactly Back Squat, row visible, no keyboard/editor/dialog | Read-only instruction open/scroll/Close | Same filtered row and Edit action; no catalog, preference or record write |
+| `logger-exercise-instructions.yaml` | Manual Back Squat selected; Instructions and form visible, no keyboard/dialog; inspect reps/load first and pass `REPS`/`WEIGHT` (defaults 7/42 kg) | Read-only instruction open/scroll/Close, no input editing or logging | Reps/load unchanged and RIR input still available; no set/progress/rest/note write |
 | `navigation-smoke.yaml` | Equipment tab selected, no dialog/editor | Tab navigation only | Equipment tab selected; scroll position is not asserted |
 | `routine-editor-cancel.yaml` | Equipment tab selected, no dialog/editor | Navigate to Routines, new unsaved name, semantic Cancel, return | Editor closed before returning to Equipment; Save is never tapped |
 | `logger-session-controls.yaml` | No active session, no dialog/editor | Navigate to Logger only | No active session; End disabled and New label visible/enabled; neither action is tapped |
@@ -26,6 +28,27 @@ do not cancel someone else's draft or restart the app to establish them.
 The navigation flow visits all six tabs and asserts the selected tab after each
 tap; visible navigation labels alone are not a success oracle. It is also the
 regression flow for the two-row, fully labeled navigation layout.
+
+The instruction flows do not launch, restart or write data. Establish their narrow starting state
+through fresh inspection. Equipment has one outer scroll container; Logger reachability uses
+`scripts/maestro-scroll.sh --target-id logger_manual_instructions --container-id logger_list` to
+avoid the nested picker. The manual action has its own resource id; planned and guided actions have
+slot-specific ids so they are not confused with each other or with setup notes. Each run has the
+documented 120-second hard limit. Screenshots use relative names within the external test-output
+directory (the CLI rejects absolute paths). No automatic recovery or cleanup writes are attached.
+
+On 2026-10-13 the Equipment Back Squat flow passed after one screenshot-path correction; the
+Logger flow passed with unchanged 7 reps/42 kg, including its final id-based revision. Viewed images
+and verification limits are recorded in `docs/qa.md` §13.
+
+Guided instructions were verified on 2026-10-13 against an approved temporary active block (guided on)
+that was cancelled afterwards; no checked-in flow creates one, so establish that fixture explicitly and
+restore guided off when finished. The custom-row unavailable state was verified with a synthetic custom
+exercise that was deleted after the check. Locale fallback was verified by setting the app locale with
+`adb shell cmd locale set-app-locales com.hydrafit.app --locales de-DE` (Android 13+; does not touch the
+device locale) and restoring it with `--locales ''`; the app configuration reported `[de_DE,en_US]`
+while the English fallback text resolved. These fixture and locale steps are documented here because
+they are not part of the read-only checked-in flows and must be undone.
 
 The editor name starts blank (`RoutinesViewModel.onNewRoutine`); this flow does
 not rely on `eraseText` clearing an arbitrary existing field. The single new

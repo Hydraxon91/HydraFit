@@ -6,6 +6,16 @@ Paths are relative to the repository root; package shorthand is defined in
 For logger work, the concrete files are `WorkoutLoggerModule.kt`,
 `WorkoutLoggerScreen.kt`, `WorkoutLoggerViewModel.kt`, and
 `WorkoutLoggerUiState.kt` under the feature package root.
+
+Offline instruction access is presentation-only. Equipment's `instructionExerciseId` resolves the
+effective row through `instructionExercise`; its separate Instructions button never enters Edit,
+and custom rows pass no content ID. Logger's `LoggerExerciseInstructions` carries the selected ID
+and displayed manual/frozen title. `openManualInstructions`, `openDraftInstructions` and
+`openGuidedInstructions` only change that state; stale draft/entry callbacks are refused. Exercise
+selection/quick-fill, session changes, accepted-plan/day rebuilds, block/occurrence changes and guided
+mode changes clear it. The actions never invoke a write or change draft/progress/rest/note state.
+`LoggerTestTags` supplies distinct manual, draft and guided instruction-action identities; named
+flows and their preconditions live in `.maestro/README.md`.
 `WorkoutLoggerScreen.kt` contains `loggerDestination`, `loggerGraph`,
 `WorkoutLoggerRoute`, and the stateless screen. Equipment instead keeps
 navigation in `EquipmentNavigation.kt`. The ViewModel depends on the domain

@@ -810,6 +810,15 @@ filled with generated or generic guidance. The viewer only presents text (scroll
 semantics) and holds no state, so opening or dismissing it cannot log a set or disturb an owning
 feature's unsaved draft. Instructions never influence the planner, fatigue or catalog facts.
 
+Equipment offers a labelled Instructions action alongside Edit for every catalog row, without
+entering the editor. Its presentation state selects by ID and resolves the effective row title;
+custom rows explicitly request the unavailable state. Logger offers separate actions for its manual
+selection, planned drafts and guided exercise slots (including completed slots), using the displayed
+manual or frozen prescription title. Opening/dismissing changes only instruction presentation state.
+Exercise selection, quick-fill, session identity, accepted-plan/day rebuilds, block/occurrence changes
+and guided-mode changes clear that state. Stale draft/entry callbacks are rejected against the current
+context. No Koin bindings, constructors, catalog storage, notes or logging actions change.
+
 **Content policy.** Text is independently authored with exercise-specific setup and execution cues
 and recorded provenance in `docs/exercise-catalog-sources.md`; no copyrighted description or
 unlicensed media is copied, and no performance, injury-prevention or physiology claim is made.

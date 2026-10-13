@@ -126,3 +126,9 @@ a production dependency. Exercise-content Robolectric host tests load the actual
 resources, checking nonempty sections/labels and German-to-English fallback. Robolectric 4.17
 (MIT) and coroutine-test are test-only; no emulator, network content service or production test
 framework dependency is introduced. Editorial acceptance remains separate.
+
+All 17 texts were editorially accepted unchanged on 2026-10-13. Equipment and Logger now expose
+labelled Instructions actions; feature-owned selection state and invalidation are described in
+`features.md`. Equipment uses the effective row title and explicitly requests unavailable content
+for custom rows; Logger uses manual-selection or frozen draft/guided identity and title. No name
+matching, profile copying, catalog write or prescription edit is involved.
