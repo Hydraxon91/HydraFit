@@ -602,9 +602,20 @@ is back to `en_US` with no override.
 - **User-verified (not agent-run):** font scale 1.3 with the Equipment and Logger instruction dialogs
   open in light mode, and dark mode for the same dialogs. These variants were reported verified by the
   user rather than captured by this agent, so no screenshot or semantic assertion exists here for them.
-- Still unverified by this agent: a true overflowing long-content scroll on device (Back Squat text fit),
-  each of the other 16 exercises' wired UI journeys, TalkBack speech and measured WCAG contrast.
-  Formal review, publication and CI remain separate.
+- **Long-content scroll resolved (2026-10-13):** the dialog is not clipped at the maximum supported
+  larger text scale. At font scale 1.3 the longest authored pair (Standing Calf Raise Machine, 551
+  characters setup + execution) rendered both `Setup`/`Execution` headings, both complete paragraphs
+  and `Close` with no gesture at all, asserted semantically and viewed in a screenshot; the earlier
+  Before/After swipe pair on the same dialog was pixel-identical, and a Back Squat run at 1.3 likewise
+  fit. So no shipped instruction overflows at supported text sizes, and the viewer's `verticalScroll`
+  has no clipping case to exercise with the current 17-text set. Behavior under genuinely overflowing
+  content (for example a much longer future batch or a very small viewport) is not demonstrated and is
+  not claimed. Evidence: `/tmp/hydrafit-074-noswipe-longest-2.log` and its `longest-noswipe.png`;
+  `/tmp/hydrafit-074-scroll-longest.log`; `/tmp/hydrafit-074-scroll-font13.log`. Font scale was restored
+  to 1.0 afterwards and the read-only copy re-confirmed guided off, 0 ACTIVE activations, 0 open
+  sessions, 54 sets and 0 customs.
+- Still unverified by this agent: each of the other 16 exercises' wired UI journeys, TalkBack speech
+  and measured WCAG contrast. Formal review, publication and CI remain separate.
 
 **C6 status: essentially complete — implementation verified; changes remain uncommitted and formally
 unreviewed.** The remaining items above are either host-covered, user-verified, or explicitly waived.
