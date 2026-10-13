@@ -31,7 +31,12 @@ claim 100% automation reliability. Prefer a verified failure to a guessed succes
    offline (checksum, `apksigner verify`, manifest `versionName`/`versionCode`) and report
    signed-upgrade/on-device runtime checks as unverified. `adb uninstall` or data clear still
    needs explicit approval. Historical release-verification records are not permission.
-4. Inspect the current hierarchy before targeting. If MCP inspection fails,
+4. Inspect the current hierarchy before targeting. Call Maestro tools directly:
+   `.opencode/opencode.json` sets `mcp.servers.maestro.codemode: false` because
+   OpenCode's Code Mode serialization rejects hierarchies deeper than 32 JSON
+   levels. `JSON.stringify` in Code Mode does not bypass that limit. Direct
+   inspection passed on OpenCode 2.0.20 / Maestro 2.11.0 on 2026-10-13.
+   If direct MCP inspection fails,
    use one bounded Maestro CLI `hierarchy --no-reinstall-driver --compact` call
    with the explicit emulator id (command in `.maestro/README.md`). Its flat CSV
    retains element numbers, depth, attributes and parent references without the

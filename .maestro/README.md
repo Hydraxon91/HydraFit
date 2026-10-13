@@ -338,7 +338,17 @@ AVD name or phone. The existing targeting helper can verify it:
 ANDROID_SERIAL=emulator-5554 bash -c 'source scripts/emulator-common.sh; require_emulator'
 ```
 
-If MCP inspection fails, use the same Maestro driver through flat CLI output:
+Use direct Maestro MCP tools for inspection. `.opencode/opencode.json` sets
+`mcp.servers.maestro.codemode: false`; do not wrap Maestro calls in Code Mode.
+This machine-local config is gitignored; other checkouts must set the same option
+in their own Maestro MCP configuration.
+OpenCode 2.0.20 limits Code Mode serialization to 32 JSON levels, including
+`JSON.stringify`, while Maestro's child objects/arrays can exceed that limit.
+Direct `inspect_screen` returned the full Settings hierarchy on 2026-10-13 with
+Maestro 2.11.0, without a service/app restart or state changes. See
+`docs/maestro-evaluation.md` for the diagnosis and verification limits.
+
+If direct MCP inspection fails, use the same Maestro driver through flat CLI output:
 
 ```bash
 MAESTRO_CLI_NO_ANALYTICS=1 MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED=true perl -e 'alarm 30; exec @ARGV' "$HOME/.maestro/bin/maestro" --device emulator-5554 hierarchy --no-reinstall-driver --compact > /tmp/hydrafit-maestro-hierarchy.csv 2>/tmp/hydrafit-maestro-hierarchy.log

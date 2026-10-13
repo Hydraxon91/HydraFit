@@ -49,7 +49,12 @@ Paths below are relative to the repository root.
   loop, recreate records, attempt restoration, or rerun the write journey without
   explicit approval. Continue unrelated checks only if their preconditions remain
   valid and within the original time budget; an accident never resets that budget.
-- If MCP inspection fails, use one bounded Maestro CLI `hierarchy
+- Call Maestro tools directly, not through Code Mode. The project config sets
+  `mcp.servers.maestro.codemode: false` to bypass OpenCode's depth-32 Code Mode
+  serialization limit on nested screen hierarchies. `JSON.stringify` inside
+  Code Mode hits the same limit; it is not a recovery path. Direct inspection
+  was verified on OpenCode 2.0.20 with Maestro 2.11.0 on 2026-10-13.
+- If direct MCP inspection fails, use one bounded Maestro CLI `hierarchy
   --no-reinstall-driver --compact` fallback (see `.maestro/README.md`). If it succeeds,
   use compact CLI inspection for the rest of that test; do not retry the failing MCP
   hierarchy path. Fresh bounded CLI inspections after screen changes are required

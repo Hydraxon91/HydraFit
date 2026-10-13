@@ -195,8 +195,29 @@ verification limits. On 2026-10-09 MCP inspection returned
 `RangeError: Value exceeds the maximum depth of 32`; returning a JSON string from
 Code Mode also failed. The flat CLI hierarchy succeeded on the same screen
 (156 nodes, maximum tree depth 17), isolating the failure to the MCP integration
-path rather than an unreadable UI. The exact component imposing that limit is
-still untraced. ADB dump failures (exit 137, including compressed dump) are traced
+path rather than an unreadable UI. The limit was traced on 2026-10-13 to
+OpenCode 2.0.20's Code Mode serialization, not Maestro's hierarchy acquisition:
+a synthetic nested object reproduced the error without Maestro, and
+`JSON.stringify` hit the same limit. Flattening the actual MCP response inside
+Code Mode before returning it succeeded (114 elements, maximum tree depth 16).
+Each child object/array adds JSON nesting, so UI depth can be below 32 while
+serialized depth exceeds it.
+
+The local, gitignored `.opencode/opencode.json` now uses native V2
+`mcp.servers.maestro` configuration with `codemode: false`, exposing Maestro tools
+directly. Other checkouts need the same setting in their local configuration.
+Its command, environment,
+enabled state and 120000 ms catalog/execution timeouts are preserved. OpenCode
+reloaded the configuration without a service restart; `opencode mcp list`
+reported Maestro connected, and direct `list_devices` then `inspect_screen`
+returned the complete Settings hierarchy on `emulator-5554`, including bounds,
+labels, radio states and selected Settings tab, without the depth error.
+No navigation, app restart, install, permission or data changes were performed.
+Compact CLI remains the bounded fallback for direct MCP failures. Verification
+is limited to this read-only screen and these versions; flow execution, other
+screens and restart persistence were not exercised by this tooling fix.
+
+ADB dump failures (exit 137, including compressed dump) are traced
 to Android's `UiAutomationService ... already registered!` with Maestro
 instrumentation active. Screenshots/logcat remain usable; no driver kill,
 reinstallation or app restart is needed for the successful CLI fallback.
