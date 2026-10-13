@@ -25,6 +25,12 @@ permissions:
     resource: "git rev-parse *"
     effect: allow
   - action: shell
+    resource: "git add *"
+    effect: allow
+  - action: shell
+    resource: "git commit *"
+    effect: allow
+  - action: shell
     resource: "gh run list *"
     effect: allow
   - action: shell
