@@ -9,7 +9,8 @@ restarts the app or clears state, so it cannot trigger a write.
 
 Exit codes:
     0  target is visible (possibly after swiping)
-    2  blocked (missing/duplicate container, ambiguous target, no safe gesture region)
+    2  blocked (bad device, missing/duplicate/non-scrollable container, ambiguous or
+       out-of-container target, no safe gesture region)
     3  failed (target never became visible within the swipe/progress bounds)
     4  timeout or a hierarchy/inspection failure
 """
@@ -36,6 +37,9 @@ DEFAULT_TIMEOUT_SECONDS = 120.0
 MIN_GESTURE_PIXELS = 120
 SWIPE_DURATION_MS = 400
 SCROLL_MARGIN_PX = 8
+# An edge-clipped node reports bounds cut to its visible part with no clipping flag, so a node is
+# only treated as fully visible when it clears the container's top/bottom edges by this inset.
+EDGE_INSET_PX = 16
 
 EXIT_OK = 0
 EXIT_BLOCKED = 2
@@ -187,15 +191,30 @@ def excluded_indexes(rows: list[Row], nested: Iterable[Row]) -> set[int]:
 
 
 def is_visible(target: Row, container: Row) -> bool:
+    """Whether the target is fully usable inside the container.
+
+    A node clipped by the scroll viewport reports bounds cut to the visible part, with no clipping
+    flag, so plain containment would accept a row that only shows a sliver at the container edge.
+    Requiring an inset rejects those; a target at least as tall as the container cannot satisfy the
+    inset and falls back to plain containment, since it can never be shown whole.
+    """
     target_bounds = target.bounds
     container_bounds = container.bounds
     if target_bounds is None or container_bounds is None:
         return False
-    return (
+    contained = (
         target_bounds.top >= container_bounds.top
         and target_bounds.bottom <= container_bounds.bottom
         and target_bounds.left >= container_bounds.left
         and target_bounds.right <= container_bounds.right
+    )
+    if not contained:
+        return False
+    if target_bounds.height >= container_bounds.height:
+        return True
+    return (
+        target_bounds.top >= container_bounds.top + EDGE_INSET_PX
+        and target_bounds.bottom <= container_bounds.bottom - EDGE_INSET_PX
     )
 
 
@@ -299,13 +318,22 @@ class Scroller:
         if len(containers) != 1:
             return ScrollStep("blocked", f"expected one {self.container_id}, found {len(containers)}")
         container = containers[0]
+        if container.bounds is None:
+            return ScrollStep("blocked", f"{self.container_id} has no bounds")
+        if not container.scrollable:
+            return ScrollStep("blocked", f"{self.container_id} is not a scroll container")
 
-        targets = find_targets(rows, self.target_id, self.target_text)
-        if len(targets) > 1:
-            return ScrollStep("blocked", f"ambiguous target, found {len(targets)}")
+        matched = find_targets(rows, self.target_id, self.target_text)
+        inside_indexes = set(descendants(rows, container.index))
+        inside = [row for row in matched if row.index in inside_indexes]
+        if len(inside) > 1:
+            return ScrollStep("blocked", f"ambiguous target, found {len(inside)}")
+        if not inside and matched:
+            # The id or text matched something outside the container: not this list's target.
+            return ScrollStep("blocked", "the target is outside the container")
         # A scroll container composes only what is on screen, so the target is normally absent until
         # it scrolls into view: absence means "keep going", never "blocked".
-        if len(targets) == 1 and is_visible(targets[0], container):
+        if inside and is_visible(inside[0], container):
             return ScrollStep("done", "target is visible")
 
         nested = nested_scrollables(rows, container)
@@ -337,14 +365,20 @@ def drive(
 ) -> ScrollStep:
     """Run the observe/decide/swipe loop under the deadline. `inspect` returns fresh text or None."""
     while True:
-        if deadline is not None and clock() > deadline:
+        if deadline is not None and clock() >= deadline:
             return ScrollStep("timeout", "time budget exhausted")
         csv_text = inspect()
-        if csv_text is None:
+        if not csv_text:
             return ScrollStep("timeout", "hierarchy inspection failed")
-        step = scroller.plan(parse_hierarchy(csv_text))
+        rows = parse_hierarchy(csv_text)
+        if not rows:
+            return ScrollStep("timeout", "hierarchy listing was not usable")
+        step = scroller.plan(rows)
         if step.action != "swipe":
             return step
+        # Inspection may have consumed the remaining budget: never start a gesture without one.
+        if deadline is not None and clock() >= deadline:
+            return ScrollStep("timeout", "time budget exhausted before swiping")
         if not swipe(step.gesture):
             return ScrollStep("timeout", "swipe failed")
         scroller.swipes += 1
@@ -359,7 +393,21 @@ def _maestro_env() -> dict[str, str]:
 
 def _run(cmd: list[str], timeout: float) -> Optional[subprocess.CompletedProcess]:
     try:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=max(1.0, timeout), env=_maestro_env())
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=_maestro_env())
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+
+
+def _run_to_file(cmd: list[str], timeout: float, stdout_handle) -> Optional[subprocess.CompletedProcess]:
+    try:
+        return subprocess.run(
+            cmd,
+            stdout=stdout_handle,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=timeout,
+            env=_maestro_env(),
+        )
     except (subprocess.TimeoutExpired, OSError):
         return None
 
@@ -369,21 +417,17 @@ def make_inspector(maestro: str, device: str, artifacts_dir: str, remaining: Cal
     counter = {"n": 0}
 
     def inspect() -> Optional[str]:
+        budget = remaining()
+        if budget <= 0:
+            return None
         counter["n"] += 1
         path = os.path.join(artifacts_dir, f"hierarchy-{counter['n']}.csv")
         cmd = [maestro, "--device", device, "hierarchy", "--no-reinstall-driver", "--compact"]
         with open(path, "w") as handle:
-            try:
-                subprocess.run(
-                    cmd,
-                    stdout=handle,
-                    stderr=subprocess.DEVNULL,
-                    text=True,
-                    timeout=max(1.0, remaining()),
-                    env=_maestro_env(),
-                )
-            except (subprocess.TimeoutExpired, OSError):
-                return None
+            result = _run_to_file(cmd, budget, handle)
+        # A failed inspection may still have written partial output: never consume it.
+        if result is None or result.returncode != 0:
+            return None
         try:
             with open(path) as handle:
                 return handle.read()
@@ -397,6 +441,9 @@ def make_swiper(maestro: str, device: str, app_id: str, artifacts_dir: str, rema
     counter = {"n": 0}
 
     def swipe(gesture: Gesture) -> bool:
+        budget = remaining()
+        if budget <= 0:
+            return False
         counter["n"] += 1
         x1, y1, x2, y2 = gesture
         flow_path = os.path.join(artifacts_dir, f"swipe-{counter['n']}.yaml")
@@ -409,7 +456,7 @@ def make_swiper(maestro: str, device: str, app_id: str, artifacts_dir: str, rema
             )
         out_dir = os.path.join(artifacts_dir, f"swipe-out-{counter['n']}")
         cmd = [maestro, "--device", device, "test", "--no-reinstall-driver", "--test-output-dir", out_dir, flow_path]
-        result = _run(cmd, remaining())
+        result = _run(cmd, budget)
         return result is not None and result.returncode == 0
 
     return swipe
@@ -429,7 +476,22 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--max-no-progress", type=int, default=DEFAULT_MAX_NO_PROGRESS)
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_SECONDS)
     parser.add_argument("--artifacts-dir", default=None)
+    parser.add_argument(
+        "--expected-device",
+        default=None,
+        help="serial the wrapper already verified; the effective --device must match it",
+    )
     args = parser.parse_args(argv)
+
+    if not re.fullmatch(r"emulator-\d+", args.device):
+        print(f"BLOCKED: --device must be an explicit emulator serial, not {args.device!r}")
+        return EXIT_BLOCKED
+    if args.expected_device is not None and args.expected_device != args.device:
+        print(
+            f"BLOCKED: --device {args.device} does not match the verified emulator "
+            f"{args.expected_device}"
+        )
+        return EXIT_BLOCKED
 
     artifacts_dir = args.artifacts_dir or tempfile.mkdtemp(prefix="hydrafit-scroll-", dir=tempfile.gettempdir())
     os.makedirs(artifacts_dir, exist_ok=True)

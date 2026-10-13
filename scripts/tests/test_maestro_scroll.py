@@ -10,9 +10,13 @@ Run: python3 scripts/tests/test_maestro_scroll.py
 import contextlib
 import importlib.util
 import io
+import os
 import pathlib
+import subprocess
 import sys
+import tempfile
 import unittest
+from unittest import mock
 
 MODULE_PATH = pathlib.Path(__file__).resolve().parents[1] / "maestro-scroll.py"
 # Loading the helper by path would otherwise drop a __pycache__ directory into scripts/.
@@ -114,6 +118,43 @@ class DecisionTests(unittest.TestCase):
         step = self._target().plan(ms.parse_hierarchy(text))
         self.assertEqual("done", step.action)
         self.assertIsNone(step.gesture)
+
+    def test_edge_clipped_target_is_not_visible(self):
+        # Bounds cut to the container's bottom edge, as a real clipped LazyColumn row reports them:
+        # a sliver at the edge is not a usable target even though it is contained.
+        text = logger_screen(picker_bounds=(42, 1071, 1038, 1544), target_bounds=(74, 1885, 680, 1917))
+        step = self._target().plan(ms.parse_hierarchy(text))
+        self.assertEqual("swipe", step.action)
+
+    def test_oversized_target_falls_back_to_containment(self):
+        # A target at least as tall as the container can never be shown whole; containment suffices.
+        text = hierarchy([
+            (0, 0, "", None),
+            (1, 1, attrs("resource-id=logger_list", bounds(0, 63, 1080, 1917), "scrollable=true"), 0),
+            (2, 2, attrs("resource-id=logger_warmup_prep_X", bounds(0, 63, 1080, 1917)), 1),
+        ])
+        self.assertEqual("done", self._target().plan(ms.parse_hierarchy(text)).action)
+
+    def test_target_outside_the_container_is_blocked(self):
+        # A global id/text match outside the container is not this list's target: report, do not swipe.
+        text = hierarchy([
+            (0, 0, "", None),
+            (1, 1, attrs("resource-id=logger_list", bounds(0, 63, 1080, 1917), "scrollable=true"), 0),
+            (2, 1, attrs("resource-id=logger_warmup_prep_X", bounds(0, 900, 50, 950)), 0),
+        ])
+        step = self._target().plan(ms.parse_hierarchy(text))
+        self.assertEqual("blocked", step.action)
+        self.assertIn("outside the container", step.reason)
+
+    def test_non_scrollable_container_is_blocked(self):
+        text = hierarchy([
+            (0, 0, "", None),
+            (1, 1, attrs("resource-id=logger_list", bounds(0, 63, 1080, 1917)), 0),
+            (2, 2, attrs("resource-id=logger_warmup_prep_X", bounds(0, 900, 50, 950)), 1),
+        ])
+        step = self._target().plan(ms.parse_hierarchy(text))
+        self.assertEqual("blocked", step.action)
+        self.assertIn("not a scroll container", step.reason)
 
     def test_partially_clipped_target_is_not_visible(self):
         # The target starts inside the container but runs past its bottom edge.
@@ -256,6 +297,77 @@ class DriveTests(unittest.TestCase):
             clock=lambda: next(times),
         )
         self.assertEqual("timeout", step.action)
+
+    def test_no_swipe_when_inspection_exhausts_the_budget(self):
+        # The gesture must never start once inspection has eaten the remaining budget.
+        text = logger_screen(picker_bounds=(42, 1071, 1038, 1544), target_bounds=(74, 4000, 680, 4100))
+        swipes = []
+        times = iter([0.0, 999.0])
+        step = ms.drive(
+            ms.Scroller(target_id="logger_warmup_prep_X"),
+            lambda: text,
+            lambda gesture: swipes.append(gesture) or True,
+            deadline=10.0,
+            clock=lambda: next(times),
+        )
+        self.assertEqual("timeout", step.action)
+        self.assertEqual([], swipes)
+
+    def test_malformed_listing_is_not_usable(self):
+        step = ms.drive(ms.Scroller(target_id="logger_warmup_prep_X"), lambda: hierarchy([]), lambda gesture: True)
+        self.assertEqual("timeout", step.action)
+
+
+class InspectorTests(unittest.TestCase):
+    def test_failed_inspection_output_is_never_consumed(self):
+        # A failing hierarchy run can still emit partial bytes; exit status must win.
+        text = logger_screen(picker_bounds=(42, 1071, 1038, 1544), target_bounds=(74, 800, 680, 900))
+
+        def fake_run(cmd, stdout=None, **kwargs):
+            if stdout is not None:
+                stdout.write(text)
+            return subprocess.CompletedProcess(cmd, 7)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            inspector = ms.make_inspector("maestro", "emulator-5554", tmp, lambda: 10.0)
+            with mock.patch.object(ms.subprocess, "run", side_effect=fake_run):
+                self.assertIsNone(inspector())
+
+    def test_inspector_refuses_to_run_without_budget(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            inspector = ms.make_inspector("maestro", "emulator-5554", tmp, lambda: 0.0)
+            with mock.patch.object(ms.subprocess, "run") as run:
+                self.assertIsNone(inspector())
+            run.assert_not_called()
+
+    def test_swiper_refuses_to_run_without_budget(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            swiper = ms.make_swiper("maestro", "emulator-5554", "com.hydrafit.app", tmp, lambda: 0.0)
+            with mock.patch.object(ms.subprocess, "run") as run:
+                self.assertFalse(swiper((1, 2, 3, 4)))
+            run.assert_not_called()
+
+    def test_swiper_reports_a_failed_run_and_writes_its_flow(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            swiper = ms.make_swiper("maestro", "emulator-5554", "com.hydrafit.app", tmp, lambda: 10.0)
+            with mock.patch.object(ms.subprocess, "run", return_value=subprocess.CompletedProcess([], 1)):
+                self.assertFalse(swiper((1, 2, 3, 4)))
+            self.assertTrue(os.path.exists(os.path.join(tmp, "swipe-1.yaml")))
+
+
+class MainGuardTests(unittest.TestCase):
+    def test_phone_serial_is_refused(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            code = ms.main(["--device", "RF8M1234ABC", "--target-id", "logger_list"])
+        self.assertEqual(ms.EXIT_BLOCKED, code)
+
+    def test_device_that_overrides_the_verified_emulator_is_refused(self):
+        # argparse takes the last --device, so the mismatch guard is what keeps the verified target.
+        with contextlib.redirect_stdout(io.StringIO()):
+            code = ms.main(
+                ["--device", "emulator-9999", "--expected-device", "emulator-5554", "--target-id", "logger_list"]
+            )
+        self.assertEqual(ms.EXIT_BLOCKED, code)
 
 
 if __name__ == "__main__":
