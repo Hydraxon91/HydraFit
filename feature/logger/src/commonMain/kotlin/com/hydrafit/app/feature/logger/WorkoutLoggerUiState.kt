@@ -245,6 +245,11 @@ data class WorkoutLoggerUiState(
     val warmupRampEdits: Map<WarmupRampKey, WarmupRampSet> = emptyMap(),
     /** The guidance value open in the transient editor, or null when none is open. */
     val warmupEditor: WarmupGuidanceEditor? = null,
+    /**
+     * True once the first equipment snapshot has been observed. Until then ramp availability and
+     * ceilings are unknown, so only preparation is shown and no ramp can be considered.
+     */
+    val warmupEquipmentKnown: Boolean = false,
     /** True when the last guided single-set write failed; the pending set is still available to retry. */
     val guidedSetWriteFailed: Boolean = false,
     /** The occurrence entry whose current set was explicitly started; it is not performed work. */
@@ -313,12 +318,17 @@ data class WorkoutLoggerUiState(
 
     /**
      * The warm-up guidance rows the UI renders, with the current workout's transient edits and skips
-     * applied. Null when nothing is shown.
+     * applied. Null when nothing is shown. Until the first equipment snapshot arrives the ramp rows
+     * are withheld, because availability and ceilings are not yet known; preparation still shows.
      */
     val visibleWarmupView: WarmupGuidanceView?
         get() = visibleWarmupGuidance?.let { guidance ->
             buildWarmupGuidanceView(
-                guidance = guidance,
+                guidance = if (warmupEquipmentKnown) {
+                    guidance
+                } else {
+                    guidance.copy(ramps = emptyList())
+                },
                 preparationEdits = warmupPreparationEdits,
                 skipped = warmupPreparationSkipped,
                 rampEdits = warmupRampEdits

@@ -727,6 +727,10 @@ duplicate one. Ramps are also bounded by the user's *current* equipment: an entr
 equipment is not owned gets no ramp, and each suggested load is clamped to the lowest ceiling among
 that equipment (`EquipmentWeightLimit`), collapsing duplicates. This bounds the suggestion only — the
 frozen working prescription, which a manual routine can leave above the ceiling, is never rewritten.
+Availability and ceilings come from a current equipment snapshot; until that first snapshot resolves,
+only preparation is shown and no ramp is offered or recordable, so a suggestion is never made against
+unknown ownership or an unknown ceiling. Known unbounded equipment is a real snapshot and therefore
+differs from an unresolved one.
 
 The Logger holds the guidance plus in-memory preparation marks and a hidden flag, scoped to one
 occurrence and rebuilt from the occurrence on every refresh; none of it is persisted, and recording a

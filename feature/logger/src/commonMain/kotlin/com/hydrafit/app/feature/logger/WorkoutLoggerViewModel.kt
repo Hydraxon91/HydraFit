@@ -80,6 +80,9 @@ class WorkoutLoggerViewModel(
     /** Current equipment availability/ceilings; null until the first read resolves. */
     private var warmupEquipment: WarmupEquipment? = null
 
+    /** True once the first equipment snapshot has resolved; until then ramp suggestions are withheld. */
+    private var warmupEquipmentObserved = false
+
     /** The active block and its queue, when the user has started one; null uses the accepted plan. */
     private var activeActivation: TrainingActivation? = null
     private var currentOccurrences: List<WorkoutOccurrence> = emptyList()
@@ -159,8 +162,11 @@ class WorkoutLoggerViewModel(
         }
         viewModelScope.launch {
             // Equipment changes re-bound the ramp suggestions; the frozen prescription is untouched.
+            // Until this first resolves, availability and ceilings are unknown, so no ramp is offered.
             equipment.equipmentFlow().collectLatest { current ->
                 warmupEquipment = current
+                warmupEquipmentObserved = true
+                _state.update { it.copy(warmupEquipmentKnown = true) }
                 refreshToday()
             }
         }
@@ -2140,6 +2146,8 @@ class WorkoutLoggerViewModel(
      */
     fun logWarmupRamp(occurrenceEntryId: Long, rampIndex: Int) {
         if (draftSubmissionInProgress) return
+        // Equipment availability and ceilings are not yet known; no suggestion is trustworthy.
+        if (!warmupEquipmentObserved) return
         // A refresh is resolving new guidance; the shown suggestion may no longer match its slot.
         if (warmupGuidancePublishedGeneration != warmupGuidanceGeneration) return
         val occurrence = currentOccurrence ?: return

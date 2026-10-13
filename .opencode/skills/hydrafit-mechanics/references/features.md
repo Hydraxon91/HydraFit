@@ -165,7 +165,9 @@ and below the working weight, so a tiny or bodyweight target yields no ramp. Ram
 by the user's current equipment (`WorkoutLoggerEquipment` observes `EquipmentRepository` and
 `EquipmentSelectionRepository`): an entry whose required equipment is not owned gets no ramp, and each
 load is clamped to the lowest ceiling among that equipment — the frozen prescription is never
-rewritten. The Logger adds one cohesive collaborator for this, not a dependency per repository. Preparation marks and the
+rewritten. Until the first equipment snapshot resolves, only preparation is offered: no ramp is shown
+or recorded against unknown availability or an unknown ceiling (known unbounded equipment still
+offers the full profile). The Logger adds one cohesive collaborator for this, not a dependency per repository. Preparation marks and the
 hidden flag are in-memory and scoped to one occurrence; the recorded ramp is an ordinary warm-up set
 written through the guided single-write path with its classification frozen, so it survives restart,
 never advances progress or starts a rest prompt, and still freezes its slot against replacement. The

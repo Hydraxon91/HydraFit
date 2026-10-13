@@ -4442,6 +4442,116 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun warmupRampsWaitForTheFirstEquipmentSnapshot() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), barbellOccurrences(), selectedOccurrenceId = 30L)
+        val equipment = GatedEquipment(
+            items = listOf(
+                Equipment(
+                    id = EquipmentTag.BARBELL,
+                    name = "Barbell",
+                    isBuiltIn = true,
+                    maxWeightKg = 50.0
+                )
+            ),
+            selected = setOf(EquipmentTag.BARBELL)
+        )
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            equipment = equipment.collaborator()
+        )
+        advanceUntilIdle()
+
+        // The occurrence is present but no equipment snapshot has arrived: preparation shows and the
+        // ramp rows are withheld rather than offered without an availability or ceiling check.
+        val before = assertNotNull(viewModel.state.value.visibleWarmupView)
+        assertTrue(before.preparation.isNotEmpty())
+        assertTrue(before.ramps.isEmpty())
+
+        viewModel.logWarmupRamp(40L, rampIndex = 0)
+        advanceUntilIdle()
+        assertTrue(repository.all().isEmpty())
+
+        // The first snapshot is capped: the bounded ramp rows become available.
+        equipment.release()
+        advanceUntilIdle()
+        val ramp = assertNotNull(viewModel.state.value.visibleWarmupView).ramps.single()
+        assertEquals(listOf(40.0, 50.0), ramp.rows.map { it.weightKg })
+    }
+
+    @Test
+    fun warmupRampsUseTheFirstUncappedEquipmentSnapshot() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), barbellOccurrences(), selectedOccurrenceId = 30L)
+        val equipment = GatedEquipment(
+            items = listOf(
+                Equipment(
+                    id = EquipmentTag.BARBELL,
+                    name = "Barbell",
+                    isBuiltIn = true,
+                    maxWeightKg = null
+                )
+            ),
+            selected = setOf(EquipmentTag.BARBELL)
+        )
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            equipment = equipment.collaborator()
+        )
+        advanceUntilIdle()
+        assertTrue(assertNotNull(viewModel.state.value.visibleWarmupView).ramps.isEmpty())
+
+        equipment.release()
+        advanceUntilIdle()
+
+        // Unknown is not the same as unbounded: an uncapped snapshot offers the full profile.
+        val ramp = assertNotNull(viewModel.state.value.visibleWarmupView).ramps.single()
+        assertEquals(listOf(40.0, 60.0, 80.0), ramp.rows.map { it.weightKg })
+    }
+
+    @Test
+    fun anUnownedFirstEquipmentSnapshotOffersOnlyPreparation() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), barbellOccurrences(), selectedOccurrenceId = 30L)
+        val equipment = GatedEquipment(
+            items = listOf(
+                Equipment(
+                    id = EquipmentTag.BARBELL,
+                    name = "Barbell",
+                    isBuiltIn = true,
+                    maxWeightKg = 50.0
+                )
+            ),
+            selected = emptySet()
+        )
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            equipment = equipment.collaborator()
+        )
+        advanceUntilIdle()
+
+        equipment.release()
+        advanceUntilIdle()
+
+        val view = assertNotNull(viewModel.state.value.visibleWarmupView)
+        assertTrue(view.preparation.isNotEmpty())
+        assertTrue(view.ramps.isEmpty())
+
+        viewModel.logWarmupRamp(40L, rampIndex = 0)
+        advanceUntilIdle()
+        assertTrue(repository.all().isEmpty())
+    }
+
+    @Test
     fun editingPreparationSavesTransientlyAndCancelWritesNothing() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
@@ -6607,6 +6717,51 @@ class WorkoutLoggerViewModelTest {
 
         fun select() {
             selected.value = true
+        }
+    }
+
+    /**
+     * Equipment whose first snapshot is withheld until [release], so a test can observe the window
+     * before availability or ceilings are known.
+     */
+    private class GatedEquipment(
+        private val items: List<Equipment>,
+        private val selected: Set<EquipmentTag>
+    ) {
+        private val equipmentFlow = MutableSharedFlow<List<Equipment>>()
+        private val selectionFlow = MutableSharedFlow<Set<EquipmentTag>>()
+
+        fun collaborator() = WorkoutLoggerEquipment(
+            equipmentRepository = object : EquipmentRepository {
+                override fun observeAll(): Flow<List<Equipment>> = equipmentFlow
+
+                override suspend fun all(): List<Equipment> = items
+
+                override suspend fun add(name: String): Equipment = error("unused")
+
+                override suspend fun remove(id: EquipmentTag) = error("unused")
+
+                override suspend fun rename(
+                    id: EquipmentTag,
+                    name: String,
+                    maxWeightKg: Double?
+                ): Equipment = error("unused")
+
+                override suspend fun setMaxWeight(id: EquipmentTag, maxWeightKg: Double?) =
+                    error("unused")
+            },
+            selectionRepository = object : EquipmentSelectionRepository {
+                override suspend fun selected(): Set<EquipmentTag> = selected
+
+                override fun selectedFlow(): Flow<Set<EquipmentTag>> = selectionFlow
+
+                override suspend fun setSelected(tags: Set<EquipmentTag>) = error("unused")
+            }
+        )
+
+        suspend fun release() {
+            equipmentFlow.emit(items)
+            selectionFlow.emit(selected)
         }
     }
 
