@@ -740,7 +740,8 @@ states that rule before any ramp is recorded.
 
 Preparation values and ramp reps/load are editable through a transient in-memory editor: Save changes
 only the shown guidance, Cancel writes nothing, and a ramp is still recorded by its own action. A timed
-preparation item is entered in whole minutes and stored as seconds, bounded to one hour; a ramp load is
+preparation item is entered in whole minutes and stored as seconds, with no product limit (only a
+duration that cannot be stored as whole seconds is refused); a ramp load is
 entered and validated in the unit the editor opened with, so a mid-edit unit change cannot reinterpret
 the typed digits and a pound value is compared against the ceiling in kilograms. An edited ramp row
 shows its actual values instead of a default percentage, a default the ceiling lowered shows its actual

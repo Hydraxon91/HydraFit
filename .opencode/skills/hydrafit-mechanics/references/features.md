@@ -174,7 +174,8 @@ Preparation values and ramp reps/load are editable through a transient in-memory
 (`WarmupGuidanceView` + `WarmupGuidanceEditor`): Save updates only the shown guidance, Cancel writes
 nothing, an edited ramp row drops its default percentage, an edit above the equipment ceiling is
 refused, and a changed slot drops its edit. A timed item is entered in whole minutes (stored as seconds,
-capped at one hour) and a ramp load is validated in the unit the editor opened with. A retained edit
+with no product limit; only a duration that cannot be stored as whole seconds is refused) and a ramp
+load is validated in the unit the editor opened with. A retained edit
 whose equipment ceiling later drops is kept, explained and refused for logging — never silently clamped
 — and an open editor takes the slot's current ceiling and closes when the slot loses its ramp. Reset
 stages the derived default for Save, so Cancel still preserves the applied guidance. A default the

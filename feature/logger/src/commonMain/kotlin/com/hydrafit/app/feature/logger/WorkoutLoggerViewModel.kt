@@ -2254,8 +2254,12 @@ class WorkoutLoggerViewModel(
                         val item = if (editor.timed) {
                             WarmupPreparationItem(
                                 action = target.action,
-                                // Minutes are the entered unit; seconds are the stored unit.
-                                durationSeconds = editor.durationInput.toIntOrNull()?.times(60)
+                                // Minutes are the entered unit; seconds are the stored unit. canSave
+                                // already guaranteed the product fits, so this never truncates.
+                                durationSeconds = editor.durationInput.toIntOrNull()
+                                    ?.toLong()
+                                    ?.times(60L)
+                                    ?.toInt()
                             )
                         } else {
                             WarmupPreparationItem(

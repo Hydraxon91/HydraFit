@@ -160,15 +160,16 @@ data class WarmupGuidanceEditor(
     val canSave: Boolean
         get() {
             val repsOk = timed || (repsInput.toIntOrNull() ?: 0) > 0
+            // A timed item has no product limit; it only has to be storable as whole seconds.
+            val minutes = durationMinutes
             val durationOk = !timed ||
-                durationMinutes?.let { it <= MAX_PREPARATION_MINUTES } == true
+                minutes != null && minutes.toLong() * SECONDS_PER_MINUTE <= Int.MAX_VALUE
             val weightOk = !hasWeight ||
                 weightInput.toDoubleOrNull()?.let { it.isFinite() && it >= 0.0 } == true
             return repsOk && durationOk && weightOk && !weightExceedsCeiling
         }
 
     companion object {
-        /** A timed preparation item is entered in minutes; longer than an hour is not a warm-up. */
-        const val MAX_PREPARATION_MINUTES: Int = 60
+        private const val SECONDS_PER_MINUTE = 60
     }
 }

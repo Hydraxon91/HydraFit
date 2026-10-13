@@ -4666,7 +4666,7 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
-    fun aTimedPreparationRejectsZeroAndAnOverlongEntry() = runTest(dispatcher) {
+    fun aTimedPreparationRejectsZeroAndAnUnstorableEntry() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
         schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
@@ -4677,10 +4677,21 @@ class WorkoutLoggerViewModelTest {
         viewModel.onWarmupEditorDurationChanged("0")
         assertFalse(assertNotNull(viewModel.state.value.warmupEditor).canSave)
 
+        // There is no one-hour product limit; an hour and a minute is a valid warm-up.
         viewModel.onWarmupEditorDurationChanged("61")
+        assertTrue(assertNotNull(viewModel.state.value.warmupEditor).canSave)
+        viewModel.saveWarmupEditor()
+        assertEquals(
+            3_660,
+            preparationRow(viewModel, WarmupAction.EASY_GENERAL_MOVEMENT).durationSeconds
+        )
+
+        // Only a duration that cannot be stored as whole seconds is refused.
+        viewModel.editWarmupPreparation(WarmupAction.EASY_GENERAL_MOVEMENT)
+        viewModel.onWarmupEditorDurationChanged("35791395")
         assertFalse(assertNotNull(viewModel.state.value.warmupEditor).canSave)
 
-        viewModel.onWarmupEditorDurationChanged("60")
+        viewModel.onWarmupEditorDurationChanged("35791394")
         assertTrue(assertNotNull(viewModel.state.value.warmupEditor).canSave)
     }
 
