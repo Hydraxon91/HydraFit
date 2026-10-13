@@ -181,7 +181,9 @@ load is validated in the unit the editor opened with, and a value left untouched
 kilograms it opened with so a rounded pound display is not mistaken for an over-ceiling edit. A retained
 edit whose equipment ceiling later drops is kept, explained and refused for logging — never silently
 clamped — and stays visible and correctable even when the ceiling collapsed its default row away, with
-Reset removing it on Save. An open editor takes the slot's current ceiling and closes when the slot
+Reset removing it on Save. A refresh reads the performed sets before publishing and a newer refresh or
+a block change supersedes it, so a stale result cannot roll back the guidance, occurrence or editor or
+leave ramp logging refused; leaving the block clears the occurrence-scoped warm-up state. An open editor takes the slot's current ceiling and closes when the slot
 loses its ramp. Reset stages the derived default for Save in the unit the editor froze, so Cancel still
 preserves the applied guidance. A default the
 ceiling lowered shows its actual values with an equipment-limit label instead of its percentage. The

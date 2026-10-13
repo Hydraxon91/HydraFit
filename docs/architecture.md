@@ -734,7 +734,11 @@ differs from an unresolved one.
 
 The Logger holds the guidance plus in-memory preparation marks and a hidden flag, scoped to one
 occurrence and rebuilt from the occurrence on every refresh; none of it is persisted, and recording a
-ramp stores an ordinary warm-up set, so it survives restart through existing storage. A ramp is written
+ramp stores an ordinary warm-up set, so it survives restart through existing storage. A refresh reads
+the performed sets before publishing, and a newer refresh or a block change supersedes it: a stale
+result is dropped rather than republished, so the guidance, the occurrence and the open editor can
+never be rolled back and ramp logging stays available. Leaving the active block clears the
+occurrence-scoped warm-up state, so a pending read cannot resurrect it for an ended workout. A ramp is written
 through the existing guided single-write path with its warm-up classification frozen at confirmation,
 so a stale guided intent cannot reclassify it and it never advances guided progress or starts a rest
 prompt. Ramp and guided-set writes stay out of the planner baseline, recent weights, progression and

@@ -4399,6 +4399,129 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun aSupersededRefreshCannotOverwriteNewerGuidance() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+        assertEquals(
+            100.0,
+            assertNotNull(viewModel.state.value.visibleWarmupGuidance)
+                .ramps.single().workingWeightKg
+        )
+
+        // A refresh for occurrence 30 suspends on its performed-set read.
+        val readGate = CompletableDeferred<Unit>()
+        repository.allGate = readGate
+        val revision = twoOccurrences().map { it.copy(revision = 2) }
+        schedule.set(blockActivation(), revision, selectedOccurrenceId = 30L)
+        runCurrent()
+
+        // The selected occurrence moves to 31 while that read is still in flight; its refresh
+        // completes first and publishes 31's guidance.
+        schedule.set(blockActivation(), revision, selectedOccurrenceId = 31L)
+        runCurrent()
+        assertEquals(
+            140.0,
+            assertNotNull(viewModel.state.value.visibleWarmupGuidance)
+                .ramps.single().workingWeightKg
+        )
+
+        // Releasing the older read must not republish the superseded occurrence.
+        readGate.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(
+            140.0,
+            assertNotNull(viewModel.state.value.visibleWarmupGuidance)
+                .ramps.single().workingWeightKg
+        )
+        assertEquals(31L, viewModel.state.value.activeOccurrence?.occurrenceId)
+    }
+
+    @Test
+    fun anEquipmentRefreshThatSupersedesAnOlderReadStillAllowsLogging() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), barbellOccurrences(), selectedOccurrenceId = 30L)
+        val equipment = MutableEquipment(EquipmentTag.BARBELL, maxWeightKg = 200.0)
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            equipment = equipment.collaborator()
+        )
+        advanceUntilIdle()
+
+        // An occurrence refresh suspends on its read, then an equipment change supersedes it.
+        val readGate = CompletableDeferred<Unit>()
+        repository.allGate = readGate
+        schedule.set(
+            blockActivation(),
+            barbellOccurrences().map { it.copy(revision = 2) },
+            selectedOccurrenceId = 30L
+        )
+        runCurrent()
+        equipment.setMaxWeight(30.0)
+        runCurrent()
+        assertEquals(
+            listOf(30.0),
+            assertNotNull(viewModel.state.value.visibleWarmupGuidance).ramps.single()
+                .rampSets.map { it.weightKg }
+        )
+
+        readGate.complete(Unit)
+        advanceUntilIdle()
+
+        // The superseded read must not leave the published generation behind, or every ramp tap
+        // would be refused from here on.
+        assertEquals(
+            listOf(30.0),
+            assertNotNull(viewModel.state.value.visibleWarmupGuidance).ramps.single()
+                .rampSets.map { it.weightKg }
+        )
+        viewModel.logWarmupRamp(40L, rampIndex = 0)
+        advanceUntilIdle()
+        val recorded = repository.all().single()
+        assertTrue(recorded.isWarmup)
+        assertEquals(30.0, recorded.weightKg)
+    }
+
+    @Test
+    fun aRefreshInFlightWhenTheBlockEndsCannotResurrectItsGuidance() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), barbellOccurrences(), selectedOccurrenceId = 30L)
+        val equipment = MutableEquipment(EquipmentTag.BARBELL, maxWeightKg = 200.0)
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            equipment = equipment.collaborator()
+        )
+        advanceUntilIdle()
+        viewModel.editWarmupRamp(40L, rampIndex = 0)
+        assertNotNull(viewModel.state.value.warmupEditor)
+
+        // The equipment refresh suspends mid-read; the block then ends while it is still in flight.
+        val readGate = CompletableDeferred<Unit>()
+        repository.allGate = readGate
+        equipment.setMaxWeight(30.0)
+        runCurrent()
+        schedule.clearBlock()
+        runCurrent()
+
+        readGate.complete(Unit)
+        advanceUntilIdle()
+
+        // The superseded read cannot republish its occurrence, guidance or editor for an ended block.
+        assertNull(viewModel.state.value.visibleWarmupGuidance)
+        assertNull(viewModel.state.value.activeOccurrence)
+        assertNull(viewModel.state.value.warmupEditor)
+        assertTrue(viewModel.state.value.warmupRampEdits.isEmpty())
+    }
+
+    @Test
     fun warmupRampsRespectCurrentEquipmentAvailabilityAndCeiling() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
@@ -7415,6 +7538,13 @@ class WorkoutLoggerViewModelTest {
                 selectedOccurrenceId = selectedOccurrenceId,
                 legacyFallbackEnabled = false
             )
+        }
+
+        /** Simulates the active block being cancelled or ended, clearing it and its occurrences. */
+        fun clearBlock() {
+            activationState.value = null
+            occurrenceState.value = emptyList()
+            state.value = WorkoutScheduleState()
         }
 
         override fun observeScheduleState(): Flow<WorkoutScheduleState> = state

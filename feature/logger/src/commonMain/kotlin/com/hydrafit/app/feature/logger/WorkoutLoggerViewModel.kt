@@ -186,6 +186,9 @@ class WorkoutLoggerViewModel(
             loggingActions.observeActiveActivation().collect { activation ->
                 if (activeActivation != activation) {
                     draftContextRevision++
+                    // A refresh still reading for the previous block must not publish after this
+                    // change, so a superseded result can never resurrect its guidance or editor.
+                    warmupGuidanceGeneration++
                     invalidateRestTimer(clearPersisted = restTimer.state.value != null)
                     liveSetIntentEntryId = null
                 }
@@ -206,7 +209,7 @@ class WorkoutLoggerViewModel(
                             guidedProgress = null,
                             guidedSetWriteFailed = false,
                             summary = null
-                        )
+                        ).withWarmupCleared()
                     }
                     updateTodayPlan(acceptedPlan)
                     restoreRestTimerIfReady()
@@ -1547,16 +1550,8 @@ class WorkoutLoggerViewModel(
                     confirmingAllDrafts = false,
                     todayFocus = null,
                     guidedProgress = null,
-                    warmupGuidance = null,
-                    warmupPreparationChecked = emptySet(),
-                    warmupPreparationEdits = emptyMap(),
-                    warmupPreparationSkipped = emptySet(),
-                    warmupRampEdits = emptyMap(),
-                    warmupEditor = null,
-                    warmupGuidanceHidden = false,
-                    warmupRampWriteFailed = false,
                     guidedSetWriteFailed = false
-                )
+                ).withWarmupCleared()
             }
             warmupGuidancePublishedGeneration = generation
             return
@@ -1569,6 +1564,10 @@ class WorkoutLoggerViewModel(
             }
         }
         val performed = performedSetsByEntry(occurrence.id)
+        // The read may suspend. If a newer refresh or a block change has started since, this result
+        // is superseded: publishing it would republish a stale occurrence and guidance and would
+        // leave the published generation behind the current one, refusing every later ramp tap.
+        if (generation != warmupGuidanceGeneration) return
         val drafts = occurrence.entries.mapNotNull { entry ->
             val remaining = entry.sets - (performed[entry.id] ?: 0)
             if (remaining <= 0) {
@@ -2403,6 +2402,18 @@ class WorkoutLoggerViewModel(
             state.warmupEditor?.let { state.copy(warmupEditor = it.transform()) } ?: state
         }
     }
+
+    /** Drops the occurrence-scoped warm-up state; used when the block or occurrence ends. */
+    private fun WorkoutLoggerUiState.withWarmupCleared(): WorkoutLoggerUiState = copy(
+        warmupGuidance = null,
+        warmupPreparationChecked = emptySet(),
+        warmupPreparationEdits = emptyMap(),
+        warmupPreparationSkipped = emptySet(),
+        warmupRampEdits = emptyMap(),
+        warmupEditor = null,
+        warmupGuidanceHidden = false,
+        warmupRampWriteFailed = false
+    )
 
     /**
      * Reconciles an open editor with a refreshed occurrence: it closes when the workout changed or its
