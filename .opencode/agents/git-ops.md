@@ -28,6 +28,9 @@ permissions:
     resource: "git rev-list *"
     effect: allow
   - action: shell
+    resource: "git cat-file *"
+    effect: allow
+  - action: shell
     resource: "git add *"
     effect: allow
   - action: shell
