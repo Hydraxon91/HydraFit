@@ -233,6 +233,9 @@ perl -e 'alarm 600; exec @ARGV' ./gradlew clean build > build-output.log 2>&1
   the caller shows the explicit unavailable state instead of generic guidance.
 - It depends on Compose and its own resources only — no `:core:domain`, `:core:database`,
   `:core:network` or `feature/*` dependency — and features depend on it for the shared viewer.
+- Android host tests include Android resources and use test-only Robolectric 4.17 (MIT) plus
+  coroutine-test to exercise actual string resolution/fallback. Production dependencies are unchanged;
+  runtime testing supplements the `kotlin.test` manifest/key checks and database-side seed coverage.
 
 ### `feature/*`
 - Each feature module owns its Composables, ViewModels, and feature-specific state classes.

@@ -206,3 +206,65 @@ second deficit window cannot double-count the same sets.
    existing custom names.
 4. **Weight basis:** authored with per-row citations where a review reports a figure, otherwise
    labelled family-inferred / `modeled` (see the row doc); not silently back-filled.
+
+## CAT-01 — 0.7.4 offline exercise instructions
+
+These instructions are original HydraFit-authored English content, not copied or translated from
+an exercise database, coaching article, video or third-party description. Authorship: HydraFit
+project contributors. Editorial reference for each entry is its exact stable ID, canonical label,
+equipment and movement-pattern classification in
+[`DefaultExercises.kt`](../core/database/src/commonMain/kotlin/com/hydrafit/app/core/database/DefaultExercises.kt);
+those catalog facts identify the movement being described but are not presented as evidence for
+physiological effects. Cues describe a controllable setup and movement, allow a comfortable range,
+and do not claim injury prevention, guaranteed performance or individualized suitability. English
+is the source language; no translation is included in this batch.
+
+The first eight entries were authored for 0.7.4-C2 and the remaining eight for 0.7.4-C3. The approved
+calf split adds a ninth C3 entry, for 17 instructions in total. They live
+as separate Setup and Execution strings in
+`core/exercisecontent/src/commonMain/composeResources/values/strings.xml`. Each links to the
+matching stable ID in `ExerciseInstructionSource.keysByExerciseId`; the mapping, resource-key and
+complete approved-batch coverage checks are covered by `ExerciseInstructionSourceTest`. This
+instruction content itself does not change catalog facts, involvements, stored data or backups.
+
+| Stable exercise ID | Editorial reference | Content provenance |
+| --- | --- | --- |
+| `barbell-bench-press` | `DefaultExercises.kt`: canonical label, barbell + bench, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-bench-press` | `DefaultExercises.kt`: canonical label, dumbbell + bench, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `push-up` | `DefaultExercises.kt`: canonical label, bodyweight, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `overhead-press` | `DefaultExercises.kt`: canonical label, barbell, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-row` | `DefaultExercises.kt`: canonical label, dumbbell, unilateral horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `lat-pulldown` | `DefaultExercises.kt`: canonical label, cable machine, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `seated-cable-row` | `DefaultExercises.kt`: canonical label, cable machine, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `lateral-raise` | `DefaultExercises.kt`: canonical label, dumbbell, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `back-squat` | `DefaultExercises.kt`: canonical label, barbell, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `goblet-squat` | `DefaultExercises.kt`: canonical label, dumbbell, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `romanian-deadlift` | `DefaultExercises.kt`: canonical label, barbell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `leg-curl` | `DefaultExercises.kt`: canonical label, leg curl machine, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-curl` | `DefaultExercises.kt`: canonical label, dumbbell, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `triceps-pushdown` | `DefaultExercises.kt`: canonical label, cable machine, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `standing-calf-raise` | `DefaultExercises.kt`: canonical label, dumbbell, calf raise | HydraFit-authored English Setup/Execution; no external text source |
+| `standing-calf-raise-machine` | `DefaultExercises.kt`: canonical label, calf raise machine, calf raise | HydraFit-authored English Setup/Execution; no external text source |
+| `hanging-leg-raise` | `DefaultExercises.kt`: canonical label, pull-up bar, core | HydraFit-authored English Setup/Execution; no external text source |
+
+This 0.7.4 batch is not a claim of full catalog or localization coverage. Later text batches are
+separately scoped and must record their own authored IDs and provenance here.
+
+### Approved calf catalog clarification (0.7.4 review follow-up)
+
+The existing `standing-calf-raise` identity has always required `DUMBBELL`; its canonical label is
+now **Dumbbell Calf Raise**. It keeps its ID, equipment, load capability and involvement weights.
+Seeding corrects only the exact old built-in label `Standing Calf Raise`, refreshes its effective
+search projection, and leaves user overrides, other stored labels and recorded references intact.
+Historical set data and frozen plan/occurrence names are not rewritten.
+
+The new identity `standing-calf-raise-machine` is **Standing Calf Raise Machine**, requiring the
+existing `CALF_RAISE_MACHINE` tag, pattern `CALF_RAISE`, bilateral, capability `EXTERNAL`, and
+involvement `CALVES:1.0` (family-modeled from the existing calf raise). Machine equipment and calf
+target facts are referenced to the pinned public-domain dataset metadata:
+[Standing Calf Raises](https://raw.githubusercontent.com/yuhonas/free-exercise-db/f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Standing_Calf_Raises.json).
+No source instructions or imagery are copied. Both clarified/new calf IDs are excluded from
+startup custom-name dedupe, like the protected CAT-P7 additions, so an existing same-name custom
+keeps its profile and references. This is an additive seed and query-only label repair, not a
+schema or backup-format change. Separate editorial acceptance of the authored content remains
+pending; resource tests and code review do not supply it.

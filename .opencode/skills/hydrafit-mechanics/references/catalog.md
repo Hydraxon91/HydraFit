@@ -26,8 +26,9 @@ differing equipment, pattern, unilateral flag, load capability and involvement w
 preserved as a canonical override (values matching the built-in are not materialized, and a
 legacy `UNSPECIFIED` custom never overwrites the curated default); personal records are
 merged by weight, then reps, then timestamp; the custom override and row are removed for
-legacy catalog identities. CAT-P7 seed IDs are excluded from startup name dedupe so a
-pre-existing same-name custom and its references remain intact.
+legacy catalog identities. CAT-P7 seed IDs and the clarified/new calf IDs (`standing-calf-raise`,
+`standing-calf-raise-machine`) are excluded from startup name dedupe so a pre-existing same-name
+custom and its references remain intact.
 The 21-group set and the muscle-split mechanism are recorded in PLANS.md and
 `docs/exercise-catalog-sources.md`.
 
@@ -95,6 +96,14 @@ classification conflicts (tracked in `docs/live-testing-2026-10-08.md`).
 
 ## Offline exercise instructions (CAT-01, 0.7.4)
 
+The authored batch has 17 entries after the approved calf split. `standing-calf-raise` retains its
+dumbbell equipment and identity, with canonical label **Dumbbell Calf Raise**;
+`standing-calf-raise-machine` is a new **Standing Calf Raise Machine** identity using the existing
+`CALF_RAISE_MACHINE` tag, `EXTERNAL` load capability and `CALVES:1.0`. Seeding corrects only the
+old exact built-in label and refreshes its effective search projection. Overrides, custom rows,
+other stored labels, reference IDs and frozen snapshots are not repurposed. Tests cover fresh and
+repeated seeding, upgrade label repair and custom-name identity preservation.
+
 Bundled instruction text is app-owned catalog content in `:core:exercisecontent`, not
 catalog/domain data: `DefaultExercises` rows, involvements and `exerciseOverride` are unchanged by
 it, and no `.sq`/`.sqm` migration is involved. `ExerciseInstructionSource.approvedBatch` is the
@@ -110,3 +119,10 @@ personal setup notes. Each authored entry records its provenance in
 `docs/exercise-catalog-sources.md`; text is independently written, with no copied descriptions or
 bundled media. `ExerciseInstructionDialog` only presents the text (scrollable, heading semantics)
 and holds no state, so it cannot log a set or disturb an unsaved draft in the owning feature.
+
+Common tests enforce the independent manifest and exact ID-to-section resource keys. Database
+host tests cross-check authored XML identities against `DefaultExercises.all` without introducing
+a production dependency. Exercise-content Robolectric host tests load the actual Compose string
+resources, checking nonempty sections/labels and German-to-English fallback. Robolectric 4.17
+(MIT) and coroutine-test are test-only; no emulator, network content service or production test
+framework dependency is introduced. Editorial acceptance remains separate.

@@ -22,7 +22,9 @@ kotlin {
         androidResources {
             enable = true
         }
-        withHostTest { }
+        withHostTest {
+            isIncludeAndroidResources = true
+        }
     }
 
     sourceSets {
@@ -35,6 +37,10 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+        }
+        getByName("androidHostTest").dependencies {
+            implementation(libs.robolectric)
+            implementation(libs.kotlinx.coroutines.test)
         }
     }
 }

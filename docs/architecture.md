@@ -817,6 +817,21 @@ Delivery is text-first and covered by the 0.7.4 slices: the foundation (resource
 viewer) ships first, then two authored content batches, then the Equipment and Logger entry points.
 The first batch is not complete catalog coverage.
 
+The approved review follow-up expands the authored batch from 16 to 17 exercises by distinguishing
+calf equipment. The existing `standing-calf-raise` ID remains the dumbbell identity, now labelled
+**Dumbbell Calf Raise**. A query-only, exact old-label repair during seeding updates existing
+built-in rows and their effective search projection without changing user overrides, history IDs,
+load semantics or frozen names. `standing-calf-raise-machine` adds **Standing Calf Raise Machine**
+with the existing `CALF_RAISE_MACHINE` tag and `EXTERNAL` capability. Both IDs are protected from
+startup custom-name dedupe so the newly introduced labels cannot merge existing custom records.
+Provenance is in `docs/exercise-catalog-sources.md`; no schema or backup encoding changes.
+
+Instruction tests check exact ID-to-section resource keys, seed-backed authored coverage and
+runtime English fallback for an untranslated German locale. The resource-resolution tests use
+Robolectric 4.17 (MIT) in `:core:exercisecontent`'s Android host-test source set only. It is not a
+replacement for `kotlin.test` and is absent from production dependencies. Editorial acceptance
+and wired feature UI acceptance remain separate gates.
+
 ## 2. Decision log
 
 Each row: the decision, the **recorded** rationale with a citation, recorded alternatives, and status.

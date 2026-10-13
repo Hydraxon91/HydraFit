@@ -29,12 +29,30 @@ class ExerciseInstructionSourceTest {
         "dumbbell-curl",
         "triceps-pushdown",
         "standing-calf-raise",
+        "standing-calf-raise-machine",
         "hanging-leg-raise"
     )
 
     @Test
     fun approvedBatchMatchesTheApprovedFirstBatch() {
         assertEquals(approvedFirstBatch, ExerciseInstructionSource.approvedBatch)
+    }
+
+    @Test
+    fun authoredInstructionsMatchTheFirstEightExerciseBatch() {
+        assertTrue(
+            ExerciseInstructionSource.keysByExerciseId.keys.containsAll(
+                approvedFirstBatch.take(8)
+            )
+        )
+    }
+
+    @Test
+    fun authoredInstructionsCoverTheCompleteApprovedBatch() {
+        assertEquals(
+            ExerciseInstructionSource.approvedBatch,
+            ExerciseInstructionSource.keysByExerciseId.keys
+        )
     }
 
     @Test
@@ -66,13 +84,16 @@ class ExerciseInstructionSourceTest {
                 keys.execution.key,
                 "$exerciseId reuses one resource key for both sections"
             )
+            val resourcePrefix = "exercise_instruction_${exerciseId.replace('-', '_')}"
+            assertEquals("${resourcePrefix}_setup", keys.setup.key)
+            assertEquals("${resourcePrefix}_execution", keys.execution.key)
         }
     }
 
     /**
-     * Lookup is exactly the authored catalog and nothing more. An approved exercise whose text is not
-     * authored yet resolves to null, which is what makes the UI show the unavailable state instead of
-     * invented guidance; this is the expected state until the content batches land.
+     * Lookup is exactly the authored catalog. An approved exercise whose text is not authored yet
+     * resolves to null, which is what makes the UI show the unavailable state instead of invented
+     * guidance.
      */
     @Test
     fun lookupMatchesTheAuthoredCatalogExactly() {
