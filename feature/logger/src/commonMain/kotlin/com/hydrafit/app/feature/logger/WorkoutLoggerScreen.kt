@@ -51,6 +51,7 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -525,7 +526,9 @@ fun WorkoutLoggerScreen(
     // parent used to push the form and the recent-sets list off short viewports.
     LazyColumn(
         modifier = modifier
-            .fillMaxSize(),
+            .fillMaxSize()
+            .loggerTestTagsAsResourceId()
+            .testTag(LoggerTestTags.LIST),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -803,11 +806,13 @@ fun WorkoutLoggerScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(180.dp)
+                    .testTag(LoggerTestTags.EXERCISE_PICKER)
             ) {
                 items(state.visibleExercises, key = { it.id }) { exercise ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .testTag(LoggerTestTags.exercise(exercise.id))
                             .clickable { onExerciseSelected(exercise.id) },
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -1809,7 +1814,7 @@ private fun WarmupGuidanceSection(
     onEditRamp: (Long, Int) -> Unit,
     onHide: () -> Unit
 ) {
-    Card {
+    Card(modifier = Modifier.testTag(LoggerTestTags.WARMUP_CARD)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1860,6 +1865,7 @@ private fun WarmupGuidanceSection(
                         Row(
                             modifier = Modifier
                                 .weight(1f)
+                                .testTag(LoggerTestTags.preparationToggle(row.action))
                                 .toggleable(
                                     value = row.action in checked,
                                     role = Role.Checkbox,
@@ -1871,10 +1877,16 @@ private fun WarmupGuidanceSection(
                             Checkbox(checked = row.action in checked, onCheckedChange = null)
                             Text(text = warmupPreparationText(row))
                         }
-                        TextButton(onClick = { onEditPreparation(row.action) }) {
+                        TextButton(
+                            onClick = { onEditPreparation(row.action) },
+                            modifier = Modifier.testTag(LoggerTestTags.preparationEdit(row.action))
+                        ) {
                             Text(stringResource(Res.string.logger_warmup_guidance_edit))
                         }
-                        TextButton(onClick = { onSkipPreparation(row.action) }) {
+                        TextButton(
+                            onClick = { onSkipPreparation(row.action) },
+                            modifier = Modifier.testTag(LoggerTestTags.preparationSkip(row.action))
+                        ) {
                             Text(stringResource(Res.string.logger_warmup_guidance_skip))
                         }
                     }
@@ -1895,7 +1907,13 @@ private fun WarmupGuidanceSection(
                     Column {
                         Text(plan.exerciseName)
                         plan.rows.forEach { row ->
-                            Column {
+                            val entryId = plan.occurrenceEntryId
+                            val rampIndex = row.key.rampIndex
+                            Column(
+                                modifier = Modifier.testTag(
+                                    LoggerTestTags.rampRow(entryId, rampIndex)
+                                )
+                            ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -1907,17 +1925,19 @@ private fun WarmupGuidanceSection(
                                         modifier = Modifier.weight(1f)
                                     )
                                     TextButton(
-                                        onClick = {
-                                            onEditRamp(plan.occurrenceEntryId, row.key.rampIndex)
-                                        }
+                                        onClick = { onEditRamp(entryId, rampIndex) },
+                                        modifier = Modifier.testTag(
+                                            LoggerTestTags.rampEdit(entryId, rampIndex)
+                                        )
                                     ) {
                                         Text(stringResource(Res.string.logger_warmup_guidance_edit))
                                     }
                                     TextButton(
-                                        onClick = {
-                                            onLogRamp(plan.occurrenceEntryId, row.key.rampIndex)
-                                        },
-                                        enabled = !writeInProgress && !row.exceedsCeiling
+                                        onClick = { onLogRamp(entryId, rampIndex) },
+                                        enabled = !writeInProgress && !row.exceedsCeiling,
+                                        modifier = Modifier.testTag(
+                                            LoggerTestTags.rampLog(entryId, rampIndex)
+                                        )
                                     ) {
                                         Text(
                                             stringResource(
@@ -2013,6 +2033,9 @@ private fun WarmupGuidanceEditorDialog(
 ) {
     AlertDialog(
         onDismissRequest = onCancel,
+        modifier = Modifier
+            .loggerTestTagsAsResourceId()
+            .testTag(LoggerTestTags.WARMUP_EDITOR),
         title = { Text(stringResource(Res.string.logger_warmup_guidance_editor_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2024,7 +2047,8 @@ private fun WarmupGuidanceEditorDialog(
                             Text(stringResource(Res.string.logger_warmup_guidance_editor_minutes))
                         },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true
+                        singleLine = true,
+                        modifier = Modifier.testTag(LoggerTestTags.WARMUP_EDITOR_DURATION)
                     )
                 } else {
                     OutlinedTextField(
@@ -2032,7 +2056,8 @@ private fun WarmupGuidanceEditorDialog(
                         onValueChange = onRepsChanged,
                         label = { Text(stringResource(Res.string.logger_reps_label)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true
+                        singleLine = true,
+                        modifier = Modifier.testTag(LoggerTestTags.WARMUP_EDITOR_REPS)
                     )
                 }
                 if (editor.hasWeight) {
@@ -2043,7 +2068,8 @@ private fun WarmupGuidanceEditorDialog(
                             Text(stringResource(Res.string.logger_weight_label, weightUnit.label))
                         },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true
+                        singleLine = true,
+                        modifier = Modifier.testTag(LoggerTestTags.WARMUP_EDITOR_WEIGHT)
                     )
                     if (editor.weightExceedsCeiling) {
                         Text(
@@ -2062,12 +2088,19 @@ private fun WarmupGuidanceEditorDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onSave, enabled = editor.canSave) {
+            TextButton(
+                onClick = onSave,
+                enabled = editor.canSave,
+                modifier = Modifier.testTag(LoggerTestTags.WARMUP_EDITOR_SAVE)
+            ) {
                 Text(stringResource(Res.string.logger_note_save))
             }
         },
         dismissButton = {
-            TextButton(onClick = onCancel) {
+            TextButton(
+                onClick = onCancel,
+                modifier = Modifier.testTag(LoggerTestTags.WARMUP_EDITOR_CANCEL)
+            ) {
                 Text(stringResource(Res.string.logger_cancel))
             }
         }

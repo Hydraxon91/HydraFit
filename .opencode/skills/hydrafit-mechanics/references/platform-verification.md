@@ -62,6 +62,7 @@ bounds every ADB call to 120s.
 | `inspect.sh [output.xml]` | Standalone ADB hierarchy only when no competing automation session owns the device; conflicts with active Maestro. Reads emulator scratch `/data/local/tmp/hydrafit-ui.xml` only after a successful dump; no launch/restart. |
 | `snap.sh [output.png]` | Capture current screen only; default `/tmp/hydrafit-screen.png`. |
 | `tap.sh x y [--screenshot [output.png]]` | Tap without delay/image by default; optional image after one second. |
+| `maestro-scroll.sh (--target-id ID \| --target-text RE) [...]` | Bring a target into view by swiping the tagged outer container (`logger_list` by default) while excluding nested scrollables such as the exercise picker. Inspects and swipes only; bounded to 8 swipes, 2 consecutive no-progress inspections and 120s, with each subprocess capped by the remaining budget. Owns the verified emulator serial and refuses a caller-supplied `--device`. Offline tests: `python3 scripts/tests/test_maestro_scroll.py`. |
 
 Deployment is only needed after relevant app changes; capture/inspection must not
 reset the state being tested. Prefer semantic selectors and assertions for
@@ -70,6 +71,14 @@ not implement semantic selectors or readiness assertions. An unusable MCP
 hierarchy permits one bounded Maestro compact CLI fallback, not a competing ADB
 dump (see `.maestro/README.md`); if that fails, stop interaction.
 Do not navigate by stale coordinates or replay an uncertain write.
+
+`maestro-scroll.sh` rejects malformed CSV/tree data, disables argument abbreviations, and checks
+the deadline after inspection before returning any result. It blocks on any non-ancestor branch
+overlapping the list, and on a keyboard/dialog node wherever that node overlaps the list (or when its
+bounds cannot be read), instead of dismissing it or attempting a gesture. The blocked reason names the
+offending node and bounds, and a keyboard that sits clear of the list does not block. Identical
+Maestro node repeats are deduplicated; conflicting definitions fail. Hidden overlays omitted from
+the hierarchy remain undetectable, so the flow's no-keyboard/no-dialog preconditions still apply.
 
 The development emulator stays on debug builds. Never install a release/minified APK on it
 (including a published signed release); there is no approval path. Verify a release artifact

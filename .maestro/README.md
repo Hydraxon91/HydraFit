@@ -20,7 +20,8 @@ do not cancel someone else's draft or restart the app to establish them.
 | `logger-history-correction.yaml` | Logger selected, no dialog/editor | New session, log one synthetic set, correct its reps from history | Corrected set retained, listed once; Logger with the Log tab selected |
 | `logger-exercise-note.yaml` | Logger selected, no dialog/editor | Filter the picker, select an exercise, save/cancel/clear its setup note | Exercise left with an explicitly cleared note; Logger with the Log tab selected |
 | `logger-workout-summary.yaml` (not yet checked in) | Logger selected on an active block occurrence with every prescribed set unrecorded | Confirm all prescribed sets, Finish, View in history | Journey verified in pieces on 2026-10-12 (see below); the combined file is not checked in |
-| `logger-warmup-checkbox.yaml` | Guided workouts on, an active block with a pending occurrence, no dialog/editor | Navigate to Logger, scroll to the warm-up card, toggle one preparation row and back | The row starts unchecked, becomes checked and returns to unchecked; Edit and Skip sit outside the toggle |
+| `logger-warmup-checkbox.yaml` | Guided workouts on, an active block with a pending occurrence, Logger selected, the preparation row already on screen (see "Container-aware scrolling"), no dialog/editor | Toggle one preparation row and back | The row starts unchecked, becomes checked and returns to unchecked; Edit and Skip sit outside the toggle |
+| `logger-warmup-editor-cancel.yaml` | Same as `logger-warmup-checkbox.yaml` | Open one preparation row's editor and cancel it | Editor closed; Save untouched, so no warm-up edit and no set is written |
 
 The navigation flow visits all six tabs and asserts the selected tab after each
 tap; visible navigation labels alone are not a success oracle. It is also the
@@ -73,6 +74,44 @@ page.
 
 Not verified: TalkBack speech itself (the semantics were inspected, not spoken), larger text, dark
 mode, locale, and the checkmark's visual rendering at larger font sizes.
+
+### Stable Logger test identities (2026-10-13)
+
+`logger-warmup-checkbox.yaml` now locates the preparation toggle, `Edit` and `Skip` by stable
+identities (`logger_warmup_prep_*`) exposed as Android resource ids, instead of by translated text or
+a `rightOf` chain anchored on the label. The toggle assertion still checks the label as a child
+(`containsChild`) together with the explicit `checked` state, and `Edit`/`Skip` are still asserted
+right of the toggle and of each other, so a rename or a value edit cannot silently move a target while
+label association and separate-control placement remain covered. The identities live in
+`LoggerTestTags` in `:feature:logger`; the enclosing `Logger` `LazyColumn`, the exercise picker and
+its choices, and the warm-up editor dialog opt in through `loggerTestTagsAsResourceId` (no-op on iOS).
+
+The id-based revision was verified on `emulator-5554` (debug, 1080×2400) on 2026-10-13. Without any
+fixture the always-present identities were exposed end to end: `logger_list` (the single scrollable
+container, whose bounds contain the picker), `logger_exercise_picker` and `logger_exercise_<id>` on
+each choice. With the guided-on active-occurrence fixture (`QA060 edges 1812` started as the active
+block) the flow passed end to end: `logger_warmup_card`, `logger_warmup_prep_EASY_GENERAL_MOVEMENT`
+and `logger_warmup_prep_SHOULDER_CIRCLES` with their Edit/Skip controls, the toggle's label asserted
+as a child and its checked state toggling unchecked → checked → unchecked. A viewed screenshot
+confirmed the label inside the toggle with Edit and Skip to its right. Cleanup restored the baseline:
+the block was cancelled, guided workouts turned off, and no set was written.
+
+Still unverified on a device: locale and TalkBack (waived). The ramp-row identities
+(`logger_warmup_ramp_*`) were verified at runtime on 2026-10-13 with a temporary external-load
+routine (`Band Curl`, target `8 × 45 kg`), which rendered `logger_warmup_ramp_181_0/1/2` with their
+`…_edit_`/`…_log_` controls (a later activation of the same routine used entry `183`). A ramp row's
+`Edit` opens the same editor id (`logger_warmup_editor`) in its external-load form:
+`logger_warmup_editor_reps` and `logger_warmup_editor_weight` are present instead of
+`…_duration`, with `Reset to default`, `Save` and `Cancel` inside the dialog. That form was asserted
+and screenshotted at baseline, at 1.3 font scale and in dark mode at 1.3, and cancelled without
+saving. The timed editor (`logger_warmup_editor_duration`, preparation rows) was verified by
+`logger-warmup-editor-cancel.yaml`; both warm-up flows passed at 1.3 font scale, and the checkbox
+flow also passed in dark mode at 1.0, with the card reflowing so labels wrapped while
+`Edit`/`Skip`/`Log warm-up` stayed on-row (details in `docs/qa.md`). `scripts/maestro-scroll.sh` also
+reached the preparation row at 1.3 and in dark mode at 1.3 (one swipe up to the picker, two swipes to
+the row, picker offset unchanged), so container-relative reachability holds under reflow. Neither
+warm-up flow navigates or scrolls; see "Container-aware scrolling" for how the row is brought into
+view.
 
 ## 0.7.3 R073-28 diagnostic race verification (2026-10-13)
 
@@ -429,6 +468,78 @@ budget and two-attempt maximum. A timeout is not proof that all device-side work
 stopped; inspect execution/state before recovery. MCP `run` validates syntax but
 does not expose a per-run hard timeout; bounded CLI is the default for local
 flows and is required when the test needs a hard bound.
+
+## Container-aware scrolling
+
+`scripts/maestro-scroll.sh` brings a target into view by swiping the tagged outer container
+(`logger_list` by default). Each gesture is derived from a fresh hierarchy listing and must sit inside
+a band that excludes every nested scrollable, so a gesture cannot land in the exercise picker. That
+containment keeps this list moving through this layout; it is not a guarantee about every future
+layout, so re-inspect after a layout change. The helper inspects and swipes only: no tap, no write,
+no restart, no clear-state.
+
+The wrapper owns the verified target. It requires an explicit `ANDROID_SERIAL=emulator-<port>`, passes
+that serial as the expected device and refuses a caller-supplied `--device`; the helper also rejects a
+serial that is not `emulator-<port>`. A phone cannot become the target by argument order.
+
+```bash
+ANDROID_SERIAL=emulator-5554 bash scripts/maestro-scroll.sh \
+  --target-id logger_warmup_prep_EASY_GENERAL_MOVEMENT
+```
+
+Bounds: at most 8 swipes, stop after 2 consecutive inspections with no container movement, and a
+120-second budget. Every subprocess is capped by the budget that remains, and no gesture starts once
+the budget is gone. A hierarchy run's exit status is checked before its output is read, and an empty
+or unparsable listing counts as an inspection failure, so partial output from a failed run is never
+consumed. A scroll container composes only what is on screen, so an off-screen target is simply absent
+from the hierarchy; absence means "keep scrolling", not an error.
+
+CSV validation checks the exact header, row shape, numeric indices/depths, bounds and parent tree.
+Identical repeated nodes emitted by Maestro are deduplicated; conflicting IDs, missing parents and
+cycles are rejected with exit `4`. The deadline is checked immediately after inspection, even when
+the target appears visible. Argparse abbreviations are disabled, including `--dev` and
+`--expected-dev`, so abbreviated options cannot override the wrapper's verified target.
+
+Known keyboard/dialog metadata blocks the helper only where that node actually overlaps the list, and
+the blocked reason names the offending node and its bounds (for example the input-method package and
+its window rect), so a keyboard that is present but sits clear of the list no longer stops it. Any
+other non-ancestor branch overlapping the list's interior still blocks, as does a keyboard/dialog
+whose bounds cannot be read. It never dismisses a keyboard/dialog or guesses a route around an
+overlay. Non-overlapping system/navigation bars do not block it. An overlay absent from the hierarchy
+cannot be detected, so establish the no-keyboard/no-dialog preconditions and keep downstream semantic
+assertions.
+
+It refuses to swipe when the device is not an emulator, the container is missing, duplicated, has no
+bounds or is not scrollable, the target is ambiguous (more than one in-container match) or matched
+only outside the container, or no band exists that excludes every nested scrollable. A target counts
+as visible only when it is fully inside the container with a 16px inset from the top and bottom edges:
+a node clipped by the viewport reports bounds cut to the visible part and carries no clipping flag, so
+containment alone would accept a row showing only a sliver at the edge. A target at least as tall as
+the container falls back to plain containment, since it can never be shown whole. Exit codes: `0`
+target visible, `2` blocked, `3` target never became visible (including an id that never appears), `4`
+timeout or hierarchy failure.
+
+Both warm-up journeys assume the Logger tab is selected and the preparation row is already on screen:
+bring it there with the helper above, then run the flow. Neither flow navigates or scrolls.
+`logger-warmup-checkbox.yaml` toggles one preparation row and back;
+`logger-warmup-editor-cancel.yaml` opens that row's editor and cancels it. Offline coverage for the
+helper is `python3 scripts/tests/test_maestro_scroll.py` — synthetic hierarchies, no device.
+
+Verified on `emulator-5554` (debug, 1080×2400) on 2026-10-13 from the final source, with `Enable
+guided workouts` on and an active block: the helper reached
+`logger_warmup_prep_EASY_GENERAL_MOVEMENT` from the top of the Logger in two swipes, and the picker did
+not move on its own (`logger_exercise_bodyweight-squat` stayed flush with `logger_exercise_picker`,
+offset 0, while the outer list carried the picker from top 987 to 182); the swipe used was `540,979 →
+540,71`, entirely above the picker band `987..1460`. An already-visible target returned `0` with no
+swipe. A `--target-id` that never appears failed bounded at exit `3` after seven swipes when the list
+stopped moving, with no write. Both warm-up flows passed against the helper-prepared view, which also
+confirmed the editor identities at runtime. Fixture restored: block cancelled, guided workouts off,
+no set written.
+
+The later closure fixes were verified offline with 38 tests and replay of 20 retained compact
+hierarchies (including Maestro's identical repeated rows). Those retained dumps were all accepted,
+with five visible-target decisions and fifteen swipe decisions. This is parser/decision replay,
+not a new emulator acceptance run for keyboard/overlay detection.
 
 ## Navigation regression verification (2026-10-11)
 

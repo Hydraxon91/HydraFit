@@ -1,58 +1,52 @@
 # Preconditions (set up outside this flow): `Enable guided workouts` is on and an active training
-# block has a pending occurrence, so the Logger shows the warm-up card. The preparation row it
-# targets is always offered (easy general movement), so any active block works; the `Test` routine
-# was used when this flow was verified.
+# block has a pending occurrence, so the Logger shows the warm-up card; the Logger tab is selected
+# and the preparation row is already on screen. Bring it into view with the container-aware helper
+# instead of a fixed swipe:
 #
-# What it checks: a preparation row is one labeled toggle — the action text and the checked state
-# are on the same node — with Edit and Skip as separate controls beside it. Tapping the row toggles
-# it; tapping again returns it to its starting state. It writes no set and leaves the row as it
-# found it.
+#   ANDROID_SERIAL=emulator-5554 bash scripts/maestro-scroll.sh \
+#     --target-id logger_warmup_prep_EASY_GENERAL_MOVEMENT
+#
+# The helper swipes the Logger list while avoiding the nested exercise picker; this flow performs no
+# navigation and no scrolling of its own.
+#
+# What it checks: the preparation row is one labeled toggle — the action text and the checked state
+# are on the same node — with Edit and Skip as separate controls beside it. Controls are located by
+# their stable identities (`logger_warmup_prep_*`, exposed as Android resource ids), never by a
+# translated label, a displayed value or a row position, so editing a value cannot move a target.
+# Tapping the row toggles it; tapping again returns it to its starting state. It writes no set and
+# leaves the row as it found it.
 appId: com.hydrafit.app
 ---
-- tapOn:
-    text: "Log"
-    retryTapIfNoChange: false
-# The warm-up card sits below the manual log form, and the exercise picker in that form is a
-# nested scrollable. A centre-screen scroll would move the picker instead of the page, so scroll
-# with swipes that start below it, stopping as soon as the row is on screen.
-- repeat:
-    times: 10
-    commands:
-      - runFlow:
-          when:
-            notVisible:
-              text: "Easy general movement.*"
-          commands:
-            - swipe:
-                start: "92%, 78%"
-                end: "92%, 55%"
-                duration: 300
-- assertVisible: "Preparation"
-# The action text is a child of the toggle, so the checked state is asserted on the row node that
-# contains it rather than on the text node itself.
-- assertNotVisible:
-    checked: true
-    containsChild:
-      text: "Easy general movement · about 3 min"
+# The toggle carries its own label: assert the label as a child of the tagged toggle, so a stable
+# identity cannot mask a missing or detached label. The unchecked state is asserted on the same node
+# rather than as the absence of a checked node, which would also pass if the row were missing.
 - assertVisible:
-    text: "Edit"
+    id: "logger_warmup_prep_EASY_GENERAL_MOVEMENT"
+    checked: false
+    containsChild:
+      text: "Easy general movement.*"
+# Edit sits right of the toggle and Skip right of Edit, so both stay separate controls outside it.
+- assertVisible:
+    id: "logger_warmup_prep_edit_EASY_GENERAL_MOVEMENT"
     rightOf:
-      text: "Easy general movement · about 3 min"
+      id: "logger_warmup_prep_EASY_GENERAL_MOVEMENT"
 - assertVisible:
-    text: "Skip"
+    id: "logger_warmup_prep_skip_EASY_GENERAL_MOVEMENT"
     rightOf:
-      text: "Edit"
+      id: "logger_warmup_prep_edit_EASY_GENERAL_MOVEMENT"
 - tapOn:
-    text: "Easy general movement · about 3 min"
+    id: "logger_warmup_prep_EASY_GENERAL_MOVEMENT"
     retryTapIfNoChange: false
 - assertVisible:
+    id: "logger_warmup_prep_EASY_GENERAL_MOVEMENT"
     checked: true
     containsChild:
-      text: "Easy general movement · about 3 min"
+      text: "Easy general movement.*"
 - tapOn:
-    text: "Easy general movement · about 3 min"
+    id: "logger_warmup_prep_EASY_GENERAL_MOVEMENT"
     retryTapIfNoChange: false
-- assertNotVisible:
-    checked: true
+- assertVisible:
+    id: "logger_warmup_prep_EASY_GENERAL_MOVEMENT"
+    checked: false
     containsChild:
-      text: "Easy general movement · about 3 min"
+      text: "Easy general movement.*"

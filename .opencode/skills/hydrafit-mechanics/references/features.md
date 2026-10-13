@@ -325,6 +325,15 @@ Logger displays session status above a wrapping action row so End/New labels ret
 larger font scales. Settings guidance rows expose narrowly scoped `settings_rest_alerts` and
 `settings_short_rest_coaching` test tags as Android resource IDs through a platform modifier
 adapter (no-op on iOS); spoken labels and switch semantics remain unchanged.
+Logger exposes `LoggerTestTags` the same way: its list, exercise picker and choices, warm-up card,
+preparation toggle/Edit/Skip and ramp row/Edit/Log controls, plus the warm-up editor dialog, each
+carry a stable `logger_*` identity (keyed by exercise id, `WarmupAction`, occurrence entry and ramp
+index). These are technical metadata, never spoken labels, and never replace the existing control
+semantics. When a journey needs a control that is off-screen, bring it into view with
+`scripts/maestro-scroll.sh` (container-aware, bounded; it excludes the nested picker) instead of a
+fixed-percentage swipe, then run a flow that navigates and scrolls nothing itself: the two warm-up
+flows `.maestro/logger-warmup-checkbox.yaml` and `.maestro/logger-warmup-editor-cancel.yaml` assume
+the Logger tab and an on-screen preparation row.
 `.maestro/settings-guidance-denial.yaml` checks denied opt-in independently
 of coaching and restores coaching OFF; permission flags need separately approved cleanup.
 Generated imports for logger are:

@@ -21,6 +21,12 @@
   changes. Keep pending approval distinct from active work. Skip todos for
   simple questions or single-step tasks. Todos do not replace the chat plan,
   approval gates, or `PLANS.md`.
+- **After context compaction:** Before resuming edits, confirm the approved
+  scope, decisions, pending approvals, verification results and next action
+  from the retained context. Run `git status --short` and re-read files
+  involved in unfinished edits. Treat the summary as navigation, not proof
+  of current source or authorization. If a required decision or approval is
+  missing or ambiguous, ask rather than reconstruct it.
 - Gradle: wrap every run in a hard time limit (e.g. `perl -e 'alarm 600;
   exec @ARGV' ./gradlew ... > run.log 2>&1`), then read the result with
   grep/tail afterwards; never block on a run with no timeout. If a run
