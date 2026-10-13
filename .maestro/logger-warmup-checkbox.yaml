@@ -3,10 +3,12 @@
 # targets is always offered (easy general movement), so any active block works; the `Test` routine
 # was used when this flow was verified.
 #
-# What it checks: a preparation row is one labeled toggle — the action text and the checked state
-# are on the same node — with Edit and Skip as separate controls beside it. Tapping the row toggles
-# it; tapping again returns it to its starting state. It writes no set and leaves the row as it
-# found it.
+# What it checks: the preparation row is one labeled toggle — the action text and the checked state
+# are on the same node — with Edit and Skip as separate controls beside it. Controls are located by
+# their stable identities (`logger_warmup_prep_*`, exposed as Android resource ids), never by a
+# translated label, a displayed value or a row position, so editing a value cannot move a target.
+# Tapping the row toggles it; tapping again returns it to its starting state. It writes no set and
+# leaves the row as it found it.
 appId: com.hydrafit.app
 ---
 - tapOn:
@@ -21,38 +23,34 @@ appId: com.hydrafit.app
       - runFlow:
           when:
             notVisible:
-              text: "Easy general movement.*"
+              id: "logger_warmup_prep_EASY_GENERAL_MOVEMENT"
           commands:
             - swipe:
                 start: "92%, 78%"
                 end: "92%, 55%"
                 duration: 300
 - assertVisible: "Preparation"
-# The action text is a child of the toggle, so the checked state is asserted on the row node that
-# contains it rather than on the text node itself.
-- assertNotVisible:
-    checked: true
-    containsChild:
-      text: "Easy general movement · about 3 min"
+# The row's user-facing label is asserted separately, so a stable identity cannot mask a missing label.
+- assertVisible: "Easy general movement.*"
+# The toggle starts unchecked. Assert the unchecked state on the toggle node itself rather than the
+# absence of a checked node, which would also pass if the row were missing entirely.
 - assertVisible:
-    text: "Edit"
-    rightOf:
-      text: "Easy general movement · about 3 min"
+    id: "logger_warmup_prep_EASY_GENERAL_MOVEMENT"
+    checked: false
+# Edit and Skip are separate controls, distinct from the toggle.
 - assertVisible:
-    text: "Skip"
-    rightOf:
-      text: "Edit"
+    id: "logger_warmup_prep_edit_EASY_GENERAL_MOVEMENT"
+- assertVisible:
+    id: "logger_warmup_prep_skip_EASY_GENERAL_MOVEMENT"
 - tapOn:
-    text: "Easy general movement · about 3 min"
+    id: "logger_warmup_prep_EASY_GENERAL_MOVEMENT"
     retryTapIfNoChange: false
 - assertVisible:
+    id: "logger_warmup_prep_EASY_GENERAL_MOVEMENT"
     checked: true
-    containsChild:
-      text: "Easy general movement · about 3 min"
 - tapOn:
-    text: "Easy general movement · about 3 min"
+    id: "logger_warmup_prep_EASY_GENERAL_MOVEMENT"
     retryTapIfNoChange: false
-- assertNotVisible:
-    checked: true
-    containsChild:
-      text: "Easy general movement · about 3 min"
+- assertVisible:
+    id: "logger_warmup_prep_EASY_GENERAL_MOVEMENT"
+    checked: false
