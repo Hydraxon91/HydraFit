@@ -391,14 +391,14 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - Switch engine (only available engines listed), goal (Balanced/Strength/Hypertrophy/Endurance), units → each persists after relaunch.
 - Guided workouts default OFF; opting in/out persists after relaunch.
 - With guided workouts OFF, the Logger keeps its existing "Planned today" draft flow.
-- With guided workouts ON and an active block occurrence, the Logger shows the guided card: exercises in order with target vs actual sets; "Log set" records exactly one set and the remaining prescribed sets stay pending; warm-ups and unplanned exercises do not count toward progress; the Warm-up toggle applies to the guided row's Log set / Set completed now actions; Edit then Confirm also records one set. Finish/partial/Skip and End/New session are unchanged.
-- In guided mode, "Set completed now" records one set at the live time and starts the editable rest prompt only after save succeeds. Ordinary confirmation and backdated entries do not start it. Duration accepts 1–86,400 seconds; invalid values must not crash or change the active timer. Change duration and verify the deadline is still based on the original completion time; background/resume must not restart it. It expires without logging a set and is not a rest measurement.
-- End/New session, occurrence change, guided OFF, dismiss, or successful deletion/correction of a set from the active occurrence cancels the prompt. A same-boot process death restores the remaining countdown while the occurrence context still matches; a reboot (boot-identity change) or expired/mismatched/malformed state clears it silently.
+- With guided workouts ON and an active block occurrence, the Logger shows the guided card: exercises in order with target vs actual sets; "Log set" records exactly one set and the remaining prescribed sets stay pending; warm-ups and unplanned exercises do not count toward progress; the Warm-up toggle applies to the guided row's Log set / Set completed now actions; Edit then Confirm also records one set. A live start owns its completion: while a set is started, the guided row's ordinary "Log set" is unavailable and only that slot's "Set completed now" can complete it; "Start set" is disabled for the already-started slot while a different untouched slot stays startable. Replacement is hidden for a slot that already holds recorded work (working or warm-up) and for the started slot; untouched later slots stay replaceable. Finish/partial/Skip and End/New session are unchanged.
+- In guided mode, "Set completed now" records one set at the live time and starts the editable rest prompt only after save succeeds. Ordinary confirmation and backdated entries do not start it. Duration accepts 1–86,400 seconds; invalid values must not crash or change the active timer. Change duration and verify the deadline is still based on the original completion time; background/resume must not restart it. Starting the next set cancels that prompt's countdown and persisted alert before the new start is recorded. It expires without logging a set and is not a rest measurement.
+- End/New session, occurrence change, guided OFF, dismiss, starting the next set, or successful deletion/correction of a set from the active occurrence cancels the prompt. A same-boot process death restores the remaining countdown while the occurrence context still matches; a reboot (boot-identity change) or expired/mismatched/malformed state clears it silently.
 - Rest alerts and short-rest coaching default OFF independently. Android alert opt-in explicitly requests notification permission; denial keeps alerts off without affecting coaching. One local inexact alarm may be delayed by power management; duration edits replace it, cancellation removes pending/delivered alerts, invalid context suppresses delivery, and expired restoration stays silent. No exact-alarm permission or foreground service appears; iOS shows unsupported alerts.
 - Coaching requires two consecutive eligible live completion → Start set intervals below the rest duration chosen at completion, same exercise/session/occurrence/boot. It shows one dismissible, non-blocking message per exercise/session without logging a set or changing prescriptions/fatigue/RIR. Equal/longer intervals break the streak; catch-up, edited/unknown timing, warm-ups and transitions cannot contribute; recreation resets evidence.
   **2026-10-11 bounded verification:** debug install on `emulator-5554`; read-only Settings navigation asserted both new labels and the final screenshot was viewed (`/tmp/hydrafit-060-guidance-settings-final.png`); both switches appeared off. In the approved synthetic fixture journey, notification permission was requested and granted; after one live set, the app process was killed without force-stop and Android delivered the expected “Rest prompt ended” notification without a manual relaunch (screenshot: `/tmp/hydrafit-r060-delivered.png`). The synthetic set/session were cleaned up, the block canceled and routine rearchived; settings were restored to 120 seconds and OFF, and notification permission to denied. Explicit permission-denial handling, receiver interleavings and replacement UI remain unverified. Host regressions cover preference/backup/migration round-trips, eligibility, coordinator readiness/duration/deduplication/context cancellation, coaching policy/live integration, replacement preservation/rejections and Koin resolution; they do not prove platform receiver interleavings.
 - RIR fields in manual logging, planned-draft editing and recent-set editing explain reps in reserve, remain optional, and offer 0/1/2/3 quick-picks. Picking the selected value again clears it; typed values through 10 remain available. Zero is recorded as an explicit report, blank stays unreported, and no RPE conversion or inferred/prescribed RIR appears.
-- Set timing provenance is explicit: backdated/catch-up entries are marked catch-up; ordinary manual and legacy entries remain unknown; only the explicit guided live-completion action is marked live. Start set alone creates no performed set; completion stores monotonic start/completion instants and consumes the event after a successful write, including Use-last resolution. Canceling legacy-load resolution leaves the draft pending but discards its live event; another live completion requires a fresh Start. Correcting time, reps, load or RIR clears live eligibility; a no-op correction preserves it. Never infer rest from timestamp gaps. Every logged set carries the occurrence and entry it belongs to when a block is active, so progress, completion and replacement guards can attribute it.
+- Set timing provenance is explicit: backdated/catch-up entries are marked catch-up; ordinary manual and legacy entries remain unknown; only the explicit guided live-completion action is marked live. Start set alone creates no performed set; completion stores monotonic start/completion instants and consumes the event after a successful write, including Use-last resolution. Canceling legacy-load resolution leaves the draft pending but discards its live event; another live completion requires a fresh Start. Correcting time, reps, load or RIR clears live eligibility; a no-op correction preserves it. Never infer rest from timestamp gaps. Every logged set carries the occurrence and entry it belongs to when a block is active, so progress, completion and replacement guards can attribute it. A set logged against an active block occurrence stores that workout's zero-based position within the block as its day, so its "Day N" label matches the block workout rather than the weekday or the occurrence queue index; a set with no active block keeps the accepted plan's calendar day, and existing stored sets are never rewritten.
   **2026-10-10 emulator verification (`emulator-5554`, debug, guided ON, block from the generated plan):** "Start set" showed "Set started", enabled only that exercise's "Set completed now", and left the counts at `0 of 9` (no performed set). "Set completed now" logged exactly one set (`1 of 9`, `1 of 3`), started the rest prompt ("Rest prompt: 1 min 55 sec"), cleared "Set started", and disabled itself so it could not be reused (count stayed `1 of 9`). "Dismiss prompt" cancelled the prompt. All controls (Start set / Log set / Set completed now / Edit draft) stayed usable at 1080×1520. The one logged set was deleted (reverting the occurrence to `0 of 9`) and the test block was cancelled; guided ON and the pre-existing session/routines were preserved. **Limit:** the missing-load/Use-last resolution was not reachable here (the block's Day 1 is bodyweight-only) and is covered by the host regression `useLastLoadConsumesLiveCompletionSoItCannotBeReused`.
   **2026-10-11 bounded follow-up (`emulator-5554`, debug):** with an active three-set Ab Roll occurrence, scrolling to "Start set" showed "Set started", left progress at `0 of 3`, and exposed enabled "Set completed now". Completing one live set advanced progress to `1 of 3` and opened the rest prompt; a second live completion advanced to `2 of 3`. After two short completion→start intervals, the exact short-rest coaching message appeared and was dismissible. The prompt duration changed from the 300-second global default to 240 seconds, then **Use global default** removed the exercise override and restored 300; dismissing the prompt removed its pending alert (Android recorded `alarm_cancelled`). Both test sets were deleted, the session ended, the active fixture block canceled and its routine rearchived. Guided workouts, alerts and coaching were restored OFF, global rest to 120 seconds, notification permission to denied, and font scale to 1.0; a final read-only Settings inspection confirmed the three switches off and the 120-second value. One navigation smoke attempt used an incorrect duplicate-label index and stopped before its final Equipment tap; after inspecting the hierarchy, the corrected six-tab flow passed without writing data. This did not verify notification-denial UI handling, receiver interleavings, or replacement UI.
   **2026-10-11 UI resilience check:** at 1.3× system font scale, all six navigation labels were displayed in two rows with full, single-line names. The initial label-only smoke did not prove tab selection. After review corrections, the checked-in `.maestro/navigation-smoke.yaml` asserted selected state for all six tabs and passed on the first attempt; only the bottom row owns bottom system-bar padding. Final screenshot inspected: `/tmp/hydrafit-r060-fixes-font13.png`; log: `/tmp/hydrafit-r060-fixes-navigation.log`. System font scale was restored to 1.0. Dark mode, translated locale and TalkBack remained unverified at that checkpoint.
@@ -469,6 +469,57 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   `docs/agent-ui-verification.md`.
 - Offline artifact verification still confirms `versionName`/`versionCode` against the tag/run
   number; schema compatibility is covered by the host `verifySqlDelightMigration` check.
+
+### Pre-0.7.4 Oct-13 correctives candidate verification (2026-10-13)
+
+Candidate for the Oct 13 pre-0.7.4 corrective scope placed in `docs/roadmap.md`: development-build
+revision identity (OCT13-01), guided live-start controls (OCT13-02), previous-rest cancellation on a
+new start (OCT13-03), hidden replacement for frozen/started slots (OCT13-04) and occurrence-based day
+attribution for new logs (OCT13-07). No release APK was created, installed or published.
+
+**Host gate (green):** `testAndroidHostTest`, `ktlintCheck`, `:androidApp:assembleDebug`,
+`:core:database:verifySqlDelightMigration`, `:shared:compileKotlinIosSimulatorArm64` and
+`:core:network:compileKotlinIosSimulatorArm64` — the full Tier A matrix for the attribution change.
+New Logger regressions cover repeat-Start timestamp preservation, starting a different slot, refusing
+an ordinary guided log during a live start, cancelling the previous rest prompt and its persisted
+row, the frozen/started replacement predicate, the legacy/extra-exercise freeze rules and the block
+workout position. Logs: `/tmp/hydrafit-alert-test/{checks,tiera,logger-test}.log`.
+
+**Emulator evidence (`emulator-5554`, debug `0.7.2-dev-af8cea1-dirty`):**
+- OCT13-01: the installed `versionName` and the Acknowledgments line both read
+  `0.7.2-dev-af8cea1-dirty`; screenshot `/tmp/hydrafit-alert-test/oct1301-version.png`.
+- OCT13-02 / OCT13-04: on the `Test` block's guided card, starting the Band Curl slot removed
+  `enabled` from that row's `Start set` and `Log set`, added it to `Set completed now`, left the
+  untouched Band Good Morning slot's `Start set` enabled, and hid that row's
+  `Replace for this workout` (2 → 1). Screenshot `/tmp/hydrafit-alert-test/oct1302-started.png`.
+- OCT13-03 / OCT13-07: **user-reported** — completing Band Curl live showed the rest prompt and a
+  `Band Curl  8 x 100 kg · Week 1 · Day 1` Recent-sets row, and starting the next set cancelled the
+  prompt. These are user observations, not agent-captured assertions.
+
+**Limits and cleanup:** the guided preference read `1` before installation and `0` afterwards in both
+the app and the database, so the guided-card checks required turning it on for the journey; the
+discrepancy is unexplained. The journey reinstalled the debug APK over existing data, started the
+`Test` block (activation 30) and had it cancelled afterwards; no set or session was written (54 sets
+before and after) and the rest-alert/coaching preferences were never touched. Automation spent more
+than the five-minute per-flow interaction budget. Larger text, dark mode, locale, TalkBack and
+signed-release runtime remain unverified. This is builder verification, not review approval, and the
+chunk's formal post-execution review remains separately requested.
+
+### OCT13-05 notification-delivery experiment (2026-10-13)
+
+A bounded emulator experiment (approved fixture: notification permission granted, guided workouts
+and background rest alerts on) tested whether a rest-prompt completion posts a notification. With
+the then-installed build unable to identify its revision (it reported only `0.7.2-dev`), the
+`rest-prompts` channel posted notification 600 in all three tested states — foreground, backgrounded
+(HOME) and screen asleep — so **posting** is proven for these states; audible sound, a heads-up
+banner, lock-screen visibility and physical-phone delivery timing are not. No ongoing countdown
+notification appears while a timer runs (by design). Delivery uses an inexact `setAndAllowWhileIdle`
+alarm, so power management may delay it, and shortening an already-running timer past its elapsed
+duration cancels it instead of posting a fresh completion. The emulator started permission-denied and
+alert-disabled, which explains its baseline but not a phone's behaviour. The experiment exceeded the
+interaction budget and several cleanup edits landed wrong before the user completed cleanup; that
+final state is user-reported, not independently verified. Findings inform the 0.7.7 reminder work
+(OCT13-05); no notification redesign was implemented in this candidate.
 
 ### 0.7.0 planner-explanation candidate verification (2026-10-12)
 
