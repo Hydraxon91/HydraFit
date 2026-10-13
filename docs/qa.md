@@ -630,9 +630,15 @@ rebuild. Approval does not authorize release preparation, pushing, tagging or pu
 
 **0.7.4-C7 release-preparation gate.** `:androidApp:lintVitalRelease` passed on the candidate revision
 (`e265bfc1`) as the release-specific lint required before tagging; log
-`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/074-lintvital.log`. Push, PR/merge,
-CI monitoring, tag and signed publication remain separately approved steps, and the published artifact
-is verified offline rather than installed on the emulator.
+`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/074-lintvital.log`, and the iOS
+compile tasks (`:shared:`/`:core:network:`/`:core:exercisecontent:compileKotlinIosSimulatorArm64`) ran
+green locally in the C6 matrix. On PR #11 the CI `iOS Compile` job sat queued for a `macos-latest`
+runner and was cancelled at its 15-minute job limit (run `38452768212`); the other three jobs passed.
+That job was therefore **temporarily disabled** in `build-and-test.yml` and `nightly.yml` on
+2026-10-13, with the rationale and re-enable condition recorded in `docs/agent-ci-release.md` and
+`PLANS.md`; iOS compile coverage moves to the local release gate until iOS development starts.
+Push, PR/merge, CI monitoring, tag and signed publication remain separately approved steps, and the
+published artifact is verified offline rather than installed on the emulator.
 
 **C6 status: essentially complete — implementation verified; changes remain uncommitted and formally
 unreviewed.** The remaining items above are either host-covered, user-verified, or explicitly waived.

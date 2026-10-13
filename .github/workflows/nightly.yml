@@ -49,22 +49,24 @@ jobs:
       - name: Verify SQLDelight migrations
         run: ./gradlew verifySqlDelightMigration
 
-  ios-compile:
-    name: iOS Compile
-    runs-on: macos-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v6
-      - name: Setup Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
-      - name: Compile iOS targets
-        run: ./gradlew :shared:compileKotlinIosSimulatorArm64 :core:network:compileKotlinIosSimulatorArm64
+  # Temporarily disabled 2026-10-13 while iOS is not a development target; see the matching note in
+  # build-and-test.yml. Re-enable when iOS development starts.
+  # ios-compile:
+  #   name: iOS Compile
+  #   runs-on: macos-latest
+  #   timeout-minutes: 15
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@v6
+  #     - name: Setup Java
+  #       uses: actions/setup-java@v5
+  #       with:
+  #         distribution: temurin
+  #         java-version: '17'
+  #     - name: Setup Gradle
+  #       uses: gradle/actions/setup-gradle@v6
+  #     - name: Compile iOS targets
+  #       run: ./gradlew :shared:compileKotlinIosSimulatorArm64 :core:network:compileKotlinIosSimulatorArm64
 
   assemble-debug-apk:
     name: Assemble Debug APK
