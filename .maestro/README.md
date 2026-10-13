@@ -484,6 +484,18 @@ or unparsable listing counts as an inspection failure, so partial output from a 
 consumed. A scroll container composes only what is on screen, so an off-screen target is simply absent
 from the hierarchy; absence means "keep scrolling", not an error.
 
+CSV validation checks the exact header, row shape, numeric indices/depths, bounds and parent tree.
+Identical repeated nodes emitted by Maestro are deduplicated; conflicting IDs, missing parents and
+cycles are rejected with exit `4`. The deadline is checked immediately after inspection, even when
+the target appears visible. Argparse abbreviations are disabled, including `--dev` and
+`--expected-dev`, so abbreviated options cannot override the wrapper's verified target.
+
+Known keyboard/dialog metadata or a non-ancestor branch overlapping the list's interior blocks the
+helper before either success or a swipe. It never dismisses a keyboard/dialog or guesses a route
+around an overlay. Non-overlapping system/navigation bars do not block it. This is conservative:
+an unrecognized overlapping control also blocks; an overlay absent from the hierarchy cannot be
+detected. Establish the no-keyboard/no-dialog preconditions and keep downstream semantic assertions.
+
 It refuses to swipe when the device is not an emulator, the container is missing, duplicated, has no
 bounds or is not scrollable, the target is ambiguous (more than one in-container match) or matched
 only outside the container, or no band exists that excludes every nested scrollable. A target counts
@@ -510,6 +522,11 @@ swipe. A `--target-id` that never appears failed bounded at exit `3` after seven
 stopped moving, with no write. Both warm-up flows passed against the helper-prepared view, which also
 confirmed the editor identities at runtime. Fixture restored: block cancelled, guided workouts off,
 no set written.
+
+The later closure fixes were verified offline with 38 tests and replay of 20 retained compact
+hierarchies (including Maestro's identical repeated rows). Those retained dumps were all accepted,
+with five visible-target decisions and fifteen swipe decisions. This is parser/decision replay,
+not a new emulator acceptance run for keyboard/overlay detection.
 
 ## Navigation regression verification (2026-10-11)
 

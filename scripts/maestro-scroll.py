@@ -108,22 +108,23 @@ def parse_bounds(value: str) -> Optional[Rect]:
 
 
 def parse_hierarchy(csv_text: str) -> list[Row]:
-    """Parse the `element_num,depth,attributes,parent_num` hierarchy listing."""
+    """Reject malformed listings rather than acting on a partially parsed tree."""
     rows: list[Row] = []
-    reader = csv.reader(io.StringIO(csv_text))
+    reader = csv.reader(io.StringIO(csv_text), strict=True)
     saw_header = False
     for record in reader:
         if not record or all(not cell.strip() for cell in record):
             continue
         if not saw_header:
-            # The first non-empty record is the column header, not a node.
+            if record != ["element_num", "depth", "attributes", "parent_num"]:
+                raise ValueError("unexpected hierarchy header")
             saw_header = True
             continue
-        if len(record) < 4:
-            continue
+        if len(record) != 4:
+            raise ValueError("invalid hierarchy row width")
         element = record[0].strip()
-        if not element.isdigit():
-            continue
+        if not element.isdigit() or not record[1].strip().isdigit():
+            raise ValueError("invalid hierarchy index or depth")
         attrs: dict[str, str] = {}
         for part in record[2].split(";"):
             part = part.strip()
@@ -132,6 +133,12 @@ def parse_hierarchy(csv_text: str) -> list[Row]:
             key, _, value = part.partition("=")
             attrs[key.strip()] = value.strip()
         parent_raw = record[3].strip()
+        if parent_raw and not parent_raw.isdigit():
+            raise ValueError("invalid hierarchy parent")
+        if "bounds" in attrs:
+            rect = parse_bounds(attrs["bounds"])
+            if rect is None or rect.width < 0 or rect.height < 0:
+                raise ValueError("invalid hierarchy bounds")
         rows.append(
             Row(
                 index=int(element),
@@ -140,6 +147,21 @@ def parse_hierarchy(csv_text: str) -> list[Row]:
                 parent=int(parent_raw) if parent_raw.isdigit() else None,
             )
         )
+    # Maestro can emit the same node twice verbatim. Conflicting definitions are ambiguous;
+    # identical repeats are one node and must not create false target matches or tree branches.
+    by_index = {}
+    for row in rows:
+        if row.index in by_index and by_index[row.index] != row:
+            raise ValueError("conflicting hierarchy index")
+        by_index[row.index] = row
+    rows = list(by_index.values())
+    for row in rows:
+        if row.parent is None:
+            if row.depth != 0:
+                raise ValueError("non-root node has no parent")
+        elif row.parent not in by_index or by_index[row.parent].depth >= row.depth:
+            # Strictly increasing depth also rules out cycles, without unbounded traversal.
+            raise ValueError("invalid hierarchy parent tree")
     return rows
 
 
@@ -188,6 +210,41 @@ def excluded_indexes(rows: list[Row], nested: Iterable[Row]) -> set[int]:
         excluded.add(row.index)
         excluded.update(descendants(rows, row.index))
     return excluded
+
+
+def blocking_obstruction(rows: list[Row], container: Row) -> bool:
+    """Fail closed for known IME/dialog nodes or overlapping branches outside this list.
+
+    Ancestor bounds contain the list legitimately; sibling windows or controls overlapping its
+    interior do not. This detects unknown overlapping windows without guessing their package names.
+    It cannot detect overlays omitted from the accessibility hierarchy.
+    """
+    by_index = {row.index: row for row in rows}
+    allowed = set(descendants(rows, container.index)) | {container.index}
+    parent = container.parent
+    while parent is not None:
+        allowed.add(parent)
+        parent = by_index[parent].parent
+    bounds = container.bounds
+    for row in rows:
+        metadata = " ".join(
+            row.attrs.get(key, "") for key in ("resource-id", "class", "package", "window-type")
+        )
+        if re.search(
+            r"(?:^|[\s_.:/-])(keyboard|keyboardview|inputmethod|inputmethodservice|"
+            r"input_method|ime|dialog|alertdialog|popupwindow|overlay)(?:$|[\s_.:/-])",
+            metadata,
+            re.IGNORECASE,
+        ):
+            return True
+        rect = row.bounds
+        if row.index not in allowed and rect is not None and rect.width > 0 and rect.height > 0:
+            if (
+                max(rect.left, bounds.left) < min(rect.right, bounds.right)
+                and max(rect.top, bounds.top) < min(rect.bottom, bounds.bottom)
+            ):
+                return True
+    return False
 
 
 def is_visible(target: Row, container: Row) -> bool:
@@ -322,6 +379,8 @@ class Scroller:
             return ScrollStep("blocked", f"{self.container_id} has no bounds")
         if not container.scrollable:
             return ScrollStep("blocked", f"{self.container_id} is not a scroll container")
+        if container.bounds.width <= 0 or container.bounds.height <= 0:
+            return ScrollStep("blocked", "the container has no usable area")
 
         matched = find_targets(rows, self.target_id, self.target_text)
         inside_indexes = set(descendants(rows, container.index))
@@ -331,6 +390,8 @@ class Scroller:
         if not inside and matched:
             # The id or text matched something outside the container: not this list's target.
             return ScrollStep("blocked", "the target is outside the container")
+        if blocking_obstruction(rows, container):
+            return ScrollStep("blocked", "keyboard, dialog or overlapping region detected")
         # A scroll container composes only what is on screen, so the target is normally absent until
         # it scrolls into view: absence means "keep going", never "blocked".
         if inside and is_visible(inside[0], container):
@@ -368,9 +429,14 @@ def drive(
         if deadline is not None and clock() >= deadline:
             return ScrollStep("timeout", "time budget exhausted")
         csv_text = inspect()
+        if deadline is not None and clock() >= deadline:
+            return ScrollStep("timeout", "time budget exhausted during inspection")
         if not csv_text:
             return ScrollStep("timeout", "hierarchy inspection failed")
-        rows = parse_hierarchy(csv_text)
+        try:
+            rows = parse_hierarchy(csv_text)
+        except (ValueError, csv.Error):
+            return ScrollStep("timeout", "hierarchy listing was malformed")
         if not rows:
             return ScrollStep("timeout", "hierarchy listing was not usable")
         step = scroller.plan(rows)
@@ -463,7 +529,7 @@ def make_swiper(maestro: str, device: str, app_id: str, artifacts_dir: str, rema
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Container-aware, bounded Maestro scrolling.")
+    parser = argparse.ArgumentParser(description="Container-aware, bounded Maestro scrolling.", allow_abbrev=False)
     parser.add_argument("--device", required=True, help="explicit emulator serial, e.g. emulator-5554")
     parser.add_argument("--maestro", default=os.environ.get("MAESTRO_BIN", os.path.expanduser("~/.maestro/bin/maestro")))
     parser.add_argument("--app-id", default=DEFAULT_APP_ID)

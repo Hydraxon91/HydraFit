@@ -72,6 +72,12 @@ hierarchy permits one bounded Maestro compact CLI fallback, not a competing ADB
 dump (see `.maestro/README.md`); if that fails, stop interaction.
 Do not navigate by stale coordinates or replay an uncertain write.
 
+`maestro-scroll.sh` rejects malformed CSV/tree data, disables argument abbreviations, and checks
+the deadline after inspection before returning any result. It blocks on detected IME/dialog nodes
+or an overlapping non-ancestor branch instead of dismissing it or attempting a gesture. Identical
+Maestro node repeats are deduplicated; conflicting definitions fail. Hidden overlays omitted from
+the hierarchy remain undetectable, so the flow's no-keyboard/no-dialog preconditions still apply.
+
 The development emulator stays on debug builds. Never install a release/minified APK on it
 (including a published signed release); there is no approval path. Verify a release artifact
 offline (checksum, `apksigner verify`, manifest `versionName`/`versionCode`) and report

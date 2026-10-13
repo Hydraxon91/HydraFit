@@ -318,6 +318,78 @@ class DriveTests(unittest.TestCase):
         self.assertEqual("timeout", step.action)
 
 
+class ClosureRegressionTests(unittest.TestCase):
+    def test_identical_repeated_node_is_one_node(self):
+        valid = logger_screen(picker_bounds=(42, 1071, 1038, 1544), target_bounds=(74, 800, 680, 900))
+        repeated = valid + valid.splitlines()[-1] + "\n"
+        self.assertEqual(ms.parse_hierarchy(valid), ms.parse_hierarchy(repeated))
+        self.assertEqual("done", ms.Scroller(target_id="logger_warmup_prep_X").plan(ms.parse_hierarchy(repeated)).action)
+
+    def test_malformed_hierarchies_never_succeed_or_swipe(self):
+        valid = logger_screen(picker_bounds=(42, 1071, 1038, 1544), target_bounds=(74, 800, 680, 900))
+        malformed = [
+            valid.replace("element_num,depth,attributes,parent_num", "WRONG HEADER"),
+            valid + "broken,row\n",
+            valid.replace("1,1,", "1,bad,"),
+            valid.replace("[0,63][1080,1917]", "[1080,63][0,1917]"),
+            valid.replace("[0,63][1080,1917]", "not bounds"),
+            valid + '1,1,"",0\n',
+            valid + '6,2,"",999\n',
+            valid + '6,2,"",6\n',
+            valid + '6,2,"",7\n7,3,"",6\n',
+            valid + '6,2,"",bad\n',
+            valid + '6,2,"unterminated\n',
+        ]
+        for text in malformed:
+            with self.subTest(text=text):
+                swipe = mock.Mock(return_value=True)
+                step = ms.drive(ms.Scroller(target_id="logger_warmup_prep_X"), lambda: text, swipe)
+                self.assertEqual("timeout", step.action)
+                swipe.assert_not_called()
+
+    def test_visible_target_cannot_succeed_after_inspection_deadline(self):
+        text = logger_screen(picker_bounds=(42, 1071, 1038, 1544), target_bounds=(74, 800, 680, 900))
+        times = iter([0.0, 11.0])
+        swipe = mock.Mock(return_value=True)
+        step = ms.drive(ms.Scroller(target_id="logger_warmup_prep_X"), lambda: text, swipe,
+                        deadline=10.0, clock=lambda: next(times))
+        self.assertEqual("timeout", step.action)
+        swipe.assert_not_called()
+
+    def test_abbreviated_device_override_is_rejected_before_inspection(self):
+        with mock.patch.object(ms, "make_inspector") as inspector:
+            with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as error:
+                ms.main(["--device", "emulator-5554", "--expected-device", "emulator-5554",
+                         "--dev", "emulator-9999", "--expected-dev", "emulator-9999",
+                         "--target-id", "target"])
+            self.assertEqual(2, error.exception.code)
+            inspector.assert_not_called()
+
+    def test_obstructions_block_both_visible_and_missing_targets(self):
+        obstructions = [
+            attrs("resource-id=keyboard", bounds(0, 900, 1080, 1917)),
+            attrs("class=android.inputmethodservice.KeyboardView"),
+            attrs("resource-id=dialog", bounds(200, 500, 900, 1200)),
+            attrs("resource-id=unknown-window", bounds(0, 900, 1080, 1917)),
+        ]
+        for obstruction in obstructions:
+            for target in ("logger_warmup_prep_X", "absent"):
+                with self.subTest(obstruction=obstruction, target=target):
+                    text = logger_screen(picker_bounds=(42, 1071, 1038, 1544),
+                                         target_bounds=(74, 800, 680, 900),
+                                         extra=[(6, 1, obstruction, 0)])
+                    swipe = mock.Mock(return_value=True)
+                    step = ms.drive(ms.Scroller(target_id=target), lambda: text, swipe)
+                    self.assertEqual("blocked", step.action)
+                    swipe.assert_not_called()
+
+    def test_system_bars_outside_list_do_not_block(self):
+        text = logger_screen(picker_bounds=(42, 1071, 1038, 1544), target_bounds=(74, 800, 680, 900),
+                             extra=[(6, 1, attrs(bounds(0, 0, 1080, 63)), 0),
+                                    (7, 1, attrs(bounds(0, 1917, 1080, 2400)), 0)])
+        self.assertEqual("done", ms.Scroller(target_id="logger_warmup_prep_X").plan(ms.parse_hierarchy(text)).action)
+
+
 class InspectorTests(unittest.TestCase):
     def test_failed_inspection_output_is_never_consumed(self):
         # A failing hierarchy run can still emit partial bytes; exit status must win.
