@@ -614,6 +614,27 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   unverified; the cancelled/failed correction retry and session-resegmenting correction paths are
   host-tested only.
 
+### v0.7.3 publication verification (2026-10-13)
+
+- [v0.7.3 — Optional warm-up guidance](https://github.com/Hydraxon91/HydraFit/releases/tag/v0.7.3)
+  published with an annotated tag on `d43726b`. PR #7 merged after green Build-and-Test run
+  `38386980903`; merged candidate run `38387172856` also passed all four jobs. Signed Release run
+  `38387279915` (run number 18) passed lint, host tests/migration verification and signed assembly.
+- Reviewed source at `f406d14` was APPROVED after R073-28 closure; feature code did not change in
+  release preparation. Local gate on `eae4c26`: 1,507 host tests, zero failures/errors/skips, migration
+  verification, ktlint, debug assembly, release lint and shared/network iOS simulator compiles.
+- Offline APK verification: `androidApp-release.apk`, 24,757,223 bytes, package `com.hydrafit.app`,
+  `versionName=0.7.3`, `versionCode=18` (previous release 17), min SDK 24, ARM64.
+  `apksigner verify --verbose --print-certs` passed (v2 signature); certificate SHA-256
+  `af9cd73b3cc6842c7ab3c2f3cd572245826089aee863e9168a761a893c35a7e1`
+  matches the independently downloaded `v0.7.2` APK. Local APK SHA-256
+  `a36f71f752029dee8e389e18e2ad4744b3b09f55d4a92460e0bfe8c62dba9dcc`
+  matches GitHub's asset digest. The verified draft was then published with these release notes.
+- Device evidence is debug/diagnostic-build only (§6); temporary hooks were removed and the user
+  confirmed cleanup and normal-debug reinstallation. No release/minified APK was installed on the
+  development emulator. Signed-upgrade/runtime, TalkBack, larger text, dark mode and locale remain
+  unverified; signature continuity and a larger version code are not an on-device upgrade test.
+
 ### v0.7.2 publication verification (2026-10-12)
 
 - `v0.7.2` (Finish-workout summaries — OF-13-P3) published on the PR #6 merge commit `5bf548e`.
