@@ -85,11 +85,21 @@ label association and separate-control placement remain covered. The identities 
 `LoggerTestTags` in `:feature:logger`; the enclosing `Logger` `LazyColumn`, the exercise picker and
 its choices, and the warm-up editor dialog opt in through `loggerTestTagsAsResourceId` (no-op on iOS).
 
-The id-based revision has not been re-run on a device: the pass recorded above used the earlier
-text-selector flow, so the on-device exposure of the Logger resource ids and the rewritten flow's
-runtime result remain unverified. Re-running it needs the guided-on active-occurrence fixture and
-belongs to the fixture/verification chunk. `LoggerTestTagsTest` covers identity uniqueness and pins
-the names the flows select by.
+The id-based revision was verified on `emulator-5554` (debug, 1080×2400) on 2026-10-13. Without any
+fixture the always-present identities were exposed end to end: `logger_list` (the single scrollable
+container, whose bounds contain the picker), `logger_exercise_picker` and `logger_exercise_<id>` on
+each choice. With the guided-on active-occurrence fixture (`QA060 edges 1812` started as the active
+block) the flow passed end to end: `logger_warmup_card`, `logger_warmup_prep_EASY_GENERAL_MOVEMENT`
+and `logger_warmup_prep_SHOULDER_CIRCLES` with their Edit/Skip controls, the toggle's label asserted
+as a child and its checked state toggling unchecked → checked → unchecked. A viewed screenshot
+confirmed the label inside the toggle with Edit and Skip to its right. Cleanup restored the baseline:
+the block was cancelled, guided workouts turned off, and no set was written.
+
+Still unverified on a device: the ramp-row identities (`logger_warmup_ramp_*`), because the fixture
+routine has no external-load slot to render a ramp; and the warm-up editor dialog identities, which
+need the editor opened. Both use the same tag/`testTagsAsResourceId` mechanism as the verified
+controls, and `LoggerTestTagsTest` pins their names. The flow still scrolls with the fixed swipe
+percentages described above; a container-aware replacement is separate work.
 
 ## 0.7.3 R073-28 diagnostic race verification (2026-10-13)
 
