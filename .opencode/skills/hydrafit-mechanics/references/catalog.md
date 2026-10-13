@@ -132,3 +132,14 @@ labelled Instructions actions; feature-owned selection state and invalidation ar
 `features.md`. Equipment uses the effective row title and explicitly requests unavailable content
 for custom rows; Logger uses manual-selection or frozen draft/guided identity and title. No name
 matching, profile copying, catalog write or prescription edit is involved.
+
+### Informational exercise cautions (EX-03, 0.7.5)
+
+`ExerciseCautionSource` in the same module owns the approved 0.7.5 caution batch — exactly
+`conventional-deadlift`, `romanian-deadlift` and `dumbbell-rdl` — as single `exercise_caution_<id>`
+resources with an exact stable-ID lookup (`cautionByExerciseId` / `cautionFor`). Lookup is
+independent of `ExerciseInstructionSource`, so two of the three carry a caution with no authored
+instruction; a blank, unknown, custom or renamed ID resolves to null and must never be presented as
+"safe". The text is bundled, nonblocking and never persisted, exported or attached to a
+prescription. Provenance is in `docs/exercise-catalog-sources.md`; the viewer section and the
+Equipment/Logger entry points follow in the rest of the 0.7.5 slices.
