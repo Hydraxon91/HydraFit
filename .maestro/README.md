@@ -20,7 +20,7 @@ do not cancel someone else's draft or restart the app to establish them.
 | `logger-history-correction.yaml` | Logger selected, no dialog/editor | New session, log one synthetic set, correct its reps from history | Corrected set retained, listed once; Logger with the Log tab selected |
 | `logger-exercise-note.yaml` | Logger selected, no dialog/editor | Filter the picker, select an exercise, save/cancel/clear its setup note | Exercise left with an explicitly cleared note; Logger with the Log tab selected |
 | `logger-workout-summary.yaml` (not yet checked in) | Logger selected on an active block occurrence with every prescribed set unrecorded | Confirm all prescribed sets, Finish, View in history | Journey verified in pieces on 2026-10-12 (see below); the combined file is not checked in |
-| `logger-warmup-checkbox.yaml` | Guided workouts on, an active block with a pending occurrence, no dialog/editor | Navigate to Logger, scroll to the warm-up card, toggle one preparation row and back | The row starts unchecked, becomes checked and returns to unchecked; Edit and Skip sit outside the toggle |
+| `logger-warmup-checkbox.yaml` | Guided workouts on, an active block with a pending occurrence, Logger selected, the preparation row already on screen (see "Container-aware scrolling"), no dialog/editor | Toggle one preparation row and back | The row starts unchecked, becomes checked and returns to unchecked; Edit and Skip sit outside the toggle |
 
 The navigation flow visits all six tabs and asserts the selected tab after each
 tap; visible navigation labels alone are not a success oracle. It is also the
@@ -98,8 +98,8 @@ the block was cancelled, guided workouts turned off, and no set was written.
 Still unverified on a device: the ramp-row identities (`logger_warmup_ramp_*`), because the fixture
 routine has no external-load slot to render a ramp; and the warm-up editor dialog identities, which
 need the editor opened. Both use the same tag/`testTagsAsResourceId` mechanism as the verified
-controls, and `LoggerTestTagsTest` pins their names. The flow still scrolls with the fixed swipe
-percentages described above; a container-aware replacement is separate work.
+controls, and `LoggerTestTagsTest` pins their names. The flow itself no longer navigates or scrolls;
+see "Container-aware scrolling" for how the row is brought into view.
 
 ## 0.7.3 R073-28 diagnostic race verification (2026-10-13)
 
@@ -456,6 +456,32 @@ budget and two-attempt maximum. A timeout is not proof that all device-side work
 stopped; inspect execution/state before recovery. MCP `run` validates syntax but
 does not expose a per-run hard timeout; bounded CLI is the default for local
 flows and is required when the test needs a hard bound.
+
+## Container-aware scrolling
+
+`scripts/maestro-scroll.sh` brings a target into view by swiping the tagged outer container
+(`logger_list` by default) while avoiding nested scroll containers such as the exercise picker. It
+derives every gesture from a fresh hierarchy, so it never moves the wrong list and never reuses a
+stale dump. It inspects and swipes only: no tap, no write, no restart or clear-state.
+
+```bash
+ANDROID_SERIAL=emulator-5554 bash scripts/maestro-scroll.sh \
+  --target-id logger_warmup_prep_EASY_GENERAL_MOVEMENT
+```
+
+Bounds: at most 8 swipes, stop after 2 consecutive inspections with no container movement, and a
+120-second budget with each subprocess capped by what remains. A scroll container composes only what
+is on screen, so a target that is currently off-screen is absent from the hierarchy; absence is
+treated as "keep scrolling", not as an error, and only an ambiguous match (more than one) is refused.
+It also refuses to swipe when the container is missing or duplicated, or when no band exists that
+excludes every nested scrollable; those are reported, not worked around. Exit codes: `0` target
+visible, `2` blocked, `3` target never became visible (including an id that never appears), `4`
+timeout or hierarchy failure.
+
+`logger-warmup-checkbox.yaml` assumes the Logger tab is selected and the preparation row is already
+on screen: bring it there with the helper above, then run the flow; the flow itself performs no
+navigation or scrolling. Offline coverage for the helper is
+`python3 scripts/tests/test_maestro_scroll.py` — synthetic hierarchies, no device.
 
 ## Navigation regression verification (2026-10-11)
 
