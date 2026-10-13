@@ -6,7 +6,7 @@
 
 | Item | Status | Next action |
 | --- | --- | --- |
-| Product roadmap — M1–M8 | IN PROGRESS | 0.2.0–0.6.1 shipped; M1 selected scope done in 0.2.3. [Approved pre-1.0 roadmap](docs/roadmap.md): 0.7.x context → 0.8.x progress → 0.9.x equipment/data → 0.10.x progression → 0.11.x advanced metrics → 0.12.x optional AI → provisional 0.13.x final UX/design → 1.0. Smaller published feature releases approved 2026-10-11; each has its own bounded scope, verification and separately requested review. 0.7.0 scope and its durable decisions were approved 2026-10-11 (see the OF-03 section). 0.7.0 planner explanations (OF-03), the 0.7.1 notes/history slice and 0.7.2 finish-workout summaries are implemented, verified and shipped; the 0.7.3 warm-up guidance slice (WU-01) is implemented, twice reviewed (C7 and the F-series closure check, both REJECTED) and under the approved G-series remediation; its release gates remain separate. All remaining work is pre-1.0 except iOS shipping/desktop; research remains evidence-gated. |
+| Product roadmap — M1–M8 | IN PROGRESS | 0.2.0–0.6.1 shipped; M1 selected scope done in 0.2.3. [Approved pre-1.0 roadmap](docs/roadmap.md): 0.7.x context → 0.8.x progress → 0.9.x equipment/data → 0.10.x progression → 0.11.x advanced metrics → 0.12.x optional AI → provisional 0.13.x final UX/design → 1.0. Smaller published feature releases approved 2026-10-11; each has its own bounded scope, verification and separately requested review. 0.7.0 scope and its durable decisions were approved 2026-10-11 (see the OF-03 section). 0.7.0 planner explanations (OF-03), the 0.7.1 notes/history slice and 0.7.2 finish-workout summaries are implemented, verified and shipped; the 0.7.3 warm-up guidance slice (WU-01) is implemented; C7 and the F- and G-series closure checks were REJECTED, the approved F–H remediation is complete (the H-series closure check closed R073-16…R073-20), and a requested full-range release review was REJECTED with R073-21…R073-25, whose approved fixes are committed; its release gates remain separate. All remaining work is pre-1.0 except iOS shipping/desktop; research remains evidence-gated. |
 | Release 0.2.0 | SHIPPED | `v0.2.0` signed release published; [history](docs/plans-archive.md#2026-10-09-completed-status-rows). Stale `v0.1.0` validation pre-release cleanup remains optional. |
 | Release 0.2.1 | SHIPPED | `v0.2.1`; [Q1–Q6 history](docs/plans-archive.md#2026-10-09-completed-status-rows). Q4e remains user-side, not shipped code; local AI remains experimental/non-functional, with optional M8 follow-up. |
 | Release 0.2.2 — code review & architecture | SHIPPED | `v0.2.2`; R0–RG/RF complete, CI green; [fix/commit history](docs/plans-archive.md#2026-10-09-completed-status-rows). |
@@ -1178,8 +1178,10 @@ requirement, mandatory preparation, and any injury-prevention, lymphatic, detox 
 **Post-execution review (C7) and remediation (2026-10-13).** The bounded review of `653937a..34dce24`
 returned **REJECTED** with findings R073-01…R073-07 (no snapshot document); the approved F1–F5
 remediation was implemented and committed. The targeted closure check of `34dce24..584c927` returned
-**REJECTED** with R073-09…R073-15 (also no snapshot document); the approved G1–G6 remediation below is
-in progress. Each fix is a separate commit with its own tests.
+**REJECTED** with R073-09…R073-15 (also no snapshot document); the approved G1–G6 remediation and the
+following H-series are complete. A requested full-range review of `653937a..b307120` then returned
+**REJECTED** with R073-21…R073-25; the approved I-series remediation is recorded below. Each fix is a
+separate commit with its own tests.
 
 | Chunk | Status | Deliverable / acceptance and tests |
 | --- | --- | --- |
@@ -1244,6 +1246,27 @@ series by the user (2026-10-13), so the UI-facing fixes are host-test-verified o
 (`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/h-gate.log`). Emulator acceptance
 was waived for this series, so the H2–H4 UI behaviour is host-test-verified only; a targeted closure
 check remains the next separate gate. No schema or backup change.
+
+**I-series remediation (2026-10-13).** Findings R073-21…R073-25 from the requested full-range 0.7.3
+release review (`653937a..b307120`). Each fix is its own commit with its own regression; emulator
+acceptance applies to the UI-facing fix.
+
+| Chunk | Status | Deliverable / acceptance and tests |
+| --- | --- | --- |
+| I1 — equipment-ready ramps | DONE | `2dffcf8` (R073-21): ramp rows are withheld until the first equipment snapshot resolves and `logWarmupRamp` refuses until then, so a suggestion is never made against unknown ownership or an unknown ceiling; known unbounded equipment still offers the full profile. Tests: withheld window, capped, uncapped and unowned first snapshots. |
+| I2 — labeled preparation checkbox | DONE | `95c453a` (R073-22): a preparation row is one `toggleable` group (role `Checkbox`) whose child carries the action text, with Edit and Skip kept separate. Emulator (`emulator-5554`, debug): the row reported `checked=true` with its action text and returned to unchecked on a second tap (`/tmp/hydrafit-073-checkbox.png`); fixture restored. TalkBack speech, larger text, dark mode and locale remain unverified. |
+| I3 — per-position ramp coverage | DONE | `1f8cdfb` (R073-23): every ramp position 0–2 is covered for collapse visibility, over-ceiling refusal, correction keeping its own percentage, successful logging without progress or a rest prompt, Reset→Cancel and Reset→Save, plus a two-position view case. The tests fail when the retained-edit union is disabled. |
+| I4 — superseded refresh results | DONE | `2cb6547` (R073-24): a refresh that a newer refresh or a block change supersedes returns before publishing, so a stale occurrence, guidance or editor can never be republished and ramp logging stays available; leaving the block clears the occurrence-scoped warm-up state. Tests: stale overwrite, equipment supersede, block end during a read — all fail without the guards. |
+| I5 — status synchronization | DONE | R073-25: this status block and the stale C7/G-series wording corrected to the actual commits and checks. No review verdict or release approval is claimed. |
+
+**I-series gate (2026-10-13, I1–I4):** 1,504 host tests with zero failures/errors/skips
+(`:core:domain` 588, `:core:database` 333, `:feature:logger` 348, `:core:network` 34, `:core:llm` 55,
+`:feature:settings` 19, `:feature:equipment` 31, `:feature:routines` 13, `:feature:splitbuilder` 51,
+`:feature:fatigueheatmap` 11, `:shared` 21), `verifySqlDelightMigration`, `ktlintCheck`,
+`:androidApp:assembleDebug`, `:androidApp:lintVitalRelease`, `:shared:compileKotlinIosSimulatorArm64`
+and `:core:network:compileKotlinIosSimulatorArm64` pass
+(`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/i-gate.log`). No schema or backup
+change. A targeted closure check of the I-series remains the next separate gate.
 
 **Execution discipline:** C1 is a pure unwired projection (module tests/ktlint); C2 uses Tier B
 producer/consumer tests, Koin verification if bindings change, ktlint and debug assembly (no binding is
