@@ -62,6 +62,7 @@ bounds every ADB call to 120s.
 | `inspect.sh [output.xml]` | Standalone ADB hierarchy only when no competing automation session owns the device; conflicts with active Maestro. Reads emulator scratch `/data/local/tmp/hydrafit-ui.xml` only after a successful dump; no launch/restart. |
 | `snap.sh [output.png]` | Capture current screen only; default `/tmp/hydrafit-screen.png`. |
 | `tap.sh x y [--screenshot [output.png]]` | Tap without delay/image by default; optional image after one second. |
+| `maestro-scroll.sh (--target-id ID \| --target-text RE) [...]` | Bring a target into view by swiping the tagged outer container (`logger_list` by default) while excluding nested scrollables such as the exercise picker. Inspects and swipes only; bounded to 8 swipes, 2 consecutive no-progress inspections and 120s, with each subprocess capped by the remaining budget. Owns the verified emulator serial and refuses a caller-supplied `--device`. Offline tests: `python3 scripts/tests/test_maestro_scroll.py`. |
 
 Deployment is only needed after relevant app changes; capture/inspection must not
 reset the state being tested. Prefer semantic selectors and assertions for

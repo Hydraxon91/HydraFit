@@ -1,0 +1,42 @@
+# Preconditions (set up outside this flow): `Enable guided workouts` is on and an active training
+# block has a pending occurrence, so the Logger shows the warm-up card; the Logger tab is selected
+# and the preparation row is already on screen. Bring it into view with the container-aware helper:
+#
+#   ANDROID_SERIAL=emulator-5554 bash scripts/maestro-scroll.sh \
+#     --target-id logger_warmup_prep_EASY_GENERAL_MOVEMENT
+#
+# The flow performs no navigation and no scrolling of its own.
+#
+# What it checks: opening a preparation row's editor exposes the guidance dialog with its inputs and
+# both actions, and cancelling closes it without writing anything. Controls are located by their
+# stable identities (`logger_warmup_prep_edit_*`, `logger_warmup_editor*`), never by a translated
+# label or a row position. The dialog's title and field labels are localized copy, so they are not
+# asserted; the ids are the contract. Save is never tapped, so no warm-up edit and no set is written.
+appId: com.hydrafit.app
+---
+- assertVisible:
+    id: "logger_warmup_prep_EASY_GENERAL_MOVEMENT"
+    checked: false
+- tapOn:
+    id: "logger_warmup_prep_edit_EASY_GENERAL_MOVEMENT"
+    retryTapIfNoChange: false
+# The dialog and each of its controls are asserted by identity, independently: nested ids do not
+# guarantee a direct parent/child relationship for a relational matcher.
+- assertVisible:
+    id: "logger_warmup_editor"
+- assertVisible:
+    id: "logger_warmup_editor_duration"
+- assertVisible:
+    id: "logger_warmup_editor_save"
+- assertVisible:
+    id: "logger_warmup_editor_cancel"
+# Cancel is the dismiss action; Save stays untouched so nothing is written.
+- tapOn:
+    id: "logger_warmup_editor_cancel"
+    retryTapIfNoChange: false
+- assertNotVisible:
+    id: "logger_warmup_editor"
+# The row is left exactly as found: still present and still unchecked.
+- assertVisible:
+    id: "logger_warmup_prep_EASY_GENERAL_MOVEMENT"
+    checked: false

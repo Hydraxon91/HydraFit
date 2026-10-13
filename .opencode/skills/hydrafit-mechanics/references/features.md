@@ -329,7 +329,11 @@ Logger exposes `LoggerTestTags` the same way: its list, exercise picker and choi
 preparation toggle/Edit/Skip and ramp row/Edit/Log controls, plus the warm-up editor dialog, each
 carry a stable `logger_*` identity (keyed by exercise id, `WarmupAction`, occurrence entry and ramp
 index). These are technical metadata, never spoken labels, and never replace the existing control
-semantics.
+semantics. When a journey needs a control that is off-screen, bring it into view with
+`scripts/maestro-scroll.sh` (container-aware, bounded; it excludes the nested picker) instead of a
+fixed-percentage swipe, then run a flow that navigates and scrolls nothing itself: the two warm-up
+flows `.maestro/logger-warmup-checkbox.yaml` and `.maestro/logger-warmup-editor-cancel.yaml` assume
+the Logger tab and an on-screen preparation row.
 `.maestro/settings-guidance-denial.yaml` checks denied opt-in independently
 of coaching and restores coaching OFF; permission flags need separately approved cleanup.
 Generated imports for logger are:

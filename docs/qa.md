@@ -243,6 +243,15 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   controlled diagnostic reproduction, not a spontaneous race on the synchronous SQLDelight backend.
   Host tests cover capped, unowned and known-unbounded equipment; only the capped case was reproduced
   on the emulator. TalkBack, larger text, dark mode, locale and signed-release runtime remain unverified.
+  **2026-10-13 Logger warm-up editor/cancel device check:** with guided workouts on and an active
+  block, `scripts/maestro-scroll.sh` brought the preparation row into view from the top of the Logger
+  in two swipes without moving the nested exercise picker, and the new
+  `.maestro/logger-warmup-editor-cancel.yaml` opened that row's editor, asserted the
+  `logger_warmup_editor*` identities, cancelled it and confirmed the row was unchanged — Save was
+  never tapped. `.maestro/logger-warmup-checkbox.yaml` also passed against the helper-prepared view.
+  Fixture restored: block cancelled, guided workouts off, no set written. **Limits:** the ramp-row
+  identities remain unverified (the fixture routine has no external-load slot); the helper's gestures
+  were observed through its per-swipe hierarchy dumps rather than a screen recording.
 - Sessions: first set auto-starts a session; End session / New session; day rollover starts a new one; active-session indicator correct.
 - Session history (0.7.1-C5 queries, 0.7.1-C6 browser, 0.7.1-C7 corrections): entries are keyed by
   explicit
