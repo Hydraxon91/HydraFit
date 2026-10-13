@@ -17,7 +17,7 @@ the selected/oldest-unresolved occurrence's remaining sets as drafts, stamps
 Skip (the only queue advances); with no block it keeps the accepted-plan path.
 Attribution reuses the frozen draft slot, so a manual log for a prescribed exercise
 still carries the entry id rather than only the occurrence. A set logged against an active block
-occurrence stores that workout's zero-based position within the frozen activation as its `dayIndex`
+occurrence stores that workout's explicit zero-based `position` within the frozen activation as its `dayIndex`
 (the block "Day N" label), captured with the submission context; a set with no active block keeps the
 accepted plan's calendar day, and existing stored sets are never rewritten.
 Recorded planner target reasons travel with planned-today drafts and the current
@@ -119,13 +119,12 @@ which reads each occurrence entry's frozen prescription and the working sets
 attributed to it; warm-ups and sets with no entry attribution never satisfy a
 prescription. The card lists exercises in entry order with target reps/load and
 performed/prescribed counts. "Log set" records exactly one set for that entry and
-leaves the remaining prescribed sets pending. While a set is started, an ordinary guided "Log set" is
-unavailable and a repeat "Start set" on the started slot is a no-op; only that slot's explicit
-"Set completed now" consumes the live event. The Warm-up choice is frozen at confirmation,
-survives legacy/missing-load resolution and failed-write retries, and is discarded on cancellation
-or consumed on success. A warm-up is stored as a warm-up and stays out of the progress count. "Edit" opens
-the one-off
-draft editor and confirming it also writes a single set. Guided writes reuse the
+leaves the remaining prescribed sets pending. While a set is started, ordinary guided "Log set" and
+edit-confirm for another slot are refused; a repeat "Start set" on the started slot is a no-op, and only
+that slot's explicit "Set completed now" consumes the live event. The Warm-up choice is frozen at
+confirmation, survives legacy/missing-load resolution and failed-write retries, and is discarded on
+cancellation or consumed on success. A warm-up is stored as a warm-up and stays out of the progress
+count. "Edit" opens the one-off draft editor and confirming it also writes a single set. Guided writes reuse the
 draft load-shape decisions (legacy resolution, missing-load prompt) through
 `writeGuidedSet`, so a single insert either lands or leaves the draft pending for
 retry. **Set completed now** is a separate explicit action: it timestamps the set
