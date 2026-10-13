@@ -509,8 +509,9 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 
 ### 0.7.4 C1–C3 review-fix verification (2026-10-13)
 
-Verified against HEAD `a2b2a19d` plus the uncommitted C2/C3 content and approved R074-01..03/calf
-split follow-up. This is builder verification, not targeted reviewer closure or editorial acceptance.
+Verified against the C2/C3 content and approved R074-01..03/calf split follow-up, now committed in
+`938b0a94`, `fea1a93d` and `afe20c6a`. This is builder verification, not targeted reviewer closure.
+All 17 instructions were separately editorially accepted 2026-10-13 without changes.
 
 - Full Tier A gate passed: `testAndroidHostTest`, `:core:database:verifySqlDelightMigration`,
   `ktlintCheck`, `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64`,
@@ -531,9 +532,9 @@ split follow-up. This is builder verification, not targeted reviewer closure or 
   Robolectric 4.17 (MIT) and existing coroutine-test are Android-host-test-only dependencies;
   Android host resources are enabled. Initial Robolectric SDK/dependency downloads are test setup,
   not a production network requirement. No emulator or phone data was touched.
-- Remaining gates: separate editorial acceptance, requested Plan-mode targeted reviewer closure,
-  C4/C5 wiring and emulator acceptance, and C6 final integration. No release artifact, signed
-  upgrade, font/theme/locale UI variants, commit, push or CI run is claimed by this record.
+- Remaining gates: the requested Plan-mode targeted reviewer closure, C4/C5 wiring and emulator
+  acceptance, and C6 final integration. No release artifact, signed upgrade, font/theme/locale UI
+  variants, push or CI run is claimed by this record.
 
 ### Pre-0.7.4 Oct-13 correctives candidate verification (2026-10-13)
 
