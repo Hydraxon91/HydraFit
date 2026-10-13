@@ -4739,6 +4739,64 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun anUnchangedPoundDisplayKeepsItsExactKilogramRampAndCanSaveRepsChanges() =
+        runTest(dispatcher) {
+            val repository = FakeWorkoutLogRepository()
+            val schedule = MutableWorkoutScheduleRepository()
+            val occurrences = twoOccurrences().map { occurrence ->
+                occurrence.copy(
+                    entries = occurrence.entries.map {
+                        it.copy(requiredEquipment = setOf(EquipmentTag.BARBELL))
+                    }
+                )
+            }
+            schedule.set(blockActivation(), occurrences, selectedOccurrenceId = 30L)
+            val viewModel = occurrenceViewModel(
+                repository,
+                schedule,
+                guided = true,
+                equipment = WorkoutLoggerEquipment(
+                    FakeEquipment(
+                        listOf(
+                            Equipment(
+                                id = EquipmentTag.BARBELL,
+                                name = "Barbell",
+                                isBuiltIn = true,
+                                maxWeightKg = 40.0
+                            )
+                        )
+                    ),
+                    FakeSelection(setOf(EquipmentTag.BARBELL))
+                ),
+                weightUnit = WeightUnit.LB
+            )
+            advanceUntilIdle()
+
+            // The 40 kg default shows as 88.2 lb, which converts back to 40.006 kg.
+            viewModel.editWarmupRamp(40L, rampIndex = 0)
+            val editor = assertNotNull(viewModel.state.value.warmupEditor)
+            assertEquals("88.2", editor.weightInput)
+            // The untouched text still stands for the exact 40 kg default, not the rounded 88.2.
+            assertFalse(editor.weightExceedsCeiling)
+
+            viewModel.onWarmupEditorRepsChanged("7")
+            viewModel.saveWarmupEditor()
+            assertEquals(40.0, rampRow(viewModel).weightKg)
+
+            viewModel.logWarmupRamp(40L, rampIndex = 0)
+            advanceUntilIdle()
+            val recorded = repository.all().single()
+            assertTrue(recorded.isWarmup)
+            assertEquals(40.0, recorded.weightKg)
+            assertEquals(7, recorded.reps)
+
+            // A genuinely changed value is still converted and checked against the ceiling.
+            viewModel.editWarmupRamp(40L, rampIndex = 0)
+            viewModel.onWarmupEditorWeightChanged("100")
+            assertTrue(assertNotNull(viewModel.state.value.warmupEditor).weightExceedsCeiling)
+        }
+
+    @Test
     fun anEditAboveAReducedEquipmentCeilingCannotBeLogged() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()

@@ -175,8 +175,10 @@ Preparation values and ramp reps/load are editable through a transient in-memory
 nothing, an edited ramp row drops its default percentage, an edit above the equipment ceiling is
 refused, and a changed slot drops its edit. A timed item is entered in whole minutes (stored as seconds,
 with no product limit; only a duration that cannot be stored as whole seconds is refused) and a ramp
-load is validated in the unit the editor opened with. A retained edit
-whose equipment ceiling later drops is kept, explained and refused for logging — never silently clamped
+load is validated in the unit the editor opened with, and a value left untouched keeps the exact
+kilograms it opened with so a rounded pound display is not mistaken for an over-ceiling edit. A retained
+edit whose equipment ceiling later drops is kept, explained and refused for logging — never silently
+clamped
 — and an open editor takes the slot's current ceiling and closes when the slot loses its ramp. Reset
 stages the derived default for Save, so Cancel still preserves the applied guidance. A default the
 ceiling lowered shows its actual values with an equipment-limit label instead of its percentage. The

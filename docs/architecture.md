@@ -743,7 +743,9 @@ only the shown guidance, Cancel writes nothing, and a ramp is still recorded by 
 preparation item is entered in whole minutes and stored as seconds, with no product limit (only a
 duration that cannot be stored as whole seconds is refused); a ramp load is
 entered and validated in the unit the editor opened with, so a mid-edit unit change cannot reinterpret
-the typed digits and a pound value is compared against the ceiling in kilograms. An edited ramp row
+the typed digits and a pound value is compared against the ceiling in kilograms; a value left untouched
+keeps the exact kilograms it opened with, so rounding a default into pounds cannot turn it into an
+over-ceiling edit. An edited ramp row
 shows its actual values instead of a default percentage, a default the ceiling lowered shows its actual
 values with an equipment-limit label, and a slot whose prescription changes drops its edit so a value
 typed for the old exercise is never shown against the replacement. A retained edit whose equipment

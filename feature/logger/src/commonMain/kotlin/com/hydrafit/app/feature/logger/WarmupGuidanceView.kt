@@ -130,6 +130,13 @@ data class WarmupGuidanceEditor(
     val repsInput: String,
     val durationInput: String,
     val weightInput: String,
+    /**
+     * The exact load the editor opened with, and the display text it was shown as. When the text is
+     * left unchanged, [enteredWeightKg] returns this load rather than re-converting the rounded text,
+     * so rounding cannot turn a valid default into an over-ceiling edit.
+     */
+    val originalWeightKg: Double? = null,
+    val originalWeightInput: String? = null,
     /** True for a timed preparation item, where duration is edited instead of reps. */
     val timed: Boolean,
     /** True for a ramp, where load is editable. */
@@ -148,13 +155,29 @@ data class WarmupGuidanceEditor(
     private val durationMinutes: Int?
         get() = durationInput.toIntOrNull()?.takeIf { it > 0 }
 
+    /**
+     * The load the editor's current text stands for, in kilograms, or null when it is not a number.
+     * Unchanged text keeps the exact opening load; a genuinely edited value is converted from
+     * [weightUnit].
+     */
+    internal val enteredWeightKg: Double?
+        get() {
+            val entered = weightInput.toDoubleOrNull() ?: return null
+            val original = originalWeightKg
+            return if (original != null && weightInput == originalWeightInput) {
+                original
+            } else {
+                weightUnit.displayToKilograms(entered)
+            }
+        }
+
     /** True when the entered load exceeds the equipment ceiling in the unit it was entered in. */
     val weightExceedsCeiling: Boolean
         get() {
             val ceiling = ceilingKg ?: return false
             if (!hasWeight) return false
-            val entered = weightInput.toDoubleOrNull() ?: return false
-            return weightUnit.displayToKilograms(entered) > ceiling
+            val entered = enteredWeightKg ?: return false
+            return entered > ceiling
         }
 
     val canSave: Boolean

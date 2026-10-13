@@ -2207,12 +2207,15 @@ class WorkoutLoggerViewModel(
             ?.rows?.firstOrNull { it.key.rampIndex == rampIndex }
             ?: return
         _state.update {
+            val shownWeight = formatWeight(it.weightUnit.kilogramsToDisplay(row.weightKg))
             it.copy(
                 warmupEditor = WarmupGuidanceEditor(
                     target = WarmupEditTarget.Ramp(WarmupRampKey(occurrenceEntryId, rampIndex)),
                     repsInput = row.reps.toString(),
                     durationInput = "",
-                    weightInput = formatWeight(it.weightUnit.kilogramsToDisplay(row.weightKg)),
+                    weightInput = shownWeight,
+                    originalWeightKg = row.weightKg,
+                    originalWeightInput = shownWeight,
                     timed = false,
                     hasWeight = true,
                     weightUnit = it.weightUnit,
@@ -2279,8 +2282,7 @@ class WorkoutLoggerViewModel(
                             warmupEditor = null
                         )
                     } else {
-                        val weightKg = editor.weightInput.toDoubleOrNull()
-                            ?.let(editor.weightUnit::displayToKilograms)
+                        val weightKg = editor.enteredWeightKg
                         val default = state.warmupGuidance?.ramps
                             ?.firstOrNull { it.occurrenceEntryId == target.key.occurrenceEntryId }
                             ?.rampSets
@@ -2338,12 +2340,13 @@ class WorkoutLoggerViewModel(
                     ?.getOrNull(target.key.rampIndex)
                     ?: return
                 _state.update {
+                    val shownWeight = formatWeight(it.weightUnit.kilogramsToDisplay(ramp.weightKg))
                     it.copy(
                         warmupEditor = editor.copy(
                             repsInput = ramp.reps.toString(),
-                            weightInput = formatWeight(
-                                it.weightUnit.kilogramsToDisplay(ramp.weightKg)
-                            ),
+                            weightInput = shownWeight,
+                            originalWeightKg = ramp.weightKg,
+                            originalWeightInput = shownWeight,
                             resetsToDefault = true
                         )
                     )
