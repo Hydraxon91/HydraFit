@@ -74,6 +74,7 @@ import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.WarmupAction
+import com.hydrafit.app.core.exercisecontent.ExerciseInstructionDialog
 import com.hydrafit.app.core.navigation.FeatureDestination
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.focus_full_body
@@ -159,6 +160,7 @@ import hydrafit.feature.logger.generated.resources.logger_guided_start_set
 import hydrafit.feature.logger.generated.resources.logger_guided_target
 import hydrafit.feature.logger.generated.resources.logger_guided_title
 import hydrafit.feature.logger.generated.resources.logger_history_open
+import hydrafit.feature.logger.generated.resources.logger_instructions
 import hydrafit.feature.logger.generated.resources.logger_load_added
 import hydrafit.feature.logger.generated.resources.logger_load_added_none
 import hydrafit.feature.logger.generated.resources.logger_load_bodyweight
@@ -336,6 +338,10 @@ fun WorkoutLoggerRoute(
     WorkoutLoggerScreen(
         state = state,
         onExerciseSelected = viewModel::onExerciseSelected,
+        onManualInstructions = viewModel::openManualInstructions,
+        onDraftInstructions = viewModel::openDraftInstructions,
+        onGuidedInstructions = viewModel::openGuidedInstructions,
+        onDismissInstructions = viewModel::dismissInstructions,
         onExerciseSearchChanged = viewModel::onExerciseSearchChanged,
         onRepsChanged = viewModel::onRepsChanged,
         onWeightChanged = viewModel::onWeightChanged,
@@ -433,6 +439,10 @@ fun WorkoutLoggerRoute(
 fun WorkoutLoggerScreen(
     state: WorkoutLoggerUiState,
     onExerciseSelected: (String) -> Unit,
+    onManualInstructions: () -> Unit,
+    onDraftInstructions: (DraftSet) -> Unit,
+    onGuidedInstructions: (Long) -> Unit,
+    onDismissInstructions: () -> Unit,
     onExerciseSearchChanged: (String) -> Unit,
     onRepsChanged: (String) -> Unit,
     onWeightChanged: (String) -> Unit,
@@ -521,6 +531,14 @@ fun WorkoutLoggerScreen(
     var showTimePicker by remember { mutableStateOf(false) }
     var pendingDateUtcMillis by remember { mutableStateOf<Long?>(null) }
     var futureTimeError by remember { mutableStateOf(false) }
+
+    state.exerciseInstructions?.let { instructions ->
+        ExerciseInstructionDialog(
+            exerciseName = instructions.exerciseName,
+            exerciseId = instructions.exerciseId,
+            onDismiss = onDismissInstructions
+        )
+    }
 
     // One scroll container for the whole screen: a fixed-height picker inside a non-scrolling
     // parent used to push the form and the recent-sets list off short viewports.
@@ -825,6 +843,16 @@ fun WorkoutLoggerScreen(
                 }
             }
         }
+        if (state.selectedExerciseId != null) {
+            item {
+                TextButton(
+                    onClick = onManualInstructions,
+                    modifier = Modifier.testTag(LoggerTestTags.MANUAL_INSTRUCTIONS)
+                ) {
+                    Text(stringResource(Res.string.logger_instructions))
+                }
+            }
+        }
         item {
             OutlinedTextField(
                 value = state.reps,
@@ -983,7 +1011,8 @@ fun WorkoutLoggerScreen(
                         frozenEntryIds = state.frozenEntryIds,
                         onStartSet = onStartGuidedSet,
                         onEditSet = onEditGuidedSet,
-                        onReplace = onReplaceOccurrenceEntry
+                        onReplace = onReplaceOccurrenceEntry,
+                        onInstructions = onGuidedInstructions
                     )
                 }
             }
@@ -1033,6 +1062,12 @@ fun WorkoutLoggerScreen(
                         }
                         TextButton(onClick = { onDismissDraft(draft) }) {
                             Text(stringResource(Res.string.logger_dismiss))
+                        }
+                        TextButton(
+                            onClick = { onDraftInstructions(draft) },
+                            modifier = Modifier.testTag(LoggerTestTags.draftInstructions(draft))
+                        ) {
+                            Text(stringResource(Res.string.logger_instructions))
                         }
                         Box {
                             TextButton(onClick = { expanded = true }) {
@@ -2138,7 +2173,8 @@ private fun GuidedWorkoutSection(
     frozenEntryIds: Set<Long>,
     onStartSet: (Long) -> Unit,
     onEditSet: (Long) -> Unit,
-    onReplace: (Long) -> Unit
+    onReplace: (Long) -> Unit,
+    onInstructions: (Long) -> Unit
 ) {
     Card {
         Column(
@@ -2221,6 +2257,14 @@ private fun GuidedWorkoutSection(
                 guided.exercises.forEach { exercise ->
                     Column {
                         Text(exercise.exerciseName)
+                        TextButton(
+                            onClick = { onInstructions(exercise.occurrenceEntryId) },
+                            modifier = Modifier.testTag(
+                                LoggerTestTags.guidedInstructions(exercise.occurrenceEntryId)
+                            )
+                        ) {
+                            Text(stringResource(Res.string.logger_instructions))
+                        }
                         TargetExplanationDisclosure(
                             key = exercise.occurrenceEntryId,
                             explanation = exercise.explanation,
@@ -2237,6 +2281,14 @@ private fun GuidedWorkoutSection(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(exercise.exerciseName)
+                            TextButton(
+                                onClick = { onInstructions(exercise.occurrenceEntryId) },
+                                modifier = Modifier.testTag(
+                                    LoggerTestTags.guidedInstructions(exercise.occurrenceEntryId)
+                                )
+                            ) {
+                                Text(stringResource(Res.string.logger_instructions))
+                            }
                             // A slot that already holds recorded work, or the slot currently started,
                             // cannot be swapped: hide the action instead of offering a refused one.
                             if (exercise.occurrenceEntryId !in frozenEntryIds &&

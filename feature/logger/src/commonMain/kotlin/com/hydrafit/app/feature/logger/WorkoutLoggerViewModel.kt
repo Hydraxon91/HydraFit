@@ -188,6 +188,7 @@ class WorkoutLoggerViewModel(
             loggingActions.observeActiveActivation().collect { activation ->
                 if (activeActivation != activation) {
                     draftContextRevision++
+                    dismissInstructions()
                     // A refresh still reading for the previous block must not publish after this
                     // change, so a superseded result can never resurrect its guidance or editor.
                     warmupGuidanceGeneration++
@@ -235,6 +236,7 @@ class WorkoutLoggerViewModel(
         }
         viewModelScope.launch {
             settings.guidedWorkoutFlow().collectLatest { enabled ->
+                if (_state.value.guidedEnabled != enabled) dismissInstructions()
                 _state.update { it.copy(guidedEnabled = enabled) }
                 guidedPreferenceObserved = true
                 if (!enabled) {
@@ -253,7 +255,10 @@ class WorkoutLoggerViewModel(
                 }
                 // A different session identity invalidates the session-note editor and any in-flight
                 // read or write, so a draft or result can never attach to another session.
-                if (_state.value.activeSession?.id != session?.id) resetSessionNoteState()
+                if (_state.value.activeSession?.id != session?.id) {
+                    resetSessionNoteState()
+                    dismissInstructions()
+                }
                 _state.update { it.copy(activeSession = session) }
                 restoreRestTimerIfReady()
             }
@@ -339,6 +344,7 @@ class WorkoutLoggerViewModel(
         _state.update {
             it.copy(
                 selectedExerciseId = exerciseId,
+                exerciseInstructions = null,
                 weightInput = planWeight,
                 reps = planReps ?: it.reps,
                 // Bodyweight exercises hide the weight field again on each selection.
@@ -352,6 +358,40 @@ class WorkoutLoggerViewModel(
         }
         // Load the exercise setup note when an exercise is selected.
         onNoteExerciseSelected(exerciseId)
+    }
+
+    fun openManualInstructions() {
+        val current = _state.value
+        val exercise = current.exercises.firstOrNull {
+            it.id == current.selectedExerciseId
+        } ?: return
+        _state.update {
+            it.copy(exerciseInstructions = LoggerExerciseInstructions(exercise.id, exercise.name))
+        }
+    }
+
+    fun openDraftInstructions(draft: DraftSet) {
+        if (draft !in _state.value.draftSets) return
+        _state.update {
+            it.copy(exerciseInstructions = LoggerExerciseInstructions(draft.exerciseId, draft.name))
+        }
+    }
+
+    fun openGuidedInstructions(entryId: Long) {
+        val exercise = _state.value.guidedProgress?.exercises
+            ?.firstOrNull { it.occurrenceEntryId == entryId } ?: return
+        _state.update {
+            it.copy(
+                exerciseInstructions = LoggerExerciseInstructions(
+                    exercise.exerciseId,
+                    exercise.exerciseName
+                )
+            )
+        }
+    }
+
+    fun dismissInstructions() {
+        _state.update { it.copy(exerciseInstructions = null) }
     }
 
     /** Fills reps and weight from the most recent non-warmup set logged for this exercise. */
@@ -383,6 +423,7 @@ class WorkoutLoggerViewModel(
         _state.update {
             it.copy(
                 selectedExerciseId = row.exerciseId,
+                exerciseInstructions = null,
                 weightInput = weightInputFor(row.weightKg, unit),
                 reps = row.reps.toString(),
                 // Reveal the weight field for a bodyweight exercise only when that row had a weight.
@@ -787,7 +828,10 @@ class WorkoutLoggerViewModel(
             localEpochDay(nowMillis, utcOffsetMillis)
         )
         val rebuildDrafts = draftsKey != lastDraftsKey
-        if (rebuildDrafts) draftContextRevision++
+        if (rebuildDrafts) {
+            draftContextRevision++
+            dismissInstructions()
+        }
         val rebuiltDrafts = if (rebuildDrafts) {
             satisfiedDraftFree(
                 drafts = acceptedToday?.exercises.orEmpty().map { exercise ->
@@ -1543,6 +1587,7 @@ class WorkoutLoggerViewModel(
         if (occurrence == null) {
             if (currentOccurrence != null) {
                 draftContextRevision++
+                dismissInstructions()
                 invalidateRestTimer()
                 liveSetIntentEntryId = null
             }
@@ -1567,6 +1612,7 @@ class WorkoutLoggerViewModel(
         }
         if (currentOccurrence != occurrence) {
             draftContextRevision++
+            dismissInstructions()
             if (currentOccurrence != null) {
                 invalidateRestTimer()
                 liveSetIntentEntryId = null

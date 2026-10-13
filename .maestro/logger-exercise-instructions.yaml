@@ -1,0 +1,37 @@
+appId: com.hydrafit.app
+env:
+  REPS: "7"
+  WEIGHT: "42"
+---
+# Manual Back Squat selected; inputs/Instructions visible, no keyboard/dialog.
+- assertVisible:
+    text: ${REPS}
+    containsChild:
+      text: Reps
+- assertVisible:
+    text: ${WEIGHT}
+    containsChild:
+      text: Weight \(kg\)
+- tapOn:
+    id: logger_manual_instructions
+    retryTapIfNoChange: false
+- assertVisible: Back Squat
+- assertVisible: Setup
+- assertVisible: Set the bar securely across your upper back.*
+- scrollUntilVisible:
+    element: Bend your hips and knees together.*
+    timeout: 10000
+- takeScreenshot: logger-instructions
+- tapOn:
+    text: Close
+    retryTapIfNoChange: false
+- assertNotVisible: Setup
+- assertVisible:
+    text: ${REPS}
+    containsChild:
+      text: Reps
+- assertVisible:
+    text: ${WEIGHT}
+    containsChild:
+      text: Weight \(kg\)
+- assertVisible: RIR \(optional\)

@@ -16,6 +16,13 @@ internal object LoggerTestTags {
     /** The fixed-height exercise picker nested inside [LIST]. */
     const val EXERCISE_PICKER = "logger_exercise_picker"
 
+    const val MANUAL_INSTRUCTIONS = "logger_manual_instructions"
+
+    fun draftInstructions(draft: DraftSet): String =
+        "logger_draft_instructions_${draft.occurrenceEntryId ?: draft.exerciseId}"
+
+    fun guidedInstructions(entryId: Long): String = "logger_guided_instructions_$entryId"
+
     /** The optional warm-up guidance card. */
     const val WARMUP_CARD = "logger_warmup_card"
 
