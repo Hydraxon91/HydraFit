@@ -31,26 +31,33 @@ claim 100% automation reliability. Prefer a verified failure to a guessed succes
    offline (checksum, `apksigner verify`, manifest `versionName`/`versionCode`) and report
    signed-upgrade/on-device runtime checks as unverified. `adb uninstall` or data clear still
    needs explicit approval. Historical release-verification records are not permission.
-4. Inspect the current hierarchy before targeting. Call Maestro tools directly:
-   `.opencode/opencode.json` sets `mcp.servers.maestro.codemode: false` because
-   OpenCode's Code Mode serialization rejects hierarchies deeper than 32 JSON
-   levels. `JSON.stringify` in Code Mode does not bypass that limit. Direct
-   inspection passed on OpenCode 2.0.20 / Maestro 2.11.0 on 2026-10-13.
-   If direct MCP inspection fails,
-   use one bounded Maestro CLI `hierarchy --no-reinstall-driver --compact` call
-   with the explicit emulator id (command in `.maestro/README.md`). Its flat CSV
-   retains element numbers, depth, attributes and parent references without the
-   nested MCP payload. Read only this successful current output, never a stale
-   file. After a successful fallback, stay on compact CLI inspection for the rest
-   of that test rather than retrying the failing MCP hierarchy path. Fetch a fresh
-   bounded CLI hierarchy after each relevant screen change; these checkpoints are
-   not additional fallback attempts and do not reset the interaction/recovery budget.
-   If both paths fail, capture with `snap.sh`, report and stop interaction;
-   do not derive guessed taps from the image.
+4. Inspect the current hierarchy before targeting. Default to bounded Maestro CLI
+   `hierarchy --no-reinstall-driver --compact` with the explicit emulator id
+   (command in `.maestro/README.md`); do not wait for MCP to fail first. Its flat
+   CSV retains element numbers, depth, attributes and parent references. Read
+   only successful current output, never a stale file. Fetch a fresh bounded
+   hierarchy after each relevant screen change within the original budget.
+   If CLI inspection fails, capture with `snap.sh`, report and stop interaction;
+   do not switch controllers or derive guessed taps from the image.
+   Direct MCP remains optional. Call its tools directly, not through Code Mode:
+   the local `.opencode/opencode.json` sets `mcp.servers.maestro.codemode: false`
+   to bypass OpenCode's depth-32 serialization limit (`JSON.stringify` hits it
+   too). Direct inspection passed on OpenCode 2.0.20 / Maestro 2.11.0 on 2026-10-13.
+   If an optional MCP call reports a device-connection failure or direct MCP
+   inspection fails, wait for that call to finish, then use one bounded CLI
+   inspection. On success, stay on CLI for
+   inspection and flow execution for the rest of the test; do not probe the same
+   failed MCP session again. Establish a failed write's outcome before any further
+   write; never automatically replay the failed flow. If inspection cannot
+   establish the outcome, stop. Fallback does not reset the recovery budget.
 
 ## Choose one path
 
-- Maestro: semantic navigation, forms, bounded scrolling and assertions. Call
+- Maestro: default to bounded CLI execution of one named, syntax-checked flow
+  with `--no-reinstall-driver`; use the existing `.maestro/README.md` commands.
+  This avoids relying on the long-lived MCP device-session cache, but does not
+  guarantee driver reliability. Use semantic navigation, forms, bounded scrolling
+  and assertions. Call
   `cheat_sheet` before unfamiliar syntax. Do not copy its clear-state examples.
 - Scripts: deploy only after app changes, current screenshot and logcat.
   `inspect.sh` uses a separate UiAutomation connection and is for standalone ADB
@@ -107,8 +114,9 @@ claim 100% automation reliability. Prefer a verified failure to a guessed succes
 
 Short smoke flows: 120s hard limit each, excluding build/deploy or separately
 budgeted long-generation tests.
-MCP does not expose a per-run hard timeout; when a hard bound is needed, use the
-documented bounded CLI command in `.maestro/README.md`, not an unbounded MCP run.
+Use the documented bounded CLI command in `.maestro/README.md` by default for
+local flow execution. Optional MCP `run` does not expose a per-run hard timeout;
+do not use it for a test requiring that hard bound.
 On timeout, do not start another controller while the first may still be running.
 
 If a UI test unexpectedly deletes or alters a set or other persisted data, stop

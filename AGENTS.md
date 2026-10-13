@@ -400,11 +400,16 @@ Keep SQLDelight, Koin, Ktor and LiteRT-LM within the existing architecture and a
 - Read `docs/agent-ui-verification.md` and load `hydrafit-ui-testing` before any
   emulator inspection/interaction. Use semantic selectors/assertions; never guess
   repeated controls, use stale coordinates or claim success from a tap's exit code.
-- Call Maestro MCP tools directly. The project sets
+- Default to bounded Maestro CLI compact hierarchy inspection and named-file
+  flow execution (`--no-reinstall-driver`), using the commands in
+  `.maestro/README.md`. Do not wait for MCP to fail before using CLI.
+  Direct MCP remains optional; call its tools directly. The local config sets
   `mcp.servers.maestro.codemode: false` to bypass OpenCode's depth-32 Code Mode
   serialization limit; do not route hierarchy inspection through `execute` or
-  `JSON.stringify`. Keep the procedure's bounded compact CLI fallback for direct
-  MCP failures.
+  `JSON.stringify`. On an MCP device-connection failure, use bounded CLI for
+  inspection and execution for the rest of the test, only after the failed call
+  has finished. Establish a failed write's outcome before any further write;
+  never automatically replay it or restart/reinstall the driver as recovery.
 - Target only an explicitly verified running emulator (`ANDROID_SERIAL=emulator-<port>`),
   with bounded ADB calls. Never use a phone for UI verification. If none is running,
   ask the user to start one; do not boot one.

@@ -49,20 +49,32 @@ Paths below are relative to the repository root.
   loop, recreate records, attempt restoration, or rerun the write journey without
   explicit approval. Continue unrelated checks only if their preconditions remain
   valid and within the original time budget; an accident never resets that budget.
-- Call Maestro tools directly, not through Code Mode. The project config sets
+- Default to bounded Maestro CLI compact hierarchy inspection and execution of
+  one named, syntax-checked flow, both with `--no-reinstall-driver`; use the
+  existing commands in `.maestro/README.md`. Do not wait for MCP to fail first.
+  CLI uses a fresh host process rather than relying on MCP's long-lived device
+  session cache; it does not guarantee a healthy driver. If CLI hierarchy fails,
+  capture diagnostics and stop interaction rather than switching controllers.
+- Direct MCP remains optional. Call its tools directly, not through Code Mode.
+  The local config sets
   `mcp.servers.maestro.codemode: false` to bypass OpenCode's depth-32 Code Mode
   serialization limit on nested screen hierarchies. `JSON.stringify` inside
   Code Mode hits the same limit; it is not a recovery path. Direct inspection
   was verified on OpenCode 2.0.20 with Maestro 2.11.0 on 2026-10-13.
-- If direct MCP inspection fails, use one bounded Maestro CLI `hierarchy
-  --no-reinstall-driver --compact` fallback (see `.maestro/README.md`). If it succeeds,
-  use compact CLI inspection for the rest of that test; do not retry the failing MCP
-  hierarchy path. Fresh bounded CLI inspections after screen changes are required
+- If an optional MCP call reports a device-connection failure (for example,
+  `deviceInfo ... UNAVAILABLE`), wait for the failed call to finish and use one
+  bounded Maestro CLI `hierarchy --no-reinstall-driver --compact` fallback.
+  The same inspection fallback applies to a failed direct MCP hierarchy call.
+  If it succeeds, use CLI for both inspection and flow execution for the rest of
+  that test; do not probe the failed MCP session again. Establish the failed
+  write's outcome before any further write; never automatically replay a failed
+  flow. Stop if the outcome remains unknown. Fresh bounded CLI inspections after
+  screen changes are required
   checkpoints, not additional fallback attempts, and remain within the original
   interaction/recovery budget. Do not run
   `uiautomator dump`/`inspect.sh` while Maestro owns the automation connection:
   Android rejects a competing UiAutomation registration. ADB screenshot/logcat
-  remain usable. If neither Maestro hierarchy path works, capture diagnostic
+  remain usable. If CLI hierarchy fails, capture diagnostic
   evidence and stop interaction; no blind taps or tool roulette. Screenshots do
   not replace semantic success assertions.
 - Bound each short smoke flow to 120s, excluding build/deploy and intentional

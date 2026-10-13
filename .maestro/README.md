@@ -337,7 +337,13 @@ AVD name or phone. The existing targeting helper can verify it:
 ANDROID_SERIAL=emulator-5554 bash -c 'source scripts/emulator-common.sh; require_emulator'
 ```
 
-Use direct Maestro MCP tools for inspection. `.opencode/opencode.json` sets
+Default to bounded Maestro CLI for compact hierarchy inspection and execution of
+one named, syntax-checked flow. Use the existing commands below with
+`--no-reinstall-driver`; do not wait for MCP to fail first. A fresh CLI process
+avoids relying on the long-lived MCP device-session cache, but cannot guarantee
+driver reliability. Do not reinstall/kill the driver or restart the app to recover.
+
+Direct MCP remains optional. `.opencode/opencode.json` sets
 `mcp.servers.maestro.codemode: false`; do not wrap Maestro calls in Code Mode.
 This machine-local config is gitignored; other checkouts must set the same option
 in their own Maestro MCP configuration.
@@ -347,7 +353,7 @@ Direct `inspect_screen` returned the full Settings hierarchy on 2026-10-13 with
 Maestro 2.11.0, without a service/app restart or state changes. See
 `docs/maestro-evaluation.md` for the diagnosis and verification limits.
 
-If direct MCP inspection fails, use the same Maestro driver through flat CLI output:
+Inspect through flat CLI output without launching or restarting the app:
 
 ```bash
 MAESTRO_CLI_NO_ANALYTICS=1 MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED=true perl -e 'alarm 30; exec @ARGV' "$HOME/.maestro/bin/maestro" --device emulator-5554 hierarchy --no-reinstall-driver --compact > /tmp/hydrafit-maestro-hierarchy.csv 2>/tmp/hydrafit-maestro-hierarchy.log
@@ -359,12 +365,19 @@ starts a competing UiAutomation connection; while Maestro owns automation,
 Android reports `UiAutomationService ... already registered!`. Do not run that
 fallback or kill the driver. ADB screenshot/logcat do not require that connection.
 
-After a successful compact CLI fallback, use that inspection path for the rest of
-the test; do not repeatedly retry the failing MCP hierarchy. Run a fresh bounded
-CLI inspection after each relevant screen change, reading only its successful
-current output. These checkpoints are not additional fallback attempts and stay
-within the original five-minute interaction/recovery budget. A later CLI failure
-does not authorize switching to a competing `inspect.sh` connection.
+Run a fresh bounded CLI inspection after each relevant screen change, reading
+only its successful current output. If CLI inspection fails, capture diagnostics
+and stop interaction; do not switch to MCP or a competing `inspect.sh` connection.
+
+If an optional MCP call reports a device-connection failure (such as
+`deviceInfo ... UNAVAILABLE`), or direct MCP inspection fails, wait for the failed
+call to finish before one bounded CLI hierarchy fallback. After successful
+inspection, stay on CLI for both inspection and flow execution for the rest of
+the test; do not probe the failed MCP session again. A failed write may have
+completed: establish its outcome before any further write, and never
+automatically replay the failed flow. Stop if the outcome remains unknown.
+Fallback and fresh checkpoints stay within the original five-minute
+interaction/recovery budget; they do not reset it.
 
 For separately approved write tests, record existing preference/permission values
 as restoration baselines. A non-default value is not itself a blocker when its
@@ -390,7 +403,8 @@ Read the log separately. Use a fresh artifact directory for each attempt so old
 results cannot be mistaken for this run. Keep the five-minute overall interaction
 budget and two-attempt maximum. A timeout is not proof that all device-side work
 stopped; inspect execution/state before recovery. MCP `run` validates syntax but
-does not expose a per-run hard timeout; prefer bounded CLI for these smoke flows.
+does not expose a per-run hard timeout; bounded CLI is the default for local
+flows and is required when the test needs a hard bound.
 
 ## Navigation regression verification (2026-10-11)
 

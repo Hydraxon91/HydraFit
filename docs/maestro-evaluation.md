@@ -161,7 +161,7 @@ to its pre-pilot state (11 sets).
 Adopt Maestro for **navigable, semantic UI flows** (navigation, form entry, assertions)
 and keep the ADB scripts for **standalone inspection and path-specific screenshots**.
 Standalone ADB hierarchy inspection requires no competing automation owner; use
-the compact Maestro CLI fallback while Maestro is active (see adoption below).
+the compact Maestro CLI path while Maestro is active (see adoption below).
 Use `device_id: emulator-5554` explicitly, keep analytics disabled, and add `eraseText`
 when entering text into pre-filled fields. Before promoting flows to CI, add a cleanup
 step for any flow that writes data, and re-check device targeting with a phone attached.
@@ -171,9 +171,17 @@ step for any flow that writes data, and re-check device targeting with a phone a
 AGENTS.md Visual Verification is authoritative. Load `hydrafit-ui-testing` before
 emulator work; the mechanics skill points to it rather than duplicating recipes.
 Use semantic Maestro flows for interactions and assertions, with scripts for
-deployment, visual capture and logcat. MCP inspection failure gets one bounded
-Maestro `hierarchy --no-reinstall-driver --compact` fallback, not a competing
-ADB automation connection. Commands and syntax checks live in `.maestro/README.md`.
+deployment, visual capture and logcat. As of 2026-10-13, default to bounded CLI
+compact hierarchy inspection and named-file flow execution, both with
+`--no-reinstall-driver`; do not wait for MCP to fail first. Direct MCP remains
+optional. After an MCP device-connection failure or failed hierarchy call,
+wait for the call to finish before one bounded CLI hierarchy fallback. On
+success, stay on CLI for inspection and execution for the rest of the test.
+Establish a failed write's outcome before any further write; never automatically
+replay it. If CLI inspection fails or the outcome remains unknown, stop rather
+than switching controllers. No competing ADB automation connection, driver
+restart/reinstall or app restart is a recovery path. Commands and syntax checks
+live in `.maestro/README.md`.
 
 Each flow has a starting-state/mutation/postcondition/cleanup/time contract.
 Repeated controls require verified row scoping; ambiguous matches are blockers.
@@ -213,9 +221,28 @@ reported Maestro connected, and direct `list_devices` then `inspect_screen`
 returned the complete Settings hierarchy on `emulator-5554`, including bounds,
 labels, radio states and selected Settings tab, without the depth error.
 No navigation, app restart, install, permission or data changes were performed.
-Compact CLI remains the bounded fallback for direct MCP failures. Verification
+Compact CLI is now the default and remains the bounded fallback for optional
+direct MCP failures. Verification
 is limited to this read-only screen and these versions; flow execution, other
 screens and restart persistence were not exercised by this tooling fix.
+
+A later builder report supplied two MCP failures during a restore and subsequent
+inspection: `Device server died during 'deviceInfo' ... UNAVAILABLE`. Connection
+age increased from 1186827 to 1195913 ms, and time since the last byte from 82041
+to 91126 ms, consistent with reuse of the same unresponsive connection. Bounded
+CLI hierarchy with `--no-reinstall-driver --compact` then succeeded, showed the
+row still checked, and the subsequent CLI restore passed. ADB still identified
+`emulator-5554` and HydraFit remained focused; ADB health alone does not prove
+driver health. No driver stack trace was captured, so the original driver versus
+transport disconnect cause remains unknown.
+
+Inspection of the installed Maestro 2.11.0 `McpMaestroSessionManager` bytecode
+confirmed per-device `computeIfAbsent` caching without failure-triggered eviction
+in `withSession`. The CLI-first guidance avoids reliance on that long-lived MCP
+cache; it does not repair Maestro or guarantee disconnect-free execution. The
+builder's fallback/restore evidence is reported, not a new reproduction in this
+guidance change. No configuration, driver, app or dependency changes accompany
+the CLI-first update.
 
 ADB dump failures (exit 137, including compressed dump) are traced
 to Android's `UiAutomationService ... already registered!` with Maestro
