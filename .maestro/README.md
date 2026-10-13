@@ -74,6 +74,23 @@ page.
 Not verified: TalkBack speech itself (the semantics were inspected, not spoken), larger text, dark
 mode, locale, and the checkmark's visual rendering at larger font sizes.
 
+### Stable Logger test identities (2026-10-13)
+
+`logger-warmup-checkbox.yaml` now locates the preparation toggle, `Edit` and `Skip` by stable
+identities (`logger_warmup_prep_*`) exposed as Android resource ids, instead of by translated text or
+a `rightOf` chain anchored on the label. The toggle assertion still checks the label as a child
+(`containsChild`) together with the explicit `checked` state, and `Edit`/`Skip` are still asserted
+right of the toggle and of each other, so a rename or a value edit cannot silently move a target while
+label association and separate-control placement remain covered. The identities live in
+`LoggerTestTags` in `:feature:logger`; the enclosing `Logger` `LazyColumn`, the exercise picker and
+its choices, and the warm-up editor dialog opt in through `loggerTestTagsAsResourceId` (no-op on iOS).
+
+The id-based revision has not been re-run on a device: the pass recorded above used the earlier
+text-selector flow, so the on-device exposure of the Logger resource ids and the rewritten flow's
+runtime result remain unverified. Re-running it needs the guided-on active-occurrence fixture and
+belongs to the fixture/verification chunk. `LoggerTestTagsTest` covers identity uniqueness and pins
+the names the flows select by.
+
 ## 0.7.3 R073-28 diagnostic race verification (2026-10-13)
 
 On `emulator-5554` (debug), the authorized `Test` block and guided mode were used with temporary

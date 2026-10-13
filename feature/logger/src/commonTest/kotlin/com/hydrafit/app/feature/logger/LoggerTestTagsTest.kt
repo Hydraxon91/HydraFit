@@ -4,7 +4,6 @@ import com.hydrafit.app.core.domain.workout.WarmupAction
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
-import kotlin.test.assertTrue
 
 /**
  * The tag builders are the only source of the Logger's external identities, so a distinct control must
@@ -14,32 +13,38 @@ import kotlin.test.assertTrue
  */
 class LoggerTestTagsTest {
 
+    /**
+     * The permanent names a checked-in Maestro flow selects by. Pinning them here means an accidental
+     * rename surfaces as a unit-test failure instead of a silently unmatched flow selector.
+     */
     @Test
-    fun preparationTogglesAreDistinctPerAction() {
-        val actions = WarmupAction.entries
-        val tags = actions.map { LoggerTestTags.preparationToggle(it) }
-        assertEquals(actions.size, tags.toSet().size)
-        assertTrue(tags.all { it.startsWith("logger_warmup_prep_") })
+    fun preparationIdentitiesArePinnedWhereFlowsSelectByThem() {
+        val expected = mapOf(
+            WarmupAction.EASY_GENERAL_MOVEMENT to "EASY_GENERAL_MOVEMENT",
+            WarmupAction.LOWER_BODY_PRACTICE to "LOWER_BODY_PRACTICE",
+            WarmupAction.SHOULDER_CIRCLES to "SHOULDER_CIRCLES",
+            WarmupAction.LIGHT_PUSH_PRACTICE to "LIGHT_PUSH_PRACTICE",
+            WarmupAction.LIGHT_PULL_PRACTICE to "LIGHT_PULL_PRACTICE"
+        )
+        expected.forEach { (action, name) ->
+            assertEquals("logger_warmup_prep_$name", LoggerTestTags.preparationToggle(action))
+            assertEquals("logger_warmup_prep_edit_$name", LoggerTestTags.preparationEdit(action))
+            assertEquals("logger_warmup_prep_skip_$name", LoggerTestTags.preparationSkip(action))
+        }
+        // A new action without a pinned identity would otherwise go unnoticed by the flows.
+        assertEquals(expected.keys, WarmupAction.entries.toSet())
     }
 
     @Test
-    fun theThreePreparationControlsOfOneActionAreDistinct() {
-        WarmupAction.entries.forEach { action ->
-            val controls = setOf(
+    fun everyPreparationControlAcrossAllActionsIsUnique() {
+        val tags = WarmupAction.entries.flatMap { action ->
+            listOf(
                 LoggerTestTags.preparationToggle(action),
                 LoggerTestTags.preparationEdit(action),
                 LoggerTestTags.preparationSkip(action)
             )
-            assertEquals(3, controls.size)
         }
-    }
-
-    @Test
-    fun preparationTagsAreStableForTheSameAction() {
-        assertEquals(
-            LoggerTestTags.preparationToggle(WarmupAction.LIGHT_PUSH_PRACTICE),
-            LoggerTestTags.preparationToggle(WarmupAction.LIGHT_PUSH_PRACTICE)
-        )
+        assertEquals(tags.size, tags.toSet().size)
     }
 
     @Test

@@ -30,27 +30,36 @@ appId: com.hydrafit.app
                 end: "92%, 55%"
                 duration: 300
 - assertVisible: "Preparation"
-# The row's user-facing label is asserted separately, so a stable identity cannot mask a missing label.
-- assertVisible: "Easy general movement.*"
-# The toggle starts unchecked. Assert the unchecked state on the toggle node itself rather than the
-# absence of a checked node, which would also pass if the row were missing entirely.
+# The toggle carries its own label: assert the label as a child of the tagged toggle, so a stable
+# identity cannot mask a missing or detached label. The unchecked state is asserted on the same node
+# rather than as the absence of a checked node, which would also pass if the row were missing.
 - assertVisible:
     id: "logger_warmup_prep_EASY_GENERAL_MOVEMENT"
     checked: false
-# Edit and Skip are separate controls, distinct from the toggle.
+    containsChild:
+      text: "Easy general movement.*"
+# Edit sits right of the toggle and Skip right of Edit, so both stay separate controls outside it.
 - assertVisible:
     id: "logger_warmup_prep_edit_EASY_GENERAL_MOVEMENT"
+    rightOf:
+      id: "logger_warmup_prep_EASY_GENERAL_MOVEMENT"
 - assertVisible:
     id: "logger_warmup_prep_skip_EASY_GENERAL_MOVEMENT"
+    rightOf:
+      id: "logger_warmup_prep_edit_EASY_GENERAL_MOVEMENT"
 - tapOn:
     id: "logger_warmup_prep_EASY_GENERAL_MOVEMENT"
     retryTapIfNoChange: false
 - assertVisible:
     id: "logger_warmup_prep_EASY_GENERAL_MOVEMENT"
     checked: true
+    containsChild:
+      text: "Easy general movement.*"
 - tapOn:
     id: "logger_warmup_prep_EASY_GENERAL_MOVEMENT"
     retryTapIfNoChange: false
 - assertVisible:
     id: "logger_warmup_prep_EASY_GENERAL_MOVEMENT"
     checked: false
+    containsChild:
+      text: "Easy general movement.*"
