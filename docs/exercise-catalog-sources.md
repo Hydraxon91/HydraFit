@@ -266,5 +266,5 @@ target facts are referenced to the pinned public-domain dataset metadata:
 No source instructions or imagery are copied. Both clarified/new calf IDs are excluded from
 startup custom-name dedupe, like the protected CAT-P7 additions, so an existing same-name custom
 keeps its profile and references. This is an additive seed and query-only label repair, not a
-schema or backup-format change. Separate editorial acceptance of the authored content remains
-pending; resource tests and code review do not supply it.
+schema or backup-format change. All 17 authored instructions were separately editorially accepted
+2026-10-13 without changes; resource tests and code review do not supply editorial acceptance.
