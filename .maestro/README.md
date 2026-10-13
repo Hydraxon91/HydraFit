@@ -99,13 +99,19 @@ the block was cancelled, guided workouts turned off, and no set was written.
 Still unverified on a device: locale and TalkBack (waived). The ramp-row identities
 (`logger_warmup_ramp_*`) were verified at runtime on 2026-10-13 with a temporary external-load
 routine (`Band Curl`, target `8 × 45 kg`), which rendered `logger_warmup_ramp_181_0/1/2` with their
-`…_edit_`/`…_log_` controls; the warm-up editor identities (`logger_warmup_editor*`) were verified by
-`logger-warmup-editor-cancel.yaml`. Both warm-up flows also passed at 1.3 font scale and in dark
-mode, with the card reflowing so labels wrapped while `Edit`/`Skip`/`Log warm-up` stayed on-row
-(details in `docs/qa.md`). `scripts/maestro-scroll.sh` also reached the preparation row at 1.3 and
-in dark mode at 1.3 (one swipe up to the picker, two swipes to the row, picker offset unchanged), so
-container-relative reachability holds under reflow. Neither warm-up flow navigates or scrolls; see
-"Container-aware scrolling" for how the row is brought into view.
+`…_edit_`/`…_log_` controls (a later activation of the same routine used entry `183`). A ramp row's
+`Edit` opens the same editor id (`logger_warmup_editor`) in its external-load form:
+`logger_warmup_editor_reps` and `logger_warmup_editor_weight` are present instead of
+`…_duration`, with `Reset to default`, `Save` and `Cancel` inside the dialog. That form was asserted
+and screenshotted at baseline, at 1.3 font scale and in dark mode at 1.3, and cancelled without
+saving. The timed editor (`logger_warmup_editor_duration`, preparation rows) was verified by
+`logger-warmup-editor-cancel.yaml`; both warm-up flows passed at 1.3 font scale, and the checkbox
+flow also passed in dark mode at 1.0, with the card reflowing so labels wrapped while
+`Edit`/`Skip`/`Log warm-up` stayed on-row (details in `docs/qa.md`). `scripts/maestro-scroll.sh` also
+reached the preparation row at 1.3 and in dark mode at 1.3 (one swipe up to the picker, two swipes to
+the row, picker offset unchanged), so container-relative reachability holds under reflow. Neither
+warm-up flow navigates or scrolls; see "Container-aware scrolling" for how the row is brought into
+view.
 
 ## 0.7.3 R073-28 diagnostic race verification (2026-10-13)
 

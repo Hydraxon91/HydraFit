@@ -256,22 +256,30 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   `Enable guided workouts` on and a temporary external-load routine active (`Band Curl`, target
   `8 × 45 kg`), the warm-up card rendered its ramp rows with the `logger_warmup_ramp_<entry>_<index>`
   identities plus their `…_edit_` and `…_log_` controls, closing the unverified ramp-row identity gap.
-  At 1.3 font scale the Logger and warm-up card reflowed with each preparation label wrapping onto
-  several lines while `Edit`, `Skip` and `Log warm-up` stayed on their rows and unclipped
-  (`/tmp/c3-font13-logger.png`); the warm-up editor dialog kept its title, `Minutes` field,
+  A ramp row's `Edit` opens the editor in its external-load form — `logger_warmup_editor_reps` and
+  `logger_warmup_editor_weight`, no `…_duration`, with `Reset to default`, `Cancel` and `Save` inside
+  the dialog — asserted and viewed at baseline (`/tmp/c3r-rampeditor-base.png`), at 1.3 font scale
+  (`/tmp/c3r-rampeditor-font13.png`) and in dark mode at 1.3 (`/tmp/c3r-rampeditor-dark13.png`), then
+  cancelled without saving; a second activation of the same routine rendered those rows as
+  `logger_warmup_ramp_183_*`. At 1.3 font scale the Logger and warm-up card reflowed with each
+  preparation label wrapping onto several lines while `Edit`, `Skip` and `Log warm-up` stayed on
+  their rows and unclipped
+  (`/tmp/c3-font13-logger.png`); the preparation editor dialog kept its title, `Minutes` field,
   `Reset to default` and both actions inside the dialog (`/tmp/c3-font13-editor.png`); and both
   `.maestro/logger-warmup-checkbox.yaml` and `.maestro/logger-warmup-editor-cancel.yaml` passed. In
   dark mode at 1.0 the card, ramp rows, guided workout and two-row navigation rendered with legible
-  contrast (`/tmp/c3-dark-logger.png`) and the checkbox flow passed. `scripts/maestro-scroll.sh` also
-  reached the preparation row under both reflows — one `--direction up` swipe to the picker, then two
+  contrast (`/tmp/c3-dark-logger.png`) and the checkbox flow passed; the editor-cancel flow was not
+  re-run in dark mode. `scripts/maestro-scroll.sh`
+  also reached the preparation row under both reflows — one `--direction up` swipe to the picker, then two
   swipes to the row, at 1.3 and again in dark mode at 1.3 — with the picker's internal offset
   unchanged (`0`) each time, so container-relative reachability holds when text reflow moves the
   content. Ramp loads are the rounded
   suggestion (nearest 2.5 kg: `17.5`/`27.5`/`35 kg` for 40/60/80% of the 45 kg target), which the
   recorded `Target: 8 × 45 kg` line distinguishes from the prescription. **Limits:** the temporary
   fixture routine could not be hard-deleted — the app refuses that for a routine a block references
-  and offers only Archive — so it was archived instead on explicit approval; locale, TalkBack
-  (waived) and signed-release runtime remain unverified.
+  and offers only Archive — so it was archived instead on explicit approval (it was restored
+  briefly for this ramp-editor check and re-archived); locale, TalkBack (waived) and signed-release
+  runtime remain unverified.
 - Sessions: first set auto-starts a session; End session / New session; day rollover starts a new one; active-session indicator correct.
 - Session history (0.7.1-C5 queries, 0.7.1-C6 browser, 0.7.1-C7 corrections): entries are keyed by
   explicit
