@@ -206,7 +206,8 @@ data class WarmupGuidanceEditor(
             // A timed item has no product limit; it only has to be storable as whole seconds.
             val minutes = durationMinutes
             val durationOk = !timed ||
-                minutes != null && minutes.toLong() * SECONDS_PER_MINUTE <= Int.MAX_VALUE
+                minutes != null &&
+                minutes.toLong() * SECONDS_PER_MINUTE <= Int.MAX_VALUE
             val weightOk = !hasWeight ||
                 weightInput.toDoubleOrNull()?.let { it.isFinite() && it >= 0.0 } == true
             return repsOk && durationOk && weightOk && !weightExceedsCeiling

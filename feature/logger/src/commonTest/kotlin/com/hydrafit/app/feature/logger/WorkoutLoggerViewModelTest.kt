@@ -4835,50 +4835,49 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
-    fun anEditAtACollapsedRampPositionStaysVisibleCorrectableAndUnloggable() =
-        runTest(dispatcher) {
-            val repository = FakeWorkoutLogRepository()
-            val schedule = MutableWorkoutScheduleRepository()
-            schedule.set(blockActivation(), barbellOccurrences(), selectedOccurrenceId = 30L)
-            val equipment = MutableEquipment(EquipmentTag.BARBELL, maxWeightKg = 200.0)
-            val viewModel = occurrenceViewModel(
-                repository,
-                schedule,
-                guided = true,
-                equipment = equipment.collaborator()
-            )
-            advanceUntilIdle()
+    fun anEditAtACollapsedRampPositionStaysVisibleCorrectableAndUnloggable() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), barbellOccurrences(), selectedOccurrenceId = 30L)
+        val equipment = MutableEquipment(EquipmentTag.BARBELL, maxWeightKg = 200.0)
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            equipment = equipment.collaborator()
+        )
+        advanceUntilIdle()
 
-            // Edit the last profile position, then drop the ceiling until the defaults dedupe to one.
-            viewModel.editWarmupRamp(40L, rampIndex = 2)
-            viewModel.onWarmupEditorWeightChanged("65")
-            viewModel.saveWarmupEditor()
-            equipment.setMaxWeight(30.0)
-            advanceUntilIdle()
+        // Edit the last profile position, then drop the ceiling until the defaults dedupe to one.
+        viewModel.editWarmupRamp(40L, rampIndex = 2)
+        viewModel.onWarmupEditorWeightChanged("65")
+        viewModel.saveWarmupEditor()
+        equipment.setMaxWeight(30.0)
+        advanceUntilIdle()
 
-            val rows = assertNotNull(viewModel.state.value.visibleWarmupView).ramps.single().rows
-            assertEquals(listOf(0, 2), rows.map { it.key.rampIndex })
-            val retained = rows.single { it.key.rampIndex == 2 }
-            assertEquals(65.0, retained.weightKg)
-            assertTrue(retained.exceedsCeiling)
+        val rows = assertNotNull(viewModel.state.value.visibleWarmupView).ramps.single().rows
+        assertEquals(listOf(0, 2), rows.map { it.key.rampIndex })
+        val retained = rows.single { it.key.rampIndex == 2 }
+        assertEquals(65.0, retained.weightKg)
+        assertTrue(retained.exceedsCeiling)
 
-            // Above the limit it is refused, not clamped or written.
-            viewModel.logWarmupRamp(40L, rampIndex = 2)
-            advanceUntilIdle()
-            assertTrue(repository.all().isEmpty())
+        // Above the limit it is refused, not clamped or written.
+        viewModel.logWarmupRamp(40L, rampIndex = 2)
+        advanceUntilIdle()
+        assertTrue(repository.all().isEmpty())
 
-            // It is still correctable, and the correction keeps the row's own profile percentage.
-            viewModel.editWarmupRamp(40L, rampIndex = 2)
-            viewModel.onWarmupEditorWeightChanged("25")
-            viewModel.saveWarmupEditor()
-            val corrected = assertNotNull(viewModel.state.value.visibleWarmupView)
-                .ramps.single().rows.single { it.key.rampIndex == 2 }
-            assertEquals(25.0, corrected.weightKg)
-            assertEquals(
-                80,
-                viewModel.state.value.warmupRampEdits[WarmupRampKey(40L, 2)]?.percentOfWorkingWeight
-            )
-        }
+        // It is still correctable, and the correction keeps the row's own profile percentage.
+        viewModel.editWarmupRamp(40L, rampIndex = 2)
+        viewModel.onWarmupEditorWeightChanged("25")
+        viewModel.saveWarmupEditor()
+        val corrected = assertNotNull(viewModel.state.value.visibleWarmupView)
+            .ramps.single().rows.single { it.key.rampIndex == 2 }
+        assertEquals(25.0, corrected.weightKg)
+        assertEquals(
+            80,
+            viewModel.state.value.warmupRampEdits[WarmupRampKey(40L, 2)]?.percentOfWorkingWeight
+        )
+    }
 
     @Test
     fun resettingAnEditWhoseDefaultCollapsedRemovesItOnlyWhenSaved() = runTest(dispatcher) {
@@ -7012,9 +7011,8 @@ class WorkoutLoggerViewModelTest {
     }
 
     /** A unit preference a test can change while an editor is already open. */
-    private class FakeWeightUnitRepository(
-        private val units: MutableStateFlow<WeightUnit>
-    ) : WeightUnitRepository {
+    private class FakeWeightUnitRepository(private val units: MutableStateFlow<WeightUnit>) :
+        WeightUnitRepository {
         constructor(unit: WeightUnit) : this(MutableStateFlow(unit))
 
         override suspend fun selectedUnit(): WeightUnit = units.value
