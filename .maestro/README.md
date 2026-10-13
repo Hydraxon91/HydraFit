@@ -20,7 +20,7 @@ do not cancel someone else's draft or restart the app to establish them.
 | `logger-history-correction.yaml` | Logger selected, no dialog/editor | New session, log one synthetic set, correct its reps from history | Corrected set retained, listed once; Logger with the Log tab selected |
 | `logger-exercise-note.yaml` | Logger selected, no dialog/editor | Filter the picker, select an exercise, save/cancel/clear its setup note | Exercise left with an explicitly cleared note; Logger with the Log tab selected |
 | `logger-workout-summary.yaml` (not yet checked in) | Logger selected on an active block occurrence with every prescribed set unrecorded | Confirm all prescribed sets, Finish, View in history | Journey verified in pieces on 2026-10-12 (see below); the combined file is not checked in |
-| `logger-warmup-checkbox.yaml` (not yet checked in) | Logger selected, guided workouts on, an active block occurrence with a light push practice row, no dialog/editor | Toggle one preparation row and back | Journey verified 2026-10-13 by accessibility inspection (see below); no file checked in because scrolling to the warm-up card is not reliably scriptable |
+| `logger-warmup-checkbox.yaml` | Guided workouts on, an active block with a pending occurrence, no dialog/editor | Navigate to Logger, scroll to the warm-up card, toggle one preparation row and back | The row starts unchecked, becomes checked and returns to unchecked; Edit and Skip sit outside the toggle |
 
 The navigation flow visits all six tabs and asserts the selected tab after each
 tap; visible navigation labels alone are not a success oracle. It is also the
@@ -47,30 +47,29 @@ screenshot at the tested font scale/theme; the regression checks the wrapping ac
 
 ## 0.7.3 R073-22 preparation-checkbox semantics (2026-10-13)
 
-Run on `emulator-5554` (debug `Medium_Phone`, 1080×2400) against the R073-21/R073-22 build. Fixture:
-`Enable guided workouts` temporarily on, and the existing `QA060 edges 1812` routine started as an
-active block (no block was active beforehand, so nothing else was cancelled). Cleanup restored the
-baseline: the block was cancelled, guided workouts turned off, and the read-back database showed
-`guidedWorkoutEnabled=0`, no active activation and no selected equipment.
+`logger-warmup-checkbox.yaml` is checked in and passed end to end on `emulator-5554` (debug
+`Medium_Phone`, 1080×2400) against the R073-21/R073-22 build. Fixture: `Enable guided workouts`
+temporarily on and the existing `Test` routine started as an active block (no block was active
+beforehand). Cleanup restored the baseline: the block was cancelled, guided workouts turned off, and
+the read-back database showed `guidedWorkoutEnabled=0`, no active activation, no selected equipment
+and no set written for the occurrence.
 
 Before the change a preparation row rendered a `Checkbox` with its own toggle and the action text as a
 sibling, so the checkbox had no label of its own. The row is now one `toggleable` group (role
 `Checkbox`) whose child carries the action text, with `Edit` and `Skip` kept as separate controls.
-Verified from the compact CLI hierarchy with the row toggled:
+The action text is a child of the toggle, so the flow asserts the checked state on the row node that
+contains it (`containsChild`), not on the text node:
 
-- the row node reports `clickable=true` and `checked=true` after a tap, with the action text
-  (`Light, easy press practice · 10 reps`) as its child, so the toggle is announced with its label and
-  state;
-- `Edit` and `Skip` remain separate clickable controls in the same row;
-- tapping the row again returned it to unchecked and the row stayed on screen.
+- the row starts unchecked, becomes checked on a tap and returns to unchecked on a second tap;
+- `Edit` sits right of the row text and `Skip` right of `Edit`, so both are outside the toggle;
+- the hierarchy confirms the row node carries `clickable`/`checked` with the action text as its child.
 
-Viewed screenshot: `/tmp/hydrafit-073-checkbox.png`.
+Viewed screenshot: `/tmp/hydrafit-073-checkbox-checked.png` (the row checked, with Edit and Skip).
 
-No reusable flow was checked in. Reaching the warm-up card needs the page scrolled past the manual log
-form, and Maestro `scrollUntilVisible` was not reliable there — its centre-screen swipes landed on the
-exercise picker list rather than the page, and a fixed swipe count was not stable across runs (three
-swipes revealed the row in one run and overshot it in another). The journey was therefore run with
-bounded manual swipes and is recorded as evidence rather than a flow file.
+The card sits below the manual log form, whose exercise picker is a nested scrollable. The flow
+scrolls with swipes that start below the picker and stop as soon as the row is on screen; it does not
+use `scrollUntilVisible`, because that command's centre-screen swipes move the picker instead of the
+page.
 
 Not verified: TalkBack speech itself (the semantics were inspected, not spoken), larger text, dark
 mode, locale, and the checkmark's visual rendering at larger font sizes.

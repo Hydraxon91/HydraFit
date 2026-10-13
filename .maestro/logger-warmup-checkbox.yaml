@@ -1,0 +1,58 @@
+# Preconditions (set up outside this flow): `Enable guided workouts` is on and an active training
+# block has a pending occurrence, so the Logger shows the warm-up card. The preparation row it
+# targets is always offered (easy general movement), so any active block works; the `Test` routine
+# was used when this flow was verified.
+#
+# What it checks: a preparation row is one labeled toggle — the action text and the checked state
+# are on the same node — with Edit and Skip as separate controls beside it. Tapping the row toggles
+# it; tapping again returns it to its starting state. It writes no set and leaves the row as it
+# found it.
+appId: com.hydrafit.app
+---
+- tapOn:
+    text: "Log"
+    retryTapIfNoChange: false
+# The warm-up card sits below the manual log form, and the exercise picker in that form is a
+# nested scrollable. A centre-screen scroll would move the picker instead of the page, so scroll
+# with swipes that start below it, stopping as soon as the row is on screen.
+- repeat:
+    times: 10
+    commands:
+      - runFlow:
+          when:
+            notVisible:
+              text: "Easy general movement.*"
+          commands:
+            - swipe:
+                start: "92%, 78%"
+                end: "92%, 55%"
+                duration: 300
+- assertVisible: "Preparation"
+# The action text is a child of the toggle, so the checked state is asserted on the row node that
+# contains it rather than on the text node itself.
+- assertNotVisible:
+    checked: true
+    containsChild:
+      text: "Easy general movement · about 3 min"
+- assertVisible:
+    text: "Edit"
+    rightOf:
+      text: "Easy general movement · about 3 min"
+- assertVisible:
+    text: "Skip"
+    rightOf:
+      text: "Edit"
+- tapOn:
+    text: "Easy general movement · about 3 min"
+    retryTapIfNoChange: false
+- assertVisible:
+    checked: true
+    containsChild:
+      text: "Easy general movement · about 3 min"
+- tapOn:
+    text: "Easy general movement · about 3 min"
+    retryTapIfNoChange: false
+- assertNotVisible:
+    checked: true
+    containsChild:
+      text: "Easy general movement · about 3 min"
