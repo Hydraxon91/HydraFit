@@ -146,12 +146,16 @@ data class EquipmentProfilerUiState(
     val newEquipmentError: String? = null,
     val exercises: List<Exercise> = emptyList(),
     val search: String = "",
+    val instructionExerciseId: String? = null,
     val exerciseEditor: ExerciseEditorState = ExerciseEditorState(),
     val equipmentEditor: EquipmentEditorState = EquipmentEditorState(),
     val personalRecords: List<PersonalRecordRow> = emptyList(),
     val personalRecordEditor: PersonalRecordEditorState = PersonalRecordEditorState(),
     val isLoading: Boolean = true
 ) {
+    val instructionExercise: Exercise?
+        get() = exercises.firstOrNull { it.id == instructionExerciseId }
+
     val canAdd: Boolean
         get() = newEquipmentName.isNotBlank()
 

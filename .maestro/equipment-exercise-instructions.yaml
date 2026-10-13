@@ -1,0 +1,21 @@
+appId: com.hydrafit.app
+---
+# Equipment already filtered to exactly Back Squat; no keyboard/editor/dialog.
+- assertVisible: Back Squat
+- tapOn:
+    text: Instructions
+    retryTapIfNoChange: false
+- assertVisible: Back Squat
+- assertVisible: Setup
+- assertVisible: Set the bar securely across your upper back.*
+- scrollUntilVisible:
+    element: Bend your hips and knees together.*
+    timeout: 10000
+- assertVisible: Execution
+- takeScreenshot: equipment-instructions
+- tapOn:
+    text: Close
+    retryTapIfNoChange: false
+- assertNotVisible: Setup
+- assertVisible: Instructions
+- assertVisible: Edit

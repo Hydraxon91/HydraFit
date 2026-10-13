@@ -64,6 +64,20 @@ class EquipmentProfilerViewModel(
         _state.update { it.copy(personalRecordEditor = PersonalRecordEditorState(open = true)) }
     }
 
+    fun onOpenInstructions(exerciseId: String) {
+        _state.update { current ->
+            if (current.exercises.none { it.id == exerciseId }) {
+                current
+            } else {
+                current.copy(instructionExerciseId = exerciseId)
+            }
+        }
+    }
+
+    fun onDismissInstructions() {
+        _state.update { it.copy(instructionExerciseId = null) }
+    }
+
     fun onPersonalRecordExerciseSelected(exerciseId: String) {
         val existing = personalRecords.firstOrNull { it.exerciseId == exerciseId }
         _state.update {
