@@ -2287,14 +2287,18 @@ class WorkoutLoggerViewModel(
                             ?.firstOrNull { it.occurrenceEntryId == target.key.occurrenceEntryId }
                             ?.rampSets
                             ?.getOrNull(target.key.rampIndex)
+                        // A collapsed default leaves no row at this position, so the edit keeps the
+                        // profile percentage it already carried instead of being discarded.
+                        val percent = default?.percentOfWorkingWeight
+                            ?: state.warmupRampEdits[target.key]?.percentOfWorkingWeight
                         val reps = editor.repsInput.toIntOrNull()
-                        if (weightKg == null || reps == null || default == null) {
+                        if (weightKg == null || reps == null || percent == null) {
                             state.copy(warmupEditor = null)
                         } else {
                             state.copy(
                                 warmupRampEdits = state.warmupRampEdits + (
                                     target.key to WarmupRampSet(
-                                        percentOfWorkingWeight = default.percentOfWorkingWeight,
+                                        percentOfWorkingWeight = percent,
                                         reps = reps,
                                         weightKg = weightKg
                                     )
@@ -2338,7 +2342,12 @@ class WorkoutLoggerViewModel(
                     ?.firstOrNull { it.occurrenceEntryId == target.key.occurrenceEntryId }
                     ?.rampSets
                     ?.getOrNull(target.key.rampIndex)
-                    ?: return
+                if (ramp == null) {
+                    // This position's default collapsed into another row, so there is no value to
+                    // stage; Reset only stages the removal of the transient edit for Save.
+                    _state.update { it.copy(warmupEditor = editor.copy(resetsToDefault = true)) }
+                    return
+                }
                 _state.update {
                     // The editor's frozen unit, not the current preference, so Reset shows digits in
                     // the same unit Save will interpret them in.

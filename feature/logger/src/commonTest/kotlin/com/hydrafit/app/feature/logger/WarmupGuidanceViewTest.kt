@@ -106,6 +106,34 @@ class WarmupGuidanceViewTest {
     }
 
     @Test
+    fun aRetainedEditStaysVisibleWhenItsDefaultCollapsedAway() {
+        // The ceiling deduped the three profile loads down to a single 30 kg row.
+        val collapsed = guidance.copy(
+            ramps = guidance.ramps.map { plan ->
+                plan.copy(
+                    ceilingKg = 30.0,
+                    rampSets = listOf(WarmupRampSet(40, 8, 30.0, isEquipmentLimited = true))
+                )
+            }
+        )
+        val retained = WarmupRampKey(occurrenceEntryId = 40L, rampIndex = 2)
+        val view = buildWarmupGuidanceView(
+            collapsed,
+            rampEdits = mapOf(retained to WarmupRampSet(80, 3, 65.0))
+        )
+
+        val rows = view.ramps.single().rows
+        assertEquals(listOf(0, 2), rows.map { it.key.rampIndex })
+        assertEquals(30.0, rows.first().weightKg)
+
+        val edited = rows.last()
+        assertEquals(3, edited.reps)
+        assertEquals(65.0, edited.weightKg)
+        assertNull(edited.percentOfWorkingWeight)
+        assertTrue(edited.exceedsCeiling)
+    }
+
+    @Test
     fun skippingEveryPreparationStillReportsSomethingToRestore() {
         val preparationOnly = WarmupGuidance(
             preparation = listOf(

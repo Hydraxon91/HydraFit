@@ -84,19 +84,36 @@ fun buildWarmupGuidanceView(
             )
         },
     ramps = guidance.ramps.mapNotNull { plan ->
-        val rows = plan.rampSets.mapIndexed { index, ramp ->
-            val key = WarmupRampKey(plan.occurrenceEntryId, index)
+        val defaults = plan.rampSets
+            .mapIndexed { index, ramp -> WarmupRampKey(plan.occurrenceEntryId, index) to ramp }
+            .toMap()
+        // A retained edit keeps its own row even when the ceiling collapsed its default away, so the
+        // value the user entered stays visible, correctable and resettable rather than vanishing.
+        val retained = rampEdits.keys.filter { it.occurrenceEntryId == plan.occurrenceEntryId }
+        val rows = (defaults.keys + retained).sortedBy { it.rampIndex }.mapNotNull { key ->
             val edited = rampEdits[key]
-            WarmupRampRow(
-                key = key,
-                reps = edited?.reps ?: ramp.reps,
-                weightKg = edited?.weightKg ?: ramp.weightKg,
+            val default = defaults[key]
+            when {
                 // An edited load is no longer the default percentage of the working weight.
-                percentOfWorkingWeight = if (edited != null) null else ramp.percentOfWorkingWeight,
+                edited != null -> WarmupRampRow(
+                    key = key,
+                    reps = edited.reps,
+                    weightKg = edited.weightKg,
+                    percentOfWorkingWeight = null,
+                    isEquipmentLimited = false,
+                    ceilingKg = plan.ceilingKg
+                )
                 // A default the ceiling lowered also stops describing its percentage.
-                isEquipmentLimited = edited == null && ramp.isEquipmentLimited,
-                ceilingKg = plan.ceilingKg
-            )
+                default != null -> WarmupRampRow(
+                    key = key,
+                    reps = default.reps,
+                    weightKg = default.weightKg,
+                    percentOfWorkingWeight = default.percentOfWorkingWeight,
+                    isEquipmentLimited = default.isEquipmentLimited,
+                    ceilingKg = plan.ceilingKg
+                )
+                else -> null
+            }
         }
         if (rows.isEmpty()) {
             null
@@ -182,6 +199,9 @@ data class WarmupGuidanceEditor(
 
     val canSave: Boolean
         get() {
+            // Reset stages a derived default or the removal of an edit; neither depends on the typed
+            // fields, so it can be applied even when a retained load is over the ceiling.
+            if (resetsToDefault) return true
             val repsOk = timed || (repsInput.toIntOrNull() ?: 0) > 0
             // A timed item has no product limit; it only has to be storable as whole seconds.
             val minutes = durationMinutes

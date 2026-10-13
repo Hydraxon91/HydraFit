@@ -4835,6 +4835,92 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun anEditAtACollapsedRampPositionStaysVisibleCorrectableAndUnloggable() =
+        runTest(dispatcher) {
+            val repository = FakeWorkoutLogRepository()
+            val schedule = MutableWorkoutScheduleRepository()
+            schedule.set(blockActivation(), barbellOccurrences(), selectedOccurrenceId = 30L)
+            val equipment = MutableEquipment(EquipmentTag.BARBELL, maxWeightKg = 200.0)
+            val viewModel = occurrenceViewModel(
+                repository,
+                schedule,
+                guided = true,
+                equipment = equipment.collaborator()
+            )
+            advanceUntilIdle()
+
+            // Edit the last profile position, then drop the ceiling until the defaults dedupe to one.
+            viewModel.editWarmupRamp(40L, rampIndex = 2)
+            viewModel.onWarmupEditorWeightChanged("65")
+            viewModel.saveWarmupEditor()
+            equipment.setMaxWeight(30.0)
+            advanceUntilIdle()
+
+            val rows = assertNotNull(viewModel.state.value.visibleWarmupView).ramps.single().rows
+            assertEquals(listOf(0, 2), rows.map { it.key.rampIndex })
+            val retained = rows.single { it.key.rampIndex == 2 }
+            assertEquals(65.0, retained.weightKg)
+            assertTrue(retained.exceedsCeiling)
+
+            // Above the limit it is refused, not clamped or written.
+            viewModel.logWarmupRamp(40L, rampIndex = 2)
+            advanceUntilIdle()
+            assertTrue(repository.all().isEmpty())
+
+            // It is still correctable, and the correction keeps the row's own profile percentage.
+            viewModel.editWarmupRamp(40L, rampIndex = 2)
+            viewModel.onWarmupEditorWeightChanged("25")
+            viewModel.saveWarmupEditor()
+            val corrected = assertNotNull(viewModel.state.value.visibleWarmupView)
+                .ramps.single().rows.single { it.key.rampIndex == 2 }
+            assertEquals(25.0, corrected.weightKg)
+            assertEquals(
+                80,
+                viewModel.state.value.warmupRampEdits[WarmupRampKey(40L, 2)]?.percentOfWorkingWeight
+            )
+        }
+
+    @Test
+    fun resettingAnEditWhoseDefaultCollapsedRemovesItOnlyWhenSaved() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), barbellOccurrences(), selectedOccurrenceId = 30L)
+        val equipment = MutableEquipment(EquipmentTag.BARBELL, maxWeightKg = 200.0)
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            equipment = equipment.collaborator()
+        )
+        advanceUntilIdle()
+
+        viewModel.editWarmupRamp(40L, rampIndex = 2)
+        viewModel.onWarmupEditorWeightChanged("65")
+        viewModel.saveWarmupEditor()
+        equipment.setMaxWeight(30.0)
+        advanceUntilIdle()
+        val key = WarmupRampKey(40L, 2)
+        assertNotNull(viewModel.state.value.warmupRampEdits[key])
+
+        // Reset then Cancel still preserves the retained edit.
+        viewModel.editWarmupRamp(40L, rampIndex = 2)
+        viewModel.resetWarmupEditor()
+        viewModel.cancelWarmupEditor()
+        assertNotNull(viewModel.state.value.warmupRampEdits[key])
+
+        // Reset then Save removes it, returning the collapsed defaults alone.
+        viewModel.editWarmupRamp(40L, rampIndex = 2)
+        viewModel.resetWarmupEditor()
+        viewModel.saveWarmupEditor()
+        assertNull(viewModel.state.value.warmupRampEdits[key])
+        assertEquals(
+            listOf(0),
+            assertNotNull(viewModel.state.value.visibleWarmupView).ramps.single().rows
+                .map { it.key.rampIndex }
+        )
+    }
+
+    @Test
     fun anEditAboveAReducedEquipmentCeilingCannotBeLogged() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
