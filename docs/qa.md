@@ -216,6 +216,16 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   exact kilograms, Reset uses the editor's frozen unit, and a retained ramp edit stays visible and
   correctable when the ceiling collapsed its default row away. Emulator acceptance was waived for this
   series, so none of these four UI behaviours was re-checked on a device.
+  **2026-10-13 R073-21/R073-22 device check:** the Logger withholds ramp rows until the first equipment
+  snapshot resolves (preparation still shows), and each preparation row is a labeled checkbox (its
+  action text plus checked state) with Edit/Skip kept separate. Emulator (`emulator-5554`, debug): with
+  guided workouts on and the `QA060 edges 1812` block active, the preparation row's toggle reported
+  `checked=true` with its action text and returned to unchecked on a second tap; screenshot
+  `/tmp/hydrafit-073-checkbox.png`. Fixture restored (block cancelled, guided workouts off). **Limits:**
+  TalkBack speech, larger text, dark mode, locale and the larger-font checkmark were not checked; the
+  R073-21 pre-equipment window is host-covered only, because the device never presented an unresolved
+  equipment state. The journey is recorded as evidence rather than a reusable flow (see
+  `.maestro/README.md`).
 - Sessions: first set auto-starts a session; End session / New session; day rollover starts a new one; active-session indicator correct.
 - Session history (0.7.1-C5 queries, 0.7.1-C6 browser, 0.7.1-C7 corrections): entries are keyed by
   explicit

@@ -20,6 +20,7 @@ do not cancel someone else's draft or restart the app to establish them.
 | `logger-history-correction.yaml` | Logger selected, no dialog/editor | New session, log one synthetic set, correct its reps from history | Corrected set retained, listed once; Logger with the Log tab selected |
 | `logger-exercise-note.yaml` | Logger selected, no dialog/editor | Filter the picker, select an exercise, save/cancel/clear its setup note | Exercise left with an explicitly cleared note; Logger with the Log tab selected |
 | `logger-workout-summary.yaml` (not yet checked in) | Logger selected on an active block occurrence with every prescribed set unrecorded | Confirm all prescribed sets, Finish, View in history | Journey verified in pieces on 2026-10-12 (see below); the combined file is not checked in |
+| `logger-warmup-checkbox.yaml` (not yet checked in) | Logger selected, guided workouts on, an active block occurrence with a light push practice row, no dialog/editor | Toggle one preparation row and back | Journey verified 2026-10-13 by accessibility inspection (see below); no file checked in because scrolling to the warm-up card is not reliably scriptable |
 
 The navigation flow visits all six tabs and asserts the selected tab after each
 tap; visible navigation labels alone are not a success oracle. It is also the
@@ -43,6 +44,36 @@ restoring the test's coaching change; do not rerun the permission write blindly.
 
 Session-control assertions do not establish layout by themselves. Capture and view the Logger
 screenshot at the tested font scale/theme; the regression checks the wrapping action layout.
+
+## 0.7.3 R073-22 preparation-checkbox semantics (2026-10-13)
+
+Run on `emulator-5554` (debug `Medium_Phone`, 1080×2400) against the R073-21/R073-22 build. Fixture:
+`Enable guided workouts` temporarily on, and the existing `QA060 edges 1812` routine started as an
+active block (no block was active beforehand, so nothing else was cancelled). Cleanup restored the
+baseline: the block was cancelled, guided workouts turned off, and the read-back database showed
+`guidedWorkoutEnabled=0`, no active activation and no selected equipment.
+
+Before the change a preparation row rendered a `Checkbox` with its own toggle and the action text as a
+sibling, so the checkbox had no label of its own. The row is now one `toggleable` group (role
+`Checkbox`) whose child carries the action text, with `Edit` and `Skip` kept as separate controls.
+Verified from the compact CLI hierarchy with the row toggled:
+
+- the row node reports `clickable=true` and `checked=true` after a tap, with the action text
+  (`Light, easy press practice · 10 reps`) as its child, so the toggle is announced with its label and
+  state;
+- `Edit` and `Skip` remain separate clickable controls in the same row;
+- tapping the row again returned it to unchecked and the row stayed on screen.
+
+Viewed screenshot: `/tmp/hydrafit-073-checkbox.png`.
+
+No reusable flow was checked in. Reaching the warm-up card needs the page scrolled past the manual log
+form, and Maestro `scrollUntilVisible` was not reliable there — its centre-screen swipes landed on the
+exercise picker list rather than the page, and a fixed swipe count was not stable across runs (three
+swipes revealed the row in one run and overshot it in another). The journey was therefore run with
+bounded manual swipes and is recorded as evidence rather than a flow file.
+
+Not verified: TalkBack speech itself (the semantics were inspected, not spoken), larger text, dark
+mode, locale, and the checkmark's visual rendering at larger font sizes.
 
 ## 0.7.3 G-series re-verification (2026-10-13)
 

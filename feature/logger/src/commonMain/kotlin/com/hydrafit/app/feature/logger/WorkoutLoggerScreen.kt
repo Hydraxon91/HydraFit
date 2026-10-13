@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -50,6 +51,7 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -1848,14 +1850,22 @@ private fun WarmupGuidanceSection(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Checkbox(
-                            checked = row.action in checked,
-                            onCheckedChange = { onPreparationToggled(row.action) }
-                        )
-                        Text(
-                            text = warmupPreparationText(row),
-                            modifier = Modifier.weight(1f)
-                        )
+                        // The checkbox and its line form one labeled toggle, so the preparation action
+                        // is announced together with its checked state; Edit and Skip stay separate.
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .toggleable(
+                                    value = row.action in checked,
+                                    role = Role.Checkbox,
+                                    onValueChange = { onPreparationToggled(row.action) }
+                                ),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Checkbox(checked = row.action in checked, onCheckedChange = null)
+                            Text(text = warmupPreparationText(row))
+                        }
                         TextButton(onClick = { onEditPreparation(row.action) }) {
                             Text(stringResource(Res.string.logger_warmup_guidance_edit))
                         }
