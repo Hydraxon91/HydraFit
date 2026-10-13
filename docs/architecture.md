@@ -751,8 +751,9 @@ values with an equipment-limit label, and a slot whose prescription changes drop
 typed for the old exercise is never shown against the replacement. A retained edit whose equipment
 ceiling later drops is kept, explained and refused for logging rather than silently clamped; an open
 editor takes the slot's current ceiling and closes when the slot loses its ramp, and a slot with no ramp
-keeps no edit. Reset stages the derived default in the open editor, so Save applies it while Cancel
-still preserves the guidance already in effect. Skipped preparation items are counted, so the restore
+keeps no edit. Reset stages the derived default in the open editor, filling the fields in the unit the
+editor froze so the digits match what Save will interpret, while Cancel still preserves the guidance
+already in effect. Skipped preparation items are counted, so the restore
 action stays reachable even when every row is hidden. Edits are scoped to one workout and are not
 persisted, and a logged ramp row is not consumed — the suggestion stays available.
 

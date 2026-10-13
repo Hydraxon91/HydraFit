@@ -4797,6 +4797,44 @@ class WorkoutLoggerViewModelTest {
         }
 
     @Test
+    fun resettingRampKeepsTheEditorsFrozenUnitAfterAPreferenceChange() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val units = MutableStateFlow(WeightUnit.KG)
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            weightUnit = WeightUnit.KG,
+            weightUnitFlow = units
+        )
+        advanceUntilIdle()
+
+        viewModel.editWarmupRamp(40L, rampIndex = 0)
+        viewModel.onWarmupEditorWeightChanged("45")
+        viewModel.saveWarmupEditor()
+        assertEquals(45.0, rampRow(viewModel).weightKg)
+
+        // Reopen in kg, then switch the preference while the editor is still open.
+        viewModel.editWarmupRamp(40L, rampIndex = 0)
+        units.value = WeightUnit.LB
+        advanceUntilIdle()
+        assertEquals(WeightUnit.KG, assertNotNull(viewModel.state.value.warmupEditor).weightUnit)
+
+        // Reset fills the frozen unit's digits, not the newly selected preference's.
+        viewModel.resetWarmupEditor()
+        val reset = assertNotNull(viewModel.state.value.warmupEditor)
+        assertEquals(WeightUnit.KG, reset.weightUnit)
+        assertEquals("40", reset.weightInput)
+
+        // A reps-only edit after Reset still saves the kilogram default exactly.
+        viewModel.onWarmupEditorRepsChanged("6")
+        viewModel.saveWarmupEditor()
+        assertEquals(40.0, rampRow(viewModel).weightKg)
+    }
+
+    @Test
     fun anEditAboveAReducedEquipmentCeilingCannotBeLogged() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
@@ -6499,7 +6537,8 @@ class WorkoutLoggerViewModelTest {
         restCountdownRepository: RestCountdownRepository? = null,
         coaching: Boolean = false,
         equipment: WorkoutLoggerEquipment = testEquipment(),
-        weightUnit: WeightUnit = WeightUnit.KG
+        weightUnit: WeightUnit = WeightUnit.KG,
+        weightUnitFlow: MutableStateFlow<WeightUnit>? = null
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessions),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
@@ -6519,7 +6558,7 @@ class WorkoutLoggerViewModelTest {
             restCountdownRepository
         ),
         settings = WorkoutLoggerSettings(
-            FakeWeightUnitRepository(weightUnit),
+            FakeWeightUnitRepository(weightUnitFlow ?: MutableStateFlow(weightUnit)),
             FakeGuidedWorkoutPreferenceRepository(guided),
             restPreferences,
             FakeTrainingGuidancePreferences(coaching)
@@ -6886,10 +6925,15 @@ class WorkoutLoggerViewModelTest {
         override suspend fun all(): List<WorkoutSession> = sessions.toList()
     }
 
-    private class FakeWeightUnitRepository(private val unit: WeightUnit) : WeightUnitRepository {
-        override suspend fun selectedUnit(): WeightUnit = unit
+    /** A unit preference a test can change while an editor is already open. */
+    private class FakeWeightUnitRepository(
+        private val units: MutableStateFlow<WeightUnit>
+    ) : WeightUnitRepository {
+        constructor(unit: WeightUnit) : this(MutableStateFlow(unit))
 
-        override fun unitFlow(): Flow<WeightUnit> = flowOf(unit)
+        override suspend fun selectedUnit(): WeightUnit = units.value
+
+        override fun unitFlow(): Flow<WeightUnit> = units
 
         override suspend fun setUnit(unit: WeightUnit) = Unit
     }

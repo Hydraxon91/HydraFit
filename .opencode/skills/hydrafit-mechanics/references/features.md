@@ -180,7 +180,8 @@ kilograms it opened with so a rounded pound display is not mistaken for an over-
 edit whose equipment ceiling later drops is kept, explained and refused for logging — never silently
 clamped
 — and an open editor takes the slot's current ceiling and closes when the slot loses its ramp. Reset
-stages the derived default for Save, so Cancel still preserves the applied guidance. A default the
+stages the derived default for Save in the unit the editor froze, so Cancel still preserves the applied
+guidance. A default the
 ceiling lowered shows its actual values with an equipment-limit label instead of its percentage. The
 card also states the slot-lock rule before recording. Skipped preparation items are in-memory, counted
 so `Restore skipped` stays reachable, and restorable.

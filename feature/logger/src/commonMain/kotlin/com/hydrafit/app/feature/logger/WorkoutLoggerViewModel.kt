@@ -2340,7 +2340,11 @@ class WorkoutLoggerViewModel(
                     ?.getOrNull(target.key.rampIndex)
                     ?: return
                 _state.update {
-                    val shownWeight = formatWeight(it.weightUnit.kilogramsToDisplay(ramp.weightKg))
+                    // The editor's frozen unit, not the current preference, so Reset shows digits in
+                    // the same unit Save will interpret them in.
+                    val shownWeight = formatWeight(
+                        editor.weightUnit.kilogramsToDisplay(ramp.weightKg)
+                    )
                     it.copy(
                         warmupEditor = editor.copy(
                             repsInput = ramp.reps.toString(),
