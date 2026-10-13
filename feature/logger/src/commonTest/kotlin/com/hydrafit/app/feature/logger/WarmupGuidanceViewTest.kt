@@ -106,6 +106,35 @@ class WarmupGuidanceViewTest {
     }
 
     @Test
+    fun skippingEveryPreparationStillReportsSomethingToRestore() {
+        val preparationOnly = WarmupGuidance(
+            preparation = listOf(
+                WarmupPreparationItem(WarmupAction.EASY_GENERAL_MOVEMENT, durationSeconds = 180)
+            ),
+            ramps = emptyList()
+        )
+
+        val skipped = buildWarmupGuidanceView(
+            preparationOnly,
+            skipped = setOf(WarmupAction.EASY_GENERAL_MOVEMENT)
+        )
+        assertTrue(skipped.preparation.isEmpty())
+        assertEquals(1, skipped.skippedPreparationCount)
+        assertFalse(skipped.isEmpty)
+
+        // A skipped action that no longer exists cannot keep an empty card alive.
+        val stale = buildWarmupGuidanceView(
+            preparationOnly,
+            skipped = setOf(WarmupAction.LIGHT_PULL_PRACTICE)
+        )
+        assertEquals(0, stale.skippedPreparationCount)
+
+        assertTrue(
+            buildWarmupGuidanceView(preparationOnly.copy(preparation = emptyList())).isEmpty
+        )
+    }
+
+    @Test
     fun anEmptyGuidanceViewReportsItselfEmpty() {
         val empty = buildWarmupGuidanceView(
             WarmupGuidance(preparation = emptyList(), ramps = emptyList())

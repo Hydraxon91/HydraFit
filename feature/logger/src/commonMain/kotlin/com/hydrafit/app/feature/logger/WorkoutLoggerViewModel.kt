@@ -2222,19 +2222,25 @@ class WorkoutLoggerViewModel(
         }
     }
 
-    fun onWarmupEditorRepsChanged(value: String) =
-        updateWarmupEditor { copy(repsInput = value.filter(Char::isDigit)) }
+    fun onWarmupEditorRepsChanged(value: String) = updateWarmupEditor {
+        copy(repsInput = value.filter(Char::isDigit), resetsToDefault = false)
+    }
 
-    fun onWarmupEditorDurationChanged(value: String) =
-        updateWarmupEditor { copy(durationInput = value.filter(Char::isDigit)) }
+    fun onWarmupEditorDurationChanged(value: String) = updateWarmupEditor {
+        copy(durationInput = value.filter(Char::isDigit), resetsToDefault = false)
+    }
 
     fun onWarmupEditorWeightChanged(value: String) = updateWarmupEditor {
-        copy(weightInput = value.filter { it.isDigit() || it == '.' })
+        copy(
+            weightInput = value.filter { it.isDigit() || it == '.' },
+            resetsToDefault = false
+        )
     }
 
     /**
      * Applies the editor's value to the in-memory guidance. Nothing is written: a ramp still has to be
-     * logged through its own action to become a recorded warm-up.
+     * logged through its own action to become a recorded warm-up. After Reset, Save applies the derived
+     * default instead of a typed value.
      */
     fun saveWarmupEditor() {
         val editor = _state.value.warmupEditor ?: return
@@ -2242,66 +2248,102 @@ class WorkoutLoggerViewModel(
         _state.update { state ->
             when (val target = editor.target) {
                 is WarmupEditTarget.Preparation -> {
-                    val item = if (editor.timed) {
-                        WarmupPreparationItem(
-                            action = target.action,
-                            // Minutes are the entered unit; seconds are the stored unit.
-                            durationSeconds = editor.durationInput.toIntOrNull()?.times(60)
-                        )
+                    val edits = if (editor.resetsToDefault) {
+                        state.warmupPreparationEdits - target.action
                     } else {
-                        WarmupPreparationItem(
-                            action = target.action,
-                            reps = editor.repsInput.toIntOrNull()
-                        )
+                        val item = if (editor.timed) {
+                            WarmupPreparationItem(
+                                action = target.action,
+                                // Minutes are the entered unit; seconds are the stored unit.
+                                durationSeconds = editor.durationInput.toIntOrNull()?.times(60)
+                            )
+                        } else {
+                            WarmupPreparationItem(
+                                action = target.action,
+                                reps = editor.repsInput.toIntOrNull()
+                            )
+                        }
+                        state.warmupPreparationEdits + (target.action to item)
                     }
-                    state.copy(
-                        warmupPreparationEdits = state.warmupPreparationEdits +
-                            (target.action to item),
-                        warmupEditor = null
-                    )
+                    state.copy(warmupPreparationEdits = edits, warmupEditor = null)
                 }
 
                 is WarmupEditTarget.Ramp -> {
-                    val weightKg = editor.weightInput.toDoubleOrNull()
-                        ?.let(editor.weightUnit::displayToKilograms)
-                    val default = state.warmupGuidance?.ramps
-                        ?.firstOrNull { it.occurrenceEntryId == target.key.occurrenceEntryId }
-                        ?.rampSets
-                        ?.getOrNull(target.key.rampIndex)
-                    val reps = editor.repsInput.toIntOrNull()
-                    if (weightKg == null || reps == null || default == null) {
-                        state.copy(warmupEditor = null)
-                    } else {
+                    if (editor.resetsToDefault) {
                         state.copy(
-                            warmupRampEdits = state.warmupRampEdits + (
-                                target.key to WarmupRampSet(
-                                    percentOfWorkingWeight = default.percentOfWorkingWeight,
-                                    reps = reps,
-                                    weightKg = weightKg
-                                )
-                                ),
+                            warmupRampEdits = state.warmupRampEdits - target.key,
                             warmupEditor = null
                         )
+                    } else {
+                        val weightKg = editor.weightInput.toDoubleOrNull()
+                            ?.let(editor.weightUnit::displayToKilograms)
+                        val default = state.warmupGuidance?.ramps
+                            ?.firstOrNull { it.occurrenceEntryId == target.key.occurrenceEntryId }
+                            ?.rampSets
+                            ?.getOrNull(target.key.rampIndex)
+                        val reps = editor.repsInput.toIntOrNull()
+                        if (weightKg == null || reps == null || default == null) {
+                            state.copy(warmupEditor = null)
+                        } else {
+                            state.copy(
+                                warmupRampEdits = state.warmupRampEdits + (
+                                    target.key to WarmupRampSet(
+                                        percentOfWorkingWeight = default.percentOfWorkingWeight,
+                                        reps = reps,
+                                        weightKg = weightKg
+                                    )
+                                    ),
+                                warmupEditor = null
+                            )
+                        }
                     }
                 }
             }
         }
     }
 
-    /** Restores the editor's target to its derived default and reopens it with that value. */
+    /**
+     * Puts the derived default into the open editor's fields. Nothing is applied until Save, so Cancel
+     * still preserves whatever guidance was already in effect.
+     */
     fun resetWarmupEditor() {
-        val target = _state.value.warmupEditor?.target ?: return
-        when (target) {
+        val editor = _state.value.warmupEditor ?: return
+        val state = _state.value
+        when (val target = editor.target) {
             is WarmupEditTarget.Preparation -> {
+                val item = state.warmupGuidance?.preparation
+                    ?.firstOrNull { it.action == target.action }
+                    ?: return
                 _state.update {
-                    it.copy(warmupPreparationEdits = it.warmupPreparationEdits - target.action)
+                    it.copy(
+                        warmupEditor = editor.copy(
+                            repsInput = item.reps?.toString().orEmpty(),
+                            durationInput = item.durationSeconds?.let { seconds -> seconds / 60 }
+                                ?.toString()
+                                .orEmpty(),
+                            resetsToDefault = true
+                        )
+                    )
                 }
-                editWarmupPreparation(target.action)
             }
 
             is WarmupEditTarget.Ramp -> {
-                _state.update { it.copy(warmupRampEdits = it.warmupRampEdits - target.key) }
-                editWarmupRamp(target.key.occurrenceEntryId, target.key.rampIndex)
+                val ramp = state.warmupGuidance?.ramps
+                    ?.firstOrNull { it.occurrenceEntryId == target.key.occurrenceEntryId }
+                    ?.rampSets
+                    ?.getOrNull(target.key.rampIndex)
+                    ?: return
+                _state.update {
+                    it.copy(
+                        warmupEditor = editor.copy(
+                            repsInput = ramp.reps.toString(),
+                            weightInput = formatWeight(
+                                it.weightUnit.kilogramsToDisplay(ramp.weightKg)
+                            ),
+                            resetsToDefault = true
+                        )
+                    )
+                }
             }
         }
     }

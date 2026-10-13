@@ -51,12 +51,18 @@ data class WarmupRampPlanView(
 /**
  * The warm-up guidance the UI renders: the derived defaults with transient edits applied and skipped
  * items removed. Pure, so the same rules are unit-tested without a Composable.
+ * [skippedPreparationCount] counts skipped items that still exist, so the UI can offer to restore them
+ * even when every preparation row is currently hidden.
  */
 data class WarmupGuidanceView(
     val preparation: List<WarmupPreparationRow>,
-    val ramps: List<WarmupRampPlanView>
+    val ramps: List<WarmupRampPlanView>,
+    val skippedPreparationCount: Int = 0
 ) {
-    val isEmpty: Boolean get() = preparation.isEmpty() && ramps.all { it.rows.isEmpty() }
+    val isEmpty: Boolean
+        get() = preparation.isEmpty() &&
+            ramps.all { it.rows.isEmpty() } &&
+            skippedPreparationCount == 0
 }
 
 /** Applies the transient edits and skips to [guidance]. Nothing here is persisted. */
@@ -101,7 +107,9 @@ fun buildWarmupGuidanceView(
                 rows = rows
             )
         }
-    }
+    },
+    // Only items that still exist can be restored; a stale action is not counted.
+    skippedPreparationCount = guidance.preparation.count { it.action in skipped }
 )
 
 /** The guidance value open in the transient editor. */
@@ -129,7 +137,12 @@ data class WarmupGuidanceEditor(
     /** The unit the load is entered and shown in, frozen when the editor opened. */
     val weightUnit: WeightUnit,
     /** The current equipment ceiling for a ramp, or null when unbounded/unknown. */
-    val ceilingKg: Double? = null
+    val ceilingKg: Double? = null,
+    /**
+     * True after Reset restored the derived default into the fields, so Save applies the default
+     * rather than the typed value. Any further input clears it.
+     */
+    val resetsToDefault: Boolean = false
 ) {
     /** The entered duration in whole minutes, or null when it is not a positive number. */
     private val durationMinutes: Int?

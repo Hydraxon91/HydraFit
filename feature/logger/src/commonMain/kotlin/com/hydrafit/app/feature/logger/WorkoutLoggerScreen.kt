@@ -941,7 +941,6 @@ fun WorkoutLoggerScreen(
                         weightUnit = state.weightUnit,
                         writeInProgress = state.draftWriteInProgress,
                         rampWriteFailed = state.warmupRampWriteFailed,
-                        hasSkippedPreparation = state.warmupPreparationSkipped.isNotEmpty(),
                         onPreparationToggled = onWarmupPreparationToggled,
                         onEditPreparation = onEditWarmupPreparation,
                         onSkipPreparation = onSkipWarmupPreparation,
@@ -1795,7 +1794,6 @@ private fun WarmupGuidanceSection(
     weightUnit: WeightUnit,
     writeInProgress: Boolean,
     rampWriteFailed: Boolean,
-    hasSkippedPreparation: Boolean,
     onPreparationToggled: (WarmupAction) -> Unit,
     onEditPreparation: (WarmupAction) -> Unit,
     onSkipPreparation: (WarmupAction) -> Unit,
@@ -1866,10 +1864,11 @@ private fun WarmupGuidanceSection(
                         }
                     }
                 }
-                if (hasSkippedPreparation) {
-                    TextButton(onClick = onRestoreSkipped) {
-                        Text(stringResource(Res.string.logger_warmup_guidance_restore_skipped))
-                    }
+            }
+            // Restore stays reachable even when every preparation row is currently skipped.
+            if (view.skippedPreparationCount > 0) {
+                TextButton(onClick = onRestoreSkipped) {
+                    Text(stringResource(Res.string.logger_warmup_guidance_restore_skipped))
                 }
             }
             if (view.ramps.isNotEmpty()) {

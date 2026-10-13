@@ -4480,10 +4480,81 @@ class WorkoutLoggerViewModelTest {
         viewModel.saveWarmupEditor()
         viewModel.editWarmupPreparation(WarmupAction.LOWER_BODY_PRACTICE)
         viewModel.resetWarmupEditor()
+        // Reset stages the default; Save is what applies it.
+        viewModel.saveWarmupEditor()
 
         val row = preparationRow(viewModel, WarmupAction.LOWER_BODY_PRACTICE)
         assertEquals(10, row.reps)
         assertFalse(row.edited)
+    }
+
+    @Test
+    fun resettingAGuidanceValueOnlyAppliesWhenSaved() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        // A preparation edit survives Reset + Cancel.
+        viewModel.editWarmupPreparation(WarmupAction.LOWER_BODY_PRACTICE)
+        viewModel.onWarmupEditorRepsChanged("12")
+        viewModel.saveWarmupEditor()
+        viewModel.editWarmupPreparation(WarmupAction.LOWER_BODY_PRACTICE)
+        viewModel.resetWarmupEditor()
+        assertEquals("10", assertNotNull(viewModel.state.value.warmupEditor).repsInput)
+        viewModel.cancelWarmupEditor()
+        val kept = preparationRow(viewModel, WarmupAction.LOWER_BODY_PRACTICE)
+        assertEquals(12, kept.reps)
+        assertTrue(kept.edited)
+
+        // A ramp edit survives Reset + Cancel, and Reset + Save restores its default.
+        viewModel.editWarmupRamp(40L, rampIndex = 0)
+        viewModel.onWarmupEditorWeightChanged("45")
+        viewModel.saveWarmupEditor()
+        assertEquals(45.0, rampRow(viewModel).weightKg)
+
+        viewModel.editWarmupRamp(40L, rampIndex = 0)
+        viewModel.resetWarmupEditor()
+        viewModel.cancelWarmupEditor()
+        assertEquals(45.0, rampRow(viewModel).weightKg)
+
+        viewModel.editWarmupRamp(40L, rampIndex = 0)
+        viewModel.resetWarmupEditor()
+        viewModel.saveWarmupEditor()
+        val restored = rampRow(viewModel)
+        assertEquals(40.0, restored.weightKg)
+        assertEquals(40, restored.percentOfWorkingWeight)
+        assertTrue(viewModel.state.value.warmupRampEdits.isEmpty())
+    }
+
+    @Test
+    fun skippingEveryPreparationKeepsRestoreReachable() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        // No numeric load means no ramp, so only the preparation rows remain.
+        val occurrences = twoOccurrences().map { occurrence ->
+            occurrence.copy(entries = occurrence.entries.map { it.copy(weightKg = null) })
+        }
+        schedule.set(blockActivation(), occurrences, selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        val actions = assertNotNull(viewModel.state.value.visibleWarmupView)
+            .preparation
+            .map { it.action }
+        assertTrue(actions.isNotEmpty())
+        actions.forEach { viewModel.toggleWarmupPreparationSkipped(it) }
+
+        val view = assertNotNull(viewModel.state.value.visibleWarmupView)
+        assertTrue(view.preparation.isEmpty())
+        assertEquals(actions.size, view.skippedPreparationCount)
+
+        viewModel.restoreSkippedWarmupPreparation()
+        assertEquals(
+            actions.size,
+            assertNotNull(viewModel.state.value.visibleWarmupView).preparation.size
+        )
     }
 
     @Test
@@ -4803,6 +4874,9 @@ class WorkoutLoggerViewModelTest {
         val view = assertNotNull(viewModel.state.value.visibleWarmupView)
         return view.preparation.first { it.action == action }
     }
+
+    private fun rampRow(viewModel: WorkoutLoggerViewModel): WarmupRampRow =
+        assertNotNull(viewModel.state.value.visibleWarmupView).ramps.single().rows.first()
 
     @Test
     fun liveGuidedCompletionStartsTimerOnlyAfterSuccessfulWriteAndUsesNow() = runTimerTest {
