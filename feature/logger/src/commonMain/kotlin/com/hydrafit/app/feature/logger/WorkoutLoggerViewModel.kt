@@ -165,9 +165,12 @@ class WorkoutLoggerViewModel(
             // Until this first resolves, availability and ceilings are unknown, so no ramp is offered.
             equipment.equipmentFlow().collectLatest { current ->
                 warmupEquipment = current
+                // Readiness is published with the equipment-bounded guidance, never ahead of it: the
+                // previous guidance was built without knowing availability or the ceiling, so marking
+                // readiness first would briefly expose its unrestricted ramps.
+                refreshToday()
                 warmupEquipmentObserved = true
                 _state.update { it.copy(warmupEquipmentKnown = true) }
-                refreshToday()
             }
         }
         viewModelScope.launch {

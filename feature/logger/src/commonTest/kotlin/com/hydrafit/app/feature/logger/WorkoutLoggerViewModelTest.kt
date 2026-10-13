@@ -4606,6 +4606,53 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun equipmentReadinessWaitsForTheEquipmentBoundedGuidance() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), barbellOccurrences(), selectedOccurrenceId = 30L)
+        val equipment = GatedEquipment(
+            items = listOf(
+                Equipment(
+                    id = EquipmentTag.BARBELL,
+                    name = "Barbell",
+                    isBuiltIn = true,
+                    maxWeightKg = 50.0
+                )
+            ),
+            selected = setOf(EquipmentTag.BARBELL)
+        )
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            equipment = equipment.collaborator()
+        )
+        advanceUntilIdle()
+
+        // Guidance already exists, built without knowing availability or the ceiling; readiness
+        // withholds its ramps.
+        val before = assertNotNull(viewModel.state.value.visibleWarmupView)
+        assertTrue(before.preparation.isNotEmpty())
+        assertTrue(before.ramps.isEmpty())
+
+        // The snapshot arrives while the performed-set read for the equipment-bounded refresh is
+        // still in flight. Readiness must not be published ahead of that guidance, or the previous
+        // snapshot's unrestricted ramps would briefly reappear for capped equipment.
+        val readGate = CompletableDeferred<Unit>()
+        repository.allGate = readGate
+        equipment.release()
+        advanceUntilIdle()
+        assertTrue(assertNotNull(viewModel.state.value.visibleWarmupView).ramps.isEmpty())
+
+        readGate.complete(Unit)
+        advanceUntilIdle()
+
+        // Readiness and the capped rows become available together.
+        val ramp = assertNotNull(viewModel.state.value.visibleWarmupView).ramps.single()
+        assertEquals(listOf(40.0, 50.0), ramp.rows.map { it.weightKg })
+    }
+
+    @Test
     fun warmupRampsUseTheFirstUncappedEquipmentSnapshot() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
