@@ -230,6 +230,7 @@ import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_prepar
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_ramp_failed
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_ramp_line
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_ramp_line_edited
+import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_ramp_line_limited
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_ramps_title
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_restore_skipped
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_show
@@ -1225,7 +1226,8 @@ fun WorkoutLoggerScreen(
     state.warmupEditor?.let { editor ->
         WarmupGuidanceEditorDialog(
             editor = editor,
-            weightUnit = state.weightUnit,
+            // The editor's frozen unit keeps the label, the typed value and the ceiling consistent.
+            weightUnit = editor.weightUnit,
             onRepsChanged = onWarmupEditorRepsChanged,
             onDurationChanged = onWarmupEditorDurationChanged,
             onWeightChanged = onWarmupEditorWeightChanged,
@@ -1879,30 +1881,50 @@ private fun WarmupGuidanceSection(
                     Column {
                         Text(plan.exerciseName)
                         plan.rows.forEach { row ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Text(
-                                    text = warmupRampText(row, weightUnit),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                TextButton(
-                                    onClick = {
-                                        onEditRamp(plan.occurrenceEntryId, row.key.rampIndex)
+                            Column {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = warmupRampText(row, weightUnit),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    TextButton(
+                                        onClick = {
+                                            onEditRamp(plan.occurrenceEntryId, row.key.rampIndex)
+                                        }
+                                    ) {
+                                        Text(stringResource(Res.string.logger_warmup_guidance_edit))
                                     }
-                                ) {
-                                    Text(stringResource(Res.string.logger_warmup_guidance_edit))
+                                    TextButton(
+                                        onClick = {
+                                            onLogRamp(plan.occurrenceEntryId, row.key.rampIndex)
+                                        },
+                                        enabled = !writeInProgress && !row.exceedsCeiling
+                                    ) {
+                                        Text(
+                                            stringResource(
+                                                Res.string.logger_warmup_guidance_log_ramp
+                                            )
+                                        )
+                                    }
                                 }
-                                TextButton(
-                                    onClick = {
-                                        onLogRamp(plan.occurrenceEntryId, row.key.rampIndex)
-                                    },
-                                    enabled = !writeInProgress
-                                ) {
-                                    Text(stringResource(Res.string.logger_warmup_guidance_log_ramp))
+                                if (row.exceedsCeiling) {
+                                    Text(
+                                        text = stringResource(
+                                            Res.string.logger_warmup_guidance_editor_weight_exceeds,
+                                            loadWeightText(
+                                                LoadKind.EXTERNAL,
+                                                row.ceilingKg,
+                                                weightUnit
+                                            )
+                                        ),
+                                        color = MaterialTheme.colorScheme.error,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
                                 }
                             }
                         }
@@ -1935,15 +1957,31 @@ private fun warmupPreparationText(row: WarmupPreparationRow): String {
     }
 }
 
-/** A ramp line keeps its default percentage until it is edited, then shows only its actual values. */
+/**
+ * A ramp line keeps its default percentage until it is edited or the equipment ceiling lowered its
+ * load, then shows only its actual values.
+ */
 @Composable
 private fun warmupRampText(row: WarmupRampRow, weightUnit: WeightUnit): String {
     val load = loadWeightText(LoadKind.EXTERNAL, row.weightKg, weightUnit)
     val percent = row.percentOfWorkingWeight
-    return if (percent != null) {
-        stringResource(Res.string.logger_warmup_guidance_ramp_line, "$percent%", row.reps, load)
-    } else {
-        stringResource(Res.string.logger_warmup_guidance_ramp_line_edited, row.reps, load)
+    return when {
+        percent == null -> stringResource(
+            Res.string.logger_warmup_guidance_ramp_line_edited,
+            row.reps,
+            load
+        )
+        row.isEquipmentLimited -> stringResource(
+            Res.string.logger_warmup_guidance_ramp_line_limited,
+            row.reps,
+            load
+        )
+        else -> stringResource(
+            Res.string.logger_warmup_guidance_ramp_line,
+            "$percent%",
+            row.reps,
+            load
+        )
     }
 }
 

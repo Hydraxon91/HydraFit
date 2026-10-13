@@ -45,19 +45,26 @@ data class WarmupPreparationItem(
     }
 }
 
-/** One ramp suggestion, expressed as a percentage of the frozen working weight. */
+/**
+ * One ramp suggestion, expressed as a percentage of the frozen working weight.
+ * [isEquipmentLimited] is true when the current equipment ceiling lowered this load below the
+ * percentage, so the percentage no longer describes it.
+ */
 data class WarmupRampSet(
     val percentOfWorkingWeight: Int,
     val reps: Int,
     /** Rounded load, always positive and strictly below the working weight. */
-    val weightKg: Double
+    val weightKg: Double,
+    val isEquipmentLimited: Boolean = false
 )
 
 /**
  * The ramp suggestions for one exercise whose frozen target carries a numeric external load. The
  * fields after [rampSets] are the frozen prescription this plan was derived from: a consumer compares
  * them against the slot it is about to write, so a suggestion can never be recorded against a slot
- * whose exercise, reps or load meaning has since changed.
+ * whose exercise, reps or load meaning has since changed. [ceilingKg] is the current equipment ceiling
+ * for the slot (null when unbounded or unknown); it bounds edits and is deliberately not part of the
+ * prescription fingerprint.
  */
 data class WarmupRampPlan(
     val occurrenceEntryId: Long,
@@ -68,7 +75,8 @@ data class WarmupRampPlan(
     val prescribedReps: Int,
     val loadKind: LoadKind,
     val loadCapability: ExerciseLoadCapability,
-    val rampSets: List<WarmupRampSet>
+    val rampSets: List<WarmupRampSet>,
+    val ceilingKg: Double? = null
 ) {
     /** True when [entry] still carries the exact prescription this plan was built from. */
     fun matchesPrescription(entry: OccurrenceEntry): Boolean = occurrenceEntryId == entry.id &&
@@ -204,7 +212,8 @@ internal fun buildWarmupRamps(
         if (!isEquipmentAvailable(entry, equipment)) continue
         val working = entry.weightKg ?: continue
         if (!working.isFinite() || working <= 0.0) continue
-        val rampSets = rampSetsFor(working, equipmentCeiling(entry, equipment))
+        val ceiling = equipmentCeiling(entry, equipment)
+        val rampSets = rampSetsFor(working, ceiling)
         if (rampSets.isEmpty()) continue
         planned += entry.movementPattern
         plans += WarmupRampPlan(
@@ -216,7 +225,8 @@ internal fun buildWarmupRamps(
             prescribedReps = entry.reps,
             loadKind = entry.loadKind,
             loadCapability = entry.loadCapability,
-            rampSets = rampSets
+            rampSets = rampSets,
+            ceilingKg = ceiling
         )
     }
     return plans
@@ -238,7 +248,8 @@ private fun equipmentCeiling(entry: OccurrenceEntry, equipment: WarmupEquipment?
  * Rounds each profile percentage to the shared plate increment, clamps it to the equipment ceiling,
  * and keeps only loads that are positive and strictly below the working weight. A tiny working weight
  * can round every ramp onto itself or to zero, which yields no ramp instead of an unusable or
- * duplicate one.
+ * duplicate one. A load the ceiling lowered is marked so its percentage is not shown as if it were
+ * exact.
  */
 private fun rampSetsFor(workingWeightKg: Double, ceilingKg: Double?): List<WarmupRampSet> {
     val config = SuggestedWeightConfig()
@@ -248,6 +259,11 @@ private fun rampSetsFor(workingWeightKg: Double, ceilingKg: Double?): List<Warmu
         val rounded = EquipmentWeightLimit.clamp(raw, ceilingKg)
         if (rounded <= 0.0 || rounded >= workingWeightKg) return@mapNotNull null
         if (!seen.add(rounded)) return@mapNotNull null
-        WarmupRampSet(percentOfWorkingWeight = percent, reps = reps, weightKg = rounded)
+        WarmupRampSet(
+            percentOfWorkingWeight = percent,
+            reps = reps,
+            weightKg = rounded,
+            isEquipmentLimited = rounded != raw
+        )
     }
 }

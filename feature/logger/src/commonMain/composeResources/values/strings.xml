@@ -254,6 +254,7 @@
     <string name="logger_warmup_guidance_restore_skipped">Restore skipped</string>
     <string name="logger_warmup_guidance_edited_suffix"> (edited)</string>
     <string name="logger_warmup_guidance_ramp_line_edited">%1$d × %2$s (edited)</string>
+    <string name="logger_warmup_guidance_ramp_line_limited">%1$d × %2$s (equipment limit)</string>
     <string name="logger_warmup_guidance_editor_title">Edit warm-up</string>
     <string name="logger_warmup_guidance_editor_minutes">Minutes</string>
     <string name="logger_warmup_guidance_editor_reset">Reset to default</string>

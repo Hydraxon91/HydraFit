@@ -79,6 +79,33 @@ class WarmupGuidanceViewTest {
     }
 
     @Test
+    fun anEquipmentLimitedDefaultIsMarkedAndAnEditIsNot() {
+        val limited = guidance.copy(
+            ramps = guidance.ramps.map { plan ->
+                plan.copy(
+                    ceilingKg = 50.0,
+                    rampSets = listOf(WarmupRampSet(60, 5, 50.0, isEquipmentLimited = true))
+                )
+            }
+        )
+
+        val row = buildWarmupGuidanceView(limited).ramps.single().rows.single()
+        assertEquals(50.0, row.weightKg)
+        assertTrue(row.isEquipmentLimited)
+        assertFalse(row.exceedsCeiling)
+
+        // An edit shows the user's own value, so the equipment-limit marking no longer applies.
+        val edited = buildWarmupGuidanceView(
+            limited,
+            rampEdits = mapOf(
+                WarmupRampKey(occurrenceEntryId = 40L, rampIndex = 0) to
+                    WarmupRampSet(60, 5, 55.0, isEquipmentLimited = true)
+            )
+        ).ramps.single().rows.single()
+        assertFalse(edited.isEquipmentLimited)
+    }
+
+    @Test
     fun anEmptyGuidanceViewReportsItselfEmpty() {
         val empty = buildWarmupGuidanceView(
             WarmupGuidance(preparation = emptyList(), ramps = emptyList())

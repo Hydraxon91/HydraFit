@@ -1,5 +1,6 @@
 package com.hydrafit.app.feature.logger
 
+import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.WarmupAction
 import com.hydrafit.app.core.domain.workout.WarmupGuidance
 import com.hydrafit.app.core.domain.workout.WarmupPreparationItem
@@ -17,13 +18,29 @@ data class WarmupPreparationRow(
     val edited: Boolean
 )
 
-/** A ramp row as shown; [percentOfWorkingWeight] is null once the row has been edited. */
+/**
+ * A ramp row as shown; [percentOfWorkingWeight] is null once the row has been edited, and
+ * [isEquipmentLimited] is true when the current equipment ceiling lowered the load below its
+ * percentage, so the percentage is not shown as if it were exact. [ceilingKg] is the slot's current
+ * equipment ceiling, so [exceedsCeiling] tells the UI to refuse the row.
+ */
 data class WarmupRampRow(
     val key: WarmupRampKey,
     val reps: Int,
     val weightKg: Double,
-    val percentOfWorkingWeight: Int?
-)
+    val percentOfWorkingWeight: Int?,
+    val isEquipmentLimited: Boolean = false,
+    /** The slot's current equipment ceiling, or null when unbounded or unknown. */
+    val ceilingKg: Double? = null
+) {
+    /**
+     * True when the shown load is above the slot's current equipment ceiling. A default suggestion is
+     * always clamped to the ceiling, so this only arises from an edit that a later equipment change
+     * invalidated.
+     */
+    val exceedsCeiling: Boolean
+        get() = ceilingKg?.let { weightKg > it } == true
+}
 
 data class WarmupRampPlanView(
     val occurrenceEntryId: Long,
@@ -69,7 +86,10 @@ fun buildWarmupGuidanceView(
                 reps = edited?.reps ?: ramp.reps,
                 weightKg = edited?.weightKg ?: ramp.weightKg,
                 // An edited load is no longer the default percentage of the working weight.
-                percentOfWorkingWeight = if (edited != null) null else ramp.percentOfWorkingWeight
+                percentOfWorkingWeight = if (edited != null) null else ramp.percentOfWorkingWeight,
+                // A default the ceiling lowered also stops describing its percentage.
+                isEquipmentLimited = edited == null && ramp.isEquipmentLimited,
+                ceilingKg = plan.ceilingKg
             )
         }
         if (rows.isEmpty()) {
@@ -93,7 +113,9 @@ sealed interface WarmupEditTarget {
 
 /**
  * A transient editor for one preparation or ramp value. Saving updates only the in-memory guidance
- * view; a ramp still has to be logged to become a recorded set.
+ * view; a ramp still has to be logged to become a recorded set. A timed preparation item is entered in
+ * whole minutes and stored as seconds; a ramp load is entered in [weightUnit], frozen when the editor
+ * opened so a mid-edit unit change cannot reinterpret the typed digits.
  */
 data class WarmupGuidanceEditor(
     val target: WarmupEditTarget,
@@ -104,23 +126,36 @@ data class WarmupGuidanceEditor(
     val timed: Boolean,
     /** True for a ramp, where load is editable. */
     val hasWeight: Boolean,
+    /** The unit the load is entered and shown in, frozen when the editor opened. */
+    val weightUnit: WeightUnit,
     /** The current equipment ceiling for a ramp, or null when unbounded/unknown. */
     val ceilingKg: Double? = null
 ) {
-    /** True when the edited value exceeds the equipment ceiling, so it cannot be saved as typed. */
+    /** The entered duration in whole minutes, or null when it is not a positive number. */
+    private val durationMinutes: Int?
+        get() = durationInput.toIntOrNull()?.takeIf { it > 0 }
+
+    /** True when the entered load exceeds the equipment ceiling in the unit it was entered in. */
     val weightExceedsCeiling: Boolean
         get() {
             val ceiling = ceilingKg ?: return false
             if (!hasWeight) return false
-            return weightInput.toDoubleOrNull()?.let { it > ceiling } == true
+            val entered = weightInput.toDoubleOrNull() ?: return false
+            return weightUnit.displayToKilograms(entered) > ceiling
         }
 
     val canSave: Boolean
         get() {
             val repsOk = timed || (repsInput.toIntOrNull() ?: 0) > 0
-            val durationOk = !timed || (durationInput.toIntOrNull() ?: 0) > 0
+            val durationOk = !timed ||
+                durationMinutes?.let { it <= MAX_PREPARATION_MINUTES } == true
             val weightOk = !hasWeight ||
                 weightInput.toDoubleOrNull()?.let { it.isFinite() && it >= 0.0 } == true
             return repsOk && durationOk && weightOk && !weightExceedsCeiling
         }
+
+    companion object {
+        /** A timed preparation item is entered in minutes; longer than an hour is not a warm-up. */
+        const val MAX_PREPARATION_MINUTES: Int = 60
+    }
 }

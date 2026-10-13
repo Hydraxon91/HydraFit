@@ -27,6 +27,7 @@ import com.hydrafit.app.core.domain.workout.RestCountdown
 import com.hydrafit.app.core.domain.workout.ShortRestCoach
 import com.hydrafit.app.core.domain.workout.WarmupAction
 import com.hydrafit.app.core.domain.workout.WarmupEquipment
+import com.hydrafit.app.core.domain.workout.WarmupGuidance
 import com.hydrafit.app.core.domain.workout.WarmupPreparationItem
 import com.hydrafit.app.core.domain.workout.WarmupRampSet
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
@@ -1607,7 +1608,10 @@ class WorkoutLoggerViewModel(
             .map { it.occurrenceEntryId }
             .toSet()
         val rampEdits = _state.value.warmupRampEdits.filterKeys { key ->
-            sameOccurrence && key.occurrenceEntryId !in changedSlots
+            sameOccurrence &&
+                key.occurrenceEntryId !in changedSlots &&
+                // A slot that no longer has a ramp (for example unowned equipment) keeps no edit.
+                nextGuidance.ramps.any { it.occurrenceEntryId == key.occurrenceEntryId }
         }
         // Publish the occurrence only once its performed-set read has finished, so the guidance shown
         // and the occurrence a ramp write resolves against can never describe different prescriptions.
@@ -1654,8 +1658,8 @@ class WorkoutLoggerViewModel(
                     emptySet()
                 },
                 warmupRampEdits = rampEdits,
-                warmupEditor = it.warmupEditor?.takeIf { editor ->
-                    editorStillValid(editor, sameOccurrence, changedSlots)
+                warmupEditor = it.warmupEditor?.let { editor ->
+                    reconcileWarmupEditor(editor, sameOccurrence, changedSlots, nextGuidance)
                 },
                 warmupGuidanceHidden = sameOccurrence && it.warmupGuidanceHidden,
                 warmupRampWriteFailed = sameOccurrence && it.warmupRampWriteFailed,
@@ -2143,9 +2147,12 @@ class WorkoutLoggerViewModel(
         val plan = _state.value.warmupGuidance?.ramps
             ?.firstOrNull { it.occurrenceEntryId == occurrenceEntryId }
             ?: return
-        val ramp = _state.value.warmupRampEdits[WarmupRampKey(occurrenceEntryId, rampIndex)]
-            ?: plan.rampSets.getOrNull(rampIndex)
+        val row = _state.value.visibleWarmupView?.ramps
+            ?.firstOrNull { it.occurrenceEntryId == occurrenceEntryId }
+            ?.rows?.firstOrNull { it.key.rampIndex == rampIndex }
             ?: return
+        // An edit left above the current equipment ceiling must be corrected before it can be logged.
+        if (row.exceedsCeiling) return
         val entry = occurrence.entries.firstOrNull { it.id == occurrenceEntryId } ?: return
         // Reject a suggestion whose slot no longer carries the same frozen prescription, so a value
         // shown for an earlier exercise/reps/load can never be recorded against a replaced slot.
@@ -2154,8 +2161,8 @@ class WorkoutLoggerViewModel(
             exerciseId = entry.exerciseId,
             name = entry.exerciseName,
             sets = 1,
-            reps = ramp.reps,
-            weightKg = ramp.weightKg,
+            reps = row.reps,
+            weightKg = row.weightKg,
             loadKind = LoadKind.EXTERNAL,
             loadCapability = entry.loadCapability,
             occurrenceId = occurrence.id,
@@ -2179,10 +2186,14 @@ class WorkoutLoggerViewModel(
                 warmupEditor = WarmupGuidanceEditor(
                     target = WarmupEditTarget.Preparation(action),
                     repsInput = row.reps?.toString().orEmpty(),
-                    durationInput = row.durationSeconds?.toString().orEmpty(),
+                    // A timed item is entered in whole minutes and stored as seconds.
+                    durationInput = row.durationSeconds?.let { seconds -> seconds / 60 }
+                        ?.toString()
+                        .orEmpty(),
                     weightInput = "",
                     timed = row.durationSeconds != null,
-                    hasWeight = false
+                    hasWeight = false,
+                    weightUnit = it.weightUnit
                 )
             )
         }
@@ -2204,6 +2215,7 @@ class WorkoutLoggerViewModel(
                     weightInput = formatWeight(it.weightUnit.kilogramsToDisplay(row.weightKg)),
                     timed = false,
                     hasWeight = true,
+                    weightUnit = it.weightUnit,
                     ceilingKg = rampCeilingKg(occurrenceEntryId)
                 )
             )
@@ -2227,14 +2239,14 @@ class WorkoutLoggerViewModel(
     fun saveWarmupEditor() {
         val editor = _state.value.warmupEditor ?: return
         if (!editor.canSave) return
-        val unit = _state.value.weightUnit
         _state.update { state ->
             when (val target = editor.target) {
                 is WarmupEditTarget.Preparation -> {
                     val item = if (editor.timed) {
                         WarmupPreparationItem(
                             action = target.action,
-                            durationSeconds = editor.durationInput.toIntOrNull()
+                            // Minutes are the entered unit; seconds are the stored unit.
+                            durationSeconds = editor.durationInput.toIntOrNull()?.times(60)
                         )
                     } else {
                         WarmupPreparationItem(
@@ -2251,7 +2263,7 @@ class WorkoutLoggerViewModel(
 
                 is WarmupEditTarget.Ramp -> {
                     val weightKg = editor.weightInput.toDoubleOrNull()
-                        ?.let(unit::displayToKilograms)
+                        ?.let(editor.weightUnit::displayToKilograms)
                     val default = state.warmupGuidance?.ramps
                         ?.firstOrNull { it.occurrenceEntryId == target.key.occurrenceEntryId }
                         ?.rampSets
@@ -2322,17 +2334,25 @@ class WorkoutLoggerViewModel(
         }
     }
 
-    /** True when an open editor still belongs to the current workout and an unchanged slot. */
-    private fun editorStillValid(
+    /**
+     * Reconciles an open editor with a refreshed occurrence: it closes when the workout changed or its
+     * slot no longer carries a ramp, and otherwise takes the slot's current equipment ceiling so an
+     * equipment change cannot leave the editor validating against a stale limit.
+     */
+    private fun reconcileWarmupEditor(
         editor: WarmupGuidanceEditor,
         sameOccurrence: Boolean,
-        changedSlots: Set<Long>
-    ): Boolean {
-        if (!sameOccurrence) return false
-        return when (val target = editor.target) {
-            is WarmupEditTarget.Preparation -> true
-            is WarmupEditTarget.Ramp -> target.key.occurrenceEntryId !in changedSlots
-        }
+        changedSlots: Set<Long>,
+        guidance: WarmupGuidance
+    ): WarmupGuidanceEditor? {
+        if (!sameOccurrence) return null
+        val target = editor.target
+        if (target !is WarmupEditTarget.Ramp) return editor
+        if (target.key.occurrenceEntryId in changedSlots) return null
+        val plan = guidance.ramps
+            .firstOrNull { it.occurrenceEntryId == target.key.occurrenceEntryId }
+            ?: return null
+        return editor.copy(ceilingKg = plan.ceilingKg)
     }
 
     /** The current equipment ceiling for [occurrenceEntryId]'s required equipment, or null. */

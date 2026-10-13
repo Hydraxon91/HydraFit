@@ -244,11 +244,17 @@ class WarmupGuidanceTest {
             )
         ).ramps.single()
         assertEquals(listOf(40.0, 50.0), clamped.rampSets.map { it.weightKg })
+        // Only the row the ceiling actually lowered is marked; the exact 40 % row is not.
+        assertEquals(listOf(false, true), clamped.rampSets.map { it.isEquipmentLimited })
 
         // Unknown constraints leave the frozen target's ramps unchanged.
         assertEquals(
             listOf(40.0, 60.0, 80.0),
             buildWarmupGuidance(occurrence, null).ramps.single().rampSets.map { it.weightKg }
+        )
+        assertTrue(
+            buildWarmupGuidance(occurrence, null).ramps.single().rampSets
+                .none { it.isEquipmentLimited }
         )
     }
 

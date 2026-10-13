@@ -4574,6 +4574,193 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun aTimedPreparationIsEditedInMinutesAndStoredAsSeconds() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.editWarmupPreparation(WarmupAction.EASY_GENERAL_MOVEMENT)
+        // The default 180 seconds opens as 3 minutes, never as 180.
+        assertEquals("3", assertNotNull(viewModel.state.value.warmupEditor).durationInput)
+
+        viewModel.onWarmupEditorDurationChanged("5")
+        viewModel.saveWarmupEditor()
+
+        val row = preparationRow(viewModel, WarmupAction.EASY_GENERAL_MOVEMENT)
+        assertEquals(300, row.durationSeconds)
+        assertTrue(row.edited)
+        assertTrue(repository.all().isEmpty())
+    }
+
+    @Test
+    fun aTimedPreparationRejectsZeroAndAnOverlongEntry() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.editWarmupPreparation(WarmupAction.EASY_GENERAL_MOVEMENT)
+        viewModel.onWarmupEditorDurationChanged("0")
+        assertFalse(assertNotNull(viewModel.state.value.warmupEditor).canSave)
+
+        viewModel.onWarmupEditorDurationChanged("61")
+        assertFalse(assertNotNull(viewModel.state.value.warmupEditor).canSave)
+
+        viewModel.onWarmupEditorDurationChanged("60")
+        assertTrue(assertNotNull(viewModel.state.value.warmupEditor).canSave)
+    }
+
+    @Test
+    fun anEditedRampCeilingIsComparedInTheEnteredUnit() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        val occurrences = twoOccurrences().map { occurrence ->
+            occurrence.copy(
+                entries = occurrence.entries.map {
+                    it.copy(requiredEquipment = setOf(EquipmentTag.BARBELL))
+                }
+            )
+        }
+        schedule.set(blockActivation(), occurrences, selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            equipment = WorkoutLoggerEquipment(
+                FakeEquipment(
+                    listOf(
+                        Equipment(
+                            id = EquipmentTag.BARBELL,
+                            name = "Barbell",
+                            isBuiltIn = true,
+                            maxWeightKg = 50.0
+                        )
+                    )
+                ),
+                FakeSelection(setOf(EquipmentTag.BARBELL))
+            ),
+            weightUnit = WeightUnit.LB
+        )
+        advanceUntilIdle()
+
+        viewModel.editWarmupRamp(40L, rampIndex = 0)
+        // 80 lb is about 36 kg, so it stays under the 50 kg ceiling instead of being rejected.
+        viewModel.onWarmupEditorWeightChanged("80")
+        assertFalse(assertNotNull(viewModel.state.value.warmupEditor).weightExceedsCeiling)
+
+        // 200 lb is about 91 kg, above the same ceiling.
+        viewModel.onWarmupEditorWeightChanged("200")
+        assertTrue(assertNotNull(viewModel.state.value.warmupEditor).weightExceedsCeiling)
+    }
+
+    @Test
+    fun anEditAboveAReducedEquipmentCeilingCannotBeLogged() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(
+            blockActivation(),
+            barbellOccurrences(),
+            selectedOccurrenceId = 30L
+        )
+        val equipment = MutableEquipment(EquipmentTag.BARBELL, maxWeightKg = 200.0)
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            equipment = equipment.collaborator()
+        )
+        advanceUntilIdle()
+
+        viewModel.editWarmupRamp(40L, rampIndex = 0)
+        viewModel.onWarmupEditorWeightChanged("80")
+        viewModel.saveWarmupEditor()
+        assertEquals(
+            80.0,
+            assertNotNull(viewModel.state.value.visibleWarmupView)
+                .ramps.single().rows.first().weightKg
+        )
+
+        // The equipment ceiling drops below the retained edit.
+        equipment.setMaxWeight(50.0)
+        advanceUntilIdle()
+
+        val row = assertNotNull(viewModel.state.value.visibleWarmupView)
+            .ramps.single().rows.first()
+        // The value is kept and explained, never silently clamped back to the ceiling.
+        assertEquals(80.0, row.weightKg)
+        assertTrue(row.exceedsCeiling)
+
+        viewModel.logWarmupRamp(40L, rampIndex = 0)
+        advanceUntilIdle()
+        assertTrue(repository.all().isEmpty())
+    }
+
+    @Test
+    fun removingTheEquipmentDropsTheRampAndItsStaleEdit() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), barbellOccurrences(), selectedOccurrenceId = 30L)
+        val equipment = MutableEquipment(EquipmentTag.BARBELL, maxWeightKg = 200.0)
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            equipment = equipment.collaborator()
+        )
+        advanceUntilIdle()
+
+        viewModel.editWarmupRamp(40L, rampIndex = 0)
+        viewModel.onWarmupEditorWeightChanged("80")
+        viewModel.saveWarmupEditor()
+
+        equipment.deselect()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.visibleWarmupGuidance?.ramps.orEmpty().isEmpty())
+        assertTrue(viewModel.state.value.warmupRampEdits.isEmpty())
+
+        // Re-owning it restores the derived default, not the discarded edit.
+        equipment.select()
+        advanceUntilIdle()
+        assertEquals(
+            40.0,
+            assertNotNull(viewModel.state.value.visibleWarmupView)
+                .ramps.single().rows.first().weightKg
+        )
+    }
+
+    @Test
+    fun anOpenRampEditorTakesTheCurrentCeilingAndClosesWithoutItsRamp() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), barbellOccurrences(), selectedOccurrenceId = 30L)
+        val equipment = MutableEquipment(EquipmentTag.BARBELL, maxWeightKg = 200.0)
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            equipment = equipment.collaborator()
+        )
+        advanceUntilIdle()
+
+        viewModel.editWarmupRamp(40L, rampIndex = 0)
+        assertEquals(200.0, assertNotNull(viewModel.state.value.warmupEditor).ceilingKg)
+
+        equipment.setMaxWeight(50.0)
+        advanceUntilIdle()
+        assertEquals(50.0, assertNotNull(viewModel.state.value.warmupEditor).ceilingKg)
+
+        viewModel.onWarmupEditorWeightChanged("80")
+        assertTrue(assertNotNull(viewModel.state.value.warmupEditor).weightExceedsCeiling)
+
+        equipment.deselect()
+        advanceUntilIdle()
+        assertNull(viewModel.state.value.warmupEditor)
+    }
+
+    @Test
     fun aReplacedSlotDropsItsRampEdit() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
@@ -6102,6 +6289,61 @@ class WorkoutLoggerViewModelTest {
             error("No selection writes expected")
     }
 
+    /** One equipment item whose ownership and ceiling can change during a test. */
+    private class MutableEquipment(private val tag: EquipmentTag, maxWeightKg: Double?) {
+        private val items = MutableStateFlow(listOf(item(maxWeightKg)))
+        private val selected = MutableStateFlow(true)
+
+        private fun item(maxWeightKg: Double?) = Equipment(
+            id = tag,
+            name = "Barbell",
+            isBuiltIn = true,
+            maxWeightKg = maxWeightKg
+        )
+
+        fun collaborator() = WorkoutLoggerEquipment(
+            equipmentRepository = object : EquipmentRepository {
+                override fun observeAll(): Flow<List<Equipment>> = items
+
+                override suspend fun all(): List<Equipment> = items.value
+
+                override suspend fun add(name: String): Equipment = error("unused")
+
+                override suspend fun remove(id: EquipmentTag) = error("unused")
+
+                override suspend fun rename(
+                    id: EquipmentTag,
+                    name: String,
+                    maxWeightKg: Double?
+                ): Equipment = error("unused")
+
+                override suspend fun setMaxWeight(id: EquipmentTag, maxWeightKg: Double?) =
+                    error("unused")
+            },
+            selectionRepository = object : EquipmentSelectionRepository {
+                override suspend fun selected(): Set<EquipmentTag> =
+                    if (selected.value) setOf(tag) else emptySet()
+
+                override fun selectedFlow(): Flow<Set<EquipmentTag>> =
+                    selected.map { owned -> if (owned) setOf(tag) else emptySet() }
+
+                override suspend fun setSelected(tags: Set<EquipmentTag>) = error("unused")
+            }
+        )
+
+        fun setMaxWeight(maxWeightKg: Double?) {
+            items.value = listOf(item(maxWeightKg))
+        }
+
+        fun deselect() {
+            selected.value = false
+        }
+
+        fun select() {
+            selected.value = true
+        }
+    }
+
     private fun occurrenceViewModel(
         repository: WorkoutLogRepository,
         schedule: WorkoutScheduleRepository,
@@ -6113,7 +6355,8 @@ class WorkoutLoggerViewModelTest {
         bootIdentity: () -> String? = { null },
         restCountdownRepository: RestCountdownRepository? = null,
         coaching: Boolean = false,
-        equipment: WorkoutLoggerEquipment = testEquipment()
+        equipment: WorkoutLoggerEquipment = testEquipment(),
+        weightUnit: WeightUnit = WeightUnit.KG
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessions),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
@@ -6133,7 +6376,7 @@ class WorkoutLoggerViewModelTest {
             restCountdownRepository
         ),
         settings = WorkoutLoggerSettings(
-            FakeWeightUnitRepository(WeightUnit.KG),
+            FakeWeightUnitRepository(weightUnit),
             FakeGuidedWorkoutPreferenceRepository(guided),
             restPreferences,
             FakeTrainingGuidancePreferences(coaching)
@@ -6227,6 +6470,14 @@ class WorkoutLoggerViewModelTest {
             )
         )
     )
+
+    private fun barbellOccurrences() = twoOccurrences().map { occurrence ->
+        occurrence.copy(
+            entries = occurrence.entries.map {
+                it.copy(requiredEquipment = setOf(EquipmentTag.BARBELL))
+            }
+        )
+    }
 
     private fun loggingActions(
         history: PlanHistoryRepository,
