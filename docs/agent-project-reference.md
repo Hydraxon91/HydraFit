@@ -113,6 +113,7 @@ HydraFit/
 │   ├── fatigueheatmap/     # Muscle Fatigue Heatmap UI + ViewModels
 │   ├── logger/             # Offline Workout Logger UI + ViewModels
 │   ├── routines/           # Manual routine authoring + training-block scheduling UI + ViewModels
+│   ├── onboarding/         # Setup state machine foundation; app entry/screens remain unwired
 │   └── settings/           # Planner engine, API key, and on-device model settings UI + ViewModels
 └── .github/workflows/      # CI/CD pipeline definitions
 ```

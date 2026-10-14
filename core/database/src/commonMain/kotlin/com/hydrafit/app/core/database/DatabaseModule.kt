@@ -11,6 +11,7 @@ import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.settings.RestPreferenceRepository
 import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferenceRepository
+import com.hydrafit.app.core.domain.setup.SetupWriteRepository
 import com.hydrafit.app.core.domain.startup.StartupReadiness
 import com.hydrafit.app.core.domain.workout.ExerciseNoteRepository
 import com.hydrafit.app.core.domain.workout.RestCountdownRepository
@@ -62,6 +63,7 @@ val databaseModule: Module = module {
     single<TrainingGoalRepository> { SqlDelightTrainingGoalRepository(get()) }
     single<WeightUnitRepository> { SqlDelightWeightUnitRepository(get()) }
     single<SetupRepository> { SqlDelightSetupRepository(get()) }
+    single<SetupWriteRepository> { SqlDelightSetupWriteRepository(get(), get()) }
     single<PreferredWeekdaysRepository> { SqlDelightPreferredWeekdaysRepository(get()) }
     single<RestPreferenceRepository> { SqlDelightRestPreferenceRepository(get()) }
     single<TrainingGuidancePreferenceRepository> {

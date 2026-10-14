@@ -10,7 +10,7 @@
 | Oct 13 follow-up — pre-0.7.4 correctives | DONE | OCT13-01/02/03/04/07 implementation and PE-01..04 post-review follow-ups are complete; both the post-execution review and targeted closure review are approved. Logger host tests, `ktlintCheck`, `assembleDebug`, migration verification and both iOS compiles passed; closure test evidence is in `docs/qa.md` §13. OCT13-03/07 emulator acceptance remains user-reported. OCT13-05 notification findings stay in 0.7.7; OCT13-06 expired-prompt dismissal and LT-10 progression policy remain separate/open. Topic branch push only; PR/merge and release publication are not included. |
 | 0.7.4 — offline exercise instructions | C0–C7 DONE — PUBLISHED as `v0.7.4` | Approved 17-entry dumbbell/machine-distinct batch; all text editorially accepted unchanged 2026-10-13. C1–C3 targeted closure approved at `3ecd3bca`; R074-05 editorial-status correction applied (`39c7ce8d`). C4/C5 entry points implemented with presentation-only state, tests and bounded flows; C6 verified Equipment/manual/planned/guided/custom-unavailable runtime, a `de-DE` English-fallback check, a font-1.3 longest-text no-clip check and the full candidate matrix, with font 1.3 light and dark user-verified and all temporary fixtures/settings restored. Bounded post-execution review over `3ecd3bca..7f80df47` returned **APPROVED** with no blocking findings; nits R074R-02 (test-tag identity) and R074R-03 (evidence wording) remain open by decision. C7 is DONE — PUBLISHED 2026-10-13 as `v0.7.4` on the PR #11 merge commit `3f5804f9`; Release run `38457253900` (run number 19) passed, with PR/main Build-and-Test runs `38455034690`/`38455821541` green (an earlier Build-and-Test run `38452768212`, run number 203, failed with its `iOS Compile` job cancelled, after which that job was temporarily disabled). Offline artifact check: `versionName=0.7.4`, `versionCode=19`, 24,761,680 bytes, APK SHA-256 `17852bc7238f42e8cb2cb0f7c4a0ddd6fc1326548ee2a73cbe45e6e016c3a5c8` matching the asset digest, same signing certificate as prior releases; the release APK was never installed on the emulator. Evidence/limits in `docs/qa.md` §13. |
 | 0.7.5 — informational exercise cautions | C0–C6 DONE — PUBLISHED as `v0.7.5` at `7789d579`; PR/main/Release CI green; APK verified offline; runtime limits in `docs/qa.md` §13 | Approved three-ID sourced caution batch (`conventional-deadlift`, `romanian-deadlift`, `dumbbell-rdl`) presented as nonblocking "Technique considerations" in the existing offline instruction viewer, with a labelled indication at the Equipment/Logger instruction actions, an independent stable-ID lookup and no persistence/schema/backup change. C1/C2 added the manifest/lookup and the three authored cautions (editorially accepted 2026-10-13); C3/C4 wired the viewer section and the Equipment/planned-draft/guided indications. Decisions remain in the EX-03 / 0.7.5 section; completed chunk detail is archived. |
-| 0.7.6 — onboarding and first-workout guidance | C0 DONE (decision-only); C1–C8 gated — NOT STARTED | Scope and the C0 behavioral contract were approved in chat 2026-10-14; the approved contract and chunk plan live in the OF-14 / 0.7.6 section. Adds `:feature:onboarding`, a `:core:userdata` setup-status + preferred-weekday store, an additive `.sqm` migration and backup coverage, a narrow `:core:navigation` setup-opening seam and Settings → Setup re-entry. No new starting-load storage; PRs use the existing manual-PR store. Branch: `release/0.7.6`. |
+| 0.7.6 — onboarding and first-workout guidance | C0–C2 DONE; C3–C8 gated — NOT STARTED | C1 (`390f3fc1`) adds schema 45/backup 11, setup disposition/resume and preferred weekdays. C2 adds atomic step save actions, the isolated `:feature:onboarding` scaffold/state machine and verified exported Koin bindings; full Tier A gates passed, including the new module's iOS compile (`/tmp/hydrafit-076-c1-full.log`, `/tmp/hydrafit-076-c2-full.log`). No new starting-load storage; PRs use existing storage. Shared/startup/Settings/navigation/UI and activation prefill remain unwired; emulator acceptance and formal review remain pending. Branch: `release/0.7.6`; no implementation push yet. |
 | Release 0.2.0 | SHIPPED | `v0.2.0` signed release published; [history](docs/plans-archive.md#2026-10-09-completed-status-rows). Stale `v0.1.0` validation pre-release cleanup remains optional. |
 | Release 0.2.1 | SHIPPED | `v0.2.1`; [Q1–Q6 history](docs/plans-archive.md#2026-10-09-completed-status-rows). Q4e remains user-side, not shipped code; local AI remains experimental/non-functional, with optional M8 follow-up. |
 | Release 0.2.2 — code review & architecture | SHIPPED | `v0.2.2`; R0–RG/RF complete, CI green; [fix/commit history](docs/plans-archive.md#2026-10-09-completed-status-rows). |
@@ -723,7 +723,7 @@ gated scopes, not implied by completion of P0–P5. M2's other open work stays a
 | OF-11 | Manual routines and reusable templates | M3; extends OF-01 coverage; feeds OF-02/OF-07 | SHIPPED 0.3.0; later guided/sharing extensions follow roadmap |
 | OF-12 | Flexible scheduling, session rotation and reminders | M3 scheduling after OF-11; M4 reminders | P0/P1 SHIPPED 0.3.0; P2/P3 reminders/integration target 0.7.7 |
 | OF-13 | Workout/exercise notes and session history | M4; existing explicit sessions; integrates OF-02/OF-04 | Divider slice committed in `a021d94` (2026-10-11); null-label visuals, font/theme/locale variants and action-write UI checks remain unverified. The 0.7.1 slice **SHIPPED** 2026-10-12 as `v0.7.1`: persistent exercise setup notes, separate session notes, a bounded searchable session-history browser and the existing set corrections from history (chunks C0–C9, reviewed APPROVED; [detail archived](docs/plans-archive.md#2026-10-12-completed-071-notes-and-session-history)). Still future: duration labels and attaching OF-04 record results once OF-04-P3 is available; workout summaries are scoped as the approved 0.7.2 split below. |
-| OF-14 | Onboarding and first-workout baseline setup | M4; EQ-01/OF-11/OF-12 contracts; existing settings/PR use cases | IN PROGRESS — 0.7.6 C0 approved 2026-10-14 (see the OF-14 / 0.7.6 section); C1–C8 separately gated |
+| OF-14 | Onboarding and first-workout baseline setup | M4; EQ-01/OF-11/OF-12 contracts; existing settings/PR use cases | IN PROGRESS — 0.7.6 C0–C2 DONE (see the OF-14 / 0.7.6 section); C3–C8 separately gated |
 
 ### OF-01 — Local backup/export and restore
 
@@ -1254,10 +1254,12 @@ separate release/push/tag approvals. No automatic handoff or next-release work.
 #### 0.7.6 — Onboarding and first-workout guidance (chunk plan)
 
 **Status (2026-10-14):** release scope and the C0 behavioral contract were approved in chat; C0 is
-DONE (decision-only). C1 DONE — schema 45/backup 11 persistence, legacy handling and full Tier A gate
-passed (`/tmp/hydrafit-076-c1-full.log`); C2 approved/next; C3–C8 NOT STARTED. Each later chunk remains
-separately gated; this
-section authorizes no implementation, commit, push or publication by itself. Work branch:
+DONE (decision-only). C1 DONE (`390f3fc1`) — schema 45/backup 11 persistence, legacy handling and full
+Tier A gate passed (`/tmp/hydrafit-076-c1-full.log`). C2 DONE — atomic saves and isolated module/state
+machine; full Tier A gate plus onboarding iOS compile passed (`/tmp/hydrafit-076-c2-full.log`).
+C3–C8 NOT STARTED; app entry/UI/prefill, emulator acceptance and formal review remain pending. Each
+later chunk remains separately gated; no implementation push yet. This section authorizes no
+implementation, commit, push or publication by itself. Work branch:
 `release/0.7.6`. This bounded split refines OF-14-P0–P3 (queued above) without renumbering those
 broader phases.
 
@@ -1318,11 +1320,14 @@ third-party dependency, provider, signing or CI change is proposed.
   backup/restore integration; fresh-vs-upgraded schema, legacy defaults, malformed/unsupported
   rejection, rollback and preservation tests.
 - **C2 — save actions + async state machine (Tier B; Tier A if shared write contracts change).**
+  Module scaffold and `settings.gradle.kts` registration moved forward from C3 by explicit approval
+  on 2026-10-14; existing Koin 4.2.2 test-only dependency in this module separately approved.
   ViewModel/state, atomic step save, repeated-submission guard, failure/retry and
   cancellation/context-replacement tests; producer/consumer tests, Koin checks, ktlint, debug
   assembly.
 - **C3 — feature registration, startup entry, revisit navigation (Tier A).** Module/graph
-  registration, feature-owned entry decision, Settings → Setup seam, readiness/restore ordering;
+  aggregation in `shared` (scaffold/settings registration moved to C2), feature-owned entry decision,
+  Settings → Setup seam, readiness/restore ordering;
   Koin verification and bounded entry/revisit/navigation checks.
 - **C4 — screens, copy and accessibility (Tier C).** Step composition, resource strings, states,
   font-scale/inset/locale checks and semantics; feature tests, ktlint, debug assembly and viewed

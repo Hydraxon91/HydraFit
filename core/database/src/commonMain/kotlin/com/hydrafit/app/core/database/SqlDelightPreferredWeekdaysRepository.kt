@@ -20,12 +20,18 @@ class SqlDelightPreferredWeekdaysRepository(private val database: HydraFitDataba
     override suspend fun set(weekdays: Set<DayOfWeek>?) {
         requirePreferredWeekdays(weekdays)
         database.transaction {
-            database.setupQueries.updateWeekdays(encodePreferredWeekdays(weekdays))
-            if (weekdays != null) {
-                database.plannerEngineQueries.insertIgnoreRow("DETERMINISTIC")
-                database.plannerEngineQueries.updateDaysPerWeek(weekdays.size.toLong())
-            }
+            database.savePreferredWeekdays(weekdays)
         }
+    }
+}
+
+/** Call inside the transaction that owns the user's save action. */
+internal fun HydraFitDatabase.savePreferredWeekdays(weekdays: Set<DayOfWeek>?) {
+    requirePreferredWeekdays(weekdays)
+    setupQueries.updateWeekdays(encodePreferredWeekdays(weekdays))
+    if (weekdays != null) {
+        plannerEngineQueries.insertIgnoreRow("DETERMINISTIC")
+        plannerEngineQueries.updateDaysPerWeek(weekdays.size.toLong())
     }
 }
 

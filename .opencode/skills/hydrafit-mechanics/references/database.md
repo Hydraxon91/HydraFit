@@ -65,6 +65,13 @@ RETURNING/WELCOME regardless of workout count. Current schema version is 45.
 Determine the
 next version from the current directory/generated Schema rather than copying this snapshot.
 
+`SqlDelightSetupWriteRepository` implements domain `SetupWriteRepository`. Its transaction compares
+the full expected setup state/revision, validates domain inputs and effective catalog identities,
+writes the step payload, then advances the boundary. Equipment lookups and PR eligibility checks
+are per-id (no catalog scan on the write path). A failed boundary write rolls back every step payload.
+Weekday writes share `savePreferredWeekdays` with the standalone preference repository. PR writes
+upsert only submitted external records; completion/dismissal never create training data.
+
 `WorkoutHistory.sq` is query-only (no schema of its own): it projects `workoutSession`, `workoutSet`,
 `sessionNote` and the current `exercise` catalog into bounded, keyset-paginated history reads behind
 `SqlDelightWorkoutHistoryRepository`. A session qualifies when it has recorded sets or a

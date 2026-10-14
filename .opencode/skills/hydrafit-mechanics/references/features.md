@@ -311,6 +311,16 @@ the pre-correction reconciliation on screen. A failed save keeps the editor and 
 reconciliation. Recorded start/finish instants and session notes are shown; there is no duration figure
 and no universal score.
 
+Onboarding's C2 foundation lives in `:feature:onboarding`: `OnboardingViewModel`, `OnboardingUiState`
+and exported `onboardingModule`. It is not wired to the shell and has no Compose screens yet.
+Construction writes nothing; `open` waits for `StartupReadiness`, resumes PENDING setup, or starts a
+voluntary revisit at Welcome. Next/Skip call the domain save actions; Back/edit/close save nothing.
+The guard spans transaction and next-step reads. Failed saves retain the draft, while a failed read
+after a successful save retries only the read. Context revisions suppress stale publications, and
+reopening waits for an already-submitted write before reloading. PR edits capture the entry unit,
+write only explicitly edited records and never delete omitted records. Tests use controlled
+suspension for repeated submissions, close/reopen, failure/retry and cancellation.
+
 For routine authoring, the module is `:feature:routines`:`RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/
 `routinesDestination`), `RoutinesScreen.kt` (list, editor, exercise picker,
 activation dialog), `RoutinesViewModel.kt` and `RoutinesUiState.kt`. The

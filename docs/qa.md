@@ -488,6 +488,17 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   returning users without weekday preferences. Fresh schema offers setup; upgraded empty databases
   do not. Host coverage is in `SetupPersistenceTest`, `BackupJsonTest`, `BackupValidatorTest` and
   `V1ToCurrentMigrationTest`; onboarding entry/UI acceptance is not wired or verified in C1.
+- C2 foundation host checks (`SetupActionsTest`, `SetupWritesTest`, `OnboardingViewModelTest`,
+  `OnboardingModuleVerificationTest`) cover atomic saves/rollback, stale revisions, no training-data
+  creation, the PR → planner-baseline path, unit conversion, omission preservation, repeat submits
+  through success loading, failure/retry, readiness, recreation, close/reopen and cancellation.
+  Module graph, app entry/screens and emulator acceptance are separate checks; C2 adds only the
+  isolated module scaffold and its exported bindings, not a seventh tab or a live setup screen.
+  **2026-10-14 host-only C1/C2 verification:** full `testAndroidHostTest`, migration verification,
+  `ktlintCheck`, debug assembly, shared/network iOS simulator compile passed at both chunk boundaries;
+  C2 additionally compiled `:feature:onboarding` for iOS. Logs: `/tmp/hydrafit-076-c1-full.log` and
+  `/tmp/hydrafit-076-c2-full.log`. Onboarding's 12 state-machine tests and two Koin tests pass with no
+  failures/skips. No emulator inspection, install, UI acceptance or formal review was performed.
 - Settings → Backup: export to a chosen local file → success is shown only after the provider
   confirms the write; airplane mode → export still works.
 - Preview a valid backup → shows the included categories/contents; Cancel writes nothing.

@@ -131,6 +131,18 @@ and take the state plus callbacks.
 - **Examples:** `WorkoutLoggerViewModel`/`WorkoutLoggerUiState`, `SplitBuilderViewModel`/
   `SplitBuilderUiState`, `EquipmentProfilerViewModel`/`EquipmentProfilerUiState`.
 - **Consistency:** high. Screens use `collectAsStateWithLifecycle` and never touch repositories.
+- **Onboarding foundation (0.7.6 C1/C2):** `:feature:onboarding` owns `OnboardingViewModel` and
+  copy-based state, but has no screen or app entry yet. Explicit open waits for startup readiness;
+  returning/completed/skipped users need voluntary revisit. Next and Skip delegate to domain use
+  cases on `Default`; the dedicated SQLDelight writer checks the expected setup revision and commits
+  the current step payload and resume boundary in one transaction. Back/close/edit do not save.
+  PR edits use a frozen display unit, external-only effective catalog eligibility, and the existing
+  manual-PR table; omitted records remain untouched. A failed save retains its draft. A failed read
+  after a successful save retries only that read. The submission guard spans save and next-step
+  loading; context revisions prevent old completions from updating a replaced journey. The constructor
+  collaborators all serve this one setup journey (step reads, two save actions and readiness), not
+  independent feature responsibilities; no dependency bag is introduced solely to reduce its count.
+  The six-tab shell, Settings entry, schedule prefill and first-workout navigation remain unwired.
 - **Violations / tensions:** VMs are thin in responsibility but not always in size —
   the current `WorkoutLoggerViewModel` has six constructor collaborators, including
   `WorkoutLogMutations`, `WorkoutLoggingActions`, runtime and settings collaborators. The historical
