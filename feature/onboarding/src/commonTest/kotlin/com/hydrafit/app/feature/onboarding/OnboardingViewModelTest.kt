@@ -5,12 +5,15 @@ import com.hydrafit.app.core.domain.setup.SetupDisposition
 import com.hydrafit.app.core.domain.setup.SetupState
 import com.hydrafit.app.core.domain.setup.SetupStep
 import com.hydrafit.app.core.domain.setup.SetupStepInput
+import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.navigation.AppTab
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellationException
@@ -295,5 +298,125 @@ class OnboardingViewModelTest {
         assertEquals(SetupState(), fixture.committed.value)
         assertNull(viewModel.state.value.failure)
         assertFalse(viewModel.state.value.saving)
+    }
+
+    @Test
+    fun aHandoffCompletesSetupBeforeSignallingNavigation() = runTest(dispatcher) {
+        val fixture = OnboardingFixture()
+        fixture.committed.value = SetupState(step = SetupStep.FIRST_WORKOUT)
+        val viewModel = fixture.viewModel(dispatcher)
+        viewModel.open()
+        runCurrent()
+        viewModel.handoff(AppTab.PLAN)
+        runCurrent()
+        // The handoff writes the setup boundary only: one commit, the final step's Continue input.
+        assertEquals(1, fixture.attempts.size)
+        assertEquals(
+            SetupStepInput.Continue(SetupStep.FIRST_WORKOUT),
+            fixture.attempts.single().input
+        )
+        assertEquals(SetupDisposition.COMPLETED, fixture.committed.value.disposition)
+        assertEquals(SetupStep.FIRST_WORKOUT, fixture.committed.value.step)
+        assertTrue(viewModel.state.value.finished)
+        assertEquals(AppTab.PLAN, viewModel.state.value.pendingHandoff)
+    }
+
+    @Test
+    fun aFailedHandoffCompletionStaysOnTheFinalStepWithoutNavigating() = runTest(dispatcher) {
+        val fixture = OnboardingFixture()
+        fixture.committed.value = SetupState(step = SetupStep.FIRST_WORKOUT)
+        fixture.failure = IllegalStateException("injected")
+        val viewModel = fixture.viewModel(dispatcher)
+        viewModel.open()
+        runCurrent()
+        viewModel.handoff(AppTab.ROUTINES)
+        runCurrent()
+        assertNull(viewModel.state.value.pendingHandoff)
+        assertFalse(viewModel.state.value.finished)
+        assertFalse(viewModel.state.value.saving)
+        assertEquals(OnboardingFailure.SAVE, viewModel.state.value.failure)
+        assertEquals(SetupStep.FIRST_WORKOUT, viewModel.state.value.step)
+        assertEquals(SetupDisposition.PENDING, fixture.committed.value.disposition)
+        fixture.failure = null
+        viewModel.handoff(AppTab.ROUTINES)
+        runCurrent()
+        assertNull(viewModel.state.value.failure)
+        assertTrue(viewModel.state.value.finished)
+        assertEquals(AppTab.ROUTINES, viewModel.state.value.pendingHandoff)
+        assertEquals(SetupDisposition.COMPLETED, fixture.committed.value.disposition)
+    }
+
+    @Test
+    fun aHandoffOnANonFinalStepWritesAndSignalsNothing() = runTest(dispatcher) {
+        val fixture = OnboardingFixture()
+        fixture.committed.value = SetupState(step = SetupStep.GOAL)
+        val viewModel = fixture.viewModel(dispatcher)
+        viewModel.open()
+        runCurrent()
+        viewModel.handoff(AppTab.LOG)
+        runCurrent()
+        assertEquals(0, fixture.attempts.size)
+        assertNull(viewModel.state.value.pendingHandoff)
+        assertFalse(viewModel.state.value.finished)
+        assertEquals(SetupStep.GOAL, viewModel.state.value.step)
+        assertEquals(SetupDisposition.PENDING, fixture.committed.value.disposition)
+    }
+
+    @Test
+    fun nextIsBlockedForAOneDayWeekdayDraftAndAllowsTwoToSix() = runTest(dispatcher) {
+        val fixture = OnboardingFixture()
+        fixture.committed.value = SetupState(step = SetupStep.WEEKDAYS)
+        val viewModel = fixture.viewModel(dispatcher)
+        viewModel.open()
+        runCurrent()
+        assertEquals(SetupStepInput.Weekdays(null), viewModel.state.value.input)
+        viewModel.edit(SetupStepInput.Weekdays(setOf(DayOfWeek.MONDAY)))
+        viewModel.next()
+        runCurrent()
+        assertEquals(0, fixture.attempts.size)
+        assertEquals(SetupStep.WEEKDAYS, fixture.committed.value.step)
+        viewModel.edit(SetupStepInput.Weekdays(setOf(DayOfWeek.MONDAY, DayOfWeek.THURSDAY)))
+        viewModel.next()
+        runCurrent()
+        assertEquals(
+            SetupStepInput.Weekdays(setOf(DayOfWeek.MONDAY, DayOfWeek.THURSDAY)),
+            fixture.attempts.single().input
+        )
+        assertEquals(SetupStep.PERSONAL_RECORDS, fixture.committed.value.step)
+    }
+
+    @Test
+    fun decideLaterSubmitsANullWeekdayChoice() = runTest(dispatcher) {
+        val fixture = OnboardingFixture()
+        fixture.committed.value = SetupState(step = SetupStep.WEEKDAYS)
+        val viewModel = fixture.viewModel(dispatcher)
+        viewModel.open()
+        runCurrent()
+        viewModel.edit(SetupStepInput.Weekdays(setOf(DayOfWeek.FRIDAY)))
+        viewModel.edit(SetupStepInput.Weekdays(null))
+        viewModel.next()
+        runCurrent()
+        assertEquals(SetupStepInput.Weekdays(null), fixture.attempts.single().input)
+        assertEquals(SetupStep.PERSONAL_RECORDS, fixture.committed.value.step)
+    }
+
+    @Test
+    fun loadingEditingBackAndCloseWriteNothingOnEveryStep() = runTest(dispatcher) {
+        SetupStep.entries.forEach { step ->
+            val fixture = OnboardingFixture()
+            fixture.committed.value = SetupState(step = step)
+            val viewModel = fixture.viewModel(dispatcher)
+            viewModel.open()
+            runCurrent()
+            assertEquals(step, viewModel.state.value.step)
+            val draft = viewModel.state.value.input
+            assertNotNull(draft)
+            // What a render does (read state) plus an edit, Back and Close must never persist.
+            viewModel.edit(draft)
+            viewModel.back()
+            runCurrent()
+            viewModel.close()
+            assertEquals(0, fixture.attempts.size)
+        }
     }
 }

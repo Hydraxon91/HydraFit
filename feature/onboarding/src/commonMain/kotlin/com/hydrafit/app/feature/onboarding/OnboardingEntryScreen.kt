@@ -2,7 +2,10 @@ package com.hydrafit.app.feature.onboarding
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -11,22 +14,29 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hydrafit.app.core.domain.setup.SetupStep
+import com.hydrafit.app.core.domain.setup.SetupStepInput
+import com.hydrafit.app.core.navigation.AppTab
+import com.hydrafit.app.core.navigation.LocalAppTabNavigator
 import hydrafit.feature.onboarding.generated.resources.Res
+import hydrafit.feature.onboarding.generated.resources.onboarding_back
 import hydrafit.feature.onboarding.generated.resources.onboarding_close
-import hydrafit.feature.onboarding.generated.resources.onboarding_editor_unavailable
 import hydrafit.feature.onboarding.generated.resources.onboarding_error
 import hydrafit.feature.onboarding.generated.resources.onboarding_load_error
 import hydrafit.feature.onboarding.generated.resources.onboarding_loading
+import hydrafit.feature.onboarding.generated.resources.onboarding_next
 import hydrafit.feature.onboarding.generated.resources.onboarding_retry
+import hydrafit.feature.onboarding.generated.resources.onboarding_saved_on_next
 import hydrafit.feature.onboarding.generated.resources.onboarding_skip
 import hydrafit.feature.onboarding.generated.resources.onboarding_step_equipment
 import hydrafit.feature.onboarding.generated.resources.onboarding_step_first_workout
@@ -41,8 +51,8 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
- * The minimal setup entry. It owns the destination-scoped journey: opening is explicit and writes
- * nothing, and the draft is discarded whenever the route leaves, whether by Close or system Back.
+ * The setup entry. It owns the destination-scoped journey: opening is explicit and writes nothing,
+ * and the draft is discarded whenever the route leaves, whether by Close or system Back.
  */
 @Composable
 fun OnboardingEntryRoute(
@@ -51,15 +61,26 @@ fun OnboardingEntryRoute(
     viewModel: OnboardingViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val openTab = LocalAppTabNavigator.current
     // One explicit open per destination instance; re-entering a route builds a new ViewModel.
     LaunchedEffect(viewModel, revisit) { viewModel.open(revisit) }
-    // A successful skip (or a first run whose setup is no longer pending) leaves the entry.
-    LaunchedEffect(state.finished) { if (state.finished) onClose() }
+    // A handoff opens its tab only after the final step's completion write succeeded. A plain finish
+    // (Next or Skip) leaves the entry, and a failed completion never reaches here with a handoff set.
+    LaunchedEffect(state.finished, state.pendingHandoff) {
+        if (!state.finished) return@LaunchedEffect
+        val tab = state.pendingHandoff
+        if (tab == null) onClose() else openTab(tab)
+    }
     DisposableEffect(viewModel) { onDispose { viewModel.close() } }
     OnboardingEntryScreen(
         state = state,
+        onEdit = viewModel::edit,
+        onPersonalRecord = viewModel::editPersonalRecord,
+        onNext = viewModel::next,
         onSkip = viewModel::skip,
+        onBack = viewModel::back,
         onRetryLoad = viewModel::retryLoad,
+        onHandoff = viewModel::handoff,
         onClose = onClose
     )
 }
@@ -67,16 +88,26 @@ fun OnboardingEntryRoute(
 @Composable
 fun OnboardingEntryScreen(
     state: OnboardingUiState,
+    onEdit: (SetupStepInput) -> Unit,
+    onPersonalRecord: (String, Double, Int) -> Unit,
+    onNext: () -> Unit,
     onSkip: () -> Unit,
+    onBack: () -> Unit,
     onRetryLoad: () -> Unit,
+    onHandoff: (AppTab) -> Unit,
     onClose: () -> Unit
 ) {
     when (state.entryPhase) {
         OnboardingEntryPhase.LOADING -> OnboardingLoading()
         OnboardingEntryPhase.FAILURE, OnboardingEntryPhase.READY -> OnboardingJourney(
             state = state,
+            onEdit = onEdit,
+            onPersonalRecord = onPersonalRecord,
+            onNext = onNext,
             onSkip = onSkip,
+            onBack = onBack,
             onRetryLoad = onRetryLoad,
+            onHandoff = onHandoff,
             onClose = onClose
         )
     }
@@ -99,62 +130,124 @@ private fun OnboardingLoading() {
 }
 
 /**
- * The setup journey body. Skip and the step heading need a committed boundary: without one the
- * screen shows only the failure (with a retry for a read) and a Close that writes nothing.
+ * The setup journey body. Skip, Next and the step heading need a committed boundary: without one the
+ * screen shows only the failure (with a retry for a read) and a Close that writes nothing. The step
+ * content scrolls while the action bar stays visible, and the whole stack lifts above the keyboard.
  */
 @Composable
 private fun OnboardingJourney(
     state: OnboardingUiState,
+    onEdit: (SetupStepInput) -> Unit,
+    onPersonalRecord: (String, Double, Int) -> Unit,
+    onNext: () -> Unit,
     onSkip: () -> Unit,
+    onBack: () -> Unit,
     onRetryLoad: () -> Unit,
+    onHandoff: (AppTab) -> Unit,
     onClose: () -> Unit
 ) {
     val committed = state.committed
+    val controlsEnabled = !state.saving && !state.finished
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+            .imePadding()
+            .onboardingTestTagsAsResourceId()
+    ) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = stringResource(Res.string.onboarding_title),
+                style = MaterialTheme.typography.headlineSmall
+            )
+            if (committed != null) {
+                Text(
+                    text = stringResource(state.step.headingResource()),
+                    style = MaterialTheme.typography.titleLarge
+                )
+            }
+            state.failure?.let { failure ->
+                Text(
+                    text = stringResource(failure.messageResource()),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                if (failure == OnboardingFailure.LOAD) {
+                    Button(onClick = onRetryLoad) {
+                        Text(stringResource(Res.string.onboarding_retry))
+                    }
+                }
+            }
+            if (committed != null) {
+                OnboardingStepEditor(
+                    state = state,
+                    enabled = controlsEnabled,
+                    onEdit = onEdit,
+                    onPersonalRecord = onPersonalRecord,
+                    onHandoff = onHandoff
+                )
+            }
+        }
+        OnboardingActionBar(
+            state = state,
+            controlsEnabled = controlsEnabled,
+            onBack = onBack,
+            onNext = onNext,
+            onSkip = onSkip,
+            onClose = onClose
+        )
+    }
+}
+
+/**
+ * Back / Next / Skip / Close. Next is unreachable unless the current step's draft is acceptable, and
+ * every control is disabled while a save is in flight; Close stays available so a read that failed
+ * without a committed boundary can still be left without writing.
+ */
+@Composable
+private fun OnboardingActionBar(
+    state: OnboardingUiState,
+    controlsEnabled: Boolean,
+    onBack: () -> Unit,
+    onNext: () -> Unit,
+    onSkip: () -> Unit,
+    onClose: () -> Unit
+) {
+    val writeEnabled = controlsEnabled && state.committed != null
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(OnboardingTestTags.ACTION_BAR)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = stringResource(Res.string.onboarding_title),
-            style = MaterialTheme.typography.headlineSmall
+            text = stringResource(Res.string.onboarding_saved_on_next),
+            style = MaterialTheme.typography.bodySmall
         )
-        if (committed != null) {
-            Text(
-                text = stringResource(state.step.headingResource()),
-                style = MaterialTheme.typography.titleLarge
-            )
-        }
-        state.failure?.let { failure ->
-            Text(
-                text = stringResource(failure.messageResource()),
-                style = MaterialTheme.typography.bodyMedium
-            )
-            if (failure == OnboardingFailure.LOAD) {
-                Button(onClick = onRetryLoad) {
-                    Text(stringResource(Res.string.onboarding_retry))
-                }
-            }
-        }
-        if (committed != null) {
-            Text(
-                text = stringResource(Res.string.onboarding_editor_unavailable),
-                style = MaterialTheme.typography.bodySmall
-            )
-            Button(
-                onClick = onSkip,
-                enabled = !state.saving && !state.finished
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = onBack,
+                enabled = writeEnabled && state.step != SetupStep.WELCOME
             ) {
+                Text(stringResource(Res.string.onboarding_back))
+            }
+            Button(
+                onClick = onNext,
+                enabled = writeEnabled && isSubmittable(state.input)
+            ) {
+                Text(stringResource(Res.string.onboarding_next))
+            }
+            TextButton(onClick = onSkip, enabled = writeEnabled) {
                 Text(stringResource(Res.string.onboarding_skip))
             }
-        }
-        OutlinedButton(
-            onClick = onClose,
-            enabled = !state.saving && !state.finished
-        ) {
-            Text(stringResource(Res.string.onboarding_close))
+            TextButton(onClick = onClose, enabled = controlsEnabled) {
+                Text(stringResource(Res.string.onboarding_close))
+            }
         }
     }
 }

@@ -13,6 +13,7 @@ import com.hydrafit.app.core.domain.setup.SkipSetupUseCase
 import com.hydrafit.app.core.domain.setup.StaleSetupContextException
 import com.hydrafit.app.core.domain.setup.snapshot
 import com.hydrafit.app.core.domain.startup.StartupReadiness
+import com.hydrafit.app.core.navigation.AppTab
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.equipment.PersonalRecordRepository
@@ -100,7 +101,7 @@ class OnboardingViewModel(
             current.entryUnit.displayToKilograms(displayWeight),
             reps
         )
-        edit(draft.copy(edits = draft.edits.filterNot { it.exerciseId == exerciseId } + record))
+        edit(draft.copy(edits = withDraftRecord(draft.edits, record)))
     }
 
     fun back() {
@@ -131,6 +132,21 @@ class OnboardingViewModel(
     fun next() = submit(skip = false)
 
     fun skip() = submit(skip = true)
+
+    /**
+     * Requests one first-workout destination. It completes the final step exactly like Next and only
+     * then leaves [OnboardingUiState.pendingHandoff] set for the screen to open the tab, so a failed
+     * write keeps the failure and retry state on the final step instead of navigating. Any other step
+     * has no reachable handoff.
+     */
+    fun handoff(tab: AppTab) {
+        val current = _state.value
+        if (current.step != SetupStep.FIRST_WORKOUT) return
+        if (current.input?.step != SetupStep.FIRST_WORKOUT) return
+        if (inFlight || current.loading || current.finished) return
+        _state.update { it.copy(pendingHandoff = tab) }
+        submit(skip = false)
+    }
 
     fun retryLoad() {
         val current = _state.value
@@ -163,7 +179,7 @@ class OnboardingViewModel(
         val current = _state.value
         val committed = current.committed ?: return
         val input = current.input?.snapshot()
-        if (!skip && input == null) return
+        if (!skip && !isSubmittable(input)) return
         if (inFlight || current.loading || current.finished) return
         val context = contextRevision
         val entryIsRevisit = revisit
@@ -195,7 +211,9 @@ class OnboardingViewModel(
                     else -> OnboardingFailure.SAVE
                 }
                 if (context == contextRevision) {
-                    _state.update { it.copy(failure = reason, loading = false) }
+                    _state.update {
+                        it.copy(failure = reason, loading = false, pendingHandoff = null)
+                    }
                 }
             } finally {
                 inFlight = false

@@ -131,14 +131,25 @@ and take the state plus callbacks.
 - **Examples:** `WorkoutLoggerViewModel`/`WorkoutLoggerUiState`, `SplitBuilderViewModel`/
   `SplitBuilderUiState`, `EquipmentProfilerViewModel`/`EquipmentProfilerUiState`.
 - **Consistency:** high. Screens use `collectAsStateWithLifecycle` and never touch repositories.
-- **Onboarding foundation (0.7.6 C1/C2/C3):** `:feature:onboarding` owns `OnboardingViewModel` and
-  copy-based state, plus the minimal C3 entry route and shell registration. Explicit open waits for
-  startup readiness;
+- **Onboarding (0.7.6 C1–C5):** `:feature:onboarding` owns `OnboardingViewModel` and copy-based state,
+  the C3 entry route and shell registration, and the C4 step editors. Explicit open waits for startup
+  readiness;
   returning/completed/skipped users need voluntary revisit. Next and Skip delegate to domain use
   cases on `Default`; the dedicated SQLDelight writer checks the expected setup revision and commits
-  the current step payload and resume boundary in one transaction. Back/close/edit do not save.
-  PR edits use a frozen display unit, external-only effective catalog eligibility, and the existing
-  manual-PR table; omitted records remain untouched. A failed save retains its draft. A failed read
+  the current step payload and resume boundary in one transaction. Rendering, editing, Back and Close
+  save nothing; only a successful step save advances the boundary. Each step renders a real editor
+  from the draft the ViewModel already loaded: unit radios, an equipment multi-select over the
+  inventory, all four training goals (the loaded one preselected), seven weekday toggles plus an
+  explicit "Decide later"
+  (null) choice, and an optional PR entry that searches the external-only eligible catalog. The 2–6
+  weekday rule is enforced locally, so `requirePreferredWeekdays` is never the failure path, and Next
+  is unreachable while the draft is unacceptable or a save is in flight. PR edits use a frozen display
+  unit and the existing manual-PR table; a stored record stays the shown value until an explicit edit
+  replaces it, and omitted records are never deleted. The final step's three handoffs (Generate a plan
+  → `AppTab.PLAN`, Build a routine → `AppTab.ROUTINES`, Log without a plan → `AppTab.LOG`) complete
+  setup exactly like Next, holding the tab as `pendingHandoff`; the screen opens it only after that
+  completion succeeds, so a failed write keeps the final step and its retry state, and opening a
+  destination creates no plan, routine, session or set. A failed save retains its draft. A failed read
   after a successful save retries only that read. The submission guard spans save and next-step
   loading; context revisions prevent old completions from updating a replaced journey. The constructor
   collaborators all serve this one setup journey (step reads, two save actions and readiness), not
@@ -146,8 +157,8 @@ and take the state plus callbacks.
   The six-tab shell is unchanged. A root-owned `OnboardingEntryViewModel` reads the saved disposition
   once, after readiness and restore, and only the feature's own PENDING check makes the shell force the
   first-run route (Settings opens the revisit route through `LocalSetupNavigator` in
-  `:core:navigation`). The C4 step editors and the C5 first-workout handoff/prefill are still unwired,
-  so the C3 entry reports the current step and offers only Skip and Close.
+  `:core:navigation`). Step control groups, the action bar and the three handoffs carry stable
+  `onboarding_*` test tags exposed as Android resource ids.
 - **Violations / tensions:** VMs are thin in responsibility but not always in size —
   the current `WorkoutLoggerViewModel` has six constructor collaborators, including
   `WorkoutLogMutations`, `WorkoutLoggingActions`, runtime and settings collaborators. The historical

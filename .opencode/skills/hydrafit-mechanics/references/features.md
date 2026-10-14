@@ -311,22 +311,43 @@ the pre-correction reconciliation on screen. A failed save keeps the editor and 
 reconciliation. Recorded start/finish instants and session notes are shown; there is no duration figure
 and no universal score.
 
-Onboarding's C2 foundation lives in `:feature:onboarding`: `OnboardingViewModel`, `OnboardingUiState`,
-`OnboardingEntryViewModel` and exported `onboardingModule`. C3 wires the minimal entry shell:
+Onboarding's foundation lives in `:feature:onboarding`: `OnboardingViewModel`, `OnboardingUiState`,
+`OnboardingEntryViewModel`, `OnboardingDraftRules.kt` and exported `onboardingModule`.
 `OnboardingNavigation.kt` exports `onboardingFirstRunRoute`/`onboardingRevisitRoute`,
 `onboardingGraph(navController, onClose)`, `OnboardingStartupGate` and `OnboardingStartupEntry`;
-`OnboardingEntryScreen.kt` renders the current step heading with Skip/Close. `OnboardingEntryViewModel`
-reads the disposition once after readiness, so the shell forces first-run only while it is PENDING and
-leaves a route already restored to first-run alone. The six tabs and the tab bar are unchanged, and
-Settings opens the revisit route through `LocalSetupNavigator` (`:core:navigation`). C4 step editors and
-the C5 first-workout handoff/prefill remain unwired.
+`OnboardingEntryViewModel` reads the disposition once after readiness, so the shell forces first-run
+only while it is PENDING and leaves a route already restored to first-run alone. The six tabs and the
+tab bar are unchanged, and Settings opens the revisit route through `LocalSetupNavigator`
+(`:core:navigation`).
+`OnboardingEntryScreen.kt` owns the route effect and the Back/Next/Skip/Close action bar, and
+`OnboardingStepEditors.kt` renders one editor per step: welcome copy, unit radios, an equipment
+multi-select over `state.equipment`, all four training goals with the loaded one preselected, seven
+weekday toggles plus an explicit "Decide later" (null) choice, the optional PR entry and the three
+first-workout handoffs. Equipment and
+exercise names come from the domain (`Equipment.name`/`Exercise.name`), not the module's strings;
+everything else is an `onboarding_*` resource key. Selection controls use the radio role for single
+choice and checkbox/toggle for multi-select with ~48dp rows; the step content scrolls with the action
+bar pinned and `imePadding()` applied, so nothing clips at larger font scales.
 Construction writes nothing; `open` waits for `StartupReadiness`, resumes PENDING setup, or starts a
-voluntary revisit at Welcome. Next/Skip call the domain save actions; Back/edit/close save nothing.
-The guard spans transaction and next-step reads. Failed saves retain the draft, while a failed read
-after a successful save retries only the read. Context revisions suppress stale publications, and
-reopening waits for an already-submitted write before reloading. PR edits capture the entry unit,
-write only explicitly edited records and never delete omitted records. Tests use controlled
-suspension for repeated submissions, close/reopen, failure/retry and cancellation.
+voluntary revisit at Welcome. Next/Skip call the domain save actions; Back/edit/close/rendering save
+nothing. `isSubmittable` gates Next (its only local rule is the 2–6 weekday range, so
+`requirePreferredWeekdays` never fails a save), and every control is disabled while `saving`. The guard
+spans transaction and next-step reads. Failed saves retain the draft, while a failed read after a
+successful save retries only the read. Context revisions suppress stale publications, and reopening
+waits for an already-submitted write before reloading. PR edits capture the entry unit, write only
+explicitly edited records and never delete omitted records; `displayedRecord` shows the draft first and
+then the stored record, and "I don't know" records nothing. `toggleWeekday` keeps null as a real choice
+rather than silently deciding. The final step's handoffs (`AppTab.PLAN`/`ROUTINES`/`LOG`) call
+`handoff(tab)`, which sets `OnboardingUiState.pendingHandoff` and submits the same final-step Continue
+write as Next; the screen's `LaunchedEffect(state.finished, state.pendingHandoff)` calls
+`LocalAppTabNavigator` only once `finished`, so a failed write clears the pending handoff and stays on
+the final step. A handoff on any other step returns without writing.
+Step control groups, the action bar and the three handoffs carry `OnboardingTestTags` (`onboarding_*`)
+exposed as Android resource ids through `Modifier.onboardingTestTagsAsResourceId()` (no-op on iOS) —
+the same adapter pattern as `settings_*`/`logger_*`. They are technical metadata: never spoken labels
+and never a replacement for the control semantics. Tests use controlled suspension for repeated
+submissions, close/reopen, failure/retry and cancellation; the pure rules are covered in
+`OnboardingDraftRulesTest`.
 
 For routine authoring, the module is `:feature:routines`:`RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/
 `routinesDestination`), `RoutinesScreen.kt` (list, editor, exercise picker,

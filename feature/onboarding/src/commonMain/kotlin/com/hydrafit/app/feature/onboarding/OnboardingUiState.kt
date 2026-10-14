@@ -7,6 +7,7 @@ import com.hydrafit.app.core.domain.setup.SetupState
 import com.hydrafit.app.core.domain.setup.SetupStep
 import com.hydrafit.app.core.domain.setup.SetupStepInput
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.navigation.AppTab
 
 enum class OnboardingFailure { LOAD, SAVE, INVALID_INPUT, STALE_CONTEXT }
 
@@ -24,7 +25,13 @@ data class OnboardingUiState(
     val loading: Boolean = false,
     val saving: Boolean = false,
     val finished: Boolean = false,
-    val failure: OnboardingFailure? = null
+    val failure: OnboardingFailure? = null,
+    /**
+     * The first-workout tab to open once the final step's completion write succeeds. It stays set
+     * only through a successful completion, so navigation follows the saved setup rather than a tap;
+     * a failed write clears it and leaves the retry on the final step.
+     */
+    val pendingHandoff: AppTab? = null
 ) {
     /**
      * Loading covers an unresolved journey as well as an in-flight read. A failure outranks the
