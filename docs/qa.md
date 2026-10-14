@@ -712,7 +712,24 @@ Final C4/C5 preservation verification (2026-10-14, after commit `4a0f4590`):
   zero failures/errors/skips) and `:feature:logger:ktlintCheck` passed under a 600-second limit:
   `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/075-c6-preparation.log`.
   The C5 full matrix covers unchanged runtime source; this preparation changes comments/docs only.
-  Push, PR/merge, tag/publication and signed-artifact verification have not been performed.
+  Publication and signed-artifact evidence follow below.
+
+### v0.7.5 publication verification (2026-10-14)
+
+- Published [v0.7.5](https://github.com/Hydraxon91/HydraFit/releases/tag/v0.7.5) at PR #12's merge
+  commit `7789d5798d582860fdc827b978d5b64f5dbeb38a`. The annotated tag targets that main revision,
+  not the release branch's local HEAD. PR Build-and-Test run `38520918064` and main run
+  `38521194765` passed; Release run `38521713529` (run number 20) passed all three jobs, including
+  signed APK assembly/publication. Approved helper-agent/rules commits were included in the merge.
+- Downloaded asset `androidApp-release.apk`: 24,762,072 bytes, package `com.hydrafit.app`,
+  `versionName=0.7.5`, `versionCode=20`. Local SHA-256 matches GitHub's asset digest:
+  `42ce8f2f4417ce68891f182f8688fa222b8955dab95508e34812d661c4376072`.
+- `apksigner verify --verbose --print-certs` passed (v2 signature), with the same signing certificate
+  SHA-256 as v0.7.4:
+  `af9cd73b3cc6842c7ab3c2f3cd572245826089aee863e9168a761a893c35a7e1`.
+  Offline copy: `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/hydrafit-v0.7.5-release.apk`.
+- The release APK was never installed on the development emulator. Signed-upgrade and minified
+  on-device runtime remain unverified; prior UI coverage and supplemental limits remain above.
 
 ### 0.7.5 R075 review-fix verification (2026-10-13)
 
