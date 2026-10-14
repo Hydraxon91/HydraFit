@@ -6,6 +6,8 @@ import com.hydrafit.app.core.domain.time.daysFromCivil
 import com.hydrafit.app.core.domain.time.localEpochDay
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 class WorkoutReminderPolicyTest {
 
@@ -199,6 +201,46 @@ class WorkoutReminderPolicyTest {
         )
     }
 
+    @Test
+    fun hasNoInstantWhenRemindersAreOffOrQuietHoursSkipTheChosenMinute() {
+        assertNull(next(enabled = false))
+        assertNull(next(minuteOfDay = null))
+        assertNull(next(minuteOfDay = minutes(22), quietHoursEnabled = true))
+        // A quiet interval that does not cover the chosen minute still arms the reminder.
+        assertNotNull(next(minuteOfDay = minutes(18), quietHoursEnabled = true))
+    }
+
+    @Test
+    fun armsTodaysInstantWhileItIsStillAhead() {
+        assertEquals(
+            instant(today, minutes(18)),
+            next(nowMillis = at(minutes(9)))
+        )
+    }
+
+    @Test
+    fun fallsThroughToTheNextDatedDayOnceTodaysInstantHasPassed() {
+        // 18:00 chosen and 19:30 now: today's instant is consumed, the later date is still armed.
+        assertEquals(
+            instant(today + 2, minutes(18)),
+            next(
+                occurrences = listOf(
+                    pending(7L),
+                    pending(9L, scheduledEpochDay = today + 2)
+                ),
+                nowMillis = at(minutes(19) + 30)
+            )
+        )
+    }
+
+    @Test
+    fun ignoresUndatedResolvedPastAndForeignOccurrences() {
+        assertNull(next(occurrences = listOf(pending(7L, scheduledEpochDay = null))))
+        assertNull(next(occurrences = listOf(pending(7L, status = OccurrenceStatus.FINISHED))))
+        assertNull(next(occurrences = listOf(pending(7L, scheduledEpochDay = today - 1))))
+        assertNull(next(occurrences = listOf(pending(7L, activationId = 99L))))
+    }
+
     private fun decide(
         preferences: WorkoutReminderPreferences = armed(reminderMinuteOfDay = minutes(18)),
         occurrences: List<WorkoutOccurrence> = listOf(pending(7L)),
@@ -210,6 +252,25 @@ class WorkoutReminderPolicyTest {
         state = state,
         occurrences = occurrences,
         alreadyDelivered = alreadyDelivered,
+        timeProvider = fixedOffsetProvider(nowMillis)
+    )
+
+    private fun next(
+        enabled: Boolean = true,
+        minuteOfDay: Int? = minutes(18),
+        occurrences: List<WorkoutOccurrence> = listOf(pending(7L)),
+        nowMillis: Long = at(minutes(9)),
+        quietHoursEnabled: Boolean = false,
+        quietStartMinuteOfDay: Int = minutes(21),
+        quietEndMinuteOfDay: Int = minutes(7)
+    ) = nextWorkoutReminderInstant(
+        preferences = if (enabled) {
+            armed(minuteOfDay, quietHoursEnabled, quietStartMinuteOfDay, quietEndMinuteOfDay)
+        } else {
+            WorkoutReminderPreferences()
+        },
+        activationId = blockId,
+        occurrences = occurrences,
         timeProvider = fixedOffsetProvider(nowMillis)
     )
 

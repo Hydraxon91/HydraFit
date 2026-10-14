@@ -86,6 +86,37 @@ fun decideWorkoutReminder(
 }
 
 /**
+ * The next instant the active block can still be reminded about, or null when reminders are off, no
+ * time is chosen, quiet hours skip the chosen minute every day, or no dated pending workout remains.
+ *
+ * [decideWorkoutReminder] answers for today only, which would leave a block silent unless the app is
+ * opened again on each new day; this looks forward so one alarm stays armed across days. An instant
+ * is consumed rather than merely collected, so a today whose reminder time has already passed falls
+ * through to the next eligible day instead of arming an alarm in the past. Quiet hours depend only on
+ * the chosen minute, so a suppressed minute suppresses every future day too.
+ */
+fun nextWorkoutReminderInstant(
+    preferences: WorkoutReminderPreferences,
+    activationId: Long,
+    occurrences: List<WorkoutOccurrence>,
+    timeProvider: TimeProvider
+): Long? {
+    val reminderMinute = preferences.reminderMinuteOfDay
+    if (!preferences.remindersEnabled || reminderMinute == null) return null
+    if (isWithinQuietHours(preferences)) return null
+    val nowMillis = timeProvider.nowMillis()
+    val today = localEpochDay(nowMillis, timeProvider.utcOffsetMillis())
+    return occurrences.asSequence()
+        .filter { it.activationId == activationId && it.status == OccurrenceStatus.PENDING }
+        .mapNotNull { it.scheduledEpochDay }
+        .filter { it >= today }
+        .distinct()
+        .sorted()
+        .map { timeProvider.epochMillisForLocalMinute(it, reminderMinute) }
+        .firstOrNull { it > nowMillis }
+}
+
+/**
  * True when the chosen reminder minute falls inside the enabled quiet interval. An interval whose
  * start equals its end is empty; otherwise it wraps past midnight when the end is not later than the
  * start.

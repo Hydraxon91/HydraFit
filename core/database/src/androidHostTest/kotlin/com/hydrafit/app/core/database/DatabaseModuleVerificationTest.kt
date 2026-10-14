@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementRepository
+import com.hydrafit.app.core.domain.schedule.ReminderDeliveryRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferenceRepository
 import com.hydrafit.app.core.domain.settings.WorkoutReminderPreferenceRepository
@@ -114,6 +115,7 @@ class DatabaseModuleVerificationTest {
             assertNotNull(koin.get<PreferredWeekdaysRepository>())
             assertNotNull(koin.get<TrainingGuidancePreferenceRepository>())
             assertNotNull(koin.get<WorkoutReminderPreferenceRepository>())
+            assertNotNull(koin.get<ReminderDeliveryRepository>())
             assertNotNull(koin.get<ExerciseExclusionRepository>())
             assertNotNull(koin.get<WorkoutPlanSourcesRepository>())
             assertNotNull(koin.get<PlanHistoryRepository>())

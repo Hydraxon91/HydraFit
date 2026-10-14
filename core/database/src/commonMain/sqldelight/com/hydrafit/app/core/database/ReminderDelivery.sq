@@ -16,5 +16,8 @@ VALUES (?, ?, ?);
 deleteBefore:
 DELETE FROM reminderDelivery WHERE reminderEpochDay < ?;
 
+deleteDelivery:
+DELETE FROM reminderDelivery WHERE activationId = ? AND reminderEpochDay = ?;
+
 deleteAll:
 DELETE FROM reminderDelivery;

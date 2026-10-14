@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementRepository
+import com.hydrafit.app.core.domain.schedule.ReminderDeliveryRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.settings.RestPreferenceRepository
 import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferenceRepository
@@ -74,6 +75,7 @@ val databaseModule: Module = module {
         SqlDelightWorkoutReminderPreferenceRepository(get())
     }
     single<RestCountdownRepository> { SqlDelightRestCountdownRepository(get()) }
+    single<ReminderDeliveryRepository> { SqlDelightReminderDeliveryRepository(get()) }
     single<PlanHistoryRepository> { SqlDelightPlanHistoryRepository(get()) }
     single<RoutineTemplateRepository> { SqlDelightRoutineTemplateRepository(get()) }
     single { SqlDelightWorkoutScheduleRepository(get()) }
