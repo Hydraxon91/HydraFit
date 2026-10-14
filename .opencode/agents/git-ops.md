@@ -37,6 +37,12 @@ permissions:
     resource: "git cat-file *"
     effect: allow
   - action: shell
+    resource: "git merge-base *"
+    effect: allow
+  - action: shell
+    resource: "git remote -v"
+    effect: allow
+  - action: shell
     resource: "git add *"
     effect: allow
   - action: shell
