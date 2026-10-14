@@ -734,9 +734,9 @@ not restore saved countdowns. Expired or invalid state is silently cleared.
 Rest alerts and short-rest coaching are independent opt-ins, both default off, stored in
 `trainingGuidancePreference` (migration `37.sqm`). Migration `45.sqm` adds two more default-off
 rest-presentation opt-ins (`restCountdownEnabled`, `restCompletionSignalEnabled`) to that row, plus a
-separate `workoutReminderPreference` row and the device-local `reminderDelivery` table; the
-reminder/preference persistence exists ahead of any scheduling or presentation wiring, which is not
-implemented yet. Android alerts request notification permission
+separate `workoutReminderPreference` row and the device-local `reminderDelivery` table. The two
+rest-presentation opt-ins have no presentation wiring yet; the workout-reminder persistence and
+delivery are described in §1.20. Android alerts request notification permission
 only through the Settings opt-in. One elapsed-time alarm uses `setExactAndAllowWhileIdle` when
 exact-alarm access is available, otherwise `setAndAllowWhileIdle`. Android 12+ uses optional
 `SCHEDULE_EXACT_ALARM` special access, opened only by Settings' explicit **Allow precise timing**
@@ -930,6 +930,37 @@ injury-prevention claim or medical advice. Provenance for the 0.7.5 batch is rec
 after the instructions (also for an exercise with no authored instructions), and Equipment and the
 Logger's manual, planned-draft and guided action sites show a labelled indication through the public
 `ExerciseCautions.hasTechniqueConsiderations` predicate.
+
+### 1.20 Opt-in workout reminders
+
+Workout reminders are Android-only, default off and independent of the rest opt-ins. The pure
+`decideWorkoutReminder` decides today only: pending occurrences dated today in the active block are
+the only eligible ones, so an undated sequence-mode block stays silent, and one summary describes
+them all. A reminder inside enabled quiet hours is skipped rather than postponed, and one more than
+60 minutes past its local time is discarded. `nextWorkoutReminderInstant` looks past today instead of
+stopping there, so one alarm stays armed for the next dated pending workout without requiring a daily
+app launch; it returns only instants strictly after now, so a failed post cannot re-arm an immediate
+alarm.
+
+App-lifetime `WorkoutReminderCoordinator` reconciliation re-reads preferences, schedule state,
+occurrences and the delivery ledger on every pass and arms one inexact `RTC_WAKEUP` alarm
+(`setAndAllowWhileIdle`). Reminders neither request nor reuse exact-alarm access, so delivery is
+best-effort and the lateness bound decides at posting time. The alarm carries no workout authority: a
+fired alarm, a reboot and a clock or timezone change all reconcile from current stores, and a pass
+whose context changed while it was suspended posts nothing.
+
+Delivery is claimed atomically per active block and local day before posting, so the app-lifetime
+reconciliation and the alarm receiver cannot post twice. Permission denial neither claims nor posts;
+a failed post releases the claim so a later pass inside the lateness window can retry, and the next
+eligible day is armed in the same pass so a lost day does not silently end the series. Cancelling
+clears the pending alarm and any posted reminder. The ledger is device-local delivery state — never
+backed up, cleared on restore — because whether a reminder was posted is true only of that device.
+The chosen local time resolves through the device's current zone: a local time a DST transition skips
+resolves forward to the next valid wall time and a repeated one resolves to its first occurrence,
+while an instant stored earlier is never reinterpreted after a later zone change. Notification taps
+open the app without starting or completing a workout, selecting a stale occurrence or discarding a
+draft. Settings controls, Logger routing and any rest presentation remain unimplemented, and iOS has
+no reminder delivery.
 
 ## 2. Decision log
 

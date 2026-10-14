@@ -199,6 +199,23 @@ flow. The Logger ViewModel groups its preferences and rest-duration delegation i
 of per-exercise rest durations forwarded to the domain use cases), and its wall
 clock/timer factory in `WorkoutLoggerRuntime`, to stay within its dependency budget.
 
+Optional Android workout reminders (0.7.7) are a separate default-off opt-in. The pure
+`decideWorkoutReminder` counts only pending occurrences dated today in the active block — an undated
+sequence block stays silent — and returns one summary decision: disabled, nothing today, already
+delivered, quiet-hours suppressed, expired past the 60-minute same-date bound, or arm/deliver now.
+`nextWorkoutReminderInstant` arms the next dated pending day, so the series does not need a daily app
+launch, and it returns only instants strictly after now. `WorkoutReminderCoordinator` reconciles
+app-lifetime over preferences, schedule state and occurrences, arms one inexact `RTC_WAKEUP` alarm
+(reminders neither request nor reuse exact-alarm access) and posts one summary per block and local
+day through the `workout-reminders` channel. The alarm carries no workout authority: the receiver, a
+reboot and clock/timezone changes all re-read current stores, and a pass whose context changed while
+suspended posts nothing. The ledger claim keeps a day to one post, permission denial neither claims
+nor posts, and a failed post releases the claim for a later pass inside the window. Cancelling clears
+the pending alarm and the posted notification. The chosen local time resolves in the device's current
+zone: a skipped local time resolves forward to the next valid wall time and a repeated one to its
+first occurrence. Settings controls, Logger routing and rest presentation remain unimplemented, and
+iOS has no reminder delivery.
+
 Optional warm-up guidance (0.7.3, WU-01) is the pure `buildWarmupGuidance(occurrence)` in
 `:core:domain`, rendered as a `WarmupGuidanceSection` card above the guided workout only while guided
 mode is active and the user has not hidden it. Preparation is pattern-selected neutral items (general

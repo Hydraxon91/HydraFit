@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.Settings
 import com.hydrafit.app.core.database.AndroidDatabaseDriverFactory
 import com.hydrafit.app.core.database.DatabaseDriverFactory
+import com.hydrafit.app.core.domain.schedule.WorkoutReminderScheduler
 import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.RestAlertScheduler
@@ -22,6 +23,8 @@ import com.hydrafit.app.core.userdata.settings.AndroidKeystoreApiKeyStore
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
 import com.hydrafit.app.feature.logger.AndroidRestAlertScheduler
+import com.hydrafit.app.feature.routines.AndroidWorkoutReminderScheduler
+import com.hydrafit.app.feature.routines.localMinuteEpochMillis
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -32,6 +35,9 @@ fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = modu
             override fun nowMillis(): Long = System.currentTimeMillis()
             override fun utcOffsetMillis(): Long =
                 java.util.TimeZone.getDefault().getOffset(nowMillis()).toLong()
+
+            override fun epochMillisForLocalMinute(localEpochDay: Long, minuteOfDay: Int): Long =
+                localMinuteEpochMillis(localEpochDay, minuteOfDay)
         }
     }
     single<BootIdentityProvider> {
@@ -45,6 +51,8 @@ fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = modu
     }
     single { AndroidRestAlertScheduler(context.applicationContext) }
     single<RestAlertScheduler> { get<AndroidRestAlertScheduler>() }
+    single { AndroidWorkoutReminderScheduler(context.applicationContext) }
+    single<WorkoutReminderScheduler> { get<AndroidWorkoutReminderScheduler>() }
     single<ApiKeyStore> { AndroidKeystoreApiKeyStore(context.applicationContext) }
     single<ApiKeyProvider> {
         val store = get<ApiKeyStore>()

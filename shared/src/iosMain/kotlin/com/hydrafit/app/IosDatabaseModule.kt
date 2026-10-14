@@ -2,6 +2,8 @@ package com.hydrafit.app
 
 import com.hydrafit.app.core.database.DatabaseDriverFactory
 import com.hydrafit.app.core.database.NativeDatabaseDriverFactory
+import com.hydrafit.app.core.domain.schedule.UnsupportedWorkoutReminderScheduler
+import com.hydrafit.app.core.domain.schedule.WorkoutReminderScheduler
 import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.RestAlertScheduler
@@ -35,6 +37,7 @@ fun iosDatabaseModule(): Module = module {
     }
     single<BootIdentityProvider> { BootIdentityProvider { null } }
     single<RestAlertScheduler> { UnsupportedRestAlertScheduler() }
+    single<WorkoutReminderScheduler> { UnsupportedWorkoutReminderScheduler() }
     single<ApiKeyStore> { NoopApiKeyStore() }
     single<AppVersionProvider> { IosAppVersionProvider() }
     single<ApiKeyProvider> {

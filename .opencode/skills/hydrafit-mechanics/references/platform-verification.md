@@ -17,7 +17,12 @@ DST lookup for each recorded timestamp.
 `TimeProvider.epochMillisForLocalMinute` resolves a local civil day plus minute-of-day to a UTC
 instant. Its default applies the single current `utcOffsetMillis` through the shared
 `localMinuteToEpochMillisUtc`, so a local time a DST transition skips or repeats maps to that
-fixed-offset instant; a platform override is where zone-aware gap/overlap resolution belongs.
+fixed-offset instant; a platform override is where zone-aware gap/overlap resolution belongs. Android
+overrides it with the device zone's own rules (`android.icu.util.Calendar`, available from minSdk 24,
+`WALLTIME_NEXT_VALID` for a skipped wall time and `WALLTIME_FIRST` for a repeated one). That
+resolution is not host-provable: `android.icu` is stubbed in Android host tests without Robolectric,
+which `:feature:routines` does not depend on, so the transition behavior is verified by bounded
+emulator acceptance instead.
 
 Generated data tables are re-verified by a committed script rather than by trusting the generation
 step: `python3 scripts/check-case-fold-table.py <CaseFolding.txt>` rebuilds every code point's folded
@@ -56,6 +61,18 @@ App startup reconciliation does not cancel an initially due countdown with valid
 the alarm receiver has already entered delivery and performs its own current-store validation.
 Invalid context/preferences and later transitions into the due state still cancel; ordinary expired
 Logger restoration remains silent.
+
+Optional Android workout reminders (0.7.7) use one inexact `RTC_WAKEUP` alarm
+(`setAndAllowWhileIdle`) and the separate `workout-reminders` channel; they never request or reuse
+`SCHEDULE_EXACT_ALARM`, so a delayed alarm is normal and the 60-minute same-date bound decides at
+posting time. `WorkoutReminderReceiver` is registered for the alarm plus `BOOT_COMPLETED`, `TIME_SET`
+and `TIMEZONE_CHANGED` (only `RECEIVE_BOOT_COMPLETED` is declared) and always reconciles from current
+stores inside the same eight-second startup budget, so the alarm carries no workout authority.
+Scheduling and posting are serialized, cancelling clears the pending alarm and the posted
+notification, and the device-local ledger claim keeps a block and local day to one post. Debug
+`HydraFitWorkoutReminder` logs expose only stage and timing, not workout data. Host tests cover the
+policy, the coordinator's reconciliation and the ledger claim; OS alarm delivery and the zone
+transition resolution remain emulator acceptance, not host claims.
 
 The shared app shell selects Material3's standard light/dark palette from the system theme;
 light mode preserves the default palette. Android's existing `enableEdgeToEdge()` follows

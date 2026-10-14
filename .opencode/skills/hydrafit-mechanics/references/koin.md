@@ -58,3 +58,10 @@ alarm reconciliation, not unrelated actions. Android binds the alarm/notificatio
 `UnsupportedRestAlertScheduler`. Settings registers `TrainingGuidanceSettingsViewModel`. Runtime
 graph tests resolve these additions; Android Context/permission/receiver delivery remains platform
 verification, not a host-test claim.
+
+`databaseModule` also binds `ReminderDeliveryRepository`. `routinesModule` registers the eager,
+closeable `WorkoutReminderCoordinator` for app-lifetime reminder reconciliation; Android binds
+`AndroidWorkoutReminderScheduler` (alarm plus notification adapter) and iOS binds
+`UnsupportedWorkoutReminderScheduler`, alongside the Android `TimeProvider` override for zone-aware
+local-minute resolution. The shared runtime graph test resolves the coordinator with fake reminder
+ports and a not-ready startup gate, so construction is proved without delivery.

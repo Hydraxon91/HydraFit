@@ -85,4 +85,9 @@
     <string name="focus_lower">Lower</string>
     <string name="focus_full_body">Full body</string>
     <string name="focus_none">No focus</string>
+
+    <string name="reminder_channel">Workout reminders</string>
+    <string name="reminder_title">Today\'s workout</string>
+    <string name="reminder_body_named">Today: %1$s</string>
+    <string name="reminder_body_generic">You have a workout planned today.</string>
 </resources>

@@ -46,7 +46,10 @@ opt-ins to `trainingGuidancePreference` (added without a CHECK constraint, like 
 `workoutSet` columns), creates `workoutReminderPreference` (singleton row: reminders opt-in, a
 nullable minutes-past-local-midnight reminder time, and quiet hours) and creates the device-local
 `reminderDelivery` table (one posted reminder per `activationId` + local `reminderEpochDay`), which
-is deliberately excluded from backups and cleared on restore. Migration `34.sqm` adds the set-level
+is deliberately excluded from backups and cleared on restore. `SqlDelightReminderDeliveryRepository`
+reads a day with `selectDeliveredAt`, claims it with a `select` + `markDelivered` inside one
+transaction (so two delivery paths cannot both win), releases a failed post with `deleteDelivery`,
+and prunes days older than a week with `deleteBefore` on each claim; only today's row is ever read. Migration `34.sqm` adds the set-level
 `timingProvenance` value (`UNKNOWN` for existing rows); `35.sqm` adds the optional
 monotonic set-start/completion instants; `36.sqm` adds shared rest preferences and
 the process-restorable countdown row; `37.sqm` adds the two default-off training-guidance

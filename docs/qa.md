@@ -522,6 +522,41 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - Offline artifact verification still confirms `versionName`/`versionCode` against the tag/run
   number; schema compatibility is covered by the host `verifySqlDelightMigration` check.
 
+### 0.7.7 C3 Android reminder delivery (2026-10-14)
+
+Builder verification of the approved C3 slice: the reminder delivery seam, ledger, app-lifetime
+coordinator and Android adapter. Host-verifiable behavior is covered; OS delivery and the zone
+transition resolution are not claimed here.
+
+- Chunk checks (all green): `:core:domain:testAndroidHostTest`, `:core:database:testAndroidHostTest`
+  (including `SqlDelightReminderDeliveryRepositoryTest`), `:feature:routines:testAndroidHostTest`,
+  `:shared:testAndroidHostTest` (the routines graph test now resolves `WorkoutReminderCoordinator`
+  with fake reminder ports and a not-ready startup gate) and
+  `:core:database:DatabaseModuleVerificationTest` (`ReminderDeliveryRepository` resolved at runtime).
+- Full matrix on the chunk revision: `testAndroidHostTest` (1,726 tests, zero
+  failures/errors/skips), `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
+  `:core:network:compileKotlinIosSimulatorArm64`. Log: `/tmp/c3-matrix.log` (the ktlint and shared
+  lint re-runs are in `/tmp/c3-lint.log`, `/tmp/c3-lint-shared.log`).
+- Merged debug manifest inspected: `RECEIVE_BOOT_COMPLETED` plus a non-exported
+  `WorkoutReminderReceiver` filtered on `BOOT_COMPLETED`, `TIME_SET` and `TIMEZONE_CHANGED`. No new
+  exact-alarm permission; `POST_NOTIFICATIONS` and `SCHEDULE_EXACT_ALARM` are unchanged from the
+  Logger module.
+- Covered by host tests: today-only pending dated occurrences, one summary per block and local day,
+  arming today's instant while it is ahead, arming the next dated day after delivery, undated
+  (sequence) blocks and reminders-off silence, quiet-hours skip, no claim or post without
+  notification permission, an already-claimed day not posting twice, a failed post releasing the
+  claim for a later retry, and a pass whose occurrence read was superseded by a finished workout
+  posting nothing. The ledger claim, its per-day uniqueness, release and week-bounded pruning are
+  covered against a real SQLite driver.
+- **Unverified and not claimed:** OS alarm delivery and Doze/inexact batching (the 60-minute bound can
+  discard a delayed reminder), the `android.icu` gap/overlap resolution for a real device zone
+  (`android.icu` is stubbed in Android host tests and `:feature:routines` has no Robolectric
+  dependency, so this needs bounded emulator acceptance), notification presentation and the tap
+  target's Logger routing (C4), the Settings controls and notification-permission request (C4), and
+  rest presentation (C5). iOS binds `UnsupportedWorkoutReminderScheduler`.
+- No emulator interaction was performed for this chunk; no commit or push is included.
+
 ### 0.7.6 C3 onboarding registration, startup entry and revisit shell (2026-10-14)
 
 Builder verification of the approved C3 slice: `:feature:onboarding` is registered in the shell,
