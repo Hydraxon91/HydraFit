@@ -24,6 +24,8 @@ import com.hydrafit.app.core.domain.workout.RestAlertTiming
 import com.hydrafit.app.core.domain.workout.RestCountdownRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
 import com.hydrafit.app.core.domain.workout.isRestAlertEligible
+import com.hydrafit.app.core.navigation.AppTab
+import com.hydrafit.app.core.navigation.OPEN_TAB_EXTRA
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.logger_rest_alert_body
@@ -125,6 +127,14 @@ class AndroidRestAlertScheduler(context: Context) : RestAlertScheduler {
                 )
             }
             val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                ?.apply {
+                    putExtra(OPEN_TAB_EXTRA, AppTab.LOG.name)
+                    addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    )
+                }
                 ?: return
             val builder = if (Build.VERSION.SDK_INT >= 26) {
                 Notification.Builder(context, CHANNEL_ID)
