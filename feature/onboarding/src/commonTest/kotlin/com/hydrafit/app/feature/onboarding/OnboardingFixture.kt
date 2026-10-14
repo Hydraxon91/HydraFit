@@ -40,6 +40,25 @@ internal class OnboardingFixture {
     val attempts = mutableListOf<SetupCommit>()
     val savedRecords = mutableMapOf<String, PersonalRecord>()
 
+    /**
+     * The catalog the PR step reads. Tests that switch between two open entries add a second external
+     * exercise through [addEligibleExercise]; the default keeps the single eligible exercise that
+     * existing tests assert.
+     */
+    var exercises: List<Exercise> = listOf(
+        Exercise("external", "External", emptySet(), emptySet()),
+        Exercise(
+            "bodyweight",
+            "Bodyweight",
+            emptySet(),
+            emptySet(),
+            loadCapability = ExerciseLoadCapability.BODYWEIGHT_ONLY
+        )
+    )
+
+    /** Every record the writer receives, so a repeated write for one exercise stays visible. */
+    val recordWrites = mutableListOf<PersonalRecord>()
+
     val setup = object : SetupRepository {
         override suspend fun current() = committed.value
         override fun observe() = committed
@@ -56,6 +75,7 @@ internal class OnboardingFixture {
             when (val input = command.input) {
                 is SetupStepInput.Units -> unit = input.unit
                 is SetupStepInput.PersonalRecords -> input.edits.forEach {
+                    recordWrites += it
                     savedRecords[it.exerciseId] = it
                 }
                 else -> Unit
@@ -108,16 +128,12 @@ internal class OnboardingFixture {
         override suspend fun clear(exerciseId: String) = error("Direct write is forbidden")
     }
     val catalog = object : ExerciseCatalog {
-        override suspend fun all() = listOf(
-            Exercise("external", "External", emptySet(), emptySet()),
-            Exercise(
-                "bodyweight",
-                "Bodyweight",
-                emptySet(),
-                emptySet(),
-                loadCapability = ExerciseLoadCapability.BODYWEIGHT_ONLY
-            )
-        )
+        override suspend fun all() = exercises
+    }
+
+    /** Adds one more external (eligible) exercise so a test can open and switch a second PR entry. */
+    fun addEligibleExercise(id: String, name: String = id) {
+        exercises = exercises + Exercise(id, name, emptySet(), emptySet())
     }
 
     fun viewModel(dispatcher: CoroutineDispatcher) = OnboardingViewModel(

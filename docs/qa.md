@@ -557,6 +557,47 @@ Skip/Close (the C4 step editors and C5 handoffs are not wired).
   non-English locale, rotation/adaptive layouts and the full §0/§9 cross-cutting matrix. No
   persisted setup, preference, permission or workout data was changed by these checks.
 
+### 0.7.6 C4–C5 onboarding step editors and first-workout handoffs (2026-10-14)
+
+Builder verification of the approved C4/C5 slice and the R07645-01 follow-up fix. The editors and
+handoffs are committed as `ffee7229`; the R07645-01 fix and its correction are uncommitted in the
+working tree at the time of writing.
+
+- `:feature:onboarding:testAndroidHostTest`: 55 tests, 0 failures/errors — `OnboardingViewModelTest`
+  (27), `OnboardingDraftRulesTest` (13), `OnboardingUiStateTest` (5), `OnboardingEntryViewModelTest`
+  (4), `OnboardingExitGuardTest` (3), `OnboardingModuleVerificationTest` (3). Module `ktlintCheck`
+  and `:androidApp:assembleDebug` passed. These are Tier C chunk checks; the full matrix belongs to
+  C6. Logs and the reference XML are in the session temporary directories.
+- Emulator (`emulator-5554`, debug, `install -r` over existing data, no clear), 62 commands and 30
+  assertions, 57s, all passed: Settings → Set up HydraFit → Welcome, Weight unit, Equipment, Training
+  goal (all four options), Training days (with "Decide later"), Personal records and First workout;
+  "Generate a plan" completed setup and selected the Plan tab; a later-step system Back returned the
+  tab bar with Settings selected. Ten screenshots viewed.
+- R07645-01 proven on device: typing `100`/`5` into the first entry and selecting **Next without**
+  "Save best set" recorded `Back Squat 100 kg × 5`, and the in-app Back reloaded the step with the row
+  showing that value.
+- Read-only database check (scratch copy under the session temporary directory, deleted afterwards):
+  the only state attributable to the run is that one `personalRecord` row. `planHistory`,
+  `trainingActivation`, `workoutOccurrence`, `workoutSession` and `workoutSet` gained **zero** rows, so
+  the handoff created no plan, activation, occurrence, session or performed set. The one stored plan
+  predates the run by about 2.3 days and is what the Plan tab renders.
+- Layout/accessibility pass under temporary device settings (`font_scale 1.3`, app locale `de-DE`,
+  dark mode): 19 commands and 7 assertions passed, screenshots viewed. Headings and the pinned action
+  bar stayed reachable on the longest step; at 1.3 the action bar reflows to two lines (Close wraps)
+  without clipping, and the `de-DE` app locale falls back to the English strings. All three settings
+  were restored and read back (`1.0`, no app locales, night mode `no`).
+- **Permission incident:** flows authored without a `permissions` block caused Maestro to grant all
+  app permissions, so `POST_NOTIFICATIONS` moved from denied to granted during the pass. The baseline
+  was captured first (`granted=false`) and the change is reported here rather than silently restored;
+  `SCHEDULE_EXACT_ALARM` was unchanged. Restoring the permission needs its own approval.
+- Not verified: TalkBack, rotation/adaptive layouts, a translated-language layout (only English
+  fallback under `de-DE`), fresh-install first-run, the Skip and Close paths on device, and the release
+  matrix. Setup `disposition` stayed `COMPLETED` (`step` advanced to `PERSONAL_RECORDS`), and one real
+  manual personal record now exists in the debug app.
+- Harness note for `.maestro/README.md`/the UI-testing skill: a `launchApp` with no `permissions` key
+  grants every permission, while `permissions: { all: unset }` revokes them — neither preserves the
+  existing state. No documentation change was made under this evidence-only scope.
+
 ### 0.7.5 C1–C2 caution content foundation (2026-10-13)
 
 Builder verification of the approved EX-03 / 0.7.5 content foundation (three sourced IDs:

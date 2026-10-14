@@ -119,6 +119,71 @@ class OnboardingDraftRulesTest {
     }
 
     @Test
+    fun anOpenedEntryStartsFromTheShownRecordInTheFrozenUnit() {
+        assertEquals(
+            PersonalRecordEntryDraft("bench", "80", "5"),
+            personalRecordEntryDraft("bench", WeightUnit.KG, PersonalRecord("bench", 80.0, 5))
+        )
+        assertEquals(
+            PersonalRecordEntryDraft("bench", "176.4", "3"),
+            personalRecordEntryDraft("bench", WeightUnit.LB, PersonalRecord("bench", 80.0, 3))
+        )
+        assertEquals(
+            PersonalRecordEntryDraft("bench", "", ""),
+            personalRecordEntryDraft("bench", WeightUnit.KG, null)
+        )
+    }
+
+    @Test
+    fun anEntryBecomesARecordOnlyWhenBothFieldsParseInTheEntryUnit() {
+        assertEquals(
+            PersonalRecord("bench", WeightUnit.LB.displayToKilograms(225.0), 5),
+            personalRecordFrom("bench", WeightUnit.LB, " 225 ", "5")
+        )
+        assertNull(personalRecordFrom("bench", WeightUnit.KG, "", "5"))
+        assertNull(personalRecordFrom("bench", WeightUnit.KG, "100", ""))
+        assertNull(personalRecordFrom("bench", WeightUnit.KG, "0", "5"))
+        assertNull(personalRecordFrom("bench", WeightUnit.KG, "-5", "5"))
+        assertNull(personalRecordFrom("bench", WeightUnit.KG, "NaN", "5"))
+        assertNull(personalRecordFrom("bench", WeightUnit.KG, "Infinity", "5"))
+        assertNull(personalRecordFrom("bench", WeightUnit.KG, "heavy", "5"))
+        assertNull(personalRecordFrom("bench", WeightUnit.KG, "100", "0"))
+        assertNull(personalRecordFrom("bench", WeightUnit.KG, "100", "lots"))
+    }
+
+    @Test
+    fun foldingAnEntryAffectsOnlyThatExerciseAndIgnoresOtherStepsAndInvalidText() {
+        val staged = PersonalRecord("bench", 80.0, 5)
+        val other = PersonalRecord("squat", 120.0, 5)
+        val draft = SetupStepInput.PersonalRecords(listOf(staged, other))
+
+        val folded = foldPersonalRecordEntry(
+            draft,
+            PersonalRecordEntryDraft("bench", "90", "3"),
+            WeightUnit.KG
+        ) as SetupStepInput.PersonalRecords
+
+        // The staged value is replaced, not written twice, and the other exercise is untouched.
+        assertEquals(
+            mapOf("bench" to PersonalRecord("bench", 90.0, 3), "squat" to other),
+            folded.edits.associateBy { it.exerciseId }
+        )
+        assertEquals(draft, foldPersonalRecordEntry(draft, null, WeightUnit.KG))
+        // An absent, blank or unparseable entry adds nothing.
+        listOf(
+            PersonalRecordEntryDraft("bench", "", "3"),
+            PersonalRecordEntryDraft("bench", "90", "0")
+        ).forEach { entry ->
+            assertEquals(draft, foldPersonalRecordEntry(draft, entry, WeightUnit.KG))
+        }
+        // No other step's draft is touched, and an absent draft stays absent.
+        val units = SetupStepInput.Units(WeightUnit.LB)
+        val entry = PersonalRecordEntryDraft("bench", "90", "3")
+        assertEquals(units, foldPersonalRecordEntry(units, entry, WeightUnit.KG))
+        assertNull(foldPersonalRecordEntry(null, entry, WeightUnit.KG))
+    }
+
+    @Test
     fun theGoalStepOffersEveryDeclaredGoal() {
         assertEquals(TrainingGoal.entries.toList(), onboardingGoalChoices)
         TrainingGoal.entries.forEach { goal ->

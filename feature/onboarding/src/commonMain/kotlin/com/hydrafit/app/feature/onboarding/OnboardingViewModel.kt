@@ -104,6 +104,48 @@ class OnboardingViewModel(
         edit(draft.copy(edits = withDraftRecord(draft.edits, record)))
     }
 
+    /**
+     * Opens the one PR entry for an eligible exercise, pre-filled from the value the row already shows.
+     * Opening writes nothing, and re-opening the entry that is already open keeps what was typed.
+     * Opening a different exercise first stages the entry already open by the same rule Save and Next
+     * use, so its typed text survives as that row's value instead of being discarded; blank or invalid
+     * text stages nothing and never blocks the switch.
+     */
+    fun openPersonalRecordEntry(exerciseId: String) {
+        val current = _state.value
+        if (inFlight || current.loading || current.finished) return
+        if (current.personalRecordEntry?.exerciseId == exerciseId) return
+        val draft = current.input as? SetupStepInput.PersonalRecords ?: return
+        if (current.eligibleExercises.none { it.id == exerciseId }) return
+        val staged = foldPersonalRecordEntry(draft, current.personalRecordEntry, current.entryUnit)
+        val edits = (staged as? SetupStepInput.PersonalRecords)?.edits ?: draft.edits
+        val shown = displayedRecord(exerciseId, edits, current.existingRecords)
+        _state.update {
+            it.copy(
+                input = staged,
+                personalRecordEntry = personalRecordEntryDraft(exerciseId, it.entryUnit, shown)
+            )
+        }
+    }
+
+    /** The open entry's raw text, exactly as typed; it is parsed only when Save or Next reads it. */
+    fun editPersonalRecordEntry(weightText: String, repsText: String) {
+        val current = _state.value
+        if (inFlight || current.loading || current.finished) return
+        val entry = current.personalRecordEntry ?: return
+        _state.update {
+            it.copy(personalRecordEntry = entry.copy(weightText = weightText, repsText = repsText))
+        }
+    }
+
+    /** "I don't know": closes the entry without recording and without touching any stored record. */
+    fun dismissPersonalRecordEntry() {
+        val current = _state.value
+        if (inFlight || current.loading || current.finished) return
+        if (current.personalRecordEntry == null) return
+        _state.update { it.copy(personalRecordEntry = null) }
+    }
+
     fun back() {
         val current = _state.value
         if (inFlight ||
@@ -178,7 +220,14 @@ class OnboardingViewModel(
     private fun submit(skip: Boolean) {
         val current = _state.value
         val committed = current.committed ?: return
-        val input = current.input?.snapshot()
+        // Skip records nothing at all, so its submission never folds the open entry; Next folds a valid
+        // entry into the draft it writes, so typed values are not discarded.
+        val folded = if (skip) {
+            current.input
+        } else {
+            foldPersonalRecordEntry(current.input, current.personalRecordEntry, current.entryUnit)
+        }
+        val input = folded?.snapshot()
         if (!skip && !isSubmittable(input)) return
         if (inFlight || current.loading || current.finished) return
         val context = contextRevision
@@ -229,7 +278,9 @@ class OnboardingViewModel(
                 failure = null,
                 equipment = emptyList(),
                 eligibleExercises = emptyList(),
-                existingRecords = emptyList()
+                existingRecords = emptyList(),
+                // A reloaded step never keeps a previously open PR entry.
+                personalRecordEntry = null
             )
             when (step) {
                 SetupStep.WELCOME, SetupStep.FIRST_WORKOUT ->

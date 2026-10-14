@@ -14,6 +14,17 @@ enum class OnboardingFailure { LOAD, SAVE, INVALID_INPUT, STALE_CONTEXT }
 /** The one render decision the entry screen makes; nothing else derives "what shows now". */
 enum class OnboardingEntryPhase { LOADING, FAILURE, READY }
 
+/**
+ * The one personal-record entry the user has open, kept as raw text so Next folds exactly what is on
+ * screen. It is not a draft edit: only Save or a valid Next turns its text into a record, so an
+ * unparseable or dismissed entry records nothing for that exercise.
+ */
+data class PersonalRecordEntryDraft(
+    val exerciseId: String,
+    val weightText: String = "",
+    val repsText: String = ""
+)
+
 data class OnboardingUiState(
     val committed: SetupState? = null,
     val step: SetupStep = SetupStep.WELCOME,
@@ -22,6 +33,8 @@ data class OnboardingUiState(
     val equipment: List<Equipment> = emptyList(),
     val eligibleExercises: List<Exercise> = emptyList(),
     val existingRecords: List<PersonalRecord> = emptyList(),
+    /** The PR entry the user has open, if any; occupied only on the Personal records step. */
+    val personalRecordEntry: PersonalRecordEntryDraft? = null,
     val loading: Boolean = false,
     val saving: Boolean = false,
     val finished: Boolean = false,

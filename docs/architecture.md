@@ -145,7 +145,16 @@ and take the state plus callbacks.
   weekday rule is enforced locally, so `requirePreferredWeekdays` is never the failure path, and Next
   is unreachable while the draft is unacceptable or a save is in flight. PR edits use a frozen display
   unit and the existing manual-PR table; a stored record stays the shown value until an explicit edit
-  replaces it, and omitted records are never deleted. The final step's three handoffs (Generate a plan
+  replaces it, and omitted records are never deleted. The one open PR entry keeps its raw weight and
+  reps text in the state machine (`OnboardingUiState.personalRecordEntry`) instead of Composable state,
+  and the ViewModel owns opening, editing and dismissing it. "Save best set" stages immediately,
+  while Next folds a valid open entry into the submitted draft first, converting through the frozen
+  entry unit and replacing an already staged value rather than duplicating it; opening a different
+  exercise's entry stages the one already open by that same rule before the new entry opens from its
+  own row, so switching never discards typed text, while re-opening the entry that is already open
+  keeps it; blank, unparseable or
+  dismissed entry text records nothing for that exercise and never blocks Next, and Skip still
+  submits no records at all. The final step's three handoffs (Generate a plan
   → `AppTab.PLAN`, Build a routine → `AppTab.ROUTINES`, Log without a plan → `AppTab.LOG`) complete
   setup exactly like Next, holding the tab as `pendingHandoff`; the screen opens it only after that
   completion succeeds, so a failed write keeps the final step and its retry state, and opening a

@@ -327,7 +327,8 @@ first-workout handoffs. Equipment and
 exercise names come from the domain (`Equipment.name`/`Exercise.name`), not the module's strings;
 everything else is an `onboarding_*` resource key. Selection controls use the radio role for single
 choice and checkbox/toggle for multi-select with ~48dp rows; the step content scrolls with the action
-bar pinned and `imePadding()` applied, so nothing clips at larger font scales.
+bar pinned and `imePadding()` applied. No larger-font-scale check has been performed, so whether the
+layout clips at larger font scales is unverified rather than claimed.
 Construction writes nothing; `open` waits for `StartupReadiness`, resumes PENDING setup, or starts a
 voluntary revisit at Welcome. Next/Skip call the domain save actions; Back/edit/close/rendering save
 nothing. `isSubmittable` gates Next (its only local rule is the 2–6 weekday range, so
@@ -336,8 +337,14 @@ spans transaction and next-step reads. Failed saves retain the draft, while a fa
 successful save retries only the read. Context revisions suppress stale publications, and reopening
 waits for an already-submitted write before reloading. PR edits capture the entry unit, write only
 explicitly edited records and never delete omitted records; `displayedRecord` shows the draft first and
-then the stored record, and "I don't know" records nothing. `toggleWeekday` keeps null as a real choice
-rather than silently deciding. The final step's handoffs (`AppTab.PLAN`/`ROUTINES`/`LOG`) call
+then the stored record. The one open entry's raw weight and reps text lives in state
+(`OnboardingUiState.personalRecordEntry`, pre-filled from `displayedRecord`), so "Save best set" stages
+immediately while Next folds a valid entry into the submitted draft first, replacing an already staged
+value rather than duplicating it; opening a different exercise's entry stages the open one by that same
+rule first, so switching never discards typed text, while re-opening the open entry keeps it; "I don't
+know" clears the entry and records nothing, and blank or
+unparseable text records nothing without blocking Next. Skip records no entry at all. `toggleWeekday`
+keeps null as a real choice rather than silently deciding. The final step's handoffs (`AppTab.PLAN`/`ROUTINES`/`LOG`) call
 `handoff(tab)`, which sets `OnboardingUiState.pendingHandoff` and submits the same final-step Continue
 write as Next; the screen's `LaunchedEffect(state.finished, state.pendingHandoff)` calls
 `LocalAppTabNavigator` only once `finished`, so a failed write clears the pending handoff and stays on

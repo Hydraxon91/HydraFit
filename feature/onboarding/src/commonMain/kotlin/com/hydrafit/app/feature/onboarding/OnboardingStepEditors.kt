@@ -89,6 +89,9 @@ internal fun OnboardingStepEditor(
     enabled: Boolean,
     onEdit: (SetupStepInput) -> Unit,
     onPersonalRecord: (String, Double, Int) -> Unit,
+    onOpenPersonalRecordEntry: (String) -> Unit,
+    onEditPersonalRecordEntry: (String, String) -> Unit,
+    onDismissPersonalRecordEntry: () -> Unit,
     onHandoff: (AppTab) -> Unit
 ) {
     when (state.step) {
@@ -101,7 +104,10 @@ internal fun OnboardingStepEditor(
             state = state,
             enabled = enabled,
             onEdit = onEdit,
-            onPersonalRecord = onPersonalRecord
+            onPersonalRecord = onPersonalRecord,
+            onOpenPersonalRecordEntry = onOpenPersonalRecordEntry,
+            onEditPersonalRecordEntry = onEditPersonalRecordEntry,
+            onDismissPersonalRecordEntry = onDismissPersonalRecordEntry
         )
         SetupStep.FIRST_WORKOUT -> FirstWorkoutEditor(enabled, onHandoff)
     }
@@ -293,11 +299,14 @@ private fun PersonalRecordsEditor(
     state: OnboardingUiState,
     enabled: Boolean,
     onEdit: (SetupStepInput) -> Unit,
-    onPersonalRecord: (String, Double, Int) -> Unit
+    onPersonalRecord: (String, Double, Int) -> Unit,
+    onOpenPersonalRecordEntry: (String) -> Unit,
+    onEditPersonalRecordEntry: (String, String) -> Unit,
+    onDismissPersonalRecordEntry: () -> Unit
 ) {
     val draft = (state.input as? SetupStepInput.PersonalRecords)?.edits.orEmpty()
     var query by remember { mutableStateOf("") }
-    var expandedId by remember { mutableStateOf<String?>(null) }
+    val openEntry = state.personalRecordEntry
     val matches = state.eligibleExercises.filter { matchesExerciseNameQuery(it.name, query) }
     Column(
         modifier = Modifier
@@ -347,20 +356,19 @@ private fun PersonalRecordsEditor(
                     )
                 }
                 TextButton(
-                    onClick = { expandedId = exercise.id },
+                    onClick = { onOpenPersonalRecordEntry(exercise.id) },
                     enabled = enabled
                 ) {
                     Text(stringResource(Res.string.onboarding_pr_set))
                 }
-                if (expandedId == exercise.id) {
+                if (openEntry?.exerciseId == exercise.id) {
                     PersonalRecordEntry(
-                        exerciseId = exercise.id,
-                        unit = state.entryUnit,
-                        current = record,
+                        entry = openEntry,
                         enabled = enabled,
+                        onEdit = onEditPersonalRecordEntry,
                         onSave = { weight, reps -> onPersonalRecord(exercise.id, weight, reps) },
                         // Records nothing: it only closes this entry without deleting the record.
-                        onUnknown = { expandedId = null }
+                        onUnknown = onDismissPersonalRecordEntry
                     )
                 }
             }
@@ -370,28 +378,22 @@ private fun PersonalRecordsEditor(
 
 @Composable
 private fun PersonalRecordEntry(
-    exerciseId: String,
-    unit: WeightUnit,
-    current: PersonalRecord?,
+    entry: PersonalRecordEntryDraft,
     enabled: Boolean,
+    onEdit: (String, String) -> Unit,
     onSave: (Double, Int) -> Unit,
     onUnknown: () -> Unit
 ) {
-    val initialWeight = current
-        ?.let { formatWeight(unit.kilogramsToDisplay(it.weightKg)) }
-        .orEmpty()
-    var weightText by remember(exerciseId) { mutableStateOf(initialWeight) }
-    var repsText by remember(exerciseId) { mutableStateOf(current?.reps?.toString().orEmpty()) }
-    val weight = parseDisplayWeight(weightText)
-    val reps = parseReps(repsText)
+    val weight = parseDisplayWeight(entry.weightText)
+    val reps = parseReps(entry.repsText)
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
-                value = weightText,
-                onValueChange = { weightText = it },
+                value = entry.weightText,
+                onValueChange = { onEdit(it, entry.repsText) },
                 label = { Text(stringResource(Res.string.onboarding_pr_weight)) },
                 singleLine = true,
                 enabled = enabled,
@@ -399,8 +401,8 @@ private fun PersonalRecordEntry(
                 modifier = Modifier.width(140.dp)
             )
             OutlinedTextField(
-                value = repsText,
-                onValueChange = { repsText = it },
+                value = entry.repsText,
+                onValueChange = { onEdit(entry.weightText, it) },
                 label = { Text(stringResource(Res.string.onboarding_pr_reps)) },
                 singleLine = true,
                 enabled = enabled,
