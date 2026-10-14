@@ -49,6 +49,27 @@ permissions:
     resource: "git commit *"
     effect: allow
   - action: shell
+    resource: "git tag *"
+    effect: allow
+  - action: shell
+    resource: "git push *"
+    effect: allow
+  - action: shell
+    resource: "git for-each-ref *"
+    effect: allow
+  - action: shell
+    resource: "git ls-remote *"
+    effect: allow
+  - action: shell
+    resource: "gh pr create *"
+    effect: allow
+  - action: shell
+    resource: "gh pr merge *"
+    effect: allow
+  - action: shell
+    resource: "gh release view *"
+    effect: allow
+  - action: shell
     resource: "gh --version *"
     effect: allow
   - action: shell
@@ -236,10 +257,11 @@ GitHub CLI version and authentication-status checks are pre-approved; report onl
 the status needed for the delegated operation, not unnecessary account details.
 Do not retrieve or print authentication tokens.
 
-Routine read-only inspection is pre-approved. Staging, committing and pushing
-still need the parent's explicit authorization under AGENTS.md; that requirement
-is separate from the tool permission prompts, and because `perl` and `bash` are
-broadly allowed, the prompts do not enforce it for you.
+Routine read-only inspection is pre-approved. Staging, committing, tagging,
+pushing, creating PRs and merging PRs still need the parent's explicit
+authorization under AGENTS.md. Command allowances remove duplicate tool prompts,
+not user-authorization requirements; they do not authorize any operation or widen
+its scope. Authorization is instruction-based, not enforced by permission dialogs.
 
 Provide only the operation the parent delegated, and supply only what that
 operation requires:
@@ -248,6 +270,13 @@ operation requires:
   and the commit message.
 - Push: explicit authorization for that specific push, plus its CI-monitoring
   scope and bounded timeout when monitoring is required.
+- Tag: explicit authorization naming the tag and exact target commit. Read
+  `docs/agent-ci-release.md` and verify the applicable release gates first.
+- PR creation: explicit authorization identifying the repository, head/base
+  branches and proposed PR content; follow `docs/agent-ci-release.md`.
+- PR merge: explicit authorization identifying the repository, PR, exact approved
+  head SHA and merge method. Follow `docs/agent-ci-release.md`, require passing
+  required checks for that SHA, and stop if the PR head changes before merging.
 - CI monitoring: the exact pushed commit SHA, relevant branch/PR and workflows,
   and a bounded timeout. Resolve a supplied branch to its pushed SHA before watching.
 
