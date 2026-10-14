@@ -83,6 +83,16 @@ its overall budget but retried an initial undefined-`ACTION_ID` assertion after 
 injection and used a 150-second rather than 120-second flow alarm; it is not a fully clean contractual
 pass. Cancelled fixture activation history remains; no set/session/note was written.
 
+Final 2026-10-14 slot-preservation checks closed the missing evidence: planned and guided flows
+each passed 12/12 commands in one invocation with a 120-second hard cap. Scrolled before/after
+hierarchies preserved Back Squat selection, reps 7, weight 42 kg, unset RIR, empty setup/session
+notes, idle rest, draft target and 0/3 progress. The guided card sits below the warm-up card;
+absence from a viewport hierarchy is not absence from the lazy list. A target-scroll helper
+over-scrolled; fresh outer-list inspection/swipes recovered without replaying a write. Final cleanup
+positively verified guided off, no active block, archived probe, empty searches and restored settings.
+Screenshots under `/tmp/hf-075-final-preservation-*` were viewed; exact paths and supplemental
+coverage limits are in `docs/qa.md` §13. C4/C5 builder verification is complete, not formal review.
+
 Guided instructions were verified on 2026-10-13 against an approved temporary active block (guided on)
 that was cancelled afterwards; no checked-in flow creates one, so establish that fixture explicitly and
 restore guided off when finished. The custom-row unavailable state was verified with a synthetic custom

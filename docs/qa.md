@@ -659,6 +659,61 @@ Resumed foreground pass (2026-10-14, verified checkout
   app-locale, slot open/Close and positive-cleanup gaps are now covered. Formal reviewer closure
   remains separately requested and is not implied by this verification.
 
+Final C4/C5 preservation verification (2026-10-14, after commit `4a0f4590`):
+
+- Planned and guided slot flows each passed 12/12 commands, one invocation each, using Maestro
+  `-e ACTION_ID=...` and a 120-second hard alarm. The installed final debug source was unchanged
+  by the commit; no redeployment/restart was needed. The draft pass took approximately 530 seconds
+  within its 1,080-second total budget; the guided continuation took approximately 422 seconds
+  within its 720-second budget, including cleanup.
+- Each journey captured off-card manual fields and notes before and after the dialog through
+  read-only scrolling. In both modes, Back Squat remained selected; reps 7, weight 42 kg, RIR unset,
+  setup notes 0/2000, no active session and empty session note were unchanged. The planned
+  Conventional Deadlift descriptor remained `3 x 8 · ~-`; guided target remained `8 × -` and
+  progress remained 0 of 3 sets. Rest was idle before and after, with no timer controls present.
+  No set/session/note/draft action was submitted by opening or closing either dialog.
+- The initial guided attempt incorrectly treated absence from a viewport hierarchy as absence
+  from the lazy list. Its warm-up card was clipped at the viewport bottom; source places the guided
+  card below it. The parent diagnosed this from source and hierarchy evidence. Scrolling through
+  the warm-up card exposed the guided action (`logger_guided_instructions_189`); no app fix was
+  required. A target-scroll helper over-scrolled and reported that its container stopped moving;
+  fresh-hierarchy outer-list swipes recovered the viewport without replaying a write. This navigation
+  correction is recorded separately from the successful one-attempt dialog flow.
+- Parent-viewed dialog artifacts:
+  `/tmp/hf-075-final-preservation-draft/2026-10-14_073451/logger-slot-exercise-cautions/takeScreenshot/logger-slot-cautions.png`,
+  `/tmp/hf-075-final-preservation-guided/2026-10-14_074709/logger-slot-exercise-cautions/takeScreenshot/logger-slot-cautions.png`.
+  Guided card/form and final screenshots also viewed: `/tmp/hf-075-guided-after.png`,
+  `/tmp/hf-075-guided-form-after.png`, `/tmp/hf-075-final-preservation-guided-final.png`.
+  Before/after semantic evidence is in `/tmp/hf-Ga.csv` through `/tmp/hf-Gk.csv`; cleanup
+  hierarchies are `/tmp/hf-cs1.csv`, `/tmp/hf-cr1.csv`, `/tmp/hf-cr2.csv` and
+  `/tmp/hf-cf1.csv` through `/tmp/hf-cf5.csv`.
+- Positive cleanup: guided off, no active training block, `HF caution probe` archived, both search
+  EditTexts empty, Back Squat selected, no modal/keyboard. Font scale 1.0, secure night mode 1,
+  system night-mode value absent, `cmd uimode night` reporting no and app locales `[]` retained;
+  system locale remained en-US. Only approved fixture restore/start/cancel/archive and guided
+  preference changes were persisted; cancelled activation history remains intentionally.
+- **C4/C5 builder verification complete:** the earlier slot preservation gap is closed, alongside
+  the full matrix and C5 visual/locale checks recorded above. Earlier failed/cancelled attempts and
+  runner deviations remain part of the evidence; this is not a claim that every historical run was
+  clean. Supplemental active-rest-timer and all-complete guided branches, TalkBack speech and
+  measured contrast remain unverified. Idle-rest/empty-note preservation is the observed emulator
+  case, not coverage of every possible timer or note state. Formal reviewer closure remains separate;
+  no review verdict, push or publication is implied.
+
+### 0.7.5 C6 release preparation (2026-10-14)
+
+- Read-only C3–C5 review approved `4a0f4590` plus the completion-document changes, with no blocking
+  findings or data-integrity defects. C5-R01 was a nonblocking comment nit: runtime flows do not
+  cover the all-complete guided call site. Release preparation clarifies that comment without
+  changing code behavior or tests; the coverage limit remains recorded above.
+- README release copy describes the three optional offline technique considerations without
+  injury-risk or medical claims. No dependency, configuration, CI, signing or schema change.
+- Release-specific `:androidApp:lintVitalRelease`, `:feature:logger:testAndroidHostTest` (377 tests,
+  zero failures/errors/skips) and `:feature:logger:ktlintCheck` passed under a 600-second limit:
+  `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/075-c6-preparation.log`.
+  The C5 full matrix covers unchanged runtime source; this preparation changes comments/docs only.
+  Push, PR/merge, tag/publication and signed-artifact verification have not been performed.
+
 ### 0.7.5 R075 review-fix verification (2026-10-13)
 
 Bounded post-execution review of `bc7db260..5a4ac742` raised R075-01..03; the fixes are documentation

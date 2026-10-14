@@ -7,8 +7,9 @@ import kotlin.test.assertTrue
 /**
  * The Logger's four instruction actions (manual, planned draft and both guided rows) share one
  * feature-local seam, [showsTechniqueConsiderations], which delegates to the shared stable-ID
- * predicate in `:core:exercisecontent`. These tests pin that seam only: which exercise id each
- * composable call site passes is asserted by the runtime flows, not by a host test.
+ * predicate in `:core:exercisecontent`. These tests pin that seam only. Runtime flows cover the
+ * manual, planned-draft and in-progress guided call sites; the all-complete guided call site has
+ * not been exercised by those flows.
  */
 class TechniqueConsiderationsTest {
 
