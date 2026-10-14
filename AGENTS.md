@@ -132,9 +132,10 @@
   nothing from the check enters the repo.
 - Keep tool output small: grep, head and line ranges; never whole files
   or full logs. Don't narrate progress or print step checklists.
-- Stop and report if ~30 tool calls pass without a plan or a result. If
-  budget is nearly out, stop at a clean point with a "where I stopped /
-  what remains" note instead of leaving half-edited files.
+- Stop and report if ~30 tool calls pass without a plan or a result. If an
+  explicitly assigned time or tool-call limit is approaching, stop at a clean
+  point and report what remains. Do not invent remaining-token counts or treat
+  an unspecified budget as nearly exhausted.
 - Flow: plan → wait for OK → implement → verify → review/report.
   Commit authorization and order depend on the work mode; follow the
   table in Commit Discipline. Pushing needs separate approval.
