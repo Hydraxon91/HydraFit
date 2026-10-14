@@ -62,6 +62,16 @@ the alarm receiver has already entered delivery and performs its own current-sto
 Invalid context/preferences and later transitions into the due state still cancel; ordinary expired
 Logger restoration remains silent.
 
+The independent quiet countdown opt-in uses a separate `rest-countdown` channel (low importance,
+sound/vibration disabled), ongoing notification ID 601 and the API-24 system countdown chronometer.
+The elapsed deadline is mapped to wall time when posted; a coordinator deadline job removes it while
+the process is alive. It adds neither a foreground service nor per-second notification updates.
+Process-death cleanup and clock-change rendering are runtime acceptance limits. The foreground
+completion presenter is lifecycle-resumed only, with a short snackbar and one platform haptic;
+the shared in-memory completion arbiter prevents a timer/receiver double presentation. Foreground
+signaling does not need notification permission and never replays after expired resume/enable.
+Existing exact/inexact completion-alarm policy is unchanged.
+
 Optional Android workout reminders (0.7.7) use one inexact `RTC_WAKEUP` alarm
 (`setAndAllowWhileIdle`) and the separate `workout-reminders` channel; they never request or reuse
 `SCHEDULE_EXACT_ALARM`, so a delayed alarm is normal and the 60-minute same-date bound decides at

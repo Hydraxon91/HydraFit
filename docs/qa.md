@@ -522,6 +522,34 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - Offline artifact verification still confirms `versionName`/`versionCode` against the tag/run
   number; schema compatibility is covered by the host `verifySqlDelightMigration` check.
 
+### 0.7.7 C4–C5 controls, navigation and rest presentation (2026-10-14)
+
+Builder verification at the C5 boundary (implementation owner: main agent; no formal review).
+C4 is committed as `c46b18b0`, `d7225940`, `d292496a`; C5 verification covers their consumers
+and the uncommitted C5 implementation before its boundary commit.
+
+- Full Tier A matrix passed: `testAndroidHostTest` (**1,741 tests, zero failures/errors/skips**),
+  `:core:database:verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`,
+  `:shared:compileKotlinIosSimulatorArm64`, `:core:network:compileKotlinIosSimulatorArm64`.
+  Log: `/tmp/c5-matrix.log`. Earlier targeted C5 checks: `/tmp/c5-checks.log`.
+- Host assertions cover reminder denial/enable, time/quiet preference writes, delivery invalidation
+  after permission change, tab-name resolution and no tab change for an already-visible Logger;
+  independent rest switches; countdown show/disable/expiry/context removal without background
+  alarms; one foreground completion under timer/receiver contention; no foreground replay after
+  expired resume, expired restore or enabling after expiry; context/opt-in invalidation; and a
+  suspended system callback serialized against the foreground timer. Existing alarm timing fallback,
+  persisted-countdown producers/restoration and migration/backup tests remain passing.
+- Changed Koin graphs passed, including runtime resolution of reminder Settings, the rest-alert
+  coordinator and its new completion-presentation singleton.
+- **C6 remains pending:** no emulator inspection, mutation, screenshot or synthetic fixture was
+  performed for C4/C5. The Settings layout and permission journey, actual notification taps and
+  draft preservation, chronometer rendering, expiry/process-death cleanup, snackbar/haptic delivery,
+  real lifecycle transitions and OS exact/inexact delivery have not been runtime-verified. Device ICU
+  DST resolution, Doze/reboot behavior, light/dark/larger-text and localization acceptance are also
+  unverified. In particular the countdown removal job is process-local; no OS process-death cleanup
+  guarantee is claimed. C5 implementation/host verification is complete, not C6 visual acceptance.
+- No dependency, schema, backup-format, module, signing or CI change. No push or review included.
+
 ### 0.7.7 C3 Android reminder delivery (2026-10-14)
 
 Builder verification of the approved C3 slice: the reminder delivery seam, ledger, app-lifetime

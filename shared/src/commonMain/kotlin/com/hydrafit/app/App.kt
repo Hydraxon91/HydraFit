@@ -46,6 +46,7 @@ import com.hydrafit.app.core.navigation.externalRequestNeedsTabChange
 import com.hydrafit.app.feature.equipment.equipmentDestination
 import com.hydrafit.app.feature.equipment.equipmentRoute
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapDestination
+import com.hydrafit.app.feature.logger.RestCompletionPresenter
 import com.hydrafit.app.feature.logger.loggerDestination
 import com.hydrafit.app.feature.onboarding.OnboardingStartupEntry
 import com.hydrafit.app.feature.onboarding.OnboardingStartupGate
@@ -137,6 +138,7 @@ private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Un
     }
 
     Scaffold(
+        snackbarHost = { RestCompletionPresenter() },
         bottomBar = {
             val backStackEntry by navController.currentBackStackEntryAsState()
             val currentDestination = backStackEntry?.destination

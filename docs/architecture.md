@@ -957,10 +957,32 @@ clears the pending alarm and any posted reminder. The ledger is device-local del
 backed up, cleared on restore — because whether a reminder was posted is true only of that device.
 The chosen local time resolves through the device's current zone: a local time a DST transition skips
 resolves forward to the next valid wall time and a repeated one resolves to its first occurrence,
-while an instant stored earlier is never reinterpreted after a later zone change. Notification taps
-open the app without starting or completing a workout, selecting a stale occurrence or discarding a
-draft. Settings controls, Logger routing and any rest presentation remain unimplemented, and iOS has
-no reminder delivery.
+while an instant stored earlier is never reinterpreted after a later zone change. Settings exposes
+the reminder opt-in, explicit local time and optional quiet interval. Denial keeps the reminder
+preference off; permission results and Settings resume report platform delivery changes through
+`WorkoutReminderScheduler.deliveryChanges`, observed by the coordinator without a feature dependency.
+Rest and workout notification taps carry only `OPEN_TAB_EXTRA=LOG`. The activity consumes that extra
+and the shell handles it after startup/onboarding through normal saved-tab navigation. A request for
+the visible tab does not navigate; no workout or occurrence selection is encoded. iOS has no reminder
+delivery.
+
+Rest presentation has two independent default-off preferences. The app-lifetime `RestAlertCoordinator`
+validates the same guided/session/occurrence/boot context independently of the background-alert opt-in.
+`RestAlertScheduler.showCountdown` shows or removes a silent ongoing Android notification on the
+separate low-importance `rest-countdown` channel. The system chronometer uses the remaining elapsed
+deadline mapped to wall time at posting; the app does not issue per-second notification updates or
+run a foreground service. A coordinator deadline job removes the presentation while the process is
+alive. Android process-death cleanup and clock-change rendering still need runtime acceptance.
+
+The root-mounted, Logger-owned `RestCompletionPresenter` observes resumed lifecycle, shows a brief
+“Rest complete” snackbar and requests one haptic without sound or notification permission.
+`RestCompletionPresentation`, shared by the coordinator and receiver, serializes completion selection
+with a mutex. Foreground selection requires a live armed countdown, the opt-in and visible resume
+before expiry, plus a presenter subscription. A handled foreground completion suppresses the system
+completion notification; otherwise the receiver retains the existing background-alert opt-in and
+exact/inexact scheduling path. Returning or enabling after expiry does not replay the foreground
+signal. Presentation bookkeeping is in memory only, not a backup or timer write. OS rendering,
+haptic delivery and lifecycle integration remain C6 acceptance, not host-test guarantees.
 
 ## 2. Decision log
 

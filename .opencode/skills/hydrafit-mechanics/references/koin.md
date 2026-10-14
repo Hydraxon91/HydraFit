@@ -65,3 +65,10 @@ closeable `WorkoutReminderCoordinator` for app-lifetime reminder reconciliation;
 `UnsupportedWorkoutReminderScheduler`, alongside the Android `TimeProvider` override for zone-aware
 local-minute resolution. The shared runtime graph test resolves the coordinator with fake reminder
 ports and a not-ready startup gate, so construction is proved without delivery.
+
+Settings also registers `WorkoutReminderSettingsViewModel` over the reminder preference repository
+and scheduler; a runtime graph test resolves it. `loggerModule` owns the singleton
+`RestCompletionPresentation`, injected into the eager `RestAlertCoordinator` and resolved by the
+Android receiver and root-mounted Logger presenter. The shared runtime graph test resolves both the
+coordinator and presentation singleton. No new platform binding or dependency is needed for this
+presentation state; lifecycle and Android notification behavior still require runtime acceptance.

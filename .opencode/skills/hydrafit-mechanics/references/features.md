@@ -213,8 +213,25 @@ suspended posts nothing. The ledger claim keeps a day to one post, permission de
 nor posts, and a failed post releases the claim for a later pass inside the window. Cancelling clears
 the pending alarm and the posted notification. The chosen local time resolves in the device's current
 zone: a skipped local time resolves forward to the next valid wall time and a repeated one to its
-first occurrence. Settings controls, Logger routing and rest presentation remain unimplemented, and
-iOS has no reminder delivery.
+first occurrence. Settings now owns `WorkoutReminderSettingsViewModel` and
+`WorkoutReminderSettingsSection` for opt-in, explicit time and quiet hours; denied notification
+access leaves the reminder preference off. Permission results and Settings resume invalidate
+delivery through the scheduler's `deliveryChanges` stream, not a cross-feature import. Rest/workout
+notification intents carry only the `core/navigation` `OPEN_TAB_EXTRA` tab name. The activity consumes
+it and the shell opens Logger after startup/onboarding, with no navigation for the already-visible
+tab. iOS has no reminder delivery.
+
+The independent `restCountdownEnabled` opt-in uses `RestAlertScheduler.showCountdown` for a silent
+ongoing Android chronometer. The coordinator validates guided/session/occurrence/boot context,
+updates presentation when preferences/context change and removes it at expiry via an app-lifetime
+deadline job. Background-alert opt-in and exact/inexact alarm selection are unchanged.
+`RestCompletionPresentation` is a singleton shared by the coordinator timer and Android receiver:
+its mutex selects one foreground or system completion. The root-mounted `RestCompletionPresenter`
+owns resumed visibility, a brief “Rest complete” snackbar and one haptic. Foreground delivery needs
+the opt-in and visible resume before expiry; returning, restoration or enabling after expiry never
+replays it. Background system completion still needs the existing alert opt-in. These presentation
+states are transient, not persisted or backed up. Rendering, process-death cleanup and lifecycle
+integration remain C6 runtime acceptance.
 
 Optional warm-up guidance (0.7.3, WU-01) is the pure `buildWarmupGuidance(occurrence)` in
 `:core:domain`, rendered as a `WarmupGuidanceSection` card above the guided workout only while guided

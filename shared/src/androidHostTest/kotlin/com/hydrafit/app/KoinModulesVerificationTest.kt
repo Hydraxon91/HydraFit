@@ -698,6 +698,7 @@ class KoinModulesVerificationTest {
             val replacement = koin.get<OccurrenceReplacementViewModel>()
             replacement.open(999L, 999L)
             assertNotNull(koin.get<com.hydrafit.app.feature.logger.RestAlertCoordinator>())
+            assertNotNull(koin.get<com.hydrafit.app.feature.logger.RestCompletionPresentation>())
             advanceUntilIdle()
             assertNotNull(replacement.state.value.failure)
             replacement.dismiss()

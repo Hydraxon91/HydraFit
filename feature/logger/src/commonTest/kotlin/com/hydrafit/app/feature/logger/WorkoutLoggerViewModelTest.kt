@@ -7729,6 +7729,81 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun countdownPresentationIsIndependentAndRemovedAtExpiryOrContextChange() = runTimerTest {
+        val stored = PersistedRestCountdown(
+            121_000L,
+            120_000L,
+            "boot",
+            "session",
+            30L,
+            "back-squat"
+        )
+        val countdowns = FakeRestCountdownRepository(stored)
+        val preferences = FakeTrainingGuidancePreferences()
+        preferences.setRestCountdownEnabled(true)
+        val sessions = FakeWorkoutSessionRepository(
+            WorkoutSession("session", MONDAY, localEpochDay = 0L, occurrenceId = 30L)
+        )
+        val schedule = MutableWorkoutScheduleRepository().also {
+            it.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        }
+        var shown: PersistedRestCountdown? = null
+        var alarms = 0
+        var elapsed = 1_000L
+        val alerts = object : com.hydrafit.app.core.domain.workout.RestAlertScheduler {
+            override suspend fun showCountdown(countdown: PersistedRestCountdown?) {
+                shown = countdown
+            }
+            override suspend fun schedule(countdown: PersistedRestCountdown) {
+                alarms++
+            }
+            override fun cancel() = Unit
+        }
+        val coordinator = RestAlertCoordinator(
+            countdowns,
+            preferences,
+            FakeGuidedWorkoutPreferenceRepository(true),
+            sessions,
+            schedule,
+            BootIdentityProvider { "boot" },
+            object : com.hydrafit.app.core.domain.startup.StartupReadiness {
+                override val isReady = MutableStateFlow(true)
+            },
+            alerts,
+            StandardTestDispatcher(testScheduler),
+            { elapsed }
+        )
+        try {
+            coordinator.start()
+            runCurrent()
+            assertEquals(stored, shown)
+            assertEquals(0, alarms)
+            preferences.setRestCountdownEnabled(false)
+            runCurrent()
+            assertNull(shown)
+            preferences.setRestCountdownEnabled(true)
+            runCurrent()
+            assertEquals(stored, shown)
+            elapsed = 121_000L
+            advanceTimeBy(120_000L)
+            runCurrent()
+            assertNull(shown)
+            preferences.setShortRestCoachingEnabled(true)
+            runCurrent()
+            assertNull(shown) // Expired timers never reappear on a preference change.
+            countdowns.save(stored.copy(deadlineElapsedMillis = 241_000L))
+            runCurrent()
+            assertTrue(shown != null)
+            sessions.end("session", MONDAY)
+            runCurrent()
+            assertNull(shown)
+        } finally {
+            coordinator.close()
+            runCurrent()
+        }
+    }
+
+    @Test
     fun dueCountdownSurvivesCoordinatorStartupButExplicitCancellationStillWins() = runTimerTest {
         val due = PersistedRestCountdown(
             100_000L,

@@ -31,6 +31,8 @@ import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.logger_rest_alert_body
 import hydrafit.feature.logger.generated.resources.logger_rest_alert_channel
 import hydrafit.feature.logger.generated.resources.logger_rest_alert_title
+import hydrafit.feature.logger.generated.resources.logger_rest_countdown_channel
+import hydrafit.feature.logger.generated.resources.logger_rest_countdown_title
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,6 +50,7 @@ class AndroidRestAlertScheduler(context: Context) : RestAlertScheduler {
     private val notifications = this.context.getSystemService(NotificationManager::class.java)
     private val deliveryLock = Any()
     private var deliveryRevision = 0L
+    private var countdownRevision = 0L
     private val _timing = MutableStateFlow(currentTiming())
     override val timing = _timing.asStateFlow()
 
@@ -107,6 +110,68 @@ class AndroidRestAlertScheduler(context: Context) : RestAlertScheduler {
             deliveryRevision++
             alarms.cancel(pendingIntent(Intent(context, RestAlertReceiver::class.java)))
             notifications.cancel(NOTIFICATION_ID)
+        }
+    }
+
+    override suspend fun showCountdown(countdown: PersistedRestCountdown?) {
+        val revision = synchronized(deliveryLock) {
+            countdownRevision++
+            notifications.cancel(COUNTDOWN_NOTIFICATION_ID)
+            countdownRevision
+        }
+        if (countdown == null || !canNotify()) return
+        val channelName = getString(Res.string.logger_rest_countdown_channel)
+        val title = getString(Res.string.logger_rest_countdown_title)
+        synchronized(deliveryLock) {
+            val remaining = countdown.deadlineElapsedMillis - SystemClock.elapsedRealtime()
+            if (revision != countdownRevision || remaining <= 0L || !canNotify()) return
+            if (Build.VERSION.SDK_INT >= 26) {
+                notifications.createNotificationChannel(
+                    NotificationChannel(
+                        COUNTDOWN_CHANNEL_ID,
+                        channelName,
+                        NotificationManager.IMPORTANCE_LOW
+                    ).apply {
+                        setSound(null, null)
+                        enableVibration(false)
+                    }
+                )
+            }
+            val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                ?.apply {
+                    putExtra(OPEN_TAB_EXTRA, AppTab.LOG.name)
+                    addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    )
+                } ?: return
+            val builder = if (Build.VERSION.SDK_INT >= 26) {
+                Notification.Builder(context, COUNTDOWN_CHANNEL_ID)
+            } else {
+                Notification.Builder(context).setPriority(Notification.PRIORITY_LOW)
+            }
+            notifications.notify(
+                COUNTDOWN_NOTIFICATION_ID,
+                builder.setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                    .setContentTitle(title)
+                    .setWhen(System.currentTimeMillis() + remaining)
+                    .setUsesChronometer(true)
+                    .setChronometerCountDown(true)
+                    .setOngoing(true)
+                    .setOnlyAlertOnce(true)
+                    .setSound(null)
+                    .setVibrate(null)
+                    .setContentIntent(
+                        PendingIntent.getActivity(
+                            context,
+                            0,
+                            launch,
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                        )
+                    )
+                    .build()
+            )
         }
     }
 
@@ -179,6 +244,8 @@ class AndroidRestAlertScheduler(context: Context) : RestAlertScheduler {
     private companion object {
         const val CHANNEL_ID = "rest-prompts"
         const val NOTIFICATION_ID = 600
+        const val COUNTDOWN_CHANNEL_ID = "rest-countdown"
+        const val COUNTDOWN_NOTIFICATION_ID = 601
     }
 }
 
@@ -272,13 +339,22 @@ class RestAlertReceiver :
                             alarm = alarm,
                             bootIdentity = get<BootIdentityProvider>().currentBootIdentity(),
                             elapsedNowMillis = elapsedRealtimeMillis(),
-                            enabled = preferences.restAlertsEnabled,
+                            enabled = preferences.restAlertsEnabled ||
+                                preferences.restCompletionSignalEnabled,
                             guidedEnabled = guided,
                             openSessionId = get<WorkoutSessionRepository>().open()?.id,
                             activeOccurrenceId = validOccurrence?.id
                         )
                     ) {
-                        scheduler.notifyRestEnded(deliveryRevision)
+                        get<RestCompletionPresentation>().complete(
+                            alarm,
+                            foregroundEnabled = preferences.restCompletionSignalEnabled,
+                            background = if (preferences.restAlertsEnabled) {
+                                { scheduler.notifyRestEnded(deliveryRevision) }
+                            } else {
+                                null
+                            }
+                        )
                     }
                 }
             } finally {
