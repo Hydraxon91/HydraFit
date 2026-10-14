@@ -80,7 +80,8 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * The per-step editors. Each one renders the draft the ViewModel already loaded and reports a change
- * through the existing `edit`/`editPersonalRecord` API; none of them write to storage, and every
+ * through the `edit`/`editPersonalRecordEntry` API — a "Save best set" click is reported to the
+ * ViewModel, which stages it through the same rule Next uses; none of them write to storage, and every
  * control is disabled while a save is in flight.
  */
 @Composable
@@ -88,7 +89,7 @@ internal fun OnboardingStepEditor(
     state: OnboardingUiState,
     enabled: Boolean,
     onEdit: (SetupStepInput) -> Unit,
-    onPersonalRecord: (String, Double, Int) -> Unit,
+    onSavePersonalRecordEntry: () -> Unit,
     onOpenPersonalRecordEntry: (String) -> Unit,
     onEditPersonalRecordEntry: (String, String) -> Unit,
     onDismissPersonalRecordEntry: () -> Unit,
@@ -104,7 +105,7 @@ internal fun OnboardingStepEditor(
             state = state,
             enabled = enabled,
             onEdit = onEdit,
-            onPersonalRecord = onPersonalRecord,
+            onSavePersonalRecordEntry = onSavePersonalRecordEntry,
             onOpenPersonalRecordEntry = onOpenPersonalRecordEntry,
             onEditPersonalRecordEntry = onEditPersonalRecordEntry,
             onDismissPersonalRecordEntry = onDismissPersonalRecordEntry
@@ -299,7 +300,7 @@ private fun PersonalRecordsEditor(
     state: OnboardingUiState,
     enabled: Boolean,
     onEdit: (SetupStepInput) -> Unit,
-    onPersonalRecord: (String, Double, Int) -> Unit,
+    onSavePersonalRecordEntry: () -> Unit,
     onOpenPersonalRecordEntry: (String) -> Unit,
     onEditPersonalRecordEntry: (String, String) -> Unit,
     onDismissPersonalRecordEntry: () -> Unit
@@ -366,7 +367,7 @@ private fun PersonalRecordsEditor(
                         entry = openEntry,
                         enabled = enabled,
                         onEdit = onEditPersonalRecordEntry,
-                        onSave = { weight, reps -> onPersonalRecord(exercise.id, weight, reps) },
+                        onSave = onSavePersonalRecordEntry,
                         // Records nothing: it only closes this entry without deleting the record.
                         onUnknown = onDismissPersonalRecordEntry
                     )
@@ -381,7 +382,7 @@ private fun PersonalRecordEntry(
     entry: PersonalRecordEntryDraft,
     enabled: Boolean,
     onEdit: (String, String) -> Unit,
-    onSave: (Double, Int) -> Unit,
+    onSave: () -> Unit,
     onUnknown: () -> Unit
 ) {
     val weight = parseDisplayWeight(entry.weightText)
@@ -411,11 +412,11 @@ private fun PersonalRecordEntry(
             )
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val value = weight
-            val repCount = reps
+            // The button stays gated on a parseable pair, but it stages the entry's own text through
+            // the ViewModel, so Save cannot record a different value than Next would.
             Button(
-                onClick = { if (value != null && repCount != null) onSave(value, repCount) },
-                enabled = enabled && value != null && repCount != null
+                onClick = onSave,
+                enabled = enabled && weight != null && reps != null
             ) {
                 Text(stringResource(Res.string.onboarding_pr_save))
             }

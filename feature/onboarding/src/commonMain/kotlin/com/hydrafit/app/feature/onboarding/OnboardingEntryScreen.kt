@@ -75,7 +75,7 @@ fun OnboardingEntryRoute(
     OnboardingEntryScreen(
         state = state,
         onEdit = viewModel::edit,
-        onPersonalRecord = viewModel::editPersonalRecord,
+        onSavePersonalRecordEntry = viewModel::savePersonalRecordEntry,
         onOpenPersonalRecordEntry = viewModel::openPersonalRecordEntry,
         onEditPersonalRecordEntry = viewModel::editPersonalRecordEntry,
         onDismissPersonalRecordEntry = viewModel::dismissPersonalRecordEntry,
@@ -92,7 +92,7 @@ fun OnboardingEntryRoute(
 fun OnboardingEntryScreen(
     state: OnboardingUiState,
     onEdit: (SetupStepInput) -> Unit,
-    onPersonalRecord: (String, Double, Int) -> Unit,
+    onSavePersonalRecordEntry: () -> Unit,
     onOpenPersonalRecordEntry: (String) -> Unit,
     onEditPersonalRecordEntry: (String, String) -> Unit,
     onDismissPersonalRecordEntry: () -> Unit,
@@ -108,7 +108,7 @@ fun OnboardingEntryScreen(
         OnboardingEntryPhase.FAILURE, OnboardingEntryPhase.READY -> OnboardingJourney(
             state = state,
             onEdit = onEdit,
-            onPersonalRecord = onPersonalRecord,
+            onSavePersonalRecordEntry = onSavePersonalRecordEntry,
             onOpenPersonalRecordEntry = onOpenPersonalRecordEntry,
             onEditPersonalRecordEntry = onEditPersonalRecordEntry,
             onDismissPersonalRecordEntry = onDismissPersonalRecordEntry,
@@ -147,7 +147,7 @@ private fun OnboardingLoading() {
 private fun OnboardingJourney(
     state: OnboardingUiState,
     onEdit: (SetupStepInput) -> Unit,
-    onPersonalRecord: (String, Double, Int) -> Unit,
+    onSavePersonalRecordEntry: () -> Unit,
     onOpenPersonalRecordEntry: (String) -> Unit,
     onEditPersonalRecordEntry: (String, String) -> Unit,
     onDismissPersonalRecordEntry: () -> Unit,
@@ -199,7 +199,7 @@ private fun OnboardingJourney(
                     state = state,
                     enabled = controlsEnabled,
                     onEdit = onEdit,
-                    onPersonalRecord = onPersonalRecord,
+                    onSavePersonalRecordEntry = onSavePersonalRecordEntry,
                     onOpenPersonalRecordEntry = onOpenPersonalRecordEntry,
                     onEditPersonalRecordEntry = onEditPersonalRecordEntry,
                     onDismissPersonalRecordEntry = onDismissPersonalRecordEntry,

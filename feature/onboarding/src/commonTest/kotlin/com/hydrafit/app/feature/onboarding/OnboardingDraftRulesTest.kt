@@ -119,13 +119,13 @@ class OnboardingDraftRulesTest {
     }
 
     @Test
-    fun anOpenedEntryStartsFromTheShownRecordInTheFrozenUnit() {
+    fun anOpenedEntryStartsFromTheShownRecordInTheFrozenUnitAndRemembersIt() {
         assertEquals(
-            PersonalRecordEntryDraft("bench", "80", "5"),
+            PersonalRecordEntryDraft("bench", "80", "5", PersonalRecord("bench", 80.0, 5)),
             personalRecordEntryDraft("bench", WeightUnit.KG, PersonalRecord("bench", 80.0, 5))
         )
         assertEquals(
-            PersonalRecordEntryDraft("bench", "176.4", "3"),
+            PersonalRecordEntryDraft("bench", "176.4", "3", PersonalRecord("bench", 80.0, 3)),
             personalRecordEntryDraft("bench", WeightUnit.LB, PersonalRecord("bench", 80.0, 3))
         )
         assertEquals(
@@ -149,6 +149,69 @@ class OnboardingDraftRulesTest {
         assertNull(personalRecordFrom("bench", WeightUnit.KG, "heavy", "5"))
         assertNull(personalRecordFrom("bench", WeightUnit.KG, "100", "0"))
         assertNull(personalRecordFrom("bench", WeightUnit.KG, "100", "lots"))
+    }
+
+    @Test
+    fun anEntryWithAnUnchangedTextDecidesNothing() {
+        val stored = PersonalRecord("bench", 100.0, 5)
+        // Opening a stored record and submitting it untouched must never round-trip its display text.
+        listOf(WeightUnit.KG, WeightUnit.LB).forEach { unit ->
+            val opened = personalRecordEntryDraft("bench", unit, stored)
+            assertNull(
+                decidePersonalRecordEntry(opened, unit),
+                "an untouched ${unit.label} entry decided a record"
+            )
+        }
+        // A row that has no value yet still submits whatever its text parses to.
+        assertEquals(
+            PersonalRecord("bench", 100.0, 5),
+            decidePersonalRecordEntry(PersonalRecordEntryDraft("bench", "100", "5"), WeightUnit.KG)
+        )
+    }
+
+    @Test
+    fun aSingleChangedFieldKeepsTheOtherExactOriginValue() {
+        // 100.0 kg shown in pounds pre-fills 220.5, which would round-trip to 100.0171... kg.
+        val stored = PersonalRecord("bench", 100.0, 5)
+        val opened = personalRecordEntryDraft("bench", WeightUnit.LB, stored)
+
+        assertEquals(
+            PersonalRecord("bench", 100.0, 6),
+            decidePersonalRecordEntry(opened.copy(repsText = "6"), WeightUnit.LB)
+        )
+        assertEquals(
+            PersonalRecord("bench", WeightUnit.LB.displayToKilograms(225.0), 5),
+            decidePersonalRecordEntry(opened.copy(weightText = "225"), WeightUnit.LB)
+        )
+        assertEquals(
+            PersonalRecord("bench", WeightUnit.LB.displayToKilograms(225.0), 6),
+            decidePersonalRecordEntry(
+                PersonalRecordEntryDraft("bench", "225", "6", stored),
+                WeightUnit.LB
+            )
+        )
+    }
+
+    @Test
+    fun aChangedFieldThatDoesNotParseDecidesNothing() {
+        val stored = PersonalRecord("bench", 100.0, 5)
+        val opened = personalRecordEntryDraft("bench", WeightUnit.LB, stored)
+
+        assertNull(decidePersonalRecordEntry(opened.copy(weightText = ""), WeightUnit.LB))
+        assertNull(decidePersonalRecordEntry(opened.copy(weightText = "heavy"), WeightUnit.LB))
+        assertNull(decidePersonalRecordEntry(opened.copy(weightText = "0"), WeightUnit.LB))
+        assertNull(decidePersonalRecordEntry(opened.copy(repsText = "0"), WeightUnit.LB))
+        assertNull(decidePersonalRecordEntry(opened.copy(repsText = "lots"), WeightUnit.LB))
+    }
+
+    @Test
+    fun foldingAnUntouchedEntryAddsNoDraftEdit() {
+        val draft = SetupStepInput.PersonalRecords(listOf(PersonalRecord("squat", 120.0, 5)))
+        val stored = PersonalRecord("bench", 100.0, 5)
+        val opened = personalRecordEntryDraft("bench", WeightUnit.LB, stored)
+
+        assertEquals(draft, foldPersonalRecordEntry(draft, opened, WeightUnit.LB))
+        assertEquals(draft, foldPersonalRecordEntry(draft, null, WeightUnit.LB))
     }
 
     @Test

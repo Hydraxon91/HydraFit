@@ -63,7 +63,8 @@ internal fun parseReps(text: String): Int? = text.trim().toIntOrNull()?.takeIf {
 
 /**
  * The raw text an opened entry starts from: the shown record's value in the frozen entry unit, so the
- * editor continues from what the row already displays. A record that is absent starts blank.
+ * editor continues from what the row already displays. A record that is absent starts blank. The
+ * shown record is kept as the entry's origin, so an untouched entry can submit nothing.
  */
 internal fun personalRecordEntryDraft(
     exerciseId: String,
@@ -71,9 +72,14 @@ internal fun personalRecordEntryDraft(
     shown: PersonalRecord?
 ): PersonalRecordEntryDraft = PersonalRecordEntryDraft(
     exerciseId = exerciseId,
-    weightText = shown?.let { formatWeight(unit.kilogramsToDisplay(it.weightKg)) }.orEmpty(),
-    repsText = shown?.reps?.toString().orEmpty()
+    weightText = prefillWeightText(unit, shown),
+    repsText = shown?.reps?.toString().orEmpty(),
+    origin = shown
 )
+
+/** The weight text an opening entry pre-fills its field with, in the frozen entry unit. */
+private fun prefillWeightText(unit: WeightUnit, shown: PersonalRecord?): String =
+    shown?.let { formatWeight(unit.kilogramsToDisplay(it.weightKg)) }.orEmpty()
 
 /**
  * The record an open entry's text describes, or null when either field is blank, non-numeric, zero,
@@ -92,11 +98,44 @@ internal fun personalRecordFrom(
 }
 
 /**
+ * The one rule decision for an open entry: the record it submits, or null when it submits nothing.
+ * Save, Next and a switch to another entry all read it, so they cannot diverge:
+ *
+ * - No text differs from what the entry was pre-filled with: nothing, so opening a stored record and
+ *   leaving it alone never rewrites it. Re-encoding a rounded display value in another unit would
+ *   otherwise replace the record with slightly different kilograms.
+ * - One field differs: the changed field is parsed and converted through the frozen entry unit, while
+ *   the other field keeps its exact origin value instead of the round-tripped display value.
+ * - A changed field is blank or unparseable: nothing, so an invalid edit records nothing and never
+ *   blocks Next.
+ *
+ * An entry with no origin (a row with no value yet) submits whatever its text parses to, as before.
+ */
+internal fun decidePersonalRecordEntry(
+    entry: PersonalRecordEntryDraft,
+    unit: WeightUnit
+): PersonalRecord? {
+    val origin = entry.origin
+        ?: return personalRecordFrom(entry.exerciseId, unit, entry.weightText, entry.repsText)
+    val weightChanged = entry.weightText != prefillWeightText(unit, origin)
+    val repsChanged = entry.repsText != origin.reps.toString()
+    if (!weightChanged && !repsChanged) return null
+    val weight = if (weightChanged) {
+        val display = parseDisplayWeight(entry.weightText) ?: return null
+        unit.displayToKilograms(display)
+    } else {
+        origin.weightKg
+    }
+    val reps = if (repsChanged) parseReps(entry.repsText) ?: return null else origin.reps
+    return PersonalRecord(entry.exerciseId, weight, reps)
+}
+
+/**
  * Folds the open entry into a submitted draft. A valid entry adds or replaces just that exercise's
- * record using the frozen entry unit; an absent or unparseable entry adds nothing, so "I don't know"
- * and an invalid field record nothing and never block Next. Other steps are returned untouched, no
- * other draft edit or stored record is affected, and a value already staged by Save is replaced
- * rather than written twice.
+ * record using the frozen entry unit; an absent, unchanged or unparseable entry adds nothing, so
+ * "I don't know", an untouched row and an invalid field record nothing and never block Next. Other
+ * steps are returned untouched, no other draft edit or stored record is affected, and a value already
+ * staged by Save is replaced rather than written twice.
  */
 internal fun foldPersonalRecordEntry(
     input: SetupStepInput?,
@@ -104,9 +143,7 @@ internal fun foldPersonalRecordEntry(
     unit: WeightUnit
 ): SetupStepInput? {
     val draft = input as? SetupStepInput.PersonalRecords ?: return input
-    val record = entry?.let {
-        personalRecordFrom(it.exerciseId, unit, it.weightText, it.repsText)
-    } ?: return input
+    val record = entry?.let { decidePersonalRecordEntry(it, unit) } ?: return input
     return draft.copy(edits = withDraftRecord(draft.edits, record))
 }
 

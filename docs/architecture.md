@@ -147,10 +147,15 @@ and take the state plus callbacks.
   unit and the existing manual-PR table; a stored record stays the shown value until an explicit edit
   replaces it, and omitted records are never deleted. The one open PR entry keeps its raw weight and
   reps text in the state machine (`OnboardingUiState.personalRecordEntry`) instead of Composable state,
-  and the ViewModel owns opening, editing and dismissing it. "Save best set" stages immediately,
-  while Next folds a valid open entry into the submitted draft first, converting through the frozen
-  entry unit and replacing an already staged value rather than duplicating it; opening a different
-  exercise's entry stages the one already open by that same rule before the new entry opens from its
+  and the ViewModel owns opening, editing, saving and dismissing it. An open entry also remembers the
+  record it was pre-filled from as its origin, so Save and Next share one rule through it: an entry
+  whose text still matches what was pre-filled submits nothing — opening a stored record and leaving
+  it alone never rewrites it, which re-encoding a rounded pound display would otherwise do — while a
+  single changed field is parsed and converted through the frozen entry unit and the other field keeps
+  its exact origin value instead of a round-tripped display value. Both stage their result through that
+  one rule, so Save cannot record anything Next would not, and an already staged value is replaced
+  rather than duplicated; opening a different exercise's entry stages the one already open by the same
+  rule before the new entry opens from its
   own row, so switching never discards typed text, while re-opening the entry that is already open
   keeps it; blank, unparseable or
   dismissed entry text records nothing for that exercise and never blocks Next, and Skip still

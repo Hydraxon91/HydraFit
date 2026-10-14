@@ -3,7 +3,6 @@ package com.hydrafit.app.feature.onboarding
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
-import com.hydrafit.app.core.domain.engine.PersonalRecord
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.setup.SaveSetupStepUseCase
 import com.hydrafit.app.core.domain.setup.SetupDisposition
@@ -91,25 +90,26 @@ class OnboardingViewModel(
         _state.update { it.copy(input = input.snapshot(), failure = null) }
     }
 
-    /** The displayed unit is frozen when the PR step opens, not read again after submission. */
-    fun editPersonalRecord(exerciseId: String, displayWeight: Double, reps: Int) {
+    /**
+     * Stages the open entry through the same rule Next and a switch use, so the two can never stage
+     * different records. It writes nothing to storage, keeps the entry open, and stages nothing when
+     * the text is unchanged from the pre-filled origin or does not parse.
+     */
+    fun savePersonalRecordEntry() {
         val current = _state.value
         val draft = current.input as? SetupStepInput.PersonalRecords ?: return
-        if (current.eligibleExercises.none { it.id == exerciseId }) return
-        val record = PersonalRecord(
-            exerciseId,
-            current.entryUnit.displayToKilograms(displayWeight),
-            reps
-        )
+        val entry = current.personalRecordEntry ?: return
+        val record = decidePersonalRecordEntry(entry, current.entryUnit) ?: return
         edit(draft.copy(edits = withDraftRecord(draft.edits, record)))
     }
 
     /**
-     * Opens the one PR entry for an eligible exercise, pre-filled from the value the row already shows.
-     * Opening writes nothing, and re-opening the entry that is already open keeps what was typed.
-     * Opening a different exercise first stages the entry already open by the same rule Save and Next
-     * use, so its typed text survives as that row's value instead of being discarded; blank or invalid
-     * text stages nothing and never blocks the switch.
+     * Opens the one PR entry for an eligible exercise, pre-filled from the value the row already shows
+     * and remembering that value as the entry's origin. Opening writes nothing, and re-opening the
+     * entry that is already open keeps what was typed. Opening a different exercise first stages the
+     * entry already open by the same rule Save and Next use, so its typed text survives as that row's
+     * value instead of being discarded; an untouched, blank or invalid entry stages nothing and never
+     * blocks the switch.
      */
     fun openPersonalRecordEntry(exerciseId: String) {
         val current = _state.value

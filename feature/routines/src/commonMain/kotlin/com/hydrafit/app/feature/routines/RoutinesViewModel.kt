@@ -25,11 +25,13 @@ import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
 import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -48,9 +50,13 @@ class RoutinesViewModel(
 
     private var weightUnit: WeightUnit = WeightUnit.KG
 
-    /** Cached like [weightUnit] so the activation dialog can open with the saved set synchronously. */
-    private var preferredWeekdays: Set<DayOfWeek>? = null
     private var occurrencesJob: Job? = null
+
+    /**
+     * The in-flight activation-dialog resolution. A newer opening replaces it and a dismissal cancels
+     * it, so a superseded read cannot publish and a dismissed dialog cannot be resurrected.
+     */
+    private var activationJob: Job? = null
     private var exerciseCapabilities: Map<String, ExerciseLoadCapability> = emptyMap()
     private var catalogExerciseNames: List<Pair<String, String>> = emptyList()
     private var exerciseExclusions: List<ExerciseExclusion> = emptyList()
@@ -87,11 +93,6 @@ class RoutinesViewModel(
             weightUnitRepository.unitFlow().collect { unit ->
                 weightUnit = unit
                 _state.update { it.copy(weightUnit = unit) }
-            }
-        }
-        viewModelScope.launch {
-            preferredWeekdaysRepository.observe().collect { weekdays ->
-                preferredWeekdays = weekdays
             }
         }
         viewModelScope.launch {
@@ -300,22 +301,51 @@ class RoutinesViewModel(
 
     // --- Activation dialog ---
 
+    /**
+     * Opens the activation dialog for [template] with the saved preferred weekdays, resolved first.
+     * The dialog is not built until that read returns, so it never opens on a placeholder set it
+     * would then have to correct, and days the user has already toggled cannot be overwritten by a
+     * late resolution. Opening it writes nothing and confirmation remains explicit.
+     *
+     * A newer opening supersedes an older in-flight read, and [onActivationDismissed] cancels one, so
+     * neither a superseded read nor a dismissed dialog can be published into the state.
+     */
     fun onActivateRequested(template: RoutineTemplate) {
         val workoutCount = template.workouts.size
-        _state.update {
-            val hasActive = it.activeActivation != null
-            it.copy(
-                activation = ActivationUiState(
-                    templateId = template.id,
-                    templateName = template.name,
-                    workoutCount = workoutCount,
-                    weekdays = preferredWeekdays ?: DefaultWeekdays,
-                    startEpochDay = todayEpochDay(),
-                    hasActiveBlock = hasActive,
-                    replaceActive = hasActive
-                ).withPreview(scheduleActions, workoutCount)
-            )
+        activationJob?.cancel()
+        activationJob = viewModelScope.launch {
+            val weekdays = resolvePreferredWeekdays()
+            _state.update {
+                val hasActive = it.activeActivation != null
+                it.copy(
+                    activation = ActivationUiState(
+                        templateId = template.id,
+                        templateName = template.name,
+                        workoutCount = workoutCount,
+                        weekdays = weekdays,
+                        startEpochDay = todayEpochDay(),
+                        hasActiveBlock = hasActive,
+                        replaceActive = hasActive
+                    ).withPreview(scheduleActions, workoutCount)
+                )
+            }
         }
+    }
+
+    /**
+     * The saved preference, or the Mon/Wed/Fri default when it is genuinely undecided. A read that
+     * fails resolves to the default too: the dialog only prefills a starting selection, confirmation
+     * is always explicit and opening writes nothing, so degrading to the default days lets the user
+     * still choose a schedule. Failing the open would block that choice, and an empty set would
+     * instead read as "no days" — a different, undecidable-in-UI state. The read goes through
+     * `observe()`, which emits off the main dispatcher, so this never blocks one.
+     */
+    private suspend fun resolvePreferredWeekdays(): Set<DayOfWeek> = try {
+        preferredWeekdaysRepository.observe().first() ?: DefaultWeekdays
+    } catch (cancellation: CancellationException) {
+        throw cancellation
+    } catch (_: Exception) {
+        DefaultWeekdays
     }
 
     fun onActivationModeChanged(mode: ScheduleMode) = updateActivation { it.copy(mode = mode) }
@@ -338,7 +368,11 @@ class RoutinesViewModel(
     fun onActivationReplaceActiveChanged(replaceActive: Boolean) =
         updateActivation { it.copy(replaceActive = replaceActive) }
 
-    fun onActivationDismissed() = _state.update { it.copy(activation = null) }
+    /** Dismissing cancels an in-flight resolution so it cannot reopen the dialog afterwards. */
+    fun onActivationDismissed() {
+        activationJob?.cancel()
+        _state.update { it.copy(activation = null) }
+    }
 
     fun onConfirmActivation() {
         val activation = _state.value.activation ?: return

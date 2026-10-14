@@ -629,8 +629,44 @@ working tree at the time of writing.
   matrix. Setup `disposition` stayed `COMPLETED` (`step` advanced to `PERSONAL_RECORDS`), and one real
   manual personal record now exists in the debug app.
 - Harness note for `.maestro/README.md`/the UI-testing skill: a `launchApp` with no `permissions` key
-  grants every permission, while `permissions: { all: unset }` revokes them — neither preserves the
-  existing state. No documentation change was made under this evidence-only scope.
+  grants every permission. `permissions: { all: unset }` left `POST_NOTIFICATIONS` and
+  `SCHEDULE_EXACT_ALARM` unchanged across three later runs, although one runner reported that form
+  issuing `pm revoke` requests, so its effect on other permissions is not established. No
+  documentation change was made under this evidence-only scope.
+
+### 0.7.6 C4–C5 corrections from the closure review (2026-10-14)
+
+Corrections for the targeted closure review's findings, part of this change. The earlier notes in the
+two sections above that describe these fixes as uncommitted are superseded by this section: R07645-01
+is committed as `35dc283c` and the prefill as `0be58927`. A targeted closure check of these
+corrections in the working tree returned **APPROVED** for R07645-04, R07645-05 and R07645-06, subject
+to the two wording items R07645-07 and R07645-08, which are corrected here.
+
+- **R07645-04 — an untouched open PR entry rewrote the stored record.** The entry now remembers the
+  record it was pre-filled from and decides nothing when neither field's text changed; a single
+  changed field keeps the other's exact origin value instead of a rounded display value. Unit tests
+  cover a kilogram and a pound untouched round trip, a reps-only edit (exact kilograms preserved), a
+  weight-only edit and Save. Device check: with the app switched to Pounds the stored `100 kg`
+  displayed as `220.5 lb`; opening that entry and pressing Next without typing wrote nothing, and a
+  read-only database check afterwards showed the row still at exactly `100.0` kg with its original
+  `updatedAt` (`1791984269401`). The flow restored the weight unit to Kilograms.
+- **R07645-05 — activation could open before the preference was read.** Activation now resolves the
+  preference when the dialog opens and only then builds it, falling back to Mon/Wed/Fri when it is
+  undecided or the read fails, with a dismissal or a newer opening cancelling an in-flight
+  resolution. Unit tests cover a slow read, an undecided read, a failing read and a superseded
+  opening. The activation-prefill device flow was re-run green after the change.
+- **R07645-06 — status and reference wording.** The PLANS.md status row is a single table row again,
+  and the mechanics reference no longer claims that no larger-font check exists. TalkBack, rotation,
+  a translated layout and inset behaviour stay explicitly unclaimed except for the check below.
+- Inset coverage added: with the entry's weight field focused and the keyboard up, the pinned action
+  bar stayed visible and unobstructed (screenshot viewed).
+- Read-only database check after this pass (scratch copy deleted): `personalRecord` still holds its
+  single row, `preferredWeekdays` is `NULL`, the weight unit is back to `KG`, and
+  `trainingActivation`, `workoutOccurrence`, `workoutSession`, `workoutSet` and `planHistory` gained
+  **zero** rows. Permissions unchanged (`POST_NOTIFICATIONS` denied, `SCHEDULE_EXACT_ALARM`
+  `default`).
+- Not verified: the iOS compile, the full matrix, TalkBack, rotation, larger text and dark mode in
+  these specific flows, and the clipped `Fri` chip recorded above.
 
 ### 0.7.5 C1–C2 caution content foundation (2026-10-13)
 

@@ -228,13 +228,20 @@ class OnboardingViewModelTest {
             viewModel.state.value.existingRecords
         )
         fixture.unit = WeightUnit.KG
-        viewModel.editPersonalRecord("external", 100.0, 5)
-        viewModel.editPersonalRecord("bodyweight", 100.0, 5)
+        // The entry unit is frozen when the PR step loaded; a later unit change cannot re-encode it.
+        viewModel.openPersonalRecordEntry("external")
+        viewModel.editPersonalRecordEntry("100", "5")
+        viewModel.savePersonalRecordEntry()
         viewModel.next()
         runCurrent()
         assertEquals(
             WeightUnit.LB.displayToKilograms(100.0),
             fixture.savedRecords.getValue("external").weightKg
+        )
+        assertEquals(
+            listOf("external"),
+            (fixture.attempts.single().input as SetupStepInput.PersonalRecords).edits
+                .map { it.exerciseId }
         )
         assertEquals(60.0, fixture.savedRecords.getValue("old").weightKg)
         assertEquals(2, fixture.savedRecords.size)
@@ -454,7 +461,7 @@ class OnboardingViewModelTest {
         viewModel.openPersonalRecordEntry("external")
         viewModel.editPersonalRecordEntry("100", "5")
         // "Save best set" stages immediately and keeps the entry open; Next folds it again.
-        viewModel.editPersonalRecord("external", 100.0, 5)
+        viewModel.savePersonalRecordEntry()
         viewModel.next()
         runCurrent()
         assertEquals(1, fixture.attempts.size)
@@ -462,6 +469,148 @@ class OnboardingViewModelTest {
         assertEquals(PersonalRecord("external", 100.0, 5), fixture.recordWrites.single())
         assertEquals(60.0, fixture.savedRecords.getValue("old").weightKg)
         assertEquals(2, fixture.savedRecords.size)
+    }
+
+    @Test
+    fun nextOnAnUntouchedKilogramEntryWritesNothing() = runTest(dispatcher) {
+        val fixture = OnboardingFixture()
+        val stored = PersonalRecord("external", 100.0, 5)
+        fixture.savedRecords["external"] = stored
+        fixture.committed.value = SetupState(step = SetupStep.PERSONAL_RECORDS)
+        val viewModel = fixture.viewModel(dispatcher)
+        viewModel.open()
+        runCurrent()
+
+        viewModel.openPersonalRecordEntry("external")
+        // Opening pre-fills exactly what the row already shows; Next must not rewrite the record.
+        assertEquals("100", viewModel.state.value.personalRecordEntry?.weightText)
+        viewModel.next()
+        runCurrent()
+
+        assertTrue(fixture.recordWrites.isEmpty())
+        assertEquals(stored, fixture.savedRecords.getValue("external"))
+        assertEquals(
+            emptyList(),
+            (fixture.attempts.single().input as SetupStepInput.PersonalRecords).edits
+        )
+        assertEquals(SetupStep.FIRST_WORKOUT, fixture.committed.value.step)
+    }
+
+    @Test
+    fun nextOnAnUntouchedPoundEntryKeepsTheStoredKilograms() = runTest(dispatcher) {
+        val fixture = OnboardingFixture()
+        fixture.savedRecords["external"] = PersonalRecord("external", 100.0, 5)
+        fixture.unit = WeightUnit.LB
+        fixture.committed.value = SetupState(step = SetupStep.PERSONAL_RECORDS)
+        val viewModel = fixture.viewModel(dispatcher)
+        viewModel.open()
+        runCurrent()
+
+        viewModel.openPersonalRecordEntry("external")
+        // The pound display rounds 100.0 kg to 220.5 lb; submitting that untouched must not store
+        // 220.5 lb back as 100.017117587213 kg over the record.
+        assertEquals("220.5", viewModel.state.value.personalRecordEntry?.weightText)
+        viewModel.next()
+        runCurrent()
+
+        assertTrue(fixture.recordWrites.isEmpty())
+        assertEquals(100.0, fixture.savedRecords.getValue("external").weightKg)
+        assertEquals(5, fixture.savedRecords.getValue("external").reps)
+    }
+
+    @Test
+    fun aRepsOnlyEditKeepsTheExactStoredKilograms() = runTest(dispatcher) {
+        val fixture = OnboardingFixture()
+        fixture.savedRecords["external"] = PersonalRecord("external", 100.0, 5)
+        fixture.unit = WeightUnit.LB
+        fixture.committed.value = SetupState(step = SetupStep.PERSONAL_RECORDS)
+        val viewModel = fixture.viewModel(dispatcher)
+        viewModel.open()
+        runCurrent()
+
+        viewModel.openPersonalRecordEntry("external")
+        viewModel.editPersonalRecordEntry("220.5", "6")
+        viewModel.next()
+        runCurrent()
+
+        assertEquals(
+            listOf(PersonalRecord("external", 100.0, 6)),
+            (fixture.attempts.single().input as SetupStepInput.PersonalRecords).edits
+        )
+        assertEquals(100.0, fixture.savedRecords.getValue("external").weightKg)
+        assertEquals(6, fixture.savedRecords.getValue("external").reps)
+    }
+
+    @Test
+    fun aWeightOnlyEditKeepsTheStoredReps() = runTest(dispatcher) {
+        val fixture = OnboardingFixture()
+        fixture.savedRecords["external"] = PersonalRecord("external", 100.0, 5)
+        fixture.unit = WeightUnit.LB
+        fixture.committed.value = SetupState(step = SetupStep.PERSONAL_RECORDS)
+        val viewModel = fixture.viewModel(dispatcher)
+        viewModel.open()
+        runCurrent()
+
+        viewModel.openPersonalRecordEntry("external")
+        viewModel.editPersonalRecordEntry("225", "5")
+        viewModel.next()
+        runCurrent()
+
+        assertEquals(
+            listOf(PersonalRecord("external", WeightUnit.LB.displayToKilograms(225.0), 5)),
+            (fixture.attempts.single().input as SetupStepInput.PersonalRecords).edits
+        )
+        assertEquals(5, fixture.savedRecords.getValue("external").reps)
+    }
+
+    @Test
+    fun savingAnUntouchedEntryStagesAndWritesNothing() = runTest(dispatcher) {
+        val fixture = OnboardingFixture()
+        val stored = PersonalRecord("external", 100.0, 5)
+        fixture.savedRecords["external"] = stored
+        fixture.unit = WeightUnit.LB
+        fixture.committed.value = SetupState(step = SetupStep.PERSONAL_RECORDS)
+        val viewModel = fixture.viewModel(dispatcher)
+        viewModel.open()
+        runCurrent()
+
+        viewModel.openPersonalRecordEntry("external")
+        viewModel.savePersonalRecordEntry()
+
+        // "Save best set" stages nothing, and Next then writes nothing at all.
+        assertEquals(
+            emptyList(),
+            (viewModel.state.value.input as SetupStepInput.PersonalRecords).edits
+        )
+        viewModel.next()
+        runCurrent()
+        assertTrue(fixture.recordWrites.isEmpty())
+        assertEquals(stored, fixture.savedRecords.getValue("external"))
+    }
+
+    @Test
+    fun savingARepsOnlyEditStagesTheSameRecordNextWrites() = runTest(dispatcher) {
+        val fixture = OnboardingFixture()
+        fixture.savedRecords["external"] = PersonalRecord("external", 100.0, 5)
+        fixture.unit = WeightUnit.LB
+        fixture.committed.value = SetupState(step = SetupStep.PERSONAL_RECORDS)
+        val viewModel = fixture.viewModel(dispatcher)
+        viewModel.open()
+        runCurrent()
+
+        viewModel.openPersonalRecordEntry("external")
+        viewModel.editPersonalRecordEntry("220.5", "6")
+        viewModel.savePersonalRecordEntry()
+
+        // Save reads the entry by the same rule Next does, so it also keeps the exact kilograms.
+        assertEquals(
+            listOf(PersonalRecord("external", 100.0, 6)),
+            (viewModel.state.value.input as SetupStepInput.PersonalRecords).edits
+        )
+        viewModel.next()
+        runCurrent()
+        assertEquals(1, fixture.recordWrites.size)
+        assertEquals(PersonalRecord("external", 100.0, 6), fixture.recordWrites.single())
     }
 
     @Test
@@ -527,7 +676,11 @@ class OnboardingViewModelTest {
         // An exercise outside the eligible catalog can never open an entry.
         viewModel.openPersonalRecordEntry("bodyweight")
         assertNull(viewModel.state.value.personalRecordEntry)
-        viewModel.editPersonalRecord("external", 80.0, 8)
+        // Save stages a draft value, then closing the entry lets the row show it.
+        viewModel.openPersonalRecordEntry("external")
+        viewModel.editPersonalRecordEntry("80", "8")
+        viewModel.savePersonalRecordEntry()
+        viewModel.dismissPersonalRecordEntry()
         // Opening continues from the value the row already shows.
         viewModel.openPersonalRecordEntry("external")
         assertEquals("80", viewModel.state.value.personalRecordEntry?.weightText)

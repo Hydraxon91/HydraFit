@@ -327,8 +327,14 @@ first-workout handoffs. Equipment and
 exercise names come from the domain (`Equipment.name`/`Exercise.name`), not the module's strings;
 everything else is an `onboarding_*` resource key. Selection controls use the radio role for single
 choice and checkbox/toggle for multi-select with ~48dp rows; the step content scrolls with the action
-bar pinned and `imePadding()` applied. No larger-font-scale check has been performed, so whether the
-layout clips at larger font scales is unverified rather than claimed.
+bar pinned and `imePadding()` applied. A device pass at `font_scale 1.3` in dark mode with the app
+locale set to `de-DE` (19 commands, 7 assertions, screenshots viewed) kept the headings and the pinned
+action bar reachable on the longest step: at 1.3 the action bar reflows to two lines (Close wraps)
+without clipping, and the `de-DE` app locale falls back to the English strings — all three temporary
+device settings were restored and read back afterwards. TalkBack, rotation/adaptive layouts, a
+translated-language layout remain unverified rather than claimed; a separate pass then asserted that
+the pinned action bar stays reachable and unobstructed with the keyboard open while a PR entry field
+is focused.
 Construction writes nothing; `open` waits for `StartupReadiness`, resumes PENDING setup, or starts a
 voluntary revisit at Welcome. Next/Skip call the domain save actions; Back/edit/close/rendering save
 nothing. `isSubmittable` gates Next (its only local rule is the 2–6 weekday range, so
@@ -338,10 +344,17 @@ successful save retries only the read. Context revisions suppress stale publicat
 waits for an already-submitted write before reloading. PR edits capture the entry unit, write only
 explicitly edited records and never delete omitted records; `displayedRecord` shows the draft first and
 then the stored record. The one open entry's raw weight and reps text lives in state
-(`OnboardingUiState.personalRecordEntry`, pre-filled from `displayedRecord`), so "Save best set" stages
-immediately while Next folds a valid entry into the submitted draft first, replacing an already staged
-value rather than duplicating it; opening a different exercise's entry stages the open one by that same
-rule first, so switching never discards typed text, while re-opening the open entry keeps it; "I don't
+(`OnboardingUiState.personalRecordEntry`, pre-filled from `displayedRecord`) together with the record
+it was pre-filled from as its origin. Save, Next and a switch to another exercise all read that entry
+through the one `decidePersonalRecordEntry` rule, so they cannot diverge: an entry whose text still
+matches what was pre-filled submits nothing — opening a stored record and leaving it alone never
+rewrites it, which re-encoding its rounded pound display would otherwise do — and a single changed
+field is parsed and converted through the frozen entry unit while the other field keeps its exact
+origin value, so a reps-only edit preserves the stored kilograms and a weight-only edit preserves the
+stored reps. "Save best set" routes the entry to the ViewModel, which stages the same record Next
+would, replacing an already staged value rather than duplicating it; opening a different exercise's
+entry stages the open one by that same rule first, so switching never discards typed text, while
+re-opening the open entry keeps it; "I don't
 know" clears the entry and records nothing, and blank or
 unparseable text records nothing without blocking Next. Skip records no entry at all. `toggleWeekday`
 keeps null as a real choice rather than silently deciding. The final step's handoffs (`AppTab.PLAN`/`ROUTINES`/`LOG`) call
@@ -363,7 +376,10 @@ ViewModel depends on the domain aggregates `RoutineTemplateActions` and
 `WorkoutScheduleActions` plus `ExerciseCatalog`, `TimeProvider` and
 `WeightUnitRepository`. The activation dialog opens with the saved
 `PreferredWeekdaysRepository` selection when it exists and with the Mon/Wed/Fri
-`DefaultWeekdays` while preferences are undecided; opening it writes nothing and
+`DefaultWeekdays` while preferences are undecided; that selection is resolved when the
+dialog is requested, before it is constructed, so it never opens on a placeholder that was
+later corrected, a superseded resolution cannot overwrite a newer one, and a read failure
+degrades to the default days rather than blocking the choice. Opening it writes nothing and
 confirmation remains explicit. The Plan tab's Start-block scheduler still derives
 its weekdays from the plan. SplitBuilder starts a generated plan as a block via
 `PlanBuilderActions.scheduleAcceptedPlan`/`acceptAndSchedule` and the

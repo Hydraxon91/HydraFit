@@ -18,11 +18,16 @@ enum class OnboardingEntryPhase { LOADING, FAILURE, READY }
  * The one personal-record entry the user has open, kept as raw text so Next folds exactly what is on
  * screen. It is not a draft edit: only Save or a valid Next turns its text into a record, so an
  * unparseable or dismissed entry records nothing for that exercise.
+ *
+ * [origin] is the record the entry was pre-filled from — the value the row already showed when it
+ * opened. Keeping it lets an entry whose text still matches what was pre-filled submit nothing, and
+ * lets a single changed field keep the other field's exact value instead of its rounded display text.
  */
 data class PersonalRecordEntryDraft(
     val exerciseId: String,
     val weightText: String = "",
-    val repsText: String = ""
+    val repsText: String = "",
+    val origin: PersonalRecord? = null
 )
 
 data class OnboardingUiState(
