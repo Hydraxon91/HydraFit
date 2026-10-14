@@ -240,8 +240,10 @@ operation requires:
 
 - Commit: the approved scope, the exact files to stage, the verification results,
   and the commit message.
-- Push: explicit authorization for that specific push.
-- CI monitoring: the pushed commit or branch to watch.
+- Push: explicit authorization for that specific push, plus its CI-monitoring
+  scope and bounded timeout when monitoring is required.
+- CI monitoring: the exact pushed commit SHA, relevant branch/PR and workflows,
+  and a bounded timeout. Resolve a supplied branch to its pushed SHA before watching.
 
 Authorization follows AGENTS.md's Commit Discipline. A commit authorized by an
 approved work chunk, or by an explicit ad-hoc commit approval, is valid; do not
@@ -254,4 +256,19 @@ force-push, reset, or discard changes. A push is a separate approval: do not pus
 unless the parent explicitly authorized that push. Stop and report rather than
 working around a failure.
 
-Report the commit SHA, `git status --short`, and CI status when a push happened.
+After an authorized push containing code, tests, build configuration or tooling,
+identify the applicable GitHub Actions runs for the exact pushed SHA and wait for
+them within the supplied timeout. Include run discovery and all watch commands in
+that same overall budget; do not reset the timeout for each run. If runs have not
+appeared, poll within the budget rather than treating an empty list as success.
+If no run is triggered or discovery fails, report that limitation explicitly.
+Follow AGENTS.md's Markdown-only push exception; do not wait solely for such a push.
+
+Do not return a completed push task merely because `git push` succeeded. Report
+each applicable run's URL, SHA and terminal conclusion, or its pending/in-progress
+status when the budget expires. On failure, inspect and report the failing job;
+do not implement fixes or retry publishing without separate authorization. A
+timeout, canceled run, missing run or inaccessible check is not a CI pass.
+
+Report the commit SHA, `git status --short`, and the CI results or explicit
+monitoring exception/limitation when a push happened.
