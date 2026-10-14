@@ -10,6 +10,55 @@
 
 ## Session rules (apply to every task)
 
+- **Bounded coding delegation:** the main agent owns planning, behavioral decisions
+  and acceptance criteria. For suitable localized work with settled behavior,
+  delegate the approved chunk to `coder` (`.opencode/agents/coder.md`), passing
+  exact files, invariants, tests, downstream verification, documentation updates,
+  exclusions and stop conditions. Choose and state one implementation owner
+  before the chunk's first source or test edit. For delegated chunks, the main
+  agent may investigate, settle approved decisions and prepare the brief, but
+  `coder` writes the implementation, tests and explicitly assigned feature
+  documentation for the whole approved chunk; the main agent must not begin implementing and then delegate
+  the remainder. A split or mid-chunk owner change needs an explicitly agreed
+  boundary, affected files and preserved-work baseline before further edits.
+  If unresolved concurrency or navigation decisions prevent a settled brief,
+  stop to resolve them or keep the whole chunk with the main agent rather than
+  silently mixing ownership. Do not undo existing work to manufacture a pure
+  delegated chunk: preserve it, record file ownership and report the result as
+  mixed implementation, not a clean model comparison. Keep fatigue/planner logic,
+  migrations, concurrency and ambiguous failures with the stronger main agent
+  unless separately approved for delegation. Every brief, including a correction
+  brief, must name exact coder-owned allowed paths, parent-owned paths and exclusions.
+  Neither party edits the other's files without an explicitly agreed handoff.
+  Parent and child share a working tree: the parent makes no edits while the coder
+  runs; serialize edits and Git mutations and wait for the coder's report.
+  Before each delegation, capture HEAD and a preserved-work baseline covering staged,
+  unstaged and untracked files, including existing file content/diffs sufficient
+  to distinguish later changes. On return, compare the actual delta against the
+  allowed paths before accepting work, not just at commit time; include new,
+  deleted and renamed files and do not attribute pre-existing changes to the child.
+  Repeat for every correction brief. Stop on unexpected changes, preserve the
+  working tree and report the mismatch; do not automatically revert another's work.
+  This scope check is implementation verification, not a formal review verdict.
+  The parent owns `PLANS.md` status updates and `docs/qa.md` evidence consolidation
+  by default; the coder supplies verification evidence and edits only explicitly
+  assigned feature docs. State these document owners in the approved brief.
+  This approved documentation split does not split implementation ownership or
+  relax the `PLANS.md` status-lines-only authorization.
+  The coder must not commit, push or issue a review verdict. Independently
+  inspect the actual diff, consumers and test evidence during a separately requested
+  post-execution review in Plan Mode; never substitute the child's summary for that
+  review or start one automatically after implementation.
+  The main agent owns that review under `docs/post-execution-review.md` and
+  `docs/review-discipline.md`, recording evidence-backed findings and their
+  mechanical/design classifications rather than treating disagreement as a fix
+  mandate. After the user approves the fix scope and switches to Build mode,
+  delegate corrections to `coder` with finding IDs, evidence, settled decisions,
+  affected files and required regression/downstream verification. The coder
+  implements and verifies, then stops; the main reviewer performs targeted closure
+  checks in Plan Mode under the bounded review discipline. No automatic review/fix
+  loop, self-issued coder verdict, commit or push is authorized by this workflow.
+
 - **Plan gate.** For any task that changes code, config, or data: give a
   short plan first (files, decisions, any deviation from PLANS.md), then
   wait for an explicit OK before implementing. A decision that can change
