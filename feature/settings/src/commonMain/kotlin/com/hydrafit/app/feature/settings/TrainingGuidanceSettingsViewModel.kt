@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferenceRepository
 import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferences
 import com.hydrafit.app.core.domain.workout.RestAlertScheduler
+import com.hydrafit.app.core.domain.workout.RestAlertTiming
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -12,7 +13,8 @@ import kotlinx.coroutines.launch
 
 data class TrainingGuidanceSettingsUiState(
     val preferences: TrainingGuidancePreferences = TrainingGuidancePreferences(),
-    val permissionDenied: Boolean = false
+    val permissionDenied: Boolean = false,
+    val alertTiming: RestAlertTiming = RestAlertTiming.INEXACT
 )
 
 class TrainingGuidanceSettingsViewModel(
@@ -24,11 +26,18 @@ class TrainingGuidanceSettingsViewModel(
 
     init {
         viewModelScope.launch {
+            alerts.timing.collect { timing ->
+                _state.update { it.copy(alertTiming = timing) }
+            }
+        }
+        viewModelScope.launch {
             repository.observe().collect { preferences ->
                 _state.update { it.copy(preferences = preferences) }
             }
         }
     }
+
+    fun refreshAlertTiming() = alerts.refreshTiming()
 
     fun setAlerts(enabled: Boolean, permissionGranted: Boolean) {
         viewModelScope.launch {

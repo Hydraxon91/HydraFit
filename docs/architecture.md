@@ -693,15 +693,26 @@ not restore saved countdowns. Expired or invalid state is silently cleared.
 
 Rest alerts and short-rest coaching are independent opt-ins, both default off, stored in
 `trainingGuidancePreference` (migration `37.sqm`). Android alerts request notification permission
-only through the Settings opt-in. One local inexact elapsed-time alarm is replaced on duration edits;
-power management may delay delivery. The receiver rechecks the stored countdown, boot, session,
+only through the Settings opt-in. One elapsed-time alarm uses `setExactAndAllowWhileIdle` when
+exact-alarm access is available, otherwise `setAndAllowWhileIdle`. Android 12+ uses optional
+`SCHEDULE_EXACT_ALARM` special access, opened only by Settings' explicit **Allow precise timing**
+action; alerts remain enabled with an inexact-delay warning if access is absent. Access is refreshed
+on Settings resume and the system grant broadcast. Capability changes reconcile a future eligible
+countdown at its original deadline, never replay an already due alert. Revocation can kill the
+process and cancel OS exact alarms; fallback is restored on the next live reconciliation, not
+guaranteed while the process stays stopped. An exact-call `SecurityException` falls back to inexact
+scheduling. Inexact batching and idle throttling can delay delivery, including exact alarms under
+idle restrictions; notification channel settings independently control presentation. The receiver rechecks the stored countdown, boot, session,
 guided flag, opt-in and unresolved active occurrence before posting. App-lifetime reconciliation
 observes countdown/preferences/session/schedule/occurrence changes and removes pending and delivered
-alerts on cancellation. Expired restoration stays silent. There is no exact-alarm permission,
-foreground service, network or iOS alert implementation.
+alerts on cancellation. Expired restoration stays silent. There is no foreground service, network
+or iOS alert implementation; `USE_EXACT_ALARM` is not declared.
 Scheduling, cancellation and posting are serialized by the Android adapter; cancellation advances
 a delivery revision so a receiver awaiting localized strings cannot post after cancellation.
 Receiver startup work has an eight-second budget and fails closed on timeout.
+Debug-only `HydraFitRestAlert` logs contain monotonic schedule/receipt/post timestamps and scheduling
+mode/deadline, not workout identities or measurements. These distinguish OS delivery delay from
+receiver work without copying personal records into logs.
 When startup reconciliation finds a due countdown with otherwise-valid context, it leaves delivery
 to the already-triggered receiver rather than cancelling its in-flight notification; invalid
 context, disabled preferences and subsequent transitions into the due state still cancel. Logger

@@ -7,7 +7,7 @@
 | Item | Status | Next action |
 | --- | --- | --- |
 | Product roadmap — M1–M8 | IN PROGRESS | 0.2.0–0.6.1 shipped; M1 selected scope done in 0.2.3. [Approved pre-1.0 roadmap](docs/roadmap.md): 0.7.x context → 0.8.x progress → 0.9.x equipment/data → 0.10.x progression → 0.11.x advanced metrics → 0.12.x optional AI → provisional 0.13.x final UX/design → 1.0. Smaller published feature releases approved 2026-10-11; each has its own bounded scope, verification and separately requested review. 0.7.0 scope and its durable decisions were approved 2026-10-11 (see the OF-03 section). 0.7.0 explanations, 0.7.1 notes/history, 0.7.2 summaries, 0.7.3 warm-up guidance (WU-01), 0.7.4 offline exercise instructions and 0.7.5 informational cautions are shipped. `v0.7.5` tags `7789d579` (PR #12), with green PR/main CI and signed Release run `38521713529`; the offline APK was verified as version 0.7.5/code 20 with matching digest and signature. Signed-release runtime remains unverified. Completed release detail is archived; all remaining work is pre-1.0 except iOS shipping/desktop; research remains evidence-gated. |
-| Oct 13 follow-up — pre-0.7.4 correctives | DONE | OCT13-01/02/03/04/07 implementation and PE-01..04 post-review follow-ups are complete; both the post-execution review and targeted closure review are approved. Logger host tests, `ktlintCheck`, `assembleDebug`, migration verification and both iOS compiles passed; closure test evidence is in `docs/qa.md` §13. OCT13-03/07 emulator acceptance remains user-reported. OCT13-05 notification findings stay in 0.7.7; OCT13-06 expired-prompt dismissal and LT-10 progression policy remain separate/open. Topic branch push only; PR/merge and release publication are not included. |
+| Oct 13 follow-up — pre-0.7.4 correctives | DONE | OCT13-01/02/03/04/07 implementation and PE-01..04 post-review follow-ups are complete; both the post-execution review and targeted closure review are approved. Logger host tests, `ktlintCheck`, `assembleDebug`, migration verification and both iOS compiles passed; closure test evidence is in `docs/qa.md` §13. OCT13-03/07 emulator acceptance remains user-reported. OCT13-05 broader notification integration stays in 0.7.7; OCT14-01 rest-alert timing corrective is approved before 0.7.6 C4. OCT13-06 expired-prompt dismissal and LT-10 progression policy remain separate/open. Topic branch push only; PR/merge and release publication are not included. |
 | 0.7.4 — offline exercise instructions | C0–C7 DONE — PUBLISHED as `v0.7.4` | Approved 17-entry dumbbell/machine-distinct batch; all text editorially accepted unchanged 2026-10-13. C1–C3 targeted closure approved at `3ecd3bca`; R074-05 editorial-status correction applied (`39c7ce8d`). C4/C5 entry points implemented with presentation-only state, tests and bounded flows; C6 verified Equipment/manual/planned/guided/custom-unavailable runtime, a `de-DE` English-fallback check, a font-1.3 longest-text no-clip check and the full candidate matrix, with font 1.3 light and dark user-verified and all temporary fixtures/settings restored. Bounded post-execution review over `3ecd3bca..7f80df47` returned **APPROVED** with no blocking findings; nits R074R-02 (test-tag identity) and R074R-03 (evidence wording) remain open by decision. C7 is DONE — PUBLISHED 2026-10-13 as `v0.7.4` on the PR #11 merge commit `3f5804f9`; Release run `38457253900` (run number 19) passed, with PR/main Build-and-Test runs `38455034690`/`38455821541` green (an earlier Build-and-Test run `38452768212`, run number 203, failed with its `iOS Compile` job cancelled, after which that job was temporarily disabled). Offline artifact check: `versionName=0.7.4`, `versionCode=19`, 24,761,680 bytes, APK SHA-256 `17852bc7238f42e8cb2cb0f7c4a0ddd6fc1326548ee2a73cbe45e6e016c3a5c8` matching the asset digest, same signing certificate as prior releases; the release APK was never installed on the emulator. Evidence/limits in `docs/qa.md` §13. |
 | 0.7.5 — informational exercise cautions | C0–C6 DONE — PUBLISHED as `v0.7.5` at `7789d579`; PR/main/Release CI green; APK verified offline; runtime limits in `docs/qa.md` §13 | Approved three-ID sourced caution batch (`conventional-deadlift`, `romanian-deadlift`, `dumbbell-rdl`) presented as nonblocking "Technique considerations" in the existing offline instruction viewer, with a labelled indication at the Equipment/Logger instruction actions, an independent stable-ID lookup and no persistence/schema/backup change. C1/C2 added the manifest/lookup and the three authored cautions (editorially accepted 2026-10-13); C3/C4 wired the viewer section and the Equipment/planned-draft/guided indications. Decisions remain in the EX-03 / 0.7.5 section; completed chunk detail is archived. |
 | 0.7.6 — onboarding and first-workout guidance | C0–C2 DONE; C3–C8 gated — NOT STARTED | C1 (`390f3fc1`) adds schema 45/backup 11, setup disposition/resume and preferred weekdays. C2 adds atomic step save actions, the isolated `:feature:onboarding` scaffold/state machine and verified exported Koin bindings; full Tier A gates passed, including the new module's iOS compile (`/tmp/hydrafit-076-c1-full.log`, `/tmp/hydrafit-076-c2-full.log`). No new starting-load storage; PRs use existing storage. Shared/startup/Settings/navigation/UI and activation prefill remain unwired; emulator acceptance and formal review remain pending. Branch: `release/0.7.6`; no implementation push yet. |
@@ -1354,6 +1354,71 @@ implementation chunk ships its tests and affected living-doc/mechanics-reference
 weekday-preference consumers), runs the relevant checks and reports at its boundary, using the
 verification tiers in `docs/agent-project-reference.md` Key Commands. Stop after C6 for C7 in Plan
 Mode. No push or publication is authorized by this section.
+
+### Oct 14 live-testing follow-up — rest alerts and remaining ideas
+
+**Approved direction (2026-10-14):** pause the combined 0.7.6 C4 → C5 work until a
+bounded rest-alert corrective is implemented and verified. Option B is approved:
+use `setExactAndAllowWhileIdle` when permitted, with `SCHEDULE_EXACT_ALARM` special
+access on supported Android versions and an explicitly disclosed inexact fallback
+when access is unavailable. This reopens the prior no-exact-alarm-permission
+decision for user-enabled rest alerts only; do not use `USE_EXACT_ALARM`. No push,
+tag, publication, new dependency or foreground service is authorized. A requested
+post-execution review remains a separate Plan Mode gate.
+
+- **OCT14-01 — rest-alert timing corrective (PRE-C4, implemented and bounded-verified; formal review
+  pending).** Exact/inexact scheduling with optional Alarms & reminders access is implemented and
+  verified on a debug emulator: alerts enable without the access, the inexact warning and
+  **Allow precise timing** action render, that action opens the system page, a grant clears the warning
+  on return without disabling alerts, revocation restores it and kills the process as documented, and
+  toggling alerts off returns the baseline. Full host matrix plus ktlint and iOS compiles passed.
+  User-run S25 timing acceptance and receiver-timestamp confirmation of the ~75% delay remain
+  outstanding; evidence and limits in `docs/qa.md` OCT14-01.
+  User-reported S25 timings: 15-second rest → approximately 26–26.5 seconds total;
+  30 seconds → approximately 52 seconds; 60 seconds → approximately 105 seconds.
+  The 30-second result repeated across foreground/background, locked/unlocked and
+  user-described app-closed states. Force-stop versus Recents dismissal is not
+  established. Current `AndroidRestAlertScheduler` uses inexact
+  `setAndAllowWhileIdle`; the AOSP 75%-of-futurity batching heuristic matches the
+  measurements, but S25 receiver-arrival/posting timestamps have not confirmed
+  its device-specific cause. The countdown deadline remains completion + duration.
+  Settle the exact permission-request/return/revocation and fallback UI contract
+  before implementation. Trace deadline → alarm receipt → notification posting
+  with non-personal debug evidence; preserve elapsed-time deadlines, explicit
+  alert opt-in, stale-delivery guards, cancellation/edit/session/occurrence
+  invalidation and silent expired restoration. Test granted/denied/revoked access,
+  scheduling races, repeated short rests and receiver validation; verify host/Koin
+  checks, Android build/lint and bounded debug-emulator acceptance. User-run S25
+  timing checks remain necessary: exact alarms still have idle throttling and do
+  not guarantee heads-up presentation. Update affected living docs and mechanics
+  references with the corrective. Broader OCT13-05/LT-06 reminder, ongoing-countdown,
+  foreground-signal and notification-channel decisions stay in 0.7.7.
+- **OCT14-02 — development-version accuracy and update discipline (OPEN tooling
+  follow-up).** `androidApp/build.gradle.kts` still defaults to `0.7.2-dev`;
+  Acknowledgments receives the build version rather than separate hardcoded copy.
+  Propose the current development base and a release-checklist/version-consistency
+  guard, including tagged-build and unavailable-Git cases. CI changes need explicit
+  separate approval; neither a guard implementation nor an automatic tag-derived
+  version policy is approved here. Preserve revision/dirty identity and release
+  tag naming. A misleading base alone does not prove a stale installation.
+- **OCT14-03 — return-to-training load policy (OPEN decision, OF-10A / 0.10.x).**
+  Consider temporary lower suggested loads after a long training gap. Today's
+  42-day evidence window can withhold automatic load, while eligible manual PRs
+  remain a floor; it is not an inactivity reduction/ramp-back policy. Decide gap
+  definition, exercise versus whole-user scope, reduction/recovery criteria,
+  manual-PR treatment, engine consistency and accepted/frozen-target behavior
+  before implementation. No thresholds, percentages or automatic history/PR
+  changes are approved by this finding.
+- **OCT14-04 — seeded-exercise instruction coverage (OPEN content decision,
+  CAT-01; closure remains 0.13.6).** Current authored text covers 17 exercises.
+  Recommend bounded text batches independent of images/animations; agree the
+  coverage target, batch priority, sources and editorial acceptance first.
+  Instructions attach to stable exercise IDs, not individual sets. Media retains
+  its separate licensing, offline-size and accessible-text contract; no new text
+  batch or media asset is authorized here.
+- **OCT14-05 — progression graphs (ALREADY PLANNED).** Map the requested progression
+  tracker to OF-04 / 0.8.0 exercise history and load/repetition/e1RM/working-volume
+  charts; no duplicate feature or accelerated implementation is authorized.
 
 ### Supporting plans — library, equipment and product quality
 

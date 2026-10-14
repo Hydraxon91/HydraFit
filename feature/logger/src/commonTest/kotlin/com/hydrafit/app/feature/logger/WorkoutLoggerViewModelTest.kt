@@ -62,6 +62,7 @@ import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.PersistedRestCountdown
+import com.hydrafit.app.core.domain.workout.RestAlertTiming
 import com.hydrafit.app.core.domain.workout.RestCountdownRepository
 import com.hydrafit.app.core.domain.workout.SessionConfig
 import com.hydrafit.app.core.domain.workout.SessionNoteRepository
@@ -7116,7 +7117,9 @@ class WorkoutLoggerViewModelTest {
         val scheduled = mutableListOf<PersistedRestCountdown>()
         var cancellations = 0
         var elapsed = 1_000L
+        val alertTiming = MutableStateFlow(RestAlertTiming.INEXACT)
         val alerts = object : com.hydrafit.app.core.domain.workout.RestAlertScheduler {
+            override val timing = alertTiming
             override suspend fun schedule(countdown: PersistedRestCountdown) {
                 scheduled.add(countdown)
             }
@@ -7145,17 +7148,28 @@ class WorkoutLoggerViewModelTest {
             ready.value = true
             runCurrent()
             assertEquals(listOf(stored), scheduled)
+            alertTiming.value = RestAlertTiming.PRECISE
+            runCurrent()
+            assertEquals(listOf(stored, stored), scheduled)
+            alertTiming.value = RestAlertTiming.INEXACT
+            runCurrent()
+            assertEquals(listOf(stored, stored, stored), scheduled)
             preferences.setShortRestCoachingEnabled(true)
             runCurrent()
-            assertEquals(1, scheduled.size)
+            assertEquals(3, scheduled.size)
             val edited = stored.copy(deadlineElapsedMillis = 181_000L, durationMillis = 180_000L)
             countdowns.save(edited)
             runCurrent()
-            assertEquals(listOf(stored, edited), scheduled)
+            assertEquals(listOf(stored, stored, stored, edited), scheduled)
             elapsed = 200_000L
             preferences.setShortRestCoachingEnabled(false)
             runCurrent()
             assertEquals(0, cancellations) // A delayed alarm is not erased by an unrelated setting.
+            alertTiming.value = RestAlertTiming.PRECISE
+            runCurrent()
+            // A capability change cannot replay an already due alert.
+            assertEquals(4, scheduled.size)
+            assertEquals(0, cancellations)
             preferences.setRestAlertsEnabled(false)
             runCurrent()
             assertEquals(1, cancellations)
@@ -7164,7 +7178,7 @@ class WorkoutLoggerViewModelTest {
             assertEquals(2, cancellations) // Disabling and re-enabling reconcile explicitly.
             countdowns.save(stored.copy(deadlineElapsedMillis = 320_000L))
             runCurrent()
-            assertEquals(3, scheduled.size)
+            assertEquals(5, scheduled.size)
             schedule.set(
                 blockActivation(),
                 twoOccurrences().map { it.copy(status = OccurrenceStatus.FINISHED) },
@@ -7174,9 +7188,15 @@ class WorkoutLoggerViewModelTest {
             assertEquals(3, cancellations)
             schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
             runCurrent()
+            // Reopening eligible context reconciles its future countdown.
+            assertEquals(6, scheduled.size)
             sessions.end("session", MONDAY)
             runCurrent()
             assertEquals(4, cancellations)
+            alertTiming.value = RestAlertTiming.INEXACT
+            runCurrent()
+            // A closed session cannot be resurrected by access changes.
+            assertEquals(6, scheduled.size)
         } finally {
             coordinator.close()
             runCurrent()

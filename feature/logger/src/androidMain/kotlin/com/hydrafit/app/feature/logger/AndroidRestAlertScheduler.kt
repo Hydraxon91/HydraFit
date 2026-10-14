@@ -9,14 +9,18 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.SystemClock
+import android.util.Log
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferenceRepository
 import com.hydrafit.app.core.domain.startup.StartupReadiness
 import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.workout.PersistedRestCountdown
 import com.hydrafit.app.core.domain.workout.RestAlertScheduler
+import com.hydrafit.app.core.domain.workout.RestAlertTiming
 import com.hydrafit.app.core.domain.workout.RestCountdownRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
 import com.hydrafit.app.core.domain.workout.isRestAlertEligible
@@ -27,6 +31,8 @@ import hydrafit.feature.logger.generated.resources.logger_rest_alert_channel
 import hydrafit.feature.logger.generated.resources.logger_rest_alert_title
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -40,6 +46,22 @@ class AndroidRestAlertScheduler(context: Context) : RestAlertScheduler {
     private val notifications = this.context.getSystemService(NotificationManager::class.java)
     private val deliveryLock = Any()
     private var deliveryRevision = 0L
+    private val _timing = MutableStateFlow(currentTiming())
+    override val timing = _timing.asStateFlow()
+
+    private fun currentTiming(): RestAlertTiming = if (
+        Build.VERSION.SDK_INT < 31 || alarms.canScheduleExactAlarms()
+    ) {
+        RestAlertTiming.PRECISE
+    } else {
+        RestAlertTiming.INEXACT
+    }
+
+    override fun refreshTiming() {
+        synchronized(deliveryLock) {
+            _timing.value = currentTiming()
+        }
+    }
 
     fun currentDeliveryRevision(): Long = synchronized(deliveryLock) { deliveryRevision }
 
@@ -47,19 +69,34 @@ class AndroidRestAlertScheduler(context: Context) : RestAlertScheduler {
         synchronized(deliveryLock) {
             cancel()
             if (!canNotify()) return
-            alarms.setAndAllowWhileIdle(
-                AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                countdown.deadlineElapsedMillis,
-                pendingIntent(
-                    Intent(context, RestAlertReceiver::class.java)
-                        .putExtra("deadline", countdown.deadlineElapsedMillis)
-                        .putExtra("duration", countdown.durationMillis)
-                        .putExtra("boot", countdown.bootIdentity)
-                        .putExtra("session", countdown.sessionId)
-                        .putExtra("occurrence", countdown.occurrenceId)
-                        .putExtra("exercise", countdown.exerciseId)
-                )
+            val operation = pendingIntent(
+                Intent(context, RestAlertReceiver::class.java)
+                    .putExtra("deadline", countdown.deadlineElapsedMillis)
+                    .putExtra("duration", countdown.durationMillis)
+                    .putExtra("boot", countdown.bootIdentity)
+                    .putExtra("session", countdown.sessionId)
+                    .putExtra("occurrence", countdown.occurrenceId)
+                    .putExtra("exercise", countdown.exerciseId)
             )
+            val precise = scheduleRestAlarm(
+                exactAllowed = currentTiming() == RestAlertTiming.PRECISE,
+                scheduleExact = {
+                    alarms.setExactAndAllowWhileIdle(
+                        AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                        countdown.deadlineElapsedMillis,
+                        operation
+                    )
+                },
+                scheduleInexact = {
+                    alarms.setAndAllowWhileIdle(
+                        AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                        countdown.deadlineElapsedMillis,
+                        operation
+                    )
+                }
+            )
+            _timing.value = if (precise) RestAlertTiming.PRECISE else RestAlertTiming.INEXACT
+            logRestAlertTiming(context, "scheduled", countdown.deadlineElapsedMillis, precise)
         }
     }
 
@@ -111,6 +148,7 @@ class AndroidRestAlertScheduler(context: Context) : RestAlertScheduler {
                     .setOnlyAlertOnce(true)
                     .build()
             )
+            logRestAlertTiming(context, "posted")
         }
     }
 
@@ -134,12 +172,49 @@ class AndroidRestAlertScheduler(context: Context) : RestAlertScheduler {
     }
 }
 
+/** Access can be revoked between the capability check and the exact scheduling call. */
+internal fun scheduleRestAlarm(
+    exactAllowed: Boolean,
+    scheduleExact: () -> Unit,
+    scheduleInexact: () -> Unit
+): Boolean {
+    if (exactAllowed) {
+        try {
+            scheduleExact()
+            return true
+        } catch (_: SecurityException) {
+            // The user can keep best-effort alerts without granting exact-alarm access.
+        }
+    }
+    scheduleInexact()
+    return false
+}
+
+private fun logRestAlertTiming(
+    context: Context,
+    stage: String,
+    deadline: Long? = null,
+    precise: Boolean? = null
+) {
+    if (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+        Log.d(
+            "HydraFitRestAlert",
+            "$stage elapsed=${SystemClock.elapsedRealtime()} deadline=$deadline precise=$precise"
+        )
+    }
+}
+
 /** The receiver reads current stores rather than trusting alarm extras as workout authority. */
 class RestAlertReceiver :
     BroadcastReceiver(),
     KoinComponent {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED) {
+            get<AndroidRestAlertScheduler>().refreshTiming()
+            return
+        }
         val deadline = intent.getLongExtra("deadline", -1L)
+        logRestAlertTiming(context, "received", deadline)
         val duration = intent.getLongExtra("duration", -1L)
         val boot = intent.getStringExtra("boot") ?: return
         val session = intent.getStringExtra("session") ?: return

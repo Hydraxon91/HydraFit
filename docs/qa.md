@@ -431,7 +431,7 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - With guided workouts ON and an active block occurrence, the Logger shows the guided card: exercises in order with target vs actual sets; "Log set" records exactly one set and the remaining prescribed sets stay pending; warm-ups and unplanned exercises do not count toward progress; the Warm-up toggle applies to the guided row's Log set / Set completed now actions; Edit then Confirm also records one set. A live start owns its completion: while a set is started, the guided row's ordinary "Log set" is unavailable and only that slot's "Set completed now" can complete it; "Start set" is disabled for the already-started slot while a different untouched slot stays startable. Replacement is hidden for a slot that already holds recorded work (working or warm-up) and for the started slot; untouched later slots stay replaceable. Finish/partial/Skip and End/New session are unchanged.
 - In guided mode, "Set completed now" records one set at the live time and starts the editable rest prompt only after save succeeds. Ordinary confirmation and backdated entries do not start it. Duration accepts 1–86,400 seconds; invalid values must not crash or change the active timer. Change duration and verify the deadline is still based on the original completion time; background/resume must not restart it. Starting the next set cancels that prompt's countdown and persisted alert before the new start is recorded. It expires without logging a set and is not a rest measurement.
 - End/New session, occurrence change, guided OFF, dismiss, starting the next set, or successful deletion/correction of a set from the active occurrence cancels the prompt. A same-boot process death restores the remaining countdown while the occurrence context still matches; a reboot (boot-identity change) or expired/mismatched/malformed state clears it silently.
-- Rest alerts and short-rest coaching default OFF independently. Android alert opt-in explicitly requests notification permission; denial keeps alerts off without affecting coaching. One local inexact alarm may be delayed by power management; duration edits replace it, cancellation removes pending/delivered alerts, invalid context suppresses delivery, and expired restoration stays silent. No exact-alarm permission or foreground service appears; iOS shows unsupported alerts.
+- Rest alerts and short-rest coaching default OFF independently. Android alert opt-in explicitly requests notification permission; denial keeps alerts off without affecting coaching. Exact scheduling uses optional Alarms & reminders access on Android 12+; without access, alerts remain enabled with the visible delay warning and explicit Allow precise timing action. Returning after a grant reconciles a future eligible timer at its unchanged deadline; denying or revoking access retains inexact fallback on live reconciliation. OS revocation can terminate the process and remove alarms, so delivery while stopped is not guaranteed. Duration edits replace alarms, cancellation removes pending/delivered alerts, invalid context suppresses delivery, and expired restoration stays silent. Check repeated 15/30/60-second rests across foreground/background/locked states; idle throttling and channel presentation remain separate from deadline accuracy. No foreground service appears; iOS shows unsupported alerts. Historical verification below predates the OCT14-01 exact-alarm corrective.
 - Coaching requires two consecutive eligible live completion → Start set intervals below the rest duration chosen at completion, same exercise/session/occurrence/boot. It shows one dismissible, non-blocking message per exercise/session without logging a set or changing prescriptions/fatigue/RIR. Equal/longer intervals break the streak; catch-up, edited/unknown timing, warm-ups and transitions cannot contribute; recreation resets evidence.
   **2026-10-11 bounded verification:** debug install on `emulator-5554`; read-only Settings navigation asserted both new labels and the final screenshot was viewed (`/tmp/hydrafit-060-guidance-settings-final.png`); both switches appeared off. In the approved synthetic fixture journey, notification permission was requested and granted; after one live set, the app process was killed without force-stop and Android delivered the expected “Rest prompt ended” notification without a manual relaunch (screenshot: `/tmp/hydrafit-r060-delivered.png`). The synthetic set/session were cleaned up, the block canceled and routine rearchived; settings were restored to 120 seconds and OFF, and notification permission to denied. Explicit permission-denial handling, receiver interleavings and replacement UI remain unverified. Host regressions cover preference/backup/migration round-trips, eligibility, coordinator readiness/duration/deduplication/context cancellation, coaching policy/live integration, replacement preservation/rejections and Koin resolution; they do not prove platform receiver interleavings.
 - RIR fields in manual logging, planned-draft editing and recent-set editing explain reps in reserve, remain optional, and offer 0/1/2/3 quick-picks. Picking the selected value again clears it; typed values through 10 remain available. Zero is recorded as an explicit report, blank stays unreported, and no RPE conversion or inferred/prescribed RIR appears.
@@ -1001,6 +1001,75 @@ preferences were never touched. Automation spent more than the five-minute per-f
 Larger text, dark mode, locale, TalkBack and signed-release runtime remain unverified. The bounded
 post-execution review and targeted closure review are complete; these do not claim emulator coverage
 beyond the observations above.
+
+### OCT14-01 precise rest-alert corrective (2026-10-14)
+
+Builder verification on `2b206bc7` plus the uncommitted corrective; formal review pending.
+Exact alarms are selected when permitted; the callback regression proves denied access and
+`SecurityException` revocation fall back once, without hiding unrelated failures. Coordinator
+regressions cover access changes preserving the original deadline, no replay/cancellation of an
+already due alert, context cancellation and no resurrection after session close. Settings tests
+cover timing-state changes without changing alert/coaching preferences; iOS remains unsupported.
+
+- Full `testAndroidHostTest`, migration verification, `ktlintCheck`, debug assembly and shared/network
+  iOS simulator compiles passed: `/tmp/hydrafit-oct14-alert-full.log` (`BUILD SUCCESSFUL`, 1m18s).
+  Logger/settings XML totals: 401 tests, zero failures/errors/skips. Aggregate verification reused
+  up-to-date outputs where inputs were unchanged; this was not a clean rebuild. Shared Koin tests
+  passed; Android platform permission/receiver delivery is not proved by those graph tests.
+- Initial targeted runs found formatting violations and a new coordinator assertion that omitted
+  the legitimate reschedule when the fixture reopened eligible context before closing its session.
+  The assertion was corrected with an explicit intermediate schedule count; no production workaround
+  or test weakening was used. Subsequent full verification passed.
+- Installed only debug on verified `emulator-5554`; version after update was
+  `0.7.2-dev-2b206bc7-dirty`, with `SCHEDULE_EXACT_ALARM` declared. Notification permission remained
+  user-denied (`USER_SET`, appop ignore), exact-alarm appop had no explicit override. Two parent-authored
+  read-only flows passed 4/4 commands each within 120-second caps, one attempt each: Equipment →
+  Settings, then scroll to the rest-alert row. Both guidance switches remained OFF, default rest 120.
+  New explanatory copy was semantically observed and `/tmp/hf-oct14-guidance.png` viewed with no
+  clipping of the rest-alert description. The precise-access action is correctly absent while alerts
+  are OFF. No preference, permission, workout or system-setting writes were made beyond debug install.
+  Evidence: `/tmp/hf-oct14-settings.csv`, `/tmp/hf-oct14-guidance.csv`,
+  `/tmp/hf-oct14-guidance-run.log`, `/tmp/hf-oct14-guidance.png`.
+- **Grant/revoke acceptance (`emulator-5554`, debug `0.7.6-dev-2b206bc7-dirty`, 2026-10-14):**
+  parent-authored flows ran with the notification baseline granted through adb first, then phases in
+  order, one attempt each within 120-second caps. Alerts were already enabled, so the enabled-inexact
+  state was verified directly rather than by toggling.
+  - **Inexact state (p1, 11/11, 17s):** alerts row `checked`, the warning text and the
+    `settings_rest_alerts_precise` action both visible. The viewed
+    `/tmp/hf-oct14-p1/2026-10-14_133421/hf-oct14-p1/takeScreenshot/oct14-phase1-inexact.png` shows the
+    full warning and the action unclipped beneath it.
+  - **Action target (p1b, 1/1, 9s):** tapping the action made
+    `com.android.settings/.spa.SpaActivity` the resumed activity; one Back keyevent returned
+    `com.hydrafit.app/.MainActivity`. Grant-page navigation is verified, but the app was not observed
+    reacting to a grant performed on that page.
+  - **Granted state (p2, 11/11, 13s):** with `SCHEDULE_EXACT_ALARM` allowed, returning to Settings
+    cleared both the warning and the action while alerts stayed `checked`; viewed
+    `/tmp/hf-oct14-p2/2026-10-14_133507/hf-oct14-p2/takeScreenshot/oct14-phase2-precise.png`.
+  - **Revoked state (p3, 8/10 before an assertion failure, 29s):** after resetting the appop to
+    default, the alerts row asserted `checked` and the warning asserted present again. Only the
+    action-id assertion failed, because that flow's scroll stopped with the button just below the
+    fold rather than because it was absent; phase 1 rendered it from the same code path. The residual
+    appop entry created by `appops set ... default` is behaviourally inert
+    (`SCHEDULE_EXACT_ALARM: default`), and no broad reset was used to remove it.
+  - **OS behaviour confirmed:** the revoke step killed the process;
+    `dumpsys activity exit-info com.hydrafit.app` recorded `reason=PERMISSION CHANGE` with
+    `description=schedule_exact_alarm revoked`, matching the documented revocation semantics. `logcat`
+    showed no `FATAL EXCEPTION` or `AndroidRuntime` crash for HydraFit in any phase.
+  - **Baseline restoration (p4, 11/11, 16s):** toggling alerts OFF cleared the warning and the action
+    and returned `checked:false`; short-rest coaching OFF, default rest 120, notification permission
+    denied with its prior flags, and `SCHEDULE_EXACT_ALARM` with no allow override. The viewed
+    `/tmp/hf-oct14-p4-run/2026-10-14_134133/hf-oct14-p4/takeScreenshot/oct14-cleanup-off.png` shows
+    both guidance rows off. A residual package-level `POST_NOTIFICATION: allow` line was left exactly
+    as found; the transient notification grant and the process kill are the only emulator-state side
+    effects of this run.
+  - Final flow logs: `/tmp/hf-oct14-p1.log`, `-p1b.log`, `-p2.log`, `-p3.log`, `-p4.log`.
+- **Still unverified:** actual alert delivery timing on real hardware (the emulator cannot reproduce
+  the reported delay), heads-up versus shade presentation, and repeated short rests under idle
+  throttling. User-run S25 15/30/60-second checks are required; the reported approximately 75% extra
+  delay matches the AOSP inexact-window heuristic but was not traced with receiver timestamps, and
+  force-stop versus Recents dismissal is still undistinguished. Larger text, dark mode, locale,
+  TalkBack and OFF-state persistence across restart were not exercised. This is not a formal review
+  verdict and does not by itself authorize resuming C4/C5.
 
 ### OCT13-05 notification-delivery experiment (2026-10-13)
 

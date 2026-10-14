@@ -1,11 +1,23 @@
 package com.hydrafit.app.core.domain.workout
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
 
 class RestAlertEligibilityTest {
     private val alarm = PersistedRestCountdown(120_000L, 120_000L, "boot", "session", 1L, "squat")
+
+    @Test
+    fun unsupportedSchedulerNeverClaimsPreciseTiming() = runTest {
+        val scheduler = UnsupportedRestAlertScheduler()
+        scheduler.refreshTiming()
+        scheduler.schedule(alarm)
+        scheduler.cancel()
+        assertEquals(RestAlertTiming.UNSUPPORTED, scheduler.timing.first())
+    }
 
     @Test
     fun acceptsDueAndDelayedAlertsOnlyForTheCurrentLiveContext() {
