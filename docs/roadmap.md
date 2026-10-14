@@ -103,8 +103,8 @@ End/New session and background/resume/timer semantics verified offline.
 ### 0.7.0 — Workout Context & Confidence
 
 The heading identifies the theme's starting version; the scope is spread across
-**0.7.x**, not all included in 0.7.0. 0.7.0–0.7.5 are published; 0.7.6 and 0.7.7
-remain.
+**0.7.x**, not all included in 0.7.0. 0.7.0–0.7.6 are published; 0.7.7
+remains.
 
 | Target | Reviewable release scope | Dependencies / references |
 | --- | --- | --- |

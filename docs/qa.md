@@ -916,6 +916,33 @@ dependency, configuration, CI, signing or schema change.
   signed-artifact verification are recorded separately when they occur. No release APK is installed on
   the development emulator.
 
+### v0.7.6 publication verification (2026-10-14)
+
+- Published [v0.7.6](https://github.com/Hydraxon91/HydraFit/releases/tag/v0.7.6) at PR #13's merge
+  commit `6bb62a5920b985de9dba2de7aad10ab3770720a1` on `main`. The annotated tag `v0.7.6` (tag object
+  `54ec36b4`) targets that merge revision, not the `release/0.7.6` branch HEAD `b74c70bc`.
+- PR #13's checks were green (Lint, Assemble Debug APK, Unit Tests) and the main Build-and-Test run
+  `38620326520` for the merge commit passed all three jobs. Release run `38620991923` (run number 21)
+  passed Lint, Unit Tests and the signed APK build/publication, and created the GitHub Release with
+  auto-generated notes.
+- One `Unit Tests` run failed first with `:shared:testAndroidHostTest` →
+  `KoinModulesVerificationTest.theOnboardingViewModelsResolveAtRuntime`: `Dispatchers.Main` was
+  accessed while the test dispatcher was unset, which funnels into the platform Android main
+  dispatcher that a plain host JVM cannot initialise. It passed on re-run, and on the merge and
+  Release runs, and it does not reproduce locally (that task passes 22/22, including after a cold
+  Gradle daemon and a forced re-run). The cause is order-dependent test-harness state, not production
+  code; the user chose not to patch it, so the flake remains and could redden a future run.
+- Offline artifact verification: downloaded asset `androidApp-release.apk`, 24,813,143 bytes;
+  `versionName=0.7.6`, `versionCode=21` (previous releases 18, 19, 20) read with `aapt2 dump badging`
+  from build-tools 36.0.0 (`apkanalyzer` is not installed locally). `apksigner verify --verbose
+  --print-certs` passed (v2 signature) with signer certificate SHA-256
+  `af9cd73b3cc6842c7ab3c2f3cd572245826089aee863e9168a761a893c35a7e1`, matching the previously recorded
+  release certificate. The local APK SHA-256
+  `dfbe699e558bd428dc2b5a1e73d73cc1af87a5d42c25013c82e94c367c16d4e6` matches GitHub's asset digest.
+- The release APK was never installed on the development emulator, so signed-release runtime
+  behaviour remains unverified, as do the 0.7.6 limits recorded above. Kept offline copy:
+  `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/hf-076-release/androidApp-release.apk`.
+
 ### 0.7.5 C1–C2 caution content foundation (2026-10-13)
 
 Builder verification of the approved EX-03 / 0.7.5 content foundation (three sourced IDs:

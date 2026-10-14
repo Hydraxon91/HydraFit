@@ -52,7 +52,7 @@ The next versions are deliberately smaller: each gets a focused scope and its ow
 
 ### Workout context (0.7.x)
 
-0.7.0–0.7.5 are published; 0.7.6 and 0.7.7 remain.
+0.7.0–0.7.6 are published; 0.7.7 remains.
 
 | Target | Focus |
 | --- | --- |
@@ -62,7 +62,7 @@ The next versions are deliberately smaller: each gets a focused scope and its ow
 | 0.7.3 ✅ | Warm-up and ramp-set guidance |
 | 0.7.4 ✅ | First batch of offline exercise instructions |
 | 0.7.5 ✅ | Sourced, informational exercise cautions |
-| 0.7.6 | Setup and first-workout guidance |
+| 0.7.6 ✅ | Setup and first-workout guidance |
 | 0.7.7 | Opt-in workout reminders |
 
 ### After that
