@@ -754,9 +754,9 @@ uncommitted chip-wrap fix. C6 is **not** complete: the checks listed at the end 
     produced the visible failure message without a crash. Both entered values remained, Log set was
     enabled, the PID stayed unchanged, and database aggregates remained two sets/one open session
     with zero target sets. After restoring modes, one explicit retry recorded exactly one target set:
-    three sets/one open session, with only `workoutSet` gaining a row across all 33 table counts.
+    three sets/one open session, with only `workoutSet` gaining a row across all 37 retained table counts.
     No prior row was removed and notification/exact-alarm permission baselines stayed unchanged.
-  - Failure flow passed 20/20 commands and retry 5/5, once each under 120-second caps. Screenshots
+  - Failure flow passed 21/21 commands and retry 5/5, once each under 120-second caps. Screenshots
     were viewed: `/tmp/hf-logger-corrective-failure/2026-10-14_180834/hf-c6-fail-write/takeScreenshot/c6-fail-write-screen.png`
     and `/tmp/hf-logger-corrective-retry/2026-10-14_181016/hf-c6-retry-write/takeScreenshot/c6-retry-write-recorded.png`.
     Hierarchies: `/tmp/hf-c6-failstate.csv`, `/tmp/hf-c6-finalstate.csv`. Synthetic retry fixture retained.
@@ -766,6 +766,34 @@ uncommitted chip-wrap fix. C6 is **not** complete: the checks listed at the end 
   - Limits: startup recovery remains deliberately deferred to 0.13.7. This check did not simulate
     actual disk-full/corruption, exercise offline writes, or repeat dark/font/locale/TalkBack variants.
     Session creation and set insertion are not made atomic by this presentation-only corrective.
+- Review corrections R076LR-01/02/03 (2026-10-14, `480c1c21` plus corrective changes):
+  - The bounded Plan-mode review of `877115d2..480c1c21` returned REJECTED for stale save-failure
+    feedback after occurrence changes and inaccurate refresh wording; it also found the table-count
+    evidence mismatch. This is historical review status, not a new verdict on the corrections.
+  - R076LR-01 now clears displayed save failure on occurrence replacement/removal, preserves it on
+    unchanged refresh, and suppresses late failure from an old context. R076LR-02 uses “Your set was
+    saved, but workout information could not be refreshed.” Six new tests cover unchanged/switched/
+    removed occurrence, delayed write/refresh failure, and successful insertion followed by a failed
+    occurrence-only refresh. R076LR-03 corrects the retained artifact count to 37: 36 app tables plus
+    `android_metadata`. Both the original and newer retained artifacts enumerate these 37 tables.
+  - Logger host tests passed: 396 tests, zero failures/errors/skips. Targeted logs:
+    `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/verify-rerun.log` and
+    `verify-full.log` in the same directory. Full C6 matrix passed in 15 seconds: 1,682 host tests,
+    migration verification, ktlint, debug assembly, `lintVitalRelease`, and shared/network/onboarding/
+    routines iOS simulator compilation. Log: `/tmp/hf-076-review-fixes-integration.log`.
+  - The current debug `0.7.6-dev-480c1c21-dirty` passed another blocked-journal failure/retry check:
+    21/21 and 5/5 commands, one invocation each under 120-second caps. Failure retained the form,
+    inserted nothing, and kept the process alive. After restoring modes, retry inserted exactly one
+    target set; totals changed three to four sets in the same open session, with only `workoutSet`
+    changing among 36 app-table counts. Permissions stayed unchanged; directory/database/journal
+    modes ended at 771/660/660. New synthetic fixture retained; own database scratch copies deleted.
+  - Screenshots viewed:
+    `/tmp/hf-076-rf-failure/2026-10-14_183958/hf-c6-fail-write/takeScreenshot/c6-fail-write-screen.png`
+    and `/tmp/hf-076-rf-retry/2026-10-14_184102/hf-c6-retry-write/takeScreenshot/c6-retry-write-recorded.png`.
+    Logs: `/tmp/hf-076-rf-failure.log`, `/tmp/hf-076-rf-retry.log`.
+  - These are builder verification results; targeted Plan-mode reviewer closure remains pending.
+    Occurrence-switch and occurrence-only refresh failures are host-tested, not device-verified.
+    Other limits above remain unchanged, including the unexplained journal-mode reset.
 - Still owed for C6: new and legacy backup restore — the app uses the system document picker, so the
   user runs that round trip manually. Upgrade coverage remains the host migration verification, because
   installing a shipped release APK on the emulator is not permitted.

@@ -87,11 +87,15 @@ no automatic retry. The outcome applies only while the submitted form is still c
 that lands after the user replaced an input, switched exercise, changed the block/occurrence, or
 received a delayed history prefill does not reset the newer value and does not show an error for
 entries no longer on screen; a prefill that replaces the entries also drops failure feedback that
-described them. A successful
+described them. Replacing or removing the occurrence also drops a save failure that was already
+shown, the same way a block change or a plan rebuild does, so no failure message outlives the
+logging context it described; an unchanged refresh of the same occurrence keeps it. A successful
 insert is never reported as unsaved, and its post-write recent-sets/occurrence refresh is separated
 from the write, so a failed refresh reports only a refresh failure instead of inviting a duplicate
-re-log. The set's occurrence/entry attribution and block day are captured at submission. These
-manual-log outcomes are in memory only.
+re-log. That message names the workout information rather than the recent-sets list, because either
+the recent-sets read or the occurrence read can fail, and a refresh failure that lands after the
+context was replaced is not shown either. The set's occurrence/entry attribution and block day are
+captured at submission. These manual-log outcomes are in memory only.
 
 Recent sets carry nullable stored `sessionId` in `LoggedSetRow`, retaining performed-time descending
 and insertion-id descending tie order. `startsSessionAfter` identifies adjacent explicit boundaries;

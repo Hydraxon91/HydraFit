@@ -815,8 +815,12 @@ class WorkoutLoggerViewModel(
                     throw cancelled
                 } catch (_: Exception) {
                     // The set is already persisted: report only the refresh failure so it is never
-                    // labelled unsaved and never re-logged as a duplicate.
-                    _state.update { it.copy(manualLogRefreshFailed = true) }
+                    // labelled unsaved and never re-logged as a duplicate. The message belongs to the
+                    // submission's logging context, so a context the user left while the read was
+                    // still in flight must not receive it.
+                    if (draftContextRevision == submissionContextRevision) {
+                        _state.update { it.copy(manualLogRefreshFailed = true) }
+                    }
                 }
             } finally {
                 manualLogSubmissionInProgress = false
@@ -1671,9 +1675,13 @@ class WorkoutLoggerViewModel(
         val selectedId = scheduleState?.selectedOccurrenceId
         val occurrence = currentOccurrences.firstOrNull { it.id == selectedId }
             ?: currentOccurrences.filterNot { it.isResolved }.minByOrNull { it.queuePosition }
-        val previousOccurrenceId = currentOccurrence?.id
+        val previousOccurrence = currentOccurrence
+        val previousOccurrenceId = previousOccurrence?.id
+        // A new or removed occurrence replaces the logging context: the same change that invalidates
+        // an in-flight submission's completion also drops the failure feedback it left behind.
+        val occurrenceContextChanged = previousOccurrence != occurrence
         if (occurrence == null) {
-            if (currentOccurrence != null) {
+            if (occurrenceContextChanged) {
                 draftContextRevision++
                 dismissInstructions()
                 invalidateRestTimer()
@@ -1692,16 +1700,20 @@ class WorkoutLoggerViewModel(
                     todayFocus = null,
                     guidedProgress = null,
                     frozenEntryIds = emptySet(),
-                    guidedSetWriteFailed = false
+                    guidedSetWriteFailed = false,
+                    // A removed occurrence leaves the context a manual-set failure described.
+                    manualLogFailed = if (occurrenceContextChanged) false else it.manualLogFailed
                 ).withWarmupCleared()
             }
             warmupGuidancePublishedGeneration = generation
             return
         }
-        if (currentOccurrence != occurrence) {
+        if (occurrenceContextChanged) {
             draftContextRevision++
             dismissInstructions()
-            if (currentOccurrence != null) {
+            // A replaced occurrence no longer matches the context a manual-set failure described.
+            _state.update { it.copy(manualLogFailed = false) }
+            if (previousOccurrence != null) {
                 invalidateRestTimer()
                 liveSetIntentEntryId = null
             }

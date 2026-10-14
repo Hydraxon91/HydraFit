@@ -2722,6 +2722,184 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun aCommittedSetWithAFailedOccurrenceRefreshReportsTheRefreshFailureOnly() =
+        runTest(dispatcher) {
+            val repository = FakeWorkoutLogRepository()
+            val schedule = MutableWorkoutScheduleRepository()
+            schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+            val viewModel = occurrenceViewModel(repository, schedule)
+            advanceUntilIdle()
+
+            viewModel.onExerciseSelected("back-squat")
+            viewModel.onRepsChanged("8")
+            viewModel.onWeightChanged("100")
+
+            // The recent-sets read succeeds, and the occurrence read that follows it fails.
+            advanceUntilIdle()
+            val recentSetsRead = CompletableDeferred<Unit>()
+            repository.allGate = recentSetsRead
+            viewModel.log()
+            runCurrent()
+            repository.failAll = true
+            recentSetsRead.complete(Unit)
+            advanceUntilIdle()
+
+            val state = viewModel.state.value
+            // The set is persisted and listed, and it is never reported as unsaved.
+            assertEquals(1, state.recentSets.size)
+            assertEquals("Back Squat", state.recentSets.single().exerciseName)
+            assertTrue(state.manualLogRefreshFailed)
+            assertFalse(state.manualLogFailed)
+            assertFalse(state.manualLogInProgress)
+            repository.failAll = false
+            assertEquals(1, repository.all().size)
+
+            // The released guard accepts a fresh submission.
+            viewModel.log()
+            advanceUntilIdle()
+            assertEquals(2, repository.all().size)
+        }
+
+    @Test
+    fun aFailedManualSetMessageSurvivesAnUnchangedOccurrenceRefresh() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempt = 1)
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val equipment = MutableEquipment(EquipmentTag.BARBELL, maxWeightKg = 200.0)
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            equipment = equipment.collaborator()
+        )
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("8")
+        viewModel.onWeightChanged("100")
+        viewModel.log()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.manualLogFailed)
+
+        // An equipment change refreshes the same occurrence; it is not a new logging context.
+        equipment.setMaxWeight(150.0)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.manualLogFailed)
+        assertEquals(30L, viewModel.state.value.activeOccurrence?.occurrenceId)
+        assertEquals("back-squat", viewModel.state.value.selectedExerciseId)
+    }
+
+    @Test
+    fun aFailedManualSetMessageIsDroppedWhenTheOccurrenceChanges() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempt = 1)
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("8")
+        viewModel.onWeightChanged("100")
+        viewModel.log()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.manualLogFailed)
+
+        // The next workout replaces the context the failure described.
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 31L)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.manualLogFailed)
+        assertEquals(31L, viewModel.state.value.activeOccurrence?.occurrenceId)
+    }
+
+    @Test
+    fun aFailedManualSetMessageIsDroppedWhenTheOccurrenceIsRemoved() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempt = 1)
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("8")
+        viewModel.onWeightChanged("100")
+        viewModel.log()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.manualLogFailed)
+
+        // The block stays active but its last occurrence disappears.
+        schedule.set(blockActivation(), emptyList(), selectedOccurrenceId = null)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.manualLogFailed)
+        assertNull(viewModel.state.value.activeOccurrence)
+    }
+
+    @Test
+    fun switchingOccurrenceWhileAFailingManualWriteIsPendingDoesNotShowTheFailure() =
+        runTest(dispatcher) {
+            val repository = FakeWorkoutLogRepository(failOnAddAttempt = 1)
+            val schedule = MutableWorkoutScheduleRepository()
+            schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+            val viewModel = occurrenceViewModel(repository, schedule)
+            advanceUntilIdle()
+
+            viewModel.onExerciseSelected("back-squat")
+            viewModel.onRepsChanged("8")
+            viewModel.onWeightChanged("100")
+
+            val writeGate = CompletableDeferred<Unit>()
+            repository.addGate = writeGate
+            viewModel.log()
+            runCurrent()
+
+            // The user switches workout while the write that will fail is still in flight.
+            schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 31L)
+            advanceUntilIdle()
+
+            writeGate.complete(Unit)
+            advanceUntilIdle()
+
+            assertFalse(viewModel.state.value.manualLogFailed)
+            assertFalse(viewModel.state.value.manualLogInProgress)
+            assertTrue(repository.all().isEmpty())
+        }
+
+    @Test
+    fun switchingOccurrenceWhileAFailingPostWriteRefreshIsPendingDoesNotShowTheFailure() =
+        runTest(dispatcher) {
+            val repository = FakeWorkoutLogRepository()
+            val schedule = MutableWorkoutScheduleRepository()
+            schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+            val viewModel = occurrenceViewModel(repository, schedule)
+            advanceUntilIdle()
+
+            viewModel.onExerciseSelected("back-squat")
+            viewModel.onRepsChanged("8")
+            viewModel.onWeightChanged("100")
+
+            // The recent-sets read suspends; the user switches workout before it returns.
+            advanceUntilIdle()
+            val recentSetsRead = CompletableDeferred<Unit>()
+            repository.allGate = recentSetsRead
+            viewModel.log()
+            runCurrent()
+            schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 31L)
+            runCurrent()
+
+            // The replaced submission's occurrence read then fails, after the context changed.
+            repository.failAll = true
+            recentSetsRead.complete(Unit)
+            advanceUntilIdle()
+
+            assertFalse(viewModel.state.value.manualLogRefreshFailed)
+            assertFalse(viewModel.state.value.manualLogFailed)
+            assertFalse(viewModel.state.value.manualLogInProgress)
+            repository.failAll = false
+            assertEquals(1, repository.all().size)
+        }
+
+    @Test
     fun aReplacedManualFormIsNotResetByAnOlderCompletion() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository()
         val viewModel = viewModel(repository)

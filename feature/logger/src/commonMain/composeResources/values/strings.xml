@@ -94,7 +94,7 @@
     <string name="logger_guided_all_done">All prescribed sets recorded</string>
     <string name="logger_guided_set_failed">That set was not saved. The set is still pending; try again.</string>
     <string name="logger_log_failed">That set could not be saved. Keep your entries and try again.</string>
-    <string name="logger_log_refresh_failed">Your set was saved, but the recent sets list could not be refreshed.</string>
+    <string name="logger_log_refresh_failed">Your set was saved, but workout information could not be refreshed.</string>
     <string name="logger_guided_log_completed_now">Set completed now</string>
     <string name="logger_guided_start_set">Start set</string>
     <string name="logger_guided_set_started">Set started</string>
