@@ -9,7 +9,7 @@ import kotlin.test.assertNull
 class BackupJsonTest {
 
     @Test
-    fun formatElevenRequiresCompleteSetupAndWeekdaySections() {
+    fun setupAndWeekdaySectionsAreRequiredFromFormatElevenOnward() {
         val file = emptyBackupFile()
         val text = BackupJson.encode(file)
         assertEquals(file, BackupJson.decode(text))
@@ -22,8 +22,44 @@ class BackupJsonTest {
         assertFailure(BackupFailure.MALFORMED, withoutSetup)
         assertEquals(
             BackupSetupRecord(),
-            BackupJson.decode(withoutSetup.replace("\"formatVersion\":11", "\"formatVersion\":10"))
-                .setup
+            BackupJson.decode(
+                withoutSetup.replace(
+                    "\"formatVersion\":$BACKUP_FORMAT_VERSION",
+                    "\"formatVersion\":10"
+                )
+            ).setup
+        )
+    }
+
+    @Test
+    fun formatTwelveRequiresReminderPreferencesAndEarlierFormatsDefaultThemOff() {
+        val file = emptyBackupFile().copy(
+            workoutReminders = BackupWorkoutReminderRecord(
+                remindersEnabled = true,
+                reminderMinuteOfDay = 390,
+                quietHoursEnabled = true,
+                quietStartMinuteOfDay = 1320,
+                quietEndMinuteOfDay = 360
+            )
+        )
+        val encoded = BackupJson.encode(file)
+        assertEquals(file, BackupJson.decode(encoded))
+        val withoutReminders = encoded.replace(
+            ",\"workoutReminders\":{\"remindersEnabled\":true,\"reminderMinuteOfDay\":390," +
+                "\"quietHoursEnabled\":true,\"quietStartMinuteOfDay\":1320," +
+                "\"quietEndMinuteOfDay\":360}",
+            ""
+        )
+        // The current format must carry the section.
+        assertFailure(BackupFailure.MALFORMED, withoutReminders)
+        // A file from before format 12 predates it and restores with no preference recorded.
+        assertNull(
+            BackupJson.decode(
+                withoutReminders.replace(
+                    "\"formatVersion\":$BACKUP_FORMAT_VERSION",
+                    "\"formatVersion\":11"
+                )
+            ).workoutReminders
         )
     }
 
@@ -36,7 +72,8 @@ class BackupJsonTest {
         val encoded = BackupJson.encode(file)
         assertEquals(file, BackupJson.decode(encoded))
         val withoutGuidance = encoded.replace(
-            ",\"trainingGuidance\":{\"restAlertsEnabled\":true,\"shortRestCoachingEnabled\":true}",
+            ",\"trainingGuidance\":{\"restAlertsEnabled\":true,\"shortRestCoachingEnabled\":true," +
+                "\"restCountdownEnabled\":false,\"restCompletionSignalEnabled\":false}",
             ""
         )
         assertFailure(BackupFailure.MALFORMED, withoutGuidance)

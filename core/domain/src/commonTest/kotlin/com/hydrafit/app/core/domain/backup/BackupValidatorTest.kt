@@ -374,6 +374,39 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun validatesReminderPreferencesAndRejectsThemBeforeTheirFormat() {
+        val armed = BackupWorkoutReminderRecord(
+            remindersEnabled = true,
+            reminderMinuteOfDay = 390,
+            quietHoursEnabled = true,
+            quietStartMinuteOfDay = 1320,
+            quietEndMinuteOfDay = 360
+        )
+        validator.validate(validFile().copy(workoutReminders = armed))
+        // The same record is still valid when no time has been chosen yet.
+        validator.validate(
+            validFile().copy(workoutReminders = armed.copy(reminderMinuteOfDay = null))
+        )
+        // A file from before format 12 must not carry a section this reader would treat as current.
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            validFile().copy(
+                formatVersion = REMINDER_FORMAT_VERSION - 1,
+                workoutReminders = armed
+            )
+        }
+        listOf(
+            armed.copy(reminderMinuteOfDay = -1),
+            armed.copy(reminderMinuteOfDay = 1440),
+            armed.copy(quietStartMinuteOfDay = -1),
+            armed.copy(quietEndMinuteOfDay = 1440)
+        ).forEach { reminders ->
+            assertFailure(BackupFailure.INVALID_VALUE) {
+                validFile().copy(workoutReminders = reminders)
+            }
+        }
+    }
+
+    @Test
     fun rejectsDuplicateCompositeExplanationKeys() {
         assertFailure(BackupFailure.DUPLICATE_ID) {
             validFile().copy(

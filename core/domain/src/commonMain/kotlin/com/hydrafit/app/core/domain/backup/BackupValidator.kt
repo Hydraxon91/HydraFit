@@ -54,6 +54,9 @@ class BackupValidator(private val catalog: BackupCatalog) {
         ) {
             fail(BackupFailure.INVALID_VALUE)
         }
+        if (file.formatVersion < REMINDER_FORMAT_VERSION && file.workoutReminders != null) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
         if (file.setup.version != SETUP_VERSION) fail(BackupFailure.INVALID_VALUE)
         enum(file.setup.disposition, SetupDisposition.entries)
         enum(file.setup.step, SetupStep.entries)
@@ -139,6 +142,16 @@ class BackupValidator(private val catalog: BackupCatalog) {
         file.restPreferences.forEach { preference ->
             if (preference.durationSeconds !in 1L..86_400L) fail(BackupFailure.INVALID_VALUE)
             preference.exerciseId?.let { exercise(it, knownExercises) }
+        }
+        file.workoutReminders?.let { reminders ->
+            reminders.reminderMinuteOfDay?.let { minute ->
+                if (minute !in MINUTE_OF_DAY_RANGE) fail(BackupFailure.INVALID_VALUE)
+            }
+            if (reminders.quietStartMinuteOfDay !in MINUTE_OF_DAY_RANGE ||
+                reminders.quietEndMinuteOfDay !in MINUTE_OF_DAY_RANGE
+            ) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
         }
 
         file.customExercises.forEach {
@@ -420,6 +433,9 @@ class BackupValidator(private val catalog: BackupCatalog) {
 
         const val ENTRY_KIND_ACTIVATION = "ACTIVATION"
         const val ENTRY_KIND_OCCURRENCE = "OCCURRENCE"
+
+        /** A local time of day is minutes past midnight. */
+        val MINUTE_OF_DAY_RANGE = 0..1439
 
         /** Muscle names accepted in an involvement snapshot, including the legacy broad names. */
         val muscleTokens: Set<String> =

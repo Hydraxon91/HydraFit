@@ -682,6 +682,9 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   1–4 restore a 120-second global default with no overrides. Persisted countdown
   deadlines are transient session state, excluded from backups and cleared on restore.
   Format 6 requires the two training-guidance opt-ins; formats 1–5 default both off.
+  Format 12 adds the reminder section and the two rest-presentation opt-ins; formats 1–11 restore
+  them off with no reminder time chosen, and a pre-12 payload carrying the reminder section is
+  rejected.
   Format 11 requires setup version/disposition/resume step and explicit nullable preferred weekdays;
   formats 1–10 restore as returning users with undecided weekdays. Unsupported setup values,
   duplicate/unknown weekdays and non-null selections outside 2–6 days are rejected before staging.
@@ -729,7 +732,11 @@ uses the OS boot counter. iOS currently cannot supply a reliable boot identity a
 not restore saved countdowns. Expired or invalid state is silently cleared.
 
 Rest alerts and short-rest coaching are independent opt-ins, both default off, stored in
-`trainingGuidancePreference` (migration `37.sqm`). Android alerts request notification permission
+`trainingGuidancePreference` (migration `37.sqm`). Migration `45.sqm` adds two more default-off
+rest-presentation opt-ins (`restCountdownEnabled`, `restCompletionSignalEnabled`) to that row, plus a
+separate `workoutReminderPreference` row and the device-local `reminderDelivery` table; the
+reminder/preference persistence exists ahead of any scheduling or presentation wiring, which is not
+implemented yet. Android alerts request notification permission
 only through the Settings opt-in. One elapsed-time alarm uses `setExactAndAllowWhileIdle` when
 exact-alarm access is available, otherwise `setAndAllowWhileIdle`. Android 12+ uses optional
 `SCHEDULE_EXACT_ALARM` special access, opened only by Settings' explicit **Allow precise timing**

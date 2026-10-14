@@ -41,7 +41,12 @@ algorithm; otherwise the lookup is bounded and session bounds stay untouched. No
 migration is needed; all snapshots, load kind and occurrence links are retained. A missing row fails
 instead of recreating a deleted set.
 
-`N.sqm` migrates from version N to N+1. Migration `34.sqm` adds the set-level
+`N.sqm` migrates from version N to N+1. `45.sqm` adds the two default-off rest-presentation
+opt-ins to `trainingGuidancePreference` (added without a CHECK constraint, like the earlier
+`workoutSet` columns), creates `workoutReminderPreference` (singleton row: reminders opt-in, a
+nullable minutes-past-local-midnight reminder time, and quiet hours) and creates the device-local
+`reminderDelivery` table (one posted reminder per `activationId` + local `reminderEpochDay`), which
+is deliberately excluded from backups and cleared on restore. Migration `34.sqm` adds the set-level
 `timingProvenance` value (`UNKNOWN` for existing rows); `35.sqm` adds the optional
 monotonic set-start/completion instants; `36.sqm` adds shared rest preferences and
 the process-restorable countdown row; `37.sqm` adds the two default-off training-guidance

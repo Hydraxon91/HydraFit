@@ -1,0 +1,89 @@
+CREATE TABLE workoutReminderPreference (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    remindersEnabled INTEGER NOT NULL DEFAULT 0 CHECK (remindersEnabled IN (0, 1)),
+    reminderMinuteOfDay INTEGER CHECK (reminderMinuteOfDay IS NULL OR (reminderMinuteOfDay BETWEEN 0 AND 1439)),
+    quietHoursEnabled INTEGER NOT NULL DEFAULT 0 CHECK (quietHoursEnabled IN (0, 1)),
+    quietStartMinuteOfDay INTEGER NOT NULL DEFAULT 1260 CHECK (quietStartMinuteOfDay BETWEEN 0 AND 1439),
+    quietEndMinuteOfDay INTEGER NOT NULL DEFAULT 420 CHECK (quietEndMinuteOfDay BETWEEN 0 AND 1439)
+);
+
+selectPreferences:
+SELECT * FROM workoutReminderPreference WHERE id = 1;
+
+setEnabled:
+INSERT OR REPLACE INTO workoutReminderPreference(
+    id,
+    remindersEnabled,
+    reminderMinuteOfDay,
+    quietHoursEnabled,
+    quietStartMinuteOfDay,
+    quietEndMinuteOfDay
+)
+VALUES (
+    1,
+    ?,
+    (SELECT reminderMinuteOfDay FROM workoutReminderPreference WHERE id = 1),
+    COALESCE((SELECT quietHoursEnabled FROM workoutReminderPreference WHERE id = 1), 0),
+    COALESCE((SELECT quietStartMinuteOfDay FROM workoutReminderPreference WHERE id = 1), 1260),
+    COALESCE((SELECT quietEndMinuteOfDay FROM workoutReminderPreference WHERE id = 1), 420)
+);
+
+setReminderMinuteOfDay:
+INSERT OR REPLACE INTO workoutReminderPreference(
+    id,
+    remindersEnabled,
+    reminderMinuteOfDay,
+    quietHoursEnabled,
+    quietStartMinuteOfDay,
+    quietEndMinuteOfDay
+)
+VALUES (
+    1,
+    COALESCE((SELECT remindersEnabled FROM workoutReminderPreference WHERE id = 1), 0),
+    ?,
+    COALESCE((SELECT quietHoursEnabled FROM workoutReminderPreference WHERE id = 1), 0),
+    COALESCE((SELECT quietStartMinuteOfDay FROM workoutReminderPreference WHERE id = 1), 1260),
+    COALESCE((SELECT quietEndMinuteOfDay FROM workoutReminderPreference WHERE id = 1), 420)
+);
+
+setQuietHoursEnabled:
+INSERT OR REPLACE INTO workoutReminderPreference(
+    id,
+    remindersEnabled,
+    reminderMinuteOfDay,
+    quietHoursEnabled,
+    quietStartMinuteOfDay,
+    quietEndMinuteOfDay
+)
+VALUES (
+    1,
+    COALESCE((SELECT remindersEnabled FROM workoutReminderPreference WHERE id = 1), 0),
+    (SELECT reminderMinuteOfDay FROM workoutReminderPreference WHERE id = 1),
+    ?,
+    COALESCE((SELECT quietStartMinuteOfDay FROM workoutReminderPreference WHERE id = 1), 1260),
+    COALESCE((SELECT quietEndMinuteOfDay FROM workoutReminderPreference WHERE id = 1), 420)
+);
+
+setQuietHours:
+INSERT OR REPLACE INTO workoutReminderPreference(
+    id,
+    remindersEnabled,
+    reminderMinuteOfDay,
+    quietHoursEnabled,
+    quietStartMinuteOfDay,
+    quietEndMinuteOfDay
+)
+VALUES (
+    1,
+    COALESCE((SELECT remindersEnabled FROM workoutReminderPreference WHERE id = 1), 0),
+    (SELECT reminderMinuteOfDay FROM workoutReminderPreference WHERE id = 1),
+    COALESCE((SELECT quietHoursEnabled FROM workoutReminderPreference WHERE id = 1), 0),
+    ?,
+    ?
+);
+
+restorePreferences:
+INSERT OR REPLACE INTO workoutReminderPreference VALUES (1, ?, ?, ?, ?, ?);
+
+deleteAll:
+DELETE FROM workoutReminderPreference;

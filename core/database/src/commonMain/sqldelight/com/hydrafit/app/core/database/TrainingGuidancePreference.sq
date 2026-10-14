@@ -1,22 +1,80 @@
 CREATE TABLE trainingGuidancePreference (
     id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
     restAlertsEnabled INTEGER NOT NULL DEFAULT 0 CHECK (restAlertsEnabled IN (0, 1)),
-    shortRestCoachingEnabled INTEGER NOT NULL DEFAULT 0 CHECK (shortRestCoachingEnabled IN (0, 1))
+    shortRestCoachingEnabled INTEGER NOT NULL DEFAULT 0 CHECK (shortRestCoachingEnabled IN (0, 1)),
+    restCountdownEnabled INTEGER NOT NULL DEFAULT 0,
+    restCompletionSignalEnabled INTEGER NOT NULL DEFAULT 0
 );
 
 selectPreferences:
 SELECT * FROM trainingGuidancePreference WHERE id = 1;
 
 setAlerts:
-INSERT OR REPLACE INTO trainingGuidancePreference(id, restAlertsEnabled, shortRestCoachingEnabled)
-VALUES (1, ?, COALESCE((SELECT shortRestCoachingEnabled FROM trainingGuidancePreference WHERE id = 1), 0));
+INSERT OR REPLACE INTO trainingGuidancePreference(
+    id,
+    restAlertsEnabled,
+    shortRestCoachingEnabled,
+    restCountdownEnabled,
+    restCompletionSignalEnabled
+)
+VALUES (
+    1,
+    ?,
+    COALESCE((SELECT shortRestCoachingEnabled FROM trainingGuidancePreference WHERE id = 1), 0),
+    COALESCE((SELECT restCountdownEnabled FROM trainingGuidancePreference WHERE id = 1), 0),
+    COALESCE((SELECT restCompletionSignalEnabled FROM trainingGuidancePreference WHERE id = 1), 0)
+);
 
 setCoaching:
-INSERT OR REPLACE INTO trainingGuidancePreference(id, restAlertsEnabled, shortRestCoachingEnabled)
-VALUES (1, COALESCE((SELECT restAlertsEnabled FROM trainingGuidancePreference WHERE id = 1), 0), ?);
+INSERT OR REPLACE INTO trainingGuidancePreference(
+    id,
+    restAlertsEnabled,
+    shortRestCoachingEnabled,
+    restCountdownEnabled,
+    restCompletionSignalEnabled
+)
+VALUES (
+    1,
+    COALESCE((SELECT restAlertsEnabled FROM trainingGuidancePreference WHERE id = 1), 0),
+    ?,
+    COALESCE((SELECT restCountdownEnabled FROM trainingGuidancePreference WHERE id = 1), 0),
+    COALESCE((SELECT restCompletionSignalEnabled FROM trainingGuidancePreference WHERE id = 1), 0)
+);
+
+setRestCountdown:
+INSERT OR REPLACE INTO trainingGuidancePreference(
+    id,
+    restAlertsEnabled,
+    shortRestCoachingEnabled,
+    restCountdownEnabled,
+    restCompletionSignalEnabled
+)
+VALUES (
+    1,
+    COALESCE((SELECT restAlertsEnabled FROM trainingGuidancePreference WHERE id = 1), 0),
+    COALESCE((SELECT shortRestCoachingEnabled FROM trainingGuidancePreference WHERE id = 1), 0),
+    ?,
+    COALESCE((SELECT restCompletionSignalEnabled FROM trainingGuidancePreference WHERE id = 1), 0)
+);
+
+setRestCompletionSignal:
+INSERT OR REPLACE INTO trainingGuidancePreference(
+    id,
+    restAlertsEnabled,
+    shortRestCoachingEnabled,
+    restCountdownEnabled,
+    restCompletionSignalEnabled
+)
+VALUES (
+    1,
+    COALESCE((SELECT restAlertsEnabled FROM trainingGuidancePreference WHERE id = 1), 0),
+    COALESCE((SELECT shortRestCoachingEnabled FROM trainingGuidancePreference WHERE id = 1), 0),
+    COALESCE((SELECT restCountdownEnabled FROM trainingGuidancePreference WHERE id = 1), 0),
+    ?
+);
 
 restorePreferences:
-INSERT OR REPLACE INTO trainingGuidancePreference VALUES (1, ?, ?);
+INSERT OR REPLACE INTO trainingGuidancePreference VALUES (1, ?, ?, ?, ?);
 
 deleteAll:
 DELETE FROM trainingGuidancePreference;

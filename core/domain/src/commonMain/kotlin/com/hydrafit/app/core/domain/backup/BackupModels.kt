@@ -6,7 +6,10 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 11
+const val BACKUP_FORMAT_VERSION: Int = 12
+
+/** The first backup format that carries the rest-presentation opt-ins and workout reminders. */
+const val REMINDER_FORMAT_VERSION: Int = 12
 
 const val SETUP_FORMAT_VERSION: Int = 11
 
@@ -19,8 +22,10 @@ const val EXERCISE_NOTES_FORMAT_VERSION: Int = 9
 /**
  * A whole logical snapshot of the supported offline data. Rows are stored flat with their persisted
  * ids so restore can rebuild relationships exactly; the envelope carries the format identity, a
- * catalog fingerprint and the export time. Version 11 adds setup disposition/resume and preferred
- * weekdays; earlier formats restore as returning users with undecided weekdays.
+ * catalog fingerprint and the export time. Version 12 adds the optional
+ * rest-countdown/rest-completion opt-ins and the workout-reminder preferences; earlier formats
+ * restore them off, with no reminder time chosen. Version 11 adds setup disposition/resume and
+ * preferred weekdays; earlier formats restore as returning users with undecided weekdays.
  * Version 10 adds persistent per-session notes;
  * earlier formats have none, so a restored legacy install reports no note rather than an explicit
  * clear. Version 9 adds persistent per-exercise setup notes; versions 1–8 have none. Version 8 adds
@@ -84,7 +89,12 @@ data class BackupFile(
     val sessionNotes: List<BackupSessionNoteRecord> = emptyList(),
     /** Legacy backups are returning installations, never fresh onboarding candidates. */
     val setup: BackupSetupRecord = BackupSetupRecord(),
-    val preferredWeekdays: List<String>? = null
+    val preferredWeekdays: List<String>? = null,
+    /**
+     * Opt-in workout-reminder preferences, format 12 and later. Absent in formats 1-11, which
+     * restore them off with no reminder time chosen.
+     */
+    val workoutReminders: BackupWorkoutReminderRecord? = null
 )
 
 @Serializable
@@ -97,7 +107,24 @@ data class BackupSetupRecord(
 @Serializable
 data class BackupTrainingGuidanceRecord(
     val restAlertsEnabled: Boolean,
-    val shortRestCoachingEnabled: Boolean
+    val shortRestCoachingEnabled: Boolean,
+    /** Rest-countdown presentation, added in format 12; earlier formats restore it off. */
+    val restCountdownEnabled: Boolean = false,
+    /** Foreground rest-completion signal, added in format 12; earlier formats restore it off. */
+    val restCompletionSignalEnabled: Boolean = false
+)
+
+/**
+ * Opt-in local workout reminders. [reminderMinuteOfDay] is minutes past local midnight, or null when
+ * no time has been chosen yet. No OS permission or delivery state is represented here.
+ */
+@Serializable
+data class BackupWorkoutReminderRecord(
+    val remindersEnabled: Boolean,
+    val reminderMinuteOfDay: Int?,
+    val quietHoursEnabled: Boolean,
+    val quietStartMinuteOfDay: Int,
+    val quietEndMinuteOfDay: Int
 )
 
 /** The seeded exercise ids the exporting install had, used to report and check catalog compatibility. */

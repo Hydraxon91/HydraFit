@@ -97,5 +97,11 @@ class TrainingGuidanceSettingsViewModelTest {
         override suspend fun setShortRestCoachingEnabled(enabled: Boolean) {
             state.value = state.value.copy(shortRestCoachingEnabled = enabled)
         }
+        override suspend fun setRestCountdownEnabled(enabled: Boolean) {
+            state.value = state.value.copy(restCountdownEnabled = enabled)
+        }
+        override suspend fun setRestCompletionSignalEnabled(enabled: Boolean) {
+            state.value = state.value.copy(restCompletionSignalEnabled = enabled)
+        }
     }
 }

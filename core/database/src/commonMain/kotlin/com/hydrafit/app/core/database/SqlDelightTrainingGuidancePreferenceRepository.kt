@@ -25,8 +25,18 @@ class SqlDelightTrainingGuidancePreferenceRepository(database: HydraFitDatabase)
         queries.setCoaching(if (enabled) 1L else 0L)
     }
 
+    override suspend fun setRestCountdownEnabled(enabled: Boolean) {
+        queries.setRestCountdown(if (enabled) 1L else 0L)
+    }
+
+    override suspend fun setRestCompletionSignalEnabled(enabled: Boolean) {
+        queries.setRestCompletionSignal(if (enabled) 1L else 0L)
+    }
+
     private fun TrainingGuidancePreference?.toPreferences() = TrainingGuidancePreferences(
         restAlertsEnabled = this?.restAlertsEnabled == 1L,
-        shortRestCoachingEnabled = this?.shortRestCoachingEnabled == 1L
+        shortRestCoachingEnabled = this?.shortRestCoachingEnabled == 1L,
+        restCountdownEnabled = this?.restCountdownEnabled == 1L,
+        restCompletionSignalEnabled = this?.restCompletionSignalEnabled == 1L
     )
 }

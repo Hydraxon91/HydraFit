@@ -33,10 +33,14 @@ import com.hydrafit.app.core.domain.backup.BackupSeedProfile
 import com.hydrafit.app.core.domain.backup.BackupSessionNoteRecord
 import com.hydrafit.app.core.domain.backup.BackupSettingsRecord
 import com.hydrafit.app.core.domain.backup.BackupSetupRecord
+import com.hydrafit.app.core.domain.backup.BackupTrainingGuidanceRecord
 import com.hydrafit.app.core.domain.backup.BackupVolumeExplanationRecord
 import com.hydrafit.app.core.domain.backup.BackupVolumeExplanationStateRecord
+import com.hydrafit.app.core.domain.backup.BackupWorkoutReminderRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSessionRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSetRecord
+import com.hydrafit.app.core.domain.settings.DEFAULT_QUIET_END_MINUTE_OF_DAY
+import com.hydrafit.app.core.domain.settings.DEFAULT_QUIET_START_MINUTE_OF_DAY
 import com.hydrafit.app.core.domain.settings.DEFAULT_REST_SECONDS
 import com.hydrafit.app.core.domain.workout.unicodeCaseFold
 
@@ -458,9 +462,23 @@ class SqlDelightBackupRepository(
                     },
                 trainingGuidance = database.trainingGuidancePreferenceQueries.selectPreferences()
                     .executeAsOneOrNull().let {
-                        com.hydrafit.app.core.domain.backup.BackupTrainingGuidanceRecord(
+                        BackupTrainingGuidanceRecord(
                             restAlertsEnabled = it?.restAlertsEnabled == 1L,
-                            shortRestCoachingEnabled = it?.shortRestCoachingEnabled == 1L
+                            shortRestCoachingEnabled = it?.shortRestCoachingEnabled == 1L,
+                            restCountdownEnabled = it?.restCountdownEnabled == 1L,
+                            restCompletionSignalEnabled = it?.restCompletionSignalEnabled == 1L
+                        )
+                    },
+                workoutReminders = database.workoutReminderPreferenceQueries.selectPreferences()
+                    .executeAsOneOrNull().let {
+                        BackupWorkoutReminderRecord(
+                            remindersEnabled = it?.remindersEnabled == 1L,
+                            reminderMinuteOfDay = it?.reminderMinuteOfDay?.toInt(),
+                            quietHoursEnabled = it?.quietHoursEnabled == 1L,
+                            quietStartMinuteOfDay = it?.quietStartMinuteOfDay?.toInt()
+                                ?: DEFAULT_QUIET_START_MINUTE_OF_DAY,
+                            quietEndMinuteOfDay = it?.quietEndMinuteOfDay?.toInt()
+                                ?: DEFAULT_QUIET_END_MINUTE_OF_DAY
                         )
                     },
                 exerciseNotes = database.exerciseNoteQueries.selectAll().executeAsList().map {
@@ -493,6 +511,8 @@ class SqlDelightBackupRepository(
             database.exercisePreferenceQueries.deleteAll()
             database.restPreferenceQueries.deleteAll()
             database.trainingGuidancePreferenceQueries.deleteAll()
+            database.workoutReminderPreferenceQueries.deleteAll()
+            database.reminderDeliveryQueries.deleteAll()
             database.restCountdownQueries.deletePersisted()
             database.exerciseExclusionQueries.deleteAll()
             database.exerciseNoteQueries.deleteAll()
@@ -534,8 +554,19 @@ class SqlDelightBackupRepository(
             file.selectedEquipment.forEach { database.userEquipmentQueries.insertSelected(it) }
             database.trainingGuidancePreferenceQueries.restorePreferences(
                 if (file.trainingGuidance.restAlertsEnabled) 1L else 0L,
-                if (file.trainingGuidance.shortRestCoachingEnabled) 1L else 0L
+                if (file.trainingGuidance.shortRestCoachingEnabled) 1L else 0L,
+                if (file.trainingGuidance.restCountdownEnabled) 1L else 0L,
+                if (file.trainingGuidance.restCompletionSignalEnabled) 1L else 0L
             )
+            file.workoutReminders?.let { reminders ->
+                database.workoutReminderPreferenceQueries.restorePreferences(
+                    if (reminders.remindersEnabled) 1L else 0L,
+                    reminders.reminderMinuteOfDay?.toLong(),
+                    if (reminders.quietHoursEnabled) 1L else 0L,
+                    reminders.quietStartMinuteOfDay.toLong(),
+                    reminders.quietEndMinuteOfDay.toLong()
+                )
+            }
             file.restPreferences.forEach { preference ->
                 val exerciseId = preference.exerciseId
                 if (exerciseId == null) {

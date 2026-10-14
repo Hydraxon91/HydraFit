@@ -90,7 +90,8 @@ class SetupPersistenceTest {
             val legacy = file.copy(
                 formatVersion = 10,
                 setup = BackupSetupRecord(),
-                preferredWeekdays = null
+                preferredWeekdays = null,
+                workoutReminders = null
             )
             BackupValidator(catalog).validate(legacy)
             backup.restore(legacy)

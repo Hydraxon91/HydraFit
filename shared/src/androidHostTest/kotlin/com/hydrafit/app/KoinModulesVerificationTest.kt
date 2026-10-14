@@ -699,6 +699,8 @@ class KoinModulesVerificationTest {
         override suspend fun get() = TrainingGuidancePreferences()
         override suspend fun setRestAlertsEnabled(enabled: Boolean) = Unit
         override suspend fun setShortRestCoachingEnabled(enabled: Boolean) = Unit
+        override suspend fun setRestCountdownEnabled(enabled: Boolean) = Unit
+        override suspend fun setRestCompletionSignalEnabled(enabled: Boolean) = Unit
     }
 
     private object FakeOnDeviceTextGenerator : OnDeviceTextGenerator {
