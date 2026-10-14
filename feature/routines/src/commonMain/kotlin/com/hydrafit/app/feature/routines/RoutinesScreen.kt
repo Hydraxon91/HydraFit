@@ -755,6 +755,7 @@ private fun ExercisePickerDialog(
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ActivationDialog(
     activation: ActivationUiState,
@@ -794,7 +795,7 @@ private fun ActivationDialog(
                 }
                 if (activation.mode == ScheduleMode.WEEKDAY) {
                     Text(stringResource(Res.string.routines_activation_weekdays_label))
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         DayOfWeek.entries.forEach { day ->
                             FilterChip(
                                 selected = day in activation.weekdays,

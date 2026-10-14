@@ -668,6 +668,51 @@ to the two wording items R07645-07 and R07645-08, which are corrected here.
 - Not verified: the iOS compile, the full matrix, TalkBack, rotation, larger text and dark mode in
   these specific flows, and the clipped `Fri` chip recorded above.
 
+### 0.7.6 release integration and acceptance, partial (2026-10-14)
+
+Tier A integration checks and the fresh-install acceptance pass, run at `16a06e28` plus the
+uncommitted chip-wrap fix. C6 is **not** complete: the checks listed at the end are still owed.
+
+- Full matrix green (`/private/tmp/hf-076-matrix.log`, re-run at the final revision in
+  `/private/tmp/hf-076-matrix-final.log`): `testAndroidHostTest` across every module with tests
+  (1,667 tests, 0 failures/errors/skips), `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug`, `:shared:`/`:core:network:`/`:feature:onboarding:`/`:feature:routines:`
+  `compileKotlinIosSimulatorArm64` and `:androidApp:lintVitalRelease`. Modules whose inputs did not
+  change reported UP-TO-DATE instead of re-executing; the final run re-executed the routines tests
+  and both iOS compiles affected by the chip fix.
+- Fresh install (approved `adb shell pm clear com.hydrafit.app` on `emulator-5554`): the shell forced
+  setup on first launch, `Close` mid-journey committed the boundary, a cold relaunch resumed at
+  `Training days` rather than restarting, and the `Generate a plan` handoff completed setup onto the
+  Plan tab. Read-only database check afterwards: `planHistory`, `trainingActivation`,
+  `workoutOccurrence`, `workoutSession`, `workoutSet` and `personalRecord` all hold **zero** rows, so
+  the journey fabricated no history and accepted no plan.
+- Skip and revisit: `Skip setup` dismissed the journey, a cold relaunch did not reopen it, and setup
+  stayed reachable from Settings, starting at Welcome.
+- Activation-dialog chip wrap: the weekday row now wraps onto two lines with `Mon`, `Fri` and `Sun`
+  all exposing their labels; `Fri` previously collapsed into a clipped column with no text node.
+- Equipment prerequisite (partial): with a fresh inventory — 18 seeded equipment rows, none selected
+  — the Plan tab generated a usable deterministic plan, so nothing promised a plan the inventory
+  could not support. The `NO_ELIGIBLE_EXERCISES` branch that carries the equipment action was not
+  reachable from that state and stays device-unverified; its label is "Review equipment and
+  exclusions" rather than C0's suggested "Set up equipment", which is a copy question rather than a
+  behaviour gap.
+- TalkBack: installed and enabled for a reading pass; the setup screen rendered normally and its
+  controls expose labels and roles in the hierarchy. Spoken output and touch exploration cannot be
+  verified this way, and the accessibility settings were restored afterwards.
+- Landscape/rotation: not applicable to this release. `PLANS.md` schedules tablet layouts at 0.13.3
+  and foldable at 0.13.4, and no activity declares an orientation attribute, so nothing is claimed
+  here for wide or rotated layouts. The emulator's display did not rotate under the usual settings.
+- Observation: dismissing a revisit with `Skip setup` rewrote the stored disposition from `COMPLETED`
+  to `SKIPPED`. Nothing distinguishes the two today — both suppress automatic reopening — so this is
+  recorded rather than treated as a defect.
+- Permissions were unchanged by the flows; the only difference is that `pm clear` dropped the
+  `POST_NOTIFICATIONS` `USER_SET` flag while the permission stayed denied.
+- This pass cleared the emulator's app data, so the earlier routine, personal-record and activation
+  fixtures on that device are gone.
+- Still owed for C6: on-device failure/retry, new and legacy backup restore, and first-log
+  acceptance. Upgrade coverage remains the host migration verification, because installing a shipped
+  release APK on the emulator is not permitted.
+
 ### 0.7.5 C1–C2 caution content foundation (2026-10-13)
 
 Builder verification of the approved EX-03 / 0.7.5 content foundation (three sourced IDs:
