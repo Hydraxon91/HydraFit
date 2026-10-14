@@ -46,10 +46,17 @@
   competing writers or treat interruption as rollback.
 
 - **Bounded coding delegation:** the main agent owns planning, behavioral decisions
-  and acceptance criteria. For suitable localized work with settled behavior,
-  delegate the approved chunk to `coder` (`.opencode/agents/coder.md`), passing
+  and acceptance criteria. Before each implementation chunk's first source or test
+  edit, recommend one owner, main agent or `coder`, with a brief rationale based on
+  ambiguity, concurrency, persistence risk and how settled the scope is. Include
+  the recommendation in the implementation plan and ask the user to approve that
+  owner; one explicit approval may cover both scope and ownership. Do not start
+  implementation without an approved owner. If the approved plan already explicitly
+  names the owner, do not ask again. For suitable localized work with settled
+  behavior, recommend `coder` (`.opencode/agents/coder.md`); when approved, delegate
+  the chunk, passing
   exact files, invariants, tests, downstream verification, documentation updates,
-  exclusions and stop conditions. Choose and state one implementation owner
+  exclusions and stop conditions. State the user-approved implementation owner
   before the chunk's first source or test edit. For delegated chunks, the main
   agent may investigate, settle approved decisions and prepare the brief, but
   `coder` writes the implementation, tests and explicitly assigned feature

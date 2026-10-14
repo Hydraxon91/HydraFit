@@ -69,8 +69,13 @@ verification input to the parent. Do not invent a budget or silently waive a che
 For continuations and corrections, confirm the current scope and changed baseline;
 previous context is not proof that the working tree or authorization is unchanged.
 
-The parent must select and state the implementation owner before the chunk's
-first source or test edit. For a delegated chunk, own its entire approved
+The parent must recommend an implementation owner with a brief risk/scope rationale
+and obtain the user's approval before the chunk's first source or test edit. The
+implementation plan's explicit approval may cover both scope and ownership; do not
+require another approval when the approved plan already explicitly names `coder`.
+Require the brief to state that user-approved ownership, not merely the parent's
+selection. If it is missing, return the blocker before editing. For a delegated
+chunk, own its entire approved
 implementation, tests and explicitly assigned feature documentation; the parent provides research
 and settled decisions, not a partially implemented chunk handed over silently.
 If work has already started or ownership changes mid-chunk, require an explicitly
