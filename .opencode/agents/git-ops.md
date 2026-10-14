@@ -181,6 +181,9 @@ permissions:
     resource: "bash *"
     effect: allow
   - action: external_directory
+    resource: "/Users/hydraxon/Documents/GitHub/HydraFit/*"
+    effect: allow
+  - action: external_directory
     resource: "/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/*"
     effect: allow
   - action: read
@@ -195,6 +198,18 @@ permissions:
 ---
 
 Execute only the Git operation the parent delegated. Follow AGENTS.md.
+
+Use `/Users/hydraxon/Documents/GitHub/HydraFit` as the repository working
+directory. Check the parent-supplied location before running repository commands;
+if it differs, stop and report the mismatch rather than guessing another path.
+Use repository-relative paths inside this checkout. Scratch files belong only in
+`/tmp` (canonical `/private/tmp`) or
+`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode`.
+Do not use `/Users/dia`, `/Users/hydraxon/GitHub`, `/Users/hydraxon/github`,
+`/Users/hydraxon/Documents/GitHub` as a working directory, or sibling repositories.
+Do not request broader directory access to work around a location mismatch.
+Directory allowances do not grant authorization for operations or sandbox shell
+access; preserve every existing approval and edit restriction.
 
 Routine read-only inspection is pre-approved. Staging, committing and pushing
 still need the parent's explicit authorization under AGENTS.md; that requirement
