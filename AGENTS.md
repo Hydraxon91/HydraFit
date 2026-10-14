@@ -10,6 +10,41 @@
 
 ## Session rules (apply to every task)
 
+- **Subagent brief contract:** children start with fresh context; do not assume
+  they know the conversation or infer authorization from tool permissions. Give
+  each delegation, including continuations and corrections, a concise structured
+  brief with the following labeled fields. Carry forward still-valid scope on a
+  continuation explicitly; do not silently widen it.
+  - **Objective and approval:** one bounded outcome, the user's approved scope,
+    settled decisions and observable acceptance criteria. Delegation grants no
+    new approval; missing approval returns to the user through the parent.
+  - **Ownership and targets:** exact workdir, allowed paths/actions, parent-owned
+    paths and exclusions; device serial, branch or SHA when relevant. State who
+    may write what and serialize shared-tree mutations.
+  - **Starting state:** verified facts with evidence/revision, pre-existing work
+    and baseline artifacts; label historical context and unknowns separately.
+    Name safe checks for unknown preconditions, not guessed starting conditions.
+  - **Procedure and verification:** exact applicable procedure/skill paths,
+    tests or existing flow paths, expected assertions and downstream checks.
+    Explain invariants and reuse points, not every implementation line. Do not
+    paste whole histories or irrelevant rule lists; linked references are to be read.
+  - **Limits and recovery:** task budget, per-command caps, retry/stop conditions,
+    permitted cleanup and artifact locations. No automatic replay of uncertain
+    writes, permission bypass or speculative recovery. Distinguish deployment
+    and startup side effects from a genuinely read-only inspection.
+  - **Return evidence:** completed/failed/unknown/unverified criteria, exact
+    commands and results, artifact paths, actual changed paths or state, and
+    blockers requiring a parent decision. Exit code or a child's summary alone
+    is not proof of the requested outcome.
+  Before launch, check the brief against the selected helper's role and required
+  inputs; resolve omissions rather than sending an ambiguous task. The child
+  returns missing essentials before edits or side effects, but may perform the
+  explicitly allowed read-only preflight. On return, the parent checks scope and
+  supporting evidence before accepting completion; this is verification, not an
+  automatic formal review. After interruption or an unknown write outcome,
+  establish the prior worker's state before launching a replacement; never run
+  competing writers or treat interruption as rollback.
+
 - **Bounded coding delegation:** the main agent owns planning, behavioral decisions
   and acceptance criteria. For suitable localized work with settled behavior,
   delegate the approved chunk to `coder` (`.opencode/agents/coder.md`), passing

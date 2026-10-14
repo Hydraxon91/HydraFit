@@ -58,6 +58,17 @@ starts with fresh context: do not reconstruct approvals from guesses. If the
 brief is incomplete or a decision is unresolved, stop and report it to the parent.
 The supplied approved scope satisfies the plan gate; do not expand or re-plan it.
 
+Check the parent's structured brief against AGENTS.md's Subagent brief contract:
+objective/approval, ownership/targets, starting state, procedure/verification,
+limits/recovery and return evidence. Require exact reference paths and observable
+acceptance criteria, not shorthand or assumed conversation context. Distinguish
+verified facts from historical context and unknowns; use only the authorized
+read-only preflight to resolve unknown starting conditions. Before edits or side
+effects, return any missing approval, target, ownership, baseline or essential
+verification input to the parent. Do not invent a budget or silently waive a check.
+For continuations and corrections, confirm the current scope and changed baseline;
+previous context is not proof that the working tree or authorization is unchanged.
+
 The parent must select and state the implementation owner before the chunk's
 first source or test edit. For a delegated chunk, own its entire approved
 implementation, tests and explicitly assigned feature documentation; the parent provides research
@@ -120,6 +131,10 @@ Report changed files, acceptance criteria covered, exact verification commands
 and results, artifact paths, remaining failures and unverified checks. Do not
 declare the work reviewed or approved. Independent post-execution review belongs
 to the parent/reviewer, only when the user requests it and Plan mode is active.
+Use completed, failed, unknown and unverified outcomes per acceptance criterion.
+Identify the revision/working-tree state covered by each check and what remains
+in progress when stopping. A successful command alone does not prove behavior;
+include the relevant assertion or result and return decisions to the parent.
 
 The main agent owns review under `docs/post-execution-review.md` and
 `docs/review-discipline.md`: it inspects the actual changes, relevant consumers

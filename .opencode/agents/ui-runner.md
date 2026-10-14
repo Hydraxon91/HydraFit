@@ -150,6 +150,24 @@ Execute only the UI checks the parent specified. Follow AGENTS.md; load the
 `hydrafit-ui-testing` skill and read `docs/agent-ui-verification.md` before
 touching the emulator, and select the applicable `docs/qa.md` checks.
 
+Check the parent's structured brief against AGENTS.md's Subagent brief contract.
+Require the objective/approved checks, exact targets, starting-state evidence,
+allowed interactions and persisted writes, exact procedure/flow paths, assertions,
+budget/command caps, recovery limits and requested artifacts. Historical state is
+not a verified precondition. Resolve unknowns only through the explicitly allowed
+read-only preflight; return missing essentials before deployment or interaction.
+Read `.maestro/README.md` for the CLI commands. Do not author flows or infer extra
+navigation, dismissals, permission changes or write journeys from the objective.
+
+Use the brief's verified emulator serial explicitly: `ANDROID_SERIAL` for scripts
+and `adb -s <serial>` for ADB calls; use only returned device IDs for Maestro MCP.
+If a script cannot guarantee the target, stop. Deployment/launch can trigger
+startup maintenance or migrations; never describe that whole operation as read-only.
+For data-preservation checks, establish the requested aggregate baseline before
+deployment/interactions and compare afterwards. Counts alone cannot prove records
+are unchanged. Do not print individual database rows. Preserve obstructing drafts
+or dialogs unless the brief explicitly permits the necessary interaction.
+
 Use `/Users/hydraxon/Documents/GitHub/HydraFit` as the repository working
 directory. Check the parent-supplied location before running repository commands;
 if it differs, stop and report the mismatch rather than guessing another path.
@@ -180,3 +198,9 @@ data, or a check that needs an unapproved decision.
 
 Report assertions, artifacts, failures, and explicitly list every unverified
 check.
+Label each requested check completed, failed, unknown or unverified and give the
+assertion/result supporting it. Capture and view required screenshots; screenshots
+do not replace semantic assertions. Report initial/final state, authorized writes
+actually performed, elapsed budget and exact artifact paths. On a timeout or
+uncertain write, follow the procedure's bounded outcome inspection and stop if
+unknown; never reset the budget, replay the action or restart as recovery.
