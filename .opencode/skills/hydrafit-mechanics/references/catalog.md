@@ -94,6 +94,17 @@ historical set snapshots are left untouched. It runs off-main at startup via
 built-in row satisfies `MovementPatternGuardrail` except five pinned fresh-install
 classification conflicts (tracked in `docs/live-testing-2026-10-08.md`).
 
+## Equipment identities (0.7.6 C6)
+
+`EquipmentTag.BUILT_IN` owns reserved ids even when a canonical row is absent. Custom creation uses
+`EquipmentIdentity.availableCustomId` with both existing and reserved ids. `SeedEquipmentCatalog`
+repairs legacy custom rows on reserved ids in the same transaction as seeding: deterministic unused
+suffixed ids preserve names, ceilings and custom ownership; selected tags, custom exercise requirements,
+explicit overrides and frozen activation/occurrence requirements follow the remap. All referenced
+tokens are reserved during allocation. Application-owned seed exercise requirements stay canonical;
+new canonical equipment is not automatically selected. Repair is idempotent and rolls back as a unit.
+Backup preview/apply uses the same identity rules; see `backup.md`. No schema/format change is involved.
+
 ## Offline exercise instructions (CAT-01, 0.7.4)
 
 The authored batch has 17 entries after the approved calf split. `standing-calf-raise` retains its

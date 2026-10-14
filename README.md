@@ -12,6 +12,7 @@ The app currently uses standard Material 3 styling. Screenshots and a fuller des
 
 ### Plan your training
 
+- Set up on first launch, or any time from Settings: pick your unit, equipment and training goal, choose your usual training days, and optionally record best sets you already know. Every step is optional and can be skipped or revisited, and setup never writes workout history.
 - Generate a plan for 2–6 days a week using Full Body, Upper-Lower or Push-Pull-Legs splits. Set your equipment and weight limits, choose exercise preferences, or exclude exercises you don't want to use.
 - Build, reorder, duplicate and archive your own routines. Schedule a routine or generated plan on chosen weekdays, or work through it as a next-workout sequence. Missed workouts stay pending until you finish or skip them.
 - Get suggested working weights from your logged history or manual personal records, with automatic progression and a deload week in each four-week cycle.

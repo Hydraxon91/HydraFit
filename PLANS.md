@@ -7,9 +7,10 @@
 | Item | Status | Next action |
 | --- | --- | --- |
 | Product roadmap — M1–M8 | IN PROGRESS | 0.2.0–0.6.1 shipped; M1 selected scope done in 0.2.3. [Approved pre-1.0 roadmap](docs/roadmap.md): 0.7.x context → 0.8.x progress → 0.9.x equipment/data → 0.10.x progression → 0.11.x advanced metrics → 0.12.x optional AI → provisional 0.13.x final UX/design → 1.0. Smaller published feature releases approved 2026-10-11; each has its own bounded scope, verification and separately requested review. 0.7.0 scope and its durable decisions were approved 2026-10-11 (see the OF-03 section). 0.7.0 explanations, 0.7.1 notes/history, 0.7.2 summaries, 0.7.3 warm-up guidance (WU-01), 0.7.4 offline exercise instructions and 0.7.5 informational cautions are shipped. `v0.7.5` tags `7789d579` (PR #12), with green PR/main CI and signed Release run `38521713529`; the offline APK was verified as version 0.7.5/code 20 with matching digest and signature. Signed-release runtime remains unverified. Completed release detail is archived; all remaining work is pre-1.0 except iOS shipping/desktop; research remains evidence-gated. |
-| Oct 13 follow-up — pre-0.7.4 correctives | DONE | OCT13-01/02/03/04/07 implementation and PE-01..04 post-review follow-ups are complete; both the post-execution review and targeted closure review are approved. Logger host tests, `ktlintCheck`, `assembleDebug`, migration verification and both iOS compiles passed; closure test evidence is in `docs/qa.md` §13. OCT13-03/07 emulator acceptance remains user-reported. OCT13-05 notification findings stay in 0.7.7; OCT13-06 expired-prompt dismissal and LT-10 progression policy remain separate/open. Topic branch push only; PR/merge and release publication are not included. |
+| Oct 13 follow-up — pre-0.7.4 correctives | DONE | OCT13-01/02/03/04/07 implementation and PE-01..04 post-review follow-ups are complete; both the post-execution review and targeted closure review are approved. Logger host tests, `ktlintCheck`, `assembleDebug`, migration verification and both iOS compiles passed; closure test evidence is in `docs/qa.md` §13. OCT13-03/07 emulator acceptance remains user-reported. OCT13-05 broader notification integration stays in 0.7.7; OCT14-01 rest-alert timing corrective is approved before 0.7.6 C4. OCT13-06 expired-prompt dismissal and LT-10 progression policy remain separate/open. Topic branch push only; PR/merge and release publication are not included. |
 | 0.7.4 — offline exercise instructions | C0–C7 DONE — PUBLISHED as `v0.7.4` | Approved 17-entry dumbbell/machine-distinct batch; all text editorially accepted unchanged 2026-10-13. C1–C3 targeted closure approved at `3ecd3bca`; R074-05 editorial-status correction applied (`39c7ce8d`). C4/C5 entry points implemented with presentation-only state, tests and bounded flows; C6 verified Equipment/manual/planned/guided/custom-unavailable runtime, a `de-DE` English-fallback check, a font-1.3 longest-text no-clip check and the full candidate matrix, with font 1.3 light and dark user-verified and all temporary fixtures/settings restored. Bounded post-execution review over `3ecd3bca..7f80df47` returned **APPROVED** with no blocking findings; nits R074R-02 (test-tag identity) and R074R-03 (evidence wording) remain open by decision. C7 is DONE — PUBLISHED 2026-10-13 as `v0.7.4` on the PR #11 merge commit `3f5804f9`; Release run `38457253900` (run number 19) passed, with PR/main Build-and-Test runs `38455034690`/`38455821541` green (an earlier Build-and-Test run `38452768212`, run number 203, failed with its `iOS Compile` job cancelled, after which that job was temporarily disabled). Offline artifact check: `versionName=0.7.4`, `versionCode=19`, 24,761,680 bytes, APK SHA-256 `17852bc7238f42e8cb2cb0f7c4a0ddd6fc1326548ee2a73cbe45e6e016c3a5c8` matching the asset digest, same signing certificate as prior releases; the release APK was never installed on the emulator. Evidence/limits in `docs/qa.md` §13. |
 | 0.7.5 — informational exercise cautions | C0–C6 DONE — PUBLISHED as `v0.7.5` at `7789d579`; PR/main/Release CI green; APK verified offline; runtime limits in `docs/qa.md` §13 | Approved three-ID sourced caution batch (`conventional-deadlift`, `romanian-deadlift`, `dumbbell-rdl`) presented as nonblocking "Technique considerations" in the existing offline instruction viewer, with a labelled indication at the Equipment/Logger instruction actions, an independent stable-ID lookup and no persistence/schema/backup change. C1/C2 added the manifest/lookup and the three authored cautions (editorially accepted 2026-10-13); C3/C4 wired the viewer section and the Equipment/planned-draft/guided indications. Decisions remain in the EX-03 / 0.7.5 section; completed chunk detail is archived. |
+| 0.7.6 — onboarding and first-workout guidance | C0–C7 DONE — review APPROVED, closure confirmed, completed plan detail archived; C8 release preparation/publication in progress | C1 (`390f3fc1`) schema 45/backup 11, setup disposition/resume and preferred weekdays; C2 the atomic step saves and the isolated `:feature:onboarding` state machine; C3 (`cb298926`) module/graph aggregation, startup entry and the Settings revisit seam; C4/C5 (`ffee7229`) the step editors, copy, accessibility metadata and the first-workout handoffs; `35dc283c` the R07645-01 entry-fold fix; `0be58927` routine activation opening with the saved preferred weekdays; `16a06e28` the R07645-04/05/07/08 corrections. A bounded review of `8e0e4eec..ffee7229` returned **INCOMPLETE**, the targeted closure review at `0be58927` returned **REJECTED**, and the closure check of the corrections returned **APPROVED**. C6 verification including the five-basic PR shortlist and equipment identity backup repair passed the full Tier A matrix (1,697 host tests, migration verification, ktlint, debug assembly, four iOS compiles, `lintVitalRelease`). Fresh-install, skip, resume/revisit, offline rendering, first-log, activation weekday wrapping and narrow-equipment checks passed with documented limits; the equipment-error branch has no reachable device trigger. Current backup restore passed by user report on the phone, through synthetic emulator SAF export/stage/restart/apply, and against the unchanged supplied file in an external throwaway harness. Legacy device coverage remains unverified because no old backup was available; the user accepted that limit for this slice. C7 ran in Plan Mode over the un-reviewed delta: the Logger corrective closure at `6f82cbd9` was confirmed, and the onboarding/backup chunk `19bcb200`/`2c9fb8b7` reviewed — verdict **APPROVED** with no blocking findings. Its one confirmed minor finding (R076C7-01, the refresh message outliving its context) is fixed under option (a) and the mechanics copy made precise; R076C7-03 was deferred by decision. The follow-up fix is `f49eb9ff`, and its targeted Plan-mode closure check returned **APPROVED** with no new findings (1,698 host tests, 0 failures/errors/skips). C7 is DONE and its completed chunk detail is archived; C8 release preparation/publication is in progress. Startup storage recovery stays at 0.13.7; tablet/foldable layouts at 0.13.3/0.13.4. Upgrade evidence is host migration verification, not a release emulator install. Evidence: `docs/qa.md` §0.7.6 release integration and acceptance, §0.7.6 PR basics and equipment identity backup repair and §0.7.6 C7 review and its follow-up. Branch: `release/0.7.6`; nothing pushed. |
 | Release 0.2.0 | SHIPPED | `v0.2.0` signed release published; [history](docs/plans-archive.md#2026-10-09-completed-status-rows). Stale `v0.1.0` validation pre-release cleanup remains optional. |
 | Release 0.2.1 | SHIPPED | `v0.2.1`; [Q1–Q6 history](docs/plans-archive.md#2026-10-09-completed-status-rows). Q4e remains user-side, not shipped code; local AI remains experimental/non-functional, with optional M8 follow-up. |
 | Release 0.2.2 — code review & architecture | SHIPPED | `v0.2.2`; R0–RG/RF complete, CI green; [fix/commit history](docs/plans-archive.md#2026-10-09-completed-status-rows). |
@@ -722,7 +723,7 @@ gated scopes, not implied by completion of P0–P5. M2's other open work stays a
 | OF-11 | Manual routines and reusable templates | M3; extends OF-01 coverage; feeds OF-02/OF-07 | SHIPPED 0.3.0; later guided/sharing extensions follow roadmap |
 | OF-12 | Flexible scheduling, session rotation and reminders | M3 scheduling after OF-11; M4 reminders | P0/P1 SHIPPED 0.3.0; P2/P3 reminders/integration target 0.7.7 |
 | OF-13 | Workout/exercise notes and session history | M4; existing explicit sessions; integrates OF-02/OF-04 | Divider slice committed in `a021d94` (2026-10-11); null-label visuals, font/theme/locale variants and action-write UI checks remain unverified. The 0.7.1 slice **SHIPPED** 2026-10-12 as `v0.7.1`: persistent exercise setup notes, separate session notes, a bounded searchable session-history browser and the existing set corrections from history (chunks C0–C9, reviewed APPROVED; [detail archived](docs/plans-archive.md#2026-10-12-completed-071-notes-and-session-history)). Still future: duration labels and attaching OF-04 record results once OF-04-P3 is available; workout summaries are scoped as the approved 0.7.2 split below. |
-| OF-14 | Onboarding and first-workout baseline setup | M4; EQ-01/OF-11/OF-12 contracts; existing settings/PR use cases | FUTURE — decisions open |
+| OF-14 | Onboarding and first-workout baseline setup | M4; EQ-01/OF-11/OF-12 contracts; existing settings/PR use cases | DONE in 0.7.6 — C0–C7 implemented, verified and reviewed (see the OF-14 / 0.7.6 section); C8 release preparation/publication in progress |
 
 ### OF-01 — Local backup/export and restore
 
@@ -1249,6 +1250,161 @@ separate release/push/tag approvals. No automatic handoff or next-release work.
 - **OF-14-P3 — verification.** Emulator fresh-install/skip/resume/revisit flows; confirm existing records/settings are not reset and default planning works without AI/network.
 
 **Acceptance:** a fresh user can reach a usable first workout or skip setup; returning users can adjust choices without erasing history. No fictitious performed sets, measured PRs or inferred effort are created; display units and canonical storage agree.
+
+#### 0.7.6 — Onboarding and first-workout guidance (chunk plan)
+
+**Status (2026-10-14): C0–C7 DONE — the completed 2026-10-14 plan-time wording and the chunk
+definitions are [archived verbatim](docs/plans-archive.md#076--onboarding-and-first-workout-guidance).**
+Release scope and the C0 behavioral contract were approved in chat; C1 (`390f3fc1`) delivered schema
+45/backup 11 persistence and legacy handling, C2 the atomic step saves and the isolated module/state
+machine, C3 module/graph aggregation with the feature-owned entry decision, and C4/C5 the step
+editors, copy, semantics and the three first-workout handoffs (`ffee7229`, with the R07645-01 entry
+fix `35dc283c`, the routine activation prefill `0be58927` and the R07645-04/05/07/08 corrections
+`16a06e28`). C6 completed the Tier A matrix plus the fresh-install, skip, resume/revisit, offline,
+first-log, PR-shortlist, weekday-wrap, narrow-equipment and backup-restore acceptance passes, and C7
+(the separately requested Plan Mode review) returned **APPROVED**, with its one confirmed minor
+finding fixed in `f49eb9ff` and the targeted closure check **APPROVED**. **C8 — release
+preparation/publication is IN PROGRESS**: release-prep documentation first, then the separately
+approved push, pull request, merge, annotated `v0.7.6` tag on the merge commit, publication and
+offline artifact verification. Evidence and limits: `docs/qa.md` §0.7.6 release integration and
+acceptance, §0.7.6 PR basics and equipment identity backup repair and §0.7.6 C7 review and its
+follow-up. Tablet and foldable layouts remain 0.13.3/0.13.4. Work branch: `release/0.7.6`. This
+bounded split refines OF-14-P0–P3 (queued above) without renumbering those broader phases.
+
+**Scope:** a short, skippable and revisitable offline setup (units, equipment, goal, weekday
+schedule, optional reported best sets), followed by clear routes into the existing first-workout
+paths. Equipment **profiles** stay in 0.9.0 (EQ-01) and reminders in 0.7.7; this slice uses today's
+single equipment inventory. AI setup stays optional and is not required.
+
+**Approved C0 decisions (2026-10-14):**
+- **Steps:** Welcome → Units → Equipment → Goal → Weekday schedule → Optional PRs → First workout.
+  Every step is optional; inputs default to the current stored/app values (KG, BALANCED, 4
+  days/week). Suggested copy: "Changes are saved when you select Next."
+- **Save semantics:** "Next" saves only the current step and advances its resume boundary
+  atomically; Back/edit alone saves nothing; a visible "Skip setup" saves dismissal only (not the
+  current unsaved inputs) and never rolls back already-saved steps. An interrupted first-run resumes
+  at its last committed boundary; unsaved edits need not survive process death. A failed save retains
+  edits for retry and advances nothing; completion never depends on logging a workout.
+- **Fresh / returning / restored:** a fresh install is offered setup after startup readiness;
+  completed or skipped setups do not auto-reopen; an existing database upgraded to 0.7.6 bypasses
+  automatic setup regardless of workout count; a new-format backup restores its supported setup
+  disposition/resume boundary; an older backup restores as a returning user. Setup is revisitable
+  from Settings using current values. **No automatic re-prompt on a future onboarding-version change
+  — a future re-prompt needs its own decision.**
+- **Weekday schedule:** save preferred weekdays; selecting 2–6 weekdays also sets planning frequency
+  to that count; "decide later" preserves frequency and leaves preferences unset. Routine activation
+  opens with these preferences and still requires explicit confirmation. Revisiting setup never
+  reschedules or replaces an active block. It is schedule preparation, not an active schedule.
+- **PR questionnaire:** optionally record best sets in the existing manual-PR store — searchable
+  exercise selection, multiple optional weight+reps entries, "I don't know" records nothing, no
+  mandatory lifts, no strength guesses, no estimated-1RM entry, no test-to-failure instructions.
+  Next saves explicitly entered PRs and the cursor atomically; existing PRs are shown and replaced
+  only by explicit edit; omitted entries are never deleted; KG/LB converts to canonical kilograms.
+  Saved PRs influence existing planner load estimates but create no workout sets or fatigue. Onboarding
+  may create **explicitly user-reported** manual PRs, never fabricated records.
+- **Equipment prerequisite:** equipment remains skippable; before generating a plan, validate the
+  saved inventory against existing planner requirements and, if unusable, show a "Set up equipment"
+  action instead of promising a usable generated plan. No silent selection, inventory reset or
+  invented fallback routine; manual logging stays available.
+- **First-workout routes:** "Generate a plan" → SplitBuilder; "Build a routine" → Routines; "Log
+  without a plan" → Logger. Opening these creates no plan, activation, session or performed set. No
+  new starting-load storage is added; PR data uses the existing manual-PR store. Guided logging stays
+  default-off; AI/engine selection is unchanged and not required.
+
+**Ownership:** new `:feature:onboarding` (screens, presentation state, exported entry/navigation);
+`:core:userdata` ports for setup status and preferred weekdays; `:core:domain` for any pure
+validation/policy; `:core:database` for atomic step persistence, an additive `.sqm` migration and
+backup coverage; `shared` for exported registration/wiring only; `:core:navigation` for a narrow
+setup-opening callback so Settings does not depend on another feature.
+
+**Infrastructure callouts (require their chunk's explicit approval):** add `:feature:onboarding` to
+`settings.gradle.kts`; register its dependency and exports in the shared composition root; add the
+`:core:navigation` setup-opening seam; add an additive migration plus a backup-format change. No new
+third-party dependency, provider, signing or CI change is proposed.
+
+**Chunks (each was separately gated; ordered) — completion status:** C0 (decisions, no code); C1
+`390f3fc1` (schema 45/backup 11 persistence and legacy handling); C2 (atomic step saves, isolated
+module/state machine); C3 `cb298926` (module/graph aggregation, startup entry, Settings revisit
+seam); C4/C5 `ffee7229` (step editors, copy, semantics and the three first-workout handoffs); C6
+(Tier A matrix plus the acceptance passes); C7 (Plan Mode review **APPROVED**, targeted closure
+**APPROVED** at `f49eb9ff`). Their definitions and per-chunk evidence are
+[archived verbatim](docs/plans-archive.md#076--onboarding-and-first-workout-guidance); the
+onboarding/backup corrective is recorded in `docs/qa.md` §0.7.6 PR basics and equipment identity
+backup repair. **C8 — release preparation/publication is IN PROGRESS** (release-prep documentation;
+then the separately approved push, pull request, merge, annotated `v0.7.6` tag on the merge commit,
+publication and offline artifact verification; a release APK is never installed on the development
+emulator).
+
+**Execution discipline:** approve chunks individually or as an ordered batch after C0. Each
+implementation chunk ships its tests and affected living-doc/mechanics-reference updates (including
+weekday-preference consumers), runs the relevant checks and reports at its boundary, using the
+verification tiers in `docs/agent-project-reference.md` Key Commands. Stop after C6 for C7 in Plan
+Mode. No push or publication is authorized by this section.
+
+### Oct 14 live-testing follow-up — rest alerts and remaining ideas
+
+**Approved direction (2026-10-14):** pause the combined 0.7.6 C4 → C5 work until a
+bounded rest-alert corrective is implemented and verified. Option B is approved:
+use `setExactAndAllowWhileIdle` when permitted, with `SCHEDULE_EXACT_ALARM` special
+access on supported Android versions and an explicitly disclosed inexact fallback
+when access is unavailable. This reopens the prior no-exact-alarm-permission
+decision for user-enabled rest alerts only; do not use `USE_EXACT_ALARM`. No push,
+tag, publication, new dependency or foreground service is authorized. A requested
+post-execution review remains a separate Plan Mode gate.
+
+- **OCT14-01 — rest-alert timing corrective (PRE-C4, implemented and bounded-verified; formal review
+  pending).** Exact/inexact scheduling with optional Alarms & reminders access is implemented and
+  verified on a debug emulator: alerts enable without the access, the inexact warning and
+  **Allow precise timing** action render, that action opens the system page, a grant clears the warning
+  on return without disabling alerts, revocation restores it and kills the process as documented, and
+  toggling alerts off returns the baseline. Full host matrix plus ktlint and iOS compiles passed.
+  User-run S25 timing acceptance and receiver-timestamp confirmation of the ~75% delay remain
+  outstanding; evidence and limits in `docs/qa.md` OCT14-01.
+  User-reported S25 timings: 15-second rest → approximately 26–26.5 seconds total;
+  30 seconds → approximately 52 seconds; 60 seconds → approximately 105 seconds.
+  The 30-second result repeated across foreground/background, locked/unlocked and
+  user-described app-closed states. Force-stop versus Recents dismissal is not
+  established. Current `AndroidRestAlertScheduler` uses inexact
+  `setAndAllowWhileIdle`; the AOSP 75%-of-futurity batching heuristic matches the
+  measurements, but S25 receiver-arrival/posting timestamps have not confirmed
+  its device-specific cause. The countdown deadline remains completion + duration.
+  Settle the exact permission-request/return/revocation and fallback UI contract
+  before implementation. Trace deadline → alarm receipt → notification posting
+  with non-personal debug evidence; preserve elapsed-time deadlines, explicit
+  alert opt-in, stale-delivery guards, cancellation/edit/session/occurrence
+  invalidation and silent expired restoration. Test granted/denied/revoked access,
+  scheduling races, repeated short rests and receiver validation; verify host/Koin
+  checks, Android build/lint and bounded debug-emulator acceptance. User-run S25
+  timing checks remain necessary: exact alarms still have idle throttling and do
+  not guarantee heads-up presentation. Update affected living docs and mechanics
+  references with the corrective. Broader OCT13-05/LT-06 reminder, ongoing-countdown,
+  foreground-signal and notification-channel decisions stay in 0.7.7.
+- **OCT14-02 — development-version accuracy and update discipline (OPEN tooling
+  follow-up).** `androidApp/build.gradle.kts` still defaults to `0.7.2-dev`;
+  Acknowledgments receives the build version rather than separate hardcoded copy.
+  Propose the current development base and a release-checklist/version-consistency
+  guard, including tagged-build and unavailable-Git cases. CI changes need explicit
+  separate approval; neither a guard implementation nor an automatic tag-derived
+  version policy is approved here. Preserve revision/dirty identity and release
+  tag naming. A misleading base alone does not prove a stale installation.
+- **OCT14-03 — return-to-training load policy (OPEN decision, OF-10A / 0.10.x).**
+  Consider temporary lower suggested loads after a long training gap. Today's
+  42-day evidence window can withhold automatic load, while eligible manual PRs
+  remain a floor; it is not an inactivity reduction/ramp-back policy. Decide gap
+  definition, exercise versus whole-user scope, reduction/recovery criteria,
+  manual-PR treatment, engine consistency and accepted/frozen-target behavior
+  before implementation. No thresholds, percentages or automatic history/PR
+  changes are approved by this finding.
+- **OCT14-04 — seeded-exercise instruction coverage (OPEN content decision,
+  CAT-01; closure remains 0.13.6).** Current authored text covers 17 exercises.
+  Recommend bounded text batches independent of images/animations; agree the
+  coverage target, batch priority, sources and editorial acceptance first.
+  Instructions attach to stable exercise IDs, not individual sets. Media retains
+  its separate licensing, offline-size and accessible-text contract; no new text
+  batch or media asset is authorized here.
+- **OCT14-05 — progression graphs (ALREADY PLANNED).** Map the requested progression
+  tracker to OF-04 / 0.8.0 exercise history and load/repetition/e1RM/working-volume
+  charts; no duplicate feature or accelerated implementation is authorized.
 
 ### Supporting plans — library, equipment and product quality
 

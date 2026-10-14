@@ -39,6 +39,9 @@ UPDATE exercise
 SET name = ?, requiredEquipment = ?, movementPattern = ?, isUnilateral = ?, loadCapability = ?, involvements = ?
 WHERE id = ? AND isCustom = 1;
 
+remapCustomEquipment:
+UPDATE exercise SET requiredEquipment = ? WHERE id = ? AND isCustom = 1;
+
 updateIsUnilateral:
 UPDATE exercise SET isUnilateral = ? WHERE id = ?;
 

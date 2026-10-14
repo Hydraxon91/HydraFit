@@ -78,6 +78,27 @@ write or explicit cancellation consumes it, including failed-write retries throu
 These actions stay within the six existing Logger ViewModel dependencies; no draft-actions Koin aggregate is
 registered.
 
+Manual **Log set** submits one live or backdated set through its own path. It claims a single
+in-flight guard synchronously and holds it through the post-write refresh, so a repeated tap during
+the write or its success handling records one set only. A failed insert leaves every entered value —
+exercise, reps, load, RIR, warm-up flag and chosen performed time — untouched and reports *That set
+could not be saved. Keep your entries and try again.*; the retry is the ordinary Log set action, with
+no automatic retry. The outcome applies only while the submitted form is still current: a completion
+that lands after the user replaced an input, switched exercise, changed the block/occurrence, or
+received a delayed history prefill does not reset the newer value and does not show an error for
+entries no longer on screen; a prefill that replaces the entries also drops failure feedback that
+described them. Both the failed-save message and a completed save's refresh message are scoped to the
+context that produced them: replacing or removing the occurrence, changing the block or rebuilding
+the plan/day drops either one that is already shown, as does switching the exercise or replacing the
+entries, so neither message outlives that context; an ordinary refresh of the same occurrence keeps
+them, and a successful recent-sets refresh also clears the refresh message. A
+successful insert is never reported as unsaved, and its post-write recent-sets/occurrence refresh is
+separated from the write, so a failed refresh reports only a refresh failure instead of inviting a
+duplicate re-log. That message names the workout information rather than the recent-sets list,
+because either the recent-sets read or the occurrence read can fail, and a refresh failure that lands
+after the context was replaced is not shown either. The set's occurrence/entry attribution and block
+day are captured at submission. These manual-log outcomes are in memory only.
+
 Recent sets carry nullable stored `sessionId` in `LoggedSetRow`, retaining performed-time descending
 and insertion-id descending tie order. `startsSessionAfter` identifies adjacent explicit boundaries;
 the UI shows "Recorded session" at each boundary, including a returning identity without regrouping.
@@ -311,12 +332,81 @@ the pre-correction reconciliation on screen. A failed save keeps the editor and 
 reconciliation. Recorded start/finish instants and session notes are shown; there is no duration figure
 and no universal score.
 
+Onboarding's foundation lives in `:feature:onboarding`: `OnboardingViewModel`, `OnboardingUiState`,
+`OnboardingEntryViewModel`, `OnboardingDraftRules.kt` and exported `onboardingModule`.
+`OnboardingNavigation.kt` exports `onboardingFirstRunRoute`/`onboardingRevisitRoute`,
+`onboardingGraph(navController, onClose)`, `OnboardingStartupGate` and `OnboardingStartupEntry`;
+`OnboardingEntryViewModel` reads the disposition once after readiness, so the shell forces first-run
+only while it is PENDING and leaves a route already restored to first-run alone. The six tabs and the
+tab bar are unchanged, and Settings opens the revisit route through `LocalSetupNavigator`
+(`:core:navigation`).
+`OnboardingEntryScreen.kt` owns the route effect and the Back/Next/Skip/Close action bar, and
+`OnboardingStepEditors.kt` renders one editor per step: welcome copy, unit radios, an equipment
+multi-select over `state.equipment`, all four training goals with the loaded one preselected, seven
+weekday toggles plus an explicit "Decide later" (null) choice, the optional PR entry and the three
+first-workout handoffs. The PR step offers only these built-in basics in this order: Back Squat,
+Barbell Bench Press, Conventional Deadlift, Overhead Press and Seated Cable Row. It resolves stable ids
+from the effective catalog, omitting missing, custom or non-external rows. Search filters only these
+five; the full editor elsewhere is unchanged and records outside the shortlist are never removed.
+Equipment and
+exercise names come from the domain (`Equipment.name`/`Exercise.name`), not the module's strings;
+everything else is an `onboarding_*` resource key. Selection controls use the radio role for single
+choice and checkbox/toggle for multi-select with ~48dp rows; the step content scrolls with the action
+bar pinned and `imePadding()` applied. A device pass at `font_scale 1.3` in dark mode with the app
+locale set to `de-DE` (19 commands, 7 assertions, screenshots viewed) kept the headings and the pinned
+action bar reachable on the longest step: at 1.3 the action bar reflows to two lines (Close wraps)
+without clipping, and the `de-DE` app locale falls back to the English strings — all three temporary
+device settings were restored and read back afterwards. TalkBack, rotation/adaptive layouts, a
+translated-language layout remain unverified rather than claimed; a separate pass then asserted that
+the pinned action bar stays reachable and unobstructed with the keyboard open while a PR entry field
+is focused.
+Construction writes nothing; `open` waits for `StartupReadiness`, resumes PENDING setup, or starts a
+voluntary revisit at Welcome. Next/Skip call the domain save actions; Back/edit/close/rendering save
+nothing. `isSubmittable` gates Next (its only local rule is the 2–6 weekday range, so
+`requirePreferredWeekdays` never fails a save), and every control is disabled while `saving`. The guard
+spans transaction and next-step reads. Failed saves retain the draft, while a failed read after a
+successful save retries only the read. Context revisions suppress stale publications, and reopening
+waits for an already-submitted write before reloading. PR edits capture the entry unit, write only
+explicitly edited records and never delete omitted records; `displayedRecord` shows the draft first and
+then the stored record. The one open entry's raw weight and reps text lives in state
+(`OnboardingUiState.personalRecordEntry`, pre-filled from `displayedRecord`) together with the record
+it was pre-filled from as its origin. Save, Next and a switch to another exercise all read that entry
+through the one `decidePersonalRecordEntry` rule, so they cannot diverge: an entry whose text still
+matches what was pre-filled submits nothing — opening a stored record and leaving it alone never
+rewrites it, which re-encoding its rounded pound display would otherwise do — and a single changed
+field is parsed and converted through the frozen entry unit while the other field keeps its exact
+origin value, so a reps-only edit preserves the stored kilograms and a weight-only edit preserves the
+stored reps. "Save best set" routes the entry to the ViewModel, which stages the same record Next
+would, replacing an already staged value rather than duplicating it; opening a different exercise's
+entry stages the open one by that same rule first, so switching never discards typed text, while
+re-opening the open entry keeps it; "I don't
+know" clears the entry and records nothing, and blank or
+unparseable text records nothing without blocking Next. Skip records no entry at all. `toggleWeekday`
+keeps null as a real choice rather than silently deciding. The final step's handoffs (`AppTab.PLAN`/`ROUTINES`/`LOG`) call
+`handoff(tab)`, which sets `OnboardingUiState.pendingHandoff` and submits the same final-step Continue
+write as Next; the screen's `LaunchedEffect(state.finished, state.pendingHandoff)` calls
+`LocalAppTabNavigator` only once `finished`, so a failed write clears the pending handoff and stays on
+the final step. A handoff on any other step returns without writing.
+Step control groups, the action bar and the three handoffs carry `OnboardingTestTags` (`onboarding_*`)
+exposed as Android resource ids through `Modifier.onboardingTestTagsAsResourceId()` (no-op on iOS) —
+the same adapter pattern as `settings_*`/`logger_*`. They are technical metadata: never spoken labels
+and never a replacement for the control semantics. Tests use controlled suspension for repeated
+submissions, close/reopen, failure/retry and cancellation; the pure rules are covered in
+`OnboardingDraftRulesTest`.
+
 For routine authoring, the module is `:feature:routines`:`RoutinesModule.kt`, `RoutinesNavigation.kt` (`routinesRoute`/
 `routinesDestination`), `RoutinesScreen.kt` (list, editor, exercise picker,
 activation dialog), `RoutinesViewModel.kt` and `RoutinesUiState.kt`. The
 ViewModel depends on the domain aggregates `RoutineTemplateActions` and
 `WorkoutScheduleActions` plus `ExerciseCatalog`, `TimeProvider` and
-`WeightUnitRepository`. SplitBuilder starts a generated plan as a block via
+`WeightUnitRepository`. The activation dialog opens with the saved
+`PreferredWeekdaysRepository` selection when it exists and with the Mon/Wed/Fri
+`DefaultWeekdays` while preferences are undecided; that selection is resolved when the
+dialog is requested, before it is constructed, so it never opens on a placeholder that was
+later corrected, a superseded resolution cannot overwrite a newer one, and a read failure
+degrades to the default days rather than blocking the choice. Opening it writes nothing and
+confirmation remains explicit. The Plan tab's Start-block scheduler still derives
+its weekdays from the plan. SplitBuilder starts a generated plan as a block via
 `PlanBuilderActions.scheduleAcceptedPlan`/`acceptAndSchedule` and the
 `SplitScheduleDialogState` in `SplitBuilderUiState.kt`. SplitBuilder's accepted-plan swap uses
 `SplitBuilderViewModel.onSwapRequested`/`onSwapCandidateSelected` (via

@@ -36,6 +36,8 @@ class V1ToCurrentMigrationTest {
         HydraFitDatabase.Schema.migrate(driver, 1, HydraFitDatabase.Schema.version)
 
         val database = HydraFitDatabase(driver)
+        assertEquals("RETURNING", database.setupQueries.selectState().executeAsOne().disposition)
+        assertNull(database.setupQueries.selectWeekdays().executeAsOne().weekdays)
         val exercise = database.exerciseQueries.selectById("back-squat").executeAsOne()
         // The recorded identity and non-migrated columns survive the whole chain.
         assertEquals("Back Squat", exercise.name)

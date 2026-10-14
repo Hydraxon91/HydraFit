@@ -4,6 +4,7 @@ import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferenceRepositor
 import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferences
 import com.hydrafit.app.core.domain.workout.PersistedRestCountdown
 import com.hydrafit.app.core.domain.workout.RestAlertScheduler
+import com.hydrafit.app.core.domain.workout.RestAlertTiming
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -19,6 +20,40 @@ import kotlinx.coroutines.test.setMain
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TrainingGuidanceSettingsViewModelTest {
+    @Test
+    fun timingRefreshAndRevocationDoNotDisableAlertsOrChangeCoaching() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val preferences = FakePreferences()
+            val timing = MutableStateFlow(RestAlertTiming.INEXACT)
+            var refreshed = 0
+            val scheduler = object : RestAlertScheduler {
+                override val timing = timing
+                override fun refreshTiming() {
+                    refreshed++
+                    timing.value = RestAlertTiming.PRECISE
+                }
+                override suspend fun schedule(countdown: PersistedRestCountdown) = Unit
+                override fun cancel() = Unit
+            }
+            val viewModel = TrainingGuidanceSettingsViewModel(preferences, scheduler)
+            viewModel.setAlerts(true, true)
+            viewModel.setCoaching(true)
+            runCurrent()
+            assertEquals(RestAlertTiming.INEXACT, viewModel.state.value.alertTiming)
+            viewModel.refreshAlertTiming()
+            runCurrent()
+            assertEquals(1, refreshed)
+            assertEquals(RestAlertTiming.PRECISE, viewModel.state.value.alertTiming)
+            timing.value = RestAlertTiming.INEXACT
+            runCurrent()
+            assertEquals(RestAlertTiming.INEXACT, viewModel.state.value.alertTiming)
+            assertEquals(TrainingGuidancePreferences(true, true), preferences.state.value)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     @Test
     fun deniedPermissionKeepsAlertsOffAndCoachingIsIndependent() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))

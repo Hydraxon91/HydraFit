@@ -2,6 +2,7 @@
 <resources>
     <string name="nav_label">Settings</string>
     <string name="settings_title">Settings</string>
+    <string name="settings_setup">Set up HydraFit</string>
     <string name="settings_planning_section">Planning</string>
     <string name="settings_engine_section">Planning engine</string>
     <string name="settings_engine_deterministic">Deterministic (offline)</string>
@@ -21,7 +22,9 @@
     <string name="settings_rest_default_seconds">Seconds (1–86400)</string>
     <string name="settings_rest_default_save">Save default</string>
     <string name="settings_rest_alerts">Background rest alerts</string>
-    <string name="settings_rest_alerts_description">Optional local notifications for live guided rest prompts. Android may delay delivery to save power; this is not a recovery measurement.</string>
+    <string name="settings_rest_alerts_description">Optional local notifications for live guided rest prompts. Precise timing uses Android’s Alarms &amp; reminders access. Power restrictions can still delay alerts; pop-up banners depend on notification settings. This is not a recovery measurement.</string>
+    <string name="settings_rest_alerts_late">Alerts may arrive late. Allow precise timing to reduce scheduling delays; alerts remain enabled without it.</string>
+    <string name="settings_rest_alerts_precise_action">Allow precise timing</string>
     <string name="settings_rest_alerts_denied">Notifications are blocked. The rest countdown still works; allow notifications in system settings to enable alerts.</string>
     <string name="settings_rest_alerts_unsupported">Background rest alerts are currently available on Android only.</string>
     <string name="settings_short_rest_coaching">Short-rest guidance</string>
@@ -82,7 +85,7 @@
     <string name="settings_backup_error_over_limit">That backup is too complex or too large to restore.</string>
     <string name="settings_backup_error_startup_unstable">That backup can’t be restored as-is because it would change on next launch.</string>
     <string name="settings_backup_error_catalog_mismatch">That backup was made with a different exercise catalog.</string>
-    <string name="settings_backup_error_unknown_catalog">That backup references exercises this install doesn’t have.</string>
+    <string name="settings_backup_error_unknown_catalog">That backup references exercises or equipment this install doesn’t have.</string>
     <string name="settings_backup_error_duplicate_id">That backup contains duplicate records.</string>
     <string name="settings_backup_error_invalid_reference">That backup has broken links.</string>
     <string name="settings_backup_error_invalid_value">That backup contains an unsupported value.</string>

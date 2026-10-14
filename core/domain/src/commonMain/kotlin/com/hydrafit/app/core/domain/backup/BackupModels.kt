@@ -6,7 +6,9 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 10
+const val BACKUP_FORMAT_VERSION: Int = 11
+
+const val SETUP_FORMAT_VERSION: Int = 11
 
 /** The first backup format that carries persistent per-session notes. */
 const val SESSION_NOTES_FORMAT_VERSION: Int = 10
@@ -17,7 +19,9 @@ const val EXERCISE_NOTES_FORMAT_VERSION: Int = 9
 /**
  * A whole logical snapshot of the supported offline data. Rows are stored flat with their persisted
  * ids so restore can rebuild relationships exactly; the envelope carries the format identity, a
- * catalog fingerprint and the export time. Version 10 adds persistent per-session notes;
+ * catalog fingerprint and the export time. Version 11 adds setup disposition/resume and preferred
+ * weekdays; earlier formats restore as returning users with undecided weekdays.
+ * Version 10 adds persistent per-session notes;
  * earlier formats have none, so a restored legacy install reports no note rather than an explicit
  * clear. Version 9 adds persistent per-exercise setup notes; versions 1–8 have none. Version 8 adds
  * the recorded reasoning of frozen
@@ -77,7 +81,17 @@ data class BackupFile(
      */
     val exerciseNotes: List<BackupExerciseNoteRecord> = emptyList(),
     /** Notes keyed to a workout-session identity; absent before format 10. */
-    val sessionNotes: List<BackupSessionNoteRecord> = emptyList()
+    val sessionNotes: List<BackupSessionNoteRecord> = emptyList(),
+    /** Legacy backups are returning installations, never fresh onboarding candidates. */
+    val setup: BackupSetupRecord = BackupSetupRecord(),
+    val preferredWeekdays: List<String>? = null
+)
+
+@Serializable
+data class BackupSetupRecord(
+    val version: Int = 1,
+    val disposition: String = "RETURNING",
+    val step: String = "WELCOME"
 )
 
 @Serializable

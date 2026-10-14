@@ -20,6 +20,12 @@ Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseExclusion.sq`, `ExerciseNot
 `PlanTargetExplanationState.sq`, `EntryTargetExplanation.sq`, `RoutineTemplate.sq`,
 `TrainingSchedule.sq`, `UserEquipment.sq`, `WorkoutLog.sq`, `WorkoutSession.sq`, `SessionNote.sq` and
 `WorkoutHistory.sq`.
+Query-only equipment identity repair (0.7.6 C6) adds custom-id movement and per-row equipment-reference
+updates in `Equipment.sq`, `Exercise.sq`, `ExerciseOverride.sq` and `TrainingSchedule.sq`.
+`SeedEquipmentCatalog` remaps legacy custom equipment on reserved ids transactionally before canonical
+seeding, preserving all user/frozen references without rewriting seed exercise definitions. Restore
+seeds missing canonical equipment inside its replacement transaction before applying ceilings.
+No table/column change or migration is involved; catalog/backup references own the compatibility policy.
 `PlanHistory.sq`'s `updateEntryExerciseIdAtPosition` swaps one entry's
 `exerciseId`/`exerciseName`/`suggestedWeightKg` in place (no schema change) for
 `SubstituteExerciseUseCase`; the entry's `sets`/`reps` are untouched. Editing a
@@ -59,9 +65,18 @@ projection. `SearchProjectionBackfill` rebuilds both projections for every row a
 databases upgraded from an earlier version as well as any drift. `43.sqm` adds
 `workoutSet_sessionId_performedAt` on `workoutSet(sessionId, performedAt)`: the history reads filter
 and group by `sessionId` and order one session's sets by `performedAt`, and without it each of those
-shapes planned a full table scan plus a temporary B-tree. Current schema version is 44.
+shapes planned a full table scan plus a temporary B-tree. `44.sqm` adds the singleton `setupState`
+and nullable `preferredWeekdays` rows. Fresh creation starts PENDING/WELCOME; migration starts
+RETURNING/WELCOME regardless of workout count. Current schema version is 45.
 Determine the
 next version from the current directory/generated Schema rather than copying this snapshot.
+
+`SqlDelightSetupWriteRepository` implements domain `SetupWriteRepository`. Its transaction compares
+the full expected setup state/revision, validates domain inputs and effective catalog identities,
+writes the step payload, then advances the boundary. Equipment lookups and PR eligibility checks
+are per-id (no catalog scan on the write path). A failed boundary write rolls back every step payload.
+Weekday writes share `savePreferredWeekdays` with the standalone preference repository. PR writes
+upsert only submitted external records; completion/dismissal never create training data.
 
 `WorkoutHistory.sq` is query-only (no schema of its own): it projects `workoutSession`, `workoutSet`,
 `sessionNote` and the current `exercise` catalog into bounded, keyset-paginated history reads behind
@@ -116,7 +131,7 @@ covered by their own scoped migration tests (`38.sqm`, `39.sqm`), and the exerci
 tables by `ExerciseNoteMigrationTest` (`40.sqm`) and `SessionNoteMigrationTest` (`41.sqm`); the
 `42.sqm` search projections are asserted by `V1ToCurrentMigrationTest`.
 SQLDelight `verifyMigrations` is enabled against the committed v1 seed `databases/1.db`;
-`./gradlew verifySqlDelightMigration` (run in CI) applies `1.sqm..42.sqm` to it and fails
+`./gradlew verifySqlDelightMigration` (run in CI) applies the entire migration chain to it and fails
 if the result differs from the current `.sq`. Keep `1.db` fixed — it is the immutable v1
 schema, not a current-version snapshot. When the migration chain produces a different
 column *order* than `.sq` declares, align the `.sq` order to the chain (no column

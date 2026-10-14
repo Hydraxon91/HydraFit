@@ -431,7 +431,7 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - With guided workouts ON and an active block occurrence, the Logger shows the guided card: exercises in order with target vs actual sets; "Log set" records exactly one set and the remaining prescribed sets stay pending; warm-ups and unplanned exercises do not count toward progress; the Warm-up toggle applies to the guided row's Log set / Set completed now actions; Edit then Confirm also records one set. A live start owns its completion: while a set is started, the guided row's ordinary "Log set" is unavailable and only that slot's "Set completed now" can complete it; "Start set" is disabled for the already-started slot while a different untouched slot stays startable. Replacement is hidden for a slot that already holds recorded work (working or warm-up) and for the started slot; untouched later slots stay replaceable. Finish/partial/Skip and End/New session are unchanged.
 - In guided mode, "Set completed now" records one set at the live time and starts the editable rest prompt only after save succeeds. Ordinary confirmation and backdated entries do not start it. Duration accepts 1–86,400 seconds; invalid values must not crash or change the active timer. Change duration and verify the deadline is still based on the original completion time; background/resume must not restart it. Starting the next set cancels that prompt's countdown and persisted alert before the new start is recorded. It expires without logging a set and is not a rest measurement.
 - End/New session, occurrence change, guided OFF, dismiss, starting the next set, or successful deletion/correction of a set from the active occurrence cancels the prompt. A same-boot process death restores the remaining countdown while the occurrence context still matches; a reboot (boot-identity change) or expired/mismatched/malformed state clears it silently.
-- Rest alerts and short-rest coaching default OFF independently. Android alert opt-in explicitly requests notification permission; denial keeps alerts off without affecting coaching. One local inexact alarm may be delayed by power management; duration edits replace it, cancellation removes pending/delivered alerts, invalid context suppresses delivery, and expired restoration stays silent. No exact-alarm permission or foreground service appears; iOS shows unsupported alerts.
+- Rest alerts and short-rest coaching default OFF independently. Android alert opt-in explicitly requests notification permission; denial keeps alerts off without affecting coaching. Exact scheduling uses optional Alarms & reminders access on Android 12+; without access, alerts remain enabled with the visible delay warning and explicit Allow precise timing action. Returning after a grant reconciles a future eligible timer at its unchanged deadline; denying or revoking access retains inexact fallback on live reconciliation. OS revocation can terminate the process and remove alarms, so delivery while stopped is not guaranteed. Duration edits replace alarms, cancellation removes pending/delivered alerts, invalid context suppresses delivery, and expired restoration stays silent. Check repeated 15/30/60-second rests across foreground/background/locked states; idle throttling and channel presentation remain separate from deadline accuracy. No foreground service appears; iOS shows unsupported alerts. Historical verification below predates the OCT14-01 exact-alarm corrective.
 - Coaching requires two consecutive eligible live completion → Start set intervals below the rest duration chosen at completion, same exercise/session/occurrence/boot. It shows one dismissible, non-blocking message per exercise/session without logging a set or changing prescriptions/fatigue/RIR. Equal/longer intervals break the streak; catch-up, edited/unknown timing, warm-ups and transitions cannot contribute; recreation resets evidence.
   **2026-10-11 bounded verification:** debug install on `emulator-5554`; read-only Settings navigation asserted both new labels and the final screenshot was viewed (`/tmp/hydrafit-060-guidance-settings-final.png`); both switches appeared off. In the approved synthetic fixture journey, notification permission was requested and granted; after one live set, the app process was killed without force-stop and Android delivered the expected “Rest prompt ended” notification without a manual relaunch (screenshot: `/tmp/hydrafit-r060-delivered.png`). The synthetic set/session were cleaned up, the block canceled and routine rearchived; settings were restored to 120 seconds and OFF, and notification permission to denied. Explicit permission-denial handling, receiver interleavings and replacement UI remain unverified. Host regressions cover preference/backup/migration round-trips, eligibility, coordinator readiness/duration/deduplication/context cancellation, coaching policy/live integration, replacement preservation/rejections and Koin resolution; they do not prove platform receiver interleavings.
 - RIR fields in manual logging, planned-draft editing and recent-set editing explain reps in reserve, remain optional, and offer 0/1/2/3 quick-picks. Picking the selected value again clears it; typed values through 10 remain available. Zero is recorded as an explicit report, blank stays unreported, and no RPE conversion or inferred/prescribed RIR appears.
@@ -484,6 +484,21 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - Optional: read-only DB pull (aggregates only) to confirm sessions/PRs were written.
 
 ## 12. Backup & restore
+- Format 11: setup disposition/resume and preferred weekdays round-trip; formats 1–10 restore as
+  returning users without weekday preferences. Fresh schema offers setup; upgraded empty databases
+  do not. Host coverage is in `SetupPersistenceTest`, `BackupJsonTest`, `BackupValidatorTest` and
+  `V1ToCurrentMigrationTest`; onboarding entry/UI acceptance is not wired or verified in C1.
+- C2 foundation host checks (`SetupActionsTest`, `SetupWritesTest`, `OnboardingViewModelTest`,
+  `OnboardingModuleVerificationTest`) cover atomic saves/rollback, stale revisions, no training-data
+  creation, the PR → planner-baseline path, unit conversion, omission preservation, repeat submits
+  through success loading, failure/retry, readiness, recreation, close/reopen and cancellation.
+  Module graph, app entry/screens and emulator acceptance are separate checks; C2 adds only the
+  isolated module scaffold and its exported bindings, not a seventh tab or a live setup screen.
+  **2026-10-14 host-only C1/C2 verification:** full `testAndroidHostTest`, migration verification,
+  `ktlintCheck`, debug assembly, shared/network iOS simulator compile passed at both chunk boundaries;
+  C2 additionally compiled `:feature:onboarding` for iOS. Logs: `/tmp/hydrafit-076-c1-full.log` and
+  `/tmp/hydrafit-076-c2-full.log`. Onboarding's 12 state-machine tests and two Koin tests pass with no
+  failures/skips. No emulator inspection, install, UI acceptance or formal review was performed.
 - Settings → Backup: export to a chosen local file → success is shown only after the provider
   confirms the write; airplane mode → export still works.
 - Preview a valid backup → shows the included categories/contents; Cancel writes nothing.
@@ -506,6 +521,400 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   `docs/agent-ui-verification.md`.
 - Offline artifact verification still confirms `versionName`/`versionCode` against the tag/run
   number; schema compatibility is covered by the host `verifySqlDelightMigration` check.
+
+### 0.7.6 C3 onboarding registration, startup entry and revisit shell (2026-10-14)
+
+Builder verification of the approved C3 slice: `:feature:onboarding` is registered in the shell,
+a root-owned `OnboardingEntryViewModel` reads the saved disposition once after readiness/restore, the
+shell forces first-run only while that disposition is PENDING, Settings opens the revisit route
+through `LocalSetupNavigator`, and the minimal entry route renders the current step heading with
+Skip/Close (the C4 step editors and C5 handoffs are not wired).
+
+- Full Tier A gate on the final content (`/tmp/hydrafit-076-c3-full.log`): `testAndroidHostTest`,
+  `:core:database:verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`,
+  `:shared:compileKotlinIosSimulatorArm64`, `:core:network:compileKotlinIosSimulatorArm64` and
+  `:feature:onboarding:compileKotlinIosSimulatorArm64` all passed.
+- `:feature:onboarding` host tests: 27 tests, 0 failures/skips —
+  `OnboardingViewModelTest` (12), `OnboardingUiStateTest` (5), `OnboardingEntryViewModelTest` (4),
+  `OnboardingExitGuardTest` (3), `OnboardingModuleVerificationTest` (3).
+- Koin: the isolated and shared graphs verify statically and resolve `OnboardingViewModel` and
+  `OnboardingEntryViewModel` at runtime; the entry ViewModel's init read is asserted not to write
+  setup state.
+- Emulator (`emulator-5554`, debug, `install -r` over existing data, no clear):
+  `.maestro/navigation-smoke.yaml` passed 17/17 including all six selected-tab assertions.
+  Read-only revisit journey on the identical Setup screen: `Set up HydraFit` → `Welcome` with the
+  bottom bar hidden → `Close` returns to Settings selected → reopen → `Welcome` again → system
+  `Back` → Settings selected → `Equipment`. Setup screenshot and final Equipment screenshot viewed.
+  The instance is an **upgraded** database (returning user), so the shell did not auto-open setup
+  after install/launch — consistent with the approved returning-user rule.
+- One bounded correction was required: the flow's third assertion used a nested
+  `enabled` + `containsDescendants` selector that did not resolve against the Compose container even
+  though the hierarchy showed Close enabled; the label-only selector passed on the single retry
+  (no tap or write had occurred before the failure).
+- Not verified: fresh-install first-run forced entry (needs a clear/fresh install — not done here),
+  the Skip path and its dismissal persistence (deliberately not tapped; host-tested only), injected
+  read/save failure rendering in the app (host-tested only), TalkBack, dark mode, larger text,
+  non-English locale, rotation/adaptive layouts and the full §0/§9 cross-cutting matrix. No
+  persisted setup, preference, permission or workout data was changed by these checks.
+
+### 0.7.6 routine activation weekday prefill (2026-10-14)
+
+Builder verification of the approved prefill: routine activation opens with the saved preferred
+weekdays, and falls back to Mon/Wed/Fri while they are undecided. Uncommitted at the time of writing;
+the Plan tab's Start-block scheduler is deliberately unchanged and still derives its days from the
+generated plan.
+
+- `:feature:routines:testAndroidHostTest` (17 tests), `:shared:testAndroidHostTest` (22 tests, with
+  the changed-graph `theRoutinesViewModelResolvesAtRuntime` passing), `ktlintCheck` and
+  `:androidApp:assembleDebug` all passed. Tier B chunk checks only — the full matrix, iOS compiles
+  and migration verification remain C6.
+- Emulator (`emulator-5554`, debug, working-tree build installed over existing data, no clear), 53
+  commands and 15 assertions, 90s, all passed: after saving Monday–Thursday in setup, the first
+  routine's "Start training block" dialog opened with Mon/Tue/Wed/Thu selected. Tue and Thu are
+  unreachable under the previous Mon/Wed/Fri default, so this is the prefill and not the old
+  behaviour. Screenshots viewed; the dialog was cancelled and no block, occurrence or activation
+  existed before or after it ("No active training block.").
+- Four days were chosen deliberately: the setup save writes the selected day count as the planning
+  frequency too, and the app stores 4, so the frequency was left unchanged. The flow then cleared the
+  preferences back to "Decide later", restoring the baseline (`preferredWeekdays` null) while
+  preserving that frequency.
+- A first attempt failed and is recorded as a process lesson, not a code defect: the emulator was
+  still running the previously installed build (the working-tree build had been assembled but not
+  reinstalled), and the day chips expose their toggle as `checked` on the clickable container rather
+  than `selected`, so the original assertion could not have passed.
+- Permissions were checked around this run and unchanged (`POST_NOTIFICATIONS` denied,
+  `SCHEDULE_EXACT_ALARM` `default`); the skill's `permissions: { all: unset }` form was used.
+- Observation, pre-existing and outside this change: in the activation dialog's weekday row the `Fri`
+  chip collapses into a clipped vertical column at the right edge, with Sat/Sun beyond the edge. The
+  row needs a wrap or scroll treatment; it is recorded here for a separate scope and was not worked
+  around.
+- Not verified: TalkBack, larger text and dark mode on this dialog, the iOS compile, and DB-level
+  zero-row confirmation (the "no active block" evidence is UI-level).
+
+### 0.7.6 C4–C5 onboarding step editors and first-workout handoffs (2026-10-14)
+
+Builder verification of the approved C4/C5 slice and the R07645-01 follow-up fix. The editors and
+handoffs are committed as `ffee7229`; the R07645-01 fix and its correction are uncommitted in the
+working tree at the time of writing.
+
+- `:feature:onboarding:testAndroidHostTest`: 55 tests, 0 failures/errors — `OnboardingViewModelTest`
+  (27), `OnboardingDraftRulesTest` (13), `OnboardingUiStateTest` (5), `OnboardingEntryViewModelTest`
+  (4), `OnboardingExitGuardTest` (3), `OnboardingModuleVerificationTest` (3). Module `ktlintCheck`
+  and `:androidApp:assembleDebug` passed. These are Tier C chunk checks; the full matrix belongs to
+  C6. Logs and the reference XML are in the session temporary directories.
+- Emulator (`emulator-5554`, debug, `install -r` over existing data, no clear), 62 commands and 30
+  assertions, 57s, all passed: Settings → Set up HydraFit → Welcome, Weight unit, Equipment, Training
+  goal (all four options), Training days (with "Decide later"), Personal records and First workout;
+  "Generate a plan" completed setup and selected the Plan tab; a later-step system Back returned the
+  tab bar with Settings selected. Ten screenshots viewed.
+- R07645-01 proven on device: typing `100`/`5` into the first entry and selecting **Next without**
+  "Save best set" recorded `Back Squat 100 kg × 5`, and the in-app Back reloaded the step with the row
+  showing that value.
+- Read-only database check (scratch copy under the session temporary directory, deleted afterwards):
+  the only state attributable to the run is that one `personalRecord` row. `planHistory`,
+  `trainingActivation`, `workoutOccurrence`, `workoutSession` and `workoutSet` gained **zero** rows, so
+  the handoff created no plan, activation, occurrence, session or performed set. The one stored plan
+  predates the run by about 2.3 days and is what the Plan tab renders.
+- Layout/accessibility pass under temporary device settings (`font_scale 1.3`, app locale `de-DE`,
+  dark mode): 19 commands and 7 assertions passed, screenshots viewed. Headings and the pinned action
+  bar stayed reachable on the longest step; at 1.3 the action bar reflows to two lines (Close wraps)
+  without clipping, and the `de-DE` app locale falls back to the English strings. All three settings
+  were restored and read back (`1.0`, no app locales, night mode `no`).
+- **Permission incident:** flows authored without a `permissions` block caused Maestro to grant all
+  app permissions, so `POST_NOTIFICATIONS` moved from denied to granted during the pass. The baseline
+  was captured first (`granted=false`) and the change is reported here rather than silently restored;
+  `SCHEDULE_EXACT_ALARM` was unchanged. Restoring the permission needs its own approval.
+- Not verified: TalkBack, rotation/adaptive layouts, a translated-language layout (only English
+  fallback under `de-DE`), fresh-install first-run, the Skip and Close paths on device, and the release
+  matrix. Setup `disposition` stayed `COMPLETED` (`step` advanced to `PERSONAL_RECORDS`), and one real
+  manual personal record now exists in the debug app.
+- Harness note for `.maestro/README.md`/the UI-testing skill: a `launchApp` with no `permissions` key
+  grants every permission. `permissions: { all: unset }` left `POST_NOTIFICATIONS` and
+  `SCHEDULE_EXACT_ALARM` unchanged across three later runs, although one runner reported that form
+  issuing `pm revoke` requests, so its effect on other permissions is not established. No
+  documentation change was made under this evidence-only scope.
+
+### 0.7.6 C4–C5 corrections from the closure review (2026-10-14)
+
+Corrections for the targeted closure review's findings, part of this change. The earlier notes in the
+two sections above that describe these fixes as uncommitted are superseded by this section: R07645-01
+is committed as `35dc283c` and the prefill as `0be58927`. A targeted closure check of these
+corrections in the working tree returned **APPROVED** for R07645-04, R07645-05 and R07645-06, subject
+to the two wording items R07645-07 and R07645-08, which are corrected here.
+
+- **R07645-04 — an untouched open PR entry rewrote the stored record.** The entry now remembers the
+  record it was pre-filled from and decides nothing when neither field's text changed; a single
+  changed field keeps the other's exact origin value instead of a rounded display value. Unit tests
+  cover a kilogram and a pound untouched round trip, a reps-only edit (exact kilograms preserved), a
+  weight-only edit and Save. Device check: with the app switched to Pounds the stored `100 kg`
+  displayed as `220.5 lb`; opening that entry and pressing Next without typing wrote nothing, and a
+  read-only database check afterwards showed the row still at exactly `100.0` kg with its original
+  `updatedAt` (`1791984269401`). The flow restored the weight unit to Kilograms.
+- **R07645-05 — activation could open before the preference was read.** Activation now resolves the
+  preference when the dialog opens and only then builds it, falling back to Mon/Wed/Fri when it is
+  undecided or the read fails, with a dismissal or a newer opening cancelling an in-flight
+  resolution. Unit tests cover a slow read, an undecided read, a failing read and a superseded
+  opening. The activation-prefill device flow was re-run green after the change.
+- **R07645-06 — status and reference wording.** The PLANS.md status row is a single table row again,
+  and the mechanics reference no longer claims that no larger-font check exists. TalkBack, rotation,
+  a translated layout and inset behaviour stay explicitly unclaimed except for the check below.
+- Inset coverage added: with the entry's weight field focused and the keyboard up, the pinned action
+  bar stayed visible and unobstructed (screenshot viewed).
+- Read-only database check after this pass (scratch copy deleted): `personalRecord` still holds its
+  single row, `preferredWeekdays` is `NULL`, the weight unit is back to `KG`, and
+  `trainingActivation`, `workoutOccurrence`, `workoutSession`, `workoutSet` and `planHistory` gained
+  **zero** rows. Permissions unchanged (`POST_NOTIFICATIONS` denied, `SCHEDULE_EXACT_ALARM`
+  `default`).
+- Not verified: the iOS compile, the full matrix, TalkBack, rotation, larger text and dark mode in
+  these specific flows, and the clipped `Fri` chip recorded above.
+
+### 0.7.6 release integration and acceptance, partial (2026-10-14)
+
+Tier A integration checks and the fresh-install acceptance pass, run at `16a06e28` plus the
+uncommitted chip-wrap fix. C6 is **not** complete: the checks listed at the end are still owed.
+
+- Full matrix green (`/private/tmp/hf-076-matrix.log`, re-run at the final revision in
+  `/private/tmp/hf-076-matrix-final.log`): `testAndroidHostTest` across every module with tests
+  (1,667 tests, 0 failures/errors/skips), `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug`, `:shared:`/`:core:network:`/`:feature:onboarding:`/`:feature:routines:`
+  `compileKotlinIosSimulatorArm64` and `:androidApp:lintVitalRelease`. Modules whose inputs did not
+  change reported UP-TO-DATE instead of re-executing; the final run re-executed the routines tests
+  and both iOS compiles affected by the chip fix.
+- Fresh install (approved `adb shell pm clear com.hydrafit.app` on `emulator-5554`): the shell forced
+  setup on first launch, `Close` mid-journey committed the boundary, a cold relaunch resumed at
+  `Training days` rather than restarting, and the `Generate a plan` handoff completed setup onto the
+  Plan tab. Read-only database check afterwards: `planHistory`, `trainingActivation`,
+  `workoutOccurrence`, `workoutSession`, `workoutSet` and `personalRecord` all hold **zero** rows, so
+  the journey fabricated no history and accepted no plan.
+- Skip and revisit: `Skip setup` dismissed the journey, a cold relaunch did not reopen it, and setup
+  stayed reachable from Settings, starting at Welcome.
+- Activation-dialog chip wrap: the weekday row now wraps onto two lines with `Mon`, `Fri` and `Sun`
+  all exposing their labels; `Fri` previously collapsed into a clipped column with no text node.
+- Equipment prerequisite (resolved, no defect): a narrow inventory still yields a usable plan because
+  `Exercise.isAvailableWith` filters the `BODYWEIGHT` requirement out (core/domain `Exercise.kt:24–26`),
+  so bodyweight work is eligible with any selection. With only a pull-up bar selected the Plan tab
+  generated a full plan and the `NO_ELIGIBLE_EXERCISES` branch was correctly not reached; that branch,
+  which carries the equipment action (`SplitBuilderScreen.kt:399–402` → `openTab(AppTab.EQUIPMENT)`),
+  stays device-unverified for want of a reachable trigger. Its label is "Review equipment and
+  exclusions" rather than C0's suggested "Set up equipment" — a copy question, not a behaviour gap.
+- Offline and default-engine acceptance: with airplane mode enabled (approved) and
+  `dumpsys connectivity` reporting no active default network, the app launched and the Log screen
+  rendered normally with no network error, and the built-in deterministic planner is still the
+  default engine. Airplane mode was switched off again and connectivity read back.
+- First-log journey: **passed.** With `Back Squat` picked and `5` / `60` typed into Reps and
+  Weight (kg), `Log set` recorded the set — the UI shows `Back Squat 5 x 60 kg` under `Recent sets`
+  and the indicator moved from `No active session` to `Session active`. A read-only database check
+  confirms exactly one `workoutSet` (back-squat, 5 reps, 60.0 kg, `EXTERNAL`, linked to the new
+  session) and one open `workoutSession`, with no plan, activation or personal record written. The
+  first attempt failed on a flow mistake, not the app: selecting an exercise opens its inline
+  `Setup notes` editor and the form sits below the fold in a lazy list, so the field must be scrolled
+  into view before it can be asserted.
+- TalkBack: installed and enabled for a reading pass; the setup screen rendered normally and its
+  controls expose labels and roles in the hierarchy. Spoken output and touch exploration cannot be
+  verified this way, and the accessibility settings were restored afterwards.
+- Landscape/rotation: not applicable to this release. `PLANS.md` schedules tablet layouts at 0.13.3
+  and foldable at 0.13.4, and no activity declares an orientation attribute, so nothing is claimed
+  here for wide or rotated layouts. The emulator's display did not rotate under the usual settings.
+- Observation: dismissing a revisit with `Skip setup` rewrote the stored disposition from `COMPLETED`
+  to `SKIPPED`. Nothing distinguishes the two today — both suppress automatic reopening — so this is
+  recorded rather than treated as a defect.
+- Permissions were unchanged by the flows; the only difference is that `pm clear` dropped the
+  `POST_NOTIFICATIONS` `USER_SET` flag while the permission stayed denied.
+- This pass cleared the emulator's app data, so the earlier routine, personal-record and activation
+  fixtures on that device are gone.
+- Initial failure/retry acceptance (**failed — one defect found; manual-path corrective verified below**):
+  - With the database made unreadable, a cold launch crashes: `SQLiteCantOpenDatabaseException` escapes
+    `DatabaseStartupMaintenance` (via `ApplyStagedBackupUseCase.staged()` →
+    `SqlDelightBackupStagingRepository`). `DatabaseStartupMaintenance` documents leaving failures
+    uncaught on purpose, and `PLANS.md` schedules recovery states at 0.13.7, so this is a recorded
+    tradeoff rather than a regression — but it means a storage failure has no user-facing recovery.
+  - With journaling blocked while the app was running, tapping `Log set` on the manual form crashed the
+    process: `SQLiteException: cannot rollback - no transaction is active` raised from
+    `AndroidSqliteDriver$Transaction.endTransaction` through `SqlDelightWorkoutLogRepository.add`
+    ← `LogWorkoutSetUseCase` ← `WorkoutLogMutations` ← `WorkoutLoggerViewModel.logResolved`. The typed
+    values were lost and no failure message appeared, so the manual log path has no failure handling
+    whereas the guided and draft paths do. Raised as a finding for triage; no fix was attempted.
+  - Both injections were artificial (restricted filesystem permissions) but model real triggers such as
+    a full or corrupt database. All file modes were restored and nothing was deleted; the stored data
+    remained two sets in one session.
+- Manual-path corrective (2026-10-14, Logger changes verified on the `d5d08a56` base):
+  - The manual action catches write failures, retains the current form, and reports: “That set could
+    not be saved. Keep your entries and try again.” A synchronous submission guard covers persistence
+    and success handling. Cancellation propagates; delayed completion/prefill does not reset a newer
+    form. A post-write refresh failure is reported separately from an unsaved set.
+  - Tier C verification passed: 390 Logger host tests (nine new regression tests), `ktlintCheck` and
+    `:androidApp:assembleDebug`. Logs: `/tmp/hydrafit-logger-test5.log`,
+    `/tmp/hydrafit-ktlint3.log`, `/tmp/hydrafit-assemble3.log`.
+  - C6 integration rerun at `877115d2` plus this corrective passed in 27 seconds: all host tests,
+    migration verification, ktlint, debug assembly, `lintVitalRelease`, and shared/network/onboarding/
+    routines iOS simulator compiles. XML reports total 1,676 tests, zero failures/errors/skips (390
+    Logger tests). Unchanged tasks were UP-TO-DATE; Logger and shared iOS compilation executed.
+    Log: `/tmp/hf-076-corrective-integration.log`. Formal review remains outstanding.
+  - On `emulator-5554`, debug `0.7.6-dev-d5d08a56-dirty`, the journal/directory permission injection
+    produced the visible failure message without a crash. Both entered values remained, Log set was
+    enabled, the PID stayed unchanged, and database aggregates remained two sets/one open session
+    with zero target sets. After restoring modes, one explicit retry recorded exactly one target set:
+    three sets/one open session, with only `workoutSet` gaining a row across all 37 retained table counts.
+    No prior row was removed and notification/exact-alarm permission baselines stayed unchanged.
+  - Failure flow passed 21/21 commands and retry 5/5, once each under 120-second caps. Screenshots
+    were viewed: `/tmp/hf-logger-corrective-failure/2026-10-14_180834/hf-c6-fail-write/takeScreenshot/c6-fail-write-screen.png`
+    and `/tmp/hf-logger-corrective-retry/2026-10-14_181016/hf-c6-retry-write/takeScreenshot/c6-retry-write-recorded.png`.
+    Hierarchies: `/tmp/hf-c6-failstate.csv`, `/tmp/hf-c6-finalstate.csv`. Synthetic retry fixture retained.
+  - Cleanup verified directory 771 and database/journal 660. During the failure the journal mode
+    changed back to 660 without a runner chmod; its cause was not established. The failure/no-insert
+    and subsequent single-insert recovery were observed directly, not inferred from modes alone.
+  - Limits: startup recovery remains deliberately deferred to 0.13.7. This check did not simulate
+    actual disk-full/corruption, exercise offline writes, or repeat dark/font/locale/TalkBack variants.
+    Session creation and set insertion are not made atomic by this presentation-only corrective.
+- Review corrections R076LR-01/02/03 (2026-10-14, `480c1c21` plus corrective changes):
+  - The bounded Plan-mode review of `877115d2..480c1c21` returned REJECTED for stale save-failure
+    feedback after occurrence changes and inaccurate refresh wording; it also found the table-count
+    evidence mismatch. This is historical review status, not a new verdict on the corrections.
+  - R076LR-01 now clears displayed save failure on occurrence replacement/removal, preserves it on
+    unchanged refresh, and suppresses late failure from an old context. R076LR-02 uses “Your set was
+    saved, but workout information could not be refreshed.” Six new tests cover unchanged/switched/
+    removed occurrence, delayed write/refresh failure, and successful insertion followed by a failed
+    occurrence-only refresh. R076LR-03 corrects the retained artifact count to 37: 36 app tables plus
+    `android_metadata`. Both the original and newer retained artifacts enumerate these 37 tables.
+  - Logger host tests passed: 396 tests, zero failures/errors/skips. Targeted logs:
+    `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/verify-rerun.log` and
+    `verify-full.log` in the same directory. Full C6 matrix passed in 15 seconds: 1,682 host tests,
+    migration verification, ktlint, debug assembly, `lintVitalRelease`, and shared/network/onboarding/
+    routines iOS simulator compilation. Log: `/tmp/hf-076-review-fixes-integration.log`.
+  - The current debug `0.7.6-dev-480c1c21-dirty` passed another blocked-journal failure/retry check:
+    21/21 and 5/5 commands, one invocation each under 120-second caps. Failure retained the form,
+    inserted nothing, and kept the process alive. After restoring modes, retry inserted exactly one
+    target set; totals changed three to four sets in the same open session, with only `workoutSet`
+    changing among 36 app-table counts. Permissions stayed unchanged; directory/database/journal
+    modes ended at 771/660/660. New synthetic fixture retained; own database scratch copies deleted.
+  - Screenshots viewed:
+    `/tmp/hf-076-rf-failure/2026-10-14_183958/hf-c6-fail-write/takeScreenshot/c6-fail-write-screen.png`
+    and `/tmp/hf-076-rf-retry/2026-10-14_184102/hf-c6-retry-write/takeScreenshot/c6-retry-write-recorded.png`.
+    Logs: `/tmp/hf-076-rf-failure.log`, `/tmp/hf-076-rf-retry.log`.
+  - These are builder verification results; targeted Plan-mode reviewer closure remains pending.
+    Occurrence-switch and occurrence-only refresh failures are host-tested, not device-verified.
+    Other limits above remain unchanged, including the unexplained journal-mode reset.
+- Current backup acceptance: the user reported successful phone restore on 2026-10-14, with logged
+  sets appearing after closing/reopening as required by staged restore. Exact phone build identity
+  was not independently verified; no phone interaction or database pull was performed by the agent.
+  A legacy device backup was unavailable, so legacy-format coverage remains automated-only, not a
+  device pass. Upgrade coverage remains host migration verification; release APKs are never installed
+  on the development emulator. Targeted Logger review closure and acceptance of the legacy-device
+  coverage limit remain outstanding.
+
+### 0.7.6 PR basics and equipment identity backup repair (2026-10-14)
+
+Approved corrective chunk on `6e7d0726` plus the changes below. Onboarding implementation/tests are
+coder-owned; the parent owns the cross-cutting identity repair, its tests and living documentation.
+These are builder verification results, not a formal review verdict.
+
+- Onboarding now offers only Back Squat, Barbell Bench Press, Conventional Deadlift, Overhead Press
+  and Seated Cable Row, in that order. Optional entry and all save/skip rules remain; existing PRs
+  outside the shortlist and the full PR editor are unchanged. Two new feature tests cover order and
+  omission of missing/custom/ineligible/non-basic rows; existing PR regression cases still pass.
+- Root cause: an export carried custom equipment on four reserved built-in IDs. Startup's insert-ignore
+  seeding left the custom rows intact, while restore validation rejected them as unknown catalog IDs.
+  The error incorrectly mentioned only exercises. New allocation reserves canonical IDs even before
+  seeding; startup and backup compatibility repair give colliding customs unused suffixed identities,
+  retaining names, ceilings, selections and user/frozen references. Canonical seed exercise requirements
+  remain unchanged; newly inserted built-ins are not automatically selected. Strict validation follows
+  import repair; duplicate rows and genuinely unknown references still fail.
+- Thirteen new domain/database tests cover allocation, whole-token remapping, duplicate/unknown-input
+  rejection, preview idempotence, legacy defaults, startup repair and rollback, custom creation before
+  seeding, canonical-ceiling restoration, and export → preview → stage → apply → re-export.
+  The effective catalog still resolves repaired custom/override requirements against selected equipment.
+- Full Tier A matrix passed with **1,697 host tests, zero failures/errors/skips**: migration verification,
+  ktlint, debug assembly, `lintVitalRelease`, and shared/network/onboarding/routines iOS simulator
+  compilation. Final log: `/tmp/hf-076-equipment-integration-complete.log` (15 seconds; unchanged tasks
+  reused cache/up-to-date outputs). The earlier integration pass took 87 seconds; final reruns include
+  the added downstream eligibility/broken-reference assertions and comment synchronization. Initial formatting failures
+  were corrected without altering tests or behavior.
+- The unchanged user-supplied backup passed an external, throwaway Java harness using the compiled
+  project codec, validator, JDBC database and restore/export repository: 235 sets and 15 sessions
+  preserved, four equipment identities remapped, 37 non-equipment fields compared exactly with the
+  normalized snapshot, and every exported equipment record's values preserved. Re-export validated
+  without another remap. Only aggregates were reported; no user file or harness enters a commit/CI.
+  Harness deleted; database was in-memory; original attachment hash remained unchanged.
+  Aggregate log: `/tmp/hf-real-backup-check.log`. This is not a phone/file-picker pass.
+- Debug emulator `emulator-5554`, `0.7.6-dev-6e7d0726-dirty`: all five PR rows were semantically
+  asserted visible, with Barbell Row absent and no PR entry opened. Viewed screenshot:
+  `/tmp/hf-076-basics-assert-run/2026-10-14_200155/hf-076-assert-basics-open-restore/takeScreenshot/five-pr-basics-asserted.png`.
+  Welcome → PR ran 13/13 commands; PR assertions/Close/open restore ran 10/10, once each under 120s.
+  The journey changed only setup boundaries/revision, not sets, sessions, PRs, plans or activations.
+- Synthetic baseline backup was exported through SAF (9/9 commands), then selected (2/2) and confirmed
+  (4/4). Staging left the four sets/one session and current setup boundary unchanged. One intentional
+  cold restart applied it: staged/error rows cleared, setup returned to SKIPPED/GOAL with revision zero,
+  and all four set rows and the session had identical pre/post fingerprints. Units, goal, weekdays,
+  equipment selection and permission/alarm baselines were restored/unchanged. Own scratch DB copies
+  were deleted. The new synthetic file `hf076-basics-baseline-20261014.json` remains in emulator Downloads;
+  existing files were not overwritten or deleted.
+  Viewed screenshots: `/tmp/hf-076-confirm/2026-10-14_200559/hf-076-confirm-baseline/takeScreenshot/restore-staged.png`
+  and `/tmp/hf076-post-apply.png`. Logs: `/tmp/hf076-select.log`, `/tmp/hf076-confirm.log`.
+- Verification limits: the initial navigation assertion selected a text child instead of its nav
+  container and failed; fresh hierarchy proved navigation succeeded, and the parent corrected the
+  temporary assertion. The deployment/preflight worker exceeded its initial two-minute budget; later
+  bounded interaction legs passed within their caps. Equipment-collision recovery itself is host-tested
+  and real-file harness-tested, not injected on the emulator. No new TalkBack, larger-font, dark,
+  translated-layout or rotation pass is claimed. Backup failure/cancellation UI paths were not rerun.
+
+### 0.7.6 C7 review and its follow-up (2026-10-14)
+
+Bounded C7 review in Plan Mode over the un-reviewed delta: targeted closure of the Logger corrective
+(`877115d2..480c1c21`, previously **REJECTED**) at `6f82cbd9`, plus a full-range read of the newly
+approved chunk `19bcb200` and `2c9fb8b7`, and the consolidated C6/C7 evidence. Verdict:
+**APPROVED** with minor/nit items and no blocking findings. The Logger closures were confirmed
+(save failure dropped on occurrence replacement/removal, kept by an unchanged refresh, late failure
+suppressed) and the refresh copy is now generic; the QA table-count correction matches the retained
+artifacts. No scope, architecture, approval or documentation violation was found; no source was changed
+during the review.
+
+- Finding **R076C7-01** (minor, confirmed, design decision): `manualLogRefreshFailed` was cleared only
+  on a new submission and a successful recent-sets refresh, so “Your set was saved, but workout
+  information could not be refreshed.” could outlive the context that produced it, unlike the save
+  failure. The user chose option (a): scope it exactly like the save failure.
+- Fix F1(a): the refresh message is now cleared wherever a context or form change already cleared
+  `manualLogFailed` — block change, exercise switch, delayed history prefill, recent-set selection,
+  plan/day rebuild, and occurrence replacement/removal.
+- Finding **R076C7-02** (nit): the mechanics sentence was accurate only for the save failure. Because
+  F1(a) makes the broad claim true, the sentence was instead made precise about both messages rather
+  than narrowed.
+- Not fixed by decision: R076C7-03 (occurrence change detected by whole-object inequality) was left as
+  is; the comparison is pre-existing and shared with draft invalidation, and its deferred change could
+  alter when a write is invalidated.
+- Evidence: `:feature:logger:testAndroidHostTest` 397 tests, 0 failures/errors (one new regression test
+  `aRefreshFailureMessageIsDroppedWhenTheOccurrenceChanges`), `:feature:logger:ktlintCheck` and
+  `:androidApp:assembleDebug` pass. Logs: `/tmp/hf-c7-f1-tests2.log` (final) and
+  `/tmp/hf-c7-f1-tests.log` (formatting failure only). The new test was confirmed to fail without the
+  fix by a bounded break-and-restore, and the fix was restored and re-confirmed with `git diff`.
+- Limits: no emulator pass was run for this correction (the affected path is host-tested); the message
+  was not re-observed on a device. Full matrix re-run after the fix: 1,698 host tests, 0
+  failures/errors/skips, migration verification, ktlint, debug assembly, `lintVitalRelease` and the
+  four iOS compiles (`/tmp/hf-c7-f1-matrix.log`).
+
+### 0.7.6 C8 release preparation (2026-10-14)
+
+Final candidate revision for the 0.7.6 release series: `f49eb9ff` (after `19bcb200`, `2c9fb8b7`,
+`6f82cbd9`). Preparation only: the README feature line and PLANS status changed; no runtime code,
+dependency, configuration, CI, signing or schema change.
+
+- C7 is closed: the bounded review returned **APPROVED**, and the targeted Plan-mode closure check of
+  `f49eb9ff` returned **APPROVED** with no new findings (see §0.7.6 C7 review and its follow-up).
+- Release integration gate re-run on the final revision: `testAndroidHostTest` (1,698 tests, zero
+  failures/errors/skips), `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug`, `:androidApp:lintVitalRelease`, and the shared/network/onboarding/routines
+  iOS simulator compiles. Log: `/tmp/hf-c7-f1-matrix.log`.
+- Version metadata needs no source change: the release `versionName` comes from the `v0.7.6` tag and the
+  `versionCode` from the workflow run number; local debug builds keep the `-dev` name and suffix.
+- Cross-cutting coverage for the changed flows is the 0.7.6 record above: fresh install/skip/resume/
+  revisit, offline rendering, first-log, PR shortlist, activation weekday wrapping, and the bounded
+  backup round trip; larger-font (`1.3`), dark and `de-DE` fallback were exercised on the onboarding
+  steps during C4/C5. Still unverified and not claimed here: TalkBack spoken output and touch
+  exploration, rotation/adaptive layouts (deferred to 0.13.3/0.13.4), a translated-language layout, a
+  legacy-device backup restore (no old file available; accepted for this slice), and the phone
+  restore's exact build identity. The equipment-error branch has no reachable device trigger.
+- Publication, the annotated `v0.7.6` tag on the PR merge commit, CI monitoring and offline
+  signed-artifact verification are recorded separately when they occur. No release APK is installed on
+  the development emulator.
 
 ### 0.7.5 C1–C2 caution content foundation (2026-10-13)
 
@@ -951,6 +1360,75 @@ preferences were never touched. Automation spent more than the five-minute per-f
 Larger text, dark mode, locale, TalkBack and signed-release runtime remain unverified. The bounded
 post-execution review and targeted closure review are complete; these do not claim emulator coverage
 beyond the observations above.
+
+### OCT14-01 precise rest-alert corrective (2026-10-14)
+
+Builder verification on `2b206bc7` plus the uncommitted corrective; formal review pending.
+Exact alarms are selected when permitted; the callback regression proves denied access and
+`SecurityException` revocation fall back once, without hiding unrelated failures. Coordinator
+regressions cover access changes preserving the original deadline, no replay/cancellation of an
+already due alert, context cancellation and no resurrection after session close. Settings tests
+cover timing-state changes without changing alert/coaching preferences; iOS remains unsupported.
+
+- Full `testAndroidHostTest`, migration verification, `ktlintCheck`, debug assembly and shared/network
+  iOS simulator compiles passed: `/tmp/hydrafit-oct14-alert-full.log` (`BUILD SUCCESSFUL`, 1m18s).
+  Logger/settings XML totals: 401 tests, zero failures/errors/skips. Aggregate verification reused
+  up-to-date outputs where inputs were unchanged; this was not a clean rebuild. Shared Koin tests
+  passed; Android platform permission/receiver delivery is not proved by those graph tests.
+- Initial targeted runs found formatting violations and a new coordinator assertion that omitted
+  the legitimate reschedule when the fixture reopened eligible context before closing its session.
+  The assertion was corrected with an explicit intermediate schedule count; no production workaround
+  or test weakening was used. Subsequent full verification passed.
+- Installed only debug on verified `emulator-5554`; version after update was
+  `0.7.2-dev-2b206bc7-dirty`, with `SCHEDULE_EXACT_ALARM` declared. Notification permission remained
+  user-denied (`USER_SET`, appop ignore), exact-alarm appop had no explicit override. Two parent-authored
+  read-only flows passed 4/4 commands each within 120-second caps, one attempt each: Equipment →
+  Settings, then scroll to the rest-alert row. Both guidance switches remained OFF, default rest 120.
+  New explanatory copy was semantically observed and `/tmp/hf-oct14-guidance.png` viewed with no
+  clipping of the rest-alert description. The precise-access action is correctly absent while alerts
+  are OFF. No preference, permission, workout or system-setting writes were made beyond debug install.
+  Evidence: `/tmp/hf-oct14-settings.csv`, `/tmp/hf-oct14-guidance.csv`,
+  `/tmp/hf-oct14-guidance-run.log`, `/tmp/hf-oct14-guidance.png`.
+- **Grant/revoke acceptance (`emulator-5554`, debug `0.7.6-dev-2b206bc7-dirty`, 2026-10-14):**
+  parent-authored flows ran with the notification baseline granted through adb first, then phases in
+  order, one attempt each within 120-second caps. Alerts were already enabled, so the enabled-inexact
+  state was verified directly rather than by toggling.
+  - **Inexact state (p1, 11/11, 17s):** alerts row `checked`, the warning text and the
+    `settings_rest_alerts_precise` action both visible. The viewed
+    `/tmp/hf-oct14-p1/2026-10-14_133421/hf-oct14-p1/takeScreenshot/oct14-phase1-inexact.png` shows the
+    full warning and the action unclipped beneath it.
+  - **Action target (p1b, 1/1, 9s):** tapping the action made
+    `com.android.settings/.spa.SpaActivity` the resumed activity; one Back keyevent returned
+    `com.hydrafit.app/.MainActivity`. Grant-page navigation is verified, but the app was not observed
+    reacting to a grant performed on that page.
+  - **Granted state (p2, 11/11, 13s):** with `SCHEDULE_EXACT_ALARM` allowed, returning to Settings
+    cleared both the warning and the action while alerts stayed `checked`; viewed
+    `/tmp/hf-oct14-p2/2026-10-14_133507/hf-oct14-p2/takeScreenshot/oct14-phase2-precise.png`.
+  - **Revoked state (p3, 8/10 before an assertion failure, 29s):** after resetting the appop to
+    default, the alerts row asserted `checked` and the warning asserted present again. Only the
+    action-id assertion failed, because that flow's scroll stopped with the button just below the
+    fold rather than because it was absent; phase 1 rendered it from the same code path. The residual
+    appop entry created by `appops set ... default` is behaviourally inert
+    (`SCHEDULE_EXACT_ALARM: default`), and no broad reset was used to remove it.
+  - **OS behaviour confirmed:** the revoke step killed the process;
+    `dumpsys activity exit-info com.hydrafit.app` recorded `reason=PERMISSION CHANGE` with
+    `description=schedule_exact_alarm revoked`, matching the documented revocation semantics. `logcat`
+    showed no `FATAL EXCEPTION` or `AndroidRuntime` crash for HydraFit in any phase.
+  - **Baseline restoration (p4, 11/11, 16s):** toggling alerts OFF cleared the warning and the action
+    and returned `checked:false`; short-rest coaching OFF, default rest 120, notification permission
+    denied with its prior flags, and `SCHEDULE_EXACT_ALARM` with no allow override. The viewed
+    `/tmp/hf-oct14-p4-run/2026-10-14_134133/hf-oct14-p4/takeScreenshot/oct14-cleanup-off.png` shows
+    both guidance rows off. A residual package-level `POST_NOTIFICATION: allow` line was left exactly
+    as found; the transient notification grant and the process kill are the only emulator-state side
+    effects of this run.
+  - Final flow logs: `/tmp/hf-oct14-p1.log`, `-p1b.log`, `-p2.log`, `-p3.log`, `-p4.log`.
+- **Still unverified:** actual alert delivery timing on real hardware (the emulator cannot reproduce
+  the reported delay), heads-up versus shade presentation, and repeated short rests under idle
+  throttling. User-run S25 15/30/60-second checks are required; the reported approximately 75% extra
+  delay matches the AOSP inexact-window heuristic but was not traced with receiver timestamps, and
+  force-stop versus Recents dismissal is still undistinguished. Larger text, dark mode, locale,
+  TalkBack and OFF-state persistence across restart were not exercised. This is not a formal review
+  verdict and does not by itself authorize resuming C4/C5.
 
 ### OCT13-05 notification-delivery experiment (2026-10-13)
 

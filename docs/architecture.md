@@ -131,6 +131,50 @@ and take the state plus callbacks.
 - **Examples:** `WorkoutLoggerViewModel`/`WorkoutLoggerUiState`, `SplitBuilderViewModel`/
   `SplitBuilderUiState`, `EquipmentProfilerViewModel`/`EquipmentProfilerUiState`.
 - **Consistency:** high. Screens use `collectAsStateWithLifecycle` and never touch repositories.
+- **Onboarding (0.7.6 C1–C5):** `:feature:onboarding` owns `OnboardingViewModel` and copy-based state,
+  the C3 entry route and shell registration, and the C4 step editors. Explicit open waits for startup
+  readiness;
+  returning/completed/skipped users need voluntary revisit. Next and Skip delegate to domain use
+  cases on `Default`; the dedicated SQLDelight writer checks the expected setup revision and commits
+  the current step payload and resume boundary in one transaction. Rendering, editing, Back and Close
+  save nothing; only a successful step save advances the boundary. Each step renders a real editor
+  from the draft the ViewModel already loaded: unit radios, an equipment multi-select over the
+  inventory, all four training goals (the loaded one preselected), seven weekday toggles plus an
+  explicit "Decide later"
+  (null) choice, and an optional PR entry limited to five built-in basics, in order: Back Squat,
+  Barbell Bench Press, Conventional Deadlift, Overhead Press and Seated Cable Row. Missing, custom or
+  non-external variants are omitted; the full PR editor elsewhere and existing records are unchanged. The 2–6
+  weekday rule is enforced locally, so `requirePreferredWeekdays` is never the failure path, and Next
+  is unreachable while the draft is unacceptable or a save is in flight. PR edits use a frozen display
+  unit and the existing manual-PR table; a stored record stays the shown value until an explicit edit
+  replaces it, and omitted records are never deleted. The one open PR entry keeps its raw weight and
+  reps text in the state machine (`OnboardingUiState.personalRecordEntry`) instead of Composable state,
+  and the ViewModel owns opening, editing, saving and dismissing it. An open entry also remembers the
+  record it was pre-filled from as its origin, so Save and Next share one rule through it: an entry
+  whose text still matches what was pre-filled submits nothing — opening a stored record and leaving
+  it alone never rewrites it, which re-encoding a rounded pound display would otherwise do — while a
+  single changed field is parsed and converted through the frozen entry unit and the other field keeps
+  its exact origin value instead of a round-tripped display value. Both stage their result through that
+  one rule, so Save cannot record anything Next would not, and an already staged value is replaced
+  rather than duplicated; opening a different exercise's entry stages the one already open by the same
+  rule before the new entry opens from its
+  own row, so switching never discards typed text, while re-opening the entry that is already open
+  keeps it; blank, unparseable or
+  dismissed entry text records nothing for that exercise and never blocks Next, and Skip still
+  submits no records at all. The final step's three handoffs (Generate a plan
+  → `AppTab.PLAN`, Build a routine → `AppTab.ROUTINES`, Log without a plan → `AppTab.LOG`) complete
+  setup exactly like Next, holding the tab as `pendingHandoff`; the screen opens it only after that
+  completion succeeds, so a failed write keeps the final step and its retry state, and opening a
+  destination creates no plan, routine, session or set. A failed save retains its draft. A failed read
+  after a successful save retries only that read. The submission guard spans save and next-step
+  loading; context revisions prevent old completions from updating a replaced journey. The constructor
+  collaborators all serve this one setup journey (step reads, two save actions and readiness), not
+  independent feature responsibilities; no dependency bag is introduced solely to reduce its count.
+  The six-tab shell is unchanged. A root-owned `OnboardingEntryViewModel` reads the saved disposition
+  once, after readiness and restore, and only the feature's own PENDING check makes the shell force the
+  first-run route (Settings opens the revisit route through `LocalSetupNavigator` in
+  `:core:navigation`). Step control groups, the action bar and the three handoffs carry stable
+  `onboarding_*` test tags exposed as Android resource ids.
 - **Violations / tensions:** VMs are thin in responsibility but not always in size —
   the current `WorkoutLoggerViewModel` has six constructor collaborators, including
   `WorkoutLogMutations`, `WorkoutLoggingActions`, runtime and settings collaborators. The historical
@@ -594,7 +638,7 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   and `SqlDelightBackupCatalog`; the `:core:userdata` `BackupFileStore` port
   (`AndroidBackupFileStore` SAF implementation, `UnsupportedBackupFileStore` on
   iOS); the Settings `BackupRoute`/`BackupViewModel`.
-- **Rules:** the file is logical (`format` + `formatVersion` 10), independent of the
+- **Rules:** the file is logical (`format` + `formatVersion` 11), independent of the
   SQLite schema and the app version. Every envelope field is required, so a file
   that omits one is rejected as malformed rather than read as an empty snapshot;
   nullable fields are present as explicit `null`, not omitted. The manifest carries
@@ -608,17 +652,27 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   runs on `Default`, so `SqlDelightBackupRepository` (which uses the caller's
   dispatcher) never touches the database on Main. Export reads every section in
   one transaction after `StartupReadiness`. Validation is
-  all-or-nothing: unknown catalog ids, custom ids on canonical identities,
+  all-or-nothing: unknown catalog ids, custom exercise ids on canonical identities,
   duplicate ids or composite keys, dangling links, unsupported values and
   involvements with unknown muscles or non-finite weights are rejected with no
   writes, as is a payload that startup maintenance would silently alter
   (`CustomExerciseDedupe` on a non-CAT-P7 name, or `WorkoutSessionBackfill` on a
-  null session id). Restore validates the chosen file, then **stages** it; the
-  replacement transaction runs at the next process start, before seeding and
+  null session id). A narrow compatibility repair preserves custom equipment whose stored id collides
+  with a built-in: before validation, `BackupValidator.prepareForRestore` assigns deterministic unused
+  suffixed ids and remaps selections, custom exercise requirements, explicit overrides and frozen
+  activation/occurrence requirements. Names, ceilings and custom ownership stay intact. Duplicate
+  equipment identities are rejected before repair, and all referenced tokens are reserved during
+  allocation, so an unknown reference cannot accidentally become valid. Raw `validate` remains strict.
+  The same `EquipmentIdentity` allocator reserves built-in ids for new custom creation; startup
+  equipment seeding atomically repairs existing collisions before adding canonical rows. Application-owned
+  exercise definitions retain canonical equipment ids; newly added built-ins are not automatically
+  selected. Restore validates the chosen file, then **stages** it; the
+  replacement transaction runs at the next process start, before normal startup seeding and
   before the first screen, so it never races a live writer. It writes with stored
   ids, ordering and relationships preserved and never re-runs identity-generating
   APIs (`add`/`save`/`accept`) or re-snapshots today's catalog. A CAT-P7-named
-  custom and its same-named seed remain two identities. Credentials and model bytes
+  custom and its same-named seed remain two identities. Missing canonical equipment rows are inserted
+  inside the restore transaction before exported ceilings are applied. Credentials and model bytes
   are excluded and left untouched. A staged apply that fails rolls back, drops the
   staged payload and records a one-time failure the Settings screen shows and
   clears. Absence uses the documented new-row value: a payload with no settings
@@ -628,6 +682,10 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   1–4 restore a 120-second global default with no overrides. Persisted countdown
   deadlines are transient session state, excluded from backups and cleared on restore.
   Format 6 requires the two training-guidance opt-ins; formats 1–5 default both off.
+  Format 11 requires setup version/disposition/resume step and explicit nullable preferred weekdays;
+  formats 1–10 restore as returning users with undecided weekdays. Unsupported setup values,
+  duplicate/unknown weekdays and non-null selections outside 2–6 days are rejected before staging.
+  The internal setup revision is a concurrency token, not backup data; restore starts it at zero.
 - **Consistency:** mirrors the §1.8 snapshot rule — frozen prescriptions,
   performed snapshots, load kinds and stored ids round-trip unchanged.
 - **Violations / tensions:** the existing repositories cannot implement restore
@@ -672,15 +730,26 @@ not restore saved countdowns. Expired or invalid state is silently cleared.
 
 Rest alerts and short-rest coaching are independent opt-ins, both default off, stored in
 `trainingGuidancePreference` (migration `37.sqm`). Android alerts request notification permission
-only through the Settings opt-in. One local inexact elapsed-time alarm is replaced on duration edits;
-power management may delay delivery. The receiver rechecks the stored countdown, boot, session,
+only through the Settings opt-in. One elapsed-time alarm uses `setExactAndAllowWhileIdle` when
+exact-alarm access is available, otherwise `setAndAllowWhileIdle`. Android 12+ uses optional
+`SCHEDULE_EXACT_ALARM` special access, opened only by Settings' explicit **Allow precise timing**
+action; alerts remain enabled with an inexact-delay warning if access is absent. Access is refreshed
+on Settings resume and the system grant broadcast. Capability changes reconcile a future eligible
+countdown at its original deadline, never replay an already due alert. Revocation can kill the
+process and cancel OS exact alarms; fallback is restored on the next live reconciliation, not
+guaranteed while the process stays stopped. An exact-call `SecurityException` falls back to inexact
+scheduling. Inexact batching and idle throttling can delay delivery, including exact alarms under
+idle restrictions; notification channel settings independently control presentation. The receiver rechecks the stored countdown, boot, session,
 guided flag, opt-in and unresolved active occurrence before posting. App-lifetime reconciliation
 observes countdown/preferences/session/schedule/occurrence changes and removes pending and delivered
-alerts on cancellation. Expired restoration stays silent. There is no exact-alarm permission,
-foreground service, network or iOS alert implementation.
+alerts on cancellation. Expired restoration stays silent. There is no foreground service, network
+or iOS alert implementation; `USE_EXACT_ALARM` is not declared.
 Scheduling, cancellation and posting are serialized by the Android adapter; cancellation advances
 a delivery revision so a receiver awaiting localized strings cannot post after cancellation.
 Receiver startup work has an eight-second budget and fails closed on timeout.
+Debug-only `HydraFitRestAlert` logs contain monotonic schedule/receipt/post timestamps and scheduling
+mode/deadline, not workout identities or measurements. These distinguish OS delivery delay from
+receiver work without copying personal records into logs.
 When startup reconciliation finds a due countdown with otherwise-valid context, it leaves delivery
 to the already-triggered receiver rather than cancelling its in-flight notification; invalid
 context, disabled preferences and subsequent transitions into the due state still cancel. Logger

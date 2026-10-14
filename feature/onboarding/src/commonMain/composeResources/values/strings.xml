@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="onboarding_title">Set up HydraFit</string>
+    <string name="onboarding_step_welcome">Welcome</string>
+    <string name="onboarding_step_units">Weight unit</string>
+    <string name="onboarding_step_equipment">Equipment</string>
+    <string name="onboarding_step_goal">Training goal</string>
+    <string name="onboarding_step_weekdays">Training days</string>
+    <string name="onboarding_step_personal_records">Personal records</string>
+    <string name="onboarding_step_first_workout">First workout</string>
+    <string name="onboarding_loading">Loading your setup…</string>
+    <string name="onboarding_load_error">Couldn’t load your setup. Please try again.</string>
+    <string name="onboarding_error">Couldn’t save your setup. Please try again.</string>
+    <string name="onboarding_retry">Retry</string>
+    <string name="onboarding_skip">Skip setup</string>
+    <string name="onboarding_close">Close</string>
+    <string name="onboarding_back">Back</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_saved_on_next">Changes are saved when you select Next.</string>
+
+    <string name="onboarding_welcome_intro">Answer a few optional questions and HydraFit plans around your equipment and your week. You can revisit setup later in Settings.</string>
+
+    <string name="onboarding_units_prompt">Which unit do you use for weights?</string>
+    <string name="onboarding_unit_kg">Kilograms (kg)</string>
+    <string name="onboarding_unit_lb">Pounds (lb)</string>
+
+    <string name="onboarding_equipment_prompt">What can you train with?</string>
+    <string name="onboarding_equipment_empty">No equipment is listed yet. You can skip setup and add it later in Settings.</string>
+
+    <string name="onboarding_goal_prompt">What are you training for?</string>
+    <string name="onboarding_goal_balanced">Balanced</string>
+    <string name="onboarding_goal_strength">Strength</string>
+    <string name="onboarding_goal_hypertrophy">Hypertrophy</string>
+    <string name="onboarding_goal_endurance">Endurance</string>
+
+    <string name="onboarding_weekdays_prompt">Which days do you usually train?</string>
+    <string name="onboarding_weekdays_decide_later">Decide later</string>
+    <string name="onboarding_weekdays_hint">Choose 2 to 6 days, or select Decide later.</string>
+    <string name="onboarding_day_monday">Monday</string>
+    <string name="onboarding_day_tuesday">Tuesday</string>
+    <string name="onboarding_day_wednesday">Wednesday</string>
+    <string name="onboarding_day_thursday">Thursday</string>
+    <string name="onboarding_day_friday">Friday</string>
+    <string name="onboarding_day_saturday">Saturday</string>
+    <string name="onboarding_day_sunday">Sunday</string>
+
+    <string name="onboarding_pr_prompt">Add a best set you already know. This is optional, and HydraFit never guesses one.</string>
+    <string name="onboarding_pr_search">Search exercises</string>
+    <string name="onboarding_pr_none">No best set yet</string>
+    <string name="onboarding_pr_value">%1$s %2$s × %3$s</string>
+    <string name="onboarding_pr_set">Set best set</string>
+    <string name="onboarding_pr_weight">Weight</string>
+    <string name="onboarding_pr_reps">Reps</string>
+    <string name="onboarding_pr_save">Save best set</string>
+    <string name="onboarding_pr_unknown">I don’t know</string>
+    <string name="onboarding_pr_no_match">No exercise matches that search.</string>
+
+    <string name="onboarding_first_workout_intro">Choose how to start. Setup is saved when you choose one of these.</string>
+    <string name="onboarding_generate_plan">Generate a plan</string>
+    <string name="onboarding_build_routine">Build a routine</string>
+    <string name="onboarding_log_without_plan">Log without a plan</string>
+</resources>

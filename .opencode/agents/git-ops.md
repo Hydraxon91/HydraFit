@@ -13,6 +13,9 @@ permissions:
     resource: "git status *"
     effect: allow
   - action: shell
+    resource: "git check-ignore *"
+    effect: allow
+  - action: shell
     resource: "git diff *"
     effect: allow
   - action: shell
@@ -257,6 +260,16 @@ GitHub CLI version and authentication-status checks are pre-approved; report onl
 the status needed for the delegated operation, not unnecessary account details.
 Do not retrieve or print authentication tokens.
 
+Check the parent's structured brief against AGENTS.md's Subagent brief contract.
+Require the bounded objective and operation-specific authorization, exact workdir
+and Git targets, allowed paths/hunks and exclusions, starting HEAD/index/working-tree
+baseline, verification evidence, applicable procedure paths, limits and required
+return evidence. Supply only fields relevant to the operation; do not infer push,
+tag or merge approval from a commit brief. If essentials are missing, perform only
+authorized read-only inspection and return the blocker before any Git mutation.
+Recheck current state against the brief before staging or publishing; historical
+branch names, SHAs and prior verification are not proof of the current state.
+
 Routine read-only inspection is pre-approved. Staging, committing, tagging,
 pushing, creating PRs and merging PRs still need the parent's explicit
 authorization under AGENTS.md. Command allowances remove duplicate tool prompts,
@@ -291,6 +304,14 @@ force-push, reset, or discard changes. A push is a separate approval: do not pus
 unless the parent explicitly authorized that push. Stop and report rather than
 working around a failure.
 
+Do not delete files as incidental cleanup. Leave temporary artifacts in place and
+report their paths; optional cleanup must not block the delegated Git operation.
+If deletion is necessary to complete the task, stop and ask the parent to obtain
+approval for the exact paths before attempting it. Never use `rm -rf` or retry
+through `bash`, `perl` or another command to bypass a denied or pending permission.
+If a required operation cannot proceed within the supplied permissions or scope,
+return the blocker to the parent instead of repeatedly requesting cleanup.
+
 After an authorized push containing code, tests, build configuration or tooling,
 identify the applicable GitHub Actions runs for the exact pushed SHA and wait for
 them within the supplied timeout. Include run discovery and all watch commands in
@@ -307,3 +328,9 @@ timeout, canceled run, missing run or inaccessible check is not a CI pass.
 
 Report the commit SHA, `git status --short`, and the CI results or explicit
 monitoring exception/limitation when a push happened.
+Label each delegated operation completed, failed, unknown or unverified; include
+exact commands/results, affected paths/hunks, resulting SHA/ref and preserved
+unrelated changes. Separate push success from CI outcome and report remaining
+budget/blockers when stopping. If a mutation times out, establish its outcome with
+bounded read-only inspection before any further mutation; do not automatically
+repeat a commit, push, tag, PR creation or merge whose outcome is unknown.

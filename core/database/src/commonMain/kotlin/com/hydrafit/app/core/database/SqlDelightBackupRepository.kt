@@ -32,6 +32,7 @@ import com.hydrafit.app.core.domain.backup.BackupScheduleStateRecord
 import com.hydrafit.app.core.domain.backup.BackupSeedProfile
 import com.hydrafit.app.core.domain.backup.BackupSessionNoteRecord
 import com.hydrafit.app.core.domain.backup.BackupSettingsRecord
+import com.hydrafit.app.core.domain.backup.BackupSetupRecord
 import com.hydrafit.app.core.domain.backup.BackupVolumeExplanationRecord
 import com.hydrafit.app.core.domain.backup.BackupVolumeExplanationStateRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSessionRecord
@@ -467,12 +468,25 @@ class SqlDelightBackupRepository(
                 },
                 sessionNotes = database.sessionNoteQueries.selectAll().executeAsList().map {
                     BackupSessionNoteRecord(sessionId = it.sessionId, note = it.note)
-                }
+                },
+                setup = database.setupQueries.selectState().executeAsOne().let {
+                    BackupSetupRecord(it.version.toInt(), it.disposition, it.step)
+                },
+                preferredWeekdays = decodePreferredWeekdays(
+                    database.setupQueries.selectWeekdays().executeAsOne().weekdays
+                )?.sortedBy { it.ordinal }?.map { it.name }
             )
         }
 
     override suspend fun restore(file: BackupFile) {
         database.transaction {
+            database.setupQueries.updateState(
+                file.setup.version.toLong(),
+                file.setup.disposition,
+                file.setup.step,
+                0L
+            )
+            database.setupQueries.updateWeekdays(file.preferredWeekdays?.joinToString(","))
             // Delete included user-owned data, children before parents. Seeded catalog rows,
             // built-in equipment and credentials/model files are left untouched.
             database.exerciseOverrideQueries.deleteAll()
@@ -505,6 +519,10 @@ class SqlDelightBackupRepository(
             database.exerciseQueries.deleteAllCustom()
             database.equipmentQueries.deleteCustomEquipment()
             database.userEquipmentQueries.deleteAllSelected()
+
+            // Restore may run before startup seeding on an upgraded install. Recreate missing
+            // canonical rows before applying their exported ceilings, not after those writes.
+            SeedEquipmentCatalog(database).seed()
 
             // Equipment: built-in rows stay; custom rows are re-created, then every max weight applied.
             file.equipment.forEach { equipment ->

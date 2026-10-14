@@ -22,6 +22,34 @@ class BackupValidatorTest {
     private val validator = BackupValidator(catalog)
 
     @Test
+    fun rejectsUnsupportedSetupAndMalformedOrLegacyWeekdayPreferences() {
+        listOf(
+            BackupSetupRecord(version = 2),
+            BackupSetupRecord(disposition = "UNKNOWN"),
+            BackupSetupRecord(step = "UNKNOWN")
+        ).forEach { setup ->
+            assertFailure(BackupFailure.INVALID_VALUE) { validFile().copy(setup = setup) }
+        }
+        listOf(
+            emptyList(),
+            listOf("MONDAY"),
+            listOf("MONDAY", "MONDAY"),
+            listOf("MONDAY", "UNKNOWN"),
+            com.hydrafit.app.core.domain.time.DayOfWeek.entries.map { it.name }
+        ).forEach { weekdays ->
+            assertFailure(BackupFailure.INVALID_VALUE) {
+                validFile().copy(preferredWeekdays = weekdays)
+            }
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            validFile().copy(formatVersion = 10, setup = BackupSetupRecord(disposition = "PENDING"))
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            validFile().copy(formatVersion = 10, preferredWeekdays = listOf("MONDAY", "FRIDAY"))
+        }
+    }
+
+    @Test
     fun acceptsAValidMinimalFile() {
         validator.validate(validFile())
     }

@@ -62,6 +62,7 @@ import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.PersistedRestCountdown
+import com.hydrafit.app.core.domain.workout.RestAlertTiming
 import com.hydrafit.app.core.domain.workout.RestCountdownRepository
 import com.hydrafit.app.core.domain.workout.SessionConfig
 import com.hydrafit.app.core.domain.workout.SessionNoteRepository
@@ -2548,6 +2549,521 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun aFailedManualSetWriteKeepsEveryEntryAndReportsFailure() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempt = 1)
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("6")
+        viewModel.onWeightChanged("80")
+        viewModel.onRirChanged("2")
+        viewModel.onWarmupToggled(true)
+        viewModel.log()
+        advanceUntilIdle()
+
+        val state = viewModel.state.value
+        assertTrue(state.manualLogFailed)
+        assertFalse(state.manualLogRefreshFailed)
+        assertFalse(state.manualLogInProgress)
+        // Nothing was written, and every entered value is retained for a retry.
+        assertTrue(repository.all().isEmpty())
+        assertEquals("back-squat", state.selectedExerciseId)
+        assertEquals("6", state.reps)
+        assertEquals("80", state.weightInput)
+        assertEquals("2", state.rir)
+        // No success effect ran, so the warm-up flag the user set is still set.
+        assertTrue(state.isWarmup)
+    }
+
+    @Test
+    fun retryingAFailedManualSetLogsExactlyOneSet() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempt = 1)
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("100")
+        viewModel.log()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.manualLogFailed)
+        assertTrue(repository.all().isEmpty())
+
+        // Retry is the ordinary Log set action.
+        viewModel.log()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.manualLogFailed)
+        val set = repository.all().single()
+        assertEquals("back-squat", set.exerciseId)
+        assertEquals(5, set.reps)
+        assertEquals(100.0, set.weightKg)
+    }
+
+    @Test
+    fun aFailedBackdatedManualSetKeepsTheChosenTimeAndRetryLogsOneSet() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempt = 1)
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("100")
+        assertTrue(viewModel.onPerformedAtChanged(MONDAY - DAY))
+        viewModel.log()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.manualLogFailed)
+        assertEquals(MONDAY - DAY, viewModel.state.value.performedAtMillis)
+        assertTrue(repository.all().isEmpty())
+
+        viewModel.log()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.manualLogFailed)
+        val set = repository.all().single()
+        assertEquals(MONDAY - DAY, set.performedAtMillis)
+        assertEquals(WorkoutTimingProvenance.CATCH_UP, set.timingProvenance)
+    }
+
+    @Test
+    fun repeatedTapsDuringAManualSetWriteAndItsSuccessHandlingLogOneSet() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("100")
+        advanceUntilIdle()
+
+        val addGate = CompletableDeferred<Unit>()
+        val allGate = CompletableDeferred<Unit>()
+        repository.addGate = addGate
+        repository.allGate = allGate
+        viewModel.log()
+        runCurrent()
+        assertTrue(viewModel.state.value.manualLogInProgress)
+
+        // Repeated taps during the write are refused by the synchronously claimed guard.
+        viewModel.log()
+        viewModel.log()
+        runCurrent()
+
+        addGate.complete(Unit)
+        runCurrent()
+        // The write landed and the guard is still held across its success handling.
+        assertTrue(viewModel.state.value.manualLogInProgress)
+        viewModel.log()
+        viewModel.log()
+        runCurrent()
+
+        allGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(1, repository.all().size)
+        assertFalse(viewModel.state.value.manualLogInProgress)
+    }
+
+    @Test
+    fun cancellingAManualSetWriteReleasesTheGuardWithoutReportingFailure() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("100")
+        advanceUntilIdle()
+
+        val addGate = CompletableDeferred<Unit>()
+        repository.addGate = addGate
+        viewModel.log()
+        runCurrent()
+        assertTrue(viewModel.state.value.manualLogInProgress)
+
+        // Cancellation is rethrown, and the guard is released without being mislabelled as a failure.
+        addGate.cancel()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.manualLogInProgress)
+        assertFalse(viewModel.state.value.manualLogFailed)
+        assertFalse(viewModel.state.value.manualLogRefreshFailed)
+        assertTrue(repository.all().isEmpty())
+
+        // The released guard accepts a fresh submission.
+        viewModel.log()
+        advanceUntilIdle()
+        assertEquals(1, repository.all().size)
+    }
+
+    @Test
+    fun aSuccessfulManualSetWithAFailedRefreshIsNotReportedAsUnsaved() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("100")
+        advanceUntilIdle()
+
+        repository.failAll = true
+        viewModel.log()
+        advanceUntilIdle()
+
+        // The set is persisted; only the refresh failure is reported, and no retry is invited.
+        assertTrue(viewModel.state.value.manualLogRefreshFailed)
+        assertFalse(viewModel.state.value.manualLogFailed)
+        assertFalse(viewModel.state.value.manualLogInProgress)
+        repository.failAll = false
+        assertEquals(1, repository.all().size)
+    }
+
+    @Test
+    fun aCommittedSetWithAFailedOccurrenceRefreshReportsTheRefreshFailureOnly() =
+        runTest(dispatcher) {
+            val repository = FakeWorkoutLogRepository()
+            val schedule = MutableWorkoutScheduleRepository()
+            schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+            val viewModel = occurrenceViewModel(repository, schedule)
+            advanceUntilIdle()
+
+            viewModel.onExerciseSelected("back-squat")
+            viewModel.onRepsChanged("8")
+            viewModel.onWeightChanged("100")
+
+            // The recent-sets read succeeds, and the occurrence read that follows it fails.
+            advanceUntilIdle()
+            val recentSetsRead = CompletableDeferred<Unit>()
+            repository.allGate = recentSetsRead
+            viewModel.log()
+            runCurrent()
+            repository.failAll = true
+            recentSetsRead.complete(Unit)
+            advanceUntilIdle()
+
+            val state = viewModel.state.value
+            // The set is persisted and listed, and it is never reported as unsaved.
+            assertEquals(1, state.recentSets.size)
+            assertEquals("Back Squat", state.recentSets.single().exerciseName)
+            assertTrue(state.manualLogRefreshFailed)
+            assertFalse(state.manualLogFailed)
+            assertFalse(state.manualLogInProgress)
+            repository.failAll = false
+            assertEquals(1, repository.all().size)
+
+            // The released guard accepts a fresh submission.
+            viewModel.log()
+            advanceUntilIdle()
+            assertEquals(2, repository.all().size)
+        }
+
+    @Test
+    fun aRefreshFailureMessageIsDroppedWhenTheOccurrenceChanges() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("8")
+        viewModel.onWeightChanged("100")
+
+        // The recent-sets read succeeds, and the occurrence read that follows it fails.
+        advanceUntilIdle()
+        val recentSetsRead = CompletableDeferred<Unit>()
+        repository.allGate = recentSetsRead
+        viewModel.log()
+        runCurrent()
+        repository.failAll = true
+        recentSetsRead.complete(Unit)
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.manualLogRefreshFailed)
+        repository.failAll = false
+
+        // The next workout replaces the context the completed save's message described.
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 31L)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.manualLogRefreshFailed)
+        assertFalse(viewModel.state.value.manualLogFailed)
+        assertEquals(31L, viewModel.state.value.activeOccurrence?.occurrenceId)
+        // The saved set is untouched: only the stale message is dropped.
+        assertEquals(1, repository.all().size)
+    }
+
+    @Test
+    fun aFailedManualSetMessageSurvivesAnUnchangedOccurrenceRefresh() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempt = 1)
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val equipment = MutableEquipment(EquipmentTag.BARBELL, maxWeightKg = 200.0)
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            equipment = equipment.collaborator()
+        )
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("8")
+        viewModel.onWeightChanged("100")
+        viewModel.log()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.manualLogFailed)
+
+        // An equipment change refreshes the same occurrence; it is not a new logging context.
+        equipment.setMaxWeight(150.0)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.manualLogFailed)
+        assertEquals(30L, viewModel.state.value.activeOccurrence?.occurrenceId)
+        assertEquals("back-squat", viewModel.state.value.selectedExerciseId)
+    }
+
+    @Test
+    fun aFailedManualSetMessageIsDroppedWhenTheOccurrenceChanges() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempt = 1)
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("8")
+        viewModel.onWeightChanged("100")
+        viewModel.log()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.manualLogFailed)
+
+        // The next workout replaces the context the failure described.
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 31L)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.manualLogFailed)
+        assertEquals(31L, viewModel.state.value.activeOccurrence?.occurrenceId)
+    }
+
+    @Test
+    fun aFailedManualSetMessageIsDroppedWhenTheOccurrenceIsRemoved() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempt = 1)
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("8")
+        viewModel.onWeightChanged("100")
+        viewModel.log()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.manualLogFailed)
+
+        // The block stays active but its last occurrence disappears.
+        schedule.set(blockActivation(), emptyList(), selectedOccurrenceId = null)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.manualLogFailed)
+        assertNull(viewModel.state.value.activeOccurrence)
+    }
+
+    @Test
+    fun switchingOccurrenceWhileAFailingManualWriteIsPendingDoesNotShowTheFailure() =
+        runTest(dispatcher) {
+            val repository = FakeWorkoutLogRepository(failOnAddAttempt = 1)
+            val schedule = MutableWorkoutScheduleRepository()
+            schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+            val viewModel = occurrenceViewModel(repository, schedule)
+            advanceUntilIdle()
+
+            viewModel.onExerciseSelected("back-squat")
+            viewModel.onRepsChanged("8")
+            viewModel.onWeightChanged("100")
+
+            val writeGate = CompletableDeferred<Unit>()
+            repository.addGate = writeGate
+            viewModel.log()
+            runCurrent()
+
+            // The user switches workout while the write that will fail is still in flight.
+            schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 31L)
+            advanceUntilIdle()
+
+            writeGate.complete(Unit)
+            advanceUntilIdle()
+
+            assertFalse(viewModel.state.value.manualLogFailed)
+            assertFalse(viewModel.state.value.manualLogInProgress)
+            assertTrue(repository.all().isEmpty())
+        }
+
+    @Test
+    fun switchingOccurrenceWhileAFailingPostWriteRefreshIsPendingDoesNotShowTheFailure() =
+        runTest(dispatcher) {
+            val repository = FakeWorkoutLogRepository()
+            val schedule = MutableWorkoutScheduleRepository()
+            schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+            val viewModel = occurrenceViewModel(repository, schedule)
+            advanceUntilIdle()
+
+            viewModel.onExerciseSelected("back-squat")
+            viewModel.onRepsChanged("8")
+            viewModel.onWeightChanged("100")
+
+            // The recent-sets read suspends; the user switches workout before it returns.
+            advanceUntilIdle()
+            val recentSetsRead = CompletableDeferred<Unit>()
+            repository.allGate = recentSetsRead
+            viewModel.log()
+            runCurrent()
+            schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 31L)
+            runCurrent()
+
+            // The replaced submission's occurrence read then fails, after the context changed.
+            repository.failAll = true
+            recentSetsRead.complete(Unit)
+            advanceUntilIdle()
+
+            assertFalse(viewModel.state.value.manualLogRefreshFailed)
+            assertFalse(viewModel.state.value.manualLogFailed)
+            assertFalse(viewModel.state.value.manualLogInProgress)
+            repository.failAll = false
+            assertEquals(1, repository.all().size)
+        }
+
+    @Test
+    fun aReplacedManualFormIsNotResetByAnOlderCompletion() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("100")
+        advanceUntilIdle()
+
+        val addGate = CompletableDeferred<Unit>()
+        repository.addGate = addGate
+        viewModel.log()
+        runCurrent()
+
+        // The user replaces the whole form while the write is in flight.
+        viewModel.onExerciseSelected("bench-press")
+        viewModel.onWarmupToggled(true)
+        runCurrent()
+
+        addGate.complete(Unit)
+        advanceUntilIdle()
+
+        val state = viewModel.state.value
+        // The newer selection and warm-up choice survive the older completion.
+        assertEquals("bench-press", state.selectedExerciseId)
+        assertTrue(state.isWarmup)
+        assertFalse(state.manualLogFailed)
+        assertFalse(state.manualLogRefreshFailed)
+        // The committed set still carries the attribution and values captured at submission.
+        val set = repository.all().single()
+        assertEquals("back-squat", set.exerciseId)
+        assertEquals(5, set.reps)
+        assertFalse(set.isWarmup)
+    }
+
+    @Test
+    fun aDelayedHistoryPrefillInvalidatesAnInFlightManualSubmission() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = 3,
+                    weightKg = 60.0,
+                    performedAtMillis = MONDAY - DAY
+                )
+            )
+        )
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+
+        // Hold the selection's history read so the prefill lands only after a manual write started.
+        val prefillGate = CompletableDeferred<Unit>()
+        repository.allGate = prefillGate
+        viewModel.onExerciseSelected("back-squat")
+        runCurrent()
+        assertEquals("", viewModel.state.value.weightInput)
+
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("100")
+        viewModel.onWarmupToggled(true)
+        val addGate = CompletableDeferred<Unit>()
+        repository.addGate = addGate
+        viewModel.log()
+        runCurrent()
+
+        // The delayed prefill replaces the form while the write is still in flight.
+        prefillGate.complete(Unit)
+        runCurrent()
+        assertEquals("3", viewModel.state.value.reps)
+        assertEquals("60", viewModel.state.value.weightInput)
+
+        addGate.complete(Unit)
+        advanceUntilIdle()
+
+        // The older submission's success handling must not reset the warm-up flag or the replaced
+        // entries, while the committed set keeps the values and attribution captured at submission.
+        val state = viewModel.state.value
+        assertTrue(state.isWarmup)
+        assertEquals("3", state.reps)
+        assertEquals("60", state.weightInput)
+        val set = repository.all().last()
+        assertEquals("back-squat", set.exerciseId)
+        assertEquals(5, set.reps)
+        assertEquals(100.0, set.weightKg)
+        assertTrue(set.isWarmup)
+    }
+
+    @Test
+    fun aDelayedHistoryPrefillClearsAFailedManualSetMessage() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = 3,
+                    weightKg = 60.0,
+                    performedAtMillis = MONDAY - DAY
+                )
+            ),
+            failOnAddAttempt = 1
+        )
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+
+        val prefillGate = CompletableDeferred<Unit>()
+        repository.allGate = prefillGate
+        viewModel.onExerciseSelected("back-squat")
+        runCurrent()
+
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("100")
+        viewModel.log()
+        advanceUntilIdle()
+        // The write failed while the delayed prefill was still pending, so the failure is shown.
+        assertTrue(viewModel.state.value.manualLogFailed)
+
+        // The prefill lands afterwards and replaces the entries the failure described.
+        prefillGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.manualLogFailed)
+        assertEquals("3", viewModel.state.value.reps)
+        assertEquals("60", viewModel.state.value.weightInput)
+        assertEquals(1, repository.all().size)
+    }
+
+    @Test
     fun hidesTheWeightFieldForBodyweightExercisesUntilRevealed() = runTest(dispatcher) {
         val viewModel = viewModel()
         advanceUntilIdle()
@@ -3399,8 +3915,12 @@ class WorkoutLoggerViewModelTest {
         viewModel.onPerformedAtChanged(chosen)
         viewModel.onExerciseSelected("back-squat")
         viewModel.onRepsChanged("5")
+        // The manual log guard refuses a second submission until the first set and its refresh
+        // complete, so advance between sets as the UI does.
         viewModel.log()
+        advanceUntilIdle()
         viewModel.log()
+        advanceUntilIdle()
         viewModel.log()
         advanceUntilIdle()
 
@@ -3914,7 +4434,10 @@ class WorkoutLoggerViewModelTest {
         viewModel.onExerciseSelected("back-squat")
         viewModel.onRepsChanged("8")
         viewModel.onWeightChanged("100")
+        // Two prescribed sets, each submitted after the previous write completes (the guard refuses
+        // an overlapping second tap).
         viewModel.log()
+        advanceUntilIdle()
         viewModel.log()
         advanceUntilIdle()
         assertEquals(30L, schedule.scheduleState().selectedOccurrenceId)
@@ -4249,11 +4772,14 @@ class WorkoutLoggerViewModelTest {
     }
 
     /** Logs the two working sets the Upper occurrence prescribes. */
-    private fun logTwoSets(viewModel: WorkoutLoggerViewModel) {
+    private suspend fun TestScope.logTwoSets(viewModel: WorkoutLoggerViewModel) {
         viewModel.onExerciseSelected("back-squat")
         viewModel.onRepsChanged("8")
         viewModel.onWeightChanged("100")
         viewModel.log()
+        // The manual log guard refuses an overlapping second submission, so the second prescribed
+        // set is logged after the first write and its refresh complete, as the UI flow does.
+        advanceUntilIdle()
         viewModel.log()
     }
 
@@ -7116,7 +7642,9 @@ class WorkoutLoggerViewModelTest {
         val scheduled = mutableListOf<PersistedRestCountdown>()
         var cancellations = 0
         var elapsed = 1_000L
+        val alertTiming = MutableStateFlow(RestAlertTiming.INEXACT)
         val alerts = object : com.hydrafit.app.core.domain.workout.RestAlertScheduler {
+            override val timing = alertTiming
             override suspend fun schedule(countdown: PersistedRestCountdown) {
                 scheduled.add(countdown)
             }
@@ -7145,17 +7673,28 @@ class WorkoutLoggerViewModelTest {
             ready.value = true
             runCurrent()
             assertEquals(listOf(stored), scheduled)
+            alertTiming.value = RestAlertTiming.PRECISE
+            runCurrent()
+            assertEquals(listOf(stored, stored), scheduled)
+            alertTiming.value = RestAlertTiming.INEXACT
+            runCurrent()
+            assertEquals(listOf(stored, stored, stored), scheduled)
             preferences.setShortRestCoachingEnabled(true)
             runCurrent()
-            assertEquals(1, scheduled.size)
+            assertEquals(3, scheduled.size)
             val edited = stored.copy(deadlineElapsedMillis = 181_000L, durationMillis = 180_000L)
             countdowns.save(edited)
             runCurrent()
-            assertEquals(listOf(stored, edited), scheduled)
+            assertEquals(listOf(stored, stored, stored, edited), scheduled)
             elapsed = 200_000L
             preferences.setShortRestCoachingEnabled(false)
             runCurrent()
             assertEquals(0, cancellations) // A delayed alarm is not erased by an unrelated setting.
+            alertTiming.value = RestAlertTiming.PRECISE
+            runCurrent()
+            // A capability change cannot replay an already due alert.
+            assertEquals(4, scheduled.size)
+            assertEquals(0, cancellations)
             preferences.setRestAlertsEnabled(false)
             runCurrent()
             assertEquals(1, cancellations)
@@ -7164,7 +7703,7 @@ class WorkoutLoggerViewModelTest {
             assertEquals(2, cancellations) // Disabling and re-enabling reconcile explicitly.
             countdowns.save(stored.copy(deadlineElapsedMillis = 320_000L))
             runCurrent()
-            assertEquals(3, scheduled.size)
+            assertEquals(5, scheduled.size)
             schedule.set(
                 blockActivation(),
                 twoOccurrences().map { it.copy(status = OccurrenceStatus.FINISHED) },
@@ -7174,9 +7713,15 @@ class WorkoutLoggerViewModelTest {
             assertEquals(3, cancellations)
             schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
             runCurrent()
+            // Reopening eligible context reconciles its future countdown.
+            assertEquals(6, scheduled.size)
             sessions.end("session", MONDAY)
             runCurrent()
             assertEquals(4, cancellations)
+            alertTiming.value = RestAlertTiming.INEXACT
+            runCurrent()
+            // A closed session cannot be resurrected by access changes.
+            assertEquals(6, scheduled.size)
         } finally {
             coordinator.close()
             runCurrent()
@@ -7898,6 +8443,9 @@ class WorkoutLoggerViewModelTest {
 
         /** When set, the next [all] call suspends until it completes, to test a delayed lookup. */
         var allGate: CompletableDeferred<Unit>? = null
+
+        /** When true, [all] throws, to test a post-write refresh failure. */
+        var failAll: Boolean = false
         var addGate: CompletableDeferred<Unit>? = null
         var addGateOnAttempt: Int? = null
         var correctionGate: CompletableDeferred<Unit>? = null
@@ -7944,6 +8492,7 @@ class WorkoutLoggerViewModelTest {
         }
 
         override suspend fun all(): List<WorkoutSet> {
+            if (failAll) error("Injected read failure")
             allGate?.let { gate ->
                 allGate = null
                 gate.await()

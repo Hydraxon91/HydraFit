@@ -3,8 +3,12 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 10), restored by whole replacement.
-The reader accepts versions 1–10; version 1 defaults the guided-workout preference to off.
+Logical, versioned JSON (`format` + `formatVersion` 11), restored by whole replacement.
+The reader accepts versions 1–11; version 1 defaults the guided-workout preference to off.
+Format 11 requires complete setup version/disposition/resume and explicit nullable preferred weekdays.
+Versions 1–10 default to RETURNING/WELCOME and undecided weekdays; legacy files cannot carry
+non-default setup or selected weekdays. Unknown setup values and duplicate/unknown weekdays or
+selections outside 2–6 days fail validation. Restore resets the non-exported concurrency revision.
 Format 10 adds persistent per-session notes keyed to explicit session ids; versions 1–9 default this
 section to empty and whole replacement removes existing session notes. Format 9 adds persistent
 per-exercise setup notes; versions 1–8 default them to empty, which restores
@@ -23,7 +27,7 @@ Formats 5–10 carry one global rest duration and optional per-exercise override
 default to a 120-second global duration with no overrides. Countdown state is deliberately
 excluded and cleared during restore. Formats 4–10 require per-set timing provenance and explicit nullable elapsed fields; format 3 requires
 and preserves timing provenance while elapsed fields default to null; formats 1–2 default timing
-provenance to `UNKNOWN` and elapsed fields to null. Exports use version 10.
+provenance to `UNKNOWN` and elapsed fields to null. Exports use version 11.
 Format 10 requires its session-note section. Unknown fields remain rejected.
 Domain `backup/` owns the payload records, the kotlinx-serialization codec, the
 validator, the limits and the export/preview/stage/apply use cases (bound in
@@ -38,7 +42,7 @@ after `StartupReadiness` and, on restore, deletes the included user-owned rows a
 re-inserts them with their stored ids through dedicated explicit-id queries — ordinary
 `add`/`save`/`accept` methods are never reused because they mint identities or re-snapshot
 today's catalog. Delete children before parents and insert parents before children.
-Catalog definitions/aliases are application-owned and excluded; unknown seed ids, custom
+Catalog definitions/aliases are application-owned and excluded; unknown seed ids, custom exercise
 ids on canonical identities, duplicate ids/composite keys, dangling links, unsupported
 values and a payload startup maintenance would alter (`CustomExerciseDedupe` on a
 non-CAT-P7 name, `WorkoutSessionBackfill` on a null session id) are rejected with no
@@ -56,3 +60,14 @@ limit keeps its current value, and omitted user equipment is dropped. Android us
 open/create document port via `AndroidBackupFileStore`; iOS binds
 `UnsupportedBackupFileStore` and shows a note. A new persisted field is added to the
 payload (and its round-trip test) in the same change that introduces it.
+
+Equipment identity compatibility repair (0.7.6 C6): `PreviewBackupUseCase` decodes then calls
+`BackupValidator.prepareForRestore`, which repairs only declared custom equipment occupying reserved
+built-in ids before strict validation. It preserves custom names/ceilings/ownership and remaps
+selected equipment, custom exercises, explicit overrides and frozen activation/occurrence CSV tokens.
+Duplicate equipment rows are rejected before repair; every referenced token also reserves its id so
+an unknown reference cannot become valid by allocation. The deterministic shared `EquipmentIdentity`
+allocator skips all occupied/reserved ids and preserves nonmatching tokens. Preview and startup apply
+use the same repair; staged text and the original chosen file are unchanged. Format remains 11.
+Restore seeds missing canonical equipment within its transaction before applying exported ceilings.
+Unknown exercise/equipment references and other invalid sections remain rejected without writes.

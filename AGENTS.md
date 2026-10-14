@@ -10,6 +10,90 @@
 
 ## Session rules (apply to every task)
 
+- **Subagent brief contract:** children start with fresh context; do not assume
+  they know the conversation or infer authorization from tool permissions. Give
+  each delegation, including continuations and corrections, a concise structured
+  brief with the following labeled fields. Carry forward still-valid scope on a
+  continuation explicitly; do not silently widen it.
+  - **Objective and approval:** one bounded outcome, the user's approved scope,
+    settled decisions and observable acceptance criteria. Delegation grants no
+    new approval; missing approval returns to the user through the parent.
+  - **Ownership and targets:** exact workdir, allowed paths/actions, parent-owned
+    paths and exclusions; device serial, branch or SHA when relevant. State who
+    may write what and serialize shared-tree mutations.
+  - **Starting state:** verified facts with evidence/revision, pre-existing work
+    and baseline artifacts; label historical context and unknowns separately.
+    Name safe checks for unknown preconditions, not guessed starting conditions.
+  - **Procedure and verification:** exact applicable procedure/skill paths,
+    tests or existing flow paths, expected assertions and downstream checks.
+    Explain invariants and reuse points, not every implementation line. Do not
+    paste whole histories or irrelevant rule lists; linked references are to be read.
+  - **Limits and recovery:** task budget, per-command caps, retry/stop conditions,
+    permitted cleanup and artifact locations. No automatic replay of uncertain
+    writes, permission bypass or speculative recovery. Distinguish deployment
+    and startup side effects from a genuinely read-only inspection.
+  - **Return evidence:** completed/failed/unknown/unverified criteria, exact
+    commands and results, artifact paths, actual changed paths or state, and
+    blockers requiring a parent decision. Exit code or a child's summary alone
+    is not proof of the requested outcome.
+  Before launch, check the brief against the selected helper's role and required
+  inputs; resolve omissions rather than sending an ambiguous task. The child
+  returns missing essentials before edits or side effects, but may perform the
+  explicitly allowed read-only preflight. On return, the parent checks scope and
+  supporting evidence before accepting completion; this is verification, not an
+  automatic formal review. After interruption or an unknown write outcome,
+  establish the prior worker's state before launching a replacement; never run
+  competing writers or treat interruption as rollback.
+
+- **Bounded coding delegation:** the main agent owns planning, behavioral decisions
+  and acceptance criteria. For suitable localized work with settled behavior,
+  delegate the approved chunk to `coder` (`.opencode/agents/coder.md`), passing
+  exact files, invariants, tests, downstream verification, documentation updates,
+  exclusions and stop conditions. Choose and state one implementation owner
+  before the chunk's first source or test edit. For delegated chunks, the main
+  agent may investigate, settle approved decisions and prepare the brief, but
+  `coder` writes the implementation, tests and explicitly assigned feature
+  documentation for the whole approved chunk; the main agent must not begin implementing and then delegate
+  the remainder. A split or mid-chunk owner change needs an explicitly agreed
+  boundary, affected files and preserved-work baseline before further edits.
+  If unresolved concurrency or navigation decisions prevent a settled brief,
+  stop to resolve them or keep the whole chunk with the main agent rather than
+  silently mixing ownership. Do not undo existing work to manufacture a pure
+  delegated chunk: preserve it, record file ownership and report the result as
+  mixed implementation, not a clean model comparison. Keep fatigue/planner logic,
+  migrations, concurrency and ambiguous failures with the stronger main agent
+  unless separately approved for delegation. Every brief, including a correction
+  brief, must name exact coder-owned allowed paths, parent-owned paths and exclusions.
+  Neither party edits the other's files without an explicitly agreed handoff.
+  Parent and child share a working tree: the parent makes no edits while the coder
+  runs; serialize edits and Git mutations and wait for the coder's report.
+  Before each delegation, capture HEAD and a preserved-work baseline covering staged,
+  unstaged and untracked files, including existing file content/diffs sufficient
+  to distinguish later changes. On return, compare the actual delta against the
+  allowed paths before accepting work, not just at commit time; include new,
+  deleted and renamed files and do not attribute pre-existing changes to the child.
+  Repeat for every correction brief. Stop on unexpected changes, preserve the
+  working tree and report the mismatch; do not automatically revert another's work.
+  This scope check is implementation verification, not a formal review verdict.
+  The parent owns `PLANS.md` status updates and `docs/qa.md` evidence consolidation
+  by default; the coder supplies verification evidence and edits only explicitly
+  assigned feature docs. State these document owners in the approved brief.
+  This approved documentation split does not split implementation ownership or
+  relax the `PLANS.md` status-lines-only authorization.
+  The coder must not commit, push or issue a review verdict. Independently
+  inspect the actual diff, consumers and test evidence during a separately requested
+  post-execution review in Plan Mode; never substitute the child's summary for that
+  review or start one automatically after implementation.
+  The main agent owns that review under `docs/post-execution-review.md` and
+  `docs/review-discipline.md`, recording evidence-backed findings and their
+  mechanical/design classifications rather than treating disagreement as a fix
+  mandate. After the user approves the fix scope and switches to Build mode,
+  delegate corrections to `coder` with finding IDs, evidence, settled decisions,
+  affected files and required regression/downstream verification. The coder
+  implements and verifies, then stops; the main reviewer performs targeted closure
+  checks in Plan Mode under the bounded review discipline. No automatic review/fix
+  loop, self-issued coder verdict, commit or push is authorized by this workflow.
+
 - **Plan gate.** For any task that changes code, config, or data: give a
   short plan first (files, decisions, any deviation from PLANS.md), then
   wait for an explicit OK before implementing. A decision that can change
@@ -48,9 +132,10 @@
   nothing from the check enters the repo.
 - Keep tool output small: grep, head and line ranges; never whole files
   or full logs. Don't narrate progress or print step checklists.
-- Stop and report if ~30 tool calls pass without a plan or a result. If
-  budget is nearly out, stop at a clean point with a "where I stopped /
-  what remains" note instead of leaving half-edited files.
+- Stop and report if ~30 tool calls pass without a plan or a result. If an
+  explicitly assigned time or tool-call limit is approaching, stop at a clean
+  point and report what remains. Do not invent remaining-token counts or treat
+  an unspecified budget as nearly exhausted.
 - Flow: plan → wait for OK → implement → verify → review/report.
   Commit authorization and order depend on the work mode; follow the
   table in Commit Discipline. Pushing needs separate approval.

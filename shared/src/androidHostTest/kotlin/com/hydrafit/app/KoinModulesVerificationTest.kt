@@ -21,6 +21,7 @@ import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
 import com.hydrafit.app.core.domain.engine.OnDevicePlanProgress
+import com.hydrafit.app.core.domain.engine.PersonalRecord
 import com.hydrafit.app.core.domain.engine.PlanBuilderActions
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
@@ -71,8 +72,12 @@ import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.settings.RestPreferenceRepository
 import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferenceRepository
 import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferences
+import com.hydrafit.app.core.domain.setup.SetupCommit
+import com.hydrafit.app.core.domain.setup.SetupState
+import com.hydrafit.app.core.domain.setup.SetupWriteRepository
 import com.hydrafit.app.core.domain.startup.StartupReadiness
 import com.hydrafit.app.core.domain.time.BootIdentityProvider
+import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
@@ -115,10 +120,13 @@ import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
 import com.hydrafit.app.core.userdata.equipment.ExercisePreferenceRepository
+import com.hydrafit.app.core.userdata.equipment.PersonalRecordRepository
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
+import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
+import com.hydrafit.app.core.userdata.settings.SetupRepository
 import com.hydrafit.app.core.userdata.settings.TrainingGoalRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import com.hydrafit.app.feature.equipment.ExercisePlanningSettingsViewModel
@@ -128,6 +136,9 @@ import com.hydrafit.app.feature.logger.OccurrenceReplacementViewModel
 import com.hydrafit.app.feature.logger.WorkoutHistoryViewModel
 import com.hydrafit.app.feature.logger.WorkoutLoggerViewModel
 import com.hydrafit.app.feature.logger.loggerModule
+import com.hydrafit.app.feature.onboarding.OnboardingEntryViewModel
+import com.hydrafit.app.feature.onboarding.OnboardingViewModel
+import com.hydrafit.app.feature.onboarding.onboardingModule
 import com.hydrafit.app.feature.routines.RoutinesViewModel
 import com.hydrafit.app.feature.routines.routinesModule
 import com.hydrafit.app.feature.settings.AcknowledgmentsViewModel
@@ -139,6 +150,7 @@ import com.hydrafit.app.feature.splitbuilder.splitBuilderModule
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -189,6 +201,7 @@ class KoinModulesVerificationTest {
             loggerModule,
             settingsModule,
             routinesModule,
+            onboardingModule,
             testPlatformModule
         )
     }
@@ -198,7 +211,9 @@ class KoinModulesVerificationTest {
         allModules.verify(
             extraTypes = listOf(
                 DatabaseDriverFactory::class,
-                GeminiWorkoutPlannerEngine::class
+                GeminiWorkoutPlannerEngine::class,
+                // The onboarding ViewModels default their dispatcher; verify still checks the type.
+                CoroutineDispatcher::class
             )
         )
     }
@@ -451,6 +466,7 @@ class KoinModulesVerificationTest {
                     single<WorkoutScheduleRepository> { FakeWorkoutScheduleRepository }
                     single<WeightUnitRepository> { FakeWeightUnitRepository }
                     single<ExerciseExclusionRepository> { FakeExerciseExclusionRepository }
+                    single<PreferredWeekdaysRepository> { FakePreferredWeekdaysRepository }
                 },
                 domainModule,
                 routinesModule,
@@ -462,6 +478,46 @@ class KoinModulesVerificationTest {
             assertNotNull(koin.get<RoutinesViewModel>())
         } finally {
             koin.close()
+        }
+    }
+
+    /**
+     * Both onboarding ViewModels are lambda `viewModel { }` definitions, so resolve them over
+     * `onboardingModule` with fake ports. The entry ViewModel reads on init, which also proves the
+     * Main-dispatcher harness; constructing either must not write setup state.
+     */
+    @Test
+    fun theOnboardingViewModelsResolveAtRuntime() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        val koin = koinApplication {
+            modules(
+                module {
+                    single<SetupRepository> { FakeSetupRepository }
+                    single<SetupWriteRepository> { FakeSetupWriteRepository }
+                    single<WeightUnitRepository> { FakeWeightUnitRepository }
+                    single<EquipmentRepository> { FakeEquipmentRepository }
+                    single<EquipmentSelectionRepository> { FakeEquipmentSelectionRepository }
+                    single<TrainingGoalRepository> { FakeTrainingGoalRepository }
+                    single<PreferredWeekdaysRepository> { FakePreferredWeekdaysRepository }
+                    single<PersonalRecordRepository> { FakePersonalRecordRepository }
+                    single<ExerciseCatalog> { FakeExerciseCatalog }
+                    single<StartupReadiness> {
+                        object : StartupReadiness {
+                            override val isReady = MutableStateFlow(true)
+                        }
+                    }
+                },
+                onboardingModule
+            )
+        }.koin
+        try {
+            assertNotNull(koin.get<OnboardingViewModel>())
+            assertNotNull(koin.get<OnboardingEntryViewModel>())
+            advanceUntilIdle()
+        } finally {
+            koin.close()
+            Dispatchers.resetMain()
         }
     }
 
@@ -831,6 +887,69 @@ class KoinModulesVerificationTest {
         override suspend fun deleteOccurrencesForActivation(activationId: Long) = Unit
 
         override suspend fun isTemplateReferenced(templateId: Long): Boolean = false
+    }
+
+    private object FakeSetupRepository : SetupRepository {
+        private val state = MutableStateFlow(SetupState())
+
+        override suspend fun current(): SetupState = state.value
+
+        override fun observe(): Flow<SetupState> = state
+    }
+
+    private object FakeSetupWriteRepository : SetupWriteRepository {
+        override suspend fun commit(command: SetupCommit): SetupState =
+            error("Graph verification must not write setup state")
+    }
+
+    private object FakeEquipmentRepository : EquipmentRepository {
+        override fun observeAll(): Flow<List<Equipment>> = flowOf(emptyList())
+
+        override suspend fun all(): List<Equipment> = emptyList()
+
+        override suspend fun add(name: String): Equipment = error("unused")
+
+        override suspend fun remove(id: EquipmentTag) = error("unused")
+
+        override suspend fun rename(
+            id: EquipmentTag,
+            name: String,
+            maxWeightKg: Double?
+        ): Equipment = error("unused")
+
+        override suspend fun setMaxWeight(id: EquipmentTag, maxWeightKg: Double?) = error("unused")
+    }
+
+    private object FakeEquipmentSelectionRepository : EquipmentSelectionRepository {
+        override suspend fun selected(): Set<EquipmentTag> = emptySet()
+
+        override fun selectedFlow(): Flow<Set<EquipmentTag>> = flowOf(emptySet())
+
+        override suspend fun setSelected(tags: Set<EquipmentTag>) = error("unused")
+    }
+
+    private object FakeTrainingGoalRepository : TrainingGoalRepository {
+        override suspend fun selectedGoal(): TrainingGoal = TrainingGoal.BALANCED
+
+        override fun goalFlow(): Flow<TrainingGoal> = flowOf(TrainingGoal.BALANCED)
+
+        override suspend fun setGoal(goal: TrainingGoal) = error("unused")
+    }
+
+    private object FakePreferredWeekdaysRepository : PreferredWeekdaysRepository {
+        override suspend fun current(): Set<DayOfWeek>? = null
+
+        override fun observe(): Flow<Set<DayOfWeek>?> = flowOf(null)
+
+        override suspend fun set(weekdays: Set<DayOfWeek>?) = error("unused")
+    }
+
+    private object FakePersonalRecordRepository : PersonalRecordRepository {
+        override fun observe(): Flow<List<PersonalRecord>> = flowOf(emptyList())
+
+        override suspend fun set(record: PersonalRecord) = error("unused")
+
+        override suspend fun clear(exerciseId: String) = error("unused")
     }
 }
 

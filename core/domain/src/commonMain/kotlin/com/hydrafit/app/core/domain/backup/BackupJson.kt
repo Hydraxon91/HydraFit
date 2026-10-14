@@ -58,6 +58,10 @@ object BackupJson {
             if (version != null && version < 8) add("entryTargetExplanations")
             if (version != null && version < 9) add("exerciseNotes")
             if (version != null && version < 10) add("sessionNotes")
+            if (version != null && version < SETUP_FORMAT_VERSION) {
+                add("setup")
+                add("preferredWeekdays")
+            }
         }
         val missing = requiredKeys - obj.keys
         if (missing.isNotEmpty()) {
@@ -65,6 +69,13 @@ object BackupJson {
         }
         requireTimingFields(obj)
         requireSettingsFields(obj)
+        if (version != null && version >= SETUP_FORMAT_VERSION) {
+            val setup = obj["setup"] as? JsonObject
+                ?: throw BackupException(BackupFailure.MALFORMED, "setup is not an object")
+            if (!setup.keys.containsAll(setOf("version", "disposition", "step"))) {
+                throw BackupException(BackupFailure.MALFORMED, "setup is incomplete")
+            }
+        }
         val file = try {
             json.decodeFromJsonElement(BackupFile.serializer(), obj)
         } catch (e: Exception) {

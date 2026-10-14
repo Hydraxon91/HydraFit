@@ -9,6 +9,25 @@ import kotlin.test.assertNull
 class BackupJsonTest {
 
     @Test
+    fun formatElevenRequiresCompleteSetupAndWeekdaySections() {
+        val file = emptyBackupFile()
+        val text = BackupJson.encode(file)
+        assertEquals(file, BackupJson.decode(text))
+        assertFailure(BackupFailure.MALFORMED, text.replace(",\"preferredWeekdays\":null", ""))
+        assertFailure(BackupFailure.MALFORMED, text.replace("\"version\":1,", ""))
+        val withoutSetup = text.replace(
+            ",\"setup\":{\"version\":1,\"disposition\":\"RETURNING\",\"step\":\"WELCOME\"}",
+            ""
+        ).replace(",\"preferredWeekdays\":null", "")
+        assertFailure(BackupFailure.MALFORMED, withoutSetup)
+        assertEquals(
+            BackupSetupRecord(),
+            BackupJson.decode(withoutSetup.replace("\"formatVersion\":11", "\"formatVersion\":10"))
+                .setup
+        )
+    }
+
+    @Test
     fun formatSixRequiresOptInsAndOlderFormatsDefaultThemOff() {
         val file = emptyBackupFile().copy(
             formatVersion = 6,

@@ -6,6 +6,7 @@ import com.hydrafit.app.core.domain.startup.StartupReadiness
 import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.workout.PersistedRestCountdown
 import com.hydrafit.app.core.domain.workout.RestAlertScheduler
+import com.hydrafit.app.core.domain.workout.RestAlertTiming
 import com.hydrafit.app.core.domain.workout.RestCountdownRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
@@ -42,6 +43,7 @@ class RestAlertCoordinator(
         scope.launch {
             readiness.isReady.first { it }
             var scheduled: PersistedRestCountdown? = null
+            var scheduledTiming: RestAlertTiming? = null
             var firstSnapshot = true
             combine(
                 countdowns.observe(),
@@ -74,19 +76,23 @@ class RestAlertCoordinator(
                         occurrence.entries.any { entry -> entry.exerciseId == value.exerciseId }
                 } ?: false
                 countdown to isEligible
+            }.combine(alerts.timing) { countdown, timing ->
+                Triple(countdown.first, countdown.second, timing)
             }.collect { countdown ->
                 val value = countdown.first
                 val isEligible = countdown.second
+                val timing = countdown.third
                 val isInitialEligibleSnapshot = firstSnapshot && isEligible
                 firstSnapshot = false
                 if (value == null || !isEligible) {
                     alerts.cancel()
                     scheduled = null
-                } else if (value != scheduled) {
+                    scheduledTiming = null
+                } else if (value != scheduled || timing != scheduledTiming) {
                     if (value.deadlineElapsedMillis <= elapsedNow()) {
                         // Startup can race an alarm receiver that has already started this
                         // process. Preserve only an initially observed due countdown for delivery.
-                        if (isInitialEligibleSnapshot) {
+                        if (isInitialEligibleSnapshot || value == scheduled) {
                             scheduled = value
                         } else {
                             alerts.cancel()
@@ -96,6 +102,7 @@ class RestAlertCoordinator(
                         alerts.schedule(value)
                         scheduled = value
                     }
+                    scheduledTiming = timing
                 }
             }
         }

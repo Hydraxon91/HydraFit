@@ -3,6 +3,7 @@ package com.hydrafit.app.core.database
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import com.hydrafit.app.core.domain.equipment.Equipment as EquipmentModel
+import com.hydrafit.app.core.domain.equipment.EquipmentIdentity
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import kotlinx.coroutines.Dispatchers
@@ -60,9 +61,9 @@ class SqlDelightEquipmentRepository(database: HydraFitDatabase) : EquipmentRepos
     /** Distinct names can normalize to the same id (e.g. "Lat Pulldown"/"Lat-Pulldown"); suffix on collision. */
     private fun uniqueId(base: String): String {
         val taken = queries.selectAll().executeAsList().map { it.id }.toSet()
-        if (base !in taken) return base
-        var suffix = 2
-        while ("${base}_$suffix" in taken) suffix++
-        return "${base}_$suffix"
+        return EquipmentIdentity.availableCustomId(
+            base,
+            taken + EquipmentTag.BUILT_IN.map { it.id }
+        )
     }
 }

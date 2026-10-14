@@ -32,10 +32,19 @@ not passed. Android uses `Settings.Global.BOOT_COUNT`; the current iOS binding h
 reliable boot identity and fails closed. Reboot, unknown identity, context mismatch
 or expiry silently clears the saved prompt.
 
-Optional Android rest alerts use `AlarmManager.setAndAllowWhileIdle` with an elapsed deadline;
-delivery may be delayed by power management. Notification permission is requested explicitly from
-the separate default-off Settings opt-in. The receiver revalidates current stores before posting;
-there is no exact-alarm permission or foreground service. iOS uses the unsupported scheduler.
+Optional Android rest alerts use `setExactAndAllowWhileIdle` when permitted, with
+`setAndAllowWhileIdle` as the disclosed inexact fallback at the same elapsed deadline. Android 12+
+declares `SCHEDULE_EXACT_ALARM`, not `USE_EXACT_ALARM`; Settings opens special access only from
+**Allow precise timing**, independently of the notification-permission/default-off alert opt-in.
+Missing special access leaves alerts enabled with a delay warning. Settings resume and the system
+grant broadcast refresh the scheduler's `RestAlertTiming` flow; the coordinator reconciles future
+eligible timers without changing their deadline or replaying due ones. OS revocation can kill the
+process and remove exact alarms; fallback waits for live reconciliation. An exact-call permission
+race falls back only on `SecurityException`. Inexact batching and idle throttling can delay alerts;
+exact scheduling does not guarantee every short rest or heads-up presentation. The receiver
+revalidates current stores before posting; there is no foreground service. iOS remains unsupported.
+Debug `HydraFitRestAlert` logs expose only monotonic schedule/receipt/post timing and scheduling mode,
+not personal workout data. Host callback tests verify API selection/fallback, not OS delivery.
 The Android adapter serializes schedule/cancel/post and rejects stale delivery revisions after
 resource loading; the receiver's eight-second startup budget expires without posting.
 App startup reconciliation does not cancel an initially due countdown with valid current context;

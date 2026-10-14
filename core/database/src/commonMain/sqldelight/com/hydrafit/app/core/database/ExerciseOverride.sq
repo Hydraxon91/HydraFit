@@ -25,3 +25,6 @@ DELETE FROM exerciseOverride WHERE exerciseId = ?;
 
 deleteAll:
 DELETE FROM exerciseOverride;
+
+remapEquipment:
+UPDATE exerciseOverride SET requiredEquipment = ? WHERE exerciseId = ?;

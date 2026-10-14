@@ -1,0 +1,28 @@
+CREATE TABLE setupState (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 0),
+    version INTEGER NOT NULL CHECK (version = 1),
+    disposition TEXT NOT NULL CHECK (disposition IN ('PENDING', 'COMPLETED', 'SKIPPED', 'RETURNING')),
+    step TEXT NOT NULL CHECK (step IN ('WELCOME', 'UNITS', 'EQUIPMENT', 'GOAL', 'WEEKDAYS', 'PERSONAL_RECORDS', 'FIRST_WORKOUT')),
+    revision INTEGER NOT NULL CHECK (revision >= 0)
+);
+
+INSERT INTO setupState VALUES (0, 1, 'PENDING', 'WELCOME', 0);
+
+CREATE TABLE preferredWeekdays (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 0),
+    weekdays TEXT
+);
+
+INSERT INTO preferredWeekdays VALUES (0, NULL);
+
+selectState:
+SELECT * FROM setupState WHERE id = 0;
+
+updateState:
+UPDATE setupState SET version = ?, disposition = ?, step = ?, revision = ? WHERE id = 0;
+
+selectWeekdays:
+SELECT weekdays FROM preferredWeekdays WHERE id = 0;
+
+updateWeekdays:
+UPDATE preferredWeekdays SET weekdays = ? WHERE id = 0;

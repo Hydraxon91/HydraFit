@@ -6,6 +6,7 @@ import com.hydrafit.app.core.domain.backup.BackupJson
 import com.hydrafit.app.core.domain.backup.BackupValidator
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
+import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.unicodeCaseFold
 import kotlin.test.AfterTest
@@ -468,6 +469,161 @@ class SqlDelightBackupRepositoryTest {
             unicodeCaseFold("Bicycle Crunch"),
             database.exerciseQueries.selectById("user-bicycle-crunch").executeAsOne().searchName
         )
+    }
+
+    @Test
+    fun startupRepairPreservesAllUserReferencesAndOnlyMovesEquipmentIdentities() = runTest {
+        seedEquipmentCollisionData()
+        val before = repository.export("t", 1L)
+
+        SeedEquipmentCatalog(database).seed()
+
+        val after = repository.export("t", 1L)
+        val custom = after.equipment.single { it.id == "EZ_BAR_3" }
+        assertEquals(false, custom.isBuiltIn)
+        assertEquals(35.0, custom.maxWeightKg)
+        assertEquals("EZ bar", custom.name)
+        assertEquals(true, after.equipment.single { it.id == "EZ_BAR" }.isBuiltIn)
+        assertEquals(null, after.equipment.single { it.id == "EZ_BAR" }.maxWeightKg)
+        assertTrue("EZ_BAR_3" in after.selectedEquipment)
+        assertTrue("EZ_BAR" !in after.selectedEquipment)
+        assertEquals("EZ_BAR_3,BARBELL", after.customExercises.single().requiredEquipment)
+        assertEquals("EZ_BAR_3", after.exerciseOverrides.single().requiredEquipment)
+        assertEquals("EZ_BAR_3", after.activationEntries.single().requiredEquipment)
+        assertEquals("EZ_BAR_3", after.occurrenceEntries.single().requiredEquipment)
+        val selected = after.selectedEquipment.map { EquipmentTag(it) }.toSet()
+        val effectiveCatalog = SqlDelightExerciseCatalog(database).all()
+        val effectiveSquat = effectiveCatalog.single { it.id == "back-squat" }
+        val effectiveCustom = effectiveCatalog.single { it.id == "user-bicycle-crunch" }
+        assertTrue(effectiveSquat.isAvailableWith(selected))
+        assertTrue(effectiveCustom.isAvailableWith(selected))
+        assertEquals(
+            setOf(EquipmentTag("EZ_BAR_3")),
+            effectiveSquat.requiredEquipment
+        )
+        assertEquals(before.workoutSets, after.workoutSets)
+        assertEquals(before.workoutSessions, after.workoutSessions)
+        assertEquals(before.plans, after.plans)
+        assertEquals(before.routines, after.routines)
+        assertEquals(before.entryTargetExplanations, after.entryTargetExplanations)
+        assertEquals(
+            "BARBELL",
+            database.exerciseQueries.selectById("overhead-press").executeAsOne().requiredEquipment
+        )
+        BackupValidator(SqlDelightBackupCatalog()).validate(after)
+        SeedEquipmentCatalog(database).seed()
+        assertEquals(after, repository.export("t", 1L))
+    }
+
+    @Test
+    fun legacyCollisionExportCanPreviewStageApplyAndReExportWithoutLosingData() = runTest {
+        seedEquipmentCollisionData()
+        val original = repository.export("t", 1L)
+        val text = BackupJson.encode(original)
+        val preview = PreviewBackupUseCase(BackupValidator(SqlDelightBackupCatalog()))
+        val repaired = preview(text)
+        val staging = SqlDelightBackupStagingRepository(database)
+        RestoreBackupUseCase(preview, staging)(text, "t", 1L)
+        ApplyStagedBackupUseCase(preview, repository, staging, TimeProvider { 2L })()
+
+        assertNull(staging.applyError())
+        assertNull(staging.staged())
+        val restored = repository.export("t", 1L)
+        assertEquals(repaired.copy(equipment = emptyList()), restored.copy(equipment = emptyList()))
+        assertEquals(
+            repaired.equipment.sortedBy { it.id },
+            restored.equipment.filter { it.id != "EZ_BAR" }.sortedBy { it.id }
+        )
+        assertEquals(true, restored.equipment.single { it.id == "EZ_BAR" }.isBuiltIn)
+        assertEquals(restored, preview(BackupJson.encode(restored)))
+        assertEquals("EZ_BAR", original.equipment.single { it.id == "EZ_BAR" }.id)
+    }
+
+    @Test
+    fun seedCollisionRepairRollsBackAllReferencesWhenTheTransactionFails() {
+        seedEquipmentCollisionData()
+        val originalEquipment = database.equipmentQueries.selectAll().executeAsList()
+        val originalSelected = database.userEquipmentQueries.selectAllSelected().executeAsList()
+        val originalCustom = database.exerciseQueries.selectAll().executeAsList()
+        val originalOverrides = database.exerciseOverrideQueries.selectAll().executeAsList()
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "CREATE TRIGGER reject_equipment_repair " +
+                "BEFORE UPDATE OF requiredEquipment ON occurrenceEntry " +
+                "BEGIN SELECT RAISE(ABORT, 'injected repair failure'); END"
+        )
+
+        assertFailsWith<Exception> { SeedEquipmentCatalog(database).seed() }
+
+        assertEquals(originalEquipment, database.equipmentQueries.selectAll().executeAsList())
+        assertEquals(
+            originalSelected,
+            database.userEquipmentQueries.selectAllSelected().executeAsList()
+        )
+        assertEquals(originalCustom, database.exerciseQueries.selectAll().executeAsList())
+        assertEquals(
+            originalOverrides,
+            database.exerciseOverrideQueries.selectAll().executeAsList()
+        )
+        assertEquals(
+            "EZ_BAR",
+            database.trainingScheduleQueries.selectAllActivationEntries()
+                .executeAsOne().requiredEquipment
+        )
+        assertEquals(
+            "EZ_BAR",
+            database.trainingScheduleQueries.selectAllOccurrenceEntries()
+                .executeAsOne().requiredEquipment
+        )
+    }
+
+    @Test
+    fun customCreationCannotClaimAnUnseededBuiltInId() = runTest {
+        database.equipmentQueries.deleteById("TRAP_BAR")
+        val custom = SqlDelightEquipmentRepository(database).add("Trap bar")
+        assertEquals("TRAP_BAR_2", custom.id.id)
+        assertEquals(false, custom.isBuiltIn)
+        SeedEquipmentCatalog(database).seed()
+        assertEquals(1L, database.equipmentQueries.selectById("TRAP_BAR").executeAsOne().isBuiltIn)
+        assertEquals(
+            0L,
+            database.equipmentQueries.selectById("TRAP_BAR_2").executeAsOne().isBuiltIn
+        )
+    }
+
+    @Test
+    fun restoreCreatesMissingCanonicalRowsBeforeApplyingTheirCeilings() = runTest {
+        val file = repository.export("t", 1L).let { exported ->
+            exported.copy(
+                equipment = exported.equipment.map {
+                    if (it.id == "EZ_BAR") it.copy(maxWeightKg = 42.0) else it
+                }
+            )
+        }
+        database.equipmentQueries.deleteById("EZ_BAR")
+        repository.restore(file)
+        assertEquals(
+            42.0,
+            database.equipmentQueries.selectById("EZ_BAR").executeAsOne().maxWeightKg
+        )
+    }
+
+    private fun seedEquipmentCollisionData() {
+        seedRepresentativeData()
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "UPDATE equipment SET isBuiltIn = 0, maxWeightKg = 35 WHERE id = 'EZ_BAR'"
+        )
+        database.equipmentQueries.insert("EZ_BAR_2", "Other curved bar", 0L)
+        database.userEquipmentQueries.insertSelected("EZ_BAR")
+        database.exerciseQueries.remapCustomEquipment("EZ_BAR,BARBELL", "user-bicycle-crunch")
+        database.exerciseOverrideQueries.remapEquipment("EZ_BAR", "back-squat")
+        database.trainingScheduleQueries.selectAllActivationEntries().executeAsList().forEach {
+            database.trainingScheduleQueries.remapActivationEquipment("EZ_BAR", it.id)
+        }
+        database.trainingScheduleQueries.selectAllOccurrenceEntries().executeAsList().forEach {
+            database.trainingScheduleQueries.remapOccurrenceEquipment("EZ_BAR", it.id)
+        }
     }
 
     private fun seedRepresentativeData() {

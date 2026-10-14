@@ -215,6 +215,18 @@ data class WorkoutLoggerUiState(
     val loggedSetEdit: LoggedSetEdit? = null,
     val savingLoggedSet: Boolean = false,
     val loggedSetEditFailed: Boolean = false,
+    /**
+     * True while a manual "Log set" write and its post-write success handling are in flight. The
+     * guard is claimed synchronously, so a repeated tap cannot submit a second set.
+     */
+    val manualLogInProgress: Boolean = false,
+    /** True when the last manual set write failed; every entered value is retained for retry. */
+    val manualLogFailed: Boolean = false,
+    /**
+     * True when the last manual set was persisted but the post-write list/occurrence refresh failed.
+     * The set is saved, so this never reads as an unsaved set or invites a duplicate re-log.
+     */
+    val manualLogRefreshFailed: Boolean = false,
     val draftSets: List<DraftSet> = emptyList(),
     val draftEdit: DraftEdit? = null,
     val missingLoadPrompt: DraftSet? = null,

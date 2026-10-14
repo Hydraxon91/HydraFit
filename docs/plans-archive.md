@@ -1268,6 +1268,69 @@ Active contracts, deferred work, review nits and verification limits remain in P
 | **0.7.5-C5 — integration candidate** | DONE — reviewed/approved at `4a0f4590` plus completion docs; full matrix and applicable UI checks passed; historical deviations/supplemental limits retained | Final coverage and cross-entry-point checks; scrolling, light/dark, larger text and locale fallback; synchronize living docs and mechanics references; record actual limits in `docs/qa.md`. | Full host suite, migration verification, ktlint, debug assembly and both required iOS compile tasks pass; applicable UI evidence recorded. Then a separately requested bounded review. |
 | **0.7.5-C6 — release preparation/publication** | DONE — published `v0.7.5` at `7789d579` via PR #12; PR/main CI and Release `38521713529` passed; APK version 0.7.5/code 20, checksum/signature verified offline; signed runtime unverified | Prepare release documentation and follow the existing release procedure. | Push, tag and publication each retain separate approval; applicable Actions monitored; the signed artifact is verified offline and never installed on the development emulator. |
 
+### 0.7.6 — Onboarding and first-workout guidance
+
+The C0–C7 plan-time record is preserved verbatim below. C8 (release preparation and publication) was
+still in progress when this was archived, so the live C8 status, the scope and the approved C0
+decisions remain in `PLANS.md`; nothing here is an open follow-up or a publication claim.
+
+**Status (2026-10-14):** release scope and the C0 behavioral contract were approved in chat; C0 is
+DONE (decision-only). C1 DONE (`390f3fc1`) — schema 45/backup 11 persistence, legacy handling and full
+Tier A gate passed (`/tmp/hydrafit-076-c1-full.log`). C2 DONE — atomic saves and isolated module/state
+machine; full Tier A gate plus onboarding iOS compile passed (`/tmp/hydrafit-076-c2-full.log`).
+C3 DONE — module/graph aggregation, feature-owned entry decision after readiness/restore, Settings
+revisit seam and a minimal entry shell (step heading, loading/error/retry, Skip, Close); full Tier A
+gate plus onboarding iOS compile and bounded emulator navigation checks passed
+(`/tmp/hydrafit-076-c3-full.log`). C4/C5 DONE — step editors, resource copy, semantics/test tags and
+the three first-workout handoffs, committed as `ffee7229` with the evidence and limits in `docs/qa.md`
+§0.7.6 C4–C5. A bounded post-execution review of `8e0e4eec..ffee7229` returned **INCOMPLETE**;
+R07645-01 (Next discarded typed PR entries) is fixed, device-verified and still uncommitted,
+R07645-02's font-scale/locale/dark checks now pass, and R07645-03's documentation is corrected.
+`35dc283c` committed the R07645-01 fix and `0be58927` the routine activation prefill (0.7.6 C0's
+integration clause); the Plan tab's Start-block scheduler deliberately still derives its days from
+the plan. The targeted closure review at `0be58927` returned **REJECTED** with R07645-04/05/06; their
+corrections, device checks and the follow-up wording items are covered by the targeted closure check
+that returned **APPROVED**. C6 is IN PROGRESS — the Tier A matrix and the fresh-install, skip, resume
+and revisit acceptance passes are done and recorded in `docs/qa.md` §0.7.6 release integration and
+acceptance, with on-device failure/retry, backup restore, first-log acceptance and the
+equipment-prerequisite device case still owed. Tablet and foldable layouts remain 0.13.3/0.13.4.
+C7/C8 are NOT STARTED. Each
+later chunk remains separately gated; no implementation push yet. This section authorizes no
+implementation, commit, push or publication by itself. Work branch:
+`release/0.7.6`. This bounded split refines OF-14-P0–P3 (queued above) without renumbering those
+broader phases.
+
+**Chunks (each separately gated; ordered):**
+- **C1 — setup persistence, migration and backup (Tier A).** New `:core/userdata` setup-state and
+  preferred-weekday ports, `:core/database` implementations, additive `.sqm` migration and
+  backup/restore integration; fresh-vs-upgraded schema, legacy defaults, malformed/unsupported
+  rejection, rollback and preservation tests.
+- **C2 — save actions + async state machine (Tier B; Tier A if shared write contracts change).**
+  Module scaffold and `settings.gradle.kts` registration moved forward from C3 by explicit approval
+  on 2026-10-14; existing Koin 4.2.2 test-only dependency in this module separately approved.
+  ViewModel/state, atomic step save, repeated-submission guard, failure/retry and
+  cancellation/context-replacement tests; producer/consumer tests, Koin checks, ktlint, debug
+  assembly.
+- **C3 — feature registration, startup entry, revisit navigation (Tier A).** Module/graph
+  aggregation in `shared` (scaffold/settings registration moved to C2), feature-owned entry decision,
+  Settings → Setup seam, readiness/restore ordering;
+  Koin verification and bounded entry/revisit/navigation checks.
+- **C4 — screens, copy and accessibility (Tier C).** Step composition, resource strings, states,
+  font-scale/inset/locale checks and semantics; feature tests, ktlint, debug assembly and viewed
+  screenshots.
+- **C5 — first-workout handoffs (Tier B/C).** SplitBuilder/Routines/Logger routes via the existing
+  `AppTab` pattern; assert no automatic writes; load-shape and handoff tests.
+- **C6 — release integration + acceptance evidence (Tier A).** Full matrix (`testAndroidHostTest`,
+  `:core:database:verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`,
+  `:shared:compileKotlinIosSimulatorArm64`, `:core:network:compileKotlinIosSimulatorArm64`,
+  changed-graph checks; `:androidApp:lintVitalRelease` before tagging); fresh/skip/resume/revisit,
+  upgrade, new/legacy backup restore, failure/retry, offline/default-engine and first-log acceptance
+  on a debug emulator.
+- **C7 — separately requested review.** Plan Mode, `docs/review-discipline.md` and
+  `docs/post-execution-review.md`; builder verification is not a review verdict.
+- **C8 — release preparation/publication.** Separately authorized PR/merge/tag/release and CI
+  monitoring; offline artifact verification; never install a release APK on the emulator.
+
 ### 0.4.0 — deterministic engine hardening order (C2B-C2G)
 
 The approved single-session hardening order, its per-step scope and its

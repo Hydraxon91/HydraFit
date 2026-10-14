@@ -159,6 +159,9 @@ SELECT * FROM activationEntry WHERE workoutId = ? ORDER BY position;
 selectAllActivationEntries:
 SELECT * FROM activationEntry ORDER BY workoutId, position;
 
+remapActivationEquipment:
+UPDATE activationEntry SET requiredEquipment = ? WHERE id = ?;
+
 insertOccurrence:
 INSERT INTO workoutOccurrence(activationId, activationWorkoutId, queuePosition, scheduledEpochDay, notBeforeEpochDay, startedAtMillis, resolvedAtMillis, status, revision)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
@@ -200,6 +203,9 @@ SELECT * FROM occurrenceEntry WHERE occurrenceId = ? ORDER BY position;
 
 selectAllOccurrenceEntries:
 SELECT * FROM occurrenceEntry ORDER BY occurrenceId, position;
+
+remapOccurrenceEquipment:
+UPDATE occurrenceEntry SET requiredEquipment = ? WHERE id = ?;
 
 selectOccurrenceEntryIdsForOccurrence:
 SELECT id FROM occurrenceEntry WHERE occurrenceId = ?;

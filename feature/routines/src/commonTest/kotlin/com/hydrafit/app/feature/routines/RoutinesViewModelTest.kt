@@ -38,11 +38,13 @@ import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleActions
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
+import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
+import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -52,10 +54,12 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -185,6 +189,7 @@ class RoutinesViewModelTest {
         advanceUntilIdle()
 
         viewModel.onActivateRequested(viewModel.state.value.templates.single())
+        advanceUntilIdle()
         val activation = assertNotNull(viewModel.state.value.activation)
         assertEquals(2, activation.preview.size)
         assertEquals(0L, activation.startEpochDay)
@@ -200,11 +205,165 @@ class RoutinesViewModelTest {
     }
 
     @Test
+    fun activatingOpensTheDialogWithTheSavedPreferredWeekdays() = runTest(dispatcher) {
+        routines.seed(twoWorkoutTemplate())
+        val saved = setOf(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY, DayOfWeek.SATURDAY)
+        val viewModel = viewModel(
+            preferredWeekdaysRepository = FakePreferredWeekdaysRepository(saved)
+        )
+        advanceUntilIdle()
+
+        viewModel.onActivateRequested(viewModel.state.value.templates.single())
+        advanceUntilIdle()
+
+        assertEquals(saved, assertNotNull(viewModel.state.value.activation).weekdays)
+    }
+
+    @Test
+    fun activatingUsesTheSavedWeekdaysWhenTheReadResolvesSlowly() = runTest(dispatcher) {
+        routines.seed(twoWorkoutTemplate())
+        val saved = setOf(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY, DayOfWeek.SATURDAY)
+        val repository = FakePreferredWeekdaysRepository(saved, gated = true)
+        val viewModel = viewModel(preferredWeekdaysRepository = repository)
+        advanceUntilIdle()
+
+        viewModel.onActivateRequested(viewModel.state.value.templates.single())
+        advanceUntilIdle()
+
+        // The dialog is not constructed until the read returns, so it never opens on a placeholder.
+        assertNull(viewModel.state.value.activation)
+        repository.gates.single().complete(Unit)
+        advanceUntilIdle()
+        assertEquals(saved, assertNotNull(viewModel.state.value.activation).weekdays)
+    }
+
+    @Test
+    fun activatingFallsBackToTheDefaultWeekdaysWhenPreferencesAreUndecided() = runTest(dispatcher) {
+        routines.seed(twoWorkoutTemplate())
+        val viewModel = viewModel(
+            preferredWeekdaysRepository = FakePreferredWeekdaysRepository(null)
+        )
+        advanceUntilIdle()
+
+        viewModel.onActivateRequested(viewModel.state.value.templates.single())
+        advanceUntilIdle()
+
+        assertEquals(DefaultWeekdays, assertNotNull(viewModel.state.value.activation).weekdays)
+    }
+
+    @Test
+    fun aFailingPreferenceReadStillOpensTheDialogWithTheDefaultWeekdays() = runTest(dispatcher) {
+        routines.seed(twoWorkoutTemplate())
+        val viewModel = viewModel(
+            preferredWeekdaysRepository = FakePreferredWeekdaysRepository(
+                failure = IllegalStateException("read failed")
+            )
+        )
+        advanceUntilIdle()
+
+        viewModel.onActivateRequested(viewModel.state.value.templates.single())
+        advanceUntilIdle()
+
+        assertEquals(DefaultWeekdays, assertNotNull(viewModel.state.value.activation).weekdays)
+    }
+
+    @Test
+    fun aSupersededOpeningDoesNotOverwriteTheNewerOne() = runTest(dispatcher) {
+        routines.seed(twoWorkoutTemplate())
+        routines.seed(template(name = "Second"))
+        val repository = FakePreferredWeekdaysRepository(gated = true)
+        val viewModel = viewModel(preferredWeekdaysRepository = repository)
+        advanceUntilIdle()
+
+        val first = viewModel.state.value.templates.first { it.name == "Upper/Lower" }
+        val second = viewModel.state.value.templates.first { it.name == "Second" }
+        viewModel.onActivateRequested(first)
+        advanceUntilIdle()
+        assertEquals(1, repository.gates.size)
+
+        val saved = setOf(DayOfWeek.TUESDAY, DayOfWeek.SATURDAY)
+        repository.set(saved)
+        viewModel.onActivateRequested(second)
+        advanceUntilIdle()
+        assertEquals(2, repository.gates.size)
+
+        // The superseded read resolves first; it must not publish anything.
+        repository.gates[0].complete(Unit)
+        advanceUntilIdle()
+        assertNull(viewModel.state.value.activation)
+
+        repository.gates[1].complete(Unit)
+        advanceUntilIdle()
+        val activation = assertNotNull(viewModel.state.value.activation)
+        assertEquals(second.id, activation.templateId)
+        assertEquals(saved, activation.weekdays)
+    }
+
+    @Test
+    fun dismissingWhileThePreferenceReadIsInFlightLeavesTheDialogClosed() = runTest(dispatcher) {
+        routines.seed(twoWorkoutTemplate())
+        val repository = FakePreferredWeekdaysRepository(
+            setOf(DayOfWeek.TUESDAY, DayOfWeek.SATURDAY),
+            gated = true
+        )
+        val viewModel = viewModel(preferredWeekdaysRepository = repository)
+        advanceUntilIdle()
+
+        viewModel.onActivateRequested(viewModel.state.value.templates.single())
+        advanceUntilIdle()
+        viewModel.onActivationDismissed()
+        repository.gates.single().complete(Unit)
+        advanceUntilIdle()
+
+        // The cancelled resolution must not reopen a dismissed dialog.
+        assertNull(viewModel.state.value.activation)
+    }
+
+    @Test
+    fun aPreferenceSavedBeforeOpeningIsTheOneTheDialogUses() = runTest(dispatcher) {
+        routines.seed(twoWorkoutTemplate())
+        val repository = FakePreferredWeekdaysRepository(
+            setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY)
+        )
+        val viewModel = viewModel(preferredWeekdaysRepository = repository)
+        advanceUntilIdle()
+
+        val updated = setOf(DayOfWeek.TUESDAY, DayOfWeek.SATURDAY)
+        repository.set(updated)
+        advanceUntilIdle()
+
+        viewModel.onActivateRequested(viewModel.state.value.templates.single())
+        advanceUntilIdle()
+
+        assertEquals(updated, assertNotNull(viewModel.state.value.activation).weekdays)
+    }
+
+    @Test
+    fun openingTheActivationDialogWritesNothing() = runTest(dispatcher) {
+        val templateId = routines.seed(twoWorkoutTemplate())
+        val viewModel = viewModel(
+            preferredWeekdaysRepository = FakePreferredWeekdaysRepository(
+                setOf(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY)
+            )
+        )
+        advanceUntilIdle()
+
+        viewModel.onActivateRequested(viewModel.state.value.templates.single())
+        advanceUntilIdle()
+
+        assertNotNull(viewModel.state.value.activation)
+        assertNull(viewModel.state.value.activeActivation)
+        assertTrue(viewModel.state.value.occurrences.isEmpty())
+        assertFalse(schedule.isTemplateReferenced(templateId))
+    }
+
+    @Test
     fun postponingMovesAnOccurrence() = runTest(dispatcher) {
         routines.seed(twoWorkoutTemplate())
         val viewModel = viewModel()
         advanceUntilIdle()
         viewModel.onActivateRequested(viewModel.state.value.templates.single())
+        advanceUntilIdle()
         viewModel.onConfirmActivation()
         advanceUntilIdle()
 
@@ -228,6 +387,7 @@ class RoutinesViewModelTest {
         val viewModel = viewModel()
         advanceUntilIdle()
         viewModel.onActivateRequested(viewModel.state.value.templates.single())
+        advanceUntilIdle()
         viewModel.onConfirmActivation()
         advanceUntilIdle()
 
@@ -360,6 +520,8 @@ class RoutinesViewModelTest {
         weightUnitRepository: FakeWeightUnitRepository = FakeWeightUnitRepository(),
         routineRepository: RoutineTemplateRepository = routines,
         exclusionRepository: ExerciseExclusionRepository = FakeExerciseExclusionRepository(),
+        preferredWeekdaysRepository: PreferredWeekdaysRepository =
+            FakePreferredWeekdaysRepository(),
         timeProvider: TimeProvider = this.timeProvider
     ): RoutinesViewModel {
         val preview = PreviewWorkoutScheduleUseCase()
@@ -393,7 +555,8 @@ class RoutinesViewModelTest {
             exerciseCatalog = catalog,
             timeProvider = timeProvider,
             weightUnitRepository = weightUnitRepository,
-            exclusionRepository = exclusionRepository
+            exclusionRepository = exclusionRepository,
+            preferredWeekdaysRepository = preferredWeekdaysRepository
         )
     }
 
@@ -463,6 +626,40 @@ private class FakeWeightUnitRepository : WeightUnitRepository {
 
     override suspend fun setUnit(unit: WeightUnit) {
         this.unit.value = unit
+    }
+}
+
+/**
+ * A preferred-weekdays store. [gated] makes each [observe] wait for a gate the test completes, so a
+ * slow read can be resolved in a chosen order; each call snapshots the value present when it was made,
+ * like the one-shot read it stands in for. [failure] makes [observe] throw.
+ */
+private class FakePreferredWeekdaysRepository(
+    initial: Set<DayOfWeek>? = null,
+    private val gated: Boolean = false,
+    private val failure: Exception? = null
+) : PreferredWeekdaysRepository {
+    private val weekdays = MutableStateFlow(initial)
+
+    /** One gate per gated [observe] call, in call order. */
+    val gates = mutableListOf<CompletableDeferred<Unit>>()
+
+    override suspend fun current(): Set<DayOfWeek>? = weekdays.value
+
+    override fun observe(): Flow<Set<DayOfWeek>?> {
+        val snapshot = weekdays.value
+        failure?.let { error -> return flow { throw error } }
+        if (!gated) return weekdays
+        val gate = CompletableDeferred<Unit>()
+        gates += gate
+        return flow {
+            gate.await()
+            emit(snapshot)
+        }
+    }
+
+    override suspend fun set(weekdays: Set<DayOfWeek>?) {
+        this.weekdays.value = weekdays
     }
 }
 
