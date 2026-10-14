@@ -37,6 +37,12 @@ permissions:
     resource: "git commit *"
     effect: allow
   - action: shell
+    resource: "gh --version *"
+    effect: allow
+  - action: shell
+    resource: "gh auth status *"
+    effect: allow
+  - action: shell
     resource: "gh run list *"
     effect: allow
   - action: shell
@@ -210,6 +216,13 @@ Do not use `/Users/dia`, `/Users/hydraxon/GitHub`, `/Users/hydraxon/github`,
 Do not request broader directory access to work around a location mismatch.
 Directory allowances do not grant authorization for operations or sandbox shell
 access; preserve every existing approval and edit restriction.
+
+Set the shell tool's working directory explicitly to the repository path above
+and run ordinary `git ...` commands there, not `git -C ...`. If the tool cannot
+set that working directory, stop and report it rather than guessing another path.
+GitHub CLI version and authentication-status checks are pre-approved; report only
+the status needed for the delegated operation, not unnecessary account details.
+Do not retrieve or print authentication tokens.
 
 Routine read-only inspection is pre-approved. Staging, committing and pushing
 still need the parent's explicit authorization under AGENTS.md; that requirement
