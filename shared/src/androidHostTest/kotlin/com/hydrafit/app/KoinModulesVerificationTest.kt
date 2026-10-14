@@ -466,6 +466,7 @@ class KoinModulesVerificationTest {
                     single<WorkoutScheduleRepository> { FakeWorkoutScheduleRepository }
                     single<WeightUnitRepository> { FakeWeightUnitRepository }
                     single<ExerciseExclusionRepository> { FakeExerciseExclusionRepository }
+                    single<PreferredWeekdaysRepository> { FakePreferredWeekdaysRepository }
                 },
                 domainModule,
                 routinesModule,

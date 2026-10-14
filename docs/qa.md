@@ -557,6 +557,40 @@ Skip/Close (the C4 step editors and C5 handoffs are not wired).
   non-English locale, rotation/adaptive layouts and the full §0/§9 cross-cutting matrix. No
   persisted setup, preference, permission or workout data was changed by these checks.
 
+### 0.7.6 routine activation weekday prefill (2026-10-14)
+
+Builder verification of the approved prefill: routine activation opens with the saved preferred
+weekdays, and falls back to Mon/Wed/Fri while they are undecided. Uncommitted at the time of writing;
+the Plan tab's Start-block scheduler is deliberately unchanged and still derives its days from the
+generated plan.
+
+- `:feature:routines:testAndroidHostTest` (17 tests), `:shared:testAndroidHostTest` (22 tests, with
+  the changed-graph `theRoutinesViewModelResolvesAtRuntime` passing), `ktlintCheck` and
+  `:androidApp:assembleDebug` all passed. Tier B chunk checks only — the full matrix, iOS compiles
+  and migration verification remain C6.
+- Emulator (`emulator-5554`, debug, working-tree build installed over existing data, no clear), 53
+  commands and 15 assertions, 90s, all passed: after saving Monday–Thursday in setup, the first
+  routine's "Start training block" dialog opened with Mon/Tue/Wed/Thu selected. Tue and Thu are
+  unreachable under the previous Mon/Wed/Fri default, so this is the prefill and not the old
+  behaviour. Screenshots viewed; the dialog was cancelled and no block, occurrence or activation
+  existed before or after it ("No active training block.").
+- Four days were chosen deliberately: the setup save writes the selected day count as the planning
+  frequency too, and the app stores 4, so the frequency was left unchanged. The flow then cleared the
+  preferences back to "Decide later", restoring the baseline (`preferredWeekdays` null) while
+  preserving that frequency.
+- A first attempt failed and is recorded as a process lesson, not a code defect: the emulator was
+  still running the previously installed build (the working-tree build had been assembled but not
+  reinstalled), and the day chips expose their toggle as `checked` on the clickable container rather
+  than `selected`, so the original assertion could not have passed.
+- Permissions were checked around this run and unchanged (`POST_NOTIFICATIONS` denied,
+  `SCHEDULE_EXACT_ALARM` `default`); the skill's `permissions: { all: unset }` form was used.
+- Observation, pre-existing and outside this change: in the activation dialog's weekday row the `Fri`
+  chip collapses into a clipped vertical column at the right edge, with Sat/Sun beyond the edge. The
+  row needs a wrap or scroll treatment; it is recorded here for a separate scope and was not worked
+  around.
+- Not verified: TalkBack, larger text and dark mode on this dialog, the iOS compile, and DB-level
+  zero-row confirmation (the "no active block" evidence is UI-level).
+
 ### 0.7.6 C4–C5 onboarding step editors and first-workout handoffs (2026-10-14)
 
 Builder verification of the approved C4/C5 slice and the R07645-01 follow-up fix. The editors and

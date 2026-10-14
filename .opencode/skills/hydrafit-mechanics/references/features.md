@@ -361,7 +361,11 @@ For routine authoring, the module is `:feature:routines`:`RoutinesModule.kt`, `R
 activation dialog), `RoutinesViewModel.kt` and `RoutinesUiState.kt`. The
 ViewModel depends on the domain aggregates `RoutineTemplateActions` and
 `WorkoutScheduleActions` plus `ExerciseCatalog`, `TimeProvider` and
-`WeightUnitRepository`. SplitBuilder starts a generated plan as a block via
+`WeightUnitRepository`. The activation dialog opens with the saved
+`PreferredWeekdaysRepository` selection when it exists and with the Mon/Wed/Fri
+`DefaultWeekdays` while preferences are undecided; opening it writes nothing and
+confirmation remains explicit. The Plan tab's Start-block scheduler still derives
+its weekdays from the plan. SplitBuilder starts a generated plan as a block via
 `PlanBuilderActions.scheduleAcceptedPlan`/`acceptAndSchedule` and the
 `SplitScheduleDialogState` in `SplitBuilderUiState.kt`. SplitBuilder's accepted-plan swap uses
 `SplitBuilderViewModel.onSwapRequested`/`onSwapCandidateSelected` (via

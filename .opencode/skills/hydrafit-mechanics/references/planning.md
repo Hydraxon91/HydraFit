@@ -252,8 +252,11 @@ CUSTOM_EQUIPMENT_RANK = 20
 
 `PreferredWeekdaysRepository` (`:core:userdata`) stores undecided (`null`) or 2–6 preferred weekdays.
 `SqlDelightPreferredWeekdaysRepository` saves a selection and its planning frequency atomically;
-clearing to undecided preserves frequency. It creates or modifies no training block. Activation
-prefill is a later onboarding integration chunk and is not wired yet.
+clearing to undecided preserves frequency. It creates or modifies no training block. The Routines
+activation dialog opens with the saved preferences when they exist and with the Mon/Wed/Fri
+`DefaultWeekdays` while they are undecided; opening it writes nothing and confirmation remains
+explicit. The Plan tab's Start-block scheduler still derives its weekdays from the plan rather than
+from these preferences.
 
 `SplitResolver` resolves AUTO to FULL_BODY for 2–3 days, UPPER_LOWER for 4,
 and PUSH_PULL_LEGS otherwise. Foci cycle through the selected split.

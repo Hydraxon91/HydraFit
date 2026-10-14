@@ -38,11 +38,13 @@ import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleActions
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
+import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
+import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -197,6 +199,70 @@ class RoutinesViewModelTest {
         assertEquals(2, viewModel.state.value.occurrences.size)
         assertEquals(ActivationStatus.ACTIVE, active.status)
         assertEquals(ScheduleMode.WEEKDAY, active.mode)
+    }
+
+    @Test
+    fun activatingOpensTheDialogWithTheSavedPreferredWeekdays() = runTest(dispatcher) {
+        routines.seed(twoWorkoutTemplate())
+        val saved = setOf(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY, DayOfWeek.SATURDAY)
+        val viewModel = viewModel(
+            preferredWeekdaysRepository = FakePreferredWeekdaysRepository(saved)
+        )
+        advanceUntilIdle()
+
+        viewModel.onActivateRequested(viewModel.state.value.templates.single())
+
+        assertEquals(saved, assertNotNull(viewModel.state.value.activation).weekdays)
+    }
+
+    @Test
+    fun activatingFallsBackToTheDefaultWeekdaysWhenPreferencesAreUndecided() = runTest(dispatcher) {
+        routines.seed(twoWorkoutTemplate())
+        val viewModel = viewModel(
+            preferredWeekdaysRepository = FakePreferredWeekdaysRepository(null)
+        )
+        advanceUntilIdle()
+
+        viewModel.onActivateRequested(viewModel.state.value.templates.single())
+
+        assertEquals(DefaultWeekdays, assertNotNull(viewModel.state.value.activation).weekdays)
+    }
+
+    @Test
+    fun aPreferenceChangeObservedBeforeOpeningIsTheOneTheDialogUses() = runTest(dispatcher) {
+        routines.seed(twoWorkoutTemplate())
+        val repository = FakePreferredWeekdaysRepository(
+            setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY)
+        )
+        val viewModel = viewModel(preferredWeekdaysRepository = repository)
+        advanceUntilIdle()
+
+        val updated = setOf(DayOfWeek.TUESDAY, DayOfWeek.SATURDAY)
+        repository.set(updated)
+        advanceUntilIdle()
+
+        viewModel.onActivateRequested(viewModel.state.value.templates.single())
+
+        assertEquals(updated, assertNotNull(viewModel.state.value.activation).weekdays)
+    }
+
+    @Test
+    fun openingTheActivationDialogWritesNothing() = runTest(dispatcher) {
+        val templateId = routines.seed(twoWorkoutTemplate())
+        val viewModel = viewModel(
+            preferredWeekdaysRepository = FakePreferredWeekdaysRepository(
+                setOf(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY)
+            )
+        )
+        advanceUntilIdle()
+
+        viewModel.onActivateRequested(viewModel.state.value.templates.single())
+        advanceUntilIdle()
+
+        assertNotNull(viewModel.state.value.activation)
+        assertNull(viewModel.state.value.activeActivation)
+        assertTrue(viewModel.state.value.occurrences.isEmpty())
+        assertFalse(schedule.isTemplateReferenced(templateId))
     }
 
     @Test
@@ -360,6 +426,8 @@ class RoutinesViewModelTest {
         weightUnitRepository: FakeWeightUnitRepository = FakeWeightUnitRepository(),
         routineRepository: RoutineTemplateRepository = routines,
         exclusionRepository: ExerciseExclusionRepository = FakeExerciseExclusionRepository(),
+        preferredWeekdaysRepository: PreferredWeekdaysRepository =
+            FakePreferredWeekdaysRepository(),
         timeProvider: TimeProvider = this.timeProvider
     ): RoutinesViewModel {
         val preview = PreviewWorkoutScheduleUseCase()
@@ -393,7 +461,8 @@ class RoutinesViewModelTest {
             exerciseCatalog = catalog,
             timeProvider = timeProvider,
             weightUnitRepository = weightUnitRepository,
-            exclusionRepository = exclusionRepository
+            exclusionRepository = exclusionRepository,
+            preferredWeekdaysRepository = preferredWeekdaysRepository
         )
     }
 
@@ -463,6 +532,19 @@ private class FakeWeightUnitRepository : WeightUnitRepository {
 
     override suspend fun setUnit(unit: WeightUnit) {
         this.unit.value = unit
+    }
+}
+
+private class FakePreferredWeekdaysRepository(initial: Set<DayOfWeek>? = null) :
+    PreferredWeekdaysRepository {
+    private val weekdays = MutableStateFlow(initial)
+
+    override suspend fun current(): Set<DayOfWeek>? = weekdays.value
+
+    override fun observe(): Flow<Set<DayOfWeek>?> = weekdays
+
+    override suspend fun set(weekdays: Set<DayOfWeek>?) {
+        this.weekdays.value = weekdays
     }
 }
 

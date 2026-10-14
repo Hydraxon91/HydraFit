@@ -23,6 +23,7 @@ import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
+import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,13 +39,17 @@ class RoutinesViewModel(
     private val exerciseCatalog: ExerciseCatalog,
     private val timeProvider: TimeProvider,
     private val weightUnitRepository: WeightUnitRepository,
-    private val exclusionRepository: ExerciseExclusionRepository
+    private val exclusionRepository: ExerciseExclusionRepository,
+    private val preferredWeekdaysRepository: PreferredWeekdaysRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(RoutinesUiState())
     val state: StateFlow<RoutinesUiState> = _state.asStateFlow()
 
     private var weightUnit: WeightUnit = WeightUnit.KG
+
+    /** Cached like [weightUnit] so the activation dialog can open with the saved set synchronously. */
+    private var preferredWeekdays: Set<DayOfWeek>? = null
     private var occurrencesJob: Job? = null
     private var exerciseCapabilities: Map<String, ExerciseLoadCapability> = emptyMap()
     private var catalogExerciseNames: List<Pair<String, String>> = emptyList()
@@ -82,6 +87,11 @@ class RoutinesViewModel(
             weightUnitRepository.unitFlow().collect { unit ->
                 weightUnit = unit
                 _state.update { it.copy(weightUnit = unit) }
+            }
+        }
+        viewModelScope.launch {
+            preferredWeekdaysRepository.observe().collect { weekdays ->
+                preferredWeekdays = weekdays
             }
         }
         viewModelScope.launch {
@@ -299,6 +309,7 @@ class RoutinesViewModel(
                     templateId = template.id,
                     templateName = template.name,
                     workoutCount = workoutCount,
+                    weekdays = preferredWeekdays ?: DefaultWeekdays,
                     startEpochDay = todayEpochDay(),
                     hasActiveBlock = hasActive,
                     replaceActive = hasActive
