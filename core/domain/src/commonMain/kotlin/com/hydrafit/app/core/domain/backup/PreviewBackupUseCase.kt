@@ -14,6 +14,6 @@ class PreviewBackupUseCase(
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default
 ) {
     suspend operator fun invoke(text: String): BackupFile = withContext(dispatcher) {
-        BackupJson.decode(text).also { validator.validate(it) }
+        validator.prepareForRestore(BackupJson.decode(text))
     }
 }

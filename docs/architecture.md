@@ -652,17 +652,27 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   runs on `Default`, so `SqlDelightBackupRepository` (which uses the caller's
   dispatcher) never touches the database on Main. Export reads every section in
   one transaction after `StartupReadiness`. Validation is
-  all-or-nothing: unknown catalog ids, custom ids on canonical identities,
+  all-or-nothing: unknown catalog ids, custom exercise ids on canonical identities,
   duplicate ids or composite keys, dangling links, unsupported values and
   involvements with unknown muscles or non-finite weights are rejected with no
   writes, as is a payload that startup maintenance would silently alter
   (`CustomExerciseDedupe` on a non-CAT-P7 name, or `WorkoutSessionBackfill` on a
-  null session id). Restore validates the chosen file, then **stages** it; the
-  replacement transaction runs at the next process start, before seeding and
+  null session id). A narrow compatibility repair preserves custom equipment whose stored id collides
+  with a built-in: before validation, `BackupValidator.prepareForRestore` assigns deterministic unused
+  suffixed ids and remaps selections, custom exercise requirements, explicit overrides and frozen
+  activation/occurrence requirements. Names, ceilings and custom ownership stay intact. Duplicate
+  equipment identities are rejected before repair, and all referenced tokens are reserved during
+  allocation, so an unknown reference cannot accidentally become valid. Raw `validate` remains strict.
+  The same `EquipmentIdentity` allocator reserves built-in ids for new custom creation; startup
+  equipment seeding atomically repairs existing collisions before adding canonical rows. Application-owned
+  exercise definitions retain canonical equipment ids; newly added built-ins are not automatically
+  selected. Restore validates the chosen file, then **stages** it; the
+  replacement transaction runs at the next process start, before normal startup seeding and
   before the first screen, so it never races a live writer. It writes with stored
   ids, ordering and relationships preserved and never re-runs identity-generating
   APIs (`add`/`save`/`accept`) or re-snapshots today's catalog. A CAT-P7-named
-  custom and its same-named seed remain two identities. Credentials and model bytes
+  custom and its same-named seed remain two identities. Missing canonical equipment rows are inserted
+  inside the restore transaction before exported ceilings are applied. Credentials and model bytes
   are excluded and left untouched. A staged apply that fails rolls back, drops the
   staged payload and records a one-time failure the Settings screen shows and
   clears. Absence uses the documented new-row value: a payload with no settings

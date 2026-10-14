@@ -520,6 +520,10 @@ class SqlDelightBackupRepository(
             database.equipmentQueries.deleteCustomEquipment()
             database.userEquipmentQueries.deleteAllSelected()
 
+            // Restore may run before startup seeding on an upgraded install. Recreate missing
+            // canonical rows before applying their exported ceilings, not after those writes.
+            SeedEquipmentCatalog(database).seed()
+
             // Equipment: built-in rows stay; custom rows are re-created, then every max weight applied.
             file.equipment.forEach { equipment ->
                 if (!equipment.isBuiltIn) {

@@ -36,6 +36,9 @@ import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
  */
 class BackupValidator(private val catalog: BackupCatalog) {
 
+    fun prepareForRestore(file: BackupFile): BackupFile =
+        file.withNonConflictingEquipment(catalog.builtInEquipmentIds()).also { validate(it) }
+
     fun validate(file: BackupFile) {
         if (file.format != BACKUP_FORMAT || file.formatVersion !in SUPPORTED_FORMAT_VERSIONS) {
             fail(BackupFailure.UNSUPPORTED_VERSION)

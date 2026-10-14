@@ -29,3 +29,6 @@ DELETE FROM equipment WHERE id = ?;
 -- Restore path: built-in rows stay (seed-owned); only user-created equipment is replaced.
 deleteCustomEquipment:
 DELETE FROM equipment WHERE isBuiltIn = 0;
+
+moveCustomIdentity:
+UPDATE equipment SET id = ? WHERE id = ? AND isBuiltIn = 0;

@@ -85,7 +85,7 @@
     <string name="settings_backup_error_over_limit">That backup is too complex or too large to restore.</string>
     <string name="settings_backup_error_startup_unstable">That backup can’t be restored as-is because it would change on next launch.</string>
     <string name="settings_backup_error_catalog_mismatch">That backup was made with a different exercise catalog.</string>
-    <string name="settings_backup_error_unknown_catalog">That backup references exercises this install doesn’t have.</string>
+    <string name="settings_backup_error_unknown_catalog">That backup references exercises or equipment this install doesn’t have.</string>
     <string name="settings_backup_error_duplicate_id">That backup contains duplicate records.</string>
     <string name="settings_backup_error_invalid_reference">That backup has broken links.</string>
     <string name="settings_backup_error_invalid_value">That backup contains an unsupported value.</string>

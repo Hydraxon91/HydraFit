@@ -794,9 +794,68 @@ uncommitted chip-wrap fix. C6 is **not** complete: the checks listed at the end 
   - These are builder verification results; targeted Plan-mode reviewer closure remains pending.
     Occurrence-switch and occurrence-only refresh failures are host-tested, not device-verified.
     Other limits above remain unchanged, including the unexplained journal-mode reset.
-- Still owed for C6: new and legacy backup restore — the app uses the system document picker, so the
-  user runs that round trip manually. Upgrade coverage remains the host migration verification, because
-  installing a shipped release APK on the emulator is not permitted.
+- Current backup acceptance: the user reported successful phone restore on 2026-10-14, with logged
+  sets appearing after closing/reopening as required by staged restore. Exact phone build identity
+  was not independently verified; no phone interaction or database pull was performed by the agent.
+  A legacy device backup was unavailable, so legacy-format coverage remains automated-only, not a
+  device pass. Upgrade coverage remains host migration verification; release APKs are never installed
+  on the development emulator. Targeted Logger review closure and acceptance of the legacy-device
+  coverage limit remain outstanding.
+
+### 0.7.6 PR basics and equipment identity backup repair (2026-10-14)
+
+Approved corrective chunk on `6e7d0726` plus the changes below. Onboarding implementation/tests are
+coder-owned; the parent owns the cross-cutting identity repair, its tests and living documentation.
+These are builder verification results, not a formal review verdict.
+
+- Onboarding now offers only Back Squat, Barbell Bench Press, Conventional Deadlift, Overhead Press
+  and Seated Cable Row, in that order. Optional entry and all save/skip rules remain; existing PRs
+  outside the shortlist and the full PR editor are unchanged. Two new feature tests cover order and
+  omission of missing/custom/ineligible/non-basic rows; existing PR regression cases still pass.
+- Root cause: an export carried custom equipment on four reserved built-in IDs. Startup's insert-ignore
+  seeding left the custom rows intact, while restore validation rejected them as unknown catalog IDs.
+  The error incorrectly mentioned only exercises. New allocation reserves canonical IDs even before
+  seeding; startup and backup compatibility repair give colliding customs unused suffixed identities,
+  retaining names, ceilings, selections and user/frozen references. Canonical seed exercise requirements
+  remain unchanged; newly inserted built-ins are not automatically selected. Strict validation follows
+  import repair; duplicate rows and genuinely unknown references still fail.
+- Thirteen new domain/database tests cover allocation, whole-token remapping, duplicate/unknown-input
+  rejection, preview idempotence, legacy defaults, startup repair and rollback, custom creation before
+  seeding, canonical-ceiling restoration, and export → preview → stage → apply → re-export.
+  The effective catalog still resolves repaired custom/override requirements against selected equipment.
+- Full Tier A matrix passed with **1,697 host tests, zero failures/errors/skips**: migration verification,
+  ktlint, debug assembly, `lintVitalRelease`, and shared/network/onboarding/routines iOS simulator
+  compilation. Final log: `/tmp/hf-076-equipment-integration-complete.log` (15 seconds; unchanged tasks
+  reused cache/up-to-date outputs). The earlier integration pass took 87 seconds; final reruns include
+  the added downstream eligibility/broken-reference assertions and comment synchronization. Initial formatting failures
+  were corrected without altering tests or behavior.
+- The unchanged user-supplied backup passed an external, throwaway Java harness using the compiled
+  project codec, validator, JDBC database and restore/export repository: 235 sets and 15 sessions
+  preserved, four equipment identities remapped, 37 non-equipment fields compared exactly with the
+  normalized snapshot, and every exported equipment record's values preserved. Re-export validated
+  without another remap. Only aggregates were reported; no user file or harness enters a commit/CI.
+  Harness deleted; database was in-memory; original attachment hash remained unchanged.
+  Aggregate log: `/tmp/hf-real-backup-check.log`. This is not a phone/file-picker pass.
+- Debug emulator `emulator-5554`, `0.7.6-dev-6e7d0726-dirty`: all five PR rows were semantically
+  asserted visible, with Barbell Row absent and no PR entry opened. Viewed screenshot:
+  `/tmp/hf-076-basics-assert-run/2026-10-14_200155/hf-076-assert-basics-open-restore/takeScreenshot/five-pr-basics-asserted.png`.
+  Welcome → PR ran 13/13 commands; PR assertions/Close/open restore ran 10/10, once each under 120s.
+  The journey changed only setup boundaries/revision, not sets, sessions, PRs, plans or activations.
+- Synthetic baseline backup was exported through SAF (9/9 commands), then selected (2/2) and confirmed
+  (4/4). Staging left the four sets/one session and current setup boundary unchanged. One intentional
+  cold restart applied it: staged/error rows cleared, setup returned to SKIPPED/GOAL with revision zero,
+  and all four set rows and the session had identical pre/post fingerprints. Units, goal, weekdays,
+  equipment selection and permission/alarm baselines were restored/unchanged. Own scratch DB copies
+  were deleted. The new synthetic file `hf076-basics-baseline-20261014.json` remains in emulator Downloads;
+  existing files were not overwritten or deleted.
+  Viewed screenshots: `/tmp/hf-076-confirm/2026-10-14_200559/hf-076-confirm-baseline/takeScreenshot/restore-staged.png`
+  and `/tmp/hf076-post-apply.png`. Logs: `/tmp/hf076-select.log`, `/tmp/hf076-confirm.log`.
+- Verification limits: the initial navigation assertion selected a text child instead of its nav
+  container and failed; fresh hierarchy proved navigation succeeded, and the parent corrected the
+  temporary assertion. The deployment/preflight worker exceeded its initial two-minute budget; later
+  bounded interaction legs passed within their caps. Equipment-collision recovery itself is host-tested
+  and real-file harness-tested, not injected on the emulator. No new TalkBack, larger-font, dark,
+  translated-layout or rotation pass is claimed. Backup failure/cancellation UI paths were not rerun.
 
 ### 0.7.5 C1–C2 caution content foundation (2026-10-13)
 

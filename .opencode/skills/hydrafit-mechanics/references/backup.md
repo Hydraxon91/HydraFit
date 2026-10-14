@@ -42,7 +42,7 @@ after `StartupReadiness` and, on restore, deletes the included user-owned rows a
 re-inserts them with their stored ids through dedicated explicit-id queries — ordinary
 `add`/`save`/`accept` methods are never reused because they mint identities or re-snapshot
 today's catalog. Delete children before parents and insert parents before children.
-Catalog definitions/aliases are application-owned and excluded; unknown seed ids, custom
+Catalog definitions/aliases are application-owned and excluded; unknown seed ids, custom exercise
 ids on canonical identities, duplicate ids/composite keys, dangling links, unsupported
 values and a payload startup maintenance would alter (`CustomExerciseDedupe` on a
 non-CAT-P7 name, `WorkoutSessionBackfill` on a null session id) are rejected with no
@@ -60,3 +60,14 @@ limit keeps its current value, and omitted user equipment is dropped. Android us
 open/create document port via `AndroidBackupFileStore`; iOS binds
 `UnsupportedBackupFileStore` and shows a note. A new persisted field is added to the
 payload (and its round-trip test) in the same change that introduces it.
+
+Equipment identity compatibility repair (0.7.6 C6): `PreviewBackupUseCase` decodes then calls
+`BackupValidator.prepareForRestore`, which repairs only declared custom equipment occupying reserved
+built-in ids before strict validation. It preserves custom names/ceilings/ownership and remaps
+selected equipment, custom exercises, explicit overrides and frozen activation/occurrence CSV tokens.
+Duplicate equipment rows are rejected before repair; every referenced token also reserves its id so
+an unknown reference cannot become valid by allocation. The deterministic shared `EquipmentIdentity`
+allocator skips all occupied/reserved ids and preserves nonmatching tokens. Preview and startup apply
+use the same repair; staged text and the original chosen file are unchanged. Format remains 11.
+Restore seeds missing canonical equipment within its transaction before applying exported ceilings.
+Unknown exercise/equipment references and other invalid sections remain rejected without writes.

@@ -20,6 +20,12 @@ Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseExclusion.sq`, `ExerciseNot
 `PlanTargetExplanationState.sq`, `EntryTargetExplanation.sq`, `RoutineTemplate.sq`,
 `TrainingSchedule.sq`, `UserEquipment.sq`, `WorkoutLog.sq`, `WorkoutSession.sq`, `SessionNote.sq` and
 `WorkoutHistory.sq`.
+Query-only equipment identity repair (0.7.6 C6) adds custom-id movement and per-row equipment-reference
+updates in `Equipment.sq`, `Exercise.sq`, `ExerciseOverride.sq` and `TrainingSchedule.sq`.
+`SeedEquipmentCatalog` remaps legacy custom equipment on reserved ids transactionally before canonical
+seeding, preserving all user/frozen references without rewriting seed exercise definitions. Restore
+seeds missing canonical equipment inside its replacement transaction before applying ceilings.
+No table/column change or migration is involved; catalog/backup references own the compatibility policy.
 `PlanHistory.sq`'s `updateEntryExerciseIdAtPosition` swaps one entry's
 `exerciseId`/`exerciseName`/`suggestedWeightKg` in place (no schema change) for
 `SubstituteExerciseUseCase`; the entry's `sets`/`reps` are untouched. Editing a
