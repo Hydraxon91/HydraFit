@@ -722,10 +722,26 @@ uncommitted chip-wrap fix. C6 is **not** complete: the checks listed at the end 
   `POST_NOTIFICATIONS` `USER_SET` flag while the permission stayed denied.
 - This pass cleared the emulator's app data, so the earlier routine, personal-record and activation
   fixtures on that device are gone.
-- Still owed for C6: on-device failure/retry, and new and legacy backup restore — the app reads and
-  writes backups through the system document picker, so the user runs that round trip manually.
-  Upgrade coverage remains the host migration verification, because installing a shipped release APK
-  on the emulator is not permitted.
+- Failure/retry acceptance (**failed — one defect found**):
+  - With the database made unreadable, a cold launch crashes: `SQLiteCantOpenDatabaseException` escapes
+    `DatabaseStartupMaintenance` (via `ApplyStagedBackupUseCase.staged()` →
+    `SqlDelightBackupStagingRepository`). `DatabaseStartupMaintenance` documents leaving failures
+    uncaught on purpose, and `PLANS.md` schedules recovery states at 0.13.7, so this is a recorded
+    tradeoff rather than a regression — but it means a storage failure has no user-facing recovery.
+  - With journaling blocked while the app was running, tapping `Log set` on the manual form crashed the
+    process: `SQLiteException: cannot rollback - no transaction is active` raised from
+    `AndroidSqliteDriver$Transaction.endTransaction` through `SqlDelightWorkoutLogRepository.add`
+    ← `LogWorkoutSetUseCase` ← `WorkoutLogMutations` ← `WorkoutLoggerViewModel.logResolved`. The typed
+    values were lost and no failure message appeared, so the manual log path has no failure handling
+    whereas the guided and draft paths do. Raised as a finding for triage; no fix was attempted.
+  - Both injections were artificial (restricted filesystem permissions) but model real triggers such as
+    a full or corrupt database. All file modes were restored and nothing was deleted; the stored data
+    remained two sets in one session.
+- Not verified: the retry/recovery behaviour after a write failure, because the app crashes instead of
+  offering one, and the same for the startup path.
+- Still owed for C6: new and legacy backup restore — the app uses the system document picker, so the
+  user runs that round trip manually. Upgrade coverage remains the host migration verification, because
+  installing a shipped release APK on the emulator is not permitted.
 
 ### 0.7.5 C1–C2 caution content foundation (2026-10-13)
 
