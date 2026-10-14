@@ -151,6 +151,7 @@ import com.hydrafit.app.feature.settings.AcknowledgmentsViewModel
 import com.hydrafit.app.feature.settings.BackupViewModel
 import com.hydrafit.app.feature.settings.SettingsViewModel
 import com.hydrafit.app.feature.settings.TrainingGuidanceSettingsViewModel
+import com.hydrafit.app.feature.settings.WorkoutReminderSettingsViewModel
 import com.hydrafit.app.feature.settings.settingsModule
 import com.hydrafit.app.feature.splitbuilder.splitBuilderModule
 import kotlin.test.Test
@@ -370,6 +371,47 @@ class KoinModulesVerificationTest {
             koin.close()
             Dispatchers.resetMain()
         }
+    }
+
+    /**
+     * The reminder ViewModel is a lambda `viewModel { }`, so resolve it over `settingsModule` with a
+     * fake preference repository and the test platform module's scheduler binding.
+     */
+    @Test
+    fun theWorkoutReminderSettingsViewModelResolvesAtRuntime() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        val koin = koinApplication {
+            modules(
+                module {
+                    single<WorkoutReminderPreferenceRepository> { FakeWorkoutReminderPreferences }
+                },
+                settingsModule,
+                testPlatformModule
+            )
+        }.koin
+
+        try {
+            assertNotNull(koin.get<WorkoutReminderSettingsViewModel>())
+            advanceUntilIdle()
+        } finally {
+            koin.close()
+            Dispatchers.resetMain()
+        }
+    }
+
+    private object FakeWorkoutReminderPreferences : WorkoutReminderPreferenceRepository {
+        override fun observe() = flowOf(WorkoutReminderPreferences())
+
+        override suspend fun get() = WorkoutReminderPreferences()
+
+        override suspend fun setEnabled(enabled: Boolean) = Unit
+
+        override suspend fun setReminderMinuteOfDay(minuteOfDay: Int?) = Unit
+
+        override suspend fun setQuietHoursEnabled(enabled: Boolean) = Unit
+
+        override suspend fun setQuietHours(startMinuteOfDay: Int, endMinuteOfDay: Int) = Unit
     }
 
     /**

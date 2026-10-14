@@ -87,6 +87,46 @@ class TrainingGuidanceSettingsViewModelTest {
         }
     }
 
+    @Test
+    fun restPresentationSwitchesPersistWithoutTouchingAlertsOrCoaching() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val preferences = FakePreferences()
+            val scheduler = object : RestAlertScheduler {
+                override suspend fun schedule(countdown: PersistedRestCountdown) = Unit
+                override fun cancel() = Unit
+            }
+            val viewModel = TrainingGuidanceSettingsViewModel(preferences, scheduler)
+
+            viewModel.setRestCountdown(true)
+            viewModel.setRestCompletionSignal(true)
+            runCurrent()
+            assertEquals(
+                TrainingGuidancePreferences(
+                    restCountdownEnabled = true,
+                    restCompletionSignalEnabled = true
+                ),
+                preferences.state.value
+            )
+            assertEquals(
+                TrainingGuidancePreferences(
+                    restCountdownEnabled = true,
+                    restCompletionSignalEnabled = true
+                ),
+                viewModel.state.value.preferences
+            )
+
+            viewModel.setRestCountdown(false)
+            runCurrent()
+            assertEquals(
+                TrainingGuidancePreferences(restCompletionSignalEnabled = true),
+                preferences.state.value
+            )
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     private class FakePreferences : TrainingGuidancePreferenceRepository {
         val state = MutableStateFlow(TrainingGuidancePreferences())
         override fun observe() = state

@@ -51,4 +51,12 @@ class TrainingGuidanceSettingsViewModel(
     fun setCoaching(enabled: Boolean) {
         viewModelScope.launch { repository.setShortRestCoachingEnabled(enabled) }
     }
+
+    fun setRestCountdown(enabled: Boolean) {
+        viewModelScope.launch { repository.setRestCountdownEnabled(enabled) }
+    }
+
+    fun setRestCompletionSignal(enabled: Boolean) {
+        viewModelScope.launch { repository.setRestCompletionSignalEnabled(enabled) }
+    }
 }

@@ -25,6 +25,10 @@ import hydrafit.feature.settings.generated.resources.settings_rest_alerts_descri
 import hydrafit.feature.settings.generated.resources.settings_rest_alerts_late
 import hydrafit.feature.settings.generated.resources.settings_rest_alerts_precise_action
 import hydrafit.feature.settings.generated.resources.settings_rest_alerts_unsupported
+import hydrafit.feature.settings.generated.resources.settings_rest_completion
+import hydrafit.feature.settings.generated.resources.settings_rest_completion_description
+import hydrafit.feature.settings.generated.resources.settings_rest_countdown
+import hydrafit.feature.settings.generated.resources.settings_rest_countdown_description
 import hydrafit.feature.settings.generated.resources.settings_short_rest_coaching
 import hydrafit.feature.settings.generated.resources.settings_short_rest_coaching_description
 import org.jetbrains.compose.resources.stringResource
@@ -109,5 +113,46 @@ fun TrainingGuidanceSettingsSection(
             stringResource(Res.string.settings_short_rest_coaching_description),
             style = MaterialTheme.typography.bodySmall
         )
+        if (permission.supported) {
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .testTag("settings_rest_countdown")
+                    .toggleable(
+                        value = state.preferences.restCountdownEnabled,
+                        role = Role.Switch,
+                        onValueChange = viewModel::setRestCountdown
+                    ),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Switch(checked = state.preferences.restCountdownEnabled, onCheckedChange = null)
+                Text(stringResource(Res.string.settings_rest_countdown))
+            }
+            Text(
+                stringResource(Res.string.settings_rest_countdown_description),
+                style = MaterialTheme.typography.bodySmall
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .testTag("settings_rest_completion")
+                    .toggleable(
+                        value = state.preferences.restCompletionSignalEnabled,
+                        role = Role.Switch,
+                        onValueChange = viewModel::setRestCompletionSignal
+                    ),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Switch(
+                    checked = state.preferences.restCompletionSignalEnabled,
+                    onCheckedChange = null
+                )
+                Text(stringResource(Res.string.settings_rest_completion))
+            }
+            Text(
+                stringResource(Res.string.settings_rest_completion_description),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
     }
 }

@@ -279,6 +279,7 @@ fun SettingsScreen(
             Text(stringResource(Res.string.settings_rest_default_save))
         }
         TrainingGuidanceSettingsSection()
+        WorkoutReminderSettingsSection()
 
         Text(
             text = stringResource(Res.string.settings_unit_section),
