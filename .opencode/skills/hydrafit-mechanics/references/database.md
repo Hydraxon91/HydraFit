@@ -59,7 +59,9 @@ projection. `SearchProjectionBackfill` rebuilds both projections for every row a
 databases upgraded from an earlier version as well as any drift. `43.sqm` adds
 `workoutSet_sessionId_performedAt` on `workoutSet(sessionId, performedAt)`: the history reads filter
 and group by `sessionId` and order one session's sets by `performedAt`, and without it each of those
-shapes planned a full table scan plus a temporary B-tree. Current schema version is 44.
+shapes planned a full table scan plus a temporary B-tree. `44.sqm` adds the singleton `setupState`
+and nullable `preferredWeekdays` rows. Fresh creation starts PENDING/WELCOME; migration starts
+RETURNING/WELCOME regardless of workout count. Current schema version is 45.
 Determine the
 next version from the current directory/generated Schema rather than copying this snapshot.
 
@@ -116,7 +118,7 @@ covered by their own scoped migration tests (`38.sqm`, `39.sqm`), and the exerci
 tables by `ExerciseNoteMigrationTest` (`40.sqm`) and `SessionNoteMigrationTest` (`41.sqm`); the
 `42.sqm` search projections are asserted by `V1ToCurrentMigrationTest`.
 SQLDelight `verifyMigrations` is enabled against the committed v1 seed `databases/1.db`;
-`./gradlew verifySqlDelightMigration` (run in CI) applies `1.sqm..42.sqm` to it and fails
+`./gradlew verifySqlDelightMigration` (run in CI) applies the entire migration chain to it and fails
 if the result differs from the current `.sq`. Keep `1.db` fixed — it is the immutable v1
 schema, not a current-version snapshot. When the migration chain produces a different
 column *order* than `.sq` declares, align the `.sq` order to the chain (no column

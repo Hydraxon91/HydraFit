@@ -594,7 +594,7 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   and `SqlDelightBackupCatalog`; the `:core:userdata` `BackupFileStore` port
   (`AndroidBackupFileStore` SAF implementation, `UnsupportedBackupFileStore` on
   iOS); the Settings `BackupRoute`/`BackupViewModel`.
-- **Rules:** the file is logical (`format` + `formatVersion` 10), independent of the
+- **Rules:** the file is logical (`format` + `formatVersion` 11), independent of the
   SQLite schema and the app version. Every envelope field is required, so a file
   that omits one is rejected as malformed rather than read as an empty snapshot;
   nullable fields are present as explicit `null`, not omitted. The manifest carries
@@ -628,6 +628,10 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   1–4 restore a 120-second global default with no overrides. Persisted countdown
   deadlines are transient session state, excluded from backups and cleared on restore.
   Format 6 requires the two training-guidance opt-ins; formats 1–5 default both off.
+  Format 11 requires setup version/disposition/resume step and explicit nullable preferred weekdays;
+  formats 1–10 restore as returning users with undecided weekdays. Unsupported setup values,
+  duplicate/unknown weekdays and non-null selections outside 2–6 days are rejected before staging.
+  The internal setup revision is a concurrency token, not backup data; restore starts it at zero.
 - **Consistency:** mirrors the §1.8 snapshot rule — frozen prescriptions,
   performed snapshots, load kinds and stored ids round-trip unchanged.
 - **Violations / tensions:** the existing repositories cannot implement restore

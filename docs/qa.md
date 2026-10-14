@@ -484,6 +484,10 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - Optional: read-only DB pull (aggregates only) to confirm sessions/PRs were written.
 
 ## 12. Backup & restore
+- Format 11: setup disposition/resume and preferred weekdays round-trip; formats 1–10 restore as
+  returning users without weekday preferences. Fresh schema offers setup; upgraded empty databases
+  do not. Host coverage is in `SetupPersistenceTest`, `BackupJsonTest`, `BackupValidatorTest` and
+  `V1ToCurrentMigrationTest`; onboarding entry/UI acceptance is not wired or verified in C1.
 - Settings → Backup: export to a chosen local file → success is shown only after the provider
   confirms the write; airplane mode → export still works.
 - Preview a valid backup → shows the included categories/contents; Cancel writes nothing.

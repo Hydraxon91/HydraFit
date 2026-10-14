@@ -1,0 +1,17 @@
+CREATE TABLE setupState (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 0),
+    version INTEGER NOT NULL CHECK (version = 1),
+    disposition TEXT NOT NULL CHECK (disposition IN ('PENDING', 'COMPLETED', 'SKIPPED', 'RETURNING')),
+    step TEXT NOT NULL CHECK (step IN ('WELCOME', 'UNITS', 'EQUIPMENT', 'GOAL', 'WEEKDAYS', 'PERSONAL_RECORDS', 'FIRST_WORKOUT')),
+    revision INTEGER NOT NULL CHECK (revision >= 0)
+);
+
+-- An upgraded database is a returning installation even when it has no workout history.
+INSERT INTO setupState VALUES (0, 1, 'RETURNING', 'WELCOME', 0);
+
+CREATE TABLE preferredWeekdays (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 0),
+    weekdays TEXT
+);
+
+INSERT INTO preferredWeekdays VALUES (0, NULL);

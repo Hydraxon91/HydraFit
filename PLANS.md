@@ -1254,7 +1254,9 @@ separate release/push/tag approvals. No automatic handoff or next-release work.
 #### 0.7.6 — Onboarding and first-workout guidance (chunk plan)
 
 **Status (2026-10-14):** release scope and the C0 behavioral contract were approved in chat; C0 is
-DONE (decision-only). C1–C8 are NOT STARTED and each implementation chunk is separately gated; this
+DONE (decision-only). C1 DONE — schema 45/backup 11 persistence, legacy handling and full Tier A gate
+passed (`/tmp/hydrafit-076-c1-full.log`); C2 approved/next; C3–C8 NOT STARTED. Each later chunk remains
+separately gated; this
 section authorizes no implementation, commit, push or publication by itself. Work branch:
 `release/0.7.6`. This bounded split refines OF-14-P0–P3 (queued above) without renumbering those
 broader phases.

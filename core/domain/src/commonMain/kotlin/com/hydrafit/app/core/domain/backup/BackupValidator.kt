@@ -18,6 +18,10 @@ import com.hydrafit.app.core.domain.schedule.ActivationStatus
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
 import com.hydrafit.app.core.domain.schedule.RemainingDisposition
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
+import com.hydrafit.app.core.domain.setup.SETUP_VERSION
+import com.hydrafit.app.core.domain.setup.SetupDisposition
+import com.hydrafit.app.core.domain.setup.SetupStep
+import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
@@ -41,6 +45,20 @@ class BackupValidator(private val catalog: BackupCatalog) {
         }
         if (file.formatVersion < SESSION_NOTES_FORMAT_VERSION && file.sessionNotes.isNotEmpty()) {
             fail(BackupFailure.INVALID_VALUE)
+        }
+        if (file.formatVersion < SETUP_FORMAT_VERSION &&
+            (file.setup != BackupSetupRecord() || file.preferredWeekdays != null)
+        ) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        if (file.setup.version != SETUP_VERSION) fail(BackupFailure.INVALID_VALUE)
+        enum(file.setup.disposition, SetupDisposition.entries)
+        enum(file.setup.step, SetupStep.entries)
+        file.preferredWeekdays?.let { weekdays ->
+            if (weekdays.size !in 2..6 || weekdays.distinct().size != weekdays.size) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            weekdays.forEach { enum(it, DayOfWeek.entries) }
         }
 
         val seedExerciseIds = catalog.seedExerciseIds()

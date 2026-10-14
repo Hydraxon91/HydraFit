@@ -28,6 +28,8 @@ import com.hydrafit.app.core.userdata.equipment.ExercisePreferenceRepository
 import com.hydrafit.app.core.userdata.equipment.PersonalRecordRepository
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
+import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
+import com.hydrafit.app.core.userdata.settings.SetupRepository
 import com.hydrafit.app.core.userdata.settings.TrainingGoalRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import org.koin.core.module.Module
@@ -59,6 +61,8 @@ val databaseModule: Module = module {
     single<GuidedWorkoutPreferenceRepository> { SqlDelightGuidedWorkoutPreferenceRepository(get()) }
     single<TrainingGoalRepository> { SqlDelightTrainingGoalRepository(get()) }
     single<WeightUnitRepository> { SqlDelightWeightUnitRepository(get()) }
+    single<SetupRepository> { SqlDelightSetupRepository(get()) }
+    single<PreferredWeekdaysRepository> { SqlDelightPreferredWeekdaysRepository(get()) }
     single<RestPreferenceRepository> { SqlDelightRestPreferenceRepository(get()) }
     single<TrainingGuidancePreferenceRepository> {
         SqlDelightTrainingGuidancePreferenceRepository(get())
