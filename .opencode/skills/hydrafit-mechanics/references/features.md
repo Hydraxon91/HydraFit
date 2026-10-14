@@ -16,6 +16,13 @@ selection/quick-fill, session changes, accepted-plan/day rebuilds, block/occurre
 mode changes clear it. The actions never invoke a write or change draft/progress/rest/note state.
 `LoggerTestTags` supplies distinct manual, draft and guided instruction-action identities; named
 flows and their preconditions live in `.maestro/README.md`.
+
+The 0.7.5 technique-considerations indication reuses that same presentation path: Equipment's
+`Exercise.showsTechniqueConsiderations()` (custom rows excluded) and the Logger's
+`showsTechniqueConsiderations(exerciseId)` both call the public
+`ExerciseCautions.hasTechniqueConsiderations` predicate with the id the action already targets — so a
+planned draft or guided row passes its frozen exercise id, never its occurrence-slot id. It adds no
+state of its own and never writes.
 `WorkoutLoggerScreen.kt` contains `loggerDestination`, `loggerGraph`,
 `WorkoutLoggerRoute`, and the stateless screen. Equipment instead keeps
 navigation in `EquipmentNavigation.kt`. The ViewModel depends on the domain

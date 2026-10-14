@@ -1,0 +1,23 @@
+appId: com.hydrafit.app
+---
+# Equipment already filtered to exactly Conventional Deadlift; no keyboard/editor/dialog.
+# Conventional Deadlift has bundled technique considerations and no authored instructions, so the
+# dialog must show the unavailable state and the considerations section together. The row is captured
+# before the dialog opens, because the dialog obscures the row's own layout.
+- assertVisible: Conventional Deadlift
+- assertVisible: Technique considerations available
+- takeScreenshot: equipment-cautions-row
+- tapOn:
+    text: Instructions
+    retryTapIfNoChange: false
+- assertVisible: Conventional Deadlift
+- assertVisible: Technique considerations
+- assertVisible: Practise the setup with a load you can control.*
+- assertVisible: Instructions for this exercise are not available.*
+- takeScreenshot: equipment-cautions
+- tapOn:
+    text: Close
+    retryTapIfNoChange: false
+- assertNotVisible: Technique considerations
+- assertVisible: Technique considerations available
+- assertVisible: Instructions

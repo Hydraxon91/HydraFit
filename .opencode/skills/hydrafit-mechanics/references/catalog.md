@@ -142,5 +142,11 @@ independent of `ExerciseInstructionSource`, so two of the three carry a caution 
 instruction; a blank, unknown or custom `user-*` ID resolves to null and must never be presented as
 "safe", and a display name is never used to derive an identity. Renaming a seeded row keeps its ID
 and therefore its caution. The text is bundled, nonblocking and never persisted, exported or
-attached to a prescription. Provenance is in `docs/exercise-catalog-sources.md`; the viewer section
-and the Equipment/Logger entry points follow in the rest of the 0.7.5 slices.
+attached to a prescription. Provenance is in `docs/exercise-catalog-sources.md`. The dialog renders
+the caution as an optional "Technique considerations" section after the instructions (and alongside
+the unavailable state when an exercise has no authored instructions); the public
+`ExerciseCautions.hasTechniqueConsiderations` predicate drives the labelled indication at the
+Equipment and Logger (manual, planned-draft and guided) instruction actions.
+The section heading is `exercise_instruction_technique_considerations`; reserve
+`exercise_caution_<id>` keys for authored exercise bodies so the database-side XML seed-coverage
+check cannot mistake a shared UI label for a fourth exercise.

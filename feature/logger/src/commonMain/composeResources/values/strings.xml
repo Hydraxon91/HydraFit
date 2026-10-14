@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources>
     <string name="logger_instructions">Instructions</string>
+    <string name="logger_technique_considerations">Technique considerations available</string>
     <string name="nav_label">Log</string>
     <string name="logger_title">Log workout</string>
     <string name="logger_search_label">Search exercises</string>

@@ -7,6 +7,7 @@ appId: com.hydrafit.app
     retryTapIfNoChange: false
 - assertVisible: Back Squat
 - assertVisible: Setup
+- assertNotVisible: Technique considerations
 - assertVisible: Set the bar securely across your upper back.*
 - scrollUntilVisible:
     element: Bend your hips and knees together.*

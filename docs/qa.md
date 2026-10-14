@@ -524,6 +524,141 @@ no emulator check applies.
   three texts were explicitly editorially accepted 2026-10-13; any later wording change needs fresh
   acceptance.
 
+### 0.7.5 C3–C4 caution access (2026-10-13)
+
+Builder verification of the viewer and entry points for the three approved caution IDs. Tier C:
+`ExerciseCautionSource`/`ExerciseCautions` in `:core:exercisecontent` gained the public
+`hasTechniqueConsiderations` predicate, the dialog renders an optional "Technique considerations"
+section (including for an exercise with no authored instructions), and Equipment/Logger show a
+labelled indication beside their instruction actions.
+
+- Host tests: `ExerciseCautionsTest` (3), `EquipmentTechniqueConsiderationsTest` (3) and
+  `TechniqueConsiderationsTest` (3) pass, 0 failures; `ktlintCheck` passes for
+  `:core:exercisecontent`, `:feature:equipment` and `:feature:logger`; `:androidApp:assembleDebug`
+  passes. Logs:
+  `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/075-c3c4-a.log` and
+  `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/075-c3c4-assemble.log`.
+- Emulator (`emulator-5554`, debug): `equipment-exercise-cautions.yaml` 12/12 and
+  `logger-exercise-cautions.yaml` 9/9 passed, one attempt each. Both dialogs showed the
+  unavailable-instructions line **and** the `Technique considerations` heading with the authored body;
+  the flows asserted the indications were present; dialog screenshots do not establish their row
+  placement. Both filters were cleared and no
+  dialog/editor was left open. Screenshots viewed (paths in `.maestro/README.md`).
+- Not verified: the planned-draft and guided indications (require an active-block fixture) — host
+  predicate tests only; TalkBack, dark mode, larger text and locale variants; the caution section's
+  behaviour under content longer than the shipped three texts. No persisted records were written and no
+  schema, backup, Koin or catalog change is involved.
+
+Follow-up verification (same worktree, before the C5 resource-label rename):
+
+- Logger corrective host run passed; `TechniqueConsiderationsTest` now contains two predicate-seam
+  tests, not a claim to verify composable call-site identity. The existing ViewModel tests separately
+  cover manual inputs, draft/editor state and guided progress preservation on instruction access.
+- Back Squat (instructions without cautions): Equipment flow 13/13 and Logger flow 15/15 passed;
+  Logger preserved 7 reps/42 kg and the RIR field remained present. The Conventional Deadlift
+  Equipment caution flow passed 13/13 with an unobscured row screenshot. Dumbbell Romanian Deadlift's
+  row was also viewed: name/summary wrap but remain readable; no truncation was established at the
+  default font size. Larger-text coverage is recorded under C5 rather than inferred from this image.
+- Temporary `HF caution probe` block verified both the planned-draft and guided indications with
+  screenshots `/tmp/hf-075r2-draft-guided-1.png` and `/tmp/hf-075r2-draft-guided-2.png` (viewed).
+  This pass observed placement only, not slot-dialog open/close. Progress stayed at 0 of 3 sets.
+- Cleanup: guided off, no active block; the fixture routine is archived, not deleted, because a
+  cancelled activation still references it. That cancelled activation remains. Custom exercise
+  `HF caution probe lift` was created after the seeded duplicate name was refused, verified to show
+  unavailable instructions and no caution in both features, then deleted. Both searches are empty,
+  Back Squat selected, no modal/keyboard open. No sets or notes were written.
+
+### 0.7.5 C5 integration candidate
+
+- The first full matrix found the new `exercise_caution_heading` UI label was parsed as a fourth
+  exercise by the strict seed-coverage test (expected 3, actual 4). The label was moved to
+  `exercise_instruction_technique_considerations`; displayed text and the test's three-ID assertion
+  are unchanged. No test was weakened.
+- Full matrix then passed: `testAndroidHostTest` (1,569 tests across 170 suites, zero failures,
+  errors or skips), `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
+  `:core:network:compileKotlinIosSimulatorArm64`. Evidence:
+  `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/075-c5-matrix-fixed.log`.
+  The unchanged runtime resource tests cover German-to-English fallback for all three caution texts.
+- Emulator visual checks (`emulator-5554`, debug): Romanian Deadlift's combined dialog passed
+  Setup/Execution/Technique considerations heading and authored-body assertions in light 1.0,
+  dark 1.0 and dark 1.3. Bounded dialog scrolling reached the caution; Close returned to the row.
+  Viewed light and dark-1.3 screenshots show readable text and a reachable Close control without
+  visible truncation. Equipment's Dumbbell Romanian Deadlift caution-only dialog passed unavailable
+  text plus the authored caution. Logger's manual Romanian Deadlift dialog passed all three sections;
+  before/after form snapshots preserved reps 7, blank weight/RIR and setup-note count 0/2000.
+  These journeys used the installed corrective debug build; the subsequent resource-key rename
+  changes identifiers only, not displayed content or layout. Final source is covered by the full
+  matrix above.
+- Visual artifacts (viewed by the parent):
+  `/tmp/hf-c5/run-barbell-light2/2026-10-13_234130/equip-barbell/takeScreenshot/c5-equip-barbell.png`,
+  `/tmp/hf-c5/run-barbell-dark13/2026-10-13_234244/equip-barbell/takeScreenshot/c5-equip-barbell.png`,
+  `/tmp/hf-c5/run-dumbbell-light/2026-10-13_234152/equip-dumbbell/takeScreenshot/c5-equip-dumbbell.png`,
+  `/tmp/hf-c5/run-logger2/2026-10-13_234443/logger-rdl/takeScreenshot/c5-logger-rdl-dialog.png`.
+- Restoration reported and checked by the runner: font scale 1.0, secure night mode 1, system
+  night-mode value absent, `cmd uimode night` reporting no; locale en-US unchanged. Final Logger
+  search empty, Back Squat checked, no modal/keyboard. Equipment search cleanup was asserted by
+  absence of the prior matching row, not positively by an empty-field value; its final emptiness
+  is therefore not independently established.
+- Execution deviation: the runner exceeded its 12-minute budget and performed extra cleanup runs
+  after selector/partial-text-clear problems. These are process failures, not a clean bounded pass;
+  no further UI runs were started to conceal or repair the evidence gap. No persisted data writes
+  occurred in this visual round. Earlier fixture writes/retained activation are recorded above.
+- Limits: light 1.3 not run; locale fallback is host-tested, not rechecked under an emulator app
+  locale; TalkBack speech and measured contrast unverified. Planned/guided slot-dialog open/close
+  and their complete before/after preservation checks remain outstanding (the earlier fixture
+  verified indications only). `logger-slot-exercise-cautions.yaml` is syntax-checked but not run.
+  Formal reviewer closure is pending; neither the green matrix nor these visual checks close the
+  C3/C4 review findings. C5 acceptance remains incomplete pending the slot and cleanup evidence.
+
+Clean-pass follow-up (2026-10-14): the user authorized a fresh bounded pass, but its runner was
+cancelled before returning acceptance results. A single read-only recovery inspection confirmed
+debug HydraFit foregrounded on Logger, font scale 1.0, light mode, no app-locale override, an empty
+Logger search, and no modal/keyboard. It did not establish the current routine/block/guided state
+or attribute any fixture writes to the cancelled run. Do not replay those writes on this evidence;
+the prior verified cleanup remains historical evidence, not proof of the cancelled run's outcome.
+No clean-pass acceptance or final-build deployment is claimed. C4/C5 remain incomplete.
+
+Resumed foreground pass (2026-10-14, verified checkout
+`/Users/hydraxon/Documents/GitHub/HydraFit`):
+
+- Fresh preflight established no active block, archived `HF caution probe` and guided off. The
+  leftover Equipment test filter was cleared; searching for `HF caution probe lift` found no custom
+  row. Final debug deployment succeeded (`/tmp/hf-c5-resumed-deploy.log`), followed by launch.
+- The checked-in slot flow passed 12/12 commands for both
+  `logger_draft_instructions_187` and `logger_guided_instructions_187`: correct Conventional
+  Deadlift title, instruction-unavailable text, caution heading/body, Close, and action still visible.
+  Draft descriptor `Conventional Deadlift  3 x 8 · ~-` was unchanged. Guided progress `0 of 3 sets`
+  and `Target: 8 x -` were unchanged. No set/session/note/rest/draft action was submitted.
+- The existing barbell combined-dialog flow passed on the final debug build at light font scale
+  1.3 and with HydraFit app locale `de-DE`. All three headings and authored English bodies,
+  scrolling and Close were asserted. System locale remained en-US. Viewed screenshots show
+  readable wrapping, not established clipping; this supplies verification evidence, not reviewer
+  closure of the Equipment layout finding.
+- Parent-viewed artifacts:
+  `/tmp/hf-c5-resumed-draft-2/2026-10-14_072032/logger-slot-exercise-cautions/takeScreenshot/logger-slot-cautions.png`,
+  `/tmp/hf-c5-resumed-guided/2026-10-14_072122/logger-slot-exercise-cautions/takeScreenshot/logger-slot-cautions.png`,
+  `/tmp/hf-c5-resumed-light13/2026-10-14_072345/equip-barbell/takeScreenshot/c5-equip-barbell.png`,
+  `/tmp/hf-c5-resumed-de/2026-10-14_072428/equip-barbell/takeScreenshot/c5-equip-barbell.png`,
+  `/tmp/hf-c5-resumed-final.png`.
+- Positive final read-backs: both search EditTexts empty; Back Squat radio checked; guided off;
+  no active block; probe routine archived; no modal/keyboard. Font scale 1.0, secure night mode 1,
+  system night-mode value absent, `cmd uimode night` reporting no, and app locales `[]` restored.
+  The approved fixture was restored, activated, cancelled and archived again; cancelled activation
+  history remains. Cleanup restores functional state, not byte-identical persisted data.
+- Execution took approximately 463 seconds within the 1,200-second interaction budget. The first
+  draft invocation failed its first assertion because a shell environment variable did not populate
+  Maestro's `ACTION_ID`; no tap/write occurred. A corrected `-e ACTION_ID=...` invocation passed.
+  This was an invocation retry despite the stop-on-failure contract. Each flow used a 150-second
+  alarm instead of the required 120-second cap. These deviations prevent describing the run as a
+  fully clean contractual pass, even though the completed acceptance assertions passed.
+- Remaining acceptance gap: slot-form reps/load/RIR, note and rest widgets were off-screen and
+  were not captured before/after either slot dialog. Unchanged slot descriptors/progress and absence
+  of write actions do not prove all preservation requirements. TalkBack speech, measured contrast
+  and the all-complete guided branch remain unverified. C4/C5 remain incomplete; the light-1.3,
+  app-locale, slot open/Close and positive-cleanup gaps are now covered. Formal reviewer closure
+  remains separately requested and is not implied by this verification.
+
 ### 0.7.5 R075 review-fix verification (2026-10-13)
 
 Bounded post-execution review of `bc7db260..5a4ac742` raised R075-01..03; the fixes are documentation

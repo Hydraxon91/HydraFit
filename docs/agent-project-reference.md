@@ -227,10 +227,14 @@ perl -e 'alarm 600; exec @ARGV' ./gradlew clean build > build-output.log 2>&1
 
 ### `core/exercisecontent/`
 - Bundles app-owned catalog content that no single feature owns: the offline exercise instructions
-  keyed by stable exercise ID, plus their read-only Compose viewer.
+  and their informational technique considerations, each keyed by stable exercise ID, plus the
+  read-only Compose viewer. Features use the public `ExerciseCautions.hasTechniqueConsiderations`
+  predicate only to decide whether to indicate that content; nothing here is persisted or written.
 - This content is not user data. It is never persisted, backed up or frozen into a plan, and it is
-  separate from the OF-13 personal setup notes. Exercises without authored text resolve to null so
-  the caller shows the explicit unavailable state instead of generic guidance.
+  separate from the OF-13 personal setup notes. Exercises without authored instructions resolve to
+  null so the caller shows the explicit unavailable state instead of generic guidance. Technique
+  considerations are resolved independently of instruction coverage, so a stable ID may carry a
+  consideration with no authored instructions, and absence never asserts that an exercise is safe.
 - It depends on Compose and its own resources only — no `:core:domain`, `:core:database`,
   `:core:network` or `feature/*` dependency — and features depend on it for the shared viewer.
 - Android host tests include Android resources and use test-only Robolectric 4.17 (MIT) plus

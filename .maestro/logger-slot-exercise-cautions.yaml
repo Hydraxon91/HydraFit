@@ -1,0 +1,25 @@
+appId: com.hydrafit.app
+---
+# Conventional Deadlift fixture slot visible; ACTION_ID comes from a fresh hierarchy.
+# Run separately for the planned-draft and guided Instructions actions. Fixture creation,
+# progress/form snapshots and cleanup belong to the explicitly approved runner contract.
+- assertVisible:
+    id: ${ACTION_ID}
+- assertVisible:
+    text: Technique considerations available
+    above:
+      id: ${ACTION_ID}
+- tapOn:
+    id: ${ACTION_ID}
+    retryTapIfNoChange: false
+- assertVisible: Conventional Deadlift
+- assertVisible: Instructions for this exercise are not available.*
+- assertVisible: Technique considerations
+- assertVisible: Practise the setup with a load you can control.*
+- takeScreenshot: logger-slot-cautions
+- tapOn:
+    text: Close
+    retryTapIfNoChange: false
+- assertNotVisible: Technique considerations
+- assertVisible:
+    id: ${ACTION_ID}

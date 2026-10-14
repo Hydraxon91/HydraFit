@@ -41,4 +41,5 @@
     <string name="exercise_caution_conventional_deadlift">Practise the setup with a load you can control before increasing it. Keep the bar close, establish a steady trunk position before lifting, and reset between repetitions rather than rushing the next pull.</string>
     <string name="exercise_caution_romanian_deadlift">Practise the hip hinge before adding heavier load. Keep the bar close and stop the descent before you lose control of your trunk position; reaching the floor is not the goal.</string>
     <string name="exercise_caution_dumbbell_rdl">Practise the hip hinge with light dumbbells first. Keep them close to your legs and limit the descent to the range you can control; do not reach lower by changing your trunk position.</string>
+    <string name="exercise_instruction_technique_considerations">Technique considerations</string>
 </resources>

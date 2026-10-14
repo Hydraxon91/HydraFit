@@ -850,8 +850,10 @@ caution, and a CAT-02 profile suggestion changes no ID. Renaming a seeded row ke
 therefore its caution. The notes are bundled content — never persisted, exported or part of a
 prescription — and describe controllable technique for the built-in movement, not a risk ranking,
 injury-prevention claim or medical advice. Provenance for the 0.7.5 batch is recorded in
-`docs/exercise-catalog-sources.md`; the viewer section and the Equipment/Logger entry points ship in
-the following slices.
+`docs/exercise-catalog-sources.md`. The viewer renders the optional "Technique considerations" section
+after the instructions (also for an exercise with no authored instructions), and Equipment and the
+Logger's manual, planned-draft and guided action sites show a labelled indication through the public
+`ExerciseCautions.hasTechniqueConsiderations` predicate.
 
 ## 2. Decision log
 

@@ -100,6 +100,7 @@ import hydrafit.feature.equipment.generated.resources.equipment_profiler_title
 import hydrafit.feature.equipment.generated.resources.equipment_remove
 import hydrafit.feature.equipment.generated.resources.equipment_save_error
 import hydrafit.feature.equipment.generated.resources.equipment_search_label
+import hydrafit.feature.equipment.generated.resources.equipment_technique_considerations
 import hydrafit.feature.equipment.generated.resources.equipment_tier_high
 import hydrafit.feature.equipment.generated.resources.equipment_tier_low
 import hydrafit.feature.equipment.generated.resources.equipment_tier_mid
@@ -584,6 +585,12 @@ private fun ExerciseSummaryRow(
             )
         }
         Column {
+            if (exercise.showsTechniqueConsiderations()) {
+                Text(
+                    text = stringResource(Res.string.equipment_technique_considerations),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
             TextButton(onClick = { onInstructions(exercise.id) }) {
                 Text(stringResource(Res.string.equipment_instructions))
             }

@@ -12,11 +12,15 @@ env:
     text: ${WEIGHT}
     containsChild:
       text: Weight \(kg\)
+# Back Squat has authored instructions and no bundled considerations, so neither the indication nor
+# the considerations section may appear.
+- assertNotVisible: Technique considerations available
 - tapOn:
     id: logger_manual_instructions
     retryTapIfNoChange: false
 - assertVisible: Back Squat
 - assertVisible: Setup
+- assertNotVisible: Technique considerations
 - assertVisible: Set the bar securely across your upper back.*
 - scrollUntilVisible:
     element: Bend your hips and knees together.*
