@@ -891,6 +891,31 @@ during the review.
   failures/errors/skips, migration verification, ktlint, debug assembly, `lintVitalRelease` and the
   four iOS compiles (`/tmp/hf-c7-f1-matrix.log`).
 
+### 0.7.6 C8 release preparation (2026-10-14)
+
+Final candidate revision for the 0.7.6 release series: `f49eb9ff` (after `19bcb200`, `2c9fb8b7`,
+`6f82cbd9`). Preparation only: the README feature line and PLANS status changed; no runtime code,
+dependency, configuration, CI, signing or schema change.
+
+- C7 is closed: the bounded review returned **APPROVED**, and the targeted Plan-mode closure check of
+  `f49eb9ff` returned **APPROVED** with no new findings (see §0.7.6 C7 review and its follow-up).
+- Release integration gate re-run on the final revision: `testAndroidHostTest` (1,698 tests, zero
+  failures/errors/skips), `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug`, `:androidApp:lintVitalRelease`, and the shared/network/onboarding/routines
+  iOS simulator compiles. Log: `/tmp/hf-c7-f1-matrix.log`.
+- Version metadata needs no source change: the release `versionName` comes from the `v0.7.6` tag and the
+  `versionCode` from the workflow run number; local debug builds keep the `-dev` name and suffix.
+- Cross-cutting coverage for the changed flows is the 0.7.6 record above: fresh install/skip/resume/
+  revisit, offline rendering, first-log, PR shortlist, activation weekday wrapping, and the bounded
+  backup round trip; larger-font (`1.3`), dark and `de-DE` fallback were exercised on the onboarding
+  steps during C4/C5. Still unverified and not claimed here: TalkBack spoken output and touch
+  exploration, rotation/adaptive layouts (deferred to 0.13.3/0.13.4), a translated-language layout, a
+  legacy-device backup restore (no old file available; accepted for this slice), and the phone
+  restore's exact build identity. The equipment-error branch has no reachable device trigger.
+- Publication, the annotated `v0.7.6` tag on the PR merge commit, CI monitoring and offline
+  signed-artifact verification are recorded separately when they occur. No release APK is installed on
+  the development emulator.
+
 ### 0.7.5 C1–C2 caution content foundation (2026-10-13)
 
 Builder verification of the approved EX-03 / 0.7.5 content foundation (three sourced IDs:
