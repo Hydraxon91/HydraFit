@@ -690,12 +690,20 @@ uncommitted chip-wrap fix. C6 is **not** complete: the checks listed at the end 
   stayed reachable from Settings, starting at Welcome.
 - Activation-dialog chip wrap: the weekday row now wraps onto two lines with `Mon`, `Fri` and `Sun`
   all exposing their labels; `Fri` previously collapsed into a clipped column with no text node.
-- Equipment prerequisite (partial): with a fresh inventory — 18 seeded equipment rows, none selected
-  — the Plan tab generated a usable deterministic plan, so nothing promised a plan the inventory
-  could not support. The `NO_ELIGIBLE_EXERCISES` branch that carries the equipment action was not
-  reachable from that state and stays device-unverified; its label is "Review equipment and
-  exclusions" rather than C0's suggested "Set up equipment", which is a copy question rather than a
-  behaviour gap.
+- Equipment prerequisite (resolved, no defect): a narrow inventory still yields a usable plan because
+  `Exercise.isAvailableWith` filters the `BODYWEIGHT` requirement out (core/domain `Exercise.kt:24–26`),
+  so bodyweight work is eligible with any selection. With only a pull-up bar selected the Plan tab
+  generated a full plan and the `NO_ELIGIBLE_EXERCISES` branch was correctly not reached; that branch,
+  which carries the equipment action (`SplitBuilderScreen.kt:399–402` → `openTab(AppTab.EQUIPMENT)`),
+  stays device-unverified for want of a reachable trigger. Its label is "Review equipment and
+  exclusions" rather than C0's suggested "Set up equipment" — a copy question, not a behaviour gap.
+- Offline and default-engine acceptance: with airplane mode enabled (approved) and
+  `dumpsys connectivity` reporting no active default network, the app launched and the Log screen
+  rendered normally with no network error, and the built-in deterministic planner is still the
+  default engine. Airplane mode was switched off again and connectivity read back.
+- First-log journey: **not executed yet.** The Log tab's labels were captured read-only while offline
+  (search hint `Search exercises`, `Reps`, `Weight (kg)`, `Log set` below the fold,
+  `No active session`), which is what the journey needs to be authored.
 - TalkBack: installed and enabled for a reading pass; the setup screen rendered normally and its
   controls expose labels and roles in the hierarchy. Spoken output and touch exploration cannot be
   verified this way, and the accessibility settings were restored afterwards.
@@ -709,9 +717,10 @@ uncommitted chip-wrap fix. C6 is **not** complete: the checks listed at the end 
   `POST_NOTIFICATIONS` `USER_SET` flag while the permission stayed denied.
 - This pass cleared the emulator's app data, so the earlier routine, personal-record and activation
   fixtures on that device are gone.
-- Still owed for C6: on-device failure/retry, new and legacy backup restore, and first-log
-  acceptance. Upgrade coverage remains the host migration verification, because installing a shipped
-  release APK on the emulator is not permitted.
+- Still owed for C6: the first-log journey itself, on-device failure/retry, and new and legacy backup
+  restore — the app reads and writes backups through the system document picker, so the user runs that
+  round trip manually. Upgrade coverage remains the host migration verification, because installing a
+  shipped release APK on the emulator is not permitted.
 
 ### 0.7.5 C1–C2 caution content foundation (2026-10-13)
 
