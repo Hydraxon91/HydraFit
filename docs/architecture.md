@@ -141,7 +141,9 @@ and take the state plus callbacks.
   from the draft the ViewModel already loaded: unit radios, an equipment multi-select over the
   inventory, all four training goals (the loaded one preselected), seven weekday toggles plus an
   explicit "Decide later"
-  (null) choice, and an optional PR entry that searches the external-only eligible catalog. The 2–6
+  (null) choice, and an optional PR entry limited to five built-in basics, in order: Back Squat,
+  Barbell Bench Press, Conventional Deadlift, Overhead Press and Seated Cable Row. Missing, custom or
+  non-external variants are omitted; the full PR editor elsewhere and existing records are unchanged. The 2–6
   weekday rule is enforced locally, so `requirePreferredWeekdays` is never the failure path, and Next
   is unreachable while the draft is unacceptable or a save is in flight. PR edits use a frozen display
   unit and the existing manual-PR table; a stored record stays the shown value until an explicit edit

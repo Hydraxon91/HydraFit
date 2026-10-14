@@ -342,7 +342,11 @@ tab bar are unchanged, and Settings opens the revisit route through `LocalSetupN
 `OnboardingStepEditors.kt` renders one editor per step: welcome copy, unit radios, an equipment
 multi-select over `state.equipment`, all four training goals with the loaded one preselected, seven
 weekday toggles plus an explicit "Decide later" (null) choice, the optional PR entry and the three
-first-workout handoffs. Equipment and
+first-workout handoffs. The PR step offers only these built-in basics in this order: Back Squat,
+Barbell Bench Press, Conventional Deadlift, Overhead Press and Seated Cable Row. It resolves stable ids
+from the effective catalog, omitting missing, custom or non-external rows. Search filters only these
+five; the full editor elsewhere is unchanged and records outside the shortlist are never removed.
+Equipment and
 exercise names come from the domain (`Equipment.name`/`Exercise.name`), not the module's strings;
 everything else is an `onboarding_*` resource key. Selection controls use the radio role for single
 choice and checkbox/toggle for multi-select with ~48dp rows; the step content scrolls with the action

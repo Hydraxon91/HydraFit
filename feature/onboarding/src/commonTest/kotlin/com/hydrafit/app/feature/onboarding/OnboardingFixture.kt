@@ -41,9 +41,9 @@ internal class OnboardingFixture {
     val savedRecords = mutableMapOf<String, PersonalRecord>()
 
     /**
-     * The catalog the PR step reads. Tests that switch between two open entries add a second external
-     * exercise through [addEligibleExercise]; the default keeps the single eligible exercise that
-     * existing tests assert.
+     * The catalog the PR step reads. The default rows match none of the step's shipped basics, so
+     * [OnboardingViewModelTest] supplies the shortlisted basics it exercises; a test switching
+     * between two open entries adds a second one through [addEligibleExercise].
      */
     var exercises: List<Exercise> = listOf(
         Exercise("external", "External", emptySet(), emptySet()),
@@ -131,7 +131,10 @@ internal class OnboardingFixture {
         override suspend fun all() = exercises
     }
 
-    /** Adds one more external (eligible) exercise so a test can open and switch a second PR entry. */
+    /**
+     * Adds one more external row under the supplied id, so a test can open and switch a second PR
+     * entry. The PR step offers it only when [id] is one of the shipped basics.
+     */
     fun addEligibleExercise(id: String, name: String = id) {
         exercises = exercises + Exercise(id, name, emptySet(), emptySet())
     }

@@ -32,6 +32,21 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/**
+ * The five optional PR basics the setup step offers, in the fixed order it offers them. The shortlist
+ * is the step's own scope: the step matches those built-in identities only, so a different built-in, a
+ * custom row and any row the catalog stores with another load capability are simply not offered here,
+ * while the equipment editor keeps offering every exercise. A listed id the catalog does not hold is
+ * omitted rather than invented.
+ */
+private val onboardingPersonalRecordBasics = listOf(
+    "back-squat",
+    "barbell-bench-press",
+    "conventional-deadlift",
+    "overhead-press",
+    "seated-cable-row"
+)
+
 /** Owns one setup editor journey; all persistent policy and atomic writes stay behind use cases. */
 class OnboardingViewModel(
     private val setup: SetupRepository,
@@ -292,14 +307,22 @@ class OnboardingViewModel(
                 )
                 SetupStep.GOAL -> base.copy(input = SetupStepInput.Goal(goals.selectedGoal()))
                 SetupStep.WEEKDAYS -> base.copy(input = SetupStepInput.Weekdays(weekdays.current()))
-                SetupStep.PERSONAL_RECORDS -> base.copy(
-                    input = SetupStepInput.PersonalRecords(emptyList()),
-                    entryUnit = units.selectedUnit(),
-                    eligibleExercises = catalog.all().filter {
-                        it.loadCapability == ExerciseLoadCapability.EXTERNAL
-                    },
-                    existingRecords = records.observe().first()
-                )
+                SetupStep.PERSONAL_RECORDS -> {
+                    // One catalog read; the step keeps its own order whatever order the read returns.
+                    val catalogExercises = catalog.all()
+                    base.copy(
+                        input = SetupStepInput.PersonalRecords(emptyList()),
+                        entryUnit = units.selectedUnit(),
+                        eligibleExercises = onboardingPersonalRecordBasics.mapNotNull { id ->
+                            catalogExercises.firstOrNull {
+                                it.id == id &&
+                                    !it.isCustom &&
+                                    it.loadCapability == ExerciseLoadCapability.EXTERNAL
+                            }
+                        },
+                        existingRecords = records.observe().first()
+                    )
+                }
             }
         }
         if (context == contextRevision) _state.value = loaded.copy(loading = false)
