@@ -49,16 +49,18 @@ Use debug builds on the development emulator, not signed or minified release APK
 
 The next versions are deliberately smaller: each gets a focused scope and its own code review before publication. During pre-1.0 development, versions such as 0.7.1 can add features, not just fix bugs. Corrective releases take the next available number, so the targets below may shift. There are no release dates yet.
 
-### Next: workout context (0.7.x)
+### Workout context (0.7.x)
+
+0.7.0–0.7.5 are published; 0.7.6 and 0.7.7 remain.
 
 | Target | Focus |
 | --- | --- |
-| 0.7.0 | Explain suggested loads, progression, fatigue choices and deloads |
-| 0.7.1 | Notes and searchable session history |
-| 0.7.2 | Finish-workout summaries |
-| 0.7.3 | Warm-up and ramp-set guidance |
-| 0.7.4 | First batch of offline exercise instructions |
-| 0.7.5 | Sourced, informational exercise cautions |
+| 0.7.0 ✅ | Explain suggested loads, progression, fatigue choices and deloads |
+| 0.7.1 ✅ | Notes and searchable session history |
+| 0.7.2 ✅ | Finish-workout summaries |
+| 0.7.3 ✅ | Warm-up and ramp-set guidance |
+| 0.7.4 ✅ | First batch of offline exercise instructions |
+| 0.7.5 ✅ | Sourced, informational exercise cautions |
 | 0.7.6 | Setup and first-workout guidance |
 | 0.7.7 | Opt-in workout reminders |
 

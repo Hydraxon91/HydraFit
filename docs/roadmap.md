@@ -1,7 +1,7 @@
 # HydraFit roadmap to 1.0
 
 Approved direction: 2026-10-09; smaller published releases approved 2026-10-11.
-The current shipped version is 0.7.3. This roadmap groups the remaining backlog;
+The current shipped version is 0.7.5. This roadmap groups the remaining backlog;
 it does not authorize implementation, publication, commits or pushes.
 Release numbers are planning targets, without dates.
 
@@ -103,7 +103,8 @@ End/New session and background/resume/timer semantics verified offline.
 ### 0.7.0 — Workout Context & Confidence
 
 The heading identifies the theme's starting version; the scope is spread across
-**0.7.x**, not all included in 0.7.0.
+**0.7.x**, not all included in 0.7.0. 0.7.0–0.7.5 are published; 0.7.6 and 0.7.7
+remain.
 
 | Target | Reviewable release scope | Dependencies / references |
 | --- | --- | --- |
@@ -190,9 +191,10 @@ additional bounded targets before 1.0; 0.7.4 alone does not close content covera
   signal, preserving timer edits, Start/cancel/session/occurrence invalidation and
   process restoration. A database audit alone does not confirm delivery failures,
   and heads-up or exact delivery cannot be guaranteed regardless of system settings.
-- **EX-03:** reopen the previously deferred high-risk exercise caution as
-  informational content. Approve evidence, wording and trigger scope first; no
-  injury diagnosis, automatic rehabilitation advice or inferred user risk.
+- **EX-03:** shipped in 0.7.5 as informational technique considerations keyed by stable ID,
+  independent of instruction coverage and with recorded provenance. No injury diagnosis, automatic
+  rehabilitation advice or inferred user risk. The approved evidence/wording/trigger contract stays
+  in PLANS.md for any future additions.
 
 Gate: explanations match their source decisions; notes/history round-trip;
 summaries reconcile with work; instructions, setup and reminders work offline.
