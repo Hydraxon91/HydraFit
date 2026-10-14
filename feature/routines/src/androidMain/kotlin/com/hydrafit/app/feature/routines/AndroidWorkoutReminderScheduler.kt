@@ -15,6 +15,8 @@ import android.os.Build
 import android.util.Log
 import com.hydrafit.app.core.domain.schedule.WorkoutReminderScheduler
 import com.hydrafit.app.core.domain.startup.StartupReadiness
+import com.hydrafit.app.core.navigation.AppTab
+import com.hydrafit.app.core.navigation.OPEN_TAB_EXTRA
 import hydrafit.feature.routines.generated.resources.Res
 import hydrafit.feature.routines.generated.resources.reminder_body_generic
 import hydrafit.feature.routines.generated.resources.reminder_body_named
@@ -22,6 +24,9 @@ import hydrafit.feature.routines.generated.resources.reminder_channel
 import hydrafit.feature.routines.generated.resources.reminder_title
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -41,6 +46,13 @@ class AndroidWorkoutReminderScheduler(context: Context) : WorkoutReminderSchedul
     private val alarms = this.context.getSystemService(AlarmManager::class.java)
     private val notifications = this.context.getSystemService(NotificationManager::class.java)
     private val deliveryLock = Any()
+    private val changes = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    override val deliveryChanges: Flow<Unit> = changes.asSharedFlow()
+
+    override fun reportDeliveryChange() {
+        changes.tryEmit(Unit)
+    }
 
     override fun canNotify(): Boolean = notifications.areNotificationsEnabled() &&
         (
@@ -78,6 +90,14 @@ class AndroidWorkoutReminderScheduler(context: Context) : WorkoutReminderSchedul
         synchronized(deliveryLock) {
             if (!canNotify()) return false
             val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                ?.apply {
+                    putExtra(OPEN_TAB_EXTRA, AppTab.LOG.name)
+                    addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    )
+                }
                 ?: return false
             if (Build.VERSION.SDK_INT >= 26) {
                 notifications.createNotificationChannel(

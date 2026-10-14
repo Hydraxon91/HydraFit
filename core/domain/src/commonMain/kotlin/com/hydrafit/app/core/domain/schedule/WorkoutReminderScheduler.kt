@@ -1,5 +1,9 @@
 package com.hydrafit.app.core.domain.schedule
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+
 /**
  * The platform's best-effort local reminder delivery: one replaceable alarm plus the single summary
  * notification.
@@ -24,10 +28,25 @@ interface WorkoutReminderScheduler {
      * caller can give a delivery claim back instead of losing the day.
      */
     suspend fun notify(workoutNames: List<String>): Boolean
+
+    /**
+     * Emits when the platform's ability to deliver changed while the app's own stores did not, such
+     * as a notification-permission result or notification access changed in system settings. An
+     * app-lifetime observer decides delivery again from current state instead of trusting a
+     * permission answer taken earlier.
+     */
+    val deliveryChanges: Flow<Unit>
+
+    /** Reports one [deliveryChanges] event after a delivery-relevant platform change. */
+    fun reportDeliveryChange()
 }
 
 /** iOS has no local reminder delivery: nothing is armed, posted or cancelled. */
 class UnsupportedWorkoutReminderScheduler : WorkoutReminderScheduler {
+    private val changes = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    override val deliveryChanges: Flow<Unit> = changes.asSharedFlow()
+
     override fun canNotify() = false
 
     override suspend fun schedule(atEpochMillis: Long) = Unit
@@ -35,4 +54,8 @@ class UnsupportedWorkoutReminderScheduler : WorkoutReminderScheduler {
     override fun cancel() = Unit
 
     override suspend fun notify(workoutNames: List<String>): Boolean = false
+
+    override fun reportDeliveryChange() {
+        changes.tryEmit(Unit)
+    }
 }

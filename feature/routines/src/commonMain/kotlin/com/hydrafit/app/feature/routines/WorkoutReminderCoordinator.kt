@@ -52,6 +52,9 @@ class WorkoutReminderCoordinator(
     fun start() {
         scope.launch {
             readiness.isReady.first { it }
+            // A delivery-relevant platform change (a permission result, notification access changed
+            // in system settings) is invisible in the observed stores, so it reconciles on its own.
+            launch { reminders.deliveryChanges.collect { reconcile() } }
             combine(
                 preferences.observe(),
                 schedule.observeScheduleState().flatMapLatest { state ->

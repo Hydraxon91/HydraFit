@@ -27,7 +27,9 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -301,6 +303,42 @@ class WorkoutReminderCoordinatorTest {
         assertEquals(1, reminders.cancels)
     }
 
+    @Test
+    fun aDeliveryChangeReconcilesAfterNotificationPermissionIsGranted() = runTest {
+        val deliveries = FakeReminderDeliveries()
+        val reminders = FakeReminderScheduler(notificationAllowed = false)
+        val schedule = FakeReminderSchedule().apply {
+            state.value = WorkoutScheduleState(activeActivationId = blockId)
+            activation.value = activation("Lower A")
+            occurrences.value = listOf(occurrence(7L, workoutId = 11L))
+        }
+        val readiness = FakeReminderReadiness()
+        val coordinator = coordinator(
+            schedule = schedule,
+            deliveries = deliveries,
+            reminders = reminders,
+            readiness = readiness,
+            dispatcher = StandardTestDispatcher(testScheduler),
+            nowMillis = at(minutes(18) + 5)
+        )
+
+        coordinator.start()
+        readiness.isReady.value = true
+        advanceUntilIdle()
+        // No permission means no post and no claim, so the day is still available.
+        assertEquals(emptyList(), reminders.notified)
+        assertFalse(deliveries.isDelivered(blockId, today))
+
+        // Granting access in system settings changes nothing in the observed stores.
+        reminders.notificationAllowed = true
+        reminders.reportDeliveryChange()
+        advanceUntilIdle()
+
+        assertEquals(listOf(listOf("Lower A")), reminders.notified)
+        assertTrue(deliveries.isDelivered(blockId, today))
+        coordinator.close()
+    }
+
     private fun coordinator(
         schedule: FakeReminderSchedule,
         preferences: FakeReminderPreferences = FakeReminderPreferences(),
@@ -427,12 +465,19 @@ private class FakeReminderDeliveries : ReminderDeliveryRepository {
 }
 
 private class FakeReminderScheduler(
-    private val notificationAllowed: Boolean = true,
+    var notificationAllowed: Boolean = true,
     var notificationSucceeds: Boolean = true
 ) : WorkoutReminderScheduler {
     val scheduled = mutableListOf<Long>()
     val notified = mutableListOf<List<String>>()
     var cancels = 0
+    private val changes = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    override val deliveryChanges: Flow<Unit> = changes.asSharedFlow()
+
+    override fun reportDeliveryChange() {
+        changes.tryEmit(Unit)
+    }
 
     override fun canNotify() = notificationAllowed
 
