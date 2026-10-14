@@ -19,6 +19,12 @@ permissions:
     resource: "git log *"
     effect: allow
   - action: shell
+    resource: "git reflog"
+    effect: allow
+  - action: shell
+    resource: "git reflog show *"
+    effect: allow
+  - action: shell
     resource: "git show *"
     effect: allow
   - action: shell
