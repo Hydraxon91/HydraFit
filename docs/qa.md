@@ -857,6 +857,40 @@ These are builder verification results, not a formal review verdict.
   and real-file harness-tested, not injected on the emulator. No new TalkBack, larger-font, dark,
   translated-layout or rotation pass is claimed. Backup failure/cancellation UI paths were not rerun.
 
+### 0.7.6 C7 review and its follow-up (2026-10-14)
+
+Bounded C7 review in Plan Mode over the un-reviewed delta: targeted closure of the Logger corrective
+(`877115d2..480c1c21`, previously **REJECTED**) at `6f82cbd9`, plus a full-range read of the newly
+approved chunk `19bcb200` and `2c9fb8b7`, and the consolidated C6/C7 evidence. Verdict:
+**APPROVED** with minor/nit items and no blocking findings. The Logger closures were confirmed
+(save failure dropped on occurrence replacement/removal, kept by an unchanged refresh, late failure
+suppressed) and the refresh copy is now generic; the QA table-count correction matches the retained
+artifacts. No scope, architecture, approval or documentation violation was found; no source was changed
+during the review.
+
+- Finding **R076C7-01** (minor, confirmed, design decision): `manualLogRefreshFailed` was cleared only
+  on a new submission and a successful recent-sets refresh, so “Your set was saved, but workout
+  information could not be refreshed.” could outlive the context that produced it, unlike the save
+  failure. The user chose option (a): scope it exactly like the save failure.
+- Fix F1(a): the refresh message is now cleared wherever a context or form change already cleared
+  `manualLogFailed` — block change, exercise switch, delayed history prefill, recent-set selection,
+  plan/day rebuild, and occurrence replacement/removal.
+- Finding **R076C7-02** (nit): the mechanics sentence was accurate only for the save failure. Because
+  F1(a) makes the broad claim true, the sentence was instead made precise about both messages rather
+  than narrowed.
+- Not fixed by decision: R076C7-03 (occurrence change detected by whole-object inequality) was left as
+  is; the comparison is pre-existing and shared with draft invalidation, and its deferred change could
+  alter when a write is invalidated.
+- Evidence: `:feature:logger:testAndroidHostTest` 397 tests, 0 failures/errors (one new regression test
+  `aRefreshFailureMessageIsDroppedWhenTheOccurrenceChanges`), `:feature:logger:ktlintCheck` and
+  `:androidApp:assembleDebug` pass. Logs: `/tmp/hf-c7-f1-tests2.log` (final) and
+  `/tmp/hf-c7-f1-tests.log` (formatting failure only). The new test was confirmed to fail without the
+  fix by a bounded break-and-restore, and the fix was restored and re-confirmed with `git diff`.
+- Limits: no emulator pass was run for this correction (the affected path is host-tested); the message
+  was not re-observed on a device. Full matrix re-run after the fix: 1,698 host tests, 0
+  failures/errors/skips, migration verification, ktlint, debug assembly, `lintVitalRelease` and the
+  four iOS compiles (`/tmp/hf-c7-f1-matrix.log`).
+
 ### 0.7.5 C1–C2 caution content foundation (2026-10-13)
 
 Builder verification of the approved EX-03 / 0.7.5 content foundation (three sourced IDs:

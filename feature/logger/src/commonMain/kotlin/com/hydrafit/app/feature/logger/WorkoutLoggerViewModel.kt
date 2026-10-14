@@ -204,8 +204,11 @@ class WorkoutLoggerViewModel(
                     invalidateRestTimer(clearPersisted = restTimer.state.value != null)
                     liveSetIntentEntryId = null
                     // A block change replaces the logging context, so a manual-set failure from the
-                    // previous context no longer describes the form on screen.
-                    _state.update { it.copy(manualLogFailed = false) }
+                    // previous context no longer describes the form on screen, and a completed save's
+                    // refresh message described that same context.
+                    _state.update {
+                        it.copy(manualLogFailed = false, manualLogRefreshFailed = false)
+                    }
                 }
                 activeActivation = activation
                 activationObserved = true
@@ -362,8 +365,9 @@ class WorkoutLoggerViewModel(
                 reps = planReps ?: it.reps,
                 // Bodyweight exercises hide the weight field again on each selection.
                 weightRevealed = false,
-                // The previous set's failure message described these replaced entries.
-                manualLogFailed = false
+                // The previous set's failure messages described these replaced entries.
+                manualLogFailed = false,
+                manualLogRefreshFailed = false
             )
         }
         // The accepted plan's suggestion wins; only fall back to the last logged set when the plan
@@ -429,7 +433,8 @@ class WorkoutLoggerViewModel(
                 // An added-load history reveals the field on an addable bodyweight exercise.
                 weightRevealed = current.weightRevealed ||
                     (option?.canAddLoad == true && last.weightKg != null),
-                manualLogFailed = false
+                manualLogFailed = false,
+                manualLogRefreshFailed = false
             )
         }
     }
@@ -452,8 +457,9 @@ class WorkoutLoggerViewModel(
                 weightRevealed = row.weightKg != null,
                 isWarmup = row.isWarmup,
                 rir = row.rir?.toString().orEmpty(),
-                // The previous set's failure message described these replaced entries.
-                manualLogFailed = false
+                // The previous set's failure messages described these replaced entries.
+                manualLogFailed = false,
+                manualLogRefreshFailed = false
             )
         }
         // Load the exercise setup note when a recent set is selected.
@@ -953,8 +959,11 @@ class WorkoutLoggerViewModel(
                 draftWriteRetries = if (rebuildDrafts) emptyList() else current.draftWriteRetries,
                 confirmingAllDrafts = if (rebuildDrafts) false else current.confirmingAllDrafts,
                 // A rebuilt plan/day changes the form's suggested values, so a manual-set failure
-                // from the previous context no longer describes what is on screen.
+                // from the previous context no longer describes what is on screen; a completed save's
+                // refresh message described that same context.
                 manualLogFailed = if (rebuildDrafts) false else current.manualLogFailed,
+                manualLogRefreshFailed =
+                if (rebuildDrafts) false else current.manualLogRefreshFailed,
                 reps = current.reps,
                 weightInput = if (rebuildDrafts) {
                     current.selectedExerciseId
@@ -1701,8 +1710,11 @@ class WorkoutLoggerViewModel(
                     guidedProgress = null,
                     frozenEntryIds = emptySet(),
                     guidedSetWriteFailed = false,
-                    // A removed occurrence leaves the context a manual-set failure described.
-                    manualLogFailed = if (occurrenceContextChanged) false else it.manualLogFailed
+                    // A removed occurrence leaves the context a manual-set failure described, and the
+                    // context a completed save's refresh message described.
+                    manualLogFailed = if (occurrenceContextChanged) false else it.manualLogFailed,
+                    manualLogRefreshFailed =
+                    if (occurrenceContextChanged) false else it.manualLogRefreshFailed
                 ).withWarmupCleared()
             }
             warmupGuidancePublishedGeneration = generation
@@ -1711,8 +1723,11 @@ class WorkoutLoggerViewModel(
         if (occurrenceContextChanged) {
             draftContextRevision++
             dismissInstructions()
-            // A replaced occurrence no longer matches the context a manual-set failure described.
-            _state.update { it.copy(manualLogFailed = false) }
+            // A replaced occurrence no longer matches the context a manual-set failure or a completed
+            // save's refresh message described.
+            _state.update {
+                it.copy(manualLogFailed = false, manualLogRefreshFailed = false)
+            }
             if (previousOccurrence != null) {
                 invalidateRestTimer()
                 liveSetIntentEntryId = null

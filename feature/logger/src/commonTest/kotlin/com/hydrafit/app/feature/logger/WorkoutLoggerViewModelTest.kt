@@ -2761,6 +2761,41 @@ class WorkoutLoggerViewModelTest {
         }
 
     @Test
+    fun aRefreshFailureMessageIsDroppedWhenTheOccurrenceChanges() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("8")
+        viewModel.onWeightChanged("100")
+
+        // The recent-sets read succeeds, and the occurrence read that follows it fails.
+        advanceUntilIdle()
+        val recentSetsRead = CompletableDeferred<Unit>()
+        repository.allGate = recentSetsRead
+        viewModel.log()
+        runCurrent()
+        repository.failAll = true
+        recentSetsRead.complete(Unit)
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.manualLogRefreshFailed)
+        repository.failAll = false
+
+        // The next workout replaces the context the completed save's message described.
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 31L)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.manualLogRefreshFailed)
+        assertFalse(viewModel.state.value.manualLogFailed)
+        assertEquals(31L, viewModel.state.value.activeOccurrence?.occurrenceId)
+        // The saved set is untouched: only the stale message is dropped.
+        assertEquals(1, repository.all().size)
+    }
+
+    @Test
     fun aFailedManualSetMessageSurvivesAnUnchangedOccurrenceRefresh() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository(failOnAddAttempt = 1)
         val schedule = MutableWorkoutScheduleRepository()
