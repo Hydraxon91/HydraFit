@@ -38,4 +38,8 @@
     <string name="exercise_instruction_standing_calf_raise_machine_execution">Raise your heels by pressing through the balls of your feet, keeping your knees softly extended and your torso steady. Pause briefly, then lower your heels through a comfortable range without bouncing. Re-engage the safety catch if present before stepping off.</string>
     <string name="exercise_instruction_hanging_leg_raise_setup">Hold a pull-up bar with a secure, comfortable grip and let your body hang without swinging. Keep your shoulders controlled and legs together, with knees straight or softly bent as needed.</string>
     <string name="exercise_instruction_hanging_leg_raise_execution">Lift your legs by bringing your thighs toward your torso without building momentum. Raise only through a range you can control, then lower slowly until your body is still. Bend your knees if that helps maintain control.</string>
+    <string name="exercise_caution_conventional_deadlift">Practise the setup with a load you can control before increasing it. Keep the bar close, establish a steady trunk position before lifting, and reset between repetitions rather than rushing the next pull.</string>
+    <string name="exercise_caution_romanian_deadlift">Practise the hip hinge before adding heavier load. Keep the bar close and stop the descent before you lose control of your trunk position; reaching the floor is not the goal.</string>
+    <string name="exercise_caution_dumbbell_rdl">Practise the hip hinge with light dumbbells first. Keep them close to your legs and limit the descent to the range you can control; do not reach lower by changing your trunk position.</string>
+    <string name="exercise_instruction_technique_considerations">Technique considerations</string>
 </resources>

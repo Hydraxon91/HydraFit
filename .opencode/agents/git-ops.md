@@ -19,6 +19,12 @@ permissions:
     resource: "git log *"
     effect: allow
   - action: shell
+    resource: "git reflog"
+    effect: allow
+  - action: shell
+    resource: "git reflog show *"
+    effect: allow
+  - action: shell
     resource: "git show *"
     effect: allow
   - action: shell
@@ -28,10 +34,25 @@ permissions:
     resource: "git rev-list *"
     effect: allow
   - action: shell
+    resource: "git cat-file *"
+    effect: allow
+  - action: shell
+    resource: "git merge-base *"
+    effect: allow
+  - action: shell
+    resource: "git remote -v"
+    effect: allow
+  - action: shell
     resource: "git add *"
     effect: allow
   - action: shell
     resource: "git commit *"
+    effect: allow
+  - action: shell
+    resource: "gh --version *"
+    effect: allow
+  - action: shell
+    resource: "gh auth status *"
     effect: allow
   - action: shell
     resource: "gh run list *"
@@ -59,6 +80,12 @@ permissions:
     effect: allow
   - action: shell
     resource: "git worktree list *"
+    effect: allow
+  - action: shell
+    resource: "git tag --list *"
+    effect: allow
+  - action: shell
+    resource: "git tag -l *"
     effect: allow
   - action: shell
     resource: "gh pr list *"
@@ -133,6 +160,15 @@ permissions:
     resource: "ps *"
     effect: allow
   - action: shell
+    resource: "sleep *"
+    effect: allow
+  - action: shell
+    resource: "true *"
+    effect: allow
+  - action: shell
+    resource: "break *"
+    effect: allow
+  - action: shell
     resource: "ls *"
     effect: allow
   - action: shell
@@ -163,6 +199,9 @@ permissions:
     resource: "bash *"
     effect: allow
   - action: external_directory
+    resource: "/Users/hydraxon/Documents/GitHub/HydraFit/*"
+    effect: allow
+  - action: external_directory
     resource: "/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/*"
     effect: allow
   - action: read
@@ -178,6 +217,25 @@ permissions:
 
 Execute only the Git operation the parent delegated. Follow AGENTS.md.
 
+Use `/Users/hydraxon/Documents/GitHub/HydraFit` as the repository working
+directory. Check the parent-supplied location before running repository commands;
+if it differs, stop and report the mismatch rather than guessing another path.
+Use repository-relative paths inside this checkout. Scratch files belong only in
+`/tmp` (canonical `/private/tmp`) or
+`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode`.
+Do not use `/Users/dia`, `/Users/hydraxon/GitHub`, `/Users/hydraxon/github`,
+`/Users/hydraxon/Documents/GitHub` as a working directory, or sibling repositories.
+Do not request broader directory access to work around a location mismatch.
+Directory allowances do not grant authorization for operations or sandbox shell
+access; preserve every existing approval and edit restriction.
+
+Set the shell tool's working directory explicitly to the repository path above
+and run ordinary `git ...` commands there, not `git -C ...`. If the tool cannot
+set that working directory, stop and report it rather than guessing another path.
+GitHub CLI version and authentication-status checks are pre-approved; report only
+the status needed for the delegated operation, not unnecessary account details.
+Do not retrieve or print authentication tokens.
+
 Routine read-only inspection is pre-approved. Staging, committing and pushing
 still need the parent's explicit authorization under AGENTS.md; that requirement
 is separate from the tool permission prompts, and because `perl` and `bash` are
@@ -188,8 +246,10 @@ operation requires:
 
 - Commit: the approved scope, the exact files to stage, the verification results,
   and the commit message.
-- Push: explicit authorization for that specific push.
-- CI monitoring: the pushed commit or branch to watch.
+- Push: explicit authorization for that specific push, plus its CI-monitoring
+  scope and bounded timeout when monitoring is required.
+- CI monitoring: the exact pushed commit SHA, relevant branch/PR and workflows,
+  and a bounded timeout. Resolve a supplied branch to its pushed SHA before watching.
 
 Authorization follows AGENTS.md's Commit Discipline. A commit authorized by an
 approved work chunk, or by an explicit ad-hoc commit approval, is valid; do not
@@ -202,4 +262,19 @@ force-push, reset, or discard changes. A push is a separate approval: do not pus
 unless the parent explicitly authorized that push. Stop and report rather than
 working around a failure.
 
-Report the commit SHA, `git status --short`, and CI status when a push happened.
+After an authorized push containing code, tests, build configuration or tooling,
+identify the applicable GitHub Actions runs for the exact pushed SHA and wait for
+them within the supplied timeout. Include run discovery and all watch commands in
+that same overall budget; do not reset the timeout for each run. If runs have not
+appeared, poll within the budget rather than treating an empty list as success.
+If no run is triggered or discovery fails, report that limitation explicitly.
+Follow AGENTS.md's Markdown-only push exception; do not wait solely for such a push.
+
+Do not return a completed push task merely because `git push` succeeded. Report
+each applicable run's URL, SHA and terminal conclusion, or its pending/in-progress
+status when the budget expires. On failure, inspect and report the failing job;
+do not implement fixes or retry publishing without separate authorization. A
+timeout, canceled run, missing run or inaccessible check is not a CI pass.
+
+Report the commit SHA, `git status --short`, and the CI results or explicit
+monitoring exception/limitation when a push happened.

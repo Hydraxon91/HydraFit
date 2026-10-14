@@ -132,3 +132,21 @@ labelled Instructions actions; feature-owned selection state and invalidation ar
 `features.md`. Equipment uses the effective row title and explicitly requests unavailable content
 for custom rows; Logger uses manual-selection or frozen draft/guided identity and title. No name
 matching, profile copying, catalog write or prescription edit is involved.
+
+### Informational exercise cautions (EX-03, 0.7.5)
+
+`ExerciseCautionSource` in the same module owns the approved 0.7.5 caution batch — exactly
+`conventional-deadlift`, `romanian-deadlift` and `dumbbell-rdl` — as single `exercise_caution_<id>`
+resources with an exact stable-ID lookup (`cautionByExerciseId` / `cautionFor`). Lookup is
+independent of `ExerciseInstructionSource`, so two of the three carry a caution with no authored
+instruction; a blank, unknown or custom `user-*` ID resolves to null and must never be presented as
+"safe", and a display name is never used to derive an identity. Renaming a seeded row keeps its ID
+and therefore its caution. The text is bundled, nonblocking and never persisted, exported or
+attached to a prescription. Provenance is in `docs/exercise-catalog-sources.md`. The dialog renders
+the caution as an optional "Technique considerations" section after the instructions (and alongside
+the unavailable state when an exercise has no authored instructions); the public
+`ExerciseCautions.hasTechniqueConsiderations` predicate drives the labelled indication at the
+Equipment and Logger (manual, planned-draft and guided) instruction actions.
+The section heading is `exercise_instruction_technique_considerations`; reserve
+`exercise_caution_<id>` keys for authored exercise bodies so the database-side XML seed-coverage
+check cannot mistake a shared UI label for a fourth exercise.

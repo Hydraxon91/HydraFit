@@ -209,6 +209,7 @@ import hydrafit.feature.logger.generated.resources.logger_short_rest_dismiss
 import hydrafit.feature.logger.generated.resources.logger_skip
 import hydrafit.feature.logger.generated.resources.logger_target_current_session
 import hydrafit.feature.logger.generated.resources.logger_target_label
+import hydrafit.feature.logger.generated.resources.logger_technique_considerations
 import hydrafit.feature.logger.generated.resources.logger_time_live
 import hydrafit.feature.logger.generated.resources.logger_title
 import hydrafit.feature.logger.generated.resources.logger_today
@@ -845,11 +846,19 @@ fun WorkoutLoggerScreen(
         }
         if (state.selectedExerciseId != null) {
             item {
-                TextButton(
-                    onClick = onManualInstructions,
-                    modifier = Modifier.testTag(LoggerTestTags.MANUAL_INSTRUCTIONS)
-                ) {
-                    Text(stringResource(Res.string.logger_instructions))
+                Column {
+                    if (showsTechniqueConsiderations(state.selectedExerciseId)) {
+                        Text(
+                            text = stringResource(Res.string.logger_technique_considerations),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    TextButton(
+                        onClick = onManualInstructions,
+                        modifier = Modifier.testTag(LoggerTestTags.MANUAL_INSTRUCTIONS)
+                    ) {
+                        Text(stringResource(Res.string.logger_instructions))
+                    }
                 }
             }
         }
@@ -1047,6 +1056,12 @@ fun WorkoutLoggerScreen(
                             key = draft.occurrenceEntryId ?: draft.exerciseId,
                             explanation = draft.explanation,
                             weightUnit = state.weightUnit
+                        )
+                    }
+                    if (showsTechniqueConsiderations(draft.exerciseId)) {
+                        Text(
+                            text = stringResource(Res.string.logger_technique_considerations),
+                            style = MaterialTheme.typography.bodySmall
                         )
                     }
                     FlowRow(
@@ -2257,6 +2272,12 @@ private fun GuidedWorkoutSection(
                 guided.exercises.forEach { exercise ->
                     Column {
                         Text(exercise.exerciseName)
+                        if (showsTechniqueConsiderations(exercise.exerciseId)) {
+                            Text(
+                                text = stringResource(Res.string.logger_technique_considerations),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                         TextButton(
                             onClick = { onInstructions(exercise.occurrenceEntryId) },
                             modifier = Modifier.testTag(
@@ -2281,6 +2302,14 @@ private fun GuidedWorkoutSection(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(exercise.exerciseName)
+                            if (showsTechniqueConsiderations(exercise.exerciseId)) {
+                                Text(
+                                    text = stringResource(
+                                        Res.string.logger_technique_considerations
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                             TextButton(
                                 onClick = { onInstructions(exercise.occurrenceEntryId) },
                                 modifier = Modifier.testTag(

@@ -16,6 +16,7 @@ import com.hydrafit.app.core.domain.workout.WarmupRampSet
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSummary
+import com.hydrafit.app.core.exercisecontent.ExerciseCautions
 
 data class ExerciseOption(
     val id: String,
@@ -29,6 +30,16 @@ data class ExerciseOption(
 }
 
 data class LoggerExerciseInstructions(val exerciseId: String, val exerciseName: String)
+
+/**
+ * True when an instruction action should also indicate bundled technique considerations.
+ *
+ * Both the action and its indication use the same exercise id, so a planned draft or guided entry
+ * must pass its exercise id and never its occurrence-slot id. A `user-*` custom identity, a blank id
+ * and a display name never match, so a custom exercise cannot inherit seeded content.
+ */
+internal fun showsTechniqueConsiderations(exerciseId: String?): Boolean =
+    ExerciseCautions.hasTechniqueConsiderations(exerciseId)
 
 data class LoggedSetRow(
     val id: Long,

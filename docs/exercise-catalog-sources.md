@@ -268,3 +268,45 @@ startup custom-name dedupe, like the protected CAT-P7 additions, so an existing 
 keeps its profile and references. This is an additive seed and query-only label repair, not a
 schema or backup-format change. All 17 authored instructions were separately editorially accepted
 2026-10-13 without changes; resource tests and code review do not supply editorial acceptance.
+
+## EX-03 — 0.7.5 informational exercise cautions
+
+These three cautions are original HydraFit-authored English content, not copied or translated from a
+coaching article, textbook, video or exercise database. Authorship: HydraFit project contributors.
+They are informational technique considerations, not medical advice, injury predictions or
+rehabilitation prescriptions.
+
+Evidence reviewed for the batch, used to justify **technique reminders only** — not a risk ranking
+and not an injury-prevention claim:
+
+- NSCA, *Romanian Deadlift (RDL)* (Exercise Technique Manual for Resistance Training, 3rd ed.,
+  https://www.nsca.com/education/articles/kinetic-select/romanian-deadlift-rdl/): hip hinge, load
+  kept close, controlled descent.
+- ACE, *ACE Technique Series: Romanian Deadlift* (Pete McCall, 2016,
+  https://www.acefitness.org/continuing-education/prosource/january-2016/5767/ace-technique-series-romanian-deadlift/)
+  and *Technique Series: How to Deadlift* (2015,
+  https://www.acefitness.org/continuing-education/prosource/september-2015/5579/technique-series-how-to-deadlift/):
+  controllable setup, bar kept close, learning the hinge, resetting between repetitions.
+- Tung et al., *Injuries in weightlifting and powerlifting: an updated systematic review*, BMJ Open
+  Sport & Exercise Medicine 2024 (https://bmjopensem.bmj.com/content/10/4/e001884): injury incidence
+  is low, mechanisms and risk factors remain insufficiently established, and the population is
+  competitive lifters — so it does not support an individualized risk ranking.
+
+No source text or imagery is reproduced. The coverage set is bounded and is **not** a safety
+classification: the absence of a caution for another exercise is not a statement that it is safe.
+Trap-bar, sumo, deficit, cable, band, chain and single-leg deadlift variants, overhead movements and
+`squat-jerk` are excluded; no seeded clean/power-clean/snatch identity exists. Later batches are
+separately scoped and must record their own IDs and provenance here.
+
+| Stable exercise ID | Editorial reference | Content provenance |
+| --- | --- | --- |
+| `conventional-deadlift` | `DefaultExercises.kt`: canonical label, barbell, hinge | HydraFit-authored English "Technique considerations"; no external text source |
+| `romanian-deadlift` | `DefaultExercises.kt`: canonical label, barbell, hinge | HydraFit-authored English "Technique considerations"; no external text source |
+| `dumbbell-rdl` | `DefaultExercises.kt`: canonical label, dumbbell, hinge | HydraFit-authored English "Technique considerations"; no external text source |
+
+The three texts were explicitly editorially accepted 2026-10-13 without changes, separately from the
+C0 approval of coverage, placement, trigger behavior and the C1/C2 verification split; tests and code
+review do not supply that acceptance. They live as single `exercise_caution_<id>` strings in
+`core/exercisecontent/src/commonMain/composeResources/values/strings.xml`; the manifest/lookup is
+`ExerciseCautionSource`, whose lookup is independent of the instruction batch and never by display
+name. This is bundled content only — no schema, backup or catalog-fact change.

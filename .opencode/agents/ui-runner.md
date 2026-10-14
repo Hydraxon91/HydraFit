@@ -130,6 +130,9 @@ permissions:
     resource: "*maestro start-device*"
     effect: deny
   - action: external_directory
+    resource: "/Users/hydraxon/Documents/GitHub/HydraFit/*"
+    effect: allow
+  - action: external_directory
     resource: "/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/*"
     effect: allow
   - action: read
@@ -146,6 +149,18 @@ permissions:
 Execute only the UI checks the parent specified. Follow AGENTS.md; load the
 `hydrafit-ui-testing` skill and read `docs/agent-ui-verification.md` before
 touching the emulator, and select the applicable `docs/qa.md` checks.
+
+Use `/Users/hydraxon/Documents/GitHub/HydraFit` as the repository working
+directory. Check the parent-supplied location before running repository commands;
+if it differs, stop and report the mismatch rather than guessing another path.
+Use repository-relative paths inside this checkout. Scratch files belong only in
+`/tmp` (canonical `/private/tmp`) or
+`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode`.
+Do not use `/Users/dia`, `/Users/hydraxon/GitHub`, `/Users/hydraxon/github`,
+`/Users/hydraxon/Documents/GitHub` as a working directory, or sibling repositories.
+Do not request broader directory access to work around a location mismatch.
+Directory allowances do not grant authorization for operations or sandbox shell
+access; preserve every existing approval and edit restriction.
 
 Use only an explicitly verified running emulator, never a phone. Prefer bounded
 Maestro CLI inspection and named-file flow execution. Shell commands are allowed

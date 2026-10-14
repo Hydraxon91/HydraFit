@@ -22,6 +22,7 @@ The app currently uses standard Material 3 styling. Screenshots and a fuller des
 - Turn on guided logging and editable rest prompts if you want them. Background alerts and short-rest coaching are separate, off-by-default options; Android power management can delay alerts.
 - In guided workouts, use optional preparation checklists and editable ramp-set suggestions based on your planned loads and equipment limits. Recorded ramps stay warm-ups: they do not count toward working-set progress or start a rest timer.
 - Read short offline setup and execution guidance for 17 exercises, from the Equipment catalog or the Logger. The text is bundled with the app, needs no network, and an exercise without authored guidance shows an explicit unavailable state instead of generic advice.
+- Read optional technique considerations for Conventional Deadlift, Romanian Deadlift and Dumbbell Romanian Deadlift in the same viewer. These offline reminders require no acknowledgment and are not an injury-risk rating or medical advice; other exercises do not inherit them by name.
 - Replace an untouched scheduled exercise for today's workout without changing your routine or future workouts. Start or end sessions explicitly when you need to.
 
 ### Keep your data yours

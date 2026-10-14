@@ -1,0 +1,19 @@
+appId: com.hydrafit.app
+---
+# Manual Conventional Deadlift selected; Instructions visible, no keyboard/dialog.
+# The indication sits above the manual Instructions action and the dialog shows the considerations
+# section; no input is edited and no set is logged.
+- assertVisible: Technique considerations available
+- tapOn:
+    id: logger_manual_instructions
+    retryTapIfNoChange: false
+- assertVisible: Conventional Deadlift
+- assertVisible: Technique considerations
+- assertVisible: Practise the setup with a load you can control.*
+- takeScreenshot: logger-cautions
+- tapOn:
+    text: Close
+    retryTapIfNoChange: false
+- assertNotVisible: Technique considerations
+- assertVisible:
+    id: logger_manual_instructions

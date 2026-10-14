@@ -841,6 +841,20 @@ Robolectric 4.17 (MIT) in `:core:exercisecontent`'s Android host-test source set
 replacement for `kotlin.test` and is absent from production dependencies. Editorial acceptance
 and wired feature UI acceptance remain separate gates.
 
+**Technique considerations (EX-03, 0.7.5).** `ExerciseCautionSource` adds a small, sourced set of
+informational technique notes in the same module, keyed by stable ID and deliberately independent of
+`ExerciseInstructionSource`: an exercise can carry a caution without an authored instruction, and a
+missing caution is never a statement that an exercise is safe. Lookup is exact-ID only and never by
+display name, so a custom exercise's `user-*` ID or any seeded ID outside the batch cannot inherit a
+caution, and a CAT-02 profile suggestion changes no ID. Renaming a seeded row keeps its ID and
+therefore its caution. The notes are bundled content — never persisted, exported or part of a
+prescription — and describe controllable technique for the built-in movement, not a risk ranking,
+injury-prevention claim or medical advice. Provenance for the 0.7.5 batch is recorded in
+`docs/exercise-catalog-sources.md`. The viewer renders the optional "Technique considerations" section
+after the instructions (also for an exercise with no authored instructions), and Equipment and the
+Logger's manual, planned-draft and guided action sites show a labelled indication through the public
+`ExerciseCautions.hasTechniqueConsiderations` predicate.
+
 ## 2. Decision log
 
 Each row: the decision, the **recorded** rationale with a citation, recorded alternatives, and status.

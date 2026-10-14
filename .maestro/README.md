@@ -14,6 +14,9 @@ do not cancel someone else's draft or restart the app to establish them.
 | --- | --- | --- | --- |
 | `equipment-exercise-instructions.yaml` | Equipment filtered to exactly Back Squat, row visible, no keyboard/editor/dialog | Read-only instruction open/scroll/Close | Same filtered row and Edit action; no catalog, preference or record write |
 | `logger-exercise-instructions.yaml` | Manual Back Squat selected; Instructions and form visible, no keyboard/dialog; inspect reps/load first and pass `REPS`/`WEIGHT` (defaults 7/42 kg) | Read-only instruction open/scroll/Close, no input editing or logging | Reps/load unchanged and RIR input still available; no set/progress/rest/note write |
+| `equipment-exercise-cautions.yaml` | Equipment filtered to exactly Conventional Deadlift, row visible, no keyboard/editor/dialog | Read-only instruction open/Close | Same filtered row and Edit action; no catalog, preference or record write |
+| `logger-exercise-cautions.yaml` | Manual Conventional Deadlift selected; Instructions visible, no keyboard/dialog | Read-only instruction open/Close, no input editing or logging | Indication and Instructions action still present; no set/progress/rest/note write |
+| `logger-slot-exercise-cautions.yaml` | Approved Conventional Deadlift fixture slot visible in planned-draft or guided mode; pass its freshly inspected instruction id as `ACTION_ID` | Read-only instruction open/Close; fixture writes and restoration are outside the flow | Same slot action visible; compare progress, draft and form snapshots outside the flow |
 | `navigation-smoke.yaml` | Equipment tab selected, no dialog/editor | Tab navigation only | Equipment tab selected; scroll position is not asserted |
 | `routine-editor-cancel.yaml` | Equipment tab selected, no dialog/editor | Navigate to Routines, new unsaved name, semantic Cancel, return | Editor closed before returning to Equipment; Save is never tapped |
 | `logger-session-controls.yaml` | No active session, no dialog/editor | Navigate to Logger only | No active session; End disabled and New label visible/enabled; neither action is tapped |
@@ -40,6 +43,55 @@ directory (the CLI rejects absolute paths). No automatic recovery or cleanup wri
 On 2026-10-13 the Equipment Back Squat flow passed after one screenshot-path correction; the
 Logger flow passed with unchanged 7 reps/42 kg, including its final id-based revision. Viewed images
 and verification limits are recorded in `docs/qa.md` §13.
+
+The 0.7.5 caution flows (`equipment-exercise-cautions.yaml`, `logger-exercise-cautions.yaml`) passed on
+`emulator-5554` (debug, 2026-10-13) at 12/12 and 9/9 steps, one attempt each, ~8s and ~7s. Their
+preconditions (filtering the Equipment search and the Logger picker to `Conventional Deadlift`) were
+established by fresh compact hierarchy inspection; both search filters were cleared afterwards and no
+dialog or editor was left open. Screenshots:
+`/tmp/hf-075-equip-cautions/2026-10-13_221453/equipment-exercise-cautions/takeScreenshot/equipment-cautions.png`
+and `/tmp/hf-075-logger-cautions/2026-10-13_221622/logger-exercise-cautions/takeScreenshot/logger-cautions.png`.
+That initial pass did not exercise the planned-draft and guided indications. The follow-up fixture
+check captured both on the installed corrective build (`/tmp/hf-075r2-draft-guided-1.png` and
+`/tmp/hf-075r2-draft-guided-2.png`), with the indication above each slot's Instructions action.
+Guided mode and planned-draft mode are mutually exclusive; they were checked separately.
+The block was cancelled, guided restored off, and `HF caution probe` archived: referenced routines
+cannot be deleted even after cancellation, so the cancelled activation and archived template remain.
+The custom `HF caution probe lift` was subsequently verified unavailable in Equipment and Logger
+and deleted; both search fields were cleared. Follow-up Back Squat instruction flows passed
+(Equipment 13/13 and Logger 15/15, with 7 reps/42 kg preserved); the Equipment caution flow passed
+13/13 including its new unobscured-row screenshot. These results precede C5's resource-label rename;
+the rename changes no displayed text. Current candidate results and remaining limits are in
+`docs/qa.md` §13.
+
+C5 visual results: the barbell Romanian Deadlift combined dialog passed all three section/body
+assertions in light 1.0, dark 1.0 and dark 1.3, with scrolling and Close checked. The dumbbell
+caution-only dialog and Logger manual combined dialog also passed, with unchanged manual form
+snapshots. Artifacts are under `/tmp/hf-c5/` and listed in `docs/qa.md` §13. The runner exceeded
+its budget and made additional cleanup attempts; this is not recorded as a clean bounded pass.
+Theme/font baselines were restored. Equipment filter emptiness has only a weak cleanup assertion;
+light 1.3 and emulator locale were not checked. The slot flow is syntax-checked only: opening and
+closing the planned/guided caution dialogs remains outstanding, despite their verified indications.
+
+The resumed foreground pass on 2026-10-14 deployed final debug and ran the slot flow successfully
+for both draft and guided actions (12/12 each), preserving the visible draft descriptor and guided
+0/3 progress/target. Light 1.3 and app-locale de-DE combined-dialog checks also passed. Both search
+fields were positively empty at cleanup; font/theme/app locale and guided baseline were restored,
+with no active block and the probe archived. Artifacts are under `/tmp/hf-c5-resumed-*` and listed
+in `docs/qa.md` §13. Slot form/note/rest before/after evidence remains missing. The run stayed within
+its overall budget but retried an initial undefined-`ACTION_ID` assertion after correcting CLI `-e`
+injection and used a 150-second rather than 120-second flow alarm; it is not a fully clean contractual
+pass. Cancelled fixture activation history remains; no set/session/note was written.
+
+Final 2026-10-14 slot-preservation checks closed the missing evidence: planned and guided flows
+each passed 12/12 commands in one invocation with a 120-second hard cap. Scrolled before/after
+hierarchies preserved Back Squat selection, reps 7, weight 42 kg, unset RIR, empty setup/session
+notes, idle rest, draft target and 0/3 progress. The guided card sits below the warm-up card;
+absence from a viewport hierarchy is not absence from the lazy list. A target-scroll helper
+over-scrolled; fresh outer-list inspection/swipes recovered without replaying a write. Final cleanup
+positively verified guided off, no active block, archived probe, empty searches and restored settings.
+Screenshots under `/tmp/hf-075-final-preservation-*` were viewed; exact paths and supplemental
+coverage limits are in `docs/qa.md` §13. C4/C5 builder verification is complete, not formal review.
 
 Guided instructions were verified on 2026-10-13 against an approved temporary active block (guided on)
 that was cancelled afterwards; no checked-in flow creates one, so establish that fixture explicitly and

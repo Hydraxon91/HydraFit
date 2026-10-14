@@ -9,6 +9,7 @@ import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.equipment.MovementPatternGuardrail
 import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.exercisecontent.ExerciseCautions
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
 
 /** The exercise currently open in the editor dialog, and its in-progress edits. */
@@ -172,3 +173,11 @@ data class EquipmentProfilerUiState(
     val customExercises: List<Exercise>
         get() = visibleExercises.filter { it.isCustom }
 }
+
+/**
+ * True when this catalog row's instruction action should also indicate bundled technique
+ * considerations. A custom exercise has no seeded identity, so it never inherits them; the check is
+ * by stable ID only, never by name, which is why the row's displayed title is irrelevant here.
+ */
+internal fun Exercise.showsTechniqueConsiderations(): Boolean =
+    !isCustom && ExerciseCautions.hasTechniqueConsiderations(id)
