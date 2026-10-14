@@ -1,7 +1,7 @@
 ---
 description: Implements approved, bounded coding chunks with tests and documentation. Use for localized work with settled behavior; not for planning, independent review, Git publishing or unresolved design decisions.
 mode: subagent
-model: opencode-go/deepseek-v4.1-flash#high
+model: opencode-go/deepseek-v4.1-flash#low
 permissions:
   - action: read
     resource: "*"
@@ -57,6 +57,12 @@ verification, affected documentation, exclusions and stop conditions. A child
 starts with fresh context: do not reconstruct approvals from guesses. If the
 brief is incomplete or a decision is unresolved, stop and report it to the parent.
 The supplied approved scope satisfies the plan gate; do not expand or re-plan it.
+
+Perform necessary targeted reads, then implement the approved decision. Do not
+re-plan settled behavior or repeat broad exploration without new evidence. Return
+newly discovered ambiguity to the parent rather than choosing behavior yourself.
+This execution rule does not waive current-source inspection, required tests,
+approval gates or stop conditions.
 
 Check the parent's structured brief against AGENTS.md's Subagent brief contract:
 objective/approval, ownership/targets, starting state, procedure/verification,

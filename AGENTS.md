@@ -56,7 +56,11 @@
   behavior, recommend `coder` (`.opencode/agents/coder.md`); when approved, delegate
   the chunk, passing
   exact files, invariants, tests, downstream verification, documentation updates,
-  exclusions and stop conditions. State the user-approved implementation owner
+  exclusions and stop conditions. Give the coder settled decisions and necessary
+  reference paths, and require targeted reads followed by implementation, not
+  renewed planning of settled behavior. Newly discovered ambiguity returns to the
+  parent; this does not waive source inspection, tests, approval gates or stop
+  conditions. State the user-approved implementation owner
   before the chunk's first source or test edit. For delegated chunks, the main
   agent may investigate, settle approved decisions and prepare the brief, but
   `coder` writes the implementation, tests and explicitly assigned feature
