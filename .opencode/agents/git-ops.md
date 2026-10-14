@@ -13,6 +13,9 @@ permissions:
     resource: "git status *"
     effect: allow
   - action: shell
+    resource: "git check-ignore *"
+    effect: allow
+  - action: shell
     resource: "git diff *"
     effect: allow
   - action: shell
