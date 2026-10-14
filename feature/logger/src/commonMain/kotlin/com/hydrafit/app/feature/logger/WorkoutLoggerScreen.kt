@@ -170,6 +170,8 @@ import hydrafit.feature.logger.generated.resources.logger_load_legacy
 import hydrafit.feature.logger.generated.resources.logger_load_use_bodyweight
 import hydrafit.feature.logger.generated.resources.logger_load_use_external
 import hydrafit.feature.logger.generated.resources.logger_log_button
+import hydrafit.feature.logger.generated.resources.logger_log_failed
+import hydrafit.feature.logger.generated.resources.logger_log_refresh_failed
 import hydrafit.feature.logger.generated.resources.logger_new_session
 import hydrafit.feature.logger.generated.resources.logger_note_clear
 import hydrafit.feature.logger.generated.resources.logger_note_failed
@@ -949,8 +951,26 @@ fun WorkoutLoggerScreen(
             )
         }
         item {
-            Button(onClick = onLog, enabled = state.canLog) {
+            Button(onClick = onLog, enabled = state.canLog && !state.manualLogInProgress) {
                 Text(stringResource(Res.string.logger_log_button))
+            }
+        }
+        if (state.manualLogFailed) {
+            item {
+                Text(
+                    text = stringResource(Res.string.logger_log_failed),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+        if (state.manualLogRefreshFailed) {
+            item {
+                Text(
+                    text = stringResource(Res.string.logger_log_refresh_failed),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
             }
         }
         state.activeOccurrence?.let { occurrence ->

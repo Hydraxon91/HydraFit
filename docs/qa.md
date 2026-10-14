@@ -722,7 +722,7 @@ uncommitted chip-wrap fix. C6 is **not** complete: the checks listed at the end 
   `POST_NOTIFICATIONS` `USER_SET` flag while the permission stayed denied.
 - This pass cleared the emulator's app data, so the earlier routine, personal-record and activation
   fixtures on that device are gone.
-- Failure/retry acceptance (**failed — one defect found**):
+- Initial failure/retry acceptance (**failed — one defect found; manual-path corrective verified below**):
   - With the database made unreadable, a cold launch crashes: `SQLiteCantOpenDatabaseException` escapes
     `DatabaseStartupMaintenance` (via `ApplyStagedBackupUseCase.staged()` →
     `SqlDelightBackupStagingRepository`). `DatabaseStartupMaintenance` documents leaving failures
@@ -737,8 +737,35 @@ uncommitted chip-wrap fix. C6 is **not** complete: the checks listed at the end 
   - Both injections were artificial (restricted filesystem permissions) but model real triggers such as
     a full or corrupt database. All file modes were restored and nothing was deleted; the stored data
     remained two sets in one session.
-- Not verified: the retry/recovery behaviour after a write failure, because the app crashes instead of
-  offering one, and the same for the startup path.
+- Manual-path corrective (2026-10-14, Logger changes verified on the `d5d08a56` base):
+  - The manual action catches write failures, retains the current form, and reports: “That set could
+    not be saved. Keep your entries and try again.” A synchronous submission guard covers persistence
+    and success handling. Cancellation propagates; delayed completion/prefill does not reset a newer
+    form. A post-write refresh failure is reported separately from an unsaved set.
+  - Tier C verification passed: 390 Logger host tests (nine new regression tests), `ktlintCheck` and
+    `:androidApp:assembleDebug`. Logs: `/tmp/hydrafit-logger-test5.log`,
+    `/tmp/hydrafit-ktlint3.log`, `/tmp/hydrafit-assemble3.log`.
+  - C6 integration rerun at `877115d2` plus this corrective passed in 27 seconds: all host tests,
+    migration verification, ktlint, debug assembly, `lintVitalRelease`, and shared/network/onboarding/
+    routines iOS simulator compiles. XML reports total 1,676 tests, zero failures/errors/skips (390
+    Logger tests). Unchanged tasks were UP-TO-DATE; Logger and shared iOS compilation executed.
+    Log: `/tmp/hf-076-corrective-integration.log`. Formal review remains outstanding.
+  - On `emulator-5554`, debug `0.7.6-dev-d5d08a56-dirty`, the journal/directory permission injection
+    produced the visible failure message without a crash. Both entered values remained, Log set was
+    enabled, the PID stayed unchanged, and database aggregates remained two sets/one open session
+    with zero target sets. After restoring modes, one explicit retry recorded exactly one target set:
+    three sets/one open session, with only `workoutSet` gaining a row across all 33 table counts.
+    No prior row was removed and notification/exact-alarm permission baselines stayed unchanged.
+  - Failure flow passed 20/20 commands and retry 5/5, once each under 120-second caps. Screenshots
+    were viewed: `/tmp/hf-logger-corrective-failure/2026-10-14_180834/hf-c6-fail-write/takeScreenshot/c6-fail-write-screen.png`
+    and `/tmp/hf-logger-corrective-retry/2026-10-14_181016/hf-c6-retry-write/takeScreenshot/c6-retry-write-recorded.png`.
+    Hierarchies: `/tmp/hf-c6-failstate.csv`, `/tmp/hf-c6-finalstate.csv`. Synthetic retry fixture retained.
+  - Cleanup verified directory 771 and database/journal 660. During the failure the journal mode
+    changed back to 660 without a runner chmod; its cause was not established. The failure/no-insert
+    and subsequent single-insert recovery were observed directly, not inferred from modes alone.
+  - Limits: startup recovery remains deliberately deferred to 0.13.7. This check did not simulate
+    actual disk-full/corruption, exercise offline writes, or repeat dark/font/locale/TalkBack variants.
+    Session creation and set insertion are not made atomic by this presentation-only corrective.
 - Still owed for C6: new and legacy backup restore — the app uses the system document picker, so the
   user runs that round trip manually. Upgrade coverage remains the host migration verification, because
   installing a shipped release APK on the emulator is not permitted.

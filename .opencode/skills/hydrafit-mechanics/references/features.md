@@ -78,6 +78,21 @@ write or explicit cancellation consumes it, including failed-write retries throu
 These actions stay within the six existing Logger ViewModel dependencies; no draft-actions Koin aggregate is
 registered.
 
+Manual **Log set** submits one live or backdated set through its own path. It claims a single
+in-flight guard synchronously and holds it through the post-write refresh, so a repeated tap during
+the write or its success handling records one set only. A failed insert leaves every entered value —
+exercise, reps, load, RIR, warm-up flag and chosen performed time — untouched and reports *That set
+could not be saved. Keep your entries and try again.*; the retry is the ordinary Log set action, with
+no automatic retry. The outcome applies only while the submitted form is still current: a completion
+that lands after the user replaced an input, switched exercise, changed the block/occurrence, or
+received a delayed history prefill does not reset the newer value and does not show an error for
+entries no longer on screen; a prefill that replaces the entries also drops failure feedback that
+described them. A successful
+insert is never reported as unsaved, and its post-write recent-sets/occurrence refresh is separated
+from the write, so a failed refresh reports only a refresh failure instead of inviting a duplicate
+re-log. The set's occurrence/entry attribution and block day are captured at submission. These
+manual-log outcomes are in memory only.
+
 Recent sets carry nullable stored `sessionId` in `LoggedSetRow`, retaining performed-time descending
 and insertion-id descending tie order. `startsSessionAfter` identifies adjacent explicit boundaries;
 the UI shows "Recorded session" at each boundary, including a returning identity without regrouping.

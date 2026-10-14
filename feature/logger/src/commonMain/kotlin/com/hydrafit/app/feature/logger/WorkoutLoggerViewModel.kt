@@ -109,6 +109,15 @@ class WorkoutLoggerViewModel(
     private var resolvedBackdatedSessionId: String? = null
     private var resolvedBackdatedSessionKey: Pair<Long, Boolean>? = null
     private var draftSubmissionInProgress = false
+
+    /** Guards manual "Log set" submissions; claimed before the write and held through success handling. */
+    private var manualLogSubmissionInProgress = false
+
+    /**
+     * Bumped whenever a manual-form input or selection changes, so a completion that lands after the
+     * user replaced the form cannot reset a newer input or show a failure for the replaced entries.
+     */
+    private var manualInputGeneration = 0L
     private var draftContextRevision = 0L
     private var missingLoadPromptRevision = 0L
 
@@ -194,6 +203,9 @@ class WorkoutLoggerViewModel(
                     warmupGuidanceGeneration++
                     invalidateRestTimer(clearPersisted = restTimer.state.value != null)
                     liveSetIntentEntryId = null
+                    // A block change replaces the logging context, so a manual-set failure from the
+                    // previous context no longer describes the form on screen.
+                    _state.update { it.copy(manualLogFailed = false) }
                 }
                 activeActivation = activation
                 activationObserved = true
@@ -341,6 +353,7 @@ class WorkoutLoggerViewModel(
         val unit = _state.value.weightUnit
         val planWeight = suggestedInputFor(exerciseId, unit)
         val planReps = suggestedRepsFor(exerciseId)
+        manualInputGeneration++
         _state.update {
             it.copy(
                 selectedExerciseId = exerciseId,
@@ -348,7 +361,9 @@ class WorkoutLoggerViewModel(
                 weightInput = planWeight,
                 reps = planReps ?: it.reps,
                 // Bodyweight exercises hide the weight field again on each selection.
-                weightRevealed = false
+                weightRevealed = false,
+                // The previous set's failure message described these replaced entries.
+                manualLogFailed = false
             )
         }
         // The accepted plan's suggestion wins; only fall back to the last logged set when the plan
@@ -400,6 +415,11 @@ class WorkoutLoggerViewModel(
             .filter { it.exerciseId == exerciseId && !it.isWarmup }
             .maxByOrNull { it.performedAtMillis }
             ?: return
+        if (_state.value.selectedExerciseId != exerciseId) return
+        // This read can suspend, so the prefill may land after a manual submission was started. It is
+        // then a newer input that replaces the form the user had: invalidate the older submission's
+        // form identity and drop failure feedback that described the replaced entries.
+        manualInputGeneration++
         _state.update { current ->
             if (current.selectedExerciseId != exerciseId) return@update current
             val option = current.exercises.firstOrNull { it.id == exerciseId }
@@ -408,7 +428,8 @@ class WorkoutLoggerViewModel(
                 reps = last.reps.toString(),
                 // An added-load history reveals the field on an addable bodyweight exercise.
                 weightRevealed = current.weightRevealed ||
-                    (option?.canAddLoad == true && last.weightKg != null)
+                    (option?.canAddLoad == true && last.weightKg != null),
+                manualLogFailed = false
             )
         }
     }
@@ -420,6 +441,7 @@ class WorkoutLoggerViewModel(
     fun onRecentSetSelected(row: LoggedSetRow) {
         if (noteSaving) return
         val unit = _state.value.weightUnit
+        manualInputGeneration++
         _state.update {
             it.copy(
                 selectedExerciseId = row.exerciseId,
@@ -429,7 +451,9 @@ class WorkoutLoggerViewModel(
                 // Reveal the weight field for a bodyweight exercise only when that row had a weight.
                 weightRevealed = row.weightKg != null,
                 isWarmup = row.isWarmup,
-                rir = row.rir?.toString().orEmpty()
+                rir = row.rir?.toString().orEmpty(),
+                // The previous set's failure message described these replaced entries.
+                manualLogFailed = false
             )
         }
         // Load the exercise setup note when a recent set is selected.
@@ -446,6 +470,7 @@ class WorkoutLoggerViewModel(
      */
     fun onPerformedAtChanged(millis: Long?): Boolean {
         if (millis != null && millis > runtime.nowMillis()) return false
+        manualInputGeneration++
         clearLiveSetStart()
         resolvedBackdatedSessionId = null
         resolvedBackdatedSessionKey = null
@@ -458,6 +483,7 @@ class WorkoutLoggerViewModel(
      * next log and drops any session already resolved for the previous choice.
      */
     fun onForceNewSessionChanged(forceNewSession: Boolean) {
+        manualInputGeneration++
         resolvedBackdatedSessionId = null
         resolvedBackdatedSessionKey = null
         _state.update { it.copy(forceNewSession = forceNewSession) }
@@ -629,6 +655,7 @@ class WorkoutLoggerViewModel(
     fun onRevealWeight() {
         val exercise = exercises.firstOrNull { it.id == _state.value.selectedExerciseId } ?: return
         if (exercise.loadCapability != ExerciseLoadCapability.BODYWEIGHT_ADDABLE) return
+        manualInputGeneration++
         _state.update { it.copy(weightRevealed = true) }
     }
 
@@ -637,10 +664,12 @@ class WorkoutLoggerViewModel(
     }
 
     fun onRepsChanged(value: String) {
+        manualInputGeneration++
         _state.update { it.copy(reps = value.filter(Char::isDigit)) }
     }
 
     fun onWeightChanged(value: String) {
+        manualInputGeneration++
         _state.update {
             it.copy(weightInput = value.filter { char -> char.isDigit() || char == '.' })
         }
@@ -653,11 +682,13 @@ class WorkoutLoggerViewModel(
             ?.let { it <= FatigueConfig.DEFAULT_MAX_RIR.toInt() }
             ?: false
         if (digits.isEmpty() || withinRange) {
+            manualInputGeneration++
             _state.update { it.copy(rir = digits) }
         }
     }
 
     fun onWarmupToggled(isWarmup: Boolean) {
+        manualInputGeneration++
         _state.update { it.copy(isWarmup = isWarmup) }
     }
 
@@ -677,7 +708,14 @@ class WorkoutLoggerViewModel(
         }
     }
 
+    /**
+     * Persists the manual form as one set. The submission guard is claimed synchronously and held
+     * through the post-write success handling, so a repeated tap during either the write or its
+     * refresh cannot record a second set. A failed write keeps every entered value and is retried
+     * through this same action; a successful write is never reported as unsaved.
+     */
     fun log() {
+        if (manualLogSubmissionInProgress) return
         val current = _state.value
         val exerciseId = current.selectedExerciseId ?: return
         val reps = current.reps.toIntOrNull() ?: return
@@ -708,35 +746,82 @@ class WorkoutLoggerViewModel(
         // later occurrence or block change cannot relabel the set.
         val link = slotFor(exerciseId)
         val dayIndex = dayIndexFor(link?.first)
-        viewModelScope.launch {
-            logResolved(
-                WorkoutSet(
-                    exerciseId = exerciseId,
-                    reps = reps,
-                    weightKg = weightKg,
-                    loadKind = loadKind,
-                    performedAtMillis = current.performedAtMillis ?: runtime.nowMillis(),
-                    isWarmup = current.isWarmup,
-                    weekNumber = activeActivation?.weekNumber ?: acceptedPlan?.weekNumber,
-                    cycleNumber = activeActivation?.cycleNumber ?: acceptedPlan?.cycleNumber,
-                    dayIndex = dayIndex,
-                    rir = current.rir.toIntOrNull(),
-                    occurrenceId = link?.first,
-                    occurrenceEntryId = link?.second,
-                    timingProvenance = if (current.performedAtMillis != null) {
-                        WorkoutTimingProvenance.CATCH_UP
-                    } else {
-                        WorkoutTimingProvenance.UNKNOWN
-                    }
-                ),
-                current
+        val submittedSet = WorkoutSet(
+            exerciseId = exerciseId,
+            reps = reps,
+            weightKg = weightKg,
+            loadKind = loadKind,
+            performedAtMillis = current.performedAtMillis ?: runtime.nowMillis(),
+            isWarmup = current.isWarmup,
+            weekNumber = activeActivation?.weekNumber ?: acceptedPlan?.weekNumber,
+            cycleNumber = activeActivation?.cycleNumber ?: acceptedPlan?.cycleNumber,
+            dayIndex = dayIndex,
+            rir = current.rir.toIntOrNull(),
+            occurrenceId = link?.first,
+            occurrenceEntryId = link?.second,
+            timingProvenance = if (current.performedAtMillis != null) {
+                WorkoutTimingProvenance.CATCH_UP
+            } else {
+                WorkoutTimingProvenance.UNKNOWN
+            }
+        )
+        // Capture the form identity at submission: if the user replaces any input, or the surrounding
+        // context changes, a later completion must not reset the newer value or report a failure for
+        // entries that are no longer on screen.
+        val submissionInputGeneration = manualInputGeneration
+        val submissionContextRevision = draftContextRevision
+        // Claim the guard synchronously: a repeated tap cannot submit a second set while the first
+        // write, or its refresh, is still running.
+        manualLogSubmissionInProgress = true
+        _state.update {
+            it.copy(
+                manualLogInProgress = true,
+                manualLogFailed = false,
+                manualLogRefreshFailed = false
             )
-            resetShortRestCoaching()
-            // Keep the reps and weight so repeated sets of the same exercise do not need retyping;
-            // only the warm-up flag resets between sets.
-            _state.update { it.copy(isWarmup = false) }
-            refreshRecentSets()
-            if (activeActivation != null) refreshOccurrence()
+        }
+        viewModelScope.launch {
+            fun formStillCurrent(): Boolean = manualInputGeneration == submissionInputGeneration &&
+                draftContextRevision == submissionContextRevision
+            try {
+                val persisted = try {
+                    logResolved(submittedSet, current)
+                    true
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    // Nothing below this point has run, so every entered value is still intact. Report
+                    // the failure only while the form it describes is still on screen; a form the user
+                    // replaced must not receive a stale error about entries it no longer holds.
+                    if (formStillCurrent()) {
+                        _state.update { it.copy(manualLogFailed = true) }
+                    }
+                    false
+                }
+                if (!persisted) return@launch
+                resetShortRestCoaching()
+                _state.update { state ->
+                    state.copy(
+                        // Keep the reps and weight so repeated sets of the same exercise do not need
+                        // retyping; only the warm-up flag resets, and only while the form is unchanged
+                        // since submission.
+                        isWarmup = if (formStillCurrent()) false else state.isWarmup
+                    )
+                }
+                try {
+                    refreshRecentSets()
+                    if (activeActivation != null) refreshOccurrence()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    // The set is already persisted: report only the refresh failure so it is never
+                    // labelled unsaved and never re-logged as a duplicate.
+                    _state.update { it.copy(manualLogRefreshFailed = true) }
+                }
+            } finally {
+                manualLogSubmissionInProgress = false
+                _state.update { it.copy(manualLogInProgress = false) }
+            }
         }
     }
 
@@ -863,6 +948,9 @@ class WorkoutLoggerViewModel(
                 legacyResolution = if (rebuildDrafts) null else current.legacyResolution,
                 draftWriteRetries = if (rebuildDrafts) emptyList() else current.draftWriteRetries,
                 confirmingAllDrafts = if (rebuildDrafts) false else current.confirmingAllDrafts,
+                // A rebuilt plan/day changes the form's suggested values, so a manual-set failure
+                // from the previous context no longer describes what is on screen.
+                manualLogFailed = if (rebuildDrafts) false else current.manualLogFailed,
                 reps = current.reps,
                 weightInput = if (rebuildDrafts) {
                     current.selectedExerciseId
@@ -2574,7 +2662,7 @@ class WorkoutLoggerViewModel(
                     sessionId = set.sessionId
                 )
             }
-        _state.update { it.copy(recentSets = rows) }
+        _state.update { it.copy(recentSets = rows, manualLogRefreshFailed = false) }
     }
 
     // ── Exercise setup notes ──────────────────────────────────────────────
