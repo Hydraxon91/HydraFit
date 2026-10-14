@@ -33,3 +33,28 @@ fun localCivilToEpochMillis(
         minute * MILLIS_PER_MINUTE
     return localMillis - utcOffsetMillis
 }
+
+/**
+ * Converts a local civil minute into a UTC epoch-millis instant under one fixed [utcOffsetMillis].
+ *
+ * [minuteOfDay] is minutes past local midnight, so 0..1439. This is the fixed-offset reading of a
+ * local time: like [localCivilToEpochMillis] it applies a single offset without a historical zone or
+ * DST lookup, so a local time a transition skips or repeats maps to the same offset-adjusted
+ * instant. A platform that can resolve the current zone overrides this rather than changing it.
+ */
+fun localMinuteToEpochMillisUtc(
+    localEpochDay: Long,
+    minuteOfDay: Int,
+    utcOffsetMillis: Long
+): Long {
+    require(minuteOfDay in 0..1439) { "minuteOfDay must be in 0..1439, was $minuteOfDay" }
+    val (year, month, day) = civilFromDays(localEpochDay)
+    return localCivilToEpochMillis(
+        year = year,
+        month = month,
+        day = day,
+        hour = minuteOfDay / (MILLIS_PER_HOUR / MILLIS_PER_MINUTE).toInt(),
+        minute = minuteOfDay % (MILLIS_PER_HOUR / MILLIS_PER_MINUTE).toInt(),
+        utcOffsetMillis = utcOffsetMillis
+    )
+}

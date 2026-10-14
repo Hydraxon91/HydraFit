@@ -14,6 +14,11 @@ NSDateFormatter `Z` offset. Stored timestamps remain UTC milliseconds.
 Current bucketing uses the supplied offset; it is not a historical timezone or
 DST lookup for each recorded timestamp.
 
+`TimeProvider.epochMillisForLocalMinute` resolves a local civil day plus minute-of-day to a UTC
+instant. Its default applies the single current `utcOffsetMillis` through the shared
+`localMinuteToEpochMillisUtc`, so a local time a DST transition skips or repeats maps to that
+fixed-offset instant; a platform override is where zone-aware gap/overlap resolution belongs.
+
 Generated data tables are re-verified by a committed script rather than by trusting the generation
 step: `python3 scripts/check-case-fold-table.py <CaseFolding.txt>` rebuilds every code point's folded
 target from `UnicodeCaseFold.kt`'s ranges and exceptions and compares that mapping with the published
