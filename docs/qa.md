@@ -701,9 +701,14 @@ uncommitted chip-wrap fix. C6 is **not** complete: the checks listed at the end 
   `dumpsys connectivity` reporting no active default network, the app launched and the Log screen
   rendered normally with no network error, and the built-in deterministic planner is still the
   default engine. Airplane mode was switched off again and connectivity read back.
-- First-log journey: **not executed yet.** The Log tab's labels were captured read-only while offline
-  (search hint `Search exercises`, `Reps`, `Weight (kg)`, `Log set` below the fold,
-  `No active session`), which is what the journey needs to be authored.
+- First-log journey: **passed.** With `Back Squat` picked and `5` / `60` typed into Reps and
+  Weight (kg), `Log set` recorded the set — the UI shows `Back Squat 5 x 60 kg` under `Recent sets`
+  and the indicator moved from `No active session` to `Session active`. A read-only database check
+  confirms exactly one `workoutSet` (back-squat, 5 reps, 60.0 kg, `EXTERNAL`, linked to the new
+  session) and one open `workoutSession`, with no plan, activation or personal record written. The
+  first attempt failed on a flow mistake, not the app: selecting an exercise opens its inline
+  `Setup notes` editor and the form sits below the fold in a lazy list, so the field must be scrolled
+  into view before it can be asserted.
 - TalkBack: installed and enabled for a reading pass; the setup screen rendered normally and its
   controls expose labels and roles in the hierarchy. Spoken output and touch exploration cannot be
   verified this way, and the accessibility settings were restored afterwards.
@@ -717,10 +722,10 @@ uncommitted chip-wrap fix. C6 is **not** complete: the checks listed at the end 
   `POST_NOTIFICATIONS` `USER_SET` flag while the permission stayed denied.
 - This pass cleared the emulator's app data, so the earlier routine, personal-record and activation
   fixtures on that device are gone.
-- Still owed for C6: the first-log journey itself, on-device failure/retry, and new and legacy backup
-  restore — the app reads and writes backups through the system document picker, so the user runs that
-  round trip manually. Upgrade coverage remains the host migration verification, because installing a
-  shipped release APK on the emulator is not permitted.
+- Still owed for C6: on-device failure/retry, and new and legacy backup restore — the app reads and
+  writes backups through the system document picker, so the user runs that round trip manually.
+  Upgrade coverage remains the host migration verification, because installing a shipped release APK
+  on the emulator is not permitted.
 
 ### 0.7.5 C1–C2 caution content foundation (2026-10-13)
 
