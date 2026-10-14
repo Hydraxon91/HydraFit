@@ -35,6 +35,7 @@ import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.navigation.FeatureDestination
+import com.hydrafit.app.core.navigation.LocalSetupNavigator
 import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.nav_label
 import hydrafit.feature.settings.generated.resources.settings_acknowledgments
@@ -61,6 +62,7 @@ import hydrafit.feature.settings.generated.resources.settings_rest_default_descr
 import hydrafit.feature.settings.generated.resources.settings_rest_default_save
 import hydrafit.feature.settings.generated.resources.settings_rest_default_seconds
 import hydrafit.feature.settings.generated.resources.settings_rest_default_section
+import hydrafit.feature.settings.generated.resources.settings_setup
 import hydrafit.feature.settings.generated.resources.settings_share_data
 import hydrafit.feature.settings.generated.resources.settings_share_data_description
 import hydrafit.feature.settings.generated.resources.settings_title
@@ -102,6 +104,7 @@ fun SettingsRoute(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val restDurationState by restDurationViewModel.state.collectAsStateWithLifecycle()
+    val openSetup = LocalSetupNavigator.current
     SettingsScreen(
         state = state,
         restDurationState = restDurationState,
@@ -117,6 +120,7 @@ fun SettingsRoute(
         onClearApiKey = viewModel::clearApiKey,
         onModelChanged = viewModel::refresh,
         onOpenAcknowledgments = onOpenAcknowledgments,
+        onOpenSetup = openSetup,
         modifier = modifier
     )
 }
@@ -137,6 +141,7 @@ fun SettingsScreen(
     onClearApiKey: () -> Unit,
     onModelChanged: () -> Unit,
     onOpenAcknowledgments: () -> Unit,
+    onOpenSetup: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -150,6 +155,9 @@ fun SettingsScreen(
             text = stringResource(Res.string.settings_title),
             style = MaterialTheme.typography.headlineSmall
         )
+        Button(onClick = onOpenSetup) {
+            Text(stringResource(Res.string.settings_setup))
+        }
         Text(
             text = stringResource(Res.string.settings_planning_section),
             style = MaterialTheme.typography.titleLarge

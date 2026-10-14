@@ -39,10 +39,15 @@ import androidx.navigation.compose.rememberNavController
 import com.hydrafit.app.core.domain.startup.StartupReadiness
 import com.hydrafit.app.core.navigation.AppTab
 import com.hydrafit.app.core.navigation.LocalAppTabNavigator
+import com.hydrafit.app.core.navigation.LocalSetupNavigator
 import com.hydrafit.app.feature.equipment.equipmentDestination
 import com.hydrafit.app.feature.equipment.equipmentRoute
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapDestination
 import com.hydrafit.app.feature.logger.loggerDestination
+import com.hydrafit.app.feature.onboarding.OnboardingStartupEntry
+import com.hydrafit.app.feature.onboarding.OnboardingStartupGate
+import com.hydrafit.app.feature.onboarding.onboardingGraph
+import com.hydrafit.app.feature.onboarding.onboardingRevisitRoute
 import com.hydrafit.app.feature.routines.routinesDestination
 import com.hydrafit.app.feature.settings.settingsDestination
 import com.hydrafit.app.feature.splitbuilder.splitBuilderDestination
@@ -60,7 +65,9 @@ fun App() {
             val readiness: StartupReadiness = koinInject()
             val isReady by readiness.isReady.collectAsState()
             if (isReady) {
-                AppContent()
+                // The first-run decision is read once the staged restore has finished, so a pending
+                // setup can be entered before any tab is shown.
+                OnboardingStartupGate { AppContent() }
             } else {
                 StartupLoadingGate()
             }
@@ -94,47 +101,74 @@ private fun AppContent() {
     val openTab: (AppTab) -> Unit = { tab ->
         tabRoutes[tab]?.let { route -> navigateToAppTab(navController, route) }
     }
+    // The shell registers the setup routes and navigates to them; the feature owns the journey.
+    val openSetup: () -> Unit = {
+        navController.navigate(onboardingRevisitRoute) {
+            launchSingleTop = true
+            restoreState = false
+        }
+    }
+    // Leaving the setup entry returns to the tab beneath it, or Equipment if there is none.
+    val closeSetup: () -> Unit = {
+        if (!navController.popBackStack()) openTab(AppTab.EQUIPMENT)
+    }
 
     Scaffold(
         bottomBar = {
             val backStackEntry by navController.currentBackStackEntryAsState()
             val currentDestination = backStackEntry?.destination
-            Column {
-                val rows = destinations.chunked(3)
-                rows.forEachIndexed { rowIndex, rowDestinations ->
-                    NavigationBar(
-                        windowInsets = if (rowIndex == rows.lastIndex) {
-                            NavigationBarDefaults.windowInsets
-                        } else {
-                            NavigationBarDefaults.windowInsets.only(WindowInsetsSides.Horizontal)
-                        }
-                    ) {
-                        rowDestinations.forEach { destination ->
-                            NavigationBarItem(
-                                selected =
-                                currentDestination?.hierarchy?.any {
-                                    it.route == destination.route
-                                } == true,
-                                onClick = {
-                                    navigateToAppTab(navController, destination.route)
-                                },
-                                icon = {},
-                                label = { Text(stringResource(destination.label)) }
-                            )
+            // Shell chrome rule: the bar belongs to the six tabs, never to a feature route.
+            val onAppTab = currentDestination == null ||
+                currentDestination.hierarchy.any { destination ->
+                    destinations.any { it.route == destination.route }
+                }
+            if (onAppTab) {
+                Column {
+                    val rows = destinations.chunked(3)
+                    rows.forEachIndexed { rowIndex, rowDestinations ->
+                        NavigationBar(
+                            windowInsets = if (rowIndex == rows.lastIndex) {
+                                NavigationBarDefaults.windowInsets
+                            } else {
+                                NavigationBarDefaults.windowInsets.only(
+                                    WindowInsetsSides.Horizontal
+                                )
+                            }
+                        ) {
+                            rowDestinations.forEach { destination ->
+                                NavigationBarItem(
+                                    selected =
+                                    currentDestination?.hierarchy?.any {
+                                        it.route == destination.route
+                                    } == true,
+                                    onClick = {
+                                        navigateToAppTab(navController, destination.route)
+                                    },
+                                    icon = {},
+                                    label = { Text(stringResource(destination.label)) }
+                                )
+                            }
                         }
                     }
                 }
             }
         }
     ) { innerPadding ->
-        CompositionLocalProvider(LocalAppTabNavigator provides openTab) {
+        CompositionLocalProvider(
+            LocalAppTabNavigator provides openTab,
+            LocalSetupNavigator provides openSetup
+        ) {
             NavHost(
                 navController = navController,
                 startDestination = equipmentRoute,
                 modifier = Modifier.padding(innerPadding)
             ) {
                 destinations.forEach { destination -> destination.graph(navController)(this) }
+                // Setup registers its own routes; it is not a seventh tab entry.
+                onboardingGraph(navController = navController, onClose = closeSetup)
             }
+            // Composed outside the nav host so its ViewModel owner matches the startup gate's.
+            OnboardingStartupEntry(navController = navController)
         }
     }
 }

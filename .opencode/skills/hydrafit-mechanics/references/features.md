@@ -311,8 +311,15 @@ the pre-correction reconciliation on screen. A failed save keeps the editor and 
 reconciliation. Recorded start/finish instants and session notes are shown; there is no duration figure
 and no universal score.
 
-Onboarding's C2 foundation lives in `:feature:onboarding`: `OnboardingViewModel`, `OnboardingUiState`
-and exported `onboardingModule`. It is not wired to the shell and has no Compose screens yet.
+Onboarding's C2 foundation lives in `:feature:onboarding`: `OnboardingViewModel`, `OnboardingUiState`,
+`OnboardingEntryViewModel` and exported `onboardingModule`. C3 wires the minimal entry shell:
+`OnboardingNavigation.kt` exports `onboardingFirstRunRoute`/`onboardingRevisitRoute`,
+`onboardingGraph(navController, onClose)`, `OnboardingStartupGate` and `OnboardingStartupEntry`;
+`OnboardingEntryScreen.kt` renders the current step heading with Skip/Close. `OnboardingEntryViewModel`
+reads the disposition once after readiness, so the shell forces first-run only while it is PENDING and
+leaves a route already restored to first-run alone. The six tabs and the tab bar are unchanged, and
+Settings opens the revisit route through `LocalSetupNavigator` (`:core:navigation`). C4 step editors and
+the C5 first-workout handoff/prefill remain unwired.
 Construction writes nothing; `open` waits for `StartupReadiness`, resumes PENDING setup, or starts a
 voluntary revisit at Welcome. Next/Skip call the domain save actions; Back/edit/close save nothing.
 The guard spans transaction and next-step reads. Failed saves retain the draft, while a failed read

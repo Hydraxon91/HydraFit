@@ -522,6 +522,41 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - Offline artifact verification still confirms `versionName`/`versionCode` against the tag/run
   number; schema compatibility is covered by the host `verifySqlDelightMigration` check.
 
+### 0.7.6 C3 onboarding registration, startup entry and revisit shell (2026-10-14)
+
+Builder verification of the approved C3 slice: `:feature:onboarding` is registered in the shell,
+a root-owned `OnboardingEntryViewModel` reads the saved disposition once after readiness/restore, the
+shell forces first-run only while that disposition is PENDING, Settings opens the revisit route
+through `LocalSetupNavigator`, and the minimal entry route renders the current step heading with
+Skip/Close (the C4 step editors and C5 handoffs are not wired).
+
+- Full Tier A gate on the final content (`/tmp/hydrafit-076-c3-full.log`): `testAndroidHostTest`,
+  `:core:database:verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`,
+  `:shared:compileKotlinIosSimulatorArm64`, `:core:network:compileKotlinIosSimulatorArm64` and
+  `:feature:onboarding:compileKotlinIosSimulatorArm64` all passed.
+- `:feature:onboarding` host tests: 27 tests, 0 failures/skips —
+  `OnboardingViewModelTest` (12), `OnboardingUiStateTest` (5), `OnboardingEntryViewModelTest` (4),
+  `OnboardingExitGuardTest` (3), `OnboardingModuleVerificationTest` (3).
+- Koin: the isolated and shared graphs verify statically and resolve `OnboardingViewModel` and
+  `OnboardingEntryViewModel` at runtime; the entry ViewModel's init read is asserted not to write
+  setup state.
+- Emulator (`emulator-5554`, debug, `install -r` over existing data, no clear):
+  `.maestro/navigation-smoke.yaml` passed 17/17 including all six selected-tab assertions.
+  Read-only revisit journey on the identical Setup screen: `Set up HydraFit` → `Welcome` with the
+  bottom bar hidden → `Close` returns to Settings selected → reopen → `Welcome` again → system
+  `Back` → Settings selected → `Equipment`. Setup screenshot and final Equipment screenshot viewed.
+  The instance is an **upgraded** database (returning user), so the shell did not auto-open setup
+  after install/launch — consistent with the approved returning-user rule.
+- One bounded correction was required: the flow's third assertion used a nested
+  `enabled` + `containsDescendants` selector that did not resolve against the Compose container even
+  though the hierarchy showed Close enabled; the label-only selector passed on the single retry
+  (no tap or write had occurred before the failure).
+- Not verified: fresh-install first-run forced entry (needs a clear/fresh install — not done here),
+  the Skip path and its dismissal persistence (deliberately not tapped; host-tested only), injected
+  read/save failure rendering in the app (host-tested only), TalkBack, dark mode, larger text,
+  non-English locale, rotation/adaptive layouts and the full §0/§9 cross-cutting matrix. No
+  persisted setup, preference, permission or workout data was changed by these checks.
+
 ### 0.7.5 C1–C2 caution content foundation (2026-10-13)
 
 Builder verification of the approved EX-03 / 0.7.5 content foundation (three sourced IDs:

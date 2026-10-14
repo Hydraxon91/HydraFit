@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="onboarding_title">Set up HydraFit</string>
+    <string name="onboarding_step_welcome">Welcome</string>
+    <string name="onboarding_step_units">Weight unit</string>
+    <string name="onboarding_step_equipment">Equipment</string>
+    <string name="onboarding_step_goal">Training goal</string>
+    <string name="onboarding_step_weekdays">Training days</string>
+    <string name="onboarding_step_personal_records">Personal records</string>
+    <string name="onboarding_step_first_workout">First workout</string>
+    <string name="onboarding_loading">Loading your setup…</string>
+    <string name="onboarding_load_error">Couldn’t load your setup. Please try again.</string>
+    <string name="onboarding_error">Couldn’t save your setup. Please try again.</string>
+    <string name="onboarding_retry">Retry</string>
+    <string name="onboarding_skip">Skip setup</string>
+    <string name="onboarding_close">Close</string>
+    <string name="onboarding_editor_unavailable">The setup editors aren’t available in this build yet. You can skip setup and keep using the app.</string>
+</resources>

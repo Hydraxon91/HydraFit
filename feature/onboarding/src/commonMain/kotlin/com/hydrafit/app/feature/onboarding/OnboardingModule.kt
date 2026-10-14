@@ -24,4 +24,5 @@ val onboardingModule: Module = module {
             readiness = get()
         )
     }
+    viewModel { OnboardingEntryViewModel(setup = get(), readiness = get()) }
 }

@@ -15,7 +15,7 @@ Composition files:
 | Feature `SplitBuilderModule.kt` | `splitBuilderModule` |
 | Feature `WorkoutLoggerModule.kt` | `loggerModule` |
 | Feature `SettingsModule.kt` | `settingsModule` |
-| Feature `OnboardingModule.kt` | `onboardingModule` (exported, not yet aggregated in the app) |
+| Feature `OnboardingModule.kt` | `onboardingModule` (exported, aggregated by the shell; `OnboardingViewModel` + `OnboardingEntryViewModel`) |
 | Platform `AndroidDatabaseModule.kt` / `IosDatabaseModule.kt` | Driver, clock, key store, local runtime adapters |
 
 Shell `Koin.kt` aggregates the modules and invokes catalog/equipment seeding
@@ -31,9 +31,10 @@ The verification files are:
 
 The shared test's `allModulesResolve` checks the aggregate graph.
 Onboarding's `OnboardingModuleVerificationTest` verifies its external ports and resolves its
-ViewModel/save actions at runtime. The module owns the two setup use-case factories; databaseModule
-binds `SetupWriteRepository`, `SetupRepository` and `PreferredWeekdaysRepository`. The isolated
-onboarding graph is verified; application registration is deferred to C3.
+ViewModels/save actions at runtime, including an entry-ViewModel init read that must not write.
+The module owns the two setup use-case factories; databaseModule binds `SetupWriteRepository`,
+`SetupRepository` and `PreferredWeekdaysRepository`. The shared graph test now aggregates
+`onboardingModule` in both its static and runtime checks.
 `theDomainUseCaseGraphResolvesAtRuntime` actually resolves domain use cases with
 fake ports, covering missing collaborators that static verification can miss.
 Network verification supplies external types including `HttpClientEngine`.

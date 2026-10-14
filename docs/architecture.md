@@ -131,8 +131,9 @@ and take the state plus callbacks.
 - **Examples:** `WorkoutLoggerViewModel`/`WorkoutLoggerUiState`, `SplitBuilderViewModel`/
   `SplitBuilderUiState`, `EquipmentProfilerViewModel`/`EquipmentProfilerUiState`.
 - **Consistency:** high. Screens use `collectAsStateWithLifecycle` and never touch repositories.
-- **Onboarding foundation (0.7.6 C1/C2):** `:feature:onboarding` owns `OnboardingViewModel` and
-  copy-based state, but has no screen or app entry yet. Explicit open waits for startup readiness;
+- **Onboarding foundation (0.7.6 C1/C2/C3):** `:feature:onboarding` owns `OnboardingViewModel` and
+  copy-based state, plus the minimal C3 entry route and shell registration. Explicit open waits for
+  startup readiness;
   returning/completed/skipped users need voluntary revisit. Next and Skip delegate to domain use
   cases on `Default`; the dedicated SQLDelight writer checks the expected setup revision and commits
   the current step payload and resume boundary in one transaction. Back/close/edit do not save.
@@ -142,7 +143,11 @@ and take the state plus callbacks.
   loading; context revisions prevent old completions from updating a replaced journey. The constructor
   collaborators all serve this one setup journey (step reads, two save actions and readiness), not
   independent feature responsibilities; no dependency bag is introduced solely to reduce its count.
-  The six-tab shell, Settings entry, schedule prefill and first-workout navigation remain unwired.
+  The six-tab shell is unchanged. A root-owned `OnboardingEntryViewModel` reads the saved disposition
+  once, after readiness and restore, and only the feature's own PENDING check makes the shell force the
+  first-run route (Settings opens the revisit route through `LocalSetupNavigator` in
+  `:core:navigation`). The C4 step editors and the C5 first-workout handoff/prefill are still unwired,
+  so the C3 entry reports the current step and offers only Skip and Close.
 - **Violations / tensions:** VMs are thin in responsibility but not always in size —
   the current `WorkoutLoggerViewModel` has six constructor collaborators, including
   `WorkoutLogMutations`, `WorkoutLoggingActions`, runtime and settings collaborators. The historical

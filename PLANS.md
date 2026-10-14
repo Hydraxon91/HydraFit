@@ -1257,7 +1257,11 @@ separate release/push/tag approvals. No automatic handoff or next-release work.
 DONE (decision-only). C1 DONE (`390f3fc1`) — schema 45/backup 11 persistence, legacy handling and full
 Tier A gate passed (`/tmp/hydrafit-076-c1-full.log`). C2 DONE — atomic saves and isolated module/state
 machine; full Tier A gate plus onboarding iOS compile passed (`/tmp/hydrafit-076-c2-full.log`).
-C3–C8 NOT STARTED; app entry/UI/prefill, emulator acceptance and formal review remain pending. Each
+C3 DONE — module/graph aggregation, feature-owned entry decision after readiness/restore, Settings
+revisit seam and a minimal entry shell (step heading, loading/error/retry, Skip, Close); full Tier A
+gate plus onboarding iOS compile and bounded emulator navigation checks passed
+(`/tmp/hydrafit-076-c3-full.log`). C4–C8 NOT STARTED; step editors, first-workout handoff/prefill,
+fresh-install acceptance and formal review remain pending. Each
 later chunk remains separately gated; no implementation push yet. This section authorizes no
 implementation, commit, push or publication by itself. Work branch:
 `release/0.7.6`. This bounded split refines OF-14-P0–P3 (queued above) without renumbering those

@@ -56,6 +56,7 @@ kotlin {
             implementation(project(":feature:splitbuilder"))
             implementation(project(":feature:logger"))
             implementation(project(":feature:settings"))
+            implementation(project(":feature:onboarding"))
             implementation(project(":feature:routines"))
             implementation(libs.koin.core)
             implementation(libs.koin.compose)
