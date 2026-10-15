@@ -2522,6 +2522,33 @@ final state is user-reported, not independently verified. Findings inform the 0.
   deferred 0.13.x explanation-presentation polish and the named OF-03 verification limits are
   unchanged.
 
+## 0.9.1 import foundation checkpoint (2026-10-15; not release acceptance)
+
+- Scope: the parsing foundation (I1, delegated to the default `coder`), the pure preview contract
+  (I2) and the transactional persistence plus provenance ledger (I3). No import UI is wired, so no
+  end-to-end user journey exists yet and none is claimed.
+- Starting revision `0c27d3ba` on `feature/0.9.1-data-freedom`. Parsing evidence:
+  `CsvTableReaderTest` (14 tests) and `WorkoutCsvParserTest` (29 tests) green in
+  `091-i1-verification.log`; preview evidence: `PreviewWorkoutImportTest` green with
+  `:core:domain:ktlintCheck` in `091-i2-verification-3.log`.
+- Persistence and ledger: `SqlDelightWorkoutImportRepositoryTest`,
+  `WorkoutImportProvenanceMigrationTest`, `WorkoutImportProvenanceBackupTest` and
+  `ImportProvenanceBackupTest` cover closed imported sessions, frozen `effectiveInvolvements`,
+  `CATCH_UP` provenance with no occurrence/plan attribution, unchanged-source skipping, the
+  deleted-history guard, changed-source refusal, whole-commit rollback, `50.sqm` additive migration,
+  ledger whole replacement and the format-15 both-directions backup gate.
+- Tier A matrix at this boundary (`091-tier-a-matrix.log`): 2,132 host tests in 239 classes, 0
+  failures, 0 errors, 0 skipped; `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug` and `:shared:`/`:core:network:` iOS simulator compiles all green.
+- One intermittent failure of the already-recorded SQLite-JDBC overlapping-transaction artifact
+  (`ExerciseProgressRecordsIntegrationTest.multiExerciseOccurrenceKeepsStableIdentityOrderAndEarlierBaselines`,
+  see the 0.9.0 C3 note) appeared once in the combined `091-i3-verify-10.log` run. Three consecutive
+  full `:core:database:testAndroidHostTest` runs on this revision (`091-mine-db-1..3.log`) and two on
+  clean `0c27d3ba` (`091-head-db-1..2.log`) all passed; no ledger code path appears in that test.
+- Unverified at this point: every emulator/UI surface, and compatibility with real vendor exports —
+  supported formats come from public examples and synthetic fixtures, not from a captured export or a
+  device-verified schema.
+
 ## 0.9.0 release verification (2026-10-15)
 
 - Candidate: branch `feature/0.9.0-equipment-profiles` → PR #19 → merged `main` at
