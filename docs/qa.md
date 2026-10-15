@@ -522,6 +522,69 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - Offline artifact verification still confirms `versionName`/`versionCode` against the tag/run
   number; schema compatibility is covered by the host `verifySqlDelightMigration` check.
 
+### 0.7.7 C8 release readiness (2026-10-15)
+
+**APPROVED** in Plan Mode at candidate `bb67f207`, with the pending C7 documentation delta
+reviewed read-only. This was the final readiness gate, not another full-range source review.
+C7 evidence, targeted closure of R077C-01/02 and the user's acceptance of C6 runtime/cleanup limits
+support release readiness. R077CL-01 remains a non-blocking test-teardown follow-up.
+
+Preflight confirmed remote main at `669ca210`, 11 local commits ahead, no open PR or existing
+`v0.7.7` tag/release, and the four required signing-secret names present (values were not read).
+The existing PR/main workflow requires lint, host tests/migrations and debug assembly/release lint;
+iOS compilation is locally verified because its CI job remains disabled. The existing tag workflow
+gates signed APK publication on lint and host tests/migrations. No infrastructure change is needed.
+
+The user then explicitly approved the release plan in Build mode: commit the two pending docs,
+push `release/0.7.7`, open a PR, wait for successful required CI, merge and verify merge-revision CI,
+then tag the merge commit `v0.7.7`, monitor Release, and verify the published APK's version, checksum
+and signature without installing it. Publication and remote checks remain pending until evidenced;
+readiness approval alone is not a claim that publication or CI succeeded.
+
+### 0.7.7 C7 candidate verification and targeted closure (2026-10-15)
+
+**C7 passed** on clean candidate `bb67f207f0b5addc4d0be4b3a12fea3ceb434240`. The main
+agent executed this phase directly, without delegation or product-code changes. The user accepted
+the C6 runtime limits and retained fixture/cleanup exceptions below before requesting the commit.
+C6 is accepted **with those limits**, not evidence that every untested scenario passed.
+
+Candidate command (600-second hard timeout; output redirected, inspected separately):
+
+```text
+./gradlew testAndroidHostTest :core:database:verifySqlDelightMigration ktlintCheck :androidApp:assembleDebug :shared:compileKotlinIosSimulatorArm64 :core:network:compileKotlinIosSimulatorArm64 :androidApp:lintVitalRelease
+```
+
+- **BUILD SUCCESSFUL in 32s**, 839 actionable tasks (80 executed, 759 up-to-date).
+  Log: `/tmp/hf077-c7-candidate-matrix.log`.
+- Host XML results: **1,787 tests, zero failures/errors/skips**, across 196 result files, including
+  existing Koin graph and countdown-concurrency coverage. This was incremental verification;
+  up-to-date tests/migration/iOS tasks reused their valid prior outputs, not fresh executions.
+- Migration verification, ktlint, debug assembly, shared/network iOS simulator compilation and
+  **release-specific `lintVitalRelease` all passed**. Release lint is not the full Android Lint suite
+  or evidence of minified runtime behavior. No release APK was installed, tagged or published.
+- No emulator writes or repeated C6 journeys were needed for this unchanged candidate. The preceding
+  C6 evidence includes actual notification posting/tap with draft preservation, silent chronometer,
+  foreground message/haptic, process-death and forced-idle expiry, duration replacement/cancellation,
+  post-expiry reboot, dark/large-text rendering and English fallback under `th-TH`.
+
+**Targeted reviewer closure, performed separately in Plan Mode at `bb67f207`: APPROVED** for the
+two remaining findings, not a fresh full-range review:
+- **R077C-01 closed:** `AndroidRestCountdownCleanup.kt` reads/matches/removes the displayed identity
+  under the same `RestCountdownNotificationState` lock used by scheduler publication/removal. The
+  receiver resolves the existing singleton scheduler. Four host regressions pass; the controlled
+  interleaving negative control failed as expected (`/tmp/r077-break-check2.log`).
+- **R077C-02 closed:** architecture §1.16/§1.20 and affected mechanics references now describe
+  implemented countdown/foreground presentation and atomic cleanup, rather than unwired opt-ins.
+- **R077CL-01 remains a non-blocking minor, confirmed:**
+  `RestCountdownCleanupConcurrencyTest.kt:45–70` lacks failure-safe thread cleanup. An assertion
+  failure before releasing the latch leaves the cleanup thread waiting. Mechanical follow-up would
+  release it in `finally` and use bounded joins; no user-data impact. No fix was included in C7.
+
+**Remaining gates:** C8 final review/release gate is not performed by this candidate verification.
+The accepted API 24/25/future-alarm/live-reboot/permission-recreation coverage limits, disabled retained
+07:30 reminder time and closed empty test session remain recorded below. Candidate verification
+authorizes no commit, push, PR, tag or release; those follow their existing approval gates.
+
 ### 0.7.7 C6 extended emulator acceptance and cleanup (2026-10-15)
 
 Continuation on the same running DEBUG `emulator-5554` (Android API 37). The user approved retained
