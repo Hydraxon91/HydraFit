@@ -243,10 +243,14 @@ While executing an approved chunk:
 **Short activation:** `/batch <versions> --budget <duration>` or plain
 `batch: <versions>, budget <duration>` applies the standing defaults in
 `.opencode/commands/batch.md` unless explicitly overridden. For example,
-`/batch 0.8.1-0.8.3 --budget 60m` covers those three publications in order. For plain language,
-read that file before acting. State resolved scopes, owners, budget and report
-paths; proceed without another confirmation when existing approved contracts and
-those defaults suffice. Ask only for missing decisions or approvals. Neither
+`/batch 0.8.1-0.8.3 --budget 60m` covers those three publications in order. By
+default the run first presents one consolidated pre-flight plan in chat and waits
+for acceptance; `--preapproved` (or "plan approved, start") skips only that stop.
+For plain language,
+read that file before acting. The pre-flight plan states the resolved scopes,
+owners, budget and report paths and surfaces open decisions, so the run starts
+once that plan is accepted; do not ask for the same details twice, and ask only
+for genuinely missing decisions or approvals. Neither
 trigger switches the user's mode/model or activates on its own installation.
 The batch ends at implemented, verified, independently reviewed and committed;
 publication waits for one explicit user approval of the enumerated publication
@@ -260,12 +264,16 @@ decisions before starting; an open-ended request to finish the roadmap is not a
 settled implementation contract. Set a bounded execution/retry budget and identify
 any approved review-report paths before starting.
 
-- **Sequence:** implement each approved chunk → verify its applicable checks →
+- **Sequence:** present the required pre-flight plan and obtain acceptance before
+  the first edit, then implement each approved chunk → verify its applicable checks →
   obtain independent read-only review at each approved checkpoint → perform only
   pre-authorized mechanical corrections → re-verify → obtain targeted reviewer
   closure → continue to the next named release. Report release results as they
   complete, without routine approval pauses. Do not skip small implementation
   steps or combine release acceptance checks merely to reduce interruptions.
+  The plan is one stop at the start, not one per release, and covers execution
+  detail and open decisions rather than the approved roadmap grouping. A narrow
+  `--preapproved` bypass skips only that stop.
 - **Review-mode exception:** the parent may remain in Build Mode while a separate
   read-only reviewer agent performs the requested reviews and targeted closure
   under `docs/review-discipline.md` and `docs/post-execution-review.md`. The initial

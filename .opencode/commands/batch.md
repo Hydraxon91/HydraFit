@@ -1,5 +1,5 @@
 ---
-description: Execute named approved releases with verification and independent reviews (e.g. /batch 0.8.1-0.8.3 --budget 60m)
+description: Plan then execute named releases with verification and independent reviews (e.g. /batch 0.8.1-0.8.3 --budget 60m)
 subagent: false
 ---
 
@@ -12,6 +12,30 @@ Usage: `/batch 0.8.0 --budget 6h`, `/batch 0.8.1-0.8.3 --budget 60m`, or
 named publications in order. Numbers refer to assigned roadmap versions, not a
 whole series or permission to infer scope. This is a prompt template, not a shell
 command or permission bypass.
+
+## Pre-flight plan (required unless bypassed)
+
+- **Plan:** before any edit, inspect the current plans, source and working-tree
+  state, then present one consolidated plan in chat. Per release, in order: scope
+  and former slice ids; owner per chunk; acceptance criteria and verification tier;
+  review checkpoint and reviewer; report paths; unresolved decisions with your
+  recommendation; individually gated items needing separate approval (schema and
+  `.sqm`, module graph, dependencies, secrets, CI); exclusions and stop conditions;
+  and the budget split. Then stop and wait for feedback.
+- **Feedback round:** incorporate the user's corrections, re-present only what
+  changed, and do not begin until they accept. Treat scope changes as explicit
+  decisions rather than silently folding them in. Do not re-open the approved
+  roadmap grouping: the plan covers execution detail and open decisions, not a
+  renegotiation of settled scope.
+- **Start:** after acceptance, run continuously under the standing defaults below;
+  do not re-ask for the same plan, and report at each release boundary.
+- **Bypass:** if the invocation states the plan is already approved — for example
+  `--preapproved` or "plan approved, start" — skip the plan stop and begin. The
+  bypass skips only that stop: gated-item approvals, exclusions, stop conditions
+  and the publication boundary are unchanged, and any newly discovered decision
+  still stops the run.
+
+## Standing defaults
 
 Apply these standing defaults unless the user explicitly overrides them:
 
@@ -63,9 +87,6 @@ Apply these standing defaults unless the user explicitly overrides them:
   required findings after permitted corrections, exhausted budget or the builder
   failure limit. Individually gated operations remain gated.
 
-Before starting, read the current plans and working-tree state. State the resolved
-ordered release list, owners, budget, report paths and any overrides. If these
-match approved contracts and the defaults above, proceed without a redundant
-confirmation. Ask only for missing scope, budget, behavioral decisions or other
-required approvals. Report each release boundary and stop after the approved list;
-do not create a handoff or starter automatically.
+Present the pre-flight plan and wait for acceptance before the first edit, unless
+the invocation bypassed it. Report each release boundary, and stop after the
+approved list; do not create a handoff or starter automatically.
