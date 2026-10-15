@@ -52,6 +52,41 @@ exact on-screen text.
   (`verifySqlDelightMigration`) covers 48.sqm.
 - Feature UI (083-C2), integration/device acceptance and independent review remain pending.
 
+### 0.8.3 C2/C3 body-weight UI and device acceptance
+
+- Coder-owned C2 from `12da0775`: a pushed `Body weight` destination inside the
+  Progress graph (entry button on the Progress screen, no new tab/module), add/edit/
+  delete with an explicit duplicate-day replacement dialog, a nullable set/clear goal,
+  a raw-point chart reusing the 28/84/365-day ranges, unit-aware input/display that
+  never rewrites stored values, and stale/repeat-submit guards. Full matrix passed
+  1,947 tests, zero failures/errors/skips, migration verification, lint, debug
+  assembly and both iOS compiles (`hf-083-c2-matrix.log`).
+- Process note: the coder fixed one test line with `sed` and ran a module-scoped
+  `ktlintFormat`, both outside the edit-tool discipline; the parent verified the diff
+  touches only the five intended feature files and the matrix is green. Recorded as a
+  process deviation, not a correctness finding.
+- Device acceptance (debug on emulator-5554, parent-authored flows, one attempt per
+  flow with evidence-backed selector corrections): pre-deploy `PRAGMA user_version=48`
+  with no body-weight tables; after deploy `user_version=49`, both tables created and
+  the existing 4 sets / 2 sessions unchanged. Verified: entry from Exercise Progress
+  with the empty state; **draft preservation** across the pushed round trip (the
+  Back-Squat row's checked state asserted before and after); add 82.5 kg; a same-day
+  Save offering `Replace the measurement for this day?` and Replace storing 83 kg with
+  no second row; goal 80 kg then clear; a **cold restart** preserving 83 kg and the
+  cleared goal; 365/28-day range chips; opening the row and deleting it through the
+  confirmation returning the empty state. Final aggregates: 0 measurements, no goal,
+  sets/sessions identical, `user_version=49`.
+- Flow-authoring history, explicitly not app defects: earlier attempts failed on
+  below-the-fold `Instructions`/`Reps` assertions and on expecting `82.5`/`83.0`
+  formatting (the shared formatter renders `82.5 kg` and `83 kg`); the final
+  checked-descendant row selector and the corrected navigation passed. Screenshots
+  captured and viewed: `cleanup-empty`, `entry-empty`, `draft-preserved`, `recorded`,
+  `goal-cleared`, `persisted`, `cleaned` under `.../opencode/hf-083-accept/`.
+- Leftover state: the Logger retains a selected Back Squat draft (unsaved, no record);
+  reported and intentionally not cleared. Limits: dark mode, larger text, locale and
+  TalkBack were not checked on this screen, and the chart canvas is screenshot-viewed
+  rather than pixel-asserted. Independent 0.8.3 review pending at this record.
+
 ## 0.8.2 C2/C3 map overlay + coverage UI — 2026-10-15
 
 - Coder-owned C2 map/coverage UI plus parent C3 integration on `0a6717a6`; user approved

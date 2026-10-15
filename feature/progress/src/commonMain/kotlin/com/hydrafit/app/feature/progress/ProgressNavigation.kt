@@ -11,8 +11,17 @@ import androidx.navigation.compose.composable
  */
 val progressRoute: String = "progress"
 
+/** The pushed Body weight destination, nested under Exercise Progress rather than a new tab. */
+val bodyWeightRoute: String = "progress/bodyweight"
+
 fun NavGraphBuilder.progressGraph(navController: NavController, onClose: () -> Unit) {
     composable(progressRoute) {
-        ProgressRoute(onBack = onClose)
+        ProgressRoute(
+            onBack = onClose,
+            onOpenBodyWeight = { navController.navigate(bodyWeightRoute) }
+        )
+    }
+    composable(bodyWeightRoute) {
+        BodyWeightRoute(onBack = { navController.popBackStack() })
     }
 }

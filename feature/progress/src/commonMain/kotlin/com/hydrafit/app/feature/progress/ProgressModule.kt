@@ -13,4 +13,11 @@ val progressModule: Module = module {
             timeProvider = get()
         )
     }
+    viewModel {
+        BodyWeightViewModel(
+            bodyWeightRepository = get(),
+            weightUnitRepository = get(),
+            timeProvider = get()
+        )
+    }
 }

@@ -639,7 +639,10 @@ occupied day and never overwrites an occupant when moving an entry. Migration `4
 adds `bodyWeightMeasurement` and `bodyWeightGoal`; backup format 13 carries both sections,
 and whole replacement restores earlier formats with no recorded body weight. The repository
 is unit-agnostic: weights are canonical kilograms and display units never rewrite stored
-values.
+values. The Body weight screen is pushed from Exercise Progress inside the same feature
+graph and shows a raw-point chart on the existing 28/84/365-day ranges, an explicit
+duplicate-day replacement confirmation and a nullable goal; day selection, unit handling
+and stale-submission guards live in the feature ViewModel.
 
 The 0.8.1 catalog adds four separately sourced identities in
 `DefaultExercisesCatalog081`: forearm-pad pec deck, reverse machine fly, seated
