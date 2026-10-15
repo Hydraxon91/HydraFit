@@ -247,6 +247,9 @@ read that file before acting. State resolved scopes, owners, budget and report
 paths; proceed without another confirmation when existing approved contracts and
 those defaults suffice. Ask only for missing decisions or approvals. Neither
 trigger switches the user's mode/model or activates on its own installation.
+The batch ends at implemented, verified, independently reviewed and committed;
+publication waits for one explicit user approval of the enumerated publication
+sequence for all completed releases together, not a pause after each release.
 
 This workflow is available only when the user explicitly requests it for named,
 ordered releases and approves their scopes, implementation owners, acceptance
@@ -296,6 +299,17 @@ any approved review-report paths before starting.
   this exception changes the operator, not authorization. Pushes still need
   separate approval; merges, tags and publication retain their applicable gates.
   Missing permissions remain blockers: never bypass a prompt or tool restriction.
+- **Publication boundary:** continue through the approved implementation list
+  without publishing between releases. At the end, report each candidate revision,
+  review verdict, verification evidence and limits, then request one explicit user
+  approval of the proposed publication sequence for all completed releases. Before
+  that approval, do not push, open PRs, merge, tag, build/upload release artifacts
+  or run publication workflows; required debug builds and non-publishing checks
+  remain allowed. One approval can cover the exact enumerated operations across
+  those releases, including pushes; changes to scope/revisions or uncovered gates
+  require new approval. This does not waive CI monitoring, artifact checks or
+  failure stops: publish in dependency order and stop before subsequent releases
+  if a step fails. A batch invocation alone never authorizes publication.
 - **Stop conditions:** stop for a design decision, missing approval/permission,
   unexpected writes, unsafe data effects, unresolved required review findings,
   unavailable required verification, exhausted agreed budget or the existing

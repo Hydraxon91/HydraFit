@@ -35,6 +35,20 @@ Apply these standing defaults unless the user explicitly overrides them:
 - **Git:** authorize compiling, verified atomic commits under approved-chunk
   discipline. The main agent performs authorized Git operations directly, not
   through git-ops. Do not push, merge, tag or publish without separate approval.
+- **Completion/publication boundary:** finish the approved list at implemented,
+  verified, independently reviewed and committed, with readiness evidence and
+  limits recorded. Do not pause for publication approval between releases;
+  continue the approved implementation sequence without publishing any of them.
+  At the end, stop and request one explicit approval for the proposed publication
+  sequence covering all completed releases together. List each release's exact
+  candidate revision, review verdict, verification evidence, limitations and
+  proposed push/PR/merge/tag/Release-workflow/artifact steps. Until approved, do not
+  push, open a PR, merge, tag, build/upload a release artifact or run a publication
+  workflow. Required debug builds and non-publishing verification remain allowed.
+  A single approval may cover the enumerated sequence; do not re-ask per release
+  unless scope/revisions change, a failure occurs or another approval is missing.
+  Execute approved publication steps in dependency order with applicable CI and
+  artifact checks; stop on failure before publishing subsequent releases.
 - **Reports:** authorize the parent to consolidate per-release review evidence in
   `docs/review-<release>-snapshot.md`, substituting the actual agreed version.
   Preserve existing historical findings/verdicts; append closure evidence rather
