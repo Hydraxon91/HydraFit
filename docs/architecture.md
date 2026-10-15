@@ -84,7 +84,8 @@ all-time baseline never depend on the range. No record cache, writer or new pers
 `:feature:logger`'s route-owned `WorkoutSummaryRecordsViewModel` consumes the use case read-only
 (its summary read and Finish/Finish-partially/Skip behaviour are unchanged), and `:feature:progress`
 and `:feature:logger` consume the shared use case without depending on each other.
-Migration `46.sqm` adds an exercise/performed-time/id index, preserving every stored row.
+Migration `46.sqm` adds an exercise/performed-time/id index and `47.sqm` adds an
+occurrence/exercise index, both preserving every stored row and covered by migration plan tests.
 
 `ExerciseProgressCalculator` retains output records/tied holder ids, requested occurrence improvement
 events and chart-day accumulators, not the complete set history. Tied holder ids accumulate in a

@@ -84,7 +84,8 @@ ORDER BY performedAt ASC, id ASC
 LIMIT :pageLimit;
 
 -- The distinct exercises recorded against one occurrence, in a stable id order. Scoped to the
--- occurrence so a summary's record read never scans the whole log; the live query emits on every
--- workoutSet write.
+-- occurrence so a summary's record read never scans the whole log: the (occurrenceId, exerciseId)
+-- index seeks one occurrence and supplies the DISTINCT/ORDER BY order directly. The live query
+-- emits on every workoutSet write.
 observeOccurrenceExerciseIds:
 SELECT DISTINCT exerciseId FROM workoutSet WHERE occurrenceId = :occurrenceId ORDER BY exerciseId;

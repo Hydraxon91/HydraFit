@@ -30,10 +30,13 @@ already read. `SqlDelightExerciseProgressRepository` replays one exercise throug
 in one off-main transaction, retaining derived outputs rather than all raw rows. Chart day bounds do not
 limit all-time record comparisons. The set-count query is an invalidation anchor, not a revision:
 do not apply `distinctUntilChanged` to its count, since correction/restore can keep counts unchanged.
-This backend is not wired into Koin/UI yet and adds no stored cache. Migration `46.sqm` adds
-`workoutSet_exerciseId_performedAt_id` on `(exerciseId, performedAt, id)` for exercise-scoped paging;
-`ExerciseProgressIndexMigrationTest` covers preservation and indexed query plans for fresh/migrated
-schemas. The request fixes
+The repository is bound by `databaseModule` and consumed read-only by `:feature:progress` and the
+summary records section; it adds no stored cache. Migration `46.sqm` adds
+`workoutSet_exerciseId_performedAt_id` on `(exerciseId, performedAt, id)` for exercise-scoped
+paging and `47.sqm` adds `workoutSet_occurrenceId_exerciseId` on `(occurrenceId, exerciseId)` so the
+summary's live occurrence read seeks one occurrence instead of scanning the set index;
+`ExerciseProgressIndexMigrationTest` and `WorkoutSetOccurrenceIndexMigrationTest` cover preservation
+and indexed query plans for fresh/migrated schemas. The request fixes
 `nowMillis` and the UTC offset; future passage/offset changes require a new request from the caller.
 Query-only equipment identity repair (0.7.6 C6) adds custom-id movement and per-row equipment-reference
 updates in `Equipment.sq`, `Exercise.sq`, `ExerciseOverride.sq` and `TrainingSchedule.sq`.
