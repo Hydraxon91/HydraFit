@@ -14,6 +14,7 @@ The app currently uses standard Material 3 styling. Screenshots and a fuller des
 
 - Set up on first launch, or any time from Settings: pick your unit, equipment and training goal, choose your usual training days, and optionally record best sets you already know. Every step is optional and can be skipped or revisited, and setup never writes workout history.
 - Generate a plan for 2–6 days a week using Full Body, Upper-Lower or Push-Pull-Legs splits. Set your equipment and weight limits, choose exercise preferences, or exclude exercises you don't want to use.
+- Keep more than one equipment profile — for example home and the gym — each with its own equipment, weight limits and loading setup (plates you own, bars with their collar weight, and fixed or adjustable dumbbells). Work out which plates to load for a target weight, or the nearest weight you can actually reach, from Equipment or while logging. The calculator only calculates: it never changes what you log or your plan.
 - Build, reorder, duplicate and archive your own routines. Schedule a routine or generated plan on chosen weekdays, or work through it as a next-workout sequence. Missed workouts stay pending until you finish or skip them.
 - Get suggested working weights from your logged history or manual personal records, with automatic progression and a deload week in each four-week cycle.
 
@@ -72,7 +73,7 @@ The next versions are deliberately smaller: each gets a focused scope and its ow
 | Series | Smaller releases, in order |
 | --- | --- |
 | 0.8.x — Progress & recovery | Published 2026-10-15: charts and records; catalog corrections; the body map and coverage views; body-weight tracking |
-| 0.9.x — Equipment & data | Profiles and plate tools, followed by individual importers, sharing and backup improvements |
+| 0.9.x — Equipment & data | 0.9.0 published 2026-10-15: equipment profiles, per-profile loading setup and plate/dumbbell calculators. Then individual importers, sharing and backup improvements |
 | 0.10.x — Progression & prescriptions | History integrity before new progression policies; per-set targets, pyramids and supersets in separate releases |
 | 0.11.x — Other training metrics | Duration, distance and force metrics delivered separately; drop sets, rest-pause and cardio need research first |
 | 0.12.x — Optional AI | Identity and validation fixes, then measured local-model and engine lifecycle improvements |

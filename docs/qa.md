@@ -511,6 +511,17 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 ## 1. Equipment
 - Add custom equipment, rename it, set a max weight, delete it → selection updates; survives relaunch.
 - Search filters the exercise list; built-in tags present.
+- **Equipment profiles (0.9.0):** create an empty profile and a copy of the active one, rename the active
+  profile, switch between profiles, and delete one through its confirmation. The last profile cannot be
+  deleted, and deleting the active profile requires choosing the replacement. Selection and max weights
+  follow the active profile; switching profiles keeps the plan you are viewing and offers regeneration
+  rather than silently replacing it.
+- **Loading setup and calculators (0.9.0):** record plates (weight and how many you own), a bar with its
+  own weight and a total collar weight, and dumbbells either as a fixed list or an adjustable
+  lightest/heaviest/increment range. The calculator shows plates per side and the full total for an
+  exact target, and the nearest lower/higher weights for an unreachable one; dumbbell results are per
+  dumbbell. Amounts stay in the profile's own unit (kg or lb) and are not converted when the display
+  unit changes.
 
 ## 2. Exercise catalog (Equipment → edit)
 - Deleting a custom exercise with a manual personal record is refused with localized guidance;
