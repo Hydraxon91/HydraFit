@@ -56,8 +56,14 @@ object PreviewWorkoutImport {
                 return@mapNotNull null
             }
             val days = rows.map { it.day }.distinct()
-            if (days.size != 1 ||
-                session.utcOffsetMinutes !in -1080..1080 ||
+            val titles = rows.map { it.workoutTitle }.distinct()
+            if (days.size != 1 || titles.size != 1) {
+                // One session is one local day of one source workout; a group that mixes source
+                // workouts cannot be identified, let alone matched against the import ledger.
+                problem(WorkoutImportIssue.INVALID_SESSION_MEMBERSHIP)
+                return@mapNotNull null
+            }
+            if (session.utcOffsetMinutes !in -1080..1080 ||
                 session.dateOnlySecondOfDay?.let { it !in 0..86399 } == true
             ) {
                 problem(WorkoutImportIssue.INVALID_TIME)
@@ -176,12 +182,13 @@ internal fun canonicalFields(fields: List<String?>): String = fields.joinToStrin
 }
 
 /**
- * Identifies the source workout a set row belongs to: the provider plus the row's civil date. Two
- * source workouts on one date therefore share a key, which is why a candidate key with different
+ * Identifies the source workout a set row belongs to: the provider, the row's civil date and the
+ * source workout title when the export carries one. A provider without a title field (FitNotes) can
+ * only identify a day, so two workouts on that date share a key and a candidate key with different
  * content is reported as changed/ambiguous rather than merged.
  */
 fun sourceCandidateKey(source: WorkoutCsvSource, row: WorkoutCsvRow): String =
-    canonicalFields(listOf(source.name, row.day.toString()))
+    canonicalFields(listOf(source.name, row.day.toString(), row.workoutTitle))
 
 private fun canonicalSourceRow(row: WorkoutCsvRow): String = canonicalFields(
     listOf(

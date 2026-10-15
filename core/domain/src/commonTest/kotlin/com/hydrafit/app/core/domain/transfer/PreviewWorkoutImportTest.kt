@@ -247,6 +247,87 @@ class PreviewWorkoutImportTest {
     }
 
     @Test
+    fun aTitledProviderKeepsTwoWorkoutsOnOneDayApartAndSkipsThemIndependently() {
+        fun strong(workout: String, start: String, reps: Int) =
+            "Date;Workout Name;Exercise Name;Weight;Weight Unit;Reps\n" +
+                "2024-01-02 $start;$workout;Press;50;kg;$reps\n" +
+                "2024-01-02 $start;$workout;Squat;60;kg;5"
+        val morning = WorkoutCsvParser.parse(
+            WorkoutCsvSource.STRONG,
+            strong("Morning", "10:00:00", 8)
+        )
+        val evening = WorkoutCsvParser.parse(
+            WorkoutCsvSource.STRONG,
+            strong("Evening", "18:00:00", 9)
+        )
+        val both = morning.copy(
+            rows = morning.rows +
+                evening.rows.map { it.copy(sourceRowIndex = it.sourceRowIndex + 2) }
+        )
+        val selection = choices.copy(
+            exercises = choices.exercises + (
+                "Squat" to WorkoutImportExerciseChoice(
+                    exerciseId = "mapped-squat",
+                    loadKind = LoadKind.EXTERNAL,
+                    useSourceWeight = true,
+                    confirmedLoadMeaning = true,
+                    unknownWarmupIsWorking = true
+                )
+                ),
+            sessions = listOf(
+                choices.sessions.single().copy(sourceRows = listOf(2, 3)),
+                choices.sessions.single().copy(sourceRows = listOf(4, 5))
+            ),
+            acknowledgedUnsupportedFields = true
+        )
+        val catalog = listOf(exercise, exercise.copy(id = "mapped-squat", name = "Squat"))
+        val first = PreviewWorkoutImport.build(both, selection, catalog)
+        assertTrue(first.canImport, first.problems.toString())
+        assertEquals(2, first.sessions.map { it.candidateKey }.distinct().size)
+
+        // Both are unchanged on a second pass, independently, and neither reports a change.
+        val ledger = first.sessions.map {
+            WorkoutImportProvenance(
+                WorkoutCsvSource.STRONG,
+                it.candidateKey,
+                it.content,
+                it.candidateKey
+            )
+        }
+        val again = PreviewWorkoutImport.build(both, selection, catalog, ledger)
+        assertTrue(again.problems.isEmpty(), again.problems.toString())
+        assertEquals(2, again.sessions.mapNotNull { it.skipExistingSessionId }.size)
+
+        // Renaming one workout makes that one a new candidate rather than a changed one.
+        val renamed = both.copy(
+            rows = both.rows.map {
+                if (it.workoutTitle == "Evening") it.copy(workoutTitle = "Night") else it
+            }
+        )
+        val renamedPreview = PreviewWorkoutImport.build(renamed, selection, catalog, ledger)
+        assertTrue(renamedPreview.problems.isEmpty(), renamedPreview.problems.toString())
+        assertEquals(1, renamedPreview.sessions.count { it.skipExistingSessionId != null })
+    }
+
+    @Test
+    fun aSessionMayNotMixSourceWorkouts() {
+        val strong = WorkoutCsvParser.parse(
+            WorkoutCsvSource.STRONG,
+            "Date;Workout Name;Exercise Name;Weight;Weight Unit;Reps\n" +
+                "2024-01-02 10:00:00;Morning;Press;50;kg;8\n" +
+                "2024-01-02 18:00:00;Evening;Press;50;kg;8"
+        )
+        val selection = choices.copy(
+            sessions = listOf(choices.sessions.single().copy(sourceRows = listOf(2, 3))),
+            acknowledgedUnsupportedFields = true
+        )
+        assertIssue(
+            WorkoutImportIssue.INVALID_SESSION_MEMBERSHIP,
+            PreviewWorkoutImport.build(strong, selection, listOf(exercise))
+        )
+    }
+
+    @Test
     fun nullAndEmptyCanonicalFieldsCannotCollide() {
         assertFalse(canonicalFields(listOf(null)) == canonicalFields(listOf("")))
         assertFalse(canonicalFields(listOf("a", "bc")) == canonicalFields(listOf("ab", "c")))

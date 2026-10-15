@@ -141,11 +141,14 @@ weight, so bodyweight work cannot silently keep a source number. Rows keep sourc
 legitimate sets stay distinct; `notices` carries non-blocking skips so the UI can disclose them.
 
 Duplicate protection is a durable ledger, not a file hash: a candidate key identifies the source
-workout (provider plus its civil date) and the canonical content of its rows (length-prefixed fields,
-so null and empty never collide) identifies the observed version. An exact match is skipped; a
-candidate key with different content, or more than one exact match, blocks that session. Skipping is
-disclosed as `UNCHANGED_SOURCE_SKIPPED`, or as `REMOVED_HISTORY_SKIPPED` when the imported session no
-longer exists, so a locally deleted import is never resurrected and never silently ignored.
+workout (provider, civil date and the source workout title when the export carries one) and the
+canonical content of its rows (length-prefixed fields, so null and empty never collide) identifies the
+observed version. One session is one source workout: a same-day group that mixes titles is
+`INVALID_SESSION_MEMBERSHIP`, so two legitimately distinct workouts on one date keep separate
+identities. An exact match is skipped; a candidate key with different content, or more than one exact
+match, blocks that session. Skipping is disclosed as `UNCHANGED_SOURCE_SKIPPED`, or as
+`REMOVED_HISTORY_SKIPPED` when the imported session no longer exists, so a locally deleted import is
+never resurrected and never silently ignored.
 
 `SqlDelightWorkoutImportRepository.commit(preview)` writes the approved sessions in one transaction:
 each session is inserted already closed with a fresh identity and `localEpochDay`, and each set is
