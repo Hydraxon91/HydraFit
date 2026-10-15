@@ -36,6 +36,7 @@ data class OnboardingUiState(
     val input: SetupStepInput? = null,
     val entryUnit: WeightUnit = WeightUnit.KG,
     val equipment: List<Equipment> = emptyList(),
+    val equipmentProfileName: String? = null,
     val eligibleExercises: List<Exercise> = emptyList(),
     val existingRecords: List<PersonalRecord> = emptyList(),
     /** The PR entry the user has open, if any; occupied only on the Personal records step. */

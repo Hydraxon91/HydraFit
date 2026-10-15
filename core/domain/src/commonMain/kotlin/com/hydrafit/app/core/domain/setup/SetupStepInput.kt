@@ -2,6 +2,7 @@ package com.hydrafit.app.core.domain.setup
 
 import com.hydrafit.app.core.domain.engine.PersonalRecord
 import com.hydrafit.app.core.domain.engine.TrainingGoal
+import com.hydrafit.app.core.domain.equipment.EquipmentProfileContext
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.unit.WeightUnit
@@ -19,7 +20,8 @@ sealed interface SetupStepInput {
     /** Only explicitly edited ceilings are written; other inventory values remain untouched. */
     data class Equipment(
         val selected: Set<EquipmentTag>,
-        val editedMaxWeightsKg: Map<EquipmentTag, Double?> = emptyMap()
+        val editedMaxWeightsKg: Map<EquipmentTag, Double?> = emptyMap(),
+        val profileContext: EquipmentProfileContext
     ) : SetupStepInput {
         override val step: SetupStep = SetupStep.EQUIPMENT
     }

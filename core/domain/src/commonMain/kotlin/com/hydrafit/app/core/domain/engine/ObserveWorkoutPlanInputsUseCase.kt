@@ -78,7 +78,8 @@ class ObserveWorkoutPlanInputsUseCase(
             ),
             requestedEngine = current.selectedEngine,
             exercisePreferences = current.exercisePreferences,
-            exerciseExclusions = current.exerciseExclusions
+            exerciseExclusions = current.exerciseExclusions,
+            equipmentContext = current.equipmentContext
         )
     }
 

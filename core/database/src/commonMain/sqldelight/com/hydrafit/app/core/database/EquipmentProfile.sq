@@ -25,6 +25,18 @@ INSERT INTO equipmentProfileState(id, activeProfileId, revision) VALUES (1, 1, 0
 selectProfiles:
 SELECT * FROM equipmentProfile ORDER BY id;
 
+selectProfile:
+SELECT * FROM equipmentProfile WHERE id = ?;
+
+countProfiles:
+SELECT count(*) FROM equipmentProfile;
+
+selectProfileEntries:
+SELECT * FROM equipmentProfileEntry WHERE profileId = ? ORDER BY equipmentId;
+
+selectEntry:
+SELECT * FROM equipmentProfileEntry WHERE profileId = ? AND equipmentId = ?;
+
 selectEntries:
 SELECT * FROM equipmentProfileEntry ORDER BY profileId, equipmentId;
 
@@ -82,3 +94,6 @@ UPDATE equipmentProfileEntry SET equipmentId = ? WHERE equipmentId = ?;
 
 selectEquipmentReferences:
 SELECT profileId FROM equipmentProfileEntry WHERE equipmentId = ?;
+
+deleteEquipmentEntry:
+DELETE FROM equipmentProfileEntry WHERE profileId = ? AND equipmentId = ?;

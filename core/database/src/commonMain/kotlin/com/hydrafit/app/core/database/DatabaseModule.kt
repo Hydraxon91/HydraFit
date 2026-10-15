@@ -105,7 +105,6 @@ val databaseModule: Module = module {
             get(),
             get(),
             get(),
-            get(),
             get()
         )
     }

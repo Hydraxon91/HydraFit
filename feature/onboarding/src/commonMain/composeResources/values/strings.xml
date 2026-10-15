@@ -25,6 +25,8 @@
     <string name="onboarding_unit_lb">Pounds (lb)</string>
 
     <string name="onboarding_equipment_prompt">What can you train with?</string>
+    <string name="onboarding_equipment_profile">Profile: %1$s</string>
+    <string name="onboarding_equipment_profile_note">Your choices are saved to this profile. Manage profiles and loading details in the Equipment tab.</string>
     <string name="onboarding_equipment_empty">No equipment is listed yet. You can skip setup and add it later in Settings.</string>
 
     <string name="onboarding_goal_prompt">What are you training for?</string>

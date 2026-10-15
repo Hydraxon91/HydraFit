@@ -8,31 +8,42 @@ import com.hydrafit.app.core.domain.equipment.CatalogProfileMatch
 import com.hydrafit.app.core.domain.equipment.CatalogProfileMatcher
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.equipment.LoadingInventory
+import com.hydrafit.app.core.domain.equipment.MAX_LOADING_TICKS
 import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.equipment.parseNativeTicks
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseException
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfile
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfileContext
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfileRepository
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfileState
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
-import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.equipment.ExerciseOverrideRepository
 import com.hydrafit.app.core.userdata.equipment.PersonalRecordRepository
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class EquipmentProfilerViewModel(
     private val equipmentRepository: EquipmentRepository,
-    private val selectionRepository: EquipmentSelectionRepository,
+    private val profileRepository: EquipmentProfileRepository,
     private val exerciseCatalog: ExerciseCatalog,
     private val exerciseOverrideRepository: ExerciseOverrideRepository,
     private val customExerciseRepository: CustomExerciseRepository,
-    private val personalRecordRepository: PersonalRecordRepository
+    private val personalRecordRepository: PersonalRecordRepository,
+    /** The plate solver is bounded but not cheap; it never runs on the UI thread. */
+    private val calculationDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(EquipmentProfilerUiState())
@@ -41,10 +52,18 @@ class EquipmentProfilerViewModel(
     private var personalRecords: List<PersonalRecord> = emptyList()
     private var profileRequestRevision = 0L
 
+    /** The context every profile-owned write is authorized against, from the latest snapshot. */
+    private var profileContext: EquipmentProfileContext? = null
+    private var activeProfile: EquipmentProfile? = null
+    private var lastObservedInventory: LoadingInventory? = null
+    private var profileEditorToken = 0L
+    private var loadingDraftToken = 0L
+    private var calculatorRequestRevision = 0L
+    private var profileWritePending = false
+
     init {
         viewModelScope.launch {
-            val selected = selectionRepository.selected()
-            _state.update { it.copy(selectedTags = selected, isLoading = false) }
+            profileRepository.observe().collectLatest { snapshot -> applyProfileSnapshot(snapshot) }
         }
         viewModelScope.launch {
             equipmentRepository.observeAll().collectLatest { equipment ->
@@ -58,6 +77,34 @@ class EquipmentProfilerViewModel(
                 updatePersonalRecordRows()
             }
         }
+    }
+
+    /**
+     * Projects one coherent profile snapshot. Selection and ceilings come from the same revision, so
+     * a toggle never mixes an old selection with a newer ceiling set.
+     */
+    private fun applyProfileSnapshot(snapshot: EquipmentProfileState) {
+        profileContext = snapshot.context
+        activeProfile = snapshot.profiles.firstOrNull { it.id == snapshot.context.profileId }
+        val inventory = activeProfile?.loadingInventory
+        if (inventory != lastObservedInventory) {
+            // A different configuration invalidates any calculation still in flight.
+            lastObservedInventory = inventory
+            calculatorRequestRevision++
+        }
+        val summary = snapshot.toSummary()
+        _state.update { current ->
+            current.copy(
+                profile = summary,
+                selectedTags = summary?.selected ?: emptySet(),
+                isLoading = false
+            )
+        }
+    }
+
+    /** Re-reads the authoritative profile state after a refused or failed profile-owned write. */
+    private suspend fun resyncProfileSnapshot() {
+        runCatching { profileRepository.current() }.onSuccess(::applyProfileSnapshot)
     }
 
     fun onNewPersonalRecord() {
@@ -173,11 +220,21 @@ class EquipmentProfilerViewModel(
     }
 
     fun onTagToggled(tag: EquipmentTag) {
-        val updated = _state.value.selectedTags.let { current ->
-            if (tag in current) current - tag else current + tag
-        }
+        val context = profileContext ?: return
+        val active = activeProfile ?: return
+        val updated = if (tag in active.selected) active.selected - tag else active.selected + tag
         _state.update { it.copy(selectedTags = updated) }
-        viewModelScope.launch { selectionRepository.setSelected(updated) }
+        viewModelScope.launch {
+            try {
+                profileRepository.saveEquipment(context, updated, active.maxWeightsKg)
+            } catch (failure: Exception) {
+                // The write is refused rather than applied to whichever profile is active now.
+                if (!failure.isStaleProfileContext()) {
+                    _state.update { it.copy(profileFailure = EquipmentProfileFailure.FAILED) }
+                }
+                resyncProfileSnapshot()
+            }
+        }
     }
 
     fun onNewEquipmentNameChanged(value: String) {
@@ -236,20 +293,21 @@ class EquipmentProfilerViewModel(
         val maxWeight = rawMax.takeIf { it.isNotEmpty() }?.toDouble()
         val name = editor.name.trim()
         if (!editor.isBuiltIn && name.isEmpty()) return
+        val context = profileContext ?: return
+        val profileId = context.profileId
         viewModelScope.launch {
             try {
                 // The custom tag id is stable, so a rename keeps the equipment selected.
                 if (editor.isBuiltIn) {
-                    equipmentRepository.setMaxWeight(tag, maxWeight)
+                    equipmentRepository.setMaxWeight(context, tag, maxWeight)
                 } else {
-                    equipmentRepository.rename(tag, name, maxWeight)
+                    equipmentRepository.rename(context, tag, name, maxWeight)
                 }
-                _state.update { it.copy(equipmentEditor = EquipmentEditorState()) }
+                closeEquipmentEditorWhileOn(profileId)
             } catch (failure: Exception) {
                 _state.update {
-                    it.copy(
-                        equipmentEditor = it.equipmentEditor.copy(error = failure.message ?: "")
-                    )
+                    val editor = it.equipmentEditor.copy(error = failure.message ?: "")
+                    it.copy(equipmentEditor = editor)
                 }
             }
         }
@@ -257,21 +315,467 @@ class EquipmentProfilerViewModel(
 
     fun onDeleteEquipment() {
         val tag = _state.value.equipmentEditor.tag ?: return
+        val context = profileContext ?: return
+        val profileId = context.profileId
         viewModelScope.launch {
-            equipmentRepository.remove(tag)
-            val updatedSelection = _state.value.selectedTags - tag
-            selectionRepository.setSelected(updatedSelection)
-            _state.update {
-                it.copy(
-                    selectedTags = updatedSelection,
-                    equipmentEditor = EquipmentEditorState()
+            try {
+                equipmentRepository.remove(context, tag)
+                closeEquipmentEditorWhileOn(profileId)
+            } catch (failure: Exception) {
+                _state.update {
+                    val editor = it.equipmentEditor.copy(error = failure.message ?: "")
+                    it.copy(equipmentEditor = editor)
+                }
+            }
+        }
+    }
+
+    /** A late result only closes the editor the write still belongs to, never a newer one. */
+    private fun closeEquipmentEditorWhileOn(profileId: Long) {
+        if (profileContext?.profileId != profileId) return
+        _state.update { it.copy(equipmentEditor = EquipmentEditorState()) }
+    }
+
+    fun onDismissEquipmentEditor() {
+        _state.update { it.copy(equipmentEditor = EquipmentEditorState()) }
+    }
+
+    // --- Equipment profiles: create, copy, rename, switch and confirmed delete ---
+
+    /** Opens the create dialog for a profile that starts empty. */
+    fun onNewProfile() {
+        if (profileWritePending) return
+        openProfileEditor(EquipmentProfileEditorMode.CREATE, targetProfileId = null, name = "")
+    }
+
+    /** Opens the create dialog seeded from the active profile's whole configuration. */
+    fun onCopyActiveProfile() {
+        if (profileWritePending) return
+        val active = activeProfile ?: return
+        openProfileEditor(EquipmentProfileEditorMode.COPY, active.id, name = "")
+    }
+
+    /** Renames the active profile only; another profile's row cannot be renamed here. */
+    fun onRenameActiveProfile() {
+        if (profileWritePending) return
+        val active = activeProfile ?: return
+        openProfileEditor(EquipmentProfileEditorMode.RENAME, active.id, name = active.name)
+    }
+
+    private fun openProfileEditor(
+        mode: EquipmentProfileEditorMode,
+        targetProfileId: Long?,
+        name: String
+    ) {
+        profileEditorToken++
+        _state.update {
+            it.copy(
+                profileEditor = EquipmentProfileEditorState(
+                    mode = mode,
+                    token = profileEditorToken,
+                    targetProfileId = targetProfileId,
+                    name = name
+                ),
+                profileFailure = null
+            )
+        }
+    }
+
+    fun onProfileNameChanged(value: String) {
+        _state.update {
+            it.copy(profileEditor = it.profileEditor.copy(name = value, failure = null))
+        }
+    }
+
+    /** Cancelling never writes. */
+    fun onCancelProfileEditor() {
+        if (_state.value.profileEditor.isSaving) return
+        _state.update { it.copy(profileEditor = EquipmentProfileEditorState()) }
+    }
+
+    fun onSaveProfile() {
+        val editor = _state.value.profileEditor
+        val mode = editor.mode ?: return
+        if (editor.isSaving || profileWritePending) return
+        val name = editor.name.trim()
+        when {
+            name.isEmpty() -> setProfileEditorFailure(editor, EquipmentProfileFailure.NAME_REQUIRED)
+            name.length > PROFILE_NAME_MAX_LENGTH ->
+                setProfileEditorFailure(editor, EquipmentProfileFailure.NAME_TOO_LONG)
+
+            mode == EquipmentProfileEditorMode.RENAME -> renameActiveProfile(editor, name)
+            else -> saveNewProfile(editor, name)
+        }
+    }
+
+    private fun setProfileEditorFailure(
+        editor: EquipmentProfileEditorState,
+        failure: EquipmentProfileFailure
+    ) {
+        _state.update { it.copy(profileEditor = editor.copy(failure = failure)) }
+    }
+
+    private fun saveNewProfile(editor: EquipmentProfileEditorState, name: String) {
+        val copyFrom = editor.targetProfileId
+            .takeIf { editor.mode == EquipmentProfileEditorMode.COPY }
+        val token = editor.token
+        profileWritePending = true
+        _state.update { it.copy(profileEditor = editor.copy(isSaving = true, failure = null)) }
+        viewModelScope.launch {
+            try {
+                profileRepository.create(name, copyFrom)
+                closeProfileEditor(token)
+            } catch (failure: Exception) {
+                finishProfileEditorWith(failure)
+            } finally {
+                profileWritePending = false
+            }
+        }
+    }
+
+    private fun renameActiveProfile(editor: EquipmentProfileEditorState, name: String) {
+        val context = profileContext ?: return
+        // The draft names the profile it was opened on; a switched profile refuses this save.
+        if (editor.targetProfileId != context.profileId) {
+            setProfileEditorFailure(editor, EquipmentProfileFailure.STALE)
+            return
+        }
+        val token = editor.token
+        profileWritePending = true
+        _state.update { it.copy(profileEditor = editor.copy(isSaving = true, failure = null)) }
+        viewModelScope.launch {
+            try {
+                profileRepository.rename(context, name)
+                closeProfileEditor(token)
+            } catch (failure: Exception) {
+                finishProfileEditorWith(failure)
+            } finally {
+                profileWritePending = false
+            }
+        }
+    }
+
+    /** A late result closes only the draft it belongs to. */
+    private fun closeProfileEditor(token: Long) {
+        if (_state.value.profileEditor.token != token) return
+        _state.update { it.copy(profileEditor = EquipmentProfileEditorState()) }
+    }
+
+    private fun finishProfileEditorWith(failure: Exception) {
+        val mapped = if (failure.isStaleProfileContext()) {
+            EquipmentProfileFailure.STALE
+        } else {
+            EquipmentProfileFailure.FAILED
+        }
+        _state.update {
+            it.copy(profileEditor = it.profileEditor.copy(isSaving = false, failure = mapped))
+        }
+    }
+
+    /** Switching never rewrites plans or history; it only changes which profile edits target. */
+    fun onActivateProfile(profileId: Long) {
+        val context = profileContext ?: return
+        if (profileWritePending || profileId == context.profileId) return
+        profileWritePending = true
+        viewModelScope.launch {
+            try {
+                profileRepository.activate(context, profileId)
+                _state.update { it.copy(profileFailure = null) }
+            } catch (failure: Exception) {
+                _state.update {
+                    it.copy(
+                        profileFailure = if (failure.isStaleProfileContext()) {
+                            EquipmentProfileFailure.STALE
+                        } else {
+                            EquipmentProfileFailure.FAILED
+                        }
+                    )
+                }
+                resyncProfileSnapshot()
+            } finally {
+                profileWritePending = false
+            }
+        }
+    }
+
+    /** Opens the visible confirmation; the last remaining profile is refused before that. */
+    fun onRequestDeleteProfile(profileId: Long) {
+        if (profileWritePending) return
+        val summary = _state.value.profile ?: return
+        if (!summary.canDelete) {
+            _state.update { it.copy(profileFailure = EquipmentProfileFailure.LAST_PROFILE) }
+            return
+        }
+        val row = summary.rows.firstOrNull { it.id == profileId } ?: return
+        _state.update {
+            it.copy(
+                profileDelete = EquipmentProfileDeleteState(
+                    profileId = profileId,
+                    name = row.name,
+                    requiresReplacement = row.isActive,
+                    candidates = summary.replacementCandidates(profileId)
+                ),
+                profileFailure = null
+            )
+        }
+    }
+
+    /** Deleting the active profile needs an explicitly chosen replacement, never a default. */
+    fun onSelectReplacementProfile(profileId: Long) {
+        _state.update { current ->
+            val draft = current.profileDelete ?: return@update current
+            if (draft.candidates.none { it.id == profileId }) return@update current
+            current.copy(profileDelete = draft.copy(replacementId = profileId, failure = null))
+        }
+    }
+
+    fun onConfirmDeleteProfile() {
+        val draft = _state.value.profileDelete ?: return
+        if (!draft.canConfirm || profileWritePending) return
+        val context = profileContext ?: return
+        profileWritePending = true
+        _state.update { it.copy(profileDelete = draft.copy(isDeleting = true, failure = null)) }
+        viewModelScope.launch {
+            try {
+                profileRepository.delete(context, draft.profileId, draft.replacementId)
+                closeProfileDelete(draft.profileId)
+            } catch (failure: Exception) {
+                _state.update {
+                    it.copy(
+                        profileDelete = it.profileDelete?.copy(
+                            isDeleting = false,
+                            failure = if (failure.isStaleProfileContext()) {
+                                EquipmentProfileFailure.STALE
+                            } else {
+                                EquipmentProfileFailure.FAILED
+                            }
+                        )
+                    )
+                }
+                resyncProfileSnapshot()
+            } finally {
+                profileWritePending = false
+            }
+        }
+    }
+
+    private fun closeProfileDelete(profileId: Long) {
+        if (_state.value.profileDelete?.profileId != profileId) return
+        _state.update { it.copy(profileDelete = null) }
+    }
+
+    fun onCancelProfileDelete() {
+        if (_state.value.profileDelete?.isDeleting == true) return
+        _state.update { it.copy(profileDelete = null) }
+    }
+
+    // --- Per-profile loading configuration ---
+
+    /** Opens a write-free draft over the active profile's stored configuration. */
+    fun onOpenLoadingEditor() {
+        if (_state.value.loadingEditor.isSaving) return
+        val inventory = activeProfile?.loadingInventory ?: return
+        loadingDraftToken++
+        _state.update {
+            it.copy(
+                loadingEditor = LoadingInventoryEditorState
+                    .forInventory(inventory, loadingDraftToken)
+            )
+        }
+    }
+
+    fun onLoadingUnitSelected(option: LoadingUnitOption) {
+        _state.update { it.copy(loadingEditor = it.loadingEditor.withUnit(option)) }
+    }
+
+    fun onLoadingPlateChanged(index: Int, draft: OwnedPlateDraft) {
+        _state.update { it.copy(loadingEditor = it.loadingEditor.withPlateChanged(index, draft)) }
+    }
+
+    fun onLoadingPlateAdded() {
+        _state.update { it.copy(loadingEditor = it.loadingEditor.withPlateAdded()) }
+    }
+
+    fun onLoadingPlateRemoved(index: Int) {
+        _state.update { it.copy(loadingEditor = it.loadingEditor.withPlateRemoved(index)) }
+    }
+
+    fun onLoadingBarChanged(index: Int, draft: LoadingBarDraft) {
+        _state.update { it.copy(loadingEditor = it.loadingEditor.withBarChanged(index, draft)) }
+    }
+
+    fun onLoadingBarAdded() {
+        _state.update { it.copy(loadingEditor = it.loadingEditor.withBarAdded()) }
+    }
+
+    fun onLoadingBarRemoved(index: Int) {
+        _state.update { it.copy(loadingEditor = it.loadingEditor.withBarRemoved(index)) }
+    }
+
+    fun onLoadingDumbbellChanged(index: Int, draft: LoadingDumbbellDraft) {
+        _state.update {
+            it.copy(loadingEditor = it.loadingEditor.withDumbbellChanged(index, draft))
+        }
+    }
+
+    fun onLoadingDumbbellAdded() {
+        _state.update { it.copy(loadingEditor = it.loadingEditor.withDumbbellAdded()) }
+    }
+
+    fun onLoadingDumbbellRemoved(index: Int) {
+        _state.update { it.copy(loadingEditor = it.loadingEditor.withDumbbellRemoved(index)) }
+    }
+
+    /** Cancelling discards the draft and writes nothing. */
+    fun onCancelLoadingEditor() {
+        if (_state.value.loadingEditor.isSaving) return
+        _state.update { it.copy(loadingEditor = LoadingInventoryEditorState()) }
+    }
+
+    fun onSaveLoadingInventory() {
+        val draft = _state.value.loadingEditor
+        if (!draft.canSave) return
+        val context = profileContext ?: return
+        val profileId = context.profileId
+        val token = draft.token
+        when (val built = draft.buildInventory()) {
+            is LoadingDraftResult.Invalid -> _state.update {
+                it.copy(loadingEditor = it.loadingEditor.copy(failure = built.failure))
+            }
+
+            is LoadingDraftResult.Valid -> {
+                _state.update {
+                    it.copy(loadingEditor = it.loadingEditor.copy(isSaving = true, failure = null))
+                }
+                viewModelScope.launch {
+                    try {
+                        profileRepository.saveLoadingInventory(context, built.inventory)
+                        if (_state.value.loadingEditor.token == token &&
+                            profileContext?.profileId == profileId
+                        ) {
+                            _state.update { it.copy(loadingEditor = LoadingInventoryEditorState()) }
+                        }
+                    } catch (failure: Exception) {
+                        val stale = failure.isStaleProfileContext() ||
+                            profileContext?.profileId != profileId
+                        _state.update { current ->
+                            current.copy(
+                                loadingEditor = current.loadingEditor.copy(
+                                    isSaving = false,
+                                    staleContext = stale,
+                                    failure = if (stale) {
+                                        LoadingEditorFailure.STALE
+                                    } else {
+                                        LoadingEditorFailure.SAVE_FAILED
+                                    }
+                                )
+                            )
+                        }
+                        if (failure.isStaleProfileContext()) resyncProfileSnapshot()
+                    }
+                }
+            }
+        }
+    }
+
+    // --- Manual loading calculators ---
+
+    fun onOpenLoadingCalculator() {
+        calculatorRequestRevision++
+        _state.update { it.copy(calculator = LoadingCalculatorState(open = true)) }
+    }
+
+    fun onCalculatorKindChanged(kind: LoadingCalculatorKind) {
+        calculatorRequestRevision++
+        _state.update {
+            it.copy(
+                calculator = it.calculator.copy(
+                    kind = kind,
+                    selectedId = null,
+                    targetInput = "",
+                    result = null,
+                    failure = null,
+                    isRunning = false
+                )
+            )
+        }
+    }
+
+    fun onCalculatorEquipmentSelected(equipmentId: String) {
+        calculatorRequestRevision++
+        _state.update {
+            it.copy(
+                calculator = it.calculator.copy(
+                    selectedId = equipmentId,
+                    result = null,
+                    failure = null
+                )
+            )
+        }
+    }
+
+    fun onCalculatorTargetChanged(value: String) {
+        calculatorRequestRevision++
+        _state.update {
+            it.copy(
+                calculator = it.calculator.copy(
+                    targetInput = value.filter { char -> char.isDigit() || char == '.' },
+                    result = null,
+                    failure = null
+                )
+            )
+        }
+    }
+
+    /**
+     * Resolves the entered native target against the chosen saved configuration.
+     *
+     * The solver runs off the UI thread, and its result is dropped unless it still belongs to the
+     * current selection, target and profile configuration.
+     */
+    fun onRunLoadingCalculator() {
+        val calculator = _state.value.calculator
+        val equipmentId = calculator.selectedId ?: return
+        if (calculator.isRunning) return
+        val inventory = activeProfile?.loadingInventory ?: return
+        val targetTicks = runCatching { parseNativeTicks(calculator.targetInput.trim()) }
+            .getOrNull()
+        val failure = when {
+            targetTicks == null -> LoadingCalculatorFailure.INVALID_TARGET
+            targetTicks !in 0..MAX_LOADING_TICKS -> LoadingCalculatorFailure.OUT_OF_RANGE
+            else -> null
+        }
+        if (failure != null) {
+            _state.update { it.copy(calculator = it.calculator.copy(failure = failure)) }
+            return
+        }
+        val revision = ++calculatorRequestRevision
+        val kind = calculator.kind
+        _state.update {
+            it.copy(
+                calculator = it.calculator.copy(isRunning = true, failure = null, result = null)
+            )
+        }
+        viewModelScope.launch {
+            val view = withContext(calculationDispatcher) {
+                runLoadingCalculation(inventory, kind, equipmentId, requireNotNull(targetTicks))
+            }
+            if (revision != calculatorRequestRevision) return@launch
+            _state.update { current ->
+                current.copy(
+                    calculator = current.calculator.copy(
+                        isRunning = false,
+                        result = view,
+                        failure = if (view == null) LoadingCalculatorFailure.FAILED else null
+                    )
                 )
             }
         }
     }
 
-    fun onDismissEquipmentEditor() {
-        _state.update { it.copy(equipmentEditor = EquipmentEditorState()) }
+    fun onDismissLoadingCalculator() {
+        calculatorRequestRevision++
+        _state.update { it.copy(calculator = LoadingCalculatorState()) }
     }
 
     fun onSearchChanged(value: String) {
@@ -694,3 +1198,6 @@ private fun Double.isWritableInvolvement(): Boolean {
     if (!isFinite()) return false
     return this >= InvolvementEditorState.MIN_WEIGHT && this <= InvolvementEditorState.MAX_WEIGHT
 }
+
+/** Matches the profile-name rule enforced by the repository, so a refusal never reaches the UI. */
+private const val PROFILE_NAME_MAX_LENGTH = 80

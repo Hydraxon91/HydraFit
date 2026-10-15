@@ -109,8 +109,11 @@ state. It copies global selection and every ceiling into one active profile; fre
 empty. `SqlDelightEquipmentProfileRepository` returns coherent snapshots off-main and validates a
 global context revision inside each mutation transaction. All mutators bump that revision, including
 profile switching, so an editor cannot survive an away-and-back switch. Calculator configuration is
-validated by domain `LoadingInventoryJson` before persistence. Existing consumers are not yet wired
-to this foundation; the legacy inventory tables remain intact.
+validated by domain `LoadingInventoryJson` before persistence. Equipment adapters read the active
+profile; planner sources and Logger warm-up guidance consume one coherent snapshot. Setup validates
+its captured profile/revision in the boundary transaction. Profile-scoped queries serve writes;
+global custom-equipment deletion uses a SQL existence guard and rejects other-profile references.
+Legacy inventory tables remain intact but are not the profile read authority.
 `BodyWeight.sq` (0.8.3) owns `bodyWeightMeasurement` (one row per local civil day, the primary
 key making a duplicate date impossible) and single-row `bodyWeightGoal`; `48.sqm` creates both,
 so `SqlDelightBodyWeightRepository` keeps "no goal" distinct from any stored value by deleting

@@ -531,6 +531,43 @@ twice. Units are display-only (`WeightUnit`). Load kinds stay separate populatio
 `ESTIMATED_ONE_REP_MAX` record is backed by external load only. Nothing is written, so no draft,
 session or log state changes.
 
+The 0.9.0 equipment-profile section is split across four new files plus the extended screen/state/
+ViewModel. `EquipmentProfilePresentation.kt` owns the presentation projections: `EquipmentProfileRow`,
+`EquipmentProfileSummary` (with `canDelete`/`replacementCandidates`), `EquipmentProfileState.toSummary()`,
+`EquipmentProfileEditorMode` (CREATE/COPY/RENAME), `EquipmentProfileEditorState` (with a `token` and
+`canSave`), `EquipmentProfileDeleteState`, the typed `EquipmentProfileFailure`, and
+`Throwable.isStaleProfileContext()`. `LoadingInventoryEditor.kt` owns the write-free draft model
+(`LoadingUnitOption`, `OwnedPlateDraft`, `LoadingBarDraft`, `LoadingDumbbellDraft`, `DumbbellDraftMode`,
+`LoadingEditorFailure`, `LoadingDraftResult`, `LoadingInventoryEditorState`). `EquipmentLoadingCalculator.kt`
+owns the manual-calculator view state (`LoadingCalculatorKind`, `LoadingCalculatorState`,
+`LoadingCalculatorResultView`, `runLoadingCalculation`, `loadingCalculatorOptions`, `isCalculableTarget`)
+and `EquipmentProfilesUi.kt` owns the profile list, the loading dialog and the calculator dialog.
+Reuse: the ViewModel observes `EquipmentProfileRepository.observe()` rather than one initial read, so
+`selectedTags`, ceilings and `loadingInventory` always project from the same active-profile revision
+(`summary?.selected ?: emptySet()`), and it replaces its former `EquipmentSelectionRepository` dependency.
+`onTagToggled` writes `saveEquipment(context, selected, active.maxWeightsKg)` with the captured context.
+`requireLoadingInventory` is the storage contract: `1..MAX_LOADING_TICKS` per plate, at most 16
+denominations, a count in `0..100`, unique denominations, plates+bars+collars under
+`MAX_LOADING_TICKS`, and one representation per dumbbell. `buildInventory()` returns a typed
+`LoadingEditorFailure` instead of clamping or truncating, and `forInventory` copies amounts verbatim in
+the stored unit, locking the unit when the inventory is non-empty (no KG/LB reinterpretation). Newly
+added bar rows start with an explicit collar of `0`; a blank collar is still refused rather than
+silently treated as zero. Manual calculations reuse the C4 `calculatePlateLoading`/
+`calculateDumbbellLoading` solvers: targets are native ticks in the inventory's own unit, plate results
+report per-side counts and the full total (bar plus collars once), dumbbell results are one dumbbell
+(never doubled), and an unreachable side surfaces `missingLower`/`missingUpper`. The solver runs on the
+ViewModel's injected `calculationDispatcher` (default `Dispatchers.Default`), never inline on the UI
+thread. Writes are serialized by `profileWritePending`; every profile-owned write captures an
+`EquipmentProfileContext`, a `StaleEquipmentProfileException` (or an active-profile change observed after
+the call) maps to the typed `STALE` failure and re-reads via `current()`, a late result closes only the
+draft whose `token` and profile still match, and cancel/dismiss are refused while a save is pending.
+Repeated-row identities are exposed through `EquipmentTestTags`. Fixtures for the feature tests are
+`EquipmentProfileTestRepository` (an in-memory profile repository that bumps the context revision on
+every write, refuses a stale context, can park a write on a `CompletableDeferred` gate and injects
+per-operation failures), driving `EquipmentProfilesViewModelTest` and `LoadingInventoryEditorTest`;
+`EquipmentProfilerViewModelTest` now uses that same fake plus a small assertion in the shared
+`KoinModulesVerificationTest.theEquipmentProfilerViewModelResolvesAtRuntime` graph check.
+
 Test entry points:
 
 - Domain math and feature state: `src/commonTest/kotlin/.../<Thing>Test.kt`.
@@ -542,3 +579,57 @@ Test entry points:
 - Use-case shape: `class ActionUseCase(private val repository: Port)` with
   `suspend operator fun invoke(...)`. Ports use `Repository` suffixes, not `I`
   prefixes; capability ports include `ExerciseCatalog` and `TimeProvider`.
+
+## 0.9.0-C6 — Logger read-only loading helper
+
+The Logger's loading calculator is a read-only helper, separate from the Equipment feature's
+write-capable calculator. Source files: `LoggerLoadingCalculatorState.kt` (pure parsing, unit
+conversion and result shaping), `LoggerLoadingCalculatorViewModel.kt` (lifecycle and orchestration)
+and `LoggerLoadingCalculatorDialog.kt` (the presentation), all under
+`feature/logger/src/commonMain/kotlin/com/hydrafit/app/feature/logger/`. `loggerModule` binds
+`viewModel { LoggerLoadingCalculatorViewModel(get()) }`; the helper observes only
+`EquipmentProfileRepository` and injects no write repository, so it can never edit the profile,
+the Logger's draft/session or the prescription. `WorkoutLoggerRoute` collects its state, passes the
+Logger's own selected exercise/session/occurrence and draft/guided source identities through
+`LoggerLoadingSourceContext`, and feeds the manual, draft and guided actions plus the dialog
+callbacks. The stateless `WorkoutLoggerScreen` adds one always-available manual action in the manual
+log form and a contextual action on each draft row and each guided exercise row.
+
+One coherent snapshot. The ViewModel observes `EquipmentProfileRepository.observe()` and keeps a
+single `EquipmentProfileState`; the projection is refreshed from it, never from a second read. A
+changed `context` — switching profile away, switching back, or an inventory edit, which all bump the
+revision — closes the open helper instead of reinterpreting the captured target. `openManual` and
+`openTarget` capture the source identity at open time; `onSourceContextChanged` closes the helper
+when the selected exercise/session (manual) or the active occurrence plus the draft/guided source
+identity set (prescription) moves. A tap before the first snapshot arrives opens nothing.
+`dismiss` clears the draft and cancels any in-flight solve.
+
+Eligibility and seeding. Only a numeric `EXTERNAL` or `ADDED` load may seed a contextual target
+(`loggerLoadingTargetEligible`); bodyweight-only, unrecorded and legacy loads are never treated as an
+assumed total. A manual entry starts blank. `loggerLoadingTargetFor` converts prescribed kilograms
+into the inventory's own unit (never the display preference), rounds the thousandth tick count, and
+carries a `LoggerLoadingApproximation` disclosure whenever the conversion is not exact at 0.001
+native units; the prescribed kilograms are carried unchanged.
+
+Resolution. `onRun` parses the typed native amount (`parseLoggerLoadingTarget`): a blank, malformed
+or over-precise entry is `INVALID_TARGET`, and an amount outside `0..MAX_LOADING_TICKS` is
+`OUT_OF_RANGE`; neither is clamped. The solver runs on the injected `calculationDispatcher`
+(default `Dispatchers.Default`) via `runLoggerLoadingCalculation`, which reuses the C4
+`calculatePlateLoading`/`calculateDumbbellLoading`. Plate results report per-side counts and the full
+total (bar plus collars once); dumbbell results are one dumbbell, never doubled. An unreachable side
+surfaces `missingLower`/`missingUpper`. Every capture — profile snapshot, source identity and target —
+is revisioned by `requestRevision`, so a late result after dismiss, a change or a reopen is dropped;
+a running calculation blocks a second submit.
+
+Test tags (`LoggerLoadingCalculatorTestTags`, technical metadata exposed as Android resource ids):
+`logger_loading_calculator_manual` (the manual action), `logger_loading_calculator_dialog`,
+`..._kind_plate`/`..._kind_dumbbell`, `..._equipment_<id>`, `..._draft_<sourceId>` (the draft's
+frozen slot identity), `..._guided_<entryId>`, `..._target`, `..._run` and `..._dismiss`.
+
+Tests: `LoggerLoadingCalculatorStateTest` covers parsing, conversion, eligibility and result shaping;
+`LoggerLoadingCalculatorViewModelTest` drives the lifecycle over `LoggerLoadingProfileTestRepository`
+(an in-memory profile source that records every mutating call, so a test proves the helper wrote
+nothing) and asserts the profile-switch/edit closures and the dropped late result; the shared
+`KoinModulesVerificationTest.theWorkoutLoggerViewModelResolvesAtRuntime` resolves the helper over
+`loggerModule` with the existing `FakeEquipmentProfiles` binding, so a missing constructor dependency
+fails there instead of on device.

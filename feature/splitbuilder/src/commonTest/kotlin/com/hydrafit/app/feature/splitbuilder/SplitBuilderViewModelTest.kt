@@ -375,6 +375,85 @@ class SplitBuilderViewModelTest {
     }
 
     @Test
+    fun profileSwitchPreservesTheDisplayedPlanUntilExplicitRegeneration() = runTest(dispatcher) {
+        val source = MutableStateFlow(
+            WorkoutPlanSources(
+                setOf(EquipmentTag.DUMBBELL),
+                PlannerEngineId.DETERMINISTIC,
+                4,
+                emptyList(),
+                equipmentContext = "1:0"
+            )
+        )
+        var calls = 0
+        val engine = object : WorkoutPlannerEngine {
+            override val id = PlannerEngineId.DETERMINISTIC
+            override suspend fun generatePlan(request: PlanRequest): WeeklyPlan {
+                calls++
+                return acceptedPlan().toWeeklyPlan()
+            }
+        }
+        val model = viewModel(
+            source.value.availableEquipment,
+            engine = engine,
+            sourcesRepository = object : WorkoutPlanSourcesRepository {
+                override fun observe() = source
+            }
+        )
+        advanceUntilIdle()
+        val shown = model.state.value.plan
+        source.value = source.value.copy(
+            availableEquipment = setOf(EquipmentTag.BARBELL),
+            equipmentContext = "2:1"
+        )
+        advanceUntilIdle()
+        assertEquals(shown, model.state.value.plan)
+        assertEquals(1, calls)
+        assertTrue(model.state.value.canRegenerate)
+        model.refresh()
+        advanceUntilIdle()
+        assertEquals(2, calls)
+    }
+
+    @Test
+    fun profileSwitchCancelsAndRejectsLateGeneration() = runTest(dispatcher) {
+        val source = MutableStateFlow(
+            WorkoutPlanSources(
+                setOf(EquipmentTag.DUMBBELL),
+                PlannerEngineId.DETERMINISTIC,
+                4,
+                emptyList(),
+                equipmentContext = "1:0"
+            )
+        )
+        val gate = CompletableDeferred<Unit>()
+        val engine = object : WorkoutPlannerEngine {
+            override val id = PlannerEngineId.DETERMINISTIC
+            override suspend fun generatePlan(request: PlanRequest): WeeklyPlan =
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                    gate.await()
+                    acceptedPlan().toWeeklyPlan()
+                }
+        }
+        val model = viewModel(
+            source.value.availableEquipment,
+            engine = engine,
+            sourcesRepository = object : WorkoutPlanSourcesRepository {
+                override fun observe() = source
+            }
+        )
+        runCurrent()
+        assertTrue(model.state.value.isLoading)
+        source.value = source.value.copy(equipmentContext = "2:1")
+        runCurrent()
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertNull(model.state.value.plan)
+        assertFalse(model.state.value.isLoading)
+        assertTrue(model.state.value.canRegenerate)
+    }
+
+    @Test
     fun regeneratesWhenLoggedSetsChange() = runTest(dispatcher) {
         val workoutLog = FakeWorkoutLogRepository()
         val viewModel = viewModel(

@@ -9,6 +9,7 @@ import com.hydrafit.app.core.domain.engine.LoadBaselineSource
 import com.hydrafit.app.core.domain.engine.PersonalRecord
 import com.hydrafit.app.core.domain.engine.ProgressWeightsUseCase
 import com.hydrafit.app.core.domain.engine.TrainingGoal
+import com.hydrafit.app.core.domain.equipment.EquipmentProfileContext
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.setup.SaveSetupStepUseCase
 import com.hydrafit.app.core.domain.setup.SetupStep
@@ -58,7 +59,8 @@ class SetupWritesTest {
             SetupStepInput.Units(WeightUnit.LB),
             SetupStepInput.Equipment(
                 setOf(EquipmentTag("DUMBBELL")),
-                mapOf(EquipmentTag("DUMBBELL") to 30.0)
+                mapOf(EquipmentTag("DUMBBELL") to 30.0),
+                EquipmentProfileContext(1L, 0L)
             ),
             SetupStepInput.Goal(TrainingGoal.STRENGTH),
             SetupStepInput.Weekdays(setOf(DayOfWeek.MONDAY, DayOfWeek.FRIDAY)),
@@ -85,11 +87,10 @@ class SetupWritesTest {
             .first { it.exerciseId == "back-squat" }
         assertEquals(80.0, retainedRecord.weightKg)
         val sources = SqlDelightWorkoutPlanSourcesRepository(
-            SqlDelightEquipmentSelectionRepository(database),
+            SqlDelightEquipmentProfileRepository(database),
             SqlDelightEnginePreferenceRepository(database),
             SqlDelightWorkoutLogRepository(database),
             SqlDelightTrainingGoalRepository(database),
-            SqlDelightEquipmentRepository(database),
             SqlDelightPersonalRecordRepository(database, TimeProvider { 100L }),
             SqlDelightExercisePreferenceRepository(database),
             SqlDelightExerciseExclusionRepository(database)
@@ -137,6 +138,26 @@ class SetupWritesTest {
     }
 
     @Test
+    fun staleEquipmentStepAfterAwayAndBackSwitchCannotWriteEitherProfileOrAdvanceSetup() = runTest {
+        val profiles = SqlDelightEquipmentProfileRepository(database)
+        val other = profiles.create("Travel")
+        val captured = profiles.current()
+        val input = SetupStepInput.Equipment(
+            setOf(EquipmentTag.BARBELL),
+            profileContext = captured.context
+        )
+        profiles.activate(captured.context, other)
+        profiles.activate(profiles.current().context, captured.active.id)
+        val before = profiles.current()
+        val initial = reader.current()
+        assertFailsWith<com.hydrafit.app.core.userdata.equipment.StaleEquipmentProfileException> {
+            SaveSetupStepUseCase(writer, StandardTestDispatcher(testScheduler))(initial, input)
+        }
+        assertEquals(before, profiles.current())
+        assertEquals(initial, reader.current())
+    }
+
+    @Test
     fun failedBoundaryUpdateRollsBackEachStepPayloadAndSkipHasNoPayload() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val save = SaveSetupStepUseCase(writer, dispatcher)
@@ -153,7 +174,8 @@ class SetupWritesTest {
             SetupStepInput.Units(WeightUnit.LB),
             SetupStepInput.Equipment(
                 setOf(EquipmentTag("DUMBBELL")),
-                mapOf(EquipmentTag("DUMBBELL") to 30.0)
+                mapOf(EquipmentTag("DUMBBELL") to 30.0),
+                EquipmentProfileContext(1L, 0L)
             ),
             SetupStepInput.Goal(TrainingGoal.STRENGTH),
             SetupStepInput.Weekdays(setOf(DayOfWeek.MONDAY, DayOfWeek.FRIDAY)),
@@ -194,7 +216,13 @@ class SetupWritesTest {
             assertEquals(initial, reader.current())
         }
         assertFailsWith<IllegalArgumentException> {
-            save(initial, SetupStepInput.Equipment(setOf(EquipmentTag("missing"))))
+            save(
+                initial,
+                SetupStepInput.Equipment(
+                    setOf(EquipmentTag("missing")),
+                    profileContext = EquipmentProfileContext(1L, 0L)
+                )
+            )
         }
         assertEquals(initial, reader.current())
     }

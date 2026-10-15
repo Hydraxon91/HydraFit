@@ -40,6 +40,7 @@ import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.ExercisePreference
+import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.isoLocalDateTime
@@ -214,6 +215,42 @@ fun EquipmentProfilerRoute(
         onSavePersonalRecord = viewModel::onSavePersonalRecord,
         onClearPersonalRecord = viewModel::onClearPersonalRecord,
         onDismissPersonalRecordEditor = viewModel::onDismissPersonalRecordEditor,
+        equipmentProfileActions = EquipmentProfileActions(
+            onNew = viewModel::onNewProfile,
+            onCopy = viewModel::onCopyActiveProfile,
+            onRename = viewModel::onRenameActiveProfile,
+            onActivate = viewModel::onActivateProfile,
+            onDelete = viewModel::onRequestDeleteProfile,
+            onOpenLoading = viewModel::onOpenLoadingEditor,
+            onOpenCalculator = viewModel::onOpenLoadingCalculator
+        ),
+        onProfileNameChanged = viewModel::onProfileNameChanged,
+        onSaveProfile = viewModel::onSaveProfile,
+        onCancelProfileEditor = viewModel::onCancelProfileEditor,
+        onSelectReplacementProfile = viewModel::onSelectReplacementProfile,
+        onConfirmDeleteProfile = viewModel::onConfirmDeleteProfile,
+        onCancelProfileDelete = viewModel::onCancelProfileDelete,
+        loadingActions = LoadingInventoryActions(
+            onUnitSelected = viewModel::onLoadingUnitSelected,
+            onPlateChanged = viewModel::onLoadingPlateChanged,
+            onPlateAdded = viewModel::onLoadingPlateAdded,
+            onPlateRemoved = viewModel::onLoadingPlateRemoved,
+            onBarChanged = viewModel::onLoadingBarChanged,
+            onBarAdded = viewModel::onLoadingBarAdded,
+            onBarRemoved = viewModel::onLoadingBarRemoved,
+            onDumbbellChanged = viewModel::onLoadingDumbbellChanged,
+            onDumbbellAdded = viewModel::onLoadingDumbbellAdded,
+            onDumbbellRemoved = viewModel::onLoadingDumbbellRemoved,
+            onSave = viewModel::onSaveLoadingInventory,
+            onCancel = viewModel::onCancelLoadingEditor
+        ),
+        calculatorActions = LoadingCalculatorActions(
+            onKindChanged = viewModel::onCalculatorKindChanged,
+            onEquipmentSelected = viewModel::onCalculatorEquipmentSelected,
+            onTargetChanged = viewModel::onCalculatorTargetChanged,
+            onCalculate = viewModel::onRunLoadingCalculator,
+            onDismiss = viewModel::onDismissLoadingCalculator
+        ),
         modifier = modifier
     )
 }
@@ -266,6 +303,15 @@ fun EquipmentProfilerScreen(
     onSavePersonalRecord: () -> Unit,
     onClearPersonalRecord: (String) -> Unit,
     onDismissPersonalRecordEditor: () -> Unit,
+    equipmentProfileActions: EquipmentProfileActions,
+    onProfileNameChanged: (String) -> Unit,
+    onSaveProfile: () -> Unit,
+    onCancelProfileEditor: () -> Unit,
+    onSelectReplacementProfile: (Long) -> Unit,
+    onConfirmDeleteProfile: () -> Unit,
+    onCancelProfileDelete: () -> Unit,
+    loadingActions: LoadingInventoryActions,
+    calculatorActions: LoadingCalculatorActions,
     modifier: Modifier = Modifier
 ) {
     state.instructionExercise?.let { exercise ->
@@ -285,6 +331,11 @@ fun EquipmentProfilerScreen(
         Text(
             text = stringResource(Res.string.equipment_profiler_title),
             style = MaterialTheme.typography.headlineSmall
+        )
+        EquipmentProfilesSection(
+            summary = state.profile,
+            failure = state.profileFailure,
+            actions = equipmentProfileActions
         )
         InventorySection(
             state = state,
@@ -452,6 +503,35 @@ fun EquipmentProfilerScreen(
             onRepsChanged = onPersonalRecordRepsChanged,
             onSave = onSavePersonalRecord,
             onDismiss = onDismissPersonalRecordEditor
+        )
+    }
+    if (state.profileEditor.isOpen) {
+        EquipmentProfileEditorDialog(
+            state = state.profileEditor,
+            onNameChanged = onProfileNameChanged,
+            onSave = onSaveProfile,
+            onCancel = onCancelProfileEditor
+        )
+    }
+    state.profileDelete?.let { draft ->
+        EquipmentProfileDeleteDialog(
+            state = draft,
+            onSelectReplacement = onSelectReplacementProfile,
+            onConfirm = onConfirmDeleteProfile,
+            onCancel = onCancelProfileDelete
+        )
+    }
+    if (state.loadingEditor.isOpen) {
+        LoadingInventoryDialog(state = state.loadingEditor, actions = loadingActions)
+    }
+    if (state.calculator.isOpen) {
+        LoadingCalculatorDialog(
+            state = state.calculator,
+            inventory = state.profile?.loadingInventory ?: LoadingInventory(),
+            unit = LoadingUnitOption.fromStorage(
+                state.profile?.loadingInventory?.unit ?: LoadingUnitOption.KG.storageId
+            ),
+            actions = calculatorActions
         )
     }
 }

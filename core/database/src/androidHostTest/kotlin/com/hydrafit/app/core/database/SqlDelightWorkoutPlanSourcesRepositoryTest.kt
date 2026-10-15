@@ -46,11 +46,10 @@ class SqlDelightWorkoutPlanSourcesRepositoryTest {
         val exercisePreferences = SqlDelightExercisePreferenceRepository(database)
         val exerciseExclusions = SqlDelightExerciseExclusionRepository(database)
         val sources = SqlDelightWorkoutPlanSourcesRepository(
-            equipment,
+            SqlDelightEquipmentProfileRepository(database),
             preference,
             workoutLog,
             goal,
-            equipmentCatalog,
             records,
             exercisePreferences,
             exerciseExclusions

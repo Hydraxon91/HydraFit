@@ -33,7 +33,18 @@ class SqlDelightEquipmentProfileRepository(private val database: HydraFitDatabas
             requireProfileName(name)
             queries.transactionWithResult {
                 val source = copyFrom?.let { id ->
-                    database.readEquipmentProfileState().profiles.single { it.id == id }
+                    val profile = queries.selectProfile(id).executeAsOne()
+                    val entries = queries.selectProfileEntries(id).executeAsList()
+                    EquipmentProfile(
+                        id,
+                        profile.name,
+                        entries.filter { it.selected != 0L }
+                            .map { EquipmentTag(it.equipmentId) }.toSet(),
+                        entries.mapNotNull { entry ->
+                            entry.maxWeightKg?.let { EquipmentTag(entry.equipmentId) to it }
+                        }.toMap(),
+                        LoadingInventoryJson.decode(profile.loadingInventory)
+                    )
                 }
                 queries.insertProfile(
                     name,
@@ -55,7 +66,7 @@ class SqlDelightEquipmentProfileRepository(private val database: HydraFitDatabas
 
     override suspend fun activate(context: EquipmentProfileContext, profileId: Long) =
         mutate(context) {
-            require(queries.selectProfiles().executeAsList().any { it.id == profileId })
+            require(queries.selectProfile(profileId).executeAsOneOrNull() != null)
             queries.activateProfile(profileId)
         }
 
@@ -64,11 +75,11 @@ class SqlDelightEquipmentProfileRepository(private val database: HydraFitDatabas
         profileId: Long,
         replacementId: Long?
     ) = mutate(context) {
-        val profiles = queries.selectProfiles().executeAsList()
-        require(profiles.size > 1 && profiles.any { it.id == profileId })
+        require(queries.countProfiles().executeAsOne() > 1)
+        require(queries.selectProfile(profileId).executeAsOneOrNull() != null)
         if (profileId == context.profileId) {
             require(replacementId != null && replacementId != profileId)
-            require(profiles.any { it.id == replacementId })
+            require(queries.selectProfile(replacementId).executeAsOneOrNull() != null)
             queries.activateProfile(replacementId)
         }
         queries.deleteEntries(profileId)

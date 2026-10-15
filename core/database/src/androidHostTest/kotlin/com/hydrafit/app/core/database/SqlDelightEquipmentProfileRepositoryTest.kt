@@ -109,4 +109,50 @@ class SqlDelightEquipmentProfileRepositoryTest {
         repository.delete(state.context, second)
         assertEquals(1, repository.current().profiles.size)
     }
+
+    @Test
+    fun adaptersFollowTheActiveProfileAndStaleCeilingEditsCannotCrossProfiles() = runTest {
+        val equipment = SqlDelightEquipmentRepository(database)
+        val selection = SqlDelightEquipmentSelectionRepository(database)
+        selection.setSelected(setOf(EquipmentTag.BARBELL))
+        equipment.setMaxWeight(EquipmentTag.BARBELL, 100.0)
+        val home = repository.current()
+        val travel = repository.create("Travel")
+        repository.activate(repository.current().context, travel)
+        selection.setSelected(setOf(EquipmentTag.DUMBBELL))
+        equipment.setMaxWeight(EquipmentTag.DUMBBELL, 25.0)
+        assertEquals(setOf(EquipmentTag.DUMBBELL), selection.selectedFlow().first())
+        assertEquals(null, equipment.all().single { it.id == EquipmentTag.BARBELL }.maxWeightKg)
+        assertFailsWith<StaleEquipmentProfileException> {
+            equipment.setMaxWeight(home.context, EquipmentTag.DUMBBELL, 999.0)
+        }
+        repository.activate(repository.current().context, home.active.id)
+        assertEquals(setOf(EquipmentTag.BARBELL), selection.selected())
+        assertEquals(100.0, equipment.all().single { it.id == EquipmentTag.BARBELL }.maxWeightKg)
+        assertEquals(null, equipment.all().single { it.id == EquipmentTag.DUMBBELL }.maxWeightKg)
+    }
+
+    @Test
+    fun deletingCustomEquipmentGuardsOtherProfilesAndProtectedReferences() = runTest {
+        val equipment = SqlDelightEquipmentRepository(database)
+        val custom = equipment.add("Custom rack")
+        repository.saveEquipment(repository.current().context, setOf(custom.id), emptyMap())
+        val other = repository.create("Copy", repository.current().active.id)
+        assertFailsWith<IllegalArgumentException> { equipment.remove(custom.id) }
+        repository.delete(repository.current().context, other)
+        database.exerciseQueries.insertCustom(
+            "custom-exercise",
+            "Custom",
+            custom.id.id,
+            "SQUAT",
+            0L,
+            "EXTERNAL",
+            null
+        )
+        assertFailsWith<IllegalArgumentException> { equipment.remove(custom.id) }
+        database.exerciseQueries.deleteById("custom-exercise")
+        equipment.remove(custom.id)
+        assertTrue(custom.id !in repository.current().active.selected)
+        assertEquals(null, database.equipmentQueries.selectById(custom.id.id).executeAsOneOrNull())
+    }
 }

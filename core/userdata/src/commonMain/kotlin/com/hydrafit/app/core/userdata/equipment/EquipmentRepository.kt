@@ -18,14 +18,30 @@ interface EquipmentRepository {
 
     suspend fun remove(id: EquipmentTag)
 
+    suspend fun remove(context: EquipmentProfileContext, id: EquipmentTag) = remove(id)
+
     /**
      * Renames custom equipment and sets its ceiling atomically, keeping [id] stable so the equipment
      * stays selected and any exercise references remain valid.
      */
     suspend fun rename(id: EquipmentTag, name: String, maxWeightKg: Double?): Equipment
 
+    /** Profile-aware editor write. Implementations without profiles retain their existing behavior. */
+    suspend fun rename(
+        context: EquipmentProfileContext,
+        id: EquipmentTag,
+        name: String,
+        maxWeightKg: Double?
+    ): Equipment = rename(id, name, maxWeightKg)
+
     /** Sets the heaviest weight this equipment can provide, or null for unlimited (plate-loaded). */
     suspend fun setMaxWeight(id: EquipmentTag, maxWeightKg: Double?)
+
+    suspend fun setMaxWeight(
+        context: EquipmentProfileContext,
+        id: EquipmentTag,
+        maxWeightKg: Double?
+    ) = setMaxWeight(id, maxWeightKg)
 }
 
 /** CRUD for user-created exercises. Built-in exercises are never created, edited, or deleted here. */

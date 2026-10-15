@@ -49,6 +49,8 @@ import hydrafit.feature.onboarding.generated.resources.onboarding_day_thursday
 import hydrafit.feature.onboarding.generated.resources.onboarding_day_tuesday
 import hydrafit.feature.onboarding.generated.resources.onboarding_day_wednesday
 import hydrafit.feature.onboarding.generated.resources.onboarding_equipment_empty
+import hydrafit.feature.onboarding.generated.resources.onboarding_equipment_profile
+import hydrafit.feature.onboarding.generated.resources.onboarding_equipment_profile_note
 import hydrafit.feature.onboarding.generated.resources.onboarding_equipment_prompt
 import hydrafit.feature.onboarding.generated.resources.onboarding_first_workout_intro
 import hydrafit.feature.onboarding.generated.resources.onboarding_generate_plan
@@ -172,6 +174,18 @@ private fun EquipmentEditor(
             text = stringResource(Res.string.onboarding_equipment_prompt),
             style = MaterialTheme.typography.bodyMedium
         )
+        // The selection below is written to the active profile, so the step names it instead of
+        // letting the user assume a global choice.
+        state.equipmentProfileName?.let { profileName ->
+            Text(
+                text = stringResource(Res.string.onboarding_equipment_profile, profileName),
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Text(
+                text = stringResource(Res.string.onboarding_equipment_profile_note),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
         if (state.equipment.isEmpty()) {
             Text(
                 text = stringResource(Res.string.onboarding_equipment_empty),
@@ -187,7 +201,8 @@ private fun EquipmentEditor(
                     enabled = enabled,
                     onToggle = {
                         val next = if (tag in selected) selected - tag else selected + tag
-                        onEdit(SetupStepInput.Equipment(next))
+                        val input = state.input as SetupStepInput.Equipment
+                        onEdit(input.copy(selected = next))
                     }
                 )
             }

@@ -5,7 +5,7 @@ import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import kotlinx.coroutines.flow.Flow
 
 /** The revision covers switching as well as edits, including switching away and back. */
-data class EquipmentProfileContext(val profileId: Long, val revision: Long)
+typealias EquipmentProfileContext = com.hydrafit.app.core.domain.equipment.EquipmentProfileContext
 
 data class EquipmentProfile(
     val id: Long,

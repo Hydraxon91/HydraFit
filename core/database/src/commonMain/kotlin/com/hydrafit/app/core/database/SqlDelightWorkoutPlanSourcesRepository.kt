@@ -7,8 +7,7 @@ import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
-import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
-import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfileRepository
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
 import com.hydrafit.app.core.userdata.equipment.ExercisePreferenceRepository
 import com.hydrafit.app.core.userdata.equipment.PersonalRecordRepository
@@ -19,11 +18,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 class SqlDelightWorkoutPlanSourcesRepository(
-    private val equipmentSelectionRepository: EquipmentSelectionRepository,
+    private val equipmentProfileRepository: EquipmentProfileRepository,
     private val enginePreferenceRepository: EnginePreferenceRepository,
     private val workoutLogRepository: WorkoutLogRepository,
     private val trainingGoalRepository: TrainingGoalRepository,
-    private val equipmentRepository: EquipmentRepository,
     private val personalRecordRepository: PersonalRecordRepository,
     private val exercisePreferenceRepository: ExercisePreferenceRepository,
     private val exerciseExclusionRepository: ExerciseExclusionRepository
@@ -37,16 +35,16 @@ class SqlDelightWorkoutPlanSourcesRepository(
             loggedSets,
             loggedWorkoutSets,
             sharing,
-            equipmentRepository.observeAll(),
+            equipmentProfileRepository.observe(),
             personalRecordRepository.observe()
         ) { sets, workoutSets, enabled, inventory, records ->
             LogContext(
                 loggedSets = sets,
                 loggedWorkoutSets = workoutSets,
                 sharingEnabled = enabled,
-                equipmentMaxWeights = inventory.mapNotNull { item ->
-                    item.maxWeightKg?.let { item.id to it }
-                }.toMap(),
+                equipmentMaxWeights = inventory.active.maxWeightsKg,
+                selectedEquipment = inventory.active.selected,
+                equipmentContext = "${inventory.context.profileId}:${inventory.context.revision}",
                 personalRecords = records
             )
         }
@@ -58,14 +56,13 @@ class SqlDelightWorkoutPlanSourcesRepository(
             exerciseExclusionRepository.observe()
         ) { context, preferences, exclusions -> Triple(context, preferences, exclusions) }
         return combine(
-            equipmentSelectionRepository.selectedFlow(),
             enginePreferenceRepository.engineFlow(),
             enginePreferenceRepository.daysPerWeekFlow(),
             trainingGoalRepository.goalFlow(),
             contextWithSettings
-        ) { equipment, engine, daysPerWeek, goal, (context, preferences, exclusions) ->
+        ) { engine, daysPerWeek, goal, (context, preferences, exclusions) ->
             WorkoutPlanSources(
-                availableEquipment = equipment,
+                availableEquipment = context.selectedEquipment,
                 selectedEngine = engine,
                 daysPerWeek = daysPerWeek,
                 loggedSets = context.loggedSets,
@@ -75,7 +72,8 @@ class SqlDelightWorkoutPlanSourcesRepository(
                 equipmentMaxWeights = context.equipmentMaxWeights,
                 personalRecords = context.personalRecords,
                 exercisePreferences = preferences,
-                exerciseExclusions = exclusions
+                exerciseExclusions = exclusions,
+                equipmentContext = context.equipmentContext
             )
         }.distinctUntilChanged()
     }
@@ -85,6 +83,8 @@ class SqlDelightWorkoutPlanSourcesRepository(
         val loggedWorkoutSets: List<WorkoutSet>,
         val sharingEnabled: Boolean,
         val equipmentMaxWeights: Map<EquipmentTag, Double>,
+        val selectedEquipment: Set<EquipmentTag>,
+        val equipmentContext: String,
         val personalRecords: List<PersonalRecord>
     )
 }

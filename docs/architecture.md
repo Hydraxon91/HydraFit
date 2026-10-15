@@ -503,7 +503,18 @@ selection, ceilings and loading configurations belong to a profile. Migration co
 inventory, including unselected equipment ceilings, into one active profile without deleting legacy
 rows. Fresh creation starts with one empty profile. The shared userdata port exposes a transactional
 snapshot and a context revision covering edits and switches, so switching away and back invalidates
-an old editor. The foundation is not yet wired into the existing inventory consumers.
+an old editor. Equipment adapters project the active profile; planner sources and Logger warm-up
+guidance consume one coherent snapshot rather than combining independent selection and ceiling
+emissions. Setup carries its captured profile context through the atomic step write.
+Equipment shows the profile list, the per-profile loading configuration and a helper calculator; the
+Logger offers the same read-only helper for a manual entry or a prescribed numeric load, showing
+plates per side and labelling a non-exact kilogram-to-native conversion as approximate.
+
+Profile-context changes preserve the SplitBuilder's displayed plan and enable explicit regeneration.
+They cancel in-flight generation; late results check coroutine cancellation before publication.
+Availability and ceilings affect future generation, not accepted or frozen prescriptions. The
+profile/revision key is presentation context, not historical training data. Global custom-equipment
+removal rejects other-profile references and protected exercise/activation/occurrence references.
 
 Calculator configuration uses domain-owned validated JSON and integer thousandths of its explicit
 kg/lb inventory unit, separate from canonical-kilogram training loads. Counts are individual plates;

@@ -13,9 +13,10 @@ import com.hydrafit.app.core.domain.setup.StaleSetupContextException
 import com.hydrafit.app.core.domain.setup.snapshot
 import com.hydrafit.app.core.domain.startup.StartupReadiness
 import com.hydrafit.app.core.navigation.AppTab
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfileRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
-import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.equipment.PersonalRecordRepository
+import com.hydrafit.app.core.userdata.equipment.StaleEquipmentProfileException
 import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
 import com.hydrafit.app.core.userdata.settings.SetupRepository
 import com.hydrafit.app.core.userdata.settings.TrainingGoalRepository
@@ -54,7 +55,7 @@ class OnboardingViewModel(
     private val skipSetup: SkipSetupUseCase,
     private val units: WeightUnitRepository,
     private val equipment: EquipmentRepository,
-    private val selection: EquipmentSelectionRepository,
+    private val selection: EquipmentProfileRepository,
     private val goals: TrainingGoalRepository,
     private val weekdays: PreferredWeekdaysRepository,
     private val records: PersonalRecordRepository,
@@ -271,6 +272,7 @@ class OnboardingViewModel(
                 val reason = when {
                     writeCommitted -> OnboardingFailure.LOAD
                     failure is StaleSetupContextException -> OnboardingFailure.STALE_CONTEXT
+                    failure is StaleEquipmentProfileException -> OnboardingFailure.STALE_CONTEXT
                     failure is IllegalArgumentException -> OnboardingFailure.INVALID_INPUT
                     else -> OnboardingFailure.SAVE
                 }
@@ -301,10 +303,20 @@ class OnboardingViewModel(
                 SetupStep.WELCOME, SetupStep.FIRST_WORKOUT ->
                     base.copy(input = SetupStepInput.Continue(step))
                 SetupStep.UNITS -> base.copy(input = SetupStepInput.Units(units.selectedUnit()))
-                SetupStep.EQUIPMENT -> base.copy(
-                    equipment = equipment.all(),
-                    input = SetupStepInput.Equipment(selection.selected())
-                )
+                SetupStep.EQUIPMENT -> {
+                    val profile = selection.current()
+                    val catalogEquipment = equipment.all()
+                    base.copy(
+                        equipment = catalogEquipment.map {
+                            it.copy(maxWeightKg = profile.active.maxWeightsKg[it.id])
+                        },
+                        equipmentProfileName = profile.active.name,
+                        input = SetupStepInput.Equipment(
+                            profile.active.selected,
+                            profileContext = profile.context
+                        )
+                    )
+                }
                 SetupStep.GOAL -> base.copy(input = SetupStepInput.Goal(goals.selectedGoal()))
                 SetupStep.WEEKDAYS -> base.copy(input = SetupStepInput.Weekdays(weekdays.current()))
                 SetupStep.PERSONAL_RECORDS -> {
