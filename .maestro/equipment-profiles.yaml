@@ -1,0 +1,25 @@
+appId: com.hydrafit.app
+---
+# Read-only smoke of the 0.9.0 equipment profile, loading-configuration and calculator
+# affordances. Preconditions: HydraFit foregrounded on the Equipment tab, no keyboard,
+# dialog or unsaved editor. Nothing is written and no dialog is opened.
+- assertVisible: Equipment
+- scrollUntilVisible:
+    element:
+      text: Equipment profiles
+    timeout: 10000
+- assertVisible: Equipment profiles
+- assertVisible: Active profile:.*
+- scrollUntilVisible:
+    element:
+      text: Loading configuration
+    timeout: 10000
+- assertVisible: Loading configuration
+- scrollUntilVisible:
+    element:
+      text: Calculate loading
+    timeout: 10000
+- assertVisible: Calculate loading
+# The affordance is the "Calculate loading" action; "Loading calculator" is only the dialog title.
+- assertNotVisible: Loading calculator
+- takeScreenshot: equipment-profiles

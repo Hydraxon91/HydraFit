@@ -15,6 +15,7 @@
 | 0.7.7 — reminders and rest notifications | SHIPPED — published 2026-10-15 as `v0.7.7` at `88fcf2b6`; earlier: targeted closure and C6–C8 readiness accepted, corrected candidate `ecc7969a` passed 1,788 fresh tests and PR CI | [Completed implementation detail](docs/plans-archive.md#077-implementation-status-record); release gates, C0 contract, R077CL-01 and accepted limits remain below. |
 | 0.8.0 — exercise progress: charts, descriptive records and workout-summary integration | SHIPPED — `v0.8.0` at `45e863a0` | Completed detail and publication evidence [archived](docs/plans-archive.md#2026-10-15-08x-cleanup); limits in `docs/qa.md`. |
 | 0.8.1–0.8.3 — catalog corrections, coverage/body map, body weight | SHIPPED — published 2026-10-15: `v0.8.1`, `v0.8.2`, `v0.8.3` (PR #16, merge `9e7150ef`) and corrective `v0.8.4` (PR #17, merge `6f517930`) | Contracts, chunk table and closure evidence [archived](docs/plans-archive.md#2026-10-15-08x-cleanup); review snapshots in `docs/review-0.8.1-snapshot.md`, `docs/review-0.8.2-snapshot.md` and `docs/review-0.8.3-snapshot.md`; publication evidence in `docs/qa.md` (0.8.x publication verification). **Resolved:** a stable release tag now derives `versionCode` (`major*1_000_000 + minor*10_000 + patch*100`), and the corrective `v0.8.4` (`versionCode=80400`) restores the upgrade path; the published `v0.8.1`–`v0.8.3` APKs keep their original codes. |
+| 0.9.0 — equipment profiles, per-profile loading setup and calculators | C1–C7 IMPLEMENTED AND VERIFIED (local only) — independent review pending | Folded scope (former `0.9.0`–`0.9.2`): equipment profiles + setup integration + owned-plate calculator + dumbbell increments/specialty bars. C1–C2 committed locally at `0faf2bc0`; C3–C6 uncommitted. Release matrix green: 2,060 host tests, `verifySqlDelightMigration`, `ktlintCheck`, debug assembly and both iOS compiles (`090-c7-integration.log`). Bounded read-only emulator acceptance passed (`equipment-profiles.yaml` 10/10, `logger-loading-calculator.yaml` 8/8); profile create/copy/rename/delete, loading-configuration editing and both calculator dialogs remain device-unverified. Draft notes at `docs/release-notes/v0.9.0.md`. Independent post-execution review, its closures and commits are outstanding; publication is not approved. |
 | Release 0.2.0 | SHIPPED | `v0.2.0` signed release published; [history](docs/plans-archive.md#2026-10-09-completed-status-rows). Stale `v0.1.0` validation pre-release cleanup remains optional. |
 | Release 0.2.1 | SHIPPED | `v0.2.1`; [Q1–Q6 history](docs/plans-archive.md#2026-10-09-completed-status-rows). Q4e remains user-side, not shipped code; local AI remains experimental/non-functional, with optional M8 follow-up. |
 | Release 0.2.2 — code review & architecture | SHIPPED | `v0.2.2`; R0–RG/RF complete, CI green; [fix/commit history](docs/plans-archive.md#2026-10-09-completed-status-rows). |
@@ -887,6 +888,11 @@ evidence and limits in `docs/qa.md`.
 **Acceptance:** repeat imports follow the approved duplicate policy, multiple sessions on one day survive, unit conversions are correct, and unsupported content is reported rather than silently discarded. Failure/cancellation cannot leave partial writes outside the chosen atomicity contract.
 
 ### OF-06 — Owned-plate calculator
+
+**Status:** implemented in 0.9.0 (C4–C6) as a helper only; nothing constrains planner loads. Pure
+solver and native-unit amounts live in `core/domain`; persistence and the calculators are reached
+from Equipment and the Logger. Verified by host tests and a bounded read-only emulator pass; the
+Equipment calculator and Logger helper dialogs remain device-unverified. Independent review pending.
 
 **Goal / v1 scope:** calculate a symmetric barbell loading arrangement from bar weight and owned plate denominations/counts; show plates per side and explicitly report unattainable targets.
 

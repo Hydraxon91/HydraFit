@@ -2511,6 +2511,38 @@ final state is user-reported, not independently verified. Findings inform the 0.
   deferred 0.13.x explanation-presentation polish and the named OF-03 verification limits are
   unchanged.
 
+### 0.9.0 implementation checkpoint (2026-10-15; not release acceptance)
+
+- C1–C2: commit `0faf2bc0`; full host suite, SQLDelight migration verification, ktlint,
+  debug assembly and shared/network iOS simulator compilation passed. External evidence:
+  `090-c2-verification-3.log` under the session's OpenCode temporary directory.
+- C3: uncommitted profile-aware consumers and stale-context guards. An earlier matrix run
+  (`090-c3-verification-2.log`) failed `ExerciseProgressRecordsIntegrationTest.multiExerciseOccurrenceKeepsStableIdentityOrderAndEarlierBaselines`
+  with overlapping SQLite JDBC transactions. After the later C3 edits that failure no longer
+  reproduces: the isolated class and the full `:core:database:testAndroidHostTest` both pass
+  (`090-c3-progress-repro.log`, `090-c3-db-full.log`), and the release matrix below is green. The
+  earlier failure is recorded as a resolved ordering artifact, not as a fixed defect.
+- C4 (delegated, pure calculators) and C5 (Equipment profile/loading UI) passed their module
+  host tests, ktlint and debug assembly in `090-c4-verification.log` and `090-c5-verification.log`.
+  The C4 maximum-size solver sample reported 133 ms on the host; that is not an emulator
+  performance measurement.
+- C6 (setup presentation and the read-only Logger helper) passed logger/onboarding/shared host
+  tests, ktlint and debug assembly in `090-c6-verification.log`.
+- Release integration matrix (`090-c7-integration.log`): `testAndroidHostTest` across all modules
+  (2,060 tests, 0 failures/errors), `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
+  `:core:network:compileKotlinIosSimulatorArm64` all passed.
+- Bounded emulator acceptance on `emulator-5554` (debug, existing data preserved, read-only):
+  `.maestro/equipment-profiles.yaml` 10/10 and `.maestro/logger-loading-calculator.yaml` 8/8 passed
+  with viewed screenshots. Profile create/copy/rename/delete, loading-configuration editing and both
+  calculator dialogs remain unexercised on the device; dark mode, larger text, locale, rotation and
+  TalkBack were not checked. Details and artifact paths are in `.maestro/README.md`.
+- Not yet done: independent post-execution review, its closures and commits. The release remains
+  unverified until that review completes; publication is separately approval-gated.
+- Known open item for review: `equipment_calculator_section` ("Loading calculator") is defined in the
+  Equipment feature strings but never rendered; the on-screen affordance is the `Calculate loading`
+  action under the `Loading configuration` heading.
+
 ### v0.7.1 publication verification (2026-10-12)
 
 - `v0.7.1` (Notes & searchable session history — OF-13 slice) published on the PR #5 merge commit

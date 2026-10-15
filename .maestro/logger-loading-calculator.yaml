@@ -1,0 +1,23 @@
+appId: com.hydrafit.app
+---
+# Read-only: opens and closes the Logger's manual loading helper.
+# Preconditions (see .maestro/README.md): Logger tab selected with a manual exercise chosen so
+# the set form and its calculator action are present, no keyboard, dialog or unsaved editor.
+# The helper only calculates; this flow writes no set, draft, note or session state.
+- scrollUntilVisible:
+    element:
+      id: logger_loading_calculator_manual
+    timeout: 10000
+- tapOn:
+    id: logger_loading_calculator_manual
+    retryTapIfNoChange: false
+- assertVisible:
+    id: logger_loading_calculator_dialog
+- assertVisible: Profile:.*
+- assertVisible: This helper only calculates.*
+- takeScreenshot: logger-loading-calculator
+- tapOn:
+    id: logger_loading_calculator_dismiss
+    retryTapIfNoChange: false
+- assertNotVisible:
+    id: logger_loading_calculator_dialog
