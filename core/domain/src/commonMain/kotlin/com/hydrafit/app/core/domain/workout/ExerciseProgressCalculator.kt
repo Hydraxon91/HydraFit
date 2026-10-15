@@ -8,14 +8,18 @@ import com.hydrafit.app.core.domain.time.localEpochDay
  * Incremental replay of one exercise, oldest first. Persistence can feed bounded pages without
  * retaining the full log. Only output records, requested occurrence events and chart days survive.
  * Rows sharing a timestamp compare with the same earlier baseline, never an invented id chronology.
+ * Tied holders accumulate in place and each [result] copies them out, so a snapshot a caller already
+ * holds never changes when more input arrives.
  */
 class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
     private val estimatePolicy = SuggestedWeightConfig()
-    private val records = linkedMapOf<ProgressRecordKey, ProgressRecord>()
+    private val records = linkedMapOf<ProgressRecordKey, Accumulator>()
     private val days = linkedMapOf<Long, DayAccumulator>()
     private val events = mutableListOf<ProgressRecordEvent>()
     private var timestamp: Long? = null
-    private val earlier = mutableMapOf<ProgressRecordKey, ProgressRecord?>()
+
+    /** Value each key already held before the current timestamp, captured on first sight. */
+    private val earlier = mutableMapOf<ProgressRecordKey, Double?>()
 
     fun accept(set: WorkoutSet) {
         require(set.exerciseId == request.exerciseId)
@@ -32,25 +36,27 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
             null
         }
         candidates(set).forEach { candidate ->
-            if (!earlier.containsKey(candidate.key)) earlier[candidate.key] = records[candidate.key]
-            val previous = earlier[candidate.key]
-            if (previous != null &&
-                candidate.value > previous.value &&
+            if (!earlier.containsKey(candidate.key)) {
+                earlier[candidate.key] = records[candidate.key]?.value
+            }
+            val baseline = earlier[candidate.key]
+            if (baseline != null &&
+                candidate.value > baseline &&
                 request.occurrenceId != null &&
                 set.occurrenceId == request.occurrenceId
             ) {
                 events += ProgressRecordEvent(set.id, set.occurrenceId, candidate)
             }
-            merge(records, candidate)
+            records.merge(candidate)
             if (candidate.key.type == ProgressRecordType.ESTIMATED_ONE_REP_MAX) {
-                chart?.let { merge(it.estimates, candidate) }
+                chart?.let { it.estimates.merge(candidate) }
             }
         }
     }
 
     fun result(): ExerciseProgress = ExerciseProgress(
         days.values.sortedBy { it.day }.map { it.result() },
-        records.values.toList(),
+        records.values.map { it.snapshot() },
         events.toList()
     )
 
@@ -80,9 +86,9 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
         var count = 0
         var reps = 0L
         var volume: Double? = null
-        val loads = linkedMapOf<ProgressRecordKey, ProgressRecord>()
-        val repetitions = linkedMapOf<ProgressRecordKey, ProgressRecord>()
-        val estimates = linkedMapOf<ProgressRecordKey, ProgressRecord>()
+        val loads = linkedMapOf<ProgressRecordKey, Accumulator>()
+        val repetitions = linkedMapOf<ProgressRecordKey, Accumulator>()
+        val estimates = linkedMapOf<ProgressRecordKey, Accumulator>()
 
         fun add(set: WorkoutSet) {
             count++
@@ -91,9 +97,9 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
                 volume = (volume ?: 0.0) + set.weightKg * set.reps
             }
             set.weightKg?.let {
-                merge(loads, record(ProgressRecordType.LOAD_AT_REPS, set, it))
+                loads.merge(record(ProgressRecordType.LOAD_AT_REPS, set, it))
             }
-            merge(repetitions, record(ProgressRecordType.REPS_AT_LOAD, set, set.reps.toDouble()))
+            repetitions.merge(record(ProgressRecordType.REPS_AT_LOAD, set, set.reps.toDouble()))
         }
 
         fun result() = ProgressDay(
@@ -101,13 +107,13 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
             count,
             reps,
             volume,
-            loads.values.toList(),
-            repetitions.values.toList(),
-            estimates.values.singleOrNull()
+            loads.values.map { it.snapshot() },
+            repetitions.values.map { it.snapshot() },
+            estimates.values.singleOrNull()?.snapshot()
         )
     }
 
-    companion object {
+    private companion object {
         private fun record(
             type: ProgressRecordType,
             set: WorkoutSet,
@@ -119,18 +125,37 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
             value,
             listOf(set.id)
         )
+    }
+}
 
-        private fun merge(
-            target: MutableMap<ProgressRecordKey, ProgressRecord>,
-            value: ProgressRecord
-        ) {
-            val previous = target[value.key]
-            when {
-                previous == null || value.value > previous.value -> target[value.key] = value
-                value.value == previous.value -> target[value.key] = previous.copy(
-                    setIds = previous.setIds + value.setIds
-                )
-            }
+/**
+ * Mutable holder for one record key. A strict improvement replaces both value and holders; a tie
+ * appends the extra set id. Appending is amortized O(1), avoiding the per-row list copy that made a
+ * long tie population quadratic. [snapshot] copies the ids so a returned record never observes later
+ * input.
+ */
+private class Accumulator(val key: ProgressRecordKey, value: Double) {
+    var value: Double = value
+    val setIds = mutableListOf<Long>()
+
+    fun accept(incoming: ProgressRecord) {
+        if (incoming.value > value) {
+            value = incoming.value
+            setIds.clear()
+            setIds += incoming.setIds
+        } else if (incoming.value == value) {
+            setIds += incoming.setIds
         }
+    }
+
+    fun snapshot() = ProgressRecord(key, value, setIds.toList())
+}
+
+private fun MutableMap<ProgressRecordKey, Accumulator>.merge(value: ProgressRecord) {
+    val existing = this[value.key]
+    if (existing == null) {
+        this[value.key] = Accumulator(value.key, value.value).also { it.setIds += value.setIds }
+    } else {
+        existing.accept(value)
     }
 }

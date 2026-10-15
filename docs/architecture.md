@@ -63,7 +63,10 @@ Domain declares repository and engine **interfaces**; implementations live in `:
 The 0.8.0 backend adds `ExerciseProgressRepository` and
 `SqlDelightExerciseProgressRepository` as read-only, currently unwired ports/implementation.
 History is exercise-keyed and paginated newest-first by performed timestamp/id, resolving current
-effective names without requiring catalog presence. Progress replays the selected exercise through
+effective names without requiring catalog presence. Each first page and each cursor continuation is
+a separate bound query over the `(exerciseId, performedAt, id)` index: the continuation splits the
+equal-time/id range from the strictly earlier/later-time range and concatenates them, so a deep page
+never re-scans the rows earlier pages already read. Progress replays the selected exercise through
 the requested instant, oldest-first in 256-row pages inside one read transaction off-main. Complete
 all-time comparisons are independent of chart bounds and history pagination. Cancellation is checked
 between pages. The invalidation query observes set-table changes without suppressing equal counts,
@@ -72,7 +75,10 @@ callers must replace it when those inputs change. No record cache, DI binding or
 Migration `46.sqm` adds an exercise/performed-time/id index, preserving every stored row.
 
 `ExerciseProgressCalculator` retains output records/tied holder ids, requested occurrence improvement
-events and chart-day accumulators, not the complete set history. Output cardinality still depends on
+events and chart-day accumulators, not the complete set history. Tied holder ids accumulate in a
+mutable holder and each `result()` copies them out, so a snapshot already returned to a caller never
+changes when more input arrives; this keeps a long tie population linear rather than quadratic.
+Output cardinality still depends on
 distinct record keys/ties; this is not a constant-memory guarantee. Records describe logged work,
 not technique verification or target completion. First observations are baselines, strict later
 improvements are events and equal timestamps share the prior baseline. Typed load kinds remain

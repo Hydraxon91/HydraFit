@@ -38,6 +38,23 @@ exact on-screen text.
   Full portability/producer-to-UI integration remains C6 work. No new Koin bindings or UI were added;
   UI/summary integration, emulator acceptance and separately requested formal review remain pending.
 
+## 0.8.0 R080-01/02 corrective verification — 2026-10-15
+
+- Coder correction delta starts at `abcc0fef`; concurrent user workflow-only commit `e8d35e32`
+  changes no implementation target and is preserved. Parent checked the eight-file allowed scope.
+- `:core:domain:testAndroidHostTest`, `:core:database:testAndroidHostTest`, `ktlintCheck` and
+  `:androidApp:assembleDebug` passed. Logs: the approved temporary directory's `coder-r080/`
+  (`domain-test.log`, `database-test.log`, `ktlint.log`, `tests-and-assemble.log`). New tests cover
+  negative/tied timestamps, deep replay pages, detached result snapshots and 5,000 tied holders.
+- Parent repeated the synthetic 20,000-row SQLite VM-step probe using the actual corrected SQL:
+  two bounded continuation queries returned 256 rows in 3,667 steps at cursor 0 and 3,644 steps
+  at cursors 10,000 and 19,000. Before correction the latter page took 156,382 steps. This is host
+  query-work evidence, not emulator timing. Structural plan assertions cover all six paging shapes.
+- The immutable public results are preserved while private tie accumulators append in place.
+  These are builder verification results, not reviewer closure. Full batch matrix follows C4/C5.
+- Read-only emulator preflight found `emulator-5554` idle on Equipment, with no visible dialog or
+  keyboard. No navigation, deployment or persisted write occurred; Logger state is not yet verified.
+
 ## Cross-cutting UI checks (for changed flows)
 - Text remains readable at the supported larger font sizes; controls and content are not clipped.
 - Meaningful controls have accessible labels and states; status and metrics are not conveyed by color alone.

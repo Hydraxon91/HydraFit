@@ -54,30 +54,44 @@ class ExerciseProgressIndexMigrationTest {
     )
 
     private fun assertIndexedReplayAndHistory() {
-        val replay = """
-            SELECT id, exerciseId, reps, weightKg, loadKind, performedAt, isWarmup, occurrenceId
-            FROM workoutSet
-            WHERE exerciseId = 'squat' AND performedAt <= 100000
-              AND (1 = 0 OR performedAt > 10 OR (performedAt = 10 AND id > 2))
-            ORDER BY performedAt ASC, id ASC LIMIT 256
-        """.trimIndent()
-        val history = """
-            SELECT workoutSet.id, workoutSet.exerciseId,
-                   COALESCE(exerciseOverride.name, exercise.name) AS exerciseName,
-                   workoutSet.reps, workoutSet.weightKg, workoutSet.loadKind, workoutSet.isWarmup,
-                   workoutSet.rir, workoutSet.performedAt, workoutSet.timingProvenance,
-                   workoutSet.occurrenceId
-            FROM workoutSet
-            LEFT JOIN exercise ON exercise.id = workoutSet.exerciseId
-            LEFT JOIN exerciseOverride ON exerciseOverride.exerciseId = workoutSet.exerciseId
-            WHERE workoutSet.exerciseId = 'squat'
-              AND (1 = 0 OR workoutSet.performedAt < 100
-                   OR (workoutSet.performedAt = 100 AND workoutSet.id < 2))
-            ORDER BY workoutSet.performedAt DESC, workoutSet.id DESC LIMIT 31
-        """.trimIndent()
-        listOf(replay, history).forEach { query ->
+        val historyProjection = "SELECT workoutSet.id, workoutSet.exerciseId, " +
+            "COALESCE(exerciseOverride.name, exercise.name) AS exerciseName, " +
+            "workoutSet.reps, workoutSet.weightKg, workoutSet.loadKind, workoutSet.isWarmup, " +
+            "workoutSet.rir, workoutSet.performedAt, workoutSet.timingProvenance, " +
+            "workoutSet.occurrenceId " +
+            "FROM workoutSet LEFT JOIN exercise ON exercise.id = workoutSet.exerciseId " +
+            "LEFT JOIN exerciseOverride ON exerciseOverride.exerciseId = workoutSet.exerciseId"
+        val replayProjection = "SELECT id, exerciseId, reps, weightKg, loadKind, performedAt, " +
+            "isWarmup, occurrenceId FROM workoutSet"
+        // Every page shape must bind its cursor as an indexed range, not an optional OR predicate
+        // that would rescan the rows earlier pages already read.
+        listOf(
+            "$historyProjection WHERE workoutSet.exerciseId = 'squat' " +
+                "ORDER BY workoutSet.performedAt DESC, workoutSet.id DESC LIMIT 31" to
+                "workoutSet_exerciseId_performedAt_id (exerciseId=?)",
+            "$historyProjection WHERE workoutSet.exerciseId = 'squat' " +
+                "AND workoutSet.performedAt = 100 AND workoutSet.id < 2 " +
+                "ORDER BY workoutSet.performedAt DESC, workoutSet.id DESC LIMIT 31" to
+                "(exerciseId=? AND performedAt=? AND id<?)",
+            "$historyProjection WHERE workoutSet.exerciseId = 'squat' " +
+                "AND workoutSet.performedAt < 100 " +
+                "ORDER BY workoutSet.performedAt DESC, workoutSet.id DESC LIMIT 31" to
+                "(exerciseId=? AND performedAt<?)",
+            "$replayProjection WHERE exerciseId = 'squat' AND performedAt <= 100000 " +
+                "ORDER BY performedAt ASC, id ASC LIMIT 256" to
+                "(exerciseId=? AND performedAt<?)",
+            "$replayProjection WHERE exerciseId = 'squat' AND performedAt <= 100000 " +
+                "AND performedAt = 10 AND id > 2 " +
+                "ORDER BY performedAt ASC, id ASC LIMIT 256" to
+                "(exerciseId=? AND performedAt=? AND id>?)",
+            "$replayProjection WHERE exerciseId = 'squat' AND performedAt <= 100000 " +
+                "AND performedAt > 10 " +
+                "ORDER BY performedAt ASC, id ASC LIMIT 256" to
+                "(exerciseId=? AND performedAt>? AND performedAt<?)"
+        ).forEach { (query, constraint) ->
             val plan = strings("EXPLAIN QUERY PLAN $query", 3).joinToString("\n")
             assertTrue(plan.contains("workoutSet_exerciseId_performedAt_id"), plan)
+            assertTrue(plan.contains(constraint), plan)
             assertFalse(plan.contains("SCAN workoutSet"), plan)
             assertFalse(plan.contains("TEMP B-TREE"), plan)
         }

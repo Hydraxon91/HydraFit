@@ -1,4 +1,9 @@
-selectExerciseHistory:
+-- Paging splits the first page from each cursor continuation so the cursor never
+-- appears as an optional `OR` predicate: SQLite can then always seek the
+-- (exerciseId, performedAt, id) index directly instead of rescanning what earlier
+-- pages already read. Continuations use disjoint bounds -- an equal-timestamp/id
+-- range plus a strictly earlier/later-time range -- that the repository concatenates.
+selectExerciseHistoryFirstPage:
 SELECT workoutSet.id, workoutSet.exerciseId,
        COALESCE(exerciseOverride.name, exercise.name) AS exerciseName,
        workoutSet.reps, workoutSet.weightKg, workoutSet.loadKind, workoutSet.isWarmup,
@@ -7,8 +12,33 @@ FROM workoutSet
 LEFT JOIN exercise ON exercise.id = workoutSet.exerciseId
 LEFT JOIN exerciseOverride ON exerciseOverride.exerciseId = workoutSet.exerciseId
 WHERE workoutSet.exerciseId = :exerciseId
-  AND (:hasCursor = 0 OR workoutSet.performedAt < :cursorTime
-       OR (workoutSet.performedAt = :cursorTime AND workoutSet.id < :cursorId))
+ORDER BY workoutSet.performedAt DESC, workoutSet.id DESC
+LIMIT :pageLimit;
+
+selectExerciseHistoryTiesAtCursor:
+SELECT workoutSet.id, workoutSet.exerciseId,
+       COALESCE(exerciseOverride.name, exercise.name) AS exerciseName,
+       workoutSet.reps, workoutSet.weightKg, workoutSet.loadKind, workoutSet.isWarmup,
+       workoutSet.rir, workoutSet.performedAt, workoutSet.timingProvenance, workoutSet.occurrenceId
+FROM workoutSet
+LEFT JOIN exercise ON exercise.id = workoutSet.exerciseId
+LEFT JOIN exerciseOverride ON exerciseOverride.exerciseId = workoutSet.exerciseId
+WHERE workoutSet.exerciseId = :exerciseId
+  AND workoutSet.performedAt = :cursorTime
+  AND workoutSet.id < :cursorId
+ORDER BY workoutSet.performedAt DESC, workoutSet.id DESC
+LIMIT :pageLimit;
+
+selectExerciseHistoryBeforeCursorTime:
+SELECT workoutSet.id, workoutSet.exerciseId,
+       COALESCE(exerciseOverride.name, exercise.name) AS exerciseName,
+       workoutSet.reps, workoutSet.weightKg, workoutSet.loadKind, workoutSet.isWarmup,
+       workoutSet.rir, workoutSet.performedAt, workoutSet.timingProvenance, workoutSet.occurrenceId
+FROM workoutSet
+LEFT JOIN exercise ON exercise.id = workoutSet.exerciseId
+LEFT JOIN exerciseOverride ON exerciseOverride.exerciseId = workoutSet.exerciseId
+WHERE workoutSet.exerciseId = :exerciseId
+  AND workoutSet.performedAt < :cursorTime
 ORDER BY workoutSet.performedAt DESC, workoutSet.id DESC
 LIMIT :pageLimit;
 
@@ -16,11 +46,26 @@ LIMIT :pageLimit;
 observeExerciseSets:
 SELECT count(*) FROM workoutSet WHERE exerciseId = :exerciseId;
 
-selectExerciseReplayPage:
+selectExerciseReplayFirstPage:
 SELECT id, exerciseId, reps, weightKg, loadKind, performedAt, isWarmup, occurrenceId
 FROM workoutSet
 WHERE exerciseId = :exerciseId AND performedAt <= :nowMillis
-  AND (:hasCursor = 0 OR performedAt > :cursorTime
-       OR (performedAt = :cursorTime AND id > :cursorId))
+ORDER BY performedAt ASC, id ASC
+LIMIT :pageLimit;
+
+selectExerciseReplayTiesAtCursor:
+SELECT id, exerciseId, reps, weightKg, loadKind, performedAt, isWarmup, occurrenceId
+FROM workoutSet
+WHERE exerciseId = :exerciseId AND performedAt <= :nowMillis
+  AND performedAt = :cursorTime
+  AND id > :cursorId
+ORDER BY performedAt ASC, id ASC
+LIMIT :pageLimit;
+
+selectExerciseReplayAfterCursorTime:
+SELECT id, exerciseId, reps, weightKg, loadKind, performedAt, isWarmup, occurrenceId
+FROM workoutSet
+WHERE exerciseId = :exerciseId AND performedAt <= :nowMillis
+  AND performedAt > :cursorTime
 ORDER BY performedAt ASC, id ASC
 LIMIT :pageLimit;

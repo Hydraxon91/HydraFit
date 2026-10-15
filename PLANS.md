@@ -842,7 +842,9 @@ record).
 C1 contract/fixtures are accepted; C2–C3 are IMPLEMENTED AND VERIFIED (main-agent owner).
 The approved exercise/time/id index migration and fixture/formatting corrections pass the full
 matrix: 1,801 host tests, migration verification, global lint, debug assembly and both iOS compiles.
-C4–C6 are NOT STARTED; formal review remains pending. See `docs/qa.md` for
+C4–C6 are NOT STARTED. R080-01/02 coder corrections pass targeted domain/database tests, global
+lint and debug assembly; parent synthetic query-work verification confirms depth-independent seeks.
+Formal reviewer closure remains pending. See `docs/qa.md` for
 the bounded run evidence. The local branch is `0.8.0`; **0.8.0** is the proposed combined publication
 version, subject to scope approval. Original 0.8.0 charts and 0.8.1 records references identify slices,
 not two required publications. This plan covers OF-04-P0/P1/P2/P3 and supersedes the previous

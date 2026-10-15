@@ -22,9 +22,12 @@ Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseExclusion.sq`, `ExerciseNot
 `WorkoutHistory.sq`.
 
 `ExerciseProgress.sq` is query-only: exercise-keyed history pages include current effective names
-through left joins, and replay pages preserve timestamp/id order across 256-row batches.
-`SqlDelightExerciseProgressRepository` replays one exercise through the request instant in one
-off-main transaction, retaining derived outputs rather than all raw rows. Chart day bounds do not
+through left joins, and replay pages preserve timestamp/id order across 256-row batches. Each page is
+bound without an optional-cursor `OR` predicate: a first-page query plus two disjoint continuation
+reads (equal timestamp/id range, then strictly earlier/later time) that `SqlDelightExerciseProgressRepository`
+concatenates. That keeps every page a direct index seek instead of rescanning the prefix earlier pages
+already read. `SqlDelightExerciseProgressRepository` replays one exercise through the request instant
+in one off-main transaction, retaining derived outputs rather than all raw rows. Chart day bounds do not
 limit all-time record comparisons. The set-count query is an invalidation anchor, not a revision:
 do not apply `distinctUntilChanged` to its count, since correction/restore can keep counts unchanged.
 This backend is not wired into Koin/UI yet and adds no stored cache. Migration `46.sqm` adds

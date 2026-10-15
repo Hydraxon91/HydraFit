@@ -3,7 +3,9 @@ package com.hydrafit.app.core.database
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryRequest
 import com.hydrafit.app.core.domain.workout.ExerciseProgress
+import com.hydrafit.app.core.domain.workout.ExerciseProgressCalculator
 import com.hydrafit.app.core.domain.workout.ExerciseProgressRequest
+import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.ProgressRecordType
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.AfterTest
@@ -11,6 +13,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
@@ -132,6 +135,62 @@ class SqlDelightExerciseProgressRepositoryTest {
         val empty = repository.observeHistory(ExerciseHistoryRequest("other")).first()
         assertFalse(empty.hasMore)
         assertNull(empty.nextCursor)
+    }
+
+    @Test
+    fun historyContinuationWithTiesAndNegativeTimesKeepsCursorAndOrder() = runBlocking {
+        val times = listOf(0L, 0L, -3L, 5L, 5L, 5L, -3L, 0L, 7L, -10L, 5L, -3L, -10L, 2L)
+        times.forEachIndexed { index, time -> writer.add(set(time = time, weight = 10.0 + index)) }
+        val expected = (1L..times.size.toLong()).sortedWith(
+            compareByDescending<Long> { times[(it - 1).toInt()] }.thenByDescending { it }
+        )
+        val seen = mutableListOf<Long>()
+        var request = ExerciseHistoryRequest("squat", pageSize = 2)
+        var pages = 0
+        while (true) {
+            val page = repository.observeHistory(request).first()
+            assertTrue(page.sets.size <= 2)
+            seen += page.sets.map { it.id }
+            pages++
+            if (!page.hasMore) {
+                assertNull(page.nextCursor)
+                break
+            }
+            val cursor = assertNotNull(page.nextCursor)
+            val last = page.sets.last()
+            assertEquals(last.exerciseId, cursor.exerciseId)
+            assertEquals(last.performedAtMillis, cursor.performedAtMillis)
+            assertEquals(last.id, cursor.setId)
+            request = request.copy(cursor = cursor)
+            check(pages <= 20)
+        }
+        assertEquals(expected, seen)
+    }
+
+    @Test
+    fun deepReplayPagesMatchExplicitAscendingReplayWithTiesAndNegatives() = runBlocking {
+        val times = List(700) { index -> listOf(-5L, -5L, 0L, 9L)[index % 4] }
+        times.forEachIndexed { index, time ->
+            writer.add(set(time = time, weight = 10.0 + index % 7))
+        }
+        val request = ExerciseProgressRequest("squat", dayFrom = -1, dayTo = 1, nowMillis = 10)
+        val fromRepository = repository.observeProgress(request).first()
+        val calculator = ExerciseProgressCalculator(request)
+        (1L..times.size.toLong()).sortedWith(
+            compareBy<Long> { times[(it - 1).toInt()] }.thenBy { it }
+        ).forEach { id ->
+            calculator.accept(
+                WorkoutSet(
+                    id = id,
+                    exerciseId = "squat",
+                    reps = 10,
+                    weightKg = 10.0 + (id - 1) % 7,
+                    loadKind = LoadKind.EXTERNAL,
+                    performedAtMillis = times[(id - 1).toInt()]
+                )
+            )
+        }
+        assertEquals(calculator.result(), fromRepository)
     }
 
     private fun progressRequest() = ExerciseProgressRequest("squat", 0, 2, 2 * DAY)

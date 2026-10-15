@@ -132,6 +132,37 @@ class ExerciseProgressCalculatorTest {
         assertTrue(calculate().days.isEmpty())
     }
 
+    @Test
+    fun resultSnapshotsAreDetachedFromLaterTies() {
+        val calculator = ExerciseProgressCalculator(
+            ExerciseProgressRequest("squat", 0, 2, 2 * DAY, occurrenceId = 7)
+        )
+        calculator.accept(set(1, 70.0, 10, time = 1))
+        val first = calculator.result()
+        val snapshot = first.records.first { it.key.type == ProgressRecordType.LOAD_AT_REPS }
+        assertEquals(listOf(1L), snapshot.setIds)
+
+        calculator.accept(set(2, 70.0, 10, time = 2))
+        calculator.accept(set(3, 70.0, 10, time = 2))
+
+        assertEquals(listOf(1L), snapshot.setIds)
+        val later = calculator.result().records.first {
+            it.key.type == ProgressRecordType.LOAD_AT_REPS
+        }
+        assertEquals(listOf(1L, 2L, 3L), later.setIds)
+    }
+
+    @Test
+    fun largeTiedPopulationKeepsEveryHolderExactlyOnce() {
+        val calculator = ExerciseProgressCalculator(ExerciseProgressRequest("squat", 0, 2, 2 * DAY))
+        val expected = (1L..5_000L).toList()
+        expected.forEach { calculator.accept(set(it, 70.0, 10, time = 1)) }
+        val record = calculator.result().records.first {
+            it.key.type == ProgressRecordType.LOAD_AT_REPS
+        }
+        assertEquals(expected, record.setIds)
+    }
+
     private fun calculate(
         vararg rows: WorkoutSet,
         request: ExerciseProgressRequest =
