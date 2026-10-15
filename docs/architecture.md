@@ -689,7 +689,11 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   nullable fields are present as explicit `null`, not omitted. The manifest carries
   a per-seed profile (equipment, pattern, laterality, capability, resolved
   involvements); validation rejects a seed the receiver does not know or whose
-  profile changed under the same id (`CATALOG_MISMATCH`), while additional
+  profile changed under the same id (`CATALOG_MISMATCH`), except the exact
+  pre-0.8.1 upright-barbell-row/cable-deadlifts profiles explicitly recognized by
+  `BackupCatalog.compatiblePreviousSeedProfiles`. These retain their historical
+  snapshots and frozen prescriptions; only the current seed pattern changes, still
+  compound in both cases. Unknown mismatches remain rejected, while additional
   receiver-only seeds are allowed. Resource limits (32 MiB, nesting depth 32,
   64 KiB per string, 250k records) are enforced before decode and after encode,
   with a bounded read in `AndroidBackupFileStore`. Export and apply run off the

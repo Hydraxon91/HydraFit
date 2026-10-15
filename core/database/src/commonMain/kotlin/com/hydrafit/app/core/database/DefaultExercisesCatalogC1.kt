@@ -384,7 +384,7 @@ internal object DefaultExercisesCatalogC1 {
             setOf(EquipmentTag.BARBELL),
             setOf(MuscleGroup.FRONT_DELTS, MuscleGroup.SIDE_DELTS),
             setOf(MuscleGroup.UPPER_BACK),
-            MovementPattern.HORIZONTAL_PULL,
+            MovementPattern.VERTICAL_PULL,
             involvements = mapOf(
                 MuscleGroup.FRONT_DELTS to 0.7,
                 MuscleGroup.SIDE_DELTS to 0.7,
@@ -747,7 +747,7 @@ internal object DefaultExercisesCatalogC1 {
                 MuscleGroup.HAMSTRINGS,
                 MuscleGroup.LOWER_BACK
             ),
-            MovementPattern.HINGE,
+            MovementPattern.SQUAT,
             involvements = mapOf(
                 MuscleGroup.FOREARMS to 0.3,
                 MuscleGroup.GLUTES to 0.5,

@@ -35,7 +35,10 @@ object MovementPatternGuardrail {
         )
         MovementPattern.VERTICAL_PULL -> setOf(
             MuscleGroup.LATS,
-            MuscleGroup.BICEPS
+            MuscleGroup.BICEPS,
+            MuscleGroup.FRONT_DELTS,
+            MuscleGroup.SIDE_DELTS,
+            MuscleGroup.TRAPS
         )
         MovementPattern.SQUAT -> setOf(MuscleGroup.QUADS, MuscleGroup.GLUTES)
         MovementPattern.LUNGE -> setOf(MuscleGroup.QUADS, MuscleGroup.GLUTES)
@@ -54,7 +57,8 @@ object MovementPatternGuardrail {
         MovementPattern.LEG_ISOLATION -> setOf(
             MuscleGroup.QUADS,
             MuscleGroup.HAMSTRINGS,
-            MuscleGroup.GLUTES
+            MuscleGroup.GLUTES,
+            MuscleGroup.ADDUCTORS
         )
         MovementPattern.CALF_RAISE -> setOf(MuscleGroup.CALVES)
         MovementPattern.CORE -> setOf(MuscleGroup.ABS, MuscleGroup.OBLIQUES)

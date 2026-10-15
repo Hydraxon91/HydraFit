@@ -158,6 +158,14 @@ No rows were dropped in this re-check.
 
 ## Deferred / still open (future research)
 
+**0.8.1 current classification update:** the earlier classification re-check above
+records the CAT-P1 pass. The approved follow-up now classifies upright barbell row as
+VERTICAL_PULL (matching upright cable row) and cable deadlifts as SQUAT from the
+dataset's squat-style movement. Existing weights are unchanged. The advisory now
+recognizes upright-row shoulder/TRAPS targets and ADDUCTORS for leg isolation;
+all five former CAT-P6 conflicts are resolved without exemptions. See
+`exercise-catalog-sources.md` for the current rationale and compatibility policy.
+
 - **Per-exercise EMG figures for the remaining families.** Krause Neto 2020 Table 3 is GMax-only and covers glute-extension / lunge / squat / belt-squat movements only; leg curl, calf raise, bench press, overhead press, row, pulldown, fly, curl, pushdown and raise have no per-exercise figure cited yet. The Martín-Fuentes 2020 deadlift review is qualitative (no per-variant %MVIC published); the García-Valverde 2025 squat meta-analysis reports no significant difference across back/front/overhead/belt squat but no per-type %MVIC either. A future pass could find additional per-exercise figures in narrower primary studies.
 - **Dataset muscle-classification outliers.** No new outliers were found in this pass beyond `kneeling-squat` (fixed). The doc's prior hint about "a shoulder press listing chest" did not appear in the 8 SQUAT-family press rows reviewed (`oh-inventory` dataset has no chest listed for any overhead press variant in this batch).
 

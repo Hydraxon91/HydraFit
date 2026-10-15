@@ -12,6 +12,32 @@ Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
 
+## 0.8.1 C1 classification/backup verification — 2026-10-15
+
+- Batch base `761d47d4`; approved contract commit `1a867d2d`; main-agent owner.
+  Compound-only pattern corrections, advisory muscle sets and exact historical
+  backup-profile compatibility are implemented. No weights/schema/encoding change.
+- Full Tier A command passed with a 600-second wrapper: `testAndroidHostTest
+  :core:database:verifySqlDelightMigration ktlintCheck :androidApp:assembleDebug
+  :shared:compileKotlinIosSimulatorArm64 :core:network:compileKotlinIosSimulatorArm64
+  --continue`. Log: `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/hydrafit-081-c1-3.log`.
+  `BUILD SUCCESSFUL`; 1,854 host tests, zero failures/errors/skips. Two earlier
+  runs failed formatting checks; line wrapping was corrected without behavior changes.
+- `SeedExerciseCatalogTest` drives real pre-correction rows and the production log
+  writer, then repeats current seeding: populated weights, overrides, workout rows
+  and fatigue projections remain identical. The strict catalog guardrail has no
+  exemptions. Domain tests cover upright/adductor thresholds and exact scoped
+  compatibility rather than a global mismatch bypass.
+- `SqlDelightBackupRepositoryTest` exports representative owned data, substitutes
+  independent exact old profile strings, stages/applies through production use cases,
+  reseeds and compares the exported snapshot. A near-match profile fails before
+  staging/writes; imported text stays unchanged and exports retain current profiles.
+- Read-only UI-runner preflight confirmed emulator-5554, Logger selected, no visible
+  dialog/keyboard, and viewed screenshot. No app/repository mutations. Artifacts:
+  `.../opencode/hf-081-preflight/{hierarchy.csv,screen.png}`. Installed debug build
+  is `0.7.6-dev-56917e32-dirty`, not this candidate; no C1 runtime claim is made.
+  New catalog/editor UI checks, release integration and independent review remain pending.
+
 ## 0.8.0 C1–C3 backend evidence — 2026-10-15
 
 - Baseline `a34b6cca`; main-agent implementation. Approved descriptive-record contract and

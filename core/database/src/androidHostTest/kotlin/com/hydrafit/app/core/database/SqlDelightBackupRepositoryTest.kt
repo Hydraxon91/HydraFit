@@ -351,6 +351,52 @@ class SqlDelightBackupRepositoryTest {
     }
 
     @Test
+    fun exactPre081CatalogProfilesRestoreWithoutChangingOwnedData() = runTest {
+        seedRepresentativeData()
+        val before = repository.export(appVersion = "t", exportedAtMillis = 1L)
+        val previous = mapOf(
+            "upright-barbell-row" to
+                "BARBELL|HORIZONTAL_PULL|false|EXTERNAL|FRONT_DELTS:0.7,SIDE_DELTS:0.7,UPPER_BACK:0.5",
+            "cable-deadlifts" to
+                "CABLE_MACHINE|HINGE|false|EXTERNAL|" +
+                "FOREARMS:0.3,GLUTES:0.5,HAMSTRINGS:0.5,LOWER_BACK:0.3,QUADS:1.0"
+        )
+        val historical = before.copy(
+            catalog = before.catalog.copy(
+                seedProfiles = before.catalog.seedProfiles.map { profile ->
+                    profile.copy(profile = previous[profile.id] ?: profile.profile)
+                }
+            )
+        )
+        val text = BackupJson.encode(historical)
+        val preview = PreviewBackupUseCase(BackupValidator(SqlDelightBackupCatalog()))
+        val staging = SqlDelightBackupStagingRepository(database)
+        RestoreBackupUseCase(preview, staging)(text, "t", 1L)
+        ApplyStagedBackupUseCase(preview, repository, staging, TimeProvider { 2L })()
+        SeedExerciseCatalog(database).seed()
+
+        assertEquals(before, repository.export(appVersion = "t", exportedAtMillis = 1L))
+        assertEquals(historical, BackupJson.decode(text))
+        assertNull(staging.applyError())
+        val changed = historical.copy(
+            catalog = historical.catalog.copy(
+                seedProfiles = historical.catalog.seedProfiles.map { profile ->
+                    if (profile.id == "cable-deadlifts") {
+                        profile.copy(profile = profile.profile + " ")
+                    } else {
+                        profile
+                    }
+                }
+            )
+        )
+        assertFailsWith<com.hydrafit.app.core.domain.backup.BackupException> {
+            RestoreBackupUseCase(preview, staging)(BackupJson.encode(changed), "t", 3L)
+        }
+        assertNull(staging.staged())
+        assertEquals(before, repository.export(appVersion = "t", exportedAtMillis = 1L))
+    }
+
+    @Test
     fun exportStageApplyRoundTripsEverySection() = runTest {
         seedRepresentativeData()
         val catalog = SqlDelightBackupCatalog()

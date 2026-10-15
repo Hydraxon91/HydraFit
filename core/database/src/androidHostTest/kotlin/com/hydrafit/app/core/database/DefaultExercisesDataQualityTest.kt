@@ -83,23 +83,8 @@ class DefaultExercisesDataQualityTest {
         assertTrue(bad.isEmpty(), "Weights off the 0.3/0.5/0.7/1.0 scale: $bad")
     }
 
-    /**
-     * Known pattern/involvement disagreements in the fresh seed. Each is a catalog classification
-     * decision (reclassify the pattern, extend the guardrail's expected-muscle set, or correct the
-     * weights) tracked separately in `docs/live-testing-2026-10-08.md`; none is a regression.
-     * Listing them keeps this test strict: any *new* conflict still fails, and fixing one prompts
-     * an update here.
-     */
-    private val knownPatternConflicts = setOf(
-        "upright-barbell-row",
-        "upright-cable-row",
-        "cable-deadlifts",
-        "band-hip-adductions",
-        "cable-hip-adduction"
-    )
-
     @Test
-    fun everyRowPassesTheMovementPatternGuardrailExceptKnownConflicts() {
+    fun everyRowPassesTheMovementPatternGuardrail() {
         val conflicts = catalog
             .filter { exercise ->
                 MovementPatternGuardrail.conflicts(
@@ -110,9 +95,9 @@ class DefaultExercisesDataQualityTest {
             .map { it.id }
             .toSet()
         assertEquals(
-            knownPatternConflicts,
+            emptySet(),
             conflicts,
-            "Pattern/involvement conflicts changed; update the known-conflicts set if intended"
+            "Every seeded profile must satisfy the advisory guardrail"
         )
     }
 

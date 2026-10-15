@@ -144,6 +144,25 @@ Representative systematic reviews cited per exercise family (expanded in CAT-P1)
 
 ### 3. Movement patterns
 
+#### 0.8.1 classification corrections
+
+The approved 0.8.1 contract keeps involvement weights unchanged and resolves the
+five fresh-install CAT-P6 advisory conflicts:
+
+- Upright barbell row becomes VERTICAL_PULL, matching the existing upright cable
+  row. The advisory accepts front/side deltoids and TRAPS for vertical pulls, in
+  addition to lats/biceps; it remains a primary-target check, not a technique validator.
+- Cable deadlifts become SQUAT. The [dataset row](https://github.com/yuhonas/free-exercise-db/blob/main/exercises/Cable_Deadlifts.json)
+  describes squatting between low handles, then extending hips/knees, with quadriceps
+  primary. This is an app classification choice; no numerical recalibration follows.
+- LEG_ISOLATION's advisory includes ADDUCTORS, so the unchanged band/cable
+  hip-adduction profiles pass without relabeling their target.
+
+Both pattern corrections remain compound. Seeding updates patterns but preserves
+populated involvement maps, explicit overrides and workout snapshots. Restore accepts
+the exact previous profile strings for those two corrected IDs only; unknown profile
+mismatches still fail. No imported file is rewritten and no backup format changes.
+
 Movement patterns map to HydraFit's existing `MovementPattern` enum (14 values,
 compound/accessory). `free-exercise-db`'s `mechanic` (compound vs isolation) and ExRx's
 biomechanical analysis are the cross-checks; the final pattern is the app's own

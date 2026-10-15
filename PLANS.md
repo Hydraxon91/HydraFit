@@ -972,8 +972,9 @@ and publication keep their own applicable approval gates. No automatic handoff o
 
 ### 0.8.1–0.8.3 — Continuous execution contract (approved 2026-10-15)
 
-**Status:** APPROVED — execution starts from clean `761d47d4` on
-`batch/0.8.1-0.8.3`. No application implementation or verification is claimed yet.
+**Status:** IN PROGRESS — 081-C1 implemented and Tier A verified (1,854 host tests,
+zero failures/errors/skips, migration/lint/debug/both iOS compiles); 081-C2 onward
+pending. Execution starts from clean `761d47d4` on `batch/0.8.1-0.8.3`.
 The user accepted the final chat contract and authorized execution through 0.8.3,
 including independent release checkpoints and local verified atomic commits;
 a joint user review follows. No push, PR, merge, tag or publication is authorized.

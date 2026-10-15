@@ -91,8 +91,11 @@ seed (`repairLegacyInvolvementNames`; anchored LIKE patterns avoid matching the 
 names), so an upgraded install matches a fresh one. Custom rows, user overrides and
 historical set snapshots are left untouched. It runs off-main at startup via
 `DatabaseStartupMaintenance`. `DefaultExercisesDataQualityTest` asserts every
-built-in row satisfies `MovementPatternGuardrail` except five pinned fresh-install
-classification conflicts (tracked in `docs/live-testing-2026-10-08.md`).
+built-in row satisfies `MovementPatternGuardrail` with no exemptions. The 0.8.1
+corrections classify upright barbell row as VERTICAL_PULL and cable deadlifts as
+SQUAT, preserving all weights and their compound fatigue classification. The advisory
+recognizes front/side deltoids and TRAPS for vertical pulls and ADDUCTORS for leg
+isolation. Existing overrides, snapshots and frozen prescriptions are not rewritten.
 
 ## Equipment identities (0.7.6 C6)
 

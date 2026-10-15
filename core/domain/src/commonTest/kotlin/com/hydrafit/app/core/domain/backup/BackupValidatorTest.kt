@@ -232,6 +232,34 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun acceptsOnlyAnExactHistoricalProfileForItsOwnKnownIdentity() {
+        val receiver = object : BackupCatalog by catalog {
+            override fun compatiblePreviousSeedProfiles(): Map<String, Set<String>> =
+                mapOf("back-squat" to setOf("approved-old-profile"))
+        }
+        val compatibleValidator = BackupValidator(receiver)
+        val file = validFile().copy(
+            catalog = BackupCatalogManifest(
+                listOf("back-squat"),
+                listOf(BackupSeedProfile("back-squat", "approved-old-profile"))
+            )
+        )
+        compatibleValidator.validate(file)
+        listOf(
+            BackupSeedProfile("back-squat", "approved-old-profile "),
+            BackupSeedProfile("back-squat", "unknown-old-profile"),
+            BackupSeedProfile("missing", "approved-old-profile")
+        ).forEach { profile ->
+            val failure = assertFailsWith<BackupException> {
+                compatibleValidator.validate(
+                    file.copy(catalog = file.catalog.copy(seedProfiles = listOf(profile)))
+                )
+            }
+            assertEquals(BackupFailure.CATALOG_MISMATCH, failure.failure)
+        }
+    }
+
+    @Test
     fun rejectsASeedUnknownToThisInstall() {
         assertFailure(BackupFailure.CATALOG_MISMATCH) {
             validFile().copy(

@@ -30,12 +30,39 @@ class MovementPatternGuardrailTest {
     }
 
     @Test
-    fun flagsAShoulderDominantExerciseFiledAsAVerticalPull() {
-        // Upright row filed as a pull: no back/biceps primary.
-        assertTrue(
+    fun acceptsAShoulderDominantUprightRowAsAVerticalPull() {
+        assertFalse(
             MovementPatternGuardrail.conflicts(
                 MovementPattern.VERTICAL_PULL,
                 mapOf(MuscleGroup.SIDE_DELTS to 1.0, MuscleGroup.LATS to 0.3)
+            )
+        )
+    }
+
+    @Test
+    fun acceptsUprightTrapsAndHipAdductionWithoutChangingTheThreshold() {
+        assertFalse(
+            MovementPatternGuardrail.conflicts(
+                MovementPattern.VERTICAL_PULL,
+                mapOf(MuscleGroup.TRAPS to 0.7)
+            )
+        )
+        assertFalse(
+            MovementPatternGuardrail.conflicts(
+                MovementPattern.LEG_ISOLATION,
+                mapOf(MuscleGroup.ADDUCTORS to 1.0)
+            )
+        )
+        assertTrue(
+            MovementPatternGuardrail.conflicts(
+                MovementPattern.VERTICAL_PULL,
+                mapOf(MuscleGroup.TRAPS to 0.5)
+            )
+        )
+        assertTrue(
+            MovementPatternGuardrail.conflicts(
+                MovementPattern.VERTICAL_PULL,
+                mapOf(MuscleGroup.QUADS to 1.0)
             )
         )
     }

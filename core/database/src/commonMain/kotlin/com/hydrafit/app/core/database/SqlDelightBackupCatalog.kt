@@ -23,9 +23,19 @@ class SqlDelightBackupCatalog : BackupCatalog {
     override fun seedProfiles(): Map<String, String> =
         DefaultExercises.all.associate { it.id to seedProfile(it) }
 
+    override fun compatiblePreviousSeedProfiles(): Map<String, Set<String>> = mapOf(
+        "upright-barbell-row" to setOf(
+            "BARBELL|HORIZONTAL_PULL|false|EXTERNAL|FRONT_DELTS:0.7,SIDE_DELTS:0.7,UPPER_BACK:0.5"
+        ),
+        "cable-deadlifts" to setOf(
+            "CABLE_MACHINE|HINGE|false|EXTERNAL|" +
+                "FOREARMS:0.3,GLUTES:0.5,HAMSTRINGS:0.5,LOWER_BACK:0.3,QUADS:1.0"
+        )
+    )
+
     /**
      * Everything about a seed that affects planning or fatigue: equipment, pattern, laterality and
-     * resolved involvement weights. A change here under the same id is a compatibility mismatch.
+     * resolved involvement weights. Only the explicitly listed historical profiles may differ.
      */
     private fun seedProfile(exercise: Exercise): String = listOf(
         exercise.requiredEquipment.map { it.id }.sorted().joinToString(","),

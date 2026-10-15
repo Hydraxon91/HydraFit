@@ -25,4 +25,7 @@ interface BackupCatalog {
      * hold additional seeds; those are allowed.
      */
     fun seedProfiles(): Map<String, String> = emptyMap()
+
+    /** Exact historical profiles explicitly approved for restore, never a wildcard mismatch bypass. */
+    fun compatiblePreviousSeedProfiles(): Map<String, Set<String>> = emptyMap()
 }
