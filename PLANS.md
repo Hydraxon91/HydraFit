@@ -970,6 +970,152 @@ verification that changes completion expectations, accidental emulator data chan
 builder failure limits. Formal review requires a separate request in Plan Mode; commits, push, tagging
 and publication keep their own applicable approval gates. No automatic handoff or next-release work.
 
+### 0.8.1–0.8.3 — Continuous execution contract (approved 2026-10-15)
+
+**Status:** APPROVED — execution starts from clean `761d47d4` on
+`batch/0.8.1-0.8.3`. No application implementation or verification is claimed yet.
+The user accepted the final chat contract and authorized execution through 0.8.3,
+including independent release checkpoints and local verified atomic commits;
+a joint user review follows. No push, PR, merge, tag or publication is authorized.
+This section is an explicitly approved exception to status-lines-only plan editing.
+
+**Readiness:** ANSWER-NOW choices and NEEDS-EVIDENCE recommendations from the
+bounded read-only contract pass are accepted. No planned decision chunk remains.
+New evidence that requires a behavioral choice stops execution rather than silently
+changing this contract. The roadmap grouping is unchanged: 0.8.1 combines former
+0.8.2–0.8.4; 0.8.2 combines former 0.8.5–0.8.6; 0.8.3 is former 0.8.7.
+
+#### 0.8.1 — Catalog corrections, forearms and involvement controls
+
+- Reclassify `upright-barbell-row` from HORIZONTAL_PULL to VERTICAL_PULL;
+  retain `upright-cable-row` as VERTICAL_PULL. Extend that pattern's advisory
+  expected-muscle set to recognize upright-row shoulder/TRAPS targets.
+- Reclassify `cable-deadlifts` from HINGE to SQUAT: the dataset describes
+  squatting between low handles with quadriceps primary. All existing involvement
+  weights remain unchanged. Both changes remain compound, preserving the historical
+  compound/isolation fatigue classification.
+- Keep both hip-adduction rows unchanged; include ADDUCTORS in LEG_ISOLATION's
+  advisory. Resolve the five pinned guardrail conflicts without blanket exemptions.
+- Add four distinct sourced identities with explicitly modeled tiers (not measured
+  fatigue coefficients):
+
+| ID | Required equipment | Pattern | Involvements | Laterality / load |
+| --- | --- | --- | --- | --- |
+| `machine-pec-deck-fly` | new `PEC_DECK_MACHINE` | CHEST_FLY | CHEST_LOWER 1.0; CHEST_UPPER 0.5 | bilateral / EXTERNAL |
+| `reverse-machine-fly` | new `REVERSE_FLY_MACHINE` | SHOULDER_ISOLATION | REAR_DELTS 1.0; SIDE_DELTS 0.7 | bilateral / EXTERNAL |
+| `seated-dumbbell-wrist-curl` | DUMBBELL + BENCH | new `FOREARM_ISOLATION` | FOREARMS 1.0 | unilateral / EXTERNAL |
+| `seated-dumbbell-wrist-extension` | DUMBBELL + BENCH | FOREARM_ISOLATION | FOREARMS 1.0 | unilateral / EXTERNAL |
+
+- Pec deck means the forearm-pad variant, not all handle-fly machines. Equipment
+  capabilities are separate and never auto-selected. Preserve pre-existing
+  matching custom identities through startup seeding/dedupe and backup validation.
+  Record wrist load per hand without doubling.
+- Forearm accessories are eligible on Pull, Upper and Full-body, with no guaranteed
+  weekly target and no bypass of equipment, soreness, direct-arm priority or day caps.
+  Machine chest fly retains Push/Full-body pools; reverse machine fly retains
+  Push/Upper/Full-body pools. Rear-delt Pull expansion is excluded.
+- TRAPS deficit targeting is explicitly unchanged. No fatigue calibration or new
+  physiological/EMG conversion is approved.
+- Accept only exact recognized pre-correction seed profile strings for upright
+  barbell row and cable deadlifts. Unknown mismatches remain rejected; preserve
+  snapshots, overrides, frozen prescriptions and customs, and export current profiles.
+  Do not rewrite the imported file or broadly relax catalog validation.
+- Keep tier shortcuts and add numeric involvement editing within [0,1]; zero removes
+  the contribution. Reject invalid/non-finite input, show actual non-tier values and
+  preserve untouched stored precision. Existing save/reset semantics remain.
+- Sources: `free-exercise-db` facts (Unlicense; no images), ExRx pec-deck/wrist facts
+  (no copied text), reverse-fly studies including PMID 23302754 and the deltoid study
+  identified during the contract pass. Record exact row provenance in the living
+  catalog source doc. These sources inform muscle classification, not validated
+  HydraFit fatigue coefficients.
+
+#### 0.8.2 — OF-08 map and performed coverage
+
+- Original HydraFit-authored MIT offline schematic artwork, neutral-to-red monotonic
+  intensity, numerical values and legend, no animation. All 21 muscle groups remain
+  independently accessible; internal/overlapping regions are explicitly schematic.
+- Front maps chest upper/lower, front/side delts, biceps, forearms, abs, obliques,
+  quads, adductors, hip abductors, calves and neck. Back maps traps, rear/side delts,
+  triceps, forearms, lats, upper/lower back, glutes, hamstrings, calves and neck.
+  A shared region across views carries the same group score.
+- Preserve reactive log changes, resume refresh and the existing 60-second foreground
+  recovery tick. No fatigue/session/planner calculation changes or persistent cache.
+- Default performed-coverage window is seven civil days including today under the
+  existing fixed-current-offset convention. Exclude warm-ups/future sets and use
+  recorded involvement snapshots. Count each set once per positively involved muscle;
+  show working-set counts separately from estimated sum(involvement) credits, never
+  label either direct sets or physiological set equivalents.
+- Last-trained is the latest qualifying timestamp across available history, not
+  restricted to the coverage window. Missing snapshots are unclassified, not rebuilt
+  from today's catalog; expose their presence and avoid unsupported never-trained
+  claims. Corrections, deletions and restore recompute.
+- Fixture: two working sets with BICEPS 1.0 and FOREARMS 0.3 yield counts 2/2 and
+  credits 2.0/0.6; a warm-up changes neither, deleting one working set halves both.
+
+#### 0.8.3 — OF-09 body weight
+
+- Shared models/port/actions in `core/userdata`, SQLDelight implementation in
+  `core/database`; additive measurement and goal tables with matching migration.
+- One measurement per civil date, finite positive canonical kilograms. Past/today
+  allowed, future dates rejected. Duplicate-date creation offers explicit replacement;
+  moving an existing entry onto an occupied date fails without overwriting it.
+- Transactional saves/deletes, repeat-submit guards and stale-context rejection;
+  changing display units never rewrites data, and unchanged weight edits preserve
+  original precision. One nullable current goal, editable/clearable.
+- Raw points with 4-week/12-week/1-year ranges matching Progress; no smoothing,
+  interpolation or invented zeroes. UI belongs to `feature/progress`, reached from
+  existing Progress, preserving Logger drafts on return. No new module/tab.
+- Extend logical backup encoding in the same change: new formats require both
+  measurement sections; older formats replace with empty measurements/no goal.
+  Reject duplicate dates, malformed sections and invalid values before writes.
+  Allocate migration/format numbers from the verified current chain at implementation.
+- Measurements never influence planning, exercise loads or fatigue.
+
+#### Ordered chunks, owners and verification
+
+| Chunk | Owner | Bounded targets | Acceptance / checks |
+| --- | --- | --- | --- |
+| 081-C1 classifications/compatibility | main | domain guardrail/backup contracts; database seed profiles, compatibility and tests | five conflict dispositions; exact old profiles accepted, unknown mismatch rejected; Tier A |
+| 081-C2 new catalog/pools | main | domain equipment/pool consumers; database catalog/seeding/dedupe and downstream tests | four sourced identities, custom/override preservation, approved reachability/gates; Tier A |
+| 081-C3 numeric editor | coder | equipment UI/state/resources/tests | numeric validation, precision and save/cancel/reset; Tier C + bounded UI |
+| 081-C4 integration | main | producer/consumer tests, living docs, QA, named flows | full matrix + semantic UI and viewed screenshots |
+| 082-C1 coverage reads/aggregation | main | domain coverage, database queries/repository, DI/tests | fixture reconciliation, unknown snapshots, corrected history and restore; Tier A |
+| 082-C2 map/coverage UI | coder | fatigueheatmap geometry/UI/state/resources/tests/bindings | 21-group mapping, values, legend, reactivity and accessibility; Tier B + bounded UI |
+| 082-C3 integration | main | real-writer tests, refresh/race checks, docs/QA | full matrix + semantic UI and viewed screenshots |
+| 083-C1 measurements/backup | main | userdata, SQLDelight schema/migration/repository, domain backup, composition DI/tests | atomicity, collision/precision policy, migration, strict new/legacy backup round trips; Tier A |
+| 083-C2 entry/history/chart | coder | progress navigation/UI/state/resources/bindings/tests | empty/sparse/unit/error states, date conflicts, stale/repeated submissions; Tier B + bounded UI |
+| 083-C3 integration | main | real persistence/restore, navigation/draft preservation, docs/QA | full matrix + semantic UI and viewed screenshots |
+
+Before each chunk, state exact file ownership and capture the preserved-work baseline.
+Main retains persistence/concurrency/planner/shell ownership; coder begins after
+shared contracts pass. Main makes no competing edits while coder runs. `ui-runner`
+executes bounded emulator checks; main owns flow authoring, diagnosis and QA evidence.
+
+Every release integration gate runs host tests, migration verification, global
+ktlint, debug assembly, both required iOS compiles and changed Koin graphs, plus
+bounded debug-emulator acceptance (kg/lb, larger text and light/dark as applicable).
+An unavailable required check blocks completion rather than silently becoming a waiver.
+One independent read-only `general` review per release follows both review guides;
+localized evidence-backed mechanical corrections retain their approved owner, with
+targeted independent closure. Main consolidates immutable findings/closure evidence in
+`docs/review-0.8.1-snapshot.md`, `docs/review-0.8.2-snapshot.md` and
+`docs/review-0.8.3-snapshot.md`. Main owns PLANS status updates and `docs/qa.md`;
+implementation owners update affected living docs and mechanics references together.
+
+**Explicit gates accepted:** measurement tables/additive migration, backup encoding
+extension, stored FOREARM_ISOLATION and consumers, and the narrow legacy-profile
+compatibility contract. No dependency, module-graph, secrets, CI or signing changes.
+No release APK is installed or built for publication; no phone data/UI is used.
+
+**Budget:** 15-hour hard execution cap: 5h for 0.8.1, 4h for 0.8.2, 5h for 0.8.3,
+1h shared reserve including review/verification. It is a stop limit, not a completion
+guarantee. Stop for new behavior/scope decisions, unexpected writes, missing approval,
+unavailable verification, unsafe data effects, unresolved required findings, exhausted
+budget or two unsuccessful fixes of one blocker. Finish at independently reviewed,
+verified local candidate commits; report each boundary and seek one separate approval
+for the exact publication sequence only after the approved list completes. No automatic
+handoff/starter. The requested joint user review follows implementation through 0.8.3.
+
 ### OF-05 — Local workout CSV imports
 
 **Goal / v1 scope:** import FitNotes, Strong and Hevy CSV exports locally with a preview of exercise mappings, units, sessions and rejected/unsupported fields. No vendor API key or online service is required.
