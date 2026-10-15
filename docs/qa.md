@@ -28,6 +28,34 @@ exact on-screen text.
   verify live correction/deletion/whole restore and same-count replacement emissions.
 - Feature map/coverage UI and release integration/review remain pending.
 
+## 0.8.2 C2/C3 map overlay + coverage UI — 2026-10-15
+
+- Coder-owned C2 map/coverage UI plus parent C3 integration on `0a6717a6`; user approved
+  a layout revision during acceptance: the tab keeps the bar rows and coverage facts,
+  and the schematic map moved behind a "Body map" overlay (visual redesign deferred).
+- Full Tier A matrix passed 1,906 tests, zero failures/errors/skips, migration
+  verification, lint, debug assembly and both iOS compiles (`hf-082-c3-3.log`).
+- Device acceptance (debug `0.7.6-dev-0a6717a6-dirty` on emulator-5554): bars/coverage
+  10/10 (heading, section note, recorded sets/credits/last-trained lines), Body map
+  overlay 15/15 (Front, `Upper chest`/`Biceps` region descriptions, scroll to Back,
+  `Traps` region, legend, schematic note, Close returns to coverage), resume refresh
+  6/6, dark 6/6 and larger text 6/6 with theme/font readbacks restored, final screen
+  on the bars view. Screenshots captured and viewed by the runner (`fatigue-bars.png`,
+  `overlay-map.png`, `overlay-dark.png`, `overlay-large.png`, `final.png` under
+  `.../opencode/hf-082-accept3/`). Workout fingerprints unchanged (4 sets / 2 sessions);
+  no records written; scratch copies removed.
+- Acceptance found and fixed a real accessibility defect: the overlay region boxes were
+  composed in list order while the canvas drew an area-sorted order, so regions fully
+  covered by later boxes (chest upper/lower, traps) vanished from the accessibility
+  tree. `FatigueMap.kt` now derives both layers from one ordered list; a regression test
+  proves the old order loses exactly those three regions and the fixed order keeps an
+  uncovered interior point per region. Visual output is unchanged. The earlier inline
+  layout's below-the-fold flow failures and the fixed-order re-run are recorded as
+  history in the acceptance artifact logs, not as open findings.
+- Limits retained: TalkBack speech, locale/rotation variants and every region's exact
+  scrolled percentage were not individually enumerated; the map remains explicitly
+  schematic. Independent 0.8.2 review pending at the time of this record.
+
 ## 0.8.1 C1 classification/backup verification — 2026-10-15
 
 ### C3/C4 numeric-editor and integration evidence

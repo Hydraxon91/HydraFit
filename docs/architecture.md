@@ -624,6 +624,12 @@ pure `TrainingCoverageCalculator` reports seven-civil-day working-set counts and
 separate estimated involvement credits, all-history last-trained and unclassified
 snapshot presence. It never borrows current catalog weights or changes fatigue,
 planning or storage. Existing query invalidation covers corrections/deletes/restore.
+The Fatigue screen keeps its numeric bar rows, adds those coverage facts and moves
+the schematic front/back map (`FatigueMapGeometry`/`FatigueMap`) behind a "Body map"
+overlay. The map canvas and its per-region accessibility overlays derive from one
+area-sorted region list, because a semantics node fully covered by later overlays
+drops out of the accessibility tree; the map is explicitly schematic, not a measured
+anatomical segmentation.
 
 The 0.8.1 catalog adds four separately sourced identities in
 `DefaultExercisesCatalog081`: forearm-pad pec deck, reverse machine fly, seated
@@ -1255,7 +1261,8 @@ The path from a tap to a persisted row and back to the UI. File references may h
 7. **Consumers.** `WorkoutLoggerViewModel` collects the catalog and calls `refreshRecentSets()`;
    `SqlDelightWorkoutPlanSourcesRepository` (`WorkoutPlanSourcesRepository`) combines logged sets,
    equipment, engine, days, goal, and personal records; `FatigueHeatmapViewModel` collects
-   `loggedSetsFlow()` and recomputes `CalculateMuscleFatigueUseCase`.
+   `loggedSetsFlow()` and recomputes `CalculateMuscleFatigueUseCase`, and separately
+   collects the recorded coverage snapshots for `TrainingCoverageCalculator`.
 8. **UiState.** Consumers update their `StateFlow<UiState>`; screens re-render via
    `collectAsStateWithLifecycle`.
 

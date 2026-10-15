@@ -976,9 +976,11 @@ and publication keep their own applicable approval gates. No automatic handoff o
 zero failures/errors/skips, migration/lint/debug/both iOS compiles); renewed numeric
 Save/reopen/Reset and catalog/layout checks completed. Independent targeted closure
 APPROVED for R081-01/02; supplemental runtime limits retained in QA/review. 082-C1
-coverage reads/calculation Tier A verified (1,888 tests); 082-C2 onward/083 pending.
-Execution starts from clean `761d47d4` on
-`batch/0.8.1-0.8.3`.
+coverage reads/calculation Tier A verified (1,888 tests); 082-C2/C3 implemented,
+Tier A verified (1,906 tests) and device-accepted (bars/coverage, Body map overlay
+incl. the accessibility layering fix, dark/larger-text with restoration, unchanged
+data) pending its independent review. 083 pending. Execution starts from clean
+`761d47d4` on `batch/0.8.1-0.8.3`.
 The user accepted the final chat contract and authorized execution through 0.8.3,
 including independent release checkpoints and local verified atomic commits;
 a joint user review follows. No push, PR, merge, tag or publication is authorized.
@@ -1036,9 +1038,14 @@ changing this contract. The roadmap grouping is unchanged: 0.8.1 combines former
 
 #### 0.8.2 — OF-08 map and performed coverage
 
+- Bar rows stay the tab's default view, with a "Body map" button opening the map in
+  an overlay dialog (user-approved 2026-10-15 revision; improving the map's visual
+  design is deferred to later UI work).
 - Original HydraFit-authored MIT offline schematic artwork, neutral-to-red monotonic
   intensity, numerical values and legend, no animation. All 21 muscle groups remain
   independently accessible; internal/overlapping regions are explicitly schematic.
+  The canvas and its per-region accessibility overlays must share one draw order:
+  a semantics node fully covered by later overlays drops out of the accessibility tree.
 - Front maps chest upper/lower, front/side delts, biceps, forearms, abs, obliques,
   quads, adductors, hip abductors, calves and neck. Back maps traps, rear/side delts,
   triceps, forearms, lats, upper/lower back, glutes, hamstrings, calves and neck.

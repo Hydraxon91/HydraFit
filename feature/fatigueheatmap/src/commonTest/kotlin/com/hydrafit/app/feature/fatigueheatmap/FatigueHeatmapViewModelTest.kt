@@ -1,10 +1,12 @@
 package com.hydrafit.app.feature.fatigueheatmap
 
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
+import com.hydrafit.app.core.domain.fatigue.CoverageSet
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.fatigue.MuscleInvolvement
 import com.hydrafit.app.core.domain.fatigue.MuscleTarget
+import com.hydrafit.app.core.domain.fatigue.TrainingCoverageRepository
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
@@ -17,12 +19,14 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -30,6 +34,8 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+
+private typealias CoverageSetsFlow = MutableStateFlow<List<CoverageSet>>
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class FatigueHeatmapViewModelTest {
@@ -76,6 +82,7 @@ class FatigueHeatmapViewModelTest {
         val viewModel = FatigueHeatmapViewModel(
             workoutLogRepository = FlowingWorkoutLogRepository(sets),
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            trainingCoverageRepository = FakeTrainingCoverageRepository(),
             timeProvider = TimeProvider { 0L },
             calculationDispatcher = dispatcher
         )
@@ -94,6 +101,7 @@ class FatigueHeatmapViewModelTest {
         val viewModel = FatigueHeatmapViewModel(
             workoutLogRepository = FlowingWorkoutLogRepository(sets),
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            trainingCoverageRepository = FakeTrainingCoverageRepository(),
             timeProvider = TimeProvider { 0L },
             calculationDispatcher = dispatcher
         )
@@ -212,6 +220,7 @@ class FatigueHeatmapViewModelTest {
         val viewModel = FatigueHeatmapViewModel(
             workoutLogRepository = FakeWorkoutLogRepository(List(24) { chestSet(0L) }),
             calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            trainingCoverageRepository = FakeTrainingCoverageRepository(),
             timeProvider = TimeProvider { 0L },
             calculationDispatcher = calculationDispatcher
         )
@@ -220,6 +229,134 @@ class FatigueHeatmapViewModelTest {
 
         assertTrue(calculationDispatcher.used)
         assertEquals(CHEST_24_FRESH, viewModel.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
+    }
+
+    @Test
+    fun coverageCountsWorkingSetsAndCreditsSeparately() = runTest(dispatcher) {
+        val pairs = coverageViewModel(
+            sets = MutableStateFlow(
+                listOf(
+                    CoverageSet(NOW, isWarmup = false, involvements = PROFILE),
+                    CoverageSet(NOW, isWarmup = false, involvements = PROFILE),
+                    CoverageSet(NOW, isWarmup = true, involvements = PROFILE)
+                )
+            ),
+            timeProvider = TimeProvider { NOW }
+        )
+        runCurrent()
+
+        val biceps = pairs.coverageOf(MuscleGroup.BICEPS)
+        val forearms = pairs.coverageOf(MuscleGroup.FOREARMS)
+        assertEquals(2, biceps.workingSets)
+        assertEquals(2, forearms.workingSets)
+        assertEquals(2.0, biceps.estimatedInvolvementCredits, 1e-12)
+        assertEquals(0.6, forearms.estimatedInvolvementCredits, 1e-12)
+        assertTrue(pairs.state.value.coverageComputed)
+    }
+
+    @Test
+    fun coverageWarmUpSetAddsNeitherCountNorCredits() = runTest(dispatcher) {
+        val viewModel = coverageViewModel(
+            sets = MutableStateFlow(
+                listOf(CoverageSet(NOW, isWarmup = true, involvements = PROFILE))
+            ),
+            timeProvider = TimeProvider { NOW }
+        )
+        runCurrent()
+
+        val biceps = viewModel.coverageOf(MuscleGroup.BICEPS)
+        assertEquals(0, biceps.workingSets)
+        assertEquals(0.0, biceps.estimatedInvolvementCredits, 1e-12)
+    }
+
+    @Test
+    fun deletingOneWorkingSetHalvesCountAndCredits() = runTest(dispatcher) {
+        val sets = MutableStateFlow(
+            listOf(
+                CoverageSet(NOW, isWarmup = false, involvements = PROFILE),
+                CoverageSet(NOW, isWarmup = false, involvements = PROFILE)
+            )
+        )
+        val viewModel = coverageViewModel(sets = sets, timeProvider = TimeProvider { NOW })
+        runCurrent()
+        assertEquals(2, viewModel.coverageOf(MuscleGroup.BICEPS).workingSets)
+
+        sets.value = listOf(CoverageSet(NOW, isWarmup = false, involvements = PROFILE))
+        runCurrent()
+
+        val biceps = viewModel.coverageOf(MuscleGroup.BICEPS)
+        val forearms = viewModel.coverageOf(MuscleGroup.FOREARMS)
+        assertEquals(1, biceps.workingSets)
+        assertEquals(1.0, biceps.estimatedInvolvementCredits, 1e-12)
+        assertEquals(1, forearms.workingSets)
+        assertEquals(0.3, forearms.estimatedInvolvementCredits, 1e-12)
+    }
+
+    @Test
+    fun coverageTickRollsTheWindowOverWhileLastTrainedPersists() = runTest(dispatcher) {
+        val clock = FakeClock()
+        val sets = MutableStateFlow(
+            listOf(CoverageSet(performedAtMillis = 0L, isWarmup = false, involvements = PROFILE))
+        )
+        val viewModel = coverageViewModel(sets = sets, timeProvider = clock)
+        try {
+            clock.now = 6L * DAY
+            runCurrent()
+            viewModel.onResume()
+            runCurrent()
+
+            assertEquals(1, viewModel.coverageOf(MuscleGroup.BICEPS).workingSets)
+            assertEquals(0L, viewModel.coverageOf(MuscleGroup.BICEPS).lastTrainedAtMillis)
+
+            clock.now = 7L * DAY
+            advanceTimeBy(60_000L)
+            runCurrent()
+
+            val afterRollover = viewModel.coverageOf(MuscleGroup.BICEPS)
+            assertEquals(0, afterRollover.workingSets)
+            assertEquals(0L, afterRollover.lastTrainedAtMillis)
+        } finally {
+            viewModel.onPause()
+        }
+    }
+
+    @Test
+    fun coverageExposesUnclassifiedSnapshots() = runTest(dispatcher) {
+        val viewModel = coverageViewModel(
+            sets = MutableStateFlow(
+                listOf(
+                    CoverageSet(
+                        performedAtMillis = 5L * DAY,
+                        isWarmup = false,
+                        involvements = null
+                    )
+                )
+            ),
+            timeProvider = TimeProvider { 10L * DAY }
+        )
+        runCurrent()
+
+        assertTrue(viewModel.state.value.hasUnclassifiedHistory)
+        assertEquals(1, viewModel.state.value.unclassifiedSetsInWindow)
+        val biceps = viewModel.coverageOf(MuscleGroup.BICEPS)
+        assertEquals(0, biceps.workingSets)
+        assertNull(biceps.lastTrainedAtMillis)
+    }
+
+    @Test
+    fun coverageIsNotClaimedBeforeTheFirstSnapshot() = runTest(dispatcher) {
+        val viewModel = FatigueHeatmapViewModel(
+            workoutLogRepository = FakeWorkoutLogRepository(emptyList()),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            trainingCoverageRepository = object : TrainingCoverageRepository {
+                override fun observeSets(): Flow<List<CoverageSet>> = emptyFlow()
+            },
+            timeProvider = TimeProvider { NOW },
+            calculationDispatcher = dispatcher
+        )
+        runCurrent()
+
+        assertFalse(viewModel.state.value.coverageComputed)
     }
 
     @Test
@@ -246,8 +383,25 @@ class FatigueHeatmapViewModelTest {
         }
     }
 
+    @Test
+    fun creditPartsSplitWholeAndTenths() {
+        assertEquals(0 to 6, creditParts(0.6))
+        assertEquals(2 to 0, creditParts(2.0))
+        assertEquals(0 to 0, creditParts(0.0))
+        assertEquals(1 to 2, creditParts(1.234))
+    }
+
+    @Test
+    fun coverageDateLabelKeepsOnlyTheCivilDate() {
+        assertEquals("1970-01-01", coverageDateLabel(0L, 0L))
+        assertEquals("1970-01-01", coverageDateLabel(60_000L, 0L))
+    }
+
     private fun FatigueHeatmapViewModel.scoreOf(muscle: MuscleGroup): Double =
         state.value.entries.first { it.muscle == muscle }.score
+
+    private fun FatigueHeatmapViewModel.coverageOf(muscle: MuscleGroup): MuscleFatigueEntry =
+        state.value.entries.first { it.muscle == muscle }
 
     private companion object {
         // Phase B derivation for 24 CHEST sets at one timestamp, involvement 1.0, reps 8:
@@ -257,6 +411,10 @@ class FatigueHeatmapViewModelTest {
         const val CHEST_24_FRESH = 0.8
         const val CHEST_24_48H = 0.2
         const val CHEST_24_96H = 0.05
+
+        const val DAY = 86_400_000L
+        const val NOW = 10L * DAY
+        val PROFILE = mapOf(MuscleGroup.BICEPS to 1.0, MuscleGroup.FOREARMS to 0.3)
     }
 
     private fun chestSet(timestampMillis: Long) = LoggedSet(
@@ -269,6 +427,7 @@ class FatigueHeatmapViewModelTest {
     private fun viewModel(sets: List<LoggedSet>, nowMillis: Long) = FatigueHeatmapViewModel(
         workoutLogRepository = FakeWorkoutLogRepository(sets),
         calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+        trainingCoverageRepository = FakeTrainingCoverageRepository(),
         timeProvider = TimeProvider { nowMillis },
         calculationDispatcher = dispatcher
     )
@@ -276,9 +435,19 @@ class FatigueHeatmapViewModelTest {
     private fun viewModel(sets: List<LoggedSet>, clock: FakeClock) = FatigueHeatmapViewModel(
         workoutLogRepository = FakeWorkoutLogRepository(sets),
         calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+        trainingCoverageRepository = FakeTrainingCoverageRepository(),
         timeProvider = clock,
         calculationDispatcher = dispatcher
     )
+
+    private fun coverageViewModel(sets: CoverageSetsFlow, timeProvider: TimeProvider) =
+        FatigueHeatmapViewModel(
+            workoutLogRepository = FakeWorkoutLogRepository(emptyList()),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            trainingCoverageRepository = FlowingTrainingCoverageRepository(sets),
+            timeProvider = timeProvider,
+            calculationDispatcher = dispatcher
+        )
 
     private class RecordingDispatcher(private val delegate: CoroutineDispatcher) :
         CoroutineDispatcher() {
@@ -302,6 +471,18 @@ class FatigueHeatmapViewModelTest {
             reads++
             return now
         }
+    }
+
+    private class FakeTrainingCoverageRepository(
+        private val sets: List<CoverageSet> = emptyList()
+    ) : TrainingCoverageRepository {
+        override fun observeSets(): Flow<List<CoverageSet>> = flowOf(sets)
+    }
+
+    private class FlowingTrainingCoverageRepository(
+        private val sets: MutableStateFlow<List<CoverageSet>>
+    ) : TrainingCoverageRepository {
+        override fun observeSets(): Flow<List<CoverageSet>> = sets
     }
 
     private class FakeWorkoutLogRepository(private val sets: List<LoggedSet>) :
