@@ -1143,6 +1143,38 @@ exact/inexact scheduling path. Returning or enabling after expiry does not repla
 signal. Presentation bookkeeping is in memory only, not a backup or timer write. OS rendering,
 haptic delivery and lifecycle integration remain C6 acceptance, not host-test guarantees.
 
+### 1.21 Local workout-CSV imports (0.9.1)
+
+An import moves workout history from another app's CSV export into HydraFit without an account, a
+network call or a vendor API. It has three separated parts that keep parsing decisions out of
+persistence:
+
+- **Parsing** (`:core:domain` `transfer/WorkoutCsvParser`) reads one explicitly-chosen provider layout
+  (`FITNOTES`, `STRONG`, `HEVY`) with `CsvTableReader`. It never sniffs a layout from headers or
+  values, and it produces source-local records only: a civil date, an optional time of day, the
+  original exercise name and native weight with its unit. It does not invent a UTC instant, a session
+  id, a warm-up flag, an RIR value or an exercise mapping, and a value it cannot represent becomes a
+  typed row diagnostic instead of fabricated data.
+- **Preview** (`transfer/PreviewWorkoutImport`) resolves those records into an approved plan: explicit
+  exercise mapping and load interpretation, explicit UTC offsets and same-day session membership,
+  explicit exclusion of rejected rows, and a disclosure acknowledgement before anything is written.
+  It reports blocking problems separately from non-blocking notices, so an already-imported source is
+  skipped visibly (including when its imported session was deleted locally) instead of silently.
+- **Commit** (`:core:database` `SqlDelightWorkoutImportRepository`) writes the whole approved plan in
+  one transaction. Each imported session is created already closed with its own identity, so imported
+  history never enters the logger's open-session lifecycle, and each set stores the mapping resolved
+  at preview time, freezing the approved attribution against later catalog edits. Imported sets carry
+  `CATCH_UP` timing provenance and no occurrence or plan attribution.
+
+Repeat-import protection is a durable ledger (`workoutImportProvenance`) keyed by provider plus a
+candidate key for the source workout, with the canonical content of the rows that produced it. A
+changed or ambiguous match blocks that session; an unchanged one is skipped; and the ledger row
+deliberately survives local deletion of the imported history, so re-importing the same export cannot
+resurrect a session the user removed. The ledger travels through backup/restore as format 15 and is
+gated in both directions, because a file that omits it would otherwise re-import everything. See
+`docs/architecture.md` §1.9 for the additive-migration rule and `backup.md` in the mechanics skill for
+the format detail.
+
 ## 2. Decision log
 
 Each row: the decision, the **recorded** rationale with a citation, recorded alternatives, and status.

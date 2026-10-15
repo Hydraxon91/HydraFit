@@ -18,7 +18,8 @@ Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseExclusion.sq`, `ExerciseNot
 `PlannerEngine.sq`,
 `PlanVolumeExplanation.sq`, `PlanVolumeExplanationState.sq`, `PlanTargetExplanation.sq`,
 `PlanTargetExplanationState.sq`, `EntryTargetExplanation.sq`, `RoutineTemplate.sq`,
-`TrainingSchedule.sq`, `UserEquipment.sq`, `WorkoutLog.sq`, `WorkoutSession.sq`, `SessionNote.sq` and
+`TrainingSchedule.sq`, `UserEquipment.sq`, `WorkoutLog.sq`, `WorkoutSession.sq`, `SessionNote.sq`,
+`WorkoutImport.sq` and
 `WorkoutHistory.sq`.
 
 `SqlDelightTrainingCoverageRepository` (0.8.2) observes the existing `selectAllSets`
@@ -123,6 +124,14 @@ so `SqlDelightBodyWeightRepository` keeps "no goal" distinct from any stored val
 the goal row on clear.
 Determine the
 next version from the current directory/generated Schema rather than copying this snapshot.
+
+`WorkoutImport.sq` (0.9.1) owns `workoutImportProvenance`, the local import ledger: one row per
+imported source workout with its provider, candidate key, canonical content and created session id.
+It carries no foreign key to `workoutSession` on purpose, so a row survives local deletion of the
+imported history and a repeated export cannot silently restore it. `SqlDelightWorkoutImportRepository`
+re-reads the ledger inside the commit transaction and refuses the whole commit on a changed or
+ambiguous match; `SqlDelightBackupRepository` exports and whole-replaces it with the rest of the
+user-owned data. `50.sqm` creates the table and its source index; current schema version is 51.
 
 `SqlDelightSetupWriteRepository` implements domain `SetupWriteRepository`. Its transaction compares
 the full expected setup state/revision, validates domain inputs and effective catalog identities,

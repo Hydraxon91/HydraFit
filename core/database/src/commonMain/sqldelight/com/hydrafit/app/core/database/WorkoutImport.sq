@@ -1,0 +1,30 @@
+-- Provenance ledger for local workout-CSV imports (0.9.1). One row per imported source session:
+-- the source provider, a candidate key that identifies the source workout, the canonical content of
+-- the rows that produced it, and the local session it created.
+--
+-- Deliberately not foreign-keyed to `workoutSession`: a row survives local deletion of the imported
+-- history, so re-importing the same export cannot silently resurrect a session the user removed.
+-- Rows are device-local provenance, never inferred user data.
+CREATE TABLE workoutImportProvenance (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    source TEXT NOT NULL,
+    candidateKey TEXT NOT NULL,
+    content TEXT NOT NULL,
+    importedSessionId TEXT NOT NULL
+);
+
+-- Reads for one provider only; the domain preview filters these by candidate key.
+CREATE INDEX workoutImportProvenance_source ON workoutImportProvenance(source);
+
+insertProvenance:
+INSERT INTO workoutImportProvenance(source, candidateKey, content, importedSessionId)
+VALUES (?, ?, ?, ?);
+
+selectProvenanceBySource:
+SELECT * FROM workoutImportProvenance WHERE source = ? ORDER BY id;
+
+selectAllProvenance:
+SELECT * FROM workoutImportProvenance ORDER BY id;
+
+deleteAllProvenance:
+DELETE FROM workoutImportProvenance;

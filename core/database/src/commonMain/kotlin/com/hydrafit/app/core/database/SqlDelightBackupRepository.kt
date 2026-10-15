@@ -17,6 +17,7 @@ import com.hydrafit.app.core.domain.backup.BackupExerciseNoteRecord
 import com.hydrafit.app.core.domain.backup.BackupExerciseOverrideRecord
 import com.hydrafit.app.core.domain.backup.BackupExerciseRecord
 import com.hydrafit.app.core.domain.backup.BackupFile
+import com.hydrafit.app.core.domain.backup.BackupImportProvenanceRecord
 import com.hydrafit.app.core.domain.backup.BackupOccurrenceEntryRecord
 import com.hydrafit.app.core.domain.backup.BackupOccurrenceRecord
 import com.hydrafit.app.core.domain.backup.BackupPersonalRecordRecord
@@ -518,7 +519,16 @@ class SqlDelightBackupRepository(
                         profile.loadingInventory
                     )
                 },
-                activeEquipmentProfileId = profiles.context.profileId
+                activeEquipmentProfileId = profiles.context.profileId,
+                importProvenance = database.workoutImportQueries.selectAllProvenance()
+                    .executeAsList().map {
+                        BackupImportProvenanceRecord(
+                            source = it.source,
+                            candidateKey = it.candidateKey,
+                            content = it.content,
+                            importedSessionId = it.importedSessionId
+                        )
+                    }
             )
         }
 
@@ -552,6 +562,7 @@ class SqlDelightBackupRepository(
             database.personalRecordQueries.deleteAll()
             database.workoutLogQueries.deleteAllSets()
             database.workoutSessionQueries.deleteAllSessions()
+            database.workoutImportQueries.deleteAllProvenance()
             database.planVolumeExplanationStateQueries.deleteAll()
             database.planVolumeExplanationQueries.deleteAll()
             database.planTargetExplanationQueries.deleteAll()
@@ -985,6 +996,15 @@ class SqlDelightBackupRepository(
                     timingProvenance = set.timingProvenance,
                     startedAtElapsedMillis = set.startedAtElapsedMillis,
                     completedAtElapsedMillis = set.completedAtElapsedMillis
+                )
+            }
+
+            file.importProvenance.forEach { record ->
+                database.workoutImportQueries.insertProvenance(
+                    source = record.source,
+                    candidateKey = record.candidateKey,
+                    content = record.content,
+                    importedSessionId = record.importedSessionId
                 )
             }
 

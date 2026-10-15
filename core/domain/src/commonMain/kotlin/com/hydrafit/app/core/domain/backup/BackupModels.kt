@@ -7,9 +7,12 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 14
+const val BACKUP_FORMAT_VERSION: Int = 15
 
 const val EQUIPMENT_PROFILE_FORMAT_VERSION: Int = 14
+
+/** The first backup format that carries local workout-import provenance. */
+const val IMPORT_PROVENANCE_FORMAT_VERSION: Int = 15
 
 /** The first backup format that carries body-weight measurements and the optional weight goal. */
 const val BODY_WEIGHT_FORMAT_VERSION: Int = 13
@@ -42,7 +45,8 @@ const val EXERCISE_NOTES_FORMAT_VERSION: Int = 9
  * explanation rather than a fabricated one. Version 7 adds the recorded plan-target explanations;
  * earlier formats have none, so a restored legacy plan reports no explanation rather than a
  * fabricated one. Version 6 adds alert/coaching opt-ins; earlier formats default them off. Version 5
- * adds rest durations; earlier formats use the global default.
+ * adds rest durations; earlier formats use the global default. Version 15 adds local workout-import
+ * provenance; earlier formats have none.
  */
 @Serializable
 data class BackupFile(
@@ -112,7 +116,25 @@ data class BackupFile(
     val bodyWeightGoalKg: Double? = null,
     /** Complete profile configuration in format 14; legacy formats carry no profile sections. */
     val equipmentProfiles: List<BackupEquipmentProfileRecord> = emptyList(),
-    val activeEquipmentProfileId: Long? = null
+    val activeEquipmentProfileId: Long? = null,
+    /**
+     * Local workout-import provenance, format 15 and later. A record is deliberately retained after
+     * its imported session is deleted locally, so an entry may name a session the file does not
+     * carry; that is what stops a repeated export from silently restoring removed history.
+     */
+    val importProvenance: List<BackupImportProvenanceRecord> = emptyList()
+)
+
+/**
+ * One imported source workout: the provider, a candidate key for the source workout, the canonical
+ * content that produced it and the local session it created.
+ */
+@Serializable
+data class BackupImportProvenanceRecord(
+    val source: String,
+    val candidateKey: String,
+    val content: String,
+    val importedSessionId: String
 )
 
 @Serializable
