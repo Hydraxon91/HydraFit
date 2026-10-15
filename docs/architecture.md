@@ -517,8 +517,8 @@ profile/revision key is presentation context, not historical training data. Glob
 removal rejects other-profile references and protected exercise/activation/occurrence references.
 Occurrence replacement validates availability and the replacement ceiling against the same active
 profile snapshot, not the legacy `selected_equipment` table or the global `equipment.maxWeightKg`
-column; live edits no longer write those legacy stores, which remain only for backup/migration
-compatibility.
+column; live edits no longer write those legacy stores, which remain only for startup identity
+repair and backup/migration compatibility (C-01).
 
 Calculator configuration uses domain-owned validated JSON and integer thousandths of its explicit
 kg/lb inventory unit, separate from canonical-kilogram training loads. Counts are individual plates;

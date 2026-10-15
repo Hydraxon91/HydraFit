@@ -2551,8 +2551,13 @@ final state is user-reported, not independently verified. Findings inform the 0.
   and ktlint (`090-f1-db2.log`) and the full matrix — 2,061 host tests, 0 failures, plus
   `verifySqlDelightMigration`, `ktlintCheck`, debug assembly and both iOS compiles
   (`090-f1-integration.log`).
-- Not yet done: reviewer closure on the F1 correction. The release remains unverified until that
-  closure; publication is separately approval-gated.
+- Reviewer closure (`reviewer`, targeted over `ca3624d4..9df882a5`): **F1 CLOSED, F2 resolved**, no
+  blocking finding. One non-blocking mechanical wording finding (C-01: the docs said the legacy stores
+  were read-compatible only, while startup identity repair still writes `selected_equipment`) was
+  reworded in `docs/architecture.md` and the `database.md` reference. The reviewer confirmed no
+  production consumer still depends on a value that stopped being written, and that backup export
+  derives from the active profile while restore projects the legacy columns inside the same
+  transaction. Publication is separately approval-gated and not approved.
 - Known open item for review: `equipment_calculator_section` ("Loading calculator") is defined in the
   Equipment feature strings but never rendered; the on-screen affordance is the `Calculate loading`
   action under the `Loading configuration` heading.
