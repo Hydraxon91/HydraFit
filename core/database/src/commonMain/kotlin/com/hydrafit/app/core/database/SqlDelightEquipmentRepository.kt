@@ -51,7 +51,6 @@ class SqlDelightEquipmentRepository(private val database: HydraFitDatabase) : Eq
             require(references.none { it != state.activeProfileId })
             require(!queries.hasProtectedReference(id.id).executeAsOne())
             database.equipmentProfileQueries.deleteEquipmentEntry(state.activeProfileId, id.id)
-            database.userEquipmentQueries.deleteSelected(id.id)
             queries.deleteById(id.id)
             database.equipmentProfileQueries.bumpRevision()
         }
@@ -74,7 +73,7 @@ class SqlDelightEquipmentRepository(private val database: HydraFitDatabase) : Eq
         require(trimmed.isNotEmpty()) { "Equipment name must not be blank" }
         require(queries.selectById(id.id).executeAsOne().isBuiltIn == 0L)
         writeCeiling(context, id, maxWeightKg)
-        queries.updateNameAndMaxWeight(name = trimmed, maxWeightKg = maxWeightKg, id = id.id)
+        queries.renameCustom(name = trimmed, id = id.id)
         EquipmentModel(id, trimmed, isBuiltIn = false, maxWeightKg = maxWeightKg)
     }
 
@@ -108,7 +107,6 @@ class SqlDelightEquipmentRepository(private val database: HydraFitDatabase) : Eq
             if (selected) 1L else 0L,
             maxWeightKg
         )
-        queries.updateMaxWeight(maxWeightKg, id.id)
         database.equipmentProfileQueries.bumpRevision()
     }
 

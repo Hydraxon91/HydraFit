@@ -2537,8 +2537,22 @@ final state is user-reported, not independently verified. Findings inform the 0.
   with viewed screenshots. Profile create/copy/rename/delete, loading-configuration editing and both
   calculator dialogs remain unexercised on the device; dark mode, larger text, locale, rotation and
   TalkBack were not checked. Details and artifact paths are in `.maestro/README.md`.
-- Not yet done: independent post-execution review, its closures and commits. The release remains
-  unverified until that review completes; publication is separately approval-gated.
+- Independent review (`reviewer`, read-only) returned **REJECTED** with one major finding: F1 — the
+  occurrence-replacement flow still validated available equipment and the replacement ceiling against
+  the legacy `selected_equipment` table and the global `equipment.maxWeightKg` column, which profile
+  edits and switching no longer maintain. F3 (the unrendered `equipment_calculator_section` string)
+  was recorded above; F2 (an inaccurate PLANS.md status line) was corrected in `73e0e34e`.
+- F1 correction (user-decided: the active profile is the single authority): occurrence replacement now
+  reads the active-profile snapshot; live edits stopped dual-writing the legacy selection table and
+  the global ceiling column; a name-only `renameCustom` query replaced the dual-purpose write. Legacy
+  stores remain read-compatible (restore still projects them on import). Regression coverage:
+  `replacementAvailabilityFollowsTheActiveProfileAndNotTheLegacySelection` (switch to an empty profile
+  rejects, switch back allows) plus updated setup/schedule tests. Re-verified: `:core:database` tests
+  and ktlint (`090-f1-db2.log`) and the full matrix — 2,061 host tests, 0 failures, plus
+  `verifySqlDelightMigration`, `ktlintCheck`, debug assembly and both iOS compiles
+  (`090-f1-integration.log`).
+- Not yet done: reviewer closure on the F1 correction. The release remains unverified until that
+  closure; publication is separately approval-gated.
 - Known open item for review: `equipment_calculator_section` ("Loading calculator") is defined in the
   Equipment feature strings but never rendered; the on-screen affordance is the `Calculate loading`
   action under the `Loading configuration` heading.

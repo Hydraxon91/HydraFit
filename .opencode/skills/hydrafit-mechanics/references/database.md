@@ -113,7 +113,10 @@ validated by domain `LoadingInventoryJson` before persistence. Equipment adapter
 profile; planner sources and Logger warm-up guidance consume one coherent snapshot. Setup validates
 its captured profile/revision in the boundary transaction. Profile-scoped queries serve writes;
 global custom-equipment deletion uses a SQL existence guard and rejects other-profile references.
-Legacy inventory tables remain intact but are not the profile read authority.
+Occurrence replacement reads the same active-profile snapshot for availability and ceilings. Live
+edits no longer dual-write the legacy `selected_equipment` table or the global `equipment.maxWeightKg`
+column; those stores remain read-compatible only (backup restore still projects them on import), so
+the active profile is the single behavioral authority.
 `BodyWeight.sq` (0.8.3) owns `bodyWeightMeasurement` (one row per local civil day, the primary
 key making a duplicate date impossible) and single-row `bodyWeightGoal`; `48.sqm` creates both,
 so `SqlDelightBodyWeightRepository` keeps "no goal" distinct from any stored value by deleting

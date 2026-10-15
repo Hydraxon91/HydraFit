@@ -74,14 +74,9 @@ class SetupWritesTest {
             SqlDelightTrainingGoalRepository(database).selectedGoal()
         )
         assertEquals(2, SqlDelightEnginePreferenceRepository(database).selectedDaysPerWeek())
-        assertEquals(
-            setOf(EquipmentTag("DUMBBELL")),
-            SqlDelightEquipmentSelectionRepository(database).selected()
-        )
-        assertEquals(
-            30.0,
-            database.equipmentQueries.selectById("DUMBBELL").executeAsOne().maxWeightKg
-        )
+        val profile = SqlDelightEquipmentProfileRepository(database).current().active
+        assertEquals(setOf(EquipmentTag("DUMBBELL")), profile.selected)
+        assertEquals(30.0, profile.maxWeightsKg[EquipmentTag("DUMBBELL")])
         assertEquals(2, database.personalRecordQueries.selectAll().executeAsList().size)
         val retainedRecord = database.personalRecordQueries.selectAll().executeAsList()
             .first { it.exerciseId == "back-squat" }

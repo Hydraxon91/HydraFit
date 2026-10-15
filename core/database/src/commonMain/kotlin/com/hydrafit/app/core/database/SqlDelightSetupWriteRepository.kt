@@ -34,13 +34,6 @@ class SqlDelightSetupWriteRepository(
                         val row = database.equipmentQueries.selectById(tag.id).executeAsOneOrNull()
                         require(row != null)
                     }
-                    database.userEquipmentQueries.deleteAllSelected()
-                    input.selected.sortedBy { it.id }.forEach {
-                        database.userEquipmentQueries.insertSelected(it.id)
-                    }
-                    input.editedMaxWeightsKg.forEach { (tag, weight) ->
-                        database.equipmentQueries.updateMaxWeight(weight, tag.id)
-                    }
                     val queries = database.equipmentProfileQueries
                     val ceilings = queries.selectProfileEntries(input.profileContext.profileId)
                         .executeAsList().associate { it.equipmentId to it.maxWeightKg }

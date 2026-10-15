@@ -515,6 +515,10 @@ They cancel in-flight generation; late results check coroutine cancellation befo
 Availability and ceilings affect future generation, not accepted or frozen prescriptions. The
 profile/revision key is presentation context, not historical training data. Global custom-equipment
 removal rejects other-profile references and protected exercise/activation/occurrence references.
+Occurrence replacement validates availability and the replacement ceiling against the same active
+profile snapshot, not the legacy `selected_equipment` table or the global `equipment.maxWeightKg`
+column; live edits no longer write those legacy stores, which remain only for backup/migration
+compatibility.
 
 Calculator configuration uses domain-owned validated JSON and integer thousandths of its explicit
 kg/lb inventory unit, separate from canonical-kilogram training loads. Counts are individual plates;
