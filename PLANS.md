@@ -13,6 +13,7 @@
 | 0.7.5 — informational exercise cautions | C0–C6 DONE — PUBLISHED as `v0.7.5` at `7789d579`; PR/main/Release CI green; APK verified offline; runtime limits in `docs/qa.md` §13 | Approved three-ID sourced caution batch (`conventional-deadlift`, `romanian-deadlift`, `dumbbell-rdl`) presented as nonblocking "Technique considerations" in the existing offline instruction viewer, with a labelled indication at the Equipment/Logger instruction actions, an independent stable-ID lookup and no persistence/schema/backup change. C1/C2 added the manifest/lookup and the three authored cautions (editorially accepted 2026-10-13); C3/C4 wired the viewer section and the Equipment/planned-draft/guided indications. Decisions remain in the EX-03 / 0.7.5 section; completed chunk detail is archived. |
 | 0.7.6 — onboarding and first-workout guidance | C0–C8 DONE — PUBLISHED `v0.7.6` at `6bb62a59` | [Completed detail](docs/plans-archive.md#2026-10-15--076-and-077-completion-detail-cleanup); durable C0 contract and open limits remain in OF-14 below. |
 | 0.7.7 — reminders and rest notifications | Implementation, targeted closure and C6–C8 readiness accepted; corrected candidate `ecc7969a` passed 1,788 fresh tests and PR CI; merge/tag/publication pending | [Completed implementation detail](docs/plans-archive.md#077-implementation-status-record); release gates, C0 contract, R077CL-01 and accepted limits remain below. |
+| 0.8.0 — exercise progress: charts, descriptive records and workout-summary integration | C1–C6 DONE — PUBLISHED as `v0.8.0` at `45e863a0` | PR #15 merged; Release run `38725567218` (run number 23) passed with PR/main Build-and-Test runs `38724541970`/`38725454105` green; offline artifact check: `versionName=0.8.0`, `versionCode=23`, 24,865,120 bytes, SHA-256 `7b813940…c87b4c5`, signature verified, never installed on the emulator. Post-execution review plus targeted closure completed. Emulator/evidence limits in `docs/qa.md`. |
 | Release 0.2.0 | SHIPPED | `v0.2.0` signed release published; [history](docs/plans-archive.md#2026-10-09-completed-status-rows). Stale `v0.1.0` validation pre-release cleanup remains optional. |
 | Release 0.2.1 | SHIPPED | `v0.2.1`; [Q1–Q6 history](docs/plans-archive.md#2026-10-09-completed-status-rows). Q4e remains user-side, not shipped code; local AI remains experimental/non-functional, with optional M8 follow-up. |
 | Release 0.2.2 — code review & architecture | SHIPPED | `v0.2.2`; R0–RG/RF complete, CI green; [fix/commit history](docs/plans-archive.md#2026-10-09-completed-status-rows). |
@@ -853,10 +854,11 @@ section is host/VM-verified only (no occurrence fixture was created on the emula
 `47.sqm` with plan-assertion tests, resume/lifecycle wiring, chart legend and edge-placement fixes,
 the inline tied-holder supporting set with Previous/Next, the updated 48-step flow passing on
 emulator-5554 in kg, lb, dark+1.3 and long-name states with restorations, and the full candidate
-gate green. Targeted closure review for R080-03…08 and formal closure for R080-01/02/The C4–C6
-batch remain pending. See `docs/qa.md` for
-the bounded run evidence. The local branch is `0.8.0`; **`0.8.0`** is the release
-version, subject to scope approval. Its scope covers the former chart and automatic-record
+gate green. The targeted closure review confirmed R080-03…08 with no unresolved items
+(R080-01/02 remain closed). Published 2026-10-15 as `v0.8.0` on the PR #15 merge commit
+`45e863a0`; Release run `38725567218` passed and the artifact was verified offline. See
+`docs/qa.md` for the bounded run evidence. **`0.8.0`** is the release
+version. Its scope covers the former chart and automatic-record
 slices (formerly documented as `0.8.0` and `0.8.1`) as one publication, not two. This plan covers
 OF-04-P0/P1/P2/P3 and supersedes the previous
 charts-only six-chunk plan. Application implementation, final metric/navigation decisions,

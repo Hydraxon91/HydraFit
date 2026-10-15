@@ -149,7 +149,24 @@ exact on-screen text.
 - Limits: alternating locale, TalkBack, rotation, `Load more` paging and the multi-holder stepper's
   on-screen path (single-holder fixture; stepper covered by state tests) remain unverified; the C5
   summary records section stays emulator-unseen as previously recorded. These are
-  builder/integration results; the separately requested targeted closure review remains pending.
+  builder/integration results; the targeted closure review was then performed on the fix revision
+  (see the release verification section below).
+
+## 0.8.0 release verification — 2026-10-15
+
+- PR #15 (`0.8.0` → `main`) merged as merge commit `45e863a0a3f018efa39bc4dc38b0e617c31f6a0e`
+  (head `bace6a6f`); the annotated tag `v0.8.0` points at that merge commit. CI: PR Build and Test
+  run `38724541970` passed on `bace6a6f`; post-merge main Build and Test run `38725454105` passed.
+- Release run `38725567218` (workflow `Release`, run number 23, which the workflow stamps as
+  `versionCode`) passed: jobs Lint, Unit Tests (including `verifySqlDelightMigration`) and Build
+  Signed Release APK all succeeded. `v0.8.0` is published (not draft/pre-release) with asset
+  `androidApp-release.apk`.
+- Offline artifact verification (downloaded, never installed on a device): `versionName=0.8.0`,
+  `versionCode=23`, 24,865,120 bytes, APK SHA-256
+  `7b813940ebbfe9e9b0f19d1f3917ff48aaedd464c4603a77bb2050994c87b4c5`; `apksigner verify` passed
+  (`CN=Bence Szabo, OU=HydraFit, O=Hydra`). No release/minified APK was installed on the emulator.
+- The 2026-10-15 post-execution review and its targeted closure completed before publication;
+  runtime limits remain as recorded in the sections above.
 
 ## Cross-cutting UI checks (for changed flows)
 - Text remains readable at the supported larger font sizes; controls and content are not clipped.
