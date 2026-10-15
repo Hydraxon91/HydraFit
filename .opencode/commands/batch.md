@@ -108,10 +108,21 @@ Apply these standing defaults unless the user explicitly overrides them:
   ~30-tool-calls-without-progress rule and every stop condition still apply, and each
   release boundary still reports. Prefer a real bound for a multi-release batch. The
   budget is never permission to loop, skip checks or renew a failed run.
-- **Stops:** stop for design decisions, missing approvals/permissions, unexpected
-  writes, unsafe data effects, unavailable required verification, unresolved
-  required findings after permitted corrections, exhausted budget or the builder
-  failure limit. Individually gated operations remain gated.
+- **Blockers:** a blocker confined to part of the approved scope does not stop the
+  whole run. Record the failure, evidence, affected acceptance criteria and
+  dependencies, mark the affected chunk or release blocked or partial, and continue
+  other approved work only where its prerequisites remain valid and it neither
+  depends on, conceals nor works around the blocked item. Never mark blocked work
+  complete, retry an unchanged failing step, or advance into a later release that
+  depends on it. A blocked release cannot be published, and the final report
+  distinguishes completed candidates from partial or blocked work.
+- **Stops:** stop the whole run for design decisions, missing approvals/permissions,
+  unexpected writes, unsafe data effects, unavailable required verification,
+  unresolved required findings after permitted corrections, exhausted budget, the
+  builder failure limit, or when no independent approved work remains. A
+  partial-scope blocker follows the Blockers bullet instead, and missing approval
+  for a gated operation blocks that operation rather than the run while independent
+  work remains. Individually gated operations remain gated.
 
 Present the pre-flight plan and wait for acceptance before the first edit, unless
 the invocation bypassed it. Report each release boundary, and stop after the

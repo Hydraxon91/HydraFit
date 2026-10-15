@@ -328,10 +328,21 @@ any approved review-report paths before starting.
   require new approval. This does not waive CI monitoring, artifact checks or
   failure stops: publish in dependency order and stop before subsequent releases
   if a step fails. A batch invocation alone never authorizes publication.
-- **Stop conditions:** stop for a design decision, missing approval/permission,
-  unexpected writes, unsafe data effects, unresolved required review findings,
-  unavailable required verification, exhausted agreed budget or the existing
-  builder failure limit. Only pre-authorized corrections may proceed from a
+- **Scoped blockers:** a blocker confined to part of the approved scope does not
+  stop the whole run. Record the failure, evidence, affected acceptance criteria and
+  dependencies, mark the affected chunk or release blocked or partial, and continue
+  other approved work only where its prerequisites remain valid and it neither
+  depends on, conceals nor works around the blocked item. Never mark blocked work
+  complete, retry an unchanged failing step, or advance into a later release that
+  depends on it. A blocked release cannot be published, and the final report
+  distinguishes completed candidates from partial or blocked work.
+- **Stop conditions:** stop the whole run for a design decision, missing
+  approval/permission that blocks all remaining work, unexpected writes, unsafe data
+  effects, unresolved required review findings, unavailable required verification,
+  exhausted agreed budget, the existing builder failure limit, or when no independent
+  approved work remains. A scoped blocker follows the Scoped blockers bullet, and
+  missing approval for a gated operation blocks that operation, not the run, while
+  independent work remains. Only pre-authorized corrections may proceed from a
   rejected checkpoint; do not advance to the next release until the reviewed
   revision and required verification are accepted by the reviewer. Report the
   completed releases, evidence, remaining work and decision needed; do not force
