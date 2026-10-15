@@ -22,15 +22,34 @@ a prompt template, not a shell command or permission bypass.
   review checkpoint and reviewer; report paths; unresolved decisions with your
   recommendation; individually gated items needing separate approval (schema and
   `.sqm`, module graph, dependencies, secrets, CI); exclusions and stop conditions;
-  and the budget split, proposing one when the invocation omitted `--budget`. Then
-  stop and wait for feedback.
+  and the budget split, proposing one when the invocation omitted `--budget`. Label
+  each open decision ANSWER-NOW or NEEDS-EVIDENCE. Then stop and wait for feedback.
+- **Decision classification (required):** label every open decision
+  **ANSWER-NOW** (a preference or policy choice needing no new evidence, so it must
+  be resolved before the first edit) or **NEEDS-EVIDENCE** (cannot be settled
+  without reading current source, catalog, tests or sourcing). Never defer an
+  ANSWER-NOW decision to a later chunk or decision gate.
+- **Contract pass (required while any NEEDS-EVIDENCE decision is open):** do not
+  present an execution-ready plan. Run a bounded read-only contract pass by default
+  when it fits the stated read-only budget — limited to those items, no
+  implementation planning, no delegation, deliverable = specific recommendations
+  with tradeoffs and the evidence behind them. If the pass would exceed that budget,
+  or the user's scope makes it inappropriate, state that the plan is not
+  execution-ready and offer the pass instead. Say which you are doing and give the
+  pass's read-only budget. The pass is read-only chat output and writes no plan files.
+- **No speculative execution detail:** while a contract is unresolved, do not fix
+  migration numbers, backup-format versions, module-graph changes, exact chunk paths
+  or verification tiers for that scope, and do not present them as settled. Mark
+  them provisional and name the dependency.
 - **Feedback round:** incorporate the user's corrections, re-present only what
   changed, and do not begin until they accept. Treat scope changes as explicit
   decisions rather than silently folding them in. Do not re-open the approved
   roadmap grouping: the plan covers execution detail and open decisions, not a
   renegotiation of settled scope.
-- **Start:** after acceptance, run continuously under the standing defaults below;
-  do not re-ask for the same plan, and report at each release boundary.
+- **Start:** only when no NEEDS-EVIDENCE decision remains open, or the user has
+  pre-authorized deciding per the sourced recommendation. Then run continuously
+  under the standing defaults below; do not re-ask for the same plan, and report at
+  each release boundary.
 - **Bypass:** if the invocation states the plan is already approved — for example
   `--preapproved` or "plan approved, start" — skip the plan stop and begin. The
   bypass skips only that stop: gated-item approvals, exclusions, stop conditions

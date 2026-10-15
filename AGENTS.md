@@ -275,6 +275,14 @@ any approved review-report paths before starting.
   The plan is one stop at the start, not one per release, and covers execution
   detail and open decisions rather than the approved roadmap grouping. A narrow
   `--preapproved` bypass skips only that stop.
+- **Execution readiness:** the pre-flight plan classifies every open decision as
+  ANSWER-NOW or NEEDS-EVIDENCE. ANSWER-NOW decisions are resolved before the first
+  edit rather than deferred to a decision chunk. While any NEEDS-EVIDENCE decision
+  remains open, the run performs a bounded read-only contract pass by default (or
+  states that the plan is not execution-ready and offers one), does not present
+  speculative migration numbers, backup-format versions, module-graph changes, exact
+  chunk paths or verification tiers as settled, and starts only once those decisions
+  are resolved or the user has pre-authorized the sourced recommendation.
 - **Review-mode exception:** the parent may remain in Build Mode while a separate
   read-only reviewer agent performs the requested reviews and targeted closure
   under `docs/review-discipline.md` and `docs/post-execution-review.md`. The initial
