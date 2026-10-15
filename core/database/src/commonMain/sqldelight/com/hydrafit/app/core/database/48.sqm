@@ -1,0 +1,12 @@
+-- 0.8.3 body weight. One measurement per local civil day: the primary key makes a duplicate date
+-- impossible at the storage level, so creation conflict handling must be explicit. The goal table
+-- holds at most one row; clearing deletes it, keeping "no goal" distinct from any stored value.
+CREATE TABLE bodyWeightMeasurement (
+    localEpochDay INTEGER NOT NULL PRIMARY KEY,
+    weightKg REAL NOT NULL
+);
+
+CREATE TABLE bodyWeightGoal (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    weightKg REAL NOT NULL
+);

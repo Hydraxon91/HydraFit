@@ -3,8 +3,13 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 12), restored by whole replacement.
-The reader accepts versions 1–12; version 1 defaults the guided-workout preference to off.
+Logical, versioned JSON (`format` + `formatVersion` 13), restored by whole replacement.
+The reader accepts versions 1–13; version 1 defaults the guided-workout preference to off.
+Format 13 adds body-weight `bodyWeightMeasurements` (one record per local civil day) and the
+nullable `bodyWeightGoalKg`; versions 1–12 restore with no recorded body weight and no goal,
+and a pre-13 file must not carry either section. Duplicate days, non-finite or non-positive
+weights and a non-positive goal are rejected before any write, and whole replacement deletes
+existing measurements so a legacy restore leaves none.
 Format 12 adds the two rest-presentation opt-ins (`restCountdownEnabled`,
 `restCompletionSignalEnabled`, both on the existing `trainingGuidance` record) and a nullable
 `workoutReminders` section; versions 1–11 restore them off with no reminder time chosen. A pre-12

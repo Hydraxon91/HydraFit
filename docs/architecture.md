@@ -631,6 +631,16 @@ area-sorted region list, because a semantics node fully covered by later overlay
 drops out of the accessibility tree; the map is explicitly schematic, not a measured
 anatomical segmentation.
 
+0.8.3 adds body weight as shared user data: `BodyWeightRepository`
+(`core/userdata`, measurements package) keeps one measurement per local civil day and a
+single optional goal. `SqlDelightBodyWeightRepository` enforces finite positive kilograms,
+rejects future days against the injected clock, requires an explicit replacement for an
+occupied day and never overwrites an occupant when moving an entry. Migration `48.sqm`
+adds `bodyWeightMeasurement` and `bodyWeightGoal`; backup format 13 carries both sections,
+and whole replacement restores earlier formats with no recorded body weight. The repository
+is unit-agnostic: weights are canonical kilograms and display units never rewrite stored
+values.
+
 The 0.8.1 catalog adds four separately sourced identities in
 `DefaultExercisesCatalog081`: forearm-pad pec deck, reverse machine fly, seated
 dumbbell wrist curl and extension. New machine capabilities are independent and
@@ -710,7 +720,7 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   and `SqlDelightBackupCatalog`; the `:core:userdata` `BackupFileStore` port
   (`AndroidBackupFileStore` SAF implementation, `UnsupportedBackupFileStore` on
   iOS); the Settings `BackupRoute`/`BackupViewModel`.
-- **Rules:** the file is logical (`format` + `formatVersion` 11), independent of the
+- **Rules:** the file is logical (`format` + `formatVersion` 13), independent of the
   SQLite schema and the app version. Every envelope field is required, so a file
   that omits one is rejected as malformed rather than read as an empty snapshot;
   nullable fields are present as explicit `null`, not omitted. The manifest carries

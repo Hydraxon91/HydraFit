@@ -6,7 +6,10 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 12
+const val BACKUP_FORMAT_VERSION: Int = 13
+
+/** The first backup format that carries body-weight measurements and the optional weight goal. */
+const val BODY_WEIGHT_FORMAT_VERSION: Int = 13
 
 /** The first backup format that carries the rest-presentation opt-ins and workout reminders. */
 const val REMINDER_FORMAT_VERSION: Int = 12
@@ -22,7 +25,9 @@ const val EXERCISE_NOTES_FORMAT_VERSION: Int = 9
 /**
  * A whole logical snapshot of the supported offline data. Rows are stored flat with their persisted
  * ids so restore can rebuild relationships exactly; the envelope carries the format identity, a
- * catalog fingerprint and the export time. Version 12 adds the optional
+ * catalog fingerprint and the export time. Version 13 adds body-weight measurements and the
+ * optional current goal; earlier formats restore with no recorded body weight and no goal.
+ * Version 12 adds the optional
  * rest-countdown/rest-completion opt-ins and the workout-reminder preferences; earlier formats
  * restore them off, with no reminder time chosen. Version 11 adds setup disposition/resume and
  * preferred weekdays; earlier formats restore as returning users with undecided weekdays.
@@ -94,7 +99,14 @@ data class BackupFile(
      * Opt-in workout-reminder preferences, format 12 and later. Absent in formats 1-11, which
      * restore them off with no reminder time chosen.
      */
-    val workoutReminders: BackupWorkoutReminderRecord? = null
+    val workoutReminders: BackupWorkoutReminderRecord? = null,
+    /**
+     * Body-weight measurements, format 13 and later: one per local civil day. Absent in formats
+     * 1-12, which restore as an install with no recorded body weight.
+     */
+    val bodyWeightMeasurements: List<BackupBodyWeightRecord> = emptyList(),
+    /** The optional current weight goal in kilograms; absent in formats 1-12 restores as no goal. */
+    val bodyWeightGoalKg: Double? = null
 )
 
 @Serializable
@@ -126,6 +138,10 @@ data class BackupWorkoutReminderRecord(
     val quietStartMinuteOfDay: Int,
     val quietEndMinuteOfDay: Int
 )
+
+/** One body-weight measurement keyed to a local civil day; format 13 and later. */
+@Serializable
+data class BackupBodyWeightRecord(val localEpochDay: Long, val weightKg: Double)
 
 /** The seeded exercise ids the exporting install had, used to report and check catalog compatibility. */
 @Serializable

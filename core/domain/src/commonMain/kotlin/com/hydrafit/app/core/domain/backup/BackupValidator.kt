@@ -81,6 +81,23 @@ class BackupValidator(private val catalog: BackupCatalog) {
             weekdays.forEach { enum(it, DayOfWeek.entries) }
         }
 
+        // Body weight is whole-replaced; a legacy file carrying either section is not what it claims.
+        if (file.formatVersion < BODY_WEIGHT_FORMAT_VERSION &&
+            (file.bodyWeightMeasurements.isNotEmpty() || file.bodyWeightGoalKg != null)
+        ) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        val measurementDays = file.bodyWeightMeasurements.map { it.localEpochDay }
+        if (measurementDays.distinct().size != measurementDays.size) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        file.bodyWeightMeasurements.forEach {
+            if (!it.weightKg.isFinite() || it.weightKg <= 0.0) fail(BackupFailure.INVALID_VALUE)
+        }
+        file.bodyWeightGoalKg?.let {
+            if (!it.isFinite() || it <= 0.0) fail(BackupFailure.INVALID_VALUE)
+        }
+
         val seedExerciseIds = catalog.seedExerciseIds()
         val builtInEquipmentIds = catalog.builtInEquipmentIds()
 

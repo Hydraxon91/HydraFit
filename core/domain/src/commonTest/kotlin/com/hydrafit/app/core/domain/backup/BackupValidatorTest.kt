@@ -811,6 +811,47 @@ class BackupValidatorTest {
         }
     }
 
+    @Test
+    fun acceptsBodyWeightSectionsInFormatThirteenAndRejectsBadValues() {
+        val enabled = validFile().copy(
+            bodyWeightMeasurements = listOf(
+                BackupBodyWeightRecord(20_000L, 82.5),
+                BackupBodyWeightRecord(20_001L, 82.25)
+            ),
+            bodyWeightGoalKg = 78.0
+        )
+        validator.validate(enabled)
+
+        listOf(
+            enabled.copy(bodyWeightMeasurements = listOf(BackupBodyWeightRecord(1L, 0.0))),
+            enabled.copy(bodyWeightMeasurements = listOf(BackupBodyWeightRecord(1L, -1.0))),
+            enabled.copy(bodyWeightMeasurements = listOf(BackupBodyWeightRecord(1L, Double.NaN))),
+            enabled.copy(
+                bodyWeightMeasurements = listOf(
+                    BackupBodyWeightRecord(1L, 80.0),
+                    BackupBodyWeightRecord(1L, 81.0)
+                )
+            ),
+            enabled.copy(bodyWeightGoalKg = 0.0),
+            enabled.copy(bodyWeightGoalKg = Double.NaN)
+        ).forEach { file ->
+            assertFailure(BackupFailure.INVALID_VALUE) { file }
+        }
+    }
+
+    @Test
+    fun rejectsBodyWeightSectionsInLegacyFormats() {
+        listOf(
+            validFile().copy(
+                formatVersion = 12,
+                bodyWeightMeasurements = listOf(BackupBodyWeightRecord(1L, 80.0))
+            ),
+            validFile().copy(formatVersion = 12, bodyWeightGoalKg = 80.0)
+        ).forEach { file ->
+            assertFailure(BackupFailure.INVALID_VALUE) { file }
+        }
+    }
+
     private fun assertFailure(expected: BackupFailure, mutate: () -> BackupFile) {
         val failure = assertFailsWith<BackupException> { validator.validate(mutate()) }
         assertEquals(expected, failure.failure)

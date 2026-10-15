@@ -979,8 +979,9 @@ APPROVED for R081-01/02; supplemental runtime limits retained in QA/review. 082-
 coverage reads/calculation Tier A verified (1,888 tests); 082-C2/C3 implemented,
 device-accepted (bars/coverage, Body map overlay incl. the accessibility layering fix,
 dark/larger-text with restoration, unchanged data), independently reviewed APPROVED and
-closed (R082-01..04, corrections applied; matrix 1,907 tests). 083 pending. Execution
-starts from clean `761d47d4` on `batch/0.8.1-0.8.3`.
+closed (R082-01..04, corrections applied; matrix 1,907 tests). 083-C1 body weight
+persistence/backup/DI implemented and Tier A verified (1,917 tests); 083-C2/C3 pending.
+Execution starts from clean `761d47d4` on `batch/0.8.1-0.8.3`.
 The user accepted the final chat contract and authorized execution through 0.8.3,
 including independent release checkpoints and local verified atomic commits;
 a joint user review follows. No push, PR, merge, tag or publication is authorized.

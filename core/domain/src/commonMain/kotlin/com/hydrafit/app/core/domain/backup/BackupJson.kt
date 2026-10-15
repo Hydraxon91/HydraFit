@@ -63,6 +63,10 @@ object BackupJson {
                 add("preferredWeekdays")
             }
             if (version != null && version < REMINDER_FORMAT_VERSION) add("workoutReminders")
+            if (version != null && version < BODY_WEIGHT_FORMAT_VERSION) {
+                add("bodyWeightMeasurements")
+                add("bodyWeightGoalKg")
+            }
         }
         val missing = requiredKeys - obj.keys
         if (missing.isNotEmpty()) {

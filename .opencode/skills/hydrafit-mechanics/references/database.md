@@ -103,7 +103,11 @@ databases upgraded from an earlier version as well as any drift. `43.sqm` adds
 and group by `sessionId` and order one session's sets by `performedAt`, and without it each of those
 shapes planned a full table scan plus a temporary B-tree. `44.sqm` adds the singleton `setupState`
 and nullable `preferredWeekdays` rows. Fresh creation starts PENDING/WELCOME; migration starts
-RETURNING/WELCOME regardless of workout count. Current schema version is 47.
+RETURNING/WELCOME regardless of workout count. Current schema version is 49.
+`BodyWeight.sq` (0.8.3) owns `bodyWeightMeasurement` (one row per local civil day, the primary
+key making a duplicate date impossible) and single-row `bodyWeightGoal`; `48.sqm` creates both,
+so `SqlDelightBodyWeightRepository` keeps "no goal" distinct from any stored value by deleting
+the goal row on clear.
 Determine the
 next version from the current directory/generated Schema rather than copying this snapshot.
 

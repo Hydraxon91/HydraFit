@@ -28,6 +28,30 @@ exact on-screen text.
   verify live correction/deletion/whole restore and same-count replacement emissions.
 - Feature map/coverage UI and release integration/review remain pending.
 
+## 0.8.3 C1 body-weight persistence — 2026-10-15
+
+- Main-agent implementation from `63d8a5df`: shared `BodyWeightRepository` port
+  (`core/userdata`), `SqlDelightBodyWeightRepository` with `TimeProvider`-based future-day
+  rejection, `BodyWeight.sq` + migration `48.sqm` (48 → 49) creating
+  `bodyWeightMeasurement` (one row per local civil day) and single-row `bodyWeightGoal`,
+  database-module binding and backup format 13 (both sections required from 13 on,
+  pre-13 files must not carry them, whole replacement clears them).
+- Full Tier A matrix passed 1,917 tests, zero failures/errors/skips, migration
+  verification, global ktlint, debug assembly and both required iOS compiles
+  (`hf-083-c1-matrix.log` under the approved opencode temp). Two earlier runs fixed
+  ktlint wrapping, a missing import, a format-version slip in a validator test and the
+  migration-test numbering (file `N.sqm` migrates N → N+1, confirmed against the
+  existing 46/47 migration tests).
+- Tests: repository validation (zero/negative/NaN weight, future day), duplicate-date
+  refusal without writes, explicit replacement, in-place edit and atomic move, occupied
+  target never overwritten, missing source rejection, exact double precision
+  (82.1234567890123), goal set/replace/clear plus invalid goal, live flow invalidation
+  across add/update/delete, migration row preservation plus fresh-schema tables and
+  `Schema.version == 49`, backup round trip with measurements and goal, and a legacy
+  format-12 restore that clears them. The schema snapshot chain
+  (`verifySqlDelightMigration`) covers 48.sqm.
+- Feature UI (083-C2), integration/device acceptance and independent review remain pending.
+
 ## 0.8.2 C2/C3 map overlay + coverage UI — 2026-10-15
 
 - Coder-owned C2 map/coverage UI plus parent C3 integration on `0a6717a6`; user approved

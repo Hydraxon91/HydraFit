@@ -1,0 +1,40 @@
+CREATE TABLE bodyWeightMeasurement (
+    localEpochDay INTEGER NOT NULL PRIMARY KEY,
+    weightKg REAL NOT NULL
+);
+
+-- A single optional current goal. Clearing deletes the row, so "no goal" is never a stored value.
+CREATE TABLE bodyWeightGoal (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    weightKg REAL NOT NULL
+);
+
+selectAllMeasurements:
+SELECT * FROM bodyWeightMeasurement ORDER BY localEpochDay;
+
+selectMeasurement:
+SELECT * FROM bodyWeightMeasurement WHERE localEpochDay = ?;
+
+insertMeasurement:
+INSERT INTO bodyWeightMeasurement(localEpochDay, weightKg) VALUES (?, ?);
+
+replaceMeasurement:
+INSERT OR REPLACE INTO bodyWeightMeasurement(localEpochDay, weightKg) VALUES (?, ?);
+
+updateMeasurement:
+UPDATE bodyWeightMeasurement SET weightKg = ? WHERE localEpochDay = ?;
+
+deleteMeasurement:
+DELETE FROM bodyWeightMeasurement WHERE localEpochDay = ?;
+
+deleteAllMeasurements:
+DELETE FROM bodyWeightMeasurement;
+
+selectGoal:
+SELECT * FROM bodyWeightGoal WHERE id = 1;
+
+upsertGoal:
+INSERT OR REPLACE INTO bodyWeightGoal(id, weightKg) VALUES (1, ?);
+
+clearGoal:
+DELETE FROM bodyWeightGoal;

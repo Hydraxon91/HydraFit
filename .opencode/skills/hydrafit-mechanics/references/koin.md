@@ -98,3 +98,7 @@ runtime coverage stays in the shared graph test.
 0.8.2 `databaseModule` binds `TrainingCoverageRepository` to
 `SqlDelightTrainingCoverageRepository`; the database graph verification resolves
 the binding at runtime. The pure `TrainingCoverageCalculator` has no DI collaborators.
+
+0.8.3 `databaseModule` binds `BodyWeightRepository` to `SqlDelightBodyWeightRepository`
+(database plus the shared `TimeProvider`, used for the future-day rule); the database
+graph verification resolves it at runtime.

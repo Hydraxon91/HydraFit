@@ -32,6 +32,7 @@ import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
 import com.hydrafit.app.core.userdata.equipment.ExerciseOverrideRepository
 import com.hydrafit.app.core.userdata.equipment.ExercisePreferenceRepository
 import com.hydrafit.app.core.userdata.equipment.PersonalRecordRepository
+import com.hydrafit.app.core.userdata.measurements.BodyWeightRepository
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
 import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
@@ -64,6 +65,7 @@ val databaseModule: Module = module {
     single<WorkoutHistoryRepository> { SqlDelightWorkoutHistoryRepository(get()) }
     single<ExerciseProgressRepository> { SqlDelightExerciseProgressRepository(get()) }
     single<TrainingCoverageRepository> { SqlDelightTrainingCoverageRepository(get()) }
+    single<BodyWeightRepository> { SqlDelightBodyWeightRepository(get(), get()) }
     single<ExerciseNoteRepository> { SqlDelightExerciseNoteRepository(get()) }
     single<SessionNoteRepository> { SqlDelightSessionNoteRepository(get()) }
     single<WorkoutSessionRepository> { SqlDelightWorkoutSessionRepository(get()) }

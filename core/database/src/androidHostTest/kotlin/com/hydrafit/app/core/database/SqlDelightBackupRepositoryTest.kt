@@ -730,6 +730,41 @@ class SqlDelightBackupRepositoryTest {
         }
     }
 
+    @Test
+    fun bodyWeightRoundTripsAndLegacyFilesReplaceItWithNothing() = runTest {
+        seedRepresentativeData()
+        database.bodyWeightQueries.insertMeasurement(19_998L, 82.5)
+        database.bodyWeightQueries.insertMeasurement(19_999L, 82.25)
+        database.bodyWeightQueries.upsertGoal(78.0)
+        val catalog = SqlDelightBackupCatalog()
+        val preview = PreviewBackupUseCase(BackupValidator(catalog))
+        val staging = SqlDelightBackupStagingRepository(database)
+        val exported = repository.export("t", 1L)
+        BackupValidator(catalog).validate(exported)
+        assertEquals(2, exported.bodyWeightMeasurements.size)
+        assertEquals(78.0, exported.bodyWeightGoalKg)
+
+        // A legacy (format 12) file carries no body-weight section, and whole replacement clears it.
+        val legacy = exported.copy(
+            formatVersion = 12,
+            bodyWeightMeasurements = emptyList(),
+            bodyWeightGoalKg = null
+        )
+        RestoreBackupUseCase(preview, staging)(BackupJson.encode(legacy), "t", 1L)
+        ApplyStagedBackupUseCase(preview, repository, staging, TimeProvider { 0L })()
+        assertTrue(database.bodyWeightQueries.selectAllMeasurements().executeAsList().isEmpty())
+        assertNull(database.bodyWeightQueries.selectGoal().executeAsOneOrNull())
+
+        // Re-adding and round-tripping through stage/apply preserves the exact rows and goal.
+        database.bodyWeightQueries.insertMeasurement(19_998L, 82.5)
+        database.bodyWeightQueries.upsertGoal(78.0)
+        val second = repository.export("t", 1L)
+        RestoreBackupUseCase(preview, staging)(BackupJson.encode(second), "t", 1L)
+        ApplyStagedBackupUseCase(preview, repository, staging, TimeProvider { 0L })()
+        assertEquals(1, second.bodyWeightMeasurements.size)
+        assertEquals(second, repository.export("t", 1L))
+    }
+
     private fun seedRepresentativeData() {
         database.exerciseQueries.insertCustom(
             id = "user-bicycle-crunch",

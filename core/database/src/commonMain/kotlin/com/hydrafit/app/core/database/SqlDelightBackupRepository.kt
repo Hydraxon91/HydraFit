@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT_VERSION
 import com.hydrafit.app.core.domain.backup.BackupActivationEntryRecord
 import com.hydrafit.app.core.domain.backup.BackupActivationRecord
 import com.hydrafit.app.core.domain.backup.BackupActivationWorkoutRecord
+import com.hydrafit.app.core.domain.backup.BackupBodyWeightRecord
 import com.hydrafit.app.core.domain.backup.BackupCatalog
 import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
 import com.hydrafit.app.core.domain.backup.BackupEntryTargetExplanationRecord
@@ -494,7 +495,12 @@ class SqlDelightBackupRepository(
                 },
                 preferredWeekdays = decodePreferredWeekdays(
                     database.setupQueries.selectWeekdays().executeAsOne().weekdays
-                )?.sortedBy { it.ordinal }?.map { it.name }
+                )?.sortedBy { it.ordinal }?.map { it.name },
+                bodyWeightMeasurements = database.bodyWeightQueries.selectAllMeasurements()
+                    .executeAsList()
+                    .map { BackupBodyWeightRecord(it.localEpochDay, it.weightKg) },
+                bodyWeightGoalKg = database.bodyWeightQueries.selectGoal()
+                    .executeAsOneOrNull()?.weightKg
             )
         }
 
@@ -520,6 +526,8 @@ class SqlDelightBackupRepository(
             database.workoutReminderPreferenceQueries.deleteAll()
             database.reminderDeliveryQueries.deleteAll()
             database.restCountdownQueries.deletePersisted()
+            database.bodyWeightQueries.deleteAllMeasurements()
+            database.bodyWeightQueries.clearGoal()
             database.exerciseExclusionQueries.deleteAll()
             database.exerciseNoteQueries.deleteAll()
             database.sessionNoteQueries.deleteAll()
@@ -595,6 +603,12 @@ class SqlDelightBackupRepository(
                     occurrenceId = session.occurrenceId
                 )
             }
+            // Whole replacement: a legacy (pre-13) file carries no measurement section, so the
+            // deleted rows above stay deleted and the restored install reports no body weight.
+            file.bodyWeightMeasurements.forEach {
+                database.bodyWeightQueries.insertMeasurement(it.localEpochDay, it.weightKg)
+            }
+            file.bodyWeightGoalKg?.let { database.bodyWeightQueries.upsertGoal(it) }
             file.sessionNotes.forEach {
                 database.sessionNoteQueries.upsert(it.sessionId, it.note)
                 database.sessionNoteQueries.updateSearchNote(
