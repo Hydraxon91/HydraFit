@@ -2522,6 +2522,31 @@ final state is user-reported, not independently verified. Findings inform the 0.
   deferred 0.13.x explanation-presentation polish and the named OF-03 verification limits are
   unchanged.
 
+## 0.9.0 release verification (2026-10-15)
+
+- Candidate: branch `feature/0.9.0-equipment-profiles` → PR #19 → merged `main` at
+  `361cb20c`; tag `v0.9.0` points at the merge commit.
+- CI: PR Build-and-Test run `38799090309` (Lint, Unit Tests, Assemble Debug APK) green;
+  post-merge `main` Build-and-Test run `38799639692` green; Release run `38800131378` green.
+- Review chain: independent post-execution review returned REJECTED on F1 (occurrence
+  replacement validated against the legacy equipment tables); the user chose
+  profile-as-single-authority, the fix shipped with a regression test, and targeted closure
+  returned **F1 CLOSED / F2 resolved** with one non-blocking wording nit (C-01) reworded.
+- Local matrix before publication (`090-f1-integration.log`): 2,061 host tests, 0 failures;
+  `:core:database:verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug` and
+  both iOS simulator compiles.
+- Bounded read-only emulator acceptance: `equipment-profiles.yaml` 10/10 and
+  `logger-loading-calculator.yaml` 8/8 with viewed screenshots. Profile create/copy/rename/
+  delete, loading-configuration editing and both calculator dialogs remain test-verified only;
+  dark mode, larger text, locale, rotation and TalkBack were not checked.
+- Artifact verified offline only (`gh release view`/`download`): `androidApp-release.apk`,
+  24,983,972 bytes, SHA-256 `cf9b31406d0e2ffaf975ac37780f90c3a079bf6d9731939ad6a721a28553f8e9`,
+  `versionName=0.9.0`, `versionCode=90000`, `apksigner verify` passed with certificate SHA-256
+  `af9cd73b3cc6842c7ab3c2f3cd572245826089aee863e9168a761a893c35a7e1` (same signing certificate as
+  prior releases). The published notes match `docs/release-notes/v0.9.0.md`. The release APK was
+  **not** installed on the development emulator; signed-upgrade and on-device release-runtime
+  behavior remain unverified.
+
 ### 0.9.0 implementation checkpoint (2026-10-15; not release acceptance)
 
 - C1–C2: commit `0faf2bc0`; full host suite, SQLDelight migration verification, ktlint,
