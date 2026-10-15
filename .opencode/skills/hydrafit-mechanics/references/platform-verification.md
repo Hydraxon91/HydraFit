@@ -180,3 +180,32 @@ Version aliases live in `gradle/libs.versions.toml`; module build scripts use
 `alias(libs.plugins.*)`. There is no convention-plugin `buildSrc`/`build-logic`
 layer at authoring; root Gradle applies ktlint across subprojects. The CI job graph, timeouts and
 required checks are owned by `docs/agent-ci-release.md`, not this reference.
+
+## Plate and dumbbell loading calculators (0.9.0 C4)
+
+`LoadingInventory` (`core/domain/.../equipment/LoadingInventory.kt`) already validates the
+equipment contract: at most 16 plate denominations, 0..100 owned plates each, and plate weight
+plus the chosen bar and collar within `MAX_LOADING_TICKS` (2,000 native units at `LOADING_SCALE`
+= 1,000 ticks per unit). Amounts are integer ticks in the inventory's own unit; they are never
+planner kilograms, and the unit label is not converted between KG and LB.
+
+`PlateLoadingCalculator` resolves a symmetric arrangement for one bar: each denomination
+contributes `count / 2` plates per side, bar `weightTicks` and `collarTicks` are added once as a
+total base, and `totalTicks = baseTicks + 2 * perSideTicks`. It reports an exact arrangement when
+one is reachable, otherwise the nearest reachable totals strictly below and/or above the target
+(null on a side with no arrangement, null both when exact). Among reachable totals it prefers
+fewer plates and then larger denominations, deterministic regardless of inventory order, and it
+never uses more plates than the owned pairs provide. The solver is a bounded min-plate DP over
+the per-side sums: O(denominations * maxPerSideTicks) time and O(denominations *
+maxPerSideTicks) bytes for the reconstruction choices, which at the approved limits is at most
+16 * 1,000,000 deque steps and ~16 MB of choice tables. The host test
+`PlateLoadingCalculatorTest.worstCaseInventoryStaysWithinBoundedResources` measures that sample.
+
+`DumbbellLoadingCalculator` resolves per dumbbell and never doubles: a fixed dumbbell resolves to
+one of its fixed values, an adjustable one to a point on its validated `minimum..maximum`
+increment grid (both endpoints reachable), and gaps report the nearest lower/higher values.
+
+`LoadingAmounts.parseNativeTicks`/`formatNativeTicks` convert between text and ticks with at most
+three decimal places and no binary-floating rounding; overprecision, malformed and negative input
+are rejected rather than truncated. Unlike `formatWeight`'s one-decimal display form the round
+trip is exact; `0..MAX_LOADING_TICKS` range checks stay in the calculators.
