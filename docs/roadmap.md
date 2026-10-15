@@ -73,15 +73,20 @@ PLANS.md identify the original slices, **not newly assigned publication numbers*
 Assign actual versions when each combined release scope is agreed; do not silently
 reinterpret an existing slice contract as approval to implement its whole bundle.
 
+**Further consolidation approved 2026-10-15:** target approximately 27 releases,
+including the current 0.8.0 (26 afterward, then 1.0.0), rather than the initial 31.
+The current 0.8.0 scope and implementation plan remain unchanged. Fewer publication
+and review cycles do not mean larger implementation chunks or fewer required tests.
+
 | Series | Publication groups, using original slice references | Target count |
 | --- | --- | --- |
 | 0.8.x | Charts + records (`0.8.0–0.8.1`); catalog corrections + forearm accessories + approved TRAPS controls (`0.8.2–0.8.4`); anatomical map + volume/last-trained (`0.8.5–0.8.6`); body-weight tracking (`0.8.7`) | 4 |
-| 0.9.x | Profiles (`0.9.0`); plate calculator + equipment increments (`0.9.1–0.9.2`); provider imports (`0.9.3–0.9.5`); sharing + PDF + CSV export (`0.9.6–0.9.7`, `0.9.11`); automatic backups (`0.9.8`); encryption (`0.9.9`); merge restore (`0.9.10`); storage/reset controls (`0.9.12`) | 8 |
-| 0.10.x | Integrity (`0.10.0`); progression policies (`0.10.1`); manual per-set targets + presets + generation (`0.10.2–0.10.4`); manual + planner supersets (`0.10.5–0.10.6`); RIR/RPE targets (`0.10.7`); supported effort/readiness outcomes (`0.10.8–0.10.9`) | 6 |
+| 0.9.x | Profiles + plate calculator + equipment increments (`0.9.0–0.9.2`); provider imports (`0.9.3–0.9.5`); sharing + PDF + CSV export (`0.9.6–0.9.7`, `0.9.11`); automatic backups (`0.9.8`); encryption (`0.9.9`); merge restore (`0.9.10`); storage/reset controls (`0.9.12`) | 7 |
+| 0.10.x | Integrity (`0.10.0`); progression policies (`0.10.1`); manual per-set targets + presets + generation + RIR/RPE targets (`0.10.2–0.10.4`, `0.10.7`); manual + planner supersets (`0.10.5–0.10.6`); supported effort/readiness outcomes (`0.10.8–0.10.9`) | 5 |
 | 0.11.x | Duration + timed preparation (`0.11.0–0.11.1`); distance (`0.11.2`); force (`0.11.3`); supported drop-set + rest-pause clusters (`0.11.4–0.11.5`); supported cardio (`0.11.6`) | 5 |
-| 0.12.x | Identity recovery + validation (`0.12.0–0.12.1`); measured local improvements (`0.12.2`); lifecycle/resource improvements (`0.12.3`) | 3 |
-| 0.13.x | Design/navigation + screen polish (`0.13.0–0.13.2`); tablet (`0.13.3`); foldable (`0.13.4`); accessibility + localization/content (`0.13.5–0.13.6`); recovery states + final integration (`0.13.7–0.13.8`) | 5 |
-| **Total before 1.0.0** | **51 original publication slots grouped into approximately 31 releases** | **31** |
+| 0.12.x | Identity recovery + validation (`0.12.0–0.12.1`); measured local improvements + lifecycle/resource improvements (`0.12.2–0.12.3`) | 2 |
+| 0.13.x | Design/navigation + screen polish (`0.13.0–0.13.2`); tablet + foldable adaptation (`0.13.3–0.13.4`); accessibility + localization/content (`0.13.5–0.13.6`); recovery states + final integration (`0.13.7–0.13.8`) | 4 |
+| **Total before 1.0.0** | **51 original publication slots grouped into approximately 27 releases, including current 0.8.0** | **27** |
 
 - Settle LT-10 before closing 0.7.x, then resolve each series' blocking behavioral
   decisions before its implementation starts. Grouping authorizes no default policy.
@@ -100,11 +105,33 @@ reinterpret an existing slice contract as approval to implement its whole bundle
 - Detailed implementation scope and ownership, destructive actions, dependencies,
   infrastructure, commits and publication retain their existing approval gates.
 
+#### Test boundaries for combined releases
+
+- Keep small implementation steps with explicit acceptance criteria and applicable
+  tests passing before moving forward. Use reusable synthetic fixtures with known
+  expected results, separate capability suites and a short shared-boundary journey.
+- Test producers through downstream consumers, including correction, deletion,
+  restore and lifecycle changes where applicable; valid preconstructed rows alone
+  do not establish write-path invariants.
+- For profiles/calculators, test capabilities independently, then verify profile
+  switching changes available equipment and attainable loads correctly.
+- For prescriptions/effort targets, verify authoring → activation → logging →
+  export/restore, preserving targets without recording them as actual effort.
+- For local AI, complete research and disposition first. Use one benchmark matrix
+  for cold/repeated generation, cancellation, memory and explicit fallback; do not
+  hold supported lifecycle fixes indefinitely for a positive generation experiment.
+- For tablet/foldable adaptation, verify workout/draft continuity across resizing,
+  rotation and supported fold/posture transitions.
+- Before implementation, split bundles that require unrelated fixtures, unresolved
+  behavior or an unwieldy acceptance matrix. Retain one release-level verification
+  matrix and separately requested bounded review, with required closure checks.
+
 The working estimate at adoption is **4–7 weeks from 2026-10-15** (approximately
 2026-11-12–2026-12-03), assuming similar working intensity. It is not a deadline
 or measured guarantee. Recalibrate after the first two combined releases; AI
 research, content/media coverage and integrity decisions are major uncertainties.
-The grouping removes about 39% of planned publication cycles, not engineering work.
+The revised grouping removes about 47% of the original 51 planned publication
+cycles, not engineering work. The lower count alone does not shorten the estimate.
 
 ## Release overview
 
