@@ -524,6 +524,26 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 
 ### 0.7.7 C8 release readiness (2026-10-15)
 
+**PR #14 CI corrective (2026-10-15):** Build and Test run `38692089249`, attempts 1 and 2,
+failed in `OnboardingViewModelTest.loadingEditingBackAndCloseWriteNothingOnEveryStep` with
+`UncaughtExceptionsBeforeTest`; lint and debug assembly/release lint passed. Merge/tag/publication
+were stopped. The named test had not entered its body. Inspection found the onboarding runtime
+binding test draining only the virtual scheduler before resetting Main, while its entry ViewModel
+could still be reading on real `Dispatchers.Default`. Fresh local reproduction passed, so the
+original CI exception's full cause is not proven by local reproduction or the abbreviated CI log.
+
+The approved test-only corrective retains the production Koin binding/default dispatcher, gates
+the real read, awaits published readiness, and owns the resolved ViewModel in a `ViewModelStore`.
+Teardown clears the store and joins its coroutine job before resetting Main, including on failure.
+A second controlled case leaves the read suspended and verifies cancellation and job completion;
+both cases assert no persistent setup writes. No production code, dependencies or workflows changed.
+
+Fresh candidate verification with the C7 command plus `--rerun-tasks` passed in **2m 49s**:
+**839 tasks executed**, **1,788 tests, zero failures/errors/skips**, migrations, ktlint, debug
+assembly, shared/network iOS simulator compilation and `lintVitalRelease`. Log:
+`/tmp/hf077-onboarding-fixed-candidate-matrix.log`. PR CI for the corrected commit remains pending;
+this local pass is not remote CI or release approval evidence.
+
 **APPROVED** in Plan Mode at candidate `bb67f207`, with the pending C7 documentation delta
 reviewed read-only. This was the final readiness gate, not another full-range source review.
 C7 evidence, targeted closure of R077C-01/02 and the user's acceptance of C6 runtime/cleanup limits

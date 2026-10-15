@@ -1,5 +1,7 @@
 package com.hydrafit.app.feature.onboarding
 
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.setup.SaveSetupStepUseCase
 import com.hydrafit.app.core.domain.setup.SetupWriteRepository
@@ -15,13 +17,20 @@ import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
@@ -83,18 +92,40 @@ class OnboardingModuleVerificationTest {
      * `onboardingModule` to prove its constructor `get()` chain. Constructing it starts its
      * disposition read, which needs a Main dispatcher harness, and that read must not write.
      *
-     * The read's published state is asserted in `OnboardingEntryViewModelTest`, which injects the
-     * dispatcher; this binding leaves it at the default, which the test scheduler cannot await.
+     * This binding keeps the real default dispatcher. Hold its read open to prove that draining the
+     * test scheduler is not completion, then await publication and clear/join the owned ViewModel
+     * before resetting Main. The cancellation case checks teardown while the read is suspended.
      */
     @Test
-    fun theEntryViewModelResolvesWithoutWriting() = runTest {
+    fun theEntryViewModelResolvesWithoutWriting() = verifyEntryBinding(finishRead = true)
+
+    @Test
+    fun theEntryViewModelCleanupWaitsForASuspendedReadToCancel() =
+        verifyEntryBinding(finishRead = false)
+
+    private fun verifyEntryBinding(finishRead: Boolean) = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
         val fixture = OnboardingFixture()
+        val readStarted = CompletableDeferred<Unit>()
+        val releaseRead = CompletableDeferred<Unit>()
+        val readFinished = CompletableDeferred<Unit>()
+        val setup = object : SetupRepository {
+            override suspend fun current() = try {
+                readStarted.complete(Unit)
+                releaseRead.await()
+                fixture.setup.current()
+            } finally {
+                readFinished.complete(Unit)
+            }
+            override fun observe() = fixture.setup.observe()
+        }
+        val store = ViewModelStore()
+        var entryJob: Job? = null
         val application = koinApplication {
             modules(
                 module {
-                    single<SetupRepository> { fixture.setup }
+                    single<SetupRepository> { setup }
                     single<SetupWriteRepository> { fixture.writer }
                     single<WeightUnitRepository> { fixture.units }
                     single<EquipmentRepository> { fixture.equipment }
@@ -109,12 +140,37 @@ class OnboardingModuleVerificationTest {
             )
         }
         try {
-            assertNotNull(application.koin.get<OnboardingEntryViewModel>())
-            advanceUntilIdle()
+            val viewModel = application.koin.get<OnboardingEntryViewModel>()
+            store.put("entry", viewModel)
+            entryJob = assertNotNull(viewModel.viewModelScope.coroutineContext[Job])
+            runCurrent()
+            withContext(Dispatchers.Default) {
+                withTimeout(5_000) { readStarted.await() }
+            }
+            assertEquals(OnboardingEntryState.Loading, viewModel.state.value)
+            if (finishRead) {
+                releaseRead.complete(Unit)
+                val published = withContext(Dispatchers.Default) {
+                    withTimeout(5_000) {
+                        viewModel.state.first { it != OnboardingEntryState.Loading }
+                    }
+                }
+                assertEquals(OnboardingEntryState.Ready(true), published)
+            }
             assertEquals(0, fixture.attempts.size)
         } finally {
-            application.close()
-            Dispatchers.resetMain()
+            try {
+                store.clear()
+                withContext(NonCancellable + Dispatchers.Default) {
+                    withTimeout(5_000) { entryJob?.join() }
+                }
+            } finally {
+                application.close()
+                Dispatchers.resetMain()
+            }
         }
+        assertTrue(readFinished.isCompleted)
+        assertTrue(assertNotNull(entryJob).isCompleted)
+        assertEquals(0, fixture.attempts.size)
     }
 }
