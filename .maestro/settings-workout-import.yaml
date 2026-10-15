@@ -1,0 +1,38 @@
+appId: com.hydrafit.app
+---
+# Settings workout-CSV import: read-only reachability and affordance check.
+#
+# Starting state: HydraFit foregrounded with the Settings tab reachable, an English UI, no
+# keyboard/dialog/editor open. The flow never taps "Choose CSV file", so it opens no document
+# picker, reads no file and writes no workout data; provider selection is only asserted, not changed.
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    text: "Settings"
+    retryTapIfNoChange: false
+- scrollUntilVisible:
+    element:
+      text: "Import workout history"
+    direction: DOWN
+    timeout: 40000
+    speed: 40
+- assertVisible: "Import workout history"
+- assertVisible: "Export provider"
+- assertVisible:
+    id: "workout_import_provider_fitnotes"
+- assertVisible:
+    id: "workout_import_provider_strong"
+- assertVisible:
+    id: "workout_import_provider_hevy"
+- assertVisible:
+    id: "workout_import_choose_file"
+- assertVisible: "Choose CSV file"
+# No file has been chosen, so there is nothing to import and no review is shown.
+- assertNotVisible:
+    id: "workout_import_apply"
+- assertNotVisible:
+    id: "workout_import_summary"
+- takeScreenshot: settings-workout-import

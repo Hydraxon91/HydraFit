@@ -30,6 +30,7 @@ do not cancel someone else's draft or restart the app to establish them.
 | `logger-warmup-editor-cancel.yaml` | Same as `logger-warmup-checkbox.yaml` | Open one preparation row's editor and cancel it | Editor closed; Save untouched, so no warm-up edit and no set is written |
 | `equipment-profiles.yaml` | Equipment tab selected, no keyboard/dialog/editor | Read-only scroll and assertion of the profile, loading-configuration and calculator affordances; opens no dialog | Same Equipment tab and scroll position; no profile, catalog or record write |
 | `logger-loading-calculator.yaml` | Logger tab selected with a manual exercise chosen so the set form and its calculator action are present, no keyboard/dialog/editor | Open and dismiss the read-only manual loading helper | Logger with the Log tab selected; no set, draft, note or session write |
+| `settings-workout-import.yaml` | Settings reachable, English UI, no keyboard/dialog/editor | Settings navigation, one bounded scroll and the screenshot; the file picker is never opened and no provider selection changes | Import section visible with all three provider options and Choose CSV file; no Import/summary control and Settings still selected; no file read or written |
 
 The navigation flow visits all six tabs and asserts the selected tab after each
 tap; visible navigation labels alone are not a success oracle. It is also the

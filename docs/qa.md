@@ -2522,7 +2522,33 @@ final state is user-reported, not independently verified. Findings inform the 0.
   deferred 0.13.x explanation-presentation polish and the named OF-03 verification limits are
   unchanged.
 
-## 0.9.1 import foundation checkpoint (2026-10-15; not release acceptance)
+## 0.9.1 import journey checkpoint (2026-10-15; not release acceptance)
+
+- Scope: the Settings → Data transfer import UI (I4, delegated to the default `coder`, with one
+  parent-directed correction) and the I5 integration gate.
+- Correction found during parent verification: session drafts and the provenance candidate key were
+  keyed by civil day only, which merged two distinct same-day source workouts and violated the
+  approved "do not assume one session per day" contract. Now keyed by provider + civil day + source
+  workout title, with a mixed-title group reported as `INVALID_SESSION_MEMBERSHIP`. Domain fix in
+  `1b998fcf`; UI correction in `9e471472`.
+- Matrix at this boundary (`091-i5-matrix.log`): 2,152 host tests in 240 classes, 0 failures, 0
+  errors, 0 skipped; `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug` and `:shared:`/`:core:network:` iOS simulator compiles all green.
+  `WorkoutImportViewModelTest`: 17 tests (13 initial + 4 for the session-key correction).
+- Koin: `KoinModulesVerificationTest` resolves the new `WorkoutImportViewModel` over `settingsModule`
+  with fake ports (`:shared:testAndroidHostTest` green), because `verify()` cannot reflect a lambda
+  `viewModel { }`.
+- Bounded read-only emulator evidence: `.maestro/settings-workout-import.yaml`, syntax-checked with
+  Maestro 2.11.0 and run once on `emulator-5554` (debug build, 2026-10-15) at 12/12 steps, ~16 s,
+  exit 0, with viewed screenshot
+  `hf-091-import-flow/2026-10-15_234541/settings-workout-import/takeScreenshot/settings-workout-import.png`
+  showing the section, the FitNotes default and no Import control. No document picker was opened and
+  no workout data was written.
+- Not verified by any check here: the SAF picker, an actual import write, the review/mapping/session
+  editors, the CSV fixture files themselves, toast/snackbar copy, dark mode, larger text, rotation,
+  TalkBack, and every iOS surface.
+
+### 0.9.1 import foundation checkpoint (2026-10-15; not release acceptance)
 
 - Scope: the parsing foundation (I1, delegated to the default `coder`), the pure preview contract
   (I2) and the transactional persistence plus provenance ledger (I3). No import UI is wired, so no
