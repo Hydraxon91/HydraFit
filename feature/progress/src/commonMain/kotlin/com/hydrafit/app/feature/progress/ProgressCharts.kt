@@ -33,6 +33,26 @@ internal fun displayWeight(kilograms: Double, unit: WeightUnit): String =
     "${formatWeight(unit.kilogramsToDisplay(kilograms))} ${unit.label}"
 
 /**
+ * The horizontal centre for a mark at [localEpochDay], inset from each edge by [radiusPx] so no mark
+ * is centred on the canvas boundary. [dayFrom] and [dayTo] are inclusive and map to the usable edges.
+ */
+internal fun progressMarkX(day: Long, from: Long, to: Long, width: Float, radius: Float): Float {
+    val span = (to - from).coerceAtLeast(1L).toFloat()
+    val usable = (width - 2f * radius).coerceAtLeast(0f)
+    return radius + ((day - from).toFloat() / span) * usable
+}
+
+/**
+ * The vertical centre for a mark at [value] on a chart whose maximum is [max], inset from the top and
+ * bottom by [radius]. The maximum sits at the top inset; a zero value would rest on the bottom one.
+ */
+internal fun progressMarkY(value: Double, max: Double, height: Float, radius: Float): Float {
+    val fraction = (value / max).coerceIn(0.0, 1.0)
+    val usable = (height - 2f * radius).coerceAtLeast(0f)
+    return radius + ((1.0 - fraction) * usable).toFloat()
+}
+
+/**
  * One mark per recorded day that carries external load-volume, positioned at its actual civil day.
  * Days without a recorded value are simply absent: nothing is interpolated, smoothed or connected
  * across them, and no fake zero day is drawn. The canvas is decorative (`clearAndSetSemantics`), so
@@ -55,11 +75,10 @@ internal fun ProgressVolumeChart(
             .height(160.dp)
             .clearAndSetSemantics {}
     ) {
-        val span = (dayTo - dayFrom).coerceAtLeast(1L).toFloat()
         val radius = 3.dp.toPx()
         points.forEach { day ->
-            val x = ((day.localEpochDay - dayFrom).toFloat() / span) * size.width
-            val y = size.height - ((day.externalVolumeKg ?: 0.0) / max * size.height).toFloat()
+            val x = progressMarkX(day.localEpochDay, dayFrom, dayTo, size.width, radius)
+            val y = progressMarkY(day.externalVolumeKg ?: 0.0, max, size.height, radius)
             drawCircle(color = color, radius = radius, center = Offset(x, y))
         }
     }

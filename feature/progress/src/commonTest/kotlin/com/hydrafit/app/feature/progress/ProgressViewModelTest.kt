@@ -12,6 +12,8 @@ import com.hydrafit.app.core.domain.workout.ExerciseProgressRepository
 import com.hydrafit.app.core.domain.workout.ExerciseProgressRequest
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.ProgressDay
+import com.hydrafit.app.core.domain.workout.ProgressRecordKey
+import com.hydrafit.app.core.domain.workout.ProgressRecordType
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
@@ -79,6 +81,13 @@ class ProgressViewModelTest {
         }
     }
 
+    /** Mutable clock, so a test can advance the instant between reads. */
+    private class FakeTimeProvider(var now: Long, var offset: Long) : TimeProvider {
+        override fun nowMillis(): Long = now
+
+        override fun utcOffsetMillis(): Long = offset
+    }
+
     private fun exercise(id: String, name: String) = Exercise(
         id = id,
         name = name,
@@ -89,15 +98,13 @@ class ProgressViewModelTest {
     private fun viewModel(
         repository: FakeProgressRepository = FakeProgressRepository(),
         unitRepository: FakeWeightUnitRepository = FakeWeightUnitRepository(),
-        catalog: ExerciseCatalog = FakeCatalog(listOf(exercise("squat", "Squat")))
+        catalog: ExerciseCatalog = FakeCatalog(listOf(exercise("squat", "Squat"))),
+        timeProvider: TimeProvider = FakeTimeProvider(nowMillis, offsetMillis)
     ) = ProgressViewModel(
         progressRepository = repository,
         exerciseCatalog = catalog,
         weightUnitRepository = unitRepository,
-        timeProvider = object : TimeProvider {
-            override fun nowMillis() = nowMillis
-            override fun utcOffsetMillis() = offsetMillis
-        }
+        timeProvider = timeProvider
     )
 
     @Test
@@ -275,12 +282,75 @@ class ProgressViewModelTest {
             vm.onExerciseSelected("squat")
             advanceUntilIdle()
 
-            vm.onSetSelected(42L)
+            vm.onShowSupportingSet(loadKey(), 42L)
             advanceUntilIdle()
 
             assertEquals(listOf("squat" to 42L), requested)
             assertEquals(42L, vm.state.value.supportingSet?.id)
+            assertEquals(loadKey(), vm.state.value.selectedRecordKey)
             assertFalse(vm.state.value.supportingSetMissing)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun reTappingTheSameSetUnderAnotherRecordKeyMovesPlacementWithoutReReading() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeProgressRepository()
+            val requested = mutableListOf<Pair<String, Long>>()
+            repository.setFlow = { exerciseId, setId ->
+                requested += exerciseId to setId
+                flowOf(historySet(setId))
+            }
+            val vm = viewModel(repository)
+            advanceUntilIdle()
+            vm.onExerciseSelected("squat")
+            advanceUntilIdle()
+
+            vm.onShowSupportingSet(loadKey(), 42L)
+            advanceUntilIdle()
+            assertEquals(1, requested.size)
+            assertEquals(loadKey(), vm.state.value.selectedRecordKey)
+
+            // The same set holds another record: only the placement moves, no second read.
+            vm.onShowSupportingSet(estimateKey(), 42L)
+            advanceUntilIdle()
+            assertEquals(estimateKey(), vm.state.value.selectedRecordKey)
+            assertEquals(42L, vm.state.value.selectedSetId)
+            assertEquals(42L, vm.state.value.supportingSet?.id)
+            assertEquals(1, requested.size)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun resumeReSamplesTheClockAndMovesTheWindowToTheNewDay() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeProgressRepository()
+            val clock = FakeTimeProvider(nowMillis, offsetMillis)
+            val vm = viewModel(repository, timeProvider = clock)
+            advanceUntilIdle()
+            vm.onExerciseSelected("squat")
+            advanceUntilIdle()
+            val firstDayTo = repository.progressRequests.last().dayTo
+            assertEquals(1, repository.progressRequests.size)
+
+            // The next local day: a resume must re-issue the read at the new instant, not the old.
+            clock.now = nowMillis + 24L * 60L * 60L * 1000L
+            vm.onResume()
+            advanceUntilIdle()
+
+            val request = repository.progressRequests.last()
+            assertEquals(2, repository.progressRequests.size)
+            assertEquals(clock.now, request.nowMillis)
+            assertEquals(firstDayTo + 1L, request.dayTo)
+            assertEquals(firstDayTo + 1L - 27L, request.dayFrom)
         } finally {
             Dispatchers.resetMain()
         }
@@ -430,4 +500,15 @@ private fun historySet(setId: Long, exerciseId: String = "squat") = WorkoutHisto
     rir = null,
     performedAtMillis = 0L,
     timingProvenance = WorkoutTimingProvenance.LIVE
+)
+
+private fun loadKey() = ProgressRecordKey(
+    type = ProgressRecordType.LOAD_AT_REPS,
+    loadKind = LoadKind.EXTERNAL,
+    reps = 5
+)
+
+private fun estimateKey() = ProgressRecordKey(
+    type = ProgressRecordType.ESTIMATED_ONE_REP_MAX,
+    loadKind = LoadKind.EXTERNAL
 )

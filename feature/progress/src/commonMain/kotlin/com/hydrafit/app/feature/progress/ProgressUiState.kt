@@ -3,6 +3,7 @@ package com.hydrafit.app.feature.progress
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.ProgressDay
 import com.hydrafit.app.core.domain.workout.ProgressRecord
+import com.hydrafit.app.core.domain.workout.ProgressRecordKey
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 
 /** The three explicit chart ranges. Only the chart window changes; records and history are all-time. */
@@ -45,6 +46,12 @@ data class ProgressUiState(
     val loadingMoreHistory: Boolean = false,
     val loadMoreHistoryFailed: Boolean = false,
     val selectedSetId: Long? = null,
+    /**
+     * The record whose supporting set is open. The same set id can hold several records, so the
+     * placement needs both: the detail renders under the record this key names, and the id says
+     * which holder within it is shown.
+     */
+    val selectedRecordKey: ProgressRecordKey? = null,
     val supportingSet: WorkoutHistorySet? = null,
     val supportingSetLoading: Boolean = false,
     val supportingSetFailed: Boolean = false,

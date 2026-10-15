@@ -847,8 +847,14 @@ regression coverage, and a C5 path error was resolved without a new verification
 downstream integration, the bounded read-only Maestro flow and the full candidate gate passed on
 2026-10-15: three real-writer integration tests, 47/47 flow steps with viewed screenshots, draft
 preservation across the Progress push/pop, and the complete Tier A matrix. The summary records
-section is host/VM-verified only (no occurrence fixture was created on the emulator). Formal
-reviewer closure for R080-01/02 and the C4–C6 batch remains pending. See `docs/qa.md` for
+section is host/VM-verified only (no occurrence fixture was created on the emulator). The
+2026-10-15 post-execution review returned REJECTED with findings R080-03…08; the approved fix round
+(R080-03/04/05/06/07 plus the R080-08 emulator round) is now implemented and verified: migration
+`47.sqm` with plan-assertion tests, resume/lifecycle wiring, chart legend and edge-placement fixes,
+the inline tied-holder supporting set with Previous/Next, the updated 48-step flow passing on
+emulator-5554 in kg, lb, dark+1.3 and long-name states with restorations, and the full candidate
+gate green. Targeted closure review for R080-03…08 and formal closure for R080-01/02/The C4–C6
+batch remain pending. See `docs/qa.md` for
 the bounded run evidence. The local branch is `0.8.0`; **0.8.0** is the proposed combined publication
 version, subject to scope approval. Original 0.8.0 charts and 0.8.1 records references identify slices,
 not two required publications. This plan covers OF-04-P0/P1/P2/P3 and supersedes the previous
@@ -1528,7 +1534,7 @@ post-execution review remains a separate Plan Mode gate.
 
 These stable references are separately approved slices, not implicit additions to the existing catalog/substitution phases. All use the shared implementation/verification gate above.
 
-#### CAT-01 — Offline exercise instructions (M2)
+#### CAT-01 — Offline exercise instructions (M2) 
 
 **Scope / ownership:** concise independently authored setup/execution cues, stored with catalog content and displayed by owning feature UIs; user setup notes remain OF-13 data. Text-first; no unlicensed media or copied copyrighted descriptions.
 

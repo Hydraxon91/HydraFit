@@ -81,6 +81,30 @@ class ProgressPresentationTest {
         assertTrue(withHistory.chartsHaveNoEligibleDays)
         assertFalse(withHistory.historyIsEmpty)
     }
+
+    @Test
+    fun chartMarksStayInsideTheCanvasEdges() {
+        val radius = 3f
+        val width = 100f
+        // The first day sits at the left usable edge, the last at the right usable edge.
+        assertEquals(radius, progressMarkX(0L, 0L, 10L, width, radius))
+        assertEquals(width - radius, progressMarkX(10L, 0L, 10L, width, radius))
+        // A middle day is interpolated across the usable span, not the full canvas width.
+        assertEquals(radius + (width - 2f * radius) / 2f, progressMarkX(5L, 0L, 10L, width, radius))
+        // A single-day window collapses to the left edge rather than dividing by zero.
+        assertEquals(radius, progressMarkX(7L, 7L, 7L, width, radius))
+    }
+
+    @Test
+    fun chartMaximumRestsOnTheTopInsetAndZeroOnTheBottom() {
+        val radius = 4f
+        val height = 60f
+        assertEquals(radius, progressMarkY(10.0, 10.0, height, radius))
+        assertEquals(height - radius, progressMarkY(0.0, 10.0, height, radius))
+        assertEquals(radius + (height - 2f * radius) / 2f, progressMarkY(5.0, 10.0, height, radius))
+        // A negative reading is clamped rather than drawn below the canvas.
+        assertEquals(height - radius, progressMarkY(-1.0, 10.0, height, radius))
+    }
 }
 
 private fun historySetForTest(setId: Long) = WorkoutHistorySet(

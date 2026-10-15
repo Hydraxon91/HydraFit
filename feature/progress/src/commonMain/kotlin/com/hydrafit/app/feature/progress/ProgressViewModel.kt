@@ -9,6 +9,7 @@ import com.hydrafit.app.core.domain.workout.ExerciseHistoryCursor
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryRequest
 import com.hydrafit.app.core.domain.workout.ExerciseProgressRepository
 import com.hydrafit.app.core.domain.workout.ExerciseProgressRequest
+import com.hydrafit.app.core.domain.workout.ProgressRecordKey
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -119,6 +120,7 @@ class ProgressViewModel(
                 loadingMoreHistory = false,
                 loadMoreHistoryFailed = false,
                 selectedSetId = null,
+                selectedRecordKey = null,
                 supportingSet = null,
                 supportingSetLoading = false,
                 supportingSetFailed = false,
@@ -307,14 +309,23 @@ class ProgressViewModel(
 
     // ── Supporting recorded set ───────────────────────────────────────────
 
-    /** Resolves one contributing set by its exercise-scoped id, bounded to that id. */
-    fun onSetSelected(setId: Long) {
+    /**
+     * Resolves one contributing set by its exercise-scoped id, bounded to that id, in the context of
+     * [key] so the detail renders under that record. The same set id often holds several records, so
+     * re-tapping it under a different record key only moves the placement and never re-reads the set.
+     */
+    fun onShowSupportingSet(key: ProgressRecordKey, setId: Long) {
         val id = _state.value.selectedExerciseId ?: return
+        if (_state.value.selectedSetId == setId) {
+            _state.update { it.copy(selectedRecordKey = key) }
+            return
+        }
         supportingJob?.cancel()
         val generation = ++supportingGeneration
         _state.update {
             it.copy(
                 selectedSetId = setId,
+                selectedRecordKey = key,
                 supportingSet = null,
                 supportingSetLoading = true,
                 supportingSetFailed = false,
@@ -353,6 +364,7 @@ class ProgressViewModel(
         _state.update {
             it.copy(
                 selectedSetId = null,
+                selectedRecordKey = null,
                 supportingSet = null,
                 supportingSetLoading = false,
                 supportingSetFailed = false,

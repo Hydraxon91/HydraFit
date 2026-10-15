@@ -20,15 +20,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.ProgressRecord
+import com.hydrafit.app.core.domain.workout.ProgressRecordKey
 import com.hydrafit.app.core.domain.workout.ProgressRecordType
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import hydrafit.feature.progress.generated.resources.Res
 import hydrafit.feature.progress.generated.resources.progress_back
+import hydrafit.feature.progress.generated.resources.progress_chart_volume_legend
 import hydrafit.feature.progress.generated.resources.progress_charts_failed
 import hydrafit.feature.progress.generated.resources.progress_charts_no_eligible
 import hydrafit.feature.progress.generated.resources.progress_charts_retry
@@ -58,9 +62,13 @@ import hydrafit.feature.progress.generated.resources.progress_record_kind_legacy
 import hydrafit.feature.progress.generated.resources.progress_record_load_at_reps
 import hydrafit.feature.progress.generated.resources.progress_record_reps_at_load
 import hydrafit.feature.progress.generated.resources.progress_record_show_supporting
+import hydrafit.feature.progress.generated.resources.progress_record_show_supporting_of
+import hydrafit.feature.progress.generated.resources.progress_record_supporting_hide
 import hydrafit.feature.progress.generated.resources.progress_record_supporting_loading
 import hydrafit.feature.progress.generated.resources.progress_record_supporting_missing
+import hydrafit.feature.progress.generated.resources.progress_record_supporting_next
 import hydrafit.feature.progress.generated.resources.progress_record_supporting_note
+import hydrafit.feature.progress.generated.resources.progress_record_supporting_previous
 import hydrafit.feature.progress.generated.resources.progress_records_all_time_note
 import hydrafit.feature.progress.generated.resources.progress_records_none
 import hydrafit.feature.progress.generated.resources.progress_records_title
@@ -84,6 +92,9 @@ internal object ProgressTestTags {
 @Composable
 fun ProgressRoute(viewModel: ProgressViewModel = koinViewModel(), onBack: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // Re-sample the clock and offset when the destination returns to the foreground, so a charting
+    // read that crossed midnight is re-issued against the current instant and day window.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResume() }
     ProgressScreen(
         state = state,
         onExerciseQueryChanged = viewModel::onExerciseQueryChanged,
@@ -92,7 +103,7 @@ fun ProgressRoute(viewModel: ProgressViewModel = koinViewModel(), onBack: () -> 
         onRetryCharts = viewModel::onRetryCharts,
         onRetryHistory = viewModel::onRetryHistory,
         onLoadMoreHistory = viewModel::onLoadMoreHistory,
-        onShowSupportingSet = viewModel::onSetSelected,
+        onShowSupportingSet = viewModel::onShowSupportingSet,
         onCloseSupportingSet = viewModel::onSupportingSetClosed,
         onBack = onBack
     )
@@ -107,7 +118,7 @@ fun ProgressScreen(
     onRetryCharts: () -> Unit,
     onRetryHistory: () -> Unit,
     onLoadMoreHistory: () -> Unit,
-    onShowSupportingSet: (Long) -> Unit,
+    onShowSupportingSet: (ProgressRecordKey, Long) -> Unit,
     onCloseSupportingSet: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
@@ -130,8 +141,7 @@ fun ProgressScreen(
         ExerciseSelector(state, onExerciseQueryChanged, onExerciseSelected)
         if (state.hasSelectedExercise) {
             RangeSelector(state.range, onRangeSelected)
-            ChartsSection(state, onRetryCharts, onShowSupportingSet)
-            SupportingSetSection(state, onCloseSupportingSet)
+            ChartsSection(state, onRetryCharts, onShowSupportingSet, onCloseSupportingSet)
             HistorySection(state, onRetryHistory, onLoadMoreHistory)
         } else {
             Text(stringResource(Res.string.progress_exercise_none_selected))
@@ -194,7 +204,8 @@ private fun RangeSelector(range: ProgressRange, onRangeSelected: (ProgressRange)
 private fun ChartsSection(
     state: ProgressUiState,
     onRetryCharts: () -> Unit,
-    onShowSupportingSet: (Long) -> Unit
+    onShowSupportingSet: (ProgressRecordKey, Long) -> Unit,
+    onCloseSupportingSet: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
@@ -213,6 +224,10 @@ private fun ChartsSection(
                 Text(stringResource(Res.string.progress_charts_no_eligible))
             else -> {
                 ProgressChartCaption()
+                Text(
+                    text = stringResource(Res.string.progress_chart_volume_legend),
+                    style = MaterialTheme.typography.bodySmall
+                )
                 val dayFrom = state.chartDayFrom
                 val dayTo = state.chartDayTo
                 if (dayFrom != null && dayTo != null) {
@@ -221,15 +236,15 @@ private fun ChartsSection(
                 ProgressDayTable(state.days, state.weightUnit)
             }
         }
-        RecordsSection(state.records, state.weightUnit, onShowSupportingSet)
+        RecordsSection(state, onShowSupportingSet, onCloseSupportingSet)
     }
 }
 
 @Composable
 private fun RecordsSection(
-    records: List<ProgressRecord>,
-    weightUnit: WeightUnit,
-    onShowSupportingSet: (Long) -> Unit
+    state: ProgressUiState,
+    onShowSupportingSet: (ProgressRecordKey, Long) -> Unit,
+    onCloseSupportingSet: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
@@ -240,29 +255,66 @@ private fun RecordsSection(
             text = stringResource(Res.string.progress_records_all_time_note),
             style = MaterialTheme.typography.bodySmall
         )
-        if (records.isEmpty()) {
+        if (state.records.isEmpty()) {
             Text(stringResource(Res.string.progress_records_none))
             return
         }
-        records.forEachIndexed { index, record ->
+        state.records.forEachIndexed { index, record ->
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(recordLine(record, weightUnit), style = MaterialTheme.typography.bodyMedium)
-                record.setIds.forEach { setId ->
-                    TextButton(
-                        onClick = { onShowSupportingSet(setId) },
-                        modifier = Modifier.testTag(ProgressTestTags.record(index))
-                    ) {
-                        Text(stringResource(Res.string.progress_record_show_supporting))
-                    }
+                Text(
+                    recordLine(record, state.weightUnit),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                if (record.setIds.isNotEmpty()) {
+                    RecordSupportingSet(
+                        record = record,
+                        state = state,
+                        index = index,
+                        onShowSupportingSet = onShowSupportingSet,
+                        onCloseSupportingSet = onCloseSupportingSet
+                    )
                 }
             }
         }
     }
 }
 
+/**
+ * One record's single supporting-set action plus its inline detail. The same set can hold several
+ * records, so the placement is the record's key *and* one of its holder ids; the detail renders here,
+ * directly under the record, rather than at the end of the list.
+ */
 @Composable
-private fun SupportingSetSection(state: ProgressUiState, onClose: () -> Unit) {
-    if (state.selectedSetId == null) return
+private fun RecordSupportingSet(
+    record: ProgressRecord,
+    state: ProgressUiState,
+    index: Int,
+    onShowSupportingSet: (ProgressRecordKey, Long) -> Unit,
+    onCloseSupportingSet: () -> Unit
+) {
+    val open = state.selectedRecordKey == record.key && state.selectedSetId in record.setIds
+    val position = if (open) {
+        record.setIds.indexOf(state.selectedSetId) + 1
+    } else {
+        1
+    }
+    TextButton(
+        onClick = { onShowSupportingSet(record.key, record.setIds[position - 1]) },
+        modifier = Modifier.testTag(ProgressTestTags.record(index))
+    ) {
+        Text(
+            if (record.setIds.size > 1) {
+                stringResource(
+                    Res.string.progress_record_show_supporting_of,
+                    position,
+                    record.setIds.size
+                )
+            } else {
+                stringResource(Res.string.progress_record_show_supporting)
+            }
+        )
+    }
+    if (!open) return
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         when {
             state.supportingSetLoading ->
@@ -274,8 +326,24 @@ private fun SupportingSetSection(state: ProgressUiState, onClose: () -> Unit) {
             state.supportingSet != null ->
                 SupportingSetDetail(state.supportingSet, state.weightUnit, state.utcOffsetMillis)
         }
-        TextButton(onClick = onClose) {
-            Text(stringResource(Res.string.progress_back))
+        if (record.setIds.size > 1) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(
+                    onClick = { onShowSupportingSet(record.key, record.setIds[position - 2]) },
+                    enabled = position > 1
+                ) {
+                    Text(stringResource(Res.string.progress_record_supporting_previous))
+                }
+                TextButton(
+                    onClick = { onShowSupportingSet(record.key, record.setIds[position]) },
+                    enabled = position < record.setIds.size
+                ) {
+                    Text(stringResource(Res.string.progress_record_supporting_next))
+                }
+            }
+        }
+        TextButton(onClick = onCloseSupportingSet) {
+            Text(stringResource(Res.string.progress_record_supporting_hide))
         }
     }
 }

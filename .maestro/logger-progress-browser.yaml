@@ -1,5 +1,5 @@
 # Read-only Exercise Progress browser smoke: the Log entry, exercise search/selection, the range
-# chips, the per-range trend title, records with one supporting-set open/close, and recorded
+# chips, the per-range trend title, records with one inline supporting-set open/close, and recorded
 # history. The first entry leaves through the screen Back; a second entry re-selects the exercise
 # and leaves through the system back. Progress hides the six-tab chrome and the compact hierarchy
 # only contains on-screen content, so the deeper sections are reached with scrollUntilVisible.
@@ -85,13 +85,19 @@ tags:
     text: '^Show a supporting set$'
     index: 0
     retryTapIfNoChange: false
-# The supporting detail renders after the records list, so it may appear only after scrolling.
+# The detail renders inline under the tapped record (R080-07), so it must sit above the next
+# record's line; the close action is its own control (Hide detail), not the screen Back. The next
+# record line is anchored unit-agnostically so the flow also runs under lb.
 - scrollUntilVisible:
-    element: '.*supports the record above.*'
+    element: '^Most reps at .*: 5$'
     timeout: 10000
-- assertVisible: '.*supports the record above.*'
+    centerElement: true
+- assertVisible:
+    text: '.*supports the record above.*'
+    above: '^Most reps at .*: 5$'
+- takeScreenshot: progress-supporting-inline
 - tapOn:
-    text: '^Back$'
+    text: '^Hide detail$'
     below: '.*supports the record above.*'
     retryTapIfNoChange: false
 - assertNotVisible: '.*supports the record above.*'

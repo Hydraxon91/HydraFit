@@ -103,6 +103,54 @@ exact on-screen text.
   transaction. This is implementation/integration verification, not the separately requested
   formal review.
 
+## 0.8.0 review-fix round R080-03…08 — 2026-10-15
+
+- Origin: the 2026-10-15 post-execution review of `be2d9721..56917e32` returned REJECTED with
+  findings R080-03 (Progress resume never wired), R080-04 (occurrence read scanned the set index),
+  R080-05 (dead resources, canvas without its metric legend), R080-06 (edge-clipped chart marks),
+  R080-07 (tied supporting sets: unbounded identical buttons, detail far from the tapped record,
+  duplicate "Back" label) and R080-08 (C4 emulator cross-cutting checks unevidenced). R080-01/02
+  remained closed. Owners: coder for R080-03/05/06/07 (feature:progress), main agent for R080-04,
+  the flow/evidence updates and R080-08 orchestration, with bounded emulator runs by the UI runner.
+- R080-03: `ProgressRoute` wires `LifecycleEventEffect(ON_RESUME)` to `onResume()`; a VM test
+  advances a mutable clock and asserts the re-issued request's `nowMillis` and day window move to
+  the new day (27-day window kept).
+- R080-04: migration `47.sqm` adds `workoutSet_occurrenceId_exerciseId` on
+  `(occurrenceId, exerciseId)`, mirrored in the fresh schema. `WorkoutSetOccurrenceIndexMigrationTest`
+  (2 tests) covers preservation and the plan `SEARCH … (occurrenceId=?)` with no scan and no
+  temporary B-tree; the chain verifier passes. Before the fix the live read was
+  `SCAN workoutSet USING INDEX workoutSet_exerciseId_performedAt_id`.
+- R080-05: the legend renders under the caption as "External load-volume per day" (the unit was
+  dropped because the canvas is positional and the day table carries display units); the six
+  unreferenced keys (`nav_label`, `progress_table_day`, `progress_charts_loading`,
+  `progress_chart_load_legend`, `progress_chart_no_positive_estimate`, `progress_history_open_set`)
+  are deleted.
+- R080-06: mark placement moved into pure `progressMarkX`/`progressMarkY` with edge and value
+  tests; no mark is centred on the canvas boundary.
+- R080-07: one action per record ("Show a supporting set", or "(%1$d of %2$d)" when a record has
+  tied holders); the resolved detail renders inline under the tapped record with
+  `Previous tied set`/`Next tied set` (disabled at the ends) and a `Hide detail` close; the VM
+  keeps the record key beside the set id and moves placement without re-reading on a same-id
+  re-tap.
+- Verification: `:feature:progress:testAndroidHostTest` 12+7+1, `:core:database:testAndroidHostTest`
+  (new migration test 2/2), the full candidate gate
+  (`testAndroidHostTest`, `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug`, both iOS compiles) green; logs under the approved temporary
+  directory (`r080-fixes-matrix.log`, `r080-04-db.log`). The fixed debug build was installed with
+  `-r` (app data preserved).
+- R080-08 emulator round on `emulator-5554` with the updated 48-step flow: default kg 48/48 with
+  viewed screenshots (inline detail confirmed directly above the next record line); dark theme +
+  font 1.3 48/48 clean, with `cmd uimode night` and `font_scale` restored and read back; a
+  temporary long-name custom exercise rendered unclipped (scratch flow 22/22) and was deleted (net
+  catalog change none). The lb run first failed on the flow's own kg-literal anchor while the app
+  rendered lb correctly (60→132.3 lb, 1340→2954.2 lb); the anchor was made unit-agnostic, the lb
+  rerun passed 48/48 and kg was re-validated 48/48, with the unit restored to kg. Artifacts:
+  `080-r080-flow*`, `080-r080-dark*`, `080-r080-longname*`, `080-r080-lb2*`, `080-r080-kg2*`.
+- Limits: alternating locale, TalkBack, rotation, `Load more` paging and the multi-holder stepper's
+  on-screen path (single-holder fixture; stepper covered by state tests) remain unverified; the C5
+  summary records section stays emulator-unseen as previously recorded. These are
+  builder/integration results; the separately requested targeted closure review remains pending.
+
 ## Cross-cutting UI checks (for changed flows)
 - Text remains readable at the supported larger font sizes; controls and content are not clipped.
 - Meaningful controls have accessible labels and states; status and metrics are not conveyed by color alone.

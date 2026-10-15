@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources>
-    <string name="nav_label">Progress</string>
     <string name="progress_title">Exercise progress</string>
     <string name="progress_exercise_search_label">Search exercises</string>
     <string name="progress_exercise_empty">No exercises are available yet.</string>
@@ -10,14 +9,11 @@
     <string name="progress_range_84">84 days</string>
     <string name="progress_range_365">365 days</string>
     <string name="progress_charts_title">Trend (last %1$s)</string>
-    <string name="progress_charts_loading">Loading progress…</string>
     <string name="progress_charts_failed">Could not load progress.</string>
     <string name="progress_charts_retry">Retry</string>
     <string name="progress_charts_no_eligible">No working sets were recorded in this range.</string>
     <string name="progress_chart_caption">Each mark is one recorded day at its actual date; days with no recorded sets are left blank, never carried forward.</string>
-    <string name="progress_chart_volume_legend">External load-volume (kg) per day</string>
-    <string name="progress_chart_load_legend">Best recorded load (kg) per day by load kind…</string>
-    <string name="progress_chart_no_positive_estimate">Estimated one-rep max uses external load only.</string>
+    <string name="progress_chart_volume_legend">External load-volume per day</string>
     <string name="progress_records_title">All-time records</string>
     <string name="progress_records_none">No records are available yet.</string>
     <string name="progress_records_all_time_note">Records cover all recorded dates, not just the selected range.</string>
@@ -32,6 +28,10 @@
     <string name="progress_record_supporting_missing">That recorded set is no longer available.</string>
     <string name="progress_record_supporting_loading">Loading the recorded set…</string>
     <string name="progress_record_show_supporting">Show a supporting set</string>
+    <string name="progress_record_show_supporting_of">Show a supporting set (%1$d of %2$d)</string>
+    <string name="progress_record_supporting_previous">Previous tied set</string>
+    <string name="progress_record_supporting_next">Next tied set</string>
+    <string name="progress_record_supporting_hide">Hide detail</string>
     <string name="progress_history_title">Recorded history (all dates)</string>
     <string name="progress_history_note">Every recorded set for this exercise, newest first. Warm-ups and future-dated entries are shown as recorded.</string>
     <string name="progress_history_empty">No sets have been recorded for this exercise.</string>
@@ -42,11 +42,9 @@
     <string name="progress_history_line">%1$d reps · %2$s</string>
     <string name="progress_history_warmup">Warm-up</string>
     <string name="progress_history_working">Working set</string>
-    <string name="progress_history_open_set">Open supporting set</string>
     <string name="progress_back">Back</string>
     <string name="progress_weight_none">No weight recorded</string>
     <string name="progress_table_title">Values for every recorded day</string>
-    <string name="progress_table_day">%1$s</string>
     <string name="progress_table_row">%1$s: %2$d working sets, %3$d reps, external volume %4$s</string>
     <string name="progress_table_row_no_volume">%1$s: %2$d working sets, %3$d reps, no external load-volume</string>
 </resources>
