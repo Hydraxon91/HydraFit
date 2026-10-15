@@ -175,7 +175,12 @@ internal fun canonicalFields(fields: List<String?>): String = fields.joinToStrin
     if (it == null) "-1:" else "${it.length}:$it"
 }
 
-internal fun sourceCandidateKey(source: WorkoutCsvSource, row: WorkoutCsvRow): String =
+/**
+ * Identifies the source workout a set row belongs to: the provider plus the row's civil date. Two
+ * source workouts on one date therefore share a key, which is why a candidate key with different
+ * content is reported as changed/ambiguous rather than merged.
+ */
+fun sourceCandidateKey(source: WorkoutCsvSource, row: WorkoutCsvRow): String =
     canonicalFields(listOf(source.name, row.day.toString()))
 
 private fun canonicalSourceRow(row: WorkoutCsvRow): String = canonicalFields(
