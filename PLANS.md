@@ -835,19 +835,28 @@ record).
 
 **Acceptance:** displayed values reconcile with fixture sets and re-emit after history corrections. Changing display units does not change stored measurements. Warm-up inclusion/exclusion is explicit and estimates use the approved existing calculation. Automatic records are reproducible from eligible history, retract/recalculate after corrections/deletions, and remain distinguishable from user-entered PRs; no unapproved progression change results.
 
-#### 0.8.0 — Exercise history and progress charts (six-chunk plan)
+#### 0.8.0 — Charts, records and workout-summary integration (six-chunk plan)
 
-**Status (2026-10-15):** six-chunk planning direction accepted in chat; recording this plan is
-approved. C1–C6 are NOT STARTED. Application implementation, final metric/navigation decisions,
-module-graph changes, commits and publication are not authorized by this entry. The requested local
-branch and feature release target are **0.8.0**.
-This split refines OF-04-P0/P1/P2 without renumbering them. OF-04-P3 automatic records and summary
-integration remain **0.8.1**.
+**Status (2026-10-15):** revised six-chunk plan recorded by user request under the
+[combined-release grouping](docs/roadmap.md#combined-release-grouping-adopted-2026-10-15).
+C1–C6 are NOT STARTED. The local branch is `0.8.0`; **0.8.0** is the proposed combined publication
+version, subject to scope approval. Original 0.8.0 charts and 0.8.1 records references identify slices,
+not two required publications. This plan covers OF-04-P0/P1/P2/P3 and supersedes the previous
+charts-only six-chunk plan. Application implementation, final metric/navigation decisions,
+module-graph changes and publication are not authorized by recording this plan; Git actions retain
+their own explicit approvals.
+
+**Prerequisite — LT-10:** settle the LT-10 / OF-10A-P0 contract before closing 0.7.x and before
+this implementation: historical targets, partial work, modified/unknown execution, manual PR
+interaction and corrected-history replay. This is decision work, not approval to implement 0.10.x
+progression policies. If approved record eligibility needs information not currently stored, stop
+and scope persistence, migration and backup implications explicitly rather than guessing eligibility.
 
 **Scope:** offline, per-exercise recorded history and load, repetitions, estimated 1RM and
-working-volume charts over bounded selectable local-date ranges. Values reconcile with stored sets
-and refresh after inserts, corrections, deletions and restore. Display units never change canonical
-kilograms, historical records, prescriptions, planner inputs or fatigue policy.
+working-volume charts over bounded selectable local-date ranges, automatic records and record results
+in the existing post-finish workout summary. Values reconcile with stored sets and refresh after
+inserts, corrections, deletions and restore. Display units never change canonical kilograms,
+historical records, prescriptions, planner inputs or fatigue policy. Manual PRs remain separate.
 
 **C1 metric recommendations — finalize before implementation:**
 - Ranges: 4 weeks, 12 weeks and 1 year, with daily chart points; confirm exact inclusive boundaries.
@@ -862,6 +871,12 @@ kilograms, historical records, prescriptions, planner inputs or fatigue policy.
   their history retains its recorded meaning. Do not infer body mass.
 - Warm-ups remain visible in history but are excluded from chart aggregates. One eligible point is
   useful data; no invented minimum history, interpolation or zero-filled missing days.
+- Proposed automatic record types: highest load at a given rep count, highest reps at a given load,
+  and highest eligible estimated 1RM. Distinguish current record holders from chronological record
+  events: a set may have achieved a record then without remaining the current best.
+- Recommend deriving records from performed history, without writing manual PRs or changing planner
+  baselines. Surface them in Progress and the existing post-finish summary; no immediate new-record
+  notifications in this release. Recommend no persistent record cache initially.
 
 **Open decisions / blockers:** approve legacy-load eligibility, unilateral volume convention,
 timezone/DST bucketing, future-dated set treatment and name/snapshot presentation. Recommend keeping
@@ -871,6 +886,9 @@ catalog metadata. Legacy eligibility needs an explicit compatibility rule. Curre
 a supplied offset, not historical timezone rules; choose and disclose the bucketing contract before
 queries are written. Preserve stable exercise IDs through renames and show recorded sets even when
 catalog metadata is unavailable. Do not fabricate historical names where no snapshot exists.
+Also approve exact-load comparison/precision, ties, first-ever observations, chronological ordering
+(including tied timestamps), imported/backdated history, eligibility under LT-10 and summary wording.
+Neither display rounding nor selected chart range may silently define record equality or scope.
 
 **UI/module decision:** proposed `:feature:progress` owns UI/state/resources, its exported graph and
 Koin module; shared contracts live in `:core:domain`, implementations in `:core:database`, and unit
@@ -881,12 +899,12 @@ No feature-to-feature dependency; existing Logger correction UI remains with its
 
 | Chunk | Outcome and proposed file scope | Testable acceptance / coding cautions |
 | --- | --- | --- |
-| **0.8.0-C1 — metric contract** | Finalize the recommendations/open decisions above and a synthetic, hand-calculated fixture matrix. Read `core/domain/src/commonMain/kotlin/com/hydrafit/app/core/domain/engine/{OneRepMax,SuggestedWeightConfig}.kt`, `workout/{WorkoutLoadPolicy,WorkoutSet,WorkoutHistory,WorkoutSummary}.kt` and their consumers/tests. No application edit in this decision chunk. | Expected values cover external/bodyweight/added/legacy loads, null versus zero, warm-ups, unilateral work, high reps, sparse history and date boundaries. `OneRepMax.estimate` does not enforce eligibility itself. Distinguish chart eligibility from planner-baseline policy and unresolved LT-10 comparable-exposure claims. |
-| **0.8.0-C2 — bounded reactive reads** | Add exercise-specific request/result models and repository contract under domain `workout/`; generated SQLDelight queries and repository implementation under `core/database/src/commonMain/`. Reuse existing `WorkoutHistoryRepository` request validation, keyset paging and performed-time/ID ordering where appropriate, without widening unrelated session-browser behavior. | Repository tests cover inclusive date boundaries, tied timestamps, paging without duplicate/omitted rows, rename/missing metadata, and emissions after insert/correction/delete/restore. Use a larger synthetic history and inspect query plans. Never aggregate only the loaded history page or filter `selectAllSets` in memory. Complete chart inputs must be bounded independently of history pagination; any further cap must be explicit, never silent truncation. Add an index only on evidence, with its migration and coverage. |
-| **0.8.0-C3 — pure progress calculations** | Add domain projections/use cases and `commonTest` coverage under `core/domain/.../workout/`; reuse existing Epley, eligibility, load-policy, unit and day helpers where they match the approved contract. Policy stays outside Composables and persistence-specific mapping. | Match C1 fixtures exactly; distinguish missing values from zero, preserve eligibility under kg/lb changes, move contributions after date correction, and keep excluded rows visible with understandable reasons. Do not use `BuildPlannerLoadInputsUseCase` for chart values: its manual floors, recency/sample rules and progression answer a different question. |
-| **0.8.0-C4 — Progress feature and history** | After module/navigation approval, add `feature/progress/` UI/state/resources/tests, its exported navigation and Koin module, and only the required registrations/dependencies in `settings.gradle.kts` and the shared composition root/build file. Provide exercise/range selection and read-only paginated history with loading, empty and retry states. | Feature state/navigation and Koin verification pass. Rapid exercise/range switches reject stale emissions; paging/retry retain the correct context; opening/leaving Progress preserves Logger drafts and workout state. No direct database access or feature-to-feature dependency. Do not add a second set-correction implementation. |
-| **0.8.0-C5 — accessible charts** | Add chart presentation/components and resources/tests within `feature/progress/`, using existing Compose capabilities. Include numerical list/table equivalents, dates/units/definitions, supporting set details, single-point and no-eligible-data states. | Presentation tests and bounded semantic emulator checks reconcile charts and numerical values. View screenshots for light/dark, larger fonts, long names and kg/lb. Missing observations remain gaps; no smoothing that invents performance. Canvas alone is not accessible; meaning/selection cannot rely on colour. New chart dependencies need separate approval. |
-| **0.8.0-C6 — producer-to-chart integration** | Add downstream integration/regression coverage through the real production writers and repository/use-case consumers; consolidate evidence in `docs/qa.md`, synchronize affected architecture/mechanics references and batch `PLANS.md` status updates. Author bounded named Maestro flows only for the approved synthetic journey. | Verify log → persist → chart → correct/time-move → refresh → delete → refresh, plus restore/replacement invalidation. Consumer-only fixtures do not prove writer invariants. Run the full candidate matrix and bounded debug-emulator acceptance; preserve existing user state and report unverified checks. No release APK install. Stop for separately requested Plan-mode review after builder verification. |
+| **0.8.0-C1 — chart and record contract** | Finalize the recommendations/open decisions and one synthetic, hand-calculated fixture matrix for charts, current holders, ties and chronological record events. Read domain `engine/{OneRepMax,SuggestedWeightConfig}.kt`, `workout/{WorkoutLoadPolicy,WorkoutSet,WorkoutHistory,WorkoutSummary,GetWorkoutSummaryUseCase}.kt`, manual-PR ports and their consumers/tests. No application edit in this decision chunk. | Cover external/bodyweight/added/legacy loads, null versus zero, warm-ups, unilateral work, high reps, sparse history and date boundaries. `OneRepMax.estimate` does not enforce eligibility. Settle first observations, ties, imports/backdating and LT-10 eligibility; distinguish estimates, recorded facts and prescription success. |
+| **0.8.0-C2 — complete bounded reactive reads** | Add domain `workout/` requests/results/repository contracts and database queries/implementations. Separate chart-range inputs, paginated recorded history and record-comparison history. Reuse existing history validation, keyset paging and deterministic ordering where appropriate. | Test boundaries, tied times, paging, rename/missing metadata and emissions after insert/correction/delete/restore. A loaded page or 12-week chart window cannot prove an all-time record. Inspect query plans on larger synthetic history; avoid full-table materialization and silent caps. Approve any evidence-based index migration with coverage. |
+| **0.8.0-C3 — shared chart and record calculations** | Add pure domain projections/use cases and tests for chart series, current records and occurrence-scoped chronological record results. Reuse existing Epley, eligibility/load helpers, units and day helpers where their approved semantics match. | Match C1 fixtures; correction/deletion promotes the correct remaining holder, time moves/imports recompute record events, ties follow policy and units/ranges never alter equality or all-time scope. Keep missing values distinct from zero and excluded rows visible. Never write `PersonalRecordRepository` or use the planner's progressed baseline pipeline. Any cache requires separate invalidation/portability approval. |
+| **0.8.0-C4 — Progress history, charts and records** | After module/navigation approval, add `feature/progress/` component-by-component: selection, paginated history, accessible charts, record details/supporting sets, resources/tests, exported graph/module and necessary shell/build registration. Use existing Compose capabilities. | Feature state, Koin and navigation tests pass; stale exercise/range results are rejected and Logger drafts remain intact. Numerical equivalents reconcile with charts; test sparse/single-point/no-eligible-data and loading/empty/retry states. Bounded emulator checks and viewed screenshots cover kg/lb, larger text, long names and light/dark. No fabricated zeroes/smoothing, colour-only meaning, seventh-tab default, chart dependency or duplicate correction UI. |
+| **0.8.0-C5 — workout-summary record integration** | Extend shared domain summary/record contracts and Logger summary state/presentation/resources/tests with occurrence record results; add only necessary DI wiring. Progress and Logger consume shared use cases, never each other. Preserve Finish/Finish partially summary offers and no summary after Skip. | Test multi-session occurrences, repeated exercise slots, earlier records outside chart range, ties, first observations, correction retraction and deleted/restored history. Failures/retry never repeat Finish or set writes. Compare against chronological prior history, not today's all-time maximum. An eligible record in partial work does not prove prescription success; stale context must not retain badges. |
+| **0.8.0-C6 — combined-release integration** | Add downstream tests through real production writers and repository/use-case consumers; consolidate `docs/qa.md` evidence, synchronize architecture/mechanics docs and batch plan status. Add bounded named Maestro flows for the approved synthetic journey. | Verify log → chart/record → Finish summary → correct/time-move → recalculate → delete winner → promote remaining result, plus restore/replacement invalidation. Consumer-only fixtures do not prove writer invariants. Run the full candidate matrix and bounded debug-emulator acceptance with viewed screenshots; preserve user state and report limits. Stop for separately requested Plan-mode review; no release APK install. |
 
 **Recommended implementation owners (confirm with the approved implementation scope):** main agent
 for C1–C3 because metric semantics, historical compatibility and reactive persistence require tightly
@@ -899,7 +917,8 @@ writers rules for every delegation. Documentation recording here does not start 
 **Verification and documentation:** apply `docs/agent-project-reference.md` tiers at each boundary.
 C1 is decision-only; C2 query-only work may use Tier B if stored encoding/shared contracts are
 preserved; pure unwired C3 projections use domain tests/module ktlint, with assembly when wired.
-C4 module registration is Tier A; C5 is Tier C only while feature-local. At C6 run
+C4 module registration is Tier A; C5 uses Tier B for localized domain/DI wiring and Tier C only
+for feature-local presentation, escalating to Tier A for a cross-cutting contract change. At C6 run
 `testAndroidHostTest`, `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
 `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
 `:core:network:compileKotlinIosSimulatorArm64`, plus changed Koin graphs and applicable emulator checks.
@@ -908,9 +927,11 @@ runs are bounded and logged. Keep affected `docs/architecture.md`, `docs/qa.md`,
 module documentation and mechanics topic references synchronized in the owning implementation chunk;
 update `.maestro/README.md` with any added flows/evidence. No runtime tests are claimed by this plan.
 
-**Exclusions / stop conditions:** automatic records and summary comparisons/integration (0.8.1 or
-their separately approved comparable-exposure scope), fatigue-map/coverage changes, body measurements,
-catalog corrections, progression/fatigue recalibration, persistent metric caches and new dependencies.
+**Exclusions / stop conditions:** catalog/accessory/TRAPS changes, anatomical fatigue-map/coverage
+changes, body measurements, progression-policy implementation or fatigue recalibration, generic
+session-comparison scores, persistent metric caches and new dependencies. Automatic records and their
+summary integration are now included; the old exclusion pending a separate 0.8.1 publication is
+superseded. No unapproved LT-10 policy or stored eligibility fields may be introduced implicitly.
 No schema/backup change is assumed; raise a discovered need before editing, including an evidence-based
 index migration. Before each implementation chunk, enumerate exact current files, approved decisions,
 owner, tests and required configuration changes; approve the chunk separately or in an explicit ordered
