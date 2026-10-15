@@ -90,5 +90,15 @@ internal fun emptyBackupFile(): BackupFile = BackupFile(
     personalRecords = emptyList(),
     preferences = emptyList(),
     exclusions = emptyList(),
-    restPreferences = listOf(BackupRestPreferenceRecord(exerciseId = null, durationSeconds = 120L))
+    restPreferences = listOf(BackupRestPreferenceRecord(exerciseId = null, durationSeconds = 120L)),
+    equipmentProfiles = listOf(
+        BackupEquipmentProfileRecord(
+            1L,
+            "Home",
+            emptyList(),
+            emptyList(),
+            com.hydrafit.app.core.domain.equipment.LoadingInventory()
+        )
+    ),
+    activeEquipmentProfileId = 1L
 )

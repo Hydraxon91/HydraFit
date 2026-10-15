@@ -1,0 +1,112 @@
+package com.hydrafit.app.core.database
+
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.LoadingBar
+import com.hydrafit.app.core.domain.equipment.LoadingInventory
+import com.hydrafit.app.core.domain.equipment.OwnedPlate
+import com.hydrafit.app.core.userdata.equipment.StaleEquipmentProfileException
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+
+class SqlDelightEquipmentProfileRepositoryTest {
+    private lateinit var driver: JdbcSqliteDriver
+    private lateinit var database: HydraFitDatabase
+    private lateinit var repository: SqlDelightEquipmentProfileRepository
+
+    @BeforeTest
+    fun setUp() {
+        driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        HydraFitDatabase.Schema.create(driver)
+        database = HydraFitDatabase(driver)
+        SeedEquipmentCatalog(database).seed()
+        repository = SqlDelightEquipmentProfileRepository(database)
+    }
+
+    @AfterTest
+    fun tearDown() = driver.close()
+
+    @Test
+    fun copiesConfigurationWithIndependentIdentityAndDeletingDoesNotTouchCatalog() = runTest {
+        var state = repository.current()
+        repository.saveEquipment(
+            state.context,
+            setOf(EquipmentTag.BARBELL),
+            mapOf(EquipmentTag.BARBELL to 123.5)
+        )
+        state = repository.current()
+        val inventory = LoadingInventory(
+            plates = listOf(OwnedPlate(1_250, 3)),
+            bars = listOf(LoadingBar("bar", "Bar", 20_000))
+        )
+        repository.saveLoadingInventory(state.context, inventory)
+        state = repository.current()
+        val copy = repository.create("Gym", state.active.id)
+        val copied = repository.current().profiles.single { it.id == copy }
+        assertEquals(state.active.copy(id = copy, name = "Gym"), copied)
+        repository.activate(repository.current().context, copy)
+        repository.saveEquipment(repository.current().context, emptySet(), emptyMap())
+        val after = repository.current()
+        assertEquals(setOf(EquipmentTag.BARBELL), after.profiles.first().selected)
+        assertTrue(after.active.selected.isEmpty())
+        repository.delete(after.context, copy, state.active.id)
+        assertEquals(state.active.id, repository.current().active.id)
+        assertTrue(database.equipmentQueries.selectById("BARBELL").executeAsOne().isBuiltIn != 0L)
+    }
+
+    @Test
+    fun switchAwayAndBackRejectsTheOriginalEditorAndLeavesStateUntouched() = runTest {
+        val second = repository.create("Travel")
+        val original = repository.current()
+        repository.activate(original.context, second)
+        repository.activate(repository.current().context, original.active.id)
+        val before = repository.current()
+        assertFailsWith<StaleEquipmentProfileException> {
+            repository.saveEquipment(original.context, setOf(EquipmentTag.BARBELL), emptyMap())
+        }
+        assertFailsWith<StaleEquipmentProfileException> {
+            repository.rename(original.context, "Stale")
+        }
+        assertEquals(before, repository.current())
+    }
+
+    @Test
+    fun invalidWritesAndDeletionGuardsAreAtomic() = runTest {
+        val original = repository.current()
+        assertFailsWith<IllegalArgumentException> {
+            repository.delete(original.context, original.active.id)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            repository.saveEquipment(original.context, setOf(EquipmentTag("missing")), emptyMap())
+        }
+        assertFailsWith<IllegalArgumentException> {
+            repository.saveEquipment(
+                original.context,
+                emptySet(),
+                mapOf(EquipmentTag.BARBELL to Double.NaN)
+            )
+        }
+        assertFailsWith<IllegalArgumentException> {
+            repository.saveLoadingInventory(
+                original.context,
+                LoadingInventory(plates = listOf(OwnedPlate(1, 101)))
+            )
+        }
+        assertEquals(original, repository.current())
+        assertEquals(original, repository.observe().first())
+        val second = repository.create("Travel")
+        val state = repository.current()
+        assertFailsWith<IllegalArgumentException> {
+            repository.delete(state.context, state.active.id)
+        }
+        assertEquals(state, repository.current())
+        repository.delete(state.context, second)
+        assertEquals(1, repository.current().profiles.size)
+    }
+}

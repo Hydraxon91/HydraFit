@@ -1,0 +1,29 @@
+-- Keep global equipment identities and preserve every existing ceiling, selected or not.
+CREATE TABLE equipmentProfile (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    loadingInventory TEXT NOT NULL
+);
+
+CREATE TABLE equipmentProfileEntry (
+    profileId INTEGER NOT NULL REFERENCES equipmentProfile(id),
+    equipmentId TEXT NOT NULL REFERENCES equipment(id),
+    selected INTEGER NOT NULL CHECK (selected IN (0, 1)),
+    maxWeightKg REAL,
+    PRIMARY KEY (profileId, equipmentId)
+);
+
+CREATE TABLE equipmentProfileState (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    activeProfileId INTEGER NOT NULL REFERENCES equipmentProfile(id),
+    revision INTEGER NOT NULL DEFAULT 0
+);
+
+INSERT INTO equipmentProfile(id, name, loadingInventory)
+VALUES (1, 'My equipment', '{"unit":"KG","plates":[],"bars":[],"dumbbells":[]}');
+INSERT INTO equipmentProfileState(id, activeProfileId, revision) VALUES (1, 1, 0);
+INSERT INTO equipmentProfileEntry(profileId, equipmentId, selected, maxWeightKg)
+SELECT 1, equipment.id,
+    CASE WHEN equipment.id IN (SELECT tag FROM selected_equipment) THEN 1 ELSE 0 END,
+    equipment.maxWeightKg
+FROM equipment;

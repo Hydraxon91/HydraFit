@@ -26,6 +26,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutHistoryRepository
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfileRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
@@ -56,6 +57,7 @@ val databaseModule: Module = module {
     single<StartupReadiness> { get<DatabaseStartupMaintenance>() }
     single<ExerciseCatalog> { SqlDelightExerciseCatalog(get()) }
     single<EquipmentRepository> { SqlDelightEquipmentRepository(get()) }
+    single<EquipmentProfileRepository> { SqlDelightEquipmentProfileRepository(get()) }
     single<CustomExerciseRepository> { SqlDelightCustomExerciseRepository(get()) }
     single<ExerciseOverrideRepository> { SqlDelightExerciseOverrideRepository(get()) }
     single<ExercisePreferenceRepository> { SqlDelightExercisePreferenceRepository(get()) }

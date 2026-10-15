@@ -497,6 +497,26 @@ The UI freezes the entry unit and retains full stored precision when weight text
 SQLDelight `.sq` files describe the current schema; every schema change ships a numbered `.sqm`
 migration, and released schemas are never edited in place.
 
+The 0.9.0 profile foundation (`49.sqm`, schema 50) adds `equipmentProfile`,
+`equipmentProfileEntry` and singleton `equipmentProfileState`. Equipment IDs remain global;
+selection, ceilings and loading configurations belong to a profile. Migration copies the old
+inventory, including unselected equipment ceilings, into one active profile without deleting legacy
+rows. Fresh creation starts with one empty profile. The shared userdata port exposes a transactional
+snapshot and a context revision covering edits and switches, so switching away and back invalidates
+an old editor. The foundation is not yet wired into the existing inventory consumers.
+
+Calculator configuration uses domain-owned validated JSON and integer thousandths of its explicit
+kg/lb inventory unit, separate from canonical-kilogram training loads. Counts are individual plates;
+there are at most 16 denominations, 100 plates per denomination and 2,000 native units of configured
+plate-plus-bar/collar weight. Fixed and adjustable dumbbell representations are mutually exclusive.
+These resource limits are engineering bounds, not training recommendations.
+
+Backup format 14 carries every profile and its full loading configuration, with active-profile
+equipment/selection compatibility projections checked for agreement. Legacy formats 1–13 restore
+one active profile; new-format identity repair covers all profile references. Whole replacement
+deletes profile children before parents and restores them inside the existing backup transaction.
+Injected profile-insert failure tests require rollback of the entire replacement, not just profiles.
+
 - **Examples:** `core/database/src/commonMain/sqldelight/…` — `1.sqm`..`37.sqm`, table rebuilds in
   `20.sqm` (dropping legacy muscle columns), additive columns (`17.sqm`, `18.sqm`, `22.sqm`,
   `23.sqm`, `24.sqm`, `27.sqm` EX-02 load columns, `33.sqm` guided preference,

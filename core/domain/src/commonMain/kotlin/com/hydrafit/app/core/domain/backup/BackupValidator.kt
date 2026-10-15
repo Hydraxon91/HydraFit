@@ -150,6 +150,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
             if (row.id !in builtInEquipmentIds) fail(BackupFailure.UNKNOWN_CATALOG_ID)
         }
         val knownEquipment = builtInEquipmentIds + customEquipmentIds
+        validateEquipmentProfiles(file, knownEquipment)
         val knownExercises = seedExerciseIds + customIds
         val dedupeSeedKeys = catalog.dedupeSeedKeys()
 

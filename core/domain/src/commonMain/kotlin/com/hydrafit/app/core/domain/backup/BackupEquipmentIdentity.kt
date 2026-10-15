@@ -13,6 +13,9 @@ internal fun BackupFile.withNonConflictingEquipment(reservedIds: Set<String>): B
     // Dangling references reserve their tokens too: repair must never make invalid input valid by
     // allocating a new identity that accidentally matches an originally unknown reference.
     val references = selectedEquipment +
+        equipmentProfiles.flatMap { profile ->
+            profile.selectedEquipment + profile.ceilings.map { it.equipmentId }
+        } +
         customExercises.flatMap { it.requiredEquipment.split(',') } +
         exerciseOverrides.flatMap { it.requiredEquipment?.split(',').orEmpty() } +
         activationEntries.flatMap { it.requiredEquipment.split(',') } +
@@ -25,6 +28,14 @@ internal fun BackupFile.withNonConflictingEquipment(reservedIds: Set<String>): B
     return copy(
         equipment = equipment.map { it.copy(id = mapping[it.id] ?: it.id) },
         selectedEquipment = selectedEquipment.map { mapping[it] ?: it },
+        equipmentProfiles = equipmentProfiles.map { profile ->
+            profile.copy(
+                selectedEquipment = profile.selectedEquipment.map { mapping[it] ?: it },
+                ceilings = profile.ceilings.map {
+                    it.copy(equipmentId = mapping[it.equipmentId] ?: it.equipmentId)
+                }
+            )
+        },
         customExercises = customExercises.map {
             it.copy(requiredEquipment = EquipmentIdentity.remapCsv(it.requiredEquipment, mapping))
         },

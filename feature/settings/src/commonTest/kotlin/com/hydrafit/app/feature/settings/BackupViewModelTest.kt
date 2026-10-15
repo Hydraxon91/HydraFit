@@ -1,7 +1,6 @@
 package com.hydrafit.app.feature.settings
 
 import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT
-import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT_VERSION
 import com.hydrafit.app.core.domain.backup.BackupApplyError
 import com.hydrafit.app.core.domain.backup.BackupCatalog
 import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
@@ -211,7 +210,7 @@ private class FakeBackupFileStore(
 
 private fun emptyBackupFile(): BackupFile = BackupFile(
     format = BACKUP_FORMAT,
-    formatVersion = BACKUP_FORMAT_VERSION,
+    formatVersion = 13,
     appVersion = "t",
     exportedAtMillis = 1L,
     catalog = BackupCatalogManifest(emptyList(), seedProfiles = emptyList()),

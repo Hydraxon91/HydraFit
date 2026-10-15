@@ -3,8 +3,16 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 13), restored by whole replacement.
-The reader accepts versions 1–13; version 1 defaults the guided-workout preference to off.
+Logical, versioned JSON (`format` + `formatVersion` 14), restored by whole replacement.
+The reader accepts versions 1–14; version 1 defaults the guided-workout preference to off.
+Format 14 requires `equipmentProfiles` and `activeEquipmentProfileId`, including every profile's
+stable id, name, selected equipment, ceilings and complete native-unit loading configuration.
+The old equipment/selection sections are projections of the active profile and must agree with it.
+Duplicate identities, unknown links, missing active profiles and invalid loading/count/precision
+shapes fail validation before staging. Equipment collision repair remaps profile references too;
+record limits count nested configurations and fixed dumbbell weights. Versions 1–13 carry no profile
+sections and restore into one active profile with their existing inventory and empty loading setup.
+Profile revisions are process/editor context, not portable data, and reset on startup replacement.
 Format 13 adds body-weight `bodyWeightMeasurements` (one record per local civil day) and the
 nullable `bodyWeightGoalKg`; versions 1–12 restore with no recorded body weight and no goal,
 and a pre-13 file must not carry either section. Duplicate days, non-finite or non-positive
@@ -41,7 +49,7 @@ Formats 5–10 carry one global rest duration and optional per-exercise override
 default to a 120-second global duration with no overrides. Countdown state is deliberately
 excluded and cleared during restore. Formats 4–10 require per-set timing provenance and explicit nullable elapsed fields; format 3 requires
 and preserves timing provenance while elapsed fields default to null; formats 1–2 default timing
-provenance to `UNKNOWN` and elapsed fields to null. Exports use version 12.
+provenance to `UNKNOWN` and elapsed fields to null. Exports use version 14.
 Format 10 requires its session-note section. Unknown fields remain rejected.
 Domain `backup/` owns the payload records, the kotlinx-serialization codec, the
 validator, the limits and the export/preview/stage/apply use cases (bound in
@@ -87,6 +95,7 @@ selected equipment, custom exercises, explicit overrides and frozen activation/o
 Duplicate equipment rows are rejected before repair; every referenced token also reserves its id so
 an unknown reference cannot become valid by allocation. The deterministic shared `EquipmentIdentity`
 allocator skips all occupied/reserved ids and preserves nonmatching tokens. Preview and startup apply
-use the same repair; staged text and the original chosen file are unchanged. Format remains 11.
+use the same repair; staged text and the original chosen file are unchanged. The repair itself does
+not change the input format version.
 Restore seeds missing canonical equipment within its transaction before applying exported ceilings.
 Unknown exercise/equipment references and other invalid sections remain rejected without writes.

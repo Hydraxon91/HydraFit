@@ -103,7 +103,14 @@ databases upgraded from an earlier version as well as any drift. `43.sqm` adds
 and group by `sessionId` and order one session's sets by `performedAt`, and without it each of those
 shapes planned a full table scan plus a temporary B-tree. `44.sqm` adds the singleton `setupState`
 and nullable `preferredWeekdays` rows. Fresh creation starts PENDING/WELCOME; migration starts
-RETURNING/WELCOME regardless of workout count. Current schema version is 49.
+RETURNING/WELCOME regardless of workout count. Current schema version is 50.
+Migration `49.sqm` adds profile identity/configuration, per-profile equipment entries and active-profile
+state. It copies global selection and every ceiling into one active profile; fresh creation starts
+empty. `SqlDelightEquipmentProfileRepository` returns coherent snapshots off-main and validates a
+global context revision inside each mutation transaction. All mutators bump that revision, including
+profile switching, so an editor cannot survive an away-and-back switch. Calculator configuration is
+validated by domain `LoadingInventoryJson` before persistence. Existing consumers are not yet wired
+to this foundation; the legacy inventory tables remain intact.
 `BodyWeight.sq` (0.8.3) owns `bodyWeightMeasurement` (one row per local civil day, the primary
 key making a duplicate date impossible) and single-row `bodyWeightGoal`; `48.sqm` creates both,
 so `SqlDelightBodyWeightRepository` keeps "no goal" distinct from any stored value by deleting
