@@ -240,7 +240,7 @@ While executing an approved chunk:
 
 ## Continuous Multi-Release Execution (Explicit Opt-In)
 
-**Short activation:** `/batch <versions> --budget <duration>` or plain
+**Short activation:** `/batch <versions> [--budget <duration>]` or plain
 `batch: <versions>, budget <duration>` applies the standing defaults in
 `.opencode/commands/batch.md` unless explicitly overridden. For example,
 `/batch 0.8.1-0.8.3 --budget 60m` covers those three publications in order. By
@@ -261,7 +261,8 @@ ordered releases and approves their scopes, implementation owners, acceptance
 criteria, verification requirements and read-only review checkpoints. Approving
 this policy or a roadmap grouping does not activate it. Resolve missing behavioral
 decisions before starting; an open-ended request to finish the roadmap is not a
-settled implementation contract. Set a bounded execution/retry budget and identify
+settled implementation contract. Resolve the execution/retry budget in the
+pre-flight plan — proposing one when the invocation omitted it — and identify
 any approved review-report paths before starting.
 
 - **Sequence:** present the required pre-flight plan and obtain acceptance before

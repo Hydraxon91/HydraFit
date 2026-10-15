@@ -7,11 +7,12 @@ Activate Continuous Multi-Release Execution from AGENTS.md for:
 
 $ARGUMENTS
 
-Usage: `/batch 0.8.0 --budget 6h`, `/batch 0.8.1-0.8.3 --budget 60m`, or
-`/batch 0.9.0, 0.9.3 --budget 4h`. A range such as `0.8.1-0.8.3` expands to the
-named publications in order. Numbers refer to assigned roadmap versions, not a
-whole series or permission to infer scope. This is a prompt template, not a shell
-command or permission bypass.
+Usage: `/batch 0.8.0 --budget 6h`, `/batch 0.8.1-0.8.3 --budget 60m`,
+`/batch 0.9.0, 0.9.3 --budget 4h`, or `/batch 0.8.2` with no budget. A range such as
+`0.8.1-0.8.3` expands to the named publications in order. Numbers refer to assigned
+roadmap versions, not a whole series or permission to infer scope. Omitting
+`--budget` is valid: the pre-flight plan then proposes one for acceptance. This is
+a prompt template, not a shell command or permission bypass.
 
 ## Pre-flight plan (required unless bypassed)
 
@@ -21,7 +22,8 @@ command or permission bypass.
   review checkpoint and reviewer; report paths; unresolved decisions with your
   recommendation; individually gated items needing separate approval (schema and
   `.sqm`, module graph, dependencies, secrets, CI); exclusions and stop conditions;
-  and the budget split. Then stop and wait for feedback.
+  and the budget split, proposing one when the invocation omitted `--budget`. Then
+  stop and wait for feedback.
 - **Feedback round:** incorporate the user's corrections, re-present only what
   changed, and do not begin until they accept. Treat scope changes as explicit
   decisions rather than silently folding them in. Do not re-open the approved
@@ -79,9 +81,14 @@ Apply these standing defaults unless the user explicitly overrides them:
   Preserve existing historical findings/verdicts; append closure evidence rather
   than rewriting history. The reviewer itself remains read-only. The main agent
   owns PLANS.md status-only updates and docs/qa.md evidence consolidation.
-- **Budget:** require an explicit overall budget in the arguments, such as
-  `--budget 6h`. Bound individual commands and review/fix attempts under AGENTS.md;
-  the overall budget is not permission to loop, skip checks or renew a failed run.
+- **Budget:** optional in the arguments (`--budget 6h`). When omitted, propose the
+  overall budget and its per-release split in the pre-flight plan; the run starts
+  only with the budget the user accepts there. `--budget unlimited`, or an accepted
+  plan that states no overall cap, means no overall time cap — not an unbounded or
+  unaudited run: per-command limits, the two-attempt fix limit, the
+  ~30-tool-calls-without-progress rule and every stop condition still apply, and each
+  release boundary still reports. Prefer a real bound for a multi-release batch. The
+  budget is never permission to loop, skip checks or renew a failed run.
 - **Stops:** stop for design decisions, missing approvals/permissions, unexpected
   writes, unsafe data effects, unavailable required verification, unresolved
   required findings after permitted corrections, exhausted budget or the builder
