@@ -1,7 +1,9 @@
 # HydraFit roadmap to 1.0
 
-Approved direction: 2026-10-09; smaller published releases approved 2026-10-11.
-The current shipped version is 0.7.5. This roadmap groups the remaining backlog;
+Approved direction: 2026-10-09; smaller published releases approved 2026-10-11;
+combined-release grouping adopted 2026-10-15.
+Git records `v0.7.7`; publication evidence remains in PLANS.md and docs/qa.md.
+This roadmap groups the remaining backlog;
 it does not authorize implementation, publication, commits or pushes.
 Release numbers are planning targets, without dates.
 
@@ -31,19 +33,21 @@ requires an explicit user decision before 1.0; it is not silently moved post-1.0
 
 The sequence follows the user journey: train, understand sessions, see progress,
 manage equipment/data, use advanced controls, improve optional AI, then polish.
-Each theme is delivered through smaller published releases, not one large release
-with internal chunks. Each release has a bounded scope, its own acceptance checks
+Each theme is delivered through bounded published releases with small implementation
+chunks. Related slices may share a release under the combined-release policy below.
+Each release has a bounded scope, its own acceptance checks
 and a separately requested code review before publication. Implementation chunks
 inside it still need approval. Behavioral, schema, dependency, infrastructure and
 licensing decisions retain their gates.
 
-## Smaller-release policy
+## Release policy
 
 - **0.N identifies a theme; 0.N.0, 0.N.1, 0.N.2, … deliver its slices.** During
   pre-1.0 development, patch numbers can carry features as well as corrections.
   This replaces the former corrective-only patch policy for future releases;
   shipped versions and their historical classification do not change.
-- Aim for one independently usable capability per release. Its persistence,
+- Group related capabilities under the approved combined-release grouping below,
+  retaining small, separately approved implementation chunks. Their persistence,
   migration, backup/import compatibility, consumers, tests and living docs belong
   in that same scope, not in a later integration release.
 - Corrective releases use the next available patch number and are labelled
@@ -59,6 +63,48 @@ licensing decisions retain their gates.
 - Accessibility, localization, failure handling and applicable cross-release
   ledger checks travel with every affected slice. Each published slice needs its
   verification and separately requested review; passing tests is not approval.
+
+### Combined-release grouping (adopted 2026-10-15)
+
+This grouping supersedes the one-publication-per-slice assignments below for
+remaining 0.8.x–0.13.x work. It preserves all scope, dependencies, acceptance
+criteria and evidence gates. Existing version references in this document and
+PLANS.md identify the original slices, **not newly assigned publication numbers**.
+Assign actual versions when each combined release scope is agreed; do not silently
+reinterpret an existing slice contract as approval to implement its whole bundle.
+
+| Series | Publication groups, using original slice references | Target count |
+| --- | --- | --- |
+| 0.8.x | Charts + records (`0.8.0–0.8.1`); catalog corrections + forearm accessories + approved TRAPS controls (`0.8.2–0.8.4`); anatomical map + volume/last-trained (`0.8.5–0.8.6`); body-weight tracking (`0.8.7`) | 4 |
+| 0.9.x | Profiles (`0.9.0`); plate calculator + equipment increments (`0.9.1–0.9.2`); provider imports (`0.9.3–0.9.5`); sharing + PDF + CSV export (`0.9.6–0.9.7`, `0.9.11`); automatic backups (`0.9.8`); encryption (`0.9.9`); merge restore (`0.9.10`); storage/reset controls (`0.9.12`) | 8 |
+| 0.10.x | Integrity (`0.10.0`); progression policies (`0.10.1`); manual per-set targets + presets + generation (`0.10.2–0.10.4`); manual + planner supersets (`0.10.5–0.10.6`); RIR/RPE targets (`0.10.7`); supported effort/readiness outcomes (`0.10.8–0.10.9`) | 6 |
+| 0.11.x | Duration + timed preparation (`0.11.0–0.11.1`); distance (`0.11.2`); force (`0.11.3`); supported drop-set + rest-pause clusters (`0.11.4–0.11.5`); supported cardio (`0.11.6`) | 5 |
+| 0.12.x | Identity recovery + validation (`0.12.0–0.12.1`); measured local improvements (`0.12.2`); lifecycle/resource improvements (`0.12.3`) | 3 |
+| 0.13.x | Design/navigation + screen polish (`0.13.0–0.13.2`); tablet (`0.13.3`); foldable (`0.13.4`); accessibility + localization/content (`0.13.5–0.13.6`); recovery states + final integration (`0.13.7–0.13.8`) | 5 |
+| **Total before 1.0.0** | **51 original publication slots grouped into approximately 31 releases** | **31** |
+
+- Settle LT-10 before closing 0.7.x, then resolve each series' blocking behavioral
+  decisions before its implementation starts. Grouping authorizes no default policy.
+- Verify each implementation chunk using its applicable checks. Each combined
+  release receives a separately requested bounded review and publication cycle;
+  targeted closure and reopen rules remain governed by the review procedures.
+  Required full-matrix verification is not waived by combining releases.
+- Encryption, merge restore and destructive storage/reset controls remain separate
+  releases with independent acceptance gates.
+- Split oversized bundles at their scope gate before implementation; provider
+  imports and final polish particularly need this check. The count is a planning
+  target, not a quota. Conditional investigations need explicit evidence-based
+  dispositions, not necessarily APKs; corrections or content batches may add releases.
+- Close cross-release verification debt throughout delivery, not only at the end.
+  New ideas do not become 1.0 blockers without an explicit scope decision.
+- Detailed implementation scope and ownership, destructive actions, dependencies,
+  infrastructure, commits and publication retain their existing approval gates.
+
+The working estimate at adoption is **4–7 weeks from 2026-10-15** (approximately
+2026-11-12–2026-12-03), assuming similar working intensity. It is not a deadline
+or measured guarantee. Recalibrate after the first two combined releases; AI
+research, content/media coverage and integrity decisions are major uncertainties.
+The grouping removes about 39% of planned publication cycles, not engineering work.
 
 ## Release overview
 
