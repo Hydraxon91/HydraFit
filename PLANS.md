@@ -16,6 +16,7 @@
 | 0.8.0 — exercise progress: charts, descriptive records and workout-summary integration | SHIPPED — `v0.8.0` at `45e863a0` | Completed detail and publication evidence [archived](docs/plans-archive.md#2026-10-15-08x-cleanup); limits in `docs/qa.md`. |
 | 0.8.1–0.8.3 — catalog corrections, coverage/body map, body weight | SHIPPED — published 2026-10-15: `v0.8.1`, `v0.8.2`, `v0.8.3` (PR #16, merge `9e7150ef`) and corrective `v0.8.4` (PR #17, merge `6f517930`) | Contracts, chunk table and closure evidence [archived](docs/plans-archive.md#2026-10-15-08x-cleanup); review snapshots in `docs/review-0.8.1-snapshot.md`, `docs/review-0.8.2-snapshot.md` and `docs/review-0.8.3-snapshot.md`; publication evidence in `docs/qa.md` (0.8.x publication verification). **Resolved:** a stable release tag now derives `versionCode` (`major*1_000_000 + minor*10_000 + patch*100`), and the corrective `v0.8.4` (`versionCode=80400`) restores the upgrade path; the published `v0.8.1`–`v0.8.3` APKs keep their original codes. |
 | 0.9.0 — equipment profiles, per-profile loading setup and calculators | **PUBLISHED** 2026-10-15 as `v0.9.0` at `361cb20c` — review closed | Folded scope (former `0.9.0`–`0.9.2`). PR #19 → merge `361cb20c`; PR run `38799090309`, post-merge main run `38799639692` and Release run `38800131378` green. Local matrix: 2,061 host tests, `verifySqlDelightMigration`, `ktlintCheck`, debug assembly and both iOS compiles (`090-f1-integration.log`). Bounded read-only emulator acceptance passed (`equipment-profiles.yaml` 10/10, `logger-loading-calculator.yaml` 8/8); profile create/copy/rename/delete, loading-configuration editing and both calculator dialogs remain device-unverified, as do dark mode, larger text, locale, rotation and TalkBack. Independent review REJECTED on F1 (occurrence replacement validated against legacy equipment tables); user chose profile-as-single-authority, the fix shipped with a regression test, and targeted closure returned **F1 CLOSED / F2 resolved** (C-01 wording corrected). F3 (unrendered `equipment_calculator_section` string) remains a recorded nit. Artifact verified offline only: `versionName=0.9.0`, `versionCode=90000`, SHA-256 `cf9b3140…`, `apksigner` verified with the same certificate as prior releases. Notes at `docs/release-notes/v0.9.0.md`; evidence in `docs/qa.md`. |
+| 0.9.1–0.9.2 — workout imports, prescription interchange and exports | PLANNING — contracts and 16-hour execution budget approved; fixture evidence pending | Single publication target `v0.9.1`; assigned scope `0.9.2` folds into `0.9.1`. See [batch plan](#091092--continuous-execution-plan). Obtain representative FitNotes Android and Strong CSV fixtures and supplementary Hevy kg evidence, finalize exact write sets/tiers and gated changes, then obtain execution-ready plan acceptance. No implementation or publication started. |
 | Release 0.2.0 | SHIPPED | `v0.2.0` signed release published; [history](docs/plans-archive.md#2026-10-09-completed-status-rows). Stale `v0.1.0` validation pre-release cleanup remains optional. |
 | Release 0.2.1 | SHIPPED | `v0.2.1`; [Q1–Q6 history](docs/plans-archive.md#2026-10-09-completed-status-rows). Q4e remains user-side, not shipped code; local AI remains experimental/non-functional, with optional M8 follow-up. |
 | Release 0.2.2 — code review & architecture | SHIPPED | `v0.2.2`; R0–RG/RF complete, CI green; [fix/commit history](docs/plans-archive.md#2026-10-09-completed-status-rows). |
@@ -871,7 +872,201 @@ folded. Contracts, chunk table, gates and budget:
 `docs/review-0.8.1-snapshot.md`, `docs/review-0.8.2-snapshot.md` and `docs/review-0.8.3-snapshot.md`;
 evidence and limits in `docs/qa.md`.
 
+### 0.9.1–0.9.2 — Continuous execution plan
+
+**Status:** planning only. The user approved the ANSWER-NOW recommendations, the sourced contract
+recommendations and a 16-hour execution budget, then requested this plan be recorded. The bounded
+read-only contract pass is complete; vendor-format evidence remains incomplete. Recording this plan
+does not start implementation. Obtain the missing evidence and acceptance of the execution-ready
+plan before source/test edits. Follow the active harness mode and all individually gated approvals.
+
+**Scope and fold:**
+
+| Assigned scope | Included work | Former slice ids |
+| --- | --- | --- |
+| 0.9.1 | Local FitNotes, Strong and Hevy workout CSV imports (OF-05) | `0.9.3`–`0.9.5` |
+| 0.9.2 — folded into 0.9.1 | Versioned plan/routine sharing and import (OF-07), PDF export and workout-history CSV export | `0.9.6`, `0.9.7`, `0.9.11` |
+
+Publish once, as `v0.9.1`, only after separate approval. Each assigned scope retains its own
+implementation chunks, acceptance checks and independent review. Leave later roadmap versions
+unchanged; record the fold in the roadmap as part of the approved execution documentation. Do not
+rewrite published releases or historical records. The planning baseline is clean `main` following
+0.9.0; reconfirm HEAD, working-tree state and remote target availability before implementation.
+
+#### Approved contracts
+
+**Workout imports:**
+
+- Process locally, without accounts, vendor APIs or network requirements. Settings → Data transfer
+  is the UI home. Reuse shared portability contracts, never another feature's internals.
+- Preview exercise mappings, units, sessions, duplicates, unsupported fields and excluded rows before
+  writing. Suggest normalized exact matches; require explicit mapping for unknown/ambiguous names.
+  No silent fuzzy matching or automatic custom-exercise creation.
+- Missing time/unit information requires explicit input. Do not assume one session per day. Preserve
+  identifiable source sessions; ambiguous date-only groups require confirmation/splitting. Block
+  unresolved overlap/interleaving rather than modify existing session boundaries.
+- Disclose inferred set times and retain source precision in provenance. Do not invent set durations
+  or live monotonic timing. Leave absent effort unknown; do not automatically convert RPE to RIR.
+- Require explicit load interpretation where source meaning is ambiguous, including per-dumbbell
+  versus combined values and assisted movements. No automatic halving, body-mass subtraction or
+  assistance conversion. Report unsupported duration, distance and set types rather than reinterpret.
+- Commit the explicitly approved selection atomically. Failure/cancellation cannot leave partial
+  imported history; unsupported rows must be disclosed and explicitly excluded before confirmation.
+- Use a dedicated transactional import operation with commit-time revalidation, not a loop through
+  live logging. Create closed imported sessions; leave active logging, existing plans and scheduled
+  completion unchanged. Freeze the approved mapped exercise attribution at import time, without
+  claiming it represents the source exercise's historical muscle profile. Add no plan/occurrence
+  completion attribution. Disclose effects on fatigue, records and future load suggestions.
+
+**Repeat-import protection:**
+
+- Use durable provenance, not filenames or file hashes alone: record source identity candidates,
+  normalized content and local links. Skip unchanged previously imported records; changed/ambiguous
+  matches block the affected session pending resolution. No automatic overwrite.
+- Preserve identical legitimate sets as distinct records and leave locally edited records untouched.
+  Retain provenance after local deletion so repeating an export does not silently resurrect history.
+- Carry duplicate protection through backup/restore. Exact ledger encoding, collision rules and
+  lifecycle checks remain to be finalized against supported provider fixtures.
+
+**Plan/routine sharing, PDF and CSV:**
+
+- Put prescription share/export actions beside the relevant plan/routine; history CSV lives in
+  Data transfer. Import a portable prescription document as a new editable routine/draft with fresh
+  local identities, never as an automatically accepted/active plan.
+- Include necessary custom exercise definitions. Preview reuse versus creation, identity collisions
+  and equipment gaps; never overwrite definitions by id/name or silently substitute equipment.
+  Missing equipment requires explicit mapping or creation, without changing active profile selection.
+- Exclude performed history, PRs, personal notes, credentials, equipment-profile inventories, active
+  schedule state, cycle progress and engine explanations from plan files. Strip prescribed weights
+  by default, with explicit opt-in to include them. Disclose the excluded activation/schedule state.
+- PDF contains selected plan/routine prescriptions and follows the same load/privacy choices.
+  Prefer Android's native `PdfDocument`; no new PDF dependency is justified by the contract pass.
+- CSV exports workout history with documented canonical fields, explicit units, UTC instants,
+  session identity, load kind and timing provenance. Preserve blank versus zero, quote correctly and
+  neutralize spreadsheet formulas in text fields. Personal notes are excluded by default; warn that
+  the export contains training history. CSV is an analysis export, not full backup or a promised
+  re-import format.
+- Android supports document/share operations. iOS receives compile coverage and explicit unsupported
+  states where adapters are unavailable, consistent with existing backup support.
+
+#### Evidence gate — NEEDS-EVIDENCE
+
+No ANSWER-NOW policy choice remains open. Do not guess compatibility or present exact migrations,
+backup-format versions, final write sets or verification tiers as settled while this gate is open.
+
+| Evidence | Required resolution |
+| --- | --- |
+| FitNotes Android schema | Obtain an original synthetic/anonymized CSV header and representative rows. Official help confirms export but does not specify the schema; FitNotes iOS is a separate app and cannot prove Android compatibility. |
+| Strong variants | Obtain an original synthetic/anonymized CSV, source platform and chosen unit; establish supported timestamp, unit and set-marker semantics. Public evidence establishes a historical layout, not all current variants. |
+| Hevy kg variant | Obtain supplementary synthetic kg evidence; the inspected public example covers timezone-free lb records. |
+| Final persistence/platform boundaries | Finish targeted tracing against settled provider contracts, including provenance lifecycle, backup portability, concurrency and binary document/share wiring. |
+
+Recommended fixture preparation: create a small synthetic workout in the actual apps with two
+exercises, repeated identical working sets and a warm-up. Where supported, add a second workout on
+the same date. Export directly without spreadsheet resaving. Full personal histories are unnecessary.
+Author test fixtures independently; do not copy personal datasets or third-party parser code.
+Advertise only explicitly evidenced/tested variants; reject unsupported formats with guidance and
+no writes. Do not silently drop an importer from the assigned scope to bypass missing evidence.
+
+Contract-pass sources:
+- [FitNotes Android export help](https://www.fitnotesapp.com/settings/).
+- [FitNotes iOS schema (separate app)](https://www.getfitnotes.com/docs/migrate-from-other-apps.html).
+- [Strong official export help](https://help.strongapp.io/article/235-export-workout-data).
+- [Historical Strong column evidence](https://forum.intervals.icu/t/import-strong-data-weightlifting-app/5531).
+- [Hevy official import/export help](https://help.hevyapp.com/hc/en-us/articles/38001424401943-How-to-Import-Strong-App-CSV-Files-and-Export-Your-Data-in-Hevy).
+- [Published Hevy export example](https://blog.ayjc.net/posts/migrate-strong-hevy-app).
+
+Source anchors: domain `WorkoutSet`, `WorkoutSession`, `LogWorkoutSetUseCase`,
+`ExerciseLoadCapability`, `RoutineTemplate` and `WeeklyPlan`; database
+`SqlDelightWorkoutLogRepository`, `SqlDelightWorkoutSessionRepository` and
+`SqlDelightRoutineTemplateRepository`; userdata `BackupFileStore` and `AndroidBackupFileStore`.
+The existing document port is text-only; binary output and secure sharing need explicit scope.
+
+#### Ordered implementation chunks — provisional write sets
+
+Use the default `coder` configuration with no model override. Serialize writers; no parallel coding
+is proposed. Before each chunk, identify exact allowed files, capture HEAD and preserved work, and
+provide the AGENTS.md structured brief. These module homes are not final delegation write sets.
+
+| Chunk | Owner | Outcome / acceptance |
+| --- | --- | --- |
+| 0.9.1-I1 — parsing foundation | coder | Domain CSV reader, normalized records and three provider parsers; bounded input, quoting/multiline/encoding/value diagnostics and synthetic fixtures for every advertised variant. |
+| 0.9.1-I2 — preview contract | Main | Explicit exercise/load/time/session interpretation, duplicate classifications and visible exclusions. |
+| 0.9.1-I3 — transactional persistence | Main | Atomic import/provenance, mapped snapshots, closed sessions, commit revalidation, rollback, repeat/local-edit/deletion and backup compatibility tests. |
+| 0.9.1-I4 — import UI | coder | Settings file/provider selection, mapping/time/unit resolution, preview, confirmation and results; cancellation, recreation, stale preview and repeated submissions are safe. |
+| 0.9.1-I5 — integration/review | Main + read-only reviewer | Required matrix and bounded synthetic emulator journey; independent full-range review, permitted corrections and targeted closure; verified commits before continuing. |
+| 0.9.2-S1 — prescription format | Main | Versioned strict payload and coherent export reads; ordered prescriptions and approved definitions, without privacy leaks. |
+| 0.9.2-S2 — routine import | Main | Collision/equipment preview, atomic append and fresh identities; current plan, schedule and inventory unchanged. |
+| 0.9.2-S3 — PDF/CSV/adapters | coder; main owns shared wiring | Native Android PDF, documented safe CSV, binary document output and secure sharing; pagination, Unicode, quoting, cancellation and failure tests. |
+| 0.9.2-S4 — feature UI | coder | Plan/routine share/export and Data transfer history CSV; explicit load/privacy choices and import acceptance. |
+| 0.9.2-S5 — integration/review | Main + read-only reviewer | Combined verification and independent full-range review of this assigned scope; permitted corrections and targeted closure. |
+
+Likely homes: `core/domain`, `core/database`, `core/userdata`, `feature/settings`,
+`feature/routines` and `feature/splitbuilder`; `shared` only for composition-root wiring. Main owns
+PLANS.md status updates and docs/qa.md consolidation. Coders edit only explicitly assigned feature
+docs; update affected architecture/portability/mechanics references with their owning changes.
+
+#### Verification, review and reporting
+
+Finalize tiers after evidence resolution. Cross-cutting import/provenance/backup work is expected
+to need the full matrix; no final chunk classification is claimed yet. Verify each chunk before
+continuing, and cover producers through persistence to downstream readers:
+
+- Malformed/oversized/unsupported input; quoting, encoding and provider diagnostics.
+- Units, missing versus zero, bodyweight/added-load ambiguity and unsupported fields.
+- Same-day sessions, missing offsets, date-only records and boundary conflicts.
+- Repeated/overlapping exports, identical sets, changed sources, local edits/deletion.
+- Cancellation, double confirmation, stale context and injected transactional failure.
+- Frozen exercise attribution and history/fatigue/progress/records/planner consumers.
+- Provenance migration and backup round trips; deletion guards and cleanup where applicable.
+- Prescription round trips, custom collisions, equipment gaps and privacy exclusions.
+- PDF pagination/content and CSV quoting/formula safety; changed Koin graphs.
+
+At each assigned scope's integration gate run full host tests, SQLDelight migration verification,
+ktlint, debug assembly, both required iOS simulator compiles and applicable Koin checks. Require
+release-specific Android lint before publication readiness. Bound every command and retain logs.
+Delegate bounded emulator checks to `ui-runner`, using approved synthetic fixtures, semantic
+assertions and viewed screenshots. No phone writes or existing user records as disposable fixtures.
+Report unavailable/unverified checks rather than waive them silently.
+
+Obtain one independent full-range read-only review per assigned scope, using `reviewer` with the
+inherited model/variant, followed by targeted closure under both review guides. Main consolidates
+evidence in `docs/review-0.9.1-snapshot.md`, `docs/review-0.9.2-snapshot.md` and `docs/qa.md` without
+rewriting historical findings. Only localized evidence-backed mechanical corrections restoring the
+approved behavior are pre-authorized; new design decisions return to the user. Commit verified,
+compiling logical changes under batch discipline. Draft combined user-facing notes at
+`docs/release-notes/v0.9.1.md`.
+
+#### Budget, gates and completion boundary
+
+**Accepted execution budget: 16 hours**, starting only after execution-ready plan acceptance and
+the Build-mode switch: 8 hours for 0.9.1 including verification/review, 7 hours for 0.9.2 including
+verification/review, 1 hour for final combined evidence/docs/commits. Existing per-command limits
+and the two-unsuccessful-fixes stop remain in force; the budget is not permission to skip checks.
+
+The ledger likely needs additive schema/migrations and backup-format evolution. Enumerate exact
+changes before approval; no migration number or format version is fixed here. Explicitly scope any
+Android manifest/provider wiring, module-graph or dependency change before implementation. No new
+secrets, CI changes or new PDF library are anticipated. Individually gated actions retain their gates.
+
+Exclude automatic backups, encryption, merge restore, reset controls, vendor APIs, new progression
+policies, automatic plan activation and iOS runtime support. Stop for unsafe data effects, unexpected
+writes, unresolved behavior, unavailable mandatory verification, unresolved required findings,
+exhausted budget or the builder failure limit. Continue independent approved work past a scoped
+blocker only where prerequisites remain valid; never conceal, bypass or mark blocked work complete.
+
+End at implemented, verified, independently reviewed and locally committed. Report the final
+candidate revision, both scope verdicts, evidence, limitations and combined release-note draft,
+then request separate approval for push → PR → green CI → merge → one `v0.9.1` tag → Release workflow
+→ offline artifact verification. Do not push, open PRs, merge, tag, build/upload release artifacts or
+publish before that approval. Do not install release APKs on the development emulator. Do not
+automatically generate a handoff/starter or clean up unrelated branches/files.
+
 ### OF-05 — Local workout CSV imports
+
+**0.9.1 planning update:** the batch contract above supersedes the unresolved policy proposals below
+where explicitly settled. Format fixtures and final implementation details remain evidence-gated;
+the original phase ids and acceptance criteria are retained.
 
 **Goal / v1 scope:** import FitNotes, Strong and Hevy CSV exports locally with a preview of exercise mappings, units, sessions and rejected/unsupported fields. No vendor API key or online service is required.
 
@@ -910,6 +1105,10 @@ Equipment calculator and Logger helper dialogs remain device-unverified. Indepen
 **Acceptance:** arrangements never exceed owned counts, remain symmetric and reconcile to displayed total weight. An unattainable target is never represented as exact. Planner behavior changes only in a separately approved integration phase.
 
 ### OF-07 — Plan-file sharing and importing
+
+**0.9.2 planning update:** folded into the single 0.9.1 publication under the batch contract above.
+That contract settles privacy, draft/append import and PDF/CSV scope; the original phase ids and
+acceptance criteria below remain. Final exact write sets and platform changes are not settled yet.
 
 **Goal / v1 scope:** share a small versioned local plan file containing routines/schedule and necessary exercise definitions, without personal workout history, PRs or credentials. Import previews additions/mappings and equipment gaps.
 
