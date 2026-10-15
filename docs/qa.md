@@ -93,12 +93,18 @@ exact on-screen text.
   `bodyweight_title`/`bodyweight_retry` keys, reusing `progress_body_weight` and
   `progress_charts_retry` with byte-identical values; R083-04 rethrows
   `CancellationException` on the delete/goal writes with two deterministic tests.
-  R083-02's unit-change-during-draft scenario is under reachability re-check in the
-  closure pass (the editor is modal, so the unit control is not reachable while a draft
-  is open). A1 is now artifact-backed under `.../hf-083-accept/evidence/`
-  (`a1-db-initial.txt`, `a1-version.txt`, `a1-db-final.txt`). A2 (`lb`, dark, larger
-  text on this screen) is pending because the emulator was reserved by the user with the
-  Plan-tab preview open; the runner stopped per contract rather than discarding it.
+  Targeted closure CLOSED: the corrections were verified with their effective regression
+  tests, and R083-02 was **refuted by code evidence** (modal editor, hidden tab bar,
+  Settings-only unit writer, nav-scoped ViewModel — a unit change cannot occur while a
+  draft is open), so no design decision remains. A1 is artifact-backed under
+  `.../hf-083-accept/evidence/` (`a1-db-initial.txt`, `a1-version.txt`, `a1-db-final.txt`)
+  with the pre-deploy `user_version=48` observation recorded as historical and covered by
+  `BodyWeightMigrationTest`. A2 completed with artifacts: `Weight (lb)` and a `180 lb`
+  row, `81.6 kg` after restoring kilograms, dark and font-1.3 screenshots with readbacks
+  restored, deletion to the empty state, and identical before/after DB snapshots. Final
+  aggregate across all artifacts: 1,950 tests, zero failures/errors/skips. Retained
+  limits: TalkBack/locale/rotation, pixel-level chart truth and a corrected-APK device
+  install were not exercised.
 
 ## 0.8.2 C2/C3 map overlay + coverage UI — 2026-10-15
 
