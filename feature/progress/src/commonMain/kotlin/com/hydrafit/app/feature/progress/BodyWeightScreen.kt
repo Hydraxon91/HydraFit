@@ -55,11 +55,11 @@ import hydrafit.feature.progress.generated.resources.bodyweight_goal_save
 import hydrafit.feature.progress.generated.resources.bodyweight_goal_title
 import hydrafit.feature.progress.generated.resources.bodyweight_load_failed
 import hydrafit.feature.progress.generated.resources.bodyweight_loading
-import hydrafit.feature.progress.generated.resources.bodyweight_retry
 import hydrafit.feature.progress.generated.resources.bodyweight_save
-import hydrafit.feature.progress.generated.resources.bodyweight_title
 import hydrafit.feature.progress.generated.resources.bodyweight_weight_label
 import hydrafit.feature.progress.generated.resources.progress_back
+import hydrafit.feature.progress.generated.resources.progress_body_weight
+import hydrafit.feature.progress.generated.resources.progress_charts_retry
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -141,7 +141,7 @@ fun BodyWeightScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
-            text = stringResource(Res.string.bodyweight_title),
+            text = stringResource(Res.string.progress_body_weight),
             style = MaterialTheme.typography.headlineSmall
         )
         OutlinedButton(onClick = onBack) {
@@ -170,7 +170,7 @@ fun BodyWeightScreen(
                     onClick = onRetryLoad,
                     modifier = Modifier.testTag(BodyWeightTestTags.RETRY)
                 ) {
-                    Text(stringResource(Res.string.bodyweight_retry))
+                    Text(stringResource(Res.string.progress_charts_retry))
                 }
             }
             state.isEmpty -> Text(stringResource(Res.string.bodyweight_empty))

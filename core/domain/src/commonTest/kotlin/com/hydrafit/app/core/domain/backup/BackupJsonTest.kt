@@ -65,6 +65,19 @@ class BackupJsonTest {
     }
 
     @Test
+    fun recordLimitCountsBodyWeightMeasurements() {
+        // Encoding checks the record count before serializing, so an oversized measurement list is
+        // rejected without building the payload.
+        val oversized = emptyBackupFile().copy(
+            bodyWeightMeasurements = List(BackupLimits.MAX_RECORDS + 1) { index ->
+                BackupBodyWeightRecord(index.toLong(), 80.0)
+            }
+        )
+        val failure = assertFailsWith<BackupException> { BackupJson.encode(oversized) }
+        assertEquals(BackupFailure.OVER_LIMIT, failure.failure)
+    }
+
+    @Test
     fun formatThirteenRequiresBodyWeightSectionsAndEarlierFormatsDefaultThemOff() {
         val file = emptyBackupFile().copy(
             bodyWeightMeasurements = listOf(BackupBodyWeightRecord(20_000L, 82.5)),

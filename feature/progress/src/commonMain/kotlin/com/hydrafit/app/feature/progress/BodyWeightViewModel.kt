@@ -215,6 +215,8 @@ class BodyWeightViewModel(
             try {
                 bodyWeightRepository.delete(day)
                 completeSuccess(revision)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 completeFailure(revision) { it }
             }
@@ -241,6 +243,8 @@ class BodyWeightViewModel(
             try {
                 bodyWeightRepository.setGoal(kilograms)
                 completeGoal(revision)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 completeFailure(revision) { it.copy(goalError = true) }
             }
@@ -254,6 +258,8 @@ class BodyWeightViewModel(
             try {
                 bodyWeightRepository.setGoal(null)
                 completeGoal(revision)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 completeFailure(revision) { it }
             }

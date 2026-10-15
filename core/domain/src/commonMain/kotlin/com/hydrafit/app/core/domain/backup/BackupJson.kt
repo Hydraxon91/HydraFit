@@ -186,5 +186,6 @@ object BackupJson {
             file.routines.size + file.routineWorkouts.size + file.routineEntries.size +
             file.activations.size + file.activationWorkouts.size + file.activationEntries.size +
             file.occurrences.size + file.occurrenceEntries.size + file.personalRecords.size +
-            file.preferences.size + file.exclusions.size + file.restPreferences.size
+            file.preferences.size + file.exclusions.size + file.restPreferences.size +
+            file.bodyWeightMeasurements.size
 }

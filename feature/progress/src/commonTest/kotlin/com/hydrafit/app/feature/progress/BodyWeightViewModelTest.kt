@@ -16,6 +16,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -312,6 +313,26 @@ class BodyWeightViewModelTest {
         assertNull(viewModel.state.value.editor)
     }
 
+    @Test
+    fun aCancelledDeletePropagatesInsteadOfSilentlyCompleting() = runTest(dispatcher) {
+        val repository =
+            FakeBodyWeightRepository(initial = listOf(BodyWeightMeasurement(today, 80.0)))
+        repository.deleteFailure = CancellationException("cancelled")
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onEditMeasurement(today)
+        viewModel.onDeleteRequested()
+        viewModel.onDeleteConfirmed()
+        advanceUntilIdle()
+
+        // The cancellation is rethrown, so no completion handler runs: the delete was issued but
+        // never treated as a finished write, and the draft is not closed.
+        assertEquals(listOf(today), repository.deleteCalls)
+        assertNotNull(viewModel.state.value.editor)
+        assertTrue(viewModel.state.value.submitting)
+    }
+
     // ── Goal ──────────────────────────────────────────────────────────────
 
     @Test
@@ -353,6 +374,23 @@ class BodyWeightViewModelTest {
         advanceUntilIdle()
 
         assertEquals(165.0 / WeightUnit.POUNDS_PER_KILOGRAM, repository.goalCalls.single())
+    }
+
+    @Test
+    fun aCancelledGoalWriteIsNotReportedAsAGoalError() = runTest(dispatcher) {
+        val repository = FakeBodyWeightRepository()
+        repository.goalFailure = CancellationException("cancelled")
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onGoalInputChanged("75")
+        viewModel.onSaveGoal()
+        advanceUntilIdle()
+
+        // A cancelled write is not a user-facing goal failure: the cancellation is rethrown,
+        // so the generic failure handler never marks the goal input invalid.
+        assertEquals(listOf<Double?>(75.0), repository.goalCalls)
+        assertFalse(viewModel.state.value.goalError)
     }
 
     // ── Unit and range ────────────────────────────────────────────────────
@@ -484,6 +522,12 @@ private class FakeBodyWeightRepository(
 
     var measurementsError = false
 
+    /** When set, a delete records its call then fails with this throwable. */
+    var deleteFailure: Throwable? = null
+
+    /** When set, a goal write records its call then fails with this throwable. */
+    var goalFailure: Throwable? = null
+
     /** When set, an add records its call then suspends until it is completed. */
     var addGate: CompletableDeferred<Unit>? = null
 
@@ -530,6 +574,7 @@ private class FakeBodyWeightRepository(
 
     override suspend fun delete(localEpochDay: Long) {
         deleteCalls += localEpochDay
+        deleteFailure?.let { throw it }
         measurementsFlow.value =
             measurementsFlow.value.filterNot { it.localEpochDay == localEpochDay }
     }
@@ -538,6 +583,7 @@ private class FakeBodyWeightRepository(
 
     override suspend fun setGoal(weightKg: Double?) {
         goalCalls += weightKg
+        goalFailure?.let { throw it }
         goalFlow.value = weightKg
     }
 }

@@ -48,11 +48,9 @@
     <string name="progress_table_row">%1$s: %2$d working sets, %3$d reps, external volume %4$s</string>
     <string name="progress_table_row_no_volume">%1$s: %2$d working sets, %3$d reps, no external load-volume</string>
     <string name="progress_body_weight">Body weight</string>
-    <string name="bodyweight_title">Body weight</string>
     <string name="bodyweight_add">Add measurement</string>
     <string name="bodyweight_loading">Loading body weight…</string>
     <string name="bodyweight_load_failed">Could not load body weight.</string>
-    <string name="bodyweight_retry">Retry</string>
     <string name="bodyweight_empty">No body weight measurements yet. Add your first measurement to start the trend.</string>
     <string name="bodyweight_chart_caption">Each mark is one recorded measurement at its actual date; days with no measurement are left blank, never carried forward.</string>
     <string name="bodyweight_chart_legend">Body weight per measured day</string>

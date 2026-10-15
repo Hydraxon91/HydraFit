@@ -86,6 +86,19 @@ exact on-screen text.
   reported and intentionally not cleared. Limits: dark mode, larger text, locale and
   TalkBack were not checked on this screen, and the chart canvas is screenshot-viewed
   rather than pixel-asserted. Independent 0.8.3 review pending at this record.
+- Independent review of the committed range (base `63d8a5df`): no blocking code finding;
+  verdict INCOMPLETE for evidence gaps A1/A2, plus findings R083-01..04. Corrections
+  applied and matrix-verified (1,950 tests): R083-01 counts `bodyWeightMeasurements`
+  toward `MAX_RECORDS` with a boundary test; R083-03 removes the duplicate
+  `bodyweight_title`/`bodyweight_retry` keys, reusing `progress_body_weight` and
+  `progress_charts_retry` with byte-identical values; R083-04 rethrows
+  `CancellationException` on the delete/goal writes with two deterministic tests.
+  R083-02's unit-change-during-draft scenario is under reachability re-check in the
+  closure pass (the editor is modal, so the unit control is not reachable while a draft
+  is open). A1 is now artifact-backed under `.../hf-083-accept/evidence/`
+  (`a1-db-initial.txt`, `a1-version.txt`, `a1-db-final.txt`). A2 (`lb`, dark, larger
+  text on this screen) is pending because the emulator was reserved by the user with the
+  Plan-tab preview open; the runner stopped per contract rather than discarding it.
 
 ## 0.8.2 C2/C3 map overlay + coverage UI — 2026-10-15
 
