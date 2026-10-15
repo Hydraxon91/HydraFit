@@ -336,8 +336,12 @@ any approved review-report paths before starting.
   read-only reviewer agent performs the requested reviews and targeted closure
   under `docs/review-discipline.md` and `docs/post-execution-review.md`. The initial
   invocation explicitly requests these checkpoints; no fresh review request or
-  manual Plan/Build switch is needed for each one. Use a separate `general` agent
-  as reviewer unless an applicable read-only reviewer agent is available. The
+  manual Plan/Build switch is needed for each one. Use the separate read-only
+  `reviewer` agent (`.opencode/agents/reviewer.md`); use a separate `general` agent
+  only if it is unavailable, with the same read-only restrictions. Leave the model
+  unspecified so review inherits the parent's model and variant unless the user
+  explicitly requests an override. `/review` prepares ordinary main-agent reviews
+  in Plan Mode; it does not activate this exception or authorize fixes. The
   implementation agent must not issue its own review verdict. The parent owns
   scope, evidence consolidation and continuation decisions, not a substitute
   self-review. This is the scoped exception to the normal main-agent/Plan-mode

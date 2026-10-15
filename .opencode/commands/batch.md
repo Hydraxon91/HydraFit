@@ -74,8 +74,11 @@ Apply these standing defaults unless the user explicitly overrides them:
   Gradle lock, and a stable-tree verification join before Git or review. Release
   dependency order and all publication gates remain unchanged.
 - **Verification/review:** verify each implementation chunk, then obtain one
-  independent read-only full-range review per release from a separate general
-  agent, with targeted closure after corrections. Follow both review guides and
+  independent read-only full-range review per release from the separate `reviewer`
+  agent, with targeted closure after corrections. Do not override its inherited
+  parent model/variant unless the user requests it. Fall back to a separate
+  `general` agent only if `reviewer` is unavailable, with the same read-only brief
+  and restrictions. Follow both review guides and
   their bounded reopen rules. No routine Plan/Build switch or fresh review request
   is needed, but harness-enforced Plan mode still prevents implementation.
 - **Corrections:** pre-authorize only localized, evidence-backed mechanical fixes
