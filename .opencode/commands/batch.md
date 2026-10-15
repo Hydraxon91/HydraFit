@@ -1,5 +1,5 @@
 ---
-description: Execute named approved releases with verification and independent reviews
+description: Execute named approved releases with verification and independent reviews (e.g. /batch 0.8.1-0.8.3 --budget 60m)
 subagent: false
 ---
 
@@ -7,10 +7,11 @@ Activate Continuous Multi-Release Execution from AGENTS.md for:
 
 $ARGUMENTS
 
-Usage: `/batch 0.8.0 --budget 6h` or
-`/batch 0.8.0, 0.8.1 --budget 6h`. Numbers refer to agreed publication scopes,
-not permission to infer or expand a release from an old roadmap slice number.
-This is a prompt template, not a shell command or permission bypass.
+Usage: `/batch 0.8.0 --budget 6h`, `/batch 0.8.1-0.8.3 --budget 60m`, or
+`/batch 0.9.0, 0.9.3 --budget 4h`. A range such as `0.8.1-0.8.3` expands to the
+named publications in order. Numbers refer to assigned roadmap versions, not a
+whole series or permission to infer scope. This is a prompt template, not a shell
+command or permission bypass.
 
 Apply these standing defaults unless the user explicitly overrides them:
 

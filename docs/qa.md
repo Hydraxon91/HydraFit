@@ -602,7 +602,7 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - **2026-10-11 user-reported manual QA:** user reports the requested replacement edge-case and Android rest-alert cancellation/context checks all worked. No step-by-step observations, screenshots, logs or exact scenarios were supplied, so this is recorded as user-reported acceptance rather than independently evidenced verification. Stale-dialog race coverage is not claimed unless the dialog was held open while context changed; posting-race interleavings remain unverified. User reported cleanup complete. No further emulator inspection or data audit was performed.
 - **Cross-cutting layout:** each feature screen paints edge-to-edge inside the shell `Scaffold`, which supplies the bottom tab bar and system-bar insets. Per-screen `safeContentPadding()` that duplicated those insets is gone, so no empty band appears above the tab bar. The shell leaves IME resizing to window insets rather than adding a second IME-height pad to the `NavHost`; on the verified Android emulator the focused content reaches the keyboard while the bottom bar remains anchored behind it. Earlier checks covered the Equipment title at a single inset and Logger content ending at the keyboard edge (`/tmp/hydrafit-060-inset-nokb.png`, `/tmp/hydrafit-060-inset-kb2.png`). A 2026-10-11 regression reproduced an oversized blank gap above the keyboard in the Routines editor before the shell fix (`/tmp/hydrafit-060-qa-keyboard-gap-current.png`). After removing the duplicate `NavHost.imePadding()`, the focused routine name plus Save/Cancel remained semantically visible and the screenshot showed no large gap (`/tmp/hydrafit-keyboard-fix-result.png`). The unsaved QA draft was canceled; no routine was persisted. This is a focused emulator check, not broad device/IME coverage.
 - **Landscape cutout and orientation (2026-10-11, `emulator-5554` API 37, debug):** with the `double` cutout overlay enabled in landscape, nothing was clipped and no tab label was obscured, so no app-level inset change was needed. The shell already clears the cutout because Material3's Android actual is `systemBarsForVisualComponents = systemBars.union(displayCutout)` (`SystemBarsDefaultInsets.android.kt`), which backs both `ScaffoldDefaults.contentWindowInsets` and `NavigationBarDefaults.windowInsets`; against the device `InsetsState`, the "New routine" leading edge moved by exactly the 84px left `displayCutout` inset (42→126px) and the outer tab labels moved inward symmetrically. The cutout overlay was reverted.
-  Phones are now portrait-locked (`values/` = portrait, `values-sw600dp/` = unspecified; iPhone portrait, iPad free). On the phone profile (smallestWidth 411dp) the app stayed `1080x2400` portrait with the device at `user_rotation=1` (`/tmp/f3-portrait-locked.png`). The large-screen branch was checked by overriding `wm size 1800x2880` (smallestWidth 685dp) with `user_rotation=1`: the app followed to `2880x1800` landscape (`/tmp/f3-sw600dp-landscape.png`). `wm size` and `user_rotation` were then reset and the app is portrait again (`/tmp/f3-restored-portrait.png`). The fixed two-row bottom bar is unchanged; adaptive/rail layout on large screens is scheduled as UX-01 (0.13.0).
+  Phones are now portrait-locked (`values/` = portrait, `values-sw600dp/` = unspecified; iPhone portrait, iPad free). On the phone profile (smallestWidth 411dp) the app stayed `1080x2400` portrait with the device at `user_rotation=1` (`/tmp/f3-portrait-locked.png`). The large-screen branch was checked by overriding `wm size 1800x2880` (smallestWidth 685dp) with `user_rotation=1`: the app followed to `2880x1800` landscape (`/tmp/f3-sw600dp-landscape.png`). `wm size` and `user_rotation` were then reset and the app is portrait again (`/tmp/f3-restored-portrait.png`). The fixed two-row bottom bar is unchanged; adaptive/rail layout on large screens is scheduled as UX-01 (0.13.1).
 - API key: save, shows "configured", clear.
 - Model management: import/remove, target (NPU vs CPU/GPU) display, terms link.
 
@@ -1202,8 +1202,8 @@ uncommitted chip-wrap fix. C6 is **not** complete: the checks listed at the end 
 - TalkBack: installed and enabled for a reading pass; the setup screen rendered normally and its
   controls expose labels and roles in the hierarchy. Spoken output and touch exploration cannot be
   verified this way, and the accessibility settings were restored afterwards.
-- Landscape/rotation: not applicable to this release. `PLANS.md` schedules tablet layouts at 0.13.3
-  and foldable at 0.13.4, and no activity declares an orientation attribute, so nothing is claimed
+- Landscape/rotation: not applicable to this release. `PLANS.md` schedules tablet and foldable
+  layouts at 0.13.1, and no activity declares an orientation attribute, so nothing is claimed
   here for wide or rotated layouts. The emulator's display did not rotate under the usual settings.
 - Observation: dismissing a revisit with `Skip setup` rewrote the stored disposition from `COMPLETED`
   to `SKIPPED`. Nothing distinguishes the two today — both suppress automatic reopening — so this is
@@ -1216,7 +1216,7 @@ uncommitted chip-wrap fix. C6 is **not** complete: the checks listed at the end 
   - With the database made unreadable, a cold launch crashes: `SQLiteCantOpenDatabaseException` escapes
     `DatabaseStartupMaintenance` (via `ApplyStagedBackupUseCase.staged()` →
     `SqlDelightBackupStagingRepository`). `DatabaseStartupMaintenance` documents leaving failures
-    uncaught on purpose, and `PLANS.md` schedules recovery states at 0.13.7, so this is a recorded
+    uncaught on purpose, and `PLANS.md` schedules recovery states at 0.13.3, so this is a recorded
     tradeoff rather than a regression — but it means a storage failure has no user-facing recovery.
   - With journaling blocked while the app was running, tapping `Log set` on the manual form crashed the
     process: `SQLiteException: cannot rollback - no transaction is active` raised from
@@ -1253,7 +1253,7 @@ uncommitted chip-wrap fix. C6 is **not** complete: the checks listed at the end 
   - Cleanup verified directory 771 and database/journal 660. During the failure the journal mode
     changed back to 660 without a runner chmod; its cause was not established. The failure/no-insert
     and subsequent single-insert recovery were observed directly, not inferred from modes alone.
-  - Limits: startup recovery remains deliberately deferred to 0.13.7. This check did not simulate
+  - Limits: startup recovery remains deliberately deferred to 0.13.3. This check did not simulate
     actual disk-full/corruption, exercise offline writes, or repeat dark/font/locale/TalkBack variants.
     Session creation and set insertion are not made atomic by this presentation-only corrective.
 - Review corrections R076LR-01/02/03 (2026-10-14, `480c1c21` plus corrective changes):
@@ -1399,7 +1399,7 @@ dependency, configuration, CI, signing or schema change.
   revisit, offline rendering, first-log, PR shortlist, activation weekday wrapping, and the bounded
   backup round trip; larger-font (`1.3`), dark and `de-DE` fallback were exercised on the onboarding
   steps during C4/C5. Still unverified and not claimed here: TalkBack spoken output and touch
-  exploration, rotation/adaptive layouts (deferred to 0.13.3/0.13.4), a translated-language layout, a
+  exploration, rotation/adaptive layouts (deferred to 0.13.1), a translated-language layout, a
   legacy-device backup restore (no old file available; accepted for this slice), and the phone
   restore's exact build identity. The equipment-error branch has no reachable device trigger.
 - Publication, the annotated `v0.7.6` tag on the PR merge commit, CI monitoring and offline

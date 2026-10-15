@@ -240,9 +240,10 @@ While executing an approved chunk:
 
 ## Continuous Multi-Release Execution (Explicit Opt-In)
 
-**Short activation:** `/batch <ordered releases> --budget <duration>` or plain
-`batch: <ordered releases>, budget <duration>` applies the standing defaults in
-`.opencode/commands/batch.md` unless explicitly overridden. For plain language,
+**Short activation:** `/batch <versions> --budget <duration>` or plain
+`batch: <versions>, budget <duration>` applies the standing defaults in
+`.opencode/commands/batch.md` unless explicitly overridden. For example,
+`/batch 0.8.1-0.8.3 --budget 60m` covers those three publications in order. For plain language,
 read that file before acting. State resolved scopes, owners, budget and report
 paths; proceed without another confirmation when existing approved contracts and
 those defaults suffice. Ask only for missing decisions or approvals. Neither
