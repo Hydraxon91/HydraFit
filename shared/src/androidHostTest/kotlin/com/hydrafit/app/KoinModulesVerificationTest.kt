@@ -87,6 +87,11 @@ import com.hydrafit.app.core.domain.startup.StartupReadiness
 import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.transfer.WorkoutCsvSource
+import com.hydrafit.app.core.domain.transfer.WorkoutImportPreview
+import com.hydrafit.app.core.domain.transfer.WorkoutImportProvenance
+import com.hydrafit.app.core.domain.transfer.WorkoutImportRepository
+import com.hydrafit.app.core.domain.transfer.WorkoutImportResult
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetUseCase
@@ -169,6 +174,7 @@ import com.hydrafit.app.feature.settings.AcknowledgmentsViewModel
 import com.hydrafit.app.feature.settings.BackupViewModel
 import com.hydrafit.app.feature.settings.SettingsViewModel
 import com.hydrafit.app.feature.settings.TrainingGuidanceSettingsViewModel
+import com.hydrafit.app.feature.settings.WorkoutImportViewModel
 import com.hydrafit.app.feature.settings.WorkoutReminderSettingsViewModel
 import com.hydrafit.app.feature.settings.settingsModule
 import com.hydrafit.app.feature.splitbuilder.splitBuilderModule
@@ -515,6 +521,41 @@ class KoinModulesVerificationTest {
         } finally {
             koin.close()
         }
+    }
+
+    /**
+     * The import ViewModel is a lambda `viewModel { }`, so resolve it over `settingsModule` with fake
+     * ports. Construction reads and writes nothing, so this only proves the constructor `get()` chain.
+     */
+    @Test
+    fun theWorkoutImportViewModelResolvesAtRuntime() {
+        val koin = koinApplication {
+            modules(
+                module {
+                    single<WorkoutImportRepository> { FakeWorkoutImportRepository }
+                    single<WorkoutSessionRepository> { FakeWorkoutSessionRepository }
+                    single<ExerciseCatalog> { FakeExerciseCatalog }
+                },
+                settingsModule,
+                testPlatformModule
+            )
+        }.koin
+
+        try {
+            assertNotNull(koin.get<WorkoutImportViewModel>())
+        } finally {
+            koin.close()
+        }
+    }
+
+    private object FakeWorkoutImportRepository : WorkoutImportRepository {
+        override suspend fun provenance(
+            source: WorkoutCsvSource,
+            candidateKeys: Set<String>
+        ): List<WorkoutImportProvenance> = emptyList()
+
+        override suspend fun commit(preview: WorkoutImportPreview): WorkoutImportResult =
+            WorkoutImportResult(importedSessions = 0, importedSets = 0, skippedSessions = 0)
     }
 
     private object FakeBackupRepository : BackupRepository {

@@ -339,6 +339,8 @@ fun SettingsScreen(
 
         BackupRoute()
 
+        WorkoutImportRoute()
+
         OutlinedButton(onClick = onOpenAcknowledgments) {
             Text(stringResource(Res.string.settings_acknowledgments))
         }
