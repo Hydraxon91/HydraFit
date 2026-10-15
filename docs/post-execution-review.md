@@ -22,6 +22,16 @@ unclear, clarify it before starting.
 
 ## Mandatory discipline
 
+**Scoped exception:** an explicitly activated Continuous Multi-Release Execution
+workflow in `AGENTS.md` pre-requests its named review checkpoints. A separate
+read-only reviewer may perform them and targeted closure while the parent remains
+in Build Mode; this qualifies the Plan-mode/user-request references below. The
+reviewer never implements fixes or performs Git mutations. After review ends, the
+approved implementation owner may apply only pre-authorized mechanical corrections,
+then obtain independent closure. The parent may continue only under the existing
+approved release sequence and handles authorized Git operations directly.
+All other review discipline, evidence requirements and harness restrictions remain.
+
 - Read `AGENTS.md` and `docs/review-discipline.md` before reviewing.
 - **Plan Mode is required.** Perform post-execution reviews in Plan Mode. If the
   session is in Build Mode, stop and ask the user to switch to Plan Mode before
@@ -183,6 +193,11 @@ Present real tradeoffs and a recommendation without implementing a resolution.
 
 For each actionable finding, propose the smallest fix scope and meaningful
 verification. Explicitly require approval before implementation.
+
+For an activated continuous workflow, identify whether each mechanical correction
+is covered by the initial authorization and record its exact scope, owner and
+checks. Require new approval for uncovered fixes, design decisions or individually
+gated actions. Do not implement while acting as reviewer.
 
 If approved, state: "No blocking findings in the reviewed scope. Follow the
 existing commit and push approval rules."

@@ -22,6 +22,7 @@ do not cancel someone else's draft or restart the app to establish them.
 | `logger-session-controls.yaml` | No active session, no dialog/editor | Navigate to Logger only | No active session; End disabled and New label visible/enabled; neither action is tapped |
 | `settings-guidance-denial.yaml` | Settings selected, both guidance switches OFF, English permission prompt available | Coaching ON, notification request denied, reopen Settings, coaching OFF | Alerts OFF and coaching restored OFF; external permission-flag restoration is still required |
 | `logger-history-browser.yaml` | Logger selected, no dialog/editor | History navigation, search, clear filters, Back | Logger with the Log tab still selected; no data written |
+| `logger-progress-browser.yaml` | Logger selected at the top of its list (title visible), no dialog/editor; the fixture exercise (default `EXERCISE` = `Back Squat`) has records and recorded history | Read-only Progress entry, search, selection, range chips, trend titles, one inline supporting-set open/close, recorded history; leaves once via the screen Back and re-enters once, finally leaving via the system back | Logger with the Log tab still selected; no set/session/record/note write |
 | `logger-history-correction.yaml` | Logger selected, no dialog/editor | New session, log one synthetic set, correct its reps from history | Corrected set retained, listed once; Logger with the Log tab selected |
 | `logger-exercise-note.yaml` | Logger selected, no dialog/editor | Filter the picker, select an exercise, save/cancel/clear its setup note | Exercise left with an explicitly cleared note; Logger with the Log tab selected |
 | `logger-workout-summary.yaml` (not yet checked in) | Logger selected on an active block occurrence with every prescribed set unrecorded | Confirm all prescribed sets, Finish, View in history | Journey verified in pieces on 2026-10-12 (see below); the combined file is not checked in |
@@ -31,6 +32,23 @@ do not cancel someone else's draft or restart the app to establish them.
 The navigation flow visits all six tabs and asserts the selected tab after each
 tap; visible navigation labels alone are not a success oracle. It is also the
 regression flow for the two-row, fully labeled navigation layout.
+
+`logger-progress-browser.yaml` opens Exercise Progress from the Log tab. Progress
+is a standalone pushed destination with the six-tab bar hidden, and the compact
+hierarchy only contains on-screen content, so the deeper records and history
+sections are reached with `scrollUntilVisible`. The trend title embeds the
+selected day count (`Trend (last 28)`), asserted for the default and the 365-day
+chip. The flow types the strict prefix `SEARCH_TERM` and then taps the exact
+`EXERCISE` name: after typing, the search field itself echoes the text, so only
+a strict prefix keeps the tap selector unambiguous. The supporting detail
+renders inline under the tapped record (R080-07), so the flow asserts it above
+the next record's line and closes it through the `Hide detail` action (a record
+with several tied holders shows `Show a supporting set (i of N)` and
+`Previous tied set` / `Next tied set` step through them). `Load more` renders
+only past 30 recorded sets and is not asserted. The first entry exits through
+the screen `Back`; the second re-selects the exercise and exits through the
+system back. Fixture on `emulator-5554` (2026-10-15, debug): Back Squat with
+four recorded working sets and nine all-time records.
 
 The instruction flows do not launch, restart or write data. Establish their narrow starting state
 through fresh inspection. Equipment has one outer scroll container; Logger reachability uses

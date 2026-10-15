@@ -1,7 +1,9 @@
 # HydraFit roadmap to 1.0
 
-Approved direction: 2026-10-09; smaller published releases approved 2026-10-11.
-The current shipped version is 0.7.5. This roadmap groups the remaining backlog;
+Approved direction: 2026-10-09; smaller published releases approved 2026-10-11;
+combined-release grouping and version assignment adopted 2026-10-15.
+Git records `v0.7.7`; publication evidence remains in PLANS.md and docs/qa.md.
+This roadmap groups the remaining backlog into 27 publications;
 it does not authorize implementation, publication, commits or pushes.
 Release numbers are planning targets, without dates.
 
@@ -31,19 +33,21 @@ requires an explicit user decision before 1.0; it is not silently moved post-1.0
 
 The sequence follows the user journey: train, understand sessions, see progress,
 manage equipment/data, use advanced controls, improve optional AI, then polish.
-Each theme is delivered through smaller published releases, not one large release
-with internal chunks. Each release has a bounded scope, its own acceptance checks
+Each theme is delivered through bounded published releases with small implementation
+chunks. Related slices may share a release under the combined-release policy below.
+Each release has a bounded scope, its own acceptance checks
 and a separately requested code review before publication. Implementation chunks
 inside it still need approval. Behavioral, schema, dependency, infrastructure and
 licensing decisions retain their gates.
 
-## Smaller-release policy
+## Release policy
 
 - **0.N identifies a theme; 0.N.0, 0.N.1, 0.N.2, … deliver its slices.** During
   pre-1.0 development, patch numbers can carry features as well as corrections.
   This replaces the former corrective-only patch policy for future releases;
   shipped versions and their historical classification do not change.
-- Aim for one independently usable capability per release. Its persistence,
+- Group related capabilities under the approved combined-release grouping below,
+  retaining small, separately approved implementation chunks. Their persistence,
   migration, backup/import compatibility, consumers, tests and living docs belong
   in that same scope, not in a later integration release.
 - Corrective releases use the next available patch number and are labelled
@@ -59,6 +63,88 @@ licensing decisions retain their gates.
 - Accessibility, localization, failure handling and applicable cross-release
   ledger checks travel with every affected slice. Each published slice needs its
   verification and separately requested review; passing tests is not approval.
+
+### Combined-release grouping (adopted 2026-10-15)
+
+### Combined-release grouping and version assignment (adopted 2026-10-15)
+
+This section assigns the actual version numbers for the remaining work and
+preserves all scope, dependencies, acceptance criteria and evidence gates. Version
+numbers were renumbered on 2026-10-15: slice numbers documented earlier (`0.8.2`,
+`0.9.8`, `0.13.6`, …) now map to the combined publications below, and each series
+table records the former slice ids. Backlog ids (M1–M8, OF, LT, CAT, EX, QL, PYR,
+EQ) are unchanged, and immutable history (`docs/plans-archive.md`, dated review
+snapshots) keeps its original numbers.
+
+Target approximately 27 publications, including the current 0.8.0 (26 afterward,
+then 1.0.0). The 0.8.0 scope and its six-chunk implementation plan are unchanged,
+and that active scope already includes automatic records. Fewer publication and
+review cycles do not mean larger implementation chunks or fewer required tests.
+
+| Series | Publications | Versions | Count |
+| --- | --- | --- | --- |
+| 0.8.x | charts + records; catalog/forearm/TRAPS; map + volume/last-trained; body weight | 0.8.0–0.8.3 | 4 |
+| 0.9.x | profiles/plate/increments; imports; sharing + PDF + CSV; auto backups; encryption; merge restore; storage/reset | 0.9.0–0.9.6 | 7 |
+| 0.10.x | integrity; policies; prescriptions + presets + generation + RIR/RPE; supersets; effort/readiness | 0.10.0–0.10.4 | 5 |
+| 0.11.x | duration + timed preparation; distance; force; clusters; cardio | 0.11.0–0.11.4 | 5 |
+| 0.12.x | identity recovery + validation; measured + lifecycle | 0.12.0–0.12.1 | 2 |
+| 0.13.x | design/polish; tablet + foldable; accessibility + localization; recovery + final closure | 0.13.0–0.13.3 | 4 |
+| **Total before 1.0.0** | **0.8.0 (active) + 26 = 27, then 1.0.0** | | **27** |
+
+**Renumbering map (former slice → version).** `0.8.2–0.8.4 → 0.8.1`;
+`0.8.5–0.8.6 → 0.8.2`; `0.8.7 → 0.8.3`; `0.9.1–0.9.2 → 0.9.0`;
+`0.9.3–0.9.5 → 0.9.1`; `0.9.6`, `0.9.7`, `0.9.11 → 0.9.2`; `0.9.8 → 0.9.3`;
+`0.9.9 → 0.9.4`; `0.9.10 → 0.9.5`; `0.9.12 → 0.9.6`; `0.10.3`, `0.10.4`,
+`0.10.7 → 0.10.2`; `0.10.5–0.10.6 → 0.10.3`; `0.10.8–0.10.9 → 0.10.4`;
+`0.11.1 → 0.11.0`; `0.11.2 → 0.11.1`; `0.11.3 → 0.11.2`;
+`0.11.4–0.11.5 → 0.11.3`; `0.11.6 → 0.11.4`; `0.12.1 → 0.12.0`;
+`0.12.2–0.12.3 → 0.12.1`; `0.13.1–0.13.2 → 0.13.0`; `0.13.3–0.13.4 → 0.13.1`;
+`0.13.5–0.13.6 → 0.13.2`; `0.13.7–0.13.8 → 0.13.3`.
+
+- Settle LT-10 before closing 0.7.x, then resolve each series' blocking behavioral
+  decisions before its implementation starts. Grouping authorizes no default policy.
+- Verify each implementation chunk using its applicable checks. Each combined
+  release receives a separately requested bounded review and publication cycle;
+  targeted closure and reopen rules remain governed by the review procedures.
+  Required full-matrix verification is not waived by combining releases.
+- Encryption, merge restore and destructive storage/reset controls remain separate
+  releases with independent acceptance gates.
+- Split oversized bundles at their scope gate before implementation; provider
+  imports and final polish particularly need this check. The count is a planning
+  target, not a quota. Conditional investigations need explicit evidence-based
+  dispositions, not necessarily APKs; corrections or content batches may add releases.
+- Close cross-release verification debt throughout delivery, not only at the end.
+  New ideas do not become 1.0 blockers without an explicit scope decision.
+- Detailed implementation scope and ownership, destructive actions, dependencies,
+  infrastructure, commits and publication retain their existing approval gates.
+
+#### Test boundaries for combined releases
+
+- Keep small implementation steps with explicit acceptance criteria and applicable
+  tests passing before moving forward. Use reusable synthetic fixtures with known
+  expected results, separate capability suites and a short shared-boundary journey.
+- Test producers through downstream consumers, including correction, deletion,
+  restore and lifecycle changes where applicable; valid preconstructed rows alone
+  do not establish write-path invariants.
+- For profiles/calculators, test capabilities independently, then verify profile
+  switching changes available equipment and attainable loads correctly.
+- For prescriptions/effort targets, verify authoring → activation → logging →
+  export/restore, preserving targets without recording them as actual effort.
+- For local AI, complete research and disposition first. Use one benchmark matrix
+  for cold/repeated generation, cancellation, memory and explicit fallback; do not
+  hold supported lifecycle fixes indefinitely for a positive generation experiment.
+- For tablet/foldable adaptation, verify workout/draft continuity across resizing,
+  rotation and supported fold/posture transitions.
+- Before implementation, split bundles that require unrelated fixtures, unresolved
+  behavior or an unwieldy acceptance matrix. Retain one release-level verification
+  matrix and separately requested bounded review, with required closure checks.
+
+The working estimate at adoption is **4–7 weeks from 2026-10-15** (approximately
+2026-11-12–2026-12-03), assuming similar working intensity. It is not a deadline
+or measured guarantee. Recalibrate after the first two combined releases; AI
+research, content/media coverage and integrity decisions are major uncertainties.
+The revised grouping removes about 47% of the original 51 planned publication
+cycles, not engineering work. The lower count alone does not shorten the estimate.
 
 ## Release overview
 
@@ -172,7 +258,7 @@ additional bounded targets before 1.0; 0.7.4 alone does not close content covera
   separately scope explanatory images/animations for seeded exercises, with
   original/permissively licensed bundled assets, attribution, offline availability,
   accessible text alternatives, and an agreed coverage/size budget. Assign bounded
-  media batches after that decision, with coverage closure in 0.13.6; no media
+  media batches after that decision, with coverage closure in 0.13.2; no media
   dependency or artwork reuse is authorized by this placement.
 - **OF-14:** skippable/revisitable offline setup and first workout, unknown-load
   guidance and partial/restored-user behavior; no fictitious sets or measured PRs.
@@ -199,18 +285,17 @@ additional bounded targets before 1.0; 0.7.4 alone does not close content covera
 Gate: explanations match their source decisions; notes/history round-trip;
 summaries reconcile with work; instructions, setup and reminders work offline.
 
-### 0.8.0 — Progress & Recovery
+### 0.8 — Progress & Recovery (0.8.0–0.8.3, 4 publications)
 
-| Target | Reviewable release scope | Dependencies / references |
+Each row is one publication. Former slice ids are recorded in parentheses; slice
+contracts are unchanged and ids are never reused.
+
+| Version | Reviewable scope | Dependencies / references |
 | --- | --- | --- |
-| 0.8.0 | Exercise history and load/repetition/e1RM/working-volume charts | OF-04; corrected history, accessible values and load conventions |
-| 0.8.1 | Automatic records and summary integration | OF-04-P3; 0.8.0 metrics, ties/imports/corrections/deletions; manual PRs stay separate |
-| 0.8.2 | Catalog pattern conflicts, approved corrections and machine-fly additions | CAT-P6; sourced machine chest fly/reverse machine fly identities and equipment/pattern/planner-pool decisions; investigate gaps/outliers first; no unapproved recalibration |
-| 0.8.3 | Rep-based forearm/wrist accessories | Sourced catalog additions and approved pattern/planner-pool contract |
-| 0.8.4 | Approved TRAPS selection and finer involvement-editing controls | Separate policy decisions first; implementation conditional on those decisions |
-| 0.8.5 | Accessible front/back anatomical fatigue map and reactive refresh | OF-08; artwork/license and refresh contract; preserve fatigue calculations |
-| 0.8.6 | Performed volume and last-trained views | OF-08; existing history and agreed accounting, distinct from modeled recovery |
-| 0.8.7 | Body-weight entries and trends | OF-09; shared ownership, edit/delete, units, optional goal line and backup |
+| 0.8.0 *(active)* | Exercise history and load/repetition/e1RM/working-volume charts, plus automatic records and summary integration (former `0.8.0` + `0.8.1`) | OF-04 P0–P3; corrected history, accessible values and load conventions; ties/imports/corrections/deletions; manual PRs stay separate |
+| 0.8.1 | Catalog pattern conflicts, approved corrections and machine-fly additions; rep-based forearm/wrist accessories; approved TRAPS selection and finer involvement-editing controls (former `0.8.2`–`0.8.4`) | CAT-P6; sourced machine chest fly/reverse machine fly identities and equipment/pattern/planner-pool decisions; FOREARMS pattern/pool contract; TRAPS policy decided first; investigate gaps/outliers first; no unapproved recalibration |
+| 0.8.2 | Accessible front/back anatomical fatigue map and reactive refresh; performed volume and last-trained views (former `0.8.5`–`0.8.6`) | OF-08; artwork/license and refresh contract; existing history and agreed accounting, distinct from modeled recovery; preserve fatigue calculations |
+| 0.8.3 | Body-weight entries and trends (former `0.8.7`) | OF-09; shared ownership, edit/delete, units, optional goal line and backup |
 
 Catalog investigations and TRAPS decisions do not require positive findings or
 automatic policy changes. Record no-change outcomes explicitly where warranted.
@@ -232,7 +317,7 @@ automatic policy changes. Record no-change outcomes explicitly where warranted.
   Approve equipment availability/identity, external-load semantics, involvement
   mappings and movement-pattern/planner-pool reachability; preserve custom
   identities/overrides and verify seed upgrades and downstream consumers. Split
-  into a further bounded catalog target if 0.8.2 becomes too broad.
+  the catalog group into a further bounded publication if it becomes too broad.
 - **Forearm/grip:** sourced rep-based wrist accessories with a real pattern/pool
   contract using existing FOREARMS; do not mislabel them as biceps work.
 - Decide the deferred **TRAPS selection policy** and finer involvement-editing
@@ -241,25 +326,20 @@ automatic policy changes. Record no-change outcomes explicitly where warranted.
 Gate: metrics reconcile with corrected fixture history; visualization preserves
 existing fatigue/session calculations; new stored data survives backup/restore.
 
-### 0.9.0 — Equipment & Data Freedom
+### 0.9 — Equipment & Data Freedom (0.9.0–0.9.6, 7 publications)
 
 Recommended order: shared equipment identity, inventory helpers, then interchange.
+Former slice ids are recorded in parentheses.
 
-| Target | Reviewable release scope | Dependencies / references |
+| Version | Reviewable scope | Dependencies / references |
 | --- | --- | --- |
-| 0.9.0 | Equipment profiles and setup integration | EQ-01 + OF-14; migrate inventory, preserve active-work/history rules |
-| 0.9.1 | Owned-plate calculator | OF-06; bar/collar weights, counts, precision and nearest attainable target |
-| 0.9.2 | Dumbbell increments and specialty-bar extensions | OF-06; separate contracts; no implicit planner/progression change |
-| 0.9.3 | FitNotes CSV import | OF-05; shared preview/mapping/conflict foundation and approved time/unit/session semantics |
-| 0.9.4 | Strong CSV import | OF-05; reuse importer foundation, provider-specific validation and repeat-import tests |
-| 0.9.5 | Hevy CSV import | OF-05; provider-specific validation and repeat-import tests |
-| 0.9.6 | Versioned plan/routine sharing and import | OF-07; privacy, identity collisions, equipment gaps and explicit acceptance |
-| 0.9.7 | PDF export | OF-07 extension; approved content/privacy contract |
-| 0.9.8 | Automatic rotating local backups | OF-01 extension; failure/recovery and retention contract |
-| 0.9.9 | Encrypted backups | OF-01 extension; key/recovery and compatibility contract |
-| 0.9.10 | Merge restore | OF-01 extension; atomicity, identity and conflict decisions |
-| 0.9.11 | CSV export | OF-01 extension; explicit field/unit/privacy contract |
-| 0.9.12 | Storage usage and scoped removal/reset controls | QL-02; confirmation, referential integrity and failure safety |
+| 0.9.0 | Equipment profiles and setup integration; owned-plate calculator; dumbbell increments and specialty-bar extensions (former `0.9.0`–`0.9.2`) | EQ-01 + OF-14; migrate inventory, preserve active-work/history rules; bar/collar weights, counts, precision and nearest attainable target; separate increments/specialty-bar contracts; no implicit planner/progression change |
+| 0.9.1 | FitNotes, Strong and Hevy CSV imports (former `0.9.3`–`0.9.5`) | OF-05; shared preview/mapping/conflict foundation and approved time/unit/session semantics; provider-specific validation and repeat-import tests |
+| 0.9.2 | Versioned plan/routine sharing and import; PDF export; CSV export (former `0.9.6`, `0.9.7`, `0.9.11`) | OF-07; privacy, identity collisions, equipment gaps and explicit acceptance; approved content/privacy contract; explicit CSV field/unit/privacy contract |
+| 0.9.3 | Automatic rotating local backups (former `0.9.8`) | OF-01 extension; failure/recovery and retention contract |
+| 0.9.4 | Encrypted backups (former `0.9.9`) | OF-01 extension; key/recovery and compatibility contract |
+| 0.9.5 | Merge restore (former `0.9.10`) | OF-01 extension; atomicity, identity and conflict decisions |
+| 0.9.6 | Storage usage and scoped removal/reset controls (former `0.9.12`) | QL-02; confirmation, referential integrity and failure safety |
 
 Every importer/backup slice covers the stored data supported when it ships. Later
 metric and prescription releases extend these formats in their own scopes.
@@ -284,20 +364,17 @@ Gate: interchange/backup round-trips, repeated imports and injected failures obe
 the chosen atomicity contract; plate arrangements never exceed owned counts.
 Later prescription/metric additions extend these formats in the same changes.
 
-### 0.10.0 — Trustworthy Progression & Flexible Prescriptions
+### 0.10 — Trustworthy Progression & Flexible Prescriptions (0.10.0–0.10.4, 5 publications)
 
-| Target | Reviewable release scope | Dependencies / references |
+Former slice ids are recorded in parentheses.
+
+| Version | Reviewable scope | Dependencies / references |
 | --- | --- | --- |
-| 0.10.0 | Historical-target and comparable-work integrity | LT-10 / OF-10A-P0 contract settled in 0.7.x; blank/replaced targets, failed-set eligibility, corrected/deleted-history replay and separately approved historical day-label repair |
-| 0.10.1 | Approved progression and stall-handling policies | OF-10A; integrity first; equipment/periodization decisions and preserved NSCA/e1RM unless explicitly changed |
-| 0.10.2 | Ordered manual per-set prescriptions | PYR-01; targets preserved through routines, activation, logging and interchange |
-| 0.10.3 | Pyramid presets | PYR-01; manual per-set foundation and approved preset semantics |
-| 0.10.4 | Automatic per-set/pyramid generation | PYR-01; settled progression and shared engine contracts |
-| 0.10.5 | Manual two-entry supersets | OF-10B; transition/pair rest, unequal counts, skip/resume/unpairing |
-| 0.10.6 | Curated opt-in planner superset pairing | OF-10B; manual lifecycle first, separate pairing policy |
-| 0.10.7 | Prescribed RIR and approved equivalent RPE presentation | Item 9 B2 / LT-07; targets never recorded as actual effort |
-| 0.10.8 | Supported rough effort-estimation slice, if evidence permits | Item 9 B3; investigation and explicit disposition before implementation |
-| 0.10.9 | Supported readiness-input slice, if approved | Item 8; ownership, evidence, persistence and both planner/heatmap effects decided first |
+| 0.10.0 | Historical-target and comparable-work integrity (former `0.10.0`) | LT-10 / OF-10A-P0 contract settled in 0.7.x; blank/replaced targets, failed-set eligibility, corrected/deleted-history replay and separately approved historical day-label repair |
+| 0.10.1 | Approved progression and stall-handling policies (former `0.10.1`) | OF-10A; integrity first; equipment/periodization decisions and preserved NSCA/e1RM unless explicitly changed |
+| 0.10.2 | Ordered manual per-set prescriptions; pyramid presets; automatic per-set/pyramid generation; prescribed RIR and approved equivalent RPE presentation (former `0.10.2`–`0.10.4`, `0.10.7`) | PYR-01; Item 9 B2 / LT-07; targets preserved through routines, activation, logging and interchange; targets never recorded as actual effort |
+| 0.10.3 | Manual two-entry supersets; curated opt-in planner superset pairing (former `0.10.5`–`0.10.6`) | OF-10B; transition/pair rest, unequal counts, skip/resume/unpairing; manual lifecycle first, separate pairing policy |
+| 0.10.4 | Supported rough effort-estimation slice, if evidence permits; supported readiness-input slice, if approved (former `0.10.8`–`0.10.9`) | Item 9 B3; Item 8; investigation and explicit disposition before implementation; ownership, evidence, persistence and both planner/heatmap effects decided first |
 
 Effort/readiness investigations remain required even if no supported feature
 results. A reserved target is not approval for inference or a fatigue multiplier.
@@ -329,17 +406,17 @@ Gate: corrections replay approved progression consistently, incomplete work is
 not success, each performed set retains identity, and all engines/portable formats
 support the changed contracts. Unsupported inference requires explicit disposition.
 
-### 0.11.0 — Beyond Rep-Based Sets
+### 0.11 — Beyond Rep-Based Sets (0.11.0–0.11.4, 5 publications)
 
-| Target | Reviewable release scope | Dependencies / references |
+Former slice ids are recorded in parentheses.
+
+| Version | Reviewable scope | Dependencies / references |
 | --- | --- | --- |
-| 0.11.0 | Duration-only and duration-plus-load sets | OF-10C; metric/fatigue/progression contract before schema; end-to-end logging, history, completion, charts and portability |
-| 0.11.1 | Persisted timed preparation and duration-based accessory content | WU-01 / OF-10C; 0.11.0, approved hangs/wrist-roller semantics |
-| 0.11.2 | Approved distance-based sets and carries | OF-10C; metric contract and all consumers/formats in the same release |
-| 0.11.3 | Approved force/device-rated grip metrics | OF-10C; explicit units/comparability/progression and all consumers/formats |
-| 0.11.4 | Supported drop-set clusters | OF-10D; research and cluster contract first |
-| 0.11.5 | Supported rest-pause clusters | OF-10D; research and cluster contract first |
-| 0.11.6 | Supported cardio slice | OF-10D; measurement/ownership research and approved end-to-end scope first |
+| 0.11.0 | Duration-only and duration-plus-load sets; persisted timed preparation and duration-based accessory content (former `0.11.0`–`0.11.1`) | OF-10C; WU-01; metric/fatigue/progression contract before schema; end-to-end logging, history, completion, charts and portability; approved hangs/wrist-roller semantics |
+| 0.11.1 | Approved distance-based sets and carries (former `0.11.2`) | OF-10C; metric contract and all consumers/formats in the same release |
+| 0.11.2 | Approved force/device-rated grip metrics (former `0.11.3`) | OF-10C; explicit units/comparability/progression and all consumers/formats |
+| 0.11.3 | Supported drop-set clusters; supported rest-pause clusters (former `0.11.4`–`0.11.5`) | OF-10D; research and cluster contract first |
+| 0.11.4 | Supported cardio slice (former `0.11.6`) | OF-10D; measurement/ownership research and approved end-to-end scope first |
 
 Distance/force and advanced-set/cardio targets are conditional on their contracts
 and evidence. Unsupported outcomes need explicit disposition, not rep-based
@@ -358,19 +435,19 @@ approximations. Split further if a metric's complete consumer chain is too large
 Gate: measurement semantics remain faithful throughout logging and portability;
 research candidates have explicit evidence-backed decisions before completion.
 
-### 0.12.0 — Optional AI Reliability
+### 0.12 — Optional AI Reliability (0.12.0–0.12.1, 2 publications)
+
+Former slice ids are recorded in parentheses.
+
+| Version | Reviewable scope | Dependencies / references |
+| --- | --- | --- |
+| 0.12.0 | Identity-safe Gemini name recovery; approved AI validation/enforcer fixes (former `0.12.0`–`0.12.1`) | CATP7-R01; S1-013, S3-005/S3-006; canonical IDs preserved, local numbered-ID compatibility verified; current-source confirmation, repair/rejection decision, async schema/count checks |
+| 0.12.1 | Measured local-generation reliability improvements, if supported; approved engine lifecycle and resource improvements (former `0.12.2`–`0.12.3`) | M8 experiments; approved supported scope and licenses; benchmark prompt/schema/pack/backend candidates; initialization/cancellation bounds, repeated generations, cleanup, OOM/failure fallback, Koin and shared-contract checks |
 
 Before experiments, complete **M8-P0**: supported requests/hardware, evaluation
 matrix, success/fallback distinction and performance targets. Candidate license
 research belongs to **M8-P1** and must precede the relevant experiments. These are
 decision/research gates, not standalone app releases.
-
-| Target | Reviewable release scope | Dependencies / references |
-| --- | --- | --- |
-| 0.12.0 | Identity-safe Gemini name recovery | CATP7-R01; canonical IDs preserved, local numbered-ID compatibility verified |
-| 0.12.1 | Approved AI validation/enforcer fixes | S1-013, S3-005/S3-006; current-source confirmation, repair/rejection decision, async schema/count checks |
-| 0.12.2 | Measured local-generation reliability improvements, if supported | M8 experiments; approved supported scope and licenses; benchmark prompt/schema/pack/backend candidates |
-| 0.12.3 | Approved engine lifecycle and resource improvements | Initialization/cancellation bounds, repeated generations, cleanup, OOM/failure fallback, Koin and shared-contract checks |
 
 M8-P1–P4 evaluation, experiments and published results span these slices. Separate
 unrelated validation findings or experiments into further releases at their scope
@@ -396,19 +473,16 @@ disposition. Retain local AI and honest experimental labels if targets are unmet
 surfaced Deterministic fallback never counts as successful local generation.
 CATP7-R01 may move earlier as a separately approved corrective if needed.
 
-### 0.13.0 — Final UX & Design
+### 0.13 — Final UX & Design (0.13.0–0.13.3, 4 publications, provisional)
 
-| Target | Reviewable release scope | Dependencies / references |
+Former slice ids are recorded in parentheses.
+
+| Version | Reviewable scope | Dependencies / references |
 | --- | --- | --- |
-| 0.13.0 | Shared design tokens and navigation hierarchy | QL-01; agreed design direction, scoped components rather than a full rewrite |
-| 0.13.1 | Workout/logging screen polish | QL-01 + OCT13-06; decide expired-rest dismissal without interrupting duration edits; preserve drafts, targets, session and timer semantics |
-| 0.13.2 | Remaining screen/component polish | QL-01; split into further screen-specific releases if too broad |
-| 0.13.3 | Adaptive tablet layouts and wide-window navigation | UX-01; rail/single-row navigation and useful multi-pane layouts |
-| 0.13.4 | Seamless foldable layouts and posture transitions | UX-01; tablet foundation, draft/workout/scroll/selection continuity |
-| 0.13.5 | Final accessibility remediation | Light/dark, text scale, screen reader/focus, touch targets and colour-independent access |
-| 0.13.6 | Final localization and instruction-coverage remediation | Locale/date/number/resources, remaining agreed content batches and CAT-01 media coverage/disposition |
-| 0.13.7 | Final UI-state and recovery remediation | First-run/empty/loading/error/cancel/retry, separately bounded fixes |
-| 0.13.8 | Final integration and 1.0-readiness closure | Upgrade/backup/regression, remaining ledger/performance checks, docs, licenses and supported-device limits |
+| 0.13.0 | Shared design tokens and navigation hierarchy; workout/logging screen polish; remaining screen/component polish (former `0.13.0`–`0.13.2`) | QL-01 + OCT13-06; agreed design direction, scoped components rather than a full rewrite; decide expired-rest dismissal without interrupting duration edits; preserve drafts, targets, session and timer semantics; split into further screen-specific releases if too broad |
+| 0.13.1 | Adaptive tablet layouts and wide-window navigation; seamless foldable layouts and posture transitions (former `0.13.3`–`0.13.4`) | UX-01; rail/single-row navigation and useful multi-pane layouts; tablet foundation, draft/workout/scroll/selection continuity |
+| 0.13.2 | Final accessibility remediation; final localization and instruction-coverage remediation (former `0.13.5`–`0.13.6`) | Light/dark, text scale, screen reader/focus, touch targets and colour-independent access; locale/date/number/resources, remaining agreed content batches and CAT-01 media coverage/disposition |
+| 0.13.3 | Final UI-state and recovery remediation; final integration and 1.0-readiness closure (former `0.13.7`–`0.13.8`) | First-run/empty/loading/error/cancel/retry, separately bounded fixes; upgrade/backup/regression, remaining ledger/performance checks, docs, licenses and supported-device limits |
 
 Earlier releases already need usable, accessible, localized UI and verified
 failure states. These targets close residual findings, not postpone those duties.
@@ -458,7 +532,7 @@ retain their separate approval/Plan Mode requirements.
 | Performance | Android-driver/on-device disk timing, physical-device frame baseline and measured repository/index follow-ups; AI timing/reliability in 0.12.x. Any physical-device execution needs separate approval; no optimization without before/after evidence. |
 | BACK investigation | Chunk 3 calibrates K/D/half-lives/C1–C3 only if correctly timed evidence warrants it; otherwise record the no-change decision. Chunk 4 captures exact value/time/build if literal >100% recurs; a non-reproduced report is not a fabricated fix. |
 | Catalog/content | CAT-P6 conflicts, recorded modeled-family evidence gaps/outliers, forearm/pattern and TRAPS decisions, future sourced batches/instruction coverage; no forced EMG/physiology claims. |
-| Oct 13 live-testing follow-up | Before 0.7.4 instruction work: OCT13-01/02/03/04/07 small corrections, new logs only. OCT13-05 alert investigation/integration in 0.7.7; OCT13-06 expired-rest UX in 0.13.1. Machine-fly seeds in 0.8.2; returning-user/starting-load onboarding in 0.7.6; CAT-01 media batches/coverage closure by 0.13.6. LT-10 decisions in 0.7.x and integrity/any separately approved historical repair in 0.10.0. All retain behavioral, verification and implementation gates; no phone-derived rows or snapshots enter the repository. |
+| Oct 13 live-testing follow-up | Before 0.7.4 instruction work: OCT13-01/02/03/04/07 small corrections, new logs only. OCT13-05 alert investigation/integration in 0.7.7; OCT13-06 expired-rest UX in 0.13.0. Machine-fly seeds in 0.8.1; returning-user/starting-load onboarding in 0.7.6; CAT-01 media batches/coverage closure by 0.13.2. LT-10 decisions in 0.7.x and integrity/any separately approved historical repair in 0.10.0. All retain behavioral, verification and implementation gates; no phone-derived rows or snapshots enter the repository. |
 | Tool/dependency decisions | Use approved MockK only where meaningful; assess the single-glyph material-icons-extended follow-up without unsolicited dependency churn; licensing remains separately checked. |
 | Release housekeeping | Explicitly decide stale v0.1.0 prerelease cleanup and confirm Q4e's user-side disposition; neither creates new shipped feature work. Destructive remote cleanup requires its own approval. |
 

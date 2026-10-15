@@ -25,7 +25,8 @@ implementations and platform glue; `:core:exercisecontent` bundles app-owned cat
 
 - **Examples:** `settings.gradle.kts` (module list), `core/domain/build.gradle.kts` (no Android-only
   deps), `feature/logger/build.gradle.kts` (depends on `:core:domain`, `:core:userdata`,
-  `:core:navigation` only).
+  `:core:navigation` only). `feature/progress` is a standalone, pushed destination registered by the
+  shell — deliberately not one of the six bottom-bar tabs.
 - **Consistency:** high. No `feature/*` depends on another feature, or on `:core:database` /
   `:core:network`. `:shared` depends on everything but imports `:core:database`/`:core:network` only
   in DI wiring (`AndroidDatabaseModule.kt`, `IosDatabaseModule.kt`, `Koin.kt`, `DomainModule.kt`).
@@ -59,6 +60,50 @@ Domain declares repository and engine **interfaces**; implementations live in `:
   1. (M) Split the read/derived surface from the command surface once shared test fixtures exist
      (TS4-001); start by moving `loggedSets()` mapping into an override-aware mapper. See S1-006.
   2. (S) Make the legacy fallback override-aware (S2-003).
+
+The 0.8.0 backend adds `ExerciseProgressRepository` and
+`SqlDelightExerciseProgressRepository` as read-only, currently unwired ports/implementation.
+History is exercise-keyed and paginated newest-first by performed timestamp/id, resolving current
+effective names without requiring catalog presence. Each first page and each cursor continuation is
+a separate bound query over the `(exerciseId, performedAt, id)` index: the continuation splits the
+equal-time/id range from the strictly earlier/later-time range and concatenates them, so a deep page
+never re-scans the rows earlier pages already read. Progress replays the selected exercise through
+the requested instant, oldest-first in 256-row pages inside one read transaction off-main. Complete
+all-time comparisons are independent of chart bounds and history pagination. Cancellation is checked
+between pages. The invalidation query observes set-table changes without suppressing equal counts,
+so same-count corrections/replacement trigger replay. The request fixes its clock instant and offset;
+callers must replace it when those inputs change. `observeOccurrenceExerciseIds` is a distinct,
+occurrence-scoped live read: it returns the distinct exercises recorded against one occurrence in a
+stable id order, emits on every set write and reads no other occurrence, so the post-finish summary
+never scans the whole log. `ObserveOccurrenceRecordsUseCase` (domain) combines that membership with
+each exercise's `observeProgress(occurrenceId = …)` events and resolves each event's contributing set
+through `observeSet`; a membership change restarts the combination, a removed exercise retracts, an
+empty occurrence emits an empty list and a read failure propagates for retry. The chart range it
+passes is the single civil day of the supplied instant and is unused, because record events and their
+all-time baseline never depend on the range. No record cache, writer or new persistence is added;
+`:feature:logger`'s route-owned `WorkoutSummaryRecordsViewModel` consumes the use case read-only
+(its summary read and Finish/Finish-partially/Skip behaviour are unchanged), and `:feature:progress`
+and `:feature:logger` consume the shared use case without depending on each other.
+Migration `46.sqm` adds an exercise/performed-time/id index and `47.sqm` adds an
+occurrence/exercise index, both preserving every stored row and covered by migration plan tests.
+
+`ExerciseProgressCalculator` retains output records/tied holder ids, requested occurrence improvement
+events and chart-day accumulators, not the complete set history. Tied holder ids accumulate in a
+mutable holder and each `result()` copies them out, so a snapshot already returned to a caller never
+changes when more input arrives; this keeps a long tie population linear rather than quadratic.
+Output cardinality still depends on
+distinct record keys/ties; this is not a constant-memory guarantee. Records describe logged work,
+not technique verification or target completion. First observations are baselines, strict later
+improvements are events and equal timestamps share the prior baseline. Typed load kinds remain
+separate, legacy load records are excluded, manual PRs are untouched and e1RM uses positive external
+loads at 1–15 reps with the unadjusted Epley formula. Warm-ups/future work do not aggregate. Chart
+volume counts recorded external kg × reps without unilateral doubling or inferred body mass; an
+absent external contribution is null, while an explicit zero contribution is zero. Civil-day bounds
+are inclusive with one caller-supplied fixed offset, not historical DST reconstruction.
+
+Query-plan regression tests cover fresh/migrated schemas using the exercise/time/id index without
+a full-log scan or temporary sort. Occurrence-scoped summary record integration is implemented in
+C5; combined-release integration and formal review remain separate chunks.
 
 ### 1.3 Feature modules with explicit static aggregation
 

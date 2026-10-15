@@ -54,6 +54,14 @@ val loggerModule: Module = module {
     }
     viewModel { OccurrenceReplacementViewModel(get(), get()) }
     viewModel {
+        WorkoutSummaryRecordsViewModel(
+            observeOccurrenceRecords = get(),
+            exerciseCatalog = get(),
+            weightUnitRepository = get(),
+            timeProvider = get()
+        )
+    }
+    viewModel {
         WorkoutHistoryViewModel(
             historyRepository = get(),
             exerciseNoteRepository = get(),

@@ -59,6 +59,7 @@ import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutSummaryUseCase
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
+import com.hydrafit.app.core.domain.workout.ObserveOccurrenceRecordsUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.SessionConfig
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
@@ -131,6 +132,7 @@ val domainModule: Module = module {
     singleOf(::StartWorkoutSessionUseCase)
     singleOf(::EndWorkoutSessionUseCase)
     singleOf(::ObserveOpenWorkoutSessionUseCase)
+    singleOf(::ObserveOccurrenceRecordsUseCase)
     single { ConvertPlanToTemplateUseCase() }
     singleOf(::SaveRoutineTemplateUseCase)
     singleOf(::DuplicateRoutineTemplateUseCase)

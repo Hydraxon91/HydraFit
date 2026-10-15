@@ -10,6 +10,11 @@
 
 ## Session rules (apply to every task)
 
+The explicitly activated Continuous Multi-Release Execution workflow below is
+the sole scoped exception to ordinary Git delegation, main-agent/Plan-mode review
+ownership, separately requested checkpoints and per-chunk continuation pauses.
+All other gates remain in force, including harness restrictions.
+
 - **Subagent brief contract:** children start with fresh context; do not assume
   they know the conversation or infer authorization from tool permissions. Give
   each delegation, including continuations and corrections, a concise structured
@@ -214,6 +219,10 @@ An approved work chunk pre-authorizes only the specific actions it enumerates; t
 
 ## Approved Work Chunks (Batched Execution)
 
+For explicitly invoked continuous multi-release execution, the bounded exception
+below governs review mode, continuation, mechanical corrections and direct Git
+ownership. Otherwise the ordinary chunk and review rules remain unchanged.
+
 The user may approve a **work chunk**: an ordered, explicitly listed set of steps (from `PLANS.md` or stated in chat). A chunk replaces per-step check-ins with a single end-of-chunk review.
 
 While executing an approved chunk:
@@ -228,6 +237,92 @@ While executing an approved chunk:
 **Covered by an approved chunk** (when enumerated): creating/editing files, creating modules and registering them in `settings.gradle.kts`, and running builds/tests.
 
 **Still individually gated, even inside a chunk:** file deletions, large refactors, dependency additions/upgrades/downgrades, new `local.properties`/`BuildConfig`/secret keys, CI/CD or signing changes, `git push`, and anything not listed in the chunk.
+
+## Continuous Multi-Release Execution (Explicit Opt-In)
+
+**Short activation:** `/batch <versions> --budget <duration>` or plain
+`batch: <versions>, budget <duration>` applies the standing defaults in
+`.opencode/commands/batch.md` unless explicitly overridden. For example,
+`/batch 0.8.1-0.8.3 --budget 60m` covers those three publications in order. For plain language,
+read that file before acting. State resolved scopes, owners, budget and report
+paths; proceed without another confirmation when existing approved contracts and
+those defaults suffice. Ask only for missing decisions or approvals. Neither
+trigger switches the user's mode/model or activates on its own installation.
+The batch ends at implemented, verified, independently reviewed and committed;
+publication waits for one explicit user approval of the enumerated publication
+sequence for all completed releases together, not a pause after each release.
+
+This workflow is available only when the user explicitly requests it for named,
+ordered releases and approves their scopes, implementation owners, acceptance
+criteria, verification requirements and read-only review checkpoints. Approving
+this policy or a roadmap grouping does not activate it. Resolve missing behavioral
+decisions before starting; an open-ended request to finish the roadmap is not a
+settled implementation contract. Set a bounded execution/retry budget and identify
+any approved review-report paths before starting.
+
+- **Sequence:** implement each approved chunk → verify its applicable checks →
+  obtain independent read-only review at each approved checkpoint → perform only
+  pre-authorized mechanical corrections → re-verify → obtain targeted reviewer
+  closure → continue to the next named release. Report release results as they
+  complete, without routine approval pauses. Do not skip small implementation
+  steps or combine release acceptance checks merely to reduce interruptions.
+- **Review-mode exception:** the parent may remain in Build Mode while a separate
+  read-only reviewer agent performs the requested reviews and targeted closure
+  under `docs/review-discipline.md` and `docs/post-execution-review.md`. The initial
+  invocation explicitly requests these checkpoints; no fresh review request or
+  manual Plan/Build switch is needed for each one. Use a separate `general` agent
+  as reviewer unless an applicable read-only reviewer agent is available. The
+  implementation agent must not issue its own review verdict. The parent owns
+  scope, evidence consolidation and continuation decisions, not a substitute
+  self-review. This is the scoped exception to the normal main-agent/Plan-mode
+  review requirements, not permission to edit during a review.
+- **Reviewer isolation:** follow the subagent brief contract, naming exact base,
+  revision, paths, approved behavior, verification artifacts, exclusions and
+  budget. Finish implementation/Git writes before review; make no competing writes
+  during review. The reviewer inspects actual source, consumers, tests and evidence,
+  returns a verdict and finding classifications, and must not edit, commit, push
+  or perform state-mutating verification. Record approved review documentation
+  only after the read-only checkpoint ends. One full-range review and the existing
+  bounded closure/reopen rules still apply; an incomplete review prevents progress.
+- **Mechanical corrections:** the invocation may pre-authorize localized,
+  evidence-backed corrections that restore already-approved behavior within the
+  named release paths, including regression tests and required living-doc updates.
+  Classify and record each finding, exact fix scope, owner and required checks
+  before editing. Previously approved implementation ownership remains in force;
+  switching owners needs approval. This replaces only the repeated fix-approval
+  pause for that pre-authorized category, not the Fix-Classification Gate.
+  Unspecified behavior, design decisions, scope expansion and individually gated
+  actions still require the user. No blanket approval to fix everything found.
+- **Direct Git ownership:** in this workflow the main agent performs authorized
+  Git operations directly, rather than delegating them to `git-ops`, to avoid
+  delegation-specific permission interruptions. Serialize Git with all workers.
+  Follow the Commit Discipline table, exact-path staging and post-push CI rules;
+  this exception changes the operator, not authorization. Pushes still need
+  separate approval; merges, tags and publication retain their applicable gates.
+  Missing permissions remain blockers: never bypass a prompt or tool restriction.
+- **Publication boundary:** continue through the approved implementation list
+  without publishing between releases. At the end, report each candidate revision,
+  review verdict, verification evidence and limits, then request one explicit user
+  approval of the proposed publication sequence for all completed releases. Before
+  that approval, do not push, open PRs, merge, tag, build/upload release artifacts
+  or run publication workflows; required debug builds and non-publishing checks
+  remain allowed. One approval can cover the exact enumerated operations across
+  those releases, including pushes; changes to scope/revisions or uncovered gates
+  require new approval. This does not waive CI monitoring, artifact checks or
+  failure stops: publish in dependency order and stop before subsequent releases
+  if a step fails. A batch invocation alone never authorizes publication.
+- **Stop conditions:** stop for a design decision, missing approval/permission,
+  unexpected writes, unsafe data effects, unresolved required review findings,
+  unavailable required verification, exhausted agreed budget or the existing
+  builder failure limit. Only pre-authorized corrections may proceed from a
+  rejected checkpoint; do not advance to the next release until the reviewed
+  revision and required verification are accepted by the reviewer. Report the
+  completed releases, evidence, remaining work and decision needed; do not force
+  success or silently omit scope. Do not start releases outside the approved list.
+- **Harness limits:** this policy cannot override enforced Plan-mode restrictions,
+  tool permissions or user-selected models/modes. The agent cannot switch the
+  user's mode/model itself. If a harness restriction prevents execution or review,
+  stop and ask; do not delegate to evade it.
 
 ## External Infrastructure & Integration Locks
 
@@ -329,6 +424,11 @@ clarify it before starting.
 bounded post-execution review) in Plan Mode. If the session is in Build Mode,
 stop and ask the user to switch to Plan Mode before reviewing; an approved
 implementation chunk does not waive this requirement.
+
+The sole scoped exception is an explicitly activated **Continuous Multi-Release
+Execution** workflow above: its independent read-only reviewer checkpoints may
+run while the parent remains in Build Mode. Its pre-authorized mechanical
+corrections and continuation rules apply only within the approved release list.
 
 **Verification is not approval.** A builder may verify its own fixes, but begin
 the bounded review only when the user requests it and Plan Mode is active.

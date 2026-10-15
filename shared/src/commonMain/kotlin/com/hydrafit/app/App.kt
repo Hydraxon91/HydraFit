@@ -40,6 +40,7 @@ import androidx.navigation.compose.rememberNavController
 import com.hydrafit.app.core.domain.startup.StartupReadiness
 import com.hydrafit.app.core.navigation.AppTab
 import com.hydrafit.app.core.navigation.LocalAppTabNavigator
+import com.hydrafit.app.core.navigation.LocalProgressNavigator
 import com.hydrafit.app.core.navigation.LocalSetupNavigator
 import com.hydrafit.app.core.navigation.appTabForRequest
 import com.hydrafit.app.core.navigation.externalRequestNeedsTabChange
@@ -52,6 +53,8 @@ import com.hydrafit.app.feature.onboarding.OnboardingStartupEntry
 import com.hydrafit.app.feature.onboarding.OnboardingStartupGate
 import com.hydrafit.app.feature.onboarding.onboardingGraph
 import com.hydrafit.app.feature.onboarding.onboardingRevisitRoute
+import com.hydrafit.app.feature.progress.progressGraph
+import com.hydrafit.app.feature.progress.progressRoute
 import com.hydrafit.app.feature.routines.routinesDestination
 import com.hydrafit.app.feature.settings.settingsDestination
 import com.hydrafit.app.feature.splitbuilder.splitBuilderDestination
@@ -121,6 +124,18 @@ private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Un
     val closeSetup: () -> Unit = {
         if (!navController.popBackStack()) openTab(AppTab.EQUIPMENT)
     }
+    // Progress is a standalone, pushed destination: the shell owns its route, so the Logger offers
+    // the entry without importing the feature. Entering pushes over the Log graph (drafts survive);
+    // leaving pops back to it.
+    val openProgress: () -> Unit = {
+        navController.navigate(progressRoute) {
+            launchSingleTop = true
+            restoreState = false
+        }
+    }
+    val closeProgress: () -> Unit = {
+        if (!navController.popBackStack()) openTab(AppTab.LOG)
+    }
     // A notification tap names one tab and nothing else; the shell resolves it once the startup gate
     // has run, and a request for the tab already on screen changes nothing.
     val consumeTabRequest by rememberUpdatedState(onTabRequestConsumed)
@@ -181,7 +196,8 @@ private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Un
     ) { innerPadding ->
         CompositionLocalProvider(
             LocalAppTabNavigator provides openTab,
-            LocalSetupNavigator provides openSetup
+            LocalSetupNavigator provides openSetup,
+            LocalProgressNavigator provides openProgress
         ) {
             NavHost(
                 navController = navController,
@@ -191,6 +207,8 @@ private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Un
                 destinations.forEach { destination -> destination.graph(navController)(this) }
                 // Setup registers its own routes; it is not a seventh tab entry.
                 onboardingGraph(navController = navController, onClose = closeSetup)
+                // Progress is a standalone, pushed destination; it is not a seventh tab entry.
+                progressGraph(navController = navController, onClose = closeProgress)
             }
             // Composed outside the nav host so its ViewModel owner matches the startup gate's.
             OnboardingStartupEntry(navController = navController)

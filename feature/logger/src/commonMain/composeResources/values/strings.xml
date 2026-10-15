@@ -166,6 +166,7 @@
     <string name="logger_session_note_failed">Could not save session note. Keep your edits and try again.</string>
     <string name="logger_session_note_load_failed">Could not load session note. Tap to retry.</string>
     <string name="logger_history_open">Workout history</string>
+    <string name="logger_progress_open">Exercise progress</string>
     <string name="logger_history_title">Workout history</string>
     <string name="logger_history_back">Back</string>
     <string name="logger_history_search_label">Search notes and exercise names</string>
@@ -239,6 +240,16 @@
     <string name="logger_summary_session_line">Started %1$s, finished %2$s</string>
     <string name="logger_summary_session_open">Started %1$s</string>
     <string name="logger_summary_note_none">No session note</string>
+    <string name="logger_summary_records_title">Improvements</string>
+    <string name="logger_summary_records_loading">Checking for improvements…</string>
+    <string name="logger_summary_records_empty">No new records in this workout.</string>
+    <string name="logger_summary_records_failed">Couldn\'t check for improvements.</string>
+    <string name="logger_summary_records_retry">Retry</string>
+    <string name="logger_summary_records_load_at_reps">%1$s for %2$d reps</string>
+    <string name="logger_summary_records_reps_at_load">%1$d reps at %2$s</string>
+    <string name="logger_summary_records_estimate">%1$s estimated 1RM</string>
+    <string name="logger_summary_records_estimate_from">from %1$d reps at %2$s</string>
+    <string name="logger_summary_records_partial">Partial workout: these improvements describe the sets you recorded, not a completed prescription.</string>
     <string name="logger_warmup_guidance_title">Warm-up</string>
     <string name="logger_warmup_guidance_note">Optional, and only a starting point. Adjust, skip or hide anything that does not help.</string>
     <string name="logger_warmup_guidance_preparation">Preparation</string>

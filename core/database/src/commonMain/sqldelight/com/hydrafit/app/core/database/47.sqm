@@ -1,0 +1,3 @@
+-- The occurrence-scoped live exercise-id read otherwise scans the whole set index on every set
+-- write while the post-finish summary is open. The composite order also serves DISTINCT/ORDER BY.
+CREATE INDEX workoutSet_occurrenceId_exerciseId ON workoutSet(occurrenceId, exerciseId);

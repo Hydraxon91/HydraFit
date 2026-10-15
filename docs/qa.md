@@ -12,6 +12,145 @@ Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
 
+## 0.8.0 C1–C3 backend evidence — 2026-10-15
+
+- Baseline `a34b6cca`; main-agent implementation. Approved descriptive-record contract and
+  hand-calculated fixture are in `PLANS.md` C1–C3. No emulator/phone interaction.
+- Full Tier A command passed with the 600-second Perl wrapper: `testAndroidHostTest
+  :core:database:verifySqlDelightMigration ktlintCheck :androidApp:assembleDebug
+  :shared:compileKotlinIosSimulatorArm64 :core:network:compileKotlinIosSimulatorArm64 --continue`.
+  Final log: `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/hydrafit-080-c123-final.log`.
+  `BUILD SUCCESSFUL`; 1,801 host tests, no failures/errors/skips (domain 639, database 373).
+- New domain tests cover hand-calculated series, eligibility/null/zero, ties/equal timestamps,
+  all-time scope independent of chart bounds, future exclusion, negative-epoch fixed-offset days,
+  sparse history, corrected/deleted winners and request/order validation.
+- Repository tests cover 600 tied-time rows across history/replay pages, real repository writes,
+  time moves/deletion, same-count correction/replacement invalidation and effective/missing names.
+  Initial missing-catalog failure was a fixture error: built-in deletion is guarded. The corrected
+  fixture creates a custom exercise; the production deletion guard is unchanged. Formatting errors
+  are resolved; the complete final matrix is green.
+- Approved migration `46.sqm` adds `(exerciseId, performedAt, id)` without rewriting rows.
+  `ExerciseProgressIndexMigrationTest` covers v46→v47 preservation and fresh/migrated query plans:
+  exercise-keyed search with no full-log scan or temporary ordering B-tree. The existing v1→current
+  suite and SQLDelight migration verifier also pass. This is host query-plan evidence, not device
+  performance measurement or a constant-time all-history replay guarantee.
+- Replacement coverage uses a restore-shaped transaction, not the complete backup restore service.
+  Full portability/producer-to-UI integration remains C6 work. No new Koin bindings or UI were added;
+  UI/summary integration, emulator acceptance and separately requested formal review remain pending.
+
+## 0.8.0 R080-01/02 corrective verification — 2026-10-15
+
+- Coder correction delta starts at `abcc0fef`; concurrent user workflow-only commit `e8d35e32`
+  changes no implementation target and is preserved. Parent checked the eight-file allowed scope.
+- `:core:domain:testAndroidHostTest`, `:core:database:testAndroidHostTest`, `ktlintCheck` and
+  `:androidApp:assembleDebug` passed. Logs: the approved temporary directory's `coder-r080/`
+  (`domain-test.log`, `database-test.log`, `ktlint.log`, `tests-and-assemble.log`). New tests cover
+  negative/tied timestamps, deep replay pages, detached result snapshots and 5,000 tied holders.
+- Parent repeated the synthetic 20,000-row SQLite VM-step probe using the actual corrected SQL:
+  two bounded continuation queries returned 256 rows in 3,667 steps at cursor 0 and 3,644 steps
+  at cursors 10,000 and 19,000. Before correction the latter page took 156,382 steps. This is host
+  query-work evidence, not emulator timing. Structural plan assertions cover all six paging shapes.
+- The immutable public results are preserved while private tie accumulators append in place.
+  These are builder verification results, not reviewer closure. Full batch matrix follows C4/C5.
+- Read-only emulator preflight found `emulator-5554` idle on Equipment, with no visible dialog or
+  keyboard. No navigation, deployment or persisted write occurred; Logger state is not yet verified.
+
+## 0.8.0 C4–C6 feature verification — 2026-10-15
+
+- Scope: C4 Progress module and C5 workout-summary record integration (coder owner), plus C6
+  downstream integration test, the bounded Maestro flow and the full candidate gate (main agent).
+  C5 stopped once for a brief path error (a nonexistent logger verification test); resolved by
+  keeping logger-module Koin verification in `shared/.../KoinModulesVerificationTest.kt`. The new
+  occurrence-id seam broke two C4 test doubles; the coder added one override each under an approved
+  mechanical path extension. Parent verification found a live-first-page/paging race in
+  `ProgressViewModel`; the correction uses a separate paging generation with controlled-suspension
+  regression tests.
+- Candidate gate after the C6 additions passed: `testAndroidHostTest
+  :core:database:verifySqlDelightMigration ktlintCheck :androidApp:assembleDebug
+  :shared:compileKotlinIosSimulatorArm64 :core:network:compileKotlinIosSimulatorArm64`
+  (`BUILD SUCCESSFUL`; log `.../opencode/c6-matrix2.log`). New since the C4/C5 module runs:
+  `ExerciseProgressRecordsIntegrationTest` 3/3 (database 378→381 tests). Coder-run module totals:
+  domain 650, logger 424, progress 16, shared 24; migration verifier and both iOS compiles green.
+- New downstream test drives the real production writers (`LogWorkoutSetUseCase`,
+  `DeleteWorkoutSetUseCase`, `CorrectWorkoutSetTimeUseCase`) and the summary consumer
+  (`ObserveOccurrenceRecordsUseCase`) over the SQLDelight repositories: session-stamp invariant,
+  chronological improvements, a time correction that flips which set improves, deletion promoting
+  the remaining set, restore-shaped replacement rebuilding results, and occurrence-link retraction.
+- Emulator acceptance on `emulator-5554` (debug install `-r`, app data preserved): the new
+  `logger-progress-browser.yaml` first attempt failed at step 13 because the tap selector also
+  matched the search field echoing the typed name (flow bug, not app behavior; log
+  `.../opencode/080-c6-progress-flow.log`). With the strict-prefix `SEARCH_TERM` fix the rerun
+  passed 47/47 (`.../080-c6-progress-flow2.log`). Viewed screenshots: `progress-top` (chips,
+  `Trend (last 28)`, chart canvas and day table `2026-10-14: 4 working sets, 18 reps, external
+  volume 1340 kg`; no clipped rows) and `progress-history` (records with `Show a supporting set`,
+  history rows `6 reps · 85 kg` down to `5 reps · 60 kg`). The six-tab bar is hidden on Progress;
+  the screen Back and the system back both return to the Logger with the Log tab selected.
+- Draft preservation: a manual Back Squat draft typed as Reps 7/Weight 42 kg survived
+  Progress push/pop (asserted exact values after Back) and was restored to the 6/85 baseline.
+  No persisted write occurred. One literal `Log workout` assertion failed in that ad-hoc check
+  because the Logger list had been scrolled to the manual form (title above the viewport), not an
+  app failure; the destination was verified by hierarchy and screenshot. Artifacts:
+  `.../080-c6-draft-check/`. Residual view-model-only state (Back Squat selected, list scrolled)
+  is noted and is not persisted.
+- The C5 summary records section is emulator-unverified: the device has no active session or
+  workout occurrence, and the summary route exists only after Finish; creating and finishing an
+  occurrence would mutate planner/schedule state, so no write fixture was made. Host coverage:
+  `ObserveOccurrenceRecordsUseCaseTest` 9, `WorkoutSummaryRecordsViewModelTest` 5,
+  `WorkoutSummaryScreenTest` 5, plus shared runtime resolution of the records ViewModel and use case.
+- Cross-cutting UI: default font/light theme text was not clipped in the viewed screenshots.
+  Larger font, dark theme, locale, TalkBack, the `Load more` page (>30 recorded sets) and the full
+  backup-restore-service portability remain unverified; replacement coverage uses a restore-shaped
+  transaction. This is implementation/integration verification, not the separately requested
+  formal review.
+
+## 0.8.0 review-fix round R080-03…08 — 2026-10-15
+
+- Origin: the 2026-10-15 post-execution review of `be2d9721..56917e32` returned REJECTED with
+  findings R080-03 (Progress resume never wired), R080-04 (occurrence read scanned the set index),
+  R080-05 (dead resources, canvas without its metric legend), R080-06 (edge-clipped chart marks),
+  R080-07 (tied supporting sets: unbounded identical buttons, detail far from the tapped record,
+  duplicate "Back" label) and R080-08 (C4 emulator cross-cutting checks unevidenced). R080-01/02
+  remained closed. Owners: coder for R080-03/05/06/07 (feature:progress), main agent for R080-04,
+  the flow/evidence updates and R080-08 orchestration, with bounded emulator runs by the UI runner.
+- R080-03: `ProgressRoute` wires `LifecycleEventEffect(ON_RESUME)` to `onResume()`; a VM test
+  advances a mutable clock and asserts the re-issued request's `nowMillis` and day window move to
+  the new day (27-day window kept).
+- R080-04: migration `47.sqm` adds `workoutSet_occurrenceId_exerciseId` on
+  `(occurrenceId, exerciseId)`, mirrored in the fresh schema. `WorkoutSetOccurrenceIndexMigrationTest`
+  (2 tests) covers preservation and the plan `SEARCH … (occurrenceId=?)` with no scan and no
+  temporary B-tree; the chain verifier passes. Before the fix the live read was
+  `SCAN workoutSet USING INDEX workoutSet_exerciseId_performedAt_id`.
+- R080-05: the legend renders under the caption as "External load-volume per day" (the unit was
+  dropped because the canvas is positional and the day table carries display units); the six
+  unreferenced keys (`nav_label`, `progress_table_day`, `progress_charts_loading`,
+  `progress_chart_load_legend`, `progress_chart_no_positive_estimate`, `progress_history_open_set`)
+  are deleted.
+- R080-06: mark placement moved into pure `progressMarkX`/`progressMarkY` with edge and value
+  tests; no mark is centred on the canvas boundary.
+- R080-07: one action per record ("Show a supporting set", or "(%1$d of %2$d)" when a record has
+  tied holders); the resolved detail renders inline under the tapped record with
+  `Previous tied set`/`Next tied set` (disabled at the ends) and a `Hide detail` close; the VM
+  keeps the record key beside the set id and moves placement without re-reading on a same-id
+  re-tap.
+- Verification: `:feature:progress:testAndroidHostTest` 12+7+1, `:core:database:testAndroidHostTest`
+  (new migration test 2/2), the full candidate gate
+  (`testAndroidHostTest`, `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug`, both iOS compiles) green; logs under the approved temporary
+  directory (`r080-fixes-matrix.log`, `r080-04-db.log`). The fixed debug build was installed with
+  `-r` (app data preserved).
+- R080-08 emulator round on `emulator-5554` with the updated 48-step flow: default kg 48/48 with
+  viewed screenshots (inline detail confirmed directly above the next record line); dark theme +
+  font 1.3 48/48 clean, with `cmd uimode night` and `font_scale` restored and read back; a
+  temporary long-name custom exercise rendered unclipped (scratch flow 22/22) and was deleted (net
+  catalog change none). The lb run first failed on the flow's own kg-literal anchor while the app
+  rendered lb correctly (60→132.3 lb, 1340→2954.2 lb); the anchor was made unit-agnostic, the lb
+  rerun passed 48/48 and kg was re-validated 48/48, with the unit restored to kg. Artifacts:
+  `080-r080-flow*`, `080-r080-dark*`, `080-r080-longname*`, `080-r080-lb2*`, `080-r080-kg2*`.
+- Limits: alternating locale, TalkBack, rotation, `Load more` paging and the multi-holder stepper's
+  on-screen path (single-holder fixture; stepper covered by state tests) remain unverified; the C5
+  summary records section stays emulator-unseen as previously recorded. These are
+  builder/integration results; the separately requested targeted closure review remains pending.
+
 ## Cross-cutting UI checks (for changed flows)
 - Text remains readable at the supported larger font sizes; controls and content are not clipped.
 - Meaningful controls have accessible labels and states; status and metrics are not conveyed by color alone.
@@ -463,7 +602,7 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - **2026-10-11 user-reported manual QA:** user reports the requested replacement edge-case and Android rest-alert cancellation/context checks all worked. No step-by-step observations, screenshots, logs or exact scenarios were supplied, so this is recorded as user-reported acceptance rather than independently evidenced verification. Stale-dialog race coverage is not claimed unless the dialog was held open while context changed; posting-race interleavings remain unverified. User reported cleanup complete. No further emulator inspection or data audit was performed.
 - **Cross-cutting layout:** each feature screen paints edge-to-edge inside the shell `Scaffold`, which supplies the bottom tab bar and system-bar insets. Per-screen `safeContentPadding()` that duplicated those insets is gone, so no empty band appears above the tab bar. The shell leaves IME resizing to window insets rather than adding a second IME-height pad to the `NavHost`; on the verified Android emulator the focused content reaches the keyboard while the bottom bar remains anchored behind it. Earlier checks covered the Equipment title at a single inset and Logger content ending at the keyboard edge (`/tmp/hydrafit-060-inset-nokb.png`, `/tmp/hydrafit-060-inset-kb2.png`). A 2026-10-11 regression reproduced an oversized blank gap above the keyboard in the Routines editor before the shell fix (`/tmp/hydrafit-060-qa-keyboard-gap-current.png`). After removing the duplicate `NavHost.imePadding()`, the focused routine name plus Save/Cancel remained semantically visible and the screenshot showed no large gap (`/tmp/hydrafit-keyboard-fix-result.png`). The unsaved QA draft was canceled; no routine was persisted. This is a focused emulator check, not broad device/IME coverage.
 - **Landscape cutout and orientation (2026-10-11, `emulator-5554` API 37, debug):** with the `double` cutout overlay enabled in landscape, nothing was clipped and no tab label was obscured, so no app-level inset change was needed. The shell already clears the cutout because Material3's Android actual is `systemBarsForVisualComponents = systemBars.union(displayCutout)` (`SystemBarsDefaultInsets.android.kt`), which backs both `ScaffoldDefaults.contentWindowInsets` and `NavigationBarDefaults.windowInsets`; against the device `InsetsState`, the "New routine" leading edge moved by exactly the 84px left `displayCutout` inset (42→126px) and the outer tab labels moved inward symmetrically. The cutout overlay was reverted.
-  Phones are now portrait-locked (`values/` = portrait, `values-sw600dp/` = unspecified; iPhone portrait, iPad free). On the phone profile (smallestWidth 411dp) the app stayed `1080x2400` portrait with the device at `user_rotation=1` (`/tmp/f3-portrait-locked.png`). The large-screen branch was checked by overriding `wm size 1800x2880` (smallestWidth 685dp) with `user_rotation=1`: the app followed to `2880x1800` landscape (`/tmp/f3-sw600dp-landscape.png`). `wm size` and `user_rotation` were then reset and the app is portrait again (`/tmp/f3-restored-portrait.png`). The fixed two-row bottom bar is unchanged; adaptive/rail layout on large screens is scheduled as UX-01 (0.13.0).
+  Phones are now portrait-locked (`values/` = portrait, `values-sw600dp/` = unspecified; iPhone portrait, iPad free). On the phone profile (smallestWidth 411dp) the app stayed `1080x2400` portrait with the device at `user_rotation=1` (`/tmp/f3-portrait-locked.png`). The large-screen branch was checked by overriding `wm size 1800x2880` (smallestWidth 685dp) with `user_rotation=1`: the app followed to `2880x1800` landscape (`/tmp/f3-sw600dp-landscape.png`). `wm size` and `user_rotation` were then reset and the app is portrait again (`/tmp/f3-restored-portrait.png`). The fixed two-row bottom bar is unchanged; adaptive/rail layout on large screens is scheduled as UX-01 (0.13.1).
 - API key: save, shows "configured", clear.
 - Model management: import/remove, target (NPU vs CPU/GPU) display, terms link.
 
@@ -1063,8 +1202,8 @@ uncommitted chip-wrap fix. C6 is **not** complete: the checks listed at the end 
 - TalkBack: installed and enabled for a reading pass; the setup screen rendered normally and its
   controls expose labels and roles in the hierarchy. Spoken output and touch exploration cannot be
   verified this way, and the accessibility settings were restored afterwards.
-- Landscape/rotation: not applicable to this release. `PLANS.md` schedules tablet layouts at 0.13.3
-  and foldable at 0.13.4, and no activity declares an orientation attribute, so nothing is claimed
+- Landscape/rotation: not applicable to this release. `PLANS.md` schedules tablet and foldable
+  layouts at 0.13.1, and no activity declares an orientation attribute, so nothing is claimed
   here for wide or rotated layouts. The emulator's display did not rotate under the usual settings.
 - Observation: dismissing a revisit with `Skip setup` rewrote the stored disposition from `COMPLETED`
   to `SKIPPED`. Nothing distinguishes the two today — both suppress automatic reopening — so this is
@@ -1077,7 +1216,7 @@ uncommitted chip-wrap fix. C6 is **not** complete: the checks listed at the end 
   - With the database made unreadable, a cold launch crashes: `SQLiteCantOpenDatabaseException` escapes
     `DatabaseStartupMaintenance` (via `ApplyStagedBackupUseCase.staged()` →
     `SqlDelightBackupStagingRepository`). `DatabaseStartupMaintenance` documents leaving failures
-    uncaught on purpose, and `PLANS.md` schedules recovery states at 0.13.7, so this is a recorded
+    uncaught on purpose, and `PLANS.md` schedules recovery states at 0.13.3, so this is a recorded
     tradeoff rather than a regression — but it means a storage failure has no user-facing recovery.
   - With journaling blocked while the app was running, tapping `Log set` on the manual form crashed the
     process: `SQLiteException: cannot rollback - no transaction is active` raised from
@@ -1114,7 +1253,7 @@ uncommitted chip-wrap fix. C6 is **not** complete: the checks listed at the end 
   - Cleanup verified directory 771 and database/journal 660. During the failure the journal mode
     changed back to 660 without a runner chmod; its cause was not established. The failure/no-insert
     and subsequent single-insert recovery were observed directly, not inferred from modes alone.
-  - Limits: startup recovery remains deliberately deferred to 0.13.7. This check did not simulate
+  - Limits: startup recovery remains deliberately deferred to 0.13.3. This check did not simulate
     actual disk-full/corruption, exercise offline writes, or repeat dark/font/locale/TalkBack variants.
     Session creation and set insertion are not made atomic by this presentation-only corrective.
 - Review corrections R076LR-01/02/03 (2026-10-14, `480c1c21` plus corrective changes):
@@ -1260,7 +1399,7 @@ dependency, configuration, CI, signing or schema change.
   revisit, offline rendering, first-log, PR shortlist, activation weekday wrapping, and the bounded
   backup round trip; larger-font (`1.3`), dark and `de-DE` fallback were exercised on the onboarding
   steps during C4/C5. Still unverified and not claimed here: TalkBack spoken output and touch
-  exploration, rotation/adaptive layouts (deferred to 0.13.3/0.13.4), a translated-language layout, a
+  exploration, rotation/adaptive layouts (deferred to 0.13.1), a translated-language layout, a
   legacy-device backup restore (no old file available; accepted for this slice), and the phone
   restore's exact build identity. The equipment-error branch has no reachable device trigger.
 - Publication, the annotated `v0.7.6` tag on the PR merge commit, CI monitoring and offline

@@ -20,6 +20,24 @@ Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseExclusion.sq`, `ExerciseNot
 `PlanTargetExplanationState.sq`, `EntryTargetExplanation.sq`, `RoutineTemplate.sq`,
 `TrainingSchedule.sq`, `UserEquipment.sq`, `WorkoutLog.sq`, `WorkoutSession.sq`, `SessionNote.sq` and
 `WorkoutHistory.sq`.
+
+`ExerciseProgress.sq` is query-only: exercise-keyed history pages include current effective names
+through left joins, and replay pages preserve timestamp/id order across 256-row batches. Each page is
+bound without an optional-cursor `OR` predicate: a first-page query plus two disjoint continuation
+reads (equal timestamp/id range, then strictly earlier/later time) that `SqlDelightExerciseProgressRepository`
+concatenates. That keeps every page a direct index seek instead of rescanning the prefix earlier pages
+already read. `SqlDelightExerciseProgressRepository` replays one exercise through the request instant
+in one off-main transaction, retaining derived outputs rather than all raw rows. Chart day bounds do not
+limit all-time record comparisons. The set-count query is an invalidation anchor, not a revision:
+do not apply `distinctUntilChanged` to its count, since correction/restore can keep counts unchanged.
+The repository is bound by `databaseModule` and consumed read-only by `:feature:progress` and the
+summary records section; it adds no stored cache. Migration `46.sqm` adds
+`workoutSet_exerciseId_performedAt_id` on `(exerciseId, performedAt, id)` for exercise-scoped
+paging and `47.sqm` adds `workoutSet_occurrenceId_exerciseId` on `(occurrenceId, exerciseId)` so the
+summary's live occurrence read seeks one occurrence instead of scanning the set index;
+`ExerciseProgressIndexMigrationTest` and `WorkoutSetOccurrenceIndexMigrationTest` cover preservation
+and indexed query plans for fresh/migrated schemas. The request fixes
+`nowMillis` and the UTC offset; future passage/offset changes require a new request from the caller.
 Query-only equipment identity repair (0.7.6 C6) adds custom-id movement and per-row equipment-reference
 updates in `Equipment.sq`, `Exercise.sq`, `ExerciseOverride.sq` and `TrainingSchedule.sq`.
 `SeedEquipmentCatalog` remaps legacy custom equipment on reserved ids transactionally before canonical
@@ -79,7 +97,7 @@ databases upgraded from an earlier version as well as any drift. `43.sqm` adds
 and group by `sessionId` and order one session's sets by `performedAt`, and without it each of those
 shapes planned a full table scan plus a temporary B-tree. `44.sqm` adds the singleton `setupState`
 and nullable `preferredWeekdays` rows. Fresh creation starts PENDING/WELCOME; migration starts
-RETURNING/WELCOME regardless of workout count. Current schema version is 45.
+RETURNING/WELCOME regardless of workout count. Current schema version is 47.
 Determine the
 next version from the current directory/generated Schema rather than copying this snapshot.
 

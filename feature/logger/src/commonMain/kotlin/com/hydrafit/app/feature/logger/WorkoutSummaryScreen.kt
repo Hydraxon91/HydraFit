@@ -76,9 +76,11 @@ internal fun workoutSummaryHistoryKey(summary: WorkoutSummary): WorkoutHistoryKe
 @Composable
 internal fun WorkoutSummaryRoute(
     screen: WorkoutSummaryScreen?,
+    records: WorkoutSummaryRecordsUiState,
     weightUnit: WeightUnit,
     utcOffsetMillis: Long,
     onRetry: () -> Unit,
+    onRecordsRetry: () -> Unit,
     onDone: () -> Unit,
     onViewInHistory: (WorkoutSummary) -> Unit,
     onEditSet: (Long, WorkoutSummarySet) -> Unit,
@@ -100,13 +102,20 @@ internal fun WorkoutSummaryRoute(
             }
             WorkoutSummaryScreen.Unavailable ->
                 Text(stringResource(Res.string.logger_summary_unavailable))
-            is WorkoutSummaryScreen.Ready -> WorkoutSummaryContent(
-                summary = screen.summary,
-                weightUnit = weightUnit,
-                utcOffsetMillis = utcOffsetMillis,
-                onViewInHistory = onViewInHistory,
-                onEditSet = { set -> onEditSet(screen.summary.occurrenceId, set) }
-            )
+            is WorkoutSummaryScreen.Ready -> {
+                WorkoutSummaryContent(
+                    summary = screen.summary,
+                    weightUnit = weightUnit,
+                    utcOffsetMillis = utcOffsetMillis,
+                    onViewInHistory = onViewInHistory,
+                    onEditSet = { set -> onEditSet(screen.summary.occurrenceId, set) }
+                )
+                WorkoutSummaryRecordsSection(
+                    state = records,
+                    partial = recordsDisclaimerApplies(screen.summary.status),
+                    onRetry = onRecordsRetry
+                )
+            }
         }
         // Every settled state can be left in-app; only the in-flight read cannot.
         when (screen) {

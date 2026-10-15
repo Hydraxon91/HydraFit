@@ -16,6 +16,7 @@ Composition files:
 | Feature `WorkoutLoggerModule.kt` | `loggerModule` |
 | Feature `SettingsModule.kt` | `settingsModule` |
 | Feature `OnboardingModule.kt` | `onboardingModule` (exported, aggregated by the shell; `OnboardingViewModel` + `OnboardingEntryViewModel`) |
+| Feature `progress/ProgressModule.kt` | `progressModule` (exported; one `ProgressViewModel`). Registered in the shell's aggregation separately from the six tab destinations; progress is a pushed, non-tab route. |
 | Platform `AndroidDatabaseModule.kt` / `IosDatabaseModule.kt` | Driver, clock, key store, local runtime adapters |
 
 Shell `Koin.kt` aggregates the modules and invokes catalog/equipment seeding
@@ -75,3 +76,21 @@ and scheduler; a runtime graph test resolves it. `loggerModule` owns the singlet
 Android receiver and root-mounted Logger presenter. The shared runtime graph test resolves both the
 coordinator and presentation singleton. No new platform binding or dependency is needed for this
 presentation state; lifecycle and Android notification behavior still require runtime acceptance.
+
+`databaseModule` binds `ExerciseProgressRepository` (`SqlDelightExerciseProgressRepository`), the
+read-only seam behind `:feature:progress`. It has no write path: `observeHistory` pages a bounded
+keyset, `observeProgress` replays bounded pages through `ExerciseProgressCalculator`,
+`observeOccurrenceExerciseIds` returns one occurrence's distinct recorded exercise ids live, and
+`observeSet` resolves one exercise-scoped set id. `progressModule` registers `ProgressViewModel`
+over that repository, the `ExerciseCatalog` and `WeightUnitRepository` ports plus `TimeProvider`;
+the shared graph test aggregates `progressModule` and resolves the ViewModel with fake ports and a
+test Main dispatcher, and `ProgressModuleVerificationTest` verifies it at the feature boundary.
+
+`domainModule` also registers `ObserveOccurrenceRecordsUseCase` (composing
+`observeOccurrenceExerciseIds`, `observeProgress` and `observeSet`), and `loggerModule` registers the
+route-owned `WorkoutSummaryRecordsViewModel` over it, the `ExerciseCatalog`, `WeightUnitRepository`
+and `TimeProvider`. The shared graph test verifies both: `allModulesResolve` statically covers the new
+use-case single and ViewModel, and `theWorkoutLoggerViewModelResolvesAtRuntime` resolves the use case
+and the records ViewModel with fake ports and a test Main dispatcher. There is no
+`WorkoutLoggerModuleVerificationTest`; the logger module has no host-test seam of its own, so its
+runtime coverage stays in the shared graph test.

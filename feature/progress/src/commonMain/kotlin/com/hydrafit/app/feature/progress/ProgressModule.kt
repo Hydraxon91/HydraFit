@@ -1,0 +1,16 @@
+package com.hydrafit.app.feature.progress
+
+import org.koin.core.module.Module
+import org.koin.core.module.dsl.viewModel
+import org.koin.dsl.module
+
+val progressModule: Module = module {
+    viewModel {
+        ProgressViewModel(
+            progressRepository = get(),
+            exerciseCatalog = get(),
+            weightUnitRepository = get(),
+            timeProvider = get()
+        )
+    }
+}

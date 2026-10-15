@@ -71,6 +71,21 @@ the seed backfills built-in capability.
 
 ### Exact weight and rep defaults
 
+0.8.0 descriptive progress uses `workout/ExerciseProgressCalculator.kt`, not planner-baseline
+calculations. It reuses unadjusted Epley with the existing 1–15-rep eligibility for positive typed
+external loads, without recency/sample thresholds, progression, manual floors or working-load
+rounding. Bodyweight/added comparisons are separate; legacy rows have no load-derived records.
+Warm-ups/future rows do not aggregate. First observations establish baselines, ties retain holder
+ids and strict improvements use earlier timestamps only. Requested occurrence events replay against
+all earlier exercise history, not today's maximum or a chart window. The post-finish summary (C5)
+reads those events through `workout/ObserveOccurrenceRecordsUseCase.kt`, which scopes membership to
+the occurrence's own recorded exercises (`ExerciseProgressRepository.observeOccurrenceExerciseIds`),
+restarts on a membership change, retracts a removed exercise and passes an unused single-day chart
+range so events stay independent of any displayed window. Missing quality self-report
+never means verified technique; partial workouts can have descriptive records without prescription
+success. Manual PR writes and all existing planner policy remain unchanged; broader LT-10 decisions
+remain open under the explicitly narrowed C1–C3 prerequisite in PLANS.md.
+
 Sources: domain `engine/OneRepMax.kt`, `SuggestedWeightConfig.kt`,
 `VolumeAwareReps.kt`, `TrainingGoal.kt`, and `ProgressionConfig.kt`.
 

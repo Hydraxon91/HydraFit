@@ -76,6 +76,7 @@ import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.WarmupAction
 import com.hydrafit.app.core.exercisecontent.ExerciseInstructionDialog
 import com.hydrafit.app.core.navigation.FeatureDestination
+import com.hydrafit.app.core.navigation.LocalProgressNavigator
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.focus_full_body
 import hydrafit.feature.logger.generated.resources.focus_legs
@@ -183,6 +184,7 @@ import hydrafit.feature.logger.generated.resources.logger_note_saved
 import hydrafit.feature.logger.generated.resources.logger_per_hand
 import hydrafit.feature.logger.generated.resources.logger_pick_time_title
 import hydrafit.feature.logger.generated.resources.logger_planned_today
+import hydrafit.feature.logger.generated.resources.logger_progress_open
 import hydrafit.feature.logger.generated.resources.logger_recent
 import hydrafit.feature.logger.generated.resources.logger_replace
 import hydrafit.feature.logger.generated.resources.logger_reps_label
@@ -271,24 +273,38 @@ fun NavGraphBuilder.loggerGraph(navController: NavController) {
     navigation(startDestination = loggerHomeRoute, route = loggerRoute) {
         composable(loggerHomeRoute) {
             val viewModel = sharedLoggerViewModel(navController) ?: return@composable
+            val openProgress = LocalProgressNavigator.current
             WorkoutLoggerRoute(
                 viewModel = viewModel,
                 onOpenHistory = { navController.navigate(historyGraphRoute) },
+                onOpenProgress = openProgress,
                 onOpenSummary = { navController.navigate(summaryRoute) }
             )
         }
         composable(summaryRoute) {
             val viewModel = sharedLoggerViewModel(navController) ?: return@composable
             val state by viewModel.state.collectAsStateWithLifecycle()
+            // The records section is route-owned: a new summary occurrence re-points it, and popping
+            // the route disposes the ViewModel with its observation.
+            val recordsViewModel: WorkoutSummaryRecordsViewModel = koinViewModel()
+            val recordsState by recordsViewModel.state.collectAsStateWithLifecycle()
+            val summaryOccurrenceId =
+                (state.summary as? WorkoutSummaryScreen.Ready)?.summary?.occurrenceId
+            LaunchedEffect(summaryOccurrenceId) {
+                recordsViewModel.onOccurrenceChanged(summaryOccurrenceId)
+            }
+            LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { recordsViewModel.onResume() }
             // The route exists only while a summary is open, so it must clear the state that opened
             // it whenever it leaves (Done, system Back or the history handoff). Without this, Back
             // pops the route while the state stays open and the Logger immediately reopens it.
             DisposableEffect(Unit) { onDispose { viewModel.onWorkoutSummaryShown() } }
             WorkoutSummaryRoute(
                 screen = state.summary,
+                records = recordsState,
                 weightUnit = state.weightUnit,
                 utcOffsetMillis = state.utcOffsetMillis,
                 onRetry = viewModel::retryWorkoutSummary,
+                onRecordsRetry = recordsViewModel::onRetry,
                 onDone = {
                     viewModel.onWorkoutSummaryShown()
                     navController.popBackStack()
@@ -330,6 +346,7 @@ fun WorkoutLoggerRoute(
     viewModel: WorkoutLoggerViewModel,
     replacementViewModel: OccurrenceReplacementViewModel = koinViewModel(),
     onOpenHistory: () -> Unit = {},
+    onOpenProgress: () -> Unit = {},
     onOpenSummary: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -426,6 +443,7 @@ fun WorkoutLoggerRoute(
         onSessionNoteCancel = viewModel::cancelSessionNote,
         onSessionNoteRetry = viewModel::retrySessionNoteLoad,
         onOpenHistory = onOpenHistory,
+        onOpenProgress = onOpenProgress,
         nowMillis = viewModel::currentTimeMillis,
         modifier = modifier
     )
@@ -525,6 +543,7 @@ fun WorkoutLoggerScreen(
     onSessionNoteCancel: () -> Unit,
     onSessionNoteRetry: () -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenProgress: () -> Unit,
     nowMillis: () -> Long,
     modifier: Modifier = Modifier
 ) {
@@ -562,6 +581,11 @@ fun WorkoutLoggerScreen(
         item {
             TextButton(onClick = onOpenHistory) {
                 Text(stringResource(Res.string.logger_history_open))
+            }
+        }
+        item {
+            TextButton(onClick = onOpenProgress) {
+                Text(stringResource(Res.string.logger_progress_open))
             }
         }
         item {

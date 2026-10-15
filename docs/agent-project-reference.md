@@ -113,6 +113,7 @@ HydraFit/
 │   ├── fatigueheatmap/     # Muscle Fatigue Heatmap UI + ViewModels
 │   ├── logger/             # Offline Workout Logger UI + ViewModels
 │   ├── routines/           # Manual routine authoring + training-block scheduling UI + ViewModels
+│   ├── progress/           # Standalone Exercise Progress: range charts, all-time records and read-only recorded history (pushed from the Logger, not a tab)
 │   ├── onboarding/         # Setup state machine, step editors and first-workout handoffs
 │   └── settings/           # Planner engine, API key, and on-device model settings UI + ViewModels
 └── .github/workflows/      # CI/CD pipeline definitions

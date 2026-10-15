@@ -17,6 +17,7 @@ import com.hydrafit.app.core.domain.setup.SetupWriteRepository
 import com.hydrafit.app.core.domain.startup.StartupReadiness
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.ExerciseNoteRepository
+import com.hydrafit.app.core.domain.workout.ExerciseProgressRepository
 import com.hydrafit.app.core.domain.workout.SessionNoteRepository
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryRepository
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
@@ -112,6 +113,7 @@ class DatabaseModuleVerificationTest {
             assertNotNull(koin.get<ExerciseNoteRepository>())
             assertNotNull(koin.get<SessionNoteRepository>())
             assertNotNull(koin.get<WorkoutHistoryRepository>())
+            assertNotNull(koin.get<ExerciseProgressRepository>())
             assertNotNull(koin.get<GuidedWorkoutPreferenceRepository>())
             assertNotNull(koin.get<SetupRepository>())
             assertNotNull(koin.get<SetupWriteRepository>())

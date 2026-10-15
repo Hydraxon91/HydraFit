@@ -6,6 +6,7 @@
 
 | Item | Status | Next action |
 | --- | --- | --- |
+| Accelerated release grouping | ADOPTED 2026-10-15 — versions assigned | [Combined-release grouping and version assignment](docs/roadmap.md#combined-release-grouping-and-version-assignment-adopted-2026-10-15): 27 publications total (`0.8.0`–`0.8.3`, `0.9.0`–`0.9.6`, `0.10.0`–`0.10.4`, `0.11.0`–`0.11.4`, `0.12.0`–`0.12.1`, `0.13.0`–`0.13.3`), then 1.0.0. Former slice numbers were renumbered on 2026-10-15; backlog ids (M1–M8, OF, LT, CAT, EX, QL, PYR, EQ) and immutable history keep their original numbering. All scope and verification gates preserved; `0.8.0` scope/implementation plan unchanged. Small implementation steps, capability suites, reusable fixtures and shared-boundary journeys remain required; split oversized bundles before implementation. Detailed implementation and ownership remain approval-gated. |
 | Product roadmap — M1–M8 | IN PROGRESS | 0.2.0–0.6.1 shipped; M1 selected scope done in 0.2.3. [Approved pre-1.0 roadmap](docs/roadmap.md): 0.7.x context → 0.8.x progress → 0.9.x equipment/data → 0.10.x progression → 0.11.x advanced metrics → 0.12.x optional AI → provisional 0.13.x final UX/design → 1.0. Smaller published feature releases approved 2026-10-11; each has its own bounded scope, verification and separately requested review. 0.7.0 scope and its durable decisions were approved 2026-10-11 (see the OF-03 section). 0.7.0 explanations, 0.7.1 notes/history, 0.7.2 summaries, 0.7.3 warm-up guidance (WU-01), 0.7.4 offline exercise instructions and 0.7.5 informational cautions are shipped. `v0.7.5` tags `7789d579` (PR #12), with green PR/main CI and signed Release run `38521713529`; the offline APK was verified as version 0.7.5/code 20 with matching digest and signature. Signed-release runtime remains unverified. Completed release detail is archived; all remaining work is pre-1.0 except iOS shipping/desktop; research remains evidence-gated. |
 | Oct 13 follow-up — pre-0.7.4 correctives | DONE | OCT13-01/02/03/04/07 implementation and PE-01..04 post-review follow-ups are complete; both the post-execution review and targeted closure review are approved. Logger host tests, `ktlintCheck`, `assembleDebug`, migration verification and both iOS compiles passed; closure test evidence is in `docs/qa.md` §13. OCT13-03/07 emulator acceptance remains user-reported. OCT13-05 broader notification integration stays in 0.7.7; OCT14-01 rest-alert timing corrective is approved before 0.7.6 C4. OCT13-06 expired-prompt dismissal and LT-10 progression policy remain separate/open. Topic branch push only; PR/merge and release publication are not included. |
 | 0.7.4 — offline exercise instructions | C0–C7 DONE — PUBLISHED as `v0.7.4` | Approved 17-entry dumbbell/machine-distinct batch; all text editorially accepted unchanged 2026-10-13. C1–C3 targeted closure approved at `3ecd3bca`; R074-05 editorial-status correction applied (`39c7ce8d`). C4/C5 entry points implemented with presentation-only state, tests and bounded flows; C6 verified Equipment/manual/planned/guided/custom-unavailable runtime, a `de-DE` English-fallback check, a font-1.3 longest-text no-clip check and the full candidate matrix, with font 1.3 light and dark user-verified and all temporary fixtures/settings restored. Bounded post-execution review over `3ecd3bca..7f80df47` returned **APPROVED** with no blocking findings; nits R074R-02 (test-tag identity) and R074R-03 (evidence wording) remain open by decision. C7 is DONE — PUBLISHED 2026-10-13 as `v0.7.4` on the PR #11 merge commit `3f5804f9`; Release run `38457253900` (run number 19) passed, with PR/main Build-and-Test runs `38455034690`/`38455821541` green (an earlier Build-and-Test run `38452768212`, run number 203, failed with its `iOS Compile` job cancelled, after which that job was temporarily disabled). Offline artifact check: `versionName=0.7.4`, `versionCode=19`, 24,761,680 bytes, APK SHA-256 `17852bc7238f42e8cb2cb0f7c4a0ddd6fc1326548ee2a73cbe45e6e016c3a5c8` matching the asset digest, same signing certificate as prior releases; the release APK was never installed on the emulator. Evidence/limits in `docs/qa.md` §13. |
@@ -24,7 +25,7 @@
 | M2 — Data Ownership & Exercise Library | FUTURE | OF-01 and catalog expansion (formerly targeted at 0.2.5), plus separately scoped offline instructions. Catalog expansion implemented in 0.2.3 (2026-10-06; CAT-P0/P1/P2/P3 — `d9f6c20`, `30282fe`). OF-01 is implemented in 0.5.0 (see the 0.5-OF01 row). Does not depend on AI repair. |
 | Oct 6 live-testing follow-up | IN PROGRESS | Read-only phone audit DONE; confirmed low direct arm volume alongside substantial indirect credit. LT-01–03 DONE (`d690e3c`): weight retention on resume, separator-equivalent search, newest-insertion tie order; LT-03 tied-time emulator check deferred. VOL-01 C1/C2 DONE (2026-10-08, pushed with CI green); C2A deload correction DONE (`c71e695`); C2B/C2C coverage hardening DONE (`9c6c74f`); C2D option (b) approved with corrective policy decisions (2026-10-08); C2E load-suitability implementation DONE (corrective, 2026-10-08); C2F exercise-preference contract approved (2026-10-08, no code); C2G exercise-preference implementation DONE; C3 EX-01 persistent exclusions DONE; C4 bounded OF-03 volume-explanation slice DONE. Scheduling, rest/effort, warm-ups, substitutions, progression integrity, summaries and name suggestions mapped below; see `docs/live-testing-2026-10-06.md`. |
 | Oct 7 live-testing follow-up | IN PROGRESS | Read-only code inspection DONE; observations mapped to EX-02 (exercise load semantics), OF-02 (logging timing + rest coaching), OF-10B (supersets, expanded), PYR-01 (per-set prescriptions/pyramids), item 9 B1 (RIR, already covered) and an OF-13-linked session-divider slice. EX-02 contract approved 2026-10-07, implemented, and verified (emulator `v0.2.3` → candidate upgrade; bounded review APPROVED). The remaining Oct 7 items (OF-02, OF-10B, PYR-01) stay future. See `docs/live-testing-2026-10-07.md` and "EX-02 — exercise load semantics". |
-| Oct 8 live-testing follow-up | IN PROGRESS | LT-13, CAT-02, CAT-P7 and CAT-P6 implemented; CATP7-R02 closed (`d95b442`). EX-03 shipped in 0.7.5 (see the EX-03 / 0.7.5 section); CAT-P6 fresh-install pattern conflicts target 0.8.2. CATP7-R01 targets 0.12.0/M8. Original observation evidence remains in `docs/live-testing-2026-10-08.md`. |
+| Oct 8 live-testing follow-up | IN PROGRESS | LT-13, CAT-02, CAT-P7 and CAT-P6 implemented; CATP7-R02 closed (`d95b442`). EX-03 shipped in 0.7.5 (see the EX-03 / 0.7.5 section); CAT-P6 fresh-install pattern conflicts target 0.8.1. CATP7-R01 targets 0.12.0/M8. Original observation evidence remains in `docs/live-testing-2026-10-08.md`. |
 | M8 — Optional AI Reliability | PLANNED — 0.12.x | Retain local AI; investigate reliability, speed, licensing and CATP7-R01 identity-safe Gemini name recovery after core planner-facing contracts settle, including local numbered-ID compatibility. The roadmap supersedes provisional 0.6.0 AI placement; 0.12.0 covers identity recovery, later slices cover validation, measured local improvements and lifecycle. Required pre-1.0 investigation, optional user-facing engines; no model/provider/runtime changes or implementation authorized. |
 | Item 2 P2d — existing-row time correction | DONE | Landed in 0.2.1 as Q2 (5898c45, 5ab6b42, a64d9cc). |
 | 0.5.1 — Recent-set correction | SHIPPED | `v0.5.1`; completed implementation, verification and review detail [archived](docs/plans-archive.md#2026-10-09-corrective-051). Emulator edit/save/reopen/Cancel + Use-now smoke passed; broader UI limits remain in `docs/qa.md` §6. |
@@ -38,7 +39,7 @@
 | 0.2.4 review snapshot | DONE | bf959ee^..HEAD (`eb310de`); 12 findings (R4-01..R4-12): 2 minor docs drift + 1 nit deferred to VOL-01 + 9 nit-positive confirmations of Chunk A + Settings chunk. See `docs/review-0.2.4-snapshot.md`. RF (docs sync on R4-01) gated separately. |
 | M3 routines & scheduling (OF-11 + OF-12-P0/P1) | DONE | `v0.3.0`; bounded emulator flows and PER-17 rollback verified; [evidence](docs/plans-archive.md#2026-10-09-routines-m3). EX-01 later shipped in 0.4.0; optional EQ-01 remains future. |
 
-> **Next work sequence (approved 2026-10-09; smaller releases approved 2026-10-11).** Follow [0.7.x–0.13.x release grouping](docs/roadmap.md#release-overview): 0.7.0 planner explanations and the 0.7.1 notes/history slice are shipped; the approved next slice is 0.7.2 finish-workout summaries (split below). All remaining features, extensions, quality work and investigations are pre-1.0 except iOS shipping/desktop; 0.13.x is the provisional final UX/design series. LT-10 integrity and full OF-03 explanations remain required; recent load/volume changes do not replace them. CATP7-R01 targets 0.12.0/M8; CATP7-R02 is closed. BACK calibration remains evidence-gated, LT-03 remains verification debt, and unresolved behavior still needs decisions. No implementation or publication is authorized by release grouping.
+> **Next work sequence (combined-release grouping and version assignment adopted 2026-10-15).** Follow the [roadmap version assignment](docs/roadmap.md#combined-release-grouping-and-version-assignment-adopted-2026-10-15), retaining small approved implementation chunks. Settle LT-10 before closing 0.7.x; `0.8.0` is the active release (charts + records), with detailed scope and ownership under their own gates. All remaining features, extensions, quality work and investigations are pre-1.0 except iOS shipping/desktop; `0.13.x` is the provisional final UX/design series. Recent load/volume changes do not replace LT-10 integrity. CATP7-R01 remains in 0.12.x/M8; CATP7-R02 is closed. BACK calibration remains evidence-gated, LT-03 remains verification debt, and unresolved behavior still needs decisions. New ideas need explicit approval before becoming 1.0 blockers. No implementation or publication is authorized by release grouping.
 
 > **Archived 2026-10-03** (into [docs/plans-archive.md](docs/plans-archive.md#2026-10-03--v021-and-v022-released)): the complete 0.2.1 and 0.2.2 release plans (0.2.1 Q1–Q6; 0.2.2 review phases, RF triage, R0 inventory/slices). **Archived 2026-10-02** (into [docs/plans-archive.md](docs/plans-archive.md#2026-10-02--v020-feature-cycle-release-pipeline-and-dropped-item)): Roadmap 2b S1–S5, items 1/2/2b/3, release pipeline C1–C6, and the dropped item 5. Earlier archives: the BACK fatigue investigation and the fatigue-model redesign.
 
@@ -65,7 +66,7 @@
 | M7 | Advanced Training Controls | Separately approved OF-10A/B/C/D, PYR-01, item 8 readiness and item 9 B2/B3 | Pre-1.0 contracts/research require decisions and evidence; no default fatigue/progression/inference policy is authorized. |
 | M8 | Optional AI Reliability | Retained on-device planner investigation and Gemini shared-contract compatibility | Begin after core routine/schedule/catalog/prescription contracts and selected advanced metrics settle; define supported AI scope and benchmarks before experiments. |
 
-**2026-10-11 release-size update (approved):** retain the themes but publish smaller slices as 0.N.0, 0.N.1, 0.N.2, …, each with a bounded scope, verification and separately requested code review. Patch numbers now support feature delivery as well as corrections during pre-1.0 development. The individual targets in [docs/roadmap.md](docs/roadmap.md) supersede the earlier theme-wide 0.N.0 assignments; shipped history and settled behavior are unchanged.
+**2026-10-11 release-size update (approved; grouping and version numbers superseded 2026-10-15):** retain the themes and small implementation slices; patch numbers support feature delivery as well as corrections during pre-1.0 development. The [adopted grouping and version assignment](docs/roadmap.md#combined-release-grouping-and-version-assignment-adopted-2026-10-15) assigns 27 publications total, preserving scope, acceptance, verification and separately requested review. Former slice numbers were renumbered; the mapping is in the roadmap, and the `0.8.0` scope and implementation plan are unchanged. Shipped history and settled behavior are unchanged. Detailed implementation scope and ownership still require approval.
 
 **Dependency discipline:** release grouping follows the approved roadmap; milestones remain delivery themes rather than monolithic chunks. All pre-1.0 entries need delivery or an explicit user-approved evidence-based disposition before 1.0. Research cannot block forever waiting for a guaranteed positive result, but omissions cannot be silently deferred. Cross-cutting accessibility/localization/design criteria apply throughout (QL-01), before the final 0.13.x series. Moving a slice earlier still needs explicit approval and its dependency decisions.
 
@@ -85,17 +86,17 @@ Versions are assigned when a release scope is agreed; they do **not** grant impl
 | **0.7.0 — SHIPPED** | Published 2026-10-12 as `v0.7.0` on `e5719bb` (PR #4); Release `38225151289` (run number 15) passed (signed APK `versionName=0.7.0`, `versionCode=15`). Planner target explanations (OF-03): recorded load, progression, equipment, deload and AI-adjustment reasoning frozen at acceptance and on frozen work, presented in SplitBuilder and the Logger. Artifacts verified offline only; see `docs/qa.md` §13 for limits. |
 | **0.7.1 — SHIPPED** | Published 2026-10-12 as `v0.7.1` on `b467241` (PR #5); Release `38289317846` (run number 16) passed (signed APK `versionName=0.7.1`, `versionCode=16`). Notes and searchable session history (OF-13 slice): persistent exercise setup notes, separate session notes, a bounded searchable session-history browser in the Logger and the existing set corrections reachable from history. Artifacts verified offline only; see `docs/qa.md` §13 for limits; [detail archived](docs/plans-archive.md#2026-10-12-completed-071-notes-and-session-history). |
 | **0.7.x** | Workout Context & Confidence — 0.7.0 explanations; 0.7.1 notes/history; 0.7.2 summaries; 0.7.3 warm-ups; 0.7.4 first instruction batch; 0.7.5 EX-03 cautions; 0.7.6 onboarding; 0.7.7 reminders. LT-10 contract is a separate decision gate after history, not an empty APK release. |
-| **0.8.x** | Progress & Recovery — 0.8.0 charts; 0.8.1 records; 0.8.2 catalog corrections; 0.8.3 forearm accessories; 0.8.4 approved TRAPS/editing controls; 0.8.5 anatomical map; 0.8.6 volume/last-trained views; 0.8.7 measurements. |
-| **0.9.x** | Equipment & Data Freedom — 0.9.0 profiles; 0.9.1 plate calculator; 0.9.2 equipment extensions; 0.9.3–0.9.5 separate provider imports; 0.9.6 sharing; 0.9.7 PDF; 0.9.8 automatic backups; 0.9.9 encryption; 0.9.10 merge restore; 0.9.11 CSV export; 0.9.12 data controls. |
-| **0.10.x** | Trustworthy Progression & Flexible Prescriptions — 0.10.0 integrity; 0.10.1 policies; 0.10.2 manual per-set targets; 0.10.3 presets; 0.10.4 generation; 0.10.5 manual supersets; 0.10.6 pairing; 0.10.7 effort targets; conditional 0.10.8 estimates and 0.10.9 readiness slices. |
-| **0.11.x** | Beyond Rep-Based Sets — 0.11.0 duration; 0.11.1 timed preparation/accessories; conditional 0.11.2 distance, 0.11.3 force, 0.11.4 drop sets, 0.11.5 rest-pause and 0.11.6 cardio. Each metric ships its complete consumer/portability chain. |
-| **0.12.x** | Optional AI Reliability — 0.12.0 CATP7-R01; 0.12.1 validation; conditional 0.12.2 measured local improvements; 0.12.3 approved lifecycle improvements. M8 research/evaluation gates span the series. |
-| **0.13.x (provisional)** | Final UX & Design — 0.13.0 design/navigation; 0.13.1 workout polish; 0.13.2 remaining screen polish; 0.13.3 tablet; 0.13.4 foldable; 0.13.5 accessibility; 0.13.6 localization/content; 0.13.7 recovery states; 0.13.8 final integration/quality closure. Basic UX checks apply throughout. |
+| **0.8.x** | Progress & Recovery — **4 publications, `0.8.0`–`0.8.3`**: `0.8.0` charts + records (active); `0.8.1` catalog corrections + forearm accessories + approved TRAPS controls; `0.8.2` anatomical map + volume/last-trained; `0.8.3` body-weight tracking ([grouping](docs/roadmap.md#combined-release-grouping-and-version-assignment-adopted-2026-10-15)). |
+| **0.9.x** | Equipment & Data Freedom — **7 publications, `0.9.0`–`0.9.6`**: profiles + plate calculator + equipment increments; provider imports; sharing + PDF + CSV export; automatic backups; encryption; merge restore; storage/reset controls. |
+| **0.10.x** | Trustworthy Progression & Flexible Prescriptions — **5 publications, `0.10.0`–`0.10.4`**: integrity; progression policies; manual per-set targets + presets + generation + RIR/RPE targets; manual + planner supersets; supported effort/readiness outcomes. |
+| **0.11.x** | Beyond Rep-Based Sets — **5 publications, `0.11.0`–`0.11.4`**: duration + timed preparation; distance; force; supported drop-set + rest-pause clusters; supported cardio. Each metric ships its complete consumer/portability chain. |
+| **0.12.x** | Optional AI Reliability — **2 publications, `0.12.0`–`0.12.1`**: identity recovery + validation; measured local improvements + lifecycle/resource improvements. M8 research/evaluation gates span the series. |
+| **0.13.x (provisional)** | Final UX & Design — **4 publications, `0.13.0`–`0.13.3`**: design/navigation + screen polish; tablet + foldable adaptation; accessibility + localization/content; recovery states + final integration. Basic UX checks apply throughout. |
 | **1.0.0** | All pre-1.0 roadmap work delivered or explicitly dispositioned under [readiness criteria](docs/roadmap.md#100-readiness); stability/verification gate. |
 | **Beyond 1.0** | iOS shipping, including Keychain-backed ApiKeyStore, and desktop. |
 
 - During pre-1.0 development, a minor series represents a theme; its patch versions deliver smaller feature slices or explicitly labelled corrections. This approved 2026-10-11 policy supersedes the former corrective-only patch rule for future releases, not shipped history.
-- Each feature release has its own bounded acceptance, verification and separately requested review before publication. Required migrations, data portability, consumers, tests and docs ship with the slice; do not defer them to a later integration release.
+- Each combined feature release has its own bounded acceptance, verification and separately requested review before publication; implementation chunks remain small and are verified individually. The [2026-10-15 grouping and version assignment](docs/roadmap.md#combined-release-grouping-and-version-assignment-adopted-2026-10-15) governs publication boundaries. Required migrations, data portability, consumers, tests and docs ship with the affected capability; do not defer them to a later integration release.
 - Corrective releases take the next available patch number and shift later provisional targets. Reserved targets are not tags; never reuse a published version. Decision-only work gets no standalone APK, and unsupported research outcomes require explicit disposition rather than empty releases.
 - Provisional numbers are not promises; a small corrective item is not promoted to a minor version, and no dates or feature-completion claims are attached.
 - Future numbers are approved roadmap targets, not implementation/publication approvals. M8 now spans **0.12.x**, with CATP7-R01 targeting **0.12.0**, superseding the former provisional 0.6.0 placement. Further splitting remains possible at each scope gate.
@@ -711,7 +712,7 @@ gated scopes, not implied by completion of P0–P5. M2's other open work stays a
 
 | Reference | Feature | Dependency / sequencing | Status |
 | --- | --- | --- | --- |
-| OF-01 | Local backup/export and restore | First portability foundation | SHIPPED 0.5.0; separately gated extensions target 0.9.8–0.9.11 |
+| OF-01 | Local backup/export and restore | First portability foundation | SHIPPED 0.5.0; separately gated extensions target 0.9.3–0.9.6 |
 | OF-02 | Guided workouts and rest timer | Existing accepted plans and explicit sessions | IN PROGRESS — prior guided/rest work committed (`7cbd393`..`3a8b815`); B6 verification accepted with documented waivers. Alerts/coaching and occurrence replacement committed in `86b21ca`; navigation correction in `93d064b`; R060-R01–R04 in `eb75ead`, R060-R05 docs in `465e9f7`; theme/session layout/guidance tags in `ead9e1f`; doubled window insets in `a4d97af`; warm-up attribution and the shared replacement guard in `d957779`; entry-id slot-freeze guard in `b0dcf56`. Full host tests, migration verification, ktlint, Android debug build and iOS compile pass. Combined notification-denial flow: DONE (`/tmp/hydrafit-060-remaining-denial.log`). Earlier replacement Cancel/success/template preservation and Android duration rescheduling/dismissal/background delivery pass. The warm-up/attribution fix is verified in the UI (user-run: warm-up stored with its marker and no progress change, warm-up-bearing slot refused with the recorded-slot message, working set advancing progress and blocking the swap); the guided Replace action is no longer silently disabled, so working sets and warm-ups behave alike. A set from an earlier session was deleted during that verification and was not recreated; the affected earlier-session checks are unverified. Empty/stale replacement choices remain host-only; receiver posting races/context interleavings remain unverified; TalkBack: user waiver — **do not check**. Prior synthetic fixture cleaned up: sets removed, session ended, block canceled, referenced routine archived; guidance OFF, global rest 120, the possible Incline Push-up override cleared and denied notification flags restored. See [QA evidence](docs/qa.md). Full-range re-review remains INCOMPLETE; original [review snapshot](docs/review-0.6.0-snapshot.md) verdict remains historical. No push/publication. |
 | OF-03 | Planner target explanations | Existing planner; integrate with OF-02 | SHIPPED 0.7.0 (`v0.7.0`, merge `e5719bb`, release `38225151289`; offline-verified artifact). Durable decisions A–E/F3 and the stored-version rule remain active; completed plan detail is [archived](docs/plans-archive.md#2026-10-12-completed-070). Verification limits: larger-font/dark-mode presentation and signed-upgrade/on-device behavior unverified; presentation polish deferred to 0.13.x. |
 | OF-04 | Exercise history and progress charts | Existing logged sets; shared queries may support OF-08 | FUTURE — decisions open |
@@ -833,6 +834,139 @@ record).
 - **OF-04-P3 — automatic records.** Derive approved record types from eligible history, test ties/imports/corrections/deletions, and expose records during logging or in OF-13 summaries through shared use cases. Approve any caching/invalidation mechanism before persistence work.
 
 **Acceptance:** displayed values reconcile with fixture sets and re-emit after history corrections. Changing display units does not change stored measurements. Warm-up inclusion/exclusion is explicit and estimates use the approved existing calculation. Automatic records are reproducible from eligible history, retract/recalculate after corrections/deletions, and remain distinguishable from user-entered PRs; no unapproved progression change results.
+
+#### 0.8.0 — Charts, records and workout-summary integration (six-chunk plan)
+
+**Status (2026-10-15):** revised six-chunk plan recorded by user request under the
+[grouping and version assignment](docs/roadmap.md#combined-release-grouping-and-version-assignment-adopted-2026-10-15).
+C1 contract/fixtures are accepted; C2–C3 are IMPLEMENTED AND VERIFIED (main-agent owner).
+The approved exercise/time/id index migration and fixture/formatting corrections pass the full
+matrix: 1,801 host tests, migration verification, global lint, debug assembly and both iOS compiles.
+C4–C5 are IMPLEMENTED AND VERIFIED (coder owner; a parent-found live-paging race was corrected with
+regression coverage, and a C5 path error was resolved without a new verification file). C6
+downstream integration, the bounded read-only Maestro flow and the full candidate gate passed on
+2026-10-15: three real-writer integration tests, 47/47 flow steps with viewed screenshots, draft
+preservation across the Progress push/pop, and the complete Tier A matrix. The summary records
+section is host/VM-verified only (no occurrence fixture was created on the emulator). The
+2026-10-15 post-execution review returned REJECTED with findings R080-03…08; the approved fix round
+(R080-03/04/05/06/07 plus the R080-08 emulator round) is now implemented and verified: migration
+`47.sqm` with plan-assertion tests, resume/lifecycle wiring, chart legend and edge-placement fixes,
+the inline tied-holder supporting set with Previous/Next, the updated 48-step flow passing on
+emulator-5554 in kg, lb, dark+1.3 and long-name states with restorations, and the full candidate
+gate green. Targeted closure review for R080-03…08 and formal closure for R080-01/02/The C4–C6
+batch remain pending. See `docs/qa.md` for
+the bounded run evidence. The local branch is `0.8.0`; **`0.8.0`** is the release
+version, subject to scope approval. Its scope covers the former chart and automatic-record
+slices (formerly documented as `0.8.0` and `0.8.1`) as one publication, not two. This plan covers
+OF-04-P0/P1/P2/P3 and supersedes the previous
+charts-only six-chunk plan. Application implementation, final metric/navigation decisions,
+module-graph changes and publication are not authorized by recording this plan; Git actions retain
+their own explicit approvals.
+
+**Prerequisite — LT-10 (narrowing approved 2026-10-15):** C1–C3 may implement descriptive
+chart/record eligibility independently of historical-prescription/progression decisions, which remain
+open under LT-10 / OF-10A-P0. This does not close the broader 0.7.x decision gate or authorize
+advanced progression policies. No execution-quality fields or verified-technique claims are added.
+If later eligibility needs information not stored today, scope persistence/migration/backup explicitly.
+
+**Approved C1–C3 contract (2026-10-15; main-agent owner):** records describe logged performance,
+not verified technique or prescription success. Partial workouts qualify; warm-ups do not. Manual PRs
+and planner policy are untouched. Typed external loads qualify for load records/e1RM; bodyweight and
+added-load comparisons remain separate. Legacy rows stay visible but do not enter load-derived records.
+Preserve recorded per-hand values without doubling; compare canonical stored kilograms without display
+rounding. Equal results tie; first observations establish baselines rather than improvements. Replay
+by performed timestamp, with equal timestamps sharing the earlier baseline. Exclude future sets from
+aggregates; corrections/deletions/restore recalculate. Civil-day queries use an explicit fixed offset,
+not historical DST rules. The backend accepts explicit inclusive day bounds; UI range presets and
+navigation remain C4 decisions. Synthetic fixtures: 60 kg × 10, 70 kg × 10, 65 kg × 12 yield three
+working sets, 32 reps, 2,080 kg external volume and a best Epley estimate of 93⅓ kg; an additional
+200 kg warm-up changes none of those values. Only the 70 kg set improves an existing load-at-10
+record and e1RM; the new 12-rep/load combination establishes baselines. Ties, missing/zero loads,
+bodyweight/added/legacy rows and corrections are covered by the companion domain tests.
+
+**Scope:** offline, per-exercise recorded history and load, repetitions, estimated 1RM and
+working-volume charts over bounded selectable local-date ranges, automatic records and record results
+in the existing post-finish workout summary. Values reconcile with stored sets and refresh after
+inserts, corrections, deletions and restore. Display units never change canonical kilograms,
+historical records, prescriptions, planner inputs or fatigue policy. Manual PRs remain separate.
+
+**Metric contract / C4 preset proposals (approved C1–C3 contract above takes precedence):**
+- Ranges: 4 weeks, 12 weeks and 1 year, with daily chart points; confirm exact inclusive boundaries.
+- Load: highest recorded working-set load per day, preserving and distinguishing recorded load kinds.
+- Repetitions: highest working-set reps per day with the contributing set's load available alongside
+  it; a rep maximum across different loads is not proof of improved strength.
+- Estimated 1RM: highest eligible daily Epley estimate using `OneRepMax.estimate` and the existing
+  1–15-rep eligibility. No planner progression adjustment, manual-PR floor, working-load rounding,
+  42-day horizon or two-set threshold. Estimates are labelled estimates, not measured maxima.
+- Working volume: working-set count and total reps, with external load-volume separately labelled
+  as `sum(weightKg × reps)`. Bodyweight and added-load work are not blended into external tonnage;
+  their history retains its recorded meaning. Do not infer body mass.
+- Warm-ups remain visible in history but are excluded from chart aggregates. One eligible point is
+  useful data; no invented minimum history, interpolation or zero-filled missing days.
+- Proposed automatic record types: highest load at a given rep count, highest reps at a given load,
+  and highest eligible estimated 1RM. Distinguish current record holders from chronological record
+  events: a set may have achieved a record then without remaining the current best.
+- Recommend deriving records from performed history, without writing manual PRs or changing planner
+  baselines. Surface them in Progress and the existing post-finish summary; no immediate new-record
+  notifications in this release. Recommend no persistent record cache initially.
+
+**Remaining decisions:** C4 owns range presets, navigation and name/empty-state presentation;
+C5 owns summary wording. C1 resolves legacy eligibility, unilateral convention, fixed-offset bucketing,
+future exclusion, canonical precision, ties, first observations and equal-time ordering as recorded
+above. Imports/backdated corrections replay by performed time, not insertion order. Stored load kind
+stays authoritative; current catalog edits never reinterpret typed history. Backend history uses
+stable exercise IDs, current effective names (not fabricated snapshots), and null names when catalog
+metadata is unavailable. Display rounding and selected chart range never define record equality/scope.
+
+**UI/module decision:** proposed `:feature:progress` owns UI/state/resources, its exported graph and
+Koin module; shared contracts live in `:core:domain`, implementations in `:core:database`, and unit
+preferences stay in `:core:userdata`. Creating/registering the module is an explicit module-graph/build
+configuration change needing approval. The shell currently has six tabs in two rows: settle the entry
+point before coding, rather than silently appending a seventh tab or choosing an unrelated home.
+No feature-to-feature dependency; existing Logger correction UI remains with its current owner.
+
+| Chunk | Outcome and proposed file scope | Testable acceptance / coding cautions |
+| --- | --- | --- |
+| **0.8.0-C1 — chart and record contract** | Finalize the recommendations/open decisions and one synthetic, hand-calculated fixture matrix for charts, current holders, ties and chronological record events. Read domain `engine/{OneRepMax,SuggestedWeightConfig}.kt`, `workout/{WorkoutLoadPolicy,WorkoutSet,WorkoutHistory,WorkoutSummary,GetWorkoutSummaryUseCase}.kt`, manual-PR ports and their consumers/tests. No application edit in this decision chunk. | Cover external/bodyweight/added/legacy loads, null versus zero, warm-ups, unilateral work, high reps, sparse history and date boundaries. `OneRepMax.estimate` does not enforce eligibility. Settle first observations, ties, imports/backdating and LT-10 eligibility; distinguish estimates, recorded facts and prescription success. |
+| **0.8.0-C2 — complete bounded reactive reads** | Add domain `workout/` requests/results/repository contracts and database queries/implementations. Separate chart-range inputs, paginated recorded history and record-comparison history. Reuse existing history validation, keyset paging and deterministic ordering where appropriate. | Test boundaries, tied times, paging, rename/missing metadata and emissions after insert/correction/delete/restore. A loaded page or 12-week chart window cannot prove an all-time record. Inspect query plans on larger synthetic history; avoid full-table materialization and silent caps. Approve any evidence-based index migration with coverage. |
+| **0.8.0-C3 — shared chart and record calculations** | Add pure domain projections/use cases and tests for chart series, current records and occurrence-scoped chronological record results. Reuse existing Epley, eligibility/load helpers, units and day helpers where their approved semantics match. | Match C1 fixtures; correction/deletion promotes the correct remaining holder, time moves/imports recompute record events, ties follow policy and units/ranges never alter equality or all-time scope. Keep missing values distinct from zero and excluded rows visible. Never write `PersonalRecordRepository` or use the planner's progressed baseline pipeline. Any cache requires separate invalidation/portability approval. |
+| **0.8.0-C4 — Progress history, charts and records** | After module/navigation approval, add `feature/progress/` component-by-component: selection, paginated history, accessible charts, record details/supporting sets, resources/tests, exported graph/module and necessary shell/build registration. Use existing Compose capabilities. | Feature state, Koin and navigation tests pass; stale exercise/range results are rejected and Logger drafts remain intact. Numerical equivalents reconcile with charts; test sparse/single-point/no-eligible-data and loading/empty/retry states. Bounded emulator checks and viewed screenshots cover kg/lb, larger text, long names and light/dark. No fabricated zeroes/smoothing, colour-only meaning, seventh-tab default, chart dependency or duplicate correction UI. |
+| **0.8.0-C5 — workout-summary record integration** | Extend shared domain summary/record contracts and Logger summary state/presentation/resources/tests with occurrence record results; add only necessary DI wiring. Progress and Logger consume shared use cases, never each other. Preserve Finish/Finish partially summary offers and no summary after Skip. | Test multi-session occurrences, repeated exercise slots, earlier records outside chart range, ties, first observations, correction retraction and deleted/restored history. Failures/retry never repeat Finish or set writes. Compare against chronological prior history, not today's all-time maximum. An eligible record in partial work does not prove prescription success; stale context must not retain badges. |
+| **0.8.0-C6 — combined-release integration** | Add downstream tests through real production writers and repository/use-case consumers; consolidate `docs/qa.md` evidence, synchronize architecture/mechanics docs and batch plan status. Add bounded named Maestro flows for the approved synthetic journey. | Verify log → chart/record → Finish summary → correct/time-move → recalculate → delete winner → promote remaining result, plus restore/replacement invalidation. Consumer-only fixtures do not prove writer invariants. Run the full candidate matrix and bounded debug-emulator acceptance with viewed screenshots; preserve user state and report limits. Stop for separately requested Plan-mode review; no release APK install. |
+
+**Recommended implementation owners (confirm with the approved implementation scope):** main agent
+for C1–C3 because metric semantics, historical compatibility and reactive persistence require tightly
+coordinated decisions; `coder` for C4–C5 once contracts/navigation are settled, because these are bounded
+presentation chunks; main agent for C6 integration/evidence consolidation, with bounded emulator runs
+delegated to `ui-runner`. Parent owns `PLANS.md` status updates and `docs/qa.md` consolidation; coder
+edits only explicitly assigned feature docs. Follow the baseline, exact-path ownership and no-competing-
+writers rules for every delegation. Documentation recording here does not start those chunks.
+
+**Verification and documentation:** apply `docs/agent-project-reference.md` tiers at each boundary.
+C1 is decision-only; C2 query-only work may use Tier B if stored encoding/shared contracts are
+preserved; pure unwired C3 projections use domain tests/module ktlint, with assembly when wired.
+C4 module registration is Tier A; C5 uses Tier B for localized domain/DI wiring and Tier C only
+for feature-local presentation, escalating to Tier A for a cross-cutting contract change. At C6 run
+`testAndroidHostTest`, `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+`:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
+`:core:network:compileKotlinIosSimulatorArm64`, plus changed Koin graphs and applicable emulator checks.
+Any Tier A contract/schema change requires the full matrix at its own chunk boundary. All Gradle
+runs are bounded and logged. Keep affected `docs/architecture.md`, `docs/qa.md`, project-reference
+module documentation and mechanics topic references synchronized in the owning implementation chunk;
+update `.maestro/README.md` with any added flows/evidence. No runtime tests are claimed by this plan.
+
+**Exclusions / stop conditions:** catalog/accessory/TRAPS changes, anatomical fatigue-map/coverage
+changes, body measurements, progression-policy implementation or fatigue recalibration, generic
+session-comparison scores, persistent metric caches and new dependencies. Automatic records and their
+summary integration are now included; the old exclusion pending a separate records publication is
+superseded. No unapproved LT-10 policy or stored eligibility fields may be introduced implicitly.
+No schema/backup change is assumed; raise a discovered need before editing, including an evidence-based
+index migration. Before each implementation chunk, enumerate exact current files, approved decisions,
+owner, tests and required configuration changes; approve the chunk separately or in an explicit ordered
+batch. Stop for a new behavioral/navigation/portability/dependency decision, unavailable required
+verification that changes completion expectations, accidental emulator data changes or the AGENTS.md
+builder failure limits. Formal review requires a separate request in Plan Mode; commits, push, tagging
+and publication keep their own applicable approval gates. No automatic handoff or next-release work.
 
 ### OF-05 — Local workout CSV imports
 
@@ -1262,7 +1396,7 @@ passed. Release run `38620991923` was green; APK 0.7.6/code 21 checksum/signatur
 Legacy backup device coverage remains unverified/accepted; equipment-error UI has no reachable
 device trigger; signed-upgrade/runtime remains unverified. R076C7-03 remains deferred; the separate
 `:shared` Main-dispatcher flake remains unfixed by decision. Startup storage recovery stays at
-0.13.7 and tablet/foldable layouts at 0.13.3/0.13.4. Evidence: `docs/qa.md` 0.7.6 sections.
+0.13.3 and tablet/foldable layouts at 0.13.1. Evidence: `docs/qa.md` 0.7.6 sections.
 
 **Scope:** a short, skippable and revisitable offline setup (units, equipment, goal, weekday
 schedule, optional reported best sets), followed by clear routes into the existing first-workout
@@ -1387,7 +1521,7 @@ post-execution review remains a separate Plan Mode gate.
   before implementation. No thresholds, percentages or automatic history/PR
   changes are approved by this finding.
 - **OCT14-04 — seeded-exercise instruction coverage (OPEN content decision,
-  CAT-01; closure remains 0.13.6).** Current authored text covers 17 exercises.
+  CAT-01; closure remains 0.13.2).** Current authored text covers 17 exercises.
   Recommend bounded text batches independent of images/animations; agree the
   coverage target, batch priority, sources and editorial acceptance first.
   Instructions attach to stable exercise IDs, not individual sets. Media retains
@@ -1401,7 +1535,7 @@ post-execution review remains a separate Plan Mode gate.
 
 These stable references are separately approved slices, not implicit additions to the existing catalog/substitution phases. All use the shared implementation/verification gate above.
 
-#### CAT-01 — Offline exercise instructions (M2)
+#### CAT-01 — Offline exercise instructions (M2) 
 
 **Scope / ownership:** concise independently authored setup/execution cues, stored with catalog content and displayed by owning feature UIs; user setup notes remain OF-13 data. Text-first; no unlicensed media or copied copyrighted descriptions.
 
@@ -1412,7 +1546,7 @@ These stable references are separately approved slices, not implicit additions t
 - **Identity:** stable exercise IDs only, never name matching. Custom exercises do not inherit instructions through CAT-02 profile suggestions. Uncovered seeded/custom exercises show an explicit “Instructions not available yet” state rather than guessed generic guidance.
 - **Ownership/portability:** bundled catalog content, distinct from OF-13 personal setup notes. No instruction fields in backups, shared plans or frozen prescriptions; installed app content may change with updates. Custom instruction editing is excluded.
 - **Architecture:** approved new `:core:exercisecontent` module owns bundled resources, ID lookup and a reusable read-only viewer. This explicitly changes the module graph/build configuration: register it in `settings.gradle.kts` and add Equipment/Logger dependencies. Reuse existing Kotlin/Compose versions. The R074 follow-up separately approves test-only Robolectric 4.17 (MIT), existing coroutine-test and Android-resource-enabled host tests for actual fallback checks; no production library/version change. No feature-to-feature dependency, content logic in `shared`, or generic content/plugin framework. Any further dependency/configuration requirement must be raised before editing.
-- **Coverage:** this batch is not complete catalog coverage. Remaining agreed text batches retain separate bounded pre-1.0 targets; media/coverage closure remains under the roadmap's 0.13.6 gate.
+- **Coverage:** this batch is not complete catalog coverage. Remaining agreed text batches retain separate bounded pre-1.0 targets; media/coverage closure remains under the roadmap's 0.13.2 gate.
 
 **Execution scope:** C0 and C1 are committed; the user subsequently requested C2+C3, then approved R074-01..03 fixes and the calf catalog split with upgrade/custom-identity protection and runtime resource testing. The C2/C3 content and fixes are committed (`938b0a94`, `fea1a93d`, `afe20c6a`), and all 17 instructions were editorially accepted 2026-10-13 without text changes. Targeted C1–C3 closure was approved at `3ecd3bca`; R074-05's editorial-status correction (`39c7ce8d`) and C4–C6 were approved as one ordered chunk and committed (`2c78bb61`, `be906d41`, `7f80df47`, with the closure record in `e265bfc1`). C6's runtime checks (Equipment/manual/planned/guided, custom-unavailable, `de-DE` fallback, font-1.3 no-clip) plus the full matrix pass, with font 1.3 light and dark user-verified and all temporary fixtures and settings restored; `docs/qa.md` §13 records the evidence and limits. A bounded post-execution review of `3ecd3bca..7f80df47` returned **APPROVED** with no blocking findings; nits R074R-02 and R074R-03 stay open by decision. C7 is DONE — PUBLISHED 2026-10-13 as `v0.7.4` on `3f5804f9` (Release run `38457253900`, run number 19); push, tag and publication were separately approved, and the published artifact was verified offline and never installed on the emulator (`docs/qa.md` §13).
 

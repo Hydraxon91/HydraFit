@@ -8,6 +8,7 @@ import com.hydrafit.app.feature.equipment.equipmentModule
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapModule
 import com.hydrafit.app.feature.logger.loggerModule
 import com.hydrafit.app.feature.onboarding.onboardingModule
+import com.hydrafit.app.feature.progress.progressModule
 import com.hydrafit.app.feature.routines.routinesModule
 import com.hydrafit.app.feature.settings.settingsModule
 import com.hydrafit.app.feature.splitbuilder.splitBuilderModule
@@ -27,6 +28,7 @@ fun initKoin(platformModule: Module, extraModules: List<Module> = emptyList()) {
             settingsModule,
             routinesModule,
             onboardingModule,
+            progressModule,
             platformModule
         )
         modules(extraModules)

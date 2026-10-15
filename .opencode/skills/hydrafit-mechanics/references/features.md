@@ -383,6 +383,18 @@ the pre-correction reconciliation on screen. A failed save keeps the editor and 
 reconciliation. Recorded start/finish instants and session notes are shown; there is no duration figure
 and no universal score.
 
+The summary's records section (0.8.0-C5) is route-owned by a separate `WorkoutSummaryRecordsViewModel`
+(`loggerModule`), so it never enlarges the Logger ViewModel or the summary's Finish lifecycle. The
+route feeds it the open summary's `occurrenceId` (null while loading/failed/unavailable) and a dispose
+clears it with normal ownership. It observes `ObserveOccurrenceRecordsUseCase` (read-only), the
+effective `ExerciseCatalog.observeAll()` names and `WeightUnitRepository.unitFlow()`, re-sampling the
+`TimeProvider` instant on open, resume and retry. It shows only chronological improvements over the
+exercise's earlier history - not today's maximum or a current-holder claim - naming the metric, load
+kind and qualifying reps/load in kg/lb from the event and its contributing set, and it drops results
+from a superseded occurrence. An unfinished workout still shows improvements with a partial-work
+disclaimer; loading, empty and failed are distinct, and a retry re-reads without repeating Finish or
+writing any set. Progress and Logger consume the shared use case and never each other.
+
 Onboarding's foundation lives in `:feature:onboarding`: `OnboardingViewModel`, `OnboardingUiState`,
 `OnboardingEntryViewModel`, `OnboardingDraftRules.kt` and exported `onboardingModule`.
 `OnboardingNavigation.kt` exports `onboardingFirstRunRoute`/`onboardingRevisitRoute`,
@@ -503,6 +515,19 @@ import hydrafit.feature.logger.generated.resources.logger_weight_label
 // XML: <string name="logger_weight_label">Weight (%1$s)</string>
 stringResource(Res.string.logger_weight_label, state.weightUnit.label)
 ```
+
+`:feature:progress` is a standalone, read-only destination pushed from the Logger's action row (a
+shared `LocalProgressNavigator` composition local, mirroring `LocalSetupNavigator`); it is not a
+seventh tab and adds no `AppTab`. `ProgressViewModel` selects one exercise from
+`ExerciseCatalog.observeAll()` (keeping a stable id, showing a localized missing-name state if the
+name disappears), observes a 28/84/365-day chart window plus all-time records from
+`ExerciseProgressRepository.observeProgress`, pages the all-time recorded history with
+`observeHistory`, and resolves one contributing set with `observeSet`. Charts plot a mark at each
+recorded day's actual position with no interpolation or fake zero days, and every canvas has a
+numeric `ProgressDayTable` equivalent; the canvas is `clearAndSetSemantics` so it is not announced
+twice. Units are display-only (`WeightUnit`). Load kinds stay separate populations, and the
+`ESTIMATED_ONE_REP_MAX` record is backed by external load only. Nothing is written, so no draft,
+session or log state changes.
 
 Test entry points:
 
