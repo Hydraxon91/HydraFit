@@ -3,9 +3,11 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 14), restored by whole replacement.
-The reader accepts versions 1–14; version 1 defaults the guided-workout preference to off.
-Format 14 requires `equipmentProfiles` and `activeEquipmentProfileId`, including every profile's
+Logical, versioned JSON (`format` + `formatVersion` 15), restored by whole replacement.
+The reader accepts versions 1–15; version 1 defaults the guided-workout preference to off.
+Format 15 adds the local workout-import provenance ledger; versions 1–14 restore with no
+import history and cannot carry the section. Format 14 requires `equipmentProfiles` and
+`activeEquipmentProfileId`, including every profile's
 stable id, name, selected equipment, ceilings and complete native-unit loading configuration.
 The old equipment/selection sections are projections of the active profile and must agree with it.
 Duplicate identities, unknown links, missing active profiles and invalid loading/count/precision
@@ -49,7 +51,7 @@ Formats 5–10 carry one global rest duration and optional per-exercise override
 default to a 120-second global duration with no overrides. Countdown state is deliberately
 excluded and cleared during restore. Formats 4–10 require per-set timing provenance and explicit nullable elapsed fields; format 3 requires
 and preserves timing provenance while elapsed fields default to null; formats 1–2 default timing
-provenance to `UNKNOWN` and elapsed fields to null. Exports use version 14.
+provenance to `UNKNOWN` and elapsed fields to null. Exports use version 15.
 Format 10 requires its session-note section. Unknown fields remain rejected.
 Domain `backup/` owns the payload records, the kotlinx-serialization codec, the
 validator, the limits and the export/preview/stage/apply use cases (bound in
@@ -99,3 +101,66 @@ use the same repair; staged text and the original chosen file are unchanged. The
 not change the input format version.
 Restore seeds missing canonical equipment within its transaction before applying exported ceilings.
 Unknown exercise/equipment references and other invalid sections remain rejected without writes.
+
+## Bounded workout CSV parsing (0.9.1-I1)
+
+`WorkoutCsvParser.parse(source, text)` in `core/domain/.../transfer/` is a pure parser:
+provider selection is explicit (`FITNOTES`, `STRONG`,
+`HEVY`), never sniffed. Three bounded shapes are supported from documented or synthetic
+examples rather than device verification: FitNotes comma
+(`Date,Exercise,Category,Weight (lbs)|Weight (kg),Reps` required, known optional
+`Distance`,`Distance Unit`,`Time`; `Date` as `yyyy-MM-dd`); Strong semicolon
+(`Date;Workout Name;Exercise Name;Weight;Weight Unit;Reps` required, known optional
+`Set Order`,`RPE`,`Distance`,`Distance Unit`,`Seconds`,`Notes`,`Workout Notes`,
+`Workout Duration`; `Date` as `yyyy-MM-dd HH:mm:ss`); and Hevy comma
+(`title,start_time,exercise_title,reps` plus exactly one of `weight_lbs`/`weight_kg`
+required, known optional `end_time`,`description`,`superset_id`,`exercise_notes`,
+`set_index`,`set_type`, one of `distance_miles`/`distance_km`, `duration_seconds`,`rpe`;
+times as `d MMM yyyy, HH:mm`). `set_type` accepts only `normal`/`warmup`; any other
+value rejects the row. `CsvTableReader` is a strict RFC-4180-style scanner handling a
+BOM, LF/CRLF, and quoted delimiters, newlines and doubled quotes. Rows keep source order
+and duplicates; a blank weight and an unavailable warmup stay null, and no UTC instant,
+session id, RPE-to-RIR conversion, load-kind inference or set dedupe is produced. RPE,
+distance, duration, notes and superset values on otherwise valid rows are retained as
+per-row `UNSUPPORTED_METADATA` diagnostics; invalid date/time/reps/weight/unit values
+reject only that row with the row index retained. Header, CSV-structure and limit
+failures raise a typed `WorkoutCsvException` under 32 MiB UTF-8, 250,000 data rows,
+64 columns and 65,536 characters per field, matching `BackupLimits`.
+
+## Local import preview, commit and provenance (0.9.1-I2/I3)
+
+`PreviewWorkoutImport.build(parsed, choices, catalog, provenance, existingSessions)` turns parsed rows
+into an approved plan and writes nothing. It requires an explicit `WorkoutImportChoices`: a mapping
+and load kind per source exercise name, session membership plus the UTC offset for every row, the
+explicit exclusion of every rejected row, and acknowledgements for unsupported metadata and for the
+effects on history. An unresolved mapping, an unconfirmed session or load meaning, a date-only row
+without an explicit time, a source row assigned to no session or to two, an excluded-row set that
+does not match the file, and an overlap with an existing or newly-planned session all block the
+preview. `WorkoutLoadPolicy.validate` decides whether the chosen load kind may carry the resolved
+weight, so bodyweight work cannot silently keep a source number. Rows keep source order and identical
+legitimate sets stay distinct; `notices` carries non-blocking skips so the UI can disclose them.
+
+Duplicate protection is a durable ledger, not a file hash: a candidate key identifies the source
+workout (provider plus its civil date) and the canonical content of its rows (length-prefixed fields,
+so null and empty never collide) identifies the observed version. An exact match is skipped; a
+candidate key with different content, or more than one exact match, blocks that session. Skipping is
+disclosed as `UNCHANGED_SOURCE_SKIPPED`, or as `REMOVED_HISTORY_SKIPPED` when the imported session no
+longer exists, so a locally deleted import is never resurrected and never silently ignored.
+
+`SqlDelightWorkoutImportRepository.commit(preview)` writes the approved sessions in one transaction:
+each session is inserted already closed with a fresh identity and `localEpochDay`, and each set is
+stored with `workoutSet.involvements` frozen to the resolved exercise's `effectiveInvolvements`,
+`timingProvenance = CATCH_UP`, and no occurrence, plan, week/cycle, day-index or RIR attribution.
+Before each session it re-reads the ledger inside the transaction and refuses the whole commit
+(`SOURCE_CHANGED`, `SOURCE_ALREADY_IMPORTED`) if another writer recorded or changed that source in the
+meantime, so a refused commit leaves no partial history. `NOTHING_TO_IMPORT` covers an empty plan.
+
+Backup format 15 adds `importProvenance` (`source`, `candidateKey`, `content`, `importedSessionId`).
+`recordCount` counts each record; export reads the ledger inside the same snapshot transaction, and
+restore whole-replaces it with the other user-owned sections. Validation rejects the section in any
+pre-15 file, rejects an unknown provider, an empty key/content/session field and a duplicate
+`(source, candidateKey, content)`, and accepts a record whose imported session is absent — that is the
+deleted-history guard, not a dangling reference. `BackupJson` requires the section from format 15 on
+while ignoring the key for older versions, matching the both-directions gate used by the note
+sections. Read-only device verification of any of this remains pending; `docs/qa.md` records the host
+and emulator evidence actually gathered.

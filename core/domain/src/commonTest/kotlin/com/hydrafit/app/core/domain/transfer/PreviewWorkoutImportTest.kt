@@ -1,0 +1,275 @@
+package com.hydrafit.app.core.domain.transfer
+
+import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WorkoutSession
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+
+class PreviewWorkoutImportTest {
+    private val exercise = Exercise("mapped", "Press", emptySet(), setOf(MuscleGroup.CHEST_UPPER))
+    private val parsed = WorkoutCsvParser.parse(
+        WorkoutCsvSource.FITNOTES,
+        "Date,Exercise,Weight (lbs),Reps\n2024-01-02,Press,100,8\n2024-01-02,Press,100,8"
+    )
+    private val choices = WorkoutImportChoices(
+        exercises = mapOf(
+            "Press" to WorkoutImportExerciseChoice("mapped", LoadKind.EXTERNAL, true, true, true)
+        ),
+        sessions = listOf(WorkoutImportSessionChoice(listOf(2, 3), 60, true, true, 36000)),
+        acknowledgedUnsupportedFields = true,
+        acknowledgedHistoryEffects = true
+    )
+
+    @Test
+    fun preservesIdenticalSetsAndRequiresExplicitOffsetAndAttribution() {
+        val preview = build()
+        assertTrue(preview.canImport)
+        val session = preview.sessions.single()
+        assertEquals(2, session.sets.size)
+        assertEquals(session.sets[0], session.sets[1])
+        assertEquals(1704186000000L, session.startedAtMillis)
+        assertEquals(45.35923700010001, session.sets.first().weightKg!!, 0.000001)
+        assertTrue(
+            session.sets.all {
+                it.rir == null && it.sessionId == null && it.occurrenceId == null
+            }
+        )
+        assertEquals(exercise, session.exercises["mapped"])
+        assertTrue(session.inferredSetTimes)
+    }
+
+    @Test
+    fun rejectsMissingMembershipDuplicateMembershipAndUnknownRows() {
+        listOf(listOf(2), listOf(2, 2, 3), listOf(2, 3, 4)).forEach { rows ->
+            assertIssue(
+                WorkoutImportIssue.INVALID_SESSION_MEMBERSHIP,
+                build(withSession(choices.sessions.single().copy(sourceRows = rows)))
+            )
+        }
+    }
+
+    @Test
+    fun dateOnlyNeedsExplicitTimeAndSessionConfirmation() {
+        assertIssue(
+            WorkoutImportIssue.INVALID_TIME,
+            build(withSession(choices.sessions.single().copy(dateOnlySecondOfDay = null)))
+        )
+        assertIssue(
+            WorkoutImportIssue.UNCONFIRMED_SESSION,
+            build(withSession(choices.sessions.single().copy(confirmedSession = false)))
+        )
+        assertIssue(
+            WorkoutImportIssue.INVALID_TIME,
+            build(withSession(choices.sessions.single().copy(utcOffsetMinutes = 1081)))
+        )
+    }
+
+    @Test
+    fun missingMappingWarmupAndLoadInterpretationBlockImport() {
+        assertIssue(
+            WorkoutImportIssue.MISSING_EXERCISE,
+            build(choices.copy(exercises = emptyMap()))
+        )
+        val choice = choices.exercises.getValue("Press")
+        assertIssue(
+            WorkoutImportIssue.UNKNOWN_WARMUP,
+            build(withExercise(choice.copy(unknownWarmupIsWorking = false)))
+        )
+        assertIssue(
+            WorkoutImportIssue.UNCONFIRMED_LOAD,
+            build(withExercise(choice.copy(confirmedLoadMeaning = false)))
+        )
+    }
+
+    @Test
+    fun capabilityValidationDoesNotSilentlyDiscardNumericBodyweight() {
+        val bodyweight = exercise.copy(loadCapability = ExerciseLoadCapability.BODYWEIGHT_ONLY)
+        val choice = choices.exercises.getValue("Press").copy(loadKind = LoadKind.BODYWEIGHT)
+        assertIssue(
+            WorkoutImportIssue.INVALID_LOAD,
+            PreviewWorkoutImport.build(parsed, withExercise(choice), listOf(bodyweight))
+        )
+        val valid = PreviewWorkoutImport.build(
+            parsed,
+            withExercise(choice.copy(useSourceWeight = false)),
+            listOf(bodyweight)
+        )
+        assertTrue(valid.canImport)
+        assertEquals(null, valid.sessions.single().sets.first().weightKg)
+    }
+
+    @Test
+    fun rejectedRowsRequireExplicitExclusionAndEffectsRequireAcknowledgement() {
+        val bad = WorkoutCsvParser.parse(
+            WorkoutCsvSource.FITNOTES,
+            "Date,Exercise,Weight (lbs),Reps\n2024-01-02,Press,100,8\n2024-01-02,Press,-1,8"
+        )
+        val selection = withSession(choices.sessions.single().copy(sourceRows = listOf(2)))
+        assertIssue(
+            WorkoutImportIssue.UNRESOLVED_EXCLUSION,
+            PreviewWorkoutImport.build(bad, selection, listOf(exercise))
+        )
+        val resolved = PreviewWorkoutImport.build(
+            bad,
+            selection.copy(excludedRows = setOf(3)),
+            listOf(exercise)
+        )
+        assertTrue(resolved.canImport)
+        assertIssue(
+            WorkoutImportIssue.UNACKNOWLEDGED_HISTORY_EFFECTS,
+            build(choices.copy(acknowledgedHistoryEffects = false))
+        )
+    }
+
+    @Test
+    fun metadataRequiresAcknowledgementRatherThanBecomingEffort() {
+        val strong = WorkoutCsvParser.parse(
+            WorkoutCsvSource.STRONG,
+            "Date;Workout Name;Exercise Name;Weight;Weight Unit;Reps;RPE\n" +
+                "2024-01-02 10:00:00;A;Press;50;kg;8;9"
+        )
+        val selection = choices.copy(
+            sessions = listOf(choices.sessions.single().copy(sourceRows = listOf(2))),
+            acknowledgedUnsupportedFields = false
+        )
+        val preview = PreviewWorkoutImport.build(strong, selection, listOf(exercise))
+        assertIssue(WorkoutImportIssue.UNACKNOWLEDGED_METADATA, preview)
+        assertEquals(null, preview.sessions.single().sets.single().rir)
+    }
+
+    @Test
+    fun unchangedSourceSkipsDespiteLocalEditsAndExportRowOffsets() {
+        val original = build().sessions.single()
+        val ledger = ledger(original)
+        val shifted = parsed.copy(
+            rows = parsed.rows.map { it.copy(sourceRowIndex = it.sourceRowIndex + 10) }
+        )
+        val selection = withSession(choices.sessions.single().copy(sourceRows = listOf(12, 13)))
+        val existing = WorkoutSession(
+            "existing",
+            original.startedAtMillis,
+            null,
+            original.localEpochDay
+        )
+        val preview = PreviewWorkoutImport.build(
+            shifted,
+            selection,
+            listOf(exercise),
+            listOf(ledger),
+            listOf(existing)
+        )
+        assertFalse(preview.canImport)
+        assertEquals("existing", preview.sessions.single().skipExistingSessionId)
+        assertEquals(
+            listOf(WorkoutImportIssue.UNCHANGED_SOURCE_SKIPPED),
+            preview.notices.map { it.issue }
+        )
+    }
+
+    @Test
+    fun deletedImportedHistoryIsDisclosedAndNotRestored() {
+        val original = build().sessions.single()
+        val preview = PreviewWorkoutImport.build(
+            parsed,
+            choices,
+            listOf(exercise),
+            listOf(ledger(original)),
+            emptyList()
+        )
+        assertFalse(preview.canImport)
+        assertTrue(preview.problems.isEmpty())
+        assertEquals(
+            listOf(WorkoutImportIssue.REMOVED_HISTORY_SKIPPED),
+            preview.notices.map { it.issue }
+        )
+    }
+
+    @Test
+    fun changedOrPartialSourceAndAmbiguousLedgerCannotOverwrite() {
+        val original = build().sessions.single()
+        val ledger = ledger(original)
+        val changed = parsed.copy(rows = parsed.rows.map { it.copy(reps = 9) })
+        assertIssue(
+            WorkoutImportIssue.CHANGED_OR_AMBIGUOUS_SOURCE,
+            PreviewWorkoutImport.build(changed, choices, listOf(exercise), listOf(ledger))
+        )
+        assertIssue(
+            WorkoutImportIssue.CHANGED_OR_AMBIGUOUS_SOURCE,
+            PreviewWorkoutImport.build(
+                parsed,
+                choices,
+                listOf(exercise),
+                listOf(ledger, ledger.copy(importedSessionId = "other"))
+            )
+        )
+    }
+
+    @Test
+    fun existingOpenSessionAndBoundaryEqualityBlockImportWithoutResegmentation() {
+        val original = build().sessions.single()
+        val existing = WorkoutSession(
+            "live",
+            original.startedAtMillis,
+            null,
+            original.localEpochDay
+        )
+        assertIssue(
+            WorkoutImportIssue.SESSION_OVERLAP,
+            PreviewWorkoutImport.build(
+                parsed,
+                choices,
+                listOf(exercise),
+                existingSessions = listOf(existing)
+            )
+        )
+    }
+
+    @Test
+    fun distinctSameDaySessionsAreKeptAndAmbiguousIdenticalSourcesBlock() {
+        val different = parsed.copy(
+            rows = parsed.rows.mapIndexed { i, row -> row.copy(reps = 8 + i) }
+        )
+        val selection = choices.copy(
+            sessions = listOf(
+                choices.sessions.single().copy(sourceRows = listOf(2), dateOnlySecondOfDay = 36000),
+                choices.sessions.single().copy(sourceRows = listOf(3), dateOnlySecondOfDay = 72000)
+            )
+        )
+        val valid = PreviewWorkoutImport.build(different, selection, listOf(exercise))
+        assertTrue(valid.canImport)
+        assertEquals(2, valid.sessions.size)
+        assertIssue(WorkoutImportIssue.CHANGED_OR_AMBIGUOUS_SOURCE, build(selection))
+    }
+
+    @Test
+    fun nullAndEmptyCanonicalFieldsCannotCollide() {
+        assertFalse(canonicalFields(listOf(null)) == canonicalFields(listOf("")))
+        assertFalse(canonicalFields(listOf("a", "bc")) == canonicalFields(listOf("ab", "c")))
+    }
+
+    private fun build(selection: WorkoutImportChoices = choices) =
+        PreviewWorkoutImport.build(parsed, selection, listOf(exercise))
+
+    private fun withSession(session: WorkoutImportSessionChoice) =
+        choices.copy(sessions = listOf(session))
+
+    private fun withExercise(exercise: WorkoutImportExerciseChoice) =
+        choices.copy(exercises = mapOf("Press" to exercise))
+
+    private fun ledger(session: WorkoutImportSession) = WorkoutImportProvenance(
+        parsed.source,
+        session.candidateKey,
+        session.content,
+        "existing"
+    )
+
+    private fun assertIssue(issue: WorkoutImportIssue, preview: WorkoutImportPreview) {
+        assertFalse(preview.canImport)
+        assertTrue(preview.problems.any { it.issue == issue }, preview.problems.toString())
+    }
+}
