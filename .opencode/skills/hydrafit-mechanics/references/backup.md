@@ -7,8 +7,10 @@ Logical, versioned JSON (`format` + `formatVersion` 12), restored by whole repla
 The reader accepts versions 1–12; version 1 defaults the guided-workout preference to off.
 Format 12 adds the two rest-presentation opt-ins (`restCountdownEnabled`,
 `restCompletionSignalEnabled`, both on the existing `trainingGuidance` record) and a nullable
-`workoutReminders` section; versions 1–11 restore them off with no reminder time chosen, and a
-pre-12 file must not carry the reminder section. The `workoutReminders` section is
+`workoutReminders` section; versions 1–11 restore them off with no reminder time chosen. A pre-12
+file must not carry the reminder section, and must not carry either rest opt-in as a non-default
+`true`: a legacy file's guidance object omits the booleans (they default off), while a `true` value
+in a pre-12 file is rejected as `INVALID_VALUE` rather than silently normalized. The `workoutReminders` section is
 `remindersEnabled` plus a nullable `reminderMinuteOfDay` (minutes past local midnight, null until a
 time is chosen), `quietHoursEnabled` and the quiet start/end minutes; it carries no OS permission or
 delivery state.

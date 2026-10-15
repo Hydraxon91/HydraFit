@@ -407,6 +407,81 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun rejectsNonDefaultRestPresentationOptInsBeforeFormatTwelve() {
+        val nonDefaults = listOf(
+            BackupTrainingGuidanceRecord(
+                restAlertsEnabled = false,
+                shortRestCoachingEnabled = false,
+                restCountdownEnabled = true
+            ),
+            BackupTrainingGuidanceRecord(
+                restAlertsEnabled = false,
+                shortRestCoachingEnabled = false,
+                restCompletionSignalEnabled = true
+            ),
+            BackupTrainingGuidanceRecord(
+                restAlertsEnabled = false,
+                shortRestCoachingEnabled = false,
+                restCountdownEnabled = true,
+                restCompletionSignalEnabled = true
+            )
+        )
+        // v11 is the last pre-12 version; v6 is the oldest version that carries trainingGuidance.
+        listOf(REMINDER_FORMAT_VERSION - 1, 6).forEach { version ->
+            nonDefaults.forEach { guidance ->
+                assertFailure(BackupFailure.INVALID_VALUE) {
+                    validFile().copy(formatVersion = version, trainingGuidance = guidance)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun acceptsDefaultRestPresentationOptInsInLegacyFormats() {
+        listOf(REMINDER_FORMAT_VERSION - 1, 6).forEach { version ->
+            validator.validate(
+                validFile().copy(
+                    formatVersion = version,
+                    trainingGuidance = BackupTrainingGuidanceRecord(false, false)
+                )
+            )
+        }
+    }
+
+    @Test
+    fun acceptsRestPresentationOptInsInFormatTwelve() {
+        validator.validate(
+            validFile().copy(
+                trainingGuidance = BackupTrainingGuidanceRecord(
+                    restAlertsEnabled = true,
+                    shortRestCoachingEnabled = true,
+                    restCountdownEnabled = true,
+                    restCompletionSignalEnabled = true
+                )
+            )
+        )
+    }
+
+    @Test
+    fun rejectsNonDefaultRestOptInsDecodedFromLegacyJson() {
+        // The booleans are known fields, so ignoreUnknownKeys does not reject them; the validator must.
+        val file = validFile().copy(
+            formatVersion = REMINDER_FORMAT_VERSION - 1,
+            trainingGuidance = BackupTrainingGuidanceRecord(
+                restAlertsEnabled = false,
+                shortRestCoachingEnabled = false,
+                restCountdownEnabled = true
+            )
+        )
+
+        val failure = assertFailsWith<BackupException> {
+            validator.validate(BackupJson.decode(BackupJson.encode(file)))
+        }
+
+        assertEquals(BackupFailure.INVALID_VALUE, failure.failure)
+    }
+
+    @Test
     fun rejectsDuplicateCompositeExplanationKeys() {
         assertFailure(BackupFailure.DUPLICATE_ID) {
             validFile().copy(

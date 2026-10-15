@@ -734,10 +734,13 @@ not restore saved countdowns. Expired or invalid state is silently cleared.
 Rest alerts and short-rest coaching are independent opt-ins, both default off, stored in
 `trainingGuidancePreference` (migration `37.sqm`). Migration `45.sqm` adds two more default-off
 rest-presentation opt-ins (`restCountdownEnabled`, `restCompletionSignalEnabled`) to that row, plus a
-separate `workoutReminderPreference` row and the device-local `reminderDelivery` table. The two
-rest-presentation opt-ins have no presentation wiring yet; the workout-reminder persistence and
-delivery are described in §1.20. Android alerts request notification permission
-only through the Settings opt-in. One elapsed-time alarm uses `setExactAndAllowWhileIdle` when
+separate `workoutReminderPreference` row and the device-local `reminderDelivery` table. Both
+rest-presentation opt-ins are wired through the countdown notification channel and the foreground
+completion presenter described in §1.20; the workout-reminder persistence and delivery are also
+described there. Android rest notifications request notification permission
+only through their Settings opt-in: a grant enables only the opt-in that asked for it, and a
+denial leaves that opt-in off with blocked feedback. The foreground completion signal needs no
+notification permission. One elapsed-time alarm uses `setExactAndAllowWhileIdle` when
 exact-alarm access is available, otherwise `setAndAllowWhileIdle`. Android 12+ uses optional
 `SCHEDULE_EXACT_ALARM` special access, opened only by Settings' explicit **Allow precise timing**
 action; alerts remain enabled with an inexact-delay warning if access is absent. Access is refreshed
@@ -949,15 +952,32 @@ best-effort and the lateness bound decides at posting time. The alarm carries no
 fired alarm, a reboot and a clock or timezone change all reconcile from current stores, and a pass
 whose context changed while it was suspended posts nothing.
 
+The post is linearized against writers by one process-local `WorkoutReminderDeliveryGate`. The
+coordinator reads a single gated snapshot of schedule state, activation, occurrences, preferences and
+the delivery ledger and keeps that snapshot's revision token; before any side effect it re-enters the
+gate with the token, and every mutator of those stores — `SqlDelightWorkoutScheduleRepository`, the
+reminder-preference setters and the whole backup-restore replacement — runs inside the gate and
+invalidates the token. A writer that commits between the snapshot and the post therefore makes the
+pass re-read rather than post a stale reminder, and the gate is held through the claim and the post
+so no gated write commits between the final validation and the notification call. This orders
+database writes against posting; it does not order the operating system's notification display and
+cannot revoke an external effect already started. A failed or cancelled mutation still invalidates,
+so an aborted or ABA-shaped change never leaves an older snapshot looking current.
+
 Delivery is claimed atomically per active block and local day before posting, so the app-lifetime
 reconciliation and the alarm receiver cannot post twice. Permission denial neither claims nor posts;
 a failed post releases the claim so a later pass inside the lateness window can retry, and the next
 eligible day is armed in the same pass so a lost day does not silently end the series. Cancelling
-clears the pending alarm and any posted reminder. The ledger is device-local delivery state — never
-backed up, cleared on restore — because whether a reminder was posted is true only of that device.
+clears the pending alarm and any posted reminder; when today's summary was already posted and no
+later day remains to arm, only the spent alarm is cancelled so the posted summary stays visible.
+The ledger is device-local delivery state — never backed up, cleared on restore — because whether a
+reminder was posted is true only of that device.
 The chosen local time resolves through the device's current zone: a local time a DST transition skips
 resolves forward to the next valid wall time and a repeated one resolves to its first occurrence,
-while an instant stored earlier is never reinterpreted after a later zone change. Settings exposes
+while an instant stored earlier is never reinterpreted after a later zone change. The resolved civil
+fields are Gregorian and are interpreted with an explicitly Gregorian calendar, so a device locale
+whose default calendar is not Gregorian (for example th-TH Buddhist or fa-IR Persian) does not shift
+the resolved instant. Settings exposes
 the reminder opt-in, explicit local time and optional quiet interval. Denial keeps the reminder
 preference off; permission results and Settings resume report platform delivery changes through
 `WorkoutReminderScheduler.deliveryChanges`, observed by the coordinator without a feature dependency.
@@ -971,8 +991,20 @@ validates the same guided/session/occurrence/boot context independently of the b
 `RestAlertScheduler.showCountdown` shows or removes a silent ongoing Android notification on the
 separate low-importance `rest-countdown` channel. The system chronometer uses the remaining elapsed
 deadline mapped to wall time at posting; the app does not issue per-second notification updates or
-run a foreground service. A coordinator deadline job removes the presentation while the process is
-alive. Android process-death cleanup and clock-change rendering still need runtime acceptance.
+run a foreground service. A coordinator deadline job removes the in-process presentation, and one job
+is kept per live countdown identity across unrelated preference, timing and context emissions,
+including a countdown that is due but whose expiry work has not run yet, so its foreground completion
+is not dropped; replacing or clearing the countdown, invalidating its context, or disabling both
+presentation modes cancels it. Cleanup survives process death without a foreground service: API 26+ sets
+the notification's own timeout, while API 24/25 schedules one separate best-effort inexact cleanup
+alarm on a distinct PendingIntent slot. Cleanup reads the displayed identity, matches and removes it
+inside the same publication lock that posts or clears the countdown, so a replacement cannot commit
+between the check and the removal. It removes the notification only when its extras identity still
+matches the delivered one, the boot is unchanged and the deadline has passed, so a stale or replaced
+delivery is a no-op; it posts no completion signal and does not touch the stored timer. Reposting or
+clearing the countdown cancels the obsolete cleanup, and the completion
+alarm's exact/inexact policy is unchanged. Device cleanup timing and clock-change rendering still
+need C6 runtime acceptance.
 
 The root-mounted, Logger-owned `RestCompletionPresenter` observes resumed lifecycle, shows a brief
 “Rest complete” snackbar and requests one haptic without sound or notification permission.

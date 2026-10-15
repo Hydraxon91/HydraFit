@@ -209,11 +209,18 @@ app-lifetime over preferences, schedule state and occurrences, arms one inexact 
 (reminders neither request nor reuse exact-alarm access) and posts one summary per block and local
 day through the `workout-reminders` channel. The alarm carries no workout authority: the receiver, a
 reboot and clock/timezone changes all re-read current stores, and a pass whose context changed while
-suspended posts nothing. The ledger claim keeps a day to one post, permission denial neither claims
+suspended posts nothing. One shared `WorkoutReminderDeliveryGate` holds that re-read together: the
+pass snapshots every store and its token on the gate, then re-enters with the token before claiming
+and posting, while `SqlDelightWorkoutScheduleRepository`, the reminder-preference setters and
+backup restore all mutate inside the gate and invalidate older tokens — so a writer that commits
+between the snapshot and the post makes the pass re-read instead of posting stale state. The ledger
+claim keeps a day to one post, permission denial neither claims
 nor posts, and a failed post releases the claim for a later pass inside the window. Cancelling clears
-the pending alarm and the posted notification. The chosen local time resolves in the device's current
-zone: a skipped local time resolves forward to the next valid wall time and a repeated one to its
-first occurrence. Settings now owns `WorkoutReminderSettingsViewModel` and
+the pending alarm and the posted notification; when today's summary was already posted and no later
+day remains to arm, only the spent alarm is cancelled so the summary stays visible. The chosen local
+time resolves in the device's current zone: a skipped local time resolves forward to the next valid
+wall time and a repeated one to its first occurrence. Settings now owns
+`WorkoutReminderSettingsViewModel` and
 `WorkoutReminderSettingsSection` for opt-in, explicit time and quiet hours; denied notification
 access leaves the reminder preference off. Permission results and Settings resume invalidate
 delivery through the scheduler's `deliveryChanges` stream, not a cross-feature import. Rest/workout
@@ -222,15 +229,25 @@ it and the shell opens Logger after startup/onboarding, with no navigation for t
 tab. iOS has no reminder delivery.
 
 The independent `restCountdownEnabled` opt-in uses `RestAlertScheduler.showCountdown` for a silent
-ongoing Android chronometer. The coordinator validates guided/session/occurrence/boot context,
-updates presentation when preferences/context change and removes it at expiry via an app-lifetime
-deadline job. Background-alert opt-in and exact/inexact alarm selection are unchanged.
+ongoing Android chronometer. Enabling it requests notification permission through the same Settings
+opt-in as background alerts, and the result enables only the opt-in that requested it — denial
+leaves the countdown off with blocked feedback. The foreground completion signal needs no
+notification permission. The coordinator validates guided/session/occurrence/boot context and
+updates presentation when preferences/context change, removing it at expiry while the process is
+alive. It keeps one deadline job per live countdown identity across unrelated preference/timing/context
+emissions, including a due-but-not-yet-executed countdown, so the foreground completion is not
+dropped; replacing or clearing the countdown, invalidating the context, or disabling both presentation
+modes cancels it. Process-independent cleanup complements that with the API-26+ notification timeout or one
+API-24/25 identity-checked, best-effort inexact cleanup alarm; the cleanup receiver and the scheduler
+share one publication lock, so a replacement cannot commit between the check and the cancel. OS
+timing is not guaranteed and a delayed or stale delivery cannot remove a newer countdown or signal
+completion. Background-alert opt-in and exact/inexact alarm selection are unchanged.
 `RestCompletionPresentation` is a singleton shared by the coordinator timer and Android receiver:
 its mutex selects one foreground or system completion. The root-mounted `RestCompletionPresenter`
 owns resumed visibility, a brief “Rest complete” snackbar and one haptic. Foreground delivery needs
 the opt-in and visible resume before expiry; returning, restoration or enabling after expiry never
 replays it. Background system completion still needs the existing alert opt-in. These presentation
-states are transient, not persisted or backed up. Rendering, process-death cleanup and lifecycle
+states are transient, not persisted or backed up. Rendering, device cleanup timing and lifecycle
 integration remain C6 runtime acceptance.
 
 Optional warm-up guidance (0.7.3, WU-01) is the pure `buildWarmupGuidance(occurrence)` in

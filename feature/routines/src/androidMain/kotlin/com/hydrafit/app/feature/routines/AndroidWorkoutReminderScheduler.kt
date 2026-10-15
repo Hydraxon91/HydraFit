@@ -79,6 +79,12 @@ class AndroidWorkoutReminderScheduler(context: Context) : WorkoutReminderSchedul
         }
     }
 
+    override fun cancelPendingAlarm() {
+        synchronized(deliveryLock) {
+            alarms.cancel(pendingIntent())
+        }
+    }
+
     override suspend fun notify(workoutNames: List<String>): Boolean {
         val channelName = getString(Res.string.reminder_channel)
         val title = getString(Res.string.reminder_title)

@@ -2,13 +2,16 @@ package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToOneOrNull
+import com.hydrafit.app.core.domain.schedule.WorkoutReminderDeliveryGate
 import com.hydrafit.app.core.domain.settings.WorkoutReminderPreferenceRepository
 import com.hydrafit.app.core.domain.settings.WorkoutReminderPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.map
 
-class SqlDelightWorkoutReminderPreferenceRepository(database: HydraFitDatabase) :
-    WorkoutReminderPreferenceRepository {
+class SqlDelightWorkoutReminderPreferenceRepository(
+    database: HydraFitDatabase,
+    private val gate: WorkoutReminderDeliveryGate = WorkoutReminderDeliveryGate()
+) : WorkoutReminderPreferenceRepository {
     private val queries = database.workoutReminderPreferenceQueries
 
     override fun observe() = queries.selectPreferences().asFlow()
@@ -18,19 +21,27 @@ class SqlDelightWorkoutReminderPreferenceRepository(database: HydraFitDatabase) 
     override suspend fun get() = queries.selectPreferences().executeAsOneOrNull().toPreferences()
 
     override suspend fun setEnabled(enabled: Boolean) {
-        queries.setEnabled(if (enabled) 1L else 0L)
+        gate.mutate {
+            queries.setEnabled(if (enabled) 1L else 0L)
+        }
     }
 
     override suspend fun setReminderMinuteOfDay(minuteOfDay: Int?) {
-        queries.setReminderMinuteOfDay(minuteOfDay?.toLong())
+        gate.mutate {
+            queries.setReminderMinuteOfDay(minuteOfDay?.toLong())
+        }
     }
 
     override suspend fun setQuietHoursEnabled(enabled: Boolean) {
-        queries.setQuietHoursEnabled(if (enabled) 1L else 0L)
+        gate.mutate {
+            queries.setQuietHoursEnabled(if (enabled) 1L else 0L)
+        }
     }
 
     override suspend fun setQuietHours(startMinuteOfDay: Int, endMinuteOfDay: Int) {
-        queries.setQuietHours(startMinuteOfDay.toLong(), endMinuteOfDay.toLong())
+        gate.mutate {
+            queries.setQuietHours(startMinuteOfDay.toLong(), endMinuteOfDay.toLong())
+        }
     }
 
     private fun WorkoutReminderPreference?.toPreferences(): WorkoutReminderPreferences =

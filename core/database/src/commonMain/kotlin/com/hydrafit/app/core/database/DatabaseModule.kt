@@ -9,6 +9,7 @@ import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementRepository
 import com.hydrafit.app.core.domain.schedule.ReminderDeliveryRepository
+import com.hydrafit.app.core.domain.schedule.WorkoutReminderDeliveryGate
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.settings.RestPreferenceRepository
 import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferenceRepository
@@ -40,6 +41,9 @@ import org.koin.dsl.module
 
 val databaseModule: Module = module {
     single { HydraFitDatabase(get<DatabaseDriverFactory>().createDriver()) }
+    // One process-local gate serializes reminder posting against the writers that could invalidate
+    // its decision; every gated binding below must resolve this same instance.
+    single { WorkoutReminderDeliveryGate() }
     single { SeedExerciseCatalog(get()) }
     single { SeedEquipmentCatalog(get()) }
     single { CustomExerciseDedupe(get()) }
@@ -72,17 +76,17 @@ val databaseModule: Module = module {
         SqlDelightTrainingGuidancePreferenceRepository(get())
     }
     single<WorkoutReminderPreferenceRepository> {
-        SqlDelightWorkoutReminderPreferenceRepository(get())
+        SqlDelightWorkoutReminderPreferenceRepository(get(), get())
     }
     single<RestCountdownRepository> { SqlDelightRestCountdownRepository(get()) }
     single<ReminderDeliveryRepository> { SqlDelightReminderDeliveryRepository(get()) }
     single<PlanHistoryRepository> { SqlDelightPlanHistoryRepository(get()) }
     single<RoutineTemplateRepository> { SqlDelightRoutineTemplateRepository(get()) }
-    single { SqlDelightWorkoutScheduleRepository(get()) }
+    single { SqlDelightWorkoutScheduleRepository(get(), get()) }
     single<WorkoutScheduleRepository> { get<SqlDelightWorkoutScheduleRepository>() }
     single<OccurrenceReplacementRepository> { get<SqlDelightWorkoutScheduleRepository>() }
     single<PersonalRecordRepository> { SqlDelightPersonalRecordRepository(get(), get()) }
-    single<BackupRepository> { SqlDelightBackupRepository(get(), get()) }
+    single<BackupRepository> { SqlDelightBackupRepository(get(), get(), get()) }
     single<BackupStagingRepository> { SqlDelightBackupStagingRepository(get()) }
     single<BackupCatalog> { SqlDelightBackupCatalog() }
     single<WorkoutPlanSourcesRepository> {

@@ -51,6 +51,7 @@ class AndroidRestAlertScheduler(context: Context) : RestAlertScheduler {
     private val deliveryLock = Any()
     private var deliveryRevision = 0L
     private var countdownRevision = 0L
+    private val countdownNotificationState = RestCountdownNotificationState()
     private val _timing = MutableStateFlow(currentTiming())
     override val timing = _timing.asStateFlow()
 
@@ -116,7 +117,10 @@ class AndroidRestAlertScheduler(context: Context) : RestAlertScheduler {
     override suspend fun showCountdown(countdown: PersistedRestCountdown?) {
         val revision = synchronized(deliveryLock) {
             countdownRevision++
-            notifications.cancel(COUNTDOWN_NOTIFICATION_ID)
+            countdownNotificationState.withPublicationLock {
+                notifications.cancel(COUNTDOWN_NOTIFICATION_ID)
+            }
+            cancelCountdownCleanup(alarms, context)
             countdownRevision
         }
         if (countdown == null || !canNotify()) return
@@ -146,33 +150,61 @@ class AndroidRestAlertScheduler(context: Context) : RestAlertScheduler {
                             Intent.FLAG_ACTIVITY_SINGLE_TOP
                     )
                 } ?: return
+            val identity = countdown.notificationIdentity()
             val builder = if (Build.VERSION.SDK_INT >= 26) {
                 Notification.Builder(context, COUNTDOWN_CHANNEL_ID)
             } else {
                 Notification.Builder(context).setPriority(Notification.PRIORITY_LOW)
             }
-            notifications.notify(
-                COUNTDOWN_NOTIFICATION_ID,
-                builder.setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-                    .setContentTitle(title)
-                    .setWhen(System.currentTimeMillis() + remaining)
-                    .setUsesChronometer(true)
-                    .setChronometerCountDown(true)
-                    .setOngoing(true)
-                    .setOnlyAlertOnce(true)
-                    .setSound(null)
-                    .setVibrate(null)
-                    .setContentIntent(
-                        PendingIntent.getActivity(
-                            context,
-                            0,
-                            launch,
-                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                        )
+            val configured = builder.setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setContentTitle(title)
+                .setWhen(System.currentTimeMillis() + remaining)
+                .setUsesChronometer(true)
+                .setChronometerCountDown(true)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setSound(null)
+                .setVibrate(null)
+                .addExtras(countdownIdentityExtras(identity))
+                .setContentIntent(
+                    PendingIntent.getActivity(
+                        context,
+                        0,
+                        launch,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                     )
-                    .build()
-            )
+                )
+            if (Build.VERSION.SDK_INT >= 26) {
+                // The OS still removes the silent notification if the process dies, without an alarm.
+                configured.setTimeoutAfter(remaining)
+            }
+            val notification = configured.build()
+            countdownNotificationState.withPublicationLock {
+                notifications.notify(COUNTDOWN_NOTIFICATION_ID, notification)
+            }
+            if (Build.VERSION.SDK_INT < 26) {
+                scheduleCountdownCleanup(alarms, context, identity)
+            }
         }
+    }
+
+    /**
+     * Removes the displayed countdown only if it is still [expected] on the same boot after its
+     * deadline. The shared publication lock spans the read, the match and the removal, so a post or
+     * clear that races this delivery cannot be overtaken.
+     */
+    fun cleanupCountdown(
+        expected: RestCountdownNotificationIdentity,
+        currentBootIdentity: String?,
+        elapsedNowMillis: Long
+    ) {
+        countdownNotificationState.cleanup(
+            expected = expected,
+            currentBootIdentity = currentBootIdentity,
+            elapsedNowMillis = elapsedNowMillis,
+            displayed = { displayedCountdownIdentity(notifications) },
+            remove = { notifications.cancel(COUNTDOWN_NOTIFICATION_ID) }
+        )
     }
 
     suspend fun notifyRestEnded(expectedRevision: Long) {
@@ -245,7 +277,6 @@ class AndroidRestAlertScheduler(context: Context) : RestAlertScheduler {
         const val CHANNEL_ID = "rest-prompts"
         const val NOTIFICATION_ID = 600
         const val COUNTDOWN_CHANNEL_ID = "rest-countdown"
-        const val COUNTDOWN_NOTIFICATION_ID = 601
     }
 }
 

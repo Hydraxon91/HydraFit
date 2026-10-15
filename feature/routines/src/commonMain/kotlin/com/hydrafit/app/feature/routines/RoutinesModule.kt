@@ -13,7 +13,8 @@ val routinesModule: Module = module {
             deliveries = get(),
             reminders = get(),
             timeProvider = get(),
-            readiness = get()
+            readiness = get(),
+            gate = get()
         ).also { it.start() }
     }.factory.beanDefinition.onClose { it?.close() }
     viewModel {

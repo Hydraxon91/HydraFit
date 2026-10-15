@@ -86,6 +86,22 @@ class WorkoutReminderPolicyTest {
             )
         )
         assertEquals(
+            ReminderDecision.DeliverNow(listOf(7L)),
+            decide(
+                preferences,
+                workouts,
+                nowMillis = due + REMINDER_MAX_LATE_MINUTES * 60_000L
+            )
+        )
+        assertEquals(
+            ReminderDecision.SuppressedExpired,
+            decide(
+                preferences,
+                workouts,
+                nowMillis = due + REMINDER_MAX_LATE_MINUTES * 60_000L + 1L
+            )
+        )
+        assertEquals(
             ReminderDecision.SuppressedExpired,
             decide(
                 preferences,

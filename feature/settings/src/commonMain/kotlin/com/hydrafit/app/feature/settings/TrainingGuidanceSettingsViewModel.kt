@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 data class TrainingGuidanceSettingsUiState(
     val preferences: TrainingGuidancePreferences = TrainingGuidancePreferences(),
     val permissionDenied: Boolean = false,
+    val countdownPermissionDenied: Boolean = false,
     val alertTiming: RestAlertTiming = RestAlertTiming.INEXACT
 )
 
@@ -52,8 +53,14 @@ class TrainingGuidanceSettingsViewModel(
         viewModelScope.launch { repository.setShortRestCoachingEnabled(enabled) }
     }
 
-    fun setRestCountdown(enabled: Boolean) {
-        viewModelScope.launch { repository.setRestCountdownEnabled(enabled) }
+    fun setRestCountdown(enabled: Boolean, notificationsGranted: Boolean) {
+        viewModelScope.launch {
+            val allowed = enabled && notificationsGranted
+            repository.setRestCountdownEnabled(allowed)
+            _state.update {
+                it.copy(countdownPermissionDenied = enabled && !notificationsGranted)
+            }
+        }
     }
 
     fun setRestCompletionSignal(enabled: Boolean) {

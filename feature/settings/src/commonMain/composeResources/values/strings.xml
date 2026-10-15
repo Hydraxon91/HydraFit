@@ -31,6 +31,7 @@
     <string name="settings_short_rest_coaching_description">Optional guidance after two consecutive live same-exercise intervals shorter than your chosen rest time. It never changes your workout.</string>
     <string name="settings_rest_countdown">Rest countdown notification</string>
     <string name="settings_rest_countdown_description">Shows the time left in a silent ongoing notification while a rest countdown runs, so you can check it without opening HydraFit. Off by default.</string>
+    <string name="settings_rest_countdown_denied">Notifications are blocked. Allow notifications in system settings to show the rest countdown notification.</string>
     <string name="settings_rest_completion">Rest complete signal</string>
     <string name="settings_rest_completion_description">Shows a brief “Rest complete” message and one short vibration when a rest countdown ends while HydraFit is open. Off by default.</string>
     <string name="settings_reminders_section">Workout reminders</string>

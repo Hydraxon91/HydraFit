@@ -39,6 +39,7 @@ import com.hydrafit.app.core.domain.backup.BackupVolumeExplanationStateRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutReminderRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSessionRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSetRecord
+import com.hydrafit.app.core.domain.schedule.WorkoutReminderDeliveryGate
 import com.hydrafit.app.core.domain.settings.DEFAULT_QUIET_END_MINUTE_OF_DAY
 import com.hydrafit.app.core.domain.settings.DEFAULT_QUIET_START_MINUTE_OF_DAY
 import com.hydrafit.app.core.domain.settings.DEFAULT_REST_SECONDS
@@ -51,7 +52,8 @@ import com.hydrafit.app.core.domain.workout.unicodeCaseFold
  */
 class SqlDelightBackupRepository(
     private val database: HydraFitDatabase,
-    private val catalog: BackupCatalog
+    private val catalog: BackupCatalog,
+    private val gate: WorkoutReminderDeliveryGate = WorkoutReminderDeliveryGate()
 ) : BackupRepository {
 
     override suspend fun export(appVersion: String, exportedAtMillis: Long): BackupFile =
@@ -496,7 +498,11 @@ class SqlDelightBackupRepository(
             )
         }
 
-    override suspend fun restore(file: BackupFile) {
+    override suspend fun restore(file: BackupFile) = gate.mutate {
+        restoreLocked(file)
+    }
+
+    private fun restoreLocked(file: BackupFile) {
         database.transaction {
             database.setupQueries.updateState(
                 file.setup.version.toLong(),

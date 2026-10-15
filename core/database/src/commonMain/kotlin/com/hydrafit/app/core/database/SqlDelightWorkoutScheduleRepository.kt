@@ -20,6 +20,7 @@ import com.hydrafit.app.core.domain.schedule.ScheduleException
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.schedule.TrainingActivation as DomainTrainingActivation
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence as DomainWorkoutOccurrence
+import com.hydrafit.app.core.domain.schedule.WorkoutReminderDeliveryGate
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState as DomainWorkoutScheduleState
 import com.hydrafit.app.core.domain.schedule.toWeekdayMask
@@ -30,8 +31,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
-class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase) :
-    WorkoutScheduleRepository,
+class SqlDelightWorkoutScheduleRepository(
+    private val database: HydraFitDatabase,
+    private val gate: WorkoutReminderDeliveryGate = WorkoutReminderDeliveryGate()
+) : WorkoutScheduleRepository,
     OccurrenceReplacementRepository {
     private val queries = database.trainingScheduleQueries
     private val planWriter = AcceptedPlanWriter(database)
@@ -85,11 +88,13 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
             ?: DomainWorkoutScheduleState()
 
     override suspend fun setScheduleState(state: DomainWorkoutScheduleState) {
-        queries.upsertScheduleState(
-            activeActivationId = state.activeActivationId,
-            selectedOccurrenceId = state.selectedOccurrenceId,
-            legacyFallbackEnabled = if (state.legacyFallbackEnabled) 1L else 0L
-        )
+        gate.mutate {
+            queries.upsertScheduleState(
+                activeActivationId = state.activeActivationId,
+                selectedOccurrenceId = state.selectedOccurrenceId,
+                legacyFallbackEnabled = if (state.legacyFallbackEnabled) 1L else 0L
+            )
+        }
     }
 
     override suspend fun activeActivation(): DomainTrainingActivation? {
@@ -135,6 +140,15 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
     }
 
     override suspend fun acceptAndActivate(
+        acceptedPlan: AcceptedPlan?,
+        activation: DomainTrainingActivation,
+        scheduledEpochDays: List<Long?>,
+        replaceActive: Boolean
+    ): Long = gate.mutate {
+        acceptAndActivateLocked(acceptedPlan, activation, scheduledEpochDays, replaceActive)
+    }
+
+    private fun acceptAndActivateLocked(
         acceptedPlan: AcceptedPlan?,
         activation: DomainTrainingActivation,
         scheduledEpochDays: List<Long?>,
@@ -265,6 +279,16 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
         status: OccurrenceStatus,
         resolvedAtMillis: Long,
         entries: List<DomainOccurrenceEntry>
+    ): DomainWorkoutScheduleState = gate.mutate {
+        resolveOccurrenceLocked(occurrenceId, expectedRevision, status, resolvedAtMillis, entries)
+    }
+
+    private fun resolveOccurrenceLocked(
+        occurrenceId: Long,
+        expectedRevision: Int,
+        status: OccurrenceStatus,
+        resolvedAtMillis: Long,
+        entries: List<DomainOccurrenceEntry>
     ): DomainWorkoutScheduleState = database.transactionWithResult {
         val occurrence = queries.selectOccurrenceById(occurrenceId).executeAsOneOrNull()
             ?: throw ScheduleException("That workout no longer exists")
@@ -306,31 +330,44 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
     }
 
     override suspend fun updateActivationHeader(activation: DomainTrainingActivation) {
-        queries.updateActivationHeader(
-            name = activation.name,
-            mode = activation.mode.name,
-            weekdayMask = activation.weekdays.toWeekdayMask().toLong(),
-            status = activation.status.name,
-            endedAtMillis = activation.endedAtMillis,
-            revision = activation.revision.toLong(),
-            id = activation.id
-        )
+        gate.mutate {
+            queries.updateActivationHeader(
+                name = activation.name,
+                mode = activation.mode.name,
+                weekdayMask = activation.weekdays.toWeekdayMask().toLong(),
+                status = activation.status.name,
+                endedAtMillis = activation.endedAtMillis,
+                revision = activation.revision.toLong(),
+                id = activation.id
+            )
+        }
     }
 
     override suspend fun updateOccurrence(occurrence: DomainWorkoutOccurrence) {
-        queries.updateOccurrence(
-            queuePosition = occurrence.queuePosition.toLong(),
-            scheduledEpochDay = occurrence.scheduledEpochDay,
-            notBeforeEpochDay = occurrence.notBeforeEpochDay,
-            startedAtMillis = occurrence.startedAtMillis,
-            resolvedAtMillis = occurrence.resolvedAtMillis,
-            status = occurrence.status.name,
-            revision = occurrence.revision.toLong(),
-            id = occurrence.id
-        )
+        gate.mutate {
+            queries.updateOccurrence(
+                queuePosition = occurrence.queuePosition.toLong(),
+                scheduledEpochDay = occurrence.scheduledEpochDay,
+                notBeforeEpochDay = occurrence.notBeforeEpochDay,
+                startedAtMillis = occurrence.startedAtMillis,
+                resolvedAtMillis = occurrence.resolvedAtMillis,
+                status = occurrence.status.name,
+                revision = occurrence.revision.toLong(),
+                id = occurrence.id
+            )
+        }
     }
 
     override suspend fun replaceUntouchedEntry(
+        occurrenceId: Long,
+        expectedRevision: Int,
+        replacement: DomainOccurrenceEntry,
+        nowMillis: Long
+    ) = gate.mutate {
+        replaceUntouchedEntryLocked(occurrenceId, expectedRevision, replacement, nowMillis)
+    }
+
+    private fun replaceUntouchedEntryLocked(
         occurrenceId: Long,
         expectedRevision: Int,
         replacement: DomainOccurrenceEntry,
@@ -427,7 +464,7 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
     override suspend fun replaceOccurrenceEntries(
         occurrenceId: Long,
         entries: List<DomainOccurrenceEntry>
-    ) {
+    ) = gate.mutate {
         queries.transaction {
             applyEntryChanges(occurrenceId, entries)
         }
@@ -454,7 +491,7 @@ class SqlDelightWorkoutScheduleRepository(private val database: HydraFitDatabase
             }
     }
 
-    override suspend fun deleteOccurrencesForActivation(activationId: Long) {
+    override suspend fun deleteOccurrencesForActivation(activationId: Long) = gate.mutate {
         queries.transaction {
             queries.selectOccurrencesForActivation(
                 activationId

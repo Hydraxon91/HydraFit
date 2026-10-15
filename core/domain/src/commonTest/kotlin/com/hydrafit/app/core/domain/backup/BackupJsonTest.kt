@@ -85,6 +85,24 @@ class BackupJsonTest {
     }
 
     @Test
+    fun legacyGuidanceMissingRestOptInsDefaultsThemOff() {
+        val file = emptyBackupFile().copy(
+            formatVersion = 6,
+            trainingGuidance = BackupTrainingGuidanceRecord(true, true)
+        )
+        // A v6 file predates the rest booleans, so its guidance object may omit them.
+        val encoded = BackupJson.encode(file).replace(
+            ",\"restCountdownEnabled\":false,\"restCompletionSignalEnabled\":false",
+            ""
+        )
+
+        val decoded = BackupJson.decode(encoded)
+
+        assertEquals(6, decoded.formatVersion)
+        assertEquals(BackupTrainingGuidanceRecord(true, true), decoded.trainingGuidance)
+    }
+
+    @Test
     fun rejectsNestingDeeperThanTheLimit() {
         val brackets = BackupLimits.MAX_DEPTH + 1
         assertFailure(BackupFailure.OVER_LIMIT, "[".repeat(brackets) + "]".repeat(brackets))

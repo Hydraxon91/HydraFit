@@ -24,6 +24,14 @@ interface WorkoutReminderScheduler {
     fun cancel()
 
     /**
+     * Cancels only the pending alarm, leaving any posted reminder notification in place. Used when
+     * today's reminder was already posted and no later day remains to arm, so a spent alarm is
+     * cleared without taking away the summary the user can still act on. The default keeps the
+     * previous full [cancel] behavior for an implementation that cannot cancel the alarm separately.
+     */
+    fun cancelPendingAlarm() = cancel()
+
+    /**
      * Posts or replaces the single reminder summary. Returns false when nothing was posted, so the
      * caller can give a delivery claim back instead of losing the day.
      */
@@ -52,6 +60,8 @@ class UnsupportedWorkoutReminderScheduler : WorkoutReminderScheduler {
     override suspend fun schedule(atEpochMillis: Long) = Unit
 
     override fun cancel() = Unit
+
+    override fun cancelPendingAlarm() = Unit
 
     override suspend fun notify(workoutNames: List<String>): Boolean = false
 

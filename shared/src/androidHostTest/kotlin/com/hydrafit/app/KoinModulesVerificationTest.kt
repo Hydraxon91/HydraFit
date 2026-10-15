@@ -68,6 +68,7 @@ import com.hydrafit.app.core.domain.schedule.TrainingActivation
 import com.hydrafit.app.core.domain.schedule.UnsupportedWorkoutReminderScheduler
 import com.hydrafit.app.core.domain.schedule.WorkoutLoggingActions
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
+import com.hydrafit.app.core.domain.schedule.WorkoutReminderDeliveryGate
 import com.hydrafit.app.core.domain.schedule.WorkoutReminderScheduler
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleActions
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
@@ -517,6 +518,7 @@ class KoinModulesVerificationTest {
                     single<WeightUnitRepository> { FakeWeightUnitRepository }
                     single<ExerciseExclusionRepository> { FakeExerciseExclusionRepository }
                     single<PreferredWeekdaysRepository> { FakePreferredWeekdaysRepository }
+                    single { WorkoutReminderDeliveryGate() }
                     single<WorkoutReminderPreferenceRepository> {
                         object : WorkoutReminderPreferenceRepository {
                             override fun observe() = flowOf(WorkoutReminderPreferences())

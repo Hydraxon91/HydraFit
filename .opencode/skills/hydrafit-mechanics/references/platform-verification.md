@@ -18,11 +18,16 @@ DST lookup for each recorded timestamp.
 instant. Its default applies the single current `utcOffsetMillis` through the shared
 `localMinuteToEpochMillisUtc`, so a local time a DST transition skips or repeats maps to that
 fixed-offset instant; a platform override is where zone-aware gap/overlap resolution belongs. Android
-overrides it with the device zone's own rules (`android.icu.util.Calendar`, available from minSdk 24,
-`WALLTIME_NEXT_VALID` for a skipped wall time and `WALLTIME_FIRST` for a repeated one). That
-resolution is not host-provable: `android.icu` is stubbed in Android host tests without Robolectric,
-which `:feature:routines` does not depend on, so the transition behavior is verified by bounded
-emulator acceptance instead.
+overrides it with the device zone's own rules, resolving through an explicit
+`android.icu.util.GregorianCalendar` (available from minSdk 24) so the Gregorian civil fields are not
+reinterpreted by a locale whose ICU default calendar differs (for example th-TH Buddhist or fa-IR
+Persian), with `WALLTIME_NEXT_VALID` for a skipped wall time and `WALLTIME_FIRST` for a repeated one.
+That resolution is not host-provable: `android.icu` is stubbed in Android host tests without
+Robolectric, which `:feature:routines` does not depend on, so the calendar-system and transition
+behavior are verified by bounded emulator acceptance instead. C6 exercised the installed production
+resolver through a separate `app_process`: all nine ordinary-UTC/New-York-gap/New-York-repeat checks
+passed under `en-US`, `th-TH` and `fa-IR`, without changing the device locale, timezone or clock.
+The process-local locale was restored. Evidence and remaining runtime limits are in `docs/qa.md` §13.
 
 Generated data tables are re-verified by a committed script rather than by trusting the generation
 step: `python3 scripts/check-case-fold-table.py <CaseFolding.txt>` rebuilds every code point's folded
@@ -64,9 +69,16 @@ Logger restoration remains silent.
 
 The independent quiet countdown opt-in uses a separate `rest-countdown` channel (low importance,
 sound/vibration disabled), ongoing notification ID 601 and the API-24 system countdown chronometer.
-The elapsed deadline is mapped to wall time when posted; a coordinator deadline job removes it while
-the process is alive. It adds neither a foreground service nor per-second notification updates.
-Process-death cleanup and clock-change rendering are runtime acceptance limits. The foreground
+The elapsed deadline is mapped to wall time when posted; the app still adds neither a foreground
+service nor per-second notification updates. Cleanup is process-independent: API 26+ uses the
+notification's own timeout, and API 24/25 uses one separate best-effort inexact cleanup alarm on a
+distinct PendingIntent slot whose receiver delegates to the scheduler so the shared publication lock
+spans the displayed-identity read, the match and the removal; a concurrent replacement cannot commit
+between the check and the cancel. It removes the notification only when its extras identity,
+current boot and passed deadline still match, never signaling completion or changing the stored
+timer. Reposting or clearing the countdown cancels the obsolete cleanup. The pure
+eligibility/identity helper is host-tested; OS timeout/alarm delivery, device process-death cleanup
+and clock-change rendering remain C6 runtime acceptance limits. The foreground
 completion presenter is lifecycle-resumed only, with a short snackbar and one platform haptic;
 the shared in-memory completion arbiter prevents a timer/receiver double presentation. Foreground
 signaling does not need notification permission and never replays after expired resume/enable.
@@ -79,7 +91,9 @@ posting time. `WorkoutReminderReceiver` is registered for the alarm plus `BOOT_C
 and `TIMEZONE_CHANGED` (only `RECEIVE_BOOT_COMPLETED` is declared) and always reconciles from current
 stores inside the same eight-second startup budget, so the alarm carries no workout authority.
 Scheduling and posting are serialized, cancelling clears the pending alarm and the posted
-notification, and the device-local ledger claim keeps a block and local day to one post. Debug
+notification, and the device-local ledger claim keeps a block and local day to one post. When
+today's summary was already posted and no later day remains to arm, only the spent alarm is
+cancelled so the posted summary stays visible. Debug
 `HydraFitWorkoutReminder` logs expose only stage and timing, not workout data. Host tests cover the
 policy, the coordinator's reconciliation and the ledger claim; OS alarm delivery and the zone
 transition resolution remain emulator acceptance, not host claims.

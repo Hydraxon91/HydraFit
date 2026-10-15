@@ -9,6 +9,7 @@ import com.hydrafit.app.core.domain.schedule.ReminderDeliveryRepository
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.schedule.TrainingActivation
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
+import com.hydrafit.app.core.domain.schedule.WorkoutReminderDeliveryGate
 import com.hydrafit.app.core.domain.schedule.WorkoutReminderScheduler
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
@@ -21,6 +22,7 @@ import com.hydrafit.app.core.domain.time.localEpochDay
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
@@ -31,6 +33,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -101,9 +104,13 @@ class WorkoutReminderCoordinatorTest {
 
         assertEquals(listOf(listOf("Lower A", "Upper B")), reminders.notified)
         assertTrue(deliveries.isDelivered(blockId, today))
-        // Nothing else is dated, so no further alarm is armed.
+        // Nothing else is dated, so no further alarm is armed: the follow-up pass cancels the spent
+        // alarm without taking the posted summary with it.
         assertEquals(emptyList(), reminders.scheduled)
-        assertEquals(1, reminders.cancels)
+        assertNull(reminders.pendingAlarm)
+        assertEquals(listOf("Lower A", "Upper B"), reminders.postedNotification)
+        assertEquals(0, reminders.cancels)
+        assertEquals(1, reminders.pendingAlarmCancels)
     }
 
     @Test
@@ -251,7 +258,97 @@ class WorkoutReminderCoordinatorTest {
 
         assertEquals(emptyList(), reminders.notified)
         assertEquals(emptyList(), reminders.scheduled)
+        // An already-claimed day arms nothing and clears only the spent alarm; it never takes down a
+        // posted summary.
+        assertNull(reminders.pendingAlarm)
+        assertNull(reminders.postedNotification)
+        assertEquals(1, reminders.pendingAlarmCancels)
+        assertEquals(0, reminders.cancels)
+    }
+
+    @Test
+    fun keepsThePostedSummaryWhenTheLastReminderDayHasNoFurtherAlarm() = runTest {
+        val deliveries = FakeReminderDeliveries()
+        val reminders = FakeReminderScheduler()
+        val schedule = FakeReminderSchedule().apply {
+            state.value = WorkoutScheduleState(activeActivationId = blockId)
+            activation.value = activation("Lower A")
+            // Today is the last dated pending day, so no later alarm can be armed.
+            occurrences.value = listOf(occurrence(7L, workoutId = 11L))
+        }
+        val coordinator = coordinator(
+            schedule = schedule,
+            deliveries = deliveries,
+            reminders = reminders,
+            nowMillis = at(minutes(18) + 5)
+        )
+
+        coordinator.reconcile()
+
+        // The follow-up pass cancels the spent alarm but leaves the posted summary showing.
+        assertEquals(listOf(listOf("Lower A")), reminders.notified)
+        assertNull(reminders.pendingAlarm)
+        assertEquals(listOf("Lower A"), reminders.postedNotification)
+        assertEquals(0, reminders.cancels)
+        assertTrue(deliveries.isDelivered(blockId, today))
+
+        // A later reconciliation must neither re-post nor take the summary down.
+        coordinator.reconcile()
+
+        assertEquals(listOf(listOf("Lower A")), reminders.notified)
+        assertEquals(listOf("Lower A"), reminders.postedNotification)
+        assertEquals(0, reminders.cancels)
+        assertTrue(deliveries.isDelivered(blockId, today))
+    }
+
+    @Test
+    fun turningRemindersOffClearsThePostedSummary() = runTest {
+        val preferences = FakeReminderPreferences()
+        val reminders = FakeReminderScheduler()
+        val schedule = FakeReminderSchedule().apply {
+            state.value = WorkoutScheduleState(activeActivationId = blockId)
+            activation.value = activation("Lower A")
+            occurrences.value = listOf(occurrence(7L, workoutId = 11L))
+        }
+        val coordinator = coordinator(
+            schedule = schedule,
+            preferences = preferences,
+            reminders = reminders,
+            nowMillis = at(minutes(18) + 5)
+        )
+
+        coordinator.reconcile()
+        assertEquals(listOf("Lower A"), reminders.postedNotification)
+
+        preferences.setEnabled(false)
+        coordinator.reconcile()
+
         assertEquals(1, reminders.cancels)
+        assertNull(reminders.postedNotification)
+    }
+
+    @Test
+    fun losingTheActiveBlockClearsThePostedSummary() = runTest {
+        val reminders = FakeReminderScheduler()
+        val schedule = FakeReminderSchedule().apply {
+            state.value = WorkoutScheduleState(activeActivationId = blockId)
+            activation.value = activation("Lower A")
+            occurrences.value = listOf(occurrence(7L, workoutId = 11L))
+        }
+        val coordinator = coordinator(
+            schedule = schedule,
+            reminders = reminders,
+            nowMillis = at(minutes(18) + 5)
+        )
+
+        coordinator.reconcile()
+        assertEquals(listOf("Lower A"), reminders.postedNotification)
+
+        schedule.state.value = WorkoutScheduleState(activeActivationId = null)
+        coordinator.reconcile()
+
+        assertEquals(1, reminders.cancels)
+        assertNull(reminders.postedNotification)
     }
 
     @Test
@@ -339,12 +436,63 @@ class WorkoutReminderCoordinatorTest {
         coordinator.close()
     }
 
+    /**
+     * A writer that changes a decision-relevant store while a pass holds its snapshot makes that
+     * snapshot's token stale, so the pass re-reads and posts nothing from the old view. The queued
+     * mutation cannot run until the snapshot releases the shared gate, so it lands before the guard.
+     */
+    @Test
+    fun aWriterThatInvalidatesTheSnapshotStopsAPostFromTheOldView() = runTest {
+        val gate = WorkoutReminderDeliveryGate()
+        val releaseRead = CompletableDeferred<Unit>()
+        val schedule = FakeReminderSchedule().apply {
+            state.value = WorkoutScheduleState(activeActivationId = blockId)
+            activation.value = activation("Lower A")
+            occurrences.value = listOf(occurrence(7L, workoutId = 11L))
+            occurrencesGate = releaseRead
+        }
+        val preferences = FakeReminderPreferences()
+        val deliveries = FakeReminderDeliveries()
+        val reminders = FakeReminderScheduler()
+        val coordinator = coordinator(
+            schedule = schedule,
+            preferences = preferences,
+            deliveries = deliveries,
+            reminders = reminders,
+            gate = gate,
+            nowMillis = at(minutes(18) + 5)
+        )
+
+        launch { coordinator.reconcile() }
+        runCurrent()
+
+        var writerRan = false
+        launch {
+            gate.mutate {
+                writerRan = true
+                preferences.values.value = preferences.values.value.copy(remindersEnabled = false)
+            }
+        }
+        runCurrent()
+        // The pass still holds the snapshot, so the queued writer cannot commit yet.
+        assertFalse(writerRan)
+
+        releaseRead.complete(Unit)
+        advanceUntilIdle()
+
+        assertTrue(writerRan)
+        // The old view is discarded; the fresh pass reads reminders off and posts nothing.
+        assertEquals(emptyList(), reminders.notified)
+        assertFalse(deliveries.isDelivered(blockId, today))
+    }
+
     private fun coordinator(
         schedule: FakeReminderSchedule,
         preferences: FakeReminderPreferences = FakeReminderPreferences(),
         deliveries: FakeReminderDeliveries = FakeReminderDeliveries(),
         reminders: FakeReminderScheduler = FakeReminderScheduler(),
         readiness: FakeReminderReadiness = FakeReminderReadiness(),
+        gate: WorkoutReminderDeliveryGate = WorkoutReminderDeliveryGate(),
         nowMillis: Long = at(minutes(9)),
         dispatcher: CoroutineDispatcher = Dispatchers.Default
     ) = WorkoutReminderCoordinator(
@@ -354,6 +502,7 @@ class WorkoutReminderCoordinatorTest {
         reminders = reminders,
         timeProvider = FixedReminderClock(nowMillis),
         readiness = readiness,
+        gate = gate,
         dispatcher = dispatcher
     )
 
@@ -470,7 +619,19 @@ private class FakeReminderScheduler(
 ) : WorkoutReminderScheduler {
     val scheduled = mutableListOf<Long>()
     val notified = mutableListOf<List<String>>()
+
+    /** The single armed alarm, or null once it has been cancelled. */
+    var pendingAlarm: Long? = null
+
+    /** Full cancels: the pending alarm plus any posted reminder. */
     var cancels = 0
+
+    /** Alarm-only cancels: the posted reminder is left in place. */
+    var pendingAlarmCancels = 0
+
+    /** The single posted summary, or null when nothing is showing. */
+    var postedNotification: List<String>? = null
+
     private val changes = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     override val deliveryChanges: Flow<Unit> = changes.asSharedFlow()
@@ -483,15 +644,24 @@ private class FakeReminderScheduler(
 
     override suspend fun schedule(atEpochMillis: Long) {
         scheduled += atEpochMillis
+        pendingAlarm = atEpochMillis
     }
 
     override fun cancel() {
         cancels++
+        pendingAlarm = null
+        postedNotification = null
+    }
+
+    override fun cancelPendingAlarm() {
+        pendingAlarmCancels++
+        pendingAlarm = null
     }
 
     override suspend fun notify(workoutNames: List<String>): Boolean {
         if (!notificationSucceeds) return false
         notified += workoutNames
+        postedNotification = workoutNames
         return true
     }
 }

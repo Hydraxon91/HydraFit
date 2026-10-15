@@ -42,6 +42,7 @@ class RestAlertCoordinator(
 ) {
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private var countdownPresentation: Job? = null
+    private var watchedCountdown: PersistedRestCountdown? = null
 
     fun start() {
         scope.launch {
@@ -90,43 +91,54 @@ class RestAlertCoordinator(
                 val value = countdown.first.countdown
                 val isEligible = countdown.first.alertEligible
                 val timing = countdown.second
-                countdownPresentation?.cancel()
                 completion.update(value, countdown.first.foregroundEnabled)
                 val visibleCountdown = value?.takeIf {
                     countdown.first.countdownVisible && it.deadlineElapsedMillis > elapsedNow()
                 }
                 // Alarm cancellation below must not affect this independent presentation.
                 alerts.showCountdown(visibleCountdown)
-                val watched = value?.takeIf {
-                    (countdown.first.countdownVisible || countdown.first.foregroundEnabled) &&
-                        it.deadlineElapsedMillis > elapsedNow()
+                val live = value?.takeIf {
+                    countdown.first.countdownVisible || countdown.first.foregroundEnabled
                 }
-                countdownPresentation = watched?.let { visible ->
-                    scope.launch {
-                        delay((visible.deadlineElapsedMillis - elapsedNow()).coerceAtLeast(0L))
-                        alerts.showCountdown(null)
-                        // Re-read after the delay; observed context is not authority for delivery.
-                        if (countdowns.load() == visible &&
-                            preferences.get().restCompletionSignalEnabled &&
-                            guided.isGuidedWorkoutEnabled() &&
-                            sessions.open()?.id == visible.sessionId &&
-                            boot.currentBootIdentity() == visible.bootIdentity
-                        ) {
-                            val state = schedule.scheduleState()
-                            val occurrence = schedule.getOccurrence(visible.occurrenceId)
-                            if (occurrence != null &&
-                                !occurrence.isResolved &&
-                                occurrence.activationId == state.activeActivationId &&
-                                (
-                                    state.selectedOccurrenceId == null ||
-                                        state.selectedOccurrenceId == occurrence.id
-                                    ) &&
-                                occurrence.entries.any { it.exerciseId == visible.exerciseId } &&
-                                countdowns.load() == visible
+                // One deadline job per live countdown identity. An unrelated preference/timing/context
+                // emission keeps it, including when the clock has reached the deadline but the expiry
+                // work has not run yet, so a foreground completion is not dropped.
+                val retainsWatchedJob = live != null &&
+                    live == watchedCountdown &&
+                    countdownPresentation?.isActive == true
+                if (!retainsWatchedJob) {
+                    countdownPresentation?.cancel()
+                    if (live != null && live.deadlineElapsedMillis > elapsedNow()) {
+                        watchedCountdown = live
+                        countdownPresentation = scope.launch {
+                            delay((live.deadlineElapsedMillis - elapsedNow()).coerceAtLeast(0L))
+                            alerts.showCountdown(null)
+                            // Re-read after the delay; observed context is not authority for delivery.
+                            if (countdowns.load() == live &&
+                                preferences.get().restCompletionSignalEnabled &&
+                                guided.isGuidedWorkoutEnabled() &&
+                                sessions.open()?.id == live.sessionId &&
+                                boot.currentBootIdentity() == live.bootIdentity
                             ) {
-                                completion.complete(visible, foregroundEnabled = true)
+                                val state = schedule.scheduleState()
+                                val occurrence = schedule.getOccurrence(live.occurrenceId)
+                                if (occurrence != null &&
+                                    !occurrence.isResolved &&
+                                    occurrence.activationId == state.activeActivationId &&
+                                    (
+                                        state.selectedOccurrenceId == null ||
+                                            state.selectedOccurrenceId == occurrence.id
+                                        ) &&
+                                    occurrence.entries.any { it.exerciseId == live.exerciseId } &&
+                                    countdowns.load() == live
+                                ) {
+                                    completion.complete(live, foregroundEnabled = true)
+                                }
                             }
                         }
+                    } else {
+                        watchedCountdown = null
+                        countdownPresentation = null
                     }
                 }
                 val isInitialEligibleSnapshot = firstSnapshot && isEligible

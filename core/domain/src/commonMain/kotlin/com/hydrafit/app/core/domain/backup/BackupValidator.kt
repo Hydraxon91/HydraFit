@@ -57,6 +57,20 @@ class BackupValidator(private val catalog: BackupCatalog) {
         if (file.formatVersion < REMINDER_FORMAT_VERSION && file.workoutReminders != null) {
             fail(BackupFailure.INVALID_VALUE)
         }
+        // The rest-presentation opt-ins are part of the same format boundary. A pre-12 file that
+        // carries either non-default value is rejected all-or-nothing rather than silently
+        // normalized: the fields do not exist in that version, so their presence is a signal the
+        // file is not what it claims. Missing or false fields remain the legacy "off" compatibility.
+        if (file.formatVersion < REMINDER_FORMAT_VERSION &&
+            file.trainingGuidance.restCountdownEnabled
+        ) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        if (file.formatVersion < REMINDER_FORMAT_VERSION &&
+            file.trainingGuidance.restCompletionSignalEnabled
+        ) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
         if (file.setup.version != SETUP_VERSION) fail(BackupFailure.INVALID_VALUE)
         enum(file.setup.disposition, SetupDisposition.entries)
         enum(file.setup.step, SetupStep.entries)
