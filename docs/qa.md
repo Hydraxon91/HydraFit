@@ -12,6 +12,22 @@ Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
 
+## 0.8.2 C1 coverage read contract — 2026-10-15
+
+- Main-agent implementation from `65f92f84`: domain coverage projection/calculator,
+  read-only SQLDelight snapshot observer and verified repository binding. No schema,
+  backup-format, fatigue or planner change. Missing snapshots stay unclassified.
+- Full Tier A matrix passed 1,888 host tests, zero failures/errors/skips, migration
+  verification, lint, debug assembly and both iOS compiles. Log under approved opencode
+  temp: `hf-082-c1-3.log`. Two prior runs reported wrapping errors; no behavior changed
+  to resolve them. Graph verification includes real repository resolution.
+- Domain fixtures cover 2/2 counts versus 2.0/0.6 credits, warm-up/future exclusion,
+  inclusive civil-day bounds, fixed offsets/negative dates, all-history last-trained,
+  unknown versus empty snapshots and deletion reconciliation. Repository tests drive
+  the production log writer, preserve recorded profiles after catalog edits, and
+  verify live correction/deletion/whole restore and same-count replacement emissions.
+- Feature map/coverage UI and release integration/review remain pending.
+
 ## 0.8.1 C1 classification/backup verification — 2026-10-15
 
 ### C3/C4 numeric-editor and integration evidence

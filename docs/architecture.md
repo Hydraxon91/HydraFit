@@ -618,6 +618,13 @@ Every prescription, snapshot and performed set carries a **load kind** (`EXTERNA
 
 ### 1.13 Catalog profile matching and custom identity (CAT-02 v1)
 
+0.8.2 adds a separate read-only `TrainingCoverageRepository` port in domain/fatigue
+and SQLDelight implementation observing recorded workout snapshots off-main. The
+pure `TrainingCoverageCalculator` reports seven-civil-day working-set counts and
+separate estimated involvement credits, all-history last-trained and unclassified
+snapshot presence. It never borrows current catalog weights or changes fatigue,
+planning or storage. Existing query invalidation covers corrections/deletes/restore.
+
 The 0.8.1 catalog adds four separately sourced identities in
 `DefaultExercisesCatalog081`: forearm-pad pec deck, reverse machine fly, seated
 dumbbell wrist curl and extension. New machine capabilities are independent and

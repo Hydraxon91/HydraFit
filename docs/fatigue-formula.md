@@ -5,6 +5,19 @@ effort), implemented in `:core:domain`; C3's nullable `rir` column ships with mi
 
 ## Formula
 
+### Performed coverage is separate (0.8.2)
+
+`TrainingCoverageCalculator` describes recorded working sets, not fatigue or a
+training prescription. Its window is the last seven civil days including today,
+using a fixed current UTC offset and excluding future timestamps and warm-ups.
+Each positive recorded involvement counts that set once for its muscle; estimated
+credits sum its recorded involvement weight. These are not direct sets or validated
+physiological set equivalents. Last-trained spans available qualifying history,
+not just the seven-day window. A missing involvement snapshot is unclassified;
+the current catalog never supplies a replacement. Explicitly empty snapshots are
+known zero contributions. Any unclassified history prevents an unqualified
+never-trained claim. Coverage does not alter the formula below.
+
 Each muscle has one bounded fatigue-load index `F = F_compound + F_isolation`, initially zero,
 with `0 ≤ F < 1`. There is no hidden raw-volume accumulator or final linear normalization.
 Compound and isolation work share one session discount and one headroom; only their decay

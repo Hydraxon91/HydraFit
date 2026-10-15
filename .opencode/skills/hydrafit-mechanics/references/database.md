@@ -21,6 +21,12 @@ Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseExclusion.sq`, `ExerciseNot
 `TrainingSchedule.sq`, `UserEquipment.sq`, `WorkoutLog.sq`, `WorkoutSession.sq`, `SessionNote.sq` and
 `WorkoutHistory.sq`.
 
+`SqlDelightTrainingCoverageRepository` (0.8.2) observes the existing `selectAllSets`
+query off-main. It reads recorded involvements only (null remains unknown), with no
+catalog joins or fallback, and retains correction/delete/restore invalidations even
+when row counts are unchanged. History is needed for last-trained; no persistent
+cache, schema change or new format is introduced.
+
 `ExerciseProgress.sq` is query-only: exercise-keyed history pages include current effective names
 through left joins, and replay pages preserve timestamp/id order across 256-row batches. Each page is
 bound without an optional-cursor `OR` predicate: a first-page query plus two disjoint continuation
