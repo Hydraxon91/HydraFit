@@ -1,0 +1,2 @@
+-- Exercise-keyed history/replay otherwise scan and sort the log for every bounded page.
+CREATE INDEX workoutSet_exerciseId_performedAt_id ON workoutSet(exerciseId, performedAt, id);

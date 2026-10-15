@@ -12,6 +12,32 @@ Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
 
+## 0.8.0 C1–C3 backend evidence — 2026-10-15
+
+- Baseline `a34b6cca`; main-agent implementation. Approved descriptive-record contract and
+  hand-calculated fixture are in `PLANS.md` C1–C3. No emulator/phone interaction.
+- Full Tier A command passed with the 600-second Perl wrapper: `testAndroidHostTest
+  :core:database:verifySqlDelightMigration ktlintCheck :androidApp:assembleDebug
+  :shared:compileKotlinIosSimulatorArm64 :core:network:compileKotlinIosSimulatorArm64 --continue`.
+  Final log: `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/hydrafit-080-c123-final.log`.
+  `BUILD SUCCESSFUL`; 1,801 host tests, no failures/errors/skips (domain 639, database 373).
+- New domain tests cover hand-calculated series, eligibility/null/zero, ties/equal timestamps,
+  all-time scope independent of chart bounds, future exclusion, negative-epoch fixed-offset days,
+  sparse history, corrected/deleted winners and request/order validation.
+- Repository tests cover 600 tied-time rows across history/replay pages, real repository writes,
+  time moves/deletion, same-count correction/replacement invalidation and effective/missing names.
+  Initial missing-catalog failure was a fixture error: built-in deletion is guarded. The corrected
+  fixture creates a custom exercise; the production deletion guard is unchanged. Formatting errors
+  are resolved; the complete final matrix is green.
+- Approved migration `46.sqm` adds `(exerciseId, performedAt, id)` without rewriting rows.
+  `ExerciseProgressIndexMigrationTest` covers v46→v47 preservation and fresh/migrated query plans:
+  exercise-keyed search with no full-log scan or temporary ordering B-tree. The existing v1→current
+  suite and SQLDelight migration verifier also pass. This is host query-plan evidence, not device
+  performance measurement or a constant-time all-history replay guarantee.
+- Replacement coverage uses a restore-shaped transaction, not the complete backup restore service.
+  Full portability/producer-to-UI integration remains C6 work. No new Koin bindings or UI were added;
+  UI/summary integration, emulator acceptance and separately requested formal review remain pending.
+
 ## Cross-cutting UI checks (for changed flows)
 - Text remains readable at the supported larger font sizes; controls and content are not clipped.
 - Meaningful controls have accessible labels and states; status and metrics are not conveyed by color alone.

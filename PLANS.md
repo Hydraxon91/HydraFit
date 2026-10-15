@@ -839,18 +839,37 @@ record).
 
 **Status (2026-10-15):** revised six-chunk plan recorded by user request under the
 [combined-release grouping](docs/roadmap.md#combined-release-grouping-adopted-2026-10-15).
-C1–C6 are NOT STARTED. The local branch is `0.8.0`; **0.8.0** is the proposed combined publication
+C1 contract/fixtures are accepted; C2–C3 are IMPLEMENTED AND VERIFIED (main-agent owner).
+The approved exercise/time/id index migration and fixture/formatting corrections pass the full
+matrix: 1,801 host tests, migration verification, global lint, debug assembly and both iOS compiles.
+C4–C6 are NOT STARTED; formal review remains pending. See `docs/qa.md` for
+the bounded run evidence. The local branch is `0.8.0`; **0.8.0** is the proposed combined publication
 version, subject to scope approval. Original 0.8.0 charts and 0.8.1 records references identify slices,
 not two required publications. This plan covers OF-04-P0/P1/P2/P3 and supersedes the previous
 charts-only six-chunk plan. Application implementation, final metric/navigation decisions,
 module-graph changes and publication are not authorized by recording this plan; Git actions retain
 their own explicit approvals.
 
-**Prerequisite — LT-10:** settle the LT-10 / OF-10A-P0 contract before closing 0.7.x and before
-this implementation: historical targets, partial work, modified/unknown execution, manual PR
-interaction and corrected-history replay. This is decision work, not approval to implement 0.10.x
-progression policies. If approved record eligibility needs information not currently stored, stop
-and scope persistence, migration and backup implications explicitly rather than guessing eligibility.
+**Prerequisite — LT-10 (narrowing approved 2026-10-15):** C1–C3 may implement descriptive
+chart/record eligibility independently of historical-prescription/progression decisions, which remain
+open under LT-10 / OF-10A-P0. This does not close the broader 0.7.x decision gate or authorize
+advanced progression policies. No execution-quality fields or verified-technique claims are added.
+If later eligibility needs information not stored today, scope persistence/migration/backup explicitly.
+
+**Approved C1–C3 contract (2026-10-15; main-agent owner):** records describe logged performance,
+not verified technique or prescription success. Partial workouts qualify; warm-ups do not. Manual PRs
+and planner policy are untouched. Typed external loads qualify for load records/e1RM; bodyweight and
+added-load comparisons remain separate. Legacy rows stay visible but do not enter load-derived records.
+Preserve recorded per-hand values without doubling; compare canonical stored kilograms without display
+rounding. Equal results tie; first observations establish baselines rather than improvements. Replay
+by performed timestamp, with equal timestamps sharing the earlier baseline. Exclude future sets from
+aggregates; corrections/deletions/restore recalculate. Civil-day queries use an explicit fixed offset,
+not historical DST rules. The backend accepts explicit inclusive day bounds; UI range presets and
+navigation remain C4 decisions. Synthetic fixtures: 60 kg × 10, 70 kg × 10, 65 kg × 12 yield three
+working sets, 32 reps, 2,080 kg external volume and a best Epley estimate of 93⅓ kg; an additional
+200 kg warm-up changes none of those values. Only the 70 kg set improves an existing load-at-10
+record and e1RM; the new 12-rep/load combination establishes baselines. Ties, missing/zero loads,
+bodyweight/added/legacy rows and corrections are covered by the companion domain tests.
 
 **Scope:** offline, per-exercise recorded history and load, repetitions, estimated 1RM and
 working-volume charts over bounded selectable local-date ranges, automatic records and record results
@@ -858,7 +877,7 @@ in the existing post-finish workout summary. Values reconcile with stored sets a
 inserts, corrections, deletions and restore. Display units never change canonical kilograms,
 historical records, prescriptions, planner inputs or fatigue policy. Manual PRs remain separate.
 
-**C1 metric recommendations — finalize before implementation:**
+**Metric contract / C4 preset proposals (approved C1–C3 contract above takes precedence):**
 - Ranges: 4 weeks, 12 weeks and 1 year, with daily chart points; confirm exact inclusive boundaries.
 - Load: highest recorded working-set load per day, preserving and distinguishing recorded load kinds.
 - Repetitions: highest working-set reps per day with the contributing set's load available alongside
@@ -878,17 +897,13 @@ historical records, prescriptions, planner inputs or fatigue policy. Manual PRs 
   baselines. Surface them in Progress and the existing post-finish summary; no immediate new-record
   notifications in this release. Recommend no persistent record cache initially.
 
-**Open decisions / blockers:** approve legacy-load eligibility, unilateral volume convention,
-timezone/DST bucketing, future-dated set treatment and name/snapshot presentation. Recommend keeping
-recorded per-hand values without implicit doubling; exclude future sets from trends while identifying
-them in history. Stored load kind remains authoritative; do not reinterpret typed history from current
-catalog metadata. Legacy eligibility needs an explicit compatibility rule. Current day helpers accept
-a supplied offset, not historical timezone rules; choose and disclose the bucketing contract before
-queries are written. Preserve stable exercise IDs through renames and show recorded sets even when
-catalog metadata is unavailable. Do not fabricate historical names where no snapshot exists.
-Also approve exact-load comparison/precision, ties, first-ever observations, chronological ordering
-(including tied timestamps), imported/backdated history, eligibility under LT-10 and summary wording.
-Neither display rounding nor selected chart range may silently define record equality or scope.
+**Remaining decisions:** C4 owns range presets, navigation and name/empty-state presentation;
+C5 owns summary wording. C1 resolves legacy eligibility, unilateral convention, fixed-offset bucketing,
+future exclusion, canonical precision, ties, first observations and equal-time ordering as recorded
+above. Imports/backdated corrections replay by performed time, not insertion order. Stored load kind
+stays authoritative; current catalog edits never reinterpret typed history. Backend history uses
+stable exercise IDs, current effective names (not fabricated snapshots), and null names when catalog
+metadata is unavailable. Display rounding and selected chart range never define record equality/scope.
 
 **UI/module decision:** proposed `:feature:progress` owns UI/state/resources, its exported graph and
 Koin module; shared contracts live in `:core:domain`, implementations in `:core:database`, and unit

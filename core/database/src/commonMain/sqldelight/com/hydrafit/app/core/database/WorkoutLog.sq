@@ -90,3 +90,6 @@ DELETE FROM workoutSet;
 
 -- History reads filter and group by `sessionId` and order one session's sets by `performedAt`.
 CREATE INDEX workoutSet_sessionId_performedAt ON workoutSet(sessionId, performedAt);
+
+-- Exercise history and progress replay page by recorded time/id within one exercise.
+CREATE INDEX workoutSet_exerciseId_performedAt_id ON workoutSet(exerciseId, performedAt, id);

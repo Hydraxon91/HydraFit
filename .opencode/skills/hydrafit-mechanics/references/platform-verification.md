@@ -14,6 +14,11 @@ NSDateFormatter `Z` offset. Stored timestamps remain UTC milliseconds.
 Current bucketing uses the supplied offset; it is not a historical timezone or
 DST lookup for each recorded timestamp.
 
+0.8.0 progress makes this fixed-offset contract explicit in `ExerciseProgressRequest`: inclusive
+caller-selected civil days use `localEpochDay`. Presets/UI are not implemented by the backend.
+Record comparisons remain canonical kilograms and recorded per-hand values without display rounding
+or unilateral doubling; changing chart day bounds does not change all-time record scope.
+
 `TimeProvider.epochMillisForLocalMinute` resolves a local civil day plus minute-of-day to a UTC
 instant. Its default applies the single current `utcOffsetMillis` through the shared
 `localMinuteToEpochMillisUtc`, so a local time a DST transition skips or repeats maps to that

@@ -60,6 +60,31 @@ Domain declares repository and engine **interfaces**; implementations live in `:
      (TS4-001); start by moving `loggedSets()` mapping into an override-aware mapper. See S1-006.
   2. (S) Make the legacy fallback override-aware (S2-003).
 
+The 0.8.0 backend adds `ExerciseProgressRepository` and
+`SqlDelightExerciseProgressRepository` as read-only, currently unwired ports/implementation.
+History is exercise-keyed and paginated newest-first by performed timestamp/id, resolving current
+effective names without requiring catalog presence. Progress replays the selected exercise through
+the requested instant, oldest-first in 256-row pages inside one read transaction off-main. Complete
+all-time comparisons are independent of chart bounds and history pagination. Cancellation is checked
+between pages. The invalidation query observes set-table changes without suppressing equal counts,
+so same-count corrections/replacement trigger replay. The request fixes its clock instant and offset;
+callers must replace it when those inputs change. No record cache, DI binding or UI is added.
+Migration `46.sqm` adds an exercise/performed-time/id index, preserving every stored row.
+
+`ExerciseProgressCalculator` retains output records/tied holder ids, requested occurrence improvement
+events and chart-day accumulators, not the complete set history. Output cardinality still depends on
+distinct record keys/ties; this is not a constant-memory guarantee. Records describe logged work,
+not technique verification or target completion. First observations are baselines, strict later
+improvements are events and equal timestamps share the prior baseline. Typed load kinds remain
+separate, legacy load records are excluded, manual PRs are untouched and e1RM uses positive external
+loads at 1–15 reps with the unadjusted Epley formula. Warm-ups/future work do not aggregate. Chart
+volume counts recorded external kg × reps without unilateral doubling or inferred body mass; an
+absent external contribution is null, while an explicit zero contribution is zero. Civil-day bounds
+are inclusive with one caller-supplied fixed offset, not historical DST reconstruction.
+
+Query-plan regression tests cover fresh/migrated schemas using the exercise/time/id index without
+a full-log scan or temporary sort. UI/summary integration and formal review remain separate chunks.
+
 ### 1.3 Feature modules with explicit static aggregation
 
 Each feature exports its own Koin module, route string, `FeatureDestination` (label + nav graph),

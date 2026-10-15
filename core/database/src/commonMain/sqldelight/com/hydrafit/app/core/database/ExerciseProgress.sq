@@ -1,0 +1,26 @@
+selectExerciseHistory:
+SELECT workoutSet.id, workoutSet.exerciseId,
+       COALESCE(exerciseOverride.name, exercise.name) AS exerciseName,
+       workoutSet.reps, workoutSet.weightKg, workoutSet.loadKind, workoutSet.isWarmup,
+       workoutSet.rir, workoutSet.performedAt, workoutSet.timingProvenance, workoutSet.occurrenceId
+FROM workoutSet
+LEFT JOIN exercise ON exercise.id = workoutSet.exerciseId
+LEFT JOIN exerciseOverride ON exerciseOverride.exerciseId = workoutSet.exerciseId
+WHERE workoutSet.exerciseId = :exerciseId
+  AND (:hasCursor = 0 OR workoutSet.performedAt < :cursorTime
+       OR (workoutSet.performedAt = :cursorTime AND workoutSet.id < :cursorId))
+ORDER BY workoutSet.performedAt DESC, workoutSet.id DESC
+LIMIT :pageLimit;
+
+-- Invalidation anchor, not a revision number. Updates with unchanged counts must still replay.
+observeExerciseSets:
+SELECT count(*) FROM workoutSet WHERE exerciseId = :exerciseId;
+
+selectExerciseReplayPage:
+SELECT id, exerciseId, reps, weightKg, loadKind, performedAt, isWarmup, occurrenceId
+FROM workoutSet
+WHERE exerciseId = :exerciseId AND performedAt <= :nowMillis
+  AND (:hasCursor = 0 OR performedAt > :cursorTime
+       OR (performedAt = :cursorTime AND id > :cursorId))
+ORDER BY performedAt ASC, id ASC
+LIMIT :pageLimit;
