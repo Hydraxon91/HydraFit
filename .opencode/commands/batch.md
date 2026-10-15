@@ -9,8 +9,10 @@ $ARGUMENTS
 
 Usage: `/batch 0.8.0 --budget 6h`, `/batch 0.8.1-0.8.3 --budget 60m`,
 `/batch 0.9.0, 0.9.3 --budget 4h`, or `/batch 0.8.2` with no budget. A range such as
-`0.8.1-0.8.3` expands to the named publications in order. Numbers refer to assigned
-roadmap versions, not a whole series or permission to infer scope. Omitting
+`0.8.1-0.8.3` expands to the named scopes in order. Numbers refer to assigned
+roadmap versions, not a whole series or permission to infer scope. A multi-version
+batch publishes once, under its lowest requested version (see Fold); it does not
+create one release per version unless the user explicitly overrides that. Omitting
 `--budget` is valid: the pre-flight plan then proposes one for acceptance. This is
 a prompt template, not a shell command or permission bypass.
 
@@ -24,6 +26,18 @@ a prompt template, not a shell command or permission bypass.
   `.sqm`, module graph, dependencies, secrets, CI); exclusions and stop conditions;
   and the budget split, proposing one when the invocation omitted `--budget`. Label
   each open decision ANSWER-NOW or NEEDS-EVIDENCE. Then stop and wait for feedback.
+- **Fold (one publication per batch):** a batch publishes once, under its lowest
+  requested version — `/batch 0.9.0-0.9.1` combines both scopes into 0.9.0. State
+  the folded target in this plan and do not create one release per requested version.
+  Folding changes only the publication count: every included scope keeps its
+  implementation chunks, acceptance criteria, verification tier and independent
+  review checkpoint, and reviews remain one per included release scope. Record the
+  higher included versions as "folded into <target>" in the active plans and roadmap
+  and leave later versions untouched; never renumber downstream versions, retag or
+  rewrite historical records. Publish one tag and artifact from the final verified
+  and reviewed candidate. If the folded target is already published, stop and ask for
+  the target version. Only an explicit user override permits more than one
+  publication from a batch.
 - **Decision classification (required):** label every open decision
   **ANSWER-NOW** (a preference or policy choice needing no new evidence, so it must
   be resolved before the first edit) or **NEEDS-EVIDENCE** (cannot be settled
@@ -92,16 +106,18 @@ Apply these standing defaults unless the user explicitly overrides them:
   verified, independently reviewed and committed, with readiness evidence and
   limits recorded. Do not pause for publication approval between releases;
   continue the approved implementation sequence without publishing any of them.
-  At the end, stop and request one explicit approval for the proposed publication
-  sequence covering all completed releases together. List each release's exact
-  candidate revision, review verdict, verification evidence, limitations and
+  At the end, stop and request one explicit approval for the single folded
+  publication. Report the target version, its final candidate revision, each
+  included release's review verdict, verification evidence and limitations, and the
   proposed push/PR/merge/tag/Release-workflow/artifact steps. Until approved, do not
   push, open a PR, merge, tag, build/upload a release artifact or run a publication
   workflow. Required debug builds and non-publishing verification remain allowed.
-  A single approval may cover the enumerated sequence; do not re-ask per release
-  unless scope/revisions change, a failure occurs or another approval is missing.
-  Execute approved publication steps in dependency order with applicable CI and
-  artifact checks; stop on failure before publishing subsequent releases.
+  A single approval covers the enumerated sequence; do not re-ask unless
+  scope/revisions change, a failure occurs or another approval is missing. Execute
+  the approved steps with applicable CI and artifact checks and stop on failure. If
+  the user explicitly overrides folding and requests several publications, publish
+  in version order, oldest first, and stop before subsequent releases if a step
+  fails.
 - **Reports:** authorize the parent to consolidate per-release review evidence in
   `docs/review-<release>-snapshot.md`, substituting the actual agreed version.
   Preserve existing historical findings/verdicts; append closure evidence rather

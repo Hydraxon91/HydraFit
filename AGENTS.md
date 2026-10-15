@@ -292,9 +292,10 @@ While executing an approved chunk:
 **Short activation:** `/batch <versions> [--budget <duration>]` or plain
 `batch: <versions>, budget <duration>` applies the standing defaults in
 `.opencode/commands/batch.md` unless explicitly overridden. For example,
-`/batch 0.8.1-0.8.3 --budget 60m` covers those three publications in order. By
-default the run first presents one consolidated pre-flight plan in chat and waits
-for acceptance; `--preapproved` (or "plan approved, start") skips only that stop.
+`/batch 0.8.1-0.8.3 --budget 60m` covers those three scopes and publishes once, as
+0.8.1. By default the run first presents one consolidated pre-flight plan in chat
+and waits for acceptance; `--preapproved` (or "plan approved, start") skips only
+that stop.
 For plain language,
 read that file before acting. The pre-flight plan states the resolved scopes,
 owners, budget and report paths and surfaces open decisions, so the run starts
@@ -302,8 +303,8 @@ once that plan is accepted; do not ask for the same details twice, and ask only
 for genuinely missing decisions or approvals. Neither
 trigger switches the user's mode/model or activates on its own installation.
 The batch ends at implemented, verified, independently reviewed and committed;
-publication waits for one explicit user approval of the enumerated publication
-sequence for all completed releases together, not a pause after each release.
+publication waits for one explicit user approval of the single folded publication
+for the whole batch, not a pause after each release.
 
 This workflow is available only when the user explicitly requests it for named,
 ordered releases and approves their scopes, implementation owners, acceptance
@@ -370,17 +371,26 @@ any approved review-report paths before starting.
   this exception changes the operator, not authorization. Pushes still need
   separate approval; merges, tags and publication retain their applicable gates.
   Missing permissions remain blockers: never bypass a prompt or tool restriction.
+- **Fold:** a batch publishes once, under its lowest requested version; a
+  multi-version request combines its scopes and records the higher included versions
+  as "folded into <target>" in the active plans and roadmap. Folding changes the
+  publication count only: every included scope keeps its chunks, acceptance criteria,
+  verification and independent review checkpoint, and no downstream version is
+  renumbered and no historical record or published release is rewritten or retagged.
+  Resolve the target in the pre-flight plan and stop if it is already published. Only
+  an explicit user override permits several publications from one batch.
 - **Publication boundary:** continue through the approved implementation list
-  without publishing between releases. At the end, report each candidate revision,
-  review verdict, verification evidence and limits, then request one explicit user
-  approval of the proposed publication sequence for all completed releases. Before
-  that approval, do not push, open PRs, merge, tag, build/upload release artifacts
-  or run publication workflows; required debug builds and non-publishing checks
-  remain allowed. One approval can cover the exact enumerated operations across
-  those releases, including pushes; changes to scope/revisions or uncovered gates
-  require new approval. This does not waive CI monitoring, artifact checks or
-  failure stops: publish in dependency order and stop before subsequent releases
-  if a step fails. A batch invocation alone never authorizes publication.
+  without publishing between releases. At the end, report the folded target version,
+  its final candidate revision, each included release's review verdict, verification
+  evidence and limits, then request one explicit user approval of that single
+  publication. Before that approval, do not push, open PRs, merge, tag, build/upload
+  release artifacts or run publication workflows; required debug builds and
+  non-publishing checks remain allowed. One approval can cover the exact enumerated
+  operations, including pushes; changes to scope/revisions or uncovered gates require
+  new approval. This does not waive CI monitoring, artifact checks or failure stops:
+  stop on failure. If the user explicitly overrides folding and requests several
+  publications, publish in version order oldest-first and stop before subsequent
+  releases if a step fails. A batch invocation alone never authorizes publication.
 - **Scoped blockers:** a blocker confined to part of the approved scope does not
   stop the whole run. Record the failure, evidence, affected acceptance criteria and
   dependencies, mark the affected chunk or release blocked or partial, and continue
