@@ -439,6 +439,25 @@ exact on-screen text.
   fields. The release-install prohibition was respected: no release/minified APK was installed on the
   emulator or any device.
 
+### v0.8.4 corrective release (versionCode ordering) — 2026-10-15
+
+- PR #17 (`release/0.8.4` → `main`) merged as `6f517930cb5ee98e90c5ab024a9c4be60df507eb`
+  (`2026-10-15T17:27:10Z`), on commits `164538d7` (tag-derived `versionCode`) and `6cdd74c3` (0.8.x
+  evidence docs), together with the user's `57e95b3b` fold-policy documentation commit. PR Build and
+  Test `38777218383` and the post-merge main Build and Test `38777454659` both passed on the first
+  attempt (no flake re-run was needed).
+- Annotated tag `v0.8.4` (object `b5633a6156fc94994dbc47a5dd5f1ad6331798f6`, target `6f517930`) pushed;
+  Release run `38777753085` passed Lint, Unit Tests and Build Signed Release APK and published
+  https://github.com/Hydraxon91/HydraFit/releases/tag/v0.8.4.
+- Offline artifact check (downloaded, never installed): 24,915,664 bytes, SHA-256
+  `911aa782641ff4f371b87d81662e5fcafa8301e5d1783d028be77a26f69ecc1d`, release certificate unchanged
+  (SHA-256 `af9cd73b3cc6842c7ab3c2f3cd572245826089aee863e9168a761a893c35a7e1`), `versionName=0.8.4`,
+  **`versionCode=80400`** — above `v0.8.2`'s 26 and `v0.8.3`'s 24, so the upgrade path is restored and
+  stable tags cannot regress (`major*1_000_000 + minor*10_000 + patch*100`).
+- `gh api repos/Hydraxon91/HydraFit/releases/latest` now returns `v0.8.4`. The earlier badge error
+  (which showed `v0.8.2` because its Release run finished last) was corrected in the same session with
+  `gh release edit v0.8.3 --latest`.
+
 ## Cross-cutting UI checks (for changed flows)
 - Text remains readable at the supported larger font sizes; controls and content are not clipped.
 - Meaningful controls have accessible labels and states; status and metrics are not conveyed by color alone.
