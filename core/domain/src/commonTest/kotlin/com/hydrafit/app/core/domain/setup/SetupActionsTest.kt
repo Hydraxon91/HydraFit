@@ -2,6 +2,7 @@ package com.hydrafit.app.core.domain.setup
 
 import com.hydrafit.app.core.domain.engine.PersonalRecord
 import com.hydrafit.app.core.domain.engine.TrainingGoal
+import com.hydrafit.app.core.domain.equipment.EquipmentProfileContext
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.unit.WeightUnit
@@ -21,7 +22,7 @@ class SetupActionsTest {
         val inputs = listOf(
             SetupStepInput.Continue(SetupStep.WELCOME),
             SetupStepInput.Units(WeightUnit.LB),
-            SetupStepInput.Equipment(emptySet()),
+            SetupStepInput.Equipment(emptySet(), profileContext = EquipmentProfileContext(1L, 0L)),
             SetupStepInput.Goal(TrainingGoal.STRENGTH),
             SetupStepInput.Weekdays(setOf(DayOfWeek.MONDAY, DayOfWeek.FRIDAY)),
             SetupStepInput.PersonalRecords(listOf(PersonalRecord("external", 50.0, 5))),
@@ -79,7 +80,11 @@ class SetupActionsTest {
         assertFailsWith<IllegalArgumentException> {
             save(
                 repository.state,
-                SetupStepInput.Equipment(emptySet(), mapOf(EquipmentTag("DUMBBELL") to -1.0))
+                SetupStepInput.Equipment(
+                    emptySet(),
+                    mapOf(EquipmentTag("DUMBBELL") to -1.0),
+                    EquipmentProfileContext(1L, 0L)
+                )
             )
         }
         assertEquals(0, repository.commands.size)
@@ -107,13 +112,18 @@ class SetupActionsTest {
     fun collectionSnapshotDoesNotFollowLaterEditorMutations() {
         val selected = mutableSetOf(EquipmentTag("DUMBBELL"))
         val weights = mutableMapOf(EquipmentTag("DUMBBELL") to 30.0)
-        val snapshot = SetupStepInput.Equipment(selected, weights).snapshot()
+        val snapshot = SetupStepInput.Equipment(
+            selected,
+            weights,
+            EquipmentProfileContext(1L, 0L)
+        ).snapshot()
         selected.clear()
         weights.clear()
         assertEquals(
             SetupStepInput.Equipment(
                 setOf(EquipmentTag("DUMBBELL")),
-                mapOf(EquipmentTag("DUMBBELL") to 30.0)
+                mapOf(EquipmentTag("DUMBBELL") to 30.0),
+                EquipmentProfileContext(1L, 0L)
             ),
             snapshot
         )

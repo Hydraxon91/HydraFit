@@ -6,7 +6,6 @@ import app.cash.sqldelight.coroutines.mapToOneOrNull
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
 import com.hydrafit.app.core.domain.engine.SplitFocus
-import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.schedule.ActivationEntry as DomainActivationEntry
 import com.hydrafit.app.core.domain.schedule.ActivationStatus
 import com.hydrafit.app.core.domain.schedule.ActivationWorkout as DomainActivationWorkout
@@ -418,8 +417,10 @@ class SqlDelightWorkoutScheduleRepository(
             }
             val candidate = SqlDelightExerciseCatalog(database).findById(replacement.exerciseId)
                 ?: reject(OccurrenceReplacementFailure.UNAVAILABLE)
-            val equipment = database.userEquipmentQueries.selectAllSelected().executeAsList()
-                .map { EquipmentTag(it) }.toSet()
+            // Availability and ceilings follow the active equipment profile, not the legacy global
+            // tables, so switching profiles cannot leave replacement validation stale.
+            val activeProfile = database.readEquipmentProfileState().active
+            val equipment = activeProfile.selected
             val exclusion = database.exerciseExclusionQueries.selectById(candidate.id)
                 .executeAsOneOrNull()
             val excluded = exclusion != null &&
@@ -448,8 +449,7 @@ class SqlDelightWorkoutScheduleRepository(
                         weight < 0.0 ||
                         !WorkoutLoadPolicy.allowsAutomaticLoad(candidate.loadCapability) ||
                         candidate.requiredEquipment.any { tag ->
-                            val maximum = database.equipmentQueries.selectById(tag.id)
-                                .executeAsOneOrNull()?.maxWeightKg
+                            val maximum = activeProfile.maxWeightsKg[tag]
                             maximum != null && weight > maximum
                         }
                     )

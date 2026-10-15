@@ -29,17 +29,26 @@ class SqlDelightSetupWriteRepository(
                 }
                 is SetupStepInput.Weekdays -> database.savePreferredWeekdays(input.weekdays)
                 is SetupStepInput.Equipment -> {
+                    database.requireEquipmentProfileContext(input.profileContext)
                     (input.selected + input.editedMaxWeightsKg.keys).forEach { tag ->
                         val row = database.equipmentQueries.selectById(tag.id).executeAsOneOrNull()
                         require(row != null)
                     }
-                    database.userEquipmentQueries.deleteAllSelected()
-                    input.selected.sortedBy { it.id }.forEach {
-                        database.userEquipmentQueries.insertSelected(it.id)
+                    val queries = database.equipmentProfileQueries
+                    val ceilings = queries.selectProfileEntries(input.profileContext.profileId)
+                        .executeAsList().associate { it.equipmentId to it.maxWeightKg }
+                        .toMutableMap()
+                    input.editedMaxWeightsKg.forEach { (tag, weight) -> ceilings[tag.id] = weight }
+                    queries.deleteEntries(input.profileContext.profileId)
+                    (input.selected.map { it.id } + ceilings.keys).distinct().forEach { id ->
+                        queries.upsertEntry(
+                            input.profileContext.profileId,
+                            id,
+                            if (input.selected.any { it.id == id }) 1L else 0L,
+                            ceilings[id]
+                        )
                     }
-                    input.editedMaxWeightsKg.forEach { (tag, weight) ->
-                        database.equipmentQueries.updateMaxWeight(weight, tag.id)
-                    }
+                    queries.bumpRevision()
                 }
                 is SetupStepInput.PersonalRecords -> {
                     val catalog = SqlDelightExerciseCatalog(database)

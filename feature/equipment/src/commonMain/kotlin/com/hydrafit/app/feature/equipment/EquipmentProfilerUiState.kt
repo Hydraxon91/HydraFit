@@ -159,6 +159,17 @@ data class EquipmentProfilerUiState(
     val equipmentEditor: EquipmentEditorState = EquipmentEditorState(),
     val personalRecords: List<PersonalRecordRow> = emptyList(),
     val personalRecordEditor: PersonalRecordEditorState = PersonalRecordEditorState(),
+    /**
+     * The observed active equipment profile and its configuration. Null until the first coherent
+     * snapshot arrives; every profile-owned value is projected from that one snapshot.
+     */
+    val profile: EquipmentProfileSummary? = null,
+    val profileEditor: EquipmentProfileEditorState = EquipmentProfileEditorState(),
+    val profileDelete: EquipmentProfileDeleteState? = null,
+    /** A failed profile-owned write that has no dialog of its own (switch or selection). */
+    val profileFailure: EquipmentProfileFailure? = null,
+    val loadingEditor: LoadingInventoryEditorState = LoadingInventoryEditorState(),
+    val calculator: LoadingCalculatorState = LoadingCalculatorState(),
     val isLoading: Boolean = true
 ) {
     val instructionExercise: Exercise?

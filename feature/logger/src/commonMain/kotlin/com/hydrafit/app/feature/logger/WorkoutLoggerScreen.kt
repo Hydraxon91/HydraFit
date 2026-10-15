@@ -70,6 +70,7 @@ import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
+import com.hydrafit.app.core.domain.workout.GuidedExerciseProgress
 import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
@@ -170,6 +171,8 @@ import hydrafit.feature.logger.generated.resources.logger_load_confirm_title
 import hydrafit.feature.logger.generated.resources.logger_load_legacy
 import hydrafit.feature.logger.generated.resources.logger_load_use_bodyweight
 import hydrafit.feature.logger.generated.resources.logger_load_use_external
+import hydrafit.feature.logger.generated.resources.logger_loading_calculator_action
+import hydrafit.feature.logger.generated.resources.logger_loading_calculator_open
 import hydrafit.feature.logger.generated.resources.logger_log_button
 import hydrafit.feature.logger.generated.resources.logger_log_failed
 import hydrafit.feature.logger.generated.resources.logger_log_refresh_failed
@@ -345,13 +348,36 @@ fun WorkoutLoggerRoute(
     modifier: Modifier = Modifier,
     viewModel: WorkoutLoggerViewModel,
     replacementViewModel: OccurrenceReplacementViewModel = koinViewModel(),
+    loadingCalculatorViewModel: LoggerLoadingCalculatorViewModel = koinViewModel(),
     onOpenHistory: () -> Unit = {},
     onOpenProgress: () -> Unit = {},
     onOpenSummary: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val replacementState by replacementViewModel.state.collectAsStateWithLifecycle()
+    val loadingCalculator by loadingCalculatorViewModel.state.collectAsStateWithLifecycle()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResume() }
+    // The helper's own Logger context: a moved exercise/session, occurrence or draft/guided source
+    // closes it instead of reinterpreting the target it captured.
+    val loadingSourceIds = buildSet {
+        state.draftSets.forEach { add(it.occurrenceEntryId?.toString() ?: it.exerciseId) }
+        state.guidedProgress?.exercises?.forEach { add(it.occurrenceEntryId.toString()) }
+    }
+    LaunchedEffect(
+        state.selectedExerciseId,
+        state.activeSession?.id,
+        state.activeOccurrence?.occurrenceId,
+        loadingSourceIds
+    ) {
+        loadingCalculatorViewModel.onSourceContextChanged(
+            LoggerLoadingSourceContext(
+                selectedExerciseId = state.selectedExerciseId,
+                sessionId = state.activeSession?.id,
+                occurrenceId = state.activeOccurrence?.occurrenceId,
+                availableSourceIds = loadingSourceIds
+            )
+        )
+    }
     // A finished workout opens its summary once; the route keeps the Log tab selected.
     val summaryOpen = state.summary != null
     LaunchedEffect(summaryOpen) { if (summaryOpen) onOpenSummary() }
@@ -445,6 +471,43 @@ fun WorkoutLoggerRoute(
         onOpenHistory = onOpenHistory,
         onOpenProgress = onOpenProgress,
         nowMillis = viewModel::currentTimeMillis,
+        loadingCalculator = loadingCalculator,
+        onManualLoadingCalculator = {
+            loadingCalculatorViewModel.openManual(
+                selectedExerciseId = state.selectedExerciseId,
+                sessionId = state.activeSession?.id
+            )
+        },
+        onDraftLoadingCalculator = { draft ->
+            loadingCalculatorViewModel.openTarget(
+                loggerLoadingRequest(
+                    source = LoggerLoadingTargetSource.DRAFT,
+                    sourceId = draft.occurrenceEntryId?.toString() ?: draft.exerciseId,
+                    sourceName = draft.name,
+                    loadKind = draft.loadKind,
+                    weightKg = draft.weightKg,
+                    occurrenceId = draft.occurrenceId
+                )
+            )
+        },
+        onGuidedLoadingCalculator = { exercise ->
+            loadingCalculatorViewModel.openTarget(
+                loggerLoadingRequest(
+                    source = LoggerLoadingTargetSource.GUIDED,
+                    sourceId = exercise.occurrenceEntryId.toString(),
+                    sourceName = exercise.exerciseName,
+                    loadKind = exercise.loadKind,
+                    weightKg = exercise.weightKg,
+                    occurrenceId = state.guidedProgress?.occurrenceId
+                        ?: state.activeOccurrence?.occurrenceId
+                )
+            )
+        },
+        onLoadingCalculatorKindChanged = loadingCalculatorViewModel::onKindChanged,
+        onLoadingCalculatorEquipmentSelected = loadingCalculatorViewModel::onEquipmentSelected,
+        onLoadingCalculatorTargetChanged = loadingCalculatorViewModel::onTargetChanged,
+        onRunLoadingCalculator = loadingCalculatorViewModel::onRun,
+        onDismissLoadingCalculator = loadingCalculatorViewModel::dismiss,
         modifier = modifier
     )
     OccurrenceReplacementDialog(
@@ -454,6 +517,23 @@ fun WorkoutLoggerRoute(
         replacementViewModel::dismiss
     )
 }
+
+/** The helper request one Logger source produces; the source identity stays stable. */
+private fun loggerLoadingRequest(
+    source: LoggerLoadingTargetSource,
+    sourceId: String,
+    sourceName: String,
+    loadKind: LoadKind,
+    weightKg: Double?,
+    occurrenceId: Long?
+): LoggerLoadingCalculatorRequest = LoggerLoadingCalculatorRequest(
+    source = source,
+    sourceId = sourceId,
+    sourceName = sourceName,
+    loadKind = loadKind,
+    weightKg = weightKg,
+    occurrenceId = occurrenceId
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -545,6 +625,15 @@ fun WorkoutLoggerScreen(
     onOpenHistory: () -> Unit,
     onOpenProgress: () -> Unit,
     nowMillis: () -> Long,
+    loadingCalculator: LoggerLoadingCalculatorState = LoggerLoadingCalculatorState(),
+    onManualLoadingCalculator: () -> Unit = {},
+    onDraftLoadingCalculator: (DraftSet) -> Unit = {},
+    onGuidedLoadingCalculator: (GuidedExerciseProgress) -> Unit = {},
+    onLoadingCalculatorKindChanged: (LoggerLoadingCalculatorKind) -> Unit = {},
+    onLoadingCalculatorEquipmentSelected: (String) -> Unit = {},
+    onLoadingCalculatorTargetChanged: (String) -> Unit = {},
+    onRunLoadingCalculator: () -> Unit = {},
+    onDismissLoadingCalculator: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val focusManager = LocalFocusManager.current
@@ -931,6 +1020,14 @@ fun WorkoutLoggerScreen(
             }
         }
         item {
+            TextButton(
+                onClick = onManualLoadingCalculator,
+                modifier = Modifier.testTag(LoggerLoadingCalculatorTestTags.MANUAL_ACTION)
+            ) {
+                Text(stringResource(Res.string.logger_loading_calculator_open))
+            }
+        }
+        item {
             RirInput(
                 value = state.rir,
                 onValueChange = onRirChanged,
@@ -1065,7 +1162,8 @@ fun WorkoutLoggerScreen(
                         onStartSet = onStartGuidedSet,
                         onEditSet = onEditGuidedSet,
                         onReplace = onReplaceOccurrenceEntry,
-                        onInstructions = onGuidedInstructions
+                        onInstructions = onGuidedInstructions,
+                        onLoadingCalculator = onGuidedLoadingCalculator
                     )
                 }
             }
@@ -1127,6 +1225,18 @@ fun WorkoutLoggerScreen(
                             modifier = Modifier.testTag(LoggerTestTags.draftInstructions(draft))
                         ) {
                             Text(stringResource(Res.string.logger_instructions))
+                        }
+                        if (loggerLoadingTargetEligible(draft.loadKind, draft.weightKg)) {
+                            TextButton(
+                                onClick = { onDraftLoadingCalculator(draft) },
+                                modifier = Modifier.testTag(
+                                    LoggerLoadingCalculatorTestTags.draftAction(
+                                        draft.occurrenceEntryId?.toString() ?: draft.exerciseId
+                                    )
+                                )
+                            ) {
+                                Text(stringResource(Res.string.logger_loading_calculator_action))
+                            }
                         }
                         Box {
                             TextButton(onClick = { expanded = true }) {
@@ -1429,6 +1539,16 @@ fun WorkoutLoggerScreen(
                     }
                 }
             }
+        )
+    }
+    if (loadingCalculator.open) {
+        LoggerLoadingCalculatorDialog(
+            state = loadingCalculator,
+            onKindChanged = onLoadingCalculatorKindChanged,
+            onEquipmentSelected = onLoadingCalculatorEquipmentSelected,
+            onTargetChanged = onLoadingCalculatorTargetChanged,
+            onRun = onRunLoadingCalculator,
+            onDismiss = onDismissLoadingCalculator
         )
     }
 }
@@ -2233,7 +2353,8 @@ private fun GuidedWorkoutSection(
     onStartSet: (Long) -> Unit,
     onEditSet: (Long) -> Unit,
     onReplace: (Long) -> Unit,
-    onInstructions: (Long) -> Unit
+    onInstructions: (Long) -> Unit,
+    onLoadingCalculator: (GuidedExerciseProgress) -> Unit
 ) {
     Card {
         Column(
@@ -2382,6 +2503,22 @@ private fun GuidedWorkoutSection(
                                 ),
                                 style = MaterialTheme.typography.bodySmall
                             )
+                            if (loggerLoadingTargetEligible(exercise.loadKind, exercise.weightKg)) {
+                                TextButton(
+                                    onClick = { onLoadingCalculator(exercise) },
+                                    modifier = Modifier.testTag(
+                                        LoggerLoadingCalculatorTestTags.guidedAction(
+                                            exercise.occurrenceEntryId
+                                        )
+                                    )
+                                ) {
+                                    Text(
+                                        stringResource(
+                                            Res.string.logger_loading_calculator_action
+                                        )
+                                    )
+                                }
+                            }
                             if (startedSetEntryId == exercise.occurrenceEntryId) {
                                 Text(
                                     text = stringResource(Res.string.logger_guided_set_started),

@@ -5,6 +5,12 @@ Paths are relative to the repository root; package shorthand is defined in
 
 ## Planner inputs and weight semantics
 
+Equipment availability and ceilings come from one active-profile snapshot. The profile/revision
+context travels through `WorkoutPlanSources` and `WorkoutPlanInputs`, not historical prescriptions.
+SplitBuilder preserves the displayed plan when that context changes and enables explicit
+regeneration; in-flight old-context generation is cancelled and late results check cancellation.
+Profile switching never rewrites an accepted plan or an active occurrence.
+
 The input path is:
 
 ```text

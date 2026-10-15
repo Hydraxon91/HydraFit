@@ -69,11 +69,19 @@ class BackupEquipmentIdentityTest {
 
     @Test
     fun unchangedLegacyFileRetainsItsFormatAndDefaults() = runTest {
-        val input = emptyBackupFile().copy(formatVersion = 1, restPreferences = emptyList())
+        val input = emptyBackupFile().copy(
+            formatVersion = 1,
+            restPreferences = emptyList(),
+            equipmentProfiles = emptyList(),
+            activeEquipmentProfileId = null
+        )
         assertEquals(input, preview(BackupJson.encode(input)))
     }
 
     private fun collisionFile() = emptyBackupFile().copy(
+        formatVersion = 13,
+        equipmentProfiles = emptyList(),
+        activeEquipmentProfileId = null,
         equipment = listOf(
             BackupEquipmentRecord("EZ_BAR", "My curved bar", false, 35.0),
             BackupEquipmentRecord("EZ_BAR_2", "Another bar", false, 20.0)

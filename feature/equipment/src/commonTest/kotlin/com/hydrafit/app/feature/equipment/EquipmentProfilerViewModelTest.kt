@@ -14,7 +14,6 @@ import com.hydrafit.app.core.userdata.equipment.CustomExerciseException
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
-import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.equipment.ExerciseOverrideRepository
 import com.hydrafit.app.core.userdata.equipment.PersonalRecordRepository
 import kotlin.test.AfterTest
@@ -32,7 +31,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -57,7 +55,10 @@ class EquipmentProfilerViewModelTest {
 
     @Test
     fun loadsSelectionCatalogAndExercises() = runTest(dispatcher) {
-        val viewModel = viewModel(selection = FakeSelectionRepository(setOf(EquipmentTag.BARBELL)))
+        val profiles = EquipmentProfileTestRepository(
+            listOf(testProfile(1L, "Default", selected = setOf(EquipmentTag.BARBELL)))
+        )
+        val viewModel = viewModel(profiles = profiles)
         advanceUntilIdle()
 
         assertEquals(setOf(EquipmentTag.BARBELL), viewModel.state.value.selectedTags)
@@ -123,14 +124,14 @@ class EquipmentProfilerViewModelTest {
 
     @Test
     fun togglingPersistsSelection() = runTest(dispatcher) {
-        val selection = FakeSelectionRepository(emptySet())
-        val viewModel = viewModel(selection = selection)
+        val profiles = EquipmentProfileTestRepository()
+        val viewModel = viewModel(profiles = profiles)
         advanceUntilIdle()
 
         viewModel.onTagToggled(EquipmentTag.DUMBBELL)
         advanceUntilIdle()
 
-        assertEquals(setOf(EquipmentTag.DUMBBELL), selection.stored)
+        assertEquals(setOf(EquipmentTag.DUMBBELL), profiles.state.active.selected)
     }
 
     @Test
@@ -1009,14 +1010,14 @@ class EquipmentProfilerViewModelTest {
 
     private fun viewModel(
         equipment: FakeEquipmentRepository = FakeEquipmentRepository(),
-        selection: FakeSelectionRepository = FakeSelectionRepository(emptySet()),
+        profiles: EquipmentProfileTestRepository = EquipmentProfileTestRepository(),
         overrides: FakeExerciseOverrideRepository = FakeExerciseOverrideRepository(),
         custom: FakeCustomExerciseRepository = FakeCustomExerciseRepository(),
         records: FakePersonalRecordRepository = FakePersonalRecordRepository(),
         catalog: ExerciseCatalog? = null
     ) = EquipmentProfilerViewModel(
         equipmentRepository = equipment,
-        selectionRepository = selection,
+        profileRepository = profiles,
         exerciseCatalog = catalog ?: FakeExerciseCatalog(overrides, custom),
         exerciseOverrideRepository = overrides,
         customExerciseRepository = custom,
@@ -1036,19 +1037,6 @@ class EquipmentProfilerViewModelTest {
 
         override suspend fun clear(exerciseId: String) {
             state.value = state.value.filterNot { it.exerciseId == exerciseId }
-        }
-    }
-
-    private class FakeSelectionRepository(initial: Set<EquipmentTag>) :
-        EquipmentSelectionRepository {
-        var stored: Set<EquipmentTag> = initial
-
-        override suspend fun selected(): Set<EquipmentTag> = stored
-
-        override fun selectedFlow(): Flow<Set<EquipmentTag>> = flowOf(stored)
-
-        override suspend fun setSelected(tags: Set<EquipmentTag>) {
-            stored = tags
         }
     }
 

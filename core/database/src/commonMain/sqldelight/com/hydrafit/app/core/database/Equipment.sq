@@ -20,8 +20,8 @@ INSERT INTO equipment(id, name, isBuiltIn) VALUES (?, ?, ?);
 updateMaxWeight:
 UPDATE equipment SET maxWeightKg = ? WHERE id = ?;
 
-updateNameAndMaxWeight:
-UPDATE equipment SET name = ?, maxWeightKg = ? WHERE id = ? AND isBuiltIn = 0;
+renameCustom:
+UPDATE equipment SET name = ? WHERE id = ? AND isBuiltIn = 0;
 
 deleteById:
 DELETE FROM equipment WHERE id = ?;
@@ -32,3 +32,18 @@ DELETE FROM equipment WHERE isBuiltIn = 0;
 
 moveCustomIdentity:
 UPDATE equipment SET id = ? WHERE id = ? AND isBuiltIn = 0;
+
+hasProtectedReference:
+SELECT EXISTS (
+    SELECT 1 FROM exercise
+    WHERE instr(',' || requiredEquipment || ',', ',' || :equipmentId || ',') > 0
+    UNION ALL
+    SELECT 1 FROM exerciseOverride
+    WHERE instr(',' || requiredEquipment || ',', ',' || :equipmentId || ',') > 0
+    UNION ALL
+    SELECT 1 FROM activationEntry
+    WHERE instr(',' || requiredEquipment || ',', ',' || :equipmentId || ',') > 0
+    UNION ALL
+    SELECT 1 FROM occurrenceEntry
+    WHERE instr(',' || requiredEquipment || ',', ',' || :equipmentId || ',') > 0
+);

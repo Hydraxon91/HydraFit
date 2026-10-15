@@ -50,7 +50,11 @@ class OnboardingDraftRulesTest {
         assertTrue(isSubmittable(SetupStepInput.Continue(SetupStep.WELCOME)))
         assertTrue(isSubmittable(SetupStepInput.Units(WeightUnit.KG)))
         assertTrue(isSubmittable(SetupStepInput.Goal(TrainingGoal.STRENGTH)))
-        assertTrue(isSubmittable(SetupStepInput.Equipment(emptySet())))
+        val equipment = SetupStepInput.Equipment(
+            emptySet(),
+            profileContext = com.hydrafit.app.core.domain.equipment.EquipmentProfileContext(1L, 0L)
+        )
+        assertTrue(isSubmittable(equipment))
         assertTrue(isSubmittable(SetupStepInput.PersonalRecords(emptyList())))
     }
 

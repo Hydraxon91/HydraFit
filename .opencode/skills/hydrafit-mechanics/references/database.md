@@ -103,7 +103,20 @@ databases upgraded from an earlier version as well as any drift. `43.sqm` adds
 and group by `sessionId` and order one session's sets by `performedAt`, and without it each of those
 shapes planned a full table scan plus a temporary B-tree. `44.sqm` adds the singleton `setupState`
 and nullable `preferredWeekdays` rows. Fresh creation starts PENDING/WELCOME; migration starts
-RETURNING/WELCOME regardless of workout count. Current schema version is 49.
+RETURNING/WELCOME regardless of workout count. Current schema version is 50.
+Migration `49.sqm` adds profile identity/configuration, per-profile equipment entries and active-profile
+state. It copies global selection and every ceiling into one active profile; fresh creation starts
+empty. `SqlDelightEquipmentProfileRepository` returns coherent snapshots off-main and validates a
+global context revision inside each mutation transaction. All mutators bump that revision, including
+profile switching, so an editor cannot survive an away-and-back switch. Calculator configuration is
+validated by domain `LoadingInventoryJson` before persistence. Equipment adapters read the active
+profile; planner sources and Logger warm-up guidance consume one coherent snapshot. Setup validates
+its captured profile/revision in the boundary transaction. Profile-scoped queries serve writes;
+global custom-equipment deletion uses a SQL existence guard and rejects other-profile references.
+Occurrence replacement reads the same active-profile snapshot for availability and ceilings. Live
+edits no longer dual-write the legacy `selected_equipment` table or the global `equipment.maxWeightKg`
+column; only startup identity repair (`SeedEquipmentCatalog`) and backup restore still touch those
+legacy stores, and neither is a behavioral authority, so the active profile is the single authority.
 `BodyWeight.sq` (0.8.3) owns `bodyWeightMeasurement` (one row per local civil day, the primary
 key making a duplicate date impossible) and single-row `bodyWeightGoal`; `48.sqm` creates both,
 so `SqlDelightBodyWeightRepository` keeps "no goal" distinct from any stored value by deleting

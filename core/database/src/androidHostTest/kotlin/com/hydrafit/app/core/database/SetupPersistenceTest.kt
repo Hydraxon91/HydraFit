@@ -89,6 +89,8 @@ class SetupPersistenceTest {
             assertEquals(file, backup.export("dev", 0L))
             val legacy = file.copy(
                 formatVersion = 10,
+                equipmentProfiles = emptyList(),
+                activeEquipmentProfileId = null,
                 setup = BackupSetupRecord(),
                 preferredWeekdays = null,
                 workoutReminders = null

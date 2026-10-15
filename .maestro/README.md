@@ -28,6 +28,8 @@ do not cancel someone else's draft or restart the app to establish them.
 | `logger-workout-summary.yaml` (not yet checked in) | Logger selected on an active block occurrence with every prescribed set unrecorded | Confirm all prescribed sets, Finish, View in history | Journey verified in pieces on 2026-10-12 (see below); the combined file is not checked in |
 | `logger-warmup-checkbox.yaml` | Guided workouts on, an active block with a pending occurrence, Logger selected, the preparation row already on screen (see "Container-aware scrolling"), no dialog/editor | Toggle one preparation row and back | The row starts unchecked, becomes checked and returns to unchecked; Edit and Skip sit outside the toggle |
 | `logger-warmup-editor-cancel.yaml` | Same as `logger-warmup-checkbox.yaml` | Open one preparation row's editor and cancel it | Editor closed; Save untouched, so no warm-up edit and no set is written |
+| `equipment-profiles.yaml` | Equipment tab selected, no keyboard/dialog/editor | Read-only scroll and assertion of the profile, loading-configuration and calculator affordances; opens no dialog | Same Equipment tab and scroll position; no profile, catalog or record write |
+| `logger-loading-calculator.yaml` | Logger tab selected with a manual exercise chosen so the set form and its calculator action are present, no keyboard/dialog/editor | Open and dismiss the read-only manual loading helper | Logger with the Log tab selected; no set, draft, note or session write |
 
 The navigation flow visits all six tabs and asserts the selected tab after each
 tap; visible navigation labels alone are not a success oracle. It is also the
@@ -124,6 +126,22 @@ The editor name starts blank (`RoutinesViewModel.onNewRoutine`); this flow does
 not rely on `eraseText` clearing an arbitrary existing field. The single new
 editor has one Routine name field and one Cancel action. Tests of repeated
 workout/entry fields require verified row scoping; these flows do not cover them.
+
+## 0.9.0 profile and loading-helper flows (2026-10-15)
+
+Both flows passed on `emulator-5554` (debug, existing on-device data preserved) and are
+read-only. `equipment-profiles.yaml` passed 10/10 in one attempt; the parent's first authored
+version asserted the dialog-only title `Loading calculator` and failed at that step, which was a
+flow-text defect, corrected to the on-screen `Calculate loading` action before the passing run. It
+opens no dialog, so it does not exercise the Equipment calculator dialog.
+`logger-loading-calculator.yaml` passed 8/8 and opened and dismissed the Logger's manual loading
+helper, showing `Profile: My equipment` and the read-only note; its precondition (a manual exercise
+chosen in the picker) was established by the runner and the transient Logger selection was left in
+place, while the Equipment tab and its scroll position were restored. Viewed screenshots:
+`/tmp/hf-090-equip-profiles-20261015_214653/2026-10-15_214654/equipment-profiles/takeScreenshot/equipment-profiles.png`
+and `/tmp/hf-090-logger-calc/2026-10-15_214507/logger-loading-calculator/takeScreenshot/logger-loading-calculator.png`.
+Profile create/copy/rename/delete, loading-configuration editing and both calculator dialogs were
+not exercised on the device; dark mode, larger text, locale, rotation and TalkBack were not checked.
 
 The navigation, session-controls and editor flows create no persistent records, so there is no
 record deletion/cleanup. The editor

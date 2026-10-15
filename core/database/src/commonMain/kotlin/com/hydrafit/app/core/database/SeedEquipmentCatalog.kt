@@ -39,11 +39,13 @@ class SeedEquipmentCatalog(private val database: HydraFitDatabase) {
         )
         mapping.forEach { (oldId, newId) ->
             database.equipmentQueries.moveCustomIdentity(newId, oldId)
+            database.equipmentProfileQueries.remapEquipment(newId, oldId)
             if (oldId in selected) {
                 database.userEquipmentQueries.deleteSelected(oldId)
                 database.userEquipmentQueries.insertSelected(newId)
             }
         }
+        if (mapping.isNotEmpty()) database.equipmentProfileQueries.bumpRevision()
         customs.forEach {
             val updated = EquipmentIdentity.remapCsv(it.requiredEquipment, mapping)
             if (updated != it.requiredEquipment) {

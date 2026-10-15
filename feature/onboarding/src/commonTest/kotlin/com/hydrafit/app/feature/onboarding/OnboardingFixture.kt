@@ -7,6 +7,7 @@ import com.hydrafit.app.core.domain.equipment.Equipment
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.setup.SaveSetupStepUseCase
 import com.hydrafit.app.core.domain.setup.SetupCommit
 import com.hydrafit.app.core.domain.setup.SetupState
@@ -17,8 +18,11 @@ import com.hydrafit.app.core.domain.setup.StaleSetupContextException
 import com.hydrafit.app.core.domain.startup.StartupReadiness
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfile
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfileContext
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfileRepository
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfileState
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
-import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.equipment.PersonalRecordRepository
 import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
 import com.hydrafit.app.core.userdata.settings.SetupRepository
@@ -106,11 +110,34 @@ internal class OnboardingFixture {
         override suspend fun setMaxWeight(id: EquipmentTag, maxWeightKg: Double?) =
             error("Direct write is forbidden")
     }
-    val selection = object : EquipmentSelectionRepository {
-        override suspend fun selected() = emptySet<EquipmentTag>()
-        override fun selectedFlow() = flowOf(emptySet<EquipmentTag>())
-        override suspend fun setSelected(tags: Set<EquipmentTag>) =
-            error("Direct write is forbidden")
+    val profileState = MutableStateFlow(
+        EquipmentProfileState(
+            EquipmentProfileContext(1L, 0L),
+            listOf(EquipmentProfile(1L, "Home", emptySet(), emptyMap(), LoadingInventory()))
+        )
+    )
+    val selection = object : EquipmentProfileRepository {
+        override suspend fun current() = profileState.value
+        override fun observe() = profileState
+        override suspend fun create(name: String, copyFrom: Long?): Long = error("Direct write")
+        override suspend fun rename(context: EquipmentProfileContext, name: String) =
+            error("Direct write")
+        override suspend fun activate(context: EquipmentProfileContext, profileId: Long) =
+            error("Direct write")
+        override suspend fun delete(
+            context: EquipmentProfileContext,
+            profileId: Long,
+            replacementId: Long?
+        ) = error("Direct write")
+        override suspend fun saveEquipment(
+            context: EquipmentProfileContext,
+            selected: Set<EquipmentTag>,
+            maxWeightsKg: Map<EquipmentTag, Double>
+        ) = error("Direct write")
+        override suspend fun saveLoadingInventory(
+            context: EquipmentProfileContext,
+            inventory: LoadingInventory
+        ) = error("Direct write")
     }
     val goals = object : TrainingGoalRepository {
         override suspend fun selectedGoal() = TrainingGoal.BALANCED

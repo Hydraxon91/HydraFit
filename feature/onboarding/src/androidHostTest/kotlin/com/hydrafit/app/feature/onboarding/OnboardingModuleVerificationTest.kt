@@ -7,8 +7,8 @@ import com.hydrafit.app.core.domain.setup.SaveSetupStepUseCase
 import com.hydrafit.app.core.domain.setup.SetupWriteRepository
 import com.hydrafit.app.core.domain.setup.SkipSetupUseCase
 import com.hydrafit.app.core.domain.startup.StartupReadiness
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfileRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
-import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.equipment.PersonalRecordRepository
 import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
 import com.hydrafit.app.core.userdata.settings.SetupRepository
@@ -46,7 +46,7 @@ class OnboardingModuleVerificationTest {
                 SetupWriteRepository::class,
                 WeightUnitRepository::class,
                 EquipmentRepository::class,
-                EquipmentSelectionRepository::class,
+                EquipmentProfileRepository::class,
                 TrainingGoalRepository::class,
                 PreferredWeekdaysRepository::class,
                 PersonalRecordRepository::class,
@@ -67,7 +67,7 @@ class OnboardingModuleVerificationTest {
                     single<SetupWriteRepository> { fixture.writer }
                     single<WeightUnitRepository> { fixture.units }
                     single<EquipmentRepository> { fixture.equipment }
-                    single<EquipmentSelectionRepository> { fixture.selection }
+                    single<EquipmentProfileRepository> { fixture.selection }
                     single<TrainingGoalRepository> { fixture.goals }
                     single<PreferredWeekdaysRepository> { fixture.weekdays }
                     single<PersonalRecordRepository> { fixture.records }
@@ -129,7 +129,7 @@ class OnboardingModuleVerificationTest {
                     single<SetupWriteRepository> { fixture.writer }
                     single<WeightUnitRepository> { fixture.units }
                     single<EquipmentRepository> { fixture.equipment }
-                    single<EquipmentSelectionRepository> { fixture.selection }
+                    single<EquipmentProfileRepository> { fixture.selection }
                     single<TrainingGoalRepository> { fixture.goals }
                     single<PreferredWeekdaysRepository> { fixture.weekdays }
                     single<PersonalRecordRepository> { fixture.records }

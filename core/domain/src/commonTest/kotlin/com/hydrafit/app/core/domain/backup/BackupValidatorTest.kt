@@ -858,6 +858,9 @@ class BackupValidatorTest {
     }
 
     private fun validFile() = emptyBackupFile().copy(
+        formatVersion = 13,
+        equipmentProfiles = emptyList(),
+        activeEquipmentProfileId = null,
         appVersion = "t",
         exportedAtMillis = 1L,
         catalog = BackupCatalogManifest(listOf("back-squat"), seedProfiles = emptyList()),

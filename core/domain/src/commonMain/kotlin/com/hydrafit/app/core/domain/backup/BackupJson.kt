@@ -67,6 +67,10 @@ object BackupJson {
                 add("bodyWeightMeasurements")
                 add("bodyWeightGoalKg")
             }
+            if (version != null && version < EQUIPMENT_PROFILE_FORMAT_VERSION) {
+                add("equipmentProfiles")
+                add("activeEquipmentProfileId")
+            }
         }
         val missing = requiredKeys - obj.keys
         if (missing.isNotEmpty()) {
@@ -74,6 +78,9 @@ object BackupJson {
         }
         requireTimingFields(obj)
         requireSettingsFields(obj)
+        if (version != null && version >= EQUIPMENT_PROFILE_FORMAT_VERSION) {
+            requireEquipmentProfileFields(obj)
+        }
         if (version != null && version >= SETUP_FORMAT_VERSION) {
             val setup = obj["setup"] as? JsonObject
                 ?: throw BackupException(BackupFailure.MALFORMED, "setup is not an object")
@@ -88,6 +95,40 @@ object BackupJson {
         }
         requireRecordCount(file)
         return file
+    }
+
+    private fun requireEquipmentProfileFields(root: JsonObject) {
+        val profiles = root["equipmentProfiles"] as? JsonArray
+            ?: throw BackupException(BackupFailure.MALFORMED)
+        profiles.forEach { element ->
+            val profile = element as? JsonObject
+                ?: throw BackupException(BackupFailure.MALFORMED)
+            val inventory = profile["loadingInventory"] as? JsonObject
+                ?: throw BackupException(BackupFailure.MALFORMED)
+            if (!inventory.keys.containsAll(setOf("unit", "plates", "bars", "dumbbells"))) {
+                throw BackupException(BackupFailure.MALFORMED)
+            }
+            val bars = inventory["bars"] as? JsonArray
+                ?: throw BackupException(BackupFailure.MALFORMED)
+            bars.forEach {
+                val bar = it as? JsonObject ?: throw BackupException(BackupFailure.MALFORMED)
+                if ("collarTicks" !in bar) throw BackupException(BackupFailure.MALFORMED)
+            }
+            val dumbbells = inventory["dumbbells"] as? JsonArray
+                ?: throw BackupException(BackupFailure.MALFORMED)
+            dumbbells.forEach {
+                val dumbbell = it as? JsonObject ?: throw BackupException(BackupFailure.MALFORMED)
+                val required = setOf(
+                    "fixedTicks",
+                    "minimumTicks",
+                    "maximumTicks",
+                    "incrementTicks"
+                )
+                if (!dumbbell.keys.containsAll(required)) {
+                    throw BackupException(BackupFailure.MALFORMED)
+                }
+            }
+        }
     }
 
     private fun requireSettingsFields(root: JsonObject) {
@@ -187,5 +228,9 @@ object BackupJson {
             file.activations.size + file.activationWorkouts.size + file.activationEntries.size +
             file.occurrences.size + file.occurrenceEntries.size + file.personalRecords.size +
             file.preferences.size + file.exclusions.size + file.restPreferences.size +
-            file.bodyWeightMeasurements.size
+            file.bodyWeightMeasurements.size + file.equipmentProfiles.sumOf {
+                1 + it.selectedEquipment.size + it.ceilings.size + it.loadingInventory.plates.size +
+                    it.loadingInventory.bars.size +
+                    it.loadingInventory.dumbbells.sumOf { dumbbell -> 1 + dumbbell.fixedTicks.size }
+            }
 }

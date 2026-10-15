@@ -20,7 +20,9 @@ data class WorkoutPlanSources(
     /** Explicit user preference per exercise id; absence means [ExercisePreference.NEUTRAL]. */
     val exercisePreferences: Map<String, ExercisePreference> = emptyMap(),
     /** EX-01 exclusions with their expiry; the observer keeps only the currently active ones. */
-    val exerciseExclusions: List<ExerciseExclusion> = emptyList()
+    val exerciseExclusions: List<ExerciseExclusion> = emptyList(),
+    /** Profile/revision identity is presentation context, never a historical prescription field. */
+    val equipmentContext: String? = null
 )
 
 interface WorkoutPlanSourcesRepository {
@@ -37,5 +39,6 @@ data class WorkoutPlanInputs(
      * an exclusion's expiry is renewed or an expired row is removed.
      */
     val exercisePreferences: Map<String, ExercisePreference> = emptyMap(),
-    val exerciseExclusions: List<ExerciseExclusion> = emptyList()
+    val exerciseExclusions: List<ExerciseExclusion> = emptyList(),
+    val equipmentContext: String? = null
 )

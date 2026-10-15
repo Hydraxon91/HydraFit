@@ -25,7 +25,7 @@ class BackupJsonTest {
             BackupSetupRecord(),
             BackupJson.decode(
                 withoutSetup.replace(
-                    "\"formatVersion\":$BACKUP_FORMAT_VERSION",
+                    "\"formatVersion\":${file.formatVersion}",
                     "\"formatVersion\":10"
                 )
             ).setup
@@ -57,7 +57,7 @@ class BackupJsonTest {
         assertNull(
             BackupJson.decode(
                 withoutReminders.replace(
-                    "\"formatVersion\":$BACKUP_FORMAT_VERSION",
+                    "\"formatVersion\":${file.formatVersion}",
                     "\"formatVersion\":11"
                 )
             ).workoutReminders

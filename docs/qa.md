@@ -511,6 +511,17 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 ## 1. Equipment
 - Add custom equipment, rename it, set a max weight, delete it → selection updates; survives relaunch.
 - Search filters the exercise list; built-in tags present.
+- **Equipment profiles (0.9.0):** create an empty profile and a copy of the active one, rename the active
+  profile, switch between profiles, and delete one through its confirmation. The last profile cannot be
+  deleted, and deleting the active profile requires choosing the replacement. Selection and max weights
+  follow the active profile; switching profiles keeps the plan you are viewing and offers regeneration
+  rather than silently replacing it.
+- **Loading setup and calculators (0.9.0):** record plates (weight and how many you own), a bar with its
+  own weight and a total collar weight, and dumbbells either as a fixed list or an adjustable
+  lightest/heaviest/increment range. The calculator shows plates per side and the full total for an
+  exact target, and the nearest lower/higher weights for an unreachable one; dumbbell results are per
+  dumbbell. Amounts stay in the profile's own unit (kg or lb) and are not converted when the display
+  unit changes.
 
 ## 2. Exercise catalog (Equipment → edit)
 - Deleting a custom exercise with a manual personal record is refused with localized guidance;
@@ -2510,6 +2521,57 @@ final state is user-reported, not independently verified. Findings inform the 0.
   and were accepted by the user rather than agent-verified at larger font sizes or in dark mode. The
   deferred 0.13.x explanation-presentation polish and the named OF-03 verification limits are
   unchanged.
+
+### 0.9.0 implementation checkpoint (2026-10-15; not release acceptance)
+
+- C1–C2: commit `0faf2bc0`; full host suite, SQLDelight migration verification, ktlint,
+  debug assembly and shared/network iOS simulator compilation passed. External evidence:
+  `090-c2-verification-3.log` under the session's OpenCode temporary directory.
+- C3: uncommitted profile-aware consumers and stale-context guards. An earlier matrix run
+  (`090-c3-verification-2.log`) failed `ExerciseProgressRecordsIntegrationTest.multiExerciseOccurrenceKeepsStableIdentityOrderAndEarlierBaselines`
+  with overlapping SQLite JDBC transactions. After the later C3 edits that failure no longer
+  reproduces: the isolated class and the full `:core:database:testAndroidHostTest` both pass
+  (`090-c3-progress-repro.log`, `090-c3-db-full.log`), and the release matrix below is green. The
+  earlier failure is recorded as a resolved ordering artifact, not as a fixed defect.
+- C4 (delegated, pure calculators) and C5 (Equipment profile/loading UI) passed their module
+  host tests, ktlint and debug assembly in `090-c4-verification.log` and `090-c5-verification.log`.
+  The C4 maximum-size solver sample reported 133 ms on the host; that is not an emulator
+  performance measurement.
+- C6 (setup presentation and the read-only Logger helper) passed logger/onboarding/shared host
+  tests, ktlint and debug assembly in `090-c6-verification.log`.
+- Release integration matrix (`090-c7-integration.log`): `testAndroidHostTest` across all modules
+  (2,060 tests, 0 failures/errors), `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
+  `:core:network:compileKotlinIosSimulatorArm64` all passed.
+- Bounded emulator acceptance on `emulator-5554` (debug, existing data preserved, read-only):
+  `.maestro/equipment-profiles.yaml` 10/10 and `.maestro/logger-loading-calculator.yaml` 8/8 passed
+  with viewed screenshots. Profile create/copy/rename/delete, loading-configuration editing and both
+  calculator dialogs remain unexercised on the device; dark mode, larger text, locale, rotation and
+  TalkBack were not checked. Details and artifact paths are in `.maestro/README.md`.
+- Independent review (`reviewer`, read-only) returned **REJECTED** with one major finding: F1 — the
+  occurrence-replacement flow still validated available equipment and the replacement ceiling against
+  the legacy `selected_equipment` table and the global `equipment.maxWeightKg` column, which profile
+  edits and switching no longer maintain. F3 (the unrendered `equipment_calculator_section` string)
+  was recorded above; F2 (an inaccurate PLANS.md status line) was corrected in `73e0e34e`.
+- F1 correction (user-decided: the active profile is the single authority): occurrence replacement now
+  reads the active-profile snapshot; live edits stopped dual-writing the legacy selection table and
+  the global ceiling column; a name-only `renameCustom` query replaced the dual-purpose write. Legacy
+  stores remain read-compatible (restore still projects them on import). Regression coverage:
+  `replacementAvailabilityFollowsTheActiveProfileAndNotTheLegacySelection` (switch to an empty profile
+  rejects, switch back allows) plus updated setup/schedule tests. Re-verified: `:core:database` tests
+  and ktlint (`090-f1-db2.log`) and the full matrix — 2,061 host tests, 0 failures, plus
+  `verifySqlDelightMigration`, `ktlintCheck`, debug assembly and both iOS compiles
+  (`090-f1-integration.log`).
+- Reviewer closure (`reviewer`, targeted over `ca3624d4..9df882a5`): **F1 CLOSED, F2 resolved**, no
+  blocking finding. One non-blocking mechanical wording finding (C-01: the docs said the legacy stores
+  were read-compatible only, while startup identity repair still writes `selected_equipment`) was
+  reworded in `docs/architecture.md` and the `database.md` reference. The reviewer confirmed no
+  production consumer still depends on a value that stopped being written, and that backup export
+  derives from the active profile while restore projects the legacy columns inside the same
+  transaction. Publication is separately approval-gated and not approved.
+- Known open item for review: `equipment_calculator_section` ("Loading calculator") is defined in the
+  Equipment feature strings but never rendered; the on-screen affordance is the `Calculate loading`
+  action under the `Loading configuration` heading.
 
 ### v0.7.1 publication verification (2026-10-12)
 

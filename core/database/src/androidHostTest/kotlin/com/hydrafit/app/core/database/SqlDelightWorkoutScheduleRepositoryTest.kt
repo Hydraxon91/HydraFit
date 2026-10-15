@@ -57,7 +57,7 @@ class SqlDelightWorkoutScheduleRepositoryTest {
             it.movementPattern == occurrence.entries.single().movementPattern &&
                 it.id != occurrence.entries.single().exerciseId
         }
-        candidate.requiredEquipment.forEach { database.userEquipmentQueries.insertSelected(it.id) }
+        seedProfileSelection(candidate.requiredEquipment)
         val replacement = occurrence.entries.single().copy(
             exerciseId = candidate.id,
             exerciseName = candidate.name,
@@ -147,7 +147,7 @@ class SqlDelightWorkoutScheduleRepositoryTest {
         val candidate = SqlDelightExerciseCatalog(database).all().first {
             it.movementPattern == entry.movementPattern && it.id != entry.exerciseId
         }
-        candidate.requiredEquipment.forEach { database.userEquipmentQueries.insertSelected(it.id) }
+        seedProfileSelection(candidate.requiredEquipment)
         val replacement = entry.copy(
             exerciseId = candidate.id,
             exerciseName = candidate.name,
@@ -169,6 +169,43 @@ class SqlDelightWorkoutScheduleRepositoryTest {
                 occurrenceEntryId = null
             )
         )
+        repository.replaceUntouchedEntry(occurrence.id, occurrence.revision, replacement, 1L)
+        assertEquals(replacement, repository.getOccurrence(occurrence.id)?.entries?.single())
+    }
+
+    @Test
+    fun replacementAvailabilityFollowsTheActiveProfileAndNotTheLegacySelection() = runTest {
+        SeedExerciseCatalog(database).seed()
+        val id = repository.acceptAndActivate(null, activation(), listOf(null, null), false)
+        val occurrence = repository.occurrences(id).first()
+        val entry = occurrence.entries.single()
+        val candidate = SqlDelightExerciseCatalog(database).all().first {
+            it.movementPattern == entry.movementPattern && it.id != entry.exerciseId
+        }
+        val profiles = SqlDelightEquipmentProfileRepository(database)
+        val home = profiles.current()
+        seedProfileSelection(candidate.requiredEquipment)
+        // A second, empty profile does not own the candidate's equipment, so the same
+        // replacement that is valid in "home" must be rejected while "travel" is active.
+        val travel = profiles.create("Travel")
+        profiles.activate(profiles.current().context, travel)
+        val replacement = entry.copy(
+            exerciseId = candidate.id,
+            exerciseName = candidate.name,
+            requiredEquipment = candidate.requiredEquipment,
+            involvements = candidate.effectiveInvolvements,
+            isUnilateral = candidate.isUnilateral,
+            weightKg = null,
+            loadCapability = candidate.loadCapability,
+            loadKind = WorkoutLoadPolicy.defaultKind(candidate.loadCapability)
+        )
+        val error = assertFailsWith<OccurrenceReplacementException> {
+            repository.replaceUntouchedEntry(occurrence.id, occurrence.revision, replacement, 1L)
+        }
+        assertEquals(OccurrenceReplacementFailure.UNAVAILABLE, error.reason)
+
+        // Switching back to the owning profile makes the replacement valid again.
+        profiles.activate(profiles.current().context, home.active.id)
         repository.replaceUntouchedEntry(occurrence.id, occurrence.revision, replacement, 1L)
         assertEquals(replacement, repository.getOccurrence(occurrence.id)?.entries?.single())
     }
@@ -208,6 +245,15 @@ class SqlDelightWorkoutScheduleRepositoryTest {
         HydraFitDatabase.Schema.create(driver)
         database = HydraFitDatabase(driver)
         repository = SqlDelightWorkoutScheduleRepository(database)
+    }
+
+    /**
+     * Replacement availability reads the active equipment profile, not the legacy global
+     * `selected_equipment` table, so a test must seed the profile the same way the app does.
+     */
+    private fun seedProfileSelection(tags: Set<EquipmentTag>) {
+        val activeId = database.equipmentProfileQueries.selectState().executeAsOne().activeProfileId
+        tags.forEach { database.equipmentProfileQueries.upsertEntry(activeId, it.id, 1L, null) }
     }
 
     @AfterTest

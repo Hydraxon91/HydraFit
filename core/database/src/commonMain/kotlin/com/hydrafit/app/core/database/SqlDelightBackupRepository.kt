@@ -9,6 +9,8 @@ import com.hydrafit.app.core.domain.backup.BackupBodyWeightRecord
 import com.hydrafit.app.core.domain.backup.BackupCatalog
 import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
 import com.hydrafit.app.core.domain.backup.BackupEntryTargetExplanationRecord
+import com.hydrafit.app.core.domain.backup.BackupEquipmentCeilingRecord
+import com.hydrafit.app.core.domain.backup.BackupEquipmentProfileRecord
 import com.hydrafit.app.core.domain.backup.BackupEquipmentRecord
 import com.hydrafit.app.core.domain.backup.BackupExclusionRecord
 import com.hydrafit.app.core.domain.backup.BackupExerciseNoteRecord
@@ -40,6 +42,8 @@ import com.hydrafit.app.core.domain.backup.BackupVolumeExplanationStateRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutReminderRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSessionRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSetRecord
+import com.hydrafit.app.core.domain.equipment.LoadingInventory
+import com.hydrafit.app.core.domain.equipment.LoadingInventoryJson
 import com.hydrafit.app.core.domain.schedule.WorkoutReminderDeliveryGate
 import com.hydrafit.app.core.domain.settings.DEFAULT_QUIET_END_MINUTE_OF_DAY
 import com.hydrafit.app.core.domain.settings.DEFAULT_QUIET_START_MINUTE_OF_DAY
@@ -59,6 +63,7 @@ class SqlDelightBackupRepository(
 
     override suspend fun export(appVersion: String, exportedAtMillis: Long): BackupFile =
         database.transactionWithResult {
+            val profiles = database.readEquipmentProfileState()
             BackupFile(
                 format = BACKUP_FORMAT,
                 formatVersion = BACKUP_FORMAT_VERSION,
@@ -101,11 +106,12 @@ class SqlDelightBackupRepository(
                         id = it.id,
                         name = it.name,
                         isBuiltIn = it.isBuiltIn != 0L,
-                        maxWeightKg = it.maxWeightKg
+                        maxWeightKg = profiles.active.maxWeightsKg[
+                            com.hydrafit.app.core.domain.equipment.EquipmentTag(it.id)
+                        ]
                     )
                 },
-                selectedEquipment = database.userEquipmentQueries.selectAllSelected()
-                    .executeAsList(),
+                selectedEquipment = profiles.active.selected.map { it.id }.sorted(),
                 workoutSets = database.workoutLogQueries.selectAllSets().executeAsList().map {
                     BackupWorkoutSetRecord(
                         id = it.id,
@@ -500,7 +506,19 @@ class SqlDelightBackupRepository(
                     .executeAsList()
                     .map { BackupBodyWeightRecord(it.localEpochDay, it.weightKg) },
                 bodyWeightGoalKg = database.bodyWeightQueries.selectGoal()
-                    .executeAsOneOrNull()?.weightKg
+                    .executeAsOneOrNull()?.weightKg,
+                equipmentProfiles = profiles.profiles.map { profile ->
+                    BackupEquipmentProfileRecord(
+                        profile.id,
+                        profile.name,
+                        profile.selected.map { it.id }.sorted(),
+                        profile.maxWeightsKg.entries.sortedBy { it.key.id }.map {
+                            BackupEquipmentCeilingRecord(it.key.id, it.value)
+                        },
+                        profile.loadingInventory
+                    )
+                },
+                activeEquipmentProfileId = profiles.context.profileId
             )
         }
 
@@ -551,6 +569,9 @@ class SqlDelightBackupRepository(
             database.routineTemplateQueries.deleteAllWorkouts()
             database.routineTemplateQueries.deleteAllTemplates()
             database.exerciseQueries.deleteAllCustom()
+            database.equipmentProfileQueries.deleteState()
+            database.equipmentProfileQueries.deleteAllEntries()
+            database.equipmentProfileQueries.deleteAllProfiles()
             database.equipmentQueries.deleteCustomEquipment()
             database.userEquipmentQueries.deleteAllSelected()
 
@@ -566,6 +587,7 @@ class SqlDelightBackupRepository(
                 database.equipmentQueries.updateMaxWeight(equipment.maxWeightKg, equipment.id)
             }
             file.selectedEquipment.forEach { database.userEquipmentQueries.insertSelected(it) }
+            restoreEquipmentProfiles(file)
             database.trainingGuidancePreferenceQueries.restorePreferences(
                 if (file.trainingGuidance.restAlertsEnabled) 1L else 0L,
                 if (file.trainingGuidance.shortRestCoachingEnabled) 1L else 0L,
@@ -985,6 +1007,43 @@ class SqlDelightBackupRepository(
                 if (settings?.guidedWorkoutEnabled == true) 1L else 0L
             )
         }
+    }
+
+    private fun restoreEquipmentProfiles(file: BackupFile) {
+        val profiles = if (file.formatVersion >= 14) {
+            file.equipmentProfiles
+        } else {
+            listOf(
+                BackupEquipmentProfileRecord(
+                    1L,
+                    "My equipment",
+                    file.selectedEquipment,
+                    database.equipmentQueries.selectAll().executeAsList().mapNotNull { row ->
+                        row.maxWeightKg?.let { BackupEquipmentCeilingRecord(row.id, it) }
+                    },
+                    LoadingInventory()
+                )
+            )
+        }
+        profiles.forEach { profile ->
+            database.equipmentProfileQueries.restoreProfile(
+                profile.id,
+                profile.name,
+                LoadingInventoryJson.encode(profile.loadingInventory)
+            )
+            val ceilings = profile.ceilings.associate { it.equipmentId to it.maxWeightKg }
+            (profile.selectedEquipment + ceilings.keys).distinct().forEach { id ->
+                database.equipmentProfileQueries.upsertEntry(
+                    profile.id,
+                    id,
+                    if (id in profile.selectedEquipment) 1L else 0L,
+                    ceilings[id]
+                )
+            }
+        }
+        database.equipmentProfileQueries.restoreState(
+            if (file.formatVersion >= 14) requireNotNull(file.activeEquipmentProfileId) else 1L
+        )
     }
 
     /** Reads the single planner-settings row; null when the user has never changed any setting. */

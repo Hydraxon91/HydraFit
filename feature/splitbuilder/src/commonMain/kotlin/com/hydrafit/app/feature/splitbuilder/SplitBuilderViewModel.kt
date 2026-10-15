@@ -24,6 +24,8 @@ import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -84,7 +86,13 @@ class SplitBuilderViewModel(
                         prior.exercisePreferences != inputs.exercisePreferences ||
                             prior.exerciseExclusions != inputs.exerciseExclusions
                         )
-                if (settingsChanged) {
+                val equipmentChanged = prior != null &&
+                    prior.equipmentContext != inputs.equipmentContext
+                if (equipmentChanged) {
+                    generationJob?.cancel()
+                    lastGeneratedFingerprint = null
+                    _state.update { it.copy(canRegenerate = true, isLoading = false) }
+                } else if (settingsChanged) {
                     // Standing exercise settings affect future picks, never the displayed plan.
                     // An in-flight generation also retains the request it started with.
                     _state.update { it.copy(canRegenerate = true) }
@@ -374,6 +382,7 @@ class SplitBuilderViewModel(
     private suspend fun generate(inputs: WorkoutPlanInputs) {
         val request = inputs.request
         val fingerprint = fingerprintOf(request, exerciseCatalog.all())
+        currentCoroutineContext().ensureActive()
         val canRegenerate = inputs.requestedEngine != PlannerEngineId.DETERMINISTIC ||
             fingerprint != lastGeneratedFingerprint
         shownPlan = null
@@ -397,6 +406,7 @@ class SplitBuilderViewModel(
         }
         try {
             val plan = generateWeeklySplit(request)
+            currentCoroutineContext().ensureActive()
             // Engine preflight diagnoses hard eligibility. Empty output after that check does not
             // prove an exclusion/equipment cause (e.g. every candidate may be sore).
             if (plan.days.all { it.exercises.isEmpty() }) {
@@ -413,6 +423,7 @@ class SplitBuilderViewModel(
                 return
             }
             val catalog = exerciseCatalog.all()
+            currentCoroutineContext().ensureActive()
             val names = catalog.associate { it.id to it.name }
             lastGeneratedFingerprint = fingerprint
             // The plan now matches the current inputs, so a repeat tap would produce the same
@@ -440,6 +451,7 @@ class SplitBuilderViewModel(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (failure: PlanGenerationException) {
+            currentCoroutineContext().ensureActive()
             _state.update {
                 it.copy(
                     plan = null,
@@ -451,6 +463,7 @@ class SplitBuilderViewModel(
                 )
             }
         } catch (failure: Exception) {
+            currentCoroutineContext().ensureActive()
             _state.update {
                 it.copy(
                     plan = null,

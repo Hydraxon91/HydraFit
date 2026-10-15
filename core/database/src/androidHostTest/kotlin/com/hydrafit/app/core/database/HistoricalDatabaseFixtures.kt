@@ -74,6 +74,7 @@ internal object HistoricalDatabaseFixtures {
     /** v13: separate `exerciseEdit`/`exerciseMuscleEdit` override tables; no `exerciseOverride`. */
     fun v13(): SqlDriver = driverOf(
         listOf(
+            "CREATE TABLE selected_equipment (tag TEXT NOT NULL PRIMARY KEY)",
             "CREATE TABLE exercise (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, " +
                 "requiredEquipment TEXT NOT NULL, primaryMuscles TEXT NOT NULL, " +
                 "secondaryMuscles TEXT NOT NULL, movementPattern TEXT NOT NULL, " +
@@ -102,6 +103,7 @@ internal object HistoricalDatabaseFixtures {
     /** v16: neither `exercise` nor `exerciseOverride` has the unilateral column. */
     fun v16(): SqlDriver = driverOf(
         listOf(
+            "CREATE TABLE selected_equipment (tag TEXT NOT NULL PRIMARY KEY)",
             "CREATE TABLE exercise (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, " +
                 "requiredEquipment TEXT NOT NULL, primaryMuscles TEXT NOT NULL, " +
                 "secondaryMuscles TEXT NOT NULL, movementPattern TEXT NOT NULL, " +
@@ -146,6 +148,9 @@ internal object HistoricalDatabaseFixtures {
     /** v19: `involvements` exists (may be null); the tag columns are still present. */
     fun v19(): SqlDriver = driverOf(
         listOf(
+            "CREATE TABLE selected_equipment (tag TEXT NOT NULL PRIMARY KEY)",
+            "CREATE TABLE equipment (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, " +
+                "isBuiltIn INTEGER NOT NULL DEFAULT 0, maxWeightKg REAL)",
             "CREATE TABLE exercise (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, " +
                 "requiredEquipment TEXT NOT NULL, primaryMuscles TEXT NOT NULL, " +
                 "secondaryMuscles TEXT NOT NULL, movementPattern TEXT NOT NULL, " +
@@ -197,6 +202,9 @@ internal object HistoricalDatabaseFixtures {
      */
     fun v27(): SqlDriver = driverOf(
         listOf(
+            "CREATE TABLE selected_equipment (tag TEXT NOT NULL PRIMARY KEY)",
+            "CREATE TABLE equipment (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, " +
+                "isBuiltIn INTEGER NOT NULL DEFAULT 0, maxWeightKg REAL)",
             "CREATE TABLE exercise (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, " +
                 "requiredEquipment TEXT NOT NULL, movementPattern TEXT NOT NULL, " +
                 "isCustom INTEGER NOT NULL DEFAULT 0, isUnilateral INTEGER NOT NULL DEFAULT 0, " +

@@ -184,6 +184,8 @@ class SqlDelightBackupRepositoryTest {
         repository.restore(
             exported.copy(
                 formatVersion = 11,
+                equipmentProfiles = emptyList(),
+                activeEquipmentProfileId = null,
                 workoutReminders = null,
                 trainingGuidance = exported.trainingGuidance.copy(
                     restCountdownEnabled = false,
@@ -440,6 +442,8 @@ class SqlDelightBackupRepositoryTest {
         val exported = repository.export(appVersion = "t", exportedAtMillis = 1L)
         val file = exported.copy(
             formatVersion = 1,
+            equipmentProfiles = emptyList(),
+            activeEquipmentProfileId = null,
             settings = exported.settings?.copy(guidedWorkoutEnabled = false)
         )
         database.plannerEngineQueries.updateGuidedWorkoutEnabled(1L)
@@ -456,7 +460,12 @@ class SqlDelightBackupRepositoryTest {
     fun restoreKeepsABuiltInEquipmentLimitThePayloadOmits() = runTest {
         seedRepresentativeData()
         val file = repository.export(appVersion = "t", exportedAtMillis = 1L)
-            .copy(equipment = emptyList())
+            .copy(
+                formatVersion = 13,
+                equipment = emptyList(),
+                equipmentProfiles = emptyList(),
+                activeEquipmentProfileId = null
+            )
         database.equipmentQueries.updateMaxWeight(999.0, "BARBELL")
 
         repository.restore(file)
@@ -720,6 +729,7 @@ class SqlDelightBackupRepositoryTest {
         )
         database.equipmentQueries.insert("EZ_BAR_2", "Other curved bar", 0L)
         database.userEquipmentQueries.insertSelected("EZ_BAR")
+        database.equipmentProfileQueries.upsertEntry(1L, "EZ_BAR", 1L, 35.0)
         database.exerciseQueries.remapCustomEquipment("EZ_BAR,BARBELL", "user-bicycle-crunch")
         database.exerciseOverrideQueries.remapEquipment("EZ_BAR", "back-squat")
         database.trainingScheduleQueries.selectAllActivationEntries().executeAsList().forEach {
@@ -747,6 +757,8 @@ class SqlDelightBackupRepositoryTest {
         // A legacy (format 12) file carries no body-weight section, and whole replacement clears it.
         val legacy = exported.copy(
             formatVersion = 12,
+            equipmentProfiles = emptyList(),
+            activeEquipmentProfileId = null,
             bodyWeightMeasurements = emptyList(),
             bodyWeightGoalKg = null
         )
@@ -785,6 +797,7 @@ class SqlDelightBackupRepositoryTest {
             involvements = null
         )
         database.userEquipmentQueries.insertSelected("BARBELL")
+        database.equipmentProfileQueries.upsertEntry(1L, "BARBELL", 1L, null)
         database.workoutSessionQueries.insertSession("s1", 10, 20, 1)
         database.workoutLogQueries.insertSetWithTimingProvenance(
             exerciseId = "back-squat",

@@ -22,6 +22,7 @@ class SqlDelightEquipmentSelectionRepositoryTest {
         driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         HydraFitDatabase.Schema.create(driver)
         database = HydraFitDatabase(driver)
+        SeedEquipmentCatalog(database).seed()
         repository = SqlDelightEquipmentSelectionRepository(database)
     }
 

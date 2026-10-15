@@ -1,12 +1,15 @@
 package com.hydrafit.app.core.domain.backup
 
+import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import kotlinx.serialization.Serializable
 
 /** Stable file identifiers. A reader accepts only [BACKUP_FORMAT] at a version it knows. */
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 13
+const val BACKUP_FORMAT_VERSION: Int = 14
+
+const val EQUIPMENT_PROFILE_FORMAT_VERSION: Int = 14
 
 /** The first backup format that carries body-weight measurements and the optional weight goal. */
 const val BODY_WEIGHT_FORMAT_VERSION: Int = 13
@@ -106,8 +109,23 @@ data class BackupFile(
      */
     val bodyWeightMeasurements: List<BackupBodyWeightRecord> = emptyList(),
     /** The optional current weight goal in kilograms; absent in formats 1-12 restores as no goal. */
-    val bodyWeightGoalKg: Double? = null
+    val bodyWeightGoalKg: Double? = null,
+    /** Complete profile configuration in format 14; legacy formats carry no profile sections. */
+    val equipmentProfiles: List<BackupEquipmentProfileRecord> = emptyList(),
+    val activeEquipmentProfileId: Long? = null
 )
+
+@Serializable
+data class BackupEquipmentProfileRecord(
+    val id: Long,
+    val name: String,
+    val selectedEquipment: List<String>,
+    val ceilings: List<BackupEquipmentCeilingRecord>,
+    val loadingInventory: LoadingInventory
+)
+
+@Serializable
+data class BackupEquipmentCeilingRecord(val equipmentId: String, val maxWeightKg: Double)
 
 @Serializable
 data class BackupSetupRecord(

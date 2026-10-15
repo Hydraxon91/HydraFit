@@ -37,7 +37,9 @@ import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.ExercisePreference
+import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
+import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.routine.ArchiveRoutineTemplateUseCase
 import com.hydrafit.app.core.domain.routine.ConvertPlanToTemplateUseCase
 import com.hydrafit.app.core.domain.routine.DeleteRoutineTemplateUseCase
@@ -129,9 +131,12 @@ import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.network.GeminiWorkoutPlannerEngine
 import com.hydrafit.app.core.userdata.backup.BackupFileStore
 import com.hydrafit.app.core.userdata.backup.UnsupportedBackupFileStore
+import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfileRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
+import com.hydrafit.app.core.userdata.equipment.ExerciseOverrideRepository
 import com.hydrafit.app.core.userdata.equipment.ExercisePreferenceRepository
 import com.hydrafit.app.core.userdata.equipment.PersonalRecordRepository
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
@@ -142,9 +147,11 @@ import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
 import com.hydrafit.app.core.userdata.settings.SetupRepository
 import com.hydrafit.app.core.userdata.settings.TrainingGoalRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
+import com.hydrafit.app.feature.equipment.EquipmentProfilerViewModel
 import com.hydrafit.app.feature.equipment.ExercisePlanningSettingsViewModel
 import com.hydrafit.app.feature.equipment.equipmentModule
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapModule
+import com.hydrafit.app.feature.logger.LoggerLoadingCalculatorViewModel
 import com.hydrafit.app.feature.logger.OccurrenceReplacementViewModel
 import com.hydrafit.app.feature.logger.WorkoutHistoryViewModel
 import com.hydrafit.app.feature.logger.WorkoutLoggerViewModel
@@ -452,6 +459,39 @@ class KoinModulesVerificationTest {
     }
 
     /**
+     * `EquipmentProfilerViewModel` is also a lambda `viewModel { }` (and now consumes the profile
+     * repository), so `verify()` cannot reflect it. Resolve it over `equipmentModule` with fake ports
+     * so a missing constructor dependency fails here instead of on device. It reads profile/equipment
+     * state on init, so it runs on the test Main dispatcher and performs no writes.
+     */
+    @Test
+    fun theEquipmentProfilerViewModelResolvesAtRuntime() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        val koin = koinApplication {
+            modules(
+                module {
+                    single<EquipmentRepository> { FakeEquipmentRepository }
+                    single<EquipmentProfileRepository> { FakeEquipmentProfiles }
+                    single<ExerciseCatalog> { FakeExerciseCatalog }
+                    single<ExerciseOverrideRepository> { FakeExerciseOverrideRepository }
+                    single<CustomExerciseRepository> { FakeCustomExerciseRepository }
+                    single<PersonalRecordRepository> { FakePersonalRecordRepository }
+                },
+                equipmentModule
+            )
+        }.koin
+
+        try {
+            assertNotNull(koin.get<EquipmentProfilerViewModel>())
+            advanceUntilIdle()
+        } finally {
+            koin.close()
+            Dispatchers.resetMain()
+        }
+    }
+
+    /**
      * The backup ViewModel is a lambda `viewModel { }`, so resolve it over `settingsModule` +
      * `domainModule` with a fake repository/catalog and the test platform module.
      */
@@ -604,6 +644,7 @@ class KoinModulesVerificationTest {
                     single<WeightUnitRepository> { FakeWeightUnitRepository }
                     single<EquipmentRepository> { FakeEquipmentRepository }
                     single<EquipmentSelectionRepository> { FakeEquipmentSelectionRepository }
+                    single<EquipmentProfileRepository> { FakeEquipmentProfiles }
                     single<TrainingGoalRepository> { FakeTrainingGoalRepository }
                     single<PreferredWeekdaysRepository> { FakePreferredWeekdaysRepository }
                     single<PersonalRecordRepository> { FakePersonalRecordRepository }
@@ -638,6 +679,7 @@ class KoinModulesVerificationTest {
                     single<PlanHistoryRepository> { FakePlanHistoryRepository }
                     single<ExerciseCatalog> { FakeExerciseCatalog }
                     single<WorkoutLogRepository> { FakeWorkoutLogRepository }
+                    single<EquipmentProfileRepository> { FakeEquipmentProfiles }
                     single<ExerciseNoteRepository> { FakeExerciseNoteRepository }
                     single<SessionNoteRepository> { FakeSessionNoteRepository }
                     single<WorkoutHistoryRepository> { FakeWorkoutHistoryRepository }
@@ -706,6 +748,8 @@ class KoinModulesVerificationTest {
 
         try {
             assertNotNull(koin.get<WorkoutLoggerViewModel>())
+            // The loading helper resolves over loggerModule with the shared profile fake.
+            assertNotNull(koin.get<LoggerLoadingCalculatorViewModel>())
             assertNotNull(koin.get<ObserveOccurrenceRecordsUseCase>())
             assertNotNull(koin.get<WorkoutSummaryRecordsViewModel>())
             val history = koin.get<WorkoutHistoryViewModel>()
@@ -1077,6 +1121,43 @@ class KoinModulesVerificationTest {
         override fun selectedFlow(): Flow<Set<EquipmentTag>> = flowOf(emptySet())
 
         override suspend fun setSelected(tags: Set<EquipmentTag>) = error("unused")
+    }
+
+    private object FakeExerciseOverrideRepository : ExerciseOverrideRepository {
+        override suspend fun update(
+            exerciseId: String,
+            name: String?,
+            requiredEquipment: Set<EquipmentTag>,
+            movementPattern: MovementPattern?,
+            unilateral: Boolean?,
+            loadCapability: ExerciseLoadCapability?,
+            involvements: Map<MuscleGroup, Double>
+        ) = error("unused")
+
+        override suspend fun reset(exerciseId: String) = error("unused")
+    }
+
+    private object FakeCustomExerciseRepository : CustomExerciseRepository {
+        override suspend fun add(
+            name: String,
+            requiredEquipment: Set<EquipmentTag>,
+            involvements: Map<MuscleGroup, Double>,
+            movementPattern: MovementPattern,
+            isUnilateral: Boolean,
+            loadCapability: ExerciseLoadCapability
+        ): Exercise = error("unused")
+
+        override suspend fun update(
+            id: String,
+            name: String,
+            requiredEquipment: Set<EquipmentTag>,
+            involvements: Map<MuscleGroup, Double>,
+            movementPattern: MovementPattern,
+            isUnilateral: Boolean,
+            loadCapability: ExerciseLoadCapability
+        ) = error("unused")
+
+        override suspend fun delete(id: String) = error("unused")
     }
 
     private object FakeTrainingGoalRepository : TrainingGoalRepository {

@@ -1,0 +1,99 @@
+CREATE TABLE equipmentProfile (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    loadingInventory TEXT NOT NULL
+);
+
+CREATE TABLE equipmentProfileEntry (
+    profileId INTEGER NOT NULL REFERENCES equipmentProfile(id),
+    equipmentId TEXT NOT NULL REFERENCES equipment(id),
+    selected INTEGER NOT NULL CHECK (selected IN (0, 1)),
+    maxWeightKg REAL,
+    PRIMARY KEY (profileId, equipmentId)
+);
+
+CREATE TABLE equipmentProfileState (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    activeProfileId INTEGER NOT NULL REFERENCES equipmentProfile(id),
+    revision INTEGER NOT NULL DEFAULT 0
+);
+
+INSERT INTO equipmentProfile(id, name, loadingInventory)
+VALUES (1, 'My equipment', '{"unit":"KG","plates":[],"bars":[],"dumbbells":[]}');
+INSERT INTO equipmentProfileState(id, activeProfileId, revision) VALUES (1, 1, 0);
+
+selectProfiles:
+SELECT * FROM equipmentProfile ORDER BY id;
+
+selectProfile:
+SELECT * FROM equipmentProfile WHERE id = ?;
+
+countProfiles:
+SELECT count(*) FROM equipmentProfile;
+
+selectProfileEntries:
+SELECT * FROM equipmentProfileEntry WHERE profileId = ? ORDER BY equipmentId;
+
+selectEntry:
+SELECT * FROM equipmentProfileEntry WHERE profileId = ? AND equipmentId = ?;
+
+selectEntries:
+SELECT * FROM equipmentProfileEntry ORDER BY profileId, equipmentId;
+
+selectState:
+SELECT * FROM equipmentProfileState WHERE id = 1;
+
+selectRevision:
+SELECT revision FROM equipmentProfileState WHERE id = 1;
+
+insertProfile:
+INSERT INTO equipmentProfile(name, loadingInventory) VALUES (?, ?);
+
+lastInsertedId:
+SELECT last_insert_rowid();
+
+restoreProfile:
+INSERT INTO equipmentProfile(id, name, loadingInventory) VALUES (?, ?, ?);
+
+renameProfile:
+UPDATE equipmentProfile SET name = ? WHERE id = ?;
+
+updateInventory:
+UPDATE equipmentProfile SET loadingInventory = ? WHERE id = ?;
+
+upsertEntry:
+INSERT OR REPLACE INTO equipmentProfileEntry(profileId, equipmentId, selected, maxWeightKg)
+VALUES (?, ?, ?, ?);
+
+deleteEntries:
+DELETE FROM equipmentProfileEntry WHERE profileId = ?;
+
+deleteProfile:
+DELETE FROM equipmentProfile WHERE id = ?;
+
+activateProfile:
+UPDATE equipmentProfileState SET activeProfileId = ?, revision = revision + 1 WHERE id = 1;
+
+bumpRevision:
+UPDATE equipmentProfileState SET revision = revision + 1 WHERE id = 1;
+
+restoreState:
+INSERT INTO equipmentProfileState(id, activeProfileId, revision) VALUES (1, ?, 0);
+
+deleteState:
+DELETE FROM equipmentProfileState;
+
+deleteAllEntries:
+DELETE FROM equipmentProfileEntry;
+
+deleteAllProfiles:
+DELETE FROM equipmentProfile;
+
+remapEquipment:
+UPDATE equipmentProfileEntry SET equipmentId = ? WHERE equipmentId = ?;
+
+selectEquipmentReferences:
+SELECT profileId FROM equipmentProfileEntry WHERE equipmentId = ?;
+
+deleteEquipmentEntry:
+DELETE FROM equipmentProfileEntry WHERE profileId = ? AND equipmentId = ?;

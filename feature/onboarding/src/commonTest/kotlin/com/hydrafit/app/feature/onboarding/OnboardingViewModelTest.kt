@@ -1,6 +1,8 @@
 package com.hydrafit.app.feature.onboarding
 
 import com.hydrafit.app.core.domain.engine.PersonalRecord
+import com.hydrafit.app.core.domain.equipment.EquipmentProfileContext
+import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.setup.SetupDisposition
@@ -860,6 +862,29 @@ class OnboardingViewModelTest {
         viewModel.openPersonalRecordEntry("overhead-press")
         assertEquals("overhead-press", viewModel.state.value.personalRecordEntry?.exerciseId)
     }
+
+    @Test
+    fun theEquipmentStepNamesTheActiveProfileAndKeepsItsContextAcrossAToggle() =
+        runTest(dispatcher) {
+            val fixture = OnboardingFixture()
+            fixture.committed.value = SetupState(step = SetupStep.EQUIPMENT)
+            val viewModel = fixture.viewModel(dispatcher)
+            viewModel.open()
+            runCurrent()
+
+            // The step names the profile the selection below is written to.
+            assertEquals("Home", viewModel.state.value.equipmentProfileName)
+            val opened = viewModel.state.value.input as SetupStepInput.Equipment
+            assertEquals(EquipmentProfileContext(1L, 0L), opened.profileContext)
+
+            // The editor toggle keeps the draft and only flips one tag, so the captured context
+            // survives instead of being reconstructed without it.
+            viewModel.edit(opened.copy(selected = opened.selected + EquipmentTag.BARBELL))
+            val edited = viewModel.state.value.input as SetupStepInput.Equipment
+            assertEquals(setOf(EquipmentTag.BARBELL), edited.selected)
+            assertEquals(opened.profileContext, edited.profileContext)
+            assertEquals("Home", viewModel.state.value.equipmentProfileName)
+        }
 }
 
 /**
