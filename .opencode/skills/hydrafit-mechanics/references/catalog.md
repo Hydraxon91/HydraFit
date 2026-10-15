@@ -77,7 +77,14 @@ for an empty explicit map is primary muscles at `1.0` plus secondary muscles at
 `0.5`. Fatigue uses `MuscleTarget(muscle, weight)` values.
 
 Editor tiers: None, Low `0.3`, Mid `0.5`, High `0.7`, Primary `1.0`.
-Stored values are doubles, not a tier enum.
+Stored values are doubles, not a tier enum. The muscle chip keeps its one-tap
+cycle (unset→Low→Mid→High→Primary→None; a non-tier value cycles to None) and a
+separate labelled edit action opens a per-muscle numeric dialog seeded with the
+stored value (`0` when unset). The value must be finite and within `[0, 1]`;
+blank input is invalid, while `0` or None removes the contribution. An untouched
+field keeps the exact stored double, and a non-tier weight is shown as its
+number, never relabelled Primary. An invalid draft cannot be applied and also
+blocks the outer Save, and Cancel writes nothing.
 
 `DefaultExercises.kt` is the seed catalog (baseline + `DefaultExercisesCatalogC1` +
 `DefaultExercisesCatalogP7` + `DefaultExercisesCatalog081`). The 0.8.1 batch adds four

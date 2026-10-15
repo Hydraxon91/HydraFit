@@ -14,6 +14,73 @@ exact on-screen text.
 
 ## 0.8.1 C1 classification/backup verification — 2026-10-15
 
+### C3/C4 numeric-editor and integration evidence
+
+#### Renewed acceptance — user-approved 20-minute budget
+
+- Fresh preflight confirmed emulator-5554, current dirty debug build, no editor/IME,
+  light theme and font scale 1.0. Numeric Apply to the unsaved draft displayed
+  `Upper chest · 0.83`; Save returned to the catalog and reopening retained that exact
+  non-tier value. Read-only persistence inspection confirmed only the intended test
+  override. Reset and reopen restored absent Upper chest and zero override rows;
+  four sets/two sessions retained baseline aggregates. Scratch DB copies were removed.
+- Viewed editor screenshots at light 1.0, dark 1.0, dark 1.3 and light 1.3 showed
+  readable numeric action/value labels and visible Save/Reset; larger text wrapped
+  without clipping. Theme/font were restored and read back as light/1.0.
+- Remaining three rows were filtered uniquely and opened: pec deck shows Chest fly,
+  Upper chest Mid/Lower chest Primary; reverse fly shows Shoulder isolation and
+  Side delts High/Rear delts Primary; wrist extension shows Forearm isolation with
+  Dumbbells/Bench/Forearms subtitle. Wrist extension's Forearms chip was below the
+  fold and was not separately scrolled into view. Catalog profiles have host coverage.
+- Search was cleared; full six-tab navigation smoke passed, final Equipment selected,
+  no editor/IME. Final screenshot viewed. Runtime instruction content/TalkBack are
+  outside this check; no claims are made for them. The renewed budget was fully used.
+- Artifacts under the same approved opencode temp root: `hf-081-renew-preflight/`,
+  `hf-081-renew-open/`, `hf-081-renew-apply/`, `hf-081-renew-save/`,
+  `hf-081-renew-layout/` and `hf-081-renew-catalog/`. Numeric success and layout
+  evidence is ready for targeted independent closure of R081-01/02; the earlier
+  failed-flow evidence below is preserved, not reclassified as a pass.
+  Independent targeted closure subsequently APPROVED R081-01/02; see the appended
+  closure in `review-0.8.1-snapshot.md`. Supplemental limitations remain explicit.
+
+- Coder-owned C3 implementation on `62ce756d` plus uncommitted equipment files:
+  retained one-tap tier cycling and added a separate per-muscle numeric action.
+  Explicit None/zero removes; blank, non-finite and out-of-range drafts are invalid.
+  Untouched stored precision, cancellation and profile protection have host tests.
+- Corrected C3 targeted verification passed 58 equipment tests, lint and debug build
+  (`hf-081-c3-correct-1.log`). Full integration passed 1,882 host tests, zero
+  failures/errors/skips, migration verification, global ktlint, debug assembly and
+  both required iOS compiles (`hf-081-integration.log`). Logs are under
+  `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/`.
+- UI runner deployed debug `0.7.6-dev-62ce756d-dirty` to emulator-5554. Content
+  fingerprints before/after deployment and cleanup preserved four workout sets and
+  two sessions. No exercise override was added; all editor changes were discarded.
+  New pec-deck/reverse-fly capabilities and the wrist-curl catalog row were observed;
+  wrist editor exposes Forearm isolation. Separate numeric action and tier cycling
+  were verified. Screenshots were captured and viewed by the runner.
+- Numeric validation is **partial / tooling-blocked**: blank and 1.1 disabled Apply
+  with validation feedback; 0.83 appeared valid, but the enabled-host Maestro assertion
+  failed before Apply. The initial flow also targeted the text node rather than its
+  disabled host; one evidence-backed correction fixed disabled assertions but failed
+  on the valid-host matcher. No further validation replay was attempted. Successful
+  numeric Apply/display/persistence remains runtime-unverified; host tests are not
+  reported as a replacement for that UI check.
+- Tier-state assertion first used selected instead of checked; its one correction
+  passed without replaying the tier tap. Search cleanup needed one cursor-to-end
+  correction; emptiness was positively inspected before navigation. Numeric and
+  exercise drafts were discarded; final keyboard hidden. Existing navigation smoke
+  passed all six selected-tab assertions and finished on Equipment.
+- UI artifacts: `.../opencode/hf-081-deploy-1/` (fresh, numeric, cancellation, search
+  and navigation hierarchies/screenshots); corresponding named-flow output dirs
+  `hf-081-*-out/`. No release install, phone interaction or data clear occurred.
+- Remaining release acceptance: successful numeric Apply/reopen, remaining new-row
+  runtime checks and light/dark/larger-text matrix. Independent review is pending;
+  0.8.1 is not a completed candidate and dependent release advancement is not claimed.
+  Independent full-range source review completed without a confirmed introduced code
+  defect, but its verdict is INCOMPLETE for R081-01/02 verification gaps. See
+  `review-0.8.1-snapshot.md`; only targeted evidence closure remains after the missing
+  runtime checks. No further numeric retry was authorized or performed.
+
 ### C2 catalog/accessory verification
 
 - Main-agent implementation from `fda7faee`: four sourced seeds, distinct machine

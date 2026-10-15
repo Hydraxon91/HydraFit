@@ -463,12 +463,22 @@ class EquipmentProfilerViewModel(
         }
     }
 
-    /** Sets one muscle's involvement weight, or removes it when [weight] is null. */
+    /**
+     * Directly sets one muscle's involvement weight for a tier shortcut: null and zero remove the
+     * contribution, and a non-finite or out-of-range value is refused without changing the map.
+     */
     fun onEditorMuscleInvolvementChanged(muscle: MuscleGroup, weight: Double?) {
         _state.update { current ->
             val editor = current.exerciseEditor
+            if (weight != null && !weight.isWritableInvolvement()) {
+                return@update current
+            }
             val updated = editor.involvements.toMutableMap()
-            if (weight == null) updated.remove(muscle) else updated[muscle] = weight
+            if (weight == null || weight == 0.0) {
+                updated.remove(muscle)
+            } else {
+                updated[muscle] = weight
+            }
             current.copy(
                 exerciseEditor = editor.copy(
                     involvements = updated,
@@ -479,9 +489,78 @@ class EquipmentProfilerViewModel(
         }
     }
 
+    /** Opens the per-muscle numeric editor seeded with that muscle's current weight. */
+    fun onEditMuscleInvolvement(muscle: MuscleGroup) {
+        _state.update { current ->
+            val editor = current.exerciseEditor
+            current.copy(
+                exerciseEditor = editor.copy(
+                    involvementEditor = InvolvementEditorState.forMuscle(
+                        muscle,
+                        editor.involvements[muscle]
+                    )
+                )
+            )
+        }
+    }
+
+    fun onInvolvementInputChanged(value: String) {
+        _state.update { current ->
+            val editor = current.exerciseEditor
+            val draft = editor.involvementEditor ?: return@update current
+            val updatedEditor = editor.copy(involvementEditor = draft.copy(input = value))
+            current.copy(exerciseEditor = updatedEditor)
+        }
+    }
+
+    /** Applies a tier shortcut to the open draft; null selects the explicit `0`/None choice. */
+    fun onInvolvementTierSelected(weight: Double?) {
+        _state.update { current ->
+            val editor = current.exerciseEditor
+            val draft = editor.involvementEditor ?: return@update current
+            val text = weight?.toString() ?: InvolvementEditorState.NONE_INPUT
+            current.copy(exerciseEditor = editor.copy(involvementEditor = draft.copy(input = text)))
+        }
+    }
+
+    /**
+     * Commits the open draft. An invalid (including blank) value is refused and the dialog stays
+     * open; an explicit `0`/None removes the muscle's contribution. Cancel is handled separately
+     * and never writes.
+     */
+    fun onApplyInvolvement() {
+        _state.update { current ->
+            val editor = current.exerciseEditor
+            val draft = editor.involvementEditor ?: return@update current
+            if (!draft.isValid) return@update current
+            val updated = editor.involvements.toMutableMap()
+            val weight = draft.weightToApply()
+            if (weight == null) updated.remove(draft.muscle) else updated[draft.muscle] = weight
+            current.copy(
+                exerciseEditor = editor.copy(
+                    involvements = updated,
+                    involvementEditor = null,
+                    error = null,
+                    touchedGroups = editor.touchedGroups + ExerciseProfileGroup.INVOLVEMENTS
+                )
+            )
+        }
+    }
+
+    /** Discards the open draft without writing anything. */
+    fun onCancelInvolvement() {
+        _state.update { current ->
+            val editor = current.exerciseEditor
+            if (editor.involvementEditor == null) return@update current
+            current.copy(exerciseEditor = editor.copy(involvementEditor = null))
+        }
+    }
+
     fun onSaveExercise() {
         val editor = _state.value.exerciseEditor
         if (!editor.isOpen) return
+        // An open numeric draft with an invalid value blocks Save as well as its own Apply.
+        if (editor.involvementEditor?.isValid == false) return
         if (editor.isNew) {
             if (editor.name.isBlank() || editor.involvements.isEmpty()) return
             viewModelScope.launch { persistNew(editor) }
@@ -608,4 +687,10 @@ class EquipmentProfilerViewModel(
         _state.update { it.copy(exercises = exerciseCatalog.all()) }
         updatePersonalRecordRows()
     }
+}
+
+/** A directly set involvement must be a finite value in [0, 1]; zero is handled as a removal. */
+private fun Double.isWritableInvolvement(): Boolean {
+    if (!isFinite()) return false
+    return this >= InvolvementEditorState.MIN_WEIGHT && this <= InvolvementEditorState.MAX_WEIGHT
 }

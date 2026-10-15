@@ -664,7 +664,12 @@ the **Suggested catalog profile** preview; ambiguity requires a chooser with can
 names, equipment and stable identity labels; unknown names stay manual. This is not a physiological
 equivalence claim. Five independent checkboxes compare current/proposed equipment, pattern, exact
 involvement map, capability (including legacy/unspecified) and unilateral flag. The map is replaced
-as a whole. Manual interactions set sticky `ExerciseProfileGroup` touches even for default/restored
+as a whole. The muscle chip keeps its one-tap tier cycle (unset→Low→Mid→High→Primary→None, and a
+non-tier value clears to None), while a separate labelled edit action opens a per-muscle numeric
+dialog seeded with the stored value (`0` when unset). The value must be finite and within `[0, 1]`:
+blank input is invalid, `0` or None removes the contribution, an untouched value keeps its exact
+stored double, and a non-tier weight is displayed as its number rather than as Primary. An invalid
+draft disables Apply and blocks the outer Save; Cancel discards it without writing. Manual interactions set sticky `ExerciseProfileGroup` touches even for default/restored
 values; untouched groups start checked, touched groups unchecked. Apply-selected groups become
 protected for subsequent previews. Checkbox edits and preview Cancel never mutate editor values or
 touches; Apply is disabled with no selections and never saves. Name changes invalidate the match/

@@ -30,13 +30,20 @@ data class ExerciseEditorState(
     val nameConflict: Boolean = false,
     /** Sticky manual interaction/Apply protection, not a comparison with the initial values. */
     val touchedGroups: Set<ExerciseProfileGroup> = emptySet(),
-    val suggestion: ExerciseProfileSuggestionState = ExerciseProfileSuggestionState()
+    val suggestion: ExerciseProfileSuggestionState = ExerciseProfileSuggestionState(),
+    /**
+     * The open per-muscle numeric editor, or null when none is open. Ephemeral and never persisted.
+     */
+    val involvementEditor: InvolvementEditorState? = null
 ) {
     val isOpen: Boolean
         get() = isNew || exerciseId != null
 
+    /** Save also waits on an open numeric draft, so an invalid value cannot be bypassed. */
     val canSave: Boolean
-        get() = name.isNotBlank() && involvements.isNotEmpty()
+        get() = name.isNotBlank() &&
+            involvements.isNotEmpty() &&
+            involvementEditor?.isValid != false
 
     /** Advisory: the chosen pattern does not match the involvement profile. */
     val patternMismatch: Boolean
