@@ -82,7 +82,7 @@ private fun FatigueMapFigure(
     error: Color,
     modifier: Modifier = Modifier
 ) {
-    val regions = regionsFor(view).sortedByDescending { it.boundingArea() }
+    val regions = canvasOrderedRegions(view)
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(text = stringResource(label), style = MaterialTheme.typography.titleSmall)
         BoxWithConstraints(

@@ -97,6 +97,16 @@ fun regionsFor(view: FatigueMapView): List<MapRegion> = when (view) {
     FatigueMapView.BACK -> backViewRegions
 }
 
+/**
+ * The regions for [view] in the single order the map draws and exposes them: the region with the
+ * largest bounding box first, so a wide limb band that crosses the midline is overpainted in the
+ * middle by the smaller central regions. The canvas draw loop and the accessibility overlay boxes
+ * both consume this one list, so a region painted over by a later region is also the region whose
+ * overlay box a later box can fully cover.
+ */
+fun canvasOrderedRegions(view: FatigueMapView): List<MapRegion> =
+    regionsFor(view).sortedByDescending { it.boundingArea() }
+
 /** The smallest axis-aligned box that contains every point of the region. */
 fun MapRegion.bounds(): NormalizedBounds {
     val left = points.minOf { it.x }

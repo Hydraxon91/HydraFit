@@ -14,6 +14,7 @@ import hydrafit.feature.fatigueheatmap.generated.resources.Res
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_percentage
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_percentage_near_limit
 import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -229,6 +230,41 @@ class FatigueHeatmapViewModelTest {
 
         assertTrue(calculationDispatcher.used)
         assertEquals(CHEST_24_FRESH, viewModel.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
+    }
+
+    @Test
+    fun newerRefreshIsNotOverwrittenByAnOlderInFlightRefresh() = runTest(dispatcher) {
+        val clock = FakeClock()
+        val heldDispatcher = HeldFirstDispatcher(dispatcher)
+        val viewModel = FatigueHeatmapViewModel(
+            workoutLogRepository = FlowingWorkoutLogRepository(
+                MutableStateFlow(List(24) { chestSet(timestampMillis = 0L) })
+            ),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            trainingCoverageRepository = object : TrainingCoverageRepository {
+                override fun observeSets(): Flow<List<CoverageSet>> = emptyFlow()
+            },
+            timeProvider = clock,
+            calculationDispatcher = heldDispatcher
+        )
+        try {
+            // The first refresh captures the 0 h clock and is then held inside its calculation.
+            runCurrent()
+
+            // A later refresh captures the 48 h clock and completes first, committing newer state.
+            clock.now = 48L * 60L * 60L * 1000L
+            viewModel.onResume()
+            runCurrent()
+            assertEquals(CHEST_24_48H, viewModel.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
+
+            // The held refresh now finishes. Its generation is stale, so it must not overwrite the
+            // newer state (without the guard it would commit the 0 h score of 0.8 over 0.2).
+            heldDispatcher.releaseHeld()
+            runCurrent()
+            assertEquals(CHEST_24_48H, viewModel.scoreOf(MuscleGroup.CHEST_UPPER), 1e-9)
+        } finally {
+            viewModel.onPause()
+        }
     }
 
     @Test
@@ -457,6 +493,36 @@ class FatigueHeatmapViewModelTest {
         override fun dispatch(context: CoroutineContext, block: Runnable) {
             used = true
             delegate.dispatch(context, block)
+        }
+
+        override fun isDispatchNeeded(context: CoroutineContext): Boolean =
+            delegate.isDispatchNeeded(context)
+    }
+
+    /**
+     * Test dispatcher that withholds the first block dispatched to it until [releaseHeld] forwards it
+     * to [delegate]. Everything dispatched after that runs normally, so a test can keep an older
+     * refresh suspended inside its calculation while a newer refresh starts, completes and commits,
+     * then resume the older one deterministically.
+     */
+    private class HeldFirstDispatcher(private val delegate: CoroutineDispatcher) :
+        CoroutineDispatcher() {
+        private var holdNext = true
+        private var held: Runnable? = null
+
+        override fun dispatch(context: CoroutineContext, block: Runnable) {
+            if (holdNext) {
+                holdNext = false
+                held = block
+            } else {
+                delegate.dispatch(context, block)
+            }
+        }
+
+        fun releaseHeld() {
+            val block = held ?: error("no held block to release")
+            held = null
+            delegate.dispatch(EmptyCoroutineContext, block)
         }
 
         override fun isDispatchNeeded(context: CoroutineContext): Boolean =

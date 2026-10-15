@@ -36,6 +36,12 @@ class FatigueHeatmapViewModel(
     private var coverageSets: List<CoverageSet>? = null
     private var refreshJob: Job? = null
 
+    // Refreshes can overlap (a repository emission, a resume and a tick all launch their own
+    // coroutine), so the newest refresh owns the state: an older computation that finishes late
+    // must not commit its now-stale capture over a newer one. All refreshes run on the ViewModel
+    // scope, so a plain counter is enough.
+    private var refreshGeneration = 0
+
     init {
         // Observe the log instead of reading it once: the ViewModel is retained across tab
         // switches, so a one-shot read would only refresh after the process is recreated.
@@ -75,8 +81,11 @@ class FatigueHeatmapViewModel(
         val sets = loggedSets
         val coverageInput = coverageSets
         if (sets == null && coverageInput == null) return
-        // One clock read per refresh keeps the existing resume/tick read count observable; the
-        // coverage window then rolls over with the tick, while last-trained keeps all history.
+        val generation = ++refreshGeneration
+        // One clock read pair per refresh — nowMillis() plus utcOffsetMillis(), whose Android
+        // implementation consults the clock internally — keeps the existing resume/tick read count
+        // observable; the coverage window then rolls over with the tick, while last-trained keeps
+        // all history.
         val now = timeProvider.nowMillis()
         val utcOffset = timeProvider.utcOffsetMillis()
         val scores = if (sets != null) {
@@ -102,6 +111,8 @@ class FatigueHeatmapViewModel(
                 lastTrainedAtMillis = coverageEntry?.lastTrainedAtMillis
             )
         }
+        // A newer refresh has started since this one captured its time: leave the newer state alone.
+        if (generation != refreshGeneration) return
         _state.update {
             it.copy(
                 entries = entries,

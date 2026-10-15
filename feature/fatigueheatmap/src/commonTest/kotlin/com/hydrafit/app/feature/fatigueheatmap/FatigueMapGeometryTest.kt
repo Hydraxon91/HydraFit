@@ -117,20 +117,26 @@ class FatigueMapGeometryTest {
     }
 
     /**
-     * Walk the regions in the exact order the canvas paints them (largest first) and require every
-     * region to keep at least one interior sample that no later region contains. A region whose every
-     * sample is covered by a later region is overpainted on the canvas and drops out of the semantics
-     * tree, which is what hid Traps, Chest upper and Chest lower.
+     * Walk the regions in the exact order the canvas paints them and require every region to keep
+     * at least one sample of its bounds rectangle that no later region's bounds rectangle covers.
+     * The accessibility overlay is a Box sized to those bounds rectangles, so a region fully
+     * covered by later overlay boxes drops out of the accessibility tree — which is what hid Chest
+     * upper, Chest lower and Traps. The guard exists so a future geometry author sees immediately
+     * that reordering (or adding an overlapping region) can silently delete a semantics node.
+     *
+     * Containment is checked with the same `bounds()` rectangles the overlays use: each region's
+     * rectangle is rasterized on a 32x32 grid of cell centres, and a region is acceptable when at
+     * least one centre lies outside every later rectangle. Cell centres avoid boundary ties, so two
+     * rectangles that merely touch along an edge do not count as covering each other. The ordering
+     * is taken from the shared production helper and is never re-sorted here.
      */
     @Test
     fun everyCanvasOrderedRegionRetainsAVisiblePointOutsideLaterOverlays() {
         val hidden = FatigueMapView.entries.flatMap { view ->
-            val ordered = regionsFor(view).sortedByDescending { it.boundingArea() }
+            val ordered = canvasOrderedRegions(view)
             ordered.filterIndexed { index, region ->
-                val later = ordered.drop(index + 1)
-                interiorSamples(region).none { sample ->
-                    later.none { contains(it.points, sample) }
-                }
+                val later = ordered.drop(index + 1).map { it.bounds() }
+                uncoveredSamples(region.bounds(), later).isEmpty()
             }.map { view to it.muscle }
         }
         assertTrue(
@@ -143,14 +149,13 @@ class FatigueMapGeometryTest {
 private const val SAMPLE_GRID = 32
 
 /**
- * Sample points strictly inside [region]'s polygon, laid out on a grid across its bounding box. They
- * stand in for the pixels the canvas paints for the region; a sample that a later region also
- * contains is overpainted, so a region with no surviving sample is invisible to the eye and to the
- * accessibility tree alike. The grid is finer than the thinnest visible sliver in the current
- * geometry, so it does not report a false hide for a merely partially covered region.
+ * The cell centres of [bounds]'s 32x32 grid that no rectangle in [coverage] contains. An empty list
+ * means the region's whole overlay box is covered by later boxes.
  */
-private fun interiorSamples(region: MapRegion): List<NormalizedPoint> {
-    val bounds = region.bounds()
+private fun uncoveredSamples(
+    bounds: NormalizedBounds,
+    coverage: List<NormalizedBounds>
+): List<NormalizedPoint> {
     val samples = mutableListOf<NormalizedPoint>()
     for (column in 0 until SAMPLE_GRID) {
         for (row in 0 until SAMPLE_GRID) {
@@ -158,35 +163,12 @@ private fun interiorSamples(region: MapRegion): List<NormalizedPoint> {
                 x = bounds.left + bounds.width * (column + 0.5f) / SAMPLE_GRID,
                 y = bounds.top + bounds.height * (row + 0.5f) / SAMPLE_GRID
             )
-            if (isStrictlyInside(point, region.points)) samples += point
+            if (coverage.none { it.contains(point) }) samples += point
         }
     }
     return samples
 }
 
-/** True when [point] lies strictly inside the convex [polygon] (its vertices given in order). */
-private fun isStrictlyInside(point: NormalizedPoint, polygon: List<NormalizedPoint>): Boolean {
-    var hasPositive = false
-    var hasNegative = false
-    for (index in polygon.indices) {
-        val cross = crossProduct(polygon[index], polygon[(index + 1) % polygon.size], point)
-        if (cross > 0f) hasPositive = true
-        if (cross < 0f) hasNegative = true
-    }
-    return hasPositive != hasNegative
-}
-
-/** True when [point] lies inside the convex [polygon] or on its boundary. */
-private fun contains(polygon: List<NormalizedPoint>, point: NormalizedPoint): Boolean {
-    var hasPositive = false
-    var hasNegative = false
-    for (index in polygon.indices) {
-        val cross = crossProduct(polygon[index], polygon[(index + 1) % polygon.size], point)
-        if (cross > 0f) hasPositive = true
-        if (cross < 0f) hasNegative = true
-    }
-    return !(hasPositive && hasNegative)
-}
-
-private fun crossProduct(a: NormalizedPoint, b: NormalizedPoint, point: NormalizedPoint): Float =
-    (b.x - a.x) * (point.y - a.y) - (b.y - a.y) * (point.x - a.x)
+/** True when [point] lies inside the axis-aligned rectangle or on its boundary. */
+private fun NormalizedBounds.contains(point: NormalizedPoint): Boolean =
+    point.x in left..(left + width) && point.y in top..(top + height)

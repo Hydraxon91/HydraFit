@@ -37,10 +37,12 @@ exact on-screen text.
   verification, lint, debug assembly and both iOS compiles (`hf-082-c3-3.log`).
 - Device acceptance (debug `0.7.6-dev-0a6717a6-dirty` on emulator-5554): bars/coverage
   10/10 (heading, section note, recorded sets/credits/last-trained lines), Body map
-  overlay 15/15 (Front, `Upper chest`/`Biceps` region descriptions, scroll to Back,
+  overlay 14/14 (Front, `Upper chest`/`Biceps` region descriptions, scroll to Back,
   `Traps` region, legend, schematic note, Close returns to coverage), resume refresh
   6/6, dark 6/6 and larger text 6/6 with theme/font readbacks restored, final screen
-  on the bars view. Screenshots captured and viewed by the runner (`fatigue-bars.png`,
+  on the bars view. `Chest lower` was not separately asserted on the device; its
+  post-fix presence rests on the geometry regression test and the single-order change.
+  Screenshots captured and viewed by the runner (`fatigue-bars.png`,
   `overlay-map.png`, `overlay-dark.png`, `overlay-large.png`, `final.png` under
   `.../opencode/hf-082-accept3/`). Workout fingerprints unchanged (4 sets / 2 sessions);
   no records written; scratch copies removed.
