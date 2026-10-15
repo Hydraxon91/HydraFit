@@ -1072,6 +1072,10 @@ changing this contract. The roadmap grouping is unchanged: 0.8.1 combines former
   claims. Corrections, deletions and restore recompute.
 - Fixture: two working sets with BICEPS 1.0 and FOREARMS 0.3 yield counts 2/2 and
   credits 2.0/0.6; a warm-up changes neither, deleting one working set halves both.
+- **Map visual quality (user decision, 2026-10-15):** the shipped schematic is functional
+  but its artwork is not accepted; a rework must be co-designed with the user and must not
+  be improvised by an AI. The functional contract above stays settled. Deferred to the
+  0.13.x UX/design series — see "Open Questions / Later".
 
 #### 0.8.3 — OF-09 body weight
 
@@ -1700,6 +1704,24 @@ post-execution review remains a separate Plan Mode gate.
   tracker to OF-04 / 0.8.0 exercise history and load/repetition/e1RM/working-volume
   charts; no duplicate feature or accelerated implementation is authorized.
 
+### Oct 15 live-testing follow-up — guided rest timer after the final set
+
+- **OCT15-01 — guided rest prompt after the day's final set: CLOSED as INTENTIONAL
+  (user decision, 2026-10-15); the original phone report was not reproduced.**
+  Reported on a 0.7.x phone build: completing the day's last set with the guided
+  "Set completed now" action appeared to start no rest timer. Reproduction found no
+  defect — a unit regression live-completes both sets of a two-set entry and asserts
+  the prompt after the final set (passes), and a manual three-set guided workout on
+  `emulator-5554` (debug, 2026-10-15) showed the rest prompt after sets 1/3, 2/3 and
+  3/3; the guided path in `WorkoutLoggerViewModel` is unchanged since `v0.7.6`.
+  On review the user decided the prompt after the day's final set is **intentional**:
+  one consistent rule for every live-completed working set, with no per-set exception
+  (also recorded under "Decisions Made"); the regression test above is retained to pin
+  it. If the phone behavior recurs, capture the exact build
+  (`versionName`/`versionCode`), which action was used on the last set, and whether
+  the guided card was on screen — the adjacent "Log set" action never starts a prompt
+  by contract, and the prompt renders inside the card rather than as a global banner.
+
 ### Supporting plans — library, equipment and product quality
 
 These stable references are separately approved slices, not implicit additions to the existing catalog/substitution phases. All use the shared implementation/verification gate above.
@@ -1867,8 +1889,11 @@ behavior remains undecided until its gate is approved.
 - **Progression limitation.** Deterministic progression compares logged work grouped by exercise/local calendar day against the latest accepted-plan prescription, not each session's historical target; failure handling is coarse (`failureStreak = 3 → −1`) and cannot faithfully replay changed/deleted prescriptions. LT-10 / OF-10A-P0 defines the integrity contract before advanced policies; implementation remains separately gated.
 - **Forearm/grip accessories (later scope proposal).** `FOREARMS` already exists; the seeded catalog has 11 secondary `FOREARMS:0.3` contributions and no forearm-primary exercise. A future rep-based wrist-flexion/extension catalog + selection slice can reuse `FOREARMS`, but needs sourced maps and a genuine movement-pattern/pool contract; do not mislabel wrist work as biceps isolation or add wrist-flexor/extensor muscle groups solely for catalog completeness. Carries, hangs, wrist rollers and grippers need a separate duration/distance/force/device-rating and progression contract under OF-10C. Never encode seconds as reps or use a gripper rating as an Epley load. See the 2026-10-08 deterministic-engine research notes above.
 - **Logger target-explanation presentation (deferred to 0.13.x).** OF-03-P2 presentation is functional and emulator-verified in 0.7.0, but the layout needs a design pass in the 0.13.x UX series (workout/screen polish): a summary-only explanation still expands to low-value set-count facts, and the per-row `Confirm`/`Dismiss`/`More options` actions sit directly under the explanation. Presentation/interaction only — no change to recorded explanation contents, planning, logging or progress. The data and behavior are settled; only the visual hierarchy is open. The per-slot substitution notice wording was reviewed on 2026-10-12 and intentionally kept as written; only its placement is open.
+- **Body-map visual design (deferred to 0.13.x; requires user-guided design).** The 0.8.2 body map ships as a functional placeholder whose appearance is not accepted; it is not the finished design. A rework must be produced iteratively **with the user's input and approval** — not improvised autonomously by an AI. Presentation only: region mapping, values, legend, shared draw order and the no-animation rule are settled, and no fatigue/coverage/planner behavior changes. Targets the 0.13.x UX/design series (design/navigation and screen polish), or an earlier slice only if the user approves one.
 
 ## Decisions Made
+
+- **2026-10-15 — guided rest prompt after the day's final set is intentional (approved).** In guided workouts the rest prompt starts after every live-completed working set, including the last prescribed set of the day; the user confirmed this is intended behavior, not an oversight (reported as an apparent bug on 2026-10-15 and not reproduced). One consistent rule avoids a per-set exception; the prompt is optional, dismissible and explicitly not a rest measurement. Non-live "Log set" and warm-ups still never start it, and no reminder/alert/coaching behavior changes. Excluding the final set in future needs a new explicit decision.
 
 - **2026-10-12 — bounded delivery overhead (approved).** Keep the product roadmap scope unchanged. One full-range post-execution review per slice, followed by targeted reviewer closure checks; reopen the full range for blockers, data-loss/corruption impact or unmet acceptance evidence the builder cannot supply. No required finding or check is waived; append closure evidence without rewriting historical findings. Related mechanical fixes in one file area may share a coherent commit naming finding IDs. Batch status updates at chunk/series boundaries and archive completed slices together when their `0.N.x` series closes, retaining exact archival preservation and all open follow-ups. Apply the risk tiers in `docs/agent-project-reference.md`: targeted chunk checks for localized domain/DI and feature work, full checks for Tier A and every release integration gate. Migration/portability tests, changed Koin graph verification, UI acceptance, approval gates and CI requirements remain intact. C1 evidence is retained; C2 onward uses the tiers. No push, publication or next-release work is authorized.
 
