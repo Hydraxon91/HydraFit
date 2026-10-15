@@ -544,6 +544,11 @@ assembly, shared/network iOS simulator compilation and `lintVitalRelease`. Log:
 `/tmp/hf077-onboarding-fixed-candidate-matrix.log`. PR CI for the corrected commit remains pending;
 this local pass is not remote CI or release approval evidence.
 
+**Corrected PR CI passed:** commit `ecc7969a512bb72486175a3001c8889fdbb62596`, Build and Test
+run `38693865229`, attempt 1: Lint, Unit Tests/migrations and Assemble Debug APK/release lint all
+succeeded. No production code changed in that correction. Subsequent archive-only documentation
+changes still require their final PR-head checks before merge; tag/publication remain pending.
+
 **APPROVED** in Plan Mode at candidate `bb67f207`, with the pending C7 documentation delta
 reviewed read-only. This was the final readiness gate, not another full-range source review.
 C7 evidence, targeted closure of R077C-01/02 and the user's acceptance of C6 runtime/cleanup limits

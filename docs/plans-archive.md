@@ -1371,3 +1371,72 @@ This orders the C2B–C2G proposals plus the smaller review findings into one wo
 **Out of scope of the hardening order:** fatigue-constant calibration (BACK chunk 3), LT-10 / OF-10A-P0 progression-history integrity, per-set pyramids (PYR-01), any fourth engine, and any schema change not required by an approved decision.
 
 **Release verification:** any schema change requires its additive `.sqm` migration and migration coverage in the same change. Cross-cutting/schema work requires the full host-test suite, ktlint, `:androidApp:assembleDebug` and iOS compile. Changed bindings/constructors require Koin verification. UI changes require emulator smoke and screenshot review. A bounded post-execution review follows `docs/review-discipline.md` and `docs/post-execution-review.md`.
+
+## 2026-10-15 — 0.7.6 and 0.7.7 completion-detail cleanup
+
+The following records are copied verbatim from `PLANS.md` at `ecc7969a`, in source order.
+Their historical pending wording is preserved, not a new assertion of current status.
+Active release gates, durable contracts, open follow-ups and verification limits remain in
+`PLANS.md`; subsequent publication evidence belongs in `docs/qa.md`.
+
+### 0.7.6 status record
+
+| Item | Status | Next action |
+| --- | --- | --- |
+| 0.7.6 — onboarding and first-workout guidance | C0–C8 DONE — PUBLISHED as `v0.7.6` at `6bb62a59` | C1 (`390f3fc1`) schema 45/backup 11, setup disposition/resume and preferred weekdays; C2 the atomic step saves and the isolated `:feature:onboarding` state machine; C3 (`cb298926`) module/graph aggregation, startup entry and the Settings revisit seam; C4/C5 (`ffee7229`) the step editors, copy, accessibility metadata and the first-workout handoffs; `35dc283c` the R07645-01 entry-fold fix; `0be58927` routine activation opening with the saved preferred weekdays; `16a06e28` the R07645-04/05/07/08 corrections. A bounded review of `8e0e4eec..ffee7229` returned **INCOMPLETE**, the targeted closure review at `0be58927` returned **REJECTED**, and the closure check of the corrections returned **APPROVED**. C6 verification including the five-basic PR shortlist and equipment identity backup repair passed the full Tier A matrix (1,697 host tests, migration verification, ktlint, debug assembly, four iOS compiles, `lintVitalRelease`). Fresh-install, skip, resume/revisit, offline rendering, first-log, activation weekday wrapping and narrow-equipment checks passed with documented limits; the equipment-error branch has no reachable device trigger. Current backup restore passed by user report on the phone, through synthetic emulator SAF export/stage/restart/apply, and against the unchanged supplied file in an external throwaway harness. Legacy device coverage remains unverified because no old backup was available; the user accepted that limit for this slice. C7 ran in Plan Mode over the un-reviewed delta: the Logger corrective closure at `6f82cbd9` was confirmed, and the onboarding/backup chunk `19bcb200`/`2c9fb8b7` reviewed — verdict **APPROVED** with no blocking findings. Its one confirmed minor finding (R076C7-01, the refresh message outliving its context) is fixed under option (a) and the mechanics copy made precise; R076C7-03 was deferred by decision. The follow-up fix is `f49eb9ff`, and its targeted Plan-mode closure check returned **APPROVED** with no new findings (1,698 host tests, 0 failures/errors/skips). C7 is DONE and its completed chunk detail is archived. C8 is DONE — PUBLISHED 2026-10-14 as `v0.7.6` on the PR #13 merge commit `6bb62a59` (Release run `38620991923`, run number 21, all three jobs green; annotated tag on that merge revision; artifact verified offline, never installed on the emulator). The `:shared` `Dispatchers.Main` test flake was observed once and re-run green; it remains unfixed by decision. This series' completed detail now stays archived; the next work is 0.7.7 or another separately approved scope. Startup storage recovery stays at 0.13.7; tablet/foldable layouts at 0.13.3/0.13.4. Upgrade evidence is host migration verification, not a release emulator install. Evidence: `docs/qa.md` §0.7.6 release integration and acceptance, §0.7.6 PR basics and equipment identity backup repair, §0.7.6 C7 review and its follow-up and §v0.7.6 publication verification. Branch: `release/0.7.6` merged to `main`; nothing left unpushed. |
+
+### 0.7.7 implementation status record
+
+| Item | Status | Next action |
+| --- | --- | --- |
+| 0.7.7 — reminders and rest notifications | C0–C5 implemented; R077-01–07/R077C-01/02 corrections committed in `bb67f207`; targeted closure APPROVED at that revision; C6 accepted with documented runtime/cleanup limits; C7 PASSED (1,787 tests, full candidate matrix and release-specific lint); C8 readiness APPROVED; PR/CI/tag/publication explicitly approved, execution pending; R077CL-01 non-blocking test-teardown follow-up open | C0 settled the contract: Android-only, default-off reminders for **dated** activity in the active block at one user-selected local time, optional quiet hours (skipped, not postponed), a 60-minute same-date lateness bound, one daily summary, and no sequence-mode reminders; independently optional quiet rest countdown and foreground completion signal, with existing exact/inexact rest-alert behavior preserved. C1 (persistence) adds the two default-off rest-presentation opt-ins to `trainingGuidancePreference`, a new `workoutReminderPreference` row with a nullable minutes-past-midnight time, and the device-local, non-backed-up `reminderDelivery` table via migration `45.sqm`; backup format 12 adds the nullable `workoutReminders` section and both new opt-ins. C2 adds the pure `decideWorkoutReminder` projection (pending dated occurrences only; disabled / nothing today / already delivered / quiet-hours / expired / schedule / deliver-now) and a defaulted `TimeProvider.epochMillisForLocalMinute` whose fixed-offset default leaves zone-aware DST resolution to a platform override. C3 (Android delivery) adds `nextWorkoutReminderInstant` for next-day arming, the `WorkoutReminderScheduler`/`ReminderDeliveryRepository` ports, `SqlDelightReminderDeliveryRepository` with an atomic per-block-and-day claim and week-bounded pruning, the app-lifetime `WorkoutReminderCoordinator`, the inexact-alarm/notification adapter with its `workout-reminders` channel, the non-exported `WorkoutReminderReceiver` (`BOOT_COMPLETED`/`TIME_SET`/`TIMEZONE_CHANGED`, no new exact-alarm permission), and the Android zone-aware local-minute override via `android.icu`. C3 passed the full matrix (1,726 host tests, `verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`, both iOS compiles) with the merged manifest inspected; C4 adds Settings controls and Logger tap routing, C5 adds independent quiet countdown and foreground completion presentation. Accepted C6 limits, targeted closure, C7 candidate verification and C8 readiness evidence are recorded in `docs/qa.md` §13; remote release execution remains pending. |
+
+### 0.7.6 remaining chunk-plan completion records
+
+**Status (2026-10-14): C0–C7 DONE — the completed 2026-10-14 plan-time wording and the chunk
+definitions are [archived verbatim](docs/plans-archive.md#076--onboarding-and-first-workout-guidance).**
+Release scope and the C0 behavioral contract were approved in chat; C1 (`390f3fc1`) delivered schema
+45/backup 11 persistence and legacy handling, C2 the atomic step saves and the isolated module/state
+machine, C3 module/graph aggregation with the feature-owned entry decision, and C4/C5 the step
+editors, copy, semantics and the three first-workout handoffs (`ffee7229`, with the R07645-01 entry
+fix `35dc283c`, the routine activation prefill `0be58927` and the R07645-04/05/07/08 corrections
+`16a06e28`). C6 completed the Tier A matrix plus the fresh-install, skip, resume/revisit, offline,
+first-log, PR-shortlist, weekday-wrap, narrow-equipment and backup-restore acceptance passes, and C7
+(the separately requested Plan Mode review) returned **APPROVED**, with its one confirmed minor
+finding fixed in `f49eb9ff` and the targeted closure check **APPROVED**. **C8 — release
+preparation/publication is IN PROGRESS**: release-prep documentation first, then the separately
+approved push, pull request, merge, annotated `v0.7.6` tag on the merge commit, publication and
+offline artifact verification. Evidence and limits: `docs/qa.md` §0.7.6 release integration and
+acceptance, §0.7.6 PR basics and equipment identity backup repair and §0.7.6 C7 review and its
+follow-up. Tablet and foldable layouts remain 0.13.3/0.13.4. Work branch: `release/0.7.6`. This
+bounded split refines OF-14-P0–P3 (queued above) without renumbering those broader phases.
+
+**Ownership:** new `:feature:onboarding` (screens, presentation state, exported entry/navigation);
+`:core:userdata` ports for setup status and preferred weekdays; `:core:domain` for any pure
+validation/policy; `:core:database` for atomic step persistence, an additive `.sqm` migration and
+backup coverage; `shared` for exported registration/wiring only; `:core:navigation` for a narrow
+setup-opening callback so Settings does not depend on another feature.
+
+**Infrastructure callouts (require their chunk's explicit approval):** add `:feature:onboarding` to
+`settings.gradle.kts`; register its dependency and exports in the shared composition root; add the
+`:core:navigation` setup-opening seam; add an additive migration plus a backup-format change. No new
+third-party dependency, provider, signing or CI change is proposed.
+
+**Chunks (each was separately gated; ordered) — completion status:** C0 (decisions, no code); C1
+`390f3fc1` (schema 45/backup 11 persistence and legacy handling); C2 (atomic step saves, isolated
+module/state machine); C3 `cb298926` (module/graph aggregation, startup entry, Settings revisit
+seam); C4/C5 `ffee7229` (step editors, copy, semantics and the three first-workout handoffs); C6
+(Tier A matrix plus the acceptance passes); C7 (Plan Mode review **APPROVED**, targeted closure
+**APPROVED** at `f49eb9ff`). Their definitions and per-chunk evidence are
+[archived verbatim](docs/plans-archive.md#076--onboarding-and-first-workout-guidance); the
+onboarding/backup corrective is recorded in `docs/qa.md` §0.7.6 PR basics and equipment identity
+backup repair. **C8 — DONE — PUBLISHED 2026-10-14 as `v0.7.6`** on the PR #13 merge commit
+`6bb62a59` (annotated tag `v0.7.6` on that revision; Release run `38620991923`, run number 21, all
+three jobs green; APK 24,813,143 bytes, `versionName=0.7.6`, `versionCode=21`, checksum and signature
+verified offline matching the previous releases' certificate, never installed on the emulator).
+
+**Execution discipline:** approve chunks individually or as an ordered batch after C0. Each
+implementation chunk ships its tests and affected living-doc/mechanics-reference updates (including
+weekday-preference consumers), runs the relevant checks and reports at its boundary, using the
+verification tiers in `docs/agent-project-reference.md` Key Commands. Stop after C6 for C7 in Plan
+Mode. No push or publication is authorized by this section.
