@@ -14,6 +14,24 @@ exact on-screen text.
 
 ## 0.8.1 C1 classification/backup verification — 2026-10-15
 
+### C2 catalog/accessory verification
+
+- Main-agent implementation from `fda7faee`: four sourced seeds, distinct machine
+  capabilities, FOREARM_ISOLATION accessory eligibility and preserved custom identities.
+- Full Tier A matrix passed: 1,860 host tests, zero failures/errors/skips, migration
+  verification, global ktlint, debug assembly and both required iOS compiles.
+  Log: `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/hydrafit-081-c2-2.log`.
+- `ForearmAccessoryPolicyTest` verifies exact focus eligibility, non-compound/direct-arm
+  separation, accessory set count and equipment/exclusion/fatigue gates.
+  `Catalog081IntegrationTest` uses production seeds/planner/log/backup repositories:
+  exact profiles, independent machine availability, no automatic selection, per-hand
+  load preservation, custom editability and full backup round trips.
+  `CustomExerciseDedupeTest` preserves all existing reference families across upgrade.
+- First C2 run found wrapping errors and two fixtures exporting absent settings;
+  restore intentionally materializes default settings. Initializing the fixture's
+  settings row preserves strict full-snapshot assertions; production restore is unchanged.
+  Numeric editor, deployed UI acceptance and independent release review remain pending.
+
 - Batch base `761d47d4`; approved contract commit `1a867d2d`; main-agent owner.
   Compound-only pattern corrections, advisory muscle sets and exact historical
   backup-profile compatibility are implemented. No weights/schema/encoding change.

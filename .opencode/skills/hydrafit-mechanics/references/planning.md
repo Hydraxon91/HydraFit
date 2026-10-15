@@ -192,12 +192,15 @@ gate with possible whole-slot overshoot, and ignores `minSets` (report-only).
 
 The isolation pool is focus-scoped and determines reachability (a catalog
 exercise whose pattern is in no pool is never auto-selected): push adds
-triceps/shoulder isolation plus chest fly; pull adds biceps isolation; upper adds
-biceps/triceps/shoulder isolation; legs/lower adds leg isolation, calf raises and
+triceps/shoulder isolation plus chest fly; pull adds biceps/forearm isolation; upper adds
+biceps/triceps/forearm/shoulder isolation; legs/lower adds leg isolation, calf raises and
 core; full-body is the union. Lunge competes in the leg/lower squat group rather
 than being full-body-only. These are product reachability choices informed by
 general resistance-training evidence (e.g. pec-deck/chest-fly regional
 hypertrophy), not a claim that each isolation exercise is optimal.
+FOREARM_ISOLATION (0.8.1) uses ordinary accessory set counts and weighted deficits,
+never the dedicated direct-arm priority/target. Existing exclusions, soreness and
+daily caps still apply; no TRAPS policy or fatigue constants change.
 
 Compounds are chosen one per focus group by largest deficit; a compound not yet
 used this week is preferred, but one repeats when no alternative exists so a later

@@ -172,6 +172,30 @@ class CustomExerciseDedupeTest {
     }
 
     @Test
+    fun pre081CustomKeepsEveryReferenceAcrossNewSeedsAndRepeatedDedupe() = runTest {
+        val ids = DefaultExercisesCatalog081.all.joinToString(",") { "'${it.id}'" }
+        driver.execute(null, "DELETE FROM exercise WHERE id IN ($ids)", 0)
+        database.exerciseQueries.insertCustom(
+            id = "user-wrist",
+            name = "Seated Dumbbell Wrist Curl",
+            requiredEquipment = "BODYWEIGHT",
+            movementPattern = "CORE",
+            isUnilateral = 0L,
+            loadCapability = "BODYWEIGHT_ONLY",
+            involvements = "ABS:0.9,OBLIQUES:0.4"
+        )
+        insertCustomReferences("user-wrist")
+        // The production export covers every reference family, without reinterpreting its snapshots.
+        val backup = SqlDelightBackupRepository(database, SqlDelightBackupCatalog())
+        val before = backup.export("t", 1L)
+        SeedExerciseCatalog(database).seed()
+        CustomExerciseDedupe(database).run()
+        CustomExerciseDedupe(database).run()
+        assertEquals(before, backup.export("t", 1L))
+        assertEquals("Seated Dumbbell Wrist Curl", customExerciseOrNull("user-wrist")?.name)
+    }
+
+    @Test
     fun preP7CustomKeepsProfileAndReferencesAcrossP7SeedingAndRepeatedDedupe() = runTest {
         // An install from before CAT-P7: the P7 seed identities do not exist yet.
         removeP7Seeds()

@@ -618,6 +618,15 @@ Every prescription, snapshot and performed set carries a **load kind** (`EXTERNA
 
 ### 1.13 Catalog profile matching and custom identity (CAT-02 v1)
 
+The 0.8.1 catalog adds four separately sourced identities in
+`DefaultExercisesCatalog081`: forearm-pad pec deck, reverse machine fly, seated
+dumbbell wrist curl and extension. New machine capabilities are independent and
+not automatically selected. FOREARM_ISOLATION is stored through the existing TEXT
+pattern fields and enters Pull/Upper/Full-body accessory pools without a direct
+weekly target. New identities receive the same custom-name preservation policy as
+CAT-P7 across seeding, custom edits and backup validation. No new schema, format,
+muscle group, fatigue calibration or TRAPS deficit policy follows from these additions.
+
 The approved 2026-10-09 contract separates lexical profile matching from persisted exercise identity.
 `ExerciseCatalog.profileCandidates()` is a read-only snapshot seam: seeded canonical names, effective
 display names and curated aliases identify `CatalogExerciseProfile` candidates; `ExerciseProfile`

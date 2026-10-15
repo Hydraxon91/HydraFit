@@ -559,7 +559,8 @@ internal object DefaultExercises {
             MovementPattern.SHOULDER_ISOLATION,
             isUnilateral = true
         )
-    ) + DefaultExercisesCatalogC1.all + DefaultExercisesCatalogP7.all
+    ) + DefaultExercisesCatalogC1.all + DefaultExercisesCatalogP7.all +
+        DefaultExercisesCatalog081.all
 
     private fun ex(
         id: String,

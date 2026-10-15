@@ -110,4 +110,5 @@
     <string name="pattern_shoulder_isolation">Shoulder isolation</string>
     <string name="pattern_leg_isolation">Leg isolation</string>
     <string name="pattern_core">Core</string>
+    <string name="pattern_forearm_isolation">Forearm isolation</string>
 </resources>

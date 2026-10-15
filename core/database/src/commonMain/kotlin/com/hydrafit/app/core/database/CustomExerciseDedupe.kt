@@ -13,10 +13,13 @@ internal fun normalizeExerciseName(name: String): String =
 class CustomExerciseDedupe(private val database: HydraFitDatabase) {
     fun run() {
         val protectedP7Ids = DefaultExercisesCatalogP7.all.map { it.id }.toSet()
+        val protected081Ids = DefaultExercisesCatalog081.all.map { it.id }.toSet()
         // New/clarified calf labels must not merge a pre-existing same-name custom identity.
         val protectedCalfIds = setOf("standing-calf-raise", "standing-calf-raise-machine")
         val canonicalByName = DefaultExercises.all
-            .filterNot { it.id in protectedP7Ids || it.id in protectedCalfIds }
+            .filterNot {
+                it.id in protectedP7Ids || it.id in protectedCalfIds || it.id in protected081Ids
+            }
             .associateBy { normalizeExerciseName(it.name) }
         val customRows = database.exerciseQueries.selectAll().executeAsList()
             .filter { it.isCustom == 1L }

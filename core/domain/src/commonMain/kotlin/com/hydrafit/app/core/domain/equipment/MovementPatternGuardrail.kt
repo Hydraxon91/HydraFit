@@ -49,6 +49,7 @@ object MovementPatternGuardrail {
         )
         MovementPattern.BICEPS_ISOLATION -> setOf(MuscleGroup.BICEPS)
         MovementPattern.TRICEPS_ISOLATION -> setOf(MuscleGroup.TRICEPS)
+        MovementPattern.FOREARM_ISOLATION -> setOf(MuscleGroup.FOREARMS)
         MovementPattern.SHOULDER_ISOLATION -> setOf(
             MuscleGroup.SIDE_DELTS,
             MuscleGroup.FRONT_DELTS,

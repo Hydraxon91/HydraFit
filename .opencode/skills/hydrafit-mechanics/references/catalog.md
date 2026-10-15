@@ -80,7 +80,14 @@ Editor tiers: None, Low `0.3`, Mid `0.5`, High `0.7`, Primary `1.0`.
 Stored values are doubles, not a tier enum.
 
 `DefaultExercises.kt` is the seed catalog (baseline + `DefaultExercisesCatalogC1` +
-`DefaultExercisesCatalogP7`). CAT-P7 adds ten sourced identities, all using existing equipment tags,
+`DefaultExercisesCatalogP7` + `DefaultExercisesCatalog081`). The 0.8.1 batch adds four
+modeled identities: forearm-pad pec deck, reverse machine fly, seated unilateral
+dumbbell wrist curl/extension. Separate PEC_DECK_MACHINE/REVERSE_FLY_MACHINE capabilities
+are not auto-selected; wrist support requires DUMBBELL + BENCH. All four are EXTERNAL.
+Their names are protected against startup custom-name merging, and matching existing
+customs remain editable/backup-compatible; new name collisions still fail. Provenance
+and limits are in the source doc. FOREARM_ISOLATION is a non-compound pattern, not
+biceps work. CAT-P7 adds ten sourced identities, all using existing equipment tags,
 patterns and muscles; row provenance is in `docs/exercise-catalog-sources.md`. P7 load capability is
 explicitly curated, not inferred from equipment; bicycle crunch is `BODYWEIGHT_ONLY`.
 `SeedExerciseCatalog` inserts missing rows, backfills involvements only where null,
