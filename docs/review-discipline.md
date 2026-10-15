@@ -15,6 +15,14 @@ scope is unclear, clarify it before starting.
 is in Build Mode, stop and ask the user to switch to Plan Mode before
 reviewing; an approved implementation chunk does not waive this requirement.
 
+**Explicit continuous-execution exception:** when the user activates
+`AGENTS.md`'s Continuous Multi-Release Execution workflow for named scopes, its
+separate read-only reviewer may review and confirm closure while the parent
+remains in Build Mode. The invocation requests those checkpoints in advance.
+This also qualifies the Plan-mode references below; ordinary reviews retain the
+default rule. Harness-enforced restrictions and read-only review isolation remain
+mandatory. The parent performs authorized Git operations directly in that workflow.
+
 ## Review, Rule-Setting and Fix Discipline
 
 A full or partial codebase review means inspecting real source to identify
@@ -96,6 +104,12 @@ then wait for an explicit decision.
 Mechanical fixes still require the applicable approved fix scope. Neither
 classification authorizes silently fixing a finding during review.
 
+In the explicit continuous workflow, initial approval may cover the localized
+mechanical-correction category defined in `AGENTS.md`. After the read-only review
+ends, record finding IDs, classification, exact fix scope, owner and checks before
+implementing within that authorization. Design decisions and individually gated
+actions still need separate approval; this is not approval to fix all findings.
+
 ### 5. Data-loss impact is a separate triage axis
 
 Treat the potential to delete or corrupt existing user data independently
@@ -125,6 +139,12 @@ A builder's verification of its own fixes is not a review verdict. Begin the
 bounded review only when the user requests it and Plan Mode is active; passing
 tests, a green build or a self-check of closed findings does not substitute for
 the review.
+
+In the explicit continuous workflow, independent review approval allows the next
+named step only under the user's existing execution authorization. It grants no
+new fix, commit, push or publication authority. Incomplete review or unresolved
+required findings prevent advancement; pre-authorized corrections still require
+verification and independent targeted closure.
 
 Review documents, RG rule changes, RF triage documents and fix implementation
 follow the approval and commit discipline in `AGENTS.md`.
