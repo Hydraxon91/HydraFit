@@ -94,7 +94,7 @@ return them to the parent instead of selecting behavior yourself.
 Every brief, including a correction brief, must name exact coder-owned allowed
 paths, parent-owned paths and exclusions. Do not edit parent-owned paths or add
 files outside the allowed list without an explicitly agreed handoff/scope approval.
-The parent makes no edits while this child runs; neither party edits the other's
+The parent makes no edits while any delegated writer runs; neither party edits the other's
 files. The parent owns `PLANS.md` status updates and `docs/qa.md` evidence
 consolidation by default; supply evidence for those updates rather than editing
 them. State any approved documentation split in the brief; it does not split
@@ -128,8 +128,26 @@ documentation in the same scope. Do not weaken tests, invent fallbacks, refactor
 unrelated code or change existing results without an approved behavioral decision.
 
 The parent and this child share a working tree: do not edit concurrently with the
-parent or other coding workers. Stop if unexpected changes invalidate the brief.
+parent. Other coding workers are allowed only under an explicitly approved
+AGENTS.md Parallel bounded delegation plan. Otherwise serialize writers.
+Stop if unexpected changes invalidate the brief.
 Do not stage, commit, push, tag, create/merge PRs or delegate to another agent.
+
+In approved concurrent-writer mode, require the common HEAD/preserved-work baseline,
+both workers' exact disjoint path sets and shared read-only dependencies, unique
+artifact paths, and the common absolute Gradle-lock path and bounded wait. Treat
+sibling paths as exclusions, not your own delta. No shared-interface, registration,
+build/configuration, schema/migration or shared-resource edits; no deletions or
+repo-wide formatting/fix commands. Return any required crossing change before
+editing it. Follow AGENTS.md's atomic `mkdir`/holder-only `rmdir` lock protocol for
+every Gradle invocation; never bypass a busy/orphaned lock or release one while
+your Gradle/test workers may still be running. Report verification as provisional
+while a sibling edits. Report only your own actual path delta against the common
+baseline, identifying authorized sibling changes separately. Stop on changes
+outside the combined sets or invalidated independence; preserve all work. The
+parent joins all writers, verifies scope and runs stable-tree integration checks
+before Git operations or review. These instructions do not change models,
+permissions, ownership approval or review/publication gates.
 
 Run the approved verification with hard time limits and external log files;
 follow the project's Gradle, downstream-consumer and emulator rules. For unclear

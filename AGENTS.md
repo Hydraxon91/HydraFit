@@ -81,8 +81,9 @@ All other gates remain in force, including harness restrictions.
   unless separately approved for delegation. Every brief, including a correction
   brief, must name exact coder-owned allowed paths, parent-owned paths and exclusions.
   Neither party edits the other's files without an explicitly agreed handoff.
-  Parent and child share a working tree: the parent makes no edits while the coder
-  runs; serialize edits and Git mutations and wait for the coder's report.
+  Parent and children share a working tree: the parent makes no edits while any
+  delegated writer runs. Serialize edits unless Parallel bounded delegation below
+  is explicitly approved; serialize Git mutations and wait for all writers' reports.
   Before each delegation, capture HEAD and a preserved-work baseline covering staged,
   unstaged and untracked files, including existing file content/diffs sufficient
   to distinguish later changes. On return, compare the actual delta against the
@@ -109,6 +110,54 @@ All other gates remain in force, including harness restrictions.
   implements and verifies, then stops; the main reviewer performs targeted closure
   checks in Plan Mode under the bounded review discipline. No automatic review/fix
   loop, self-issued coder verdict, commit or push is authorized by this workflow.
+
+- **Parallel bounded delegation (disjoint write sets):** the approved plan may
+  name up to two concurrent `coder` workers for independent chunks in the same
+  release, or explicitly approved independent chunks. More than two needs explicit
+  approval. Preserve approved ownership and all ordinary approval gates; this is
+  a scoped exception to serialized source edits, not blanket parallel execution.
+  - Before launch, prove both behavioral independence and pairwise-disjoint exact
+    write sets, including implementation, tests, resources and assigned docs.
+    Different files alone are insufficient when one chunk changes a contract the
+    other consumes. Neither chunk may edit shared interfaces, DI/navigation
+    registrations, build/configuration files, schemas/migrations or shared resource
+    files. Any crossing file or unresolved dependency requires serial execution.
+  - Capture one common HEAD and preserved-work baseline before either worker
+    starts. Each brief names both workers, its own exact allowed paths, sibling
+    paths as exclusions, shared read-only dependencies, unique artifact paths,
+    budget and the common Gradle-lock path. Do not retrofit a running chunk into
+    parallel mode or overlap uncoordinated sessions. Launch the approved pair in
+    background or concurrent tool calls; neither child may spawn more workers.
+  - While either writer runs, the parent makes no edits and performs no Git
+    mutations, repo-wide checks, emulator interactions or formal review. Workers
+    edit only their assigned files; no repo-wide formatting/fix commands, cleanup,
+    deletion or Git mutations. A needed crossing edit returns to the parent before
+    it is made. Parent-owned docs and integration wiring wait until both stop.
+  - Serialize every Gradle invocation using one repository-wide cooperative lock:
+    an agreed absolute scratch directory ending in `hydrafit-gradle.lock.d`,
+    acquired atomically with `mkdir`. Every participant must use the same path;
+    check for existing Gradle activity before launch. Record the holder session,
+    acquisition time and command in external artifacts. The brief specifies a
+    bounded acquisition wait within the task budget; failure to acquire stops that
+    verification and is reported, not bypassed. Retain hard command time limits
+    and unique logs. Only the holder may release its empty lock with `rmdir`, after
+    confirming its Gradle/test workers exited, including on failure. On uncertain
+    worker termination or an orphaned lock, stop and report; never remove another
+    holder's lock, kill a sibling's build or retry an unchanged lock failure.
+  - The lock prevents concurrent builds, not source changes. Worker checks cover
+    their observed working-tree state and remain provisional while a sibling edits.
+    Each reports its own actual delta, including new/deleted/renamed files, against
+    the common baseline; authorized sibling changes are not its work or an
+    unexpected-change alarm. Stop on changes outside the combined allowed sets or
+    any change that invalidates the independence contract; preserve all work.
+  - Join both workers before parent edits, integrated verification, Git operations
+    or review. Check each delta against its own allowed paths and the combined
+    delta against the baseline. Run required downstream/integration checks on the
+    stable combined tree; do not substitute provisional worker checks. One worker's
+    failure or unknown write never authorizes replay or marks its sibling complete
+    or failed. Follow existing scoped-blocker and failure rules. Commit only verified
+    logical changes with exact-path staging; review and publication rules, including
+    the explicitly activated batch exceptions, remain unchanged.
 
 - **Plan gate.** For any task that changes code, config, or data: give a
   short plan first (files, decisions, any deviation from PLANS.md), then
@@ -502,7 +551,7 @@ already follow) or **[target, new code only]**.
 Some models occasionally emit a tool call as plain text instead of a real tool call. The harness then treats the turn as finished, nothing runs, and the session stalls. These rules keep calls well-formed and keep the repo from ending up half-modified.
 
 - **Real tool calls only.** Never write tool-call markup, tags, or parameter blocks into a message as text. If a call returned no output, or a file or log it should have produced is missing, treat it as not executed. Re-issue it as a proper tool call instead of narrating what it would have done.
-- **Keep dependent operations sequential.** Read each result before taking an action that depends on it. Independent read-only searches/reads may run in parallel; do not batch edits, break/restore checks or dependent build/git operations.
+- **Keep dependent operations sequential.** Read each result before taking an action that depends on it. Independent read-only searches/reads may run in parallel; only explicitly approved Parallel bounded delegation permits concurrent writers. Otherwise do not batch edits, break/restore checks or dependent build/git operations.
 - **Use the edit/write tool for every file change.** Never modify source files through bash (no `python3 - <<EOF`, `sed -i`, `perl -pi`, `echo >`, or heredocs). Bash is for running builds, tests, `git`, and search.
 - **Keep bash commands short.** One command per call, with no heredocs and no nested quoting. For Gradle, one call to run with output redirected to a log file (see Unit Testing Standards), and a separate call to grep or read that log.
 - **Temporary break-and-restore checks (e.g. removing a binding to prove a guard test fails) are separate steps.** Make the break, run the check, and restore by reversing the exact edit, each as its own call. Never combine them in one call. Confirm the restore with `git diff` on that file before calling the task done.

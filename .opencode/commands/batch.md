@@ -68,7 +68,11 @@ Apply these standing defaults unless the user explicitly overrides them:
   owner, this invocation approves coder for settled, localized chunks and the
   main agent for fatigue/planner logic, migrations, concurrency and shared-shell
   work. State the owner and exact paths before edits; follow delegation briefs
-  and serialize shared-tree writes.
+  and serialize shared-tree writes unless the accepted pre-flight plan explicitly
+  approves a pair under AGENTS.md Parallel bounded delegation (at most two coders
+  without further approval), with disjointness evidence, a common baseline and
+  Gradle lock, and a stable-tree verification join before Git or review. Release
+  dependency order and all publication gates remain unchanged.
 - **Verification/review:** verify each implementation chunk, then obtain one
   independent read-only full-range review per release from a separate general
   agent, with targeted closure after corrections. Follow both review guides and
