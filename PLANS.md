@@ -834,6 +834,90 @@ record).
 
 **Acceptance:** displayed values reconcile with fixture sets and re-emit after history corrections. Changing display units does not change stored measurements. Warm-up inclusion/exclusion is explicit and estimates use the approved existing calculation. Automatic records are reproducible from eligible history, retract/recalculate after corrections/deletions, and remain distinguishable from user-entered PRs; no unapproved progression change results.
 
+#### 0.8.0 — Exercise history and progress charts (six-chunk plan)
+
+**Status (2026-10-15):** six-chunk planning direction accepted in chat; recording this plan is
+approved. C1–C6 are NOT STARTED. Application implementation, final metric/navigation decisions,
+module-graph changes, commits and publication are not authorized by this entry. The requested local
+branch and feature release target are **0.8.0**.
+This split refines OF-04-P0/P1/P2 without renumbering them. OF-04-P3 automatic records and summary
+integration remain **0.8.1**.
+
+**Scope:** offline, per-exercise recorded history and load, repetitions, estimated 1RM and
+working-volume charts over bounded selectable local-date ranges. Values reconcile with stored sets
+and refresh after inserts, corrections, deletions and restore. Display units never change canonical
+kilograms, historical records, prescriptions, planner inputs or fatigue policy.
+
+**C1 metric recommendations — finalize before implementation:**
+- Ranges: 4 weeks, 12 weeks and 1 year, with daily chart points; confirm exact inclusive boundaries.
+- Load: highest recorded working-set load per day, preserving and distinguishing recorded load kinds.
+- Repetitions: highest working-set reps per day with the contributing set's load available alongside
+  it; a rep maximum across different loads is not proof of improved strength.
+- Estimated 1RM: highest eligible daily Epley estimate using `OneRepMax.estimate` and the existing
+  1–15-rep eligibility. No planner progression adjustment, manual-PR floor, working-load rounding,
+  42-day horizon or two-set threshold. Estimates are labelled estimates, not measured maxima.
+- Working volume: working-set count and total reps, with external load-volume separately labelled
+  as `sum(weightKg × reps)`. Bodyweight and added-load work are not blended into external tonnage;
+  their history retains its recorded meaning. Do not infer body mass.
+- Warm-ups remain visible in history but are excluded from chart aggregates. One eligible point is
+  useful data; no invented minimum history, interpolation or zero-filled missing days.
+
+**Open decisions / blockers:** approve legacy-load eligibility, unilateral volume convention,
+timezone/DST bucketing, future-dated set treatment and name/snapshot presentation. Recommend keeping
+recorded per-hand values without implicit doubling; exclude future sets from trends while identifying
+them in history. Stored load kind remains authoritative; do not reinterpret typed history from current
+catalog metadata. Legacy eligibility needs an explicit compatibility rule. Current day helpers accept
+a supplied offset, not historical timezone rules; choose and disclose the bucketing contract before
+queries are written. Preserve stable exercise IDs through renames and show recorded sets even when
+catalog metadata is unavailable. Do not fabricate historical names where no snapshot exists.
+
+**UI/module decision:** proposed `:feature:progress` owns UI/state/resources, its exported graph and
+Koin module; shared contracts live in `:core:domain`, implementations in `:core:database`, and unit
+preferences stay in `:core:userdata`. Creating/registering the module is an explicit module-graph/build
+configuration change needing approval. The shell currently has six tabs in two rows: settle the entry
+point before coding, rather than silently appending a seventh tab or choosing an unrelated home.
+No feature-to-feature dependency; existing Logger correction UI remains with its current owner.
+
+| Chunk | Outcome and proposed file scope | Testable acceptance / coding cautions |
+| --- | --- | --- |
+| **0.8.0-C1 — metric contract** | Finalize the recommendations/open decisions above and a synthetic, hand-calculated fixture matrix. Read `core/domain/src/commonMain/kotlin/com/hydrafit/app/core/domain/engine/{OneRepMax,SuggestedWeightConfig}.kt`, `workout/{WorkoutLoadPolicy,WorkoutSet,WorkoutHistory,WorkoutSummary}.kt` and their consumers/tests. No application edit in this decision chunk. | Expected values cover external/bodyweight/added/legacy loads, null versus zero, warm-ups, unilateral work, high reps, sparse history and date boundaries. `OneRepMax.estimate` does not enforce eligibility itself. Distinguish chart eligibility from planner-baseline policy and unresolved LT-10 comparable-exposure claims. |
+| **0.8.0-C2 — bounded reactive reads** | Add exercise-specific request/result models and repository contract under domain `workout/`; generated SQLDelight queries and repository implementation under `core/database/src/commonMain/`. Reuse existing `WorkoutHistoryRepository` request validation, keyset paging and performed-time/ID ordering where appropriate, without widening unrelated session-browser behavior. | Repository tests cover inclusive date boundaries, tied timestamps, paging without duplicate/omitted rows, rename/missing metadata, and emissions after insert/correction/delete/restore. Use a larger synthetic history and inspect query plans. Never aggregate only the loaded history page or filter `selectAllSets` in memory. Complete chart inputs must be bounded independently of history pagination; any further cap must be explicit, never silent truncation. Add an index only on evidence, with its migration and coverage. |
+| **0.8.0-C3 — pure progress calculations** | Add domain projections/use cases and `commonTest` coverage under `core/domain/.../workout/`; reuse existing Epley, eligibility, load-policy, unit and day helpers where they match the approved contract. Policy stays outside Composables and persistence-specific mapping. | Match C1 fixtures exactly; distinguish missing values from zero, preserve eligibility under kg/lb changes, move contributions after date correction, and keep excluded rows visible with understandable reasons. Do not use `BuildPlannerLoadInputsUseCase` for chart values: its manual floors, recency/sample rules and progression answer a different question. |
+| **0.8.0-C4 — Progress feature and history** | After module/navigation approval, add `feature/progress/` UI/state/resources/tests, its exported navigation and Koin module, and only the required registrations/dependencies in `settings.gradle.kts` and the shared composition root/build file. Provide exercise/range selection and read-only paginated history with loading, empty and retry states. | Feature state/navigation and Koin verification pass. Rapid exercise/range switches reject stale emissions; paging/retry retain the correct context; opening/leaving Progress preserves Logger drafts and workout state. No direct database access or feature-to-feature dependency. Do not add a second set-correction implementation. |
+| **0.8.0-C5 — accessible charts** | Add chart presentation/components and resources/tests within `feature/progress/`, using existing Compose capabilities. Include numerical list/table equivalents, dates/units/definitions, supporting set details, single-point and no-eligible-data states. | Presentation tests and bounded semantic emulator checks reconcile charts and numerical values. View screenshots for light/dark, larger fonts, long names and kg/lb. Missing observations remain gaps; no smoothing that invents performance. Canvas alone is not accessible; meaning/selection cannot rely on colour. New chart dependencies need separate approval. |
+| **0.8.0-C6 — producer-to-chart integration** | Add downstream integration/regression coverage through the real production writers and repository/use-case consumers; consolidate evidence in `docs/qa.md`, synchronize affected architecture/mechanics references and batch `PLANS.md` status updates. Author bounded named Maestro flows only for the approved synthetic journey. | Verify log → persist → chart → correct/time-move → refresh → delete → refresh, plus restore/replacement invalidation. Consumer-only fixtures do not prove writer invariants. Run the full candidate matrix and bounded debug-emulator acceptance; preserve existing user state and report unverified checks. No release APK install. Stop for separately requested Plan-mode review after builder verification. |
+
+**Recommended implementation owners (confirm with the approved implementation scope):** main agent
+for C1–C3 because metric semantics, historical compatibility and reactive persistence require tightly
+coordinated decisions; `coder` for C4–C5 once contracts/navigation are settled, because these are bounded
+presentation chunks; main agent for C6 integration/evidence consolidation, with bounded emulator runs
+delegated to `ui-runner`. Parent owns `PLANS.md` status updates and `docs/qa.md` consolidation; coder
+edits only explicitly assigned feature docs. Follow the baseline, exact-path ownership and no-competing-
+writers rules for every delegation. Documentation recording here does not start those chunks.
+
+**Verification and documentation:** apply `docs/agent-project-reference.md` tiers at each boundary.
+C1 is decision-only; C2 query-only work may use Tier B if stored encoding/shared contracts are
+preserved; pure unwired C3 projections use domain tests/module ktlint, with assembly when wired.
+C4 module registration is Tier A; C5 is Tier C only while feature-local. At C6 run
+`testAndroidHostTest`, `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+`:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
+`:core:network:compileKotlinIosSimulatorArm64`, plus changed Koin graphs and applicable emulator checks.
+Any Tier A contract/schema change requires the full matrix at its own chunk boundary. All Gradle
+runs are bounded and logged. Keep affected `docs/architecture.md`, `docs/qa.md`, project-reference
+module documentation and mechanics topic references synchronized in the owning implementation chunk;
+update `.maestro/README.md` with any added flows/evidence. No runtime tests are claimed by this plan.
+
+**Exclusions / stop conditions:** automatic records and summary comparisons/integration (0.8.1 or
+their separately approved comparable-exposure scope), fatigue-map/coverage changes, body measurements,
+catalog corrections, progression/fatigue recalibration, persistent metric caches and new dependencies.
+No schema/backup change is assumed; raise a discovered need before editing, including an evidence-based
+index migration. Before each implementation chunk, enumerate exact current files, approved decisions,
+owner, tests and required configuration changes; approve the chunk separately or in an explicit ordered
+batch. Stop for a new behavioral/navigation/portability/dependency decision, unavailable required
+verification that changes completion expectations, accidental emulator data changes or the AGENTS.md
+builder failure limits. Formal review requires a separate request in Plan Mode; commits, push, tagging
+and publication keep their own applicable approval gates. No automatic handoff or next-release work.
+
 ### OF-05 — Local workout CSV imports
 
 **Goal / v1 scope:** import FitNotes, Strong and Hevy CSV exports locally with a preview of exercise mappings, units, sessions and rejected/unsupported fields. No vendor API key or online service is required.
