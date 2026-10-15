@@ -1,0 +1,23 @@
+CREATE TABLE reminderDelivery (
+    activationId INTEGER NOT NULL,
+    reminderEpochDay INTEGER NOT NULL,
+    deliveredAtMillis INTEGER NOT NULL,
+    PRIMARY KEY (activationId, reminderEpochDay)
+);
+
+selectDeliveredAt:
+SELECT deliveredAtMillis FROM reminderDelivery
+WHERE activationId = ? AND reminderEpochDay = ?;
+
+markDelivered:
+INSERT OR REPLACE INTO reminderDelivery(activationId, reminderEpochDay, deliveredAtMillis)
+VALUES (?, ?, ?);
+
+deleteBefore:
+DELETE FROM reminderDelivery WHERE reminderEpochDay < ?;
+
+deleteDelivery:
+DELETE FROM reminderDelivery WHERE activationId = ? AND reminderEpochDay = ?;
+
+deleteAll:
+DELETE FROM reminderDelivery;

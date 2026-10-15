@@ -87,6 +87,136 @@ class TrainingGuidanceSettingsViewModelTest {
         }
     }
 
+    @Test
+    fun restPresentationSwitchesPersistWithoutTouchingAlertsOrCoaching() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val preferences = FakePreferences()
+            val scheduler = object : RestAlertScheduler {
+                override suspend fun schedule(countdown: PersistedRestCountdown) = Unit
+                override fun cancel() = Unit
+            }
+            val viewModel = TrainingGuidanceSettingsViewModel(preferences, scheduler)
+
+            viewModel.setRestCountdown(true, true)
+            viewModel.setRestCompletionSignal(true)
+            runCurrent()
+            assertEquals(
+                TrainingGuidancePreferences(
+                    restCountdownEnabled = true,
+                    restCompletionSignalEnabled = true
+                ),
+                preferences.state.value
+            )
+            assertEquals(
+                TrainingGuidancePreferences(
+                    restCountdownEnabled = true,
+                    restCompletionSignalEnabled = true
+                ),
+                viewModel.state.value.preferences
+            )
+
+            viewModel.setRestCountdown(false, false)
+            runCurrent()
+            assertEquals(
+                TrainingGuidancePreferences(restCompletionSignalEnabled = true),
+                preferences.state.value
+            )
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun deniedCountdownPermissionKeepsCountdownOffAndLeavesAlertsUntouched() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val preferences = FakePreferences()
+            val viewModel = TrainingGuidanceSettingsViewModel(preferences, IdleScheduler())
+            runCurrent()
+
+            viewModel.setRestCountdown(true, false)
+            runCurrent()
+            assertFalse(viewModel.state.value.preferences.restCountdownEnabled)
+            assertTrue(viewModel.state.value.countdownPermissionDenied)
+            assertFalse(viewModel.state.value.permissionDenied)
+            assertEquals(TrainingGuidancePreferences(), preferences.state.value)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun grantedCountdownPermissionEnablesCountdownOnly() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val preferences = FakePreferences()
+            val viewModel = TrainingGuidanceSettingsViewModel(preferences, IdleScheduler())
+            runCurrent()
+
+            viewModel.setRestCountdown(true, true)
+            runCurrent()
+            assertEquals(
+                TrainingGuidancePreferences(restCountdownEnabled = true),
+                viewModel.state.value.preferences
+            )
+            assertEquals(
+                TrainingGuidancePreferences(restCountdownEnabled = true),
+                preferences.state.value
+            )
+            assertFalse(viewModel.state.value.countdownPermissionDenied)
+            assertFalse(viewModel.state.value.permissionDenied)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun alertGrantEnablesAlertsOnlyAndLeavesCountdownOff() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val preferences = FakePreferences()
+            val viewModel = TrainingGuidanceSettingsViewModel(preferences, IdleScheduler())
+            runCurrent()
+
+            viewModel.setAlerts(true, true)
+            runCurrent()
+            assertEquals(
+                TrainingGuidancePreferences(restAlertsEnabled = true),
+                preferences.state.value
+            )
+            assertFalse(viewModel.state.value.countdownPermissionDenied)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun restCompletionSignalIsIndependentOfNotificationPermission() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val preferences = FakePreferences()
+            val viewModel = TrainingGuidanceSettingsViewModel(preferences, IdleScheduler())
+            runCurrent()
+
+            viewModel.setRestCountdown(true, false)
+            viewModel.setRestCompletionSignal(true)
+            runCurrent()
+            assertEquals(
+                TrainingGuidancePreferences(restCompletionSignalEnabled = true),
+                viewModel.state.value.preferences
+            )
+            assertFalse(viewModel.state.value.preferences.restCountdownEnabled)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    private class IdleScheduler : RestAlertScheduler {
+        override suspend fun schedule(countdown: PersistedRestCountdown) = Unit
+        override fun cancel() = Unit
+    }
+
     private class FakePreferences : TrainingGuidancePreferenceRepository {
         val state = MutableStateFlow(TrainingGuidancePreferences())
         override fun observe() = state
@@ -96,6 +226,12 @@ class TrainingGuidanceSettingsViewModelTest {
         }
         override suspend fun setShortRestCoachingEnabled(enabled: Boolean) {
             state.value = state.value.copy(shortRestCoachingEnabled = enabled)
+        }
+        override suspend fun setRestCountdownEnabled(enabled: Boolean) {
+            state.value = state.value.copy(restCountdownEnabled = enabled)
+        }
+        override suspend fun setRestCompletionSignalEnabled(enabled: Boolean) {
+            state.value = state.value.copy(restCompletionSignalEnabled = enabled)
         }
     }
 }

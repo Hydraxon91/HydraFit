@@ -522,6 +522,357 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - Offline artifact verification still confirms `versionName`/`versionCode` against the tag/run
   number; schema compatibility is covered by the host `verifySqlDelightMigration` check.
 
+### 0.7.7 C8 release readiness (2026-10-15)
+
+**PR #14 CI corrective (2026-10-15):** Build and Test run `38692089249`, attempts 1 and 2,
+failed in `OnboardingViewModelTest.loadingEditingBackAndCloseWriteNothingOnEveryStep` with
+`UncaughtExceptionsBeforeTest`; lint and debug assembly/release lint passed. Merge/tag/publication
+were stopped. The named test had not entered its body. Inspection found the onboarding runtime
+binding test draining only the virtual scheduler before resetting Main, while its entry ViewModel
+could still be reading on real `Dispatchers.Default`. Fresh local reproduction passed, so the
+original CI exception's full cause is not proven by local reproduction or the abbreviated CI log.
+
+The approved test-only corrective retains the production Koin binding/default dispatcher, gates
+the real read, awaits published readiness, and owns the resolved ViewModel in a `ViewModelStore`.
+Teardown clears the store and joins its coroutine job before resetting Main, including on failure.
+A second controlled case leaves the read suspended and verifies cancellation and job completion;
+both cases assert no persistent setup writes. No production code, dependencies or workflows changed.
+
+Fresh candidate verification with the C7 command plus `--rerun-tasks` passed in **2m 49s**:
+**839 tasks executed**, **1,788 tests, zero failures/errors/skips**, migrations, ktlint, debug
+assembly, shared/network iOS simulator compilation and `lintVitalRelease`. Log:
+`/tmp/hf077-onboarding-fixed-candidate-matrix.log`. PR CI for the corrected commit remains pending;
+this local pass is not remote CI or release approval evidence.
+
+**Corrected PR CI passed:** commit `ecc7969a512bb72486175a3001c8889fdbb62596`, Build and Test
+run `38693865229`, attempt 1: Lint, Unit Tests/migrations and Assemble Debug APK/release lint all
+succeeded. No production code changed in that correction. Subsequent archive-only documentation
+changes still require their final PR-head checks before merge; tag/publication remain pending.
+
+**APPROVED** in Plan Mode at candidate `bb67f207`, with the pending C7 documentation delta
+reviewed read-only. This was the final readiness gate, not another full-range source review.
+C7 evidence, targeted closure of R077C-01/02 and the user's acceptance of C6 runtime/cleanup limits
+support release readiness. R077CL-01 remains a non-blocking test-teardown follow-up.
+
+Preflight confirmed remote main at `669ca210`, 11 local commits ahead, no open PR or existing
+`v0.7.7` tag/release, and the four required signing-secret names present (values were not read).
+The existing PR/main workflow requires lint, host tests/migrations and debug assembly/release lint;
+iOS compilation is locally verified because its CI job remains disabled. The existing tag workflow
+gates signed APK publication on lint and host tests/migrations. No infrastructure change is needed.
+
+The user then explicitly approved the release plan in Build mode: commit the two pending docs,
+push `release/0.7.7`, open a PR, wait for successful required CI, merge and verify merge-revision CI,
+then tag the merge commit `v0.7.7`, monitor Release, and verify the published APK's version, checksum
+and signature without installing it. Publication and remote checks remain pending until evidenced;
+readiness approval alone is not a claim that publication or CI succeeded.
+
+### 0.7.7 C7 candidate verification and targeted closure (2026-10-15)
+
+**C7 passed** on clean candidate `bb67f207f0b5addc4d0be4b3a12fea3ceb434240`. The main
+agent executed this phase directly, without delegation or product-code changes. The user accepted
+the C6 runtime limits and retained fixture/cleanup exceptions below before requesting the commit.
+C6 is accepted **with those limits**, not evidence that every untested scenario passed.
+
+Candidate command (600-second hard timeout; output redirected, inspected separately):
+
+```text
+./gradlew testAndroidHostTest :core:database:verifySqlDelightMigration ktlintCheck :androidApp:assembleDebug :shared:compileKotlinIosSimulatorArm64 :core:network:compileKotlinIosSimulatorArm64 :androidApp:lintVitalRelease
+```
+
+- **BUILD SUCCESSFUL in 32s**, 839 actionable tasks (80 executed, 759 up-to-date).
+  Log: `/tmp/hf077-c7-candidate-matrix.log`.
+- Host XML results: **1,787 tests, zero failures/errors/skips**, across 196 result files, including
+  existing Koin graph and countdown-concurrency coverage. This was incremental verification;
+  up-to-date tests/migration/iOS tasks reused their valid prior outputs, not fresh executions.
+- Migration verification, ktlint, debug assembly, shared/network iOS simulator compilation and
+  **release-specific `lintVitalRelease` all passed**. Release lint is not the full Android Lint suite
+  or evidence of minified runtime behavior. No release APK was installed, tagged or published.
+- No emulator writes or repeated C6 journeys were needed for this unchanged candidate. The preceding
+  C6 evidence includes actual notification posting/tap with draft preservation, silent chronometer,
+  foreground message/haptic, process-death and forced-idle expiry, duration replacement/cancellation,
+  post-expiry reboot, dark/large-text rendering and English fallback under `th-TH`.
+
+**Targeted reviewer closure, performed separately in Plan Mode at `bb67f207`: APPROVED** for the
+two remaining findings, not a fresh full-range review:
+- **R077C-01 closed:** `AndroidRestCountdownCleanup.kt` reads/matches/removes the displayed identity
+  under the same `RestCountdownNotificationState` lock used by scheduler publication/removal. The
+  receiver resolves the existing singleton scheduler. Four host regressions pass; the controlled
+  interleaving negative control failed as expected (`/tmp/r077-break-check2.log`).
+- **R077C-02 closed:** architecture §1.16/§1.20 and affected mechanics references now describe
+  implemented countdown/foreground presentation and atomic cleanup, rather than unwired opt-ins.
+- **R077CL-01 remains a non-blocking minor, confirmed:**
+  `RestCountdownCleanupConcurrencyTest.kt:45–70` lacks failure-safe thread cleanup. An assertion
+  failure before releasing the latch leaves the cleanup thread waiting. Mechanical follow-up would
+  release it in `finally` and use bounded joins; no user-data impact. No fix was included in C7.
+
+**Remaining gates:** C8 final review/release gate is not performed by this candidate verification.
+The accepted API 24/25/future-alarm/live-reboot/permission-recreation coverage limits, disabled retained
+07:30 reminder time and closed empty test session remain recorded below. Candidate verification
+authorizes no commit, push, PR, tag or release; those follow their existing approval gates.
+
+### 0.7.7 C6 extended emulator acceptance and cleanup (2026-10-15)
+
+Continuation on the same running DEBUG `emulator-5554` (Android API 37). The user approved retained
+cancelled/archived fixture history, temporary permission/display/locale changes, process death,
+forced idle and reboot; removed the overall time budget, while per-command caps remained. Initial
+fixture steps used one sequential `ui-runner`; the main agent executed the remaining journeys
+directly. No production code changed during this continuation; the preceding **1,787-test Tier A
+matrix** remains the code verification baseline. This is not reviewer closure or blanket C6 approval.
+
+**Passed runtime checks:**
+- Saved and activated the dedicated `HF077-C6-20261015` routine, with one dated workout and three
+  synthetic working sets. Actual notification denial left countdown and completion off. An explicitly
+  approved `pm grant` then enabled countdown/completion/reminders independently. This is grant-state
+  coverage, not an Allow-button callback/recreation test.
+- Selected **07:30**, saved it, reopened the picker and verified 07/30 persisted. The current local
+  time was within the 60-minute window, so normal coordinator reconciliation delivered one active
+  `workout-reminders` notification, ID 700, naming the fixture. It survived reopening/Cancel. This
+  proves real OS posting on the late-deliver-now path, **not future AlarmManager firing** or historical
+  exactly-once delivery; one active record alone cannot establish historical enqueue count.
+- Enabled quiet hours and inspected start/end controls. Later restoration verified the preference
+  state. Quiet-hours suppression and alternate boundary choices remain host-test evidence.
+- Created a non-empty, **unsaved** setup-note draft, navigated to Settings, opened the real notification
+  shade and tapped the actual fixture notification. Logger became selected, the draft text remained,
+  and no session had started. Cancel then discarded only that test-created draft.
+- Live set completion posted silent ongoing countdown ID 601: channel `rest-countdown`,
+  `ONGOING_EVENT|ONLY_ALERT_ONCE`, `sound=null`, `vibrate=null`, countdown chronometer extras and an
+  approximately 90-second OS timeout. At deadline, `Rest complete` was semantically asserted and its
+  screenshot viewed; vibrator-manager history recorded one app haptic at 07:53:34.880 local. No
+  HydraFit notification remained after expiry; background rest alerts stayed off.
+- A second timer survived intentional **background process death** (`am kill`; `pidof` confirmed no
+  process), then disappeared through OS timeout without an app process. Bounded polling evidence:
+  `/tmp/hf077-full-process-cleanup.log`. Cold restoration after expiry did not show `Rest complete`.
+- A third timer's duration changed **90 → 180 seconds**; one ID 601 record had its replacement timeout
+  extended to about 146 seconds remaining. Forced deep idle was confirmed, and the notification
+  expired during it (`/tmp/hf077-full-idle-cleanup.log`). Idle was explicitly unforced. The same
+  emulator was then rebooted, boot completion checked and the app cold-launched. Post-boot Logger
+  retained fixture progress and did not replay `Rest complete`. Reboot happened **after expiry**, so
+  no claim is made about live countdown rehydration or future reminder alarm rearming across boot.
+- For cancellation/restoration, one known fixture set was deleted and re-logged through supported UI.
+  `Use global default` removed the test's exercise rest override (180 → 90), and `Dismiss prompt`
+  removed the live prompt and notification. All remaining fixture sets were subsequently deleted.
+- Dark mode with font scale **1.3** was captured and viewed: rest controls and explanatory text wrapped
+  without overlapping controls. A `th-TH` app-locale recreation showed the expected English fallback
+  (no translated resource directories exist); its screenshot was viewed. This is not translated-copy
+  coverage. Earlier real Android ICU locale/DST assertions remain valid separately.
+
+**Cleanup verified:**
+- Four original sets are **byte-for-byte equal as complete SQL row values** to the pre-fixture
+  snapshot; the original session row is preserved. SQLite quick check passed. Aggregate-only
+  comparison: `/tmp/hf077-full-preservation.log`; read-only copies stay outside the repository.
+- No active block or session, no HydraFit notification; Equipment selected in the viewed final
+  screenshot. The test routine is archived and its block cancelled. One **closed empty synthetic
+  session**, cancelled block/snapshots, archived routine and local delivery claim remain as test
+  history; no raw database cleanup or app-data clear was attempted.
+- Training-guidance and rest-preference tables exactly match the baseline: guided mode off, global
+  rest 120 seconds, exercise override removed, background alerts/coaching/countdown/completion off.
+  Reminder and quiet-hours switches are off; all reminder fields match baseline **except the chosen
+  time**, which remains **07:30 instead of unset**. Settings exposes no action to clear it to null;
+  exact restoration would need a separately settled supported reset/restore path. Reminders are off,
+  so the retained value schedules nothing. This is a cleanup limitation, not a silently accepted reset.
+- Notification permission and flags exactly match baseline: denied, only
+  `USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED`; no `USER_SET`/`USER_FIXED`. Font scale 1.0,
+  night mode no, app locales `[]`, forced idle false. No app fatal exception in the final crash buffer.
+
+**Evidence:** named `/tmp/hf077-full-*.yaml` flows and corresponding logs/output directories;
+`/tmp/hf077-full-real-tap.log`, `-live-notification.txt`, `-foreground-expiry.log`, `-vibrator.txt`,
+`-replaced-notifications.txt`, `-cancel-notifications.txt`, `-reboot.log`, `-final-package.txt`,
+`-final-idle.txt` and `-preservation.log`. Viewed screenshots include
+`/tmp/hf077-full-foreground-expiry/2026-10-15_075238/hf077-full-foreground-expiry/takeScreenshot/foreground-rest-complete.png`,
+`/tmp/hf077-full-dark-settings/2026-10-15_075632/hf077-full-dark-settings/takeScreenshot/dark-large-presentation.png`,
+`/tmp/hf077-full-thai.png`, and
+`/tmp/hf077-full-end-return/2026-10-15_081035/hf077-full-end-return/takeScreenshot/final-equipment-baseline.png`.
+Selector-only checkpoints stopped on off-screen Reps after exercise selection, a keyboard-hidden Log
+tab, and an unchecked-container matcher. Fresh hierarchy established each outcome before a targeted
+continuation; no uncertain set/save/delete write was replayed. No new app failure was confirmed.
+
+**C6 remains partial pending acceptance of limits/cleanup:** API 24/25 receiver delivery has no device
+runtime evidence; future reminder alarm firing, quiet-hour suppression on-device, live reboot rearming,
+Allow-callback recreation and exhaustive lifecycle/presentation combinations are not established.
+The retained time and empty fixture session are disclosed above. Reviewer closure/C7/C8 remain pending;
+no commit, push or new review was performed.
+
+### 0.7.7 closure corrections and partial C6 acceptance (2026-10-15)
+
+Builder verification over the uncommitted main-checkout delta at `2607a3b3`. The sequential coder
+implemented R077C-01/02; the main agent added the already-approved exact lateness-boundary assertions
+and authored the external C6 flows/harness. `ui-runner` executed the bounded emulator checks.
+This is implementation/runtime evidence, not a reviewer closure verdict.
+
+- **R077C-01:** countdown publication/removal and cleanup now share one monitor-owned critical
+  section, including displayed-identity read, match and cancellation. The receiver delegates to the
+  existing singleton scheduler. Four host tests cover the publication/cleanup interleaving,
+  stale identity, restart without in-memory identity, and early/wrong-boot suppression. The race
+  regression failed when the cleanup lock was temporarily removed, then passed after exact
+  restoration. Logs: `/tmp/r077-break-check2.log`, `/tmp/r077-closure-corrections.log`.
+- **R077C-02:** the stale architecture sentence claiming no rest-presentation wiring is corrected;
+  affected architecture/mechanics paragraphs describe the shared publication lock.
+- **Final full Tier A matrix passed:** `testAndroidHostTest` (**1,787 tests, zero failures/errors/skips**),
+  `:core:database:verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`,
+  `:shared:compileKotlinIosSimulatorArm64`, `:core:network:compileKotlinIosSimulatorArm64`.
+  Log: `/tmp/r077-c6-final-matrix.log`. The policy test now explicitly asserts delivery at exactly
+  60 minutes late and suppression one millisecond later, without changing production policy.
+- **C6 safe subset executed** on running `emulator-5554`, installed DEBUG
+  `0.7.6-dev-2607a3b3-dirty`. Session window: 2026-10-14 22:31:29–22:46:21 UTC (local October 15),
+  within the 30-minute budget; short flows used 120-second caps. Deployment log:
+  `/tmp/hf077-c6-deploy.log`. No phone, release APK, cloud upload, device clock/timezone change,
+  reboot, app-data clear or driver reinstall was used.
+- Settings semantics and viewed screenshots confirm default-off background alerts, short-rest
+  guidance, countdown, foreground completion and reminders. Foreground completion toggled on and
+  back off while notification permission remained denied and the other presentation switches stayed
+  off. Countdown and reminder switches each opened the actual permission dialog; Back cancelled
+  each request, left the preference off and showed the corresponding blocked message. This tests
+  cancellation, **not** an explicit Don't allow result or a permission grant. Permission remained
+  denied with its original flags and no `USER_SET`/`USER_FIXED` flags.
+- **Real Android ICU: nine installed-production assertions passed**, calling the installed APK's
+  resolver and civil-date helper through a separate `app_process`: ordinary UTC date, New York's
+  2026-03-08 skipped 02:30 → 03:00 EDT and 2026-11-01 repeated 01:30 → earlier EDT occurrence,
+  each under `en-US`, `th-TH` and `fa-IR`. Locale changes were process-local and restored, not
+  device settings. Log `/tmp/hf077-c6-icu.log`; harness `/tmp/Hf077IcuCheck.java`, compiled jar
+  `/tmp/hf077-icu.jar`, device scratch `/data/local/tmp/hf077-icu.jar`. This supersedes the earlier
+  prepared-but-unexecuted Kotlin harness and pending ICU/DST evidence below.
+- Two simulated warm `OPEN_TAB=LOG` intents were delivered to the existing MainActivity (confirmed
+  by Android's delivered-to-topmost-instance output), first from Settings and then while Logger was
+  already selected. Selected-tab assertions passed, the empty form was unchanged, and no session
+  started. These were **not actual notification taps**, and no non-empty draft was present or created.
+- **Cleanup/baseline:** Equipment selected again; completion opt-in restored off; all five
+  rest/reminder switches off; original notification permission/flags unchanged. Guided mode was off,
+  default rest 120 seconds, kilograms selected and AI sharing off at baseline. No routine, block,
+  session or set fixture was written; no active block/session or routine existed in the inspected
+  state. No app fatal exception was found in the bounded crash-log inspection.
+- One read-only flow assertion initially failed because it used `containsChild` for a nested nav
+  label. The one evidence-backed correction used the checked-in `containsDescendants` pattern;
+  fresh hierarchy proved the first tap had reached Settings, so no write or tap was blindly replayed.
+- Viewed screenshots include countdown feedback
+  `/tmp/hf077-c6-permission-cancel/2026-10-15_003952/hf077-c6-countdown-permission-cancel/takeScreenshot/countdown-request-cancelled.png`,
+  reminder feedback `/tmp/hf077-c6-reminder-cancel/2026-10-15_004538/hf077-c6-reminder-request-cancel/takeScreenshot/reminder-request-cancelled.png`,
+  Logger routing `/tmp/hf077-c6-routing-after/2026-10-15_004329/hf077-c6-log-intent-assert/takeScreenshot/logger-after-intent.png`,
+  and final Equipment `/tmp/hf077-c6-final/2026-10-15_004606/hf077-c6-return-equipment/takeScreenshot/restored-equipment.png`.
+- **C6 remains PARTIAL:** live timer/chronometer, foreground snackbar/haptic, process-death cleanup,
+  actual notification taps, non-empty draft preservation, reminder firing, grant-enabled time/quiet
+  controls, lifecycle/recreation, dark/larger-text/localization and Doze/reboot acceptance are not
+  established. There was no active block or routine. A block fixture was not created because
+  `DeleteRoutineTemplateUseCase` prevents deletion of any activated routine, so the approved
+  delete-fixtures cleanup cannot be fulfilled through supported UI; cancelled/archived fixture
+  history would require a separate cleanup decision. Permission grants/system-setting changes were
+  not used to manufacture preconditions. Reviewer closure and remaining C6 checks are still pending.
+- No commit or push. Source worktrees remain retained as evidence; all implementation is in main.
+
+### 0.7.7 R077-01–07 corrective integration (2026-10-15)
+
+Builder verification of the seven approved C1–C5 review corrections. Implementation owner:
+one coder per finding; the parent coordinated integration and consolidated this evidence.
+The final combined state is the uncommitted main-checkout delta over `2607a3b3`.
+All isolated implementation changes have been transferred; no fix remains only in a worktree.
+Integration consistency checks found all 27 non-overlapping implementation/test/resource transfers
+byte-identical to their source worktrees, with no missing or unexpected paths in the 40-path combined
+delta. The reminder coordinator/tests deliberately combine R077-01 and R077-02; shared documentation
+was merged rather than replaced. `git diff --check` passed. Source worktrees are retained as evidence.
+
+- Full Tier A matrix passed: `testAndroidHostTest` (**1,783 tests, zero failures/errors/skips**),
+  `:core:database:verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`,
+  `:shared:compileKotlinIosSimulatorArm64`, `:core:network:compileKotlinIosSimulatorArm64`.
+  Log: `/tmp/r077-integrated-matrix.log`. Changed database/routines Koin graphs passed in the
+  combined host suite. Sequential integration logs are `/tmp/r077-02-integrated-checks.log` and
+  `/tmp/r077-04-integrated-checks.log` through `/tmp/r077-07-integrated-checks.log`.
+- **R077-01:** the last dated day's posted summary survives subsequent reconciliation while its
+  spent alarm is cancelled. Tests distinguish pending alarms from displayed notifications;
+  explicit disabling and loss of the active block still clear the summary.
+- **R077-02:** a shared `WorkoutReminderDeliveryGate` serializes relevant schedule mutations,
+  reminder-preference writes and whole-backup restore against snapshot validation and final
+  delivery. Host tests cover stale-token rejection, failed mutations, restore/ledger clearing,
+  real writes waiting for a suspended posting section, at-most-once claims and shared DI identity.
+  This orders database writes against posting, not the OS's eventual notification display.
+- **R077-03:** Android local-minute resolution explicitly uses a Gregorian calendar while retaining
+  the earlier-repeat/next-valid-gap policy. Android compilation passed; real ICU locale/DST behavior
+  is **not verified**. `/tmp/r077-03-icu-check.kt` is a prepared, unexecuted device-side harness for
+  `en-US`, `th-TH`, `fa-IR`, UTC and New York's 2026 spring/fall transitions.
+- **R077-04:** countdown notifications now use an OS timeout on API 26+ and a separate,
+  identity-checked best-effort inexact cleanup alarm on API 24/25. Six pure-helper tests cover
+  expiry and stale identity/boot checks. This supersedes the C5 implementation's process-local-only
+  cleanup limitation below; actual timeout/alarm delivery after process death remains unverified.
+- **R077-05:** countdown-only enablement requests notification permission; denial leaves the
+  preference off with countdown-specific feedback. Tests cover grant/denial independence,
+  original-target routing and ignored duplicate/pending callbacks. Foreground completion remains
+  permission-independent. Actual permission-dialog/recreation behavior needs C6.
+- **R077-06:** a live countdown retains its deadline job across unrelated emissions, including
+  after its deadline but before queued completion runs. The regression test failed with retention
+  temporarily disabled (`/tmp/r077-06-break.log`); the exact change was restored and the combined
+  Logger suite passed (414 tests). Context invalidation and expired-enable/restore suppression
+  also pass host assertions.
+- **R077-07:** pre-12 backups carrying either non-default rest-presentation opt-in are rejected
+  with `INVALID_VALUE` before staging. Tests cover both flags, versions 6/11, legacy missing/false
+  compatibility, v12 true round trips and no staged write on rejection.
+- **Still pending:** requested source/closure review (requires Plan Mode), C6 emulator/visual and
+  lifecycle acceptance, notification taps/draft preservation, actual OS alarm/timeout delivery,
+  locale/DST ICU execution, Doze/reboot behavior and the exact 60-minute boundary assertion.
+  No emulator inspection, fixture mutation, screenshot or phone access occurred for these fixes.
+  Host/build verification is not a review verdict or C6 acceptance.
+- No schema, backup-format, dependency, module, signing or CI change. No commit or push.
+
+### 0.7.7 C4–C5 controls, navigation and rest presentation (2026-10-14)
+
+Builder verification at the C5 boundary (implementation owner: main agent; no formal review).
+C4 is committed as `c46b18b0`, `d7225940`, `d292496a`; C5 verification covers their consumers
+and the uncommitted C5 implementation before its boundary commit.
+
+- Full Tier A matrix passed: `testAndroidHostTest` (**1,741 tests, zero failures/errors/skips**),
+  `:core:database:verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`,
+  `:shared:compileKotlinIosSimulatorArm64`, `:core:network:compileKotlinIosSimulatorArm64`.
+  Log: `/tmp/c5-matrix.log`. Earlier targeted C5 checks: `/tmp/c5-checks.log`.
+- Host assertions cover reminder denial/enable, time/quiet preference writes, delivery invalidation
+  after permission change, tab-name resolution and no tab change for an already-visible Logger;
+  independent rest switches; countdown show/disable/expiry/context removal without background
+  alarms; one foreground completion under timer/receiver contention; no foreground replay after
+  expired resume, expired restore or enabling after expiry; context/opt-in invalidation; and a
+  suspended system callback serialized against the foreground timer. Existing alarm timing fallback,
+  persisted-countdown producers/restoration and migration/backup tests remain passing.
+- Changed Koin graphs passed, including runtime resolution of reminder Settings, the rest-alert
+  coordinator and its new completion-presentation singleton.
+- **C6 remains pending:** no emulator inspection, mutation, screenshot or synthetic fixture was
+  performed for C4/C5. The Settings layout and permission journey, actual notification taps and
+  draft preservation, chronometer rendering, expiry/process-death cleanup, snackbar/haptic delivery,
+  real lifecycle transitions and OS exact/inexact delivery have not been runtime-verified. Device ICU
+  DST resolution, Doze/reboot behavior, light/dark/larger-text and localization acceptance are also
+  unverified. In particular the countdown removal job is process-local; no OS process-death cleanup
+  guarantee is claimed. C5 implementation/host verification is complete, not C6 visual acceptance.
+- No dependency, schema, backup-format, module, signing or CI change. No push or review included.
+
+### 0.7.7 C3 Android reminder delivery (2026-10-14)
+
+Builder verification of the approved C3 slice: the reminder delivery seam, ledger, app-lifetime
+coordinator and Android adapter. Host-verifiable behavior is covered; OS delivery and the zone
+transition resolution are not claimed here.
+
+- Chunk checks (all green): `:core:domain:testAndroidHostTest`, `:core:database:testAndroidHostTest`
+  (including `SqlDelightReminderDeliveryRepositoryTest`), `:feature:routines:testAndroidHostTest`,
+  `:shared:testAndroidHostTest` (the routines graph test now resolves `WorkoutReminderCoordinator`
+  with fake reminder ports and a not-ready startup gate) and
+  `:core:database:DatabaseModuleVerificationTest` (`ReminderDeliveryRepository` resolved at runtime).
+- Full matrix on the chunk revision: `testAndroidHostTest` (1,726 tests, zero
+  failures/errors/skips), `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
+  `:core:network:compileKotlinIosSimulatorArm64`. Log: `/tmp/c3-matrix.log` (the ktlint and shared
+  lint re-runs are in `/tmp/c3-lint.log`, `/tmp/c3-lint-shared.log`).
+- Merged debug manifest inspected: `RECEIVE_BOOT_COMPLETED` plus a non-exported
+  `WorkoutReminderReceiver` filtered on `BOOT_COMPLETED`, `TIME_SET` and `TIMEZONE_CHANGED`. No new
+  exact-alarm permission; `POST_NOTIFICATIONS` and `SCHEDULE_EXACT_ALARM` are unchanged from the
+  Logger module.
+- Covered by host tests: today-only pending dated occurrences, one summary per block and local day,
+  arming today's instant while it is ahead, arming the next dated day after delivery, undated
+  (sequence) blocks and reminders-off silence, quiet-hours skip, no claim or post without
+  notification permission, an already-claimed day not posting twice, a failed post releasing the
+  claim for a later retry, and a pass whose occurrence read was superseded by a finished workout
+  posting nothing. The ledger claim, its per-day uniqueness, release and week-bounded pruning are
+  covered against a real SQLite driver.
+- **Unverified and not claimed:** OS alarm delivery and Doze/inexact batching (the 60-minute bound can
+  discard a delayed reminder), the `android.icu` gap/overlap resolution for a real device zone
+  (`android.icu` is stubbed in Android host tests and `:feature:routines` has no Robolectric
+  dependency, so this needs bounded emulator acceptance), notification presentation and the tap
+  target's Logger routing (C4), the Settings controls and notification-permission request (C4), and
+  rest presentation (C5). iOS binds `UnsupportedWorkoutReminderScheduler`.
+- No emulator interaction was performed for this chunk; no commit or push is included.
+
 ### 0.7.6 C3 onboarding registration, startup entry and revisit shell (2026-10-14)
 
 Builder verification of the approved C3 slice: `:feature:onboarding` is registered in the shell,

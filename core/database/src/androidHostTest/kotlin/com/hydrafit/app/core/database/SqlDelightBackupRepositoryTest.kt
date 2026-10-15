@@ -7,6 +7,7 @@ import com.hydrafit.app.core.domain.backup.BackupValidator
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.settings.WorkoutReminderPreferences
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.unicodeCaseFold
 import kotlin.test.AfterTest
@@ -85,6 +86,16 @@ class SqlDelightBackupRepositoryTest {
         val restPreferences = SqlDelightRestPreferenceRepository(database)
         restPreferences.setGlobalDefaultSeconds(180L)
         restPreferences.setExerciseOverrideSeconds("back-squat", 240L)
+        SqlDelightTrainingGuidancePreferenceRepository(database).apply {
+            setRestCountdownEnabled(true)
+            setRestCompletionSignalEnabled(true)
+        }
+        SqlDelightWorkoutReminderPreferenceRepository(database).apply {
+            setEnabled(true)
+            setReminderMinuteOfDay(390)
+            setQuietHoursEnabled(true)
+            setQuietHours(1320, 360)
+        }
 
         val file = repository.export(appVersion = "0.5.0-dev", exportedAtMillis = 99L)
 
@@ -146,6 +157,53 @@ class SqlDelightBackupRepositoryTest {
             listOf("back-squat" to "Set up tall", "barbell-bench-press" to ""),
             file.exerciseNotes.map { it.exerciseId to it.note }
         )
+        assertEquals(true, file.trainingGuidance.restCountdownEnabled)
+        assertEquals(true, file.trainingGuidance.restCompletionSignalEnabled)
+        assertEquals(true, file.workoutReminders?.remindersEnabled)
+        assertEquals(390, file.workoutReminders?.reminderMinuteOfDay)
+        assertEquals(true, file.workoutReminders?.quietHoursEnabled)
+        assertEquals(1320, file.workoutReminders?.quietStartMinuteOfDay)
+        assertEquals(360, file.workoutReminders?.quietEndMinuteOfDay)
+    }
+
+    @Test
+    fun reminderPreferencesRoundTripAndALegacyPayloadClearsThem() = runTest {
+        seedRepresentativeData()
+        val reminders = SqlDelightWorkoutReminderPreferenceRepository(database)
+        val guidance = SqlDelightTrainingGuidancePreferenceRepository(database)
+        reminders.setEnabled(true)
+        reminders.setReminderMinuteOfDay(390)
+        reminders.setQuietHoursEnabled(true)
+        reminders.setQuietHours(1320, 360)
+        guidance.setRestCountdownEnabled(true)
+        guidance.setRestCompletionSignalEnabled(true)
+
+        val exported = repository.export(appVersion = "t", exportedAtMillis = 1L)
+
+        // A payload from before format 12 carries no reminder section, so restore resets them.
+        repository.restore(
+            exported.copy(
+                formatVersion = 11,
+                workoutReminders = null,
+                trainingGuidance = exported.trainingGuidance.copy(
+                    restCountdownEnabled = false,
+                    restCompletionSignalEnabled = false
+                )
+            )
+        )
+
+        assertEquals(WorkoutReminderPreferences(), reminders.get())
+        assertEquals(false, guidance.get().restCountdownEnabled)
+        assertEquals(false, guidance.get().restCompletionSignalEnabled)
+
+        repository.restore(exported)
+
+        assertEquals(390, reminders.get().reminderMinuteOfDay)
+        assertEquals(true, reminders.get().remindersEnabled)
+        assertEquals(true, reminders.get().quietHoursEnabled)
+        assertEquals(1320, reminders.get().quietStartMinuteOfDay)
+        assertEquals(true, guidance.get().restCountdownEnabled)
+        assertEquals(true, guidance.get().restCompletionSignalEnabled)
     }
 
     @Test

@@ -41,6 +41,9 @@
     <string name="logger_session_none">No active session</string>
     <string name="logger_session_recorded">Recorded session</string>
     <string name="logger_rest_alert_channel">Rest prompts</string>
+    <string name="logger_rest_countdown_channel">Rest countdown</string>
+    <string name="logger_rest_countdown_title">Rest time remaining</string>
+    <string name="logger_rest_complete">Rest complete</string>
     <string name="logger_rest_alert_title">Rest prompt ended</string>
     <string name="logger_rest_alert_body">Your chosen rest time has elapsed. Continue when ready.</string>
     <string name="logger_short_rest_coaching">For %1$s, your last two live rest intervals were shorter than the rest time you chose. Consider resting longer if useful; this is guidance, not a recovery measurement.</string>

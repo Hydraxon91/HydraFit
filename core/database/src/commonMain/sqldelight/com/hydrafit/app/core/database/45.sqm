@@ -1,0 +1,24 @@
+-- Two optional rest-presentation signals join the existing default-off guidance opt-ins. They are
+-- added without a CHECK constraint, matching how earlier columns joined a created table.
+ALTER TABLE trainingGuidancePreference ADD COLUMN restCountdownEnabled INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE trainingGuidancePreference ADD COLUMN restCompletionSignalEnabled INTEGER NOT NULL DEFAULT 0;
+
+-- Opt-in workout reminders. A null reminderMinuteOfDay means no local time has been chosen yet, so
+-- enabling reminders cannot silently invent one. Quiet hours default to 21:00-07:00 local.
+CREATE TABLE workoutReminderPreference (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    remindersEnabled INTEGER NOT NULL DEFAULT 0 CHECK (remindersEnabled IN (0, 1)),
+    reminderMinuteOfDay INTEGER CHECK (reminderMinuteOfDay IS NULL OR (reminderMinuteOfDay BETWEEN 0 AND 1439)),
+    quietHoursEnabled INTEGER NOT NULL DEFAULT 0 CHECK (quietHoursEnabled IN (0, 1)),
+    quietStartMinuteOfDay INTEGER NOT NULL DEFAULT 1260 CHECK (quietStartMinuteOfDay BETWEEN 0 AND 1439),
+    quietEndMinuteOfDay INTEGER NOT NULL DEFAULT 420 CHECK (quietEndMinuteOfDay BETWEEN 0 AND 1439)
+);
+
+-- Device-local duplicate suppression: one posted reminder per block per local day. Excluded from
+-- backups because delivery history belongs to this install and this schedule.
+CREATE TABLE reminderDelivery (
+    activationId INTEGER NOT NULL,
+    reminderEpochDay INTEGER NOT NULL,
+    deliveredAtMillis INTEGER NOT NULL,
+    PRIMARY KEY (activationId, reminderEpochDay)
+);

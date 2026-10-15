@@ -57,6 +57,7 @@ import com.hydrafit.app.core.domain.schedule.MoveWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementRepository
 import com.hydrafit.app.core.domain.schedule.PreviewWorkoutScheduleUseCase
+import com.hydrafit.app.core.domain.schedule.ReminderDeliveryRepository
 import com.hydrafit.app.core.domain.schedule.RepeatTrainingBlockUseCase
 import com.hydrafit.app.core.domain.schedule.ReplaceOccurrenceExerciseUseCase
 import com.hydrafit.app.core.domain.schedule.SelectWorkoutOccurrenceUseCase
@@ -64,14 +65,19 @@ import com.hydrafit.app.core.domain.schedule.SkipWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.StartWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.SwitchScheduleModeUseCase
 import com.hydrafit.app.core.domain.schedule.TrainingActivation
+import com.hydrafit.app.core.domain.schedule.UnsupportedWorkoutReminderScheduler
 import com.hydrafit.app.core.domain.schedule.WorkoutLoggingActions
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
+import com.hydrafit.app.core.domain.schedule.WorkoutReminderDeliveryGate
+import com.hydrafit.app.core.domain.schedule.WorkoutReminderScheduler
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleActions
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.settings.RestPreferenceRepository
 import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferenceRepository
 import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferences
+import com.hydrafit.app.core.domain.settings.WorkoutReminderPreferenceRepository
+import com.hydrafit.app.core.domain.settings.WorkoutReminderPreferences
 import com.hydrafit.app.core.domain.setup.SetupCommit
 import com.hydrafit.app.core.domain.setup.SetupState
 import com.hydrafit.app.core.domain.setup.SetupWriteRepository
@@ -140,11 +146,13 @@ import com.hydrafit.app.feature.onboarding.OnboardingEntryViewModel
 import com.hydrafit.app.feature.onboarding.OnboardingViewModel
 import com.hydrafit.app.feature.onboarding.onboardingModule
 import com.hydrafit.app.feature.routines.RoutinesViewModel
+import com.hydrafit.app.feature.routines.WorkoutReminderCoordinator
 import com.hydrafit.app.feature.routines.routinesModule
 import com.hydrafit.app.feature.settings.AcknowledgmentsViewModel
 import com.hydrafit.app.feature.settings.BackupViewModel
 import com.hydrafit.app.feature.settings.SettingsViewModel
 import com.hydrafit.app.feature.settings.TrainingGuidanceSettingsViewModel
+import com.hydrafit.app.feature.settings.WorkoutReminderSettingsViewModel
 import com.hydrafit.app.feature.settings.settingsModule
 import com.hydrafit.app.feature.splitbuilder.splitBuilderModule
 import kotlin.test.Test
@@ -179,6 +187,7 @@ class KoinModulesVerificationTest {
         single<OnDevicePlannerLogger> { NoopOnDevicePlannerLogger }
         single<BackupFileStore> { UnsupportedBackupFileStore() }
         single<RestAlertScheduler> { UnsupportedRestAlertScheduler() }
+        single<WorkoutReminderScheduler> { UnsupportedWorkoutReminderScheduler() }
         single<OccurrenceReplacementRepository> {
             object : OccurrenceReplacementRepository {
                 override suspend fun replaceUntouchedEntry(
@@ -366,6 +375,47 @@ class KoinModulesVerificationTest {
     }
 
     /**
+     * The reminder ViewModel is a lambda `viewModel { }`, so resolve it over `settingsModule` with a
+     * fake preference repository and the test platform module's scheduler binding.
+     */
+    @Test
+    fun theWorkoutReminderSettingsViewModelResolvesAtRuntime() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        val koin = koinApplication {
+            modules(
+                module {
+                    single<WorkoutReminderPreferenceRepository> { FakeWorkoutReminderPreferences }
+                },
+                settingsModule,
+                testPlatformModule
+            )
+        }.koin
+
+        try {
+            assertNotNull(koin.get<WorkoutReminderSettingsViewModel>())
+            advanceUntilIdle()
+        } finally {
+            koin.close()
+            Dispatchers.resetMain()
+        }
+    }
+
+    private object FakeWorkoutReminderPreferences : WorkoutReminderPreferenceRepository {
+        override fun observe() = flowOf(WorkoutReminderPreferences())
+
+        override suspend fun get() = WorkoutReminderPreferences()
+
+        override suspend fun setEnabled(enabled: Boolean) = Unit
+
+        override suspend fun setReminderMinuteOfDay(minuteOfDay: Int?) = Unit
+
+        override suspend fun setQuietHoursEnabled(enabled: Boolean) = Unit
+
+        override suspend fun setQuietHours(startMinuteOfDay: Int, endMinuteOfDay: Int) = Unit
+    }
+
+    /**
      * The preference ViewModel is registered with a lambda `viewModel { }`, which `verify()` cannot
      * reflect, so resolve it to prove its constructor `get()` chain. The repositories it depends on
      * are proved against the real databaseModule in `DatabaseModuleVerificationTest`.
@@ -448,8 +498,9 @@ class KoinModulesVerificationTest {
     }
 
     /**
-     * The routines ViewModel is a lambda `viewModel { }` with a real constructor `get()` chain, so
-     * resolve it over `routinesModule` + `domainModule` with fake repositories.
+     * The routines ViewModel and its eager reminder coordinator are lambda definitions with a real
+     * constructor `get()` chain, so resolve them over `routinesModule` + `domainModule` with fake
+     * repositories. Startup readiness stays false so the coordinator only proves construction.
      */
     @Test
     fun theRoutinesViewModelResolvesAtRuntime() {
@@ -467,6 +518,49 @@ class KoinModulesVerificationTest {
                     single<WeightUnitRepository> { FakeWeightUnitRepository }
                     single<ExerciseExclusionRepository> { FakeExerciseExclusionRepository }
                     single<PreferredWeekdaysRepository> { FakePreferredWeekdaysRepository }
+                    single { WorkoutReminderDeliveryGate() }
+                    single<WorkoutReminderPreferenceRepository> {
+                        object : WorkoutReminderPreferenceRepository {
+                            override fun observe() = flowOf(WorkoutReminderPreferences())
+
+                            override suspend fun get() = WorkoutReminderPreferences()
+
+                            override suspend fun setEnabled(enabled: Boolean) = Unit
+
+                            override suspend fun setReminderMinuteOfDay(minuteOfDay: Int?) = Unit
+
+                            override suspend fun setQuietHoursEnabled(enabled: Boolean) = Unit
+
+                            override suspend fun setQuietHours(
+                                startMinuteOfDay: Int,
+                                endMinuteOfDay: Int
+                            ) = Unit
+                        }
+                    }
+                    single<ReminderDeliveryRepository> {
+                        object : ReminderDeliveryRepository {
+                            override suspend fun isDelivered(
+                                activationId: Long,
+                                reminderEpochDay: Long
+                            ) = false
+
+                            override suspend fun claim(
+                                activationId: Long,
+                                reminderEpochDay: Long,
+                                deliveredAtMillis: Long
+                            ) = false
+
+                            override suspend fun release(
+                                activationId: Long,
+                                reminderEpochDay: Long
+                            ) = Unit
+                        }
+                    }
+                    single<StartupReadiness> {
+                        object : StartupReadiness {
+                            override val isReady = MutableStateFlow(false)
+                        }
+                    }
                 },
                 domainModule,
                 routinesModule,
@@ -476,6 +570,7 @@ class KoinModulesVerificationTest {
 
         try {
             assertNotNull(koin.get<RoutinesViewModel>())
+            assertNotNull(koin.get<WorkoutReminderCoordinator>())
         } finally {
             koin.close()
         }
@@ -605,6 +700,7 @@ class KoinModulesVerificationTest {
             val replacement = koin.get<OccurrenceReplacementViewModel>()
             replacement.open(999L, 999L)
             assertNotNull(koin.get<com.hydrafit.app.feature.logger.RestAlertCoordinator>())
+            assertNotNull(koin.get<com.hydrafit.app.feature.logger.RestCompletionPresentation>())
             advanceUntilIdle()
             assertNotNull(replacement.state.value.failure)
             replacement.dismiss()
@@ -699,6 +795,8 @@ class KoinModulesVerificationTest {
         override suspend fun get() = TrainingGuidancePreferences()
         override suspend fun setRestAlertsEnabled(enabled: Boolean) = Unit
         override suspend fun setShortRestCoachingEnabled(enabled: Boolean) = Unit
+        override suspend fun setRestCountdownEnabled(enabled: Boolean) = Unit
+        override suspend fun setRestCompletionSignalEnabled(enabled: Boolean) = Unit
     }
 
     private object FakeOnDeviceTextGenerator : OnDeviceTextGenerator {

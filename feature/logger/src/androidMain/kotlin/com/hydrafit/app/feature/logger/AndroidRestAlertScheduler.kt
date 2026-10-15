@@ -24,11 +24,15 @@ import com.hydrafit.app.core.domain.workout.RestAlertTiming
 import com.hydrafit.app.core.domain.workout.RestCountdownRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
 import com.hydrafit.app.core.domain.workout.isRestAlertEligible
+import com.hydrafit.app.core.navigation.AppTab
+import com.hydrafit.app.core.navigation.OPEN_TAB_EXTRA
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.logger_rest_alert_body
 import hydrafit.feature.logger.generated.resources.logger_rest_alert_channel
 import hydrafit.feature.logger.generated.resources.logger_rest_alert_title
+import hydrafit.feature.logger.generated.resources.logger_rest_countdown_channel
+import hydrafit.feature.logger.generated.resources.logger_rest_countdown_title
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -46,6 +50,8 @@ class AndroidRestAlertScheduler(context: Context) : RestAlertScheduler {
     private val notifications = this.context.getSystemService(NotificationManager::class.java)
     private val deliveryLock = Any()
     private var deliveryRevision = 0L
+    private var countdownRevision = 0L
+    private val countdownNotificationState = RestCountdownNotificationState()
     private val _timing = MutableStateFlow(currentTiming())
     override val timing = _timing.asStateFlow()
 
@@ -108,6 +114,99 @@ class AndroidRestAlertScheduler(context: Context) : RestAlertScheduler {
         }
     }
 
+    override suspend fun showCountdown(countdown: PersistedRestCountdown?) {
+        val revision = synchronized(deliveryLock) {
+            countdownRevision++
+            countdownNotificationState.withPublicationLock {
+                notifications.cancel(COUNTDOWN_NOTIFICATION_ID)
+            }
+            cancelCountdownCleanup(alarms, context)
+            countdownRevision
+        }
+        if (countdown == null || !canNotify()) return
+        val channelName = getString(Res.string.logger_rest_countdown_channel)
+        val title = getString(Res.string.logger_rest_countdown_title)
+        synchronized(deliveryLock) {
+            val remaining = countdown.deadlineElapsedMillis - SystemClock.elapsedRealtime()
+            if (revision != countdownRevision || remaining <= 0L || !canNotify()) return
+            if (Build.VERSION.SDK_INT >= 26) {
+                notifications.createNotificationChannel(
+                    NotificationChannel(
+                        COUNTDOWN_CHANNEL_ID,
+                        channelName,
+                        NotificationManager.IMPORTANCE_LOW
+                    ).apply {
+                        setSound(null, null)
+                        enableVibration(false)
+                    }
+                )
+            }
+            val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                ?.apply {
+                    putExtra(OPEN_TAB_EXTRA, AppTab.LOG.name)
+                    addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    )
+                } ?: return
+            val identity = countdown.notificationIdentity()
+            val builder = if (Build.VERSION.SDK_INT >= 26) {
+                Notification.Builder(context, COUNTDOWN_CHANNEL_ID)
+            } else {
+                Notification.Builder(context).setPriority(Notification.PRIORITY_LOW)
+            }
+            val configured = builder.setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setContentTitle(title)
+                .setWhen(System.currentTimeMillis() + remaining)
+                .setUsesChronometer(true)
+                .setChronometerCountDown(true)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setSound(null)
+                .setVibrate(null)
+                .addExtras(countdownIdentityExtras(identity))
+                .setContentIntent(
+                    PendingIntent.getActivity(
+                        context,
+                        0,
+                        launch,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                )
+            if (Build.VERSION.SDK_INT >= 26) {
+                // The OS still removes the silent notification if the process dies, without an alarm.
+                configured.setTimeoutAfter(remaining)
+            }
+            val notification = configured.build()
+            countdownNotificationState.withPublicationLock {
+                notifications.notify(COUNTDOWN_NOTIFICATION_ID, notification)
+            }
+            if (Build.VERSION.SDK_INT < 26) {
+                scheduleCountdownCleanup(alarms, context, identity)
+            }
+        }
+    }
+
+    /**
+     * Removes the displayed countdown only if it is still [expected] on the same boot after its
+     * deadline. The shared publication lock spans the read, the match and the removal, so a post or
+     * clear that races this delivery cannot be overtaken.
+     */
+    fun cleanupCountdown(
+        expected: RestCountdownNotificationIdentity,
+        currentBootIdentity: String?,
+        elapsedNowMillis: Long
+    ) {
+        countdownNotificationState.cleanup(
+            expected = expected,
+            currentBootIdentity = currentBootIdentity,
+            elapsedNowMillis = elapsedNowMillis,
+            displayed = { displayedCountdownIdentity(notifications) },
+            remove = { notifications.cancel(COUNTDOWN_NOTIFICATION_ID) }
+        )
+    }
+
     suspend fun notifyRestEnded(expectedRevision: Long) {
         if (!canNotify()) return
         val channelName = getString(Res.string.logger_rest_alert_channel)
@@ -125,6 +224,14 @@ class AndroidRestAlertScheduler(context: Context) : RestAlertScheduler {
                 )
             }
             val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                ?.apply {
+                    putExtra(OPEN_TAB_EXTRA, AppTab.LOG.name)
+                    addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    )
+                }
                 ?: return
             val builder = if (Build.VERSION.SDK_INT >= 26) {
                 Notification.Builder(context, CHANNEL_ID)
@@ -169,6 +276,7 @@ class AndroidRestAlertScheduler(context: Context) : RestAlertScheduler {
     private companion object {
         const val CHANNEL_ID = "rest-prompts"
         const val NOTIFICATION_ID = 600
+        const val COUNTDOWN_CHANNEL_ID = "rest-countdown"
     }
 }
 
@@ -262,13 +370,22 @@ class RestAlertReceiver :
                             alarm = alarm,
                             bootIdentity = get<BootIdentityProvider>().currentBootIdentity(),
                             elapsedNowMillis = elapsedRealtimeMillis(),
-                            enabled = preferences.restAlertsEnabled,
+                            enabled = preferences.restAlertsEnabled ||
+                                preferences.restCompletionSignalEnabled,
                             guidedEnabled = guided,
                             openSessionId = get<WorkoutSessionRepository>().open()?.id,
                             activeOccurrenceId = validOccurrence?.id
                         )
                     ) {
-                        scheduler.notifyRestEnded(deliveryRevision)
+                        get<RestCompletionPresentation>().complete(
+                            alarm,
+                            foregroundEnabled = preferences.restCompletionSignalEnabled,
+                            background = if (preferences.restAlertsEnabled) {
+                                { scheduler.notifyRestEnded(deliveryRevision) }
+                            } else {
+                                null
+                            }
+                        )
                     }
                 }
             } finally {

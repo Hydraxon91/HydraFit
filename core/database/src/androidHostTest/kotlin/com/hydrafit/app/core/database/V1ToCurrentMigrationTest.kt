@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.db.SqlDriver
+import com.hydrafit.app.core.domain.settings.WorkoutReminderPreferences
 import com.hydrafit.app.core.domain.workout.PersistedRestCountdown
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -97,6 +98,22 @@ class V1ToCurrentMigrationTest {
         guidance.setShortRestCoachingEnabled(true)
         assertEquals(true, guidance.get().restAlertsEnabled)
         assertEquals(true, guidance.get().shortRestCoachingEnabled)
+        // 45.sqm adds the two rest-presentation opt-ins; an upgraded row defaults both off.
+        assertEquals(false, guidance.get().restCountdownEnabled)
+        assertEquals(false, guidance.get().restCompletionSignalEnabled)
+        guidance.setRestCountdownEnabled(true)
+        guidance.setRestCompletionSignalEnabled(true)
+        assertEquals(true, guidance.get().restCountdownEnabled)
+        assertEquals(true, guidance.get().restCompletionSignalEnabled)
+
+        // 45.sqm also adds the reminder preferences and the device-local delivery table.
+        val reminders = SqlDelightWorkoutReminderPreferenceRepository(database)
+        assertEquals(WorkoutReminderPreferences(), reminders.get())
+        reminders.setEnabled(true)
+        reminders.setReminderMinuteOfDay(390)
+        assertEquals(390, reminders.get().reminderMinuteOfDay)
+        assertEquals(true, reminders.get().remindersEnabled)
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "reminderDelivery"))
 
         // 40.sqm adds persistent per-exercise setup notes; the migrated table starts empty.
         val exerciseNotes = SqlDelightExerciseNoteRepository(database)

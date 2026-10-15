@@ -15,6 +15,9 @@ interface RestAlertScheduler {
     suspend fun schedule(countdown: PersistedRestCountdown)
 
     fun cancel()
+
+    /** Silent ongoing presentation, independent of completion-alert opt-in and alarm timing. */
+    suspend fun showCountdown(countdown: PersistedRestCountdown?) = Unit
 }
 
 class UnsupportedRestAlertScheduler : RestAlertScheduler {

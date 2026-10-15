@@ -6,6 +6,7 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val loggerModule: Module = module {
+    single { RestCompletionPresentation() }
     single(createdAtStart = true) {
         RestAlertCoordinator(
             get(),
@@ -15,7 +16,8 @@ val loggerModule: Module = module {
             get(),
             get(),
             get(),
-            get()
+            get(),
+            completion = get()
         ).also { it.start() }
     }.factory.beanDefinition.onClose { it?.close() }
     single {

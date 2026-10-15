@@ -58,3 +58,20 @@ alarm reconciliation, not unrelated actions. Android binds the alarm/notificatio
 `UnsupportedRestAlertScheduler`. Settings registers `TrainingGuidanceSettingsViewModel`. Runtime
 graph tests resolve these additions; Android Context/permission/receiver delivery remains platform
 verification, not a host-test claim.
+
+`databaseModule` also binds `ReminderDeliveryRepository` and the process-local
+`WorkoutReminderDeliveryGate`, one shared instance injected into `SqlDelightWorkoutScheduleRepository`,
+`SqlDelightWorkoutReminderPreferenceRepository`, `SqlDelightBackupRepository` and the coordinator so
+their writes and the posting path serialize on the same gate. `routinesModule` registers the eager,
+closeable `WorkoutReminderCoordinator` for app-lifetime reminder reconciliation; Android binds
+`AndroidWorkoutReminderScheduler` (alarm plus notification adapter) and iOS binds
+`UnsupportedWorkoutReminderScheduler`, alongside the Android `TimeProvider` override for zone-aware
+local-minute resolution. The shared runtime graph test resolves the coordinator with fake reminder
+ports and a not-ready startup gate, so construction is proved without delivery.
+
+Settings also registers `WorkoutReminderSettingsViewModel` over the reminder preference repository
+and scheduler; a runtime graph test resolves it. `loggerModule` owns the singleton
+`RestCompletionPresentation`, injected into the eager `RestAlertCoordinator` and resolved by the
+Android receiver and root-mounted Logger presenter. The shared runtime graph test resolves both the
+coordinator and presentation singleton. No new platform binding or dependency is needed for this
+presentation state; lifecycle and Android notification behavior still require runtime acceptance.

@@ -39,6 +39,47 @@ class RestoreBackupUseCaseTest {
     }
 
     @Test
+    fun rejectsLegacyRestOptInsBeforeStaging() = runTest {
+        val staging = RecordingBackupStagingRepository()
+        val useCase = RestoreBackupUseCase(preview, staging)
+        val legacy = emptyBackupFile().copy(
+            formatVersion = REMINDER_FORMAT_VERSION - 1,
+            trainingGuidance = BackupTrainingGuidanceRecord(
+                restAlertsEnabled = false,
+                shortRestCoachingEnabled = false,
+                restCountdownEnabled = true
+            )
+        )
+
+        val failure = assertFailsWith<BackupException> {
+            useCase(BackupJson.encode(legacy), appVersion = "t", stagedAtMillis = 1L)
+        }
+
+        assertEquals(BackupFailure.INVALID_VALUE, failure.failure)
+        assertEquals(0, staging.staged.size)
+    }
+
+    @Test
+    fun stagesFormatTwelveRestOptInsAfterRoundTrip() = runTest {
+        val staging = RecordingBackupStagingRepository()
+        val useCase = RestoreBackupUseCase(preview, staging)
+        val current = emptyBackupFile().copy(
+            trainingGuidance = BackupTrainingGuidanceRecord(
+                restAlertsEnabled = false,
+                shortRestCoachingEnabled = false,
+                restCountdownEnabled = true,
+                restCompletionSignalEnabled = true
+            )
+        )
+
+        useCase(BackupJson.encode(current), appVersion = "t", stagedAtMillis = 1L)
+
+        assertEquals(1, staging.staged.size)
+        val staged = BackupJson.decode(staging.staged.single().payload)
+        assertEquals(current.trainingGuidance, staged.trainingGuidance)
+    }
+
+    @Test
     fun consumesAndClearsAPendingApplyError() = runTest {
         val staging = RecordingBackupStagingRepository()
         staging.applyError = BackupApplyError(BackupFailure.STARTUP_UNSTABLE, null, 1L)

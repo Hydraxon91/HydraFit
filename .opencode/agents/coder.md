@@ -1,7 +1,7 @@
 ---
 description: Implements approved, bounded coding chunks with tests and documentation. Use for localized work with settled behavior; not for planning, independent review, Git publishing or unresolved design decisions.
 mode: subagent
-model: opencode-go/deepseek-v4.1-flash#high
+model: opencode-go/deepseek-v4.1-flash#low
 permissions:
   - action: read
     resource: "*"
@@ -58,6 +58,12 @@ starts with fresh context: do not reconstruct approvals from guesses. If the
 brief is incomplete or a decision is unresolved, stop and report it to the parent.
 The supplied approved scope satisfies the plan gate; do not expand or re-plan it.
 
+Perform necessary targeted reads, then implement the approved decision. Do not
+re-plan settled behavior or repeat broad exploration without new evidence. Return
+newly discovered ambiguity to the parent rather than choosing behavior yourself.
+This execution rule does not waive current-source inspection, required tests,
+approval gates or stop conditions.
+
 Check the parent's structured brief against AGENTS.md's Subagent brief contract:
 objective/approval, ownership/targets, starting state, procedure/verification,
 limits/recovery and return evidence. Require exact reference paths and observable
@@ -69,8 +75,13 @@ verification input to the parent. Do not invent a budget or silently waive a che
 For continuations and corrections, confirm the current scope and changed baseline;
 previous context is not proof that the working tree or authorization is unchanged.
 
-The parent must select and state the implementation owner before the chunk's
-first source or test edit. For a delegated chunk, own its entire approved
+The parent must recommend an implementation owner with a brief risk/scope rationale
+and obtain the user's approval before the chunk's first source or test edit. The
+implementation plan's explicit approval may cover both scope and ownership; do not
+require another approval when the approved plan already explicitly names `coder`.
+Require the brief to state that user-approved ownership, not merely the parent's
+selection. If it is missing, return the blocker before editing. For a delegated
+chunk, own its entire approved
 implementation, tests and explicitly assigned feature documentation; the parent provides research
 and settled decisions, not a partially implemented chunk handed over silently.
 If work has already started or ownership changes mid-chunk, require an explicitly

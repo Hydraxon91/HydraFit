@@ -62,6 +62,7 @@ object BackupJson {
                 add("setup")
                 add("preferredWeekdays")
             }
+            if (version != null && version < REMINDER_FORMAT_VERSION) add("workoutReminders")
         }
         val missing = requiredKeys - obj.keys
         if (missing.isNotEmpty()) {

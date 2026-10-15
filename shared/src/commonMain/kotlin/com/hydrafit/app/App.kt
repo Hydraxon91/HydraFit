@@ -25,6 +25,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,9 +41,12 @@ import com.hydrafit.app.core.domain.startup.StartupReadiness
 import com.hydrafit.app.core.navigation.AppTab
 import com.hydrafit.app.core.navigation.LocalAppTabNavigator
 import com.hydrafit.app.core.navigation.LocalSetupNavigator
+import com.hydrafit.app.core.navigation.appTabForRequest
+import com.hydrafit.app.core.navigation.externalRequestNeedsTabChange
 import com.hydrafit.app.feature.equipment.equipmentDestination
 import com.hydrafit.app.feature.equipment.equipmentRoute
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapDestination
+import com.hydrafit.app.feature.logger.RestCompletionPresenter
 import com.hydrafit.app.feature.logger.loggerDestination
 import com.hydrafit.app.feature.onboarding.OnboardingStartupEntry
 import com.hydrafit.app.feature.onboarding.OnboardingStartupGate
@@ -59,7 +63,7 @@ private const val STARTUP_INDICATOR_DELAY_MILLIS = 150L
 
 @Composable
 @Preview
-fun App() {
+fun App(requestedTabName: String? = null, onTabRequestConsumed: () -> Unit = {}) {
     MaterialTheme(colorScheme = appColorScheme(isSystemInDarkTheme())) {
         Surface(modifier = Modifier.fillMaxSize()) {
             val readiness: StartupReadiness = koinInject()
@@ -67,7 +71,12 @@ fun App() {
             if (isReady) {
                 // The first-run decision is read once the staged restore has finished, so a pending
                 // setup can be entered before any tab is shown.
-                OnboardingStartupGate { AppContent() }
+                OnboardingStartupGate {
+                    AppContent(
+                        requestedTabName = requestedTabName,
+                        onTabRequestConsumed = onTabRequestConsumed
+                    )
+                }
             } else {
                 StartupLoadingGate()
             }
@@ -79,7 +88,7 @@ internal fun appColorScheme(darkTheme: Boolean): ColorScheme =
     if (darkTheme) darkColorScheme() else lightColorScheme()
 
 @Composable
-private fun AppContent() {
+private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Unit) {
     val navController = rememberNavController()
     val destinations = listOf(
         equipmentDestination,
@@ -112,8 +121,24 @@ private fun AppContent() {
     val closeSetup: () -> Unit = {
         if (!navController.popBackStack()) openTab(AppTab.EQUIPMENT)
     }
+    // A notification tap names one tab and nothing else; the shell resolves it once the startup gate
+    // has run, and a request for the tab already on screen changes nothing.
+    val consumeTabRequest by rememberUpdatedState(onTabRequestConsumed)
+    LaunchedEffect(requestedTabName) {
+        val tab = appTabForRequest(requestedTabName) ?: return@LaunchedEffect
+        val currentRoutes = navController.currentDestination
+            ?.hierarchy
+            ?.mapNotNull { it.route }
+            ?.toList()
+            .orEmpty()
+        if (externalRequestNeedsTabChange(currentRoutes, tabRoutes.getValue(tab))) {
+            openTab(tab)
+        }
+        consumeTabRequest()
+    }
 
     Scaffold(
+        snackbarHost = { RestCompletionPresenter() },
         bottomBar = {
             val backStackEntry by navController.currentBackStackEntryAsState()
             val currentDestination = backStackEntry?.destination

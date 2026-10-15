@@ -19,8 +19,22 @@ class TrainingGuidancePreferenceRepositoryTest {
             repository.setRestAlertsEnabled(true)
             repository.setShortRestCoachingEnabled(true)
             assertEquals(TrainingGuidancePreferences(true, true), repository.get())
+            repository.setRestCountdownEnabled(true)
+            repository.setRestCompletionSignalEnabled(true)
+            assertEquals(
+                TrainingGuidancePreferences(
+                    restAlertsEnabled = true,
+                    shortRestCoachingEnabled = true,
+                    restCountdownEnabled = true,
+                    restCompletionSignalEnabled = true
+                ),
+                repository.observe().first()
+            )
             repository.setRestAlertsEnabled(false)
-            assertEquals(TrainingGuidancePreferences(false, true), repository.observe().first())
+            assertEquals(false, repository.get().restAlertsEnabled)
+            assertEquals(true, repository.get().restCountdownEnabled)
+            repository.setRestCountdownEnabled(false)
+            repository.setRestCompletionSignalEnabled(false)
             repository.setShortRestCoachingEnabled(false)
             assertEquals(TrainingGuidancePreferences(), repository.get())
         } finally {
