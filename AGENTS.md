@@ -240,6 +240,14 @@ While executing an approved chunk:
 
 ## Continuous Multi-Release Execution (Explicit Opt-In)
 
+**Short activation:** `/batch <ordered releases> --budget <duration>` or plain
+`batch: <ordered releases>, budget <duration>` applies the standing defaults in
+`.opencode/commands/batch.md` unless explicitly overridden. For plain language,
+read that file before acting. State resolved scopes, owners, budget and report
+paths; proceed without another confirmation when existing approved contracts and
+those defaults suffice. Ask only for missing decisions or approvals. Neither
+trigger switches the user's mode/model or activates on its own installation.
+
 This workflow is available only when the user explicitly requests it for named,
 ordered releases and approves their scopes, implementation owners, acceptance
 criteria, verification requirements and read-only review checkpoints. Approving
