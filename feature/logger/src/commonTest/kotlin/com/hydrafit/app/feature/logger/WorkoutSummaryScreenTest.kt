@@ -44,6 +44,12 @@ class WorkoutSummaryScreenTest {
         assertEquals(WorkoutHistoryKey.Session("s1"), workoutSummaryHistoryKey(summary))
     }
 
+    @Test
+    fun theRecordsDisclaimerAppliesOnlyToAnUnfinishedWorkout() {
+        assertEquals(false, recordsDisclaimerApplies(OccurrenceStatus.FINISHED))
+        assertEquals(true, recordsDisclaimerApplies(OccurrenceStatus.FINISHED_PARTIAL))
+    }
+
     private fun session(id: String) = WorkoutSummarySession(
         sessionId = id,
         startedAtMillis = 1_000L,

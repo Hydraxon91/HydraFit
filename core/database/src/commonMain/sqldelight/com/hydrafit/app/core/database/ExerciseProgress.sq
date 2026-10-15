@@ -42,6 +42,19 @@ WHERE workoutSet.exerciseId = :exerciseId
 ORDER BY workoutSet.performedAt DESC, workoutSet.id DESC
 LIMIT :pageLimit;
 
+-- One contributing set by its exercise-scoped id. Bounded by exerciseId and id so a record holder
+-- can be shown without reading the exercise's whole history; no sessionId-is-null restriction.
+selectExerciseSetById:
+SELECT workoutSet.id, workoutSet.exerciseId,
+       COALESCE(exerciseOverride.name, exercise.name) AS exerciseName,
+       workoutSet.reps, workoutSet.weightKg, workoutSet.loadKind, workoutSet.isWarmup,
+       workoutSet.rir, workoutSet.performedAt, workoutSet.timingProvenance, workoutSet.occurrenceId
+FROM workoutSet
+LEFT JOIN exercise ON exercise.id = workoutSet.exerciseId
+LEFT JOIN exerciseOverride ON exerciseOverride.exerciseId = workoutSet.exerciseId
+WHERE workoutSet.exerciseId = :exerciseId
+  AND workoutSet.id = :setId;
+
 -- Invalidation anchor, not a revision number. Updates with unchanged counts must still replay.
 observeExerciseSets:
 SELECT count(*) FROM workoutSet WHERE exerciseId = :exerciseId;
@@ -69,3 +82,9 @@ WHERE exerciseId = :exerciseId AND performedAt <= :nowMillis
   AND performedAt > :cursorTime
 ORDER BY performedAt ASC, id ASC
 LIMIT :pageLimit;
+
+-- The distinct exercises recorded against one occurrence, in a stable id order. Scoped to the
+-- occurrence so a summary's record read never scans the whole log; the live query emits on every
+-- workoutSet write.
+observeOccurrenceExerciseIds:
+SELECT DISTINCT exerciseId FROM workoutSet WHERE occurrenceId = :occurrenceId ORDER BY exerciseId;

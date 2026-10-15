@@ -52,6 +52,15 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
         }
     }
 
+    override fun observeOccurrenceExerciseIds(occurrenceId: Long): Flow<List<String>> =
+        queries.observeOccurrenceExerciseIds(occurrenceId).asFlow().mapToList(Dispatchers.Default)
+
+    override fun observeSet(exerciseId: String, setId: Long): Flow<WorkoutHistorySet?> =
+        queries.selectExerciseSetById(exerciseId, setId, ::historySet)
+            .asFlow()
+            .mapToList(Dispatchers.Default)
+            .map { it.firstOrNull() }
+
     override fun observeProgress(request: ExerciseProgressRequest): Flow<ExerciseProgress> =
         queries.observeExerciseSets(request.exerciseId).asFlow().map {
             val context = currentCoroutineContext()

@@ -25,7 +25,8 @@ implementations and platform glue; `:core:exercisecontent` bundles app-owned cat
 
 - **Examples:** `settings.gradle.kts` (module list), `core/domain/build.gradle.kts` (no Android-only
   deps), `feature/logger/build.gradle.kts` (depends on `:core:domain`, `:core:userdata`,
-  `:core:navigation` only).
+  `:core:navigation` only). `feature/progress` is a standalone, pushed destination registered by the
+  shell — deliberately not one of the six bottom-bar tabs.
 - **Consistency:** high. No `feature/*` depends on another feature, or on `:core:database` /
   `:core:network`. `:shared` depends on everything but imports `:core:database`/`:core:network` only
   in DI wiring (`AndroidDatabaseModule.kt`, `IosDatabaseModule.kt`, `Koin.kt`, `DomainModule.kt`).
@@ -71,7 +72,18 @@ the requested instant, oldest-first in 256-row pages inside one read transaction
 all-time comparisons are independent of chart bounds and history pagination. Cancellation is checked
 between pages. The invalidation query observes set-table changes without suppressing equal counts,
 so same-count corrections/replacement trigger replay. The request fixes its clock instant and offset;
-callers must replace it when those inputs change. No record cache, DI binding or UI is added.
+callers must replace it when those inputs change. `observeOccurrenceExerciseIds` is a distinct,
+occurrence-scoped live read: it returns the distinct exercises recorded against one occurrence in a
+stable id order, emits on every set write and reads no other occurrence, so the post-finish summary
+never scans the whole log. `ObserveOccurrenceRecordsUseCase` (domain) combines that membership with
+each exercise's `observeProgress(occurrenceId = …)` events and resolves each event's contributing set
+through `observeSet`; a membership change restarts the combination, a removed exercise retracts, an
+empty occurrence emits an empty list and a read failure propagates for retry. The chart range it
+passes is the single civil day of the supplied instant and is unused, because record events and their
+all-time baseline never depend on the range. No record cache, writer or new persistence is added;
+`:feature:logger`'s route-owned `WorkoutSummaryRecordsViewModel` consumes the use case read-only
+(its summary read and Finish/Finish-partially/Skip behaviour are unchanged), and `:feature:progress`
+and `:feature:logger` consume the shared use case without depending on each other.
 Migration `46.sqm` adds an exercise/performed-time/id index, preserving every stored row.
 
 `ExerciseProgressCalculator` retains output records/tied holder ids, requested occurrence improvement
@@ -89,7 +101,8 @@ absent external contribution is null, while an explicit zero contribution is zer
 are inclusive with one caller-supplied fixed offset, not historical DST reconstruction.
 
 Query-plan regression tests cover fresh/migrated schemas using the exercise/time/id index without
-a full-log scan or temporary sort. UI/summary integration and formal review remain separate chunks.
+a full-log scan or temporary sort. Occurrence-scoped summary record integration is implemented in
+C5; combined-release integration and formal review remain separate chunks.
 
 ### 1.3 Feature modules with explicit static aggregation
 

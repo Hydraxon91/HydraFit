@@ -193,6 +193,100 @@ class SqlDelightExerciseProgressRepositoryTest {
         assertEquals(calculator.result(), fromRepository)
     }
 
+    @Test
+    fun observeSetResolvesOneContributingSetAndTracksCorrectionRenameAndDeletion() = runBlocking {
+        writer.add(set(time = DAY, weight = 60.0))
+        val historySet = repository
+            .observeHistory(ExerciseHistoryRequest("squat"))
+            .first()
+            .sets
+            .single()
+
+        assertEquals(historySet, repository.observeSet("squat", historySet.id).first())
+        // The read is exercise-scoped: the same id under another exercise resolves to nothing.
+        assertNull(repository.observeSet("other", historySet.id).first())
+        assertNull(repository.observeSet("squat", 9_999L).first())
+
+        database.workoutLogQueries.updateSetValues(5, 72.5, null, historySet.id)
+        assertEquals(72.5, repository.observeSet("squat", historySet.id).first()?.weightKg)
+
+        database.exerciseOverrideQueries.upsert("squat", "Renamed", null, null, null, null, null)
+        assertEquals("Renamed", repository.observeSet("squat", historySet.id).first()?.exerciseName)
+
+        writer.delete(historySet.id)
+        assertNull(repository.observeSet("squat", historySet.id).first())
+    }
+
+    @Test
+    fun occurrenceExerciseIdsTrackAddsDistinctSlotsOrderCorrectionsDeletesAndReplacement() =
+        runBlocking {
+            database.exerciseQueries.insertCustom(
+                "bench",
+                "Bench",
+                "BARBELL",
+                "PUSH",
+                0L,
+                "EXTERNAL",
+                null
+            )
+            suspend fun ids() = repository.observeOccurrenceExerciseIds(OCCURRENCE).first()
+
+            assertEquals(emptyList(), ids())
+            // A set logged against another occurrence never appears here.
+            writer.add(set(time = 0, weight = 40.0).copy(occurrenceId = OCCURRENCE + 1))
+            assertEquals(emptyList(), ids())
+            writer.add(
+                set(time = 1, weight = 50.0).copy(occurrenceId = OCCURRENCE, exerciseId = "squat")
+            )
+            assertEquals(listOf("squat"), ids())
+            // A repeated slot for the same exercise does not duplicate the id.
+            writer.add(
+                set(time = 2, weight = 55.0).copy(occurrenceId = OCCURRENCE, exerciseId = "squat")
+            )
+            assertEquals(listOf("squat"), ids())
+            // A second exercise is ordered deterministically.
+            writer.add(
+                set(time = 3, weight = 30.0).copy(occurrenceId = OCCURRENCE, exerciseId = "bench")
+            )
+            assertEquals(listOf("bench", "squat"), ids())
+            // Deleting each squat slot retracts the id once none remains, keeping the other exercise.
+            writer.delete(2)
+            writer.delete(3)
+            assertEquals(listOf("bench"), ids())
+            // A same-count replacement (as used by restore) is reflected directly.
+            database.transaction {
+                database.workoutLogQueries.deleteAllSets()
+                database.workoutLogQueries.insertSet(
+                    "squat", 5, 20.0, 1, 0, null, null, null, null, null, null, "EXTERNAL"
+                )
+                database.workoutLogQueries.assignOccurrence(
+                    OCCURRENCE,
+                    null,
+                    database.workoutLogQueries.lastInsertedSetId().executeAsOne()
+                )
+            }
+            assertEquals(listOf("squat"), ids())
+        }
+
+    @Test
+    fun occurrenceExerciseIdsEmitAfterAWrite() = runBlocking {
+        val emissions = Channel<List<String>>(Channel.UNLIMITED)
+        val job = launch(Dispatchers.Default) {
+            repository.observeOccurrenceExerciseIds(OCCURRENCE).collect { emissions.send(it) }
+        }
+        try {
+            assertEquals(emptyList(), withTimeout(5_000) { emissions.receive() })
+            writer.add(
+                set(time = 1, weight = 50.0).copy(occurrenceId = OCCURRENCE, exerciseId = "squat")
+            )
+            assertEquals(listOf("squat"), withTimeout(5_000) { emissions.receive() })
+        } finally {
+            job.cancel()
+            job.join()
+            emissions.close()
+        }
+    }
+
     private fun progressRequest() = ExerciseProgressRequest("squat", 0, 2, 2 * DAY)
 
     private fun set(time: Long, weight: Double) = WorkoutSet(
@@ -204,5 +298,6 @@ class SqlDelightExerciseProgressRepositoryTest {
 
     private companion object {
         const val DAY = 86_400_000L
+        const val OCCURRENCE = 7L
     }
 }

@@ -85,4 +85,18 @@ interface ExerciseProgressRepository {
 
     /** Complete chart range and all-time records through [ExerciseProgressRequest.nowMillis]. */
     fun observeProgress(request: ExerciseProgressRequest): Flow<ExerciseProgress>
+
+    /**
+     * The distinct exercise ids recorded against [occurrenceId], in a stable order. Emits whenever
+     * that occurrence's recorded sets change; empty when it has none. Read-only: it writes nothing
+     * and reads no other occurrence, so a summary never scans the whole log.
+     */
+    fun observeOccurrenceExerciseIds(occurrenceId: Long): Flow<List<String>>
+
+    /**
+     * One recorded set resolved by its exercise-scoped id, or null when it no longer exists. The
+     * read is bounded to the exercise and set id so a contributing record holder can be shown
+     * without scanning the exercise's whole history; the effective name is current catalog context.
+     */
+    fun observeSet(exerciseId: String, setId: Long): Flow<WorkoutHistorySet?>
 }

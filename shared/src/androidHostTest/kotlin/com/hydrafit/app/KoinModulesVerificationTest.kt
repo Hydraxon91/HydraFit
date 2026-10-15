@@ -90,11 +90,17 @@ import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.ExerciseHistoryPage
+import com.hydrafit.app.core.domain.workout.ExerciseHistoryRequest
 import com.hydrafit.app.core.domain.workout.ExerciseNoteRepository
+import com.hydrafit.app.core.domain.workout.ExerciseProgress
+import com.hydrafit.app.core.domain.workout.ExerciseProgressRepository
+import com.hydrafit.app.core.domain.workout.ExerciseProgressRequest
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutSummaryUseCase
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
+import com.hydrafit.app.core.domain.workout.ObserveOccurrenceRecordsUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.PersistedRestCountdown
 import com.hydrafit.app.core.domain.workout.RestAlertScheduler
@@ -108,6 +114,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryPage
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryRepository
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryRequest
+import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySetPage
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySetRequest
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
@@ -141,10 +148,13 @@ import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapModule
 import com.hydrafit.app.feature.logger.OccurrenceReplacementViewModel
 import com.hydrafit.app.feature.logger.WorkoutHistoryViewModel
 import com.hydrafit.app.feature.logger.WorkoutLoggerViewModel
+import com.hydrafit.app.feature.logger.WorkoutSummaryRecordsViewModel
 import com.hydrafit.app.feature.logger.loggerModule
 import com.hydrafit.app.feature.onboarding.OnboardingEntryViewModel
 import com.hydrafit.app.feature.onboarding.OnboardingViewModel
 import com.hydrafit.app.feature.onboarding.onboardingModule
+import com.hydrafit.app.feature.progress.ProgressViewModel
+import com.hydrafit.app.feature.progress.progressModule
 import com.hydrafit.app.feature.routines.RoutinesViewModel
 import com.hydrafit.app.feature.routines.WorkoutReminderCoordinator
 import com.hydrafit.app.feature.routines.routinesModule
@@ -211,6 +221,7 @@ class KoinModulesVerificationTest {
             settingsModule,
             routinesModule,
             onboardingModule,
+            progressModule,
             testPlatformModule
         )
     }
@@ -630,6 +641,7 @@ class KoinModulesVerificationTest {
                     single<ExerciseNoteRepository> { FakeExerciseNoteRepository }
                     single<SessionNoteRepository> { FakeSessionNoteRepository }
                     single<WorkoutHistoryRepository> { FakeWorkoutHistoryRepository }
+                    single<ExerciseProgressRepository> { FakeExerciseProgressRepository }
                     single<WorkoutSessionRepository> { FakeWorkoutSessionRepository }
                     single<SessionResegmenter> { FakeSessionResegmenter }
                     single<RoutineTemplateRepository> { FakeRoutineTemplateRepository }
@@ -694,6 +706,8 @@ class KoinModulesVerificationTest {
 
         try {
             assertNotNull(koin.get<WorkoutLoggerViewModel>())
+            assertNotNull(koin.get<ObserveOccurrenceRecordsUseCase>())
+            assertNotNull(koin.get<WorkoutSummaryRecordsViewModel>())
             val history = koin.get<WorkoutHistoryViewModel>()
             advanceUntilIdle()
             assertEquals(true, history.state.value.showEmptyHistory)
@@ -709,6 +723,45 @@ class KoinModulesVerificationTest {
             koin.close()
             Dispatchers.resetMain()
         }
+    }
+
+    /**
+     * The Progress ViewModel is a lambda `viewModel { }`, so resolve it over `progressModule` with
+     * fake ports and the test platform module's Main dispatcher, proving its `get()` chain and the
+     * new `ExerciseProgressRepository` seam. Constructing it must not write.
+     */
+    @Test
+    fun theProgressViewModelResolvesAtRuntime() {
+        Dispatchers.setMain(StandardTestDispatcher())
+        val koin = koinApplication {
+            modules(
+                module {
+                    single<ExerciseProgressRepository> { FakeExerciseProgressRepository }
+                    single<ExerciseCatalog> { FakeExerciseCatalog }
+                    single<WeightUnitRepository> { FakeWeightUnitRepository }
+                },
+                progressModule,
+                testPlatformModule
+            )
+        }.koin
+        try {
+            assertNotNull(koin.get<ProgressViewModel>())
+        } finally {
+            koin.close()
+            Dispatchers.resetMain()
+        }
+    }
+
+    private object FakeExerciseProgressRepository : ExerciseProgressRepository {
+        override fun observeHistory(request: ExerciseHistoryRequest) =
+            flowOf(ExerciseHistoryPage(emptyList(), hasMore = false))
+
+        override fun observeProgress(request: ExerciseProgressRequest) =
+            flowOf(ExerciseProgress(emptyList(), emptyList(), emptyList()))
+
+        override fun observeOccurrenceExerciseIds(occurrenceId: Long) = flowOf(emptyList<String>())
+
+        override fun observeSet(exerciseId: String, setId: Long) = flowOf<WorkoutHistorySet?>(null)
     }
 
     private object FakeApiKeyStore : ApiKeyStore {

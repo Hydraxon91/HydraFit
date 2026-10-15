@@ -25,6 +25,7 @@ The app currently uses standard Material 3 styling. Screenshots and a fuller des
 - Read short offline setup and execution guidance for 17 exercises, from the Equipment catalog or the Logger. The text is bundled with the app, needs no network, and an exercise without authored guidance shows an explicit unavailable state instead of generic advice.
 - Read optional technique considerations for Conventional Deadlift, Romanian Deadlift and Dumbbell Romanian Deadlift in the same viewer. These offline reminders require no acknowledgment and are not an injury-risk rating or medical advice; other exercises do not inherit them by name.
 - Replace an untouched scheduled exercise for today's workout without changing your routine or future workouts. Start or end sessions explicitly when you need to.
+- Open a read-only Exercise Progress view from the Logger to see per-exercise trend charts for 28, 84 or 365 days, all-time records with the contributing recorded sets, and the full recorded history. It only reads: no draft, session or log data is written.
 
 ### Keep your data yours
 
