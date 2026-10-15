@@ -26,12 +26,13 @@ The app currently uses standard Material 3 styling. Screenshots and a fuller des
 - Read optional technique considerations for Conventional Deadlift, Romanian Deadlift and Dumbbell Romanian Deadlift in the same viewer. These offline reminders require no acknowledgment and are not an injury-risk rating or medical advice; other exercises do not inherit them by name.
 - Replace an untouched scheduled exercise for today's workout without changing your routine or future workouts. Start or end sessions explicitly when you need to.
 - Open a read-only Exercise Progress view from the Logger to see per-exercise trend charts for 28, 84 or 365 days, all-time records with the contributing recorded sets, and the full recorded history. It only reads: no draft, session or log data is written.
+- Open Body weight from Progress to record one measurement per day in kg or lb, replace a day's entry when you re-log it, set or clear an optional current goal, and see raw 4-, 12- or 52-week charts. Measurements are included in local backups and never change planning, loads or fatigue.
 
 ### Keep your data yours
 
-- Edit built-in exercises or add your own, including equipment, movement patterns and muscle involvement.
+- Edit built-in exercises or add your own, including equipment, movement patterns and muscle involvement (tier shortcuts or an exact 0–1 value).
 - Back up and restore your data locally. Core planning and logging work offline; AI options are not required.
-- View a per-muscle fatigue heatmap and explanations of planned direct and estimated indirect arm work. The fatigue index is a planning estimate, not a measurement of recovery or readiness.
+- View a per-muscle fatigue heatmap, a schematic front/back Body map of what you trained in the last seven days (working-set counts, estimated involvement credits and last-trained dates), and explanations of planned direct and estimated indirect arm work. The fatigue index is a planning estimate, not a measurement of recovery or readiness.
 
 ## Download and build
 
@@ -53,7 +54,7 @@ The next versions are deliberately smaller: each gets a focused scope and its ow
 
 ### Workout context (0.7.x)
 
-0.7.0–0.7.6 are published; 0.7.7 remains.
+0.7.0–0.7.7 are published.
 
 | Target | Focus |
 | --- | --- |
@@ -64,13 +65,13 @@ The next versions are deliberately smaller: each gets a focused scope and its ow
 | 0.7.4 ✅ | First batch of offline exercise instructions |
 | 0.7.5 ✅ | Sourced, informational exercise cautions |
 | 0.7.6 ✅ | Setup and first-workout guidance |
-| 0.7.7 | Opt-in workout reminders |
+| 0.7.7 ✅ | Opt-in workout reminders |
 
 ### After that
 
 | Series | Smaller releases, in order |
 | --- | --- |
-| 0.8.x — Progress & recovery | Charts and records first; separate releases for catalog work, the anatomical map, volume views and body-weight trends |
+| 0.8.x — Progress & recovery | Charts and records published; catalog corrections, the body map and coverage views and body-weight tracking complete the batch |
 | 0.9.x — Equipment & data | Profiles and plate tools, followed by individual importers, sharing and backup improvements |
 | 0.10.x — Progression & prescriptions | History integrity before new progression policies; per-set targets, pyramids and supersets in separate releases |
 | 0.11.x — Other training metrics | Duration, distance and force metrics delivered separately; drop sets, rest-pause and cardio need research first |

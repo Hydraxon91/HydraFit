@@ -81,6 +81,23 @@ class BackupValidator(private val catalog: BackupCatalog) {
             weekdays.forEach { enum(it, DayOfWeek.entries) }
         }
 
+        // Body weight is whole-replaced; a legacy file carrying either section is not what it claims.
+        if (file.formatVersion < BODY_WEIGHT_FORMAT_VERSION &&
+            (file.bodyWeightMeasurements.isNotEmpty() || file.bodyWeightGoalKg != null)
+        ) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        val measurementDays = file.bodyWeightMeasurements.map { it.localEpochDay }
+        if (measurementDays.distinct().size != measurementDays.size) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        file.bodyWeightMeasurements.forEach {
+            if (!it.weightKg.isFinite() || it.weightKg <= 0.0) fail(BackupFailure.INVALID_VALUE)
+        }
+        file.bodyWeightGoalKg?.let {
+            if (!it.isFinite() || it <= 0.0) fail(BackupFailure.INVALID_VALUE)
+        }
+
         val seedExerciseIds = catalog.seedExerciseIds()
         val builtInEquipmentIds = catalog.builtInEquipmentIds()
 
@@ -136,12 +153,18 @@ class BackupValidator(private val catalog: BackupCatalog) {
         val knownExercises = seedExerciseIds + customIds
         val dedupeSeedKeys = catalog.dedupeSeedKeys()
 
-        // Catalog compatibility: every seed the file relies on must exist here with the same profile.
+        // Compatibility exceptions are exact application-owned historical profiles, not imported rules.
         uniqueBy(file.catalog.seedProfiles) { it.id }
         val receiverProfiles = catalog.seedProfiles()
+        val previousProfiles = catalog.compatiblePreviousSeedProfiles()
         file.catalog.seedProfiles.forEach { exported ->
             val actual = receiverProfiles[exported.id] ?: fail(BackupFailure.CATALOG_MISMATCH)
-            if (actual != exported.profile) fail(BackupFailure.CATALOG_MISMATCH)
+            if (
+                actual != exported.profile &&
+                exported.profile !in previousProfiles[exported.id].orEmpty()
+            ) {
+                fail(BackupFailure.CATALOG_MISMATCH)
+            }
         }
 
         val workoutToActivation = file.activationWorkouts.associate { it.id to it.activationId }

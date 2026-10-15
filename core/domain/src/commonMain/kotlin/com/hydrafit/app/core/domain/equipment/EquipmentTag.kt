@@ -28,6 +28,8 @@ data class EquipmentTag(val id: String) {
         val SMITH_MACHINE = EquipmentTag("SMITH_MACHINE")
         val HACK_SQUAT_MACHINE = EquipmentTag("HACK_SQUAT_MACHINE")
         val CALF_RAISE_MACHINE = EquipmentTag("CALF_RAISE_MACHINE")
+        val PEC_DECK_MACHINE = EquipmentTag("PEC_DECK_MACHINE")
+        val REVERSE_FLY_MACHINE = EquipmentTag("REVERSE_FLY_MACHINE")
 
         val BUILT_IN: List<EquipmentTag> = listOf(
             BARBELL,
@@ -47,7 +49,9 @@ data class EquipmentTag(val id: String) {
             DIP_BAR,
             SMITH_MACHINE,
             HACK_SQUAT_MACHINE,
-            CALF_RAISE_MACHINE
+            CALF_RAISE_MACHINE,
+            PEC_DECK_MACHINE,
+            REVERSE_FLY_MACHINE
         )
 
         val BUILT_IN_NAMES: Map<String, String> = mapOf(
@@ -68,7 +72,9 @@ data class EquipmentTag(val id: String) {
             DIP_BAR.id to "Dip bar",
             SMITH_MACHINE.id to "Smith machine",
             HACK_SQUAT_MACHINE.id to "Hack squat machine",
-            CALF_RAISE_MACHINE.id to "Calf raise machine"
+            CALF_RAISE_MACHINE.id to "Calf raise machine",
+            PEC_DECK_MACHINE.id to "Pec deck machine (forearm pads)",
+            REVERSE_FLY_MACHINE.id to "Reverse fly machine"
         )
     }
 }

@@ -77,10 +77,24 @@ for an empty explicit map is primary muscles at `1.0` plus secondary muscles at
 `0.5`. Fatigue uses `MuscleTarget(muscle, weight)` values.
 
 Editor tiers: None, Low `0.3`, Mid `0.5`, High `0.7`, Primary `1.0`.
-Stored values are doubles, not a tier enum.
+Stored values are doubles, not a tier enum. The muscle chip keeps its one-tap
+cycle (unset→Low→Mid→High→Primary→None; a non-tier value cycles to None) and a
+separate labelled edit action opens a per-muscle numeric dialog seeded with the
+stored value (`0` when unset). The value must be finite and within `[0, 1]`;
+blank input is invalid, while `0` or None removes the contribution. An untouched
+field keeps the exact stored double, and a non-tier weight is shown as its
+number, never relabelled Primary. An invalid draft cannot be applied and also
+blocks the outer Save, and Cancel writes nothing.
 
 `DefaultExercises.kt` is the seed catalog (baseline + `DefaultExercisesCatalogC1` +
-`DefaultExercisesCatalogP7`). CAT-P7 adds ten sourced identities, all using existing equipment tags,
+`DefaultExercisesCatalogP7` + `DefaultExercisesCatalog081`). The 0.8.1 batch adds four
+modeled identities: forearm-pad pec deck, reverse machine fly, seated unilateral
+dumbbell wrist curl/extension. Separate PEC_DECK_MACHINE/REVERSE_FLY_MACHINE capabilities
+are not auto-selected; wrist support requires DUMBBELL + BENCH. All four are EXTERNAL.
+Their names are protected against startup custom-name merging, and matching existing
+customs remain editable/backup-compatible; new name collisions still fail. Provenance
+and limits are in the source doc. FOREARM_ISOLATION is a non-compound pattern, not
+biceps work. CAT-P7 adds ten sourced identities, all using existing equipment tags,
 patterns and muscles; row provenance is in `docs/exercise-catalog-sources.md`. P7 load capability is
 explicitly curated, not inferred from equipment; bicycle crunch is `BODYWEIGHT_ONLY`.
 `SeedExerciseCatalog` inserts missing rows, backfills involvements only where null,
@@ -91,8 +105,11 @@ seed (`repairLegacyInvolvementNames`; anchored LIKE patterns avoid matching the 
 names), so an upgraded install matches a fresh one. Custom rows, user overrides and
 historical set snapshots are left untouched. It runs off-main at startup via
 `DatabaseStartupMaintenance`. `DefaultExercisesDataQualityTest` asserts every
-built-in row satisfies `MovementPatternGuardrail` except five pinned fresh-install
-classification conflicts (tracked in `docs/live-testing-2026-10-08.md`).
+built-in row satisfies `MovementPatternGuardrail` with no exemptions. The 0.8.1
+corrections classify upright barbell row as VERTICAL_PULL and cable deadlifts as
+SQUAT, preserving all weights and their compound fatigue classification. The advisory
+recognizes front/side deltoids and TRAPS for vertical pulls and ADDUCTORS for leg
+isolation. Existing overrides, snapshots and frozen prescriptions are not rewritten.
 
 ## Equipment identities (0.7.6 C6)
 

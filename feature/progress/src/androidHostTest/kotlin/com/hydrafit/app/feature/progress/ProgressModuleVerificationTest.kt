@@ -10,6 +10,8 @@ import com.hydrafit.app.core.domain.workout.ExerciseProgress
 import com.hydrafit.app.core.domain.workout.ExerciseProgressRepository
 import com.hydrafit.app.core.domain.workout.ExerciseProgressRequest
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
+import com.hydrafit.app.core.userdata.measurements.BodyWeightMeasurement
+import com.hydrafit.app.core.userdata.measurements.BodyWeightRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.Test
 import kotlin.test.assertNotNull
@@ -42,7 +44,8 @@ class ProgressModuleVerificationTest {
                 ExerciseProgressRepository::class,
                 ExerciseCatalog::class,
                 WeightUnitRepository::class,
-                TimeProvider::class
+                TimeProvider::class,
+                BodyWeightRepository::class
             )
         )
 
@@ -55,12 +58,14 @@ class ProgressModuleVerificationTest {
                     single<ExerciseCatalog> { FakeCatalog }
                     single<WeightUnitRepository> { FakeWeightUnitRepository }
                     single<TimeProvider> { TimeProvider { 0L } }
+                    single<BodyWeightRepository> { FakeBodyWeightRepository }
                 },
                 progressModule
             )
         }.koin
         try {
             assertNotNull(koin.get<ProgressViewModel>())
+            assertNotNull(koin.get<BodyWeightViewModel>())
             advanceUntilIdle()
         } finally {
             koin.close()
@@ -90,5 +95,29 @@ class ProgressModuleVerificationTest {
         override suspend fun selectedUnit(): WeightUnit = WeightUnit.KG
         override fun unitFlow(): Flow<WeightUnit> = flowOf(WeightUnit.KG)
         override suspend fun setUnit(unit: WeightUnit) = Unit
+    }
+
+    /** Construction must not write: every read is empty and every mutation errors if it is reached. */
+    private object FakeBodyWeightRepository : BodyWeightRepository {
+        override fun observeMeasurements(): Flow<List<BodyWeightMeasurement>> = flowOf(emptyList())
+
+        override suspend fun measurements(): List<BodyWeightMeasurement> = emptyList()
+
+        override suspend fun add(localEpochDay: Long, weightKg: Double, replace: Boolean) =
+            error("No body-weight writes are expected in graph verification")
+
+        override suspend fun update(
+            previousLocalEpochDay: Long,
+            localEpochDay: Long,
+            weightKg: Double
+        ) = error("No body-weight writes are expected in graph verification")
+
+        override suspend fun delete(localEpochDay: Long) =
+            error("No body-weight writes are expected in graph verification")
+
+        override fun observeGoal(): Flow<Double?> = flowOf(null)
+
+        override suspend fun setGoal(weightKg: Double?) =
+            error("No body-weight writes are expected in graph verification")
     }
 }

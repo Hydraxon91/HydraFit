@@ -168,7 +168,9 @@ draft load-shape decisions (legacy resolution, missing-load prompt) through
 retry. **Set completed now** is a separate explicit action: it timestamps the set
 at the live wall time and starts a deadline-based rest prompt only after the write
 succeeds. Ordinary guided confirmation, manual logging, warm-ups and backdated
-entries do not start a timer. The monotonic deadline and workout context are
+entries do not start a timer. The day's final prescribed working set intentionally
+prompts too: every live working-set completion starts one, with no per-set exception
+(user-approved 2026-10-15). The monotonic deadline and workout context are
 checked again after suspending preference/session reads. The submission guard spans the write and
 success handling, so a pending live event cannot be submitted again while rest preferences load.
 The captured completion instant is retained; End/New session, timer cancellation and occurrence

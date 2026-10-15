@@ -351,6 +351,52 @@ class SqlDelightBackupRepositoryTest {
     }
 
     @Test
+    fun exactPre081CatalogProfilesRestoreWithoutChangingOwnedData() = runTest {
+        seedRepresentativeData()
+        val before = repository.export(appVersion = "t", exportedAtMillis = 1L)
+        val previous = mapOf(
+            "upright-barbell-row" to
+                "BARBELL|HORIZONTAL_PULL|false|EXTERNAL|FRONT_DELTS:0.7,SIDE_DELTS:0.7,UPPER_BACK:0.5",
+            "cable-deadlifts" to
+                "CABLE_MACHINE|HINGE|false|EXTERNAL|" +
+                "FOREARMS:0.3,GLUTES:0.5,HAMSTRINGS:0.5,LOWER_BACK:0.3,QUADS:1.0"
+        )
+        val historical = before.copy(
+            catalog = before.catalog.copy(
+                seedProfiles = before.catalog.seedProfiles.map { profile ->
+                    profile.copy(profile = previous[profile.id] ?: profile.profile)
+                }
+            )
+        )
+        val text = BackupJson.encode(historical)
+        val preview = PreviewBackupUseCase(BackupValidator(SqlDelightBackupCatalog()))
+        val staging = SqlDelightBackupStagingRepository(database)
+        RestoreBackupUseCase(preview, staging)(text, "t", 1L)
+        ApplyStagedBackupUseCase(preview, repository, staging, TimeProvider { 2L })()
+        SeedExerciseCatalog(database).seed()
+
+        assertEquals(before, repository.export(appVersion = "t", exportedAtMillis = 1L))
+        assertEquals(historical, BackupJson.decode(text))
+        assertNull(staging.applyError())
+        val changed = historical.copy(
+            catalog = historical.catalog.copy(
+                seedProfiles = historical.catalog.seedProfiles.map { profile ->
+                    if (profile.id == "cable-deadlifts") {
+                        profile.copy(profile = profile.profile + " ")
+                    } else {
+                        profile
+                    }
+                }
+            )
+        )
+        assertFailsWith<com.hydrafit.app.core.domain.backup.BackupException> {
+            RestoreBackupUseCase(preview, staging)(BackupJson.encode(changed), "t", 3L)
+        }
+        assertNull(staging.staged())
+        assertEquals(before, repository.export(appVersion = "t", exportedAtMillis = 1L))
+    }
+
+    @Test
     fun exportStageApplyRoundTripsEverySection() = runTest {
         seedRepresentativeData()
         val catalog = SqlDelightBackupCatalog()
@@ -682,6 +728,41 @@ class SqlDelightBackupRepositoryTest {
         database.trainingScheduleQueries.selectAllOccurrenceEntries().executeAsList().forEach {
             database.trainingScheduleQueries.remapOccurrenceEquipment("EZ_BAR", it.id)
         }
+    }
+
+    @Test
+    fun bodyWeightRoundTripsAndLegacyFilesReplaceItWithNothing() = runTest {
+        seedRepresentativeData()
+        database.bodyWeightQueries.insertMeasurement(19_998L, 82.5)
+        database.bodyWeightQueries.insertMeasurement(19_999L, 82.25)
+        database.bodyWeightQueries.upsertGoal(78.0)
+        val catalog = SqlDelightBackupCatalog()
+        val preview = PreviewBackupUseCase(BackupValidator(catalog))
+        val staging = SqlDelightBackupStagingRepository(database)
+        val exported = repository.export("t", 1L)
+        BackupValidator(catalog).validate(exported)
+        assertEquals(2, exported.bodyWeightMeasurements.size)
+        assertEquals(78.0, exported.bodyWeightGoalKg)
+
+        // A legacy (format 12) file carries no body-weight section, and whole replacement clears it.
+        val legacy = exported.copy(
+            formatVersion = 12,
+            bodyWeightMeasurements = emptyList(),
+            bodyWeightGoalKg = null
+        )
+        RestoreBackupUseCase(preview, staging)(BackupJson.encode(legacy), "t", 1L)
+        ApplyStagedBackupUseCase(preview, repository, staging, TimeProvider { 0L })()
+        assertTrue(database.bodyWeightQueries.selectAllMeasurements().executeAsList().isEmpty())
+        assertNull(database.bodyWeightQueries.selectGoal().executeAsOneOrNull())
+
+        // Re-adding and round-tripping through stage/apply preserves the exact rows and goal.
+        database.bodyWeightQueries.insertMeasurement(19_998L, 82.5)
+        database.bodyWeightQueries.upsertGoal(78.0)
+        val second = repository.export("t", 1L)
+        RestoreBackupUseCase(preview, staging)(BackupJson.encode(second), "t", 1L)
+        ApplyStagedBackupUseCase(preview, repository, staging, TimeProvider { 0L })()
+        assertEquals(1, second.bodyWeightMeasurements.size)
+        assertEquals(second, repository.export("t", 1L))
     }
 
     private fun seedRepresentativeData() {

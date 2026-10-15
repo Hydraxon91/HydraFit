@@ -3,8 +3,13 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 12), restored by whole replacement.
-The reader accepts versions 1–12; version 1 defaults the guided-workout preference to off.
+Logical, versioned JSON (`format` + `formatVersion` 13), restored by whole replacement.
+The reader accepts versions 1–13; version 1 defaults the guided-workout preference to off.
+Format 13 adds body-weight `bodyWeightMeasurements` (one record per local civil day) and the
+nullable `bodyWeightGoalKg`; versions 1–12 restore with no recorded body weight and no goal,
+and a pre-13 file must not carry either section. Duplicate days, non-finite or non-positive
+weights and a non-positive goal are rejected before any write, and whole replacement deletes
+existing measurements so a legacy restore leaves none.
 Format 12 adds the two rest-presentation opt-ins (`restCountdownEnabled`,
 `restCompletionSignalEnabled`, both on the existing `trainingGuidance` record) and a nullable
 `workoutReminders` section; versions 1–11 restore them off with no reminder time chosen. A pre-12
@@ -44,6 +49,11 @@ validator, the limits and the export/preview/stage/apply use cases (bound in
 rejected as malformed rather than read as empty. The manifest carries a per-seed
 profile; validation rejects a seed the receiver does not know or whose profile changed
 under the same id (`CATALOG_MISMATCH`), while extra receiver-only seeds are allowed.
+The only profile exceptions are the exact pre-0.8.1 upright-barbell-row and
+cable-deadlifts strings exposed by `BackupCatalog.compatiblePreviousSeedProfiles`.
+No arbitrary pattern/weight mismatch is accepted. Restore preserves imported snapshots,
+overrides and frozen prescriptions; exports carry current canonical profiles. The
+classification compatibility change does not alter the file format or imported text.
 `BackupLimits` (32 MiB, depth 32, 64 KiB per string, 250k records) is enforced before
 decode and after encode, and `AndroidBackupFileStore` reads at most the byte cap.
 `SqlDelightBackupRepository` (`:core:database`) reads every section in one transaction

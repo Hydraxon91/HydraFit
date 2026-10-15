@@ -6,6 +6,7 @@ import com.hydrafit.app.core.domain.backup.BackupValidator
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
+import com.hydrafit.app.core.domain.fatigue.TrainingCoverageRepository
 import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementRepository
 import com.hydrafit.app.core.domain.schedule.ReminderDeliveryRepository
@@ -22,6 +23,7 @@ import com.hydrafit.app.core.domain.workout.SessionNoteRepository
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryRepository
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
 import com.hydrafit.app.core.userdata.equipment.ExercisePreferenceRepository
+import com.hydrafit.app.core.userdata.measurements.BodyWeightRepository
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
 import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
 import com.hydrafit.app.core.userdata.settings.SetupRepository
@@ -114,6 +116,8 @@ class DatabaseModuleVerificationTest {
             assertNotNull(koin.get<SessionNoteRepository>())
             assertNotNull(koin.get<WorkoutHistoryRepository>())
             assertNotNull(koin.get<ExerciseProgressRepository>())
+            assertNotNull(koin.get<TrainingCoverageRepository>())
+            assertNotNull(koin.get<BodyWeightRepository>())
             assertNotNull(koin.get<GuidedWorkoutPreferenceRepository>())
             assertNotNull(koin.get<SetupRepository>())
             assertNotNull(koin.get<SetupWriteRepository>())

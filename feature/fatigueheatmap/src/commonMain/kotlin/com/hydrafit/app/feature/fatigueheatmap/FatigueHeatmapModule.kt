@@ -5,5 +5,5 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val fatigueHeatmapModule: Module = module {
-    viewModel { FatigueHeatmapViewModel(get(), get(), get()) }
+    viewModel { FatigueHeatmapViewModel(get(), get(), get(), get()) }
 }

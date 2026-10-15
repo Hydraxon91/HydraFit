@@ -742,6 +742,230 @@ class EquipmentProfilerViewModelTest {
             assertEquals(conflicted.involvements, kept.involvements)
         }
 
+    @Test
+    fun numericInvolvementEditorAppliesValuesAndRemovesZero() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onEditExercise("back-squat")
+        viewModel.onEditMuscleInvolvement(MuscleGroup.GLUTES)
+        assertEquals("0.5", viewModel.state.value.exerciseEditor.involvementEditor?.input)
+
+        viewModel.onInvolvementInputChanged("0.85")
+        viewModel.onApplyInvolvement()
+        var editor = viewModel.state.value.exerciseEditor
+        assertNull(editor.involvementEditor)
+        assertEquals(0.85, editor.involvements[MuscleGroup.GLUTES])
+
+        viewModel.onEditMuscleInvolvement(MuscleGroup.GLUTES)
+        viewModel.onInvolvementInputChanged("0")
+        viewModel.onApplyInvolvement()
+        editor = viewModel.state.value.exerciseEditor
+        assertNull(editor.involvementEditor)
+        assertFalse(MuscleGroup.GLUTES in editor.involvements)
+
+        viewModel.onEditMuscleInvolvement(MuscleGroup.QUADS)
+        viewModel.onInvolvementInputChanged("1.5")
+        assertFalse(requireNotNull(viewModel.state.value.exerciseEditor.involvementEditor).isValid)
+        viewModel.onApplyInvolvement()
+        assertEquals("1.5", viewModel.state.value.exerciseEditor.involvementEditor?.input)
+        assertEquals(1.0, viewModel.state.value.exerciseEditor.involvements[MuscleGroup.QUADS])
+    }
+
+    @Test
+    fun invalidNumericDraftBlocksSaveAndCancelWritesNothing() = runTest(dispatcher) {
+        val custom = FakeCustomExerciseRepository()
+        val viewModel = viewModel(custom = custom)
+        advanceUntilIdle()
+        viewModel.onNewCustomExercise()
+        viewModel.onEditorNameChanged("My Move")
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.ABS, 1.0)
+        val before = viewModel.state.value.exerciseEditor
+
+        viewModel.onEditMuscleInvolvement(MuscleGroup.ABS)
+        viewModel.onInvolvementInputChanged("abc")
+        assertFalse(viewModel.state.value.exerciseEditor.canSave)
+        viewModel.onSaveExercise()
+        advanceUntilIdle()
+        assertTrue(custom.created.isEmpty())
+
+        viewModel.onCancelInvolvement()
+        assertEquals(before, viewModel.state.value.exerciseEditor)
+        assertTrue(viewModel.state.value.exerciseEditor.canSave)
+        viewModel.onSaveExercise()
+        advanceUntilIdle()
+        assertEquals(1, custom.created.size)
+    }
+
+    @Test
+    fun numericDraftsDoNotLeakAcrossMusclesOrReopen() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onEditExercise("back-squat")
+        viewModel.onEditMuscleInvolvement(MuscleGroup.GLUTES)
+        viewModel.onInvolvementInputChanged("0.9")
+        viewModel.onCancelInvolvement()
+        assertNull(viewModel.state.value.exerciseEditor.involvementEditor)
+
+        viewModel.onEditMuscleInvolvement(MuscleGroup.QUADS)
+        assertEquals("1.0", viewModel.state.value.exerciseEditor.involvementEditor?.input)
+        viewModel.onInvolvementInputChanged("0.2")
+        viewModel.onDismissExerciseEditor()
+        assertNull(viewModel.state.value.exerciseEditor.involvementEditor)
+        viewModel.onEditExercise("back-squat")
+        assertNull(viewModel.state.value.exerciseEditor.involvementEditor)
+    }
+
+    @Test
+    fun tierShortcutsInTheNumericEditorSetKnownValues() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onEditExercise("back-squat")
+        viewModel.onEditMuscleInvolvement(MuscleGroup.CHEST_UPPER)
+        val opened = requireNotNull(viewModel.state.value.exerciseEditor.involvementEditor)
+        assertEquals(InvolvementEditorState.NONE_INPUT, opened.input)
+        assertTrue(opened.isValid)
+        INVOLVEMENT_TIERS.forEach { tier ->
+            viewModel.onInvolvementTierSelected(tier)
+            val draft = requireNotNull(viewModel.state.value.exerciseEditor.involvementEditor)
+            assertTrue(draft.isValid)
+            assertEquals(tier, draft.weightToApply())
+        }
+        viewModel.onInvolvementTierSelected(0.7)
+        viewModel.onApplyInvolvement()
+        val applied = viewModel.state.value.exerciseEditor
+        assertEquals(0.7, applied.involvements[MuscleGroup.CHEST_UPPER])
+
+        viewModel.onEditMuscleInvolvement(MuscleGroup.CHEST_UPPER)
+        viewModel.onInvolvementTierSelected(null)
+        viewModel.onApplyInvolvement()
+        assertFalse(MuscleGroup.CHEST_UPPER in viewModel.state.value.exerciseEditor.involvements)
+    }
+
+    @Test
+    fun applyingAnUntouchedNumericDraftKeepsTheExactStoredValue() = runTest(dispatcher) {
+        val overrides = FakeExerciseOverrideRepository()
+        overrides.update(
+            exerciseId = "back-squat",
+            name = null,
+            requiredEquipment = setOf(EquipmentTag.BARBELL),
+            movementPattern = MovementPattern.SQUAT,
+            unilateral = null,
+            involvements = mapOf(MuscleGroup.CHEST_UPPER to 0.83)
+        )
+        val viewModel = viewModel(overrides = overrides)
+        advanceUntilIdle()
+        viewModel.onEditExercise("back-squat")
+        val seeded = viewModel.state.value.exerciseEditor
+        assertEquals(0.83, seeded.involvements[MuscleGroup.CHEST_UPPER])
+
+        viewModel.onEditMuscleInvolvement(MuscleGroup.CHEST_UPPER)
+        viewModel.onApplyInvolvement()
+
+        val afterApply = viewModel.state.value.exerciseEditor
+        assertEquals(0.83, afterApply.involvements[MuscleGroup.CHEST_UPPER])
+    }
+
+    @Test
+    fun directInvolvementSetNormalizesZeroAndRefusesOutOfRange() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onEditExercise("back-squat")
+
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.GLUTES, 0.0)
+        assertFalse(MuscleGroup.GLUTES in viewModel.state.value.exerciseEditor.involvements)
+
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.QUADS, 2.0)
+        assertEquals(1.0, viewModel.state.value.exerciseEditor.involvements[MuscleGroup.QUADS])
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.QUADS, Double.NaN)
+        assertEquals(1.0, viewModel.state.value.exerciseEditor.involvements[MuscleGroup.QUADS])
+
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.CHEST_UPPER, 0.6)
+        val editor = viewModel.state.value.exerciseEditor
+        assertEquals(0.6, editor.involvements[MuscleGroup.CHEST_UPPER])
+    }
+
+    @Test
+    fun unsetMuscleEditorSeedsZeroAndUntouchedApplyChangesNothing() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onEditExercise("back-squat")
+        assertNull(viewModel.state.value.exerciseEditor.involvements[MuscleGroup.CHEST_UPPER])
+
+        viewModel.onEditMuscleInvolvement(MuscleGroup.CHEST_UPPER)
+        val draft = requireNotNull(viewModel.state.value.exerciseEditor.involvementEditor)
+        assertEquals(InvolvementEditorState.NONE_INPUT, draft.input)
+        assertTrue(draft.isValid)
+
+        viewModel.onApplyInvolvement()
+        assertNull(viewModel.state.value.exerciseEditor.involvementEditor)
+        assertFalse(MuscleGroup.CHEST_UPPER in viewModel.state.value.exerciseEditor.involvements)
+    }
+
+    @Test
+    fun explicitNoneRemovesTheContribution() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onEditExercise("back-squat")
+        assertEquals(0.5, viewModel.state.value.exerciseEditor.involvements[MuscleGroup.GLUTES])
+
+        viewModel.onEditMuscleInvolvement(MuscleGroup.GLUTES)
+        viewModel.onInvolvementTierSelected(null)
+        val none = requireNotNull(viewModel.state.value.exerciseEditor.involvementEditor)
+        assertEquals(InvolvementEditorState.NONE_INPUT, none.input)
+        assertTrue(none.isValid)
+
+        viewModel.onApplyInvolvement()
+        assertFalse(MuscleGroup.GLUTES in viewModel.state.value.exerciseEditor.involvements)
+    }
+
+    @Test
+    fun blankNumericDraftIsInvalidAndCannotBeApplied() = runTest(dispatcher) {
+        val custom = FakeCustomExerciseRepository()
+        val viewModel = viewModel(custom = custom)
+        advanceUntilIdle()
+        viewModel.onNewCustomExercise()
+        viewModel.onEditorNameChanged("My Move")
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.ABS, 1.0)
+
+        viewModel.onEditMuscleInvolvement(MuscleGroup.ABS)
+        viewModel.onInvolvementInputChanged("")
+        assertFalse(requireNotNull(viewModel.state.value.exerciseEditor.involvementEditor).isValid)
+        assertFalse(viewModel.state.value.exerciseEditor.canSave)
+        viewModel.onApplyInvolvement()
+        assertEquals("", viewModel.state.value.exerciseEditor.involvementEditor?.input)
+        assertEquals(1.0, viewModel.state.value.exerciseEditor.involvements[MuscleGroup.ABS])
+
+        viewModel.onSaveExercise()
+        advanceUntilIdle()
+        assertTrue(custom.created.isEmpty())
+
+        viewModel.onCancelInvolvement()
+        assertTrue(viewModel.state.value.exerciseEditor.canSave)
+        viewModel.onSaveExercise()
+        advanceUntilIdle()
+        assertEquals(1, custom.created.size)
+    }
+
+    @Test
+    fun muscleChipCycleWalksTheTiersThenRemoves() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onEditExercise("back-squat")
+        var weight = viewModel.state.value.exerciseEditor.involvements[MuscleGroup.CHEST_UPPER]
+        assertNull(weight)
+
+        val visited = mutableListOf<Double?>()
+        repeat(5) {
+            val next = nextInvolvementTier(weight)
+            visited += next
+            viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.CHEST_UPPER, next)
+            weight = viewModel.state.value.exerciseEditor.involvements[MuscleGroup.CHEST_UPPER]
+        }
+
+        assertEquals(listOf(0.3, 0.5, 0.7, 1.0, null), visited)
+        assertNull(weight)
+    }
+
     private fun suggestedProfile(
         capability: ExerciseLoadCapability = ExerciseLoadCapability.BODYWEIGHT_ADDABLE
     ) = CatalogExerciseProfile(

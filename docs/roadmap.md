@@ -292,10 +292,15 @@ contracts are unchanged and ids are never reused.
 
 | Version | Reviewable scope | Dependencies / references |
 | --- | --- | --- |
-| 0.8.0 *(active)* | Exercise history and load/repetition/e1RM/working-volume charts, plus automatic records and summary integration (former `0.8.0` + `0.8.1`) | OF-04 P0–P3; corrected history, accessible values and load conventions; ties/imports/corrections/deletions; manual PRs stay separate |
+| 0.8.0 *(published 2026-10-15)* | Exercise history and load/repetition/e1RM/working-volume charts, plus automatic records and summary integration (former `0.8.0` + `0.8.1`) | OF-04 P0–P3; corrected history, accessible values and load conventions; ties/imports/corrections/deletions; manual PRs stay separate |
 | 0.8.1 | Catalog pattern conflicts, approved corrections and machine-fly additions; rep-based forearm/wrist accessories; approved TRAPS selection and finer involvement-editing controls (former `0.8.2`–`0.8.4`) | CAT-P6; sourced machine chest fly/reverse machine fly identities and equipment/pattern/planner-pool decisions; FOREARMS pattern/pool contract; TRAPS policy decided first; investigate gaps/outliers first; no unapproved recalibration |
 | 0.8.2 | Accessible front/back anatomical fatigue map and reactive refresh; performed volume and last-trained views (former `0.8.5`–`0.8.6`) | OF-08; artwork/license and refresh contract; existing history and agreed accounting, distinct from modeled recovery; preserve fatigue calculations |
 | 0.8.3 | Body-weight entries and trends (former `0.8.7`) | OF-09; shared ownership, edit/delete, units, optional goal line and backup |
+
+**Status (2026-10-15):** `0.8.0` published on the PR #15 merge commit `45e863a0`; `0.8.1`–`0.8.3`
+implemented, verified, independently reviewed and committed on `batch/0.8.1-0.8.3` (PR #16), with
+publication in flight. Completed plan detail and the reviewed candidate revisions:
+`docs/plans-archive.md` (0.8.x cleanup); review snapshots in `docs/review-0.8.*-snapshot.md`.
 
 Catalog investigations and TRAPS decisions do not require positive findings or
 automatic policy changes. Record no-change outcomes explicitly where warranted.

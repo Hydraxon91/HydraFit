@@ -32,6 +32,7 @@ import com.hydrafit.app.core.domain.workout.ProgressRecordType
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import hydrafit.feature.progress.generated.resources.Res
 import hydrafit.feature.progress.generated.resources.progress_back
+import hydrafit.feature.progress.generated.resources.progress_body_weight
 import hydrafit.feature.progress.generated.resources.progress_chart_volume_legend
 import hydrafit.feature.progress.generated.resources.progress_charts_failed
 import hydrafit.feature.progress.generated.resources.progress_charts_no_eligible
@@ -84,13 +85,18 @@ internal object ProgressTestTags {
     const val EXERCISE_SEARCH = "progress_exercise_search"
     const val HISTORY_LIST = "progress_history_list"
     const val HISTORY_LOAD_MORE = "progress_history_load_more"
+    const val BODY_WEIGHT_ENTRY = "progress_body_weight_entry"
     fun exercise(exerciseId: String) = "progress_exercise_$exerciseId"
     fun range(range: ProgressRange) = "progress_range_${range.days}"
     fun record(index: Int) = "progress_record_$index"
 }
 
 @Composable
-fun ProgressRoute(viewModel: ProgressViewModel = koinViewModel(), onBack: () -> Unit) {
+fun ProgressRoute(
+    viewModel: ProgressViewModel = koinViewModel(),
+    onBack: () -> Unit,
+    onOpenBodyWeight: () -> Unit
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Re-sample the clock and offset when the destination returns to the foreground, so a charting
     // read that crossed midnight is re-issued against the current instant and day window.
@@ -105,7 +111,8 @@ fun ProgressRoute(viewModel: ProgressViewModel = koinViewModel(), onBack: () -> 
         onLoadMoreHistory = viewModel::onLoadMoreHistory,
         onShowSupportingSet = viewModel::onShowSupportingSet,
         onCloseSupportingSet = viewModel::onSupportingSetClosed,
-        onBack = onBack
+        onBack = onBack,
+        onOpenBodyWeight = onOpenBodyWeight
     )
 }
 
@@ -121,6 +128,7 @@ fun ProgressScreen(
     onShowSupportingSet: (ProgressRecordKey, Long) -> Unit,
     onCloseSupportingSet: () -> Unit,
     onBack: () -> Unit,
+    onOpenBodyWeight: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -137,6 +145,12 @@ fun ProgressScreen(
         )
         OutlinedButton(onClick = onBack) {
             Text(stringResource(Res.string.progress_back))
+        }
+        OutlinedButton(
+            onClick = onOpenBodyWeight,
+            modifier = Modifier.testTag(ProgressTestTags.BODY_WEIGHT_ENTRY)
+        ) {
+            Text(stringResource(Res.string.progress_body_weight))
         }
         ExerciseSelector(state, onExerciseQueryChanged, onExerciseSelected)
         if (state.hasSelectedExercise) {
@@ -471,7 +485,7 @@ private fun loadKindLabel(kind: LoadKind): String = when (kind) {
     LoadKind.LEGACY_UNSPECIFIED -> stringResource(Res.string.progress_record_kind_legacy)
 }
 
-private fun ProgressRange.labelResource(): StringResource = when (this) {
+internal fun ProgressRange.labelResource(): StringResource = when (this) {
     ProgressRange.DAYS_28 -> Res.string.progress_range_28
     ProgressRange.DAYS_84 -> Res.string.progress_range_84
     ProgressRange.DAYS_365 -> Res.string.progress_range_365

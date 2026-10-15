@@ -618,6 +618,41 @@ Every prescription, snapshot and performed set carries a **load kind** (`EXTERNA
 
 ### 1.13 Catalog profile matching and custom identity (CAT-02 v1)
 
+0.8.2 adds a separate read-only `TrainingCoverageRepository` port in domain/fatigue
+and SQLDelight implementation observing recorded workout snapshots off-main. The
+pure `TrainingCoverageCalculator` reports seven-civil-day working-set counts and
+separate estimated involvement credits, all-history last-trained and unclassified
+snapshot presence. It never borrows current catalog weights or changes fatigue,
+planning or storage. Existing query invalidation covers corrections/deletes/restore.
+The Fatigue screen keeps its numeric bar rows, adds those coverage facts and moves
+the schematic front/back map (`FatigueMapGeometry`/`FatigueMap`) behind a "Body map"
+overlay. The map canvas and its per-region accessibility overlays derive from one
+area-sorted region list, because a semantics node fully covered by later overlays
+drops out of the accessibility tree; the map is explicitly schematic, not a measured
+anatomical segmentation.
+
+0.8.3 adds body weight as shared user data: `BodyWeightRepository`
+(`core/userdata`, measurements package) keeps one measurement per local civil day and a
+single optional goal. `SqlDelightBodyWeightRepository` enforces finite positive kilograms,
+rejects future days against the injected clock, requires an explicit replacement for an
+occupied day and never overwrites an occupant when moving an entry. Migration `48.sqm`
+adds `bodyWeightMeasurement` and `bodyWeightGoal`; backup format 13 carries both sections,
+and whole replacement restores earlier formats with no recorded body weight. The repository
+is unit-agnostic: weights are canonical kilograms and display units never rewrite stored
+values. The Body weight screen is pushed from Exercise Progress inside the same feature
+graph and shows a raw-point chart on the existing 28/84/365-day ranges, an explicit
+duplicate-day replacement confirmation and a nullable goal; day selection, unit handling
+and stale-submission guards live in the feature ViewModel.
+
+The 0.8.1 catalog adds four separately sourced identities in
+`DefaultExercisesCatalog081`: forearm-pad pec deck, reverse machine fly, seated
+dumbbell wrist curl and extension. New machine capabilities are independent and
+not automatically selected. FOREARM_ISOLATION is stored through the existing TEXT
+pattern fields and enters Pull/Upper/Full-body accessory pools without a direct
+weekly target. New identities receive the same custom-name preservation policy as
+CAT-P7 across seeding, custom edits and backup validation. No new schema, format,
+muscle group, fatigue calibration or TRAPS deficit policy follows from these additions.
+
 The approved 2026-10-09 contract separates lexical profile matching from persisted exercise identity.
 `ExerciseCatalog.profileCandidates()` is a read-only snapshot seam: seeded canonical names, effective
 display names and curated aliases identify `CatalogExerciseProfile` candidates; `ExerciseProfile`
@@ -655,7 +690,12 @@ the **Suggested catalog profile** preview; ambiguity requires a chooser with can
 names, equipment and stable identity labels; unknown names stay manual. This is not a physiological
 equivalence claim. Five independent checkboxes compare current/proposed equipment, pattern, exact
 involvement map, capability (including legacy/unspecified) and unilateral flag. The map is replaced
-as a whole. Manual interactions set sticky `ExerciseProfileGroup` touches even for default/restored
+as a whole. The muscle chip keeps its one-tap tier cycle (unset→Low→Mid→High→Primary→None, and a
+non-tier value clears to None), while a separate labelled edit action opens a per-muscle numeric
+dialog seeded with the stored value (`0` when unset). The value must be finite and within `[0, 1]`:
+blank input is invalid, `0` or None removes the contribution, an untouched value keeps its exact
+stored double, and a non-tier weight is displayed as its number rather than as Primary. An invalid
+draft disables Apply and blocks the outer Save; Cancel discards it without writing. Manual interactions set sticky `ExerciseProfileGroup` touches even for default/restored
 values; untouched groups start checked, touched groups unchecked. Apply-selected groups become
 protected for subsequent previews. Checkbox edits and preview Cancel never mutate editor values or
 touches; Apply is disabled with no selections and never saves. Name changes invalidate the match/
@@ -683,13 +723,17 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   and `SqlDelightBackupCatalog`; the `:core:userdata` `BackupFileStore` port
   (`AndroidBackupFileStore` SAF implementation, `UnsupportedBackupFileStore` on
   iOS); the Settings `BackupRoute`/`BackupViewModel`.
-- **Rules:** the file is logical (`format` + `formatVersion` 11), independent of the
+- **Rules:** the file is logical (`format` + `formatVersion` 13), independent of the
   SQLite schema and the app version. Every envelope field is required, so a file
   that omits one is rejected as malformed rather than read as an empty snapshot;
   nullable fields are present as explicit `null`, not omitted. The manifest carries
   a per-seed profile (equipment, pattern, laterality, capability, resolved
   involvements); validation rejects a seed the receiver does not know or whose
-  profile changed under the same id (`CATALOG_MISMATCH`), while additional
+  profile changed under the same id (`CATALOG_MISMATCH`), except the exact
+  pre-0.8.1 upright-barbell-row/cable-deadlifts profiles explicitly recognized by
+  `BackupCatalog.compatiblePreviousSeedProfiles`. These retain their historical
+  snapshots and frozen prescriptions; only the current seed pattern changes, still
+  compound in both cases. Unknown mismatches remain rejected, while additional
   receiver-only seeds are allowed. Resource limits (32 MiB, nesting depth 32,
   64 KiB per string, 250k records) are enforced before decode and after encode,
   with a bounded read in `AndroidBackupFileStore`. Export and apply run off the
@@ -820,6 +864,9 @@ neither prescriptions nor fatigue/RIR.
 Guided confirmation freezes the Warm-up choice before any legacy/missing-load dialog; all resolution
 paths and failed-write retries retain it until success or cancellation. Warm-up Start resets coaching
 eligibility, and successful live warm-up completion does not start or persist a new rest prompt.
+A live working-set completion starts the prompt for every set, including the day's final
+prescribed set of the occurrence; that inclusion is intentional product behavior
+(user-approved 2026-10-15).
 The no-history "Use last logged" editor fallback retains the live completion event, including its
 original timing, through failed-write retries until success or explicit cancellation. The guided
 submission guard spans persistence and success handling. Rest setup snapshots the completion instant
@@ -1230,7 +1277,8 @@ The path from a tap to a persisted row and back to the UI. File references may h
 7. **Consumers.** `WorkoutLoggerViewModel` collects the catalog and calls `refreshRecentSets()`;
    `SqlDelightWorkoutPlanSourcesRepository` (`WorkoutPlanSourcesRepository`) combines logged sets,
    equipment, engine, days, goal, and personal records; `FatigueHeatmapViewModel` collects
-   `loggedSetsFlow()` and recomputes `CalculateMuscleFatigueUseCase`.
+   `loggedSetsFlow()` and recomputes `CalculateMuscleFatigueUseCase`, and separately
+   collects the recorded coverage snapshots for `TrainingCoverageCalculator`.
 8. **UiState.** Consumers update their `StateFlow<UiState>`; screens re-render via
    `collectAsStateWithLifecycle`.
 

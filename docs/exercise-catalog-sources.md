@@ -144,10 +144,58 @@ Representative systematic reviews cited per exercise family (expanded in CAT-P1)
 
 ### 3. Movement patterns
 
-Movement patterns map to HydraFit's existing `MovementPattern` enum (14 values,
+#### 0.8.1 classification corrections
+
+The approved 0.8.1 contract keeps involvement weights unchanged and resolves the
+five fresh-install CAT-P6 advisory conflicts:
+
+- Upright barbell row becomes VERTICAL_PULL, matching the existing upright cable
+  row. The advisory accepts front/side deltoids and TRAPS for vertical pulls, in
+  addition to lats/biceps; it remains a primary-target check, not a technique validator.
+- Cable deadlifts become SQUAT. The [dataset row](https://github.com/yuhonas/free-exercise-db/blob/main/exercises/Cable_Deadlifts.json)
+  describes squatting between low handles, then extending hips/knees, with quadriceps
+  primary. This is an app classification choice; no numerical recalibration follows.
+- LEG_ISOLATION's advisory includes ADDUCTORS, so the unchanged band/cable
+  hip-adduction profiles pass without relabeling their target.
+
+Both pattern corrections remain compound. Seeding updates patterns but preserves
+populated involvement maps, explicit overrides and workout snapshots. Restore accepts
+the exact previous profile strings for those two corrected IDs only; unknown profile
+mismatches still fail. No imported file is rewritten and no backup format changes.
+
+Movement patterns map to HydraFit's existing `MovementPattern` enum (15 values,
 compound/accessory). `free-exercise-db`'s `mechanic` (compound vs isolation) and ExRx's
 biomechanical analysis are the cross-checks; the final pattern is the app's own
 classification, since the deterministic planner keys on it.
+
+#### 0.8.1 four-identity accessory batch
+
+The following maps are approved **modeled tiers**, not measured fatigue coefficients
+or a conversion from cross-study EMG to recovery. The studies inform target selection;
+unmeasured synergists are omitted rather than assigned invented measurements. Existing
+seed weights are not recalibrated. No third-party descriptions, artwork or photos are copied.
+
+| ID / canonical name | Equipment / pattern / laterality / load | Involvements | Fact and research provenance |
+| --- | --- | --- | --- |
+| `machine-pec-deck-fly` / Machine Pec Deck Fly | PEC_DECK_MACHINE / CHEST_FLY / bilateral / EXTERNAL | CHEST_LOWER 1.0; CHEST_UPPER 0.5 | [ExRx forearm-pad pec deck](https://exrx.net/WeightExercises/PectoralSternal/LVPecDeckFly): sternal target and clavicular synergist. The [pec-deck EMG study](https://revistas.icesp.br/index.php/RBPeCS/article/view/733/0) studies pectoralis/anterior-deltoid activation, not HydraFit weights or equivalent handle-fly variants. |
+| `reverse-machine-fly` / Reverse Machine Fly | REVERSE_FLY_MACHINE / SHOULDER_ISOLATION / bilateral / EXTERNAL | REAR_DELTS 1.0; SIDE_DELTS 0.7 | Dataset `Reverse_Machine_Flyes`; [Schoenfeld et al. 2013, PMID 23302754](https://pubmed.ncbi.nlm.nih.gov/23302754/); [deltoid comparison, PMID 24947920](https://pubmed.ncbi.nlm.nih.gov/24947920/); [Electromyographical analysis of the deltoid between different strength training exercises (2013)](https://researchportal.northumbria.ac.uk/en/publications/electromyographical-analysis-of-the-deltoid-muscle-between-differ/). |
+| `seated-dumbbell-wrist-curl` / Seated Dumbbell Wrist Curl | DUMBBELL + BENCH / FOREARM_ISOLATION / unilateral / EXTERNAL | FOREARMS 1.0 | Dataset `Seated_One-Arm_Dumbbell_Palms-Up_Wrist_Curl`; [ExRx wrist flexors](https://exrx.net/WeightExercises/WristFlexors/DBWristCurl); [Forman et al. 2019](https://doi.org/10.1016/j.jelekin.2019.02.004), supported wrist-force/handgrip experiment (not dynamic wrist-curl calibration). |
+| `seated-dumbbell-wrist-extension` / Seated Dumbbell Wrist Extension | DUMBBELL + BENCH / FOREARM_ISOLATION / unilateral / EXTERNAL | FOREARMS 1.0 | Dataset `Seated_One-Arm_Dumbbell_Palms-Down_Wrist_Curl`; [ExRx wrist extensors](https://exrx.net/WeightExercises/WristExtensors/DBReverseWristCurl); Forman et al. 2019 as above, with the same transfer limitation. |
+
+Dataset metadata remains Unlicense; ExRx and papers are facts/citations only, with
+no redistribution of text/images. HydraFit-authored rows remain MIT. FOREARMS is
+the existing broad group, not new flexor/extensor physiology. Wrist loads are per
+hand, never doubled; BENCH represents the seated support in this specific variant.
+Seconds, distance and force-rated grippers are not supported by these rows.
+
+PEC_DECK_MACHINE and REVERSE_FLY_MACHINE are separate capabilities, neither implied
+by CABLE_MACHINE or auto-selected. Forearms enter Pull/Upper/Full-body accessory
+pools; biceps/triceps direct coverage, equipment/exclusions/soreness and day caps
+retain priority. No dedicated forearm/TRAPS target is added. Chest fly retains
+Push/Full-body reachability, reverse fly Push/Upper/Full-body. Pre-existing custom
+identities with these names survive seeding/dedupe/backup and remain editable;
+new same-name customs remain rejected. FOREARM_ISOLATION uses the existing TEXT
+pattern encoding, with no table or backup-format change.
 
 ## Per-row provenance template
 

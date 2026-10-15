@@ -232,6 +232,34 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun acceptsOnlyAnExactHistoricalProfileForItsOwnKnownIdentity() {
+        val receiver = object : BackupCatalog by catalog {
+            override fun compatiblePreviousSeedProfiles(): Map<String, Set<String>> =
+                mapOf("back-squat" to setOf("approved-old-profile"))
+        }
+        val compatibleValidator = BackupValidator(receiver)
+        val file = validFile().copy(
+            catalog = BackupCatalogManifest(
+                listOf("back-squat"),
+                listOf(BackupSeedProfile("back-squat", "approved-old-profile"))
+            )
+        )
+        compatibleValidator.validate(file)
+        listOf(
+            BackupSeedProfile("back-squat", "approved-old-profile "),
+            BackupSeedProfile("back-squat", "unknown-old-profile"),
+            BackupSeedProfile("missing", "approved-old-profile")
+        ).forEach { profile ->
+            val failure = assertFailsWith<BackupException> {
+                compatibleValidator.validate(
+                    file.copy(catalog = file.catalog.copy(seedProfiles = listOf(profile)))
+                )
+            }
+            assertEquals(BackupFailure.CATALOG_MISMATCH, failure.failure)
+        }
+    }
+
+    @Test
     fun rejectsASeedUnknownToThisInstall() {
         assertFailure(BackupFailure.CATALOG_MISMATCH) {
             validFile().copy(
@@ -780,6 +808,47 @@ class BackupValidatorTest {
                 occurrenceEntries = listOf(occurrenceEntry(id = 5, occurrenceId = 1)),
                 workoutSets = listOf(set(occurrenceId = 2, occurrenceEntryId = 5))
             )
+        }
+    }
+
+    @Test
+    fun acceptsBodyWeightSectionsInFormatThirteenAndRejectsBadValues() {
+        val enabled = validFile().copy(
+            bodyWeightMeasurements = listOf(
+                BackupBodyWeightRecord(20_000L, 82.5),
+                BackupBodyWeightRecord(20_001L, 82.25)
+            ),
+            bodyWeightGoalKg = 78.0
+        )
+        validator.validate(enabled)
+
+        listOf(
+            enabled.copy(bodyWeightMeasurements = listOf(BackupBodyWeightRecord(1L, 0.0))),
+            enabled.copy(bodyWeightMeasurements = listOf(BackupBodyWeightRecord(1L, -1.0))),
+            enabled.copy(bodyWeightMeasurements = listOf(BackupBodyWeightRecord(1L, Double.NaN))),
+            enabled.copy(
+                bodyWeightMeasurements = listOf(
+                    BackupBodyWeightRecord(1L, 80.0),
+                    BackupBodyWeightRecord(1L, 81.0)
+                )
+            ),
+            enabled.copy(bodyWeightGoalKg = 0.0),
+            enabled.copy(bodyWeightGoalKg = Double.NaN)
+        ).forEach { file ->
+            assertFailure(BackupFailure.INVALID_VALUE) { file }
+        }
+    }
+
+    @Test
+    fun rejectsBodyWeightSectionsInLegacyFormats() {
+        listOf(
+            validFile().copy(
+                formatVersion = 12,
+                bodyWeightMeasurements = listOf(BackupBodyWeightRecord(1L, 80.0))
+            ),
+            validFile().copy(formatVersion = 12, bodyWeightGoalKg = 80.0)
+        ).forEach { file ->
+            assertFailure(BackupFailure.INVALID_VALUE) { file }
         }
     }
 

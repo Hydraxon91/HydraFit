@@ -6292,6 +6292,39 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun liveCompletionOfTheDayFinalSetStartsTheRestTimer() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        var elapsedNow = 50_000L
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            elapsedNow = { elapsedNow }
+        )
+        advanceUntilIdle()
+
+        viewModel.startGuidedSet(40L)
+        elapsedNow = 50_750L
+        viewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+        assertEquals(120_000L, viewModel.state.value.restTimer?.remainingMillis)
+
+        // The day's last prescribed set intentionally starts the prompt too (user-approved 2026-10-15).
+        elapsedNow = 60_000L
+        viewModel.startGuidedSet(40L)
+        elapsedNow = 60_750L
+        viewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+
+        assertEquals(2, repository.all().size)
+        assertEquals(2, viewModel.state.value.guidedProgress?.performedSets)
+        assertEquals(120_000L, viewModel.state.value.restTimer?.remainingMillis)
+        viewModel.cancelRestTimer()
+    }
+
+    @Test
     fun liveTimerUsesGlobalDefaultAndRemembersOrResetsExerciseOverride() = runTimerTest {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()

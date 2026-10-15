@@ -58,7 +58,10 @@ object DirectArmCoverage {
             MovementPattern.SHOULDER_ISOLATION,
             MovementPattern.CHEST_FLY
         )
-        SplitFocus.PULL -> listOf(MovementPattern.BICEPS_ISOLATION)
+        SplitFocus.PULL -> listOf(
+            MovementPattern.BICEPS_ISOLATION,
+            MovementPattern.FOREARM_ISOLATION
+        )
         SplitFocus.LEGS, SplitFocus.LOWER -> listOf(
             MovementPattern.LEG_ISOLATION,
             MovementPattern.CALF_RAISE,
@@ -67,11 +70,13 @@ object DirectArmCoverage {
         SplitFocus.UPPER -> listOf(
             MovementPattern.BICEPS_ISOLATION,
             MovementPattern.TRICEPS_ISOLATION,
+            MovementPattern.FOREARM_ISOLATION,
             MovementPattern.SHOULDER_ISOLATION
         )
         SplitFocus.FULL_BODY -> listOf(
             MovementPattern.BICEPS_ISOLATION,
             MovementPattern.TRICEPS_ISOLATION,
+            MovementPattern.FOREARM_ISOLATION,
             MovementPattern.SHOULDER_ISOLATION,
             MovementPattern.CHEST_FLY,
             MovementPattern.LEG_ISOLATION,

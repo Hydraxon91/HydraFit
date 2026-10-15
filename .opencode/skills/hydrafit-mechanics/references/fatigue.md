@@ -5,6 +5,15 @@ Paths are relative to the repository root; package shorthand is defined in
 
 ## Fatigue: bounded, session-aware calculation
 
+0.8.2 performed coverage is independent: `TrainingCoverageCalculator` consumes
+`CoverageSet` snapshots from `TrainingCoverageRepository`, never `LoggedSet`'s
+catalog fallback. Seven civil days including today, fixed current offset, no
+warm-ups/future sets; count each positive involvement once per muscle and report
+sum(weight) separately as estimated credits. Last-trained spans all available
+qualifying history. Null snapshots are unclassified, empty maps known empty;
+surface unknown history rather than claiming never trained. No fatigue/planner
+constant or formula changes.
+
 Sources: domain `fatigue/FatigueCalculator.kt`, `FatigueConfig.kt`, `LoggedSet.kt`,
 and `MuscleTarget.kt`. Tests: `fatigue/FatigueCalculatorTest.kt` and
 `FatigueReplayTest.kt` under `core/domain/src/commonTest/kotlin/com/hydrafit/app/core/domain/`.

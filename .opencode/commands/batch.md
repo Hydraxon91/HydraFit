@@ -68,10 +68,17 @@ Apply these standing defaults unless the user explicitly overrides them:
   owner, this invocation approves coder for settled, localized chunks and the
   main agent for fatigue/planner logic, migrations, concurrency and shared-shell
   work. State the owner and exact paths before edits; follow delegation briefs
-  and serialize shared-tree writes.
+  and serialize shared-tree writes unless the accepted pre-flight plan explicitly
+  approves a pair under AGENTS.md Parallel bounded delegation (at most two coders
+  without further approval), with disjointness evidence, a common baseline and
+  Gradle lock, and a stable-tree verification join before Git or review. Release
+  dependency order and all publication gates remain unchanged.
 - **Verification/review:** verify each implementation chunk, then obtain one
-  independent read-only full-range review per release from a separate general
-  agent, with targeted closure after corrections. Follow both review guides and
+  independent read-only full-range review per release from the separate `reviewer`
+  agent, with targeted closure after corrections. Do not override its inherited
+  parent model/variant unless the user requests it. Fall back to a separate
+  `general` agent only if `reviewer` is unavailable, with the same read-only brief
+  and restrictions. Follow both review guides and
   their bounded reopen rules. No routine Plan/Build switch or fresh review request
   is needed, but harness-enforced Plan mode still prevents implementation.
 - **Corrections:** pre-authorize only localized, evidence-backed mechanical fixes
@@ -108,10 +115,21 @@ Apply these standing defaults unless the user explicitly overrides them:
   ~30-tool-calls-without-progress rule and every stop condition still apply, and each
   release boundary still reports. Prefer a real bound for a multi-release batch. The
   budget is never permission to loop, skip checks or renew a failed run.
-- **Stops:** stop for design decisions, missing approvals/permissions, unexpected
-  writes, unsafe data effects, unavailable required verification, unresolved
-  required findings after permitted corrections, exhausted budget or the builder
-  failure limit. Individually gated operations remain gated.
+- **Blockers:** a blocker confined to part of the approved scope does not stop the
+  whole run. Record the failure, evidence, affected acceptance criteria and
+  dependencies, mark the affected chunk or release blocked or partial, and continue
+  other approved work only where its prerequisites remain valid and it neither
+  depends on, conceals nor works around the blocked item. Never mark blocked work
+  complete, retry an unchanged failing step, or advance into a later release that
+  depends on it. A blocked release cannot be published, and the final report
+  distinguishes completed candidates from partial or blocked work.
+- **Stops:** stop the whole run for design decisions, missing approvals/permissions,
+  unexpected writes, unsafe data effects, unavailable required verification,
+  unresolved required findings after permitted corrections, exhausted budget, the
+  builder failure limit, or when no independent approved work remains. A
+  partial-scope blocker follows the Blockers bullet instead, and missing approval
+  for a gated operation blocks that operation rather than the run while independent
+  work remains. Individually gated operations remain gated.
 
 Present the pre-flight plan and wait for acceptance before the first edit, unless
 the invocation bypassed it. Report each release boundary, and stop after the

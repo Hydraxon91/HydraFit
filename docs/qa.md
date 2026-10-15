@@ -12,6 +12,241 @@ Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
 
+## 0.8.2 C1 coverage read contract — 2026-10-15
+
+- Main-agent implementation from `65f92f84`: domain coverage projection/calculator,
+  read-only SQLDelight snapshot observer and verified repository binding. No schema,
+  backup-format, fatigue or planner change. Missing snapshots stay unclassified.
+- Full Tier A matrix passed 1,888 host tests, zero failures/errors/skips, migration
+  verification, lint, debug assembly and both iOS compiles. Log under approved opencode
+  temp: `hf-082-c1-3.log`. Two prior runs reported wrapping errors; no behavior changed
+  to resolve them. Graph verification includes real repository resolution.
+- Domain fixtures cover 2/2 counts versus 2.0/0.6 credits, warm-up/future exclusion,
+  inclusive civil-day bounds, fixed offsets/negative dates, all-history last-trained,
+  unknown versus empty snapshots and deletion reconciliation. Repository tests drive
+  the production log writer, preserve recorded profiles after catalog edits, and
+  verify live correction/deletion/whole restore and same-count replacement emissions.
+- Feature map/coverage UI and release integration/review remain pending.
+
+## 0.8.3 C1 body-weight persistence — 2026-10-15
+
+- Main-agent implementation from `63d8a5df`: shared `BodyWeightRepository` port
+  (`core/userdata`), `SqlDelightBodyWeightRepository` with `TimeProvider`-based future-day
+  rejection, `BodyWeight.sq` + migration `48.sqm` (48 → 49) creating
+  `bodyWeightMeasurement` (one row per local civil day) and single-row `bodyWeightGoal`,
+  database-module binding and backup format 13 (both sections required from 13 on,
+  pre-13 files must not carry them, whole replacement clears them).
+- Full Tier A matrix passed 1,917 tests, zero failures/errors/skips, migration
+  verification, global ktlint, debug assembly and both required iOS compiles
+  (`hf-083-c1-matrix.log` under the approved opencode temp). Two earlier runs fixed
+  ktlint wrapping, a missing import, a format-version slip in a validator test and the
+  migration-test numbering (file `N.sqm` migrates N → N+1, confirmed against the
+  existing 46/47 migration tests).
+- Tests: repository validation (zero/negative/NaN weight, future day), duplicate-date
+  refusal without writes, explicit replacement, in-place edit and atomic move, occupied
+  target never overwritten, missing source rejection, exact double precision
+  (82.1234567890123), goal set/replace/clear plus invalid goal, live flow invalidation
+  across add/update/delete, migration row preservation plus fresh-schema tables and
+  `Schema.version == 49`, backup round trip with measurements and goal, and a legacy
+  format-12 restore that clears them. The schema snapshot chain
+  (`verifySqlDelightMigration`) covers 48.sqm.
+- Feature UI (083-C2), integration/device acceptance and independent review remain pending.
+
+### 0.8.3 C2/C3 body-weight UI and device acceptance
+
+- Coder-owned C2 from `12da0775`: a pushed `Body weight` destination inside the
+  Progress graph (entry button on the Progress screen, no new tab/module), add/edit/
+  delete with an explicit duplicate-day replacement dialog, a nullable set/clear goal,
+  a raw-point chart reusing the 28/84/365-day ranges, unit-aware input/display that
+  never rewrites stored values, and stale/repeat-submit guards. Full matrix passed
+  1,947 tests, zero failures/errors/skips, migration verification, lint, debug
+  assembly and both iOS compiles (`hf-083-c2-matrix.log`).
+- Process note: the coder fixed one test line with `sed` and ran a module-scoped
+  `ktlintFormat`, both outside the edit-tool discipline; the parent verified the diff
+  touches only the five intended feature files and the matrix is green. Recorded as a
+  process deviation, not a correctness finding.
+- Device acceptance (debug on emulator-5554, parent-authored flows, one attempt per
+  flow with evidence-backed selector corrections): pre-deploy `PRAGMA user_version=48`
+  with no body-weight tables; after deploy `user_version=49`, both tables created and
+  the existing 4 sets / 2 sessions unchanged. Verified: entry from Exercise Progress
+  with the empty state; **draft preservation** across the pushed round trip (the
+  Back-Squat row's checked state asserted before and after); add 82.5 kg; a same-day
+  Save offering `Replace the measurement for this day?` and Replace storing 83 kg with
+  no second row; goal 80 kg then clear; a **cold restart** preserving 83 kg and the
+  cleared goal; 365/28-day range chips; opening the row and deleting it through the
+  confirmation returning the empty state. Final aggregates: 0 measurements, no goal,
+  sets/sessions identical, `user_version=49`.
+- Flow-authoring history, explicitly not app defects: earlier attempts failed on
+  below-the-fold `Instructions`/`Reps` assertions and on expecting `82.5`/`83.0`
+  formatting (the shared formatter renders `82.5 kg` and `83 kg`); the final
+  checked-descendant row selector and the corrected navigation passed. Screenshots
+  captured and viewed: `cleanup-empty`, `entry-empty`, `draft-preserved`, `recorded`,
+  `goal-cleared`, `persisted`, `cleaned` under `.../opencode/hf-083-accept/`.
+- Leftover state: the Logger retains a selected Back Squat draft (unsaved, no record);
+  reported and intentionally not cleared. Limits: dark mode, larger text, locale and
+  TalkBack were not checked on this screen, and the chart canvas is screenshot-viewed
+  rather than pixel-asserted. Independent 0.8.3 review pending at this record.
+- Independent review of the committed range (base `63d8a5df`): no blocking code finding;
+  verdict INCOMPLETE for evidence gaps A1/A2, plus findings R083-01..04. Corrections
+  applied and matrix-verified (1,950 tests): R083-01 counts `bodyWeightMeasurements`
+  toward `MAX_RECORDS` with a boundary test; R083-03 removes the duplicate
+  `bodyweight_title`/`bodyweight_retry` keys, reusing `progress_body_weight` and
+  `progress_charts_retry` with byte-identical values; R083-04 rethrows
+  `CancellationException` on the delete/goal writes with two deterministic tests.
+  Targeted closure CLOSED: the corrections were verified with their effective regression
+  tests, and R083-02 was **refuted by code evidence** (modal editor, hidden tab bar,
+  Settings-only unit writer, nav-scoped ViewModel — a unit change cannot occur while a
+  draft is open), so no design decision remains. A1 is artifact-backed under
+  `.../hf-083-accept/evidence/` (`a1-db-initial.txt`, `a1-version.txt`, `a1-db-final.txt`)
+  with the pre-deploy `user_version=48` observation recorded as historical and covered by
+  `BodyWeightMigrationTest`. A2 completed with artifacts: `Weight (lb)` and a `180 lb`
+  row, `81.6 kg` after restoring kilograms, dark and font-1.3 screenshots with readbacks
+  restored, deletion to the empty state, and identical before/after DB snapshots. Final
+  aggregate across all artifacts: 1,950 tests, zero failures/errors/skips. Retained
+  limits: TalkBack/locale/rotation, pixel-level chart truth and a corrected-APK device
+  install were not exercised.
+
+## 0.8.2 C2/C3 map overlay + coverage UI — 2026-10-15
+
+- Coder-owned C2 map/coverage UI plus parent C3 integration on `0a6717a6`; user approved
+  a layout revision during acceptance: the tab keeps the bar rows and coverage facts,
+  and the schematic map moved behind a "Body map" overlay (visual redesign deferred).
+- Full Tier A matrix passed 1,906 tests, zero failures/errors/skips, migration
+  verification, lint, debug assembly and both iOS compiles (`hf-082-c3-3.log`).
+- Device acceptance (debug `0.7.6-dev-0a6717a6-dirty` on emulator-5554): bars/coverage
+  10/10 (heading, section note, recorded sets/credits/last-trained lines), Body map
+  overlay 14/14 (Front, `Upper chest`/`Biceps` region descriptions, scroll to Back,
+  `Traps` region, legend, schematic note, Close returns to coverage), resume refresh
+  6/6, dark 6/6 and larger text 6/6 with theme/font readbacks restored, final screen
+  on the bars view. `Chest lower` was not separately asserted on the device; its
+  post-fix presence rests on the geometry regression test and the single-order change.
+  Screenshots captured and viewed by the runner (`fatigue-bars.png`,
+  `overlay-map.png`, `overlay-dark.png`, `overlay-large.png`, `final.png` under
+  `.../opencode/hf-082-accept3/`). Workout fingerprints unchanged (4 sets / 2 sessions);
+  no records written; scratch copies removed.
+- Acceptance found and fixed a real accessibility defect: the overlay region boxes were
+  composed in list order while the canvas drew an area-sorted order, so regions fully
+  covered by later boxes (chest upper/lower, traps) vanished from the accessibility
+  tree. `FatigueMap.kt` now derives both layers from one ordered list; a regression test
+  proves the old order loses exactly those three regions and the fixed order keeps an
+  uncovered interior point per region. Visual output is unchanged. The earlier inline
+  layout's below-the-fold flow failures and the fixed-order re-run are recorded as
+  history in the acceptance artifact logs, not as open findings.
+- Limits retained: TalkBack speech, locale/rotation variants and every region's exact
+  scrolled percentage were not individually enumerated; the map remains explicitly
+  schematic. Independent 0.8.2 review pending at the time of this record.
+
+## 0.8.1 C1 classification/backup verification — 2026-10-15
+
+### C3/C4 numeric-editor and integration evidence
+
+#### Renewed acceptance — user-approved 20-minute budget
+
+- Fresh preflight confirmed emulator-5554, current dirty debug build, no editor/IME,
+  light theme and font scale 1.0. Numeric Apply to the unsaved draft displayed
+  `Upper chest · 0.83`; Save returned to the catalog and reopening retained that exact
+  non-tier value. Read-only persistence inspection confirmed only the intended test
+  override. Reset and reopen restored absent Upper chest and zero override rows;
+  four sets/two sessions retained baseline aggregates. Scratch DB copies were removed.
+- Viewed editor screenshots at light 1.0, dark 1.0, dark 1.3 and light 1.3 showed
+  readable numeric action/value labels and visible Save/Reset; larger text wrapped
+  without clipping. Theme/font were restored and read back as light/1.0.
+- Remaining three rows were filtered uniquely and opened: pec deck shows Chest fly,
+  Upper chest Mid/Lower chest Primary; reverse fly shows Shoulder isolation and
+  Side delts High/Rear delts Primary; wrist extension shows Forearm isolation with
+  Dumbbells/Bench/Forearms subtitle. Wrist extension's Forearms chip was below the
+  fold and was not separately scrolled into view. Catalog profiles have host coverage.
+- Search was cleared; full six-tab navigation smoke passed, final Equipment selected,
+  no editor/IME. Final screenshot viewed. Runtime instruction content/TalkBack are
+  outside this check; no claims are made for them. The renewed budget was fully used.
+- Artifacts under the same approved opencode temp root: `hf-081-renew-preflight/`,
+  `hf-081-renew-open/`, `hf-081-renew-apply/`, `hf-081-renew-save/`,
+  `hf-081-renew-layout/` and `hf-081-renew-catalog/`. Numeric success and layout
+  evidence is ready for targeted independent closure of R081-01/02; the earlier
+  failed-flow evidence below is preserved, not reclassified as a pass.
+  Independent targeted closure subsequently APPROVED R081-01/02; see the appended
+  closure in `review-0.8.1-snapshot.md`. Supplemental limitations remain explicit.
+
+- Coder-owned C3 implementation on `62ce756d` plus uncommitted equipment files:
+  retained one-tap tier cycling and added a separate per-muscle numeric action.
+  Explicit None/zero removes; blank, non-finite and out-of-range drafts are invalid.
+  Untouched stored precision, cancellation and profile protection have host tests.
+- Corrected C3 targeted verification passed 58 equipment tests, lint and debug build
+  (`hf-081-c3-correct-1.log`). Full integration passed 1,882 host tests, zero
+  failures/errors/skips, migration verification, global ktlint, debug assembly and
+  both required iOS compiles (`hf-081-integration.log`). Logs are under
+  `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/`.
+- UI runner deployed debug `0.7.6-dev-62ce756d-dirty` to emulator-5554. Content
+  fingerprints before/after deployment and cleanup preserved four workout sets and
+  two sessions. No exercise override was added; all editor changes were discarded.
+  New pec-deck/reverse-fly capabilities and the wrist-curl catalog row were observed;
+  wrist editor exposes Forearm isolation. Separate numeric action and tier cycling
+  were verified. Screenshots were captured and viewed by the runner.
+- Numeric validation is **partial / tooling-blocked**: blank and 1.1 disabled Apply
+  with validation feedback; 0.83 appeared valid, but the enabled-host Maestro assertion
+  failed before Apply. The initial flow also targeted the text node rather than its
+  disabled host; one evidence-backed correction fixed disabled assertions but failed
+  on the valid-host matcher. No further validation replay was attempted. Successful
+  numeric Apply/display/persistence remains runtime-unverified; host tests are not
+  reported as a replacement for that UI check.
+- Tier-state assertion first used selected instead of checked; its one correction
+  passed without replaying the tier tap. Search cleanup needed one cursor-to-end
+  correction; emptiness was positively inspected before navigation. Numeric and
+  exercise drafts were discarded; final keyboard hidden. Existing navigation smoke
+  passed all six selected-tab assertions and finished on Equipment.
+- UI artifacts: `.../opencode/hf-081-deploy-1/` (fresh, numeric, cancellation, search
+  and navigation hierarchies/screenshots); corresponding named-flow output dirs
+  `hf-081-*-out/`. No release install, phone interaction or data clear occurred.
+- Remaining release acceptance: successful numeric Apply/reopen, remaining new-row
+  runtime checks and light/dark/larger-text matrix. Independent review is pending;
+  0.8.1 is not a completed candidate and dependent release advancement is not claimed.
+  Independent full-range source review completed without a confirmed introduced code
+  defect, but its verdict is INCOMPLETE for R081-01/02 verification gaps. See
+  `review-0.8.1-snapshot.md`; only targeted evidence closure remains after the missing
+  runtime checks. No further numeric retry was authorized or performed.
+
+### C2 catalog/accessory verification
+
+- Main-agent implementation from `fda7faee`: four sourced seeds, distinct machine
+  capabilities, FOREARM_ISOLATION accessory eligibility and preserved custom identities.
+- Full Tier A matrix passed: 1,860 host tests, zero failures/errors/skips, migration
+  verification, global ktlint, debug assembly and both required iOS compiles.
+  Log: `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/hydrafit-081-c2-2.log`.
+- `ForearmAccessoryPolicyTest` verifies exact focus eligibility, non-compound/direct-arm
+  separation, accessory set count and equipment/exclusion/fatigue gates.
+  `Catalog081IntegrationTest` uses production seeds/planner/log/backup repositories:
+  exact profiles, independent machine availability, no automatic selection, per-hand
+  load preservation, custom editability and full backup round trips.
+  `CustomExerciseDedupeTest` preserves all existing reference families across upgrade.
+- First C2 run found wrapping errors and two fixtures exporting absent settings;
+  restore intentionally materializes default settings. Initializing the fixture's
+  settings row preserves strict full-snapshot assertions; production restore is unchanged.
+  Numeric editor, deployed UI acceptance and independent release review remain pending.
+
+- Batch base `761d47d4`; approved contract commit `1a867d2d`; main-agent owner.
+  Compound-only pattern corrections, advisory muscle sets and exact historical
+  backup-profile compatibility are implemented. No weights/schema/encoding change.
+- Full Tier A command passed with a 600-second wrapper: `testAndroidHostTest
+  :core:database:verifySqlDelightMigration ktlintCheck :androidApp:assembleDebug
+  :shared:compileKotlinIosSimulatorArm64 :core:network:compileKotlinIosSimulatorArm64
+  --continue`. Log: `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/hydrafit-081-c1-3.log`.
+  `BUILD SUCCESSFUL`; 1,854 host tests, zero failures/errors/skips. Two earlier
+  runs failed formatting checks; line wrapping was corrected without behavior changes.
+- `SeedExerciseCatalogTest` drives real pre-correction rows and the production log
+  writer, then repeats current seeding: populated weights, overrides, workout rows
+  and fatigue projections remain identical. The strict catalog guardrail has no
+  exemptions. Domain tests cover upright/adductor thresholds and exact scoped
+  compatibility rather than a global mismatch bypass.
+- `SqlDelightBackupRepositoryTest` exports representative owned data, substitutes
+  independent exact old profile strings, stages/applies through production use cases,
+  reseeds and compares the exported snapshot. A near-match profile fails before
+  staging/writes; imported text stays unchanged and exports retain current profiles.
+- Read-only UI-runner preflight confirmed emulator-5554, Logger selected, no visible
+  dialog/keyboard, and viewed screenshot. No app/repository mutations. Artifacts:
+  `.../opencode/hf-081-preflight/{hierarchy.csv,screen.png}`. Installed debug build
+  is `0.7.6-dev-56917e32-dirty`, not this candidate; no C1 runtime claim is made.
+  New catalog/editor UI checks, release integration and independent review remain pending.
+
 ## 0.8.0 C1–C3 backend evidence — 2026-10-15
 
 - Baseline `a34b6cca`; main-agent implementation. Approved descriptive-record contract and

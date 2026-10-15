@@ -30,6 +30,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hydrafit.app.core.domain.equipment.Equipment
@@ -68,6 +70,8 @@ import hydrafit.feature.equipment.generated.resources.equipment_exercise_section
 import hydrafit.feature.equipment.generated.resources.equipment_find_profile
 import hydrafit.feature.equipment.generated.resources.equipment_include
 import hydrafit.feature.equipment.generated.resources.equipment_instructions
+import hydrafit.feature.equipment.generated.resources.equipment_involvement_edit
+import hydrafit.feature.equipment.generated.resources.equipment_involvement_edit_description
 import hydrafit.feature.equipment.generated.resources.equipment_keep_editing
 import hydrafit.feature.equipment.generated.resources.equipment_load_bodyweight
 import hydrafit.feature.equipment.generated.resources.equipment_load_bodyweight_added
@@ -131,6 +135,7 @@ import hydrafit.feature.equipment.generated.resources.pattern_biceps_isolation
 import hydrafit.feature.equipment.generated.resources.pattern_calf_raise
 import hydrafit.feature.equipment.generated.resources.pattern_chest_fly
 import hydrafit.feature.equipment.generated.resources.pattern_core
+import hydrafit.feature.equipment.generated.resources.pattern_forearm_isolation
 import hydrafit.feature.equipment.generated.resources.pattern_hinge
 import hydrafit.feature.equipment.generated.resources.pattern_horizontal_pull
 import hydrafit.feature.equipment.generated.resources.pattern_horizontal_push
@@ -185,6 +190,11 @@ fun EquipmentProfilerRoute(
         onEditorUnilateralToggled = viewModel::onEditorUnilateralToggled,
         onEditorLoadCapabilityChanged = viewModel::onEditorLoadCapabilityChanged,
         onEditorMuscleInvolvementChanged = viewModel::onEditorMuscleInvolvementChanged,
+        onEditMuscleInvolvement = viewModel::onEditMuscleInvolvement,
+        onInvolvementInputChanged = viewModel::onInvolvementInputChanged,
+        onInvolvementTierSelected = viewModel::onInvolvementTierSelected,
+        onApplyInvolvement = viewModel::onApplyInvolvement,
+        onCancelInvolvement = viewModel::onCancelInvolvement,
         profileActions = ExerciseProfileSuggestionActions(
             find = viewModel::onFindProfile,
             choose = viewModel::onProfileCandidateSelected,
@@ -238,6 +248,11 @@ fun EquipmentProfilerScreen(
     onEditorUnilateralToggled: (Boolean) -> Unit,
     onEditorLoadCapabilityChanged: (ExerciseLoadCapability) -> Unit,
     onEditorMuscleInvolvementChanged: (MuscleGroup, Double?) -> Unit,
+    onEditMuscleInvolvement: (MuscleGroup) -> Unit,
+    onInvolvementInputChanged: (String) -> Unit,
+    onInvolvementTierSelected: (Double?) -> Unit,
+    onApplyInvolvement: () -> Unit,
+    onCancelInvolvement: () -> Unit,
     profileActions: ExerciseProfileSuggestionActions,
     onDismissNameConflict: () -> Unit,
     onSaveExercise: () -> Unit,
@@ -407,11 +422,22 @@ fun EquipmentProfilerScreen(
             onEquipmentToggled = onEditorEquipmentToggled,
             onUnilateralToggled = onEditorUnilateralToggled,
             onLoadCapabilityChanged = onEditorLoadCapabilityChanged,
-            onMuscleInvolvementChanged = onEditorMuscleInvolvementChanged,
+            onCycleMuscleInvolvement = onEditorMuscleInvolvementChanged,
+            onEditMuscleInvolvement = onEditMuscleInvolvement,
             onSave = onSaveExercise,
             onReset = onResetExercise,
             onDelete = onDeleteCustomExercise,
             onDismiss = onDismissExerciseEditor
+        )
+    }
+    val involvementEditor = state.exerciseEditor.involvementEditor
+    if (state.exerciseEditor.isOpen && involvementEditor != null) {
+        InvolvementEditorDialog(
+            state = involvementEditor,
+            onInputChanged = onInvolvementInputChanged,
+            onTierSelected = onInvolvementTierSelected,
+            onApply = onApplyInvolvement,
+            onCancel = onCancelInvolvement
         )
     }
     if (state.exerciseEditor.isOpen && state.exerciseEditor.nameConflict) {
@@ -677,7 +703,8 @@ private fun ExerciseEditorDialog(
     onEquipmentToggled: (EquipmentTag) -> Unit,
     onUnilateralToggled: (Boolean) -> Unit,
     onLoadCapabilityChanged: (ExerciseLoadCapability) -> Unit,
-    onMuscleInvolvementChanged: (MuscleGroup, Double?) -> Unit,
+    onCycleMuscleInvolvement: (MuscleGroup, Double?) -> Unit,
+    onEditMuscleInvolvement: (MuscleGroup) -> Unit,
     onSave: () -> Unit,
     onReset: () -> Unit,
     onDelete: () -> Unit,
@@ -761,7 +788,8 @@ private fun ExerciseEditorDialog(
                 )
                 MuscleTierRow(
                     involvements = state.involvements,
-                    onCycle = onMuscleInvolvementChanged
+                    onCycle = onCycleMuscleInvolvement,
+                    onEditMuscle = onEditMuscleInvolvement
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Switch(
@@ -977,47 +1005,56 @@ private fun MovementPatternGroupLabel(resource: StringResource) {
 @Composable
 private fun MuscleTierRow(
     involvements: Map<MuscleGroup, Double>,
-    onCycle: (MuscleGroup, Double?) -> Unit
+    onCycle: (MuscleGroup, Double?) -> Unit,
+    onEditMuscle: (MuscleGroup) -> Unit
 ) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         MuscleGroup.entries.forEach { muscle ->
             val weight = involvements[muscle]
-            FilterChip(
-                selected = weight != null,
-                onClick = { onCycle(muscle, nextInvolvementTier(weight)) },
-                label = {
-                    val name = stringResource(muscle.labelResource())
-                    Text(
-                        if (weight == null) {
-                            name
-                        } else {
-                            "$name · ${stringResource(involvementTierLabel(weight))}"
-                        }
-                    )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                FilterChip(
+                    selected = weight != null,
+                    onClick = { onCycle(muscle, nextInvolvementTier(weight)) },
+                    label = {
+                        val name = stringResource(muscle.labelResource())
+                        Text(
+                            if (weight == null) {
+                                name
+                            } else {
+                                "$name · ${involvementValueLabel(weight)}"
+                            }
+                        )
+                    }
+                )
+                val editDescription = stringResource(
+                    Res.string.equipment_involvement_edit_description,
+                    stringResource(muscle.labelResource())
+                )
+                TextButton(
+                    onClick = { onEditMuscle(muscle) },
+                    modifier = Modifier.semantics { contentDescription = editDescription }
+                ) {
+                    Text(stringResource(Res.string.equipment_involvement_edit))
                 }
-            )
+            }
         }
     }
 }
 
-/** The tier values a chip cycles through, cheapest first. */
-private val INVOLVEMENT_TIERS = listOf(0.3, 0.5, 0.7, 1.0)
-
-private fun nextInvolvementTier(current: Double?): Double? {
-    if (current == null) return INVOLVEMENT_TIERS.first()
-    val index = INVOLVEMENT_TIERS.indexOfFirst { it == current }
-    return if (index == -1 || index == INVOLVEMENT_TIERS.lastIndex) {
-        null
-    } else {
-        INVOLVEMENT_TIERS[index + 1]
-    }
+@Composable
+private fun involvementValueLabel(weight: Double): String = when (involvementTierOf(weight)) {
+    InvolvementTier.LOW -> stringResource(Res.string.equipment_tier_low)
+    InvolvementTier.MID -> stringResource(Res.string.equipment_tier_mid)
+    InvolvementTier.HIGH -> stringResource(Res.string.equipment_tier_high)
+    InvolvementTier.PRIMARY -> stringResource(Res.string.equipment_tier_primary)
+    null -> weight.toString()
 }
 
-private fun involvementTierLabel(weight: Double): StringResource = when (weight) {
-    0.3 -> Res.string.equipment_tier_low
-    0.5 -> Res.string.equipment_tier_mid
-    0.7 -> Res.string.equipment_tier_high
-    else -> Res.string.equipment_tier_primary
+internal fun InvolvementTier.labelResource(): StringResource = when (this) {
+    InvolvementTier.LOW -> Res.string.equipment_tier_low
+    InvolvementTier.MID -> Res.string.equipment_tier_mid
+    InvolvementTier.HIGH -> Res.string.equipment_tier_high
+    InvolvementTier.PRIMARY -> Res.string.equipment_tier_primary
 }
 
 @Composable
@@ -1088,4 +1125,5 @@ internal fun MovementPattern.labelResource(): StringResource = when (this) {
     MovementPattern.SHOULDER_ISOLATION -> Res.string.pattern_shoulder_isolation
     MovementPattern.LEG_ISOLATION -> Res.string.pattern_leg_isolation
     MovementPattern.CORE -> Res.string.pattern_core
+    MovementPattern.FOREARM_ISOLATION -> Res.string.pattern_forearm_isolation
 }

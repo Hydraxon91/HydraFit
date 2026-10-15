@@ -25,4 +25,21 @@
     <string name="muscle_hip_abductors">Hip abductors</string>
     <string name="muscle_traps">Traps</string>
     <string name="muscle_neck">Neck</string>
+    <string name="fatigue_map_front">Front</string>
+    <string name="fatigue_map_back">Back</string>
+    <string name="fatigue_map_legend_low">No fatigue</string>
+    <string name="fatigue_map_legend_high">High fatigue</string>
+    <string name="fatigue_map_schematic_note">Schematic map — regions are approximate and may overlap.</string>
+    <string name="fatigue_map_region_description">%1$s, %2$s</string>
+    <string name="fatigue_map_open">Body map</string>
+    <string name="fatigue_map_close">Close</string>
+    <string name="fatigue_coverage_heading">Performed coverage</string>
+    <string name="fatigue_coverage_section_note">Counts are recorded working sets; credits estimate recorded involvement. Neither is direct sets or a physiological equivalent.</string>
+    <string name="fatigue_coverage_sets">%1$d recorded working sets</string>
+    <string name="fatigue_coverage_credits">%1$d.%2$d estimated involvement credits</string>
+    <string name="fatigue_coverage_no_sets">No recorded sets in this window</string>
+    <string name="fatigue_coverage_unknown_history">Unclassified history — count unknown</string>
+    <string name="fatigue_coverage_last_trained">Last trained %1$s</string>
+    <string name="fatigue_coverage_never_trained">Never trained in recorded history</string>
+    <string name="fatigue_coverage_unclassified_window_note">%1$d recorded sets in this window could not be classified.</string>
 </resources>

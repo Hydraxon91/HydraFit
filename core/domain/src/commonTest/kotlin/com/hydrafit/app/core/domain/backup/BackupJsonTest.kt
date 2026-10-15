@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /** Boundary tests for the resource limits enforced by [BackupJson]. */
 class BackupJsonTest {
@@ -61,6 +62,44 @@ class BackupJsonTest {
                 )
             ).workoutReminders
         )
+    }
+
+    @Test
+    fun recordLimitCountsBodyWeightMeasurements() {
+        // Encoding checks the record count before serializing, so an oversized measurement list is
+        // rejected without building the payload.
+        val oversized = emptyBackupFile().copy(
+            bodyWeightMeasurements = List(BackupLimits.MAX_RECORDS + 1) { index ->
+                BackupBodyWeightRecord(index.toLong(), 80.0)
+            }
+        )
+        val failure = assertFailsWith<BackupException> { BackupJson.encode(oversized) }
+        assertEquals(BackupFailure.OVER_LIMIT, failure.failure)
+    }
+
+    @Test
+    fun formatThirteenRequiresBodyWeightSectionsAndEarlierFormatsDefaultThemOff() {
+        val file = emptyBackupFile().copy(
+            bodyWeightMeasurements = listOf(BackupBodyWeightRecord(20_000L, 82.5)),
+            bodyWeightGoalKg = 78.0
+        )
+        val encoded = BackupJson.encode(file)
+        assertEquals(file, BackupJson.decode(encoded))
+        val withoutBodyWeight = encoded.replace(
+            ",\"bodyWeightMeasurements\":[{\"localEpochDay\":20000,\"weightKg\":82.5}]",
+            ""
+        ).replace(",\"bodyWeightGoalKg\":78.0", "")
+        // The current format must carry both sections.
+        assertFailure(BackupFailure.MALFORMED, withoutBodyWeight)
+        // A file from before format 13 predates them and restores with no recorded body weight.
+        val legacy = BackupJson.decode(
+            withoutBodyWeight.replace(
+                "\"formatVersion\":$BACKUP_FORMAT_VERSION",
+                "\"formatVersion\":12"
+            )
+        )
+        assertTrue(legacy.bodyWeightMeasurements.isEmpty())
+        assertNull(legacy.bodyWeightGoalKg)
     }
 
     @Test

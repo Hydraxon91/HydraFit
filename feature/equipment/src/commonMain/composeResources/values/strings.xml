@@ -23,6 +23,11 @@
     <string name="equipment_primary_muscles">Primary muscles</string>
     <string name="equipment_secondary_muscles">Secondary muscles</string>
     <string name="equipment_muscles">Muscles</string>
+    <string name="equipment_involvement_value">Involvement (0–1, 0 removes)</string>
+    <string name="equipment_involvement_invalid">Enter a number from 0 to 1. Zero removes the muscle.</string>
+    <string name="equipment_involvement_apply">Apply</string>
+    <string name="equipment_involvement_edit">Set value</string>
+    <string name="equipment_involvement_edit_description">Set involvement for %1$s</string>
     <string name="equipment_tier_low">Low</string>
     <string name="equipment_tier_mid">Mid</string>
     <string name="equipment_tier_high">High</string>
@@ -110,4 +115,5 @@
     <string name="pattern_shoulder_isolation">Shoulder isolation</string>
     <string name="pattern_leg_isolation">Leg isolation</string>
     <string name="pattern_core">Core</string>
+    <string name="pattern_forearm_isolation">Forearm isolation</string>
 </resources>

@@ -34,6 +34,58 @@ class SeedExerciseCatalogTest {
     }
 
     @Test
+    fun patternCorrectionsPreserveWeightsOverridesAndHistoricalFatigueType() = runTest {
+        val seeder = SeedExerciseCatalog(database)
+        seeder.seed()
+        val oldPatterns = mapOf(
+            "upright-barbell-row" to "HORIZONTAL_PULL",
+            "cable-deadlifts" to "HINGE"
+        )
+        val log = SqlDelightWorkoutLogRepository(database)
+        oldPatterns.forEach { (id, pattern) ->
+            database.exerciseQueries.updateMovementPattern(pattern, id)
+            log.add(WorkoutSet(exerciseId = id, reps = 8, weightKg = 20.0, performedAtMillis = 1L))
+        }
+        database.exerciseOverrideQueries.upsert(
+            exerciseId = "upright-barbell-row",
+            name = "My upright row",
+            requiredEquipment = null,
+            movementPattern = "HORIZONTAL_PULL",
+            isUnilateral = null,
+            loadCapability = null,
+            involvements = "SIDE_DELTS:0.8"
+        )
+        val rowsBefore = oldPatterns.keys.associateWith {
+            database.exerciseQueries.selectById(it).executeAsOne()
+        }
+        val setsBefore = database.workoutLogQueries.selectAllSets().executeAsList()
+        val overridesBefore = database.exerciseOverrideQueries.selectAll().executeAsList()
+        val fatigueBefore = log.loggedSets()
+
+        seeder.seed()
+        seeder.seed()
+
+        assertEquals(
+            "VERTICAL_PULL",
+            database.exerciseQueries.selectById("upright-barbell-row")
+                .executeAsOne().movementPattern
+        )
+        assertEquals(
+            "SQUAT",
+            database.exerciseQueries.selectById("cable-deadlifts").executeAsOne().movementPattern
+        )
+        rowsBefore.forEach { (id, row) ->
+            assertEquals(
+                row.involvements,
+                database.exerciseQueries.selectById(id).executeAsOne().involvements
+            )
+        }
+        assertEquals(setsBefore, database.workoutLogQueries.selectAllSets().executeAsList())
+        assertEquals(overridesBefore, database.exerciseOverrideQueries.selectAll().executeAsList())
+        assertEquals(fatigueBefore, log.loggedSets())
+    }
+
+    @Test
     fun seedingKeepsARenamedBuiltInsEffectiveProjection() {
         database.exerciseOverrideQueries.upsert(
             exerciseId = "back-squat",

@@ -94,3 +94,11 @@ use-case single and ViewModel, and `theWorkoutLoggerViewModelResolvesAtRuntime` 
 and the records ViewModel with fake ports and a test Main dispatcher. There is no
 `WorkoutLoggerModuleVerificationTest`; the logger module has no host-test seam of its own, so its
 runtime coverage stays in the shared graph test.
+
+0.8.2 `databaseModule` binds `TrainingCoverageRepository` to
+`SqlDelightTrainingCoverageRepository`; the database graph verification resolves
+the binding at runtime. The pure `TrainingCoverageCalculator` has no DI collaborators.
+
+0.8.3 `databaseModule` binds `BodyWeightRepository` to `SqlDelightBodyWeightRepository`
+(database plus the shared `TimeProvider`, used for the future-day rule); the database
+graph verification resolves it at runtime.
