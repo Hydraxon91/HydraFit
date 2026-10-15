@@ -108,8 +108,11 @@ Apply these standing defaults unless the user explicitly overrides them:
   continue the approved implementation sequence without publishing any of them.
   At the end, stop and request one explicit approval for the single folded
   publication. Report the target version, its final candidate revision, each
-  included release's review verdict, verification evidence and limitations, and the
-  proposed push/PR/merge/tag/Release-workflow/artifact steps. Until approved, do not
+  included release's review verdict, verification evidence and limitations, the
+  drafted user-facing release notes for the folded version
+  (`docs/release-notes/<tag>.md`, covering every included scope; writing rules in
+  `docs/agent-ci-release.md` Release notes), and the proposed
+  push/PR/merge/tag/Release-workflow/artifact steps. Until approved, do not
   push, open a PR, merge, tag, build/upload a release artifact or run a publication
   workflow. Required debug builds and non-publishing verification remain allowed.
   A single approval covers the enumerated sequence; do not re-ask unless

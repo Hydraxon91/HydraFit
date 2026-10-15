@@ -91,6 +91,14 @@ jobs:
             echo "Refusing to publish an unsigned release. Configure the RELEASE_* repository secrets."
             exit 1
           fi
+      - name: Verify user-facing release notes are present
+        run: |
+          notes="docs/release-notes/${GITHUB_REF_NAME}.md"
+          if [ ! -f "$notes" ]; then
+            echo "::error::Missing user-facing release notes: $notes (see docs/agent-ci-release.md). Write them for this tag before publishing."
+            exit 1
+          fi
+          echo "RELEASE_NOTES_FILE=$notes" >> "$GITHUB_ENV"
       - name: Decode release keystore
         run: |
           printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
@@ -101,6 +109,7 @@ jobs:
         run: |
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" androidApp/build/outputs/apk/release/*.apk --clobber
+            gh release edit "$GITHUB_REF_NAME" --notes-file "$RELEASE_NOTES_FILE"
           else
             prerelease=()
             case "$GITHUB_REF_NAME" in
@@ -109,7 +118,7 @@ jobs:
             gh release create "$GITHUB_REF_NAME" \
               androidApp/build/outputs/apk/release/*.apk \
               --title "$GITHUB_REF_NAME" \
-              --generate-notes \
+              --notes-file "$RELEASE_NOTES_FILE" \
               --verify-tag \
               "${prerelease[@]}"
           fi

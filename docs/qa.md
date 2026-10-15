@@ -1,6 +1,8 @@
 # HydraFit — Device QA Checklist
 
-Acceptance checks before tagging a release. Use the current **debug build** for routine development
+Acceptance checks before tagging a release. Every tag also needs its user-facing notes at
+`docs/release-notes/<tag>.md`; the release workflow refuses a tag without them (see
+`docs/agent-ci-release.md` Release notes). Use the current **debug build** for routine development
 emulator verification. **Never install a release/minified/signed APK on the emulator** — there is no
 approval path. Verify a release artifact offline (checksum, `apksigner verify`, manifest
 `versionName`/`versionCode`) and record signed-upgrade or on-device runtime behavior as unverified.

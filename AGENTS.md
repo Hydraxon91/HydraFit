@@ -382,15 +382,18 @@ any approved review-report paths before starting.
 - **Publication boundary:** continue through the approved implementation list
   without publishing between releases. At the end, report the folded target version,
   its final candidate revision, each included release's review verdict, verification
-  evidence and limits, then request one explicit user approval of that single
-  publication. Before that approval, do not push, open PRs, merge, tag, build/upload
-  release artifacts or run publication workflows; required debug builds and
-  non-publishing checks remain allowed. One approval can cover the exact enumerated
-  operations, including pushes; changes to scope/revisions or uncovered gates require
-  new approval. This does not waive CI monitoring, artifact checks or failure stops:
-  stop on failure. If the user explicitly overrides folding and requests several
-  publications, publish in version order oldest-first and stop before subsequent
-  releases if a step fails. A batch invocation alone never authorizes publication.
+  evidence and limits, and the drafted user-facing release notes for the folded
+  version at `docs/release-notes/<tag>.md` (covering every included scope; see
+  `docs/agent-ci-release.md` Release notes), then request one explicit user approval
+  of that single publication. Before that approval, do not push, open PRs, merge,
+  tag, build/upload release artifacts or run publication workflows; required debug
+  builds and non-publishing checks remain allowed. One approval can cover the exact
+  enumerated operations, including pushes; changes to scope/revisions or uncovered
+  gates require new approval. This does not waive CI monitoring, artifact checks or
+  failure stops: stop on failure. If the user explicitly overrides folding and
+  requests several publications, publish in version order oldest-first and stop
+  before subsequent releases if a step fails. A batch invocation alone never
+  authorizes publication.
 - **Scoped blockers:** a blocker confined to part of the approved scope does not
   stop the whole run. Record the failure, evidence, affected acceptance criteria and
   dependencies, mark the affected chunk or release blocked or partial, and continue
@@ -441,7 +444,7 @@ any approved review-report paths before starting.
 
 - **A change updates the living docs that describe it, in the same change.** If you alter behavior, architecture, the data model or stored encoding, the fatigue/planner formulas or calibration, the seeded catalog/muscle set, module boundaries, CI, or tooling, update the affected doc(s) and the `hydrafit-mechanics` skill as part of that same approved scope and commit — the same way a schema change ships its migration and a fix ships its regression test.
 - **Living docs (keep current):** `docs/architecture.md`, `docs/fatigue-formula.md`, `docs/performance-0.2.3.md`, `docs/exercise-catalog-sources.md`, `docs/exercise-catalog-rows-c1p1.md`, `docs/maestro-evaluation.md`, `docs/qa.md`, `docs/session-handoff.md`, `docs/agent-ui-verification.md`, `docs/agent-ci-release.md`, `docs/agent-project-reference.md`, `README.md`, `AGENTS.md`, `PLANS.md`, `.opencode/skills/hydrafit-mechanics/SKILL.md`, and its `references/*.md` topic files.
-- **Historical records are immutable:** dated review/handoff docs (`docs/code-review-0.2.2.md`, `docs/plans-archive.md`, `docs/review-*`) are never rewritten to match new code; only forward-looking docs are kept in sync.
+- **Historical records are immutable:** dated review/handoff docs (`docs/code-review-0.2.2.md`, `docs/plans-archive.md`, `docs/review-*`) and published release notes (`docs/release-notes/*`) are never rewritten to match new code; only forward-looking docs are kept in sync.
 - **Scope note:** updating a doc your change invalidates is part of that change, not "scope creep" — but inventing new docs or rewriting unrelated ones is still out of scope. `PLANS.md` remains status-lines-only except the bounded completion cleanup in Session rules; durable decisions move to "Decisions Made" only when approved.
 - **If you can't update a doc in scope** (e.g. it needs a decision), say so and record it in `PLANS.md` rather than leaving the doc wrong.
 
@@ -643,7 +646,11 @@ and approval gates. Read all applicable references before the corresponding work
   pushes to `main` should be restricted. Any new dependency's license and transitive
   hygiene checks belong in the PR description. Never log API keys or payloads that
   might contain them; redact before logging. Commit/push approval and post-push CI
-  monitoring remain governed by Commit Discipline above.
+  monitoring remain governed by Commit Discipline above. Every published release
+  carries user-facing notes at `docs/release-notes/<tag>.md`; the release workflow
+  refuses a tag without them, so draft them for people who use the app, not for a
+  reviewer, and include the draft in the publication approval request (writing
+  rules in `docs/agent-ci-release.md` Release notes).
 - **Emulator inspection/interaction/UI verification:** read
   `docs/agent-ui-verification.md` and load `hydrafit-ui-testing` first; before UI
   verification select the applicable `docs/qa.md` checks, including cross-cutting
