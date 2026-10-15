@@ -984,7 +984,9 @@ persistence/backup/DI implemented and Tier A verified (1,917 tests); 083-C2/C3
 implemented, Tier A verified (1,947 tests) and device-accepted (live migration 48→49,
 entry/empty state, draft-preservation round trip, duplicate replacement, goal
 set/clear, cold-restart persistence, ranges, delete cleanup; workout records
-unchanged). Independent 0.8.3 review pending at this record. Execution starts from
+unchanged). Independent 0.8.3 review completed (no blocking code finding; R083-01/03/04
+corrected and matrix-verified at 1,950 tests; R083-02 reachability re-check and the A2
+lb/dark/larger-text device leg pending an emulator window). Execution starts from
 clean `761d47d4` on `batch/0.8.1-0.8.3`.
 The user accepted the final chat contract and authorized execution through 0.8.3,
 including independent release checkpoints and local verified atomic commits;
