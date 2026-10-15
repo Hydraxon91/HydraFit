@@ -55,6 +55,54 @@ exact on-screen text.
 - Read-only emulator preflight found `emulator-5554` idle on Equipment, with no visible dialog or
   keyboard. No navigation, deployment or persisted write occurred; Logger state is not yet verified.
 
+## 0.8.0 C4–C6 feature verification — 2026-10-15
+
+- Scope: C4 Progress module and C5 workout-summary record integration (coder owner), plus C6
+  downstream integration test, the bounded Maestro flow and the full candidate gate (main agent).
+  C5 stopped once for a brief path error (a nonexistent logger verification test); resolved by
+  keeping logger-module Koin verification in `shared/.../KoinModulesVerificationTest.kt`. The new
+  occurrence-id seam broke two C4 test doubles; the coder added one override each under an approved
+  mechanical path extension. Parent verification found a live-first-page/paging race in
+  `ProgressViewModel`; the correction uses a separate paging generation with controlled-suspension
+  regression tests.
+- Candidate gate after the C6 additions passed: `testAndroidHostTest
+  :core:database:verifySqlDelightMigration ktlintCheck :androidApp:assembleDebug
+  :shared:compileKotlinIosSimulatorArm64 :core:network:compileKotlinIosSimulatorArm64`
+  (`BUILD SUCCESSFUL`; log `.../opencode/c6-matrix2.log`). New since the C4/C5 module runs:
+  `ExerciseProgressRecordsIntegrationTest` 3/3 (database 378→381 tests). Coder-run module totals:
+  domain 650, logger 424, progress 16, shared 24; migration verifier and both iOS compiles green.
+- New downstream test drives the real production writers (`LogWorkoutSetUseCase`,
+  `DeleteWorkoutSetUseCase`, `CorrectWorkoutSetTimeUseCase`) and the summary consumer
+  (`ObserveOccurrenceRecordsUseCase`) over the SQLDelight repositories: session-stamp invariant,
+  chronological improvements, a time correction that flips which set improves, deletion promoting
+  the remaining set, restore-shaped replacement rebuilding results, and occurrence-link retraction.
+- Emulator acceptance on `emulator-5554` (debug install `-r`, app data preserved): the new
+  `logger-progress-browser.yaml` first attempt failed at step 13 because the tap selector also
+  matched the search field echoing the typed name (flow bug, not app behavior; log
+  `.../opencode/080-c6-progress-flow.log`). With the strict-prefix `SEARCH_TERM` fix the rerun
+  passed 47/47 (`.../080-c6-progress-flow2.log`). Viewed screenshots: `progress-top` (chips,
+  `Trend (last 28)`, chart canvas and day table `2026-10-14: 4 working sets, 18 reps, external
+  volume 1340 kg`; no clipped rows) and `progress-history` (records with `Show a supporting set`,
+  history rows `6 reps · 85 kg` down to `5 reps · 60 kg`). The six-tab bar is hidden on Progress;
+  the screen Back and the system back both return to the Logger with the Log tab selected.
+- Draft preservation: a manual Back Squat draft typed as Reps 7/Weight 42 kg survived
+  Progress push/pop (asserted exact values after Back) and was restored to the 6/85 baseline.
+  No persisted write occurred. One literal `Log workout` assertion failed in that ad-hoc check
+  because the Logger list had been scrolled to the manual form (title above the viewport), not an
+  app failure; the destination was verified by hierarchy and screenshot. Artifacts:
+  `.../080-c6-draft-check/`. Residual view-model-only state (Back Squat selected, list scrolled)
+  is noted and is not persisted.
+- The C5 summary records section is emulator-unverified: the device has no active session or
+  workout occurrence, and the summary route exists only after Finish; creating and finishing an
+  occurrence would mutate planner/schedule state, so no write fixture was made. Host coverage:
+  `ObserveOccurrenceRecordsUseCaseTest` 9, `WorkoutSummaryRecordsViewModelTest` 5,
+  `WorkoutSummaryScreenTest` 5, plus shared runtime resolution of the records ViewModel and use case.
+- Cross-cutting UI: default font/light theme text was not clipped in the viewed screenshots.
+  Larger font, dark theme, locale, TalkBack, the `Load more` page (>30 recorded sets) and the full
+  backup-restore-service portability remain unverified; replacement coverage uses a restore-shaped
+  transaction. This is implementation/integration verification, not the separately requested
+  formal review.
+
 ## Cross-cutting UI checks (for changed flows)
 - Text remains readable at the supported larger font sizes; controls and content are not clipped.
 - Meaningful controls have accessible labels and states; status and metrics are not conveyed by color alone.

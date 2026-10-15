@@ -1,0 +1,113 @@
+# Read-only Exercise Progress browser smoke: the Log entry, exercise search/selection, the range
+# chips, the per-range trend title, records with one supporting-set open/close, and recorded
+# history. The first entry leaves through the screen Back; a second entry re-selects the exercise
+# and leaves through the system back. Progress hides the six-tab chrome and the compact hierarchy
+# only contains on-screen content, so the deeper sections are reached with scrollUntilVisible.
+# Contract and verification status: see README.md.
+appId: com.hydrafit.app
+name: Logger progress browser
+env:
+  # The tap target must stay unambiguous: after typing, the search field itself contains
+  # SEARCH_TERM, so a strict prefix never full-matches the EXERCISE name shown in the field.
+  SEARCH_TERM: "Back Squ"
+  EXERCISE: "Back Squat"
+tags:
+  - smoke
+  - read-only
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    text: '^Log$'
+    retryTapIfNoChange: false
+- assertVisible: '^Log workout$'
+- assertVisible:
+    text: '^Exercise progress$'
+    enabled: true
+- tapOn:
+    text: '^Exercise progress$'
+    retryTapIfNoChange: false
+# First entry: the visible top of the standalone destination.
+- assertVisible: '^Exercise progress$'
+- assertVisible: '^Search exercises$'
+- assertVisible: '^Back$'
+- tapOn: '^Search exercises$'
+- inputText: ${SEARCH_TERM}
+- hideKeyboard
+- tapOn:
+    text: '^${EXERCISE}$'
+    retryTapIfNoChange: false
+# 28 days is the default; the trend title embeds the selected day count.
+- assertVisible: '^28 days$'
+- assertVisible: '^84 days$'
+- assertVisible: '^365 days$'
+- assertVisible: 'Trend \(last 28\)'
+- tapOn:
+    text: '^365 days$'
+    retryTapIfNoChange: false
+- assertVisible: 'Trend \(last 365\)'
+- tapOn:
+    text: '^28 days$'
+    retryTapIfNoChange: false
+- assertVisible: 'Trend \(last 28\)'
+- takeScreenshot: progress-top
+# The screen Back leaves the pushed destination without disturbing the Logger.
+- tapOn:
+    text: '^Back$'
+    retryTapIfNoChange: false
+- assertVisible: '^Log workout$'
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Log$'
+# Second entry: the deep read-only sections, leaving through the system back.
+- tapOn:
+    text: '^Exercise progress$'
+    retryTapIfNoChange: false
+- assertVisible: '^Exercise progress$'
+- tapOn: '^Search exercises$'
+- inputText: ${SEARCH_TERM}
+- hideKeyboard
+- tapOn:
+    text: '^${EXERCISE}$'
+    retryTapIfNoChange: false
+- scrollUntilVisible:
+    element: '^All-time records$'
+    timeout: 10000
+- assertVisible: '^All-time records$'
+- scrollUntilVisible:
+    element: '^Show a supporting set$'
+    timeout: 10000
+- tapOn:
+    text: '^Show a supporting set$'
+    index: 0
+    retryTapIfNoChange: false
+# The supporting detail renders after the records list, so it may appear only after scrolling.
+- scrollUntilVisible:
+    element: '.*supports the record above.*'
+    timeout: 10000
+- assertVisible: '.*supports the record above.*'
+- tapOn:
+    text: '^Back$'
+    below: '.*supports the record above.*'
+    retryTapIfNoChange: false
+- assertNotVisible: '.*supports the record above.*'
+- scrollUntilVisible:
+    element: 'Recorded history \(all dates\)'
+    timeout: 10000
+- assertVisible: 'Recorded history \(all dates\)'
+- scrollUntilVisible:
+    element: 'Working set · .*'
+    timeout: 10000
+- assertVisible: 'Working set · .*'
+- takeScreenshot: progress-history
+- back
+- assertVisible: '^Log workout$'
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Log$'
+- assertVisible: '^Exercise progress$'

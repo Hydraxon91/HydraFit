@@ -842,9 +842,13 @@ record).
 C1 contract/fixtures are accepted; C2–C3 are IMPLEMENTED AND VERIFIED (main-agent owner).
 The approved exercise/time/id index migration and fixture/formatting corrections pass the full
 matrix: 1,801 host tests, migration verification, global lint, debug assembly and both iOS compiles.
-C4–C6 are NOT STARTED. R080-01/02 coder corrections pass targeted domain/database tests, global
-lint and debug assembly; parent synthetic query-work verification confirms depth-independent seeks.
-Formal reviewer closure remains pending. See `docs/qa.md` for
+C4–C5 are IMPLEMENTED AND VERIFIED (coder owner; a parent-found live-paging race was corrected with
+regression coverage, and a C5 path error was resolved without a new verification file). C6
+downstream integration, the bounded read-only Maestro flow and the full candidate gate passed on
+2026-10-15: three real-writer integration tests, 47/47 flow steps with viewed screenshots, draft
+preservation across the Progress push/pop, and the complete Tier A matrix. The summary records
+section is host/VM-verified only (no occurrence fixture was created on the emulator). Formal
+reviewer closure for R080-01/02 and the C4–C6 batch remains pending. See `docs/qa.md` for
 the bounded run evidence. The local branch is `0.8.0`; **0.8.0** is the proposed combined publication
 version, subject to scope approval. Original 0.8.0 charts and 0.8.1 records references identify slices,
 not two required publications. This plan covers OF-04-P0/P1/P2/P3 and supersedes the previous
