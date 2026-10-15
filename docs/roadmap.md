@@ -298,9 +298,12 @@ contracts are unchanged and ids are never reused.
 | 0.8.3 | Body-weight entries and trends (former `0.8.7`) | OF-09; shared ownership, edit/delete, units, optional goal line and backup |
 
 **Status (2026-10-15):** `0.8.0` published on the PR #15 merge commit `45e863a0`; `0.8.1`–`0.8.3`
-implemented, verified, independently reviewed and committed on `batch/0.8.1-0.8.3` (PR #16), with
-publication in flight. Completed plan detail and the reviewed candidate revisions:
-`docs/plans-archive.md` (0.8.x cleanup); review snapshots in `docs/review-0.8.*-snapshot.md`.
+published as `v0.8.1`, `v0.8.2` and `v0.8.3` (PR #16, merge `9e7150ef`) with all Release runs, the
+post-merge main CI and the offline artifact checks passing. The `v0.8.3` APK's `versionCode` ordering is
+corrected by the corrective release `v0.8.4` (stable tags now derive their version code). Completed plan
+detail and the reviewed candidate revisions:
+`docs/plans-archive.md` (0.8.x cleanup); review snapshots in `docs/review-0.8.*-snapshot.md`;
+publication evidence in `docs/qa.md`.
 
 Catalog investigations and TRAPS decisions do not require positive findings or
 automatic policy changes. Record no-change outcomes explicitly where warranted.

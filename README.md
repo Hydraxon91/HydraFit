@@ -71,7 +71,7 @@ The next versions are deliberately smaller: each gets a focused scope and its ow
 
 | Series | Smaller releases, in order |
 | --- | --- |
-| 0.8.x — Progress & recovery | Charts and records published; catalog corrections, the body map and coverage views and body-weight tracking complete the batch |
+| 0.8.x — Progress & recovery | Published 2026-10-15: charts and records; catalog corrections; the body map and coverage views; body-weight tracking |
 | 0.9.x — Equipment & data | Profiles and plate tools, followed by individual importers, sharing and backup improvements |
 | 0.10.x — Progression & prescriptions | History integrity before new progression policies; per-set targets, pyramids and supersets in separate releases |
 | 0.11.x — Other training metrics | Duration, distance and force metrics delivered separately; drop sets, rest-pause and cardio need research first |

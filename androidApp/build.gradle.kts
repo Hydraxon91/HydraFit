@@ -25,12 +25,30 @@ val hasReleaseSigning = listOf(
 val defaultVersionName = "0.7.6-dev"
 val defaultVersionCode = 1
 val releaseTagPattern = Regex("""^v\d+\.\d+\.\d+([-+].*)?$""")
+val stableReleaseTagPattern = Regex("""^v(\d+)\.(\d+)\.(\d+)$""")
 val ciVersionName = providers.environmentVariable("GITHUB_REF_NAME").orNull
     ?.takeIf { releaseTagPattern.matches(it) }
     ?.removePrefix("v")
     ?: defaultVersionName
-val ciVersionCode = providers.environmentVariable("GITHUB_RUN_NUMBER").orNull
-    ?.toIntOrNull()
+
+// A stable release tag owns the version code so published releases sort by version, not by publish
+// time: major * 1_000_000 + minor * 10_000 + patch * 100 (e.g. v0.8.4 -> 80400). Pre-release tags and
+// non-tag builds keep the workflow run number, then the local default.
+fun versionCodeForTag(tag: String?): Int? {
+    val numbers = tag
+        ?.let { stableReleaseTagPattern.matchEntire(it) }
+        ?.groupValues
+        ?.drop(1)
+        ?.mapNotNull { it.toIntOrNull() }
+        ?: return null
+    if (numbers.size != 3) return null
+    val (major, minor, patch) = numbers
+    return major * 1_000_000 + minor * 10_000 + patch * 100
+}
+
+val ciVersionCode = versionCodeForTag(providers.environmentVariable("GITHUB_REF_NAME").orNull)
+    ?: providers.environmentVariable("GITHUB_RUN_NUMBER").orNull
+        ?.toIntOrNull()
     ?: defaultVersionCode
 
 /**

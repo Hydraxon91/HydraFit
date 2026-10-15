@@ -403,6 +403,42 @@ exact on-screen text.
 - The 2026-10-15 post-execution review and its targeted closure completed before publication;
   runtime limits remain as recorded in the sections above.
 
+## 0.8.x release publication verification — 2026-10-15
+
+- PR #16 (`batch/0.8.1-0.8.3` → `main`) merged as merge commit
+  `9e7150ef5e467532303eaac8226f46eca8c8eb31` (mergedAt `2026-10-15T17:04:45Z`), on the branch tip
+  `ac9d8d53` (0.8.x archival and release-status documentation). PR Build and Test run `38772999204`
+  passed for `ac9d8d53` after two re-runs of the `:shared` Unit Tests job — the documented
+  `Dispatchers.Main` flake (`KoinModulesVerificationTest.theOnboardingViewModelsResolveAtRuntime`),
+  which passed on `bb64351e` and locally under a forced `--rerun` (11/11); post-merge main Build and
+  Test run `38774321406` passed.
+- Annotated tags pushed (peeled targets): `v0.8.1` → `65f92f84` (involvement-editor implementation),
+  `v0.8.2` → `63d8a5df` (review corrections and closure), `v0.8.3` → `9e7150ef` (the PR #16 merge
+  commit).
+- Release runs, each `success` with Lint, Unit Tests (including `verifySqlDelightMigration`) and Build
+  Signed Release APK: `v0.8.1` `38774671484`, `v0.8.2` `38774671672`, `v0.8.3` `38774671429`. All three
+  releases are published (not draft/pre-release) with one asset `androidApp-release.apk`.
+- Offline artifact verification (downloaded, never installed on any device): all three carry the
+  established release certificate (`CN=Bence Szabo, OU=HydraFit, O=Hydra`; SHA-256
+  `af9cd73b3cc6842c7ab3c2f3cd572245826089aee863e9168a761a893c35a7e1`).
+
+| tag | bytes | SHA-256 | versionName | versionCode |
+| --- | ---: | --- | --- | ---: |
+| `v0.8.1` | 24,881,648 | `c7b2f185618980d0965bebf1257212f2838cad7a7b51bd0d96c0b5b816e65750` | 0.8.1 | 25 |
+| `v0.8.2` | 24,898,576 | `241924ed5dce120ca2c1a3b539002ba9647f4e6d1617e2a0c4b5f34a41461a3f` | 0.8.2 | 26 |
+| `v0.8.3` | 24,915,660 | `2d7ee3915127968c3c6f3c7082537969b97426998d6f81142a855e63d26326e1` | 0.8.3 | 24 |
+
+- **Open anomaly (reported, not fixed):** `versionCode` is the GitHub workflow run number, and the
+  three tags were pushed within seconds of each other, so publish order did not follow version order —
+  `v0.8.3` carries `versionCode=24`, below `v0.8.2`'s 26 and `v0.8.1`'s 25. Installing `v0.8.3` over
+  `v0.8.1`/`v0.8.2` is therefore refused by Android as a version downgrade. `versionName` is correct
+  on all three, and nothing else failed (checksums, signatures, assets and all runs are clean). The
+  fix — a tag-derived monotonic `versionCode` and/or a corrective patch release — is an
+  infrastructure decision awaiting user approval; no re-tag, rebuild or release edit was performed.
+- `apkanalyzer` is not installed in the local SDK, so `aapt2 dump badging` supplied the version
+  fields. The release-install prohibition was respected: no release/minified APK was installed on the
+  emulator or any device.
+
 ## Cross-cutting UI checks (for changed flows)
 - Text remains readable at the supported larger font sizes; controls and content are not clipped.
 - Meaningful controls have accessible labels and states; status and metrics are not conveyed by color alone.
