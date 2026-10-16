@@ -147,7 +147,8 @@ permissions:
   - action: shell
     resource: "xxd *"
     effect: allow
-  # `xxd -r` is the one non-stdout form: it writes an output file.
+  # `xxd -r` is the one non-stdout form: it writes an output file. As with the sed denies, a command
+  # whose text merely contains "-r" is denied too — safe, but it cannot run.
   - action: shell
     resource: "xxd *-r*"
     effect: deny

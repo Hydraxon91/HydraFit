@@ -2731,8 +2731,11 @@ Still unverified: dark mode, larger text, rotation, TalkBack, app locale, and ev
 - Not verified by any check here: iOS runtime behavior for the unsupported renderer/store paths, a
   real SAF document write or read for JSON, CSV or PDF, the rendering of any exported PDF or CSV by an
   external tool, emulator rendering of the new routines/plan/settings controls, dark mode, larger
-  text, rotation, TalkBack, and the physical output of `PdfDocument` on a device. The 0.9.2 surfaces
-  have **no emulator evidence** at all — the batch's one bounded read-only UI check covers 0.9.1 only.
+  text, rotation, TalkBack, and the physical output of `PdfDocument` on a device — **as of that
+  boundary**: the 0.9.2 surfaces then had no emulator evidence, and the batch's one bounded read-only
+  UI check covered 0.9.1 only. The later "0.9.1 device journeys on the current candidate" section
+  covers the SAF write/read, the plan PDF's rendered output and the routine transfer; iOS runtime and
+  the remaining cross-cutting checks above stay unverified.
 
 ## 0.9.1 import journey checkpoint (2026-10-15; not release acceptance)
 
