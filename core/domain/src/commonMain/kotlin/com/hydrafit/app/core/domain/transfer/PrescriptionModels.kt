@@ -46,9 +46,21 @@ data class PrescriptionDocument(
     val customExercises: List<PrescriptionExerciseRecord> = emptyList()
 )
 
+/** Every ordered slot of a routine, across its workouts. */
+fun PrescriptionRoutineRecord.allEntries(): List<PrescriptionEntryRecord> =
+    workouts.flatMap { it.entries }
+
 /** One routine, transferred as an editable draft rather than an accepted or scheduled plan. */
 @Serializable
 data class PrescriptionRoutineRecord(
+    val name: String,
+    /** Ordered workouts (days); each keeps its own slots so a multi-day routine round-trips. */
+    val workouts: List<PrescriptionWorkoutRecord> = emptyList()
+)
+
+/** One ordered routine workout (day). */
+@Serializable
+data class PrescriptionWorkoutRecord(
     val name: String,
     val focus: String? = null,
     val entries: List<PrescriptionEntryRecord> = emptyList()
@@ -107,7 +119,9 @@ object PrescriptionValidator {
             fail(PrescriptionFailure.OVER_LIMIT)
         }
         val recordCount = document.routines.size +
-            document.routines.sumOf { it.entries.size } +
+            document.routines.sumOf { routine ->
+                routine.workouts.size + routine.workouts.sumOf { it.entries.size }
+            } +
             document.customExercises.size
         if (recordCount > PrescriptionLimits.MAX_RECORDS) fail(PrescriptionFailure.OVER_LIMIT)
 
@@ -126,29 +140,33 @@ object PrescriptionValidator {
         }
         document.routines.forEach { routine ->
             if (routine.name.isBlank()) fail(PrescriptionFailure.INVALID_VALUE)
-            routine.focus?.let { enumName(it, SplitFocus.entries) }
-            routine.entries.forEach { entry ->
-                if (entry.exerciseId.isBlank() || entry.exerciseName.isBlank()) {
-                    fail(PrescriptionFailure.INVALID_VALUE)
+            if (routine.workouts.isEmpty()) fail(PrescriptionFailure.INVALID_VALUE)
+            routine.workouts.forEach { workout ->
+                if (workout.name.isBlank()) fail(PrescriptionFailure.INVALID_VALUE)
+                workout.focus?.let { enumName(it, SplitFocus.entries) }
+                workout.entries.forEach { entry ->
+                    if (entry.exerciseId.isBlank() || entry.exerciseName.isBlank()) {
+                        fail(PrescriptionFailure.INVALID_VALUE)
+                    }
+                    if (entry.weightKg != null && !document.includesWeights) {
+                        // A weights-free document that carries a weight is not what it claims.
+                        fail(PrescriptionFailure.INVALID_VALUE)
+                    }
+                    if (runCatching {
+                            PrescriptionBounds.validate(entry.sets, entry.reps, entry.weightKg)
+                        }.isFailure
+                    ) {
+                        fail(PrescriptionFailure.INVALID_VALUE)
+                    }
+                    enumName(entry.loadKind, LoadKind.entries)
+                    entry.movementPattern?.let { enumName(it, MovementPattern.entries) }
+                    entry.loadCapability?.let { enumName(it, ExerciseLoadCapability.entries) }
                 }
-                if (entry.weightKg != null && !document.includesWeights) {
-                    // A weights-free document that carries a weight is not what it claims.
-                    fail(PrescriptionFailure.INVALID_VALUE)
-                }
-                if (runCatching {
-                        PrescriptionBounds.validate(entry.sets, entry.reps, entry.weightKg)
-                    }.isFailure
-                ) {
-                    fail(PrescriptionFailure.INVALID_VALUE)
-                }
-                enumName(entry.loadKind, LoadKind.entries)
-                entry.movementPattern?.let { enumName(it, MovementPattern.entries) }
-                entry.loadCapability?.let { enumName(it, ExerciseLoadCapability.entries) }
             }
         }
         // A declared custom definition is only meaningful when a routine references it.
         val referenced = document.routines.flatMap { routine ->
-            routine.entries.map { it.exerciseId }
+            routine.workouts.flatMap { workout -> workout.entries.map { it.exerciseId } }
         }.toSet()
         if (customIds.any { it !in referenced }) fail(PrescriptionFailure.INVALID_VALUE)
     }

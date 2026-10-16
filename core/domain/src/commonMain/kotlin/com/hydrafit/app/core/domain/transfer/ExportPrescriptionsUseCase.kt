@@ -49,24 +49,27 @@ private fun RoutineTemplate.toRecord(
     exercises: Map<String, Exercise>
 ): PrescriptionRoutineRecord = PrescriptionRoutineRecord(
     name = name,
-    focus = workouts.sortedBy { it.position }.firstOrNull()?.focus?.name,
-    entries = workouts
+    workouts = workouts
         .sortedBy { it.position }
-        .flatMap { workout ->
-            workout.entries.sortedBy { it.position }.map { entry ->
-                val exercise = exercises[entry.exerciseId]
-                PrescriptionEntryRecord(
-                    exerciseId = entry.exerciseId,
-                    // A deleted custom identity keeps its stored id as the only name available.
-                    exerciseName = exercise?.name ?: entry.exerciseId,
-                    sets = entry.sets,
-                    reps = entry.reps,
-                    weightKg = entry.weightKg.takeIf { includeWeights },
-                    loadKind = entry.loadKind.name,
-                    movementPattern = exercise?.movementPattern?.name,
-                    loadCapability = exercise?.loadCapability?.name
-                )
-            }
+        .map { workout ->
+            PrescriptionWorkoutRecord(
+                name = workout.name,
+                focus = workout.focus?.name,
+                entries = workout.entries.sortedBy { it.position }.map { entry ->
+                    val exercise = exercises[entry.exerciseId]
+                    PrescriptionEntryRecord(
+                        exerciseId = entry.exerciseId,
+                        // A deleted custom identity keeps its stored id as the only name available.
+                        exerciseName = exercise?.name ?: entry.exerciseId,
+                        sets = entry.sets,
+                        reps = entry.reps,
+                        weightKg = entry.weightKg.takeIf { includeWeights },
+                        loadKind = entry.loadKind.name,
+                        movementPattern = exercise?.movementPattern?.name,
+                        loadCapability = exercise?.loadCapability?.name
+                    )
+                }
+            )
         }
 )
 

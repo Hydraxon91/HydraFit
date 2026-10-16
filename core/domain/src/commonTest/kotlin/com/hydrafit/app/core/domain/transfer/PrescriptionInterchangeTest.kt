@@ -85,7 +85,7 @@ class PrescriptionInterchangeTest {
     fun exportOmitsWeightsByDefaultAndIncludesThemOnlyOnRequest() = runBlocking {
         val stripped = ExportPrescriptionsUseCase(repository(), catalog)(listOf(7L), false, "t", 1L)
         assertFalse(stripped.includesWeights)
-        assertTrue(stripped.routines.single().entries.all { it.weightKg == null })
+        assertTrue(stripped.routines.single().allEntries().all { it.weightKg == null })
         PrescriptionValidator.validate(stripped)
         // The custom definition travels with its resolved involvement map.
         assertEquals(
@@ -97,14 +97,10 @@ class PrescriptionInterchangeTest {
         val withWeights =
             ExportPrescriptionsUseCase(repository(), catalog)(listOf(7L), true, "t", 1L)
         assertTrue(withWeights.includesWeights)
-        assertEquals(listOf(100.0, 5.0), withWeights.routines.single().entries.map { it.weightKg })
-        assertEquals(
-            listOf("EXTERNAL", "ADDED"),
-            withWeights.routines.single().entries.map {
-                it.loadKind
-            }
-        )
-        assertEquals(listOf(3, 2), withWeights.routines.single().entries.map { it.sets })
+        val entries = withWeights.routines.single().allEntries()
+        assertEquals(listOf(100.0, 5.0), entries.map { it.weightKg })
+        assertEquals(listOf("EXTERNAL", "ADDED"), entries.map { it.loadKind })
+        assertEquals(listOf(3, 2), entries.map { it.sets })
         PrescriptionValidator.validate(withWeights)
     }
 
@@ -145,7 +141,15 @@ class PrescriptionInterchangeTest {
             appVersion = "t",
             exportedAtMillis = 1L,
             routines = listOf(
-                PrescriptionRoutineRecord("Push", entries = listOf(entry("back-squat")))
+                PrescriptionRoutineRecord(
+                    "Push",
+                    workouts = listOf(
+                        PrescriptionWorkoutRecord(
+                            "Day 1",
+                            entries = listOf(entry("back-squat"))
+                        )
+                    )
+                )
             )
         )
         val text = PrescriptionJson.encode(document)
@@ -173,7 +177,12 @@ class PrescriptionInterchangeTest {
             routines = listOf(
                 PrescriptionRoutineRecord(
                     "Push",
-                    entries = listOf(entry("back-squat").copy(weightKg = 80.0))
+                    workouts = listOf(
+                        PrescriptionWorkoutRecord(
+                            "Day 1",
+                            entries = listOf(entry("back-squat").copy(weightKg = 80.0))
+                        )
+                    )
                 )
             )
         )
@@ -195,7 +204,12 @@ class PrescriptionInterchangeTest {
             formatVersion = PRESCRIPTION_FORMAT_VERSION,
             appVersion = "t",
             exportedAtMillis = 1L,
-            routines = listOf(PrescriptionRoutineRecord("Push", entries = entries)),
+            routines = listOf(
+                PrescriptionRoutineRecord(
+                    "Push",
+                    workouts = listOf(PrescriptionWorkoutRecord("Day 1", entries = entries))
+                )
+            ),
             customExercises = customExercises
         )
         listOf(

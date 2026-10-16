@@ -98,7 +98,10 @@ object PrescriptionJson {
     }
 
     private fun requireRecordCount(document: PrescriptionDocument) {
-        val count = document.routines.size + document.routines.sumOf { it.entries.size } +
+        val count = document.routines.size +
+            document.routines.sumOf { routine ->
+                routine.workouts.size + routine.workouts.sumOf { workout -> workout.entries.size }
+            } +
             document.customExercises.size
         if (count > PrescriptionLimits.MAX_RECORDS) {
             throw PrescriptionException(PrescriptionFailure.OVER_LIMIT)
