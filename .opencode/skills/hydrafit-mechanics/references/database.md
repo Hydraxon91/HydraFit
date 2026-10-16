@@ -133,6 +133,14 @@ re-reads the ledger inside the commit transaction and refuses the whole commit o
 ambiguous match; `SqlDelightBackupRepository` exports and whole-replaces it with the rest of the
 user-owned data. `50.sqm` creates the table and its source index; current schema version is 51.
 
+`SqlDelightPrescriptionImportRepository` (0.9.2-S2) appends an approved prescription import in one
+transaction with **no schema change**: each routine is inserted as new `routineTemplate`/`routineWorkout`/
+`routineEntry` rows with fresh identities, and a custom definition is created only when its id is
+unused (an id claimed since the preview refuses the whole commit instead of overwriting a local row).
+It writes nothing outside those tables and the new `exercise` rows, so an import cannot create an
+accepted plan, an activation or a schedule change. The pure resolution it consumes lives in
+`:core:domain` `transfer/PreviewPrescriptionImport` (see `backup.md`).
+
 `SqlDelightSetupWriteRepository` implements domain `SetupWriteRepository`. Its transaction compares
 the full expected setup state/revision, validates domain inputs and effective catalog identities,
 writes the step payload, then advances the boundary. Equipment lookups and PR eligibility checks
