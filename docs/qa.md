@@ -2540,8 +2540,10 @@ final state is user-reported, not independently verified. Findings inform the 0.
   `SqlDelightWorkoutImportRepository.commit` re-reads both ledgers inside the transaction and refuses
   the whole commit when the stored bucket content or approved partition changed. New
   `WorkoutImportBucketMigrationTest` (1→51→52, existing rows and provenance preserved, fresh schema) and
-  two new repository tests (a split bucket commits two identical sessions and skips both on repeat; a
-  changed partition refuses with no partial history).
+  two new repository tests (a split bucket commits two identical sessions; a changed partition refuses
+  with no partial history), and — for the shipped path — `WorkoutImportViewModelTest.aBucketSplitBeforeIsRebuiltFromItsStoredPartitionOnASecondRead`,
+  which re-reads the same file through a fresh pick, confirms the approved split is rebuilt and the
+  bucket skipped rather than refused.
 - Backup: format 16 adds `importBuckets`, gated in both directions; `recordCount` counts each bucket plus
   its links; restore whole-replaces both ledgers. New `WorkoutImportBucketBackupTest` round-trips a split
   bucket including a link whose session was deleted and confirms restore replaces rather than merges.
@@ -2593,6 +2595,42 @@ final state is user-reported, not independently verified. Findings inform the 0.
   `core:userdata`/`core:domain`/`feature:splitbuilder`/`feature:routines` iOS simulator compiles green.
 - Not verified: the PDF's physical output (no device render or external viewer), the PE-01 conflict
   prompt on a device, and iOS runtime behavior.
+
+### Closure corrections after the second post-execution review (2026-10-16; not release acceptance)
+
+An independent read-only review of the corrected candidate returned **REJECTED** on PE3-R1 (a
+previously split bucket could never be re-imported) plus PE3-R2, PE4-R1, F2-04-R1 and two nits. All are
+corrected; per-finding evidence:
+
+- **PE3-R1 (functional dead end) — corrected.** `WorkoutImportViewModel.seedStoredPartition` rebuilds a
+  bucket's drafts from its **stored** partition when the re-parsed content is byte-identical, including
+  the exclusions approved then; `WorkoutImportPartition.decode` reads the manifest back and re-checks
+  its membership, and `canonicalBucketContent` exposes the same canonical content both sides compare.
+  Regression: `WorkoutImportViewModelTest.aBucketSplitBeforeIsRebuiltFromItsStoredPartitionOnASecondRead`
+  (split → import → fresh re-read reproduces the split, no `CHANGED_OR_AMBIGUOUS_SOURCE`, both sessions
+  skipped) and `WorkoutImportPartitionTest` round-trip/malformed cases.
+- **PE3-R2 (untested comparison) — corrected.** `PreviewWorkoutImportTest` now covers the stored-bucket
+  branch directly: an unchanged bucket is skipped by its own partition, a partition difference and a
+  link count that disagrees with the manifest both report `CHANGED_OR_AMBIGUOUS_SOURCE`.
+- **PE4-R1 (heading measured at body size) — corrected.** `PrescriptionLineWrapper.wrap(text, role)`
+  now takes the line's role, so the Android renderer measures at that role's drawn size;
+  `PrescriptionPdfLayoutTest.theWrapperSeesEachLogicalLinesOwnRole` pins the contract.
+- **F2-04-R1 (stale gap acknowledgement) — corrected.** `PrescriptionShareViewModel` drops a source's
+  accepted equipment gap when its identity choice changes;
+  `PrescriptionShareViewModelTest.anAcceptedEquipmentGapIsClearedWhenTheIdentityChoiceChanges`.
+- **N-1 (untyped refusal) — corrected.** A preview that still carries problems is refused with the typed
+  `WorkoutImportCommitFailure.NOT_IMPORTABLE` (localized in Settings) instead of a bare `require` that
+  surfaced as an unknown failure; covered in `SqlDelightWorkoutImportRepositoryTest`. The unreachable
+  legacy-provenance write branch is **retained** as a safety net for a hand-built preview.
+- **BK-1 (manifest/link disagreement on restore) — corrected.** `BackupValidator` decodes each restored
+  bucket manifest and requires its session count to match the links beside it; new
+  `ImportBucketBackupTest` covers a readable manifest, a split bucket, an unreadable manifest, a link
+  count mismatch and a pre-16 file.
+- Verification on the closure revision: the four affected host suites green, `ktlintCheck` green,
+  `:androidApp:assembleDebug` built, and the shared/domain/database/userdata/settings/routines/
+  splitbuilder iOS simulator compiles green (`cl-fix-verify-3.log`).
+- Not verified: the same limits as above (no SAF write journey, no PDF physical output, no iOS runtime).
+  Publication remains blocked until targeted reviewer closure of this revision.
 
 ## 0.9.2 interchange and export checkpoint (2026-10-16; not release acceptance)
 

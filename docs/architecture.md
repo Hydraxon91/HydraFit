@@ -1180,10 +1180,15 @@ single session. `workoutImportBucket`/`workoutImportBucketSession` store that le
 links, like the legacy `workoutImportProvenance` rows, deliberately survive local deletion of the
 imported history so re-importing the same export cannot resurrect a session the user removed. A
 changed bucket or a changed approved partition blocks the whole import; a legacy-imported bucket stays
-matched against its provenance row and may not be repartitioned. Both ledgers travel through
-backup/restore (formats 15 and 16) and are gated in both directions, because a file that omits them
-would otherwise re-import everything. See `docs/architecture.md` §1.9 for the additive-migration rule
-and `backup.md` in the mechanics skill for the format detail.
+matched against its provenance row and may not be repartitioned. The review rebuilds a bucket's session
+drafts from its **stored** partition whenever the file still carries identical content, including the
+exclusions chosen then, so re-reading an unchanged export reproduces its own split and is skipped
+instead of looking like a changed grouping. The stored manifest is decoded and its membership re-checked
+before it is reused, and a record that cannot be read back is treated as unusable rather than trusted. A
+caller that ignores `canImport` is refused with the typed `WorkoutImportCommitFailure.NOT_IMPORTABLE`.
+Both ledgers travel through backup/restore (formats 15 and 16) and are gated in both directions, because
+a file that omits them would otherwise re-import everything. See `docs/architecture.md` §1.9 for the
+additive-migration rule and `backup.md` in the mechanics skill for the format detail.
 
 ### 1.22 Plan and routine interchange (0.9.2-S1/S2)
 
@@ -1220,7 +1225,8 @@ draft and handed to the same in-memory export paths, so exporting or printing a 
 creates, saves or modifies a routine. A PDF cannot reuse the text port, so it writes through a
 second, handle-based binary port (`PrescriptionDocumentStore`) with its own size cap, and
 `PrescriptionPdfLayout` wraps and paginates the role-tagged lines through a `PrescriptionLineWrapper`
-supplied by the platform renderer, so a long name cannot clip a slot's sets, reps or weight.
+supplied by the platform renderer, measuring each line at the size that line is actually drawn, so a
+long name cannot clip a slot's sets, reps or weight.
 Both the JSON and PDF actions are gated on the platform surface and stay disabled where a device has
 none (iOS binds the unsupported renderer and document store), rather than failing after the user has
 already chosen a destination.

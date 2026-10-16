@@ -150,10 +150,12 @@ column and it cannot be restored.
 
 `PrescriptionPdfLayout.build(document, linesPerPage, wrapper)` turns a prescription into role-tagged
 lines (`TITLE`/`HEADING`/`BODY`), wraps each logical line to the page's text width through the injected
-`PrescriptionLineWrapper`, then chunks the wrapped lines into pages. The wrapper is required (a default
-identity wrapper keeps the pure tests simple) and must never drop a line: a token wider than the page
-is hard-broken rather than clipped, so a long exercise name cannot push its sets, reps or weight off
-the page. A weights-free document prints the omission note and no load at all, and a recorded zero
+`PrescriptionLineWrapper`, then chunks the wrapped lines into pages. The wrapper receives the line's
+role, so it measures at the size that line is actually drawn (body 11 pt, heading 14 pt, title 18 pt);
+measuring everything at body size would let a long routine name overrun the page. The wrapper is
+required (a default identity wrapper keeps the pure tests simple) and must never drop a line: a token
+wider than the page is hard-broken rather than clipped, so a long exercise name cannot push its sets,
+reps or weight off the page. A weights-free document prints the omission note and no load at all, and a recorded zero
 prints as a number. `ExportPrescriptionPdfUseCase` has the same two entry points as
 `ExportPrescriptionsUseCase` (stored routine ids, or an in-memory routine list) so printing the
 displayed plan reads no stored routine. The Android adapter renders with
@@ -242,8 +244,13 @@ Before writing it re-reads the stored buckets, the legacy provenance and the cur
 inside the transaction and refuses the whole commit (`SOURCE_CHANGED` for a changed bucket or approved
 partition, `SESSION_OVERLAP` for new history that now overlaps) if anything changed under the review,
 so a refused commit leaves no partial history; a bucket that is already recorded unchanged is skipped,
-not refused. `NOTHING_TO_IMPORT` covers an empty plan. An overlap refusal refreshes the review's
-session snapshot, so the newly visible overlap blocks a blind retry.
+not refused. `NOTHING_TO_IMPORT` covers an empty plan and `NOT_IMPORTABLE` a preview that still carries
+problems, so a caller that ignores `canImport` gets a typed refusal instead of an untyped error. An
+overlap refusal refreshes the review's session snapshot, so the newly visible overlap blocks a blind
+retry. The review rebuilds a bucket's session drafts from its stored partition when the file still
+carries identical content (including the exclusions approved then), so a repeat read of an unchanged
+export reproduces its own split and is skipped rather than reported as a changed grouping; a stored
+manifest that cannot be read back is treated as unusable rather than reused.
 
 Backup format 15 adds `importProvenance` (`source`, `candidateKey`, `content`, `importedSessionId`),
 the legacy single-session ledger. `recordCount` counts each record; export reads the ledger inside the
