@@ -1,0 +1,30 @@
+appId: com.hydrafit.app
+name: Routines routine-transfer surfaces
+tags:
+  - smoke
+  - read-only
+---
+# Read-only reachability check for the 0.9.2 routine interchange entry on the Routines screen.
+#
+# Starting state: HydraFit foregrounded, English UI, no keyboard/dialog/editor open, the six-tab bar
+# reachable (the equipment/navigation precondition of navigation-smoke.yaml). The flow taps no
+# transfer action, opens no document picker, and reads or writes no file; it only asserts that the
+# transfer section and its import affordance render.
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    text: '^Routines$'
+    retryTapIfNoChange: false
+- assertVisible: '^New routine$'
+- scrollUntilVisible:
+    element:
+      text: 'Routine transfer'
+    direction: DOWN
+    timeout: 40000
+    speed: 40
+- assertVisible: 'Routine transfer'
+- assertVisible: 'Import routines'
+- takeScreenshot: routines-prescription-transfer

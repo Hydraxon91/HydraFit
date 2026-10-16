@@ -5,6 +5,11 @@ appId: com.hydrafit.app
 # Starting state: HydraFit foregrounded with the Settings tab reachable, an English UI, no
 # keyboard/dialog/editor open. The flow never taps "Choose CSV file", so it opens no document
 # picker, reads no file and writes no workout data; provider selection is only asserted, not changed.
+#
+# The import section is taller than one viewport, so it is reached in two bounded scrolls: the
+# section heading first, then the provider row that carries the three provider chips and the file
+# button. Asserting the heading without scrolling the row into view is what made the earlier
+# 2026-10-16 run fail at "Export provider" (the heading had only just entered at the fold).
 - launchApp:
     stopApp: false
     clearState: false
@@ -20,6 +25,12 @@ appId: com.hydrafit.app
     timeout: 40000
     speed: 40
 - assertVisible: "Import workout history"
+- scrollUntilVisible:
+    element:
+      id: "workout_import_provider_fitnotes"
+    direction: DOWN
+    timeout: 40000
+    speed: 40
 - assertVisible: "Export provider"
 - assertVisible:
     id: "workout_import_provider_fitnotes"
@@ -27,6 +38,12 @@ appId: com.hydrafit.app
     id: "workout_import_provider_strong"
 - assertVisible:
     id: "workout_import_provider_hevy"
+- scrollUntilVisible:
+    element:
+      id: "workout_import_choose_file"
+    direction: DOWN
+    timeout: 40000
+    speed: 40
 - assertVisible:
     id: "workout_import_choose_file"
 - assertVisible: "Choose CSV file"
