@@ -475,6 +475,15 @@ results before closing 0.12.x; fallback is never counted as local-generation suc
   shared-contract compatibility; complete outstanding engine-only AI measurements.
 - Keep MIT source, independent model/runtime/license notices, offline user import
   and unbundled proprietary QNN binaries. No provider/model/runtime swap is implied.
+- **Candidate model families:** evaluate candidate on-device models such as Bonsai 2
+  (2B/4B/9B, ternary/Qwen3.5) against the current Gemma pack on the same M8 matrix
+  (valid-plan rate, latency, memory, device coverage, license terms); no replacement
+  is approved and the LiteRT-LM runtime/interface is unchanged.
+- **Planner provider reconsideration (0.12.0):** evaluate free and API-free
+  alternatives to the remote Gemini engine (hosted free tiers, self-hosted or keyless
+  options) on cost, API-key friction, privacy, availability, quality and offline
+  behavior, keeping Gemini as the comparison baseline; no provider swap is implied
+  and the default offline Deterministic planner is unchanged.
 
 Gate: agreed supported-scope targets pass or receive an explicit user-approved
 disposition. Retain local AI and honest experimental labels if targets are unmet;
