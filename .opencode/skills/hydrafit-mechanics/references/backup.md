@@ -142,15 +142,21 @@ numeric instead of becoming text. An unassigned set keeps its row with empty
 session columns. It is a set-based analysis export, not a backup: there is no note or credential
 column and it cannot be restored.
 
-`PrescriptionPdfLayout.build(document, linesPerPage)` turns a prescription into role-tagged lines
-(`TITLE`/`HEADING`/`BODY`) and chunks them into pages; a weights-free document prints the omission
-note and no load at all, and a recorded zero prints as a number. `ExportPrescriptionPdfUseCase` has
-the same two entry points as `ExportPrescriptionsUseCase` (stored routine ids, or an in-memory
-routine list) so printing the displayed plan reads no stored routine. The Android adapter renders
-with `android.graphics.pdf.PdfDocument` (A4-ish 595×842, 40 pt margin, `close()` in `finally`), and
-`AndroidPrescriptionDocumentStore` writes the bytes over the Storage Access Framework with a 4 MiB
-cap; iOS binds `UnsupportedPrescriptionPdfRenderer`/unsupported document store. `PLAN_PDF_LINES_PER_PAGE`
-lives in the consuming ViewModel because it depends on the renderer's type sizes.
+`PrescriptionPdfLayout.build(document, linesPerPage, wrapper)` turns a prescription into role-tagged
+lines (`TITLE`/`HEADING`/`BODY`), wraps each logical line to the page's text width through the injected
+`PrescriptionLineWrapper`, then chunks the wrapped lines into pages. The wrapper is required (a default
+identity wrapper keeps the pure tests simple) and must never drop a line: a token wider than the page
+is hard-broken rather than clipped, so a long exercise name cannot push its sets, reps or weight off
+the page. A weights-free document prints the omission note and no load at all, and a recorded zero
+prints as a number. `ExportPrescriptionPdfUseCase` has the same two entry points as
+`ExportPrescriptionsUseCase` (stored routine ids, or an in-memory routine list) so printing the
+displayed plan reads no stored routine. The Android adapter renders with
+`android.graphics.pdf.PdfDocument` (A4-ish 595×842, 40 pt margin, `close()` in `finally`) and is itself
+the `PrescriptionLineWrapper`: it measures real text at the body size and starts a new PDF page if a
+line would pass the bottom margin, so a page cannot overflow. `AndroidPrescriptionDocumentStore` writes
+the bytes over the Storage Access Framework with a 4 MiB cap; iOS binds
+`UnsupportedPrescriptionPdfRenderer`/unsupported document store. `PLAN_PDF_LINES_PER_PAGE` lives in the
+consuming ViewModel because it depends on the renderer's type sizes.
 
 ## Analysis CSV write path (0.9.2-S4)
 
@@ -223,10 +229,12 @@ exists, so a locally deleted import is never resurrected and never silently igno
 each session is inserted already closed with a fresh identity and `localEpochDay`, and each set is
 stored with `workoutSet.involvements` frozen to the resolved exercise's `effectiveInvolvements`,
 `timingProvenance = CATCH_UP`, and no occurrence, plan, week/cycle, day-index or RIR attribution.
-Before writing it re-reads the stored buckets and legacy provenance inside the transaction and
-refuses the whole commit (`SOURCE_CHANGED`) if the bucket content or the approved partition changed
-since the preview, so a refused commit leaves no partial history; a bucket that is already recorded
-unchanged is skipped, not refused. `NOTHING_TO_IMPORT` covers an empty plan.
+Before writing it re-reads the stored buckets, the legacy provenance and the current session bounds
+inside the transaction and refuses the whole commit (`SOURCE_CHANGED` for a changed bucket or approved
+partition, `SESSION_OVERLAP` for new history that now overlaps) if anything changed under the review,
+so a refused commit leaves no partial history; a bucket that is already recorded unchanged is skipped,
+not refused. `NOTHING_TO_IMPORT` covers an empty plan. An overlap refusal refreshes the review's
+session snapshot, so the newly visible overlap blocks a blind retry.
 
 Backup format 15 adds `importProvenance` (`source`, `candidateKey`, `content`, `importedSessionId`),
 the legacy single-session ledger. `recordCount` counts each record; export reads the ledger inside the

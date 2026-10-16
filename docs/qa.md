@@ -2567,7 +2567,32 @@ final state is user-reported, not independently verified. Findings inform the 0.
   flags as designed; no workout data, provider selection or app data was written.
 - Not verified by any check here: the split editor itself on a device (the review screen is behind a
   file pick, so the read-only flow never reaches it), a real SAF import journey, and iOS runtime
-  behavior. PE-01, PE-02 and PE-04 from the same review remain open and are recorded in `PLANS.md`.
+  behavior.
+
+### Post-execution review findings PE-01/PE-02/PE-04 (2026-10-16; not release acceptance)
+
+- **PE-01 (prescription custom-id collision).** `PreviewPrescriptionImport` now compares a document
+  definition against a local exercise when their ids match and reports a new `IdCollision`
+  (`IDENTITY_CONFLICT`) when they differ, resolvable only by mapping. New domain tests cover an
+  equivalent definition (reused, no decision), a differing one (blocked, not created under the
+  colliding id) and the mapping that resolves it.
+- **PE-02 (workout-import overlap).** `SqlDelightWorkoutImportRepository.commit` re-reads the current
+  session bounds inside the transaction and refuses with the new
+  `WorkoutImportCommitFailure.SESSION_OVERLAP` and no partial history. New tests: a repository case
+  (a session created after the preview refuses and writes nothing) and a ViewModel case (the refusal
+  refreshes history so the overlap blocks the retry). The Settings screen maps the new failure to a
+  localized message.
+- **PE-04 (PDF content loss).** `PrescriptionPdfLayout.build` now wraps each logical line through an
+  injected `PrescriptionLineWrapper` before paginating and refuses a wrapper that drops a line; the
+  Android `AndroidPrescriptionPdfRenderer` is that wrapper (real width measurement, hard-break of an
+  over-long token, embedded newlines) and starts a new PDF page if a line would pass the bottom
+  margin. New domain test asserts wrapped pages preserve the whole document's text, count wrapped
+  lines per page, keep each line's role and reject a content-dropping wrapper.
+- Matrix on the final tree (`pe-tests-2.log`, `pe-ktlint-ios-2.log`): the full host suite green,
+  `:androidApp:assembleDebug` built, `ktlintCheck` green and the shared/`core:network`/
+  `core:userdata`/`core:domain`/`feature:splitbuilder`/`feature:routines` iOS simulator compiles green.
+- Not verified: the PDF's physical output (no device render or external viewer), the PE-01 conflict
+  prompt on a device, and iOS runtime behavior.
 
 ## 0.9.2 interchange and export checkpoint (2026-10-16; not release acceptance)
 

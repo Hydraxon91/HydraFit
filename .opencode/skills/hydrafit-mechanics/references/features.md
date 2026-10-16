@@ -675,7 +675,9 @@ set the metadata and history acknowledgements the preview requires.
 `canImport` is false, or when a write is already `inProgress`, then calls
 `importRepository.commit(preview)`. Success sets `phase = Imported(result)` and clears the review
 (cached rows, mappings, sessions and acknowledgements); a `WorkoutImportException` keeps
-`phase = Reviewing` and surfaces `review.commitFailure`; any other failure sets
+`phase = Reviewing` and surfaces `review.commitFailure`, and a `SESSION_OVERLAP` refusal re-reads
+`WorkoutSessionRepository.all()` first so the rebuilt review shows the newly visible overlap; any
+other failure sets
 `Failed(WorkoutImportFailure.Unknown)`; `CancellationException` is rethrown. A revision token bumped
 by `chooseFile`/`reset`/`selectProvider` keeps a late read/parse result from overwriting newer state;
 `selectProvider` drops a review parsed with the previous provider. `Failed` carries a typed

@@ -1165,7 +1165,10 @@ persistence:
   one transaction. Each imported session is created already closed with its own identity, so imported
   history never enters the logger's open-session lifecycle, and each set stores the mapping resolved
   at preview time, freezing the approved attribution against later catalog edits. Imported sets carry
-  `CATCH_UP` timing provenance and no occurrence or plan attribution.
+  `CATCH_UP` timing provenance and no occurrence or plan attribution. Inside the transaction it
+  re-reads the ledger and the current session bounds and revalidates both the approved partition and
+  the non-overlap invariant, refusing the whole commit — with no partial history — if either changed
+  under the review; the review is then refreshed so the user resolves the newly visible overlap.
 
 Repeat-import protection is a durable ledger, not a file hash. A **bucket** is one provider/civil-date/
 source-title group; its identity is the canonical content of every row in the group. The user's
@@ -1203,12 +1206,21 @@ equipment gaps, and only then appends each routine as a new editable template wi
 identities — never as an accepted plan, an activation or a schedule change. Imported routines keep
 their own identity space, so a shared routine cannot overwrite a local definition by id or name.
 
+A local exercise id is stable per install, not globally, so an id match alone is not proof of the same
+exercise. When the document declares a definition for an id the receiver already holds, the preview
+compares the definition (name, equipment, movement pattern, laterality, load capability and muscle
+involvement) with the local row: an equivalent definition reuses the local exercise, and a different
+one is an `IdCollision` that must be resolved to one of the receiver's exercises rather than silently
+substituted. The receiver's own definition is never overwritten, and the definition is not re-created
+under a colliding id.
+
 The surfaces are intentionally asymmetric. Sharing a saved routine writes through the text document
 port and defaults prescribed weights **off**; the plan on screen is converted to an in-memory routine
 draft and handed to the same in-memory export paths, so exporting or printing a displayed plan never
 creates, saves or modifies a routine. A PDF cannot reuse the text port, so it writes through a
 second, handle-based binary port (`PrescriptionDocumentStore`) with its own size cap, and
-`PrescriptionPdfLayout` owns pagination so the platform renderer only draws role-tagged lines.
+`PrescriptionPdfLayout` wraps and paginates the role-tagged lines through a `PrescriptionLineWrapper`
+supplied by the platform renderer, so a long name cannot clip a slot's sets, reps or weight.
 Both the JSON and PDF actions are gated on the platform surface and stay disabled where a device has
 none (iOS binds the unsupported renderer and document store), rather than failing after the user has
 already chosen a destination.
