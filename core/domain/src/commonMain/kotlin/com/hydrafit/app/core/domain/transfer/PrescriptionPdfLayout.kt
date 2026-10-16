@@ -17,14 +17,29 @@ enum class PrescriptionLineRole {
 data class PrescriptionPage(val lines: List<PrescriptionLine>)
 
 /**
+ * Splits one logical line into the printable lines that fit the page's text width. The renderer
+ * supplies this, because only it knows the real font metrics; the domain decides what text exists
+ * and in what order. A conforming implementation never drops content: a token wider than the page
+ * is hard-broken rather than clipped, and an embedded newline becomes a break.
+ */
+fun interface PrescriptionLineWrapper {
+    fun wrap(text: String): List<String>
+}
+
+/**
  * Builds the printable lines of a prescription and splits them into pages.
  *
- * Pagination is pure and host-testable: the renderer measures nothing, and the caller supplies the
- * lines per page that its chosen font and paper size can hold. A single line longer than the page's
- * width is passed through unchanged for the renderer to clip, never silently truncated here.
+ * Pagination is pure and host-testable: [wrapper] is injected, so a test can drive the wrapping
+ * deterministically while the Android renderer supplies real font measurement. Every logical line is
+ * wrapped to the page width *before* pagination, so pages hold the lines that are actually drawn and
+ * a long exercise name can never clip its sets, reps or weight.
  */
 object PrescriptionPdfLayout {
-    fun build(document: PrescriptionDocument, linesPerPage: Int): List<PrescriptionPage> {
+    fun build(
+        document: PrescriptionDocument,
+        linesPerPage: Int,
+        wrapper: PrescriptionLineWrapper = PrescriptionLineWrapper { listOf(it) }
+    ): List<PrescriptionPage> {
         require(linesPerPage > 0) { "linesPerPage must be positive" }
         val lines = mutableListOf<PrescriptionLine>()
         val count = document.routines.size
@@ -52,7 +67,12 @@ object PrescriptionPdfLayout {
                 }
             }
         }
-        return lines.chunked(linesPerPage).map(::PrescriptionPage)
+        val wrapped = lines.flatMap { line ->
+            val parts = wrapper.wrap(line.text)
+            require(parts.isNotEmpty()) { "a line wrapper must not drop a line" }
+            parts.map { PrescriptionLine(it, line.role) }
+        }
+        return wrapped.chunked(linesPerPage).map(::PrescriptionPage)
     }
 }
 
@@ -84,7 +104,8 @@ class ExportPrescriptionPdfUseCase(
         includeWeights: Boolean,
         appVersion: String,
         exportedAtMillis: Long,
-        linesPerPage: Int
+        linesPerPage: Int,
+        wrapper: PrescriptionLineWrapper = PrescriptionLineWrapper { listOf(it) }
     ): List<PrescriptionPage> = page(
         ExportPrescriptionsUseCase(routines, catalog)(
             routineIds,
@@ -92,7 +113,8 @@ class ExportPrescriptionPdfUseCase(
             appVersion,
             exportedAtMillis
         ),
-        linesPerPage
+        linesPerPage,
+        wrapper
     )
 
     /** Prints an in-memory routine (the plan on screen) without persisting anything. */
@@ -101,7 +123,8 @@ class ExportPrescriptionPdfUseCase(
         includeWeights: Boolean,
         appVersion: String,
         exportedAtMillis: Long,
-        linesPerPage: Int
+        linesPerPage: Int,
+        wrapper: PrescriptionLineWrapper = PrescriptionLineWrapper { listOf(it) }
     ): List<PrescriptionPage> = page(
         ExportPrescriptionsUseCase(routines, catalog).document(
             templates,
@@ -109,9 +132,13 @@ class ExportPrescriptionPdfUseCase(
             appVersion,
             exportedAtMillis
         ),
-        linesPerPage
+        linesPerPage,
+        wrapper
     )
 
-    private fun page(document: PrescriptionDocument, linesPerPage: Int): List<PrescriptionPage> =
-        PrescriptionPdfLayout.build(document, linesPerPage)
+    private fun page(
+        document: PrescriptionDocument,
+        linesPerPage: Int,
+        wrapper: PrescriptionLineWrapper
+    ): List<PrescriptionPage> = PrescriptionPdfLayout.build(document, linesPerPage, wrapper)
 }

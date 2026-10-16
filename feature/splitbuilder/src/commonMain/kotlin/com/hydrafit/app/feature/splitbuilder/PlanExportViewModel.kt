@@ -132,7 +132,8 @@ class PlanExportViewModel(
                     includeWeights = includeWeights,
                     appVersion = appVersionProvider.versionName,
                     exportedAtMillis = timeProvider.nowMillis(),
-                    linesPerPage = PLAN_PDF_LINES_PER_PAGE
+                    linesPerPage = PLAN_PDF_LINES_PER_PAGE,
+                    wrapper = pdfRenderer
                 )
                 documentStore.write(handle, pdfRenderer.render(pages))
                 _state.update { it.copy(inProgress = false, status = PlanExportStatus.Printed) }

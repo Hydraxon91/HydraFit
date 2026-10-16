@@ -149,6 +149,32 @@ class PrescriptionPdfLayoutTest {
     }
 
     @Test
+    fun aWrapperSplitsLongLinesWithoutDroppingContentAndPagesCountWrappedLines() {
+        val routine = routine(entry(name = "A very long exercise name that would not fit"))
+        val document = document(listOf(routine))
+
+        // Wrap each logical line into fixed 10-character pieces, as a narrow page would.
+        val wrapper = PrescriptionLineWrapper { text -> text.chunked(10) }
+        val pages = PrescriptionPdfLayout.build(document, linesPerPage = 3, wrapper = wrapper)
+        val wrapped = texts(pages)
+
+        assertTrue(wrapped.all { it.length <= 10 }, wrapped.toString())
+        assertEquals(3, pages.first().lines.size)
+        // Nothing is dropped or reordered: the wrapped pages still carry the whole document's text.
+        assertEquals(
+            texts(PrescriptionPdfLayout.build(document, linesPerPage = 100)).joinToString(""),
+            wrapped.joinToString("")
+        )
+        // Every logical line keeps its role on each wrapped piece.
+        assertTrue(pages.first().lines.all { it.role == PrescriptionLineRole.TITLE })
+
+        // A wrapper that drops a line is refused rather than silently truncating the document.
+        assertFailsWith<IllegalArgumentException> {
+            PrescriptionPdfLayout.build(document, linesPerPage = 3, wrapper = { emptyList() })
+        }
+    }
+
+    @Test
     fun splitsLinesIntoPagesAtTheGivenBoundary() {
         val routine = routine(
             entry(name = "A"),
