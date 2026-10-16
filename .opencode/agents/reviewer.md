@@ -62,6 +62,42 @@ permissions:
   - action: shell
     resource: "git describe *"
     effect: allow
+  - action: shell
+    resource: "diff *"
+    effect: allow
+  - action: shell
+    resource: "head *"
+    effect: allow
+  - action: shell
+    resource: "tail *"
+    effect: allow
+  - action: shell
+    resource: "cat *"
+    effect: allow
+  - action: shell
+    resource: "wc *"
+    effect: allow
+  - action: shell
+    resource: "rg *"
+    effect: allow
+  - action: shell
+    resource: "grep *"
+    effect: allow
+  - action: shell
+    resource: "ls *"
+    effect: allow
+  - action: shell
+    resource: "pwd *"
+    effect: allow
+  - action: shell
+    resource: "stat *"
+    effect: allow
+  - action: shell
+    resource: "file *"
+    effect: allow
+  - action: shell
+    resource: "echo *"
+    effect: allow
   - action: read
     resource: "*.env"
     effect: ask
@@ -118,7 +154,8 @@ do not repeat a full-range review merely because targeted closure was requested.
 
 Read-only means no edits, report-file writes, Git mutations, fixes, rule-setting,
 builds, tests that write artifacts, deployment, device interaction or child agents.
-Shell permission prompts grant no new task authorization. Use inspection commands
+Shell allow rules and permission prompts grant no new task authorization or
+read-only sandbox. Use inspection commands
 without output-file options, external diff/textconv helpers or other mutating
 flags. Do not retrieve secrets, bypass permissions or run a workaround to obtain
 missing verification. Use existing evidence; report unavailable checks explicitly.
