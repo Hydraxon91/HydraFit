@@ -10,7 +10,9 @@ import com.hydrafit.app.core.domain.transfer.WorkoutImportChoices
 import com.hydrafit.app.core.domain.transfer.WorkoutImportCommitFailure
 import com.hydrafit.app.core.domain.transfer.WorkoutImportException
 import com.hydrafit.app.core.domain.transfer.WorkoutImportExerciseChoice
+import com.hydrafit.app.core.domain.transfer.WorkoutImportIssue
 import com.hydrafit.app.core.domain.transfer.WorkoutImportPreview
+import com.hydrafit.app.core.domain.transfer.WorkoutImportProblem
 import com.hydrafit.app.core.domain.transfer.WorkoutImportSessionChoice
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
@@ -247,6 +249,27 @@ class SqlDelightWorkoutImportRepositoryTest {
 
         assertEquals(WorkoutImportCommitFailure.SOURCE_CHANGED, failure.failure)
         assertEquals(1, database.workoutSessionQueries.selectAllSessions().executeAsList().size)
+    }
+
+    @Test
+    fun aPreviewThatStillCarriesProblemsIsRefusedWithATypedFailure() = runBlocking {
+        val preview = preview(sessions = listOf(pressSession()))
+
+        val refused = assertFailsWith<WorkoutImportException> {
+            repository.commit(
+                preview.copy(
+                    problems = listOf(
+                        WorkoutImportProblem(WorkoutImportIssue.SESSION_OVERLAP)
+                    )
+                )
+            )
+        }
+
+        // A caller that ignores canImport gets a typed refusal, not a bare require the caller can only
+        // report as an unknown failure.
+        assertEquals(WorkoutImportCommitFailure.NOT_IMPORTABLE, refused.failure)
+        assertEquals(0, database.workoutLogQueries.selectAllSets().executeAsList().size)
+        assertEquals(0, database.workoutSessionQueries.selectAllSessions().executeAsList().size)
     }
 
     @Test

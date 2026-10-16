@@ -180,6 +180,7 @@
     <string name="settings_workout_import_commit_source_changed">This source workout no longer matches the recorded import. Re-read the file and review again.</string>
     <string name="settings_workout_import_commit_nothing_to_import">There is no session left to import.</string>
     <string name="settings_workout_import_commit_session_overlap">Your history changed since you reviewed this import. Review it again before importing.</string>
+    <string name="settings_workout_import_commit_not_importable">This import still has unresolved problems. Resolve them before importing.</string>
     <string name="settings_workout_import_error_empty">That file has no workout rows.</string>
     <string name="settings_workout_import_error_too_large">That file is too large to import.</string>
     <string name="settings_workout_import_error_too_many_rows">That file has too many rows to import.</string>

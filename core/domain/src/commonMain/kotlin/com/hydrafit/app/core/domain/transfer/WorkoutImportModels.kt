@@ -65,6 +65,13 @@ enum class WorkoutImportCommitFailure {
     NOTHING_TO_IMPORT,
 
     /**
+     * The preview still carries unresolved problems, so committing it would write a partial plan. A
+     * caller that ignores [WorkoutImportPreview.canImport] is refused with this typed failure rather
+     * than an untyped error the caller could only report as unknown.
+     */
+    NOT_IMPORTABLE,
+
+    /**
      * An imported session would now overlap history that was created or corrected after the preview
      * was prepared. The approved commit-time revalidation refuses it rather than write interleaved
      * history; the review must be refreshed before retrying.

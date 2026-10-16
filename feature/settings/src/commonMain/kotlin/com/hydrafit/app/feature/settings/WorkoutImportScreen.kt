@@ -38,6 +38,7 @@ import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.settings_workout_import_acknowledge_history
 import hydrafit.feature.settings.generated.resources.settings_workout_import_acknowledge_metadata
 import hydrafit.feature.settings.generated.resources.settings_workout_import_apply
+import hydrafit.feature.settings.generated.resources.settings_workout_import_commit_not_importable
 import hydrafit.feature.settings.generated.resources.settings_workout_import_commit_nothing_to_import
 import hydrafit.feature.settings.generated.resources.settings_workout_import_commit_session_overlap
 import hydrafit.feature.settings.generated.resources.settings_workout_import_commit_source_changed
@@ -748,6 +749,9 @@ private fun WorkoutImportCommitFailure.messageResource(): StringResource = when 
 
     WorkoutImportCommitFailure.SESSION_OVERLAP ->
         Res.string.settings_workout_import_commit_session_overlap
+
+    WorkoutImportCommitFailure.NOT_IMPORTABLE ->
+        Res.string.settings_workout_import_commit_not_importable
 }
 
 private fun WorkoutImportIssue.messageResource(): StringResource = when (this) {

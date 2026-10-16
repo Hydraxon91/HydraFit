@@ -76,8 +76,11 @@ class SqlDelightWorkoutImportRepository(private val database: HydraFitDatabase) 
         var importedSets = 0
         var skippedSessions = 0
         database.transaction {
-            require(preview.problems.isEmpty()) {
-                "The import preview still has unresolved problems"
+            if (preview.problems.isNotEmpty()) {
+                throw WorkoutImportException(
+                    WorkoutImportCommitFailure.NOT_IMPORTABLE,
+                    "The import preview still has unresolved problems"
+                )
             }
             val storedBuckets = bucketQueries.selectBuckets(preview.source.name).executeAsList()
             val skippedBuckets = mutableSetOf<String>()
