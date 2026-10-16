@@ -2634,10 +2634,14 @@ corrected; per-finding evidence:
 
 ### 0.9.1 device journeys on the current candidate (2026-10-16; not release acceptance)
 
-Five bounded Maestro journeys on `emulator-5554` with the candidate debug APK installed (redeployed at
-`aa8135ea` after the PE3-R1 fix — the earlier install predated it, which is why the split case first
-reproduced the old dead end). Fixtures `hf-import-hevy.csv` and `hf-import-split.csv` were pushed to
-`/sdcard/Download`; both appeared in the picker's Downloads root without a media scan.
+Bounded Maestro journeys on `emulator-5554` with a candidate debug APK. The install in place until 12:24
+predated the PE3-R1 fix and that hour's other code commits, so journeys 1 (import write), 2 (repeat
+read) and 3a (split import) ran on that older build; the split repeat read (3b), the plan PDF (4) and
+the routine export/import (5a/5b) ran after the 12:25 redeploy at `aa8135ea`. The pre-fix behaviour is
+itself captured: `hf-split-repeat/2026-10-16_122229/…/screenshots/step-030-*.png` (12:24) shows the
+merged `Rows 2, 3, 4` draft with "This source workout was imported before with different content." —
+exactly the dead end the correction removes. Fixtures `hf-import-hevy.csv` and `hf-import-split.csv`
+were pushed to `/sdcard/Download`; both appeared in the picker's Downloads root without a media scan.
 
 - **Import write (13/13, exit 0).** Settings → Hevy → Choose CSV → Downloads → map `Bench Press` to the
   catalog's `Barbell Bench Press` → confirm load meaning → confirm session → acknowledge history →
@@ -2648,7 +2652,7 @@ reproduced the old dead end). Fixtures `hf-import-hevy.csv` and `hf-import-split
   problems and the `Import` control asserted **disabled**
   (`hf-import-repeat3/2026-10-16_121122/.../hf-import-repeat-skip.png`). Mappings and acknowledgements
   are not persisted between reads, so a repeat read re-maps before the skip is visible — the partition
-  restore itself works; the re-mapping is a UX consequence, recorded in `PLANS.md`.
+  restore itself works; the re-mapping consequence is recorded as a follow-up in `PLANS.md`.
 - **Split import (48/48, exit 0).** The three-row fixture was imported as two sessions by moving one row
   into a new session; summary asserted and viewed: "Imported 2 sessions and 3 sets; skipped 0 unchanged."
   (`hf-split-import4/2026-10-16_122004/.../hf-split-summary.png`.)
@@ -2659,8 +2663,9 @@ reproduced the old dead end). Fixtures `hf-import-hevy.csv` and `hf-import-split
   (`hf-split-repeat2/…`, `hf-sr2.csv`).
 - **Plan PDF (passed).** Plan → `Print / save PDF` → system save dialog → "Plan PDF ready."
   `hydrafit-plan.pdf` (47,632 bytes, 12:30) pulled and page 1 rendered with `qlmanage` and viewed: the
-  title, the weights note, the routine heading and all four days' slots render complete with no
-  clipping (13 bodyweight slots, e.g. `Step-up with Knee Raise: 3 × 6 bodyweight`).
+  title, the weights note, the routine heading and all four days' slot lines render complete with no
+  clipping (18 slot lines across four days, 13 distinct exercises, e.g.
+  `Step-up with Knee Raise: 3 × 6 bodyweight`).
   `hf-pdf-render/hf-plan.pdf.png`. The over-long-name wrap path is not reachable from the UI (plan
   names are app-generated and short), so it stays covered by `PrescriptionPdfLayoutTest` only.
 - **Routine export (passed).** Routines → Export → `Export routine` → `Choose file` → Save →
