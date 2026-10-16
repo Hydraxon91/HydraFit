@@ -1,5 +1,26 @@
 # Feature and test implementation recipes
 
+## Anatomical fatigue map (0.9.2)
+
+`feature/fatigueheatmap` owns `AnatomicalArtwork.kt` and `FatigueMap.kt`. Bundled
+`composeResources/files/bodymap/*.paths` contain pinned SVG path strings; adjacent
+`LICENSES.txt` retains both MuscleMap and react-native-body-highlighter MIT notices.
+`BundledArtworkTest` verifies hashes, path counts and notices; common tests cover
+slug-to-21-group mapping, model/view resource selection, partition symmetry and
+blend weights. Path parsing and boolean geometry are exercised on the host under
+test-only Robolectric (`FinalArtworkCoverageTest`); rendering — colours, occlusion
+and layout — still requires runtime/emulator verification.
+
+Male/Female selection is independent of user profile; Front is initially shown,
+with a Front/Back button. Geometry is built off-main per model/view. Back deltoids
+are partitioned 35% outer side/65% rear, rhomboids 55% outer upper-back/45% medial
+traps, and schematic hip-abductor patches are cut from the adjacent parent fill.
+Only approved shoulder and traps/upper-back neighbours get narrow clipped colour
+feathers; the numbers and fatigue inputs are never blended. Numeric descriptions
+are separate accessible text nodes, not mutually occluding bounds overlays.
+Existing refresh, coverage and planner contracts are unchanged. See
+`docs/architecture.md` for pinned provenance and the schematic limitations.
+
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
