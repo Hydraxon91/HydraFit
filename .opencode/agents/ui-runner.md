@@ -150,6 +150,16 @@ Execute only the UI checks the parent specified. Follow AGENTS.md; load the
 `hydrafit-ui-testing` skill and read `docs/agent-ui-verification.md` before
 touching the emulator, and select the applicable `docs/qa.md` checks.
 
+Prefer one delegation for a prepared, coherent test journey, including its supplied
+flows and planned inspection checkpoints. Do not turn each tap, scroll or hierarchy
+checkpoint into a parent handoff. Quick exploratory inspection and navigation while
+authoring or diagnosing a flow belong directly with the parent; if the brief needs
+new selectors, flow authoring or diagnosis, return the blocker rather than inventing
+the next fragment. The parent settles it before delegating again. Do not combine
+unrelated or destructive journeys merely to reduce handoffs. `/ui-check` remains
+an explicit helper request. Require exclusive emulator control during execution;
+the parent and other sessions must not interact with the device concurrently.
+
 Check the parent's structured brief against AGENTS.md's Subagent brief contract.
 Require the objective/approved checks, exact targets, starting-state evidence,
 allowed interactions and persisted writes, exact procedure/flow paths, assertions,

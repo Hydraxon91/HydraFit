@@ -11,6 +11,22 @@ for the mandatory detailed procedure. This skill is a recipe, not
 permission to change app data, settings, dependencies or configuration. Never
 claim 100% automation reliability. Prefer a verified failure to a guessed success.
 
+## Choose execution ownership
+
+The main agent directly handles quick hierarchy inspection, screenshots and
+bounded exploratory navigation while authoring or diagnosing flows. Use one
+`ui-runner` delegation for a prepared, coherent test journey, not a new helper for
+each tap, scroll, inspection or small flow fragment. A fresh hierarchy checkpoint
+does not itself require a handoff. The runner executes supplied flows and planned
+checkpoints; diagnosis, new selectors and flow authoring return to the parent.
+Complete that work before delegating again. Keep flows short and coherent rather
+than combining unrelated or destructive actions to reduce delegation count.
+
+Direct and delegated work share every approval, mutation, cleanup, evidence and
+budget rule below. Only one controller may operate the emulator: finish a handoff
+before another agent interacts, and never overlap another session's device work.
+`/ui-check` explicitly requests the helper; this routing rule does not override it.
+
 ## Before interacting
 
 1. Read the current target and its resources; check `.maestro/README.md` for a

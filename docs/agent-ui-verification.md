@@ -18,14 +18,28 @@ Paths below are relative to the repository root.
   to the approved flow, including its cross-cutting UI checks. Release verification
   uses the release checklist. Follow `hydrafit-ui-testing` for execution and safety;
   report any required checks left unverified.
-- `.opencode/agents/ui-runner.md` is an execution-only subagent for these checks.
+- Choose execution ownership by the work, not by each UI action. The main agent
+  directly performs quick hierarchy inspection, screenshots and bounded exploratory
+  navigation needed to author or diagnose a flow. Delegate a prepared, coherent
+  test journey to `.opencode/agents/ui-runner.md`, rather than spawning a helper for
+  each tap, scroll or small fragment. Fresh hierarchy checkpoints remain required;
+  they do not require a new delegation. Do not replace fragmentation with a giant
+  flow combining unrelated or destructive actions. Both routes retain the same
+  approved mutations, cleanup, evidence, timeouts and unknown-write stop rules.
+  One controller owns the emulator at a time; finish direct interaction before
+  handing off, and wait for the runner to stop before resuming it.
+- `.opencode/agents/ui-runner.md` is an execution-only subagent for prepared journeys.
   It is fenced by instructions and a few denies rather than sandboxed: `edit` is
   denied, and cloud tooling plus specific `maestro cloud`/`maestro start-device`
   command forms are denied, while shell commands are otherwise allowed without a
   prompt. The fence therefore constrains routine behaviour rather than guaranteeing
   isolation, and those denies do not cover every route to cloud. It can still
   execute an inline flow, so keep flow authoring, diagnosis and fixes with the
-  parent agent. Delegation does not relax any constraint above.
+  parent agent. The runner completes the supplied journey and its planned inspection
+  checkpoints within one delegation. A failure needing diagnosis, new selectors or
+  new flow authoring returns to the parent; settle that work before delegating again,
+  rather than repeatedly handing off individual discoveries. Delegation does not
+  relax any constraint above. `/ui-check` remains an explicit request for the helper.
 - Record existing preference and permission values as cleanup baselines. A non-default
   value is not a blocker when the approved test contract covers temporarily changing
   that value and restoring it afterwards. This does not authorize changes outside
