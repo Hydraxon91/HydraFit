@@ -287,6 +287,11 @@ class WorkoutImportViewModel(
                 throw cancellation
             } catch (importFailure: WorkoutImportException) {
                 commitFailure = importFailure.failure
+                if (importFailure.failure == WorkoutImportCommitFailure.SESSION_OVERLAP) {
+                    // Local history changed under the review, so refresh it: the rebuilt review then
+                    // shows the overlap as a normal blocking problem before the user retries.
+                    existingSessions = sessionRepository.all()
+                }
                 _state.update {
                     it.copy(
                         inProgress = false,

@@ -62,7 +62,14 @@ enum class WorkoutImportCommitFailure {
     SOURCE_CHANGED,
 
     /** The preview carries no session to write. */
-    NOTHING_TO_IMPORT
+    NOTHING_TO_IMPORT,
+
+    /**
+     * An imported session would now overlap history that was created or corrected after the preview
+     * was prepared. The approved commit-time revalidation refuses it rather than write interleaved
+     * history; the review must be refreshed before retrying.
+     */
+    SESSION_OVERLAP
 }
 
 class WorkoutImportException(val failure: WorkoutImportCommitFailure, message: String) :

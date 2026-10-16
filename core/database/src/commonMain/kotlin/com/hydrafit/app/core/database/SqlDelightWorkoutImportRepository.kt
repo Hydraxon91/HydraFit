@@ -88,6 +88,12 @@ class SqlDelightWorkoutImportRepository(private val database: HydraFitDatabase) 
             }
             val recorded = provenanceQueries.selectProvenanceBySource(preview.source.name)
                 .executeAsList()
+            // Commit-time revalidation of the approved non-overlap invariant: history may have been
+            // created or corrected since the preview was prepared, so re-read it inside the
+            // transaction and refuse rather than write interleaved history.
+            val existingBounds = sessionQueries.selectAllSessions().executeAsList()
+                .map { it.startedAtMillis to it.endedAtMillis }
+            val writtenBounds = mutableListOf<Pair<Long, Long?>>()
             val newLinks = mutableMapOf<String, MutableList<String>>()
             preview.sessions.forEach { session ->
                 if (session.candidateKey in skippedBuckets) {
@@ -110,6 +116,17 @@ class SqlDelightWorkoutImportRepository(private val database: HydraFitDatabase) 
                         "This source workout changed after the preview was prepared"
                     )
                 }
+                val overlaps = (existingBounds + writtenBounds).any { (start, end) ->
+                    session.startedAtMillis <= (end ?: Long.MAX_VALUE) &&
+                        session.endedAtMillis >= start
+                }
+                if (overlaps) {
+                    throw WorkoutImportException(
+                        WorkoutImportCommitFailure.SESSION_OVERLAP,
+                        "Imported history would overlap a session that now exists"
+                    )
+                }
+                writtenBounds += session.startedAtMillis to session.endedAtMillis
                 val sessionId = Uuid.random().toString()
                 sessionQueries.insertSession(
                     id = sessionId,

@@ -250,6 +250,26 @@ class SqlDelightWorkoutImportRepositoryTest {
     }
 
     @Test
+    fun historyCreatedAfterThePreviewRefusesTheCommitAndWritesNothing() = runBlocking {
+        val preview = preview(sessions = listOf(pressSession()))
+        val planned = preview.sessions.single()
+        // Another session is created after the preview, overlapping the planned one.
+        database.workoutSessionQueries.insertSession(
+            id = "other",
+            startedAtMillis = planned.startedAtMillis,
+            endedAtMillis = planned.endedAtMillis,
+            localEpochDay = planned.localEpochDay
+        )
+
+        val failure = assertFailsWith<WorkoutImportException> { repository.commit(preview) }
+
+        assertEquals(WorkoutImportCommitFailure.SESSION_OVERLAP, failure.failure)
+        assertEquals(1, database.workoutSessionQueries.selectAllSessions().executeAsList().size)
+        assertEquals(0, database.workoutLogQueries.selectAllSets().executeAsList().size)
+        assertEquals(0, database.workoutImportBucketQueries.selectAllBuckets().executeAsList().size)
+    }
+
+    @Test
     fun provenanceReadsAreScopedToTheRequestedSourceAndKeys() = runBlocking {
         // Legacy rows, inserted directly: the bucket ledger does not write provenance any more.
         database.workoutImportQueries.insertProvenance(

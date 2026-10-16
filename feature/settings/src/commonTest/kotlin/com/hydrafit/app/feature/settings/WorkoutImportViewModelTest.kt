@@ -568,6 +568,40 @@ class WorkoutImportViewModelTest {
         assertTrue(review(viewModel).problems.any { it is ReviewProblem.InvalidOffset })
     }
 
+    @Test
+    fun anOverlapRefusalRefreshesHistoryBeforeTheRetry() = runTest(dispatcher) {
+        val repository = FakeImportRepository()
+        repository.commitFailure =
+            WorkoutImportException(WorkoutImportCommitFailure.SESSION_OVERLAP, "overlap")
+        val sessions = FakeSessionRepository()
+        val viewModel = viewModel(
+            store = FakeFileStore(content = hevyCsv("Bench Press")),
+            repository = repository,
+            catalog = benchCatalog(),
+            sessions = sessions
+        )
+
+        confirmReadyToImport(viewModel)
+        assertTrue(review(viewModel).canImport)
+
+        // A session appears under the review; the commit refuses and the review is refreshed so the
+        // overlap is now a visible blocking problem rather than a silent retry.
+        sessions.replaceAll(listOf(WorkoutSession("existing", 0L, Long.MAX_VALUE, 0L)))
+        viewModel.apply()
+        advanceUntilIdle()
+
+        val phase = viewModel.state.value.phase
+        assertIs<WorkoutImportPhase.Reviewing>(phase)
+        assertEquals(WorkoutImportCommitFailure.SESSION_OVERLAP, phase.review.commitFailure)
+        assertTrue(
+            phase.review.problems.any {
+                it is ReviewProblem.Domain && it.problem.issue == WorkoutImportIssue.SESSION_OVERLAP
+            },
+            phase.review.problems.toString()
+        )
+        assertFalse(phase.review.canImport)
+    }
+
     private fun review(viewModel: WorkoutImportViewModel): WorkoutImportReview {
         val phase = viewModel.state.value.phase
         assertIs<WorkoutImportPhase.Reviewing>(phase, "expected a review but was $phase")
@@ -721,7 +755,7 @@ private class FakeImportRepository : WorkoutImportRepository {
     }
 }
 
-private class FakeSessionRepository(private val sessions: List<WorkoutSession> = emptyList()) :
+private class FakeSessionRepository(private var sessions: List<WorkoutSession> = emptyList()) :
     WorkoutSessionRepository {
     override suspend fun create(session: WorkoutSession) = Unit
 
@@ -732,4 +766,8 @@ private class FakeSessionRepository(private val sessions: List<WorkoutSession> =
     override fun openFlow(): Flow<WorkoutSession?> = emptyFlow()
 
     override suspend fun all(): List<WorkoutSession> = sessions
+
+    fun replaceAll(replacement: List<WorkoutSession>) {
+        sessions = replacement
+    }
 }
