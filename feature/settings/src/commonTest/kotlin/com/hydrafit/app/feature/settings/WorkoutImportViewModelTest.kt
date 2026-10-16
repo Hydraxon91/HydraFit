@@ -10,6 +10,7 @@ import com.hydrafit.app.core.domain.transfer.PreviewWorkoutImport
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvFailure
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvParser
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvSource
+import com.hydrafit.app.core.domain.transfer.WorkoutImportBucket
 import com.hydrafit.app.core.domain.transfer.WorkoutImportChoices
 import com.hydrafit.app.core.domain.transfer.WorkoutImportCommitFailure
 import com.hydrafit.app.core.domain.transfer.WorkoutImportException
@@ -602,6 +603,54 @@ class WorkoutImportViewModelTest {
         assertFalse(phase.review.canImport)
     }
 
+    @Test
+    fun aBucketSplitBeforeIsRebuiltFromItsStoredPartitionOnASecondRead() = runTest(dispatcher) {
+        val repository = FakeImportRepository()
+        val viewModel = viewModel(
+            store = FakeFileStore(content = hevyCsv("Bench Press")),
+            repository = repository,
+            catalog = benchCatalog()
+        )
+
+        // Split the bucket's two rows into two sessions, then import them.
+        viewModel.chooseHevyFile()
+        advanceUntilIdle()
+        viewModel.confirmLoadMeaning("Bench Press")
+        viewModel.acknowledgeHistoryEffects(true)
+        val firstDraft = review(viewModel).sessions.single().draftId
+        viewModel.confirmSession(firstDraft, true)
+        viewModel.setRowSession(3, null)
+        advanceUntilIdle()
+        val drafts = review(viewModel).sessions
+        assertEquals(2, drafts.size)
+        viewModel.confirmSession(drafts.first { it.draftId != firstDraft }.draftId, true)
+        advanceUntilIdle()
+        assertTrue(review(viewModel).canImport, review(viewModel).problems.toString())
+        viewModel.apply()
+        advanceUntilIdle()
+        assertIs<WorkoutImportPhase.Imported>(viewModel.state.value.phase)
+
+        // A second read of the byte-identical file must rebuild the split the user approved, so it is
+        // skipped — not propose one merged session, differ from the stored partition, and refuse the
+        // whole file as a changed source.
+        viewModel.chooseHevyFile()
+        advanceUntilIdle()
+        viewModel.confirmLoadMeaning("Bench Press")
+        viewModel.acknowledgeHistoryEffects(true)
+        review(viewModel).sessions.forEach { viewModel.confirmSession(it.draftId, true) }
+        advanceUntilIdle()
+
+        val second = review(viewModel)
+        assertEquals(2, second.sessions.size)
+        assertTrue(second.problems.isEmpty(), second.problems.toString())
+        assertEquals(
+            2,
+            second.notices.count { it.issue == WorkoutImportIssue.REMOVED_HISTORY_SKIPPED },
+            second.notices.toString()
+        )
+        assertFalse(second.canImport)
+    }
+
     private fun review(viewModel: WorkoutImportViewModel): WorkoutImportReview {
         val phase = viewModel.state.value.phase
         assertIs<WorkoutImportPhase.Reviewing>(phase, "expected a review but was $phase")
@@ -735,11 +784,17 @@ private class FakeFileStore(
 
 private class FakeImportRepository : WorkoutImportRepository {
     var provenanceResult: List<WorkoutImportProvenance> = emptyList()
+    var bucketResult: List<WorkoutImportBucket> = emptyList()
     var result: WorkoutImportResult = WorkoutImportResult(0, 0, 0)
     var commitCount = 0
     var commitGate: CompletableDeferred<Unit>? = null
     var commitFailure: Throwable? = null
     var lastPreview: WorkoutImportPreview? = null
+
+    override suspend fun buckets(
+        source: WorkoutCsvSource,
+        candidateKeys: Set<String>
+    ): List<WorkoutImportBucket> = bucketResult
 
     override suspend fun provenance(
         source: WorkoutCsvSource,
@@ -751,6 +806,14 @@ private class FakeImportRepository : WorkoutImportRepository {
         lastPreview = preview
         commitGate?.await()
         commitFailure?.let { throw it }
+        // Mirror the repository: a committed bucket is recorded with one link per session it holds.
+        bucketResult = preview.buckets.map { bucket ->
+            bucket.copy(
+                importedSessionIds = preview.sessions
+                    .filter { it.candidateKey == bucket.candidateKey }
+                    .mapIndexed { index, _ -> "session-$index" }
+            )
+        }
         return result
     }
 }

@@ -12,16 +12,19 @@ import com.hydrafit.app.core.domain.transfer.PreviewWorkoutImport
 import com.hydrafit.app.core.domain.transfer.SourceCivilDate
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvException
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvParser
+import com.hydrafit.app.core.domain.transfer.WorkoutCsvRow
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvSource
 import com.hydrafit.app.core.domain.transfer.WorkoutImportBucket
 import com.hydrafit.app.core.domain.transfer.WorkoutImportChoices
 import com.hydrafit.app.core.domain.transfer.WorkoutImportCommitFailure
 import com.hydrafit.app.core.domain.transfer.WorkoutImportException
 import com.hydrafit.app.core.domain.transfer.WorkoutImportExerciseChoice
+import com.hydrafit.app.core.domain.transfer.WorkoutImportPartition
 import com.hydrafit.app.core.domain.transfer.WorkoutImportPreview
 import com.hydrafit.app.core.domain.transfer.WorkoutImportProvenance
 import com.hydrafit.app.core.domain.transfer.WorkoutImportRepository
 import com.hydrafit.app.core.domain.transfer.WorkoutImportSessionChoice
+import com.hydrafit.app.core.domain.transfer.canonicalBucketContent
 import com.hydrafit.app.core.domain.transfer.sourceCandidateKey
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.LoadKind
@@ -363,11 +366,45 @@ class WorkoutImportViewModel(
                 is CatalogProfileMatch.Ambiguous, CatalogProfileMatch.Unknown -> Unit
             }
         }
-        // One editable session draft per source bucket; the user may split a bucket further.
+        // One editable session draft per source bucket; the user may split a bucket further. When the
+        // file is unchanged since its last import, the drafts are rebuilt from the *stored* approved
+        // partition instead of the merged default. Without that, a bucket the user split would come
+        // back as one merged draft, differ from its stored partition, and be refused as a changed
+        // source — permanently blocking a re-import of byte-identical content.
         parsedCsv.rows.groupBy { SessionKey(it.day, it.workoutTitle) }.forEach { (bucket, rows) ->
-            val draftId = createDraft(bucket)
-            rows.forEach { rowDrafts[it.sourceRowIndex] = draftId }
+            val ordered = rows.sortedBy { it.sourceRowIndex }
+            if (!seedStoredPartition(parsedCsv, bucket, ordered)) {
+                val draftId = createDraft(bucket)
+                ordered.forEach { rowDrafts[it.sourceRowIndex] = draftId }
+            }
         }
+    }
+
+    /**
+     * Rebuilds this bucket's drafts from the partition approved at its last import when the file still
+     * carries identical content, including the exclusions that were chosen then. Returns false when
+     * there is no usable stored partition for these rows, so the caller falls back to one merged draft
+     * and the preview reports the bucket on its own terms.
+     */
+    private fun seedStoredPartition(
+        parsedCsv: ParsedWorkoutCsv,
+        bucket: SessionKey,
+        rows: List<WorkoutCsvRow>
+    ): Boolean {
+        if (rows.isEmpty()) return false
+        val key = sourceCandidateKey(parsedCsv.source, rows.first())
+        val stored = buckets.singleOrNull {
+            it.source == parsedCsv.source && it.candidateKey == key
+        } ?: return false
+        if (stored.content != canonicalBucketContent(rows)) return false
+        val partition = WorkoutImportPartition.decode(stored.partition) ?: return false
+        if (partition.rowCount != rows.size) return false
+        partition.sessions.forEach { positions ->
+            val draftId = createDraft(bucket)
+            positions.map { rows[it] }.forEach { rowDrafts[it.sourceRowIndex] = draftId }
+        }
+        partition.excluded.map { rows[it] }.forEach { excludedRows += it.sourceRowIndex }
+        return true
     }
 
     private fun createDraft(bucket: SessionKey): Int {

@@ -340,6 +340,63 @@ class PreviewWorkoutImportTest {
     }
 
     @Test
+    fun anUnchangedStoredBucketIsSkippedByItsOwnPartitionRatherThanRefused() {
+        // The stored bucket carries the partition the user approved, so a repeat read of identical
+        // content reproduces it and the bucket is skipped — not reported as a changed source.
+        val stored = build().buckets.single().copy(importedSessionIds = listOf("existing"))
+
+        val preview = PreviewWorkoutImport.build(
+            parsed,
+            choices,
+            listOf(exercise),
+            buckets = listOf(stored)
+        )
+
+        assertTrue(preview.problems.isEmpty(), preview.problems.toString())
+        assertEquals("existing", preview.sessions.single().skipExistingSessionId)
+        assertTrue(
+            preview.notices.any { it.issue == WorkoutImportIssue.REMOVED_HISTORY_SKIPPED },
+            preview.notices.toString()
+        )
+    }
+
+    @Test
+    fun aStoredBucketApprovedWithADifferentPartitionIsReportedAsChanged() {
+        val proposed = build().buckets.single()
+        val split = proposed.copy(
+            partition = WorkoutImportPartition(
+                2,
+                listOf(listOf(0), listOf(1)),
+                emptySet()
+            ).canonical(),
+            importedSessionIds = listOf("first", "second")
+        )
+
+        assertIssue(
+            WorkoutImportIssue.CHANGED_OR_AMBIGUOUS_SOURCE,
+            PreviewWorkoutImport.build(parsed, choices, listOf(exercise), buckets = listOf(split))
+        )
+    }
+
+    @Test
+    fun aStoredBucketWhoseLinksDisagreeWithItsPartitionIsReportedAsChanged() {
+        // Same membership, but two recorded sessions for a one-session partition: the record cannot be
+        // trusted, so it blocks instead of being reused as the approved split.
+        val proposed = build().buckets.single()
+        val inconsistent = proposed.copy(importedSessionIds = listOf("first", "second"))
+
+        assertIssue(
+            WorkoutImportIssue.CHANGED_OR_AMBIGUOUS_SOURCE,
+            PreviewWorkoutImport.build(
+                parsed,
+                choices,
+                listOf(exercise),
+                buckets = listOf(inconsistent)
+            )
+        )
+    }
+
+    @Test
     fun nullAndEmptyCanonicalFieldsCannotCollide() {
         assertFalse(canonicalFields(listOf(null)) == canonicalFields(listOf("")))
         assertFalse(canonicalFields(listOf("a", "bc")) == canonicalFields(listOf("ab", "c")))

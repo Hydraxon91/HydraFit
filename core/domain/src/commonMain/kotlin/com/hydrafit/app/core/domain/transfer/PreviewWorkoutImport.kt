@@ -77,7 +77,7 @@ object PreviewWorkoutImport {
             val bucket = WorkoutImportBucket(
                 source = parsed.source,
                 candidateKey = key,
-                content = canonicalFields(ordered.map(::canonicalSourceRow)),
+                content = canonicalBucketContent(ordered),
                 partition = partition
             )
             val previous = buckets.filter { it.source == parsed.source && it.candidateKey == key }
@@ -235,6 +235,39 @@ object PreviewWorkoutImport {
 internal fun canonicalFields(fields: List<String?>): String = fields.joinToString("") {
     if (it == null) "-1:" else "${it.length}:$it"
 }
+
+/**
+ * Reads back a [canonicalFields] string. Returns null when a length prefix is missing, is not a
+ * non-negative whole number, or runs past the end of the text, so a malformed stored manifest is
+ * never partly trusted. A `null` field (`"-1:"`) is not produced by the partition encoding and is
+ * reported as malformed rather than decoded.
+ */
+internal fun decodeCanonicalFields(encoded: String): List<String>? {
+    val fields = mutableListOf<String>()
+    var index = 0
+    while (index < encoded.length) {
+        val colon = encoded.indexOf(':', index)
+        if (colon < 0) return null
+        val lengthText = encoded.substring(index, colon)
+        if (lengthText.isEmpty() || lengthText.any { it !in '0'..'9' }) return null
+        val length = lengthText.toIntOrNull() ?: return null
+        val start = colon + 1
+        val end = start + length
+        if (end > encoded.length) return null
+        fields += encoded.substring(start, end)
+        index = end
+    }
+    return fields
+}
+
+/**
+ * The complete canonical content of one source bucket, in source order. Two reads of the same source
+ * workout produce the same string, which is what makes a repeat import recognisable. Exposed so the
+ * caller preparing a review can tell an unchanged bucket from a changed one before it decides how to
+ * seed that bucket's session drafts.
+ */
+fun canonicalBucketContent(rows: List<WorkoutCsvRow>): String =
+    canonicalFields(rows.sortedBy { it.sourceRowIndex }.map(::canonicalSourceRow))
 
 /**
  * Identifies the source workout a set row belongs to: the provider, the row's civil date and the

@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
 
 class WorkoutImportPartitionTest {
     @Test
@@ -38,6 +39,52 @@ class WorkoutImportPartitionTest {
             WorkoutImportPartition(2, listOf(emptyList()), setOf(0, 1))
         ).forEach { partition ->
             assertFailsWith<IllegalArgumentException> { partition.canonical() }
+        }
+    }
+
+    @Test
+    fun aCanonicalPartitionReadsBackExactlyAsWritten() {
+        // The stored manifest must round-trip, including two sessions with identical membership shape
+        // and an explicit exclusion, so a repeat import can reuse the approved split.
+        listOf(
+            WorkoutImportPartition(1, listOf(listOf(0)), emptySet()),
+            WorkoutImportPartition(4, listOf(listOf(0, 1), listOf(2), listOf(3)), emptySet()),
+            WorkoutImportPartition(3, listOf(listOf(0), listOf(2)), setOf(1)),
+            WorkoutImportPartition(2, listOf(listOf(1)), setOf(0))
+        ).forEach { partition ->
+            val decoded = WorkoutImportPartition.decode(partition.canonical())
+            assertEquals(partition, decoded, partition.canonical())
+        }
+    }
+
+    @Test
+    fun aManifestThatCannotBeReadBackIsRefusedRatherThanTrusted() {
+        val valid = WorkoutImportPartition(
+            3,
+            listOf(listOf(0, 1), listOf(2)),
+            emptySet()
+        ).canonical()
+        listOf(
+            "",
+            "not-a-manifest",
+            // A truncated length prefix, a non-numeric one, and a wrong version marker.
+            "12:workout-partition-v1",
+            "x:",
+            valid.dropLast(1),
+            valid.replace("workout-partition-v1", "workout-partition-v2"),
+            // An extra trailing field is not a manifest this build wrote.
+            valid + "1:9",
+            // Membership that does not cover the bucket exactly once.
+            canonicalFields(
+                listOf(
+                    "workout-partition-v1",
+                    "2",
+                    canonicalFields(listOf(canonicalFields(listOf("0")))),
+                    canonicalFields(emptyList())
+                )
+            )
+        ).forEach { encoded ->
+            assertNull(WorkoutImportPartition.decode(encoded), encoded)
         }
     }
 }
