@@ -2632,6 +2632,48 @@ corrected; per-finding evidence:
 - Not verified: the same limits as above (no SAF write journey, no PDF physical output, no iOS runtime).
   Publication remains blocked until targeted reviewer closure of this revision.
 
+### 0.9.1 device journeys on the current candidate (2026-10-16; not release acceptance)
+
+Five bounded Maestro journeys on `emulator-5554` with the candidate debug APK installed (redeployed at
+`aa8135ea` after the PE3-R1 fix — the earlier install predated it, which is why the split case first
+reproduced the old dead end). Fixtures `hf-import-hevy.csv` and `hf-import-split.csv` were pushed to
+`/sdcard/Download`; both appeared in the picker's Downloads root without a media scan.
+
+- **Import write (13/13, exit 0).** Settings → Hevy → Choose CSV → Downloads → map `Bench Press` to the
+  catalog's `Barbell Bench Press` → confirm load meaning → confirm session → acknowledge history →
+  Import. Summary asserted and viewed: "Imported 1 sessions and 2 sets; skipped 0 unchanged."
+  (`hf-import-complete2/2026-10-16_120729/.../hf-import-summary.png`.)
+- **Repeat read (4/4 assertions).** The same file again shows
+  "Row 2: This workout was already imported, so it is skipped." with **no** `Before you import`
+  problems and the `Import` control asserted **disabled**
+  (`hf-import-repeat3/2026-10-16_121122/.../hf-import-repeat-skip.png`). Mappings and acknowledgements
+  are not persisted between reads, so a repeat read re-maps before the skip is visible — the partition
+  restore itself works; the re-mapping is a UX consequence, recorded in `PLANS.md`.
+- **Split import (48/48, exit 0).** The three-row fixture was imported as two sessions by moving one row
+  into a new session; summary asserted and viewed: "Imported 2 sessions and 3 sets; skipped 0 unchanged."
+  (`hf-split-import4/2026-10-16_122004/.../hf-split-summary.png`.)
+- **Split repeat read (passed).** Re-reading that file rebuilds the stored two-session partition: the
+  hierarchy shows `Session 2` with `Rows 2` and **two** notices
+  ("Row 2: …" and "Row 3: This workout was already imported, so it is skipped."), no blocking problem,
+  and `Import` disabled. This is the on-device proof of the PE3-R1 correction
+  (`hf-split-repeat2/…`, `hf-sr2.csv`).
+- **Plan PDF (passed).** Plan → `Print / save PDF` → system save dialog → "Plan PDF ready."
+  `hydrafit-plan.pdf` (47,632 bytes, 12:30) pulled and page 1 rendered with `qlmanage` and viewed: the
+  title, the weights note, the routine heading and all four days' slots render complete with no
+  clipping (13 bodyweight slots, e.g. `Step-up with Knee Raise: 3 × 6 bodyweight`).
+  `hf-pdf-render/hf-plan.pdf.png`. The over-long-name wrap path is not reachable from the UI (plan
+  names are app-generated and short), so it stays covered by `PrescriptionPdfLayoutTest` only.
+- **Routine export (passed).** Routines → Export → `Export routine` → `Choose file` → Save →
+  "Routine exported."; `/sdcard/Download/hydrafit-routines.json` (441 bytes, 12:32).
+- **Routine import (passed).** Routines → `Import routines` → that file → accept the missing-equipment
+  gap for `Back Squat` → Import → "Imported N routines and M exercises." asserted
+  (`hf-routine-import3/…/hf-routine-imported.png`).
+
+Retained on the emulator as QA fixtures: the imported history (1 session/2 sets on 2024-06-11, 2
+sessions/3 sets on 2024-06-12), one imported routine, the two fixture CSVs and the two exported files.
+No app data was cleared, nothing was uninstalled, and no release APK was installed.
+Still unverified: dark mode, larger text, rotation, TalkBack, app locale, and every iOS runtime surface.
+
 ## 0.9.2 interchange and export checkpoint (2026-10-16; not release acceptance)
 
 - Scope: S1 (versioned prescription document + export), S2 (routine import preview + transactional
