@@ -30,12 +30,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -49,6 +51,13 @@ import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.isoDateUtc
+import com.hydrafit.app.core.domain.transfer.PrescriptionFailure
+import com.hydrafit.app.core.domain.transfer.PrescriptionIdentityChoice
+import com.hydrafit.app.core.domain.transfer.PrescriptionIdentityOption
+import com.hydrafit.app.core.domain.transfer.PrescriptionImportCommitFailure
+import com.hydrafit.app.core.domain.transfer.PrescriptionImportIssue
+import com.hydrafit.app.core.domain.transfer.PrescriptionImportProblem
+import com.hydrafit.app.core.domain.transfer.PrescriptionResolution
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import hydrafit.feature.routines.generated.resources.Res
 import hydrafit.feature.routines.generated.resources.focus_full_body
@@ -106,6 +115,40 @@ import hydrafit.feature.routines.generated.resources.routines_picker_excluded
 import hydrafit.feature.routines.generated.resources.routines_picker_title
 import hydrafit.feature.routines.generated.resources.routines_postpone
 import hydrafit.feature.routines.generated.resources.routines_postpone_title
+import hydrafit.feature.routines.generated.resources.routines_prescription_commit_exists
+import hydrafit.feature.routines.generated.resources.routines_prescription_commit_nothing
+import hydrafit.feature.routines.generated.resources.routines_prescription_error_duplicate_id
+import hydrafit.feature.routines.generated.resources.routines_prescription_error_invalid_value
+import hydrafit.feature.routines.generated.resources.routines_prescription_error_malformed
+import hydrafit.feature.routines.generated.resources.routines_prescription_error_over_limit
+import hydrafit.feature.routines.generated.resources.routines_prescription_error_read
+import hydrafit.feature.routines.generated.resources.routines_prescription_error_too_large
+import hydrafit.feature.routines.generated.resources.routines_prescription_error_unsupported_version
+import hydrafit.feature.routines.generated.resources.routines_prescription_export_action
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_cancel
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_choice_accept_equipment
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_choice_create
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_choice_map
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_close
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_confirm
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_description
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_missing_equipment
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_problem_equipment
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_problem_invalid_choice
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_problem_name_collision
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_problem_no_routines
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_problem_undecided
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_problem_unknown
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_problems_title
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_resolution_collision
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_resolution_create
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_resolution_existing
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_resolution_unknown
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_summary
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_title
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_unsupported
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_used_by
+import hydrafit.feature.routines.generated.resources.routines_prescription_section
 import hydrafit.feature.routines.generated.resources.routines_remove
 import hydrafit.feature.routines.generated.resources.routines_repeat_block
 import hydrafit.feature.routines.generated.resources.routines_reps_label
@@ -132,16 +175,34 @@ import org.koin.compose.viewmodel.koinViewModel
 private const val MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
 
 @Composable
-fun RoutinesRoute(viewModel: RoutinesViewModel = koinViewModel()) {
+fun RoutinesRoute(
+    viewModel: RoutinesViewModel = koinViewModel(),
+    shareViewModel: PrescriptionShareViewModel = koinViewModel()
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val shareState by shareViewModel.state.collectAsStateWithLifecycle()
     // A save made elsewhere (e.g. SplitBuilder) may have landed after the long-lived collection
     // already ran; re-read on resume so the list is never stale.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refresh() }
-    RoutinesScreen(state = state, viewModel = viewModel)
+    // An import appends routines through another repository, so re-read once it lands.
+    LaunchedEffect(shareState.importPhase) {
+        if (shareState.importPhase is PrescriptionImportPhase.Imported) viewModel.refresh()
+    }
+    RoutinesScreen(
+        state = state,
+        viewModel = viewModel,
+        shareState = shareState,
+        shareViewModel = shareViewModel
+    )
 }
 
 @Composable
-fun RoutinesScreen(state: RoutinesUiState, viewModel: RoutinesViewModel) {
+fun RoutinesScreen(
+    state: RoutinesUiState,
+    viewModel: RoutinesViewModel,
+    shareState: PrescriptionShareUiState,
+    shareViewModel: PrescriptionShareViewModel
+) {
     if (state.editor != null) {
         RoutineEditor(
             editor = state.editor,
@@ -182,9 +243,18 @@ fun RoutinesScreen(state: RoutinesUiState, viewModel: RoutinesViewModel) {
                 state.isLoading -> CircularProgressIndicator()
                 state.templates.isEmpty() -> Text(stringResource(Res.string.routines_empty))
                 else -> state.templates.forEach { template ->
-                    TemplateRow(template = template, viewModel = viewModel)
+                    TemplateRow(
+                        template = template,
+                        viewModel = viewModel,
+                        canExport = shareState.isSupported,
+                        onExportRequested = shareViewModel::onExportRequested
+                    )
                 }
             }
+            PrescriptionTransferSection(
+                shareState = shareState,
+                shareViewModel = shareViewModel
+            )
         }
     }
 
@@ -226,6 +296,16 @@ fun RoutinesScreen(state: RoutinesUiState, viewModel: RoutinesViewModel) {
             occurrenceNames = occurrenceNames,
             onConfirm = viewModel::onConfirmSwitchMode,
             onDismiss = viewModel::onPendingDismissed
+        )
+    }
+    (shareState.importPhase as? PrescriptionImportPhase.Reviewing)?.let { reviewing ->
+        PrescriptionImportDialog(
+            review = reviewing.review,
+            exercises = shareState.exercises,
+            busy = shareState.importInProgress,
+            onChoiceChanged = shareViewModel::onIdentityChoiceChanged,
+            onConfirm = shareViewModel::onImportConfirmed,
+            onDismiss = shareViewModel::onImportDismissed
         )
     }
 }
@@ -415,7 +495,12 @@ private fun epochDayLabel(epochDay: Long): String = isoDateUtc(epochDay * MILLIS
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun TemplateRow(template: RoutineTemplate, viewModel: RoutinesViewModel) {
+private fun TemplateRow(
+    template: RoutineTemplate,
+    viewModel: RoutinesViewModel,
+    canExport: Boolean,
+    onExportRequested: (RoutineTemplate) -> Unit
+) {
     var confirmDelete by remember { mutableStateOf(false) }
     Card {
         Column(
@@ -447,6 +532,14 @@ private fun TemplateRow(template: RoutineTemplate, viewModel: RoutinesViewModel)
                 }
                 TextButton(onClick = { viewModel.onDuplicate(template) }) {
                     Text(stringResource(Res.string.routines_duplicate))
+                }
+                if (canExport) {
+                    TextButton(
+                        onClick = { onExportRequested(template) },
+                        modifier = Modifier.testTag(PrescriptionShareTestTags.EXPORT_ROUTINE)
+                    ) {
+                        Text(stringResource(Res.string.routines_prescription_export_action))
+                    }
                 }
                 if (!template.isArchived) {
                     TextButton(onClick = { viewModel.onActivateRequested(template) }) {
@@ -940,4 +1033,339 @@ private fun weekdayLabel(day: DayOfWeek): String = when (day) {
     DayOfWeek.FRIDAY -> stringResource(Res.string.weekday_friday)
     DayOfWeek.SATURDAY -> stringResource(Res.string.weekday_saturday)
     DayOfWeek.SUNDAY -> stringResource(Res.string.weekday_sunday)
+}
+
+/** The routine interchange actions: per-routine export, document import, and their status. */
+@Composable
+private fun PrescriptionTransferSection(
+    shareState: PrescriptionShareUiState,
+    shareViewModel: PrescriptionShareViewModel
+) {
+    Column(
+        modifier = Modifier.routinesTestTagsAsResourceId(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = stringResource(Res.string.routines_prescription_section),
+            style = MaterialTheme.typography.titleMedium
+        )
+        Text(
+            text = stringResource(Res.string.routines_prescription_import_description),
+            style = MaterialTheme.typography.bodySmall
+        )
+        if (shareState.isSupported) {
+            PrescriptionExportSection(
+                export = shareState.export,
+                busy = shareState.importInProgress,
+                onExportWeightsChanged = shareViewModel::onExportWeightsChanged,
+                onExportConfirmed = shareViewModel::exportRoutine,
+                onExportDismissed = shareViewModel::onExportDismissed,
+                onImportChosen = shareViewModel::onImportChosen
+            )
+        } else {
+            Text(
+                text = stringResource(Res.string.routines_prescription_import_unsupported),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        when (val phase = shareState.importPhase) {
+            is PrescriptionImportPhase.Imported -> {
+                Text(
+                    text = stringResource(
+                        Res.string.routines_prescription_import_summary,
+                        phase.importedRoutines,
+                        phase.createdExercises
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.testTag(PrescriptionShareTestTags.IMPORT_SUMMARY)
+                )
+                TextButton(onClick = shareViewModel::onImportDismissed) {
+                    Text(stringResource(Res.string.routines_prescription_import_close))
+                }
+            }
+
+            is PrescriptionImportPhase.Failed -> Text(
+                text = phase.failure.importMessageResource(),
+                style = MaterialTheme.typography.bodySmall
+            )
+
+            else -> Unit
+        }
+    }
+}
+
+@Composable
+private fun PrescriptionImportDialog(
+    review: PrescriptionImportReview,
+    exercises: List<PrescriptionExerciseOption>,
+    busy: Boolean,
+    onChoiceChanged: (String, PrescriptionIdentityChoice?) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(Res.string.routines_prescription_import_title)) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .routinesTestTagsAsResourceId()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = stringResource(Res.string.routines_prescription_import_description),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                review.preview.identities.forEach { identity ->
+                    PrescriptionIdentityRow(
+                        identity = identity,
+                        exercises = exercises,
+                        busy = busy,
+                        onChoiceChanged = onChoiceChanged
+                    )
+                }
+                if (review.preview.problems.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier.testTag(PrescriptionShareTestTags.IMPORT_PROBLEMS),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = stringResource(
+                                Res.string.routines_prescription_import_problems_title
+                            ),
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                        review.preview.problems.forEach { problem ->
+                            Text(
+                                text = problem.messageResource(),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
+                review.commitFailure?.let { failure ->
+                    Text(
+                        text = failure.messageResource(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                enabled = review.preview.canImport && !busy,
+                modifier = Modifier.testTag(PrescriptionShareTestTags.IMPORT_CONFIRM)
+            ) {
+                Text(stringResource(Res.string.routines_prescription_import_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag(PrescriptionShareTestTags.IMPORT_CANCEL)
+            ) {
+                Text(stringResource(Res.string.routines_prescription_import_cancel))
+            }
+        }
+    )
+}
+
+/**
+ * One referenced identity with the state the user is deciding about. A choice is only offered where
+ * the resolution allows it: create-or-map for a declared definition, map for a collision or unknown
+ * identity, and accepting the gap only where the resolved exercise is a local one.
+ */
+@Composable
+private fun PrescriptionIdentityRow(
+    identity: PrescriptionIdentityOption,
+    exercises: List<PrescriptionExerciseOption>,
+    busy: Boolean,
+    onChoiceChanged: (String, PrescriptionIdentityChoice?) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(identity.sourceName, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            text = identity.resolution.messageResource(),
+            style = MaterialTheme.typography.bodySmall
+        )
+        Text(
+            text = stringResource(
+                Res.string.routines_prescription_import_used_by,
+                identity.usedByRoutineCount
+            ),
+            style = MaterialTheme.typography.bodySmall
+        )
+        if (identity.missingEquipment.isNotEmpty()) {
+            Text(
+                text = stringResource(
+                    Res.string.routines_prescription_import_missing_equipment,
+                    identity.missingEquipment.map { it.displayName }.sorted().joinToString(", ")
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+        when (identity.resolution) {
+            is PrescriptionResolution.Create -> {
+                TextButton(
+                    onClick = {
+                        onChoiceChanged(
+                            identity.sourceExerciseId,
+                            PrescriptionIdentityChoice.Create
+                        )
+                    },
+                    enabled = !busy,
+                    modifier = Modifier.testTag(PrescriptionShareTestTags.IMPORT_CREATE_CHOICE)
+                ) {
+                    Text(stringResource(Res.string.routines_prescription_import_choice_create))
+                }
+                MapTargetButton(
+                    sourceExerciseId = identity.sourceExerciseId,
+                    exercises = exercises,
+                    busy = busy,
+                    onChoiceChanged = onChoiceChanged
+                )
+            }
+
+            is PrescriptionResolution.NameCollision, PrescriptionResolution.Unknown ->
+                MapTargetButton(
+                    sourceExerciseId = identity.sourceExerciseId,
+                    exercises = exercises,
+                    busy = busy,
+                    onChoiceChanged = onChoiceChanged
+                )
+
+            // A local exercise needs no mapping; only a genuine equipment gap blocks it.
+            is PrescriptionResolution.Existing ->
+                if (identity.missingEquipment.isNotEmpty()) {
+                    TextButton(
+                        onClick = {
+                            onChoiceChanged(
+                                identity.sourceExerciseId,
+                                PrescriptionIdentityChoice.AcceptEquipmentGap
+                            )
+                        },
+                        enabled = !busy,
+                        modifier = Modifier.testTag(
+                            PrescriptionShareTestTags.IMPORT_ACCEPT_EQUIPMENT
+                        )
+                    ) {
+                        Text(
+                            stringResource(
+                                Res.string.routines_prescription_import_choice_accept_equipment
+                            )
+                        )
+                    }
+                }
+        }
+    }
+}
+
+/** Offers the catalog as mapping targets for one unresolved identity. */
+@Composable
+private fun MapTargetButton(
+    sourceExerciseId: String,
+    exercises: List<PrescriptionExerciseOption>,
+    busy: Boolean,
+    onChoiceChanged: (String, PrescriptionIdentityChoice?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        TextButton(
+            onClick = { expanded = true },
+            enabled = !busy,
+            modifier = Modifier.testTag(PrescriptionShareTestTags.IMPORT_MAP_CHOICE)
+        ) {
+            Text(stringResource(Res.string.routines_prescription_import_choice_map))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            exercises.forEach { exercise ->
+                DropdownMenuItem(
+                    text = { Text(exercise.name) },
+                    onClick = {
+                        expanded = false
+                        onChoiceChanged(
+                            sourceExerciseId,
+                            PrescriptionIdentityChoice.MapTo(exercise.id)
+                        )
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PrescriptionResolution.messageResource(): String = when (this) {
+    is PrescriptionResolution.Existing ->
+        stringResource(Res.string.routines_prescription_import_resolution_existing)
+
+    is PrescriptionResolution.Create ->
+        stringResource(Res.string.routines_prescription_import_resolution_create)
+
+    is PrescriptionResolution.NameCollision ->
+        stringResource(
+            Res.string.routines_prescription_import_resolution_collision,
+            local.name
+        )
+
+    PrescriptionResolution.Unknown ->
+        stringResource(Res.string.routines_prescription_import_resolution_unknown)
+}
+
+@Composable
+private fun PrescriptionImportProblem.messageResource(): String = when (issue) {
+    PrescriptionImportIssue.NO_ROUTINES ->
+        stringResource(Res.string.routines_prescription_import_problem_no_routines)
+
+    PrescriptionImportIssue.UNDECIDED_IDENTITY ->
+        stringResource(Res.string.routines_prescription_import_problem_undecided)
+
+    PrescriptionImportIssue.NAME_COLLISION ->
+        stringResource(Res.string.routines_prescription_import_problem_name_collision)
+
+    PrescriptionImportIssue.UNKNOWN_IDENTITY ->
+        stringResource(Res.string.routines_prescription_import_problem_unknown)
+
+    PrescriptionImportIssue.EQUIPMENT_GAP ->
+        stringResource(Res.string.routines_prescription_import_problem_equipment)
+
+    PrescriptionImportIssue.INVALID_CHOICE ->
+        stringResource(Res.string.routines_prescription_import_problem_invalid_choice)
+}
+
+@Composable
+private fun PrescriptionImportCommitFailure.messageResource(): String = when (this) {
+    PrescriptionImportCommitFailure.NOTHING_TO_IMPORT ->
+        stringResource(Res.string.routines_prescription_commit_nothing)
+
+    PrescriptionImportCommitFailure.IDENTITY_ALREADY_EXISTS ->
+        stringResource(Res.string.routines_prescription_commit_exists)
+}
+
+@Composable
+private fun PrescriptionFailure?.importMessageResource(): String = when (this) {
+    PrescriptionFailure.UNSUPPORTED_VERSION ->
+        stringResource(Res.string.routines_prescription_error_unsupported_version)
+
+    PrescriptionFailure.MALFORMED ->
+        stringResource(Res.string.routines_prescription_error_malformed)
+
+    PrescriptionFailure.TOO_LARGE ->
+        stringResource(Res.string.routines_prescription_error_too_large)
+
+    PrescriptionFailure.OVER_LIMIT ->
+        stringResource(Res.string.routines_prescription_error_over_limit)
+
+    PrescriptionFailure.INVALID_VALUE ->
+        stringResource(Res.string.routines_prescription_error_invalid_value)
+
+    PrescriptionFailure.DUPLICATE_ID ->
+        stringResource(Res.string.routines_prescription_error_duplicate_id)
+
+    null -> stringResource(Res.string.routines_prescription_error_read)
 }

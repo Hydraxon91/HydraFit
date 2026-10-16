@@ -28,4 +28,5 @@ val routinesModule: Module = module {
             preferredWeekdaysRepository = get()
         )
     }
+    viewModel { PrescriptionShareViewModel(get(), get(), get(), get(), get(), get(), get()) }
 }
