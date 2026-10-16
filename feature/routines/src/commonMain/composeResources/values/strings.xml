@@ -125,8 +125,10 @@
     <string name="routines_prescription_import_problem_unknown">This exercise is not in your catalog. Map it to one of yours.</string>
     <string name="routines_prescription_import_problem_equipment">This exercise needs equipment you have not selected.</string>
     <string name="routines_prescription_import_problem_invalid_choice">That choice is no longer available.</string>
+    <string name="routines_prescription_import_problem_invalid_routine">One of these routines can’t be rebuilt. Check the file.</string>
     <string name="routines_prescription_commit_nothing">There is nothing left to import.</string>
     <string name="routines_prescription_commit_exists">An exercise in this file now exists. Read the file again and review.</string>
+    <string name="routines_prescription_commit_not_importable">This file still has something to resolve before it can be imported.</string>
     <string name="routines_prescription_error_read">Couldn’t read the selected file. Please try again.</string>
     <string name="routines_prescription_error_malformed">That file isn’t a valid routine file.</string>
     <string name="routines_prescription_error_unsupported_version">That file was made by a different version and can’t be imported.</string>

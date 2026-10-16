@@ -116,6 +116,7 @@ import hydrafit.feature.routines.generated.resources.routines_picker_title
 import hydrafit.feature.routines.generated.resources.routines_postpone
 import hydrafit.feature.routines.generated.resources.routines_postpone_title
 import hydrafit.feature.routines.generated.resources.routines_prescription_commit_exists
+import hydrafit.feature.routines.generated.resources.routines_prescription_commit_not_importable
 import hydrafit.feature.routines.generated.resources.routines_prescription_commit_nothing
 import hydrafit.feature.routines.generated.resources.routines_prescription_error_duplicate_id
 import hydrafit.feature.routines.generated.resources.routines_prescription_error_invalid_value
@@ -135,6 +136,7 @@ import hydrafit.feature.routines.generated.resources.routines_prescription_impor
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_missing_equipment
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_problem_equipment
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_problem_invalid_choice
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_problem_invalid_routine
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_problem_name_collision
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_problem_no_routines
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_problem_undecided
@@ -1336,6 +1338,9 @@ private fun PrescriptionImportProblem.messageResource(): String = when (issue) {
 
     PrescriptionImportIssue.INVALID_CHOICE ->
         stringResource(Res.string.routines_prescription_import_problem_invalid_choice)
+
+    PrescriptionImportIssue.INVALID_ROUTINE ->
+        stringResource(Res.string.routines_prescription_import_problem_invalid_routine)
 }
 
 @Composable
@@ -1345,6 +1350,9 @@ private fun PrescriptionImportCommitFailure.messageResource(): String = when (th
 
     PrescriptionImportCommitFailure.IDENTITY_ALREADY_EXISTS ->
         stringResource(Res.string.routines_prescription_commit_exists)
+
+    PrescriptionImportCommitFailure.PREVIEW_NOT_IMPORTABLE ->
+        stringResource(Res.string.routines_prescription_commit_not_importable)
 }
 
 @Composable
