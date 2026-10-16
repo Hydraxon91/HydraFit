@@ -2522,6 +2522,328 @@ final state is user-reported, not independently verified. Findings inform the 0.
   deferred 0.13.x explanation-presentation polish and the named OF-03 verification limits are
   unchanged.
 
+## 0.9.1 session-split ledger checkpoint (2026-10-16; not release acceptance)
+
+- Scope: the post-execution review's PE-03 ("ambiguous same-day sessions cannot be split"). The old
+  per-session provenance keyed `(source, candidateKey, content)` collapsed two legitimately distinct
+  same-day sessions that carried identical content, so a titleless provider (FitNotes) could never be
+  split. Replaced with a bucket/partition ledger plus editable session drafts. Main agent owned the
+  domain/persistence/migration/wiring slices; no delegation.
+- Domain: `PreviewWorkoutImport` now resolves each provider/date/title bucket's complete content and the
+  user's approved partition of row positions into sessions (and explicit exclusions), so membership,
+  not content, is the identity. New `WorkoutImportPartitionTest` covers repeated identical rows,
+  exclusion positions, selection order and the exactly-once invariant; `PreviewWorkoutImportTest` was
+  updated so two identical rows split into two sessions are importable and a merged bucket differs from
+  a split one. Legacy provenance still matches a single-session bucket and blocks repartitioning one.
+- Database: `51.sqm` adds `workoutImportBucket`/`workoutImportBucketSession` (schema version 52) with no
+  foreign key to `workoutSession`, so a link survives local deletion like provenance does.
+  `SqlDelightWorkoutImportRepository.commit` re-reads both ledgers inside the transaction and refuses
+  the whole commit when the stored bucket content or approved partition changed. New
+  `WorkoutImportBucketMigrationTest` (1→51→52, existing rows and provenance preserved, fresh schema) and
+  two new repository tests (a split bucket commits two identical sessions; a changed partition refuses
+  with no partial history), and — for the shipped path — `WorkoutImportViewModelTest.aBucketSplitBeforeIsRebuiltFromItsStoredPartitionOnASecondRead`,
+  which re-reads the same file through a fresh pick, confirms the approved split is rebuilt and the
+  bucket skipped rather than refused.
+- Backup: format 16 adds `importBuckets`, gated in both directions; `recordCount` counts each bucket plus
+  its links; restore whole-replaces both ledgers. New `WorkoutImportBucketBackupTest` round-trips a split
+  bucket including a link whose session was deleted and confirms restore replaces rather than merges.
+- UI: `WorkoutImportViewModel` keeps a draft id per row and exposes `setRowSession(rowIndex, draftId?)`,
+  so a bucket can be split and rejoined; an emptied draft is pruned and re-including a row returns it to
+  a draft. `WorkoutImportScreen` adds a per-row session selector ("Session N" / "New session"). Two new
+  `WorkoutImportViewModelTest` cases cover the split/rejoin and that a split bucket commits two sessions
+  and one bucket. Two schema-version assertions were updated 51→52.
+- Matrix (`bucket-matrix-2.log`, `bucket-ios.log`): **2,214 host tests in 249 classes, 0 failures, 0
+  errors, 0 skipped** as read from the module result XML, with `:core:database:verifySqlDelightMigration`,
+  `ktlintCheck` (after fixing the new code's style violations), `:androidApp:assembleDebug` and the
+  `:shared:`/`:core:network:`/`:core:database:`/`:feature:settings:` iOS simulator compiles green.
+- Bounded emulator regression check (`ui-runner`, debug APK installed with `adb install -r`, data
+  preserved): `.maestro/settings-workout-import.yaml` ran once and **failed at its 7th command**,
+  `assertVisible "Export provider"`, because `scrollUntilVisible "Import workout history"` now stops with
+  the provider row just below the fold; a bounded follow-up inspection confirmed `Export provider`,
+  `workout_import_provider_fitnotes` (selected), `_strong`, `_hevy` and `workout_import_choose_file` are
+  all present with no `workout_import_apply`/`_summary`, and the captured logcat had no
+  `FATAL EXCEPTION`. The failure is a stale scroll target in the checked-in flow (the Settings layout
+  grew under 0.9.2), not a split-change regression: this change touches no idle-section copy. It is
+  recorded as an open flow-maintenance item rather than edited here, and the flow is not counted as a
+  green pass. The flow's declared `permissions: all unset` launch revoked several runtime permission
+  flags as designed; no workout data, provider selection or app data was written.
+- Not verified by any check here: the split editor itself on a device (the review screen is behind a
+  file pick, so the read-only flow never reaches it), a real SAF import journey, and iOS runtime
+  behavior.
+
+### Post-execution review findings PE-01/PE-02/PE-04 (2026-10-16; not release acceptance)
+
+- **PE-01 (prescription custom-id collision).** `PreviewPrescriptionImport` now compares a document
+  definition against a local exercise when their ids match and reports a new `IdCollision`
+  (`IDENTITY_CONFLICT`) when they differ, resolvable only by mapping. New domain tests cover an
+  equivalent definition (reused, no decision), a differing one (blocked, not created under the
+  colliding id) and the mapping that resolves it.
+- **PE-02 (workout-import overlap).** `SqlDelightWorkoutImportRepository.commit` re-reads the current
+  session bounds inside the transaction and refuses with the new
+  `WorkoutImportCommitFailure.SESSION_OVERLAP` and no partial history. New tests: a repository case
+  (a session created after the preview refuses and writes nothing) and a ViewModel case (the refusal
+  refreshes history so the overlap blocks the retry). The Settings screen maps the new failure to a
+  localized message.
+- **PE-04 (PDF content loss).** `PrescriptionPdfLayout.build` now wraps each logical line through an
+  injected `PrescriptionLineWrapper` before paginating and refuses a wrapper that drops a line; the
+  Android `AndroidPrescriptionPdfRenderer` is that wrapper (real width measurement, hard-break of an
+  over-long token, embedded newlines) and starts a new PDF page if a line would pass the bottom
+  margin. New domain test asserts wrapped pages preserve the whole document's text, count wrapped
+  lines per page, keep each line's role and reject a content-dropping wrapper.
+- Matrix on the final tree (`pe-tests-2.log`, `pe-ktlint-ios-2.log`): the full host suite green,
+  `:androidApp:assembleDebug` built, `ktlintCheck` green and the shared/`core:network`/
+  `core:userdata`/`core:domain`/`feature:splitbuilder`/`feature:routines` iOS simulator compiles green.
+- Not verified: the PDF's physical output (no device render or external viewer), the PE-01 conflict
+  prompt on a device, and iOS runtime behavior.
+
+### Closure corrections after the second post-execution review (2026-10-16; not release acceptance)
+
+An independent read-only review of the corrected candidate returned **REJECTED** on PE3-R1 (a
+previously split bucket could never be re-imported) plus PE3-R2, PE4-R1, F2-04-R1 and two nits. All are
+corrected; per-finding evidence:
+
+- **PE3-R1 (functional dead end) — corrected.** `WorkoutImportViewModel.seedStoredPartition` rebuilds a
+  bucket's drafts from its **stored** partition when the re-parsed content is byte-identical, including
+  the exclusions approved then; `WorkoutImportPartition.decode` reads the manifest back and re-checks
+  its membership, and `canonicalBucketContent` exposes the same canonical content both sides compare.
+  Regression: `WorkoutImportViewModelTest.aBucketSplitBeforeIsRebuiltFromItsStoredPartitionOnASecondRead`
+  (split → import → fresh re-read reproduces the split, no `CHANGED_OR_AMBIGUOUS_SOURCE`, both sessions
+  skipped) and `WorkoutImportPartitionTest` round-trip/malformed cases.
+- **PE3-R2 (untested comparison) — corrected.** `PreviewWorkoutImportTest` now covers the stored-bucket
+  branch directly: an unchanged bucket is skipped by its own partition, a partition difference and a
+  link count that disagrees with the manifest both report `CHANGED_OR_AMBIGUOUS_SOURCE`.
+- **PE4-R1 (heading measured at body size) — corrected.** `PrescriptionLineWrapper.wrap(text, role)`
+  now takes the line's role, so the Android renderer measures at that role's drawn size;
+  `PrescriptionPdfLayoutTest.theWrapperSeesEachLogicalLinesOwnRole` pins the contract.
+- **F2-04-R1 (stale gap acknowledgement) — corrected.** `PrescriptionShareViewModel` drops a source's
+  accepted equipment gap when its identity choice changes;
+  `PrescriptionShareViewModelTest.anAcceptedEquipmentGapIsClearedWhenTheIdentityChoiceChanges`.
+- **N-1 (untyped refusal) — corrected.** A preview that still carries problems is refused with the typed
+  `WorkoutImportCommitFailure.NOT_IMPORTABLE` (localized in Settings) instead of a bare `require` that
+  surfaced as an unknown failure; covered in `SqlDelightWorkoutImportRepositoryTest`. The unreachable
+  legacy-provenance write branch is **retained** as a safety net for a hand-built preview.
+- **BK-1 (manifest/link disagreement on restore) — corrected.** `BackupValidator` decodes each restored
+  bucket manifest and requires its session count to match the links beside it; new
+  `ImportBucketBackupTest` covers a readable manifest, a split bucket, an unreadable manifest, a link
+  count mismatch and a pre-16 file.
+- Verification on the closure revision: the four affected host suites green, `ktlintCheck` green,
+  `:androidApp:assembleDebug` built, and the shared/domain/database/userdata/settings/routines/
+  splitbuilder iOS simulator compiles green (`cl-fix-verify-3.log`).
+- Targeted reviewer closure of that corrected revision (`5c9a8753`) returned **APPROVED**: PE3-R1,
+  PE3-R2, PE4-R1, F2-04-R1, N-1 and BK-1 all closed on inspected source with per-finding evidence. The
+  minor follow-ups it raised were then corrected — N-5 (`decodeCanonicalFields` bounds a length prefix
+  before use), N-6 (the stored-exclusion re-seed branch now has a test), N-2/N-3/N-4 (the renderer
+  comment and the format-16 validation list), N-7/CL-2 (in-place `sed` denies broadened), CL-1 (the
+  manifest row-count rule stated precisely), CL-3-1 (`xxd -r` denied), CL4-1/CL4-2/CL4-3 (this device
+  record) — each verified by a further targeted closure.
+- Not verified at that closure: the same limits as above (no SAF write journey, no PDF physical output,
+  no iOS runtime); the device journeys below cover the first two on the current candidate.
+
+### 0.9.1 device journeys on the current candidate (2026-10-16; not release acceptance)
+
+Bounded Maestro journeys on `emulator-5554` with a candidate debug APK. The install in place until 12:24
+predated the PE3-R1 fix and that hour's other code commits, so journeys 1 (import write), 2 (repeat
+read) and 3a (split import) ran on that older build; the split repeat read (3b), the plan PDF (4) and
+the routine export/import (5a/5b) ran after the 12:25 redeploy at `aa8135ea`. The pre-fix behaviour is
+itself captured: `hf-split-repeat/2026-10-16_122229/…/screenshots/step-030-*.png` (12:24) shows the
+merged `Rows 2, 3, 4` draft with "This source workout was imported before with different content." —
+exactly the dead end the correction removes. Fixtures `hf-import-hevy.csv` and `hf-import-split.csv`
+were pushed to `/sdcard/Download`; both appeared in the picker's Downloads root without a media scan.
+
+- **Import write (13/13, exit 0).** Settings → Hevy → Choose CSV → Downloads → map `Bench Press` to the
+  catalog's `Barbell Bench Press` → confirm load meaning → confirm session → acknowledge history →
+  Import. Summary asserted and viewed: "Imported 1 sessions and 2 sets; skipped 0 unchanged."
+  (`hf-import-complete2/2026-10-16_120729/.../hf-import-summary.png`.)
+- **Repeat read (4/4 assertions).** The same file again shows
+  "Row 2: This workout was already imported, so it is skipped." with **no** `Before you import`
+  problems and the `Import` control asserted **disabled**
+  (`hf-import-repeat3/2026-10-16_121122/.../hf-import-repeat-skip.png`). Mappings and acknowledgements
+  are not persisted between reads, so a repeat read re-maps before the skip is visible — the partition
+  restore itself works; the re-mapping consequence is recorded as a follow-up in `PLANS.md`.
+- **Split import (48/48, exit 0).** The three-row fixture was imported as two sessions by moving one row
+  into a new session; summary asserted and viewed: "Imported 2 sessions and 3 sets; skipped 0 unchanged."
+  (`hf-split-import4/2026-10-16_122004/.../hf-split-summary.png`.)
+- **Split repeat read (passed).** Re-reading that file rebuilds the stored two-session partition: the
+  hierarchy shows `Session 2` with `Rows 2` and **two** notices
+  ("Row 2: …" and "Row 3: This workout was already imported, so it is skipped."), no blocking problem,
+  and `Import` disabled. This is the on-device proof of the PE3-R1 correction
+  (`hf-split-repeat2/…`, `hf-sr2.csv`).
+- **Plan PDF (passed).** Plan → `Print / save PDF` → system save dialog → "Plan PDF ready."
+  `hydrafit-plan.pdf` (47,632 bytes, 12:30) pulled and page 1 rendered with `qlmanage` and viewed: the
+  title, the weights note, the routine heading and all four days' slot lines render complete with no
+  clipping (18 slot lines across four days, 13 distinct exercises, e.g.
+  `Step-up with Knee Raise: 3 × 6 bodyweight`).
+  `hf-pdf-render/hf-plan.pdf.png`. The over-long-name wrap path is not reachable from the UI (plan
+  names are app-generated and short), so it stays covered by `PrescriptionPdfLayoutTest` only.
+- **Routine export (passed).** Routines → Export → `Export routine` → `Choose file` → Save →
+  "Routine exported."; `/sdcard/Download/hydrafit-routines.json` (441 bytes, 12:32).
+- **Routine import (passed).** Routines → `Import routines` → that file → accept the missing-equipment
+  gap for `Back Squat` → Import → "Imported N routines and M exercises." asserted
+  (`hf-routine-import3/…/hf-routine-imported.png`).
+
+Retained on the emulator as QA fixtures: the imported history (1 session/2 sets on 2024-06-11, 2
+sessions/3 sets on 2024-06-12), one imported routine, the two fixture CSVs and the two exported files.
+No app data was cleared, nothing was uninstalled, and no release APK was installed.
+Still unverified: dark mode, larger text, rotation, TalkBack, app locale, and every iOS runtime surface.
+
+## 0.9.2 interchange and export checkpoint (2026-10-16; not release acceptance)
+
+- Scope: S1 (versioned prescription document + export), S2 (routine import preview + transactional
+  append), S3 (adapters) and S4 (feature UI), folded into the `v0.9.1` publication. Main owned the
+  domain/persistence/migration/wiring slices; `coder` owned the settled parser/UI/adapter slices.
+- Matrix at this boundary (`091-092-integration.log`): **2,195 host tests in 245 classes, 0 failures,
+  0 errors, 0 skipped** (2,189 before the layout test added at commit `b500ad55`), with
+  `:core:database:verifySqlDelightMigration` and `ktlintCheck` green, `:androidApp:assembleDebug`
+  built and the `:shared:`/`:core:network:` iOS simulator compiles green. Per-module logs:
+  `091-s4csv-verify.log` (settings 58 tests, `BackupViewModelTest` 11) and `091-s4csv-integration.log`
+  (shared 28 tests, no new compiler warning; the `expect/actual classes are in Beta` warning the first
+  renderer shape introduced is gone).
+- No schema change: S2 appends routines and creates approved custom definitions inside one existing
+  transaction, so there is no new `.sqm` and `verifySqlDelightMigration` remains the 0.9.1 chain check.
+- New pure-domain coverage: `PrescriptionInterchangeTest` (round-trip, unknown-field rejection,
+  version, weights-free enforcement, unreferenced/duplicate definitions), `PreviewPrescriptionImportTest`
+  (reuse, create, name collision, unknown identity, equipment gap, load snapping, empty document),
+  `WorkoutHistoryCsvWriterTest` (header, blank-versus-zero, UTC instants and ordering, formula
+  neutralization and quoting, unassigned set) and `PrescriptionPdfLayoutTest` (line roles and order,
+  focus, weights-free note, load kinds, pagination boundaries, and that printing the on-screen plan
+  reads no stored routine).
+- Database coverage: `SqlDelightPrescriptionImportRepositoryTest` (fresh identities and preserved
+  workout/slot order, no activation or plan-history write, approved definition plus its search
+  projection, `IDENTITY_ALREADY_EXISTS` rolling back the whole commit, `NOTHING_TO_IMPORT`).
+- Koin: `KoinModulesVerificationTest` resolves `PrescriptionShareViewModel`, `PlanExportViewModel` and
+  the extended `BackupViewModel` over their real modules with fake ports, because `verify()` cannot
+  reflect a lambda `viewModel { }`.
+- Parent verification of the delegated delta: every changed path fell inside the brief's allowed set,
+  except the three `BackupSection.*` files, which the coder correctly returned as a delegation
+  allowlist omission and the user then approved.
+- S5 independent review (`reviewer`, read-only, range `f7a7d57d..aa52f717`): **REJECTED**. Two blocking
+  findings — F2-01 a validator-accepted document could throw inside the importer (backup-only muscle
+  aliases were accepted while the importer converts with `MuscleGroup.valueOf`), F2-02 the exporter
+  could write a document it refuses to read (a custom exercise with no required equipment) — plus
+  F2-03 (an empty selection could be written), nits F2-05…F2-08 and F2-09, the design observation
+  F2-04, and a reviewer-observed gap (the import repository did not re-check `canImport`). Privacy,
+  ordering, atomicity, side-effect, CSV, adapter and repository-rule invariants all held. Full record:
+  `docs/review-0.9.2-snapshot.md`.
+- Corrections after the user approved the scope: `b16e39c6` (F2-01/02/03/05/06/07), `f3b9a297`
+  (not-importable preview guard), `e2aa81fa` (F2-08), `df9bb92d` (own messages for the new import
+  failures). Closure returned every corrected finding **CLOSED** with a judged-acceptable residual
+  (the remaining `valueOf` is reachable only for an unvalidated document, which the import flow never
+  passes), and confirmed F2-04/F2-09 untouched. The closure recorded three new nits (F2-c misleading
+  double problem, F2-d I/O message for a write that never ran, F2-e doc sync), fixed in `f7ab7d0d`;
+  that commit is post-closure and was not re-reviewed, which the bounded-round rule allows for nits.
+- Final matrix on the corrected revision (`091-092-fixes-matrix.log`, `091-092-final-matrix.log`):
+  **2,202 host tests in 246 classes, 0 failures, 0 errors, 0 skipped**, with
+  `:core:database:verifySqlDelightMigration` (no schema change), `ktlintCheck`, `:androidApp:assembleDebug`
+  and the `:shared:`/`:core:network:` iOS simulator compiles green.
+- Not verified by any check here: iOS runtime behavior for the unsupported renderer/store paths, a
+  real SAF document write or read for JSON, CSV or PDF, the rendering of any exported PDF or CSV by an
+  external tool, emulator rendering of the new routines/plan/settings controls, dark mode, larger
+  text, rotation, TalkBack, and the physical output of `PdfDocument` on a device — **as of that
+  boundary**: the 0.9.2 surfaces then had no emulator evidence, and the batch's one bounded read-only
+  UI check covered 0.9.1 only. The later "0.9.1 device journeys on the current candidate" section
+  covers the SAF write/read, the plan PDF's rendered output and the routine transfer; iOS runtime and
+  the remaining cross-cutting checks above stay unverified.
+
+## 0.9.1 import journey checkpoint (2026-10-15; not release acceptance)
+
+- Scope: the Settings → Data transfer import UI (I4, delegated to the default `coder`, with one
+  parent-directed correction) and the I5 integration gate.
+- Correction found during parent verification: session drafts and the provenance candidate key were
+  keyed by civil day only, which merged two distinct same-day source workouts and violated the
+  approved "do not assume one session per day" contract. Now keyed by provider + civil day + source
+  workout title, with a mixed-title group reported as `INVALID_SESSION_MEMBERSHIP`. Domain fix in
+  `1b998fcf`; UI correction in `9e471472`.
+- Matrix at this boundary (`091-i5-matrix.log`): 2,152 host tests in 240 classes, 0 failures, 0
+  errors, 0 skipped; `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug` and `:shared:`/`:core:network:` iOS simulator compiles all green.
+  `WorkoutImportViewModelTest`: 17 tests (13 initial + 4 for the session-key correction).
+- Koin: `KoinModulesVerificationTest` resolves the new `WorkoutImportViewModel` over `settingsModule`
+  with fake ports (`:shared:testAndroidHostTest` green), because `verify()` cannot reflect a lambda
+  `viewModel { }`.
+- Independent review (`reviewer`, read-only, range `0c27d3ba..ca9b19ce`): **APPROVED WITH FINDINGS**;
+  no blocking correctness, atomicity or data-loss defect, and every checked invariant held. Findings:
+  F-01 provider-layout evidence gate (user decision), F-02 invalid per-session UTC-offset text was
+  silently ignored (mechanical), F-03 `SOURCE_ALREADY_IMPORTED` was unreachable and mis-documented
+  (mechanical), F-04 this record said 12/12 steps for a 13-step flow (mechanical), F-05 stale
+  PLANS.md/roadmap status (boundary update), F-06 the commit runs a blocking transaction on the
+  caller's dispatcher at a new scale (design observation, matches the existing pattern). Mechanical
+  corrections are recorded in the next bullet; F-01 and F-06 return to the user.
+- F-01 and F-06 were resolved on 2026-10-16: F-01 by narrowing the provider-layout claims to the
+  publicly evidenced variants (the evidence section above), and F-06 by running the import commit
+  under `withContext(Dispatchers.Default)` (`2ba40a1a`), the same write-path convention the
+  backup-staging and equipment-profile repositories already use. F-06 ships without a new regression
+  test: the change is behaviour-preserving, and the commit path keeps its existing repository coverage.
+- Bounded read-only emulator evidence: `.maestro/settings-workout-import.yaml`, syntax-checked with
+  Maestro 2.11.0 and run once on `emulator-5554` (debug build, 2026-10-15) at 13/13 steps, ~16 s,
+  exit 0, with viewed screenshot
+  `hf-091-import-flow/2026-10-15_234541/settings-workout-import/takeScreenshot/settings-workout-import.png`
+  showing the section, the FitNotes default and no Import control. No document picker was opened and
+  no workout data was written.
+- Not verified by any check here: the SAF picker, an actual import write, the review/mapping/session
+  editors, the CSV fixture files themselves, toast/snackbar copy, dark mode, larger text, rotation,
+  TalkBack, and every iOS surface.
+
+### 0.9.1 import foundation checkpoint (2026-10-15; not release acceptance)
+
+- Scope: the parsing foundation (I1, delegated to the default `coder`), the pure preview contract
+  (I2) and the transactional persistence plus provenance ledger (I3). No import UI is wired, so no
+  end-to-end user journey exists yet and none is claimed.
+- Starting revision `0c27d3ba` on `feature/0.9.1-data-freedom`. Parsing evidence:
+  `CsvTableReaderTest` (14 tests) and `WorkoutCsvParserTest` (29 tests) green in
+  `091-i1-verification.log`; preview evidence: `PreviewWorkoutImportTest` green with
+  `:core:domain:ktlintCheck` in `091-i2-verification-3.log`.
+- Persistence and ledger: `SqlDelightWorkoutImportRepositoryTest`,
+  `WorkoutImportProvenanceMigrationTest`, `WorkoutImportProvenanceBackupTest` and
+  `ImportProvenanceBackupTest` cover closed imported sessions, frozen `effectiveInvolvements`,
+  `CATCH_UP` provenance with no occurrence/plan attribution, unchanged-source skipping, the
+  deleted-history guard, changed-source refusal, whole-commit rollback, `50.sqm` additive migration,
+  ledger whole replacement and the format-15 both-directions backup gate.
+- Tier A matrix at this boundary (`091-tier-a-matrix.log`): 2,132 host tests in 239 classes, 0
+  failures, 0 errors, 0 skipped; `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug` and `:shared:`/`:core:network:` iOS simulator compiles all green.
+- One intermittent failure of the already-recorded SQLite-JDBC overlapping-transaction artifact
+  (`ExerciseProgressRecordsIntegrationTest.multiExerciseOccurrenceKeepsStableIdentityOrderAndEarlierBaselines`,
+  see the 0.9.0 C3 note) appeared once in the combined `091-i3-verify-10.log` run. Three consecutive
+  full `:core:database:testAndroidHostTest` runs on this revision (`091-mine-db-1..3.log`) and two on
+  clean `0c27d3ba` (`091-head-db-1..2.log`) all passed; no ledger code path appears in that test.
+- Unverified at this point: every emulator/UI surface, and compatibility with real vendor exports —
+  supported formats come from public examples and synthetic fixtures, not from a captured export or a
+  device-verified schema.
+
+### 0.9.1 provider-layout evidence (F-01) — resolved 2026-10-16
+
+F-01 asked for stronger evidence before HydraFit advertises provider imports. Public sources were
+re-checked on 2026-10-16; the supported claims were narrowed to what those sources establish, and no
+parser was widened.
+
+- **Strong.** Two real layouts are attested. The **supported** one is the delimiter-`;` export that
+  carries an explicit `Weight Unit` column (`Date;Workout Name;Exercise Name;Set Order;Weight;
+  Weight Unit;Reps;…`). The **current native** export is comma-separated, adds a `Duration` column and
+  has **no `Weight Unit` column at all** (`Date,Workout Name,Duration,Exercise Name,Set Order,Weight,
+  Reps,Distance,Seconds,Notes,Workout Notes,RPE`; a real public sample is
+  `github.com/AlexandrosKyriakakis/StrongAppAnalytics`). Because Strong does not record the unit, that
+  layout cannot be read without guessing whether `Weight` is kg or lb (a ~2.2× error), so it is refused
+  as `UNSUPPORTED_HEADER` instead of imported. `strongRejectsTheUnitlessNativeExportInsteadOfGuessingItsUnit`
+  pins both that shape and the missing-`Weight Unit` requirement. Sources:
+  `help.strongapp.io/article/235-export-workout-data`,
+  `forum.intervals.icu/t/import-strong-data-weightlifting-app/5531`,
+  `github.com/smyrick/sugarwod-to-hevy` (`docs/STRONG_FORMAT.md`).
+- **FitNotes.** The Android app exports a backup and a CSV, but the CSV's column set is **not
+  documented publicly** (`fitnotesapp.com/settings/`,
+  `getfitnotes.com/docs/migrate-from-android.html`); only the separate iOS app documents an import
+  header, which does not prove the Android export. The supported layout therefore stays the
+  community-documented `Date,Exercise,Category,Weight (kg)|Weight (lbs),Reps` (plus optional
+  `Distance`,`Distance Unit`,`Time`), and the release notes claim no Android-version compatibility. A
+  header carrying other columns fails closed with `UNSUPPORTED_HEADER`.
+- **Hevy.** A published export example confirms the exact header and value shape HydraFit supports
+  (`title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_index,set_type,
+  weight_lbs|weight_kg,reps,distance_miles|distance_km,duration_seconds,rpe`, with `start_time` like
+  `28 Mar 2025, 17:29`): `blog.ayjc.net/posts/migrate-strong-hevy-app/`.
+- **Still not verified:** no capture from a real device or account was available, so per-provider and
+  per-version compatibility is not claimed. The remaining exposure is a vendor changing a layout, which
+  fails closed — a typed whole-file or per-row rejection with no write. Disposition recorded in
+  `PLANS.md`.
+
 ## 0.9.0 release verification (2026-10-15)
 
 - Candidate: branch `feature/0.9.0-equipment-profiles` → PR #19 → merged `main` at

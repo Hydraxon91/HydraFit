@@ -15,7 +15,16 @@ import com.hydrafit.app.core.domain.backup.ExportBackupUseCase
 import com.hydrafit.app.core.domain.backup.PendingBackup
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
+import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.transfer.ExportWorkoutHistoryCsvUseCase
+import com.hydrafit.app.core.domain.transfer.WorkoutHistoryCsvWriter
+import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
+import com.hydrafit.app.core.domain.workout.WorkoutSession
+import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
+import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.backup.BackupFileStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
 import kotlin.test.AfterTest
@@ -23,11 +32,16 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -134,7 +148,8 @@ class BackupViewModelTest {
     private fun viewModel(
         store: BackupFileStore,
         repository: BackupRepository,
-        staging: BackupStagingRepository = FakeBackupStagingRepository()
+        staging: BackupStagingRepository = FakeBackupStagingRepository(),
+        logs: WorkoutLogRepository = FakeWorkoutLogRepository()
     ): BackupViewModel {
         val catalog = object : BackupCatalog {
             override fun seedExerciseIds(): Set<String> = emptySet()
@@ -150,8 +165,129 @@ class BackupViewModelTest {
             appVersionProvider = object : AppVersionProvider {
                 override val versionName: String = "t"
             },
-            timeProvider = TimeProvider { 1L }
+            timeProvider = TimeProvider { 1L },
+            exportWorkoutHistoryCsv = ExportWorkoutHistoryCsvUseCase(
+                logs,
+                FakeWorkoutSessionRepository(),
+                FakeExerciseCatalog()
+            )
         )
+    }
+
+    @Test
+    fun historyExportWritesTheUseCaseTextUnchanged() = runTest(dispatcher) {
+        val store = FakeBackupFileStore()
+        val viewModel = viewModel(store, FakeBackupRepository())
+
+        viewModel.exportCsv("content://csv")
+        advanceUntilIdle()
+
+        assertEquals(listOf("content://csv"), store.writtenHandles)
+        assertEquals(WorkoutHistoryCsvWriter.write(emptyList()), store.written.single())
+        assertEquals(BackupStatus.HistoryCsvExported, viewModel.state.value.status)
+        assertNotEquals(BackupStatus.Exported, viewModel.state.value.status)
+    }
+
+    @Test
+    fun historyExportWriteFailureSurfacesThroughTheFailurePath() = runTest(dispatcher) {
+        val store = FakeBackupFileStore(writeFailure = IllegalStateException("no space"))
+        val viewModel = viewModel(store, FakeBackupRepository())
+
+        viewModel.exportCsv("content://csv")
+        advanceUntilIdle()
+
+        assertEquals(BackupStatus.Failed(BackupFailure.IO), viewModel.state.value.status)
+        assertTrue(store.written.isEmpty())
+    }
+
+    @Test
+    fun historyExportFailureBeforeTheWriteLeavesTheDocumentUntouched() = runTest(dispatcher) {
+        val store = FakeBackupFileStore()
+        val viewModel = viewModel(
+            store = store,
+            repository = FakeBackupRepository(),
+            logs = FakeWorkoutLogRepository(failure = IllegalStateException("unreadable"))
+        )
+
+        viewModel.exportCsv("content://csv")
+        advanceUntilIdle()
+
+        assertEquals(BackupStatus.Failed(BackupFailure.IO), viewModel.state.value.status)
+        assertTrue(store.written.isEmpty())
+    }
+
+    @Test
+    fun historyExportCancellationIsRethrownNotReportedAsIo() = runTest(dispatcher) {
+        val store = FakeBackupFileStore(writeFailure = CancellationException("cancelled"))
+        val viewModel = viewModel(store, FakeBackupRepository())
+
+        viewModel.exportCsv("content://csv")
+        advanceUntilIdle()
+
+        // Rethrown, so the export never publishes a failure status (and never writes).
+        assertNull(viewModel.state.value.status)
+        assertTrue(store.written.isEmpty())
+    }
+
+    @Test
+    fun aSecondHistoryExportWhileInProgressDoesNotWriteAgain() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        val store = FakeBackupFileStore(writeGate = gate)
+        val viewModel = viewModel(store, FakeBackupRepository())
+
+        viewModel.exportCsv("content://one")
+        advanceUntilIdle()
+        viewModel.exportCsv("content://two")
+        advanceUntilIdle()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(listOf("content://one"), store.writtenHandles)
+        assertEquals(BackupStatus.HistoryCsvExported, viewModel.state.value.status)
+    }
+
+    private class FakeWorkoutLogRepository(private val failure: Throwable? = null) :
+        WorkoutLogRepository {
+        override suspend fun add(set: WorkoutSet) = Unit
+
+        override suspend fun assignSession(setId: Long, sessionId: String) = Unit
+
+        override suspend fun delete(id: Long) = Unit
+
+        override suspend fun updateSetPerformedAt(setId: Long, performedAtMillis: Long) = Unit
+
+        override suspend fun all(): List<WorkoutSet> {
+            failure?.let { throw it }
+            return emptyList()
+        }
+
+        override suspend fun lastSetBySession(sessionId: String): WorkoutSet? = null
+
+        override suspend fun setsForOccurrence(occurrenceId: Long): List<WorkoutSet> = emptyList()
+
+        override fun setsFlow(): Flow<List<WorkoutSet>> = emptyFlow()
+
+        override suspend fun loggedSets(): List<LoggedSet> = emptyList()
+
+        override fun loggedSetsFlow(): Flow<List<LoggedSet>> = emptyFlow()
+
+        override suspend fun clear() = Unit
+    }
+
+    private class FakeWorkoutSessionRepository : WorkoutSessionRepository {
+        override suspend fun create(session: WorkoutSession) = Unit
+
+        override suspend fun end(id: String, endedAtMillis: Long) = Unit
+
+        override suspend fun open(): WorkoutSession? = null
+
+        override fun openFlow(): Flow<WorkoutSession?> = emptyFlow()
+
+        override suspend fun all(): List<WorkoutSession> = emptyList()
+    }
+
+    private class FakeExerciseCatalog : ExerciseCatalog {
+        override suspend fun all(): List<Exercise> = emptyList()
     }
 }
 
@@ -197,14 +333,20 @@ private class FakeBackupStagingRepository : BackupStagingRepository {
 
 private class FakeBackupFileStore(
     override val isSupported: Boolean = true,
-    private var content: String = ""
+    private var content: String = "",
+    private val writeGate: CompletableDeferred<Unit>? = null,
+    private val writeFailure: Throwable? = null
 ) : BackupFileStore {
     val written = mutableListOf<String>()
+    val writtenHandles = mutableListOf<String>()
 
     override suspend fun read(handle: String): String = content
 
     override suspend fun write(handle: String, text: String) {
+        writeGate?.await()
+        writeFailure?.let { throw it }
         written += text
+        writtenHandles += handle
     }
 }
 

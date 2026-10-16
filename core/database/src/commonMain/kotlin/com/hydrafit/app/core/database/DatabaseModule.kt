@@ -17,6 +17,8 @@ import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferenceRepositor
 import com.hydrafit.app.core.domain.settings.WorkoutReminderPreferenceRepository
 import com.hydrafit.app.core.domain.setup.SetupWriteRepository
 import com.hydrafit.app.core.domain.startup.StartupReadiness
+import com.hydrafit.app.core.domain.transfer.PrescriptionImportRepository
+import com.hydrafit.app.core.domain.transfer.WorkoutImportRepository
 import com.hydrafit.app.core.domain.workout.ExerciseNoteRepository
 import com.hydrafit.app.core.domain.workout.ExerciseProgressRepository
 import com.hydrafit.app.core.domain.workout.RestCountdownRepository
@@ -65,6 +67,8 @@ val databaseModule: Module = module {
     single<EquipmentSelectionRepository> { SqlDelightEquipmentSelectionRepository(get()) }
     single<WorkoutLogRepository> { SqlDelightWorkoutLogRepository(get()) }
     single<WorkoutHistoryRepository> { SqlDelightWorkoutHistoryRepository(get()) }
+    single<WorkoutImportRepository> { SqlDelightWorkoutImportRepository(get()) }
+    single<PrescriptionImportRepository> { SqlDelightPrescriptionImportRepository(get(), get()) }
     single<ExerciseProgressRepository> { SqlDelightExerciseProgressRepository(get()) }
     single<TrainingCoverageRepository> { SqlDelightTrainingCoverageRepository(get()) }
     single<BodyWeightRepository> { SqlDelightBodyWeightRepository(get(), get()) }

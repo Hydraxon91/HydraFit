@@ -18,7 +18,8 @@ Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseExclusion.sq`, `ExerciseNot
 `PlannerEngine.sq`,
 `PlanVolumeExplanation.sq`, `PlanVolumeExplanationState.sq`, `PlanTargetExplanation.sq`,
 `PlanTargetExplanationState.sq`, `EntryTargetExplanation.sq`, `RoutineTemplate.sq`,
-`TrainingSchedule.sq`, `UserEquipment.sq`, `WorkoutLog.sq`, `WorkoutSession.sq`, `SessionNote.sq` and
+`TrainingSchedule.sq`, `UserEquipment.sq`, `WorkoutLog.sq`, `WorkoutSession.sq`, `SessionNote.sq`,
+`WorkoutImport.sq` and
 `WorkoutHistory.sq`.
 
 `SqlDelightTrainingCoverageRepository` (0.8.2) observes the existing `selectAllSets`
@@ -123,6 +124,40 @@ so `SqlDelightBodyWeightRepository` keeps "no goal" distinct from any stored val
 the goal row on clear.
 Determine the
 next version from the current directory/generated Schema rather than copying this snapshot.
+
+`WorkoutImport.sq` (0.9.1) owns `workoutImportProvenance`, the legacy local import ledger: one row per
+imported source workout with its provider, candidate key, canonical content and created session id.
+It carries no foreign key to `workoutSession` on purpose, so a row survives local deletion of the
+imported history and a repeated export cannot silently restore it. `50.sqm` creates the table and its
+source index.
+
+`WorkoutImportBucket.sq` (0.9.1 bucket/partition fix) owns `workoutImportBucket` and
+`workoutImportBucketSession`. A bucket is one provider/date/title source group with its complete
+canonical content and the canonical **partition** of its rows (which row positions form which session,
+plus the excluded positions); the child table links each partition ordinal to the local session it
+created, and, like provenance, keeps those links after the session is deleted. This is what lets one
+source bucket be split into two sessions that may even have identical content, which per-session
+provenance cannot represent (its `(source, candidateKey, content)` uniqueness would collapse them).
+`SqlDelightWorkoutImportRepository` runs the whole commit under `withContext(Dispatchers.Default)`
+(write-path convention, as in `SqlDelightBackupStagingRepository`), re-reads the stored bucket and the
+current session bounds inside the transaction, and refuses the whole commit when the approved partition
+or bucket content no longer matches (`SOURCE_CHANGED`) or a planned session now overlaps existing or
+just-written history (`SESSION_OVERLAP`), refuses a preview that still carries problems
+(`NOT_IMPORTABLE`) instead of throwing a bare `require`, and still falls back to the legacy provenance
+rows for a bucket imported before this table existed.
+`SqlDelightBackupRepository` exports and whole-replaces both ledgers with the rest of the user-owned
+data. `51.sqm` creates the two tables; current schema version is 52.
+
+`SqlDelightPrescriptionImportRepository` (0.9.2-S2) appends an approved prescription import in one
+transaction with **no schema change**: each routine is inserted as new `routineTemplate`/`routineWorkout`/
+`routineEntry` rows with fresh identities, and a custom definition is created only when its id is
+unused (an id claimed since the preview refuses the whole commit instead of overwriting a local row).
+It refuses before the transaction opens when the approved preview carries no routine or still carries
+any problem (`NOTHING_TO_IMPORT`, `PREVIEW_NOT_IMPORTABLE`), so a caller that ignores `canImport`
+cannot import a subset. It writes nothing outside those tables and the new `exercise` rows, so an
+import cannot create an
+accepted plan, an activation or a schedule change. The pure resolution it consumes lives in
+`:core:domain` `transfer/PreviewPrescriptionImport` (see `backup.md`).
 
 `SqlDelightSetupWriteRepository` implements domain `SetupWriteRepository`. Its transaction compares
 the full expected setup state/revision, validates domain inputs and effective catalog identities,

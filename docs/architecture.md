@@ -1143,6 +1143,100 @@ exact/inexact scheduling path. Returning or enabling after expiry does not repla
 signal. Presentation bookkeeping is in memory only, not a backup or timer write. OS rendering,
 haptic delivery and lifecycle integration remain C6 acceptance, not host-test guarantees.
 
+### 1.21 Local workout-CSV imports (0.9.1)
+
+An import moves workout history from another app's CSV export into HydraFit without an account, a
+network call or a vendor API. It has three separated parts that keep parsing decisions out of
+persistence:
+
+- **Parsing** (`:core:domain` `transfer/WorkoutCsvParser`) reads one explicitly-chosen provider layout
+  (`FITNOTES`, `STRONG`, `HEVY`) with `CsvTableReader`. It never sniffs a layout from headers or
+  values, and it produces source-local records only: a civil date, an optional time of day, the
+  original exercise name and native weight with its unit. It does not invent a UTC instant, a session
+  id, a warm-up flag, an RIR value or an exercise mapping, and a value it cannot represent becomes a
+  typed row diagnostic instead of fabricated data.
+- **Preview** (`transfer/PreviewWorkoutImport`) resolves those records into an approved plan: explicit
+  exercise mapping and load interpretation, explicit UTC offsets and same-day session membership
+  (editable drafts that may split one source bucket into several sessions), explicit exclusion of
+  rejected rows, and a disclosure acknowledgement before anything is written.
+  It reports blocking problems separately from non-blocking notices, so an already-imported source is
+  skipped visibly (including when its imported session was deleted locally) instead of silently.
+- **Commit** (`:core:database` `SqlDelightWorkoutImportRepository`) writes the whole approved plan in
+  one transaction. Each imported session is created already closed with its own identity, so imported
+  history never enters the logger's open-session lifecycle, and each set stores the mapping resolved
+  at preview time, freezing the approved attribution against later catalog edits. Imported sets carry
+  `CATCH_UP` timing provenance and no occurrence or plan attribution. Inside the transaction it
+  re-reads the ledger and the current session bounds and revalidates both the approved partition and
+  the non-overlap invariant, refusing the whole commit — with no partial history — if either changed
+  under the review; the review is then refreshed so the user resolves the newly visible overlap.
+
+Repeat-import protection is a durable ledger, not a file hash. A **bucket** is one provider/civil-date/
+source-title group; its identity is the canonical content of every row in the group. The user's
+approved **partition** of that bucket records, by row position, which positions form each session and
+which are explicitly excluded. Membership — not content — is the identity, so one bucket can be split
+into two sessions that even carry identical content, which a per-session key could not express; a
+provider without a title (FitNotes) therefore has one split-able bucket per date instead of a forced
+single session. `workoutImportBucket`/`workoutImportBucketSession` store that ledger, and its session
+links, like the legacy `workoutImportProvenance` rows, deliberately survive local deletion of the
+imported history so re-importing the same export cannot resurrect a session the user removed. A
+changed bucket or a changed approved partition blocks the whole import; a legacy-imported bucket stays
+matched against its provenance row and may not be repartitioned. The review rebuilds a bucket's session
+drafts from its **stored** partition whenever the file still carries identical content, including the
+exclusions chosen then, so re-reading an unchanged export reproduces its own split and is skipped
+instead of looking like a changed grouping. The stored manifest is decoded and its membership re-checked
+before it is reused, and a record that cannot be read back is treated as unusable rather than trusted. A
+caller that ignores `canImport` is refused with the typed `WorkoutImportCommitFailure.NOT_IMPORTABLE`.
+Both ledgers travel through backup/restore (formats 15 and 16) and are gated in both directions, because
+a file that omits them would otherwise re-import everything. See `docs/architecture.md` §1.9 for the
+additive-migration rule and `backup.md` in the mechanics skill for the format detail.
+
+### 1.22 Plan and routine interchange (0.9.2-S1/S2)
+
+Sharing a prescription is a separate, narrower contract than a backup. `core/domain`'s
+`transfer/PrescriptionModels.kt` defines the versioned `hydrafit-routines` document: an ordered list
+of routines (name, optional focus, ordered slots with sets/reps/load kind) plus only the custom
+exercise definitions those slots reference, each as resolved values. It has no representation for
+performed history, personal records, notes, credentials, equipment inventories, schedule state, cycle
+progress or engine explanations, and `PrescriptionJson` rejects an unknown field rather than ignoring
+it, so a document cannot smuggle one in. `includesWeights` is the recorded user choice: the exporter
+omits prescribed weights unless it is true, and a document that claims to be weights-free but carries
+one is rejected. `PrescriptionValidator` checks the format/version, the shared prescription bounds,
+the shape bounds and the internal references without touching storage or a catalog.
+
+`ExportPrescriptionsUseCase` reads only the chosen routines and the catalog rows they reference, so
+the privacy surface is what it reads rather than what it filters. Import is the mirror image and is
+deliberately not acceptance: S2's preview resolves each referenced identity against the receiving
+catalog and the document's own definitions, reports reuse versus creation, identity collisions and
+equipment gaps, and only then appends each routine as a new editable template with fresh local
+identities — never as an accepted plan, an activation or a schedule change. Imported routines keep
+their own identity space, so a shared routine cannot overwrite a local definition by id or name.
+
+A local exercise id is stable per install, not globally, so an id match alone is not proof of the same
+exercise. When the document declares a definition for an id the receiver already holds, the preview
+compares the definition (name, equipment, movement pattern, laterality, load capability and muscle
+involvement) with the local row: an equivalent definition reuses the local exercise, and a different
+one is an `IdCollision` that must be resolved to one of the receiver's exercises rather than silently
+substituted. The receiver's own definition is never overwritten, and the definition is not re-created
+under a colliding id.
+
+The surfaces are intentionally asymmetric. Sharing a saved routine writes through the text document
+port and defaults prescribed weights **off**; the plan on screen is converted to an in-memory routine
+draft and handed to the same in-memory export paths, so exporting or printing a displayed plan never
+creates, saves or modifies a routine. A PDF cannot reuse the text port, so it writes through a
+second, handle-based binary port (`PrescriptionDocumentStore`) with its own size cap, and
+`PrescriptionPdfLayout` wraps and paginates the role-tagged lines through a `PrescriptionLineWrapper`
+supplied by the platform renderer, measuring each line at the size that line is actually drawn, so a
+long name cannot clip a slot's sets, reps or weight.
+Both the JSON and PDF actions are gated on the platform surface and stay disabled where a device has
+none (iOS binds the unsupported renderer and document store), rather than failing after the user has
+already chosen a destination.
+
+The workout-history CSV export is a third, separate contract and is deliberately not a backup: it
+reads recorded sets with their sessions and effective exercise names, emits explicit kilograms and
+UTC instants with one row per set, keeps an absent load distinct from a recorded zero, quotes per
+RFC 4180 and neutralizes a leading formula trigger, and has no column for notes or credentials, so
+there is nothing to redact. It cannot be restored, and the UI says so.
+
 ## 2. Decision log
 
 Each row: the decision, the **recorded** rationale with a citation, recorded alternatives, and status.

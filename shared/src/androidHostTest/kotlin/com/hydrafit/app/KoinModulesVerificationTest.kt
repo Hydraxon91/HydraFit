@@ -87,6 +87,14 @@ import com.hydrafit.app.core.domain.startup.StartupReadiness
 import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.transfer.PrescriptionImportPreview
+import com.hydrafit.app.core.domain.transfer.PrescriptionImportRepository
+import com.hydrafit.app.core.domain.transfer.PrescriptionImportResult
+import com.hydrafit.app.core.domain.transfer.WorkoutCsvSource
+import com.hydrafit.app.core.domain.transfer.WorkoutImportPreview
+import com.hydrafit.app.core.domain.transfer.WorkoutImportProvenance
+import com.hydrafit.app.core.domain.transfer.WorkoutImportRepository
+import com.hydrafit.app.core.domain.transfer.WorkoutImportResult
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetUseCase
@@ -147,6 +155,10 @@ import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
 import com.hydrafit.app.core.userdata.settings.SetupRepository
 import com.hydrafit.app.core.userdata.settings.TrainingGoalRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
+import com.hydrafit.app.core.userdata.transfer.PrescriptionDocumentStore
+import com.hydrafit.app.core.userdata.transfer.PrescriptionPdfRenderer
+import com.hydrafit.app.core.userdata.transfer.UnsupportedPrescriptionDocumentStore
+import com.hydrafit.app.core.userdata.transfer.UnsupportedPrescriptionPdfRenderer
 import com.hydrafit.app.feature.equipment.EquipmentProfilerViewModel
 import com.hydrafit.app.feature.equipment.ExercisePlanningSettingsViewModel
 import com.hydrafit.app.feature.equipment.equipmentModule
@@ -162,6 +174,7 @@ import com.hydrafit.app.feature.onboarding.OnboardingViewModel
 import com.hydrafit.app.feature.onboarding.onboardingModule
 import com.hydrafit.app.feature.progress.ProgressViewModel
 import com.hydrafit.app.feature.progress.progressModule
+import com.hydrafit.app.feature.routines.PrescriptionShareViewModel
 import com.hydrafit.app.feature.routines.RoutinesViewModel
 import com.hydrafit.app.feature.routines.WorkoutReminderCoordinator
 import com.hydrafit.app.feature.routines.routinesModule
@@ -169,8 +182,10 @@ import com.hydrafit.app.feature.settings.AcknowledgmentsViewModel
 import com.hydrafit.app.feature.settings.BackupViewModel
 import com.hydrafit.app.feature.settings.SettingsViewModel
 import com.hydrafit.app.feature.settings.TrainingGuidanceSettingsViewModel
+import com.hydrafit.app.feature.settings.WorkoutImportViewModel
 import com.hydrafit.app.feature.settings.WorkoutReminderSettingsViewModel
 import com.hydrafit.app.feature.settings.settingsModule
+import com.hydrafit.app.feature.splitbuilder.PlanExportViewModel
 import com.hydrafit.app.feature.splitbuilder.splitBuilderModule
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -203,6 +218,8 @@ class KoinModulesVerificationTest {
         single<OnDeviceTextGenerator> { FakeOnDeviceTextGenerator }
         single<OnDevicePlannerLogger> { NoopOnDevicePlannerLogger }
         single<BackupFileStore> { UnsupportedBackupFileStore() }
+        single<PrescriptionDocumentStore> { UnsupportedPrescriptionDocumentStore() }
+        single<PrescriptionPdfRenderer> { UnsupportedPrescriptionPdfRenderer() }
         single<RestAlertScheduler> { UnsupportedRestAlertScheduler() }
         single<WorkoutReminderScheduler> { UnsupportedWorkoutReminderScheduler() }
         single<OccurrenceReplacementRepository> {
@@ -503,6 +520,10 @@ class KoinModulesVerificationTest {
                     single<BackupRepository> { FakeBackupRepository }
                     single<BackupStagingRepository> { FakeBackupStagingRepository }
                     single<BackupCatalog> { FakeBackupCatalog }
+                    // BackupViewModel also injects ExportWorkoutHistoryCsvUseCase (history-CSV export).
+                    single<WorkoutLogRepository> { FakeWorkoutLogRepository }
+                    single<WorkoutSessionRepository> { FakeWorkoutSessionRepository }
+                    single<ExerciseCatalog> { FakeExerciseCatalog }
                 },
                 domainModule,
                 settingsModule,
@@ -515,6 +536,41 @@ class KoinModulesVerificationTest {
         } finally {
             koin.close()
         }
+    }
+
+    /**
+     * The import ViewModel is a lambda `viewModel { }`, so resolve it over `settingsModule` with fake
+     * ports. Construction reads and writes nothing, so this only proves the constructor `get()` chain.
+     */
+    @Test
+    fun theWorkoutImportViewModelResolvesAtRuntime() {
+        val koin = koinApplication {
+            modules(
+                module {
+                    single<WorkoutImportRepository> { FakeWorkoutImportRepository }
+                    single<WorkoutSessionRepository> { FakeWorkoutSessionRepository }
+                    single<ExerciseCatalog> { FakeExerciseCatalog }
+                },
+                settingsModule,
+                testPlatformModule
+            )
+        }.koin
+
+        try {
+            assertNotNull(koin.get<WorkoutImportViewModel>())
+        } finally {
+            koin.close()
+        }
+    }
+
+    private object FakeWorkoutImportRepository : WorkoutImportRepository {
+        override suspend fun provenance(
+            source: WorkoutCsvSource,
+            candidateKeys: Set<String>
+        ): List<WorkoutImportProvenance> = emptyList()
+
+        override suspend fun commit(preview: WorkoutImportPreview): WorkoutImportResult =
+            WorkoutImportResult(importedSessions = 0, importedSets = 0, skippedSessions = 0)
     }
 
     private object FakeBackupRepository : BackupRepository {
@@ -625,6 +681,108 @@ class KoinModulesVerificationTest {
         } finally {
             koin.close()
         }
+    }
+
+    /**
+     * The prescription transfer ViewModel is a lambda `viewModel { }`, so `verify()` cannot reflect
+     * its constructor. Resolve it over `routinesModule` + `domainModule` with fake ports so a missing
+     * collaborator fails here instead of on device. Construction reads and writes nothing.
+     */
+    @Test
+    fun thePrescriptionShareViewModelResolvesAtRuntime() {
+        val koin = koinApplication {
+            modules(
+                module {
+                    single<WorkoutPlanSourcesRepository> { FakeWorkoutPlanSourcesRepository }
+                    single<PlanHistoryRepository> { FakePlanHistoryRepository }
+                    single<ExerciseCatalog> { FakeExerciseCatalog }
+                    single<WorkoutLogRepository> { FakeWorkoutLogRepository }
+                    single<WorkoutSessionRepository> { FakeWorkoutSessionRepository }
+                    single<SessionResegmenter> { FakeSessionResegmenter }
+                    single<RoutineTemplateRepository> { FakeRoutineTemplateRepository }
+                    single<WorkoutScheduleRepository> { FakeWorkoutScheduleRepository }
+                    single<WeightUnitRepository> { FakeWeightUnitRepository }
+                    single<ExerciseExclusionRepository> { FakeExerciseExclusionRepository }
+                    single<PreferredWeekdaysRepository> { FakePreferredWeekdaysRepository }
+                    single<PrescriptionImportRepository> { FakePrescriptionImportRepository }
+                    single<EquipmentSelectionRepository> { FakeEquipmentSelectionRepository }
+                    single { WorkoutReminderDeliveryGate() }
+                    single<WorkoutReminderPreferenceRepository> { FakeWorkoutReminderPreferences }
+                    single<ReminderDeliveryRepository> {
+                        object : ReminderDeliveryRepository {
+                            override suspend fun isDelivered(
+                                activationId: Long,
+                                reminderEpochDay: Long
+                            ) = false
+
+                            override suspend fun claim(
+                                activationId: Long,
+                                reminderEpochDay: Long,
+                                deliveredAtMillis: Long
+                            ) = false
+
+                            override suspend fun release(
+                                activationId: Long,
+                                reminderEpochDay: Long
+                            ) = Unit
+                        }
+                    }
+                    single<StartupReadiness> {
+                        object : StartupReadiness {
+                            override val isReady = MutableStateFlow(false)
+                        }
+                    }
+                },
+                domainModule,
+                routinesModule,
+                testPlatformModule
+            )
+        }.koin
+
+        try {
+            assertNotNull(koin.get<PrescriptionShareViewModel>())
+        } finally {
+            koin.close()
+        }
+    }
+
+    /**
+     * The plan-export ViewModel is a lambda `viewModel { }`, so resolve it over `splitBuilderModule`
+     * + `domainModule` with fake ports and the test platform module's renderer/document bindings.
+     */
+    @Test
+    fun thePlanExportViewModelResolvesAtRuntime() {
+        val koin = koinApplication {
+            modules(
+                module {
+                    single<WorkoutPlanSourcesRepository> { FakeWorkoutPlanSourcesRepository }
+                    single<PlanHistoryRepository> { FakePlanHistoryRepository }
+                    single<ExerciseCatalog> { FakeExerciseCatalog }
+                    single<WorkoutLogRepository> { FakeWorkoutLogRepository }
+                    single<WorkoutSessionRepository> { FakeWorkoutSessionRepository }
+                    single<SessionResegmenter> { FakeSessionResegmenter }
+                    single<RoutineTemplateRepository> { FakeRoutineTemplateRepository }
+                    single<WorkoutScheduleRepository> { FakeWorkoutScheduleRepository }
+                    single<EnginePreferenceRepository> { FakeEnginePreferenceRepository() }
+                },
+                domainModule,
+                splitBuilderModule,
+                testPlatformModule
+            )
+        }.koin
+
+        try {
+            assertNotNull(koin.get<PlanExportViewModel>())
+        } finally {
+            koin.close()
+        }
+    }
+
+    private object FakePrescriptionImportRepository : PrescriptionImportRepository {
+        override suspend fun importPrescriptions(
+            preview: PrescriptionImportPreview
+        ): PrescriptionImportResult =
+            PrescriptionImportResult(importedRoutines = 0, createdExercises = 0)
     }
 
     /**

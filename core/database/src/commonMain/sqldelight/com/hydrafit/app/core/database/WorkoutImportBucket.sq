@@ -1,0 +1,39 @@
+CREATE TABLE workoutImportBucket (
+    source TEXT NOT NULL,
+    candidateKey TEXT NOT NULL,
+    content TEXT NOT NULL,
+    partition TEXT NOT NULL,
+    PRIMARY KEY (source, candidateKey)
+);
+
+-- Links deliberately survive removal of workoutSession rows.
+CREATE TABLE workoutImportBucketSession (
+    source TEXT NOT NULL,
+    candidateKey TEXT NOT NULL,
+    ordinal INTEGER NOT NULL,
+    importedSessionId TEXT NOT NULL,
+    PRIMARY KEY (source, candidateKey, ordinal),
+    FOREIGN KEY (source, candidateKey) REFERENCES workoutImportBucket(source, candidateKey)
+);
+
+selectBuckets:
+SELECT * FROM workoutImportBucket WHERE source = ? ORDER BY candidateKey;
+
+selectAllBuckets:
+SELECT * FROM workoutImportBucket ORDER BY source, candidateKey;
+
+selectLinks:
+SELECT * FROM workoutImportBucketSession WHERE source = ? AND candidateKey = ? ORDER BY ordinal;
+
+insertBucket:
+INSERT INTO workoutImportBucket(source, candidateKey, content, partition) VALUES (?, ?, ?, ?);
+
+insertLink:
+INSERT INTO workoutImportBucketSession(source, candidateKey, ordinal, importedSessionId)
+VALUES (?, ?, ?, ?);
+
+deleteBucketLinks:
+DELETE FROM workoutImportBucketSession;
+
+deleteBuckets:
+DELETE FROM workoutImportBucket;

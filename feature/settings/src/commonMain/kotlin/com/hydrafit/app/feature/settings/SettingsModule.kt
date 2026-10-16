@@ -10,5 +10,6 @@ val settingsModule: Module = module {
     viewModel { TrainingGuidanceSettingsViewModel(get(), get()) }
     viewModel { WorkoutReminderSettingsViewModel(get(), get()) }
     viewModel { AcknowledgmentsViewModel(get()) }
-    viewModel { BackupViewModel(get(), get(), get(), get(), get(), get()) }
+    viewModel { BackupViewModel(get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { WorkoutImportViewModel(get(), get(), get(), get()) }
 }

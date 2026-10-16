@@ -22,6 +22,8 @@ import com.hydrafit.app.core.domain.setup.SETUP_VERSION
 import com.hydrafit.app.core.domain.setup.SetupDisposition
 import com.hydrafit.app.core.domain.setup.SetupStep
 import com.hydrafit.app.core.domain.time.DayOfWeek
+import com.hydrafit.app.core.domain.transfer.WorkoutCsvSource
+import com.hydrafit.app.core.domain.transfer.WorkoutImportPartition
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
@@ -97,6 +99,58 @@ class BackupValidator(private val catalog: BackupCatalog) {
         file.bodyWeightGoalKg?.let {
             if (!it.isFinite() || it <= 0.0) fail(BackupFailure.INVALID_VALUE)
         }
+
+        // Import provenance is whole-replaced, so a file from before format 15 that carries records is
+        // not what it claims. Records name a source workout, not a session: an entry whose imported
+        // session is absent stays valid, because that is exactly the deleted-history guard.
+        if (file.formatVersion < IMPORT_PROVENANCE_FORMAT_VERSION &&
+            file.importProvenance.isNotEmpty()
+        ) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        file.importProvenance.forEach {
+            enum(it.source, WorkoutCsvSource.entries)
+            if (it.candidateKey.isEmpty() ||
+                it.content.isEmpty() ||
+                it.importedSessionId.isEmpty()
+            ) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+        }
+        uniqueBy(file.importProvenance) { Triple(it.source, it.candidateKey, it.content) }
+
+        // The bucket/partition ledger is whole-replaced too (format 16). It permits an imported
+        // bucket to keep its exact approved split, including two sessions with identical content,
+        // which the per-session provenance above cannot represent. Its links survive local deletion
+        // for the same reason provenance does.
+        if (file.formatVersion < IMPORT_BUCKET_FORMAT_VERSION &&
+            file.importBuckets.isNotEmpty()
+        ) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        file.importBuckets.forEach { bucket ->
+            enum(bucket.source, WorkoutCsvSource.entries)
+            if (bucket.candidateKey.isEmpty() ||
+                bucket.content.isEmpty() ||
+                bucket.partition.isEmpty() ||
+                bucket.importedSessionIds.isEmpty() ||
+                bucket.importedSessionIds.any { it.isEmpty() }
+            ) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            if (bucket.importedSessionIds.distinct().size != bucket.importedSessionIds.size) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            // A manifest that cannot be read back, or whose session count disagrees with the links
+            // restored beside it, would be reused as if it were the approved partition. Refuse it here
+            // rather than let the import ledger carry a record it can never match again.
+            val partition = WorkoutImportPartition.decode(bucket.partition)
+                ?: fail(BackupFailure.INVALID_VALUE)
+            if (partition.sessions.size != bucket.importedSessionIds.size) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+        }
+        uniqueBy(file.importBuckets) { it.source to it.candidateKey }
 
         val seedExerciseIds = catalog.seedExerciseIds()
         val builtInEquipmentIds = catalog.builtInEquipmentIds()

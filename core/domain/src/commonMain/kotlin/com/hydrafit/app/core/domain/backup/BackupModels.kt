@@ -7,9 +7,15 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 14
+const val BACKUP_FORMAT_VERSION: Int = 16
 
 const val EQUIPMENT_PROFILE_FORMAT_VERSION: Int = 14
+
+/** The first backup format that carries local workout-import provenance. */
+const val IMPORT_PROVENANCE_FORMAT_VERSION: Int = 15
+
+/** The first backup format that carries the bucket/partition import ledger. */
+const val IMPORT_BUCKET_FORMAT_VERSION: Int = 16
 
 /** The first backup format that carries body-weight measurements and the optional weight goal. */
 const val BODY_WEIGHT_FORMAT_VERSION: Int = 13
@@ -42,7 +48,9 @@ const val EXERCISE_NOTES_FORMAT_VERSION: Int = 9
  * explanation rather than a fabricated one. Version 7 adds the recorded plan-target explanations;
  * earlier formats have none, so a restored legacy plan reports no explanation rather than a
  * fabricated one. Version 6 adds alert/coaching opt-ins; earlier formats default them off. Version 5
- * adds rest durations; earlier formats use the global default.
+ * adds rest durations; earlier formats use the global default. Version 15 adds local workout-import
+ * provenance; earlier formats have none. Version 16 adds the bucket/partition import ledger; formats
+ * 1-15 restore with provenance only and cannot carry a split bucket.
  */
 @Serializable
 data class BackupFile(
@@ -112,7 +120,48 @@ data class BackupFile(
     val bodyWeightGoalKg: Double? = null,
     /** Complete profile configuration in format 14; legacy formats carry no profile sections. */
     val equipmentProfiles: List<BackupEquipmentProfileRecord> = emptyList(),
-    val activeEquipmentProfileId: Long? = null
+    val activeEquipmentProfileId: Long? = null,
+    /**
+     * Local workout-import provenance, format 15 and later. A record is deliberately retained after
+     * its imported session is deleted locally, so an entry may name a session the file does not
+     * carry; that is what stops a repeated export from silently restoring removed history.
+     *
+     * This is the legacy single-session ledger. New imports record their whole source bucket and the
+     * partition the user approved in [importBuckets]; both survive a restore.
+     */
+    val importProvenance: List<BackupImportProvenanceRecord> = emptyList(),
+    /**
+     * The bucket/partition import ledger, format 16 and later. One record per imported source bucket,
+     * carrying the complete canonical bucket, the approved partition of its rows into sessions and
+     * the local session each partition member created. Absent in formats 1-15.
+     */
+    val importBuckets: List<BackupImportBucketRecord> = emptyList()
+)
+
+/**
+ * One imported source workout: the provider, a candidate key for the source workout, the canonical
+ * content that produced it and the local session it created.
+ */
+@Serializable
+data class BackupImportProvenanceRecord(
+    val source: String,
+    val candidateKey: String,
+    val content: String,
+    val importedSessionId: String
+)
+
+/**
+ * One imported source bucket and its approved partition: the provider, the candidate key and
+ * canonical content of the whole bucket in source order, the canonical partition manifest and the
+ * local session ids the partition created, in partition order.
+ */
+@Serializable
+data class BackupImportBucketRecord(
+    val source: String,
+    val candidateKey: String,
+    val content: String,
+    val partition: String,
+    val importedSessionIds: List<String>
 )
 
 @Serializable

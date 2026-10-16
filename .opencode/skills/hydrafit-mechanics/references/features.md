@@ -633,3 +633,74 @@ nothing) and asserts the profile-switch/edit closures and the dropped late resul
 `KoinModulesVerificationTest.theWorkoutLoggerViewModelResolvesAtRuntime` resolves the helper over
 `loggerModule` with the existing `FakeEquipmentProfiles` binding, so a missing constructor dependency
 fails there instead of on device.
+
+## 0.9.1-I4 — Settings workout-CSV import UI
+
+`WorkoutImportViewModel` (`fileStore: BackupFileStore`, `importRepository: WorkoutImportRepository`,
+`exerciseCatalog: ExerciseCatalog`, `sessionRepository: WorkoutSessionRepository`) reads a chosen
+file through the existing `BackupFileStore` port — no platform port or manifest change — parses it
+with `WorkoutCsvParser.parse` for the selected `WorkoutCsvSource`, and loads
+`ExerciseCatalog.all()`/`profileCandidates()`, `WorkoutImportRepository.provenance`/`.buckets` and
+`WorkoutSessionRepository.all()` once per read. `isSupported == false` (iOS) returns before any read
+or write and the route shows an unsupported note. `WorkoutImportUiState` holds `isSupported`,
+`inProgress`, `provider` (default `FITNOTES`) and a `phase` of `Idle` /
+`Reviewing(WorkoutImportReview)` / `Imported(WorkoutImportResult)` / `Failed(WorkoutImportFailure)`.
+The preview is derived state: every choice change recomputes
+`PreviewWorkoutImport.build(parsed, choices, catalog, provenance, existingSessions, buckets)` from the
+cached parsed rows, so the shown `problems`/`notices`/`canImport` are never stale. `canImport` mirrors
+`WorkoutImportPreview.canImport`.
+
+Rejected (unparseable) rows are **not** auto-excluded: they start outside `excludedRows`, so
+`UNRESOLVED_EXCLUSION` blocks until the user excludes each one, matching the plan's "unsupported rows
+must be disclosed and explicitly excluded before confirmation". `toggleRowIncluded` toggles any row's
+membership in `excludedRows`; the review's `excludedRows`, and every session draft's `sourceRows`,
+reflect only included rows. Initial mappings come from `CatalogProfileMatcher.match` against
+`profileCandidates()`: `Unique` preselects the candidate with `confirmedLoadMeaning = false`,
+while `Ambiguous`/`Unmatched` preselect nothing and block via `MISSING_EXERCISE`. No fuzzy matching,
+no custom-exercise creation and no automatic pick among ambiguous candidates. Changing
+`loadKind`/`useSourceWeight` resets `confirmedLoadMeaning`, because the recorded number's meaning
+changed. Session drafts are editable: the view model keeps a draft id per row (`rowDrafts`) so every
+included row belongs to exactly one draft, and `setRowSession(rowIndex, draftId)` moves a row into an
+existing draft of its bucket or, with `null`, into a new one; an emptied draft is pruned. A bucket is
+one `(civil day, workoutTitle)` group, so two distinct same-day source workouts stay separate and a
+session never mixes buckets (the domain preview rejects a mixed group). A titleless provider
+(FitNotes) has one bucket per date; its rows start as one draft and the user may split them, which is
+why `SessionDraftUi` carries `ordinal` and `split` and every included row carries `sessionOptions`.
+Drafts default to `utcOffsetMinutes = 0` shown
+explicitly, `confirmedSession`/`confirmedInferredSetTimes = false` and
+`dateOnlySecondOfDay = null`; `confirmSession` sets both confirm flags together. `acknowledge*`
+set the metadata and history acknowledgements the preview requires.
+
+`apply()` refuses when the platform store is unsupported, when the review is not `Reviewing`, when
+`canImport` is false, or when a write is already `inProgress`, then calls
+`importRepository.commit(preview)`. Success sets `phase = Imported(result)` and clears the review
+(cached rows, mappings, sessions and acknowledgements); a `WorkoutImportException` keeps
+`phase = Reviewing` and surfaces `review.commitFailure`, and a `SESSION_OVERLAP` refusal re-reads
+`WorkoutSessionRepository.all()` first so the rebuilt review shows the newly visible overlap; any
+other failure sets
+`Failed(WorkoutImportFailure.Unknown)`; `CancellationException` is rethrown. A revision token bumped
+by `chooseFile`/`reset`/`selectProvider` keeps a late read/parse result from overwriting newer state;
+`selectProvider` drops a review parsed with the previous provider. `Failed` carries a typed
+`WorkoutImportFailure` (the UI maps it to a localized string), and the commit failure a typed
+`WorkoutImportCommitFailure`; `WorkoutImportReview` also exposes `catalogOptions`
+(`MappingCandidateUi` id+label) so the picker can resolve unmatched names, and `RejectedImportRowUi`
+rows shown as an explicit-exclude list.
+
+`WorkoutImportRoute`/`WorkoutImportScreen` (`WorkoutImportScreen.kt`) mount beside `BackupRoute()` in
+`SettingsScreen` and render the provider chooser, the `WorkoutImportSection` expect/actual file
+button (Android `ActivityResultContracts.OpenDocument()` for `text/csv`,
+`text/comma-separated-values`, `text/plain`, `*/*`; iOS no picker), the review rows (each included
+row carries a session selector that moves it into another draft or a new one), mapping and
+session editors, the acknowledgement checkboxes, notices and blocking problems, and an Import button
+enabled only when `canImport && !inProgress`. `WorkoutImportTestTags` exposes
+`workout_import_provider_fitnotes`/`_strong`/`_hevy`, `workout_import_choose_file`,
+`workout_import_apply`, `workout_import_summary`, `workout_import_problems`,
+`workout_import_notices` and `workout_import_reset` through the shared
+`Modifier.guidanceTestTagsAsResourceId()` adapter. `settingsModule` binds
+`viewModel { WorkoutImportViewModel(get(), get(), get(), get()) }`;
+`KoinModulesVerificationTest.theWorkoutImportViewModelResolvesAtRuntime` resolves it, because
+`verify()` cannot reflect a lambda `viewModel { }`. `WorkoutImportViewModelTest` covers unsupported
+platforms, a typed `WorkoutCsvException`, rejected-row exclusion, unresolved/unique/ambiguous
+mappings, a date-only day's time and confirmations, an unchanged-source skip notice, a successful
+commit's counts, a `WorkoutImportException`, a second `apply()` during `inProgress`, cancellation and
+a stale read.

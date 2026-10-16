@@ -1,0 +1,12 @@
+-- 0.9.1 local workout-CSV imports. The ledger keeps duplicate-import protection durable across
+-- restarts and backup round trips. It intentionally carries no foreign key to workoutSession so a
+-- record survives local deletion and a repeated export cannot silently restore removed history.
+CREATE TABLE workoutImportProvenance (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    source TEXT NOT NULL,
+    candidateKey TEXT NOT NULL,
+    content TEXT NOT NULL,
+    importedSessionId TEXT NOT NULL
+);
+
+CREATE INDEX workoutImportProvenance_source ON workoutImportProvenance(source);

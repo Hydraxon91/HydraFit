@@ -342,8 +342,8 @@ Former slice ids are recorded in parentheses.
 | Version | Reviewable scope | Dependencies / references |
 | --- | --- | --- |
 | 0.9.0 | Equipment profiles and setup integration; owned-plate calculator; dumbbell increments and specialty-bar extensions (former `0.9.0`–`0.9.2`) | EQ-01 + OF-14; migrate inventory, preserve active-work/history rules; bar/collar weights, counts, precision and nearest attainable target; separate increments/specialty-bar contracts; no implicit planner/progression change |
-| 0.9.1 | FitNotes, Strong and Hevy CSV imports (former `0.9.3`–`0.9.5`) | OF-05; shared preview/mapping/conflict foundation and approved time/unit/session semantics; provider-specific validation and repeat-import tests |
-| 0.9.2 | Versioned plan/routine sharing and import; PDF export; CSV export (former `0.9.6`, `0.9.7`, `0.9.11`) | OF-07; privacy, identity collisions, equipment gaps and explicit acceptance; approved content/privacy contract; explicit CSV field/unit/privacy contract |
+| 0.9.1 | FitNotes, Strong and Hevy CSV imports (former `0.9.3`–`0.9.5`) | OF-05; shared preview/mapping/conflict foundation and approved time/unit/session semantics; provider-specific validation and repeat-import tests. **Folded target:** the separate `0.9.2` row below ships in the same `v0.9.1` publication (batch plan in PLANS.md); its downstream goals are unchanged. |
+| 0.9.2 | Versioned plan/routine sharing and import; PDF export; CSV export (former `0.9.6`, `0.9.7`, `0.9.11`) | OF-07; privacy, identity collisions, equipment gaps and explicit acceptance; approved content/privacy contract; explicit CSV field/unit/privacy contract. **Folded into `0.9.1`:** this scope keeps its own chunks, acceptance criteria, verification and independent review, and publishes once under the `v0.9.1` tag; no later version is renumbered. |
 | 0.9.3 | Automatic rotating local backups (former `0.9.8`) | OF-01 extension; failure/recovery and retention contract |
 | 0.9.4 | Encrypted backups (former `0.9.9`) | OF-01 extension; key/recovery and compatibility contract |
 | 0.9.5 | Merge restore (former `0.9.10`) | OF-01 extension; atomicity, identity and conflict decisions |

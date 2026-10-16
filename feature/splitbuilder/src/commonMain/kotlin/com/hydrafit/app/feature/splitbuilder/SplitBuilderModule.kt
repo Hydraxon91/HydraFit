@@ -15,4 +15,16 @@ val splitBuilderModule: Module = module {
             enginePreference = get()
         )
     }
+    viewModel {
+        PlanExportViewModel(
+            convertPlanToTemplate = get(),
+            exportPrescriptions = get(),
+            exportPdf = get(),
+            pdfRenderer = get(),
+            documentStore = get(),
+            fileStore = get(),
+            appVersionProvider = get(),
+            timeProvider = get()
+        )
+    }
 }

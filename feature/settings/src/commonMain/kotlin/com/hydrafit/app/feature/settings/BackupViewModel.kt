@@ -9,6 +9,7 @@ import com.hydrafit.app.core.domain.backup.ExportBackupUseCase
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.transfer.ExportWorkoutHistoryCsvUseCase
 import com.hydrafit.app.core.userdata.backup.BackupFileStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
 import kotlinx.coroutines.CancellationException
@@ -30,7 +31,8 @@ class BackupViewModel(
     private val restoreBackup: RestoreBackupUseCase,
     private val fileStore: BackupFileStore,
     private val appVersionProvider: AppVersionProvider,
-    private val timeProvider: TimeProvider
+    private val timeProvider: TimeProvider,
+    private val exportWorkoutHistoryCsv: ExportWorkoutHistoryCsvUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(BackupUiState(isSupported = fileStore.isSupported))
@@ -52,6 +54,31 @@ class BackupViewModel(
                 val text = exportBackup(appVersionProvider.versionName, timeProvider.nowMillis())
                 fileStore.write(handle, text)
                 _state.update { it.copy(inProgress = false, status = BackupStatus.Exported) }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
+                _state.update {
+                    it.copy(inProgress = false, status = BackupStatus.Failed(throwable.toFailure()))
+                }
+            }
+        }
+    }
+
+    /**
+     * Writes the recorded training history as an analysis CSV to the chosen document. This is not a
+     * backup: the file is not restorable, so success is reported through [BackupStatus.HistoryCsvExported]
+     * rather than [BackupStatus.Exported]. A failure before the write leaves the document untouched.
+     */
+    fun exportCsv(handle: String) {
+        if (_state.value.inProgress) return
+        _state.update { it.copy(inProgress = true, status = null) }
+        viewModelScope.launch {
+            try {
+                val text = exportWorkoutHistoryCsv()
+                fileStore.write(handle, text)
+                _state.update {
+                    it.copy(inProgress = false, status = BackupStatus.HistoryCsvExported)
+                }
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (throwable: Throwable) {

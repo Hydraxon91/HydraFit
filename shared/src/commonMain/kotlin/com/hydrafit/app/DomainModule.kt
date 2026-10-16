@@ -52,6 +52,9 @@ import com.hydrafit.app.core.domain.settings.ObserveGlobalRestDurationUseCase
 import com.hydrafit.app.core.domain.settings.ResolveRestDurationUseCase
 import com.hydrafit.app.core.domain.settings.SetExerciseRestDurationUseCase
 import com.hydrafit.app.core.domain.settings.SetGlobalRestDurationUseCase
+import com.hydrafit.app.core.domain.transfer.ExportPrescriptionPdfUseCase
+import com.hydrafit.app.core.domain.transfer.ExportPrescriptionsUseCase
+import com.hydrafit.app.core.domain.transfer.ExportWorkoutHistoryCsvUseCase
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
@@ -139,6 +142,9 @@ val domainModule: Module = module {
     singleOf(::ArchiveRoutineTemplateUseCase)
     singleOf(::DeleteRoutineTemplateUseCase)
     singleOf(::ObserveRoutineTemplatesUseCase)
+    singleOf(::ExportPrescriptionsUseCase)
+    singleOf(::ExportWorkoutHistoryCsvUseCase)
+    singleOf(::ExportPrescriptionPdfUseCase)
     single { PreviewWorkoutScheduleUseCase() }
     singleOf(::CreateTrainingActivationUseCase)
     singleOf(::ActivateRoutineUseCase)
