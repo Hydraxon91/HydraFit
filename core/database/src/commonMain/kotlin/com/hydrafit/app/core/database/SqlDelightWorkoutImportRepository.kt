@@ -12,6 +12,8 @@ import com.hydrafit.app.core.domain.transfer.WorkoutImportResult
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Commits an approved import plan in one transaction.
@@ -55,7 +57,6 @@ class SqlDelightWorkoutImportRepository(private val database: HydraFitDatabase) 
             .filter { it.candidateKey in candidateKeys }
             .map { it.toDomain() }
 
-    @OptIn(ExperimentalUuidApi::class)
     override suspend fun commit(preview: WorkoutImportPreview): WorkoutImportResult {
         if (preview.sessions.isEmpty()) {
             throw WorkoutImportException(
@@ -63,6 +64,14 @@ class SqlDelightWorkoutImportRepository(private val database: HydraFitDatabase) 
                 "There is nothing to import"
             )
         }
+        // A large import writes many thousands of rows, so the transaction runs off the caller's
+        // dispatcher instead of stalling the UI thread; this matches the write-path convention in
+        // SqlDelightBackupStagingRepository and SqlDelightEquipmentProfileRepository.
+        return withContext(Dispatchers.Default) { commitTransaction(preview) }
+    }
+
+    @OptIn(ExperimentalUuidApi::class)
+    private fun commitTransaction(preview: WorkoutImportPreview): WorkoutImportResult {
         var importedSessions = 0
         var importedSets = 0
         var skippedSessions = 0
