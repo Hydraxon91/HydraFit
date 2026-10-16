@@ -2709,31 +2709,43 @@ Still unverified: dark mode, larger text, rotation, TalkBack, app locale, and ev
   `gh run rerun 38902908463 --failed` then passed all three jobs. This is the **third** recorded
   occurrence of the same flake: 0.7.6 (`docs/qa.md`, "0.7.6 release integration", once) and 0.8.x
   PR #16 (the `:shared` Unit Tests job needed two reruns), where it was left **unfixed by decision**.
-- **Root cause, audited.** The class had 15 tests and only 6 installed a test `Dispatchers.Main`
-  (`setMain`). Seven of the others resolved a ViewModel without it, and three of those resolved a
-  ViewModel that reads `viewModelScope` in its `init` (`ExercisePlanningSettingsViewModel`,
-  `BackupViewModel`, `RoutinesViewModel`). Coroutines resolves and **caches** `Dispatchers.Main` for
-  the JVM's lifetime; a first touch with no test dispatcher installed falls through to the platform
-  Android main dispatcher, which a plain host JVM cannot initialise (the stub `Looper` throws). The
-  cached failure then makes every later `Dispatchers.setMain` throw — reported against whichever test
-  installed a dispatcher next, which is why the named victim moved between runs and why a rerun in a
-  fresh JVM went green. No `testOptions`, `maxParallelForks` or `forkEvery` is configured anywhere, so
-  the class order Gradle discovers is the only ordering input, and it is not pinned.
-- **Fix.** Every test that resolves a ViewModel now installs a test dispatcher first (13 of 15; the
-  two `verify()`-only tests need none), matching the pattern the class already used elsewhere, plus a
-  class-level `@AfterTest` that resets it so one test's installation can never leak into the next.
-  Test-only change; no production code, no Gradle configuration, no dependency change.
-- **Verification of the fix.** `:shared:testAndroidHostTest --rerun` twice, each executing the task:
-  28 tests, 0 failures. Full local matrix on the fix `testAndroidHostTest`,
-  `:core:database:verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`: green, with
-  `:shared` re-executed and the aggregate at 250 classes / 2,235 tests / 0 failures/errors/skips.
-  Because this landed directly on `main` rather than through a PR, the push-triggered Build and Test
-  run is the gate and is watched to completion.
-- **Limit of the evidence.** The failure never reproduced on demand locally, so the fix is verified by
-  construction plus repeated fresh runs, not by reproducing the original ordering. If the flake
-  recurs, the remaining suspect is a Main touch outside this class (nothing in `:shared`'s host tests
-  other than `KoinModulesVerificationTest` touches `Dispatchers.Main`), and the class-level guard
-  should be extended to a module-wide one.
+- **Root cause, proven.** Coroutines installs a **lazy** `TestMainDispatcher` for `Dispatchers.Main`;
+  its delegate is only built when something is actually *dispatched* to Main, and on a host JVM the
+  fallback platform dispatcher cannot be built (the stub `Looper` throws). That surfaces as a library
+  error whose text was captured by a throwaway probe:
+  *"Dispatchers.Main was accessed when the platform dispatcher was absent and the test dispatcher was
+  unset. Please make sure that Dispatchers.setMain() is called before accessing Dispatchers.Main and
+  that Dispatchers.Main is not accessed after Dispatchers.resetMain()."* — thrown from
+  `TestMainDispatcherFactory.createDispatcher$lambda$2(TestMainDispatcherJvm.kt:20)` via
+  `TestMainDispatcher.isDispatchNeeded`, matching the CI chain (`TestMainDispatcherJvm.kt:45` →
+  `MainDispatchers.kt:111` → `RuntimeException at Looper.java`). So it is **not** a cached/poisoned
+  dispatcher (an earlier reading of this record said that and was wrong): it is simply a Main dispatch
+  arriving while no test dispatcher is installed — including after a `resetMain()`. The class had 15
+  tests, only 6 installed a dispatcher, and nine could leave Main unset between tests
+  (`resetMain()` restores the uninstalled state), so a dispatch landing in that window throws and is
+  attributed to whichever test was running when it surfaced. Which one that is depends on the class
+  order Gradle discovers — no `testOptions`, `maxParallelForks` or `forkEvery` is configured anywhere —
+  and a rerun in a fresh worker JVM has gone green every time.
+- **Fix.** The class installs a test `Dispatchers.Main` before **every** test
+  (`@BeforeTest`, `UnconfinedTestDispatcher()`) and resets it after every test (`@AfterTest`). The
+  unconfined choice is deliberate: work runs eagerly, so nothing stays queued on Main past the end of a
+  test, which is the state the library warns about. Every test that resolves a ViewModel also installs
+  a dispatcher explicitly, and the tests that need a scheduler-linked dispatcher keep their
+  `StandardTestDispatcher(testScheduler)` and `advanceUntilIdle()` as before. Test-only change; no
+  production code, no Gradle configuration, no dependency change.
+- **Verification of the fix.** `:shared:testAndroidHostTest` re-executed green (28 tests, 0 failures)
+  and `ktlintCheck` green on the change; the full local matrix (`testAndroidHostTest`,
+  `:core:database:verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`) is green with
+  the aggregate at 250 classes / 2,235 tests / 0 failures/errors/skips. Because this lands directly on
+  `main` rather than through a PR, the push-triggered Build and Test run is the gate and is watched to
+  completion; **a first attempt at this fix (installing a dispatcher in the seven tests without the
+  class-level guarantee) was pushed and still failed the run**, which is what forced the root cause
+  above to be pinned down rather than inferred.
+- **Limit of the evidence.** The failure has never reproduced on demand locally, so the fix is verified
+  by construction plus repeated fresh runs, not by reproducing CI's ordering. If it recurs, the next
+  step is not another blind fix: it is to obtain the failing test's **full stack trace** from CI
+  (Gradle's `testLogging.exceptionFormat = FULL`, or uploading the test report as an artifact) — both
+  are build/CI configuration changes and so need explicit approval.
 
 ## 0.9.2 interchange and export checkpoint (2026-10-16; not release acceptance)
 

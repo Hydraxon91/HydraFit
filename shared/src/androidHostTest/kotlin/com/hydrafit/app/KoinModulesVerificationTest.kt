@@ -188,6 +188,7 @@ import com.hydrafit.app.feature.settings.settingsModule
 import com.hydrafit.app.feature.splitbuilder.PlanExportViewModel
 import com.hydrafit.app.feature.splitbuilder.splitBuilderModule
 import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -198,6 +199,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -211,14 +213,26 @@ import org.koin.test.verify.verify
 class KoinModulesVerificationTest {
 
     /**
-     * Safety net for the test Main dispatcher.
+     * Every test runs with a test Main dispatcher installed.
      *
-     * A ViewModel that reads `viewModelScope` on init resolves `Dispatchers.Main`, and coroutines
-     * caches that resolution for the life of the JVM. If a test lets that happen with no test
-     * dispatcher installed, the platform Android main dispatcher is consulted instead, which a plain
-     * host JVM cannot initialise; the cached failure then makes every later `Dispatchers.setMain`
-     * throw. Resetting after each test means one test's installation can never become the next
-     * test's problem, and each test that resolves a ViewModel installs its own dispatcher first.
+     * Coroutines cannot initialise a Main dispatcher on a host JVM, and it reports that as an
+     * `IllegalStateException` the moment anything is dispatched to `Dispatchers.Main` while no test
+     * dispatcher is installed — including after a `resetMain()`. Installing one before every test
+     * body (and resetting after, below) means no test can observe that state, and no ViewModel that
+     * reads `viewModelScope` on init can trigger it. The unconfined dispatcher is deliberate: it
+     * runs work eagerly, so nothing stays queued on Main past the end of a test.
+     */
+    @BeforeTest
+    fun installMainDispatcher() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+    }
+
+    /**
+     * Resets after every test, so one test's installation can never become the next one's problem.
+     *
+     * The reset is only safe because [installMainDispatcher] runs first for the next test and no test
+     * body touches `Dispatchers.Main` after this point: coroutines reports an unset Main the moment
+     * anything is dispatched to it, including after a reset.
      */
     @AfterTest
     fun resetMainDispatcher() {
@@ -361,7 +375,7 @@ class KoinModulesVerificationTest {
      */
     @Test
     fun theAcknowledgmentsViewModelResolvesFromTheProductionVersionModule() {
-        Dispatchers.setMain(StandardTestDispatcher())
+        Dispatchers.setMain(UnconfinedTestDispatcher())
         val koin = koinApplication {
             modules(settingsModule, appVersionModule("1.2.3"))
         }.koin
@@ -476,7 +490,7 @@ class KoinModulesVerificationTest {
     fun theExercisePlanningSettingsViewModelResolvesAtRuntime() {
         // This ViewModel reads viewModelScope on init, so it must never be resolved before a test
         // Main dispatcher is installed.
-        Dispatchers.setMain(StandardTestDispatcher())
+        Dispatchers.setMain(UnconfinedTestDispatcher())
         val koin = koinApplication {
             modules(
                 module {
@@ -535,7 +549,7 @@ class KoinModulesVerificationTest {
     @Test
     fun theBackupViewModelResolvesAtRuntime() {
         // Reads viewModelScope on init: install the test Main dispatcher before resolving it.
-        Dispatchers.setMain(StandardTestDispatcher())
+        Dispatchers.setMain(UnconfinedTestDispatcher())
         val koin = koinApplication {
             modules(
                 module {
@@ -566,7 +580,7 @@ class KoinModulesVerificationTest {
      */
     @Test
     fun theWorkoutImportViewModelResolvesAtRuntime() {
-        Dispatchers.setMain(StandardTestDispatcher())
+        Dispatchers.setMain(UnconfinedTestDispatcher())
         val koin = koinApplication {
             modules(
                 module {
@@ -635,7 +649,7 @@ class KoinModulesVerificationTest {
     @Test
     fun theRoutinesViewModelResolvesAtRuntime() {
         // Reads viewModelScope on init: install the test Main dispatcher before resolving it.
-        Dispatchers.setMain(StandardTestDispatcher())
+        Dispatchers.setMain(UnconfinedTestDispatcher())
         val koin = koinApplication {
             modules(
                 module {
@@ -715,7 +729,7 @@ class KoinModulesVerificationTest {
      */
     @Test
     fun thePrescriptionShareViewModelResolvesAtRuntime() {
-        Dispatchers.setMain(StandardTestDispatcher())
+        Dispatchers.setMain(UnconfinedTestDispatcher())
         val koin = koinApplication {
             modules(
                 module {
@@ -778,7 +792,7 @@ class KoinModulesVerificationTest {
      */
     @Test
     fun thePlanExportViewModelResolvesAtRuntime() {
-        Dispatchers.setMain(StandardTestDispatcher())
+        Dispatchers.setMain(UnconfinedTestDispatcher())
         val koin = koinApplication {
             modules(
                 module {
@@ -961,7 +975,7 @@ class KoinModulesVerificationTest {
      */
     @Test
     fun theProgressViewModelResolvesAtRuntime() {
-        Dispatchers.setMain(StandardTestDispatcher())
+        Dispatchers.setMain(UnconfinedTestDispatcher())
         val koin = koinApplication {
             modules(
                 module {
