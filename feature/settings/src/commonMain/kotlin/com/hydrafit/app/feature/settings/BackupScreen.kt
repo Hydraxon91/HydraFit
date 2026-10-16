@@ -29,6 +29,8 @@ import hydrafit.feature.settings.generated.resources.settings_backup_error_too_l
 import hydrafit.feature.settings.generated.resources.settings_backup_error_unknown_catalog
 import hydrafit.feature.settings.generated.resources.settings_backup_error_unsupported_version
 import hydrafit.feature.settings.generated.resources.settings_backup_exported
+import hydrafit.feature.settings.generated.resources.settings_backup_history_csv_description
+import hydrafit.feature.settings.generated.resources.settings_backup_history_csv_exported
 import hydrafit.feature.settings.generated.resources.settings_backup_preview_body
 import hydrafit.feature.settings.generated.resources.settings_backup_preview_title
 import hydrafit.feature.settings.generated.resources.settings_backup_restored
@@ -55,7 +57,12 @@ fun BackupRoute(modifier: Modifier = Modifier, viewModel: BackupViewModel = koin
                 isSupported = state.isSupported,
                 busy = state.inProgress,
                 onExportTo = viewModel::export,
+                onExportCsvTo = viewModel::exportCsv,
                 onImportFrom = viewModel::`import`
+            )
+            Text(
+                text = stringResource(Res.string.settings_backup_history_csv_description),
+                style = MaterialTheme.typography.bodySmall
             )
         } else {
             Text(
@@ -66,6 +73,9 @@ fun BackupRoute(modifier: Modifier = Modifier, viewModel: BackupViewModel = koin
         state.status?.let { status ->
             val message = when (status) {
                 BackupStatus.Exported -> stringResource(Res.string.settings_backup_exported)
+                BackupStatus.HistoryCsvExported ->
+                    stringResource(Res.string.settings_backup_history_csv_exported)
+
                 BackupStatus.RestoreStaged -> stringResource(Res.string.settings_backup_restored)
                 is BackupStatus.Failed -> stringResource(status.failure.messageResource())
             }
