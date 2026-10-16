@@ -1156,8 +1156,9 @@ persistence:
   id, a warm-up flag, an RIR value or an exercise mapping, and a value it cannot represent becomes a
   typed row diagnostic instead of fabricated data.
 - **Preview** (`transfer/PreviewWorkoutImport`) resolves those records into an approved plan: explicit
-  exercise mapping and load interpretation, explicit UTC offsets and same-day session membership,
-  explicit exclusion of rejected rows, and a disclosure acknowledgement before anything is written.
+  exercise mapping and load interpretation, explicit UTC offsets and same-day session membership
+  (editable drafts that may split one source bucket into several sessions), explicit exclusion of
+  rejected rows, and a disclosure acknowledgement before anything is written.
   It reports blocking problems separately from non-blocking notices, so an already-imported source is
   skipped visibly (including when its imported session was deleted locally) instead of silently.
 - **Commit** (`:core:database` `SqlDelightWorkoutImportRepository`) writes the whole approved plan in
@@ -1166,14 +1167,20 @@ persistence:
   at preview time, freezing the approved attribution against later catalog edits. Imported sets carry
   `CATCH_UP` timing provenance and no occurrence or plan attribution.
 
-Repeat-import protection is a durable ledger (`workoutImportProvenance`) keyed by provider plus a
-candidate key for the source workout, with the canonical content of the rows that produced it. A
-changed or ambiguous match blocks that session; an unchanged one is skipped; and the ledger row
-deliberately survives local deletion of the imported history, so re-importing the same export cannot
-resurrect a session the user removed. The ledger travels through backup/restore as format 15 and is
-gated in both directions, because a file that omits it would otherwise re-import everything. See
-`docs/architecture.md` §1.9 for the additive-migration rule and `backup.md` in the mechanics skill for
-the format detail.
+Repeat-import protection is a durable ledger, not a file hash. A **bucket** is one provider/civil-date/
+source-title group; its identity is the canonical content of every row in the group. The user's
+approved **partition** of that bucket records, by row position, which positions form each session and
+which are explicitly excluded. Membership — not content — is the identity, so one bucket can be split
+into two sessions that even carry identical content, which a per-session key could not express; a
+provider without a title (FitNotes) therefore has one split-able bucket per date instead of a forced
+single session. `workoutImportBucket`/`workoutImportBucketSession` store that ledger, and its session
+links, like the legacy `workoutImportProvenance` rows, deliberately survive local deletion of the
+imported history so re-importing the same export cannot resurrect a session the user removed. A
+changed bucket or a changed approved partition blocks the whole import; a legacy-imported bucket stays
+matched against its provenance row and may not be repartitioned. Both ledgers travel through
+backup/restore (formats 15 and 16) and are gated in both directions, because a file that omits them
+would otherwise re-import everything. See `docs/architecture.md` §1.9 for the additive-migration rule
+and `backup.md` in the mechanics skill for the format detail.
 
 ### 1.22 Plan and routine interchange (0.9.2-S1/S2)
 

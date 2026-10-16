@@ -640,14 +640,14 @@ fails there instead of on device.
 `exerciseCatalog: ExerciseCatalog`, `sessionRepository: WorkoutSessionRepository`) reads a chosen
 file through the existing `BackupFileStore` port — no platform port or manifest change — parses it
 with `WorkoutCsvParser.parse` for the selected `WorkoutCsvSource`, and loads
-`ExerciseCatalog.all()`/`profileCandidates()`, `WorkoutImportRepository.provenance` and
+`ExerciseCatalog.all()`/`profileCandidates()`, `WorkoutImportRepository.provenance`/`.buckets` and
 `WorkoutSessionRepository.all()` once per read. `isSupported == false` (iOS) returns before any read
 or write and the route shows an unsupported note. `WorkoutImportUiState` holds `isSupported`,
 `inProgress`, `provider` (default `FITNOTES`) and a `phase` of `Idle` /
 `Reviewing(WorkoutImportReview)` / `Imported(WorkoutImportResult)` / `Failed(WorkoutImportFailure)`.
 The preview is derived state: every choice change recomputes
-`PreviewWorkoutImport.build(parsed, choices, catalog, provenance, existingSessions)` from the cached
-parsed rows, so the shown `problems`/`notices`/`canImport` are never stale. `canImport` mirrors
+`PreviewWorkoutImport.build(parsed, choices, catalog, provenance, existingSessions, buckets)` from the
+cached parsed rows, so the shown `problems`/`notices`/`canImport` are never stale. `canImport` mirrors
 `WorkoutImportPreview.canImport`.
 
 Rejected (unparseable) rows are **not** auto-excluded: they start outside `excludedRows`, so
@@ -659,10 +659,14 @@ reflect only included rows. Initial mappings come from `CatalogProfileMatcher.ma
 while `Ambiguous`/`Unmatched` preselect nothing and block via `MISSING_EXERCISE`. No fuzzy matching,
 no custom-exercise creation and no automatic pick among ambiguous candidates. Changing
 `loadKind`/`useSourceWeight` resets `confirmedLoadMeaning`, because the recorded number's meaning
-changed. Session drafts are one per source workout: grouped by `(civil day, workoutTitle)`, so two
-distinct same-day source workouts stay separate and a session never mixes titles (the domain preview
-rejects a mixed group). A titleless provider (FitNotes) has no workout identity, so its rows for one
-date are one draft and the UI discloses that. Drafts default to `utcOffsetMinutes = 0` shown
+changed. Session drafts are editable: the view model keeps a draft id per row (`rowDrafts`) so every
+included row belongs to exactly one draft, and `setRowSession(rowIndex, draftId)` moves a row into an
+existing draft of its bucket or, with `null`, into a new one; an emptied draft is pruned. A bucket is
+one `(civil day, workoutTitle)` group, so two distinct same-day source workouts stay separate and a
+session never mixes buckets (the domain preview rejects a mixed group). A titleless provider
+(FitNotes) has one bucket per date; its rows start as one draft and the user may split them, which is
+why `SessionDraftUi` carries `ordinal` and `split` and every included row carries `sessionOptions`.
+Drafts default to `utcOffsetMinutes = 0` shown
 explicitly, `confirmedSession`/`confirmedInferredSetTimes = false` and
 `dateOnlySecondOfDay = null`; `confirmSession` sets both confirm flags together. `acknowledge*`
 set the metadata and history acknowledgements the preview requires.
@@ -683,7 +687,8 @@ rows shown as an explicit-exclude list.
 `WorkoutImportRoute`/`WorkoutImportScreen` (`WorkoutImportScreen.kt`) mount beside `BackupRoute()` in
 `SettingsScreen` and render the provider chooser, the `WorkoutImportSection` expect/actual file
 button (Android `ActivityResultContracts.OpenDocument()` for `text/csv`,
-`text/comma-separated-values`, `text/plain`, `*/*`; iOS no picker), the review rows, mapping and
+`text/comma-separated-values`, `text/plain`, `*/*`; iOS no picker), the review rows (each included
+row carries a session selector that moves it into another draft or a new one), mapping and
 session editors, the acknowledgement checkboxes, notices and blocking problems, and an Import button
 enabled only when `canImport && !inProgress`. `WorkoutImportTestTags` exposes
 `workout_import_provider_fitnotes`/`_strong`/`_hevy`, `workout_import_choose_file`,

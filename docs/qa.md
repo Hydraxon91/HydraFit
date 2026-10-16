@@ -2522,6 +2522,53 @@ final state is user-reported, not independently verified. Findings inform the 0.
   deferred 0.13.x explanation-presentation polish and the named OF-03 verification limits are
   unchanged.
 
+## 0.9.1 session-split ledger checkpoint (2026-10-16; not release acceptance)
+
+- Scope: the post-execution review's PE-03 ("ambiguous same-day sessions cannot be split"). The old
+  per-session provenance keyed `(source, candidateKey, content)` collapsed two legitimately distinct
+  same-day sessions that carried identical content, so a titleless provider (FitNotes) could never be
+  split. Replaced with a bucket/partition ledger plus editable session drafts. Main agent owned the
+  domain/persistence/migration/wiring slices; no delegation.
+- Domain: `PreviewWorkoutImport` now resolves each provider/date/title bucket's complete content and the
+  user's approved partition of row positions into sessions (and explicit exclusions), so membership,
+  not content, is the identity. New `WorkoutImportPartitionTest` covers repeated identical rows,
+  exclusion positions, selection order and the exactly-once invariant; `PreviewWorkoutImportTest` was
+  updated so two identical rows split into two sessions are importable and a merged bucket differs from
+  a split one. Legacy provenance still matches a single-session bucket and blocks repartitioning one.
+- Database: `51.sqm` adds `workoutImportBucket`/`workoutImportBucketSession` (schema version 52) with no
+  foreign key to `workoutSession`, so a link survives local deletion like provenance does.
+  `SqlDelightWorkoutImportRepository.commit` re-reads both ledgers inside the transaction and refuses
+  the whole commit when the stored bucket content or approved partition changed. New
+  `WorkoutImportBucketMigrationTest` (1→51→52, existing rows and provenance preserved, fresh schema) and
+  two new repository tests (a split bucket commits two identical sessions and skips both on repeat; a
+  changed partition refuses with no partial history).
+- Backup: format 16 adds `importBuckets`, gated in both directions; `recordCount` counts each bucket plus
+  its links; restore whole-replaces both ledgers. New `WorkoutImportBucketBackupTest` round-trips a split
+  bucket including a link whose session was deleted and confirms restore replaces rather than merges.
+- UI: `WorkoutImportViewModel` keeps a draft id per row and exposes `setRowSession(rowIndex, draftId?)`,
+  so a bucket can be split and rejoined; an emptied draft is pruned and re-including a row returns it to
+  a draft. `WorkoutImportScreen` adds a per-row session selector ("Session N" / "New session"). Two new
+  `WorkoutImportViewModelTest` cases cover the split/rejoin and that a split bucket commits two sessions
+  and one bucket. Two schema-version assertions were updated 51→52.
+- Matrix (`bucket-matrix-2.log`, `bucket-ios.log`): **2,214 host tests in 249 classes, 0 failures, 0
+  errors, 0 skipped** as read from the module result XML, with `:core:database:verifySqlDelightMigration`,
+  `ktlintCheck` (after fixing the new code's style violations), `:androidApp:assembleDebug` and the
+  `:shared:`/`:core:network:`/`:core:database:`/`:feature:settings:` iOS simulator compiles green.
+- Bounded emulator regression check (`ui-runner`, debug APK installed with `adb install -r`, data
+  preserved): `.maestro/settings-workout-import.yaml` ran once and **failed at its 7th command**,
+  `assertVisible "Export provider"`, because `scrollUntilVisible "Import workout history"` now stops with
+  the provider row just below the fold; a bounded follow-up inspection confirmed `Export provider`,
+  `workout_import_provider_fitnotes` (selected), `_strong`, `_hevy` and `workout_import_choose_file` are
+  all present with no `workout_import_apply`/`_summary`, and the captured logcat had no
+  `FATAL EXCEPTION`. The failure is a stale scroll target in the checked-in flow (the Settings layout
+  grew under 0.9.2), not a split-change regression: this change touches no idle-section copy. It is
+  recorded as an open flow-maintenance item rather than edited here, and the flow is not counted as a
+  green pass. The flow's declared `permissions: all unset` launch revoked several runtime permission
+  flags as designed; no workout data, provider selection or app data was written.
+- Not verified by any check here: the split editor itself on a device (the review screen is behind a
+  file pick, so the read-only flow never reaches it), a real SAF import journey, and iOS runtime
+  behavior. PE-01, PE-02 and PE-04 from the same review remain open and are recorded in `PLANS.md`.
+
 ## 0.9.2 interchange and export checkpoint (2026-10-16; not release acceptance)
 
 - Scope: S1 (versioned prescription document + export), S2 (routine import preview + transactional

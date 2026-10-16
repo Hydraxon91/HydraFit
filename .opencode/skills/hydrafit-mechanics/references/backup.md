@@ -3,8 +3,10 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 15), restored by whole replacement.
-The reader accepts versions 1–15; version 1 defaults the guided-workout preference to off.
+Logical, versioned JSON (`format` + `formatVersion` 16), restored by whole replacement.
+The reader accepts versions 1–16; version 1 defaults the guided-workout preference to off.
+Format 16 adds the bucket/partition import ledger `importBuckets`; versions 1–15 restore with the
+legacy provenance section only and cannot carry a split bucket.
 Format 15 adds the local workout-import provenance ledger; versions 1–14 restore with no
 import history and cannot carry the section. Format 14 requires `equipmentProfiles` and
 `activeEquipmentProfileId`, including every profile's
@@ -51,7 +53,7 @@ Formats 5–10 carry one global rest duration and optional per-exercise override
 default to a 120-second global duration with no overrides. Countdown state is deliberately
 excluded and cleared during restore. Formats 4–10 require per-set timing provenance and explicit nullable elapsed fields; format 3 requires
 and preserves timing provenance while elapsed fields default to null; formats 1–2 default timing
-provenance to `UNKNOWN` and elapsed fields to null. Exports use version 15.
+provenance to `UNKNOWN` and elapsed fields to null. Exports use version 16.
 Format 10 requires its session-note section. Unknown fields remain rejected.
 Domain `backup/` owns the payload records, the kotlinx-serialization codec, the
 validator, the limits and the export/preview/stage/apply use cases (bound in
@@ -189,42 +191,55 @@ failures raise a typed `WorkoutCsvException` under 32 MiB UTF-8, 250,000 data ro
 
 ## Local import preview, commit and provenance (0.9.1-I2/I3)
 
-`PreviewWorkoutImport.build(parsed, choices, catalog, provenance, existingSessions)` turns parsed rows
-into an approved plan and writes nothing. It requires an explicit `WorkoutImportChoices`: a mapping
+`PreviewWorkoutImport.build(parsed, choices, catalog, provenance, existingSessions, buckets)` turns
+parsed rows into an approved plan and writes nothing. It requires an explicit `WorkoutImportChoices`: a mapping
 and load kind per source exercise name, session membership plus the UTC offset for every row, the
 explicit exclusion of every rejected row, and acknowledgements for unsupported metadata and for the
 effects on history. An unresolved mapping, an unconfirmed session or load meaning, a date-only row
-without an explicit time, a source row assigned to no session or to two, an excluded-row set that
-does not match the file, and an overlap with an existing or newly-planned session all block the
-preview. `WorkoutLoadPolicy.validate` decides whether the chosen load kind may carry the resolved
-weight, so bodyweight work cannot silently keep a source number. Rows keep source order and identical
-legitimate sets stay distinct; `notices` carries non-blocking skips so the UI can disclose them.
+without an explicit time, a source row assigned to no session or to two, an empty session, a session
+that mixes source buckets, an excluded-row set that does not match the file, and an overlap with an
+existing or newly-planned session all block the preview. `WorkoutLoadPolicy.validate` decides whether
+the chosen load kind may carry the resolved weight, so bodyweight work cannot silently keep a source
+number. Rows keep source order and identical legitimate sets stay distinct; `notices` carries
+non-blocking skips so the UI can disclose them.
 
-Duplicate protection is a durable ledger, not a file hash: a candidate key identifies the source
-workout (provider, civil date and the source workout title when the export carries one) and the
-canonical content of its rows (length-prefixed fields, so null and empty never collide) identifies the
-observed version. One session is one source workout: a same-day group that mixes titles is
-`INVALID_SESSION_MEMBERSHIP`, so two legitimately distinct workouts on one date keep separate
-identities. An exact match is skipped; a candidate key with different content, or more than one exact
-match, blocks that session. Skipping is disclosed as `UNCHANGED_SOURCE_SKIPPED`, or as
-`REMOVED_HISTORY_SKIPPED` when the imported session no longer exists, so a locally deleted import is
-never resurrected and never silently ignored.
+Duplicate protection is a durable ledger, not a file hash. A **bucket** is one provider/civil-date/
+source-title group; its identity is the complete canonical content of every row in the group
+(length-prefixed fields, so null and empty never collide). The user's approved **partition** of that
+bucket is a canonical manifest of row **positions** (never CSV line numbers): which positions form
+each session and which are explicitly excluded. Membership, not content, is the identity, so one
+bucket may be split into two sessions that carry identical content — the case per-session provenance
+could not represent. A session in the preview is one editable draft; `PreviewWorkoutImport` never
+merges buckets or infers a split.
+
+Skipping and refusal are decided per bucket, matched against the stored buckets (and, for a bucket
+imported before the bucket tables existed, against the legacy provenance rows): an exact bucket and
+partition match is skipped, a bucket whose content or approved partition no longer matches blocks the
+whole preview, and a legacy-imported bucket may not be repartitioned. Skipping is disclosed as
+`UNCHANGED_SOURCE_SKIPPED`, or as `REMOVED_HISTORY_SKIPPED` when the imported session no longer
+exists, so a locally deleted import is never resurrected and never silently ignored.
 
 `SqlDelightWorkoutImportRepository.commit(preview)` writes the approved sessions in one transaction:
 each session is inserted already closed with a fresh identity and `localEpochDay`, and each set is
 stored with `workoutSet.involvements` frozen to the resolved exercise's `effectiveInvolvements`,
 `timingProvenance = CATCH_UP`, and no occurrence, plan, week/cycle, day-index or RIR attribution.
-Before each session it re-reads the ledger inside the transaction and refuses the whole commit
-(`SOURCE_CHANGED`) if another writer recorded that source with different content in the meantime, so a
-refused commit leaves no partial history; a source that is already recorded unchanged is skipped, not
-refused. `NOTHING_TO_IMPORT` covers an empty plan.
+Before writing it re-reads the stored buckets and legacy provenance inside the transaction and
+refuses the whole commit (`SOURCE_CHANGED`) if the bucket content or the approved partition changed
+since the preview, so a refused commit leaves no partial history; a bucket that is already recorded
+unchanged is skipped, not refused. `NOTHING_TO_IMPORT` covers an empty plan.
 
-Backup format 15 adds `importProvenance` (`source`, `candidateKey`, `content`, `importedSessionId`).
-`recordCount` counts each record; export reads the ledger inside the same snapshot transaction, and
-restore whole-replaces it with the other user-owned sections. Validation rejects the section in any
-pre-15 file, rejects an unknown provider, an empty key/content/session field and a duplicate
-`(source, candidateKey, content)`, and accepts a record whose imported session is absent — that is the
-deleted-history guard, not a dangling reference. `BackupJson` requires the section from format 15 on
-while ignoring the key for older versions, matching the both-directions gate used by the note
-sections. Read-only device verification of any of this remains pending; `docs/qa.md` records the host
-and emulator evidence actually gathered.
+Backup format 15 adds `importProvenance` (`source`, `candidateKey`, `content`, `importedSessionId`),
+the legacy single-session ledger. `recordCount` counts each record; export reads the ledger inside the
+same snapshot transaction, and restore whole-replaces it with the other user-owned sections.
+Validation rejects the section in any pre-15 file, rejects an unknown provider, an empty
+key/content/session field and a duplicate `(source, candidateKey, content)`, and accepts a record
+whose imported session is absent — that is the deleted-history guard, not a dangling reference.
+
+Backup format 16 adds `importBuckets` (`source`, `candidateKey`, `content`, `partition`,
+`importedSessionIds`), the bucket/partition ledger. It is gated the same way: a pre-16 file must not
+carry it, and an unknown provider, an empty key/content/partition field, an empty or duplicate session
+id, or two buckets with the same `(source, candidateKey)` fail validation. `recordCount` counts each
+bucket plus each link. `BackupJson` requires each section from its introducing format on while
+ignoring the key for older versions, matching the both-directions gate used by the note sections.
+Read-only device verification of any of this remains pending; `docs/qa.md` records the host and
+emulator evidence actually gathered.
