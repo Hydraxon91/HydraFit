@@ -33,7 +33,7 @@ The app currently uses standard Material 3 styling. Screenshots and a fuller des
 
 - Edit built-in exercises or add your own, including equipment, movement patterns and muscle involvement (tier shortcuts or an exact 0–1 value).
 - Back up and restore your data locally. Core planning and logging work offline; AI options are not required.
-- View a per-muscle fatigue heatmap, a schematic front/back Body map of what you trained in the last seven days (working-set counts, estimated involvement credits and last-trained dates), and explanations of planned direct and estimated indirect arm work. The fatigue index is a planning estimate, not a measurement of recovery or readiness.
+- View a per-muscle fatigue heatmap and an offline anatomical Body map with Male/Female and Front/Back choices. See performed coverage alongside it (seven-day working-set counts, estimated involvement credits and last-trained dates), and explanations of planned direct and estimated indirect arm work. Body regions and softened colour boundaries are schematic; the fatigue index is a planning estimate, not a measurement of recovery or readiness.
 
 ## Download and build
 
@@ -105,6 +105,12 @@ I develop this project with substantial help from an AI coding agent, [OpenCode]
 ## Credits
 
 Built by [Hydraxon](https://github.com/Hydraxon91/HydraFit).
+
+The anatomical body-map artwork is adapted from [MuscleMap](https://github.com/melihcolpan/MuscleMap)
+by Melih Colpan and [react-native-body-highlighter](https://github.com/HichamELBSI/react-native-body-highlighter)
+by ELABBASSI Hicham, both MIT-licensed. Both notices are bundled with the artwork in
+[`LICENSES.txt`](feature/fatigueheatmap/src/commonMain/composeResources/files/bodymap/LICENSES.txt).
+Muscle boundaries are schematic; colours represent estimated fatigue, not measured physiology.
 
 Exercise catalog metadata (names, muscle targets, equipment, mechanics) is derived from [yuhonas/free-exercise-db](https://github.com/yuhonas/free-exercise-db) (Unlicense, public domain), with muscle classification cross-checked against [ExRx.net](https://exrx.net) facts. The per-muscle involvement weights are HydraFit model parameters calibrated against the following surface-EMG systematic reviews (cited as sources of facts; no text or figures reproduced):
 

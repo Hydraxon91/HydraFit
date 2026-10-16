@@ -517,6 +517,12 @@ Verification-only closure does not require an otherwise empty APK release.
 - End-to-end integration, regression/upgrade/backup checks and resolution of
   remaining pre-1.0 quality findings, performance budgets and verification debt.
 - Final documentation, license/attribution and supported-device/limitation pass.
+- **Body-map carry-overs from 0.9.2 (presentation and verification only).** Confirm that no muscle
+  region is fully occluded by later-drawn artwork pieces (the 0.9.2 coverage test proves a non-empty
+  region, not visibility after paint order), and pin the shoulder/rhomboid partition side assignment
+  in a test. Re-check the map under dark/light, text scale, locale and screen-reader traversal and
+  with a deliberate low/mid/high value spread, including isolated non-zero colouring of the separated
+  shoulder, upper-back and hip regions. No fatigue/planner, catalog, schema or dependency change.
 
 Gate: complete user journeys remain usable and verified after polish, and UX-01 stays
 coherent across cover, unfolded and rotated large-screen states. UX,

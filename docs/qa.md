@@ -959,18 +959,43 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   - Result: `:feature:fatigueheatmap:testAndroidHostTest` 41 tests and
     `:feature:settings:testAndroidHostTest` 63 tests, zero failures; root `ktlintCheck` and
     `:androidApp:assembleDebug` green.
-- **Pending:** full release integration matrix (all host tests, `verifySqlDelightMigration`,
-  `ktlintCheck`, `:androidApp:assembleDebug` with `lintVitalRelease`, and both shared/network iOS
-  compiles); zero/mid/high synthetic-score visual fixtures, explicit log/edit/delete/recovery/resume
-  map-refresh journeys, font scaling, dark theme, locale, TalkBack traversal and
-  numeric-description scrolling acceptance. Existing ViewModel/palette tests remain green but do not
-  replace those device checks. The new hip and shoulder/back boundaries are user-approved schematic
-  design, not independently validated anatomical measurements. A bounded post-execution review on
-  2026-10-16 returned **[INCOMPLETE]** with three follow-ups, all resolved the same day: BM-01
-  (finished-geometry coverage) and BM-02 (retained-figure loading behaviour) by the host tests above,
-  and BM-03 (this record's accuracy) by the corrections in this section. The gated host tests do not
-  cover isolated nonzero-colour rendering of the partitioned shoulder/back and hip regions; that
-  still rests on the loaded emulator figures and the user's manual check.
+- **Acknowledgements artwork credits (2026-10-16).** Two credit lines were added to the Settings
+  Acknowledgements screen: `Melih Colpan (MuscleMap, MIT) — anatomical body-map artwork` and
+  `ELABBASSI Hicham (react-native-body-highlighter, MIT) — body-map artwork paths`. Each of those two
+  lines now ends with a tappable link to its GitHub source
+  (`github.com/melihcolpan/MuscleMap`, `github.com/HichamELBSI/react-native-body-highlighter`) via
+  `LinkAnnotation.Url`; no new translatable string was introduced and the separate repository-link
+  button is unchanged. Evidence: both strings are present in the packaged resources of the installed
+  debug APK
+  (`assets/composeResources/hydrafit.feature.settings.generated.resources/values/strings.commonMain.cvr`),
+  `:feature:settings:testAndroidHostTest` 63 tests with zero failures, root `ktlintCheck` and
+  `:androidApp:assembleDebug` green; the user confirmed on `emulator-5554` that the credit lines are
+  present and that the two links render and open their GitHub source. Limits: no automated flow covers
+  this screen, so the link behaviour rests on that manual check; the other credit lines are untouched.
+- **Limit — what the coverage tests do not prove.** `FinalArtworkCoverageTest` asserts a non-empty region
+  per muscle in every model/view, not visibility after paint order, so a region fully covered by a
+  later-drawn piece would still pass; it also does not pin which side of the shoulder/rhomboid partition
+  maps to which muscle (`AnatomicalArtworkTest` pins the outer-side selection itself, not its
+  assignment). Neither is an observed defect — the partitions and any overlap are judged from the loaded
+  emulator figures and the user's manual check.
+- **Release integration matrix (2026-10-16, final candidate).** `testAndroidHostTest` across 15 modules
+  (254 classes, 2,246 tests, zero failures, errors or skips), `:core:database:verifySqlDelightMigration`,
+  root `ktlintCheck`, `:androidApp:assembleDebug`, `:androidApp:lintVitalRelease` and both the
+  `:shared:` and `:core:network:` `compileKotlinIosSimulatorArm64` compiles — all green
+  (`bm-r092-matrix.log`). It ran on the uncommitted working tree; the release commits carry it unchanged.
+- **Deferred to the 0.13.x UX pass (user decision, 2026-10-16).** Zero/mid/high synthetic-score visual
+  fixtures, explicit log/edit/delete/recovery/resume map-refresh journeys, font scaling, dark theme,
+  locale, TalkBack traversal, numeric-description scrolling and isolated non-zero-colour rendering of
+  the partitioned shoulder/back and hip regions are **not** device-verified for this release; they are
+  waived into the 0.13.x UX pass and stated as unverified in `docs/release-notes/v0.9.2.md`. Existing
+  ViewModel/palette tests remain green but do not replace those device checks. The new hip and
+  shoulder/back boundaries are user-approved schematic design, not independently validated anatomical
+  measurements. A bounded post-execution review on 2026-10-16 returned **[INCOMPLETE]** with three
+  follow-ups, all resolved the same day: BM-01 (finished-geometry coverage) and BM-02 (retained-figure
+  loading behaviour) by the host tests above, and BM-03 (this record's accuracy) by the corrections in
+  this section. A later full-range re-review of the same tree returned **APPROVED WITH FINDINGS**; its
+  documentation corrections, the acknowledgements credits and the recorded test limits are in this
+  section, and the two coverage limits are carried into the 0.13.x plan.
 
 ## 8. Personal records
 - Add a manual PR; clear it; it seeds suggested weights on the next plan.
