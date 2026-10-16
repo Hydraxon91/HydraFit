@@ -104,6 +104,18 @@ permissions:
   - action: shell
     resource: "sed *"
     effect: allow
+  - action: shell
+    resource: "sed -i*"
+    effect: deny
+  - action: shell
+    resource: "sed --in-place*"
+    effect: deny
+  - action: shell
+    resource: "tr *"
+    effect: allow
+  - action: shell
+    resource: ": *"
+    effect: allow
   - action: read
     resource: "*.env"
     effect: ask
