@@ -912,6 +912,44 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   Catalog inclusion is not clinical endorsement; manual neck resistance is not measured kg and
   the forehead bridge's cervical loading has no individualized safety assessment here.
 
+### MR-01 fix and retained-data emulator acceptance — 2026-10-16
+
+- **MR-01 (approved post-execution review finding):** `LEG_ISOLATION` in
+  `MovementPatternGuardrail.expectedMusclesFor` now also accepts `TIBIALIS_ANTERIOR` and
+  `HIP_FLEXORS`, so a tibialis- or hip-flexor-led custom leg isolation no longer shows the
+  pattern-mismatch advisory; a profile with no expected leg group at or above the 0.7 primary
+  threshold still warns. `MovementPatternGuardrailTest` covers both new groups, an unrelated
+  pattern and an unrelated muscle. Rationale and scope are in
+  [catalog sources](exercise-catalog-sources.md#three-muscle-expansion--2026-10-16).
+- **Passed (host):** `:core:domain:testAndroidHostTest`, `:feature:equipment:testAndroidHostTest`,
+  `ktlintCheck` and `:androidApp:assembleDebug`; bounded run `BUILD SUCCESSFUL`. Log:
+  `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/mr01-verification.log`.
+- **Emulator acceptance** (emulator-5554, debug `0.7.6-dev-6ecbbbf8-dirty`): read-only navigation
+  plus one user-approved retained synthetic record. The emulator now holds a synthetic custom
+  exercise `TEST ONLY All 24 Muscles` (manual-only, `BODYWEIGHT_ONLY`, all 24 groups at Low 0.3)
+  with 15 logged 10-rep working sets in one open session. These are deliberately artificial test
+  records, retained at the user's request; they are not realistic exercise mechanics.
+  - Fatigue coverage reads nonzero for all 24 groups: 20 groups at 45.6% (15 sets), `Abs` 9.6%,
+    `Hamstrings` 11.8%, `Quads`/`Glutes` 15.9% (the latter four also carry pre-existing emulator
+    sets). All four body-map views render the musculature tinted, including the new tibialis
+    anterior (anterior shin), serratus anterior (lateral ribcage) and hip flexors (front hip)
+    regions in both front models. The 45.6% value matches the fatigue model's diminishing-return
+    prediction for 15 sets at 0.3 involvement.
+  - All six manual shrug/neck exercises are selectable in the catalog with the expected
+    equipment/muscle labels. Self-Resisted Neck Lateral Flexion shows pattern "Neck isolation
+    (manual only)", `Neck · Primary`, "Bodyweight" selected with "External weight" unchecked and
+    unilateral on; the Logger shows no kg field for Forehead Neck Bridge.
+  - MR-01 in the editor: with Leg isolation and no leg-primary muscle the advisory is shown;
+    setting Tibialis anterior to Primary removes it. The built-in was dismissed without saving.
+- **Observed, out of scope, not fixed:** the Logger renders an inert "Add weight" button for
+  `BODYWEIGHT_ONLY` exercises (`WorkoutLoggerUiState.showWeightField` is false for that
+  capability while `WorkoutLoggerViewModel.onRevealWeight` early-returns unless the capability is
+  `BODYWEIGHT_ADDABLE`). Tapping it on the neck exercise did nothing. Pre-existing; no data impact
+  and no code change.
+- **Limits:** one emulator only; no phone access. Body-map coverage is a visual check backed by
+  the numeric coverage list, not a screenshot diff. Dark theme, larger text, locale, rotation and
+  TalkBack were not checked. No separate review of this fix was requested.
+
 ### Three-muscle expansion verification — 2026-10-16
 
 - Main-agent implementation based on `b5af19fb`; adds tibialis anterior, serratus anterior
