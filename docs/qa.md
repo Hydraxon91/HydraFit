@@ -2710,6 +2710,40 @@ final state is user-reported, not independently verified. Findings inform the 0.
   supported formats come from public examples and synthetic fixtures, not from a captured export or a
   device-verified schema.
 
+### 0.9.1 provider-layout evidence (F-01) — resolved 2026-10-16
+
+F-01 asked for stronger evidence before HydraFit advertises provider imports. Public sources were
+re-checked on 2026-10-16; the supported claims were narrowed to what those sources establish, and no
+parser was widened.
+
+- **Strong.** Two real layouts are attested. The **supported** one is the delimiter-`;` export that
+  carries an explicit `Weight Unit` column (`Date;Workout Name;Exercise Name;Set Order;Weight;
+  Weight Unit;Reps;…`). The **current native** export is comma-separated, adds a `Duration` column and
+  has **no `Weight Unit` column at all** (`Date,Workout Name,Duration,Exercise Name,Set Order,Weight,
+  Reps,Distance,Seconds,Notes,Workout Notes,RPE`; a real public sample is
+  `github.com/AlexandrosKyriakakis/StrongAppAnalytics`). Because Strong does not record the unit, that
+  layout cannot be read without guessing whether `Weight` is kg or lb (a ~2.2× error), so it is refused
+  as `UNSUPPORTED_HEADER` instead of imported. `strongRejectsTheUnitlessNativeExportInsteadOfGuessingItsUnit`
+  pins both that shape and the missing-`Weight Unit` requirement. Sources:
+  `help.strongapp.io/article/235-export-workout-data`,
+  `forum.intervals.icu/t/import-strong-data-weightlifting-app/5531`,
+  `github.com/smyrick/sugarwod-to-hevy` (`docs/STRONG_FORMAT.md`).
+- **FitNotes.** The Android app exports a backup and a CSV, but the CSV's column set is **not
+  documented publicly** (`fitnotesapp.com/settings/`,
+  `getfitnotes.com/docs/migrate-from-android.html`); only the separate iOS app documents an import
+  header, which does not prove the Android export. The supported layout therefore stays the
+  community-documented `Date,Exercise,Category,Weight (kg)|Weight (lbs),Reps` (plus optional
+  `Distance`,`Distance Unit`,`Time`), and the release notes claim no Android-version compatibility. A
+  header carrying other columns fails closed with `UNSUPPORTED_HEADER`.
+- **Hevy.** A published export example confirms the exact header and value shape HydraFit supports
+  (`title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_index,set_type,
+  weight_lbs|weight_kg,reps,distance_miles|distance_km,duration_seconds,rpe`, with `start_time` like
+  `28 Mar 2025, 17:29`): `blog.ayjc.net/posts/migrate-strong-hevy-app/`.
+- **Still not verified:** no capture from a real device or account was available, so per-provider and
+  per-version compatibility is not claimed. The remaining exposure is a vendor changing a layout, which
+  fails closed — a typed whole-file or per-row rejection with no write. Disposition recorded in
+  `PLANS.md`.
+
 ## 0.9.0 release verification (2026-10-15)
 
 - Candidate: branch `feature/0.9.0-equipment-profiles` → PR #19 → merged `main` at

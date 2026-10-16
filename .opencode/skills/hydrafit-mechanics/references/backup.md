@@ -115,7 +115,13 @@ version, the shared `PrescriptionBounds` per slot, valid movement/load/kind/focu
 `MUSCLE:weight` involvement keys for custom definitions, unique custom ids, and two internal
 reference rules: every declared custom definition must be referenced by some slot, and a weights-free
 document (`includesWeights = false`) may not carry a slot weight. Referenced identities are resolved
-by the importer, not by this validator, because only the receiver knows its own catalog.
+by the importer (`transfer/PreviewPrescriptionImport`), not by this validator, because only the receiver
+knows its own catalog. The preview reports reuse, creation, name collision, id collision and equipment
+gap, and never substitutes silently: a document definition whose id matches a local row is compared
+against it (an equivalent definition reuses the row; a different one is an `IdCollision` resolvable
+only by mapping), and accepting a missing-equipment gap is a **separate** decision
+(`PrescriptionImportChoices.acceptedEquipmentGaps`), so a definition can be created *and* its gap
+accepted in one import.
 
 `ExportPrescriptionsUseCase(routines: RoutineTemplateRepository, catalog: ExerciseCatalog)` reads only
 the chosen routine ids and the catalog rows they reference, so history, records, notes, credentials,
@@ -166,21 +172,24 @@ consuming ViewModel because it depends on the renderer's type sizes.
 restorable backup exists. `PlanExportViewModel.exportJson`/`printPdf` (Split Builder) and
 `PrescriptionShareViewModel` (Routines) follow the same shape: guard on `inProgress`, rethrow
 `CancellationException`, map typed failures, and never write before the user has chosen a document.
-The import review holds its decoded document, catalog, selected equipment and choices in the
-ViewModel, rebuilds the preview after every choice so it cannot go stale, and enables the commit only
-when `canImport`; a refused commit keeps the review with the failure attached.
+The import review holds its decoded document, catalog, selected equipment, per-identity choices and the
+independently tracked accepted equipment gaps in the ViewModel, rebuilds the preview after every
+choice so it cannot go stale, and enables the commit only when `canImport`; a refused commit keeps the
+review with the failure attached.
 
 ## Bounded workout CSV parsing (0.9.1-I1)
 
 `WorkoutCsvParser.parse(source, text)` in `core/domain/.../transfer/` is a pure parser:
 provider selection is explicit (`FITNOTES`, `STRONG`,
-`HEVY`), never sniffed. Three bounded shapes are supported from documented or synthetic
-examples rather than device verification: FitNotes comma
+`HEVY`), never sniffed. Three bounded shapes are supported, each narrowed to publicly attested
+variants rather than a device capture (`docs/qa.md`, "0.9.1 provider-layout evidence"): FitNotes comma
 (`Date,Exercise,Category,Weight (lbs)|Weight (kg),Reps` required, known optional
 `Distance`,`Distance Unit`,`Time`; `Date` as `yyyy-MM-dd`); Strong semicolon
 (`Date;Workout Name;Exercise Name;Weight;Weight Unit;Reps` required, known optional
 `Set Order`,`RPE`,`Distance`,`Distance Unit`,`Seconds`,`Notes`,`Workout Notes`,
-`Workout Duration`; `Date` as `yyyy-MM-dd HH:mm:ss`); and Hevy comma
+`Workout Duration`; `Date` as `yyyy-MM-dd HH:mm:ss`; the newer native Strong export is
+comma-separated, adds `Duration` and omits `Weight Unit` entirely, so it is refused rather
+than imported with a guessed unit); and Hevy comma
 (`title,start_time,exercise_title,reps` plus exactly one of `weight_lbs`/`weight_kg`
 required, known optional `end_time`,`description`,`superset_id`,`exercise_notes`,
 `set_index`,`set_type`, one of `distance_miles`/`distance_km`, `duration_seconds`,`rpe`;

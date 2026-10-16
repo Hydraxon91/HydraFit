@@ -138,9 +138,12 @@ plus the excluded positions); the child table links each partition ordinal to th
 created, and, like provenance, keeps those links after the session is deleted. This is what lets one
 source bucket be split into two sessions that may even have identical content, which per-session
 provenance cannot represent (its `(source, candidateKey, content)` uniqueness would collapse them).
-`SqlDelightWorkoutImportRepository` re-reads the stored bucket inside the commit transaction and
-refuses the whole commit when the approved partition or bucket content no longer matches, and still
-falls back to the legacy provenance rows for a bucket imported before this table existed.
+`SqlDelightWorkoutImportRepository` runs the whole commit under `withContext(Dispatchers.Default)`
+(write-path convention, as in `SqlDelightBackupStagingRepository`), re-reads the stored bucket and the
+current session bounds inside the transaction, and refuses the whole commit when the approved partition
+or bucket content no longer matches (`SOURCE_CHANGED`) or a planned session now overlaps existing or
+just-written history (`SESSION_OVERLAP`), and still falls back to the legacy provenance rows for a
+bucket imported before this table existed.
 `SqlDelightBackupRepository` exports and whole-replaces both ledgers with the rest of the user-owned
 data. `51.sqm` creates the two tables; current schema version is 52.
 

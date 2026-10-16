@@ -16,7 +16,7 @@
 | 0.8.0 — exercise progress: charts, descriptive records and workout-summary integration | SHIPPED — `v0.8.0` at `45e863a0` | Completed detail and publication evidence [archived](docs/plans-archive.md#2026-10-15-08x-cleanup); limits in `docs/qa.md`. |
 | 0.8.1–0.8.3 — catalog corrections, coverage/body map, body weight | SHIPPED — published 2026-10-15: `v0.8.1`, `v0.8.2`, `v0.8.3` (PR #16, merge `9e7150ef`) and corrective `v0.8.4` (PR #17, merge `6f517930`) | Contracts, chunk table and closure evidence [archived](docs/plans-archive.md#2026-10-15-08x-cleanup); review snapshots in `docs/review-0.8.1-snapshot.md`, `docs/review-0.8.2-snapshot.md` and `docs/review-0.8.3-snapshot.md`; publication evidence in `docs/qa.md` (0.8.x publication verification). **Resolved:** a stable release tag now derives `versionCode` (`major*1_000_000 + minor*10_000 + patch*100`), and the corrective `v0.8.4` (`versionCode=80400`) restores the upgrade path; the published `v0.8.1`–`v0.8.3` APKs keep their original codes. |
 | 0.9.0 — equipment profiles, per-profile loading setup and calculators | **PUBLISHED** 2026-10-15 as `v0.9.0` at `361cb20c` — review closed | Folded scope (former `0.9.0`–`0.9.2`). PR #19 → merge `361cb20c`; PR run `38799090309`, post-merge main run `38799639692` and Release run `38800131378` green. Local matrix: 2,061 host tests, `verifySqlDelightMigration`, `ktlintCheck`, debug assembly and both iOS compiles (`090-f1-integration.log`). Bounded read-only emulator acceptance passed (`equipment-profiles.yaml` 10/10, `logger-loading-calculator.yaml` 8/8); profile create/copy/rename/delete, loading-configuration editing and both calculator dialogs remain device-unverified, as do dark mode, larger text, locale, rotation and TalkBack. Independent review REJECTED on F1 (occurrence replacement validated against legacy equipment tables); user chose profile-as-single-authority, the fix shipped with a regression test, and targeted closure returned **F1 CLOSED / F2 resolved** (C-01 wording corrected). F3 (unrendered `equipment_calculator_section` string) remains a recorded nit. Artifact verified offline only: `versionName=0.9.0`, `versionCode=90000`, SHA-256 `cf9b3140…`, `apksigner` verified with the same certificate as prior releases. Notes at `docs/release-notes/v0.9.0.md`; evidence in `docs/qa.md`. |
-| 0.9.1–0.9.2 — workout imports, prescription interchange and exports | IN PROGRESS — both scopes implemented, verified, independently reviewed and their reviews closed; F-01/F-06 (0.9.1) and F2-04/F2-09 (0.9.2) remain open for the user; no publication | Single publication target `v0.9.1`; assigned scope `0.9.2` folds into `0.9.1`. See [batch plan](#091092--continuous-execution-plan). 0.9.1 landed on `feature/0.9.1-data-freedom` (`a568764f`…`ca9b19ce`): parsing, preview, transactional ledger, backup format 15 and the Settings import UI, with 2,152 host tests green, migration verification, ktlint, debug assembly, both iOS compiles and one bounded read-only emulator check; review APPROVED WITH FINDINGS, corrected, closure `docs/review-0.9.1-snapshot.md`. 0.9.2 landed on the same branch (`a296fa4b`…`f7ab7d0d`): prescription document/export, routine-import preview with a transactional append (no schema change), the binary document port with the Android PDF renderer, and the Routines/Split Builder/Settings surfaces; review REJECTED on F2-01/F2-02, corrected and closed at `df9bb92d` (`docs/review-0.9.2-snapshot.md`), nits `f7ab7d0d`. Final matrix 2,202 host tests in 246 classes with 0 failures, migration verification, ktlint, debug assembly and both iOS compiles green, and no emulator evidence for the 0.9.2 surfaces. A post-execution review of the final candidate returned REJECTED on PE-01..PE-05; PE-03 (no way to split same-day sessions) is fixed by the bucket/partition ledger (`51.sqm`, backup format 16) plus editable session drafts, PE-05 (a false "no migration" release-note claim) is corrected, and PE-01 (custom-id conflict detection), PE-02 (commit-time overlap revalidation) and PE-04 (PDF line wrapping) are implemented. Evidence and limits in `docs/qa.md`. **Open for the user:** F-01 (advertise three provider layouts without captured-export evidence, obtain fixtures, or de-advertise), F-06 (dispatcher hop for very large imports), F2-04 and F2-09. No publication started. |
+| 0.9.1–0.9.2 — workout imports, prescription interchange and exports | IN PROGRESS — both scopes implemented, verified and independently reviewed; every recorded finding (PE-01…PE-05, F-01, F-06, F2-04, F2-09) is resolved; awaiting the publication decision | Single publication target `v0.9.1`; assigned scope `0.9.2` folds into `0.9.1`. See [batch plan](#091092--continuous-execution-plan). 0.9.1 landed on `feature/0.9.1-data-freedom` (`a568764f`…`ca9b19ce`): parsing, preview, transactional ledger, backup format 15 and the Settings import UI, with 2,152 host tests green, migration verification, ktlint, debug assembly, both iOS compiles and one bounded read-only emulator check; review APPROVED WITH FINDINGS, corrected, closure `docs/review-0.9.1-snapshot.md`. 0.9.2 landed on the same branch (`a296fa4b`…`f7ab7d0d`): prescription document/export, routine-import preview with a transactional append (no schema change), the binary document port with the Android PDF renderer, and the Routines/Split Builder/Settings surfaces; review REJECTED on F2-01/F2-02, corrected and closed at `df9bb92d` (`docs/review-0.9.2-snapshot.md`), nits `f7ab7d0d`. Final matrix 2,202 host tests in 246 classes with 0 failures, migration verification, ktlint, debug assembly and both iOS compiles green, and no emulator evidence for the 0.9.2 surfaces. A post-execution review of the final candidate returned REJECTED on PE-01..PE-05; PE-03 (no way to split same-day sessions) is fixed by the bucket/partition ledger (`51.sqm`, backup format 16) plus editable session drafts, PE-05 (a false "no migration" release-note claim) is corrected, and PE-01 (custom-id conflict detection), PE-02 (commit-time overlap revalidation) and PE-04 (PDF line wrapping) are implemented. Evidence and limits in `docs/qa.md`. The remaining findings are now resolved: F-01 (narrow the provider-layout claims to the publicly evidenced variants), F-06 (run the import commit off the caller's dispatcher), F2-04 (accept an equipment gap together with creating the definition) and F2-09 (bind the unsupported iOS document store directly). No publication started. |
 | Release 0.2.0 | SHIPPED | `v0.2.0` signed release published; [history](docs/plans-archive.md#2026-10-09-completed-status-rows). Stale `v0.1.0` validation pre-release cleanup remains optional. |
 | Release 0.2.1 | SHIPPED | `v0.2.1`; [Q1–Q6 history](docs/plans-archive.md#2026-10-09-completed-status-rows). Q4e remains user-side, not shipped code; local AI remains experimental/non-functional, with optional M8 follow-up. |
 | Release 0.2.2 — code review & architecture | SHIPPED | `v0.2.2`; R0–RG/RF complete, CI green; [fix/commit history](docs/plans-archive.md#2026-10-09-completed-status-rows). |
@@ -879,7 +879,8 @@ is implemented, verified and independently reviewed on `feature/0.9.1-data-freed
 (`a568764f`…`ca9b19ce`): parsing, preview, transactional provenance ledger (`50.sqm`, backup format
 15) and the Settings import UI. The review verdict was APPROVED WITH FINDINGS: mechanical findings
 F-02/F-03/F-04 are corrected, F-05 is the status update you are reading, and F-01 (provider-layout
-evidence) and F-06 (commit dispatcher) remain open for the user.
+evidence) and F-06 (commit dispatcher) were resolved on 2026-10-16 (see the resolved evidence gate and
+`docs/qa.md`).
 
 0.9.2 was implemented and locally verified (`a296fa4b`…`a492408b`): S1 versioned prescription document
 and export, S2 routine-import preview with a transactional append (no schema change), S3 the binary
@@ -970,23 +971,24 @@ rewrite published releases or historical records. The planning baseline is clean
 - Android supports document/share operations. iOS receives compile coverage and explicit unsupported
   states where adapters are unavailable, consistent with existing backup support.
 
-#### Evidence gate — NEEDS-EVIDENCE
+#### Evidence gate — RESOLVED (F-01, 2026-10-16)
 
-**Still open (F-01 of the 0.9.1 review; user decision).** 0.9.1 ships the three layouts below as
-*documented-format* compatibility from public examples and synthetic fixtures, not from a captured
-export or a device-verified schema, and says so in `docs/qa.md`. A wrong assumption for a real export
-fails closed (typed whole-file or per-row rejection, no write). The user must choose: accept the
-disclosed risk for `v0.9.1`, obtain fixtures and adjust, or de-advertise a provider.
+**Resolved:** the user chose *obtain stronger public evidence and narrow the claims*. Public sources
+were re-checked on 2026-10-16 and each supported layout now names its source; the advertised claim is
+narrowed to those variants, and no compatibility with a current provider version or a specific device
+is asserted. The exact supported headers and the evidence are recorded in `docs/qa.md`
+("0.9.1 provider-layout evidence (F-01) — resolved 2026-10-16"). No parser was widened.
 
-No ANSWER-NOW policy choice remains open. Do not present exact migrations, backup-format versions,
-final write sets or verification tiers as settled while this gate is open.
+- **Strong:** the delimiter-`;` export with an explicit `Weight Unit` column is supported. The current
+  native comma export has no unit column at all and is refused as `UNSUPPORTED_HEADER`, because reading
+  it would require guessing kg versus lb (a ~2.2× load error).
+- **FitNotes:** the Android CSV column set is still not documented publicly, so no Android-version
+  compatibility is claimed; the community-documented `Date,Exercise,Category,Weight (…),Reps` shape
+  (plus optional `Distance`,`Distance Unit`,`Time`) is the supported one, and any other header fails
+  closed.
+- **Hevy:** the published export example matches the supported header and value shape exactly.
 
-| Evidence | Required resolution |
-| --- | --- |
-| FitNotes Android schema | Obtain an original synthetic/anonymized CSV header and representative rows. Official help confirms export but does not specify the schema; FitNotes iOS is a separate app and cannot prove Android compatibility. |
-| Strong variants | Obtain an original synthetic/anonymized CSV, source platform and chosen unit; establish supported timestamp, unit and set-marker semantics. Public evidence establishes a historical layout, not all current variants. |
-| Hevy kg variant | Obtain supplementary synthetic kg evidence; the inspected public example covers timezone-free lb records. |
-| Final persistence/platform boundaries | Finish targeted tracing against settled provider contracts, including provenance lifecycle, backup portability, concurrency and binary document/share wiring. |
+Any wrong assumption still fails closed (typed whole-file or per-row rejection, no write).
 
 Recommended fixture preparation: create a small synthetic workout in the actual apps with two
 exercises, repeated identical working sets and a warm-up. Where supported, add a second workout on
