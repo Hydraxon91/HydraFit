@@ -23,6 +23,7 @@ import com.hydrafit.app.core.domain.setup.SetupDisposition
 import com.hydrafit.app.core.domain.setup.SetupStep
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvSource
+import com.hydrafit.app.core.domain.transfer.WorkoutImportPartition
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
@@ -138,6 +139,14 @@ class BackupValidator(private val catalog: BackupCatalog) {
                 fail(BackupFailure.INVALID_VALUE)
             }
             if (bucket.importedSessionIds.distinct().size != bucket.importedSessionIds.size) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            // A manifest that cannot be read back, or whose session count disagrees with the links
+            // restored beside it, would be reused as if it were the approved partition. Refuse it here
+            // rather than let the import ledger carry a record it can never match again.
+            val partition = WorkoutImportPartition.decode(bucket.partition)
+                ?: fail(BackupFailure.INVALID_VALUE)
+            if (partition.sessions.size != bucket.importedSessionIds.size) {
                 fail(BackupFailure.INVALID_VALUE)
             }
         }

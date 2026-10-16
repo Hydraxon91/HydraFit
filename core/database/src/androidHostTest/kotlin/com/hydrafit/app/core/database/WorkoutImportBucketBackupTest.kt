@@ -3,6 +3,7 @@ package com.hydrafit.app.core.database
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.backup.BackupJson
 import com.hydrafit.app.core.domain.backup.BackupValidator
+import com.hydrafit.app.core.domain.transfer.WorkoutImportPartition
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -35,7 +36,14 @@ class WorkoutImportBucketBackupTest {
 
     @Test
     fun aSplitBucketRoundTripsIncludingALinkWhoseSessionWasDeleted() = runTest {
-        database.workoutImportBucketQueries.insertBucket("FITNOTES", "key-a", "content-a", "split")
+        val partition =
+            WorkoutImportPartition(2, listOf(listOf(0), listOf(1)), emptySet()).canonical()
+        database.workoutImportBucketQueries.insertBucket(
+            "FITNOTES",
+            "key-a",
+            "content-a",
+            partition
+        )
         database.workoutImportBucketQueries.insertLink("FITNOTES", "key-a", 0L, "session-a")
         database.workoutImportBucketQueries.insertLink("FITNOTES", "key-a", 1L, "deleted")
         val expected = backups.export("test", 1L)
