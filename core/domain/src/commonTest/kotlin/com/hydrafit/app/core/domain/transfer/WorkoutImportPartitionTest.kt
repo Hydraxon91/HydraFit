@@ -70,6 +70,9 @@ class WorkoutImportPartitionTest {
             // A truncated length prefix, a non-numeric one, and a wrong version marker.
             "12:workout-partition-v1",
             "x:",
+            // A prefix so large that adding it would overflow a signed Int must be malformed, not an
+            // exception: this is exactly what a hand-edited manifest can carry.
+            "2147483647:x",
             valid.dropLast(1),
             valid.replace("workout-partition-v1", "workout-partition-v2"),
             // An extra trailing field is not a manifest this build wrote.

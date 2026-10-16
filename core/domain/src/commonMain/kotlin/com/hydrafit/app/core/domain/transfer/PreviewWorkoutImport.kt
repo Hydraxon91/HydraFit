@@ -252,8 +252,10 @@ internal fun decodeCanonicalFields(encoded: String): List<String>? {
         if (lengthText.isEmpty() || lengthText.any { it !in '0'..'9' }) return null
         val length = lengthText.toIntOrNull() ?: return null
         val start = colon + 1
+        // Bound the length against the remaining text *before* adding, so an overflowing prefix such
+        // as "2147483647:" is malformed rather than wrapping into a negative index and throwing.
+        if (length > encoded.length - start) return null
         val end = start + length
-        if (end > encoded.length) return null
         fields += encoded.substring(start, end)
         index = end
     }
