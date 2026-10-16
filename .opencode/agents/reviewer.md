@@ -105,9 +105,10 @@ permissions:
     resource: "sed *"
     effect: allow
   # In-place edits are denied wherever the flag appears, not just as the first option, so a form such
-  # as `sed -E -i …` cannot ride the allow above. A sed script that merely contains "-i" also matches
-  # and will prompt: that direction is safe. The profile prose remains the primary read-only control
-  # (a sed `w` script can still write, which no pattern can express).
+  # as `sed -E -i …` cannot ride the allow above. A command whose text merely contains "-i" — a script
+  # or a path — matches too and is denied rather than prompted: that direction is safe, but it does
+  # mean such a command cannot run. The profile prose remains the primary read-only control (a sed `w`
+  # script can still write, which no pattern can express).
   - action: shell
     resource: "sed *-i*"
     effect: deny
@@ -146,6 +147,10 @@ permissions:
   - action: shell
     resource: "xxd *"
     effect: allow
+  # `xxd -r` is the one non-stdout form: it writes an output file.
+  - action: shell
+    resource: "xxd *-r*"
+    effect: deny
   # Wider read-only inspection set, same rule: stdout-only, no output-file or exec flag.
   - action: shell
     resource: "uniq *"
