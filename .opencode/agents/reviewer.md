@@ -104,11 +104,15 @@ permissions:
   - action: shell
     resource: "sed *"
     effect: allow
+  # In-place edits are denied wherever the flag appears, not just as the first option, so a form such
+  # as `sed -E -i …` cannot ride the allow above. A sed script that merely contains "-i" also matches
+  # and will prompt: that direction is safe. The profile prose remains the primary read-only control
+  # (a sed `w` script can still write, which no pattern can express).
   - action: shell
-    resource: "sed -i*"
+    resource: "sed *-i*"
     effect: deny
   - action: shell
-    resource: "sed --in-place*"
+    resource: "sed *--in-place*"
     effect: deny
   - action: shell
     resource: "tr *"
@@ -141,6 +145,49 @@ permissions:
     effect: allow
   - action: shell
     resource: "xxd *"
+    effect: allow
+  # Wider read-only inspection set, same rule: stdout-only, no output-file or exec flag.
+  - action: shell
+    resource: "uniq *"
+    effect: allow
+  - action: shell
+    resource: "nl *"
+    effect: allow
+  - action: shell
+    resource: "tac *"
+    effect: allow
+  - action: shell
+    resource: "comm *"
+    effect: allow
+  - action: shell
+    resource: "paste *"
+    effect: allow
+  - action: shell
+    resource: "fold *"
+    effect: allow
+  - action: shell
+    resource: "column *"
+    effect: allow
+  - action: shell
+    resource: "cksum *"
+    effect: allow
+  - action: shell
+    resource: "shasum *"
+    effect: allow
+  - action: shell
+    resource: "seq *"
+    effect: allow
+  - action: shell
+    resource: "date *"
+    effect: allow
+  - action: shell
+    resource: "printf *"
+    effect: allow
+  - action: shell
+    resource: "du *"
+    effect: allow
+  - action: shell
+    resource: "df *"
     effect: allow
   - action: read
     resource: "*.env"
