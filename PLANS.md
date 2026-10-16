@@ -1109,10 +1109,13 @@ need it and a feature-local copy would duplicate it.
   re-map each exercise and re-confirm the session and acknowledgements before the skip becomes
   visible, because those choices live only in the review's in-memory state. Storing them (or
   pre-filling them from the mapping used at the previous import) is a UX decision, not a defect.
-- **The device-evidence flows are untracked scratch.** The journeys behind `docs/qa.md`'s
-  "0.9.1 device journeys" section are `.maestro/hf-*.yaml`, left untracked and state-dependent
-  (a second run of the import journeys would skip instead of importing). Consolidating them into a
-  documented, repeatable regression flow needs its own scope.
+- **The device-evidence flows were scratch, and have been removed (2026-10-16).** The journeys behind
+  `docs/qa.md`'s "0.9.1 device journeys" section were throwaway `.maestro/hf-*.yaml` flows: they need a
+  hand-pushed CSV fixture and a specific emulator data state, and the import ones are not idempotent (a
+  second run skips instead of importing), so they are not usable regression flows. They were moved out
+  of the repository to `/private/var/…/T/opencode/hf-090-flows/` alongside the other device artifacts,
+  and the repository is clean. A documented, repeatable import regression flow — with a fixture step, a
+  cleanup contract and a `.maestro/README.md` row — remains a separate, unscoped piece of work.
 
 **Post-execution review findings PE-01/PE-02/PE-04 (implemented 2026-10-16):**
 
