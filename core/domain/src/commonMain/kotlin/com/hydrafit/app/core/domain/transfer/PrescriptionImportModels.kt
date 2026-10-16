@@ -10,7 +10,10 @@ import com.hydrafit.app.core.domain.routine.RoutineTemplate
  * `MAP_TO` points at an existing local exercise and `CREATE` accepts the document's own custom
  * definition under its own fresh local identity; an identity the receiving catalog already holds
  * needs no choice at all. Nothing is chosen automatically: the preview never overwrites a definition
- * by id or name and never silently substitutes equipment.
+ * by id or name and never silently substitutes equipment. Accepting a missing-equipment gap is a
+ * *separate* decision ([PrescriptionImportChoices.acceptedEquipmentGaps]) so it can combine with
+ * either choice — most importantly with `CREATE`, whose new definition may itself need equipment the
+ * active profile does not select.
  */
 sealed interface PrescriptionIdentityChoice {
     /** Point the slots at an existing local exercise instead. */
@@ -18,18 +21,20 @@ sealed interface PrescriptionIdentityChoice {
 
     /** Create the document's custom definition locally (never overwrites an existing row). */
     data object Create : PrescriptionIdentityChoice
-
-    /** Accept that the resolved exercise needs equipment this profile does not have. */
-    data object AcceptEquipmentGap : PrescriptionIdentityChoice
 }
 
 /**
  * The user's decisions for one import. Anything not decided blocks the import, so no mapping,
  * definition or equipment gap is resolved silently. Weights are the document's own recorded choice:
  * a weights-free document simply imports weights-free.
+ *
+ * [acceptedEquipmentGaps] holds the source exercise ids whose missing equipment the user accepted. It
+ * is independent of [identities], so a definition can be created and its equipment gap accepted in
+ * the same import.
  */
 data class PrescriptionImportChoices(
-    val identities: Map<String, PrescriptionIdentityChoice> = emptyMap()
+    val identities: Map<String, PrescriptionIdentityChoice> = emptyMap(),
+    val acceptedEquipmentGaps: Set<String> = emptySet()
 )
 
 /** How a source identity resolved against the receiving catalog and the document's definitions. */
@@ -84,7 +89,9 @@ data class PrescriptionIdentityOption(
     val usedByRoutineCount: Int,
     /** Equipment the resolved exercise needs that the active profile does not select. */
     val missingEquipment: Set<EquipmentTag>,
-    val choice: PrescriptionIdentityChoice?
+    val choice: PrescriptionIdentityChoice?,
+    /** Whether the user accepted [missingEquipment]; independent of [choice]. */
+    val acceptedEquipmentGap: Boolean
 )
 
 /** The resolved plan: routines in order, plus only the definitions that must be created locally. */

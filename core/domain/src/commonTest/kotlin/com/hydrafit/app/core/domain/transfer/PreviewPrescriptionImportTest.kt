@@ -113,15 +113,53 @@ class PreviewPrescriptionImportTest {
         assertEquals(1, created.customExercisesToCreate.size)
         assertEquals("user-cable-fly", created.customExercisesToCreate.single().id)
 
-        val accepted = preview(
+        // Accepting the gap alone no longer displaces the identity decision: the definition stays
+        // undecided, so the import is still blocked rather than trading one decision for the other.
+        val gapOnly = preview(
+            base,
+            PrescriptionImportChoices(acceptedEquipmentGaps = setOf("user-cable-fly"))
+        )
+        assertFalse(gapOnly.problems.any { it.issue == PrescriptionImportIssue.EQUIPMENT_GAP })
+        assertTrue(
+            gapOnly.problems.any { it.issue == PrescriptionImportIssue.UNDECIDED_IDENTITY },
+            gapOnly.problems.toString()
+        )
+        assertTrue(gapOnly.customExercisesToCreate.isEmpty())
+
+        // Creating the definition and accepting its equipment gap now compose into one import, which
+        // the previous single-choice model could not express.
+        val createdAndAccepted = preview(
             base,
             PrescriptionImportChoices(
-                mapOf("user-cable-fly" to PrescriptionIdentityChoice.AcceptEquipmentGap)
+                identities = mapOf("user-cable-fly" to PrescriptionIdentityChoice.Create),
+                acceptedEquipmentGaps = setOf("user-cable-fly")
             )
         )
-        assertFalse(accepted.problems.any { it.issue == PrescriptionImportIssue.EQUIPMENT_GAP })
-        // Accepting the gap does not declare the definition as a locally selectable row.
-        assertTrue(accepted.customExercisesToCreate.isEmpty())
+        assertTrue(createdAndAccepted.canImport, createdAndAccepted.problems.toString())
+        assertEquals(1, createdAndAccepted.customExercisesToCreate.size)
+        assertEquals("user-cable-fly", createdAndAccepted.customExercisesToCreate.single().id)
+    }
+
+    @Test
+    fun anExistingIdentityWithAnEquipmentGapIsBlockedUntilItIsAccepted() {
+        val base = document(listOf(routine("back-squat")))
+        val withoutBarbell = setOf(EquipmentTag.BODYWEIGHT)
+
+        val blocked = preview(base, equipment = withoutBarbell)
+        assertFalse(blocked.canImport)
+        assertTrue(
+            blocked.problems.any { it.issue == PrescriptionImportIssue.EQUIPMENT_GAP },
+            blocked.problems.toString()
+        )
+        assertTrue(blocked.identities.single().missingEquipment.isNotEmpty())
+
+        val accepted = preview(
+            base,
+            PrescriptionImportChoices(acceptedEquipmentGaps = setOf("back-squat")),
+            equipment = withoutBarbell
+        )
+        assertTrue(accepted.canImport, accepted.problems.toString())
+        assertTrue(accepted.identities.single().acceptedEquipmentGap)
     }
 
     @Test

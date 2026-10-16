@@ -13,6 +13,7 @@ import com.hydrafit.app.core.domain.transfer.PRESCRIPTION_FORMAT
 import com.hydrafit.app.core.domain.transfer.PRESCRIPTION_FORMAT_VERSION
 import com.hydrafit.app.core.domain.transfer.PrescriptionDocument
 import com.hydrafit.app.core.domain.transfer.PrescriptionEntryRecord
+import com.hydrafit.app.core.domain.transfer.PrescriptionExerciseRecord
 import com.hydrafit.app.core.domain.transfer.PrescriptionFailure
 import com.hydrafit.app.core.domain.transfer.PrescriptionIdentityChoice
 import com.hydrafit.app.core.domain.transfer.PrescriptionImportCommitFailure
@@ -207,6 +208,52 @@ class PrescriptionShareViewModelTest {
         assertTrue(review.preview.canImport)
     }
 
+    @Test
+    fun anEquipmentGapIsAcceptedSeparatelyFromCreatingTheDefinition() = runTest {
+        val definition = PrescriptionExerciseRecord(
+            id = "user-cable-fly",
+            name = "Cable Fly",
+            requiredEquipment = listOf("CABLE_MACHINE"),
+            movementPattern = "HORIZONTAL_PUSH",
+            isUnilateral = false,
+            loadCapability = "EXTERNAL"
+        )
+        val vm = viewModel(
+            fileStore = FakeFileStore(
+                readText = PrescriptionJson.encode(
+                    document(id = definition.id, customExercises = listOf(definition))
+                )
+            )
+        )
+
+        vm.onImportChosen("content://import")
+        advanceUntilIdle()
+        // Creating the definition leaves the cable-machine gap open.
+        vm.onIdentityChoiceChanged(definition.id, PrescriptionIdentityChoice.Create)
+        advanceUntilIdle()
+
+        var review = (vm.state.value.importPhase as PrescriptionImportPhase.Reviewing).review
+        assertFalse(review.preview.canImport)
+        assertTrue(review.preview.identities.single().missingEquipment.isNotEmpty())
+        assertFalse(review.preview.identities.single().acceptedEquipmentGap)
+
+        // The gap is a separate decision, so it can be accepted while the definition is created.
+        vm.onEquipmentGapChanged(definition.id, true)
+        advanceUntilIdle()
+
+        review = (vm.state.value.importPhase as PrescriptionImportPhase.Reviewing).review
+        assertTrue(review.preview.canImport, review.preview.problems.toString())
+        assertEquals(1, review.preview.customExercisesToCreate.size)
+        assertTrue(review.preview.identities.single().acceptedEquipmentGap)
+
+        // Undoing it blocks the import again rather than committing a silent gap.
+        vm.onEquipmentGapChanged(definition.id, false)
+        advanceUntilIdle()
+
+        review = (vm.state.value.importPhase as PrescriptionImportPhase.Reviewing).review
+        assertFalse(review.preview.canImport)
+    }
+
     private fun template(): RoutineTemplate = RoutineTemplate(
         id = 7L,
         name = "Leg Day",
@@ -227,7 +274,10 @@ class PrescriptionShareViewModelTest {
         )
     )
 
-    private fun document(id: String = "BENCH"): PrescriptionDocument = PrescriptionDocument(
+    private fun document(
+        id: String = "BENCH",
+        customExercises: List<PrescriptionExerciseRecord> = emptyList()
+    ): PrescriptionDocument = PrescriptionDocument(
         format = PRESCRIPTION_FORMAT,
         formatVersion = PRESCRIPTION_FORMAT_VERSION,
         appVersion = "test",
@@ -251,7 +301,8 @@ class PrescriptionShareViewModelTest {
                     )
                 )
             )
-        )
+        ),
+        customExercises = customExercises
     )
 
     private class FakeFileStore(

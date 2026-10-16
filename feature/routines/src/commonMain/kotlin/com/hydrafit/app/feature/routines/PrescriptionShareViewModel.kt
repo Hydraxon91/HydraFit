@@ -57,6 +57,7 @@ class PrescriptionShareViewModel(
     private var selectedEquipment: Set<EquipmentTag> = emptySet()
     private var document: PrescriptionDocument? = null
     private val choices = mutableMapOf<String, PrescriptionIdentityChoice>()
+    private val acceptedEquipmentGaps = mutableSetOf<String>()
 
     // --- Export ---
 
@@ -132,6 +133,7 @@ class PrescriptionShareViewModel(
                 selectedEquipment = selected
                 document = decoded
                 choices.clear()
+                acceptedEquipmentGaps.clear()
                 _state.update {
                     it.copy(
                         importInProgress = false,
@@ -176,6 +178,24 @@ class PrescriptionShareViewModel(
         }
     }
 
+    /**
+     * Records whether the user accepted the missing equipment for one resolved identity. This is
+     * independent of the identity choice, so a definition can be created *and* its equipment gap
+     * accepted in the same import.
+     */
+    fun onEquipmentGapChanged(sourceExerciseId: String, accepted: Boolean) {
+        if (_state.value.importInProgress) return
+        val decoded = document ?: return
+        if (accepted) {
+            acceptedEquipmentGaps += sourceExerciseId
+        } else {
+            acceptedEquipmentGaps -= sourceExerciseId
+        }
+        _state.update {
+            it.copy(importPhase = PrescriptionImportPhase.Reviewing(rebuildReview(decoded)))
+        }
+    }
+
     /** Imports the approved preview in one transaction; on refusal the review is kept and flagged. */
     fun onImportConfirmed() {
         val review = currentReview() ?: return
@@ -187,6 +207,7 @@ class PrescriptionShareViewModel(
                 val result = importRepository.importPrescriptions(preview)
                 document = null
                 choices.clear()
+                acceptedEquipmentGaps.clear()
                 _state.update {
                     it.copy(
                         importInProgress = false,
@@ -232,6 +253,7 @@ class PrescriptionShareViewModel(
     fun onImportDismissed() {
         document = null
         choices.clear()
+        acceptedEquipmentGaps.clear()
         _state.update {
             it.copy(importInProgress = false, importPhase = PrescriptionImportPhase.Idle)
         }
@@ -246,7 +268,10 @@ class PrescriptionShareViewModel(
     ): PrescriptionImportReview = PrescriptionImportReview(
         preview = PreviewPrescriptionImport.build(
             document = document,
-            choices = PrescriptionImportChoices(choices.toMap()),
+            choices = PrescriptionImportChoices(
+                identities = choices.toMap(),
+                acceptedEquipmentGaps = acceptedEquipmentGaps.toSet()
+            ),
             catalog = catalog,
             selectedEquipment = selectedEquipment
         ),

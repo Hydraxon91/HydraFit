@@ -308,6 +308,7 @@ fun RoutinesScreen(
             exercises = shareState.exercises,
             busy = shareState.importInProgress,
             onChoiceChanged = shareViewModel::onIdentityChoiceChanged,
+            onGapChanged = shareViewModel::onEquipmentGapChanged,
             onConfirm = shareViewModel::onImportConfirmed,
             onDismiss = shareViewModel::onImportDismissed
         )
@@ -1104,6 +1105,7 @@ private fun PrescriptionImportDialog(
     exercises: List<PrescriptionExerciseOption>,
     busy: Boolean,
     onChoiceChanged: (String, PrescriptionIdentityChoice?) -> Unit,
+    onGapChanged: (String, Boolean) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1126,7 +1128,8 @@ private fun PrescriptionImportDialog(
                         identity = identity,
                         exercises = exercises,
                         busy = busy,
-                        onChoiceChanged = onChoiceChanged
+                        onChoiceChanged = onChoiceChanged,
+                        onGapChanged = onGapChanged
                     )
                 }
                 if (review.preview.problems.isNotEmpty()) {
@@ -1181,14 +1184,16 @@ private fun PrescriptionImportDialog(
 /**
  * One referenced identity with the state the user is deciding about. A choice is only offered where
  * the resolution allows it: create-or-map for a declared definition, map for a collision or unknown
- * identity, and accepting the gap only where the resolved exercise is a local one.
+ * identity. The equipment gap is a separate toggle, so it can be accepted for a definition that is
+ * about to be created as well as for one that is already local.
  */
 @Composable
 private fun PrescriptionIdentityRow(
     identity: PrescriptionIdentityOption,
     exercises: List<PrescriptionExerciseOption>,
     busy: Boolean,
-    onChoiceChanged: (String, PrescriptionIdentityChoice?) -> Unit
+    onChoiceChanged: (String, PrescriptionIdentityChoice?) -> Unit,
+    onGapChanged: (String, Boolean) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(identity.sourceName, style = MaterialTheme.typography.bodyMedium)
@@ -1245,28 +1250,25 @@ private fun PrescriptionIdentityRow(
                     onChoiceChanged = onChoiceChanged
                 )
 
-            // A local exercise needs no mapping; only a genuine equipment gap blocks it.
-            is PrescriptionResolution.Existing ->
-                if (identity.missingEquipment.isNotEmpty()) {
-                    TextButton(
-                        onClick = {
-                            onChoiceChanged(
-                                identity.sourceExerciseId,
-                                PrescriptionIdentityChoice.AcceptEquipmentGap
-                            )
-                        },
-                        enabled = !busy,
-                        modifier = Modifier.testTag(
-                            PrescriptionShareTestTags.IMPORT_ACCEPT_EQUIPMENT
+            // An identity the catalog already holds needs no decision of its own.
+            is PrescriptionResolution.Existing -> Unit
+        }
+        if (identity.missingEquipment.isNotEmpty()) {
+            FilterChip(
+                selected = identity.acceptedEquipmentGap,
+                onClick = {
+                    onGapChanged(identity.sourceExerciseId, !identity.acceptedEquipmentGap)
+                },
+                enabled = !busy,
+                label = {
+                    Text(
+                        stringResource(
+                            Res.string.routines_prescription_import_choice_accept_equipment
                         )
-                    ) {
-                        Text(
-                            stringResource(
-                                Res.string.routines_prescription_import_choice_accept_equipment
-                            )
-                        )
-                    }
-                }
+                    )
+                },
+                modifier = Modifier.testTag(PrescriptionShareTestTags.IMPORT_ACCEPT_EQUIPMENT)
+            )
         }
     }
 }

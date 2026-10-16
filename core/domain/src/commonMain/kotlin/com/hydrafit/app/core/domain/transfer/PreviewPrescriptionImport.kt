@@ -111,10 +111,8 @@ object PreviewPrescriptionImport {
                 }
             }
             val missing = resolved?.let { missingEquipment(it, selectedEquipment) }.orEmpty()
-            if (resolved != null &&
-                missing.isNotEmpty() &&
-                chosen != PrescriptionIdentityChoice.AcceptEquipmentGap
-            ) {
+            val gapAccepted = source.id in choices.acceptedEquipmentGaps
+            if (resolved != null && missing.isNotEmpty() && !gapAccepted) {
                 problem(PrescriptionImportIssue.EQUIPMENT_GAP, source.id)
             }
             PrescriptionIdentityOption(
@@ -123,7 +121,8 @@ object PreviewPrescriptionImport {
                 resolution = resolution,
                 usedByRoutineCount = source.occurrences,
                 missingEquipment = missing,
-                choice = chosen
+                choice = chosen,
+                acceptedEquipmentGap = gapAccepted
             )
         }
 
@@ -202,7 +201,7 @@ object PreviewPrescriptionImport {
         is PrescriptionResolution.Create -> when (choice) {
             PrescriptionIdentityChoice.Create -> resolution.definition.toExercise()
             is PrescriptionIdentityChoice.MapTo -> localById[choice.localExerciseId]
-            else -> null
+            null -> null
         }
         is PrescriptionResolution.NameCollision ->
             (choice as? PrescriptionIdentityChoice.MapTo)?.let { localById[it.localExerciseId] }
