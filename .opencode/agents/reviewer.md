@@ -116,6 +116,32 @@ permissions:
   - action: shell
     resource: ": *"
     effect: allow
+  # Read-only inspection companions: stdout-only, with no output-file or exec flag. Chosen for the
+  # same tasks the reviewer already runs (resolving a path, printing printable text from a binary).
+  - action: shell
+    resource: "which *"
+    effect: allow
+  - action: shell
+    resource: "readlink *"
+    effect: allow
+  - action: shell
+    resource: "realpath *"
+    effect: allow
+  - action: shell
+    resource: "basename *"
+    effect: allow
+  - action: shell
+    resource: "dirname *"
+    effect: allow
+  - action: shell
+    resource: "strings *"
+    effect: allow
+  - action: shell
+    resource: "od *"
+    effect: allow
+  - action: shell
+    resource: "xxd *"
+    effect: allow
   - action: read
     resource: "*.env"
     effect: ask
