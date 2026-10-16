@@ -307,6 +307,59 @@ class SqlDelightWorkoutImportRepositoryTest {
         assertEquals(0, repository.provenance(WorkoutCsvSource.FITNOTES, setOf("other")).size)
     }
 
+    @Test
+    fun commitWritesATimedSetWithItsDurationAndNoReps() = runBlocking {
+        val preview = timedPreview()
+
+        val result = repository.commit(preview)
+
+        assertEquals(1, result.importedSessions)
+        assertEquals(1, result.importedSets)
+        val set = database.workoutLogQueries.selectAllSets().executeAsList().single()
+        assertEquals(null, set.reps)
+        assertEquals(90L, set.durationSeconds)
+        assertEquals(press.id, set.exerciseId)
+        val session = database.workoutSessionQueries.selectAllSessions().executeAsOne()
+        assertTrue(session.endedAtMillis != null)
+        assertEquals("CHEST_UPPER:0.7,TRICEPS:0.5", set.involvements)
+        assertEquals(WorkoutTimingProvenance.CATCH_UP.name, set.timingProvenance)
+    }
+
+    private fun timedPreview(): WorkoutImportPreview {
+        val parsed = WorkoutCsvParser.parse(
+            WorkoutCsvSource.STRONG,
+            """
+            Date;Workout Name;Exercise Name;Set Order;Weight;Weight Unit;Reps;Seconds
+            2024-01-02 10:00:00;Push;Bench Press;1;0;kg;0;90
+            """.trimIndent()
+        )
+        return PreviewWorkoutImport.build(
+            parsed = parsed,
+            choices = WorkoutImportChoices(
+                exercises = mapOf(
+                    "Bench Press" to WorkoutImportExerciseChoice(
+                        exerciseId = press.id,
+                        loadKind = LoadKind.EXTERNAL,
+                        useSourceWeight = true,
+                        confirmedLoadMeaning = true,
+                        unknownWarmupIsWorking = true
+                    )
+                ),
+                sessions = listOf(
+                    WorkoutImportSessionChoice(
+                        sourceRows = listOf(2),
+                        utcOffsetMinutes = 0,
+                        confirmedSession = true,
+                        confirmedInferredSetTimes = true
+                    )
+                ),
+                acknowledgedUnsupportedFields = true,
+                acknowledgedHistoryEffects = true
+            ),
+            catalog = listOf(press)
+        )
+    }
+
     private fun pressSession() = WorkoutImportSessionChoice(
         sourceRows = listOf(2, 3),
         utcOffsetMinutes = 0,

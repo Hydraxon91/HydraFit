@@ -206,10 +206,18 @@ times as `d MMM yyyy, HH:mm`). `set_type` accepts only `normal`/`warmup`; any ot
 value rejects the row. `CsvTableReader` is a strict RFC-4180-style scanner handling a
 BOM, LF/CRLF, and quoted delimiters, newlines and doubled quotes. Rows keep source order
 and duplicates; a blank weight and an unavailable warmup stay null, and no UTC instant,
-session id, RPE-to-RIR conversion, load-kind inference or set dedupe is produced. RPE,
-distance, duration, notes and superset values on otherwise valid rows are retained as
-per-row `UNSUPPORTED_METADATA` diagnostics; invalid date/time/reps/weight/unit values
-reject only that row with the row index retained. Header, CSV-structure and limit
+session id, RPE-to-RIR conversion, load-kind inference or set dedupe is produced.
+
+A parsed row is measured by a positive rep count or positive whole seconds, never both
+and never neither (`WorkoutCsvRow.reps` is nullable beside `durationSeconds`). Strong's
+`Seconds` and Hevy's `duration_seconds` produce a duration row when reps are absent, so
+an imported timed set stores seconds with NULL reps. A row carrying both a positive rep
+count and positive seconds is rejected as `AMBIGUOUS_ROW_SHAPE` rather than guessed, and a
+row with neither is rejected as before. FitNotes exposes no duration column, so its rows
+still require a positive rep count. Seconds are never inferred from source timestamps or
+encoded as reps. RPE, distance, notes and superset values on otherwise valid rows are
+retained as per-row `UNSUPPORTED_METADATA` diagnostics; invalid date/time/reps/duration/
+weight/unit values reject only that row with the row index retained. Header, CSV-structure and limit
 failures raise a typed `WorkoutCsvException` under 32 MiB UTF-8, 250,000 data rows,
 64 columns and 65,536 characters per field, matching `BackupLimits`.
 

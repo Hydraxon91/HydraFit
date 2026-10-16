@@ -159,7 +159,8 @@ object PreviewWorkoutImport {
                     loadKind = choice.loadKind,
                     performedAtMillis = day * 86_400_000L + second * 1000L -
                         session.utcOffsetMinutes * 60_000L,
-                    isWarmup = row.warmup ?: false
+                    isWarmup = row.warmup ?: false,
+                    durationSeconds = row.durationSeconds
                 )
             }
             if (sets.size != rows.size) return@mapNotNull null
@@ -291,10 +292,25 @@ private fun canonicalSourceRow(row: WorkoutCsvRow): String = canonicalFields(
         row.groupHint,
         row.weight?.toString(),
         row.unit.name,
-        row.reps.toString(),
+        canonicalMeasurement(row),
         row.warmup?.toString(),
         canonicalFields(
             row.diagnostics.map { canonicalFields(listOf(it.code.name, it.field, it.value)) }
         )
     )
 )
+
+/**
+ * The measurement slot of a canonical row. A counted row keeps the bare rep count it has always
+ * carried, so a previously imported rep row still matches byte for byte; a timed row is prefixed so
+ * it can never collide with a rep count or with another duration.
+ */
+private fun canonicalMeasurement(row: WorkoutCsvRow): String {
+    val reps = row.reps
+    val duration = row.durationSeconds
+    return when {
+        reps != null -> reps.toString()
+        duration != null -> "duration:$duration"
+        else -> "unmeasured"
+    }
+}

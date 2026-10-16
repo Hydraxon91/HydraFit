@@ -9,6 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class PreviewWorkoutImportTest {
@@ -393,6 +394,79 @@ class PreviewWorkoutImportTest {
                 listOf(exercise),
                 buckets = listOf(inconsistent)
             )
+        )
+    }
+
+    @Test
+    fun aCountedRowKeepsTheCanonicalIdentityItAlreadyHad() {
+        // The dedupe ledger stores this exact string, so a counted row must keep the same canonical
+        // bytes it had before duration import existed; otherwise every previously imported rep row
+        // would read as a changed source on the next import.
+        val counted = WorkoutCsvParser.parse(
+            WorkoutCsvSource.FITNOTES,
+            "Date,Exercise,Weight (lbs),Reps\n2024-01-02,Press,100,8"
+        )
+
+        assertEquals(
+            "86:5:Press42:SourceCivilDate(year=2024, month=1, day=2)-1:-1:-1:-1:-1:5:100.02:LB1:8-1:0:",
+            canonicalBucketContent(counted.rows)
+        )
+    }
+
+    @Test
+    fun aTimedRowBecomesADurationSetAndKeepsItsOwnCanonicalIdentity() {
+        val timed = WorkoutCsvParser.parse(
+            WorkoutCsvSource.STRONG,
+            "Date;Workout Name;Exercise Name;Weight;Weight Unit;Reps;Seconds\n" +
+                "2024-01-02 10:00:00;A;Press;0;kg;0;90"
+        )
+        val selection = choices.copy(
+            sessions = listOf(choices.sessions.single().copy(sourceRows = listOf(2)))
+        )
+
+        val preview = PreviewWorkoutImport.build(timed, selection, listOf(exercise))
+
+        assertTrue(preview.canImport, preview.problems.toString())
+        val session = preview.sessions.single()
+        val set = session.sets.single()
+        assertNull(set.reps)
+        assertEquals(90, set.durationSeconds)
+
+        // The same row with a rep count instead of a duration must canonicalize differently, or a
+        // timed row could collide with — or dedupe as — a rep row.
+        val countedSameShape = timed.copy(
+            rows = timed.rows.map { it.copy(reps = 90, durationSeconds = null) }
+        )
+        assertNotEquals(
+            canonicalBucketContent(countedSameShape.rows),
+            canonicalBucketContent(timed.rows)
+        )
+
+        // And the timed row's own identity is stable, so a repeat read skips instead of re-importing.
+        val existing = WorkoutSession(
+            id = "existing",
+            startedAtMillis = session.startedAtMillis,
+            endedAtMillis = null,
+            localEpochDay = session.localEpochDay
+        )
+        val again = PreviewWorkoutImport.build(
+            timed,
+            selection,
+            listOf(exercise),
+            provenance = listOf(
+                WorkoutImportProvenance(
+                    source = WorkoutCsvSource.STRONG,
+                    candidateKey = session.candidateKey,
+                    content = session.content,
+                    importedSessionId = "existing"
+                )
+            ),
+            existingSessions = listOf(existing)
+        )
+        assertFalse(again.canImport)
+        assertEquals(
+            listOf(WorkoutImportIssue.UNCHANGED_SOURCE_SKIPPED),
+            again.notices.map { it.issue }
         )
     }
 

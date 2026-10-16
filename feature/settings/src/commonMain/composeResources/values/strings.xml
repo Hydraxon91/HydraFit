@@ -127,6 +127,7 @@
     <string name="settings_workout_import_excluded">Excluded</string>
     <string name="settings_workout_import_no_time">No time</string>
     <string name="settings_workout_import_no_weight">No weight</string>
+    <string name="settings_workout_import_row_duration">%1$d s</string>
     <string name="settings_workout_import_warmup">Warm-up</string>
     <string name="settings_workout_import_working">Working set</string>
     <string name="settings_workout_import_unknown_set_type">Set type not recorded</string>

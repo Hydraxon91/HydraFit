@@ -98,13 +98,19 @@ enum class WorkoutCsvDiagnosticCode {
     /** Reps are missing or are not a positive integer. */
     INVALID_REPS,
 
+    /** A duration field is present but is not a whole number of seconds. */
+    INVALID_DURATION,
+
     /** A non-blank weight is not a finite number, or is negative. */
     INVALID_WEIGHT,
 
     /** A weight unit is not a known kg/lb value. */
     INVALID_UNIT,
 
-    /** The row is a timed-only or distance-only set with no rep target to represent. */
+    /** The row records both a positive rep count and a positive duration, so its measurement is ambiguous. */
+    AMBIGUOUS_ROW_SHAPE,
+
+    /** The row records neither a rep count nor a duration (for example a distance-only set). */
     UNSUPPORTED_ROW_SHAPE
 }
 
@@ -120,9 +126,10 @@ data class WorkoutCsvDiagnostic(
 )
 
 /**
- * One importable weighted rep set, in source order. Nothing is inferred: a blank weight stays null,
- * an unavailable warmup flag stays null, and the source-local date/time is never turned into a fake
- * UTC instant or a session id.
+ * One importable weighted set, counted or timed, in source order. Nothing is inferred: a blank weight
+ * stays null, an unavailable warmup flag stays null, and the source-local date/time is never turned
+ * into a fake UTC instant or a session id. A row is measured by positive reps or positive whole
+ * seconds, never both and never neither.
  */
 data class WorkoutCsvRow(
     /**
@@ -161,7 +168,11 @@ data class WorkoutCsvRow(
     /** Unit the weight is expressed in, taken from the source column. */
     val unit: WeightUnit,
 
-    val reps: Int,
+    /** Positive repetition count for counted work, or null when the set is measured by [durationSeconds]. */
+    val reps: Int?,
+
+    /** Positive whole seconds for a duration-measured set, or null for counted work. */
+    val durationSeconds: Int?,
 
     /** Known warmup flag, or null when the source does not say. */
     val warmup: Boolean?,

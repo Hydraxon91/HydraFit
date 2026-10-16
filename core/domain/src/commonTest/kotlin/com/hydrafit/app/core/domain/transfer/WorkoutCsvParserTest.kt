@@ -29,6 +29,7 @@ class WorkoutCsvParserTest {
         assertEquals(135.0, row.weight)
         assertEquals(WeightUnit.LB, row.unit)
         assertEquals(5, row.reps)
+        assertNull(row.durationSeconds)
         assertEquals("Chest", row.groupHint)
         assertNull(row.timeOfDaySeconds)
         assertNull(row.endDay)
@@ -212,7 +213,7 @@ class WorkoutCsvParserTest {
             STRONG_HEADER,
             semiRow(
                 "2024-07-02 10:03:07", "Push Day", "Bench Press", "1", "80", "kg", "5", "8",
-                "", "", "300", "", "", "3600"
+                "", "", "", "", "", "3600"
             )
         )
 
@@ -223,9 +224,105 @@ class WorkoutCsvParserTest {
         assertEquals(80.0, row.weight)
         assertEquals(WeightUnit.KG, row.unit)
         assertEquals(5, row.reps)
+        assertNull(row.durationSeconds)
         assertNull(row.warmup)
-        assertEquals(listOf("RPE", "Seconds", "Workout Duration"), row.diagnostics.map { it.field })
-        assertEquals(listOf("8", "300", "3600"), row.diagnostics.map { it.value })
+        assertEquals(listOf("RPE", "Workout Duration"), row.diagnostics.map { it.field })
+        assertEquals(listOf("8", "3600"), row.diagnostics.map { it.value })
+    }
+
+    @Test
+    fun strongParsesATimedSetFromTheSecondsColumn() {
+        // Vendors write 0 in the inapplicable numeric column, so a positive Seconds with a zero or
+        // blank Reps is a duration set: not a rep set, and not an error.
+        val parsed = parse(
+            WorkoutCsvSource.STRONG,
+            STRONG_HEADER,
+            semiRow(
+                "2024-07-02 10:03:07", "Push", "Plank Hold", "1", "0", "kg", "0", "", "", "", "90",
+                "", "", ""
+            ),
+            semiRow(
+                "2024-07-02 10:05:07", "Push", "Plank Hold", "2", "0", "kg", "", "", "", "", "45",
+                "", "", ""
+            )
+        )
+
+        assertEquals(listOf(null, null), parsed.rows.map { it.reps })
+        assertEquals(listOf(90, 45), parsed.rows.map { it.durationSeconds })
+        assertTrue(parsed.rows.all { it.diagnostics.isEmpty() })
+    }
+
+    @Test
+    fun strongKeepsAZeroSecondRepRowCounted() {
+        val parsed = parse(
+            WorkoutCsvSource.STRONG,
+            STRONG_HEADER,
+            semiRow(
+                "2024-07-02 10:03:07", "Push", "Bench", "1", "80", "kg", "5", "", "", "", "0",
+                "", "", ""
+            )
+        )
+
+        val row = parsed.rows.single()
+        assertEquals(5, row.reps)
+        assertNull(row.durationSeconds)
+        assertTrue(row.diagnostics.isEmpty())
+    }
+
+    @Test
+    fun strongRejectsARowRecordingBothRepsAndSeconds() {
+        val parsed = parse(
+            WorkoutCsvSource.STRONG,
+            STRONG_HEADER,
+            semiRow(
+                "2024-07-02 10:03:07", "Push", "Bench", "1", "80", "kg", "5", "", "", "", "90",
+                "", "", ""
+            )
+        )
+
+        assertTrue(parsed.rows.isEmpty())
+        assertEquals(WorkoutCsvDiagnosticCode.AMBIGUOUS_ROW_SHAPE, parsed.rejectedCode())
+    }
+
+    @Test
+    fun strongRejectsARowWithNeitherRepsNorDuration() {
+        val parsed = parse(
+            WorkoutCsvSource.STRONG,
+            STRONG_HEADER,
+            semiRow(
+                "2024-07-02 10:03:07", "Push", "Bench", "1", "80", "kg", "", "", "", "", "",
+                "", "", ""
+            ),
+            semiRow(
+                "2024-07-02 10:04:07", "Push", "Bench", "2", "80", "kg", "0", "", "", "", "0",
+                "", "", ""
+            )
+        )
+
+        assertTrue(parsed.rows.isEmpty())
+        assertEquals(listOf(2, 3), parsed.rejectedRows.map { it.sourceRowIndex })
+        assertEquals(
+            listOf(
+                WorkoutCsvDiagnosticCode.INVALID_REPS,
+                WorkoutCsvDiagnosticCode.INVALID_REPS
+            ),
+            parsed.rejectedRows.map { it.diagnostics.single().code }
+        )
+    }
+
+    @Test
+    fun strongRejectsAnUnparseableDurationInsteadOfDroppingIt() {
+        val parsed = parse(
+            WorkoutCsvSource.STRONG,
+            STRONG_HEADER,
+            semiRow(
+                "2024-07-02 10:03:07", "Push", "Bench", "1", "80", "kg", "5", "", "", "", "abc",
+                "", "", ""
+            )
+        )
+
+        assertTrue(parsed.rows.isEmpty())
+        assertEquals(WorkoutCsvDiagnosticCode.INVALID_DURATION, parsed.rejectedCode())
     }
 
     @Test
@@ -333,7 +430,7 @@ class WorkoutCsvParserTest {
             HEVY_KG_HEADER,
             commaRow(
                 "Row", "15 Sep 2023, 09:30", "15 Sep 2023, 10:15", "", "Dumbbell Row", "", "",
-                "1", "warmup", "20", "10", "1.5", "300", "7"
+                "1", "warmup", "20", "10", "1.5", "", "7"
             )
         )
 
@@ -341,10 +438,58 @@ class WorkoutCsvParserTest {
         assertEquals(WeightUnit.KG, row.unit)
         assertEquals(20.0, row.weight)
         assertEquals(true, row.warmup)
+        assertNull(row.durationSeconds)
         assertEquals(
-            listOf("distance_km", "duration_seconds", "rpe"),
+            listOf("distance_km", "rpe"),
             row.diagnostics.map { it.field }
         )
+    }
+
+    @Test
+    fun hevyParsesATimedSetFromTheDurationColumn() {
+        val parsed = parse(
+            WorkoutCsvSource.HEVY,
+            HEVY_LB_HEADER,
+            commaRow(
+                "Push", "02 Jul 2024, 10:03", "02 Jul 2024, 11:00", "", "Plank Hold", "", "",
+                "0", "normal", "0", "", "", "300", ""
+            )
+        )
+
+        val row = parsed.rows.single()
+        assertNull(row.reps)
+        assertEquals(300, row.durationSeconds)
+        assertTrue(row.diagnostics.isEmpty())
+    }
+
+    @Test
+    fun hevyRejectsARowRecordingBothRepsAndDuration() {
+        val parsed = parse(
+            WorkoutCsvSource.HEVY,
+            HEVY_LB_HEADER,
+            commaRow(
+                "Push", "02 Jul 2024, 10:03", "02 Jul 2024, 11:00", "", "Bench Press", "", "",
+                "0", "normal", "135", "5", "", "300", ""
+            )
+        )
+
+        assertTrue(parsed.rows.isEmpty())
+        assertEquals(WorkoutCsvDiagnosticCode.AMBIGUOUS_ROW_SHAPE, parsed.rejectedCode())
+    }
+
+    @Test
+    fun hevyRejectsARowWithNeitherRepsNorDuration() {
+        val parsed = parse(
+            WorkoutCsvSource.HEVY,
+            HEVY_LB_HEADER,
+            commaRow(
+                "Push", "02 Jul 2024, 10:03", "02 Jul 2024, 11:00", "", "Bench Press", "", "",
+                "0", "normal", "135", "", "", "", ""
+            )
+        )
+
+        assertTrue(parsed.rows.isEmpty())
+        assertEquals(WorkoutCsvDiagnosticCode.INVALID_REPS, parsed.rejectedCode())
     }
 
     @Test
