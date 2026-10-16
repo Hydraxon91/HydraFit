@@ -121,13 +121,14 @@ class SqlDelightWorkoutHistoryRepository(database: HydraFitDatabase) : WorkoutHi
         id = id,
         exerciseId = exerciseId,
         exerciseName = exerciseName,
-        reps = reps.toInt(),
+        reps = reps?.toInt(),
         weightKg = weightKg,
         loadKind = decodeLoadKind(loadKind),
         isWarmup = isWarmup != 0L,
         rir = rir?.toInt(),
         performedAtMillis = performedAt,
         timingProvenance = decodeWorkoutTimingProvenance(timingProvenance),
+        durationSeconds = durationSeconds?.toInt(),
         occurrenceId = occurrenceId
     )
 
@@ -135,13 +136,14 @@ class SqlDelightWorkoutHistoryRepository(database: HydraFitDatabase) : WorkoutHi
         id = id,
         exerciseId = exerciseId,
         exerciseName = exerciseName,
-        reps = reps.toInt(),
+        reps = reps?.toInt(),
         weightKg = weightKg,
         loadKind = decodeLoadKind(loadKind),
         isWarmup = isWarmup != 0L,
         rir = rir?.toInt(),
         performedAtMillis = performedAt,
         timingProvenance = decodeWorkoutTimingProvenance(timingProvenance),
+        durationSeconds = durationSeconds?.toInt(),
         occurrenceId = occurrenceId
     )
 }

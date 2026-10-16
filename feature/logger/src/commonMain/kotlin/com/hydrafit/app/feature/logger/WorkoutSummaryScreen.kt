@@ -30,10 +30,12 @@ import com.hydrafit.app.core.domain.workout.WorkoutSummarySet
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.logger_edit_set
 import hydrafit.feature.logger.generated.resources.logger_history_exercise_missing
+import hydrafit.feature.logger.generated.resources.logger_history_set_duration_line
 import hydrafit.feature.logger.generated.resources.logger_history_set_line
 import hydrafit.feature.logger.generated.resources.logger_summary_close
 import hydrafit.feature.logger.generated.resources.logger_summary_done
 import hydrafit.feature.logger.generated.resources.logger_summary_edit_set_description
+import hydrafit.feature.logger.generated.resources.logger_summary_edit_set_duration_description
 import hydrafit.feature.logger.generated.resources.logger_summary_extra_sets
 import hydrafit.feature.logger.generated.resources.logger_summary_failed
 import hydrafit.feature.logger.generated.resources.logger_summary_loading
@@ -297,23 +299,50 @@ private fun SummarySetLine(
     weightUnit: WeightUnit,
     onEditSet: (WorkoutSummarySet) -> Unit
 ) {
-    val editDescription = stringResource(
-        Res.string.logger_summary_edit_set_description,
-        set.exerciseName ?: stringResource(Res.string.logger_history_exercise_missing),
-        position,
-        set.reps
-    )
+    val durationSeconds = set.durationSeconds
+    val reps = set.reps
+    val editDescription = when {
+        durationSeconds != null -> stringResource(
+            Res.string.logger_summary_edit_set_duration_description,
+            set.exerciseName ?: stringResource(Res.string.logger_history_exercise_missing),
+            position,
+            durationSeconds
+        )
+
+        reps != null -> stringResource(
+            Res.string.logger_summary_edit_set_description,
+            set.exerciseName ?: stringResource(Res.string.logger_history_exercise_missing),
+            position,
+            reps
+        )
+
+        else -> stringResource(
+            Res.string.logger_history_exercise_missing
+        )
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val durationSeconds = set.durationSeconds
+        val reps = set.reps
         Text(
-            text = stringResource(
-                Res.string.logger_history_set_line,
-                set.reps,
-                loadWeightText(set.loadKind, set.weightKg, weightUnit)
-            ),
+            text = when {
+                durationSeconds != null -> stringResource(
+                    Res.string.logger_history_set_duration_line,
+                    durationSeconds,
+                    loadWeightText(set.loadKind, set.weightKg, weightUnit)
+                )
+
+                reps != null -> stringResource(
+                    Res.string.logger_history_set_line,
+                    reps,
+                    loadWeightText(set.loadKind, set.weightKg, weightUnit)
+                )
+
+                else -> loadWeightText(set.loadKind, set.weightKg, weightUnit)
+            },
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.weight(1f)
         )

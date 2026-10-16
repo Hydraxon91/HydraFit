@@ -54,7 +54,9 @@ class BuildPlannerLoadInputsUseCase(
         val recentQualifyingSets = recentQualifyingSets(loadSets, nowMillis, contributes)
         val recentBest = recentQualifyingSets
             .filterValues { it.size >= MIN_RECENT_SETS }
-            .mapValues { (_, group) -> group.maxOf { OneRepMax.estimate(it.weightKg!!, it.reps) } }
+            .mapValues { (_, group) ->
+                group.maxOf { OneRepMax.estimate(it.weightKg!!, requireNotNull(it.reps)) }
+            }
         val manualRecords = sources.personalRecords
             .filter { record ->
                 record.loadKind == LoadKind.EXTERNAL &&
@@ -141,11 +143,13 @@ class BuildPlannerLoadInputsUseCase(
         val cutoff = nowMillis - RECENT_WINDOW_MILLIS
         return sets
             .filter { set ->
+                val reps = set.reps
                 set.performedAtMillis in cutoff..nowMillis &&
                     contributesToLoadMath(set.exerciseId, set.loadKind) &&
                     !set.isWarmup &&
+                    reps != null &&
                     set.weightKg?.let { it.isFinite() && it > 0.0 } == true &&
-                    weightConfig.hasUsableEstimate(set.reps)
+                    weightConfig.hasUsableEstimate(reps)
             }
             .groupBy { it.exerciseId }
     }

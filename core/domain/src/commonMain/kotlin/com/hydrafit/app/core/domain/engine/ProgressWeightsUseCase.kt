@@ -69,7 +69,7 @@ class ProgressWeightsUseCase(private val config: ProgressionConfig = Progression
         }
 
         val byExercise = sets
-            .filter { !it.isWarmup && (it.weightKg ?: 0.0) > 0.0 }
+            .filter { !it.isWarmup && it.reps != null && (it.weightKg ?: 0.0) > 0.0 }
             .groupBy { it.exerciseId }
 
         return baseline.mapValues { (exerciseId, base) ->
@@ -151,7 +151,8 @@ class ProgressWeightsUseCase(private val config: ProgressionConfig = Progression
     private data class ProgressionResult(val increments: Int, val failureApplied: Boolean)
 
     private fun List<WorkoutSet>.isCompleted(prescription: Prescription): Boolean = count { set ->
+        val reps = set.reps ?: return@count false
         val weight = set.weightKg ?: return@count false
-        set.reps >= prescription.reps && weight >= prescription.weightKg
+        reps >= prescription.reps && weight >= prescription.weightKg
     } >= prescription.sets
 }

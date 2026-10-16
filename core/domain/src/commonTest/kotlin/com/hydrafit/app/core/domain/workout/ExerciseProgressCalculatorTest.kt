@@ -30,6 +30,32 @@ class ExerciseProgressCalculatorTest {
     }
 
     @Test
+    fun timedSetsFeedTheDayTrendButNeverRecordsOrEstimates() {
+        val result = calculate(
+            timed(1, seconds = 40, time = 1),
+            timed(2, seconds = 50, time = 2),
+            set(3, 100.0, 10, time = 3)
+        )
+        val day = result.days.single()
+        assertEquals(3, day.workingSets)
+        assertEquals(10L, day.totalReps)
+        assertEquals(90L, day.totalDurationSeconds)
+        assertEquals(1000.0, day.externalVolumeKg)
+        // Only the counted set holds records; the timed sets contribute none.
+        assertTrue(result.records.all { record -> record.setIds == listOf(3L) })
+        assertEquals(100.0 * (1 + 10 / 30.0), day.estimatedOneRepMax!!.value)
+
+        val timedOnly = calculate(timed(1, seconds = 30, time = 1))
+        val onlyDay = timedOnly.days.single()
+        assertEquals(1, onlyDay.workingSets)
+        assertEquals(0L, onlyDay.totalReps)
+        assertEquals(30L, onlyDay.totalDurationSeconds)
+        assertTrue(timedOnly.records.isEmpty())
+        assertNull(onlyDay.estimatedOneRepMax)
+        assertNull(onlyDay.externalVolumeKg)
+    }
+
+    @Test
     fun equalTimestampsUseEarlierBaselineAndKeepAllTiedHolders() {
         val result = calculate(
             set(1, 50.0, 10, time = 1),
@@ -188,6 +214,17 @@ class ExerciseProgressCalculatorTest {
         performedAtMillis = time,
         isWarmup = warmup,
         occurrenceId = 7
+    )
+
+    private fun timed(id: Long, seconds: Int, time: Long = 1) = WorkoutSet(
+        id = id,
+        exerciseId = "squat",
+        reps = null,
+        weightKg = null,
+        loadKind = LoadKind.BODYWEIGHT,
+        performedAtMillis = time,
+        occurrenceId = 7,
+        durationSeconds = seconds
     )
 
     private companion object {

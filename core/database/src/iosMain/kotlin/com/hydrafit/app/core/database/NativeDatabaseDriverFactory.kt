@@ -6,5 +6,5 @@ import app.cash.sqldelight.driver.native.NativeSqliteDriver
 class NativeDatabaseDriverFactory(private val databaseName: String = "hydrafit.db") :
     DatabaseDriverFactory {
     override fun createDriver(): SqlDriver =
-        NativeSqliteDriver(HydraFitDatabase.Schema, databaseName)
+        NativeSqliteDriver(HydraFitDatabaseSchema, databaseName)
 }

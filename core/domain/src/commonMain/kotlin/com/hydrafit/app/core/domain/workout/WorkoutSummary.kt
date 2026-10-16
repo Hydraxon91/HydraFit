@@ -89,13 +89,15 @@ data class WorkoutSummarySet(
     val id: Long,
     val exerciseId: String,
     val exerciseName: String?,
-    val reps: Int,
+    val reps: Int?,
     val weightKg: Double?,
     val loadKind: LoadKind,
     val rir: Int?,
     val performedAtMillis: Long,
     val timingProvenance: WorkoutTimingProvenance,
     val isWarmup: Boolean,
+    /** Elapsed whole seconds for a timed set, or null for counted work. */
+    val durationSeconds: Int? = null,
     /** The recorded session this set belongs to; null for legacy or unsegmented rows. */
     val sessionId: String?
 )
@@ -174,6 +176,7 @@ fun buildWorkoutSummary(
         performedAtMillis = set.performedAtMillis,
         timingProvenance = set.timingProvenance,
         isWarmup = set.isWarmup,
+        durationSeconds = set.durationSeconds,
         sessionId = set.sessionId
     )
 

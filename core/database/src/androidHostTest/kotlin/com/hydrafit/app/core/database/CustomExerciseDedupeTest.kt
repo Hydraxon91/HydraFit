@@ -398,7 +398,8 @@ class CustomExerciseDedupeTest {
             dayIndex = null,
             rir = null,
             sessionId = null,
-            loadKind = "EXTERNAL"
+            loadKind = "EXTERNAL",
+            durationSeconds = null
         )
 
         CustomExerciseDedupe(database).run()
@@ -428,7 +429,8 @@ class CustomExerciseDedupeTest {
             dayIndex = null,
             rir = null,
             sessionId = null,
-            loadKind = "EXTERNAL"
+            loadKind = "EXTERNAL",
+            durationSeconds = null
         )
         database.personalRecordQueries.upsert(
             exerciseId = "user-trap-bar-deadlift",
@@ -792,7 +794,8 @@ class CustomExerciseDedupeTest {
             dayIndex = null,
             rir = null,
             sessionId = null,
-            loadKind = "EXTERNAL"
+            loadKind = "EXTERNAL",
+            durationSeconds = null
         )
         database.personalRecordQueries.upsert(
             exerciseId = "user-trap-bar-deadlift",
@@ -1051,7 +1054,8 @@ class CustomExerciseDedupeTest {
             dayIndex = null,
             rir = null,
             sessionId = null,
-            loadKind = "BODYWEIGHT"
+            loadKind = "BODYWEIGHT",
+            durationSeconds = null
         )
         insertPlanHistoryEntry(exerciseId)
         insertRoutineEntry(exerciseId)

@@ -26,7 +26,7 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
         setQueries.transaction {
             setQueries.insertSetWithTimingProvenance(
                 exerciseId = set.exerciseId,
-                reps = set.reps.toLong(),
+                reps = set.reps?.toLong(),
                 weightKg = set.weightKg,
                 performedAt = set.performedAtMillis,
                 isWarmup = if (set.isWarmup) 1L else 0L,
@@ -39,7 +39,8 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                 loadKind = set.loadKind.name,
                 timingProvenance = set.timingProvenance.name,
                 startedAtElapsedMillis = set.startedAtElapsedMillis,
-                completedAtElapsedMillis = set.completedAtElapsedMillis
+                completedAtElapsedMillis = set.completedAtElapsedMillis,
+                durationSeconds = set.durationSeconds?.toLong()
             )
             if (set.occurrenceId != null || set.occurrenceEntryId != null) {
                 setQueries.assignOccurrence(
@@ -103,6 +104,10 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
         }
         val compoundByExercise = compoundByExercise(exercises, overrides)
         return setRows.mapNotNull { row ->
+            // A timed set is real recorded work, but it carries no rep count to replay against the
+            // fatigue model, and its seconds are never read as repetitions.
+            if (row.durationSeconds != null) return@mapNotNull null
+            val reps = row.reps ?: return@mapNotNull null
             val targets = decodeCached(row.involvements, decodeCache)
                 ?: targetsByExercise[row.exerciseId]
                 ?: return@mapNotNull null
@@ -110,7 +115,7 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                 timestampMillis = row.performedAt,
                 targets = targets,
                 isWarmup = row.isWarmup != 0L,
-                reps = row.reps.toInt(),
+                reps = reps.toInt(),
                 isCompound = compoundByExercise[row.exerciseId] ?: false,
                 exerciseId = row.exerciseId,
                 // Neutral relative load for work whose recorded number is not external resistance:

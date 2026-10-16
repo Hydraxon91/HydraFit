@@ -22,15 +22,19 @@ class ExerciseProgressIndexMigrationTest {
         HydraFitDatabase.Schema.migrate(driver, 1, 46)
         val database = HydraFitDatabase(driver)
         database.exerciseQueries.insert("squat", "Squat", "BARBELL", "SQUAT", "EXTERNAL")
-        database.workoutLogQueries.insertSet(
-            "squat", 10, 60.0, 100, 0, null, null, null, null, null, null, "EXTERNAL"
+        // Schema 53 adds `durationSeconds`, so the generated set queries can no longer run against
+        // the 46 schema; write and read the stored row with raw SQL that matches it.
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, loadKind) " +
+                "VALUES ('squat', 10, 60.0, 100, 0, 'EXTERNAL')"
         )
-        val before = database.workoutLogQueries.selectAllSets().executeAsList()
+        val before = storedSets()
         assertEquals(0L, indexCount())
 
         HydraFitDatabase.Schema.migrate(driver, 46, 47)
 
-        assertEquals(before, database.workoutLogQueries.selectAllSets().executeAsList())
+        assertEquals(before, storedSets())
         assertEquals(1L, indexCount())
         assertEquals(
             listOf("exerciseId", "performedAt", "id"),
@@ -52,6 +56,21 @@ class ExerciseProgressIndexMigrationTest {
         "SELECT count(*) FROM sqlite_master " +
             "WHERE type = 'index' AND name = 'workoutSet_exerciseId_performedAt_id'"
     )
+
+    /** Every stored set column as text: a pre-53 database has no `durationSeconds` to select. */
+    private fun storedSets(): List<List<String?>> = driver.executeQuery(
+        identifier = null,
+        sql = "SELECT id, exerciseId, reps, weightKg, performedAt, isWarmup, involvements, " +
+            "weekNumber, cycleNumber, dayIndex, rir, sessionId, occurrenceId, occurrenceEntryId, " +
+            "loadKind, timingProvenance, startedAtElapsedMillis, completedAtElapsedMillis " +
+            "FROM workoutSet ORDER BY performedAt, id",
+        mapper = { cursor ->
+            val rows = mutableListOf<List<String?>>()
+            while (cursor.next().value) rows += (0 until 18).map { cursor.getString(it) }
+            QueryResult.Value(rows)
+        },
+        parameters = 0
+    ).value
 
     private fun assertIndexedReplayAndHistory() {
         val historyProjection = "SELECT workoutSet.id, workoutSet.exerciseId, " +

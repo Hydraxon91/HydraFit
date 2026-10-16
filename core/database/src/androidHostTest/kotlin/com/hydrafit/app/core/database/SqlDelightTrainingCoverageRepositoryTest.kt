@@ -4,6 +4,7 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.fatigue.CoverageSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.fatigue.TrainingCoverageCalculator
+import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -77,13 +78,35 @@ class SqlDelightTrainingCoverageRepositoryTest {
             1e-12
         )
         database.workoutLogQueries.insertSet(
-            "dumbbell-curl", 8, 10.0, 10 * day, 0, null, null, null, null, null, "s", "EXTERNAL"
+            "dumbbell-curl", 8, 10.0, 10 * day, 0, null, null, null, null, null, "s", "EXTERNAL",
+            null
         )
         val unknown = repository.observeSets().first()
         assertNull(unknown.last().involvements)
         val withUnknown = TrainingCoverageCalculator.calculate(unknown, 10 * day, 0L)
         assertEquals(1, withUnknown.unclassifiedSetsInWindow)
         assertEquals(0, withUnknown.entries.first { it.muscle == MuscleGroup.QUADS }.workingSets)
+    }
+
+    @Test
+    fun timedSetsCountAsCoverageWorkWithoutBeingReadAsReps() = runBlocking {
+        writer.add(set())
+        writer.add(
+            set().copy(
+                reps = null,
+                weightKg = null,
+                loadKind = LoadKind.BODYWEIGHT,
+                durationSeconds = 45
+            )
+        )
+
+        val snapshot = repository.observeSets()
+            .first()
+        // A timed set is recorded work, so the coverage projection keeps both rows.
+        assertEquals(2, snapshot.size)
+        val result = TrainingCoverageCalculator.calculate(snapshot, 10 * day, 0L)
+        assertEquals(2, result.entries.first { it.muscle == MuscleGroup.BICEPS }.workingSets)
+        assertFalse(result.hasUnclassifiedHistory)
     }
 
     @Test
@@ -122,7 +145,8 @@ class SqlDelightTrainingCoverageRepositoryTest {
                     null,
                     null,
                     "s",
-                    "EXTERNAL"
+                    "EXTERNAL",
+                    null
                 )
             }
             val replacement = next().single()

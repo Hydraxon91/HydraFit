@@ -206,7 +206,8 @@ SELECT
     w.rir AS rir,
     w.performedAt AS performedAt,
     w.timingProvenance AS timingProvenance,
-    w.occurrenceId AS occurrenceId
+    w.occurrenceId AS occurrenceId,
+    w.durationSeconds AS durationSeconds
 FROM workoutSet w
 LEFT JOIN exercise e ON e.id = w.exerciseId
 LEFT JOIN exerciseOverride eo ON eo.exerciseId = w.exerciseId
@@ -232,7 +233,8 @@ SELECT
     w.rir AS rir,
     w.performedAt AS performedAt,
     w.timingProvenance AS timingProvenance,
-    w.occurrenceId AS occurrenceId
+    w.occurrenceId AS occurrenceId,
+    w.durationSeconds AS durationSeconds
 FROM workoutSet w
 LEFT JOIN exercise e ON e.id = w.exerciseId
 LEFT JOIN exerciseOverride eo ON eo.exerciseId = w.exerciseId

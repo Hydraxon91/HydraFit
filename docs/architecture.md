@@ -497,6 +497,16 @@ The UI freezes the entry unit and retains full stored precision when weight text
 SQLDelight `.sq` files describe the current schema; every schema change ships a numbered `.sqm`
 migration, and released schemas are never edited in place.
 
+The production driver factories pass the commonMain `HydraFitDatabaseSchema` wrapper (not the
+generated `HydraFitDatabase.Schema`) to their driver. The wrapper delegates `version`, `create` and
+`migrate` unchanged and adds exactly one repair: a migration crossing the `52.sqm` `workoutSet`
+rebuild captures that table's AUTOINCREMENT high-water mark from `sqlite_sequence` immediately before
+the rebuild and restores it immediately after, never below the mark the rebuilt table already holds,
+so an id that was allocated and later deleted is not reissued. The mark is read at the rebuild rather
+than at the migration's start, so it neither revives a mark the historical `20.sqm` rebuild already
+lost nor changes that migration's behavior. SQLDelight's resolver rejects `sqlite_sequence` inside a
+`.sqm`, so the wrapper does this with raw `SqlDriver` SQL and no generated query.
+
 The 0.9.0 profile foundation (`49.sqm`, schema 50) adds `equipmentProfile`,
 `equipmentProfileEntry` and singleton `equipmentProfileState`. Equipment IDs remain global;
 selection, ceilings and loading configurations belong to a profile. Migration copies the old

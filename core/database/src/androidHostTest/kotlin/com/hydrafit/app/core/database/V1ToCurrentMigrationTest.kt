@@ -67,7 +67,8 @@ class V1ToCurrentMigrationTest {
             dayIndex = null,
             rir = null,
             sessionId = null,
-            loadKind = "LEGACY_UNSPECIFIED"
+            loadKind = "LEGACY_UNSPECIFIED",
+            durationSeconds = null
         )
         val set = database.workoutLogQueries.selectAllSets().executeAsOne()
         assertEquals("UNKNOWN", set.timingProvenance)

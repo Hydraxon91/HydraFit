@@ -268,6 +268,21 @@ class BackupValidator(private val catalog: BackupCatalog) {
             exercise(it.exerciseId, knownExercises)
             enum(it.loadKind, LoadKind.entries)
             enum(it.timingProvenance, WorkoutTimingProvenance.entries)
+            // A set is measured by positive reps or positive whole seconds, never both and never
+            // neither. A duration in a format that predates the field is rejected instead of being
+            // reinterpreted as a rep count.
+            if (file.formatVersion < WORKOUT_SET_METRICS_FORMAT_VERSION &&
+                it.durationSeconds != null
+            ) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            val hasReps = it.reps != null && it.reps > 0
+            val hasDuration = it.durationSeconds != null && it.durationSeconds > 0
+            if (hasReps == hasDuration) fail(BackupFailure.INVALID_VALUE)
+            if (it.reps != null && it.reps <= 0) fail(BackupFailure.INVALID_VALUE)
+            it.durationSeconds?.let { seconds ->
+                if (seconds <= 0) fail(BackupFailure.INVALID_VALUE)
+            }
             if ((it.startedAtElapsedMillis == null) != (it.completedAtElapsedMillis == null)) {
                 fail(BackupFailure.INVALID_VALUE)
             }

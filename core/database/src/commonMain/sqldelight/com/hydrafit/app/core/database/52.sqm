@@ -1,0 +1,54 @@
+-- Performed-set duration. A set is measured by repetitions or by elapsed whole seconds, never
+-- both: a timed set stores NULL repeats rather than a zero sentinel, so an absent number is never
+-- read as a rep count. Existing rows keep their stored reps verbatim and gain a NULL duration.
+--
+-- SQLite cannot drop NOT NULL with ALTER TABLE, so `reps` becomes nullable through a table rebuild.
+-- The rebuild preserves row ids, every stored snapshot/attribution column, the session and
+-- occurrence links, and all three indexes.
+CREATE TABLE workoutSet_new (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    exerciseId TEXT NOT NULL,
+    reps INTEGER,
+    weightKg REAL,
+    performedAt INTEGER NOT NULL,
+    isWarmup INTEGER NOT NULL DEFAULT 0,
+    involvements TEXT,
+    weekNumber INTEGER,
+    cycleNumber INTEGER,
+    dayIndex INTEGER,
+    rir INTEGER,
+    sessionId TEXT,
+    occurrenceId INTEGER,
+    occurrenceEntryId INTEGER,
+    loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
+    timingProvenance TEXT NOT NULL DEFAULT 'UNKNOWN',
+    startedAtElapsedMillis INTEGER,
+    completedAtElapsedMillis INTEGER,
+    durationSeconds INTEGER,
+    FOREIGN KEY (exerciseId) REFERENCES exercise(id)
+);
+
+INSERT INTO workoutSet_new (
+    id, exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber,
+    dayIndex, rir, sessionId, occurrenceId, occurrenceEntryId, loadKind, timingProvenance,
+    startedAtElapsedMillis, completedAtElapsedMillis
+)
+SELECT
+    id, exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber,
+    dayIndex, rir, sessionId, occurrenceId, occurrenceEntryId, loadKind, timingProvenance,
+    startedAtElapsedMillis, completedAtElapsedMillis
+FROM workoutSet;
+
+DROP TABLE workoutSet;
+
+ALTER TABLE workoutSet_new RENAME TO workoutSet;
+
+-- Dropping the old table also dropped these indexes; they are recreated so a cached query plan and
+-- the existing cursor guarantees are unchanged.
+DROP INDEX IF EXISTS workoutSet_sessionId_performedAt;
+DROP INDEX IF EXISTS workoutSet_exerciseId_performedAt_id;
+DROP INDEX IF EXISTS workoutSet_occurrenceId_exerciseId;
+
+CREATE INDEX workoutSet_sessionId_performedAt ON workoutSet(sessionId, performedAt);
+CREATE INDEX workoutSet_exerciseId_performedAt_id ON workoutSet(exerciseId, performedAt, id);
+CREATE INDEX workoutSet_occurrenceId_exerciseId ON workoutSet(occurrenceId, exerciseId);

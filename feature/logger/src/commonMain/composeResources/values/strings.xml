@@ -6,6 +6,7 @@
     <string name="logger_title">Log workout</string>
     <string name="logger_search_label">Search exercises</string>
     <string name="logger_reps_label">Reps</string>
+    <string name="logger_seconds_label">Seconds</string>
     <string name="logger_weight_label">Weight (%1$s)</string>
     <string name="logger_add_weight">Add weight</string>
     <string name="logger_rir_label">RIR (optional)</string>
@@ -187,6 +188,7 @@
     <string name="logger_history_load_more_failed">Could not load more history. Try again.</string>
     <string name="logger_history_set_count">Recorded sets: %1$d</string>
     <string name="logger_history_set_line">%1$d reps · %2$s</string>
+    <string name="logger_history_set_duration_line">%1$d s · %2$s</string>
     <string name="logger_history_no_sets">No recorded sets</string>
     <string name="logger_history_session_missing">Recorded session (session record missing)</string>
     <string name="logger_history_unassigned_set">Set with no session</string>
@@ -230,6 +232,7 @@
     <string name="logger_summary_totals">%1$d recorded sets · %2$d prescribed</string>
     <string name="logger_summary_close">Close</string>
     <string name="logger_summary_edit_set_description">Edit %1$s set %2$d, %3$d reps</string>
+    <string name="logger_summary_edit_set_duration_description">Edit %1$s set %2$d, %3$d seconds</string>
     <string name="logger_summary_remaining">%1$d not recorded</string>
     <string name="logger_summary_not_performed">Not performed</string>
     <string name="logger_summary_skipped">Skipped</string>

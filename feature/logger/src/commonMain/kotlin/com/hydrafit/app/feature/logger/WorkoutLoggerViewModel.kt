@@ -362,7 +362,10 @@ class WorkoutLoggerViewModel(
                 selectedExerciseId = exerciseId,
                 exerciseInstructions = null,
                 weightInput = planWeight,
-                reps = planReps ?: it.reps,
+                reps = planReps?.toString() ?: it.reps,
+                // A prescription target is a rep count, so a plan suggestion returns the form to reps.
+                metric = if (planReps != null) SetMetric.REPETITIONS else it.metric,
+                durationSeconds = if (planReps != null) "" else it.durationSeconds,
                 // Bodyweight exercises hide the weight field again on each selection.
                 weightRevealed = false,
                 // The previous set's failure messages described these replaced entries.
@@ -429,7 +432,13 @@ class WorkoutLoggerViewModel(
             val option = current.exercises.firstOrNull { it.id == exerciseId }
             current.copy(
                 weightInput = weightInputFor(last.weightKg, unit),
-                reps = last.reps.toString(),
+                metric = if (last.durationSeconds != null) {
+                    SetMetric.DURATION
+                } else {
+                    SetMetric.REPETITIONS
+                },
+                reps = last.reps?.toString().orEmpty(),
+                durationSeconds = last.durationSeconds?.toString().orEmpty(),
                 // An added-load history reveals the field on an addable bodyweight exercise.
                 weightRevealed = current.weightRevealed ||
                     (option?.canAddLoad == true && last.weightKg != null),
@@ -452,7 +461,13 @@ class WorkoutLoggerViewModel(
                 selectedExerciseId = row.exerciseId,
                 exerciseInstructions = null,
                 weightInput = weightInputFor(row.weightKg, unit),
-                reps = row.reps.toString(),
+                metric = if (row.durationSeconds != null) {
+                    SetMetric.DURATION
+                } else {
+                    SetMetric.REPETITIONS
+                },
+                reps = row.reps?.toString().orEmpty(),
+                durationSeconds = row.durationSeconds?.toString().orEmpty(),
                 // Reveal the weight field for a bodyweight exercise only when that row had a weight.
                 weightRevealed = row.weightKg != null,
                 isWarmup = row.isWarmup,
@@ -519,13 +534,21 @@ class WorkoutLoggerViewModel(
         _state.update {
             it.copy(
                 loggedSetEdit = LoggedSetEdit(
-                    row,
-                    unit,
-                    row.reps.toString(),
-                    weight,
-                    weight,
-                    row.rir?.toString().orEmpty(),
-                    row.performedAtMillis
+                    row = row,
+                    weightUnit = unit,
+                    // The editor opens on the metric the row was recorded with; the other field is
+                    // seeded but only submitted when the user switches to it.
+                    metric = if (row.durationSeconds != null) {
+                        SetMetric.DURATION
+                    } else {
+                        SetMetric.REPETITIONS
+                    },
+                    reps = row.reps?.toString().orEmpty(),
+                    durationSeconds = row.durationSeconds?.toString().orEmpty(),
+                    weightInput = weight,
+                    originalWeightInput = weight,
+                    rir = row.rir?.toString().orEmpty(),
+                    performedAtMillis = row.performedAtMillis
                 ),
                 loggedSetEditFailed = false
             )
@@ -533,6 +556,18 @@ class WorkoutLoggerViewModel(
     }
 
     fun onLoggedSetRepsChanged(value: String) = updateLoggedSetEdit { copy(reps = value) }
+
+    fun onLoggedSetDurationChanged(value: String) = updateLoggedSetEdit {
+        copy(durationSeconds = value.filter(Char::isDigit))
+    }
+
+    /** Switching the metric clears the field the user just left, so nothing stale is submitted. */
+    fun onLoggedSetMetricChanged(metric: SetMetric) = updateLoggedSetEdit {
+        when (metric) {
+            SetMetric.REPETITIONS -> copy(metric = metric, durationSeconds = "")
+            SetMetric.DURATION -> copy(metric = metric, reps = "")
+        }
+    }
 
     /**
      * Opens the existing set-correction editor for one set of the finished-workout summary. The
@@ -547,6 +582,7 @@ class WorkoutLoggerViewModel(
                 exerciseId = set.exerciseId,
                 exerciseName = set.exerciseName ?: set.exerciseId,
                 reps = set.reps,
+                durationSeconds = set.durationSeconds,
                 weightKg = set.weightKg,
                 rir = set.rir,
                 isWarmup = set.isWarmup,
@@ -599,10 +635,11 @@ class WorkoutLoggerViewModel(
                 logMutations.correctSet(
                     edit.row.id,
                     WorkoutSetCorrection(
-                        requireNotNull(edit.reps.toIntOrNull()),
-                        weight,
-                        edit.rir.toIntOrNull(),
-                        edit.performedAtMillis
+                        reps = edit.correctionReps,
+                        weightKg = weight,
+                        rir = edit.rir.toIntOrNull(),
+                        performedAtMillis = edit.performedAtMillis,
+                        durationSeconds = edit.correctionDurationSeconds
                     )
                 )
             } catch (cancelled: CancellationException) {
@@ -674,6 +711,22 @@ class WorkoutLoggerViewModel(
         _state.update { it.copy(reps = value.filter(Char::isDigit)) }
     }
 
+    fun onDurationSecondsChanged(value: String) {
+        manualInputGeneration++
+        _state.update { it.copy(durationSeconds = value.filter(Char::isDigit)) }
+    }
+
+    /** Switching the manual form's metric clears the other field, so only one can ever be submitted. */
+    fun onMetricChanged(metric: SetMetric) {
+        manualInputGeneration++
+        _state.update {
+            when (metric) {
+                SetMetric.REPETITIONS -> it.copy(metric = metric, durationSeconds = "")
+                SetMetric.DURATION -> it.copy(metric = metric, reps = "")
+            }
+        }
+    }
+
     fun onWeightChanged(value: String) {
         manualInputGeneration++
         _state.update {
@@ -724,8 +777,15 @@ class WorkoutLoggerViewModel(
         if (manualLogSubmissionInProgress) return
         val current = _state.value
         val exerciseId = current.selectedExerciseId ?: return
-        val reps = current.reps.toIntOrNull() ?: return
-        if (reps <= 0) return
+        // Exactly one metric is submitted, so the field the user did not select is never parsed: the
+        // selected one must be a positive whole number or the submission is refused outright.
+        val reps = if (current.metric == SetMetric.REPETITIONS) current.reps.toIntOrNull() else null
+        val durationSeconds = if (current.metric == SetMetric.DURATION) {
+            current.durationSeconds.toIntOrNull()
+        } else {
+            null
+        }
+        if ((reps ?: 0) <= 0 && (durationSeconds ?: 0) <= 0) return
         // A hidden weight field (bodyweight exercise not revealed) never logs a weight, even if a
         // value was retained from a previous exercise.
         val typedWeight = if (current.showWeightField) {
@@ -755,6 +815,7 @@ class WorkoutLoggerViewModel(
         val submittedSet = WorkoutSet(
             exerciseId = exerciseId,
             reps = reps,
+            durationSeconds = durationSeconds,
             weightKg = weightKg,
             loadKind = loadKind,
             performedAtMillis = current.performedAtMillis ?: runtime.nowMillis(),
@@ -2679,6 +2740,7 @@ class WorkoutLoggerViewModel(
                     exerciseId = set.exerciseId,
                     exerciseName = exerciseNames[set.exerciseId] ?: set.exerciseId,
                     reps = set.reps,
+                    durationSeconds = set.durationSeconds,
                     weightKg = set.weightKg,
                     rir = set.rir,
                     isWarmup = set.isWarmup,

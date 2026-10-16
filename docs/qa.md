@@ -884,6 +884,65 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   numeric estimate; only narrow approved shoulder/upper-back boundaries soften visually. Full
   figures, legend, attribution and numeric descriptions must stay reachable in the scrollable dialog.
 
+### Fatigue estimate framing — 2026-10-16
+
+- Based on `2c440e33`, the screen title and map legend explicitly label estimated fatigue.
+  A note below the title distinguishes the score from measured soreness, exhaustion or readiness,
+  warns that low values do not confirm recovery, and acknowledges incomplete recorded mappings.
+  Calculations, history, all 24 muscle groups and coverage accounting are unchanged.
+- DeepSeek coding verification passed: `:feature:fatigueheatmap:testAndroidHostTest`
+  (45 tests, including three new rendered/resource checks), module `ktlintCheck` and
+  `:androidApp:assembleDebug`. The updated `.maestro/fatigue-body-map.yaml` passed
+  `check-syntax`; it now asserts the note and captures the numeric screen too.
+- Initial emulator acceptance was blocked by an open Setup notes editor; it was left
+  untouched. After the user resolved that precondition, fresh hierarchy inspection confirmed
+  Equipment selected and no editor/dialog/keyboard. The runner installed the debug build,
+  foregrounded without an intentional restart, and passed all 24 flow steps in one invocation
+  under a 120-second cap, returning to Equipment without training-data writes.
+- The numeric estimate note and all four model/view descriptions were asserted. Five
+  screenshots were captured and viewed, including the numeric-screen image inspected by
+  the parent. Artifacts are under `fatigue-clarity-ui/2026-10-16_225326/` in the external
+  directory below. Larger-font, dark-theme, locale, measured contrast and accessibility
+  traversal remain unverified; no formal review or commit was performed.
+- External artifacts: `fatigue-clarity-*.log` and `fatigue-clarity-hierarchy.csv` under
+  `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/`.
+
+### Performed timed-set slice — incomplete, 2026-10-16
+
+- Uncommitted work following `2c440e33` adds exclusive nullable reps/duration fields to
+  performed records, manual metric selection/correction, duration-aware history/summary text,
+  backup format 17 and CSV duration export. Rep-derived fatigue, records and planner load
+  inputs exclude timed records. This is a partial slice, not accepted duration support.
+- Domain contract tests and the Android debug build passed. A full host run after fixture
+  adaptation had only an outdated schema-version assertion failing; that assertion was fixed.
+  Migration schema verification passes, but does not establish allocation-history preservation.
+- **Migration regression fixed (2026-10-17):** the generated `52.sqm` rebuild alone loses
+  deleted-row AUTOINCREMENT history. The approved `HydraFitDatabaseSchema` wrapper now captures
+  the mark immediately before that rebuild and restores it before caller post-rebuild callbacks.
+  Both production driver factories use it; generated DDL and historical migrations are unchanged.
+  The retained regressions assert actual subsequent insert IDs 1001 and 501, including the
+  empty-after-deletion case. All 459 database tests passed in `schema-wrapper-matrix2.log`.
+- An attempted SQL-only sequence-preservation fix could not compile: SQLDelight rejects
+  `sqlite_sequence` references in `.sqm`. That attempt was restored; no temporary diagnostic
+  source change remains. The Kotlin wrapper supplies the needed raw-driver access; wrapper tests
+  cover fresh creation, multi-hop upgrades, callback ordering, no-op migrations and factory wiring.
+  Platform-driver runtime upgrades remain unverified. No duration build has been deployed.
+- Root `ktlintCheck`, debug assembly, migration verification and both required iOS compiles
+  passed. A full host run passed in `schema-wrapper-all-host.log`. After formatting-only
+  closure, a further combined run failed in
+  `ExerciseProgressRecordsIntegrationTest.multiExerciseOccurrenceKeepsStableIdentityOrderAndEarlierBaselines`
+  with a nested SQLite transaction error; its isolated three-test class passed afterwards.
+  Treat this as an intermittent integration failure, not proof of a pre-existing baseline issue
+  or a fully green final matrix. Duration UI journeys remain open.
+  CSV duration import, duration trends, timed prescriptions/preparation, self-reports and
+  schedule-aware planning are not complete. Owning architecture/mechanics duration docs
+  still require integration updates; do not describe this candidate as production-ready.
+- Evidence: `timed-integration-host.log`, `timed-storage-tests-full.log`,
+  `timed-sequence-{red,green,full,verify-rerun,ktlint}.log`, `schema-wrapper-matrix2.log`,
+  `schema-wrapper-all-host.log`, `duration-domain-lint-closure.log`, `duration-final-check.log`
+  and `duration-epri-rerun.log` in the external artifact directory listed above.
+  All work remains uncommitted; there is no formal review verdict.
+
 ### Manual shrug and neck additions — 2026-10-16
 
 - Main-agent implementation on `68e2dc07`: four shrug variants plus Forehead Neck Bridge

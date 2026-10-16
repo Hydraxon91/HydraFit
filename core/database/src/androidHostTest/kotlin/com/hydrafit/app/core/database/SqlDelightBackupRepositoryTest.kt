@@ -2,6 +2,8 @@ package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.backup.ApplyStagedBackupUseCase
+import com.hydrafit.app.core.domain.backup.BackupException
+import com.hydrafit.app.core.domain.backup.BackupFailure
 import com.hydrafit.app.core.domain.backup.BackupJson
 import com.hydrafit.app.core.domain.backup.BackupValidator
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
@@ -777,6 +779,80 @@ class SqlDelightBackupRepositoryTest {
         assertEquals(second, repository.export("t", 1L))
     }
 
+    @Test
+    fun timedSetsRoundTripThroughBackupAndInvalidMeasurementShapesAreRejected() = runTest {
+        seedRepresentativeData()
+        database.workoutLogQueries.insertSetWithTimingProvenance(
+            exerciseId = "back-squat",
+            reps = null,
+            weightKg = null,
+            performedAt = 20,
+            isWarmup = 0,
+            involvements = "QUADS:1.0",
+            weekNumber = null,
+            cycleNumber = null,
+            dayIndex = null,
+            rir = null,
+            sessionId = "s1",
+            loadKind = "BODYWEIGHT",
+            timingProvenance = "LIVE",
+            startedAtElapsedMillis = null,
+            completedAtElapsedMillis = null,
+            durationSeconds = 90
+        )
+        val timedSetId = database.workoutLogQueries.selectAllSets().executeAsList()
+            .first { it.durationSeconds != null }
+            .id
+        val catalog = SqlDelightBackupCatalog()
+        val exported = repository.export("t", 1L)
+        BackupValidator(catalog).validate(exported)
+        val timedRecord = exported.workoutSets.first { it.durationSeconds != null }
+        assertNull(timedRecord.reps)
+        assertEquals(90, timedRecord.durationSeconds)
+
+        // The real restore path writes the stored shape back: NULL reps with the recorded seconds.
+        repository.restore(exported)
+        val restored = database.workoutLogQueries.selectAllSets().executeAsList()
+            .first { it.durationSeconds != null }
+        assertEquals(timedSetId, restored.id)
+        assertNull(restored.reps)
+        assertEquals(90L, restored.durationSeconds)
+
+        // A legacy (format 16) payload is reps-only and must not gain a duration.
+        val legacy = exported.copy(
+            formatVersion = 16,
+            workoutSets = exported.workoutSets.map { set ->
+                if (set.durationSeconds != null) {
+                    set.copy(reps = 30, durationSeconds = null)
+                } else {
+                    set
+                }
+            }
+        )
+        BackupValidator(catalog).validate(legacy)
+        repository.restore(legacy)
+        assertTrue(
+            database.workoutLogQueries.selectAllSets().executeAsList()
+                .none { it.durationSeconds != null }
+        )
+
+        // A set measured by both reps and seconds, or by neither, is rejected.
+        val both = exported.copy(
+            workoutSets = exported.workoutSets.map { it.copy(reps = 5, durationSeconds = 90) }
+        )
+        assertEquals(
+            BackupFailure.INVALID_VALUE,
+            assertFailsWith<BackupException> { BackupValidator(catalog).validate(both) }.failure
+        )
+        val neither = exported.copy(
+            workoutSets = exported.workoutSets.map { it.copy(reps = null, durationSeconds = null) }
+        )
+        assertEquals(
+            BackupFailure.INVALID_VALUE,
+            assertFailsWith<BackupException> { BackupValidator(catalog).validate(neither) }.failure
+        )
+    }
+
     private fun seedRepresentativeData() {
         database.exerciseQueries.insertCustom(
             id = "user-bicycle-crunch",
@@ -814,7 +890,8 @@ class SqlDelightBackupRepositoryTest {
             loadKind = "EXTERNAL",
             timingProvenance = "LIVE",
             startedAtElapsedMillis = 100,
-            completedAtElapsedMillis = 150
+            completedAtElapsedMillis = 150,
+            durationSeconds = null
         )
         database.planHistoryQueries.insertPlan("deterministic", 1, 1, 1)
         val planId = database.planHistoryQueries.lastInsertedPlanId().executeAsOne()

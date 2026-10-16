@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.domain.backup
 
+import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -852,6 +853,38 @@ class BackupValidatorTest {
         }
     }
 
+    @Test
+    fun acceptsATimedSetInFormatSeventeenAndRejectsTheBothOrNeitherShapes() {
+        validator.validate(
+            profiledFile(BACKUP_FORMAT_VERSION)
+                .copy(workoutSets = listOf(set(reps = null, durationSeconds = 90)))
+        )
+
+        // Exactly one positive measurement: never reps and seconds together, never neither, and
+        // never a non-positive value.
+        listOf(
+            set(reps = 5, durationSeconds = 90),
+            set(reps = null, durationSeconds = null),
+            set(reps = 0, durationSeconds = null),
+            set(reps = null, durationSeconds = 0)
+        ).forEach { invalid ->
+            assertFailure(BackupFailure.INVALID_VALUE) {
+                profiledFile(BACKUP_FORMAT_VERSION).copy(workoutSets = listOf(invalid))
+            }
+        }
+    }
+
+    @Test
+    fun aLegacyRepsOnlySetStaysCountedAndRejectsADuration() {
+        // The format before the metrics field predates it, so its counted rows restore verbatim.
+        val legacy = profiledFile(WORKOUT_SET_METRICS_FORMAT_VERSION - 1)
+        validator.validate(legacy.copy(workoutSets = listOf(set(reps = 5))))
+        // A duration in a pre-17 file is rejected rather than read as extra reps.
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            legacy.copy(workoutSets = listOf(set(reps = null, durationSeconds = 90)))
+        }
+    }
+
     private fun assertFailure(expected: BackupFailure, mutate: () -> BackupFile) {
         val failure = assertFailsWith<BackupException> { validator.validate(mutate()) }
         assertEquals(expected, failure.failure)
@@ -867,6 +900,19 @@ class BackupValidatorTest {
         customExercises = listOf(custom()),
         workoutSessions = listOf(session("s1")),
         workoutSets = listOf(set())
+    )
+
+    /**
+     * A file in a format that requires the equipment-profile section (>= 14), which `validFile()`
+     * deliberately leaves empty because it pins format 13. Tests about a later section use this base
+     * so the only thing under test is that section.
+     */
+    private fun profiledFile(formatVersion: Int) = validFile().copy(
+        formatVersion = formatVersion,
+        equipmentProfiles = listOf(
+            BackupEquipmentProfileRecord(1L, "Home", emptyList(), emptyList(), LoadingInventory())
+        ),
+        activeEquipmentProfileId = 1L
     )
 
     private fun targetReasonFile() = validFile().copy(
@@ -1033,11 +1079,13 @@ class BackupValidatorTest {
         involvements: String? = null,
         sessionId: String? = "s1",
         occurrenceId: Long? = null,
-        occurrenceEntryId: Long? = null
+        occurrenceEntryId: Long? = null,
+        reps: Int? = 5,
+        durationSeconds: Int? = null
     ) = BackupWorkoutSetRecord(
         id = id,
         exerciseId = exerciseId,
-        reps = 5,
+        reps = reps,
         weightKg = weightKg,
         performedAtMillis = 1L,
         isWarmup = false,
@@ -1052,7 +1100,8 @@ class BackupValidatorTest {
         loadKind = loadKind,
         timingProvenance = timingProvenance,
         startedAtElapsedMillis = startedAtElapsedMillis,
-        completedAtElapsedMillis = completedAtElapsedMillis
+        completedAtElapsedMillis = completedAtElapsedMillis,
+        durationSeconds = durationSeconds
     )
 
     private fun session(id: String) = BackupWorkoutSessionRecord(

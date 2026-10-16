@@ -33,7 +33,11 @@ class BuildRecentWeightsUseCase(private val config: RecentWeightsConfig = Recent
         sets: List<WorkoutSet>,
         utcOffsetMillis: Long = 0L
     ): List<WeightHistoryEntry> = sets
-        .filter { !it.isWarmup && (it.weightKg == null || it.weightKg > 0.0) }
+        .filter {
+            !it.isWarmup &&
+                it.reps != null &&
+                (it.weightKg == null || it.weightKg > 0.0)
+        }
         .groupBy { it.exerciseId }
         .flatMap { (exerciseId, rows) -> recentFor(exerciseId, rows, utcOffsetMillis) }
         .sortedWith(compareBy({ it.exerciseId }, { it.performedAtMillis }))
@@ -53,7 +57,7 @@ class BuildRecentWeightsUseCase(private val config: RecentWeightsConfig = Recent
                     exerciseId = exerciseId,
                     performedAtMillis = best.performedAtMillis,
                     weightKg = best.weightKg,
-                    reps = best.reps,
+                    reps = best.reps ?: return@mapNotNull null,
                     rir = best.rir,
                     weekNumber = best.weekNumber,
                     dayIndex = best.dayIndex,

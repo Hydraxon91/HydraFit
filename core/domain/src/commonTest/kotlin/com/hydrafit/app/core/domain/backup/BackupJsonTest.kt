@@ -103,6 +103,42 @@ class BackupJsonTest {
     }
 
     @Test
+    fun formatSeventeenRoundTripsATimedSetAndALegacyFileStaysCounted() {
+        val counted = BackupWorkoutSetRecord(
+            id = 1L,
+            exerciseId = "back-squat",
+            reps = 5,
+            weightKg = 100.0,
+            performedAtMillis = 1L,
+            isWarmup = false,
+            involvements = null,
+            weekNumber = null,
+            cycleNumber = null,
+            dayIndex = null,
+            rir = null,
+            sessionId = "s1",
+            occurrenceId = null,
+            occurrenceEntryId = null,
+            loadKind = "EXTERNAL"
+        )
+        val timed = counted.copy(id = 2L, reps = null, weightKg = null, durationSeconds = 90)
+
+        val file = emptyBackupFile().copy(workoutSets = listOf(counted, timed))
+        val decoded = BackupJson.decode(BackupJson.encode(file))
+        assertEquals(file, decoded)
+        val decodedTimed = decoded.workoutSets.first { it.id == 2L }
+        assertNull(decodedTimed.reps)
+        assertEquals(90, decodedTimed.durationSeconds)
+
+        // A format-16 record predates the field, so it round-trips as counted with no duration.
+        val legacy = emptyBackupFile().copy(formatVersion = 16, workoutSets = listOf(counted))
+        val legacyDecoded = BackupJson.decode(BackupJson.encode(legacy))
+        assertEquals(legacy, legacyDecoded)
+        assertEquals(5, legacyDecoded.workoutSets.single().reps)
+        assertNull(legacyDecoded.workoutSets.single().durationSeconds)
+    }
+
+    @Test
     fun formatSixRequiresOptInsAndOlderFormatsDefaultThemOff() {
         val file = emptyBackupFile().copy(
             formatVersion = 6,

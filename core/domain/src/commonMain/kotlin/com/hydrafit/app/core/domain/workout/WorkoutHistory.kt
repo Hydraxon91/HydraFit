@@ -86,13 +86,16 @@ data class WorkoutHistorySet(
     val exerciseId: String,
     /** The current catalog name, or null when the exercise no longer exists. */
     val exerciseName: String?,
-    val reps: Int,
+    /** Repetitions for counted work, or null for a timed set. */
+    val reps: Int?,
     val weightKg: Double?,
     val loadKind: LoadKind,
     val isWarmup: Boolean,
     val rir: Int?,
     val performedAtMillis: Long,
     val timingProvenance: WorkoutTimingProvenance,
+    /** Elapsed whole seconds for a timed set, or null for counted work. */
+    val durationSeconds: Int? = null,
     /**
      * The workout occurrence this set was recorded in, or null when it was not part of one. Carried
      * so a correction reached from history keeps the same occurrence attribution as one reached from

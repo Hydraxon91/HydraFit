@@ -7,9 +7,12 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 16
+const val BACKUP_FORMAT_VERSION: Int = 17
 
 const val EQUIPMENT_PROFILE_FORMAT_VERSION: Int = 14
+
+/** The first backup format that carries per-set performed metrics (reps or whole seconds). */
+const val WORKOUT_SET_METRICS_FORMAT_VERSION: Int = 17
 
 /** The first backup format that carries local workout-import provenance. */
 const val IMPORT_PROVENANCE_FORMAT_VERSION: Int = 15
@@ -50,7 +53,10 @@ const val EXERCISE_NOTES_FORMAT_VERSION: Int = 9
  * fabricated one. Version 6 adds alert/coaching opt-ins; earlier formats default them off. Version 5
  * adds rest durations; earlier formats use the global default. Version 15 adds local workout-import
  * provenance; earlier formats have none. Version 16 adds the bucket/partition import ledger; formats
- * 1-15 restore with provenance only and cannot carry a split bucket.
+ * 1-15 restore with provenance only and cannot carry a split bucket. Version 17 adds per-set
+ * performed metrics: a recorded set carries positive reps or positive whole seconds, never both.
+ * Formats 1-16 have no duration field, so every restored set is repetitions and a duration in a
+ * legacy file is rejected rather than reinterpreted.
  */
 @Serializable
 data class BackupFile(
@@ -269,7 +275,11 @@ data class BackupEquipmentRecord(
 data class BackupWorkoutSetRecord(
     val id: Long,
     val exerciseId: String,
-    val reps: Int,
+    /**
+     * Repetitions for counted work, or null for a timed set. Formats 1-16 always carried a count,
+     * which restores verbatim; a format-17 record may instead carry [durationSeconds].
+     */
+    val reps: Int? = null,
     val weightKg: Double?,
     val performedAtMillis: Long,
     val isWarmup: Boolean,
@@ -284,7 +294,9 @@ data class BackupWorkoutSetRecord(
     val loadKind: String,
     val timingProvenance: String = "UNKNOWN",
     val startedAtElapsedMillis: Long? = null,
-    val completedAtElapsedMillis: Long? = null
+    val completedAtElapsedMillis: Long? = null,
+    /** Elapsed whole seconds for a timed set, format 17 and later; null for counted work. */
+    val durationSeconds: Int? = null
 )
 
 @Serializable

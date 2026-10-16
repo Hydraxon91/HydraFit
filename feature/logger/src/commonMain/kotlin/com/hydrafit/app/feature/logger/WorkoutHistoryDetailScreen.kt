@@ -37,6 +37,7 @@ import hydrafit.feature.logger.generated.resources.logger_history_note_cleared
 import hydrafit.feature.logger.generated.resources.logger_history_rir
 import hydrafit.feature.logger.generated.resources.logger_history_session_note_title
 import hydrafit.feature.logger.generated.resources.logger_history_set_count
+import hydrafit.feature.logger.generated.resources.logger_history_set_duration_line
 import hydrafit.feature.logger.generated.resources.logger_history_set_line
 import hydrafit.feature.logger.generated.resources.logger_history_sets_failed
 import hydrafit.feature.logger.generated.resources.logger_history_sets_loading
@@ -75,6 +76,8 @@ fun WorkoutHistoryDetailRoute(
             }
         },
         onLoggedSetRepsChanged = loggerViewModel::onLoggedSetRepsChanged,
+        onLoggedSetDurationChanged = loggerViewModel::onLoggedSetDurationChanged,
+        onLoggedSetMetricChanged = loggerViewModel::onLoggedSetMetricChanged,
         onLoggedSetWeightChanged = loggerViewModel::onLoggedSetWeightChanged,
         onLoggedSetRirChanged = loggerViewModel::onLoggedSetRirChanged,
         onLoggedSetTimeChanged = loggerViewModel::onLoggedSetTimeChanged,
@@ -95,6 +98,8 @@ fun WorkoutHistoryDetailScreen(
     loggerState: WorkoutLoggerUiState,
     onEditSet: (WorkoutHistorySet) -> Unit,
     onLoggedSetRepsChanged: (String) -> Unit,
+    onLoggedSetDurationChanged: (String) -> Unit,
+    onLoggedSetMetricChanged: (SetMetric) -> Unit,
     onLoggedSetWeightChanged: (String) -> Unit,
     onLoggedSetRirChanged: (String) -> Unit,
     onLoggedSetTimeChanged: (Long) -> Boolean,
@@ -323,6 +328,8 @@ fun WorkoutHistoryDetailScreen(
             utcOffsetMillis = state.utcOffsetMillis,
             nowMillis = nowMillis,
             onRepsChanged = onLoggedSetRepsChanged,
+            onDurationChanged = onLoggedSetDurationChanged,
+            onMetricChanged = onLoggedSetMetricChanged,
             onWeightChanged = onLoggedSetWeightChanged,
             onRirChanged = onLoggedSetRirChanged,
             onTimeChanged = onLoggedSetTimeChanged,
@@ -365,8 +372,20 @@ private fun WorkoutHistorySetRow(
                 style = MaterialTheme.typography.bodySmall
             )
         }
+        val durationSeconds = set.durationSeconds
+        val reps = set.reps
         Text(
-            text = stringResource(Res.string.logger_history_set_line, set.reps, loadText),
+            text = when {
+                durationSeconds != null -> stringResource(
+                    Res.string.logger_history_set_duration_line,
+                    durationSeconds,
+                    loadText
+                )
+
+                reps != null -> stringResource(Res.string.logger_history_set_line, reps, loadText)
+
+                else -> loadText
+            },
             style = MaterialTheme.typography.bodyMedium
         )
         set.rir?.let { rir ->

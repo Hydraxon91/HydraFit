@@ -118,7 +118,7 @@ class SqlDelightBackupRepository(
                     BackupWorkoutSetRecord(
                         id = it.id,
                         exerciseId = it.exerciseId,
-                        reps = it.reps.toInt(),
+                        reps = it.reps?.toInt(),
                         weightKg = it.weightKg,
                         performedAtMillis = it.performedAt,
                         isWarmup = it.isWarmup != 0L,
@@ -133,7 +133,8 @@ class SqlDelightBackupRepository(
                         loadKind = it.loadKind,
                         timingProvenance = it.timingProvenance,
                         startedAtElapsedMillis = it.startedAtElapsedMillis,
-                        completedAtElapsedMillis = it.completedAtElapsedMillis
+                        completedAtElapsedMillis = it.completedAtElapsedMillis,
+                        durationSeconds = it.durationSeconds?.toInt()
                     )
                 },
                 workoutSessions = database.workoutSessionQueries.selectAllSessions()
@@ -997,7 +998,7 @@ class SqlDelightBackupRepository(
                 database.workoutLogQueries.insertSetWithIdAndTimingProvenance(
                     id = set.id,
                     exerciseId = set.exerciseId,
-                    reps = set.reps.toLong(),
+                    reps = set.reps?.toLong(),
                     weightKg = set.weightKg,
                     performedAt = set.performedAtMillis,
                     isWarmup = if (set.isWarmup) 1L else 0L,
@@ -1012,7 +1013,8 @@ class SqlDelightBackupRepository(
                     loadKind = set.loadKind,
                     timingProvenance = set.timingProvenance,
                     startedAtElapsedMillis = set.startedAtElapsedMillis,
-                    completedAtElapsedMillis = set.completedAtElapsedMillis
+                    completedAtElapsedMillis = set.completedAtElapsedMillis,
+                    durationSeconds = set.durationSeconds?.toLong()
                 )
             }
 

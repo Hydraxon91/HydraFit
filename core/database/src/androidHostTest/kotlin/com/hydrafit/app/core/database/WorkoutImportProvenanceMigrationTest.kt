@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.database
 
+import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -23,16 +24,20 @@ class WorkoutImportProvenanceMigrationTest {
         HydraFitDatabase.Schema.migrate(driver, 1, 50)
         val database = HydraFitDatabase(driver)
         database.exerciseQueries.insert("squat", "Squat", "BARBELL", "SQUAT", "EXTERNAL")
-        database.workoutLogQueries.insertSet(
-            "squat", 10, 60.0, 100, 0, null, null, null, null, null, null, "EXTERNAL"
+        // Schema 53 adds `durationSeconds`, so the generated set queries can no longer run against
+        // the 50 schema; write and read the stored row with raw SQL that matches it.
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, loadKind) " +
+                "VALUES ('squat', 10, 60.0, 100, 0, 'EXTERNAL')"
         )
-        val before = database.workoutLogQueries.selectAllSets().executeAsList()
+        val before = storedSets()
         assertEquals(0L, ledgerTableCount())
 
         HydraFitDatabase.Schema.migrate(driver, 50, 51)
 
         assertEquals(1L, ledgerTableCount())
-        assertEquals(before, database.workoutLogQueries.selectAllSets().executeAsList())
+        assertEquals(before, storedSets())
         database.workoutImportQueries.insertProvenance("FITNOTES", "key", "content", "session-a")
         val row = database.workoutImportQueries.selectProvenanceBySource("FITNOTES")
             .executeAsOne()
@@ -61,4 +66,19 @@ class WorkoutImportProvenanceMigrationTest {
         "SELECT count(*) FROM sqlite_master WHERE type = 'table' " +
             "AND name = 'workoutImportProvenance'"
     )
+
+    /** Every stored set column as text: a pre-53 database has no `durationSeconds` to select. */
+    private fun storedSets(): List<List<String?>> = driver.executeQuery(
+        identifier = null,
+        sql = "SELECT id, exerciseId, reps, weightKg, performedAt, isWarmup, involvements, " +
+            "weekNumber, cycleNumber, dayIndex, rir, sessionId, occurrenceId, occurrenceEntryId, " +
+            "loadKind, timingProvenance, startedAtElapsedMillis, completedAtElapsedMillis " +
+            "FROM workoutSet ORDER BY performedAt, id",
+        mapper = { cursor ->
+            val rows = mutableListOf<List<String?>>()
+            while (cursor.next().value) rows += (0 until 18).map { cursor.getString(it) }
+            QueryResult.Value(rows)
+        },
+        parameters = 0
+    ).value
 }

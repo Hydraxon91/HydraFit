@@ -670,7 +670,8 @@ class SqlDelightWorkoutHistoryRepositoryTest {
             dayIndex = null,
             rir = rir,
             sessionId = sessionId,
-            loadKind = "EXTERNAL"
+            loadKind = "EXTERNAL",
+            durationSeconds = null
         )
         val id = database.workoutLogQueries.lastInsertedSetId().executeAsOne()
         if (occurrenceId != null) {
@@ -705,7 +706,8 @@ class SqlDelightWorkoutHistoryRepositoryTest {
             sessionId = sessionId,
             occurrenceId = null,
             occurrenceEntryId = null,
-            loadKind = "EXTERNAL"
+            loadKind = "EXTERNAL",
+            durationSeconds = null
         )
     }
 }

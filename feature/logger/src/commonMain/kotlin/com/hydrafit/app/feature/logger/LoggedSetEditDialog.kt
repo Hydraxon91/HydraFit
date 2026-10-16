@@ -2,6 +2,7 @@ package com.hydrafit.app.feature.logger
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -9,6 +10,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -38,6 +40,7 @@ import hydrafit.feature.logger.generated.resources.logger_pick_time_title
 import hydrafit.feature.logger.generated.resources.logger_recorded_at
 import hydrafit.feature.logger.generated.resources.logger_reps_label
 import hydrafit.feature.logger.generated.resources.logger_save_set
+import hydrafit.feature.logger.generated.resources.logger_seconds_label
 import hydrafit.feature.logger.generated.resources.logger_set_time
 import hydrafit.feature.logger.generated.resources.logger_use_now
 import hydrafit.feature.logger.generated.resources.logger_weight_label
@@ -52,6 +55,8 @@ internal fun LoggedSetEditDialog(
     utcOffsetMillis: Long,
     nowMillis: () -> Long,
     onRepsChanged: (String) -> Unit,
+    onDurationChanged: (String) -> Unit,
+    onMetricChanged: (SetMetric) -> Unit,
     onWeightChanged: (String) -> Unit,
     onRirChanged: (String) -> Unit,
     onTimeChanged: (Long) -> Boolean,
@@ -71,14 +76,40 @@ internal fun LoggedSetEditDialog(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedTextField(
-                    value = edit.reps,
-                    onValueChange = onRepsChanged,
-                    label = { Text(stringResource(Res.string.logger_reps_label)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    enabled = !saving
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = edit.metric == SetMetric.REPETITIONS,
+                        onClick = { onMetricChanged(SetMetric.REPETITIONS) },
+                        enabled = !saving,
+                        label = { Text(stringResource(Res.string.logger_reps_label)) }
+                    )
+                    FilterChip(
+                        selected = edit.metric == SetMetric.DURATION,
+                        onClick = { onMetricChanged(SetMetric.DURATION) },
+                        enabled = !saving,
+                        label = { Text(stringResource(Res.string.logger_seconds_label)) }
+                    )
+                }
+                // Only the selected metric's field is shown; the other value is never submitted.
+                if (edit.metric == SetMetric.DURATION) {
+                    OutlinedTextField(
+                        value = edit.durationSeconds,
+                        onValueChange = onDurationChanged,
+                        label = { Text(stringResource(Res.string.logger_seconds_label)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        enabled = !saving
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = edit.reps,
+                        onValueChange = onRepsChanged,
+                        label = { Text(stringResource(Res.string.logger_reps_label)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        enabled = !saving
+                    )
+                }
                 if (edit.row.loadKind != LoadKind.BODYWEIGHT) {
                     OutlinedTextField(
                         value = edit.weightInput,

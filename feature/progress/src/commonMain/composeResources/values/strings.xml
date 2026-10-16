@@ -40,6 +40,7 @@
     <string name="progress_history_load_more">Load more</string>
     <string name="progress_history_load_more_failed">Could not load more history. Try again.</string>
     <string name="progress_history_line">%1$d reps · %2$s</string>
+    <string name="progress_history_duration_line">%1$d s · %2$s</string>
     <string name="progress_history_warmup">Warm-up</string>
     <string name="progress_history_working">Working set</string>
     <string name="progress_back">Back</string>

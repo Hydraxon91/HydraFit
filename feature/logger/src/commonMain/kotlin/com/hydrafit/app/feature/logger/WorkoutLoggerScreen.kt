@@ -28,6 +28,7 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -162,6 +163,8 @@ import hydrafit.feature.logger.generated.resources.logger_guided_start_set
 import hydrafit.feature.logger.generated.resources.logger_guided_target
 import hydrafit.feature.logger.generated.resources.logger_guided_title
 import hydrafit.feature.logger.generated.resources.logger_history_open
+import hydrafit.feature.logger.generated.resources.logger_history_set_duration_line
+import hydrafit.feature.logger.generated.resources.logger_history_set_line
 import hydrafit.feature.logger.generated.resources.logger_instructions
 import hydrafit.feature.logger.generated.resources.logger_load_added
 import hydrafit.feature.logger.generated.resources.logger_load_added_none
@@ -198,6 +201,7 @@ import hydrafit.feature.logger.generated.resources.logger_rest_timer_note
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_remaining
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_use_default
 import hydrafit.feature.logger.generated.resources.logger_search_label
+import hydrafit.feature.logger.generated.resources.logger_seconds_label
 import hydrafit.feature.logger.generated.resources.logger_session_active
 import hydrafit.feature.logger.generated.resources.logger_session_none
 import hydrafit.feature.logger.generated.resources.logger_session_not_recorded
@@ -331,6 +335,8 @@ fun NavGraphBuilder.loggerGraph(navController: NavController) {
                     utcOffsetMillis = state.utcOffsetMillis,
                     nowMillis = viewModel::currentTimeMillis,
                     onRepsChanged = viewModel::onLoggedSetRepsChanged,
+                    onDurationChanged = viewModel::onLoggedSetDurationChanged,
+                    onMetricChanged = viewModel::onLoggedSetMetricChanged,
                     onWeightChanged = viewModel::onLoggedSetWeightChanged,
                     onRirChanged = viewModel::onLoggedSetRirChanged,
                     onTimeChanged = viewModel::onLoggedSetTimeChanged,
@@ -390,6 +396,8 @@ fun WorkoutLoggerRoute(
         onDismissInstructions = viewModel::dismissInstructions,
         onExerciseSearchChanged = viewModel::onExerciseSearchChanged,
         onRepsChanged = viewModel::onRepsChanged,
+        onDurationSecondsChanged = viewModel::onDurationSecondsChanged,
+        onMetricChanged = viewModel::onMetricChanged,
         onWeightChanged = viewModel::onWeightChanged,
         onRirChanged = viewModel::onRirChanged,
         onWarmupToggled = viewModel::onWarmupToggled,
@@ -398,6 +406,8 @@ fun WorkoutLoggerRoute(
         onRecentSetSelected = viewModel::onRecentSetSelected,
         onEditLoggedSet = viewModel::editLoggedSet,
         onLoggedSetRepsChanged = viewModel::onLoggedSetRepsChanged,
+        onLoggedSetDurationChanged = viewModel::onLoggedSetDurationChanged,
+        onLoggedSetMetricChanged = viewModel::onLoggedSetMetricChanged,
         onLoggedSetWeightChanged = viewModel::onLoggedSetWeightChanged,
         onLoggedSetRirChanged = viewModel::onLoggedSetRirChanged,
         onLoggedSetTimeChanged = viewModel::onLoggedSetTimeChanged,
@@ -546,6 +556,8 @@ fun WorkoutLoggerScreen(
     onDismissInstructions: () -> Unit,
     onExerciseSearchChanged: (String) -> Unit,
     onRepsChanged: (String) -> Unit,
+    onDurationSecondsChanged: (String) -> Unit,
+    onMetricChanged: (SetMetric) -> Unit,
     onWeightChanged: (String) -> Unit,
     onRirChanged: (String) -> Unit,
     onWarmupToggled: (Boolean) -> Unit,
@@ -554,6 +566,8 @@ fun WorkoutLoggerScreen(
     onRecentSetSelected: (LoggedSetRow) -> Unit,
     onEditLoggedSet: (LoggedSetRow) -> Unit,
     onLoggedSetRepsChanged: (String) -> Unit,
+    onLoggedSetDurationChanged: (String) -> Unit,
+    onLoggedSetMetricChanged: (SetMetric) -> Unit,
     onLoggedSetWeightChanged: (String) -> Unit,
     onLoggedSetRirChanged: (String) -> Unit,
     onLoggedSetTimeChanged: (Long) -> Boolean,
@@ -978,20 +992,53 @@ fun WorkoutLoggerScreen(
             }
         }
         item {
-            OutlinedTextField(
-                value = state.reps,
-                onValueChange = onRepsChanged,
-                label = { Text(stringResource(Res.string.logger_reps_label)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Number,
-                    imeAction = ImeAction.Next
-                ),
-                keyboardActions = KeyboardActions(
-                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = state.metric == SetMetric.REPETITIONS,
+                    onClick = { onMetricChanged(SetMetric.REPETITIONS) },
+                    label = { Text(stringResource(Res.string.logger_reps_label)) }
+                )
+                FilterChip(
+                    selected = state.metric == SetMetric.DURATION,
+                    onClick = { onMetricChanged(SetMetric.DURATION) },
+                    label = { Text(stringResource(Res.string.logger_seconds_label)) }
+                )
+            }
+        }
+        item {
+            // Only the selected metric's field is shown, and only its value is ever submitted, so a
+            // manual set can never record both a rep count and a duration.
+            if (state.metric == SetMetric.DURATION) {
+                OutlinedTextField(
+                    value = state.durationSeconds,
+                    onValueChange = onDurationSecondsChanged,
+                    label = { Text(stringResource(Res.string.logger_seconds_label)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else {
+                OutlinedTextField(
+                    value = state.reps,
+                    onValueChange = onRepsChanged,
+                    label = { Text(stringResource(Res.string.logger_reps_label)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
         item {
             if (state.showWeightField) {
@@ -1318,12 +1365,27 @@ fun WorkoutLoggerScreen(
                 } else {
                     ""
                 }
+                val measurement = when {
+                    row.durationSeconds != null -> stringResource(
+                        Res.string.logger_history_set_duration_line,
+                        row.durationSeconds,
+                        weight
+                    )
+
+                    row.reps != null -> stringResource(
+                        Res.string.logger_history_set_line,
+                        row.reps,
+                        weight
+                    )
+
+                    else -> weight
+                }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.clickable { onRecentSetSelected(row) }
                 ) {
                     Text(
-                        text = "${row.exerciseName}  ${row.reps} x $weight$warmupSuffix$weekDay",
+                        text = "${row.exerciseName}  $measurement$warmupSuffix$weekDay",
                         modifier = Modifier.weight(1f)
                     )
                     TextButton(
@@ -1431,6 +1493,8 @@ fun WorkoutLoggerScreen(
             utcOffsetMillis = state.utcOffsetMillis,
             nowMillis = nowMillis,
             onRepsChanged = onLoggedSetRepsChanged,
+            onDurationChanged = onLoggedSetDurationChanged,
+            onMetricChanged = onLoggedSetMetricChanged,
             onWeightChanged = onLoggedSetWeightChanged,
             onRirChanged = onLoggedSetRirChanged,
             onTimeChanged = onLoggedSetTimeChanged,

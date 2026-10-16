@@ -9,5 +9,5 @@ class AndroidDatabaseDriverFactory(
     private val databaseName: String = "hydrafit.db"
 ) : DatabaseDriverFactory {
     override fun createDriver(): SqlDriver =
-        AndroidSqliteDriver(HydraFitDatabase.Schema, context, databaseName)
+        AndroidSqliteDriver(HydraFitDatabaseSchema, context, databaseName)
 }

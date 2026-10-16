@@ -24,18 +24,21 @@ class SqlDelightSessionResegmenter(private val database: HydraFitDatabase) : Ses
             }
             if (
                 set.reps != correction.reps ||
+                set.durationSeconds != correction.durationSeconds ||
                 set.weightKg != correction.weightKg ||
                 set.rir != correction.rir
             ) {
                 setQueries.updateSetValuesAndInvalidateTiming(
-                    reps = correction.reps.toLong(),
+                    reps = correction.reps?.toLong(),
+                    durationSeconds = correction.durationSeconds?.toLong(),
                     weightKg = correction.weightKg,
                     rir = correction.rir?.toLong(),
                     id = setId
                 )
             } else {
                 setQueries.updateSetValues(
-                    reps = correction.reps.toLong(),
+                    reps = correction.reps?.toLong(),
+                    durationSeconds = correction.durationSeconds?.toLong(),
                     weightKg = correction.weightKg,
                     rir = correction.rir?.toLong(),
                     id = setId
