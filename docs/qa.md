@@ -2629,8 +2629,15 @@ corrected; per-finding evidence:
 - Verification on the closure revision: the four affected host suites green, `ktlintCheck` green,
   `:androidApp:assembleDebug` built, and the shared/domain/database/userdata/settings/routines/
   splitbuilder iOS simulator compiles green (`cl-fix-verify-3.log`).
-- Not verified: the same limits as above (no SAF write journey, no PDF physical output, no iOS runtime).
-  Publication remains blocked until targeted reviewer closure of this revision.
+- Targeted reviewer closure of that corrected revision (`5c9a8753`) returned **APPROVED**: PE3-R1,
+  PE3-R2, PE4-R1, F2-04-R1, N-1 and BK-1 all closed on inspected source with per-finding evidence. The
+  minor follow-ups it raised were then corrected — N-5 (`decodeCanonicalFields` bounds a length prefix
+  before use), N-6 (the stored-exclusion re-seed branch now has a test), N-2/N-3/N-4 (the renderer
+  comment and the format-16 validation list), N-7/CL-2 (in-place `sed` denies broadened), CL-1 (the
+  manifest row-count rule stated precisely), CL-3-1 (`xxd -r` denied), CL4-1/CL4-2/CL4-3 (this device
+  record) — each verified by a further targeted closure.
+- Not verified at that closure: the same limits as above (no SAF write journey, no PDF physical output,
+  no iOS runtime); the device journeys below cover the first two on the current candidate.
 
 ### 0.9.1 device journeys on the current candidate (2026-10-16; not release acceptance)
 
