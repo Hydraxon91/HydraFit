@@ -14,17 +14,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.acknowledgments_author
 import hydrafit.feature.settings.generated.resources.acknowledgments_back
+import hydrafit.feature.settings.generated.resources.acknowledgments_credit_body_highlighter
 import hydrafit.feature.settings.generated.resources.acknowledgments_credit_exrx
 import hydrafit.feature.settings.generated.resources.acknowledgments_credit_free_exercise_db
 import hydrafit.feature.settings.generated.resources.acknowledgments_credit_garcia_valverde
 import hydrafit.feature.settings.generated.resources.acknowledgments_credit_krause_neto
 import hydrafit.feature.settings.generated.resources.acknowledgments_credit_martin_fuentes_ijerph
 import hydrafit.feature.settings.generated.resources.acknowledgments_credit_martin_fuentes_plos
+import hydrafit.feature.settings.generated.resources.acknowledgments_credit_musclemap
 import hydrafit.feature.settings.generated.resources.acknowledgments_credit_oliva_lozano
 import hydrafit.feature.settings.generated.resources.acknowledgments_credit_unicode
 import hydrafit.feature.settings.generated.resources.acknowledgments_credits_heading
@@ -40,6 +49,12 @@ import org.koin.compose.viewmodel.koinViewModel
 val acknowledgmentsRoute: String = "settings/acknowledgments"
 
 private const val REPOSITORY_URL = "https://github.com/Hydraxon91/HydraFit"
+private const val MUSCLEMAP_URL = "https://github.com/melihcolpan/MuscleMap"
+private const val BODY_HIGHLIGHTER_URL =
+    "https://github.com/HichamELBSI/react-native-body-highlighter"
+
+/** One credit line; [sourceUrl] appends a tappable link to the upstream source. */
+private data class Credit(val label: StringResource, val sourceUrl: String? = null)
 
 @Composable
 fun AcknowledgmentsRoute(
@@ -57,15 +72,17 @@ fun AcknowledgmentsScreen(
     modifier: Modifier = Modifier
 ) {
     val uriHandler = LocalUriHandler.current
-    val credits: List<StringResource> = listOf(
-        Res.string.acknowledgments_credit_krause_neto,
-        Res.string.acknowledgments_credit_martin_fuentes_plos,
-        Res.string.acknowledgments_credit_martin_fuentes_ijerph,
-        Res.string.acknowledgments_credit_oliva_lozano,
-        Res.string.acknowledgments_credit_garcia_valverde,
-        Res.string.acknowledgments_credit_free_exercise_db,
-        Res.string.acknowledgments_credit_exrx,
-        Res.string.acknowledgments_credit_unicode
+    val credits: List<Credit> = listOf(
+        Credit(Res.string.acknowledgments_credit_krause_neto),
+        Credit(Res.string.acknowledgments_credit_martin_fuentes_plos),
+        Credit(Res.string.acknowledgments_credit_martin_fuentes_ijerph),
+        Credit(Res.string.acknowledgments_credit_oliva_lozano),
+        Credit(Res.string.acknowledgments_credit_garcia_valverde),
+        Credit(Res.string.acknowledgments_credit_free_exercise_db),
+        Credit(Res.string.acknowledgments_credit_exrx),
+        Credit(Res.string.acknowledgments_credit_unicode),
+        Credit(Res.string.acknowledgments_credit_musclemap, MUSCLEMAP_URL),
+        Credit(Res.string.acknowledgments_credit_body_highlighter, BODY_HIGHLIGHTER_URL)
     )
 
     Column(
@@ -88,10 +105,7 @@ fun AcknowledgmentsScreen(
             style = MaterialTheme.typography.titleMedium
         )
         credits.forEach { credit ->
-            Text(
-                text = stringResource(credit),
-                style = MaterialTheme.typography.bodySmall
-            )
+            CreditLine(credit)
         }
         Text(
             text = stringResource(Res.string.acknowledgments_license_heading),
@@ -112,4 +126,34 @@ fun AcknowledgmentsScreen(
             Text(stringResource(Res.string.acknowledgments_back))
         }
     }
+}
+
+@Composable
+private fun CreditLine(credit: Credit) {
+    val label = stringResource(credit.label)
+    val url = credit.sourceUrl
+    Text(
+        text = if (url == null) {
+            AnnotatedString(label)
+        } else {
+            buildAnnotatedString {
+                append(label)
+                append(" · ")
+                withLink(
+                    LinkAnnotation.Url(
+                        url = url,
+                        styles = TextLinkStyles(
+                            style = SpanStyle(
+                                color = MaterialTheme.colorScheme.primary,
+                                textDecoration = TextDecoration.Underline
+                            )
+                        )
+                    )
+                ) {
+                    append(url.removePrefix("https://"))
+                }
+            }
+        },
+        style = MaterialTheme.typography.bodySmall
+    )
 }
