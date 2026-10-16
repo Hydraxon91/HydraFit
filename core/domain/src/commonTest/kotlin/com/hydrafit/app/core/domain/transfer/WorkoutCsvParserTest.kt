@@ -275,14 +275,27 @@ class WorkoutCsvParserTest {
     }
 
     @Test
-    fun strongRejectsTheCommaClassicHeaderShape() {
+    fun strongRejectsTheUnitlessNativeExportInsteadOfGuessingItsUnit() {
+        // The current native Strong export is comma-separated and omits the weight unit entirely:
+        // Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,
+        // Workout Notes,RPE (a real public sample: github.com/AlexandrosKyriakakis/StrongAppAnalytics).
+        // That shape is refused, and so is the same column set with the supported delimiter: without a
+        // Weight Unit column the load's unit is unknowable, so importing could be ~2.2x wrong.
         assertEquals(
             WorkoutCsvFailure.UNSUPPORTED_HEADER,
             parseFailure(
                 WorkoutCsvSource.STRONG,
                 "Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance," +
-                    "Seconds,Notes,RPE",
-                "2024-07-02,Legs,3600,Squat,1,100,5,,,,"
+                    "Seconds,Notes,Workout Notes,RPE",
+                "2020-12-30 18:51:52,Evening Workout,2h 38m,Snatch (Barbell),1,40.0,3,0,0,,,"
+            )
+        )
+        assertEquals(
+            WorkoutCsvFailure.UNSUPPORTED_HEADER,
+            parseFailure(
+                WorkoutCsvSource.STRONG,
+                "Date;Workout Name;Exercise Name;Set Order;Weight;Reps",
+                semiRow("2024-07-02 10:03:07", "Push", "Bench", "1", "80", "5")
             )
         )
     }
