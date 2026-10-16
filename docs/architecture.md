@@ -660,11 +660,37 @@ separate estimated involvement credits, all-history last-trained and unclassifie
 snapshot presence. It never borrows current catalog weights or changes fatigue,
 planning or storage. Existing query invalidation covers corrections/deletes/restore.
 The Fatigue screen keeps its numeric bar rows, adds those coverage facts and moves
-the schematic front/back map (`FatigueMapGeometry`/`FatigueMap`) behind a "Body map"
-overlay. The map canvas and its per-region accessibility overlays derive from one
-area-sorted region list, because a semantics node fully covered by later overlays
-drops out of the accessibility tree; the map is explicitly schematic, not a measured
-anatomical segmentation.
+the schematic map behind a "Body map" overlay. The 0.9.2 visual rework uses bundled
+male/female SVG path data (`AnatomicalArtwork`/`FatigueMap`), with Front selected
+initially and a Front/Back switch. Selection is local presentation state, independent
+of profile settings. Parsing and boolean geometry run off-main per model/view, not
+on recovery redraws. Narrow, clipped colour feathers join front/side delts,
+side/rear delts and traps/upper back without changing any muscle's score.
+Numeric descriptions remain separate text semantics, rather than overlapping
+bounding-box overlays that can hide accessibility nodes. All 21 muscle values stay
+available, regardless of the visible view. The former polygon geometry remains as
+the legacy schematic reference; it is no longer the renderer.
+
+The artwork is schematic, not measured anatomical segmentation: back shoulder caps
+split outer 35% to side delts; rhomboid shapes split outer 55% to upper back and
+medial 45% to traps; rotator-cuff shapes join upper back. Schematic hip-abductor
+patches derive from the upper-outer quad/glute bounds and are excluded from those
+parent fills. These visual partitions do not modify the catalog or physiology.
+Source: MuscleMap `cdcecf72ebdadb960930cc1c0515e618d2152398`, whose four path files
+explicitly declare MIT. Exact paths also occur in react-native-body-highlighter
+`8ed39ac2ae9cb46fb79d77eedec7e5b029a75174` (115 male-front, 72 male-back,
+118 female-front and 68 female-back matches). Both MIT copyright notices ship in
+`feature/fatigueheatmap/src/commonMain/composeResources/files/bodymap/LICENSES.txt`.
+The extracted TSV resources preserve 123/78/124/78 source paths, respectively;
+host tests pin their hashes and rebuild the finished geometry under test-only Robolectric. Runtime
+reads only bundled resources, with an explicit loading/error/retry state; there is no network or
+Swift dependency. While a replacement loads, the figure area keeps a fixed 260dp height and the
+previous figure stays on screen until its replacement is parsed, so switching model or view does
+not move the text below the map; a failed load shows the error and Retry in its place. Test-only Compose UI host tests pin that height, the retained
+figure and the 21 non-empty muscle regions.
+
+Both projects are credited on the Acknowledgements screen and in the README as well as in
+`LICENSES.txt`, because the artwork's path data is shared rather than a single-source copy.
 
 0.8.3 adds body weight as shared user data: `BodyWeightRepository`
 (`core/userdata`, measurements package) keeps one measurement per local civil day and a

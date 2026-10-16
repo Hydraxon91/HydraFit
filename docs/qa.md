@@ -879,6 +879,98 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 ## 7. Fatigue
 - Heatmap reflects logged sets per muscle; percentages shown; near-limit shows "99.9+%".
 - Decay over time and reset at session boundaries behave as expected.
+- Body map: Male/Female selection is independent of profile settings; Front initially, with a
+  Front/Back button. Both models must render offline in both views. Every muscle retains its own
+  numeric estimate; only narrow approved shoulder/upper-back boundaries soften visually. Full
+  figures, legend, attribution and numeric descriptions must stay reachable in the scrollable dialog.
+
+### 0.9.2 body-map implementation verification — 2026-10-16
+
+- Base/ending HEAD: `115bbcfda4dfaab4ab97fe1136a6392fb315fefa`; changes remain uncommitted on
+  `feature/body-map-design`. Main-agent implementation; no domain, DI, schema or production-dependency
+  change. (The module later gained test-only host-test dependencies; see the follow-up bullet below.)
+  This is Tier C implementation verification, **not formal review or release acceptance**.
+- Pinned geometry acquisition retained 123/78/124/78 paths for male-front/male-back/female-front/
+  female-back. Bundled MIT notices cover Melih Colpan and ELABBASSI Hicham. Tests verify asset
+  hashes/counts/notices, source parsing, complete 21-group slug mapping, symmetric partition math,
+  four model/view resources and bounded blend weights/pairs. At this revision, native SVG parsing and
+  boolean geometry were exercised only by the four loaded emulator figures; the follow-up bullet below
+  adds host coverage for them.
+- Passed: `:feature:fatigueheatmap:testAndroidHostTest` (37 tests at this revision, zero failures/errors; 41 after the follow-up additions),
+  `ktlintCheck`, `:androidApp:assembleDebug`, and
+  `:feature:fatigueheatmap:compileKotlinIosSimulatorArm64`. Every Gradle invocation had a hard cap.
+  The invocations up to and including the corrected emulator smoke also held the cooperative
+  `T/opencode/hydrafit-gradle.lock.d`; the two later presentation-only rebuilds ran without it
+  because no other writer was active. No Gradle worker remained at each release.
+  Logs under `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/`:
+  `bodymap-build-corrected.log` (figure fit, 24/24 smoke),
+  `bodymap-loading-fix.log` (reserved-height placeholder) and
+  `bodymap-retain-fix.log` (final retained-figure fix). An earlier formatting run stopped on one
+  overlong test line; that line was split, not suppressed.
+- Emulator `emulator-5554`, debug APK install only. Initial preflight: Equipment selected, no
+  keyboard/editor/dialog. First smoke stopped on a test assertion (`selected` rather than the
+  chip's exposed `checked`); its screenshot also showed a cropped figure and weak neutral contrast.
+  The evidence-backed correction changed the assertion, fitted the complete figure into 260dp,
+  and strengthened neutral contrast without changing the bounded fatigue transfer or values.
+- Corrected `.maestro/fatigue-body-map.yaml`: **24/24 steps passed** within the original bounded
+  attempt/correction budget. Loaded-description assertions cover Male Front, Male Back, Female
+  Back and Female Front; Female's checked state passed; Close and return-to-Equipment passed.
+  All four screenshots were captured and viewed by the UI runner; the parent also viewed Male
+  Front and Female Back. Full silhouettes, controls and legend fit with no load/error UI.
+  No training/profile/preference writes, synthetic records, permission changes, uninstall or clear
+  occurred. Installation/launch can perform ordinary startup maintenance; it is not a read-only
+  operation. No claim of byte-identical database preservation was made. The helper changed no
+  tracked or untracked source files (compared against preserved baseline).
+- Artifacts: `/tmp/hf-bodymap-r092-corrected/flow.log`, `final-hierarchy.csv`, and
+  `/tmp/hf-bodymap-r092-corrected/2026-10-16_180845/Anatomical body map models and views/takeScreenshot/`
+  (`male-front.png`, `male-back.png`, `female-back.png`, `female-front.png`). Initial failure evidence:
+  `/tmp/hf-bodymap-r092/flow.log`, `failure-hierarchy.csv`, `final-screen.png`.
+- **Presentation corrections after the smoke (2026-10-16).** The 24/24 pass still exposed a layout
+  defect the flow did not assert: while a model/view was loading, the figure area collapsed and the
+  note and muscle values jumped up. Two evidence-backed corrections followed. The first reserved the
+  figure's height and centred a spinner; the user's screenshot showed the area still collapsing, so
+  the second removed the spinner entirely, moved one fixed-height (260dp) figure container outside
+  the loading/ready branches, and kept the previously loaded figure on screen until its replacement
+  finished parsing (the accessibility description is taken from the artwork actually drawn). Both
+  rebuilt the debug APK with `:feature:fatigueheatmap:testAndroidHostTest`, `ktlintCheck` and
+  `:androidApp:assembleDebug` green. The final APK was installed with `install -r` and cold-started
+  on `emulator-5554`; the user then accepted the switching behaviour by manual inspection.
+- **Limit:** the two presentation corrections were **not** re-run through the automated
+  `.maestro/fatigue-body-map.yaml` smoke (the user chose to verify manually), so that flow's 24
+  assertions still describe the intermediate revision. Their behaviour is pinned separately by
+  `FatigueMapLoadingTest` below, which is a host test, not an end-to-end smoke.
+- **Follow-up host tests (2026-10-16).** Two review findings needed coverage the original record
+  could not provide, so this module gained its first graphics-capable Android host tests. The
+  additions are test-only and confined to `:feature:fatigueheatmap`'s `androidHostTest` source set:
+  Robolectric 4.17 (MIT, already pinned; the same test-only dependency `:core:exercisecontent` uses),
+  `org.jetbrains.compose.ui:ui-test` and `androidx.compose.ui:ui-test-manifest`, all at the existing
+  Compose Multiplatform version. No production dependency, schema, DI or planner change.
+  - `FinalArtworkCoverageTest` (BM-01) builds the real bundled artwork and asserts, for all four
+    model/views, that every sourced muscle survives the omission, partition and hip-patch steps with
+    a non-empty bounding region, that the omission set stays decorative-only, and that all 21 muscle
+    groups are covered across the figures. Path geometry needs Android graphics, which is why this
+    test carries `@Config(sdk = [35], manifest = Config.NONE)` like the existing precedent.
+  - `FatigueMapLoadingTest` (BM-02) drives `FatigueMapSection` through `runComposeUiTest` with a
+    gated `loadArtwork` seam and asserts the figure area keeps its 260dp height, that the previous
+    figure stays on screen while a replacement is loading, and that the text below the map does not
+    move. Both tests were checked against a deliberately reverted fix: removing the fixed height
+    fails both, and restoring the old "reset to loading" behaviour fails the retention test, so they
+    are regression tests rather than restatements of the implementation.
+  - Result: `:feature:fatigueheatmap:testAndroidHostTest` 41 tests and
+    `:feature:settings:testAndroidHostTest` 63 tests, zero failures; root `ktlintCheck` and
+    `:androidApp:assembleDebug` green.
+- **Pending:** full release integration matrix (all host tests, `verifySqlDelightMigration`,
+  `ktlintCheck`, `:androidApp:assembleDebug` with `lintVitalRelease`, and both shared/network iOS
+  compiles); zero/mid/high synthetic-score visual fixtures, explicit log/edit/delete/recovery/resume
+  map-refresh journeys, font scaling, dark theme, locale, TalkBack traversal and
+  numeric-description scrolling acceptance. Existing ViewModel/palette tests remain green but do not
+  replace those device checks. The new hip and shoulder/back boundaries are user-approved schematic
+  design, not independently validated anatomical measurements. A bounded post-execution review on
+  2026-10-16 returned **[INCOMPLETE]** with three follow-ups, all resolved the same day: BM-01
+  (finished-geometry coverage) and BM-02 (retained-figure loading behaviour) by the host tests above,
+  and BM-03 (this record's accuracy) by the corrections in this section. The gated host tests do not
+  cover isolated nonzero-colour rendering of the partitioned shoulder/back and hip regions; that
+  still rests on the loaded emulator figures and the user's manual check.
 
 ## 8. Personal records
 - Add a manual PR; clear it; it seeds suggested weights on the next plan.
