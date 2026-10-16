@@ -18,10 +18,10 @@ import java.io.ByteArrayOutputStream
 class AndroidPrescriptionPdfRenderer : PrescriptionPdfRenderer {
     override val isSupported: Boolean = true
 
-    override fun wrap(text: String): List<String> {
+    override fun wrap(text: String, role: PrescriptionLineRole): List<String> {
         val measure = Paint().apply {
             isAntiAlias = true
-            textSize = BODY_TEXT_SIZE
+            textSize = textSizeFor(role)
         }
         val available = PAGE_WIDTH - 2 * MARGIN
         val lines = mutableListOf<String>()
@@ -50,11 +50,7 @@ class AndroidPrescriptionPdfRenderer : PrescriptionPdfRenderer {
                     pdfPage = document.startPage(pageInfo(pageNumber))
                     y = MARGIN
                 }
-                when (line.role) {
-                    PrescriptionLineRole.TITLE -> paint.textSize = TITLE_TEXT_SIZE
-                    PrescriptionLineRole.HEADING -> paint.textSize = HEADING_TEXT_SIZE
-                    PrescriptionLineRole.BODY -> paint.textSize = BODY_TEXT_SIZE
-                }
+                paint.textSize = textSizeFor(line.role)
                 paint.isFakeBoldText = line.role != PrescriptionLineRole.BODY
                 pdfPage.canvas.drawText(line.text, MARGIN, y, paint)
                 y += LINE_SPACING
@@ -95,6 +91,13 @@ class AndroidPrescriptionPdfRenderer : PrescriptionPdfRenderer {
             if (start < paragraph.length && paragraph[start] == ' ') start++
         }
         return lines.ifEmpty { listOf(paragraph) }
+    }
+
+    /** The type size each role is drawn at; wrapping must use the same one or a line can overrun. */
+    private fun textSizeFor(role: PrescriptionLineRole): Float = when (role) {
+        PrescriptionLineRole.TITLE -> TITLE_TEXT_SIZE
+        PrescriptionLineRole.HEADING -> HEADING_TEXT_SIZE
+        PrescriptionLineRole.BODY -> BODY_TEXT_SIZE
     }
 
     private companion object {

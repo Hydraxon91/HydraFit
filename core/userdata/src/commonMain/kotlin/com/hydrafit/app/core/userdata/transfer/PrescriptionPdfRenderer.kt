@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.userdata.transfer
 
+import com.hydrafit.app.core.domain.transfer.PrescriptionLineRole
 import com.hydrafit.app.core.domain.transfer.PrescriptionLineWrapper
 import com.hydrafit.app.core.domain.transfer.PrescriptionPage
 
@@ -24,7 +25,7 @@ class UnsupportedPrescriptionPdfRenderer : PrescriptionPdfRenderer {
     override val isSupported: Boolean = false
 
     /** Never reached on an unsupported platform, so it keeps the text unchanged. */
-    override fun wrap(text: String): List<String> = listOf(text)
+    override fun wrap(text: String, role: PrescriptionLineRole): List<String> = listOf(text)
 
     override fun render(pages: List<PrescriptionPage>): ByteArray =
         throw UnsupportedOperationException("PDF export is not supported on this platform")

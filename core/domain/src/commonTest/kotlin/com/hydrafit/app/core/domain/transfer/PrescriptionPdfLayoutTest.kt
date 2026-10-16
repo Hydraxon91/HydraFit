@@ -154,7 +154,7 @@ class PrescriptionPdfLayoutTest {
         val document = document(listOf(routine))
 
         // Wrap each logical line into fixed 10-character pieces, as a narrow page would.
-        val wrapper = PrescriptionLineWrapper { text -> text.chunked(10) }
+        val wrapper = PrescriptionLineWrapper { text, _ -> text.chunked(10) }
         val pages = PrescriptionPdfLayout.build(document, linesPerPage = 3, wrapper = wrapper)
         val wrapped = texts(pages)
 
@@ -170,8 +170,39 @@ class PrescriptionPdfLayoutTest {
 
         // A wrapper that drops a line is refused rather than silently truncating the document.
         assertFailsWith<IllegalArgumentException> {
-            PrescriptionPdfLayout.build(document, linesPerPage = 3, wrapper = { emptyList() })
+            PrescriptionPdfLayout.build(
+                document,
+                linesPerPage = 3,
+                wrapper = { _, _ -> emptyList() }
+            )
         }
+    }
+
+    @Test
+    fun theWrapperSeesEachLogicalLinesOwnRole() {
+        // The wrapper measures with the real font, so it must be told which size this line is drawn
+        // at: a heading or title wrapped as if it were body text would overrun the page width.
+        val seen = mutableListOf<PrescriptionLineRole>()
+        val wrapper = PrescriptionLineWrapper { text, role ->
+            seen += role
+            listOf(text)
+        }
+
+        PrescriptionPdfLayout.build(
+            document(listOf(routine(entry()))),
+            linesPerPage = 100,
+            wrapper = wrapper
+        )
+
+        assertEquals(
+            listOf(
+                PrescriptionLineRole.TITLE,
+                PrescriptionLineRole.HEADING,
+                PrescriptionLineRole.BODY,
+                PrescriptionLineRole.BODY
+            ),
+            seen
+        )
     }
 
     @Test

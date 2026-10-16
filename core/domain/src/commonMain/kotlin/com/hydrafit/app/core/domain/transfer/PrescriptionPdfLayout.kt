@@ -17,13 +17,14 @@ enum class PrescriptionLineRole {
 data class PrescriptionPage(val lines: List<PrescriptionLine>)
 
 /**
- * Splits one logical line into the printable lines that fit the page's text width. The renderer
- * supplies this, because only it knows the real font metrics; the domain decides what text exists
- * and in what order. A conforming implementation never drops content: a token wider than the page
- * is hard-broken rather than clipped, and an embedded newline becomes a break.
+ * Splits one logical line into the printable lines that fit the page's text width **at the size that
+ * line is actually drawn**, which is why the role travels with the text. The renderer supplies this,
+ * because only it knows the real font metrics; the domain decides what text exists and in what order.
+ * A conforming implementation never drops content: a token wider than the page is hard-broken rather
+ * than clipped, and an embedded newline becomes a break.
  */
 fun interface PrescriptionLineWrapper {
-    fun wrap(text: String): List<String>
+    fun wrap(text: String, role: PrescriptionLineRole): List<String>
 }
 
 /**
@@ -38,7 +39,7 @@ object PrescriptionPdfLayout {
     fun build(
         document: PrescriptionDocument,
         linesPerPage: Int,
-        wrapper: PrescriptionLineWrapper = PrescriptionLineWrapper { listOf(it) }
+        wrapper: PrescriptionLineWrapper = PrescriptionLineWrapper { text, _ -> listOf(text) }
     ): List<PrescriptionPage> {
         require(linesPerPage > 0) { "linesPerPage must be positive" }
         val lines = mutableListOf<PrescriptionLine>()
@@ -68,7 +69,7 @@ object PrescriptionPdfLayout {
             }
         }
         val wrapped = lines.flatMap { line ->
-            val parts = wrapper.wrap(line.text)
+            val parts = wrapper.wrap(line.text, line.role)
             require(parts.isNotEmpty()) { "a line wrapper must not drop a line" }
             parts.map { PrescriptionLine(it, line.role) }
         }
@@ -105,7 +106,7 @@ class ExportPrescriptionPdfUseCase(
         appVersion: String,
         exportedAtMillis: Long,
         linesPerPage: Int,
-        wrapper: PrescriptionLineWrapper = PrescriptionLineWrapper { listOf(it) }
+        wrapper: PrescriptionLineWrapper = PrescriptionLineWrapper { text, _ -> listOf(text) }
     ): List<PrescriptionPage> = page(
         ExportPrescriptionsUseCase(routines, catalog)(
             routineIds,
@@ -124,7 +125,7 @@ class ExportPrescriptionPdfUseCase(
         appVersion: String,
         exportedAtMillis: Long,
         linesPerPage: Int,
-        wrapper: PrescriptionLineWrapper = PrescriptionLineWrapper { listOf(it) }
+        wrapper: PrescriptionLineWrapper = PrescriptionLineWrapper { text, _ -> listOf(text) }
     ): List<PrescriptionPage> = page(
         ExportPrescriptionsUseCase(routines, catalog).document(
             templates,
