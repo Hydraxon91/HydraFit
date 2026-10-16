@@ -651,6 +651,49 @@ class WorkoutImportViewModelTest {
         assertFalse(second.canImport)
     }
 
+    @Test
+    fun aStoredExclusionIsRestoredOnASecondReadSoTheBucketStillSkips() = runTest(dispatcher) {
+        val repository = FakeImportRepository()
+        val viewModel = viewModel(
+            store = FakeFileStore(content = hevyCsv("Bench Press")),
+            repository = repository,
+            catalog = benchCatalog()
+        )
+
+        // Import with the bucket's second row excluded, so the stored partition carries an exclusion.
+        viewModel.chooseHevyFile()
+        advanceUntilIdle()
+        viewModel.confirmLoadMeaning("Bench Press")
+        viewModel.acknowledgeHistoryEffects(true)
+        viewModel.toggleRowIncluded(3)
+        val draft = review(viewModel).sessions.single().draftId
+        viewModel.confirmSession(draft, true)
+        advanceUntilIdle()
+        assertTrue(review(viewModel).canImport, review(viewModel).problems.toString())
+        viewModel.apply()
+        advanceUntilIdle()
+        assertIs<WorkoutImportPhase.Imported>(viewModel.state.value.phase)
+
+        // A fresh read must restore the exclusion together with the partition; without it the proposed
+        // partition would differ from the stored one and block the file as a changed source.
+        viewModel.chooseHevyFile()
+        advanceUntilIdle()
+        viewModel.confirmLoadMeaning("Bench Press")
+        viewModel.acknowledgeHistoryEffects(true)
+        review(viewModel).sessions.forEach { viewModel.confirmSession(it.draftId, true) }
+        advanceUntilIdle()
+
+        val second = review(viewModel)
+        assertEquals(setOf(3), second.excludedRows, second.excludedRows.toString())
+        assertTrue(second.problems.isEmpty(), second.problems.toString())
+        assertEquals(
+            1,
+            second.notices.count { it.issue == WorkoutImportIssue.REMOVED_HISTORY_SKIPPED },
+            second.notices.toString()
+        )
+        assertFalse(second.canImport)
+    }
+
     private fun review(viewModel: WorkoutImportViewModel): WorkoutImportReview {
         val phase = viewModel.state.value.phase
         assertIs<WorkoutImportPhase.Reviewing>(phase, "expected a review but was $phase")
