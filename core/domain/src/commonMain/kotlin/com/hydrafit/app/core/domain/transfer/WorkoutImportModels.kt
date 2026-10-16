@@ -53,11 +53,11 @@ enum class WorkoutImportIssue {
 
 data class WorkoutImportProblem(val issue: WorkoutImportIssue, val sourceRow: Int? = null)
 
-/** How a commit refused a preview that was already shown to the user. */
+/**
+ * How a commit refused a preview that was already shown to the user. An unchanged source is never a
+ * refusal — it is skipped — so there is no "already imported" case here.
+ */
 enum class WorkoutImportCommitFailure {
-    /** Another import recorded this source session between the preview and the commit. */
-    SOURCE_ALREADY_IMPORTED,
-
     /** The recorded provenance for this source no longer matches what the preview showed. */
     SOURCE_CHANGED,
 

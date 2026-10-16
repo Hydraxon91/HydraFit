@@ -155,8 +155,9 @@ each session is inserted already closed with a fresh identity and `localEpochDay
 stored with `workoutSet.involvements` frozen to the resolved exercise's `effectiveInvolvements`,
 `timingProvenance = CATCH_UP`, and no occurrence, plan, week/cycle, day-index or RIR attribution.
 Before each session it re-reads the ledger inside the transaction and refuses the whole commit
-(`SOURCE_CHANGED`, `SOURCE_ALREADY_IMPORTED`) if another writer recorded or changed that source in the
-meantime, so a refused commit leaves no partial history. `NOTHING_TO_IMPORT` covers an empty plan.
+(`SOURCE_CHANGED`) if another writer recorded that source with different content in the meantime, so a
+refused commit leaves no partial history; a source that is already recorded unchanged is skipped, not
+refused. `NOTHING_TO_IMPORT` covers an empty plan.
 
 Backup format 15 adds `importProvenance` (`source`, `candidateKey`, `content`, `importedSessionId`).
 `recordCount` counts each record; export reads the ledger inside the same snapshot transaction, and

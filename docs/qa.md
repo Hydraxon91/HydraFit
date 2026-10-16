@@ -2538,8 +2538,16 @@ final state is user-reported, not independently verified. Findings inform the 0.
 - Koin: `KoinModulesVerificationTest` resolves the new `WorkoutImportViewModel` over `settingsModule`
   with fake ports (`:shared:testAndroidHostTest` green), because `verify()` cannot reflect a lambda
   `viewModel { }`.
+- Independent review (`reviewer`, read-only, range `0c27d3ba..ca9b19ce`): **APPROVED WITH FINDINGS**;
+  no blocking correctness, atomicity or data-loss defect, and every checked invariant held. Findings:
+  F-01 provider-layout evidence gate (user decision), F-02 invalid per-session UTC-offset text was
+  silently ignored (mechanical), F-03 `SOURCE_ALREADY_IMPORTED` was unreachable and mis-documented
+  (mechanical), F-04 this record said 12/12 steps for a 13-step flow (mechanical), F-05 stale
+  PLANS.md/roadmap status (boundary update), F-06 the commit runs a blocking transaction on the
+  caller's dispatcher at a new scale (design observation, matches the existing pattern). Mechanical
+  corrections are recorded in the next bullet; F-01 and F-06 return to the user.
 - Bounded read-only emulator evidence: `.maestro/settings-workout-import.yaml`, syntax-checked with
-  Maestro 2.11.0 and run once on `emulator-5554` (debug build, 2026-10-15) at 12/12 steps, ~16 s,
+  Maestro 2.11.0 and run once on `emulator-5554` (debug build, 2026-10-15) at 13/13 steps, ~16 s,
   exit 0, with viewed screenshot
   `hf-091-import-flow/2026-10-15_234541/settings-workout-import/takeScreenshot/settings-workout-import.png`
   showing the section, the FitNotes default and no Import control. No document picker was opened and
