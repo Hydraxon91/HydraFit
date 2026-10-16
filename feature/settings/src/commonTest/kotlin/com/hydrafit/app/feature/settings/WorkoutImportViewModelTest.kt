@@ -100,14 +100,14 @@ class WorkoutImportViewModelTest {
 
         val first = review(viewModel)
         assertEquals(1, first.rejectedRows.size)
-        assertTrue(first.problems.any { it.issue == WorkoutImportIssue.UNRESOLVED_EXCLUSION })
+        assertTrue(first.hasIssue(WorkoutImportIssue.UNRESOLVED_EXCLUSION))
         assertFalse(first.canImport)
 
         viewModel.toggleRowIncluded(first.rejectedRows.single().sourceRowIndex)
         advanceUntilIdle()
 
         val second = review(viewModel)
-        assertFalse(second.problems.any { it.issue == WorkoutImportIssue.UNRESOLVED_EXCLUSION })
+        assertFalse(second.hasIssue(WorkoutImportIssue.UNRESOLVED_EXCLUSION))
         assertTrue(second.rejectedRows.single().excluded)
     }
 
@@ -414,11 +414,103 @@ class WorkoutImportViewModelTest {
         advanceUntilIdle()
     }
 
+    @Test
+    fun invalidOffsetTextBlocksAnOtherwiseImportableReview() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            store = FakeFileStore(content = hevyCsv("Bench Press")),
+            catalog = benchCatalog()
+        )
+
+        confirmReadyToImport(viewModel)
+        assertTrue(review(viewModel).canImport)
+        val key = review(viewModel).sessions.single().key
+
+        viewModel.setSessionOffset(key, "abc")
+        advanceUntilIdle()
+
+        assertEquals("abc", review(viewModel).sessions.single().utcOffsetText)
+        assertTrue(review(viewModel).problems.any { it is ReviewProblem.InvalidOffset })
+        assertFalse(review(viewModel).canImport)
+    }
+
+    @Test
+    fun offsetTextAppliesValidMinutesAndKeepsTheLastValidValue() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            store = FakeFileStore(content = hevyCsv("Bench Press")),
+            catalog = benchCatalog()
+        )
+
+        viewModel.chooseHevyFile()
+        advanceUntilIdle()
+        val key = review(viewModel).sessions.single().key
+
+        viewModel.setSessionOffset(key, "120")
+        advanceUntilIdle()
+        assertEquals("120", review(viewModel).sessions.single().utcOffsetText)
+        assertEquals(120, review(viewModel).sessions.single().utcOffsetMinutes)
+        assertFalse(review(viewModel).problems.any { it is ReviewProblem.InvalidOffset })
+
+        viewModel.setSessionOffset(key, "abc")
+        advanceUntilIdle()
+        assertEquals("abc", review(viewModel).sessions.single().utcOffsetText)
+        assertEquals(120, review(viewModel).sessions.single().utcOffsetMinutes)
+
+        viewModel.setSessionOffset(key, "90")
+        advanceUntilIdle()
+        assertEquals(90, review(viewModel).sessions.single().utcOffsetMinutes)
+        assertFalse(review(viewModel).problems.any { it is ReviewProblem.InvalidOffset })
+    }
+
+    @Test
+    fun emptyOffsetTextMeansZero() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            store = FakeFileStore(content = hevyCsv("Bench Press")),
+            catalog = benchCatalog()
+        )
+
+        viewModel.chooseHevyFile()
+        advanceUntilIdle()
+        val key = review(viewModel).sessions.single().key
+
+        viewModel.setSessionOffset(key, "120")
+        advanceUntilIdle()
+        viewModel.setSessionOffset(key, "")
+        advanceUntilIdle()
+
+        assertEquals("", review(viewModel).sessions.single().utcOffsetText)
+        assertEquals(0, review(viewModel).sessions.single().utcOffsetMinutes)
+        assertFalse(review(viewModel).problems.any { it is ReviewProblem.InvalidOffset })
+    }
+
+    @Test
+    fun outOfRangeOffsetTextIsReportedAndKeepsTheLastValidOffset() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            store = FakeFileStore(content = hevyCsv("Bench Press")),
+            catalog = benchCatalog()
+        )
+
+        viewModel.chooseHevyFile()
+        advanceUntilIdle()
+        val key = review(viewModel).sessions.single().key
+
+        viewModel.setSessionOffset(key, "120")
+        advanceUntilIdle()
+        viewModel.setSessionOffset(key, "5000")
+        advanceUntilIdle()
+
+        assertEquals("5000", review(viewModel).sessions.single().utcOffsetText)
+        assertEquals(120, review(viewModel).sessions.single().utcOffsetMinutes)
+        assertTrue(review(viewModel).problems.any { it is ReviewProblem.InvalidOffset })
+    }
+
     private fun review(viewModel: WorkoutImportViewModel): WorkoutImportReview {
         val phase = viewModel.state.value.phase
         assertIs<WorkoutImportPhase.Reviewing>(phase, "expected a review but was $phase")
         return phase.review
     }
+
+    private fun WorkoutImportReview.hasIssue(issue: WorkoutImportIssue): Boolean =
+        problems.any { it is ReviewProblem.Domain && it.problem.issue == issue }
 
     private fun viewModel(
         store: BackupFileStore = FakeFileStore(),

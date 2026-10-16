@@ -165,12 +165,12 @@
     <string name="settings_workout_import_problem_missing_exercise">Choose a catalog exercise for this row.</string>
     <string name="settings_workout_import_problem_unconfirmed_load">Confirm what the recorded load means.</string>
     <string name="settings_workout_import_problem_invalid_load">The chosen load meaning does not fit this exercise.</string>
+    <string name="settings_workout_import_problem_invalid_offset">Enter the session’s UTC offset in minutes, for example 60 or -300.</string>
     <string name="settings_workout_import_problem_unknown_warmup">Confirm that unrecorded set types are working sets.</string>
     <string name="settings_workout_import_problem_session_overlap">This session overlaps another imported workout.</string>
     <string name="settings_workout_import_problem_changed_or_ambiguous_source">This source workout was imported before with different content.</string>
     <string name="settings_workout_import_notice_unchanged_source">This workout was already imported, so it is skipped.</string>
     <string name="settings_workout_import_notice_removed_history">This workout was imported and later deleted; it stays deleted.</string>
-    <string name="settings_workout_import_commit_source_already_imported">Another import recorded this workout first. Re-read the file and review again.</string>
     <string name="settings_workout_import_commit_source_changed">This source workout no longer matches the recorded import. Re-read the file and review again.</string>
     <string name="settings_workout_import_commit_nothing_to_import">There is no session left to import.</string>
     <string name="settings_workout_import_error_empty">That file has no workout rows.</string>

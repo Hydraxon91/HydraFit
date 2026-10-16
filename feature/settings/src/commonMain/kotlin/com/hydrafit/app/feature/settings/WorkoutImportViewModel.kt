@@ -179,10 +179,14 @@ class WorkoutImportViewModel(
         refreshReview()
     }
 
-    fun setSessionOffset(key: SessionKey, utcOffsetMinutes: Int) {
+    fun setSessionOffset(key: SessionKey, text: String) {
         if (!isReviewing()) return
         commitFailure = null
-        sessionEdits[key] = sessionEdit(key).copy(utcOffsetMinutes = utcOffsetMinutes)
+        val edit = sessionEdit(key)
+        sessionEdits[key] = edit.copy(
+            utcOffsetText = text,
+            utcOffsetMinutes = parseUtcOffset(text) ?: edit.utcOffsetMinutes
+        )
         refreshReview()
     }
 
@@ -396,12 +400,20 @@ class WorkoutImportViewModel(
                     dayLabel = formatDay(key.day),
                     workoutTitle = key.workoutTitle,
                     rowIndexes = groupRows.map { it.sourceRowIndex },
+                    utcOffsetText = edit.utcOffsetText,
                     utcOffsetMinutes = edit.utcOffsetMinutes,
                     dateOnlySecondOfDay = edit.dateOnlySecondOfDay,
                     confirmedSession = edit.confirmedSession,
                     confirmedInferredSetTimes = edit.confirmedInferredSetTimes
                 )
             }
+        val offsetProblems = sessions.mapNotNull { session ->
+            if (parseUtcOffset(session.utcOffsetText) == null) {
+                ReviewProblem.InvalidOffset(session.key, session.rowIndexes.firstOrNull())
+            } else {
+                null
+            }
+        }
         return WorkoutImportReview(
             rows = rows,
             mappings = mappings,
@@ -411,9 +423,10 @@ class WorkoutImportViewModel(
             catalogOptions = catalog.map { MappingCandidateUi(it.id, it.name) },
             acknowledgedUnsupportedFields = acknowledgedUnsupportedFields,
             acknowledgedHistoryEffects = acknowledgedHistoryEffects,
-            problems = preview.problems,
+            problems = (preview.problems.map { ReviewProblem.Domain(it) } + offsetProblems)
+                .distinct(),
             notices = preview.notices,
-            canImport = preview.canImport,
+            canImport = preview.canImport && offsetProblems.isEmpty(),
             commitFailure = commitFailure
         )
     }
@@ -464,11 +477,20 @@ class WorkoutImportViewModel(
     )
 
     private data class SessionEdit(
+        val utcOffsetText: String = "0",
         val utcOffsetMinutes: Int = 0,
         val confirmedSession: Boolean = false,
         val confirmedInferredSetTimes: Boolean = false,
         val dateOnlySecondOfDay: Int? = null
     )
+}
+
+/** Empty text means 0; otherwise a whole number of minutes in -1080..1080, or null when invalid. */
+private fun parseUtcOffset(text: String): Int? {
+    val trimmed = text.trim()
+    if (trimmed.isEmpty()) return 0
+    val value = trimmed.toIntOrNull() ?: return null
+    return if (value in -1080..1080) value else null
 }
 
 private fun formatDay(day: SourceCivilDate): String = "${day.year.toString().padStart(4, '0')}-" +

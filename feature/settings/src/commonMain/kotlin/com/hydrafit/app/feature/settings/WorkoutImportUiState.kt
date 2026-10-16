@@ -75,11 +75,29 @@ data class SessionDraftUi(
     val dayLabel: String,
     val workoutTitle: String?,
     val rowIndexes: List<Int>,
+    /** The raw UTC-offset text exactly as typed; [utcOffsetMinutes] is the last value it parsed to. */
+    val utcOffsetText: String,
     val utcOffsetMinutes: Int,
     val dateOnlySecondOfDay: Int?,
     val confirmedSession: Boolean,
     val confirmedInferredSetTimes: Boolean
 )
+
+/**
+ * A blocking review problem: one the domain preview reported, or one the review raised itself. The
+ * UI resolves each to a localized message; the domain problem types are reused unchanged.
+ */
+sealed interface ReviewProblem {
+    val sourceRow: Int?
+
+    data class Domain(val problem: WorkoutImportProblem) : ReviewProblem {
+        override val sourceRow: Int? get() = problem.sourceRow
+    }
+
+    /** The typed session UTC offset is not a whole number of minutes in -1080..1080. */
+    data class InvalidOffset(val sessionKey: SessionKey, override val sourceRow: Int?) :
+        ReviewProblem
+}
 
 /** The full review shown before an import: source rows plus every derived choice and disclosure. */
 data class WorkoutImportReview(
@@ -91,7 +109,7 @@ data class WorkoutImportReview(
     val catalogOptions: List<MappingCandidateUi>,
     val acknowledgedUnsupportedFields: Boolean,
     val acknowledgedHistoryEffects: Boolean,
-    val problems: List<WorkoutImportProblem>,
+    val problems: List<ReviewProblem>,
     val notices: List<WorkoutImportProblem>,
     val canImport: Boolean,
     val commitFailure: WorkoutImportCommitFailure? = null

@@ -32,14 +32,12 @@ import com.hydrafit.app.core.domain.transfer.WorkoutCsvFailure
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvSource
 import com.hydrafit.app.core.domain.transfer.WorkoutImportCommitFailure
 import com.hydrafit.app.core.domain.transfer.WorkoutImportIssue
-import com.hydrafit.app.core.domain.transfer.WorkoutImportProblem
 import com.hydrafit.app.core.domain.workout.LoadKind
 import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.settings_workout_import_acknowledge_history
 import hydrafit.feature.settings.generated.resources.settings_workout_import_acknowledge_metadata
 import hydrafit.feature.settings.generated.resources.settings_workout_import_apply
 import hydrafit.feature.settings.generated.resources.settings_workout_import_commit_nothing_to_import
-import hydrafit.feature.settings.generated.resources.settings_workout_import_commit_source_already_imported
 import hydrafit.feature.settings.generated.resources.settings_workout_import_commit_source_changed
 import hydrafit.feature.settings.generated.resources.settings_workout_import_confirm_load
 import hydrafit.feature.settings.generated.resources.settings_workout_import_description
@@ -73,6 +71,7 @@ import hydrafit.feature.settings.generated.resources.settings_workout_import_not
 import hydrafit.feature.settings.generated.resources.settings_workout_import_notices_title
 import hydrafit.feature.settings.generated.resources.settings_workout_import_problem_changed_or_ambiguous_source
 import hydrafit.feature.settings.generated.resources.settings_workout_import_problem_invalid_load
+import hydrafit.feature.settings.generated.resources.settings_workout_import_problem_invalid_offset
 import hydrafit.feature.settings.generated.resources.settings_workout_import_problem_invalid_session_membership
 import hydrafit.feature.settings.generated.resources.settings_workout_import_problem_invalid_time
 import hydrafit.feature.settings.generated.resources.settings_workout_import_problem_missing_exercise
@@ -149,7 +148,7 @@ fun WorkoutImportScreen(
     onUseSourceWeightChanged: (String, Boolean) -> Unit,
     onConfirmLoadMeaning: (String) -> Unit,
     onUnknownWarmupChanged: (String, Boolean) -> Unit,
-    onSessionOffsetChanged: (SessionKey, Int) -> Unit,
+    onSessionOffsetChanged: (SessionKey, String) -> Unit,
     onSessionTimeChanged: (SessionKey, Int?) -> Unit,
     onConfirmSession: (SessionKey, Boolean) -> Unit,
     onToggleRowIncluded: (Int) -> Unit,
@@ -261,7 +260,7 @@ private fun WorkoutImportReviewSection(
     onUseSourceWeightChanged: (String, Boolean) -> Unit,
     onConfirmLoadMeaning: (String) -> Unit,
     onUnknownWarmupChanged: (String, Boolean) -> Unit,
-    onSessionOffsetChanged: (SessionKey, Int) -> Unit,
+    onSessionOffsetChanged: (SessionKey, String) -> Unit,
     onSessionTimeChanged: (SessionKey, Int?) -> Unit,
     onConfirmSession: (SessionKey, Boolean) -> Unit,
     onToggleRowIncluded: (Int) -> Unit,
@@ -386,7 +385,10 @@ private fun WorkoutImportReviewSection(
             modifier = Modifier.testTag(WorkoutImportTestTags.NOTICES)
         )
         review.notices.forEach { notice ->
-            ProblemLine(notice)
+            ProblemText(
+                label = stringResource(notice.issue.messageResource()),
+                row = notice.sourceRow
+            )
         }
     }
     if (review.problems.isNotEmpty()) {
@@ -524,11 +526,10 @@ private fun MappingEditor(
 @Composable
 private fun SessionEditor(
     session: SessionDraftUi,
-    onSessionOffsetChanged: (SessionKey, Int) -> Unit,
+    onSessionOffsetChanged: (SessionKey, String) -> Unit,
     onSessionTimeChanged: (SessionKey, Int?) -> Unit,
     onConfirmSession: (SessionKey, Boolean) -> Unit
 ) {
-    var offsetText by remember(session.key) { mutableStateOf(session.utcOffsetMinutes.toString()) }
     var timeText by remember(session.key) {
         mutableStateOf(session.dateOnlySecondOfDay?.let(::clockText) ?: "")
     }
@@ -556,11 +557,8 @@ private fun SessionEditor(
             style = MaterialTheme.typography.bodySmall
         )
         OutlinedTextField(
-            value = offsetText,
-            onValueChange = { text ->
-                offsetText = text
-                text.toIntOrNull()?.let { onSessionOffsetChanged(session.key, it) }
-            },
+            value = session.utcOffsetText,
+            onValueChange = { text -> onSessionOffsetChanged(session.key, text) },
             label = { Text(stringResource(Res.string.settings_workout_import_session_offset)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -602,9 +600,17 @@ private fun CheckRow(checked: Boolean, label: String, onCheckedChange: (Boolean)
 }
 
 @Composable
-private fun ProblemLine(problem: WorkoutImportProblem) {
-    val label = stringResource(problem.issue.messageResource())
-    val row = problem.sourceRow
+private fun ProblemLine(problem: ReviewProblem) {
+    val label = when (problem) {
+        is ReviewProblem.Domain -> stringResource(problem.problem.issue.messageResource())
+        is ReviewProblem.InvalidOffset ->
+            stringResource(Res.string.settings_workout_import_problem_invalid_offset)
+    }
+    ProblemText(label = label, row = problem.sourceRow)
+}
+
+@Composable
+private fun ProblemText(label: String, row: Int?) {
     Text(
         text = if (row != null) {
             stringResource(Res.string.settings_workout_import_problem_row, row) + " " + label
@@ -665,9 +671,6 @@ private fun WorkoutCsvFailure.messageResource(): StringResource = when (this) {
 }
 
 private fun WorkoutImportCommitFailure.messageResource(): StringResource = when (this) {
-    WorkoutImportCommitFailure.SOURCE_ALREADY_IMPORTED ->
-        Res.string.settings_workout_import_commit_source_already_imported
-
     WorkoutImportCommitFailure.SOURCE_CHANGED ->
         Res.string.settings_workout_import_commit_source_changed
 
