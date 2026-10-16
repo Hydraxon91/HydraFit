@@ -14,7 +14,8 @@ object PreviewWorkoutImport {
         choices: WorkoutImportChoices,
         catalog: List<Exercise>,
         provenance: List<WorkoutImportProvenance> = emptyList(),
-        existingSessions: List<WorkoutSession> = emptyList()
+        existingSessions: List<WorkoutSession> = emptyList(),
+        buckets: List<WorkoutImportBucket> = emptyList()
     ): WorkoutImportPreview {
         val problems = mutableListOf<WorkoutImportProblem>()
         val notices = mutableListOf<WorkoutImportProblem>()
@@ -41,11 +42,60 @@ object PreviewWorkoutImport {
         }
         val byIndex = selected.associateBy { it.sourceRowIndex }
         val assignments = choices.sessions.flatMap { it.sourceRows }
-        if (assignments.size != assignments.toSet().size || assignments.toSet() != byIndex.keys) {
+        if (choices.sessions.any { it.sourceRows.isEmpty() } ||
+            assignments.size != assignments.toSet().size ||
+            assignments.toSet() != byIndex.keys
+        ) {
             problem(WorkoutImportIssue.INVALID_SESSION_MEMBERSHIP)
             return WorkoutImportPreview(parsed.source, emptyList(), problems)
         }
         val byExercise = catalog.associateBy { it.id }
+        if (choices.sessions.any { session ->
+                session.sourceRows.map { sourceCandidateKey(parsed.source, byIndex.getValue(it)) }
+                    .distinct().size != 1
+            }
+        ) {
+            problem(WorkoutImportIssue.INVALID_SESSION_MEMBERSHIP)
+            return WorkoutImportPreview(parsed.source, emptyList(), problems)
+        }
+        val sourceBuckets = parsed.rows.groupBy { sourceCandidateKey(parsed.source, it) }
+        val partitionChoices = choices.sessions.groupBy { session ->
+            session.sourceRows.firstOrNull()?.let { byIndex[it] }
+                ?.let { sourceCandidateKey(parsed.source, it) }
+        }
+        val proposedBuckets = sourceBuckets.mapNotNull { (key, sourceRows) ->
+            val groups = partitionChoices[key].orEmpty()
+            if (groups.isEmpty()) return@mapNotNull null
+            val ordered = sourceRows.sortedBy { it.sourceRowIndex }
+            val positions = ordered.mapIndexed { index, row -> row.sourceRowIndex to index }.toMap()
+            val partition = WorkoutImportPartition(
+                rowCount = ordered.size,
+                sessions = groups.map { group -> group.sourceRows.map { positions.getValue(it) } },
+                excluded = ordered.filter { it.sourceRowIndex in choices.excludedRows }
+                    .map { positions.getValue(it.sourceRowIndex) }.toSet()
+            ).canonical()
+            val bucket = WorkoutImportBucket(
+                source = parsed.source,
+                candidateKey = key,
+                content = canonicalFields(ordered.map(::canonicalSourceRow)),
+                partition = partition
+            )
+            val previous = buckets.filter { it.source == parsed.source && it.candidateKey == key }
+            val bucketChanged = previous.any { stored ->
+                stored.content != bucket.content ||
+                    stored.partition != bucket.partition ||
+                    stored.importedSessionIds.size != groups.size
+            }
+            if (previous.size > 1 || bucketChanged) {
+                problem(WorkoutImportIssue.CHANGED_OR_AMBIGUOUS_SOURCE)
+            }
+            if (provenance.any { it.source == parsed.source && it.candidateKey == key } &&
+                groups.size != 1
+            ) {
+                problem(WorkoutImportIssue.CHANGED_OR_AMBIGUOUS_SOURCE)
+            }
+            bucket
+        }
         val resolved = choices.sessions.mapNotNull { session ->
             if (!session.confirmedSession || !session.confirmedInferredSetTimes) {
                 problem(WorkoutImportIssue.UNCONFIRMED_SESSION)
@@ -119,7 +169,17 @@ object PreviewWorkoutImport {
                 it.source == parsed.source && it.candidateKey == candidate
             }
             val exact = matches.filter { it.content == content }
-            val skip = if (exact.size == 1) exact.single().importedSessionId else null
+            val proposedBucket = proposedBuckets.firstOrNull { it.candidateKey == candidate }
+            val bucketMatch = buckets.firstOrNull {
+                it.source == parsed.source &&
+                    it.candidateKey == candidate &&
+                    proposedBucket != null &&
+                    it.content == proposedBucket.content &&
+                    it.partition == proposedBucket.partition
+            }
+            val ordinal = partitionChoices[candidate].orEmpty().indexOf(session)
+            val skip = bucketMatch?.importedSessionIds?.getOrNull(ordinal)
+                ?: if (exact.size == 1) exact.single().importedSessionId else null
             if (exact.size > 1 || (matches.isNotEmpty() && exact.isEmpty())) {
                 problem(WorkoutImportIssue.CHANGED_OR_AMBIGUOUS_SOURCE)
             }
@@ -136,12 +196,6 @@ object PreviewWorkoutImport {
             )
         }
         resolved.forEachIndexed { index, session ->
-            val repeatedSource = resolved.take(index).any {
-                it.candidateKey == session.candidateKey && it.content == session.content
-            }
-            if (repeatedSource) {
-                problem(WorkoutImportIssue.CHANGED_OR_AMBIGUOUS_SOURCE)
-            }
             val skip = session.skipExistingSessionId
             if (skip != null) {
                 // The source is unchanged, so it is never imported twice. Disclose which case it is:
@@ -171,7 +225,8 @@ object PreviewWorkoutImport {
             source = parsed.source,
             sessions = resolved,
             problems = problems.distinct(),
-            notices = notices.distinct()
+            notices = notices.distinct(),
+            buckets = proposedBuckets
         )
     }
 }

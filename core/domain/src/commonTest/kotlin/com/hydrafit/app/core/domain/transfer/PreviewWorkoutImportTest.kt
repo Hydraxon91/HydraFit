@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutSession
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class PreviewWorkoutImportTest {
@@ -230,7 +231,7 @@ class PreviewWorkoutImportTest {
     }
 
     @Test
-    fun distinctSameDaySessionsAreKeptAndAmbiguousIdenticalSourcesBlock() {
+    fun distinctSameDaySessionsAreKeptAndSplitsStayDistinctByMembership() {
         val different = parsed.copy(
             rows = parsed.rows.mapIndexed { i, row -> row.copy(reps = 8 + i) }
         )
@@ -243,7 +244,18 @@ class PreviewWorkoutImportTest {
         val valid = PreviewWorkoutImport.build(different, selection, listOf(exercise))
         assertTrue(valid.canImport)
         assertEquals(2, valid.sessions.size)
-        assertIssue(WorkoutImportIssue.CHANGED_OR_AMBIGUOUS_SOURCE, build(selection))
+
+        // The same two rows with identical content are still two source workouts: membership, not
+        // content, is the identity, so a split is preserved instead of being rejected as ambiguous.
+        val split = build(selection)
+        assertTrue(split.canImport, split.problems.toString())
+        assertEquals(2, split.sessions.size)
+        assertEquals(listOf(2), split.sessions[0].sourceRows)
+        assertEquals(listOf(3), split.sessions[1].sourceRows)
+        assertNotEquals(
+            build(withSession(choices.sessions.single())).buckets.single().partition,
+            split.buckets.single().partition
+        )
     }
 
     @Test

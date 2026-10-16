@@ -76,6 +76,15 @@ data class WorkoutImportProvenance(
     val importedSessionId: String
 )
 
+/** A complete source bucket and its approved partition, retained even after all history is deleted. */
+data class WorkoutImportBucket(
+    val source: WorkoutCsvSource,
+    val candidateKey: String,
+    val content: String,
+    val partition: String,
+    val importedSessionIds: List<String> = emptyList()
+)
+
 data class WorkoutImportSession(
     val candidateKey: String,
     val content: String,
@@ -99,7 +108,8 @@ data class WorkoutImportPreview(
      * Non-blocking disclosures: a session that is skipped because its source was already imported
      * (whether or not the local session still exists). These never stop the import.
      */
-    val notices: List<WorkoutImportProblem> = emptyList()
+    val notices: List<WorkoutImportProblem> = emptyList(),
+    val buckets: List<WorkoutImportBucket> = emptyList()
 ) {
     /** No blocking problem and at least one session to write; a fully skipped preview is not importable. */
     val canImport: Boolean
@@ -108,6 +118,10 @@ data class WorkoutImportPreview(
 
 /** Implementations revalidate the preview and persist all selected sessions in one transaction. */
 interface WorkoutImportRepository {
+    suspend fun buckets(
+        source: WorkoutCsvSource,
+        candidateKeys: Set<String>
+    ): List<WorkoutImportBucket> = emptyList()
     suspend fun provenance(
         source: WorkoutCsvSource,
         candidateKeys: Set<String>
