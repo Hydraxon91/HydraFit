@@ -168,10 +168,16 @@ class PrescriptionShareViewModel(
     fun onIdentityChoiceChanged(sourceExerciseId: String, choice: PrescriptionIdentityChoice?) {
         if (_state.value.importInProgress) return
         val decoded = document ?: return
+        val previous = choices[sourceExerciseId]
         if (choice == null) {
             choices.remove(sourceExerciseId)
         } else {
             choices[sourceExerciseId] = choice
+        }
+        if (previous != choice) {
+            // An equipment-gap acknowledgement belongs to the exercise the user was looking at. A
+            // different target has its own equipment list, so its gap is accepted on its own terms.
+            acceptedEquipmentGaps -= sourceExerciseId
         }
         _state.update {
             it.copy(importPhase = PrescriptionImportPhase.Reviewing(rebuildReview(decoded)))

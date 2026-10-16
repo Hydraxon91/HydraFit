@@ -254,6 +254,44 @@ class PrescriptionShareViewModelTest {
         assertFalse(review.preview.canImport)
     }
 
+    @Test
+    fun anAcceptedEquipmentGapIsClearedWhenTheIdentityChoiceChanges() = runTest {
+        val definition = PrescriptionExerciseRecord(
+            id = "user-cable-fly",
+            name = "Cable Fly",
+            requiredEquipment = listOf("CABLE_MACHINE"),
+            movementPattern = "HORIZONTAL_PUSH",
+            isUnilateral = false,
+            loadCapability = "EXTERNAL"
+        )
+        val vm = viewModel(
+            fileStore = FakeFileStore(
+                readText = PrescriptionJson.encode(
+                    document(id = definition.id, customExercises = listOf(definition))
+                )
+            )
+        )
+
+        vm.onImportChosen("content://import")
+        advanceUntilIdle()
+        vm.onIdentityChoiceChanged(definition.id, PrescriptionIdentityChoice.Create)
+        vm.onEquipmentGapChanged(definition.id, true)
+        advanceUntilIdle()
+
+        var review = (vm.state.value.importPhase as PrescriptionImportPhase.Reviewing).review
+        assertTrue(review.preview.canImport, review.preview.problems.toString())
+        assertTrue(review.preview.identities.single().acceptedEquipmentGap)
+
+        // Re-pointing the slot at a different exercise drops the acknowledgement: it belonged to the
+        // exercise the user was looking at, and the new target has its own equipment list.
+        vm.onIdentityChoiceChanged(definition.id, PrescriptionIdentityChoice.MapTo("BENCH"))
+        advanceUntilIdle()
+
+        review = (vm.state.value.importPhase as PrescriptionImportPhase.Reviewing).review
+        assertFalse(review.preview.identities.single().acceptedEquipmentGap)
+        assertTrue(review.preview.canImport, review.preview.problems.toString())
+    }
+
     private fun template(): RoutineTemplate = RoutineTemplate(
         id = 7L,
         name = "Leg Day",
