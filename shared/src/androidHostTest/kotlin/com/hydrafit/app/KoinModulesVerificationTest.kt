@@ -187,6 +187,7 @@ import com.hydrafit.app.feature.settings.WorkoutReminderSettingsViewModel
 import com.hydrafit.app.feature.settings.settingsModule
 import com.hydrafit.app.feature.splitbuilder.PlanExportViewModel
 import com.hydrafit.app.feature.splitbuilder.splitBuilderModule
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -208,6 +209,21 @@ import org.koin.test.verify.verify
 
 @OptIn(KoinExperimentalAPI::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class KoinModulesVerificationTest {
+
+    /**
+     * Safety net for the test Main dispatcher.
+     *
+     * A ViewModel that reads `viewModelScope` on init resolves `Dispatchers.Main`, and coroutines
+     * caches that resolution for the life of the JVM. If a test lets that happen with no test
+     * dispatcher installed, the platform Android main dispatcher is consulted instead, which a plain
+     * host JVM cannot initialise; the cached failure then makes every later `Dispatchers.setMain`
+     * throw. Resetting after each test means one test's installation can never become the next
+     * test's problem, and each test that resolves a ViewModel installs its own dispatcher first.
+     */
+    @AfterTest
+    fun resetMainDispatcher() {
+        Dispatchers.resetMain()
+    }
 
     private val testPlatformModule = module {
         single<TimeProvider> { TimeProvider { 0L } }
@@ -345,6 +361,7 @@ class KoinModulesVerificationTest {
      */
     @Test
     fun theAcknowledgmentsViewModelResolvesFromTheProductionVersionModule() {
+        Dispatchers.setMain(StandardTestDispatcher())
         val koin = koinApplication {
             modules(settingsModule, appVersionModule("1.2.3"))
         }.koin
@@ -457,6 +474,9 @@ class KoinModulesVerificationTest {
      */
     @Test
     fun theExercisePlanningSettingsViewModelResolvesAtRuntime() {
+        // This ViewModel reads viewModelScope on init, so it must never be resolved before a test
+        // Main dispatcher is installed.
+        Dispatchers.setMain(StandardTestDispatcher())
         val koin = koinApplication {
             modules(
                 module {
@@ -514,6 +534,8 @@ class KoinModulesVerificationTest {
      */
     @Test
     fun theBackupViewModelResolvesAtRuntime() {
+        // Reads viewModelScope on init: install the test Main dispatcher before resolving it.
+        Dispatchers.setMain(StandardTestDispatcher())
         val koin = koinApplication {
             modules(
                 module {
@@ -544,6 +566,7 @@ class KoinModulesVerificationTest {
      */
     @Test
     fun theWorkoutImportViewModelResolvesAtRuntime() {
+        Dispatchers.setMain(StandardTestDispatcher())
         val koin = koinApplication {
             modules(
                 module {
@@ -611,6 +634,8 @@ class KoinModulesVerificationTest {
      */
     @Test
     fun theRoutinesViewModelResolvesAtRuntime() {
+        // Reads viewModelScope on init: install the test Main dispatcher before resolving it.
+        Dispatchers.setMain(StandardTestDispatcher())
         val koin = koinApplication {
             modules(
                 module {
@@ -690,6 +715,7 @@ class KoinModulesVerificationTest {
      */
     @Test
     fun thePrescriptionShareViewModelResolvesAtRuntime() {
+        Dispatchers.setMain(StandardTestDispatcher())
         val koin = koinApplication {
             modules(
                 module {
@@ -752,6 +778,7 @@ class KoinModulesVerificationTest {
      */
     @Test
     fun thePlanExportViewModelResolvesAtRuntime() {
+        Dispatchers.setMain(StandardTestDispatcher())
         val koin = koinApplication {
             modules(
                 module {
