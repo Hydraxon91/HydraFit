@@ -1175,6 +1175,27 @@ gated in both directions, because a file that omits it would otherwise re-import
 `docs/architecture.md` §1.9 for the additive-migration rule and `backup.md` in the mechanics skill for
 the format detail.
 
+### 1.22 Plan and routine interchange (0.9.2-S1/S2)
+
+Sharing a prescription is a separate, narrower contract than a backup. `core/domain`'s
+`transfer/PrescriptionModels.kt` defines the versioned `hydrafit-routines` document: an ordered list
+of routines (name, optional focus, ordered slots with sets/reps/load kind) plus only the custom
+exercise definitions those slots reference, each as resolved values. It has no representation for
+performed history, personal records, notes, credentials, equipment inventories, schedule state, cycle
+progress or engine explanations, and `PrescriptionJson` rejects an unknown field rather than ignoring
+it, so a document cannot smuggle one in. `includesWeights` is the recorded user choice: the exporter
+omits prescribed weights unless it is true, and a document that claims to be weights-free but carries
+one is rejected. `PrescriptionValidator` checks the format/version, the shared prescription bounds,
+the shape bounds and the internal references without touching storage or a catalog.
+
+`ExportPrescriptionsUseCase` reads only the chosen routines and the catalog rows they reference, so
+the privacy surface is what it reads rather than what it filters. Import is the mirror image and is
+deliberately not acceptance: S2's preview resolves each referenced identity against the receiving
+catalog and the document's own definitions, reports reuse versus creation, identity collisions and
+equipment gaps, and only then appends each routine as a new editable template with fresh local
+identities — never as an accepted plan, an activation or a schedule change. Imported routines keep
+their own identity space, so a shared routine cannot overwrite a local definition by id or name.
+
 ## 2. Decision log
 
 Each row: the decision, the **recorded** rationale with a citation, recorded alternatives, and status.

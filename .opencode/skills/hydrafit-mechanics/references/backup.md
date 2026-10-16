@@ -102,6 +102,27 @@ not change the input format version.
 Restore seeds missing canonical equipment within its transaction before applying exported ceilings.
 Unknown exercise/equipment references and other invalid sections remain rejected without writes.
 
+## Prescription interchange (0.9.2-S1)
+
+`transfer/PrescriptionModels.kt` + `PrescriptionJson` in `:core/domain` define the versioned
+`hydrafit-routines` document (`PRESCRIPTION_FORMAT_VERSION = 1`) used to share plans/routines between
+installs or people. It carries ordered routines and the custom exercise definitions they reference —
+nothing else. The codec encodes defaults, rejects unknown fields, and enforces `PrescriptionLimits`
+(2 MiB, depth 24, 16 KiB per string, 20,000 records). `PrescriptionValidator` enforces the format and
+version, the shared `PrescriptionBounds` per slot, valid movement/load/kind/focus enums, valid
+`MUSCLE:weight` involvement keys for custom definitions, unique custom ids, and two internal
+reference rules: every declared custom definition must be referenced by some slot, and a weights-free
+document (`includesWeights = false`) may not carry a slot weight. Referenced identities are resolved
+by the importer, not by this validator, because only the receiver knows its own catalog.
+
+`ExportPrescriptionsUseCase(routines: RoutineTemplateRepository, catalog: ExerciseCatalog)` reads only
+the chosen routine ids and the catalog rows they reference, so history, records, notes, credentials,
+equipment inventories, schedule state and explanations are never read and cannot leak. Weights are
+omitted unless the caller passes `includeWeights = true` from an explicit user choice; a slot whose
+exercise is no longer in the catalog keeps its stored id as the only available name.
+
+Read-only review of the shipped S1–S2 behavior on a device remains pending.
+
 ## Bounded workout CSV parsing (0.9.1-I1)
 
 `WorkoutCsvParser.parse(source, text)` in `core/domain/.../transfer/` is a pure parser:
