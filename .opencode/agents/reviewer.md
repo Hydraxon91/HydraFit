@@ -98,6 +98,12 @@ permissions:
   - action: shell
     resource: "echo *"
     effect: allow
+  - action: shell
+    resource: "cut *"
+    effect: allow
+  - action: shell
+    resource: "sed *"
+    effect: allow
   - action: read
     resource: "*.env"
     effect: ask
