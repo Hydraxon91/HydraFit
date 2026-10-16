@@ -29,8 +29,15 @@ data class WorkoutImportRowUi(
     val reps: Int,
     val warmup: Boolean?,
     val diagnostics: List<WorkoutCsvDiagnostic>,
-    val included: Boolean
+    val included: Boolean,
+    /** The session draft this included row belongs to; null when the row is excluded. */
+    val sessionDraftId: Int? = null,
+    /** Every session draft of the row's source bucket, so a row can be moved between them. */
+    val sessionOptions: List<SessionOptionUi> = emptyList()
 )
+
+/** A session draft of the row's bucket, offered as a move target. [ordinal] is 1-based. */
+data class SessionOptionUi(val draftId: Int, val ordinal: Int)
 
 /** A whole-file row the parser could not turn into a set; the user must exclude it before import. */
 data class RejectedImportRowUi(
@@ -52,8 +59,9 @@ sealed interface MappingState {
 data class MappingCandidateUi(val exerciseId: String, val label: String)
 
 /**
- * Identifies one source workout draft: its civil day plus the source workout title when the provider
- * carries one. Two workouts on the same day stay separate; a provider without titles groups by day.
+ * Identifies one source bucket: its civil day plus the source workout title when the provider
+ * carries one. Two titled workouts on the same day are separate buckets; a provider without titles
+ * has one bucket per day, which the user may split into several session drafts.
  */
 data class SessionKey(val day: SourceCivilDate, val workoutTitle: String?)
 
@@ -69,11 +77,15 @@ data class MappingUi(
     val unknownWarmupIsWorking: Boolean
 )
 
-/** One source civil day treated as a single session, with the user's time/session decisions. */
+/** One editable session draft within a source bucket, with the user's time/session decisions. */
 data class SessionDraftUi(
-    val key: SessionKey,
+    val draftId: Int,
+    /** 1-based position of this draft among the drafts of its bucket. */
+    val ordinal: Int,
     val dayLabel: String,
     val workoutTitle: String?,
+    /** True when this bucket has more than one draft, so the split is visible in the UI. */
+    val split: Boolean,
     val rowIndexes: List<Int>,
     /** The raw UTC-offset text exactly as typed; [utcOffsetMinutes] is the last value it parsed to. */
     val utcOffsetText: String,
@@ -95,8 +107,7 @@ sealed interface ReviewProblem {
     }
 
     /** The typed session UTC offset is not a whole number of minutes in -1080..1080. */
-    data class InvalidOffset(val sessionKey: SessionKey, override val sourceRow: Int?) :
-        ReviewProblem
+    data class InvalidOffset(val draftId: Int, override val sourceRow: Int?) : ReviewProblem
 }
 
 /** The full review shown before an import: source rows plus every derived choice and disclosure. */

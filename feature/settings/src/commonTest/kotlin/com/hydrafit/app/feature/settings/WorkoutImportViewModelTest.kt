@@ -177,7 +177,7 @@ class WorkoutImportViewModelTest {
         advanceUntilIdle()
         assertFalse(review(viewModel).canImport)
 
-        val key = review(viewModel).sessions.single().key
+        val key = review(viewModel).sessions.single().draftId
         viewModel.setSessionTime(key, 7 * 3600)
         advanceUntilIdle()
         assertFalse(review(viewModel).canImport)
@@ -225,7 +225,72 @@ class WorkoutImportViewModelTest {
         assertEquals(listOf("Morning", "Evening"), sessions.map { it.workoutTitle })
         assertEquals(listOf(2), sessions[0].rowIndexes)
         assertEquals(listOf(3), sessions[1].rowIndexes)
-        assertEquals(2, sessions.map { it.key }.distinct().size)
+        assertEquals(2, sessions.map { it.draftId }.distinct().size)
+    }
+
+    @Test
+    fun aTitlelessOrTitledBucketCanBeSplitIntoTwoSessionsAndRejoined() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            store = FakeFileStore(content = hevyCsv("Bench Press")),
+            catalog = benchCatalog()
+        )
+
+        viewModel.chooseHevyFile()
+        advanceUntilIdle()
+        val initial = review(viewModel)
+        assertEquals(1, initial.sessions.size)
+        assertEquals(listOf(2, 3), initial.sessions.single().rowIndexes)
+        assertFalse(initial.sessions.single().split)
+
+        viewModel.setRowSession(3, null)
+        advanceUntilIdle()
+
+        val split = review(viewModel)
+        assertEquals(2, split.sessions.size)
+        assertEquals(listOf(2), split.sessions[0].rowIndexes)
+        assertEquals(listOf(3), split.sessions[1].rowIndexes)
+        assertTrue(split.sessions.all { it.split })
+        // The row can be moved to either draft of its bucket.
+        assertEquals(2, split.rows.first { it.sourceRowIndex == 3 }.sessionOptions.size)
+
+        // Moving it back merges the now-empty draft away.
+        viewModel.setRowSession(3, split.sessions[0].draftId)
+        advanceUntilIdle()
+        val rejoined = review(viewModel)
+        assertEquals(1, rejoined.sessions.size)
+        assertEquals(listOf(2, 3), rejoined.sessions.single().rowIndexes)
+        assertFalse(rejoined.sessions.single().split)
+    }
+
+    @Test
+    fun aSplitBucketCommitsTwoSessionsAndOneBucket() = runTest(dispatcher) {
+        val repository = FakeImportRepository()
+        repository.result = WorkoutImportResult(
+            importedSessions = 2,
+            importedSets = 2,
+            skippedSessions = 0
+        )
+        val viewModel = viewModel(
+            store = FakeFileStore(content = hevyCsv("Bench Press")),
+            repository = repository,
+            catalog = benchCatalog()
+        )
+
+        viewModel.chooseHevyFile()
+        advanceUntilIdle()
+        viewModel.setRowSession(3, null)
+        viewModel.confirmLoadMeaning("Bench Press")
+        viewModel.acknowledgeHistoryEffects(true)
+        review(viewModel).sessions.forEach { viewModel.confirmSession(it.draftId, true) }
+        advanceUntilIdle()
+        assertTrue(review(viewModel).canImport)
+
+        viewModel.apply()
+        advanceUntilIdle()
+
+        assertEquals(2, repository.lastPreview?.sessions?.size)
+        assertEquals(1, repository.lastPreview?.buckets?.size)
+        assertIs<WorkoutImportPhase.Imported>(viewModel.state.value.phase)
     }
 
     @Test
@@ -246,7 +311,7 @@ class WorkoutImportViewModelTest {
         advanceUntilIdle()
         viewModel.confirmLoadMeaning("Bench Press")
         viewModel.acknowledgeHistoryEffects(true)
-        review(viewModel).sessions.forEach { viewModel.confirmSession(it.key, true) }
+        review(viewModel).sessions.forEach { viewModel.confirmSession(it.draftId, true) }
         advanceUntilIdle()
         assertTrue(review(viewModel).canImport)
 
@@ -409,7 +474,7 @@ class WorkoutImportViewModelTest {
         advanceUntilIdle()
         viewModel.confirmLoadMeaning("Bench Press")
         viewModel.acknowledgeHistoryEffects(true)
-        val key = review(viewModel).sessions.single().key
+        val key = review(viewModel).sessions.single().draftId
         viewModel.confirmSession(key, true)
         advanceUntilIdle()
     }
@@ -423,7 +488,7 @@ class WorkoutImportViewModelTest {
 
         confirmReadyToImport(viewModel)
         assertTrue(review(viewModel).canImport)
-        val key = review(viewModel).sessions.single().key
+        val key = review(viewModel).sessions.single().draftId
 
         viewModel.setSessionOffset(key, "abc")
         advanceUntilIdle()
@@ -442,7 +507,7 @@ class WorkoutImportViewModelTest {
 
         viewModel.chooseHevyFile()
         advanceUntilIdle()
-        val key = review(viewModel).sessions.single().key
+        val key = review(viewModel).sessions.single().draftId
 
         viewModel.setSessionOffset(key, "120")
         advanceUntilIdle()
@@ -470,7 +535,7 @@ class WorkoutImportViewModelTest {
 
         viewModel.chooseHevyFile()
         advanceUntilIdle()
-        val key = review(viewModel).sessions.single().key
+        val key = review(viewModel).sessions.single().draftId
 
         viewModel.setSessionOffset(key, "120")
         advanceUntilIdle()
@@ -491,7 +556,7 @@ class WorkoutImportViewModelTest {
 
         viewModel.chooseHevyFile()
         advanceUntilIdle()
-        val key = review(viewModel).sessions.single().key
+        val key = review(viewModel).sessions.single().draftId
 
         viewModel.setSessionOffset(key, "120")
         advanceUntilIdle()

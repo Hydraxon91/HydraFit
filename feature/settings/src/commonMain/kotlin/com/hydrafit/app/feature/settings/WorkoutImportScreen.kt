@@ -1,6 +1,7 @@
 package com.hydrafit.app.feature.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -91,9 +92,12 @@ import hydrafit.feature.settings.generated.resources.settings_workout_import_pro
 import hydrafit.feature.settings.generated.resources.settings_workout_import_rejected_title
 import hydrafit.feature.settings.generated.resources.settings_workout_import_reset
 import hydrafit.feature.settings.generated.resources.settings_workout_import_review_title
+import hydrafit.feature.settings.generated.resources.settings_workout_import_row_session
 import hydrafit.feature.settings.generated.resources.settings_workout_import_section
 import hydrafit.feature.settings.generated.resources.settings_workout_import_session_confirm
 import hydrafit.feature.settings.generated.resources.settings_workout_import_session_confirmed
+import hydrafit.feature.settings.generated.resources.settings_workout_import_session_label
+import hydrafit.feature.settings.generated.resources.settings_workout_import_session_new
 import hydrafit.feature.settings.generated.resources.settings_workout_import_session_offset
 import hydrafit.feature.settings.generated.resources.settings_workout_import_session_rows
 import hydrafit.feature.settings.generated.resources.settings_workout_import_session_time
@@ -129,6 +133,7 @@ fun WorkoutImportRoute(
         onSessionOffsetChanged = viewModel::setSessionOffset,
         onSessionTimeChanged = viewModel::setSessionTime,
         onConfirmSession = viewModel::confirmSession,
+        onRowSessionSelected = viewModel::setRowSession,
         onToggleRowIncluded = viewModel::toggleRowIncluded,
         onAcknowledgeUnsupportedFields = viewModel::acknowledgeUnsupportedFields,
         onAcknowledgeHistoryEffects = viewModel::acknowledgeHistoryEffects,
@@ -148,9 +153,10 @@ fun WorkoutImportScreen(
     onUseSourceWeightChanged: (String, Boolean) -> Unit,
     onConfirmLoadMeaning: (String) -> Unit,
     onUnknownWarmupChanged: (String, Boolean) -> Unit,
-    onSessionOffsetChanged: (SessionKey, String) -> Unit,
-    onSessionTimeChanged: (SessionKey, Int?) -> Unit,
-    onConfirmSession: (SessionKey, Boolean) -> Unit,
+    onSessionOffsetChanged: (Int, String) -> Unit,
+    onSessionTimeChanged: (Int, Int?) -> Unit,
+    onConfirmSession: (Int, Boolean) -> Unit,
+    onRowSessionSelected: (Int, Int?) -> Unit,
     onToggleRowIncluded: (Int) -> Unit,
     onAcknowledgeUnsupportedFields: (Boolean) -> Unit,
     onAcknowledgeHistoryEffects: (Boolean) -> Unit,
@@ -217,6 +223,7 @@ fun WorkoutImportScreen(
                 onSessionOffsetChanged = onSessionOffsetChanged,
                 onSessionTimeChanged = onSessionTimeChanged,
                 onConfirmSession = onConfirmSession,
+                onRowSessionSelected = onRowSessionSelected,
                 onToggleRowIncluded = onToggleRowIncluded,
                 onAcknowledgeUnsupportedFields = onAcknowledgeUnsupportedFields,
                 onAcknowledgeHistoryEffects = onAcknowledgeHistoryEffects,
@@ -260,9 +267,10 @@ private fun WorkoutImportReviewSection(
     onUseSourceWeightChanged: (String, Boolean) -> Unit,
     onConfirmLoadMeaning: (String) -> Unit,
     onUnknownWarmupChanged: (String, Boolean) -> Unit,
-    onSessionOffsetChanged: (SessionKey, String) -> Unit,
-    onSessionTimeChanged: (SessionKey, Int?) -> Unit,
-    onConfirmSession: (SessionKey, Boolean) -> Unit,
+    onSessionOffsetChanged: (Int, String) -> Unit,
+    onSessionTimeChanged: (Int, Int?) -> Unit,
+    onConfirmSession: (Int, Boolean) -> Unit,
+    onRowSessionSelected: (Int, Int?) -> Unit,
     onToggleRowIncluded: (Int) -> Unit,
     onAcknowledgeUnsupportedFields: (Boolean) -> Unit,
     onAcknowledgeHistoryEffects: (Boolean) -> Unit,
@@ -279,26 +287,31 @@ private fun WorkoutImportReviewSection(
         style = MaterialTheme.typography.titleSmall
     )
     review.rows.forEach { row ->
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .toggleable(
-                    value = row.included,
-                    role = Role.Checkbox,
-                    onValueChange = { onToggleRowIncluded(row.sourceRowIndex) }
-                ),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Checkbox(checked = row.included, onCheckedChange = null)
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text("${row.exerciseName} — ${row.dayLabel}")
-                Text(
-                    text = row.detailText(),
-                    style = MaterialTheme.typography.bodySmall
-                )
-                row.diagnostics.forEach { diagnostic ->
-                    Text(diagnostic.message, style = MaterialTheme.typography.bodySmall)
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = row.included,
+                        role = Role.Checkbox,
+                        onValueChange = { onToggleRowIncluded(row.sourceRowIndex) }
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(checked = row.included, onCheckedChange = null)
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text("${row.exerciseName} — ${row.dayLabel}")
+                    Text(
+                        text = row.detailText(),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    row.diagnostics.forEach { diagnostic ->
+                        Text(diagnostic.message, style = MaterialTheme.typography.bodySmall)
+                    }
                 }
+            }
+            if (row.included && row.sessionDraftId != null && row.sessionOptions.isNotEmpty()) {
+                RowSessionSelector(row = row, onSessionSelected = onRowSessionSelected)
             }
         }
     }
@@ -526,14 +539,22 @@ private fun MappingEditor(
 @Composable
 private fun SessionEditor(
     session: SessionDraftUi,
-    onSessionOffsetChanged: (SessionKey, String) -> Unit,
-    onSessionTimeChanged: (SessionKey, Int?) -> Unit,
-    onConfirmSession: (SessionKey, Boolean) -> Unit
+    onSessionOffsetChanged: (Int, String) -> Unit,
+    onSessionTimeChanged: (Int, Int?) -> Unit,
+    onConfirmSession: (Int, Boolean) -> Unit
 ) {
-    var timeText by remember(session.key) {
+    var timeText by remember(session.draftId) {
         mutableStateOf(session.dateOnlySecondOfDay?.let(::clockText) ?: "")
     }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (session.split) {
+            Text(
+                text = stringResource(
+                    Res.string.settings_workout_import_session_label,
+                    session.ordinal
+                )
+            )
+        }
         Text(session.dayLabel)
         if (session.workoutTitle != null) {
             Text(
@@ -558,7 +579,7 @@ private fun SessionEditor(
         )
         OutlinedTextField(
             value = session.utcOffsetText,
-            onValueChange = { text -> onSessionOffsetChanged(session.key, text) },
+            onValueChange = { text -> onSessionOffsetChanged(session.draftId, text) },
             label = { Text(stringResource(Res.string.settings_workout_import_session_offset)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -568,7 +589,7 @@ private fun SessionEditor(
             value = timeText,
             onValueChange = { text ->
                 timeText = text
-                onSessionTimeChanged(session.key, parseClockText(text))
+                onSessionTimeChanged(session.draftId, parseClockText(text))
             },
             label = { Text(stringResource(Res.string.settings_workout_import_session_time)) },
             singleLine = true,
@@ -581,8 +602,55 @@ private fun SessionEditor(
             } else {
                 stringResource(Res.string.settings_workout_import_session_confirm)
             },
-            onCheckedChange = { onConfirmSession(session.key, it) }
+            onCheckedChange = { onConfirmSession(session.draftId, it) }
         )
+    }
+}
+
+@Composable
+private fun RowSessionSelector(row: WorkoutImportRowUi, onSessionSelected: (Int, Int?) -> Unit) {
+    var expanded by remember(row.sourceRowIndex) { mutableStateOf(false) }
+    val current = row.sessionOptions.firstOrNull { it.draftId == row.sessionDraftId }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = stringResource(Res.string.settings_workout_import_row_session),
+            style = MaterialTheme.typography.bodySmall
+        )
+        Box {
+            OutlinedButton(onClick = { expanded = true }) {
+                Text(
+                    current?.let {
+                        stringResource(Res.string.settings_workout_import_session_label, it.ordinal)
+                    } ?: stringResource(Res.string.settings_workout_import_session_new)
+                )
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                row.sessionOptions.forEach { option ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                stringResource(
+                                    Res.string.settings_workout_import_session_label,
+                                    option.ordinal
+                                )
+                            )
+                        },
+                        enabled = option.draftId != row.sessionDraftId,
+                        onClick = {
+                            expanded = false
+                            onSessionSelected(row.sourceRowIndex, option.draftId)
+                        }
+                    )
+                }
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.settings_workout_import_session_new)) },
+                    onClick = {
+                        expanded = false
+                        onSessionSelected(row.sourceRowIndex, null)
+                    }
+                )
+            }
+        }
     }
 }
 
