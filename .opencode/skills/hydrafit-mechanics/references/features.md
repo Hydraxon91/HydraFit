@@ -33,6 +33,14 @@ are separate accessible text nodes, not mutually occluding bounds overlays.
 Existing refresh, coverage and planner contracts are unchanged. See
 `docs/architecture.md` for pinned provenance and the schematic limitations.
 
+The screen title, the always-visible note under it and the map legend call the scores an
+estimate: the note states that recorded working sets are the input, that this is not a
+measurement of soreness, exhaustion or readiness, that low values do not confirm recovery
+and that recorded muscle mappings may be incomplete. `fatigue_map_legend_low`/`_high` are the
+estimate-framed legend labels. Numbers, the 24 groups, artwork/coverage logic and the
+manual-only seeds are untouched; `FatigueEstimateCopyTest` guards the copy in the real
+resources and in the rendered screen and body-map dialog.
+
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
