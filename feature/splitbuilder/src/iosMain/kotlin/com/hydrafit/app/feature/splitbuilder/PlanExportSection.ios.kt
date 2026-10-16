@@ -6,7 +6,6 @@ import androidx.compose.ui.Modifier
 // iOS has no document surface for plan export in 0.9.x, so the screen shows a note instead.
 @Composable
 actual fun PlanExportSection(
-    planAvailable: Boolean,
     state: PlanExportUiState,
     onIncludeWeightsChanged: (Boolean) -> Unit,
     onExportJson: (String) -> Unit,

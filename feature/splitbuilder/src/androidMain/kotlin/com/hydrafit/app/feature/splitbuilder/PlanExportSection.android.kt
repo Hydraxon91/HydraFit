@@ -36,7 +36,6 @@ internal actual fun Modifier.planExportTestTagsAsResourceId(): Modifier =
 
 @Composable
 actual fun PlanExportSection(
-    planAvailable: Boolean,
     state: PlanExportUiState,
     onIncludeWeightsChanged: (Boolean) -> Unit,
     onExportJson: (String) -> Unit,
@@ -62,7 +61,7 @@ actual fun PlanExportSection(
             Switch(
                 checked = state.includeWeights,
                 onCheckedChange = onIncludeWeightsChanged,
-                enabled = planAvailable && !state.inProgress,
+                enabled = !state.inProgress,
                 modifier = Modifier.testTag(PlanExportTestTags.INCLUDE_WEIGHTS)
             )
             Text(stringResource(Res.string.split_plan_export_weights))
@@ -70,7 +69,7 @@ actual fun PlanExportSection(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
                 onClick = { exportPicker.launch(EXPORT_FILE_NAME) },
-                enabled = planAvailable && !state.inProgress,
+                enabled = !state.inProgress,
                 modifier = Modifier.testTag(PlanExportTestTags.EXPORT_JSON)
             ) {
                 Text(stringResource(Res.string.split_plan_export))
@@ -78,7 +77,7 @@ actual fun PlanExportSection(
             if (state.pdfSupported) {
                 OutlinedButton(
                     onClick = { pdfPicker.launch(PDF_FILE_NAME) },
-                    enabled = planAvailable && !state.inProgress,
+                    enabled = !state.inProgress,
                     modifier = Modifier.testTag(PlanExportTestTags.PRINT_PDF)
                 ) {
                     Text(stringResource(Res.string.split_plan_export_print))

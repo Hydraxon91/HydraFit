@@ -247,10 +247,14 @@ fun SplitBuilderRoute(
     val savedMessage = stringResource(Res.string.split_routine_saved)
     val viewRoutinesAction = stringResource(Res.string.split_routine_saved_view)
     val generatedRoutineName = stringResource(Res.string.split_generated_routine_name)
-    val planExportName = "$generatedRoutineName " + isoLocalDateTime(
+
+    // Derived when a transfer action runs, so the name matches the plan on screen at that moment
+    // rather than the composition that created the button.
+    fun planTransferName(): String = "$generatedRoutineName " + isoLocalDateTime(
         timeProvider.nowMillis(),
         timeProvider.utcOffsetMillis()
     )
+
     LaunchedEffect(state.routineSaved) {
         if (state.routineSaved) {
             val result = snackbarHostState.showSnackbar(
@@ -273,7 +277,7 @@ fun SplitBuilderRoute(
             onAccessorySetsPerExerciseChanged = viewModel::onAccessorySetsPerExerciseChanged,
             onAcceptPlan = viewModel::onAcceptPlan,
             onSchedulePlan = viewModel::onScheduleRequested,
-            onSaveAsRoutine = { viewModel.onSaveAsRoutine(planExportName) },
+            onSaveAsRoutine = { viewModel.onSaveAsRoutine(planTransferName()) },
             onRegenerate = viewModel::refresh,
             onViewAcceptedPlan = viewModel::onViewAcceptedPlan,
             onDeletePlan = viewModel::onDeletePlan,
@@ -285,10 +289,10 @@ fun SplitBuilderRoute(
             exportState = exportState,
             onExportIncludeWeightsChanged = exportViewModel::onIncludeWeightsChanged,
             onExportPlanJson = { handle ->
-                state.plan?.let { exportViewModel.exportJson(it, planExportName, handle) }
+                state.plan?.let { exportViewModel.exportJson(it, planTransferName(), handle) }
             },
             onExportPlanPdf = { handle ->
-                state.plan?.let { exportViewModel.printPdf(it, planExportName, handle) }
+                state.plan?.let { exportViewModel.printPdf(it, planTransferName(), handle) }
             },
             onExportStatusDismissed = exportViewModel::onStatusDismissed,
             modifier = Modifier.fillMaxSize()
@@ -474,7 +478,6 @@ fun SplitBuilderScreen(
             }
             if (exportState.jsonSupported) {
                 PlanExportSection(
-                    planAvailable = true,
                     state = exportState,
                     onIncludeWeightsChanged = onExportIncludeWeightsChanged,
                     onExportJson = onExportPlanJson,

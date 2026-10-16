@@ -20,7 +20,6 @@ internal expect fun Modifier.planExportTestTagsAsResourceId(): Modifier
  */
 @Composable
 expect fun PlanExportSection(
-    planAvailable: Boolean,
     state: PlanExportUiState,
     onIncludeWeightsChanged: (Boolean) -> Unit,
     onExportJson: (String) -> Unit,
