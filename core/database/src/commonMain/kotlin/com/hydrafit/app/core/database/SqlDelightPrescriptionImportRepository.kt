@@ -34,6 +34,13 @@ class SqlDelightPrescriptionImportRepository(
                 "There is no routine to import"
             )
         }
+        if (preview.problems.isNotEmpty()) {
+            // canImport is the app's gate, but a caller that ignores it must not import a subset.
+            throw PrescriptionImportException(
+                PrescriptionImportCommitFailure.PREVIEW_NOT_IMPORTABLE,
+                "The preview still carries unresolved problems"
+            )
+        }
         var importedRoutines = 0
         var createdExercises = 0
         database.transaction {

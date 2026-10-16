@@ -12,7 +12,9 @@ import com.hydrafit.app.core.domain.transfer.PrescriptionIdentityChoice
 import com.hydrafit.app.core.domain.transfer.PrescriptionImportChoices
 import com.hydrafit.app.core.domain.transfer.PrescriptionImportCommitFailure
 import com.hydrafit.app.core.domain.transfer.PrescriptionImportException
+import com.hydrafit.app.core.domain.transfer.PrescriptionImportIssue
 import com.hydrafit.app.core.domain.transfer.PrescriptionImportPreview
+import com.hydrafit.app.core.domain.transfer.PrescriptionImportProblem
 import com.hydrafit.app.core.domain.transfer.PrescriptionRoutineRecord
 import com.hydrafit.app.core.domain.transfer.PrescriptionWorkoutRecord
 import com.hydrafit.app.core.domain.transfer.PreviewPrescriptionImport
@@ -216,5 +218,27 @@ class SqlDelightPrescriptionImportRepositoryTest {
             runBlocking { repository.importPrescriptions(empty) }
         }
         assertEquals(PrescriptionImportCommitFailure.NOTHING_TO_IMPORT, failure.failure)
+    }
+
+    @Test
+    fun aPreviewThatStillCarriesProblemsIsRefusedAndWritesNothing() = runBlocking {
+        val plan = preview(document())
+        assertTrue(plan.canImport, plan.problems.toString())
+        // A caller that ignores canImport must not be able to import this partial plan.
+        val unresolved = plan.copy(
+            problems = listOf(
+                PrescriptionImportProblem(PrescriptionImportIssue.INVALID_ROUTINE)
+            )
+        )
+
+        val failure = assertFailsWith<PrescriptionImportException> {
+            repository.importPrescriptions(unresolved)
+        }
+
+        assertEquals(PrescriptionImportCommitFailure.PREVIEW_NOT_IMPORTABLE, failure.failure)
+        assertEquals(
+            0,
+            database.routineTemplateQueries.selectAllTemplates().executeAsList().size
+        )
     }
 }
