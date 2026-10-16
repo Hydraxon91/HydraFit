@@ -2552,6 +2552,25 @@ final state is user-reported, not independently verified. Findings inform the 0.
 - Parent verification of the delegated delta: every changed path fell inside the brief's allowed set,
   except the three `BackupSection.*` files, which the coder correctly returned as a delegation
   allowlist omission and the user then approved.
+- S5 independent review (`reviewer`, read-only, range `f7a7d57d..aa52f717`): **REJECTED**. Two blocking
+  findings — F2-01 a validator-accepted document could throw inside the importer (backup-only muscle
+  aliases were accepted while the importer converts with `MuscleGroup.valueOf`), F2-02 the exporter
+  could write a document it refuses to read (a custom exercise with no required equipment) — plus
+  F2-03 (an empty selection could be written), nits F2-05…F2-08 and F2-09, the design observation
+  F2-04, and a reviewer-observed gap (the import repository did not re-check `canImport`). Privacy,
+  ordering, atomicity, side-effect, CSV, adapter and repository-rule invariants all held. Full record:
+  `docs/review-0.9.2-snapshot.md`.
+- Corrections after the user approved the scope: `b16e39c6` (F2-01/02/03/05/06/07), `f3b9a297`
+  (not-importable preview guard), `e2aa81fa` (F2-08), `df9bb92d` (own messages for the new import
+  failures). Closure returned every corrected finding **CLOSED** with a judged-acceptable residual
+  (the remaining `valueOf` is reachable only for an unvalidated document, which the import flow never
+  passes), and confirmed F2-04/F2-09 untouched. The closure recorded three new nits (F2-c misleading
+  double problem, F2-d I/O message for a write that never ran, F2-e doc sync), fixed in `f7ab7d0d`;
+  that commit is post-closure and was not re-reviewed, which the bounded-round rule allows for nits.
+- Final matrix on the corrected revision (`091-092-fixes-matrix.log`, `091-092-final-matrix.log`):
+  **2,202 host tests in 246 classes, 0 failures, 0 errors, 0 skipped**, with
+  `:core:database:verifySqlDelightMigration` (no schema change), `ktlintCheck`, `:androidApp:assembleDebug`
+  and the `:shared:`/`:core:network:` iOS simulator compiles green.
 - Not verified by any check here: iOS runtime behavior for the unsupported renderer/store paths, a
   real SAF document write or read for JSON, CSV or PDF, the rendering of any exported PDF or CSV by an
   external tool, emulator rendering of the new routines/plan/settings controls, dark mode, larger
