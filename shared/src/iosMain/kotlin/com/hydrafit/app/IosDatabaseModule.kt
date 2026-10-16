@@ -19,9 +19,9 @@ import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
 import com.hydrafit.app.core.userdata.settings.IosAppVersionProvider
 import com.hydrafit.app.core.userdata.settings.NoopApiKeyStore
-import com.hydrafit.app.core.userdata.transfer.IosPrescriptionDocumentStore
 import com.hydrafit.app.core.userdata.transfer.PrescriptionDocumentStore
 import com.hydrafit.app.core.userdata.transfer.PrescriptionPdfRenderer
+import com.hydrafit.app.core.userdata.transfer.UnsupportedPrescriptionDocumentStore
 import com.hydrafit.app.core.userdata.transfer.UnsupportedPrescriptionPdfRenderer
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -53,7 +53,7 @@ fun iosDatabaseModule(): Module = module {
     single<OnDeviceTextGenerator> { UnsupportedOnDeviceTextGenerator() }
     single<OnDevicePlannerLogger> { NoopOnDevicePlannerLogger }
     single<BackupFileStore> { UnsupportedBackupFileStore() }
-    single<PrescriptionDocumentStore> { IosPrescriptionDocumentStore() }
+    single<PrescriptionDocumentStore> { UnsupportedPrescriptionDocumentStore() }
     single<PrescriptionPdfRenderer> { UnsupportedPrescriptionPdfRenderer() }
 }
 
