@@ -264,9 +264,12 @@ Backup format 16 adds `importBuckets` (`source`, `candidateKey`, `content`, `par
 `importedSessionIds`), the bucket/partition ledger. It is gated the same way: a pre-16 file must not
 carry it, and an unknown provider, an empty key/content/partition field, an empty or duplicate session
 id, or two buckets with the same `(source, candidateKey)` fail validation. The stored `partition` must
-also **decode** as a canonical manifest whose membership covers the bucket exactly once and whose
-session count equals `importedSessionIds`, so a corrupt or hand-edited manifest cannot be restored and
-then reused as if it were the approved split. `recordCount` counts each
+also **decode** as a canonical manifest whose membership covers its declared row count exactly once and
+whose session count equals `importedSessionIds`, so a corrupt or hand-edited manifest cannot be restored
+and then reused as if it were the approved split. (The declared row count is checked against the source
+bucket itself when the review is rebuilt, which falls back to one merged draft and reports
+`CHANGED_OR_AMBIGUOUS_SOURCE` rather than reusing a partition that does not describe those rows.)
+`recordCount` counts each
 bucket plus each link. `BackupJson` requires each section from its introducing format on while
 ignoring the key for older versions, matching the both-directions gate used by the note sections.
 Read-only device verification of any of this remains pending; `docs/qa.md` records the host and
