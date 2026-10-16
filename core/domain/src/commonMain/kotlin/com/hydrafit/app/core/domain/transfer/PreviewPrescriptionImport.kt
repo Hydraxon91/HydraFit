@@ -21,6 +21,11 @@ import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
  * so a create cannot silently collide with an existing exercise, and no existing row is ever
  * overwritten by id or name. A resolved prescription is snapped onto the exercise's current load
  * capability, so an imported routine can never hold a load its exercise cannot carry.
+ *
+ * The document must already have passed [PrescriptionValidator]: a validated document carries only
+ * resolvable muscle, movement and load names, which is what this resolution relies on. The caller
+ * validates before previewing (the import flow does), and an unvalidated document is not a
+ * supported input here.
  */
 object PreviewPrescriptionImport {
     fun build(
@@ -159,7 +164,9 @@ object PreviewPrescriptionImport {
             runCatching { RoutineTemplateValidator.validate(draft) }.getOrNull()
         }
         if (routines.size != document.routines.size) {
-            problem(PrescriptionImportIssue.UNDECIDED_IDENTITY)
+            // A routine that could not be rebuilt (dropped workout or slot) is not "undecided":
+            // its identities may all be resolved, so report the routine shape instead.
+            problem(PrescriptionImportIssue.INVALID_ROUTINE)
         }
         return PrescriptionImportPreview(
             document = document,

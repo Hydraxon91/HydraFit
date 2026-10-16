@@ -7,14 +7,12 @@ import com.hydrafit.app.core.domain.routine.RoutineTemplate
 /**
  * What the user decided for one referenced source exercise identity.
  *
- * `REUSE` and `MAP_TO` point at an existing local exercise; `CREATE` accepts the document's own custom
- * definition under its own fresh local identity. Nothing is chosen automatically: the preview never
- * overwrites a definition by id or name and never silently substitutes equipment.
+ * `MAP_TO` points at an existing local exercise and `CREATE` accepts the document's own custom
+ * definition under its own fresh local identity; an identity the receiving catalog already holds
+ * needs no choice at all. Nothing is chosen automatically: the preview never overwrites a definition
+ * by id or name and never silently substitutes equipment.
  */
 sealed interface PrescriptionIdentityChoice {
-    /** Keep the document's identity because the local catalog already has it. */
-    data object Reuse : PrescriptionIdentityChoice
-
     /** Point the slots at an existing local exercise instead. */
     data class MapTo(val localExerciseId: String) : PrescriptionIdentityChoice
 
@@ -56,7 +54,10 @@ enum class PrescriptionImportIssue {
     NAME_COLLISION,
     UNKNOWN_IDENTITY,
     EQUIPMENT_GAP,
-    INVALID_CHOICE
+    INVALID_CHOICE,
+
+    /** A routine could not be turned into a valid local routine (a dropped workout or slot). */
+    INVALID_ROUTINE
 }
 
 data class PrescriptionImportProblem(
@@ -97,6 +98,12 @@ data class PrescriptionImportResult(val importedRoutines: Int, val createdExerci
 enum class PrescriptionImportCommitFailure {
     /** The preview carried nothing to write. */
     NOTHING_TO_IMPORT,
+
+    /**
+     * The preview still carries unresolved problems, so committing it would import a partial plan.
+     * A caller that ignores [PrescriptionImportPreview.canImport] must be refused.
+     */
+    PREVIEW_NOT_IMPORTABLE,
 
     /** A definition this preview would create now exists locally, so it must not be overwritten. */
     IDENTITY_ALREADY_EXISTS

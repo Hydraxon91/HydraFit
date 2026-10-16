@@ -51,7 +51,7 @@ class ExportPrescriptionsUseCase(
         val referenced = templates.flatMap { template ->
             template.workouts.flatMap { workout -> workout.entries.map { it.exerciseId } }
         }.toSet()
-        return PrescriptionDocument(
+        val document = PrescriptionDocument(
             format = PRESCRIPTION_FORMAT,
             formatVersion = PRESCRIPTION_FORMAT_VERSION,
             appVersion = appVersion,
@@ -64,6 +64,11 @@ class ExportPrescriptionsUseCase(
                 .sortedBy { it.id }
                 .map { it.toRecord() }
         )
+        // The produced document must be one this app would accept on read: a chosen routine deleted
+        // while the export dialog was open would otherwise be written as a file its own import
+        // refuses. Both the interchange and the printable path share this check.
+        PrescriptionValidator.validate(document)
+        return document
     }
 }
 

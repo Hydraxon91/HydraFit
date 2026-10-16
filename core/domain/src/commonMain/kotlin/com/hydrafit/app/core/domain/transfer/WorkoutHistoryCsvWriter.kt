@@ -30,9 +30,9 @@ data class WorkoutHistoryCsvRow(
  * canonical recorded fields with explicit units (`weightKg` is kilograms) and UTC instants, one row
  * per recorded set, and it deliberately excludes personal notes, credentials, equipment state and
  * derived explanations, which have no column. Blank and zero stay distinct (an absent load is an
- * empty field, a recorded `0` is `0.0`), fields are quoted per RFC 4180, and a text field that could
- * be read as a spreadsheet formula is neutralized with a leading apostrophe so opening the file
- * cannot execute content that came from an exercise name.
+ * empty field, a recorded `0` is `0.0`). Columns that can carry stored or user-authored text are
+ * quoted per RFC 4180 and neutralized when they could be read as a spreadsheet formula; the columns
+ * this app generates as numbers or booleans are written plainly, so a negative value stays a number.
  */
 object WorkoutHistoryCsvWriter {
 
@@ -60,31 +60,39 @@ object WorkoutHistoryCsvWriter {
         ).forEach { row ->
             append(
                 listOf(
-                    field(row.sessionId),
-                    field(row.sessionStartedAtMillis?.let(::utcInstant)),
-                    field(row.localEpochDay?.toString()),
-                    field(row.setId.toString()),
-                    field(utcInstant(row.performedAtMillis)),
-                    field(row.exerciseId),
-                    field(row.exerciseName),
-                    field(row.reps.toString()),
-                    field(row.weightKg?.toString()),
-                    field(row.loadKind),
-                    field(if (row.isWarmup) "true" else "false"),
-                    field(row.rir?.toString()),
-                    field(row.timingProvenance)
+                    textField(row.sessionId),
+                    textField(row.sessionStartedAtMillis?.let(::utcInstant)),
+                    plainField(row.localEpochDay?.toString()),
+                    plainField(row.setId.toString()),
+                    textField(utcInstant(row.performedAtMillis)),
+                    textField(row.exerciseId),
+                    textField(row.exerciseName),
+                    plainField(row.reps.toString()),
+                    plainField(row.weightKg?.toString()),
+                    textField(row.loadKind),
+                    plainField(if (row.isWarmup) "true" else "false"),
+                    plainField(row.rir?.toString()),
+                    textField(row.timingProvenance)
                 ).joinToString(",")
             )
             append("\r\n")
         }
     }
 
-    /** A numeric or boolean field; never formula-neutralized because it is written by this app. */
-    private fun field(value: String?): String {
+    /**
+     * An app-generated numeric or boolean column, written plainly: a negative value (a recorded
+     * `rir` of -1) stays a number, and this app authors the value, so none of it is user text.
+     */
+    private fun plainField(value: String?): String = value ?: ""
+
+    /**
+     * A column that can carry stored or user-authored text. A leading =, +, - or @ is the
+     * spreadsheet-formula trigger; prefixing an apostrophe makes the cell text without changing what
+     * the user sees as the value's content, and RFC 4180 quoting protects an embedded delimiter.
+     */
+    private fun textField(value: String?): String {
         if (value == null) return ""
         val needsQuoting = value.any { it == ',' || it == '"' || it == '\n' || it == '\r' }
-        // A leading =, +, - or @ is the spreadsheet-formula trigger; prefixing an apostrophe makes the
-        // cell text without changing what the user sees as the value's content.
         val neutralized = if (value.firstOrNull() in FORMULA_TRIGGERS) "'$value" else value
         return if (needsQuoting) "\"" + neutralized.replace("\"", "\"\"") + "\"" else neutralized
     }

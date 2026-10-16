@@ -186,6 +186,28 @@ class PreviewPrescriptionImportTest {
     }
 
     @Test
+    fun aRoutineDroppedByTheRoutineValidatorReportsInvalidRoutine() {
+        // The identity resolves, but the routine itself cannot be rebuilt into a valid local routine.
+        val broken = PrescriptionRoutineRecord(
+            name = "Broken",
+            workouts = listOf(
+                PrescriptionWorkoutRecord("  ", entries = listOf(entry("back-squat")))
+            )
+        )
+        val result = preview(document(listOf(broken)))
+        assertTrue(result.routines.isEmpty())
+        assertTrue(
+            result.problems.any { it.issue == PrescriptionImportIssue.INVALID_ROUTINE },
+            result.problems.toString()
+        )
+        assertFalse(
+            result.problems.any { it.issue == PrescriptionImportIssue.UNDECIDED_IDENTITY },
+            result.problems.toString()
+        )
+        assertFalse(result.canImport)
+    }
+
+    @Test
     fun aResolvedLoadIsSnappedOntoTheLocalCapability() {
         val mapping = PrescriptionImportChoices(
             mapOf("gone" to PrescriptionIdentityChoice.MapTo("user-pushup"))

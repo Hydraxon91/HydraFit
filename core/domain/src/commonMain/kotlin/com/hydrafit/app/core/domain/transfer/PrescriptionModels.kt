@@ -84,6 +84,7 @@ data class PrescriptionEntryRecord(
 data class PrescriptionExerciseRecord(
     val id: String,
     val name: String,
+    /** Equipment ids this definition needs; empty when the exercise needs none. */
     val requiredEquipment: List<String>,
     val movementPattern: String,
     val isUnilateral: Boolean,
@@ -129,7 +130,6 @@ object PrescriptionValidator {
         document.customExercises.forEach { exercise ->
             if (exercise.id.isBlank() ||
                 exercise.name.isBlank() ||
-                exercise.requiredEquipment.isEmpty() ||
                 exercise.requiredEquipment.any { it.isBlank() }
             ) {
                 fail(PrescriptionFailure.INVALID_VALUE)
@@ -190,7 +190,9 @@ object PrescriptionValidator {
 
     private fun fail(failure: PrescriptionFailure): Nothing = throw PrescriptionException(failure)
 
-    private val MUSCLE_TOKENS: Set<String> =
-        MuscleGroup.entries.map { it.name }.toSet() +
-            setOf("CHEST", "BACK", "SHOULDERS", "CORE")
+    // The document carries resolved muscle names and the importer converts them with
+    // MuscleGroup.valueOf, so only real enum names are resolvable here. The legacy aliases (CHEST,
+    // BACK, SHOULDERS, CORE) are expanded by the backup path's decodeInvolvements in :core:database;
+    // this document form has no such decoder, so an alias fails closed instead of reaching valueOf.
+    private val MUSCLE_TOKENS: Set<String> = MuscleGroup.entries.map { it.name }.toSet()
 }

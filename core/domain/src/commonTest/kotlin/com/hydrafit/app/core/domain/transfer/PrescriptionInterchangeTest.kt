@@ -9,6 +9,7 @@ import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.routine.RoutineEntry
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
+import com.hydrafit.app.core.domain.routine.RoutineWorkout
 import com.hydrafit.app.core.domain.workout.LoadKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -272,4 +273,141 @@ class PrescriptionInterchangeTest {
         sets = 3,
         reps = 5
     )
+
+    /** Builds a one-routine document that references [record]'s identity. */
+    private fun documentWithDefinition(record: PrescriptionExerciseRecord): PrescriptionDocument =
+        PrescriptionDocument(
+            format = PRESCRIPTION_FORMAT,
+            formatVersion = PRESCRIPTION_FORMAT_VERSION,
+            appVersion = "t",
+            exportedAtMillis = 1L,
+            routines = listOf(
+                PrescriptionRoutineRecord(
+                    "Push",
+                    workouts = listOf(
+                        PrescriptionWorkoutRecord(
+                            "Day 1",
+                            entries = listOf(entry(record.id))
+                        )
+                    )
+                )
+            ),
+            customExercises = listOf(record)
+        )
+
+    @Test
+    fun aDefinitionWithALegacyMuscleAliasIsRejectedAndARealNamePasses() {
+        val definition = PrescriptionExerciseRecord(
+            id = "user-my-lift",
+            name = "My Lift",
+            requiredEquipment = listOf("DUMBBELL"),
+            movementPattern = "CORE",
+            isUnilateral = false,
+            loadCapability = "BODYWEIGHT_ADDABLE"
+        )
+        // CHEST is a backup-path alias the importer cannot resolve with MuscleGroup.valueOf, so the
+        // document form must reject it rather than let it reach the decoder.
+        assertEquals(
+            PrescriptionFailure.INVALID_VALUE,
+            assertFailsWith<PrescriptionException> {
+                PrescriptionValidator.validate(
+                    documentWithDefinition(definition.copy(involvements = mapOf("CHEST" to 0.5)))
+                )
+            }.failure
+        )
+        // The same definition carrying the resolved enum name is accepted.
+        PrescriptionValidator.validate(
+            documentWithDefinition(definition.copy(involvements = mapOf("CHEST_UPPER" to 0.5)))
+        )
+    }
+
+    @Test
+    fun aDefinitionWithNoRequiredEquipmentIsValidAndABlankTokenIsNot() {
+        val definition = PrescriptionExerciseRecord(
+            id = "user-bodyweight-move",
+            name = "Bodyweight Move",
+            requiredEquipment = emptyList(),
+            movementPattern = "CORE",
+            isUnilateral = false,
+            loadCapability = "BODYWEIGHT_ONLY"
+        )
+        // A local custom exercise may legitimately need no equipment at all.
+        PrescriptionValidator.validate(documentWithDefinition(definition))
+        assertEquals(
+            PrescriptionFailure.INVALID_VALUE,
+            assertFailsWith<PrescriptionException> {
+                PrescriptionValidator.validate(
+                    documentWithDefinition(definition.copy(requiredEquipment = listOf(" ")))
+                )
+            }.failure
+        )
+    }
+
+    @Test
+    fun anEquipmentLessCustomExerciseExportsAndRevalidates() = runBlocking {
+        val equipmentLess = Exercise(
+            id = "user-flow",
+            name = "Flow",
+            requiredEquipment = emptySet(),
+            primaryMuscles = emptySet(),
+            isCustom = true,
+            loadCapability = ExerciseLoadCapability.BODYWEIGHT_ONLY
+        )
+        val localCatalog = object : ExerciseCatalog {
+            override suspend fun all(): List<Exercise> = listOf(equipmentLess)
+        }
+        val mobility = RoutineTemplate(
+            id = 3L,
+            name = "Mobility",
+            workouts = listOf(
+                RoutineWorkout(
+                    position = 0,
+                    name = "Day 1",
+                    entries = listOf(
+                        RoutineEntry(
+                            position = 0,
+                            exerciseId = "user-flow",
+                            sets = 2,
+                            reps = 10,
+                            loadKind = LoadKind.BODYWEIGHT
+                        )
+                    )
+                )
+            )
+        )
+        val localRepository = object : RoutineTemplateRepository {
+            override fun observeAll(): Flow<List<RoutineTemplate>> = flowOf(listOf(mobility))
+            override suspend fun get(id: Long): RoutineTemplate? = mobility.takeIf { it.id == id }
+            override suspend fun save(template: RoutineTemplate): Long = 0L
+            override suspend fun setArchived(id: Long, archivedAtMillis: Long?) = Unit
+            override suspend fun isReferencedByActivation(id: Long): Boolean = false
+            override suspend fun delete(id: Long) = Unit
+        }
+
+        val document =
+            ExportPrescriptionsUseCase(localRepository, localCatalog)(listOf(3L), false, "t", 1L)
+
+        // The empty equipment list survives export and the produced document re-validates.
+        PrescriptionValidator.validate(document)
+        assertEquals(emptyList<String>(), document.customExercises.single().requiredEquipment)
+    }
+
+    @Test
+    fun exportRefusesWhenAChosenRoutineNoLongerExists() = runBlocking {
+        val missing = object : RoutineTemplateRepository {
+            override fun observeAll(): Flow<List<RoutineTemplate>> = flowOf(emptyList())
+            override suspend fun get(id: Long): RoutineTemplate? = null
+            override suspend fun save(template: RoutineTemplate): Long = 0L
+            override suspend fun setArchived(id: Long, archivedAtMillis: Long?) = Unit
+            override suspend fun isReferencedByActivation(id: Long): Boolean = false
+            override suspend fun delete(id: Long) = Unit
+        }
+        // The routine was deleted before the write, so the export must not produce an unreadable file.
+        assertEquals(
+            PrescriptionFailure.INVALID_VALUE,
+            assertFailsWith<PrescriptionException> {
+                ExportPrescriptionsUseCase(missing, catalog)(listOf(7L), false, "t", 1L)
+            }.failure
+        )
+    }
 }

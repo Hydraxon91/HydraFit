@@ -94,6 +94,15 @@ class WorkoutHistoryCsvWriterTest {
     }
 
     @Test
+    fun writesAppGeneratedNumbersPlainlySoANegativeRirStaysNumeric() {
+        val text = WorkoutHistoryCsvWriter.write(listOf(row(rir = -1)))
+        val fields = text.trimEnd().split("\r\n").drop(1).single().split(",")
+        val rirIndex = WorkoutHistoryCsvWriter.COLUMNS.indexOf("rir")
+        // A recorded negative RIR is a number, not text; it is not formula-neutralized.
+        assertEquals("-1", fields[rirIndex])
+    }
+
+    @Test
     fun anUnassignedSetKeepsItsRowWithEmptySessionColumns() {
         val text = WorkoutHistoryCsvWriter.write(listOf(row(sessionId = null)))
         val rows = text.trimEnd().split("\r\n").drop(1)

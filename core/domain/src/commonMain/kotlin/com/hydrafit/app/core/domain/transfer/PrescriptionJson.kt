@@ -3,8 +3,6 @@ package com.hydrafit.app.core.domain.transfer
 import kotlinx.serialization.descriptors.elementNames
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.intOrNull
 
 /**
  * The JSON codec for a prescription document. Defaults are encoded so every field is explicit and
@@ -43,11 +41,7 @@ object PrescriptionJson {
         }
         val obj = element as? JsonObject
             ?: throw PrescriptionException(PrescriptionFailure.MALFORMED, "not a JSON object")
-        val version = (obj["formatVersion"] as? JsonPrimitive)?.intOrNull
-        val requiredKeys = requiredTopLevelKeys - buildSet {
-            if (version != null && version < 1) add("customExercises")
-        }
-        val missing = requiredKeys - obj.keys
+        val missing = requiredTopLevelKeys - obj.keys
         if (missing.isNotEmpty()) {
             throw PrescriptionException(PrescriptionFailure.MALFORMED, "missing fields: $missing")
         }
