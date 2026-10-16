@@ -63,6 +63,8 @@ object MovementPatternGuardrail {
         )
         MovementPattern.CALF_RAISE -> setOf(MuscleGroup.CALVES)
         MovementPattern.CORE -> setOf(MuscleGroup.ABS, MuscleGroup.OBLIQUES)
+        MovementPattern.TRAP_ISOLATION -> setOf(MuscleGroup.TRAPS)
+        MovementPattern.NECK_ISOLATION -> setOf(MuscleGroup.NECK)
     }
 
     /**

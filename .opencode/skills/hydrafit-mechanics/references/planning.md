@@ -5,6 +5,12 @@ Paths are relative to the repository root; package shorthand is defined in
 
 ## Planner inputs and weight semantics
 
+`PlannerCandidateEligibility` excludes `TRAP_ISOLATION`/`NECK_ISOLATION` and the six
+curated shrug/neck IDs even after pattern overrides. This manual-only policy applies to
+deterministic selection, both AI prompt catalogs, sanitization and planner-backed replacements.
+Manual logging and routine authoring retain the full catalog. Existing traps deficit deferral
+is unchanged; don't infer automatic neck/traps prescriptions from the added seeds.
+
 Tibialis anterior, serratus anterior and iliopsoas-focused hip flexors participate
 in the existing weekly-volume/deficit and fatigue ranking, with the same heuristic
 volume windows as other targetable groups. Only the existing `TRAPS` exclusion remains.

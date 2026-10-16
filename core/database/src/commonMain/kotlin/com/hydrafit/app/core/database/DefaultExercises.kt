@@ -583,7 +583,7 @@ internal object DefaultExercises {
             isUnilateral = true
         )
     ) + DefaultExercisesCatalogC1.all + DefaultExercisesCatalogP7.all +
-        DefaultExercisesCatalog081.all
+        DefaultExercisesCatalog081.all + DefaultExercisesCatalogManual.all
 
     private fun ex(
         id: String,

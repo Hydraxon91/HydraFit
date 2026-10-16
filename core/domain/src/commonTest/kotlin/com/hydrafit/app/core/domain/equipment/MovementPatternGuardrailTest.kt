@@ -9,6 +9,22 @@ import kotlin.test.assertTrue
 class MovementPatternGuardrailTest {
 
     @Test
+    fun manualIsolationPatternsMatchOnlyTheirOwnMuscles() {
+        val profiles = mapOf(
+            MovementPattern.TRAP_ISOLATION to MuscleGroup.TRAPS,
+            MovementPattern.NECK_ISOLATION to MuscleGroup.NECK
+        )
+        profiles.forEach { (pattern, muscle) ->
+            assertFalse(pattern.isCompound)
+            assertEquals(setOf(muscle), MovementPatternGuardrail.expectedMusclesFor(pattern))
+            assertFalse(MovementPatternGuardrail.conflicts(pattern, mapOf(muscle to 1.0)))
+            assertTrue(
+                MovementPatternGuardrail.conflicts(pattern, mapOf(MuscleGroup.SIDE_DELTS to 1.0))
+            )
+        }
+    }
+
+    @Test
     fun flagsAProfileThatDoesNotLoadThePatternsMuscles() {
         // Leg extension filed as a horizontal press.
         assertTrue(

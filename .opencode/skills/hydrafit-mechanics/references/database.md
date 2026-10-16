@@ -6,6 +6,11 @@ Paths are relative to the repository root; package shorthand is defined in
 Schema directory:
 `core/database/src/commonMain/sqldelight/com/hydrafit/app/core/database/`.
 
+`DefaultExercisesCatalogManual` seeds six manual-only shrug/neck profiles additively through
+the existing seed transaction. The new isolation patterns are enum strings in existing columns,
+not a schema change. `CustomExerciseDedupe`, `SqlDelightBackupCatalog.dedupeSeedKeys` and
+`SqlDelightCustomExerciseRepository` protect same-name pre-existing customs consistently.
+
 Three-muscle expansion is query-only: `expandCanonicalMuscleInvolvements` in
 `Exercise.sq` matches built-in IDs plus exact old encoded maps from
 `MuscleExpansionCompatibility`. Seeding invokes it inside the existing transaction;

@@ -5,6 +5,14 @@ Paths are relative to the repository root; package shorthand is defined in
 
 ## Muscle mapping and catalog persistence
 
+`DefaultExercisesCatalogManual` adds four equipment-specific shrugs (`TRAPS:1.0`) and
+forehead neck bridge/self-resisted neck lateral flexion (`NECK:1.0`). These use new
+`TRAP_ISOLATION`/`NECK_ISOLATION` patterns, not rows, deltoid work or core. Shrugs track
+external load; both neck profiles use the existing no-number `BODYWEIGHT_ONLY` representation
+(manual resistance is not calibrated kg). See catalog sources for evidence and safety limits.
+All six IDs are protected from startup custom-name dedupe, backup dedupe validation and
+protected-name edit conflicts, mirroring the 0.8.1 policy. Existing history/overrides stay intact.
+
 The database encodes involvements as comma-separated `MUSCLE:weight` pairs,
 for example `CHEST_UPPER:0.7,CHEST_LOWER:0.7,TRICEPS:0.5`.
 `ExerciseEncoding.kt` owns encoding and decoding; encoding sorts by muscle name.

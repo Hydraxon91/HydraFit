@@ -12,6 +12,9 @@ The sanitizer removes unknown/unavailable exercises, applies app-controlled
 sets and reps, gates suggested weights, scales deload loads, clamps equipment
 ceilings, and stamps request week/cycle values. Suggested weights must be
 positive and at most `1_000.0` kg before scaling/clamping.
+Shared `PlannerCandidateEligibility` also removes the manual-only trap/neck isolation
+patterns and six canonical shrug/neck IDs. Both engines use this guard for prompt catalogs;
+the sanitizer enforces it again if model output nevertheless names a manual-only exercise.
 
 `PlanVarietyEnforcer` removes within-day duplicate exercises and repeated compound
 exercise ids across days; accessories may repeat. It allows repeated foci for

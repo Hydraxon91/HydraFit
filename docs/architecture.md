@@ -653,6 +653,14 @@ Every prescription, snapshot and performed set carries a **load kind** (`EXTERNA
 
 ### 1.13 Catalog profile matching and custom identity (CAT-02 v1)
 
+The manual shrug/neck additions use `TRAP_ISOLATION` and `NECK_ISOLATION`, both non-compound.
+`PlannerCandidateEligibility` rejects these patterns and pins the six curated manual-only IDs
+even when an override changes their pattern. This shared guard covers deterministic generation,
+both AI prompt catalogs, sanitization and planner-backed substitution; manual logging/routine
+authoring still read the full catalog. New same-name customs are protected from startup dedupe
+and remain editable under the existing protected-collision policy. No schema or format bump;
+see [profiles and evidence](exercise-catalog-sources.md#manual-shrug-and-neck-profiles--2026-10-16).
+
 0.8.2 adds a separate read-only `TrainingCoverageRepository` port in domain/fatigue
 and SQLDelight implementation observing recorded workout snapshots off-main. The
 pure `TrainingCoverageCalculator` reports seven-civil-day working-set counts and

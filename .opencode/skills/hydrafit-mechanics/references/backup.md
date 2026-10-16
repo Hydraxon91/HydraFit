@@ -69,6 +69,9 @@ overrides and frozen prescriptions; exports carry current canonical profiles. Th
 classification compatibility change does not alter the file format or imported text.
 The three new muscle tokens are supported in backup format 16 and prescription format 1;
 older readers need not accept them. Unknown tokens remain errors, never silently dropped.
+The manual catalog also adds `TRAP_ISOLATION`/`NECK_ISOLATION` and six seed identities without
+a format bump. Receiver-only seeds are allowed; an older receiver missing these IDs/tokens
+rejects their import. Same-name custom protection includes `DefaultExercisesCatalogManual`.
 `BackupLimits` (32 MiB, depth 32, 64 KiB per string, 250k records) is enforced before
 decode and after encode, and `AndroidBackupFileStore` reads at most the byte cap.
 `SqlDelightBackupRepository` (`:core:database`) reads every section in one transaction

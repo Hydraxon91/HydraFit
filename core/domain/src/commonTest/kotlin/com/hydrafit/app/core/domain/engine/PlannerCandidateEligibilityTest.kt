@@ -34,6 +34,36 @@ class PlannerCandidateEligibilityTest {
     )
 
     @Test
+    fun manualOnlyIdentitiesCannotOptIntoPlanningThroughOverridesOrPreference() {
+        val ids = setOf(
+            "dumbbell-shrug",
+            "ez-bar-shrug",
+            "trap-bar-shrug",
+            "barbell-shrug",
+            "forehead-neck-bridge",
+            "self-resisted-neck-lateral-flexion"
+        )
+        val overridden = ids.map { catalog.first().copy(id = it) }
+        val preferred = request().copy(
+            exercisePreferences = ids.associateWith { ExercisePreference.PREFER }
+        )
+        assertEquals(
+            catalog,
+            PlannerCandidateEligibility.candidates(catalog + overridden, preferred)
+        )
+    }
+
+    @Test
+    fun manualOnlyPatternsExcludeCustomProfilesWithoutHidingOtherExercises() {
+        val manual = listOf(MovementPattern.TRAP_ISOLATION, MovementPattern.NECK_ISOLATION)
+            .map { catalog.first().copy(id = "custom-$it", movementPattern = it, isCustom = true) }
+        assertEquals(catalog, PlannerCandidateEligibility.candidates(catalog + manual, request()))
+        assertFailsWith<PlanGenerationException> {
+            PlannerCandidateEligibility.requireWorkouts(manual, request())
+        }
+    }
+
+    @Test
     fun aSingleEmptyRequestedWorkoutFailsEvenWhenAnotherHasWork() {
         val failure = assertFailsWith<PlanGenerationException> {
             PlannerCandidateEligibility.requireWorkouts(

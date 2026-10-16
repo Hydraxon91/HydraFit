@@ -159,6 +159,29 @@ class PrescriptionInterchangeTest {
     }
 
     @Test
+    fun manualIsolationPatternsRoundTripWithoutMakingManualRoutinesInvalid() = runBlocking {
+        val original = ExportPrescriptionsUseCase(repository(), catalog)(listOf(7L), false, "t", 1L)
+        listOf("TRAP_ISOLATION", "NECK_ISOLATION").forEach { pattern ->
+            val document = original.copy(
+                customExercises = original.customExercises.map {
+                    it.copy(movementPattern = pattern)
+                }
+            )
+            PrescriptionValidator.validate(document)
+            assertEquals(document, PrescriptionJson.decode(PrescriptionJson.encode(document)))
+        }
+        val invalid = original.copy(
+            customExercises = original.customExercises.map {
+                it.copy(movementPattern = "UNKNOWN_ISOLATION")
+            }
+        )
+        val failure = assertFailsWith<PrescriptionException> {
+            PrescriptionValidator.validate(invalid)
+        }
+        assertEquals(PrescriptionFailure.INVALID_VALUE, failure.failure)
+    }
+
+    @Test
     fun rejectsAMissingSectionAnUnknownVersionAndAMalformedBody() {
         val document = PrescriptionDocument(
             format = PRESCRIPTION_FORMAT,

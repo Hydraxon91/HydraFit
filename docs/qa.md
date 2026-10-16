@@ -884,6 +884,34 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   numeric estimate; only narrow approved shoulder/upper-back boundaries soften visually. Full
   figures, legend, attribution and numeric descriptions must stay reachable in the scrollable dialog.
 
+### Manual shrug and neck additions — 2026-10-16
+
+- Main-agent implementation on `68e2dc07`: four shrug variants plus Forehead Neck Bridge
+  and Self-Resisted Neck Lateral Flexion. Exact IDs, modeled mappings, equipment and load
+  semantics are in [catalog sources](exercise-catalog-sources.md#manual-shrug-and-neck-profiles--2026-10-16).
+  No new equipment, dependency, schema or format-version change. Existing upright rows and
+  traps weekly-deficit policy are unchanged.
+- `PlannerCandidateEligibilityTest` verifies the six IDs cannot opt into automatic planning
+  through a pattern override or Prefer setting; custom exercises using either new isolation
+  pattern are also excluded. The shared guard is used by deterministic generation, both AI
+  prompt catalogs, AI sanitization and planner-backed replacements. Manual logging and routine
+  authoring use the full catalog. Guardrail tests verify the two new non-compound categories.
+- `ManualExerciseCatalogTest` checks six exact seed profiles, repeat-seeding identity,
+  equipment availability, same-name custom preservation/editability and backup restore;
+  actual manual logs reaching fatigue/coverage with four traps sets and two neck sets;
+  null numeric neck load; and model-proposed manual IDs being removed by the sanitizer.
+  Prescription format 1 tests round-trip the new category tokens and reject an unknown token.
+- **Passed:** full Tier A matrix: `testAndroidHostTest` (2,265 tests in 256 classes, zero
+  failures/errors), `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
+  `:core:network:compileKotlinIosSimulatorArm64`. Final hard-capped run: `BUILD SUCCESSFUL`,
+  783 tasks. Log:
+  `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/manual-exercises-matrix.log`.
+- **Limits:** no emulator/phone install or interaction, screenshots, manual visual acceptance
+  or formal review performed. Combined review and manual testing remain outstanding as requested.
+  Catalog inclusion is not clinical endorsement; manual neck resistance is not measured kg and
+  the forehead bridge's cervical loading has no individualized safety assessment here.
+
 ### Three-muscle expansion verification — 2026-10-16
 
 - Main-agent implementation based on `b5af19fb`; adds tibialis anterior, serratus anterior

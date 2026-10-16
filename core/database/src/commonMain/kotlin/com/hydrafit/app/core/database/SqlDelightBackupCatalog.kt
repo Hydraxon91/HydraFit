@@ -13,8 +13,11 @@ class SqlDelightBackupCatalog : BackupCatalog {
     override fun dedupeSeedKeys(): Set<String> {
         val protectedP7Ids = DefaultExercisesCatalogP7.all.map { it.id }.toSet()
         val protected081Ids = DefaultExercisesCatalog081.all.map { it.id }.toSet()
+        val protectedManualIds = DefaultExercisesCatalogManual.all.map { it.id }.toSet()
         return DefaultExercises.all
-            .filterNot { it.id in protectedP7Ids || it.id in protected081Ids }
+            .filterNot {
+                it.id in protectedP7Ids || it.id in protected081Ids || it.id in protectedManualIds
+            }
             .map { normalizeExerciseName(it.name) }
             .toSet()
     }

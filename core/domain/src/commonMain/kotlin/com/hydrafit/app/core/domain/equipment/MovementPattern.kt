@@ -15,5 +15,7 @@ enum class MovementPattern(val isCompound: Boolean) {
     FOREARM_ISOLATION(false),
     SHOULDER_ISOLATION(false),
     LEG_ISOLATION(false),
-    CORE(false)
+    CORE(false),
+    TRAP_ISOLATION(false),
+    NECK_ISOLATION(false)
 }

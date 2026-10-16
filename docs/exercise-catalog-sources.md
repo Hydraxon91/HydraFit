@@ -39,6 +39,43 @@ HydraFit-authored source staying **MIT**.
 
 ## Sources
 
+### Manual shrug and neck profiles — 2026-10-16
+
+Six additive seeds use the existing equipment catalog:
+
+| ID | Name | Equipment | Pattern | Load | Mapping |
+| --- | --- | --- | --- | --- | --- |
+| `dumbbell-shrug` | Dumbbell Shrug | Dumbbell | `TRAP_ISOLATION` | External | `TRAPS:1.0` |
+| `ez-bar-shrug` | EZ Bar Shrug | EZ bar | `TRAP_ISOLATION` | External | `TRAPS:1.0` |
+| `trap-bar-shrug` | Trap Bar Shrug | Trap bar | `TRAP_ISOLATION` | External | `TRAPS:1.0` |
+| `barbell-shrug` | Barbell Shrug | Barbell | `TRAP_ISOLATION` | External | `TRAPS:1.0` |
+| `forehead-neck-bridge` | Forehead Neck Bridge | Bodyweight | `NECK_ISOLATION` | Bodyweight only | `NECK:1.0` |
+| `self-resisted-neck-lateral-flexion` | Self-Resisted Neck Lateral Flexion | Bodyweight | `NECK_ISOLATION` | No numeric load | `NECK:1.0` |
+
+[Barbell Shrug](https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Shrug.json)
+and [Dumbbell Shrug](https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Shrug.json)
+identify the shrug family, equipment and traps target. EZ-bar/trap-bar variants are user-requested
+equipment variants of that family. The two neck identities are user-requested movements, not
+clinical exercise recommendations. All weights are modeled maximum involvement tiers, not EMG
+measurements. No instructions, images, efficacy claims or rehabilitation protocols are copied.
+
+Shrugs do not gain a `NECK` score; existing upright rows are unchanged. Neck lateral flexion is
+unilateral. Its manual resistance is uncalibrated, so the existing `BODYWEIGHT_ONLY` no-number
+load representation is used, not an invented kg equivalent. A forehead bridge loads the cervical
+spine; catalog availability does not establish safety or suitability for an individual.
+
+Both new isolation patterns and all six canonical IDs are manual-only in shared
+`PlannerCandidateEligibility`: no deterministic/AI generation, AI sanitization or planner-backed
+substitution can select them. Identity filtering survives pattern overrides; custom profiles using
+the new patterns are also manual-only. Manual logging and routine authoring remain available.
+Existing traps weekly-deficit deferral is unchanged. New tokens use existing backup format 16 and
+prescription format 1; older readers need not accept them, and unknown tokens remain errors.
+
+Seeding is additive and idempotent. As with the 0.8.1 additions, existing same-name customs are
+protected from startup dedupe and remain editable without changing identity. Backup dedupe
+validation uses the same protected set. Existing overrides, snapshots and frozen prescriptions
+are not rewritten. No schema, dependency or module-graph change is required.
+
 ### Three-muscle expansion — 2026-10-16
 
 The current model has 24 groups, adding `TIBIALIS_ANTERIOR`, `SERRATUS_ANTERIOR`

@@ -119,6 +119,8 @@
     <string name="pattern_leg_isolation">Leg isolation</string>
     <string name="pattern_core">Core</string>
     <string name="pattern_forearm_isolation">Forearm isolation</string>
+    <string name="pattern_trap_isolation">Trap isolation (manual only)</string>
+    <string name="pattern_neck_isolation">Neck isolation (manual only)</string>
 
     <string name="equipment_profiles_section">Equipment profiles</string>
     <string name="equipment_profile_active">Active profile: %1$s</string>

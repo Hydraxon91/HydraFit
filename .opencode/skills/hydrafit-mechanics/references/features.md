@@ -1,5 +1,10 @@
 # Feature and test implementation recipes
 
+Equipment exposes Trap isolation (manual only) and Neck isolation (manual only) in the
+existing non-compound pattern selector. All six manual shrug/neck seeds remain selectable
+for manual logging/routines; the full catalog is not filtered by planner eligibility.
+Self-resisted lateral neck flexion uses the existing no-number load UI, not kg resistance.
+
 ## Anatomical fatigue map (0.9.2)
 
 `feature/fatigueheatmap` owns `AnatomicalArtwork.kt` and `FatigueMap.kt`. Bundled

@@ -153,7 +153,8 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
         }
         val rows = queries.selectAll().executeAsList()
         val current = rows.firstOrNull { it.id == id }
-        val protectedSeeds = DefaultExercisesCatalogP7.all + DefaultExercisesCatalog081.all
+        val protectedSeeds = DefaultExercisesCatalogP7.all + DefaultExercisesCatalog081.all +
+            DefaultExercisesCatalogManual.all
         val retainedProtectedCollision = current?.isCustom == 1L &&
             protectedSeeds.any { seeded ->
                 normalizeExerciseName(seeded.name) == normalizeExerciseName(current.name) &&

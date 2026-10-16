@@ -145,8 +145,10 @@ import hydrafit.feature.equipment.generated.resources.pattern_horizontal_pull
 import hydrafit.feature.equipment.generated.resources.pattern_horizontal_push
 import hydrafit.feature.equipment.generated.resources.pattern_leg_isolation
 import hydrafit.feature.equipment.generated.resources.pattern_lunge
+import hydrafit.feature.equipment.generated.resources.pattern_neck_isolation
 import hydrafit.feature.equipment.generated.resources.pattern_shoulder_isolation
 import hydrafit.feature.equipment.generated.resources.pattern_squat
+import hydrafit.feature.equipment.generated.resources.pattern_trap_isolation
 import hydrafit.feature.equipment.generated.resources.pattern_triceps_isolation
 import hydrafit.feature.equipment.generated.resources.pattern_vertical_pull
 import hydrafit.feature.equipment.generated.resources.pattern_vertical_push
@@ -1212,4 +1214,6 @@ internal fun MovementPattern.labelResource(): StringResource = when (this) {
     MovementPattern.LEG_ISOLATION -> Res.string.pattern_leg_isolation
     MovementPattern.CORE -> Res.string.pattern_core
     MovementPattern.FOREARM_ISOLATION -> Res.string.pattern_forearm_isolation
+    MovementPattern.TRAP_ISOLATION -> Res.string.pattern_trap_isolation
+    MovementPattern.NECK_ISOLATION -> Res.string.pattern_neck_isolation
 }
