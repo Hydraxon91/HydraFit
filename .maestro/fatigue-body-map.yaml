@@ -1,0 +1,56 @@
+# Debug build; Equipment selected, no dialog/editor/keyboard. No persistent writes.
+appId: com.hydrafit.app
+name: Anatomical body map models and views
+tags:
+  - smoke
+  - read-only
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Equipment$'
+- tapOn:
+    text: '^Fatigue$'
+    retryTapIfNoChange: false
+- assertVisible: '^Muscle fatigue$'
+- tapOn:
+    text: '^Body map$'
+    retryTapIfNoChange: false
+- assertVisible: '^Male, Front — estimated muscle fatigue$'
+- assertNotVisible: '^Retry$'
+- takeScreenshot: male-front
+- tapOn:
+    text: '^Back$'
+    retryTapIfNoChange: false
+- assertVisible: '^Male, Back — estimated muscle fatigue$'
+- takeScreenshot: male-back
+- tapOn:
+    text: '^Female$'
+    retryTapIfNoChange: false
+- assertVisible:
+    checked: true
+    containsDescendants:
+      - text: '^Female$'
+- assertVisible: '^Female, Back — estimated muscle fatigue$'
+- takeScreenshot: female-back
+- tapOn:
+    text: '^Front$'
+    retryTapIfNoChange: false
+- assertVisible: '^Female, Front — estimated muscle fatigue$'
+- takeScreenshot: female-front
+- tapOn:
+    text: '^Close$'
+    retryTapIfNoChange: false
+- assertVisible: '^Muscle fatigue$'
+- tapOn:
+    text: '^Equipment$'
+    retryTapIfNoChange: false
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Equipment$'
