@@ -115,6 +115,7 @@
     <string name="routines_prescription_import_resolution_existing">Already in your catalog</string>
     <string name="routines_prescription_import_resolution_create">Will be created as a new exercise</string>
     <string name="routines_prescription_import_resolution_collision">Name already used by %1$s</string>
+    <string name="routines_prescription_import_resolution_id_conflict">This is a different exercise from your %1$s; choose which one to use</string>
     <string name="routines_prescription_import_resolution_unknown">Not found in your catalog</string>
     <string name="routines_prescription_import_choice_create">Create it</string>
     <string name="routines_prescription_import_choice_map">Use an existing exercise</string>
@@ -122,6 +123,7 @@
     <string name="routines_prescription_import_problem_no_routines">That file has no routines.</string>
     <string name="routines_prescription_import_problem_undecided">Choose how to handle each exercise.</string>
     <string name="routines_prescription_import_problem_name_collision">An exercise with this name already exists. Map it to one of yours.</string>
+    <string name="routines_prescription_import_problem_identity_conflict">A shared custom exercise clashes with a different one in your library. Choose which to use.</string>
     <string name="routines_prescription_import_problem_unknown">This exercise is not in your catalog. Map it to one of yours.</string>
     <string name="routines_prescription_import_problem_equipment">This exercise needs equipment you have not selected.</string>
     <string name="routines_prescription_import_problem_invalid_choice">That choice is no longer available.</string>

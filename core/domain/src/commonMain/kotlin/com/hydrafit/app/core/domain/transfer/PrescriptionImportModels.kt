@@ -44,6 +44,14 @@ sealed interface PrescriptionResolution {
     data class NameCollision(val local: Exercise, val definition: PrescriptionExerciseRecord) :
         PrescriptionResolution
 
+    /**
+     * A local exercise already carries this custom id but is a *different* exercise. Local custom ids
+     * are stable per install, not globally, so an id match alone is not proof of the same exercise;
+     * the definition must be compared, and a mismatch needs an explicit decision.
+     */
+    data class IdCollision(val local: Exercise, val definition: PrescriptionExerciseRecord) :
+        PrescriptionResolution
+
     /** Nothing local matches and the document declares no definition for this id. */
     data object Unknown : PrescriptionResolution
 }
@@ -55,6 +63,9 @@ enum class PrescriptionImportIssue {
     UNKNOWN_IDENTITY,
     EQUIPMENT_GAP,
     INVALID_CHOICE,
+
+    /** A document definition and a local exercise share an id but are different exercises. */
+    IDENTITY_CONFLICT,
 
     /** A routine could not be turned into a valid local routine (a dropped workout or slot). */
     INVALID_ROUTINE

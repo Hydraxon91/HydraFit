@@ -233,6 +233,62 @@ class PreviewPrescriptionImportTest {
     }
 
     @Test
+    fun anEquivalentCustomDefinitionIsReusedWithoutADecision() {
+        val identical = PrescriptionExerciseRecord(
+            id = "user-pushup",
+            name = "Push-up",
+            requiredEquipment = listOf("BODYWEIGHT"),
+            movementPattern = "CORE",
+            isUnilateral = false,
+            loadCapability = "BODYWEIGHT_ONLY",
+            involvements = mapOf("CHEST_UPPER" to 1.0)
+        )
+        val result = preview(document(listOf(routine("user-pushup")), listOf(identical)))
+        assertTrue(result.canImport, result.problems.toString())
+        assertTrue(result.identities.single().resolution is PrescriptionResolution.Existing)
+        assertTrue(result.customExercisesToCreate.isEmpty())
+    }
+
+    @Test
+    fun aCustomIdReusedForADifferentExerciseNeedsAnExplicitDecision() {
+        val conflicting = PrescriptionExerciseRecord(
+            id = "user-pushup",
+            name = "Push-up",
+            requiredEquipment = listOf("BODYWEIGHT"),
+            movementPattern = "CORE",
+            isUnilateral = false,
+            loadCapability = "BODYWEIGHT_ONLY",
+            involvements = mapOf("CHEST_UPPER" to 0.5)
+        )
+        val base = document(listOf(routine("user-pushup")), listOf(conflicting))
+
+        assertTrue(
+            preview(base).problems.any {
+                it.issue == PrescriptionImportIssue.IDENTITY_CONFLICT
+            },
+            "the id clash must be reported, not silently substituted"
+        )
+        // The document definition is not created under the colliding id.
+        assertTrue(
+            preview(
+                base,
+                PrescriptionImportChoices(mapOf("user-pushup" to PrescriptionIdentityChoice.Create))
+            ).customExercisesToCreate.isEmpty()
+        )
+        val mapped = preview(
+            base,
+            PrescriptionImportChoices(
+                mapOf("user-pushup" to PrescriptionIdentityChoice.MapTo("back-squat"))
+            )
+        )
+        assertTrue(mapped.canImport, mapped.problems.toString())
+        assertEquals(
+            "back-squat",
+            mapped.routines.single().workouts.single().entries.single().exerciseId
+        )
+    }
+
+    @Test
     fun anEmptyDocumentIsRefused() {
         val result = preview(document(emptyList()))
         assertFalse(result.canImport)

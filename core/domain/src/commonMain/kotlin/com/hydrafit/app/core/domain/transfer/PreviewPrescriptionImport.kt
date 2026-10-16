@@ -58,13 +58,19 @@ object PreviewPrescriptionImport {
         }
 
         val identities = referenced.values.map { source ->
+            val localHit = localById[source.id]
+            val definition = definitions[source.id]
             val resolution = when {
-                localById[source.id] != null -> PrescriptionResolution.Existing(
-                    localById.getValue(source.id)
-                )
-                definitions[source.id] == null -> PrescriptionResolution.Unknown
-                else -> {
-                    val definition = definitions.getValue(source.id)
+                // An id alone is not a portable identity: a document may carry a custom definition
+                // for an id this install already uses for something else. Compare the definitions.
+                localHit != null && definition != null ->
+                    if (definition.equivalentTo(localHit)) {
+                        PrescriptionResolution.Existing(localHit)
+                    } else {
+                        PrescriptionResolution.IdCollision(localHit, definition)
+                    }
+                localHit != null -> PrescriptionResolution.Existing(localHit)
+                definition != null -> {
                     val local = localByName[normalizeName(definition.name)]
                     if (local != null) {
                         PrescriptionResolution.NameCollision(local, definition)
@@ -72,6 +78,7 @@ object PreviewPrescriptionImport {
                         PrescriptionResolution.Create(definition)
                     }
                 }
+                else -> PrescriptionResolution.Unknown
             }
             val chosen = choices.identities[source.id]
             val resolved = chosenExercise(resolution, chosen, localById)
@@ -90,6 +97,10 @@ object PreviewPrescriptionImport {
                     )
                     resolution is PrescriptionResolution.NameCollision -> problem(
                         PrescriptionImportIssue.NAME_COLLISION,
+                        source.id
+                    )
+                    resolution is PrescriptionResolution.IdCollision -> problem(
+                        PrescriptionImportIssue.IDENTITY_CONFLICT,
                         source.id
                     )
                     resolution is PrescriptionResolution.Create -> problem(
@@ -195,6 +206,8 @@ object PreviewPrescriptionImport {
         }
         is PrescriptionResolution.NameCollision ->
             (choice as? PrescriptionIdentityChoice.MapTo)?.let { localById[it.localExerciseId] }
+        is PrescriptionResolution.IdCollision ->
+            (choice as? PrescriptionIdentityChoice.MapTo)?.let { localById[it.localExerciseId] }
         is PrescriptionResolution.Unknown ->
             (choice as? PrescriptionIdentityChoice.MapTo)?.let { localById[it.localExerciseId] }
     }
@@ -213,6 +226,26 @@ object PreviewPrescriptionImport {
 /** Trims, collapses whitespace and lowercases, matching the catalog's own collision rule. */
 private fun normalizeName(name: String): String =
     name.trim().replace(Regex("\\s+"), " ").lowercase()
+
+/**
+ * Whether a document definition describes the same exercise as a local row. Local custom ids are
+ * generated per install, so an id match must be checked against the definition before it is treated
+ * as the same exercise. Name, equipment, movement pattern, laterality, load capability and muscle
+ * involvement all participate; a difference in any of them needs an explicit decision rather than a
+ * silent substitution.
+ */
+private fun PrescriptionExerciseRecord.equivalentTo(local: Exercise): Boolean =
+    normalizeName(name) == normalizeName(local.name) &&
+        requiredEquipment.map { EquipmentTag(it) }.toSet() == local.requiredEquipment &&
+        MovementPattern.valueOf(movementPattern) == local.movementPattern &&
+        isUnilateral == local.isUnilateral &&
+        ExerciseLoadCapability.valueOf(loadCapability) == local.loadCapability &&
+        involvementsByMuscle() == local.effectiveInvolvements
+
+private fun PrescriptionExerciseRecord.involvementsByMuscle(): Map<MuscleGroup, Double> =
+    involvements.orEmpty().entries.associate { (muscle, weight) ->
+        MuscleGroup.valueOf(muscle) to weight
+    }
 
 private fun PrescriptionExerciseRecord.toExercise(): Exercise = Exercise(
     id = id,

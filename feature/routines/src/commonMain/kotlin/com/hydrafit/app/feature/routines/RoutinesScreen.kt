@@ -135,6 +135,7 @@ import hydrafit.feature.routines.generated.resources.routines_prescription_impor
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_description
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_missing_equipment
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_problem_equipment
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_problem_identity_conflict
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_problem_invalid_choice
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_problem_invalid_routine
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_problem_name_collision
@@ -145,6 +146,7 @@ import hydrafit.feature.routines.generated.resources.routines_prescription_impor
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_resolution_collision
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_resolution_create
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_resolution_existing
+import hydrafit.feature.routines.generated.resources.routines_prescription_import_resolution_id_conflict
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_resolution_unknown
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_summary
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_title
@@ -1233,7 +1235,9 @@ private fun PrescriptionIdentityRow(
                 )
             }
 
-            is PrescriptionResolution.NameCollision, PrescriptionResolution.Unknown ->
+            is PrescriptionResolution.NameCollision,
+            is PrescriptionResolution.IdCollision,
+            PrescriptionResolution.Unknown ->
                 MapTargetButton(
                     sourceExerciseId = identity.sourceExerciseId,
                     exercises = exercises,
@@ -1315,6 +1319,12 @@ private fun PrescriptionResolution.messageResource(): String = when (this) {
             local.name
         )
 
+    is PrescriptionResolution.IdCollision ->
+        stringResource(
+            Res.string.routines_prescription_import_resolution_id_conflict,
+            local.name
+        )
+
     PrescriptionResolution.Unknown ->
         stringResource(Res.string.routines_prescription_import_resolution_unknown)
 }
@@ -1329,6 +1339,9 @@ private fun PrescriptionImportProblem.messageResource(): String = when (issue) {
 
     PrescriptionImportIssue.NAME_COLLISION ->
         stringResource(Res.string.routines_prescription_import_problem_name_collision)
+
+    PrescriptionImportIssue.IDENTITY_CONFLICT ->
+        stringResource(Res.string.routines_prescription_import_problem_identity_conflict)
 
     PrescriptionImportIssue.UNKNOWN_IDENTITY ->
         stringResource(Res.string.routines_prescription_import_problem_unknown)
