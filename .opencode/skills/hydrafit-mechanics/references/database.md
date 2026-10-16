@@ -137,7 +137,10 @@ user-owned data. `50.sqm` creates the table and its source index; current schema
 transaction with **no schema change**: each routine is inserted as new `routineTemplate`/`routineWorkout`/
 `routineEntry` rows with fresh identities, and a custom definition is created only when its id is
 unused (an id claimed since the preview refuses the whole commit instead of overwriting a local row).
-It writes nothing outside those tables and the new `exercise` rows, so an import cannot create an
+It refuses before the transaction opens when the approved preview carries no routine or still carries
+any problem (`NOTHING_TO_IMPORT`, `PREVIEW_NOT_IMPORTABLE`), so a caller that ignores `canImport`
+cannot import a subset. It writes nothing outside those tables and the new `exercise` rows, so an
+import cannot create an
 accepted plan, an activation or a schedule change. The pure resolution it consumes lives in
 `:core:domain` `transfer/PreviewPrescriptionImport` (see `backup.md`).
 

@@ -129,10 +129,14 @@ Read-only review of the shipped S1–S2 behavior on a device remains pending.
 sets as CSV: canonical columns (`sessionId`, `sessionStartedAtUtc`, `localEpochDay`, `setId`,
 `performedAtUtc`, `exerciseId`, `exerciseName`, `reps`, `weightKg`, `loadKind`, `isWarmup`, `rir`,
 `timingProvenance`), kilograms and `YYYY-MM-DDTHH:mm:ssZ` UTC instants, one row per set ordered by
-`performedAtMillis` then `setId`. An absent load is an empty field and a recorded `0` is `0.0`;
-fields containing `,`, `"` or a newline are RFC 4180 quoted with doubled quotes; a value whose first
-character is `=`, `+`, `-`, `@` or tab is prefixed with an apostrophe so the file cannot execute
-spreadsheet content that came from an exercise name. An unassigned set keeps its row with empty
+`performedAtMillis` then `setId`. An absent load is an empty field and a recorded `0` is `0.0`. Only
+the columns that can carry user-authored text (`sessionId`, both instants, `exerciseId`,
+`exerciseName`, `loadKind`, `timingProvenance`) are written through the text path: those containing
+`,`, `"` or a newline are RFC 4180 quoted with doubled quotes, and one whose first character is `=`,
+`+`, `-`, `@` or tab is prefixed with an apostrophe so the file cannot execute spreadsheet content
+that came from an exercise name. The app-generated numeric and boolean columns (`localEpochDay`,
+`setId`, `reps`, `weightKg`, `isWarmup`, `rir`) are written verbatim, so a stored negative RIR stays
+numeric instead of becoming text. An unassigned set keeps its row with empty
 session columns. It is a set-based analysis export, not a backup: there is no note or credential
 column and it cannot be restored.
 

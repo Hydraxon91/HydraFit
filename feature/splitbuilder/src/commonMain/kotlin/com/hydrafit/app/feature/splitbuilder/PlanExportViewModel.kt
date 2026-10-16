@@ -27,6 +27,9 @@ import kotlinx.coroutines.launch
 enum class PlanExportFailure {
     TOO_LARGE,
     OVER_LIMIT,
+
+    /** The plan itself could not become a valid prescription (or had nothing to export). */
+    INVALID_PLAN,
     IO
 }
 
@@ -152,6 +155,11 @@ class PlanExportViewModel(
 
         this is PrescriptionException && failure == PrescriptionFailure.OVER_LIMIT ->
             PlanExportFailure.OVER_LIMIT
+
+        // Nothing to export, or a stored routine the document contract cannot represent: the write
+        // never happened, so the user must not be told to retry it.
+        this is PrescriptionException && failure == PrescriptionFailure.INVALID_VALUE ->
+            PlanExportFailure.INVALID_PLAN
 
         this is BackupException && failure == BackupFailure.TOO_LARGE ->
             PlanExportFailure.TOO_LARGE

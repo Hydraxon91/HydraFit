@@ -164,9 +164,11 @@ object PreviewPrescriptionImport {
             runCatching { RoutineTemplateValidator.validate(draft) }.getOrNull()
         }
         if (routines.size != document.routines.size) {
-            // A routine that could not be rebuilt (dropped workout or slot) is not "undecided":
-            // its identities may all be resolved, so report the routine shape instead.
-            problem(PrescriptionImportIssue.INVALID_ROUTINE)
+            // A routine that could not be rebuilt (dropped workout or slot) is not "undecided".
+            // When an identity is still unresolved the identity problem already explains the drop,
+            // so the routine-shape problem is only reported once every identity resolved.
+            val anyIdentityUnresolved = resolvedById.values.any { it == null }
+            if (!anyIdentityUnresolved) problem(PrescriptionImportIssue.INVALID_ROUTINE)
         }
         return PrescriptionImportPreview(
             document = document,

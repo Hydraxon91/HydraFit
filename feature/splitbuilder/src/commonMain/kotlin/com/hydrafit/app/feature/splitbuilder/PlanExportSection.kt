@@ -3,6 +3,7 @@ package com.hydrafit.app.feature.splitbuilder
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import hydrafit.feature.splitbuilder.generated.resources.Res
+import hydrafit.feature.splitbuilder.generated.resources.split_plan_export_error_invalid_plan
 import hydrafit.feature.splitbuilder.generated.resources.split_plan_export_error_io
 import hydrafit.feature.splitbuilder.generated.resources.split_plan_export_error_over_limit
 import hydrafit.feature.splitbuilder.generated.resources.split_plan_export_error_too_large
@@ -35,6 +36,7 @@ internal fun PlanExportStatus.messageResource(): StringResource = when (this) {
     is PlanExportStatus.Failed -> when (failure) {
         PlanExportFailure.TOO_LARGE -> Res.string.split_plan_export_error_too_large
         PlanExportFailure.OVER_LIMIT -> Res.string.split_plan_export_error_over_limit
+        PlanExportFailure.INVALID_PLAN -> Res.string.split_plan_export_error_invalid_plan
         PlanExportFailure.IO -> Res.string.split_plan_export_error_io
     }
 }
