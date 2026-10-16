@@ -1196,6 +1196,22 @@ equipment gaps, and only then appends each routine as a new editable template wi
 identities — never as an accepted plan, an activation or a schedule change. Imported routines keep
 their own identity space, so a shared routine cannot overwrite a local definition by id or name.
 
+The surfaces are intentionally asymmetric. Sharing a saved routine writes through the text document
+port and defaults prescribed weights **off**; the plan on screen is converted to an in-memory routine
+draft and handed to the same in-memory export paths, so exporting or printing a displayed plan never
+creates, saves or modifies a routine. A PDF cannot reuse the text port, so it writes through a
+second, handle-based binary port (`PrescriptionDocumentStore`) with its own size cap, and
+`PrescriptionPdfLayout` owns pagination so the platform renderer only draws role-tagged lines.
+Both the JSON and PDF actions are gated on the platform surface and stay disabled where a device has
+none (iOS binds the unsupported renderer and document store), rather than failing after the user has
+already chosen a destination.
+
+The workout-history CSV export is a third, separate contract and is deliberately not a backup: it
+reads recorded sets with their sessions and effective exercise names, emits explicit kilograms and
+UTC instants with one row per set, keeps an absent load distinct from a recorded zero, quotes per
+RFC 4180 and neutralizes a leading formula trigger, and has no column for notes or credentials, so
+there is nothing to redact. It cannot be restored, and the UI says so.
+
 ## 2. Decision log
 
 Each row: the decision, the **recorded** rationale with a citation, recorded alternatives, and status.

@@ -2522,6 +2522,42 @@ final state is user-reported, not independently verified. Findings inform the 0.
   deferred 0.13.x explanation-presentation polish and the named OF-03 verification limits are
   unchanged.
 
+## 0.9.2 interchange and export checkpoint (2026-10-16; not release acceptance)
+
+- Scope: S1 (versioned prescription document + export), S2 (routine import preview + transactional
+  append), S3 (adapters) and S4 (feature UI), folded into the `v0.9.1` publication. Main owned the
+  domain/persistence/migration/wiring slices; `coder` owned the settled parser/UI/adapter slices.
+- Matrix at this boundary (`091-092-integration.log`): **2,195 host tests in 245 classes, 0 failures,
+  0 errors, 0 skipped** (2,189 before the layout test added at commit `b500ad55`), with
+  `:core:database:verifySqlDelightMigration` and `ktlintCheck` green, `:androidApp:assembleDebug`
+  built and the `:shared:`/`:core:network:` iOS simulator compiles green. Per-module logs:
+  `091-s4csv-verify.log` (settings 58 tests, `BackupViewModelTest` 11) and `091-s4csv-integration.log`
+  (shared 28 tests, no new compiler warning; the `expect/actual classes are in Beta` warning the first
+  renderer shape introduced is gone).
+- No schema change: S2 appends routines and creates approved custom definitions inside one existing
+  transaction, so there is no new `.sqm` and `verifySqlDelightMigration` remains the 0.9.1 chain check.
+- New pure-domain coverage: `PrescriptionInterchangeTest` (round-trip, unknown-field rejection,
+  version, weights-free enforcement, unreferenced/duplicate definitions), `PreviewPrescriptionImportTest`
+  (reuse, create, name collision, unknown identity, equipment gap, load snapping, empty document),
+  `WorkoutHistoryCsvWriterTest` (header, blank-versus-zero, UTC instants and ordering, formula
+  neutralization and quoting, unassigned set) and `PrescriptionPdfLayoutTest` (line roles and order,
+  focus, weights-free note, load kinds, pagination boundaries, and that printing the on-screen plan
+  reads no stored routine).
+- Database coverage: `SqlDelightPrescriptionImportRepositoryTest` (fresh identities and preserved
+  workout/slot order, no activation or plan-history write, approved definition plus its search
+  projection, `IDENTITY_ALREADY_EXISTS` rolling back the whole commit, `NOTHING_TO_IMPORT`).
+- Koin: `KoinModulesVerificationTest` resolves `PrescriptionShareViewModel`, `PlanExportViewModel` and
+  the extended `BackupViewModel` over their real modules with fake ports, because `verify()` cannot
+  reflect a lambda `viewModel { }`.
+- Parent verification of the delegated delta: every changed path fell inside the brief's allowed set,
+  except the three `BackupSection.*` files, which the coder correctly returned as a delegation
+  allowlist omission and the user then approved.
+- Not verified by any check here: iOS runtime behavior for the unsupported renderer/store paths, a
+  real SAF document write or read for JSON, CSV or PDF, the rendering of any exported PDF or CSV by an
+  external tool, emulator rendering of the new routines/plan/settings controls, dark mode, larger
+  text, rotation, TalkBack, and the physical output of `PdfDocument` on a device. The 0.9.2 surfaces
+  have **no emulator evidence** at all — the batch's one bounded read-only UI check covers 0.9.1 only.
+
 ## 0.9.1 import journey checkpoint (2026-10-15; not release acceptance)
 
 - Scope: the Settings → Data transfer import UI (I4, delegated to the default `coder`, with one

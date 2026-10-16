@@ -123,6 +123,41 @@ exercise is no longer in the catalog keeps its stored id as the only available n
 
 Read-only review of the shipped S1–S2 behavior on a device remains pending.
 
+## Analysis CSV and printable prescription (0.9.2-S3)
+
+`WorkoutHistoryCsvWriter` + `ExportWorkoutHistoryCsvUseCase(logs, sessions, catalog)` write recorded
+sets as CSV: canonical columns (`sessionId`, `sessionStartedAtUtc`, `localEpochDay`, `setId`,
+`performedAtUtc`, `exerciseId`, `exerciseName`, `reps`, `weightKg`, `loadKind`, `isWarmup`, `rir`,
+`timingProvenance`), kilograms and `YYYY-MM-DDTHH:mm:ssZ` UTC instants, one row per set ordered by
+`performedAtMillis` then `setId`. An absent load is an empty field and a recorded `0` is `0.0`;
+fields containing `,`, `"` or a newline are RFC 4180 quoted with doubled quotes; a value whose first
+character is `=`, `+`, `-`, `@` or tab is prefixed with an apostrophe so the file cannot execute
+spreadsheet content that came from an exercise name. An unassigned set keeps its row with empty
+session columns. It is a set-based analysis export, not a backup: there is no note or credential
+column and it cannot be restored.
+
+`PrescriptionPdfLayout.build(document, linesPerPage)` turns a prescription into role-tagged lines
+(`TITLE`/`HEADING`/`BODY`) and chunks them into pages; a weights-free document prints the omission
+note and no load at all, and a recorded zero prints as a number. `ExportPrescriptionPdfUseCase` has
+the same two entry points as `ExportPrescriptionsUseCase` (stored routine ids, or an in-memory
+routine list) so printing the displayed plan reads no stored routine. The Android adapter renders
+with `android.graphics.pdf.PdfDocument` (A4-ish 595×842, 40 pt margin, `close()` in `finally`), and
+`AndroidPrescriptionDocumentStore` writes the bytes over the Storage Access Framework with a 4 MiB
+cap; iOS binds `UnsupportedPrescriptionPdfRenderer`/unsupported document store. `PLAN_PDF_LINES_PER_PAGE`
+lives in the consuming ViewModel because it depends on the renderer's type sizes.
+
+## Analysis CSV write path (0.9.2-S4)
+
+`BackupViewModel.exportCsv(handle)` (Settings → data transfer) writes
+`ExportWorkoutHistoryCsvUseCase()` text through `BackupFileStore.write` and reports
+`BackupStatus.HistoryCsvExported`, distinct from a backup export, so the confirmation cannot imply a
+restorable backup exists. `PlanExportViewModel.exportJson`/`printPdf` (Split Builder) and
+`PrescriptionShareViewModel` (Routines) follow the same shape: guard on `inProgress`, rethrow
+`CancellationException`, map typed failures, and never write before the user has chosen a document.
+The import review holds its decoded document, catalog, selected equipment and choices in the
+ViewModel, rebuilds the preview after every choice so it cannot go stale, and enables the commit only
+when `canImport`; a refused commit keeps the review with the failure attached.
+
 ## Bounded workout CSV parsing (0.9.1-I1)
 
 `WorkoutCsvParser.parse(source, text)` in `core/domain/.../transfer/` is a pure parser:

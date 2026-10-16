@@ -16,7 +16,7 @@
 | 0.8.0 — exercise progress: charts, descriptive records and workout-summary integration | SHIPPED — `v0.8.0` at `45e863a0` | Completed detail and publication evidence [archived](docs/plans-archive.md#2026-10-15-08x-cleanup); limits in `docs/qa.md`. |
 | 0.8.1–0.8.3 — catalog corrections, coverage/body map, body weight | SHIPPED — published 2026-10-15: `v0.8.1`, `v0.8.2`, `v0.8.3` (PR #16, merge `9e7150ef`) and corrective `v0.8.4` (PR #17, merge `6f517930`) | Contracts, chunk table and closure evidence [archived](docs/plans-archive.md#2026-10-15-08x-cleanup); review snapshots in `docs/review-0.8.1-snapshot.md`, `docs/review-0.8.2-snapshot.md` and `docs/review-0.8.3-snapshot.md`; publication evidence in `docs/qa.md` (0.8.x publication verification). **Resolved:** a stable release tag now derives `versionCode` (`major*1_000_000 + minor*10_000 + patch*100`), and the corrective `v0.8.4` (`versionCode=80400`) restores the upgrade path; the published `v0.8.1`–`v0.8.3` APKs keep their original codes. |
 | 0.9.0 — equipment profiles, per-profile loading setup and calculators | **PUBLISHED** 2026-10-15 as `v0.9.0` at `361cb20c` — review closed | Folded scope (former `0.9.0`–`0.9.2`). PR #19 → merge `361cb20c`; PR run `38799090309`, post-merge main run `38799639692` and Release run `38800131378` green. Local matrix: 2,061 host tests, `verifySqlDelightMigration`, `ktlintCheck`, debug assembly and both iOS compiles (`090-f1-integration.log`). Bounded read-only emulator acceptance passed (`equipment-profiles.yaml` 10/10, `logger-loading-calculator.yaml` 8/8); profile create/copy/rename/delete, loading-configuration editing and both calculator dialogs remain device-unverified, as do dark mode, larger text, locale, rotation and TalkBack. Independent review REJECTED on F1 (occurrence replacement validated against legacy equipment tables); user chose profile-as-single-authority, the fix shipped with a regression test, and targeted closure returned **F1 CLOSED / F2 resolved** (C-01 wording corrected). F3 (unrendered `equipment_calculator_section` string) remains a recorded nit. Artifact verified offline only: `versionName=0.9.0`, `versionCode=90000`, SHA-256 `cf9b3140…`, `apksigner` verified with the same certificate as prior releases. Notes at `docs/release-notes/v0.9.0.md`; evidence in `docs/qa.md`. |
-| 0.9.1–0.9.2 — workout imports, prescription interchange and exports | IN PROGRESS — 0.9.1 implementation complete, verified and independently reviewed (findings F-01…F-06); 0.9.2 not started; no publication | Single publication target `v0.9.1`; assigned scope `0.9.2` folds into `0.9.1`. See [batch plan](#091092--continuous-execution-plan). 0.9.1 landed on `feature/0.9.1-data-freedom` (`a568764f`…`ca9b19ce`): parsing, preview, transactional ledger, backup format 15 and the Settings import UI, with 2,152 host tests green, migration verification, ktlint, debug assembly, both iOS compiles and one bounded read-only emulator check; evidence and limits in `docs/qa.md` (0.9.1 checkpoints). Review verdict APPROVED WITH FINDINGS; F-02/F-03/F-04 mechanical corrections applied, F-05 status updated here. **Open for the user:** F-01 (advertise three provider layouts without captured-export evidence, obtain fixtures, or de-advertise) and F-06 (dispatcher hop for very large imports). No publication started. |
+| 0.9.1–0.9.2 — workout imports, prescription interchange and exports | IN PROGRESS — 0.9.1 implemented, verified, independently reviewed and closed (F-02/F-03/F-04 corrected; F-01/F-06 open for the user); 0.9.2 implemented, committed and locally verified, S5 review not run; no publication | Single publication target `v0.9.1`; assigned scope `0.9.2` folds into `0.9.1`. See [batch plan](#091092--continuous-execution-plan). 0.9.1 landed on `feature/0.9.1-data-freedom` (`a568764f`…`ca9b19ce`): parsing, preview, transactional ledger, backup format 15 and the Settings import UI, with 2,152 host tests green, migration verification, ktlint, debug assembly, both iOS compiles and one bounded read-only emulator check. 0.9.2 landed on the same branch (`a296fa4b`…`a492408b`): prescription document/export, routine-import preview with a transactional append (no schema change), the binary document port with the Android PDF renderer, and the Routines/Split Builder/Settings surfaces; boundary matrix 2,195 host tests with 0 failures, migration verification, ktlint, debug assembly and both iOS compiles green, and no emulator evidence for the 0.9.2 surfaces. Evidence and limits in `docs/qa.md`. **Open for the user:** F-01 (advertise three provider layouts without captured-export evidence, obtain fixtures, or de-advertise) and F-06 (dispatcher hop for very large imports). No publication started. |
 | Release 0.2.0 | SHIPPED | `v0.2.0` signed release published; [history](docs/plans-archive.md#2026-10-09-completed-status-rows). Stale `v0.1.0` validation pre-release cleanup remains optional. |
 | Release 0.2.1 | SHIPPED | `v0.2.1`; [Q1–Q6 history](docs/plans-archive.md#2026-10-09-completed-status-rows). Q4e remains user-side, not shipped code; local AI remains experimental/non-functional, with optional M8 follow-up. |
 | Release 0.2.2 — code review & architecture | SHIPPED | `v0.2.2`; R0–RG/RF complete, CI green; [fix/commit history](docs/plans-archive.md#2026-10-09-completed-status-rows). |
@@ -874,13 +874,23 @@ evidence and limits in `docs/qa.md`.
 
 ### 0.9.1–0.9.2 — Continuous execution plan
 
-**Status — updated 2026-10-16 after the 0.9.1 checkpoint.** 0.9.1 (workout CSV imports) is
-implemented, verified and independently reviewed on `feature/0.9.1-data-freedom`
+**Status — updated 2026-10-16 after the 0.9.2 implementation boundary.** 0.9.1 (workout CSV imports)
+is implemented, verified and independently reviewed on `feature/0.9.1-data-freedom`
 (`a568764f`…`ca9b19ce`): parsing, preview, transactional provenance ledger (`50.sqm`, backup format
 15) and the Settings import UI. The review verdict was APPROVED WITH FINDINGS: mechanical findings
 F-02/F-03/F-04 are corrected, F-05 is the status update you are reading, and F-01 (provider-layout
-evidence) and F-06 (commit dispatcher) remain open for the user. 0.9.2 has not started. Evidence and
-limits are in `docs/qa.md`; publication still needs its own approval.
+evidence) and F-06 (commit dispatcher) remain open for the user.
+
+0.9.2 is now implemented, committed and locally verified (`a296fa4b`…`a492408b`): S1 versioned
+prescription document and export, S2 routine-import preview with a transactional append (no schema
+change), S3 the binary document port with the Android PDF renderer and unsupported iOS bindings, and
+S4 the Routines share/export/import, Split Builder plan export/print and Settings history-CSV export
+surfaces. The boundary matrix is 2,195 host tests with 0 failures, migration verification, ktlint,
+debug assembly and both iOS compiles green, and the delegated delta stayed inside its approved paths
+apart from the three `BackupSection.*` files the user approved as an allowlist omission. S5's
+independent read-only review is the next step and has not run yet; 0.9.2's own surfaces have **no
+emulator evidence**. Evidence and limits are in `docs/qa.md`; publication still needs its own
+approval.
 
 **Scope and fold:**
 
