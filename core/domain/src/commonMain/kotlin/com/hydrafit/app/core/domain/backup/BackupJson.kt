@@ -74,6 +74,7 @@ object BackupJson {
             if (version != null && version < IMPORT_PROVENANCE_FORMAT_VERSION) {
                 add("importProvenance")
             }
+            if (version != null && version < IMPORT_BUCKET_FORMAT_VERSION) add("importBuckets")
         }
         val missing = requiredKeys - obj.keys
         if (missing.isNotEmpty()) {
@@ -232,6 +233,7 @@ object BackupJson {
             file.occurrences.size + file.occurrenceEntries.size + file.personalRecords.size +
             file.preferences.size + file.exclusions.size + file.restPreferences.size +
             file.importProvenance.size +
+            file.importBuckets.sumOf { 1 + it.importedSessionIds.size } +
             file.bodyWeightMeasurements.size + file.equipmentProfiles.sumOf {
                 1 + it.selectedEquipment.size + it.ceilings.size + it.loadingInventory.plates.size +
                     it.loadingInventory.bars.size +

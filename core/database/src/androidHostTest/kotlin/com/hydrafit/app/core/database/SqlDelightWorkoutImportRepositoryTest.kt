@@ -94,10 +94,19 @@ class SqlDelightWorkoutImportRepositoryTest {
         )
         sets.forEach { assertEquals(45.35923700100354, it.weightKg!!, 1e-9) }
         assertTrue(sets.all { it.occurrenceId == null && it.weekNumber == null && it.rir == null })
-        val ledger = database.workoutImportQueries.selectAllProvenance().executeAsOne()
-        assertEquals("FITNOTES", ledger.source)
-        assertEquals(session.id, ledger.importedSessionId)
-        assertEquals(preview.sessions.single().content, ledger.content)
+        val bucket = database.workoutImportBucketQueries.selectAllBuckets().executeAsOne()
+        assertEquals("FITNOTES", bucket.source)
+        assertEquals(preview.buckets.single().content, bucket.content)
+        assertEquals(preview.buckets.single().partition, bucket.partition)
+        assertEquals(
+            listOf(session.id),
+            database.workoutImportBucketQueries.selectLinks("FITNOTES", bucket.candidateKey)
+                .executeAsList().map { it.importedSessionId }
+        )
+        assertEquals(
+            0,
+            database.workoutImportQueries.selectAllProvenance().executeAsList().size
+        )
     }
 
     @Test
@@ -127,9 +136,13 @@ class SqlDelightWorkoutImportRepositoryTest {
 
         assertEquals(1, again.skippedSessions)
         assertEquals(0, database.workoutLogQueries.selectAllSets().executeAsList().size)
+        val bucket = database.workoutImportBucketQueries.selectAllBuckets().executeAsOne()
+        // The link is deliberately retained after the imported session is deleted, so the repeated
+        // export cannot silently restore removed history.
         assertEquals(
-            1L,
-            database.workoutImportQueries.selectAllProvenance().executeAsList().size.toLong()
+            1,
+            database.workoutImportBucketQueries.selectLinks("FITNOTES", bucket.candidateKey)
+                .executeAsList().size
         )
     }
 
@@ -172,19 +185,82 @@ class SqlDelightWorkoutImportRepositoryTest {
     }
 
     @Test
-    fun provenanceReadsAreScopedToTheRequestedSourceAndKeys() = runBlocking {
+    fun bucketReadsAreScopedToTheRequestedSourceAndKeys() = runBlocking {
         val preview = preview(sessions = listOf(pressSession()))
         repository.commit(preview)
-        val session = preview.sessions.single()
+        val bucket = preview.buckets.single()
 
         assertEquals(
             1,
-            repository.provenance(WorkoutCsvSource.FITNOTES, setOf(session.candidateKey)).size
+            repository.buckets(WorkoutCsvSource.FITNOTES, setOf(bucket.candidateKey)).size
         )
         assertEquals(
             0,
-            repository.provenance(WorkoutCsvSource.HEVY, setOf(session.candidateKey)).size
+            repository.buckets(WorkoutCsvSource.HEVY, setOf(bucket.candidateKey)).size
         )
+        assertEquals(0, repository.buckets(WorkoutCsvSource.FITNOTES, setOf("other")).size)
+    }
+
+    @Test
+    fun aSplitBucketKeepsBothIdenticalSessionsAndSkipsThemTogetherOnRepeat() = runBlocking {
+        val preview = preview(
+            sessions = listOf(
+                pressSession().copy(sourceRows = listOf(2), dateOnlySecondOfDay = 36_000),
+                pressSession().copy(sourceRows = listOf(3), dateOnlySecondOfDay = 72_000)
+            )
+        )
+        // One source bucket, two identical sessions: the old content-only identity could not tell
+        // them apart; membership can.
+        assertEquals(1, preview.buckets.size)
+
+        val result = repository.commit(preview)
+
+        assertEquals(2, result.importedSessions)
+        assertEquals(2, result.importedSets)
+        assertEquals(2, database.workoutSessionQueries.selectAllSessions().executeAsList().size)
+        val bucket = database.workoutImportBucketQueries.selectAllBuckets().executeAsOne()
+        assertEquals(preview.buckets.single().partition, bucket.partition)
+        assertEquals(
+            2,
+            database.workoutImportBucketQueries.selectLinks("FITNOTES", bucket.candidateKey)
+                .executeAsList().size
+        )
+
+        val again = repository.commit(preview)
+        assertEquals(0, again.importedSessions)
+        assertEquals(2, again.skippedSessions)
+        assertEquals(2, database.workoutSessionQueries.selectAllSessions().executeAsList().size)
+    }
+
+    @Test
+    fun aChangedPartitionRefusesTheWholeCommit() = runBlocking {
+        repository.commit(preview(sessions = listOf(pressSession())))
+
+        // Same source bucket, but the approved split no longer matches what was recorded.
+        val split = preview(
+            sessions = listOf(
+                pressSession().copy(sourceRows = listOf(2), dateOnlySecondOfDay = 36_000),
+                pressSession().copy(sourceRows = listOf(3), dateOnlySecondOfDay = 72_000)
+            )
+        )
+        val failure = assertFailsWith<WorkoutImportException> { repository.commit(split) }
+
+        assertEquals(WorkoutImportCommitFailure.SOURCE_CHANGED, failure.failure)
+        assertEquals(1, database.workoutSessionQueries.selectAllSessions().executeAsList().size)
+    }
+
+    @Test
+    fun provenanceReadsAreScopedToTheRequestedSourceAndKeys() = runBlocking {
+        // Legacy rows, inserted directly: the bucket ledger does not write provenance any more.
+        database.workoutImportQueries.insertProvenance(
+            source = WorkoutCsvSource.FITNOTES.name,
+            candidateKey = "key",
+            content = "content",
+            importedSessionId = "session-a"
+        )
+
+        assertEquals(1, repository.provenance(WorkoutCsvSource.FITNOTES, setOf("key")).size)
+        assertEquals(0, repository.provenance(WorkoutCsvSource.HEVY, setOf("key")).size)
         assertEquals(0, repository.provenance(WorkoutCsvSource.FITNOTES, setOf("other")).size)
     }
 

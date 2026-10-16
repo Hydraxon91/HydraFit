@@ -1,0 +1,16 @@
+CREATE TABLE workoutImportBucket (
+    source TEXT NOT NULL,
+    candidateKey TEXT NOT NULL,
+    content TEXT NOT NULL,
+    partition TEXT NOT NULL,
+    PRIMARY KEY (source, candidateKey)
+);
+
+CREATE TABLE workoutImportBucketSession (
+    source TEXT NOT NULL,
+    candidateKey TEXT NOT NULL,
+    ordinal INTEGER NOT NULL,
+    importedSessionId TEXT NOT NULL,
+    PRIMARY KEY (source, candidateKey, ordinal),
+    FOREIGN KEY (source, candidateKey) REFERENCES workoutImportBucket(source, candidateKey)
+);

@@ -2,6 +2,7 @@ package com.hydrafit.app.core.database
 
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvSource
+import com.hydrafit.app.core.domain.transfer.WorkoutImportBucket as DomainImportBucket
 import com.hydrafit.app.core.domain.transfer.WorkoutImportCommitFailure
 import com.hydrafit.app.core.domain.transfer.WorkoutImportException
 import com.hydrafit.app.core.domain.transfer.WorkoutImportPreview
@@ -28,6 +29,23 @@ class SqlDelightWorkoutImportRepository(private val database: HydraFitDatabase) 
     private val provenanceQueries = database.workoutImportQueries
     private val sessionQueries = database.workoutSessionQueries
     private val setQueries = database.workoutLogQueries
+    private val bucketQueries = database.workoutImportBucketQueries
+
+    override suspend fun buckets(
+        source: WorkoutCsvSource,
+        candidateKeys: Set<String>
+    ): List<DomainImportBucket> = bucketQueries.selectBuckets(source.name).executeAsList()
+        .filter { it.candidateKey in candidateKeys }
+        .map { bucket ->
+            DomainImportBucket(
+                source = source,
+                candidateKey = bucket.candidateKey,
+                content = bucket.content,
+                partition = bucket.partition,
+                importedSessionIds = bucketQueries.selectLinks(source.name, bucket.candidateKey)
+                    .executeAsList().map { it.importedSessionId }
+            )
+        }
 
     override suspend fun provenance(
         source: WorkoutCsvSource,
@@ -49,9 +67,33 @@ class SqlDelightWorkoutImportRepository(private val database: HydraFitDatabase) 
         var importedSets = 0
         var skippedSessions = 0
         database.transaction {
+            require(preview.problems.isEmpty()) {
+                "The import preview still has unresolved problems"
+            }
+            val storedBuckets = bucketQueries.selectBuckets(preview.source.name).executeAsList()
+            val skippedBuckets = mutableSetOf<String>()
+            preview.buckets.forEach { bucket ->
+                val previous = storedBuckets.singleOrNull { it.candidateKey == bucket.candidateKey }
+                if (previous != null) {
+                    if (previous.content != bucket.content ||
+                        previous.partition != bucket.partition
+                    ) {
+                        throw WorkoutImportException(
+                            WorkoutImportCommitFailure.SOURCE_CHANGED,
+                            "The source bucket or its approved partition changed"
+                        )
+                    }
+                    skippedBuckets += bucket.candidateKey
+                }
+            }
             val recorded = provenanceQueries.selectProvenanceBySource(preview.source.name)
                 .executeAsList()
+            val newLinks = mutableMapOf<String, MutableList<String>>()
             preview.sessions.forEach { session ->
+                if (session.candidateKey in skippedBuckets) {
+                    skippedSessions++
+                    return@forEach
+                }
                 val matches = recorded.filter { it.candidateKey == session.candidateKey }
                 val exact = matches.filter { it.content == session.content }
                 when {
@@ -95,14 +137,34 @@ class SqlDelightWorkoutImportRepository(private val database: HydraFitDatabase) 
                         completedAtElapsedMillis = null
                     )
                 }
-                provenanceQueries.insertProvenance(
-                    source = preview.source.name,
-                    candidateKey = session.candidateKey,
-                    content = session.content,
-                    importedSessionId = sessionId
-                )
+                if (preview.buckets.any { it.candidateKey == session.candidateKey }) {
+                    newLinks.getOrPut(session.candidateKey) { mutableListOf() }.add(sessionId)
+                } else {
+                    provenanceQueries.insertProvenance(
+                        source = preview.source.name,
+                        candidateKey = session.candidateKey,
+                        content = session.content,
+                        importedSessionId = sessionId
+                    )
+                }
                 importedSessions++
                 importedSets += session.sets.size
+            }
+            preview.buckets.filter { it.candidateKey in newLinks }.forEach { bucket ->
+                bucketQueries.insertBucket(
+                    source = preview.source.name,
+                    candidateKey = bucket.candidateKey,
+                    content = bucket.content,
+                    partition = bucket.partition
+                )
+                newLinks.getValue(bucket.candidateKey).forEachIndexed { ordinal, sessionId ->
+                    bucketQueries.insertLink(
+                        source = preview.source.name,
+                        candidateKey = bucket.candidateKey,
+                        ordinal = ordinal.toLong(),
+                        importedSessionId = sessionId
+                    )
+                }
             }
         }
         return WorkoutImportResult(importedSessions, importedSets, skippedSessions)

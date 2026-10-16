@@ -17,6 +17,7 @@ import com.hydrafit.app.core.domain.backup.BackupExerciseNoteRecord
 import com.hydrafit.app.core.domain.backup.BackupExerciseOverrideRecord
 import com.hydrafit.app.core.domain.backup.BackupExerciseRecord
 import com.hydrafit.app.core.domain.backup.BackupFile
+import com.hydrafit.app.core.domain.backup.BackupImportBucketRecord
 import com.hydrafit.app.core.domain.backup.BackupImportProvenanceRecord
 import com.hydrafit.app.core.domain.backup.BackupOccurrenceEntryRecord
 import com.hydrafit.app.core.domain.backup.BackupOccurrenceRecord
@@ -528,6 +529,20 @@ class SqlDelightBackupRepository(
                             content = it.content,
                             importedSessionId = it.importedSessionId
                         )
+                    },
+                importBuckets = database.workoutImportBucketQueries.selectAllBuckets()
+                    .executeAsList().map { bucket ->
+                        BackupImportBucketRecord(
+                            source = bucket.source,
+                            candidateKey = bucket.candidateKey,
+                            content = bucket.content,
+                            partition = bucket.partition,
+                            importedSessionIds = database.workoutImportBucketQueries
+                                .selectLinks(bucket.source, bucket.candidateKey)
+                                .executeAsList()
+                                .sortedBy { it.ordinal }
+                                .map { it.importedSessionId }
+                        )
                     }
             )
         }
@@ -563,6 +578,8 @@ class SqlDelightBackupRepository(
             database.workoutLogQueries.deleteAllSets()
             database.workoutSessionQueries.deleteAllSessions()
             database.workoutImportQueries.deleteAllProvenance()
+            database.workoutImportBucketQueries.deleteBucketLinks()
+            database.workoutImportBucketQueries.deleteBuckets()
             database.planVolumeExplanationStateQueries.deleteAll()
             database.planVolumeExplanationQueries.deleteAll()
             database.planTargetExplanationQueries.deleteAll()
@@ -1006,6 +1023,23 @@ class SqlDelightBackupRepository(
                     content = record.content,
                     importedSessionId = record.importedSessionId
                 )
+            }
+
+            file.importBuckets.forEach { bucket ->
+                database.workoutImportBucketQueries.insertBucket(
+                    source = bucket.source,
+                    candidateKey = bucket.candidateKey,
+                    content = bucket.content,
+                    partition = bucket.partition
+                )
+                bucket.importedSessionIds.forEachIndexed { ordinal, sessionId ->
+                    database.workoutImportBucketQueries.insertLink(
+                        source = bucket.source,
+                        candidateKey = bucket.candidateKey,
+                        ordinal = ordinal.toLong(),
+                        importedSessionId = sessionId
+                    )
+                }
             }
 
             val settings = file.settings

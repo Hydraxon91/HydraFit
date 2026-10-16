@@ -118,6 +118,31 @@ class BackupValidator(private val catalog: BackupCatalog) {
         }
         uniqueBy(file.importProvenance) { Triple(it.source, it.candidateKey, it.content) }
 
+        // The bucket/partition ledger is whole-replaced too (format 16). It permits an imported
+        // bucket to keep its exact approved split, including two sessions with identical content,
+        // which the per-session provenance above cannot represent. Its links survive local deletion
+        // for the same reason provenance does.
+        if (file.formatVersion < IMPORT_BUCKET_FORMAT_VERSION &&
+            file.importBuckets.isNotEmpty()
+        ) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        file.importBuckets.forEach { bucket ->
+            enum(bucket.source, WorkoutCsvSource.entries)
+            if (bucket.candidateKey.isEmpty() ||
+                bucket.content.isEmpty() ||
+                bucket.partition.isEmpty() ||
+                bucket.importedSessionIds.isEmpty() ||
+                bucket.importedSessionIds.any { it.isEmpty() }
+            ) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            if (bucket.importedSessionIds.distinct().size != bucket.importedSessionIds.size) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+        }
+        uniqueBy(file.importBuckets) { it.source to it.candidateKey }
+
         val seedExerciseIds = catalog.seedExerciseIds()
         val builtInEquipmentIds = catalog.builtInEquipmentIds()
 
