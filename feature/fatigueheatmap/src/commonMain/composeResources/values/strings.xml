@@ -27,9 +27,14 @@
     <string name="muscle_neck">Neck</string>
     <string name="fatigue_map_front">Front</string>
     <string name="fatigue_map_back">Back</string>
+    <string name="fatigue_map_male">Male</string>
+    <string name="fatigue_map_female">Female</string>
+    <string name="fatigue_map_load_failed">The body map could not be loaded. Muscle values are still available below.</string>
+    <string name="fatigue_map_retry">Retry</string>
+    <string name="fatigue_map_figure_description">%1$s, %2$s — estimated muscle fatigue</string>
     <string name="fatigue_map_legend_low">No fatigue</string>
     <string name="fatigue_map_legend_high">High fatigue</string>
-    <string name="fatigue_map_schematic_note">Schematic map — regions are approximate and may overlap.</string>
+    <string name="fatigue_map_schematic_note">Schematic anatomy — boundaries and softened colour transitions are approximate. Values are estimates, not measurements. Artwork adapted from MuscleMap (Melih Colpan) and react-native-body-highlighter (ELABBASSI Hicham), both MIT-licensed.</string>
     <string name="fatigue_map_region_description">%1$s, %2$s</string>
     <string name="fatigue_map_open">Body map</string>
     <string name="fatigue_map_close">Close</string>
