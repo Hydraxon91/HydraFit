@@ -22,6 +22,10 @@ import com.hydrafit.app.core.userdata.settings.AndroidAppVersionProvider
 import com.hydrafit.app.core.userdata.settings.AndroidKeystoreApiKeyStore
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
+import com.hydrafit.app.core.userdata.transfer.AndroidPrescriptionDocumentStore
+import com.hydrafit.app.core.userdata.transfer.AndroidPrescriptionPdfRenderer
+import com.hydrafit.app.core.userdata.transfer.PrescriptionDocumentStore
+import com.hydrafit.app.core.userdata.transfer.PrescriptionPdfRenderer
 import com.hydrafit.app.feature.logger.AndroidRestAlertScheduler
 import com.hydrafit.app.feature.routines.AndroidWorkoutReminderScheduler
 import com.hydrafit.app.feature.routines.localMinuteEpochMillis
@@ -79,6 +83,10 @@ fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = modu
     }
     single<OnDevicePlannerLogger> { AndroidOnDevicePlannerLogger() }
     single<BackupFileStore> { AndroidBackupFileStore(context.applicationContext) }
+    single<PrescriptionDocumentStore> {
+        AndroidPrescriptionDocumentStore(context.applicationContext)
+    }
+    single<PrescriptionPdfRenderer> { AndroidPrescriptionPdfRenderer() }
 }
 
 /** Carries the Android `BuildConfig.VERSION_NAME`, which is not reachable from `:shared`/`:core`. */
