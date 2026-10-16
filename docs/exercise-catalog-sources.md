@@ -39,6 +39,46 @@ HydraFit-authored source staying **MIT**.
 
 ## Sources
 
+### Three-muscle expansion — 2026-10-16
+
+The current model has 24 groups, adding `TIBIALIS_ANTERIOR`, `SERRATUS_ANTERIOR`
+and iliopsoas-focused `HIP_FLEXORS`. Hip flexors do not duplicate the whole quadriceps.
+Only the following existing seed maps gain contributions; every previous weight, identity,
+equipment requirement, movement pattern and load capability is retained:
+
+| Added group | Existing seed IDs | Weight |
+| --- | --- | --- |
+| Serratus anterior | `push-up`, `push-up-wide`, `single-arm-push-up`, `push-up-to-side-plank` | 0.5 |
+| Serratus anterior | `incline-push-up`, `incline-push-up-medium`, `incline-push-up-wide` | 0.3 |
+| Hip flexors | `hanging-leg-raise`, `scissor-kick` | 0.7 |
+| Hip flexors | `sit-up`, `bicycle-crunch` | 0.5 |
+| Hip flexors | `step-up-with-knee-raise` | 0.3 |
+
+These are modeled involvement tiers, **not measured EMG percentages**. The
+[push-up scoping review](https://pmc.ncbi.nlm.nih.gov/articles/PMC9121296/)
+supports serratus involvement; the
+[hip-flexor review](https://pmc.ncbi.nlm.nih.gov/articles/PMC11546833/)
+supports the movement families, with limited study quality. Neither establishes these
+exact weights or recovery half-lives. Findings are cited, not copied; no third-party
+prose or artwork is incorporated (the push-up paper is CC BY-NC).
+
+There is no suitable existing dedicated dorsiflexion seed: tibialis supports custom mappings,
+fatigue, coverage, planner targeting and artwork but has no seeded training source here.
+Calf raises do not gain tibialis. `leg-lift` remains backward leg-lift glute/hamstring work,
+as identified by the upstream
+[Leg Lift record](https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Lift.json).
+No new seeds, blanket press/core assignments or neck/traps changes are included.
+
+`MuscleExpansionCompatibility` pins exact old profiles. Startup transactionally upgrades
+only the 12 recognized built-in ID/old-map pairs, idempotently. Unrecognized maps,
+customs and overrides (including explicitly empty maps) are preserved. Non-null logged
+snapshots and frozen prescriptions are unchanged; new sets snapshot the effective,
+override-aware map. Legacy null-snapshot fatigue still falls back to today's catalog
+and can therefore gain inferred fatigue; coverage continues to report these rows as
+unclassified. Backup format 16 and prescription format 1 remain unchanged. Exact old
+seed fingerprints are accepted on import; unknown mismatches/tokens are rejected, with
+no downgrade compatibility or silent token removal.
+
 ### CAT-02 v1 — editorial profile-matching aliases
 
 `core/database/.../ExerciseProfileAliases.kt` owns this small pilot, approved 2026-10-09:

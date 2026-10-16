@@ -1419,6 +1419,37 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun expandedMusclesParticipateInDeficitAndFatigueRanking() {
+        val target = WeeklyVolumeTargets.forGoal(TrainingGoal.BALANCED)
+        listOf(
+            MuscleGroup.TIBIALIS_ANTERIOR,
+            MuscleGroup.SERRATUS_ANTERIOR,
+            MuscleGroup.HIP_FLEXORS
+        ).forEach { muscle ->
+            val expanded = exercise("expanded", MovementPattern.CORE, muscle)
+            val original = exercise("original", MovementPattern.CORE, MuscleGroup.ABS)
+            fun rank(volume: Map<MuscleGroup, Double>, fatigue: Map<MuscleGroup, Double>) =
+                engine.rankCandidates(
+                    listOf(original, expanded),
+                    fatigue,
+                    emptySet(),
+                    emptyMap(),
+                    volume,
+                    target
+                ).map { it.id }
+            val volume = MuscleGroup.entries.associateWith { target.targetSets }
+            assertEquals(
+                listOf("expanded", "original"),
+                rank(volume + (muscle to 0.0), mapOf(muscle to 0.5))
+            )
+            assertEquals(
+                listOf("original", "expanded"),
+                rank(MuscleGroup.entries.associateWith { 0.0 }, mapOf(muscle to 0.5))
+            )
+        }
+    }
+
+    @Test
     fun preferenceRanksAheadOfDeficitAndFatigueAndPreferLessStaysSelectable() {
         val target = WeeklyVolumeTargets.forGoal(TrainingGoal.BALANCED)
         val noVolume = MuscleGroup.entries.associateWith { 0.0 }

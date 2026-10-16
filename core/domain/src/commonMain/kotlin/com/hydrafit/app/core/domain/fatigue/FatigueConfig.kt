@@ -144,7 +144,11 @@ data class FatigueConfig(
             MuscleGroup.ADDUCTORS to 24.hours,
             MuscleGroup.HIP_ABDUCTORS to 24.hours,
             MuscleGroup.TRAPS to 24.hours,
-            MuscleGroup.NECK to 18.hours
+            MuscleGroup.NECK to 18.hours,
+            // Generic product defaults, not experimentally established muscle-specific recovery.
+            MuscleGroup.TIBIALIS_ANTERIOR to 24.hours,
+            MuscleGroup.SERRATUS_ANTERIOR to 24.hours,
+            MuscleGroup.HIP_FLEXORS to 24.hours
         )
     }
 }

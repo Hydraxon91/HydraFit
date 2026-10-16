@@ -884,6 +884,41 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   numeric estimate; only narrow approved shoulder/upper-back boundaries soften visually. Full
   figures, legend, attribution and numeric descriptions must stay reachable in the scrollable dialog.
 
+### Three-muscle expansion verification — 2026-10-16
+
+- Main-agent implementation based on `b5af19fb`; adds tibialis anterior, serratus anterior
+  and iliopsoas-focused hip flexors (24 groups). No new seeds, dependency, DI, schema or
+  format-version change. The 12 exact existing-seed additions and evidence limits are in
+  [catalog sources](exercise-catalog-sources.md#three-muscle-expansion--2026-10-16).
+- Domain regressions cover independent stimulus, warm-up exclusion, explicit 24-hour base
+  recovery defaults and planner deficit/fatigue ranking for all three groups. Prescription
+  format 1 round-trips the new tokens while rejecting unknown tokens.
+- `MuscleExpansionIntegrationTest` covers fresh maps with unchanged old contributions and
+  profile metadata; exact-old-map upgrade and repeated seeding; preservation of custom,
+  unknown and explicitly empty maps, overrides and logged snapshots; actual new logging
+  through fatigue/coverage; legacy null fatigue fallback versus unknown coverage; and exact
+  old backup fingerprint acceptance versus unknown mismatch rejection. Backup format 16
+  round-trips custom/override/snapshot content. `SqlDelightWorkoutScheduleRepositoryTest`
+  freezes the 12 old profiles, upgrades their catalog maps and verifies unchanged master
+  activations, occurrences and exported records after repeated seeding.
+- Host artwork coverage verifies the new sourced regions in both front models, none invented
+  in back views, isolated red pixels surviving final paint order, and no outside-mask colour
+  changes beyond one 8-bit compositing quantization unit. The original exact pixel assertion
+  failed on subpixel coverage rounding, not a production geometry defect. Bundled artwork
+  bytes and existing partition rules are unchanged; retired schematic geometry stays at its
+  historical 21-group set and is not the production renderer.
+- **Passed:** full Tier A matrix: `testAndroidHostTest` (2,257 tests in 255 classes, zero
+  failures/errors), `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
+  `:core:network:compileKotlinIosSimulatorArm64`. Final bounded run: `BUILD SUCCESSFUL`,
+  783 tasks, 2026-10-16. Log:
+  `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/muscle-expansion-final-matrix.log`.
+- **Limits:** no emulator automation/install or visual acceptance in this scope, by user
+  decision; user manual debug-build visual acceptance remains outstanding. Host raster tests
+  are not a screenshot or end-to-end UI check. Formal post-execution review is not requested
+  or performed. The earlier 0.13.x partition/extended-UI follow-ups remain open. Shrug and
+  neck-exercise additions are separate, unimplemented follow-ups, not part of this verification.
+
 ### 0.9.2 body-map implementation verification — 2026-10-16
 
 - Base/ending HEAD: `115bbcfda4dfaab4ab97fe1136a6392fb315fefa`; changes remain uncommitted on

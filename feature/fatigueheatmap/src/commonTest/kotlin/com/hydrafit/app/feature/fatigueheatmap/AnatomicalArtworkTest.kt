@@ -25,13 +25,16 @@ class AnatomicalArtworkTest {
             "upperChest", "lowerChest", "frontDeltoid", "deltoids", "rearDeltoid", "upperBack",
             "rhomboids", "rotatorCuff", "trapezius", "lowerBack", "biceps", "triceps", "forearm",
             "abs", "obliques", "quadriceps", "hamstring", "gluteal", "calves", "adductors",
-            "hipAbductors", "neck"
+            "hipAbductors", "neck", "tibialis", "serratus", "hipFlexors"
         )
         assertEquals(MuscleGroup.entries.toSet(), slugs.mapNotNull { artworkMuscle(it) }.toSet())
         assertEquals(MuscleGroup.LATS, artworkMuscle("upperBack"))
         assertEquals(MuscleGroup.UPPER_BACK, artworkMuscle("rhomboids"))
         assertEquals(MuscleGroup.UPPER_BACK, artworkMuscle("rotatorCuff"))
-        listOf("hair", "head", "hands", "feet", "chest", "serratus", "hipFlexors").forEach {
+        assertEquals(MuscleGroup.TIBIALIS_ANTERIOR, artworkMuscle("tibialis"))
+        assertEquals(MuscleGroup.SERRATUS_ANTERIOR, artworkMuscle("serratus"))
+        assertEquals(MuscleGroup.HIP_FLEXORS, artworkMuscle("hipFlexors"))
+        listOf("hair", "head", "hands", "feet", "chest").forEach {
             assertNull(artworkMuscle(it))
         }
     }

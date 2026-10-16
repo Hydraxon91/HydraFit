@@ -6,10 +6,17 @@
 `composeResources/files/bodymap/*.paths` contain pinned SVG path strings; adjacent
 `LICENSES.txt` retains both MuscleMap and react-native-body-highlighter MIT notices.
 `BundledArtworkTest` verifies hashes, path counts and notices; common tests cover
-slug-to-21-group mapping, model/view resource selection, partition symmetry and
+slug-to-24-group mapping, model/view resource selection, partition symmetry and
 blend weights. Path parsing and boolean geometry are exercised on the host under
 test-only Robolectric (`FinalArtworkCoverageTest`); rendering — colours, occlusion
 and layout — still requires runtime/emulator verification.
+
+Source `tibialis`, `serratus`, `hipFlexors` now map to the corresponding new groups
+in both front figures, with no invented rear regions. Hip flexors are a schematic
+surface proxy for deep iliopsoas anatomy. All 24 numeric rows remain accessible.
+The native host paint-order test verifies isolated new-muscle visibility and no
+outside-mask colour changes beyond one 8-bit compositing quantization unit; it
+does not replace full UI visual acceptance.
 
 Male/Female selection is independent of user profile; Front is initially shown,
 with a Front/Back button. Geometry is built off-main per model/view. Back deltoids

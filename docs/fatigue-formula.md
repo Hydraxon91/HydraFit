@@ -90,6 +90,16 @@ below one if floating-point rounding reaches one.
 All calibration values live in `FatigueConfig`. They are tunable model parameters,
 **not physiological measurements or facts**.
 
+The current muscle set contains 24 groups, including `TIBIALIS_ANTERIOR`,
+`SERRATUS_ANTERIOR` and iliopsoas-focused `HIP_FLEXORS`. Each new group has an explicit
+24-hour base half-life, an engineering default rather than a validated muscle-specific
+recovery measurement; existing compound/isolation scaling still applies. They participate
+in fatigue, soreness, recorded coverage and planner weekly-volume/deficit targeting.
+Tibialis currently requires a custom mapping because this expansion adds no exercise seeds.
+Historical non-null snapshots remain unchanged. Legacy null snapshots retain current-catalog
+fatigue fallback and may gain inferred fatigue after the catalog upgrade; coverage never uses
+that fallback. See [catalog additions and evidence](exercise-catalog-sources.md#three-muscle-expansion--2026-10-16).
+
 The muscle set was refined in MUS-P1 (2026-10-06): the former `CHEST`, `BACK`,
 `SHOULDERS` and `CORE` were split into the groups listed below (17). A follow-up
 extension added `ADDUCTORS`, `HIP_ABDUCTORS`, `TRAPS` and `NECK` (21 total) so catalog

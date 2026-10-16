@@ -129,11 +129,12 @@ internal object DefaultExercisesCatalogP7 {
             "Bicycle Crunch",
             setOf(EquipmentTag.BODYWEIGHT),
             setOf(MuscleGroup.ABS),
-            setOf(MuscleGroup.OBLIQUES),
+            setOf(MuscleGroup.OBLIQUES, MuscleGroup.HIP_FLEXORS),
             MovementPattern.CORE,
             involvements = mapOf(
                 MuscleGroup.ABS to 1.0,
-                MuscleGroup.OBLIQUES to 0.5
+                MuscleGroup.OBLIQUES to 0.5,
+                MuscleGroup.HIP_FLEXORS to 0.5
             )
         )
     )

@@ -5,6 +5,13 @@ Paths are relative to the repository root; package shorthand is defined in
 
 ## Fatigue: bounded, session-aware calculation
 
+The 24-group model includes tibialis anterior, serratus anterior and iliopsoas-focused
+hip flexors, each with an explicit 24-hour base half-life (engineering defaults, not
+validated muscle-specific recovery measurements). Existing compound/isolation scales
+apply. Non-null historical snapshots stay unchanged; legacy null-snapshot fatigue still
+falls back to today's catalog and may gain inferred new-muscle fatigue after an upgrade.
+Coverage retains unknown/null rather than using that fallback.
+
 0.8.2 performed coverage is independent: `TrainingCoverageCalculator` consumes
 `CoverageSet` snapshots from `TrainingCoverageRepository`, never `LoggedSet`'s
 catalog fallback. Seven civil days including today, fixed current offset, no

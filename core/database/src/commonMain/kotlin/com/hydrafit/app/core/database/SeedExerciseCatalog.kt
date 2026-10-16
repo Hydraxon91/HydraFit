@@ -47,6 +47,13 @@ class SeedExerciseCatalog(private val database: HydraFitDatabase) {
                     involvements = encodeInvolvements(exercise.effectiveInvolvements),
                     id = exercise.id
                 )
+                MuscleExpansionCompatibility.previousProfiles[exercise.id]?.let { previous ->
+                    database.exerciseQueries.expandCanonicalMuscleInvolvements(
+                        involvements = encodeInvolvements(exercise.effectiveInvolvements),
+                        id = exercise.id,
+                        previousInvolvements = previous.substringAfterLast('|')
+                    )
+                }
             }
         }
     }

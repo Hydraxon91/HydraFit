@@ -47,6 +47,46 @@ import kotlinx.coroutines.test.runTest
 class SqlDelightWorkoutScheduleRepositoryTest {
 
     @Test
+    fun muscleExpansionSeedingPreservesFrozenActivationAndOccurrenceProfiles() = runTest {
+        SeedExerciseCatalog(database).seed()
+        val seeds = SqlDelightExerciseCatalog(database).all().associateBy { it.id }
+        val original = activation()
+        val workout = original.workouts.first()
+        val prototype = workout.entries.single()
+        val profiles = MuscleExpansionCompatibility.previousProfiles
+        val entries = profiles.entries.mapIndexed { index, old ->
+            val seed = seeds.getValue(old.key)
+            driver.execute(null, "UPDATE exercise SET involvements = ? WHERE id = ?", 2) {
+                bindString(0, old.value.substringAfterLast('|'))
+                bindString(1, old.key)
+            }
+            prototype.copy(
+                position = index,
+                exerciseId = seed.id,
+                exerciseName = seed.name,
+                movementPattern = seed.movementPattern,
+                requiredEquipment = seed.requiredEquipment,
+                involvements = decodeInvolvements(old.value.substringAfterLast('|')),
+                isUnilateral = seed.isUnilateral,
+                weightKg = null,
+                loadCapability = seed.loadCapability,
+                loadKind = WorkoutLoadPolicy.defaultKind(seed.loadCapability)
+            )
+        }
+        val frozen = original.copy(workouts = listOf(workout.copy(entries = entries)))
+        val id = repository.acceptAndActivate(null, frozen, listOf(null), false)
+        val master = repository.getActivation(id)
+        val occurrences = repository.occurrences(id)
+        val backup = SqlDelightBackupRepository(database, SqlDelightBackupCatalog())
+        val before = backup.export("test", 1L)
+        SeedExerciseCatalog(database).seed()
+        SeedExerciseCatalog(database).seed()
+        assertEquals(master, repository.getActivation(id))
+        assertEquals(occurrences, repository.occurrences(id))
+        assertEquals(before, backup.export("test", 1L))
+    }
+
+    @Test
     fun replacementIsAtomicAndPreservesMasterFutureOccurrenceAndEntryIdentity() = runTest {
         SeedExerciseCatalog(database).seed()
         val id = repository.acceptAndActivate(null, activation(), listOf(null, null), false)

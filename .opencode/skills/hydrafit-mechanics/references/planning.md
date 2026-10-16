@@ -5,6 +5,11 @@ Paths are relative to the repository root; package shorthand is defined in
 
 ## Planner inputs and weight semantics
 
+Tibialis anterior, serratus anterior and iliopsoas-focused hip flexors participate
+in the existing weekly-volume/deficit and fatigue ranking, with the same heuristic
+volume windows as other targetable groups. Only the existing `TRAPS` exclusion remains.
+Tibialis currently has no seeded training source; a custom mapping can supply candidates.
+
 Equipment availability and ceilings come from one active-profile snapshot. The profile/revision
 context travels through `WorkoutPlanSources` and `WorkoutPlanInputs`, not historical prescriptions.
 SplitBuilder preserves the displayed plan when that context changes and enables explicit

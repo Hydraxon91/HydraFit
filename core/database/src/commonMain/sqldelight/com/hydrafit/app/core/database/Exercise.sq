@@ -48,6 +48,11 @@ UPDATE exercise SET isUnilateral = ? WHERE id = ?;
 updateInvolvements:
 UPDATE exercise SET involvements = ? WHERE id = ? AND involvements IS NULL;
 
+-- Only recognized app-owned profiles change; overrides, customs and unknown maps stay intact.
+expandCanonicalMuscleInvolvements:
+UPDATE exercise SET involvements = ?
+WHERE id = ? AND isCustom = 0 AND involvements = :previousInvolvements;
+
 deleteById:
 DELETE FROM exercise WHERE id = ? AND isCustom = 1;
 

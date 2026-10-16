@@ -463,6 +463,10 @@ existing on-device data, not a clean v0.2.2-artifact install.
 
 ### R3-10 rendering
 
+Current-model note (2026-10-16): the muscle set is now 24 groups after adding tibialis
+anterior, serratus anterior and hip flexors. The 21-group observations below describe
+the original 0.2.3 run, not visual acceptance or performance measurements of the expanded set.
+
 All 21-group heatmap labels render without truncation at the default emulator size;
 screenshots captured during the run. The legacy-fraction plausibility host harness was
 not run in this session.
@@ -473,4 +477,3 @@ not run in this session.
   benchmark/instrumented harness that does not exist in the repo.
 - A physical-device or Macrobenchmark frame-timing baseline is still outstanding.
 - On-device engine flakiness (documented above) remains a separate diagnostic.
-

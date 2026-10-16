@@ -43,16 +43,34 @@ internal object DefaultExercises {
             "Push-up",
             emptySet(),
             setOf(MuscleGroup.CHEST_UPPER, MuscleGroup.CHEST_LOWER),
-            setOf(MuscleGroup.TRICEPS, MuscleGroup.FRONT_DELTS, MuscleGroup.ABS),
-            MovementPattern.HORIZONTAL_PUSH
+            setOf(
+                MuscleGroup.TRICEPS,
+                MuscleGroup.FRONT_DELTS,
+                MuscleGroup.ABS,
+                MuscleGroup.SERRATUS_ANTERIOR
+            ),
+            MovementPattern.HORIZONTAL_PUSH,
+            involvements = mapOf(
+                MuscleGroup.CHEST_UPPER to 1.0,
+                MuscleGroup.CHEST_LOWER to 1.0,
+                MuscleGroup.TRICEPS to 0.5,
+                MuscleGroup.FRONT_DELTS to 0.5,
+                MuscleGroup.ABS to 0.5,
+                MuscleGroup.SERRATUS_ANTERIOR to 0.5
+            )
         ),
         ex(
             "incline-push-up",
             "Incline Push-up",
             emptySet(),
             setOf(MuscleGroup.CHEST_UPPER),
-            setOf(MuscleGroup.TRICEPS),
-            MovementPattern.HORIZONTAL_PUSH
+            setOf(MuscleGroup.TRICEPS, MuscleGroup.SERRATUS_ANTERIOR),
+            MovementPattern.HORIZONTAL_PUSH,
+            involvements = mapOf(
+                MuscleGroup.CHEST_UPPER to 1.0,
+                MuscleGroup.TRICEPS to 0.5,
+                MuscleGroup.SERRATUS_ANTERIOR to 0.3
+            )
         ),
         ex(
             "cable-fly",
@@ -373,9 +391,14 @@ internal object DefaultExercises {
             "hanging-leg-raise",
             "Hanging Leg Raise",
             setOf(EquipmentTag.PULL_UP_BAR, EquipmentTag.BODYWEIGHT),
-            setOf(MuscleGroup.ABS),
+            setOf(MuscleGroup.ABS, MuscleGroup.HIP_FLEXORS),
             setOf(MuscleGroup.OBLIQUES),
-            MovementPattern.CORE
+            MovementPattern.CORE,
+            involvements = mapOf(
+                MuscleGroup.ABS to 1.0,
+                MuscleGroup.OBLIQUES to 0.5,
+                MuscleGroup.HIP_FLEXORS to 0.7
+            )
         ),
         ex(
             "cable-crunch",

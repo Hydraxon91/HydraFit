@@ -8,7 +8,8 @@ Paths are relative to the repository root; package shorthand is defined in
 The database encodes involvements as comma-separated `MUSCLE:weight` pairs,
 for example `CHEST_UPPER:0.7,CHEST_LOWER:0.7,TRICEPS:0.5`.
 `ExerciseEncoding.kt` owns encoding and decoding; encoding sorts by muscle name.
-`MuscleGroup` has 21 groups (`ADDUCTORS`, `HIP_ABDUCTORS`, `TRAPS`, `NECK` added
+`MuscleGroup` has 24 groups (`TIBIALIS_ANTERIOR`, `SERRATUS_ANTERIOR`, `HIP_FLEXORS`
+added 2026-10-16; `ADDUCTORS`, `HIP_ABDUCTORS`, `TRAPS`, `NECK` added
 2026-10-06; `TRAPS` is excluded from planner volume-deficit targeting and must not
 double-count with `UPPER_BACK`); `decodeInvolvements` expands legacy broad names
 (`CHEST`/`BACK`/`SHOULDERS`/`CORE`) on read, so historical rows keep contributing.
@@ -29,8 +30,15 @@ merged by weight, then reps, then timestamp; the custom override and row are rem
 legacy catalog identities. CAT-P7 seed IDs and the clarified/new calf IDs (`standing-calf-raise`,
 `standing-calf-raise-machine`) are excluded from startup name dedupe so a pre-existing same-name
 custom and its references remain intact.
-The 21-group set and the muscle-split mechanism are recorded in PLANS.md and
+The current set and the muscle-split mechanism are recorded in
 `docs/exercise-catalog-sources.md`.
+
+`MuscleExpansionCompatibility` pins the 12 exact pre-expansion seed profiles.
+`SeedExerciseCatalog` upgrades recognized old built-in maps transactionally and idempotently,
+without changing customs, overrides, non-null logged snapshots or frozen prescriptions.
+The approved serratus/iliopsoas-focused hip-flexor additions are listed in catalog sources;
+all old weights stay intact. Tibialis has no seeded source here (use a custom mapping);
+do not assign it to calf raises or reinterpret backward `leg-lift` as hip-flexor work.
 
 CAT-02 v1 separates matching from Save identity. Domain `equipment/CatalogExerciseProfile.kt`
 defines `CatalogExerciseProfile` and its five-group `ExerciseProfile`; `CatalogProfileMatcher.kt`

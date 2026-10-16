@@ -6,6 +6,13 @@ Paths are relative to the repository root; package shorthand is defined in
 Schema directory:
 `core/database/src/commonMain/sqldelight/com/hydrafit/app/core/database/`.
 
+Three-muscle expansion is query-only: `expandCanonicalMuscleInvolvements` in
+`Exercise.sq` matches built-in IDs plus exact old encoded maps from
+`MuscleExpansionCompatibility`. Seeding invokes it inside the existing transaction;
+custom rows, unrecognized maps, overrides and recorded/frozen records are not rewritten.
+No table/column change or migration is involved. New log writes retain the existing
+effective-map snapshot path; coverage reads snapshots only.
+
 0.7.4 calf clarification adds a query-only `Exercise.sq` label repair, called in the seed
 transaction before effective search projections are refreshed. Only the exact old built-in
 `standing-calf-raise` label becomes **Dumbbell Calf Raise**; its ID/equipment/load and all overrides

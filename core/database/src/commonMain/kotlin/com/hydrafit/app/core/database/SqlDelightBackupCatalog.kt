@@ -32,7 +32,7 @@ class SqlDelightBackupCatalog : BackupCatalog {
             "CABLE_MACHINE|HINGE|false|EXTERNAL|" +
                 "FOREARMS:0.3,GLUTES:0.5,HAMSTRINGS:0.5,LOWER_BACK:0.3,QUADS:1.0"
         )
-    )
+    ) + MuscleExpansionCompatibility.previousProfiles.mapValues { (_, profile) -> setOf(profile) }
 
     /**
      * Everything about a seed that affects planning or fatigue: equipment, pattern, laterality and

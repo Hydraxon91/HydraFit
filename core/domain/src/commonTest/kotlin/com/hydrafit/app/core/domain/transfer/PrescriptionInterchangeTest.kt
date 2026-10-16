@@ -135,6 +135,30 @@ class PrescriptionInterchangeTest {
     }
 
     @Test
+    fun expandedMusclesRoundTripInCustomPrescriptionsAndUnknownTokensStillFail() = runBlocking {
+        val original = ExportPrescriptionsUseCase(repository(), catalog)(listOf(7L), false, "t", 1L)
+        val muscles = mapOf(
+            "TIBIALIS_ANTERIOR" to 1.0,
+            "SERRATUS_ANTERIOR" to 0.5,
+            "HIP_FLEXORS" to 0.7
+        )
+        val document = original.copy(
+            customExercises = original.customExercises.map { it.copy(involvements = muscles) }
+        )
+        PrescriptionValidator.validate(document)
+        assertEquals(document, PrescriptionJson.decode(PrescriptionJson.encode(document)))
+        val invalid = document.copy(
+            customExercises = document.customExercises.map {
+                it.copy(involvements = muscles + ("UNKNOWN_MUSCLE" to 1.0))
+            }
+        )
+        val failure = assertFailsWith<PrescriptionException> {
+            PrescriptionValidator.validate(invalid)
+        }
+        assertEquals(PrescriptionFailure.INVALID_VALUE, failure.failure)
+    }
+
+    @Test
     fun rejectsAMissingSectionAnUnknownVersionAndAMalformedBody() {
         val document = PrescriptionDocument(
             format = PRESCRIPTION_FORMAT,

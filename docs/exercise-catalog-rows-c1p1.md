@@ -4,6 +4,12 @@ Status: **repaired draft (2026-10-06), implemented in CAT-P2/P3/P4** (112 rows s
 
 ## What changed in the repair
 
+Current-profile note (2026-10-16): the later three-muscle expansion adds modeled
+serratus/hip-flexor contributions to eight of these existing rows without changing
+their identities or previous weights. The exact additions and upgrade policy are in
+[catalog sources](exercise-catalog-sources.md#three-muscle-expansion--2026-10-16).
+The original research rows below retain their original evidence context.
+
 - **Equipment is taken from each cited `free-exercise-db` row**, not inferred: `requiredEquipment` is the dataset's `equipment` mapped to a HydraFit `EquipmentTag`, or the row is dropped if it does not map. Machine-specific tags are assigned only where the row's name identifies the machine.
 - **Identity dedupe by movement, not slug:** candidates whose normalized name matches an existing seed id are excluded, and a manual alias list drops same-movement renames (e.g. `Barbell Squat` → seed `back-squat`, `Barbell Deadlift` → `conventional-deadlift`).
 - **New muscle groups used:** `ADDUCTORS`, `HIP_ABDUCTORS`, `TRAPS`, `NECK` (added 2026-10-06) replace the earlier folds into `GLUTES`/`UPPER_BACK`. Trapezius follows the `TRAPS`/`UPPER_BACK` boundary rule.

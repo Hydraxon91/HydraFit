@@ -122,13 +122,16 @@ import hydrafit.feature.equipment.generated.resources.muscle_front_delts
 import hydrafit.feature.equipment.generated.resources.muscle_glutes
 import hydrafit.feature.equipment.generated.resources.muscle_hamstrings
 import hydrafit.feature.equipment.generated.resources.muscle_hip_abductors
+import hydrafit.feature.equipment.generated.resources.muscle_hip_flexors
 import hydrafit.feature.equipment.generated.resources.muscle_lats
 import hydrafit.feature.equipment.generated.resources.muscle_lower_back
 import hydrafit.feature.equipment.generated.resources.muscle_neck
 import hydrafit.feature.equipment.generated.resources.muscle_obliques
 import hydrafit.feature.equipment.generated.resources.muscle_quads
 import hydrafit.feature.equipment.generated.resources.muscle_rear_delts
+import hydrafit.feature.equipment.generated.resources.muscle_serratus_anterior
 import hydrafit.feature.equipment.generated.resources.muscle_side_delts
+import hydrafit.feature.equipment.generated.resources.muscle_tibialis_anterior
 import hydrafit.feature.equipment.generated.resources.muscle_traps
 import hydrafit.feature.equipment.generated.resources.muscle_triceps
 import hydrafit.feature.equipment.generated.resources.muscle_upper_back
@@ -1188,6 +1191,9 @@ internal fun MuscleGroup.labelResource(): StringResource = when (this) {
     MuscleGroup.HIP_ABDUCTORS -> Res.string.muscle_hip_abductors
     MuscleGroup.TRAPS -> Res.string.muscle_traps
     MuscleGroup.NECK -> Res.string.muscle_neck
+    MuscleGroup.TIBIALIS_ANTERIOR -> Res.string.muscle_tibialis_anterior
+    MuscleGroup.SERRATUS_ANTERIOR -> Res.string.muscle_serratus_anterior
+    MuscleGroup.HIP_FLEXORS -> Res.string.muscle_hip_flexors
 }
 
 internal fun MovementPattern.labelResource(): StringResource = when (this) {

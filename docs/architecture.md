@@ -667,9 +667,17 @@ of profile settings. Parsing and boolean geometry run off-main per model/view, n
 on recovery redraws. Narrow, clipped colour feathers join front/side delts,
 side/rear delts and traps/upper back without changing any muscle's score.
 Numeric descriptions remain separate text semantics, rather than overlapping
-bounding-box overlays that can hide accessibility nodes. All 21 muscle values stay
+bounding-box overlays that can hide accessibility nodes. All 24 muscle values stay
 available, regardless of the visible view. The former polygon geometry remains as
 the legacy schematic reference; it is no longer the renderer.
+
+The three-muscle expansion maps source `tibialis`, `serratus` and `hipFlexors` paths
+to tibialis anterior, serratus anterior and iliopsoas-focused hip flexors in both front
+models; no rear regions are invented. Left/right pieces share the muscle score. Hip-flexor
+artwork is a surface proxy for deep anatomy, not a literal visible iliopsoas outline.
+All three participate in fatigue, soreness, coverage and planner deficits. Existing seed
+contributions are upgraded only for exact old built-in maps, with overrides and recorded
+snapshots preserved; see [catalog compatibility](exercise-catalog-sources.md#three-muscle-expansion--2026-10-16).
 
 The artwork is schematic, not measured anatomical segmentation: back shoulder caps
 split outer 35% to side delts; rhomboid shapes split outer 55% to upper back and

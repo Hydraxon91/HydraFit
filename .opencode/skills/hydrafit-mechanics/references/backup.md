@@ -61,11 +61,14 @@ validator, the limits and the export/preview/stage/apply use cases (bound in
 rejected as malformed rather than read as empty. The manifest carries a per-seed
 profile; validation rejects a seed the receiver does not know or whose profile changed
 under the same id (`CATALOG_MISMATCH`), while extra receiver-only seeds are allowed.
-The only profile exceptions are the exact pre-0.8.1 upright-barbell-row and
-cable-deadlifts strings exposed by `BackupCatalog.compatiblePreviousSeedProfiles`.
+Profile exceptions are the exact pre-0.8.1 upright-barbell-row/cable-deadlifts strings
+and the 12 pre-three-muscle-expansion profiles pinned in `MuscleExpansionCompatibility`,
+exposed by `BackupCatalog.compatiblePreviousSeedProfiles`.
 No arbitrary pattern/weight mismatch is accepted. Restore preserves imported snapshots,
 overrides and frozen prescriptions; exports carry current canonical profiles. The
 classification compatibility change does not alter the file format or imported text.
+The three new muscle tokens are supported in backup format 16 and prescription format 1;
+older readers need not accept them. Unknown tokens remain errors, never silently dropped.
 `BackupLimits` (32 MiB, depth 32, 64 KiB per string, 250k records) is enforced before
 decode and after encode, and `AndroidBackupFileStore` reads at most the byte cap.
 `SqlDelightBackupRepository` (`:core:database`) reads every section in one transaction

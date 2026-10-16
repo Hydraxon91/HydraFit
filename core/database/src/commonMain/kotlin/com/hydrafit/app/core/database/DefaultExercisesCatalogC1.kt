@@ -73,6 +73,7 @@ internal object DefaultExercisesCatalogC1 {
             setOf(EquipmentTag.BODYWEIGHT),
             setOf(MuscleGroup.CHEST_UPPER),
             setOf(
+                MuscleGroup.SERRATUS_ANTERIOR,
                 MuscleGroup.ABS,
                 MuscleGroup.FRONT_DELTS,
                 MuscleGroup.SIDE_DELTS,
@@ -80,6 +81,7 @@ internal object DefaultExercisesCatalogC1 {
             ),
             MovementPattern.HORIZONTAL_PUSH,
             involvements = mapOf(
+                MuscleGroup.SERRATUS_ANTERIOR to 0.3,
                 MuscleGroup.ABS to 0.3,
                 MuscleGroup.CHEST_UPPER to 0.7,
                 MuscleGroup.FRONT_DELTS to 0.5,
@@ -93,6 +95,7 @@ internal object DefaultExercisesCatalogC1 {
             setOf(EquipmentTag.BODYWEIGHT),
             setOf(MuscleGroup.CHEST_UPPER),
             setOf(
+                MuscleGroup.SERRATUS_ANTERIOR,
                 MuscleGroup.ABS,
                 MuscleGroup.FRONT_DELTS,
                 MuscleGroup.SIDE_DELTS,
@@ -100,6 +103,7 @@ internal object DefaultExercisesCatalogC1 {
             ),
             MovementPattern.HORIZONTAL_PUSH,
             involvements = mapOf(
+                MuscleGroup.SERRATUS_ANTERIOR to 0.3,
                 MuscleGroup.ABS to 0.3,
                 MuscleGroup.CHEST_UPPER to 0.7,
                 MuscleGroup.FRONT_DELTS to 0.5,
@@ -112,9 +116,15 @@ internal object DefaultExercisesCatalogC1 {
             "Push Up to Side Plank",
             setOf(EquipmentTag.BODYWEIGHT),
             setOf(MuscleGroup.CHEST_LOWER, MuscleGroup.CHEST_UPPER),
-            setOf(MuscleGroup.ABS, MuscleGroup.SIDE_DELTS, MuscleGroup.TRICEPS),
+            setOf(
+                MuscleGroup.ABS,
+                MuscleGroup.SIDE_DELTS,
+                MuscleGroup.TRICEPS,
+                MuscleGroup.SERRATUS_ANTERIOR
+            ),
             MovementPattern.HORIZONTAL_PUSH,
             involvements = mapOf(
+                MuscleGroup.SERRATUS_ANTERIOR to 0.5,
                 MuscleGroup.ABS to 0.3,
                 MuscleGroup.CHEST_LOWER to 0.7,
                 MuscleGroup.CHEST_UPPER to 0.7,
@@ -128,6 +138,7 @@ internal object DefaultExercisesCatalogC1 {
             setOf(EquipmentTag.BODYWEIGHT),
             setOf(MuscleGroup.CHEST_LOWER, MuscleGroup.CHEST_UPPER),
             setOf(
+                MuscleGroup.SERRATUS_ANTERIOR,
                 MuscleGroup.ABS,
                 MuscleGroup.FRONT_DELTS,
                 MuscleGroup.SIDE_DELTS,
@@ -135,6 +146,7 @@ internal object DefaultExercisesCatalogC1 {
             ),
             MovementPattern.HORIZONTAL_PUSH,
             involvements = mapOf(
+                MuscleGroup.SERRATUS_ANTERIOR to 0.5,
                 MuscleGroup.ABS to 0.3,
                 MuscleGroup.CHEST_LOWER to 0.7,
                 MuscleGroup.CHEST_UPPER to 0.7,
@@ -148,10 +160,16 @@ internal object DefaultExercisesCatalogC1 {
             "Single-Arm Push-Up",
             setOf(EquipmentTag.BODYWEIGHT),
             setOf(MuscleGroup.CHEST_LOWER, MuscleGroup.CHEST_UPPER),
-            setOf(MuscleGroup.FRONT_DELTS, MuscleGroup.SIDE_DELTS, MuscleGroup.TRICEPS),
+            setOf(
+                MuscleGroup.FRONT_DELTS,
+                MuscleGroup.SIDE_DELTS,
+                MuscleGroup.TRICEPS,
+                MuscleGroup.SERRATUS_ANTERIOR
+            ),
             MovementPattern.HORIZONTAL_PUSH,
             isUnilateral = true,
             involvements = mapOf(
+                MuscleGroup.SERRATUS_ANTERIOR to 0.5,
                 MuscleGroup.CHEST_LOWER to 0.7,
                 MuscleGroup.CHEST_UPPER to 0.7,
                 MuscleGroup.FRONT_DELTS to 0.5,
@@ -969,10 +987,11 @@ internal object DefaultExercisesCatalogC1 {
             "Step-up with Knee Raise",
             setOf(EquipmentTag.BODYWEIGHT),
             setOf(MuscleGroup.GLUTES),
-            setOf(MuscleGroup.HAMSTRINGS, MuscleGroup.QUADS),
+            setOf(MuscleGroup.HAMSTRINGS, MuscleGroup.QUADS, MuscleGroup.HIP_FLEXORS),
             MovementPattern.LUNGE,
             isUnilateral = true,
             involvements = mapOf(
+                MuscleGroup.HIP_FLEXORS to 0.3,
                 MuscleGroup.GLUTES to 1.0,
                 MuscleGroup.HAMSTRINGS to 0.5,
                 MuscleGroup.QUADS to 0.5
@@ -1578,11 +1597,12 @@ internal object DefaultExercisesCatalogC1 {
             "scissor-kick",
             "Scissor Kick",
             setOf(EquipmentTag.BODYWEIGHT),
-            setOf(MuscleGroup.ABS),
+            setOf(MuscleGroup.ABS, MuscleGroup.HIP_FLEXORS),
             emptySet(),
             MovementPattern.CORE,
             involvements = mapOf(
-                MuscleGroup.ABS to 1.0
+                MuscleGroup.ABS to 1.0,
+                MuscleGroup.HIP_FLEXORS to 0.7
             )
         ),
         ex(
@@ -1590,10 +1610,11 @@ internal object DefaultExercisesCatalogC1 {
             "Sit-Up",
             setOf(EquipmentTag.BODYWEIGHT),
             setOf(MuscleGroup.ABS),
-            emptySet(),
+            setOf(MuscleGroup.HIP_FLEXORS),
             MovementPattern.CORE,
             involvements = mapOf(
-                MuscleGroup.ABS to 1.0
+                MuscleGroup.ABS to 1.0,
+                MuscleGroup.HIP_FLEXORS to 0.5
             )
         ),
         ex(

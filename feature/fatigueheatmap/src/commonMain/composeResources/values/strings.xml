@@ -25,6 +25,9 @@
     <string name="muscle_hip_abductors">Hip abductors</string>
     <string name="muscle_traps">Traps</string>
     <string name="muscle_neck">Neck</string>
+    <string name="muscle_tibialis_anterior">Tibialis anterior</string>
+    <string name="muscle_serratus_anterior">Serratus anterior</string>
+    <string name="muscle_hip_flexors">Hip flexors</string>
     <string name="fatigue_map_front">Front</string>
     <string name="fatigue_map_back">Back</string>
     <string name="fatigue_map_male">Male</string>

@@ -210,7 +210,11 @@ class DefaultExercisesDataQualityTest {
             "bicycle-crunch" to p7(
                 setOf(EquipmentTag.BODYWEIGHT),
                 MovementPattern.CORE,
-                mapOf(MuscleGroup.ABS to 1.0, MuscleGroup.OBLIQUES to 0.5),
+                mapOf(
+                    MuscleGroup.ABS to 1.0,
+                    MuscleGroup.OBLIQUES to 0.5,
+                    MuscleGroup.HIP_FLEXORS to 0.5
+                ),
                 loadCapability = ExerciseLoadCapability.BODYWEIGHT_ONLY
             )
         )

@@ -79,6 +79,9 @@ internal fun artworkMuscle(slug: String): MuscleGroup? = when (slug) {
     "adductors" -> MuscleGroup.ADDUCTORS
     "hipAbductors" -> MuscleGroup.HIP_ABDUCTORS
     "neck" -> MuscleGroup.NECK
+    "tibialis" -> MuscleGroup.TIBIALIS_ANTERIOR
+    "serratus" -> MuscleGroup.SERRATUS_ANTERIOR
+    "hipFlexors" -> MuscleGroup.HIP_FLEXORS
     else -> null
 }
 
@@ -91,10 +94,8 @@ internal val artworkDecorativeSlugs = setOf(
     "lowerAbs",
     "innerQuad",
     "outerQuad",
-    "hipFlexors",
     "upperTrapezius",
-    "lowerTrapezius",
-    "serratus"
+    "lowerTrapezius"
 )
 
 /** The outer head belongs to side delts; this is an approved schematic split, not a measurement. */

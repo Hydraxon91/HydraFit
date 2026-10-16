@@ -14,6 +14,28 @@ class FatigueCalculatorTest {
     private val calculator = FatigueCalculator()
 
     @Test
+    fun expandedMusclesHaveIndependentStimulusAndGenericRecovery() {
+        val expanded = listOf(
+            MuscleGroup.TIBIALIS_ANTERIOR,
+            MuscleGroup.SERRATUS_ANTERIOR,
+            MuscleGroup.HIP_FLEXORS
+        )
+        expanded.forEach { muscle ->
+            val sets = listOf(LoggedSet(T0, listOf(MuscleTarget(muscle, 1.0))))
+            val initial = calculator.calculate(sets, T0)
+            val recovered = calculator.calculate(sets, T0 + 24 * HOUR_MILLIS)
+            assertEquals(24.hours, FatigueConfig.DEFAULT_HALF_LIVES.getValue(muscle))
+            assertTrue(initial.getValue(muscle) > 0.0)
+            assertEquals(initial.getValue(muscle) / 2, recovered.getValue(muscle), TOLERANCE)
+            assertTrue(initial.filterKeys { it != muscle }.values.all { it == 0.0 })
+            assertTrue(
+                calculator.calculate(sets.map { it.copy(isWarmup = true) }, T0)
+                    .values.all { it == 0.0 }
+            )
+        }
+    }
+
+    @Test
     fun noSetsYieldsZeroForEveryMuscleGroup() {
         val scores = calculator.calculate(emptyList(), nowMillis = T0)
 

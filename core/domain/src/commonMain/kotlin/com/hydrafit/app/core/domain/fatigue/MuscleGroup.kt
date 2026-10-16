@@ -21,5 +21,8 @@ enum class MuscleGroup {
     ADDUCTORS,
     HIP_ABDUCTORS,
     TRAPS,
-    NECK
+    NECK,
+    TIBIALIS_ANTERIOR,
+    SERRATUS_ANTERIOR,
+    HIP_FLEXORS
 }

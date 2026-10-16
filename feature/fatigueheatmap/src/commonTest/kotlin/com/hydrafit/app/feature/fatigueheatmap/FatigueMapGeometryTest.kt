@@ -60,10 +60,16 @@ class FatigueMapGeometryTest {
     }
 
     @Test
-    fun unionOfBothViewsIsEveryMuscleGroup() {
+    fun retiredSchematicRetainsItsOriginalMuscleSet() {
         val union = (frontViewRegions + backViewRegions).map { it.muscle }.toSet()
-        assertEquals(MuscleGroup.entries.toSet(), union)
-        assertEquals(MuscleGroup.entries.size, union.size)
+        // Production artwork coverage is enforced separately by FinalArtworkCoverageTest.
+        val anatomicalOnly = setOf(
+            MuscleGroup.TIBIALIS_ANTERIOR,
+            MuscleGroup.SERRATUS_ANTERIOR,
+            MuscleGroup.HIP_FLEXORS
+        )
+        assertEquals(MuscleGroup.entries.toSet() - anatomicalOnly, union)
+        assertEquals(21, union.size)
     }
 
     @Test
