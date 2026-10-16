@@ -22,8 +22,31 @@ class ExportPrescriptionsUseCase(
         includeWeights: Boolean,
         appVersion: String,
         exportedAtMillis: Long
+    ): PrescriptionDocument = build(
+        templates = routineIds.distinct().mapNotNull { routines.get(it) },
+        includeWeights = includeWeights,
+        appVersion = appVersion,
+        exportedAtMillis = exportedAtMillis
+    )
+
+    /**
+     * Exports an in-memory routine (for example the plan currently on screen) without saving it.
+     * Nothing is persisted and no identity is minted, so sharing a displayed plan cannot create or
+     * modify a stored routine.
+     */
+    suspend fun document(
+        templates: List<RoutineTemplate>,
+        includeWeights: Boolean,
+        appVersion: String,
+        exportedAtMillis: Long
+    ): PrescriptionDocument = build(templates, includeWeights, appVersion, exportedAtMillis)
+
+    private suspend fun build(
+        templates: List<RoutineTemplate>,
+        includeWeights: Boolean,
+        appVersion: String,
+        exportedAtMillis: Long
     ): PrescriptionDocument {
-        val templates = routineIds.distinct().mapNotNull { routines.get(it) }
         val exercises = catalog.all().associateBy { it.id }
         val referenced = templates.flatMap { template ->
             template.workouts.flatMap { workout -> workout.entries.map { it.exerciseId } }
