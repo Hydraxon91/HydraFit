@@ -59,7 +59,9 @@ object MovementPatternGuardrail {
             MuscleGroup.QUADS,
             MuscleGroup.HAMSTRINGS,
             MuscleGroup.GLUTES,
-            MuscleGroup.ADDUCTORS
+            MuscleGroup.ADDUCTORS,
+            MuscleGroup.TIBIALIS_ANTERIOR,
+            MuscleGroup.HIP_FLEXORS
         )
         MovementPattern.CALF_RAISE -> setOf(MuscleGroup.CALVES)
         MovementPattern.CORE -> setOf(MuscleGroup.ABS, MuscleGroup.OBLIQUES)

@@ -106,6 +106,11 @@ as identified by the upstream
 [Leg Lift record](https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Lift.json).
 No new seeds, blanket press/core assignments or neck/traps changes are included.
 
+The `LEG_ISOLATION` movement-pattern advisory (`MovementPatternGuardrail`) also accepts
+`TIBIALIS_ANTERIOR` and `HIP_FLEXORS` as expected primary targets, so a tibialis- or hip-flexor-led
+custom leg isolation no longer shows the pattern-mismatch warning; a profile with no expected leg
+group at or above the 0.7 primary threshold still warns.
+
 `MuscleExpansionCompatibility` pins exact old profiles. Startup transactionally upgrades
 only the 12 recognized built-in ID/old-map pairs, idempotently. Unrecognized maps,
 customs and overrides (including explicitly empty maps) are preserved. Non-null logged
