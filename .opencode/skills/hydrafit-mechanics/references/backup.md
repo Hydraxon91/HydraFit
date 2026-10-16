@@ -160,8 +160,9 @@ prints as a number. `ExportPrescriptionPdfUseCase` has the same two entry points
 `ExportPrescriptionsUseCase` (stored routine ids, or an in-memory routine list) so printing the
 displayed plan reads no stored routine. The Android adapter renders with
 `android.graphics.pdf.PdfDocument` (A4-ish 595×842, 40 pt margin, `close()` in `finally`) and is itself
-the `PrescriptionLineWrapper`: it measures real text at the body size and starts a new PDF page if a
-line would pass the bottom margin, so a page cannot overflow. `AndroidPrescriptionDocumentStore` writes
+the `PrescriptionLineWrapper`: it measures real text at the size that line is drawn at and starts a new
+PDF page if a line would pass the bottom margin, so a page cannot overflow.
+`AndroidPrescriptionDocumentStore` writes
 the bytes over the Storage Access Framework with a 4 MiB cap; iOS binds
 `UnsupportedPrescriptionPdfRenderer`/unsupported document store. `PLAN_PDF_LINES_PER_PAGE` lives in the
 consuming ViewModel because it depends on the renderer's type sizes.
@@ -262,7 +263,10 @@ whose imported session is absent — that is the deleted-history guard, not a da
 Backup format 16 adds `importBuckets` (`source`, `candidateKey`, `content`, `partition`,
 `importedSessionIds`), the bucket/partition ledger. It is gated the same way: a pre-16 file must not
 carry it, and an unknown provider, an empty key/content/partition field, an empty or duplicate session
-id, or two buckets with the same `(source, candidateKey)` fail validation. `recordCount` counts each
+id, or two buckets with the same `(source, candidateKey)` fail validation. The stored `partition` must
+also **decode** as a canonical manifest whose membership covers the bucket exactly once and whose
+session count equals `importedSessionIds`, so a corrupt or hand-edited manifest cannot be restored and
+then reused as if it were the approved split. `recordCount` counts each
 bucket plus each link. `BackupJson` requires each section from its introducing format on while
 ignoring the key for older versions, matching the both-directions gate used by the note sections.
 Read-only device verification of any of this remains pending; `docs/qa.md` records the host and

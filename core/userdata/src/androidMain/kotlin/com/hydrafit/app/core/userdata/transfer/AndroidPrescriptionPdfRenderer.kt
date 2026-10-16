@@ -9,11 +9,11 @@ import java.io.ByteArrayOutputStream
 /**
  * Draws the paginated prescription onto A4-ish pages with [android.graphics.pdf.PdfDocument].
  *
- * It is also the layout's line wrapper: [wrap] measures real text at the body size against the page's
- * text width and never drops content, so an over-long exercise name or a long unbroken token is
- * broken across lines instead of being clipped. [render] additionally starts a new PDF page if a
- * wrapped line would run past the bottom margin, so no page can overflow even if a caller supplies an
- * optimistic line count.
+ * It is also the layout's line wrapper: [wrap] measures real text at the size that line is drawn at
+ * (body, heading or title) against the page's text width and never drops content, so an over-long
+ * exercise name or a long unbroken token is broken across lines instead of being clipped. [render]
+ * additionally starts a new PDF page if a wrapped line would run past the bottom margin, so no page
+ * can overflow even if a caller supplies an optimistic line count.
  */
 class AndroidPrescriptionPdfRenderer : PrescriptionPdfRenderer {
     override val isSupported: Boolean = true
