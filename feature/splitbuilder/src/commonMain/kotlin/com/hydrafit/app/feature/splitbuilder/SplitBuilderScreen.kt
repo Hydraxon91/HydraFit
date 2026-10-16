@@ -162,6 +162,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_loading_progress
 import hydrafit.feature.splitbuilder.generated.resources.split_muscle_biceps
 import hydrafit.feature.splitbuilder.generated.resources.split_muscle_triceps
 import hydrafit.feature.splitbuilder.generated.resources.split_plan_accepted
+import hydrafit.feature.splitbuilder.generated.resources.split_plan_export_unsupported
 import hydrafit.feature.splitbuilder.generated.resources.split_regenerate
 import hydrafit.feature.splitbuilder.generated.resources.split_retry
 import hydrafit.feature.splitbuilder.generated.resources.split_review_equipment
@@ -230,10 +231,12 @@ fun NavGraphBuilder.splitBuilderGraph() {
 @Composable
 fun SplitBuilderRoute(
     modifier: Modifier = Modifier,
-    viewModel: SplitBuilderViewModel = koinViewModel()
+    viewModel: SplitBuilderViewModel = koinViewModel(),
+    exportViewModel: PlanExportViewModel = koinViewModel()
 ) {
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshContext() }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val exportState by exportViewModel.state.collectAsStateWithLifecycle()
     val weightUnit by koinInject<WeightUnitRepository>().unitFlow()
         .collectAsStateWithLifecycle(initialValue = WeightUnit.KG)
     val planProgress by koinInject<OnDevicePlanProgressReporter>().progress
@@ -244,6 +247,10 @@ fun SplitBuilderRoute(
     val savedMessage = stringResource(Res.string.split_routine_saved)
     val viewRoutinesAction = stringResource(Res.string.split_routine_saved_view)
     val generatedRoutineName = stringResource(Res.string.split_generated_routine_name)
+    val planExportName = "$generatedRoutineName " + isoLocalDateTime(
+        timeProvider.nowMillis(),
+        timeProvider.utcOffsetMillis()
+    )
     LaunchedEffect(state.routineSaved) {
         if (state.routineSaved) {
             val result = snackbarHostState.showSnackbar(
@@ -266,14 +273,7 @@ fun SplitBuilderRoute(
             onAccessorySetsPerExerciseChanged = viewModel::onAccessorySetsPerExerciseChanged,
             onAcceptPlan = viewModel::onAcceptPlan,
             onSchedulePlan = viewModel::onScheduleRequested,
-            onSaveAsRoutine = {
-                viewModel.onSaveAsRoutine(
-                    "$generatedRoutineName " + isoLocalDateTime(
-                        timeProvider.nowMillis(),
-                        timeProvider.utcOffsetMillis()
-                    )
-                )
-            },
+            onSaveAsRoutine = { viewModel.onSaveAsRoutine(planExportName) },
             onRegenerate = viewModel::refresh,
             onViewAcceptedPlan = viewModel::onViewAcceptedPlan,
             onDeletePlan = viewModel::onDeletePlan,
@@ -282,6 +282,15 @@ fun SplitBuilderRoute(
             onSwapDialogDismissed = viewModel::onSwapDialogDismissed,
             onRetry = viewModel::refresh,
             onReviewEquipment = { openTab(AppTab.EQUIPMENT) },
+            exportState = exportState,
+            onExportIncludeWeightsChanged = exportViewModel::onIncludeWeightsChanged,
+            onExportPlanJson = { handle ->
+                state.plan?.let { exportViewModel.exportJson(it, planExportName, handle) }
+            },
+            onExportPlanPdf = { handle ->
+                state.plan?.let { exportViewModel.printPdf(it, planExportName, handle) }
+            },
+            onExportStatusDismissed = exportViewModel::onStatusDismissed,
             modifier = Modifier.fillMaxSize()
         )
         SnackbarHost(
@@ -313,6 +322,11 @@ fun SplitBuilderScreen(
     onSwapDialogDismissed: () -> Unit,
     onRetry: () -> Unit,
     onReviewEquipment: () -> Unit = {},
+    exportState: PlanExportUiState = PlanExportUiState(),
+    onExportIncludeWeightsChanged: (Boolean) -> Unit = {},
+    onExportPlanJson: (String) -> Unit = {},
+    onExportPlanPdf: (String) -> Unit = {},
+    onExportStatusDismissed: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -457,6 +471,21 @@ fun SplitBuilderScreen(
             }
             Button(onClick = onRegenerate, enabled = state.canRegenerate) {
                 Text(stringResource(Res.string.split_regenerate))
+            }
+            if (exportState.jsonSupported) {
+                PlanExportSection(
+                    planAvailable = true,
+                    state = exportState,
+                    onIncludeWeightsChanged = onExportIncludeWeightsChanged,
+                    onExportJson = onExportPlanJson,
+                    onPrintPdf = onExportPlanPdf,
+                    onStatusDismissed = onExportStatusDismissed
+                )
+            } else {
+                Text(
+                    text = stringResource(Res.string.split_plan_export_unsupported),
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
             if (state.usedFallbackEngine) {
                 state.requestedEngine?.let { requested ->

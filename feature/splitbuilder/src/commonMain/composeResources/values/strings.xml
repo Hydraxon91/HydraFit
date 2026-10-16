@@ -135,4 +135,16 @@
     <string name="weekday_friday">Fri</string>
     <string name="weekday_saturday">Sat</string>
     <string name="weekday_sunday">Sun</string>
+
+    <string name="split_plan_export">Export plan</string>
+    <string name="split_plan_export_print">Print / save PDF</string>
+    <string name="split_plan_export_weights">Include prescribed weights</string>
+    <string name="split_plan_export_saved">Plan exported.</string>
+    <string name="split_plan_export_printed">Plan PDF ready.</string>
+    <string name="split_plan_export_dismiss">Dismiss</string>
+    <string name="split_plan_export_pdf_unsupported">PDF export isn’t available on this platform.</string>
+    <string name="split_plan_export_unsupported">Plan export is currently available on Android only.</string>
+    <string name="split_plan_export_error_too_large">That plan is too large to export.</string>
+    <string name="split_plan_export_error_over_limit">That plan is too complex to export.</string>
+    <string name="split_plan_export_error_io">Couldn’t write the file. Please try again.</string>
 </resources>
