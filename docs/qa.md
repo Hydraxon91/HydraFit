@@ -2803,6 +2803,36 @@ sessions/3 sets on 2024-06-12), one imported routine, the two fixture CSVs and t
 No app data was cleared, nothing was uninstalled, and no release APK was installed.
 Still unverified: dark mode, larger text, rotation, TalkBack, app locale, and every iOS runtime surface.
 
+## 0.9.2 anatomical body-map publication — 2026-10-16
+
+- **Published.** PR [#22](https://github.com/Hydraxon91/HydraFit/pull/22) (`feature/body-map-design` → `main`)
+  merged as `b66e59ff61b1e16904652cdfd49f4b5b990565ed` at `2026-10-16T17:43:25Z`. PR Build and Test run
+  `38941093176` passed Lint, Unit Tests and Assemble Debug APK, and post-merge main run `38941872330`
+  passed. Annotated tag `v0.9.2` (tag object `ca40ab07…`) points at that merge commit; Release run
+  `38941912167` passed Lint, Unit Tests and Build Signed Release APK (4m47s). One publication, no
+  renumbering: the former `0.9.2` interchange/export scope stayed folded into `v0.9.1`, and only the
+  version label was reassigned to this release.
+- **Release integration matrix, run before the release commits.** `testAndroidHostTest` across 15 modules
+  (254 classes, 2,246 tests, zero failures, errors or skips), `:core:database:verifySqlDelightMigration`,
+  root `ktlintCheck`, `:androidApp:assembleDebug`, `:androidApp:lintVitalRelease` and both the `:shared:`
+  and `:core:network:` `compileKotlinIosSimulatorArm64` compiles — all green (`bm-r092-matrix.log`). §7
+  holds the per-feature records and the recorded limits.
+- **Artifact verified offline, never installed.** `androidApp-release.apk`, 25,150,162 bytes, SHA-256
+  `4e13a456c1642f0d48f338dbd8057cfffce697e403019c7f411353eba5340c12`; `apksigner verify --print-certs`
+  passed (v2 scheme, one signer, certificate SHA-256
+  `af9cd73b3cc6842c7ab3c2f3cd572245826089aee863e9168a761a893c35a7e1`, matching earlier releases);
+  `aapt2 dump badging` (build-tools 36.0.0) reported `versionCode='90200'`, `versionName='0.9.2'` from
+  the tag, and the published body is the user notes from `docs/release-notes/v0.9.2.md`, not GitHub's
+  generated notes. The emulator stayed on the debug build, so signed upgrade and on-device runtime
+  behaviour remain unverified.
+- **Branch removed after merge.** `feature/body-map-design` (tip `3e6838d3`, confirmed an ancestor of
+  `main`) was deleted locally and on `origin`; the work is preserved in `main` and by the tag. The
+  session's worktree returned to `main` at `b66e59ff`.
+- **Carried forward, not accepted as passed.** The deferred UI checks (zero/mid/high value fixtures, dark
+  theme, font scaling, locale, TalkBack traversal, numeric-description scrolling, map-refresh journeys
+  and isolated non-zero colouring of the partitioned shoulder/back and hip regions) and the two
+  coverage-test limits recorded in §7 move to the 0.13.x UX pass (user decision, 2026-10-16).
+
 ## 0.9.1 release publication and the `:shared` Main-dispatcher flake — 2026-10-16
 
 - **Published once, folded.** PR [#21](https://github.com/Hydraxon91/HydraFit/pull/21)
