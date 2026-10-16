@@ -48,6 +48,7 @@
     <string name="progress_table_title">Values for every recorded day</string>
     <string name="progress_table_row">%1$s: %2$d working sets, %3$d reps, external volume %4$s</string>
     <string name="progress_table_row_no_volume">%1$s: %2$d working sets, %3$d reps, no external load-volume</string>
+    <string name="progress_table_duration">Recorded duration: %1$d s</string>
     <string name="progress_body_weight">Body weight</string>
     <string name="bodyweight_add">Add measurement</string>
     <string name="bodyweight_loading">Loading body weight…</string>

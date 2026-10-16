@@ -18,9 +18,11 @@ import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.ProgressDay
 import hydrafit.feature.progress.generated.resources.Res
 import hydrafit.feature.progress.generated.resources.progress_chart_caption
+import hydrafit.feature.progress.generated.resources.progress_table_duration
 import hydrafit.feature.progress.generated.resources.progress_table_row
 import hydrafit.feature.progress.generated.resources.progress_table_row_no_volume
 import hydrafit.feature.progress.generated.resources.progress_table_title
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
 internal const val PROGRESS_MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
@@ -84,6 +86,14 @@ internal fun ProgressVolumeChart(
     }
 }
 
+/**
+ * The duration line for a day's table row, or null when the day recorded no timed work. Recorded
+ * duration is descriptive only: it never feeds a record, progression or estimated one-rep max, and
+ * a day without timed work shows no duration total rather than a misleading zero.
+ */
+internal fun progressDayDurationResource(day: ProgressDay): StringResource? =
+    if (day.totalDurationSeconds > 0L) Res.string.progress_table_duration else null
+
 /** The accessible numeric equivalent of the chart: one row per recorded day, newest first. */
 @Composable
 internal fun ProgressDayTable(
@@ -120,6 +130,13 @@ internal fun ProgressDayTable(
                 },
                 style = MaterialTheme.typography.bodySmall
             )
+            val durationResource = progressDayDurationResource(day)
+            if (durationResource != null) {
+                Text(
+                    text = stringResource(durationResource, day.totalDurationSeconds),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
         }
     }
 }

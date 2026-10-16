@@ -943,6 +943,28 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   and `duration-epri-rerun.log` in the external artifact directory listed above.
   All work remains uncommitted; there is no formal review verdict.
 
+### Timed-set import and progress display — 2026-10-17
+
+- Completes the duration consumers left open by `232ac9cc`. Strong's `Seconds` and Hevy's
+  `duration_seconds` now produce duration-measured rows when reps are absent, so an imported
+  timed set stores seconds with null reps; a row carrying both a positive rep count and positive
+  seconds is rejected as an ambiguous shape rather than guessed, and FitNotes still requires a
+  positive rep count because its export has no duration column. Rep-only rows keep their exact
+  previous canonical dedup identity, so history imported earlier still dedupes.
+- The Settings import preview shows a recorded duration for timed rows instead of a rep count.
+  Exercise Progress adds a per-day recorded-duration total to its accessible numeric day table
+  only when that day actually has timed work, so existing rep and volume text is unchanged.
+- **Passed:** `:core:domain:testAndroidHostTest` (840 tests), `:core:database:testAndroidHostTest`
+  (460), `:feature:settings:testAndroidHostTest` (64), `:feature:progress:testAndroidHostTest`,
+  root `ktlintCheck`, `:androidApp:assembleDebug` and a full `testAndroidHostTest` run
+  (`csv-progress-integration-host.log`, BUILD SUCCESSFUL). The previously intermittent
+  `ExerciseProgressRecordsIntegrationTest` failure did not recur.
+- **Limits:** the resolved localized duration strings are asserted at the resource-selection
+  level, not with a Compose-resource reader, and no emulator journey covered the import preview
+  or the Progress duration line. Timed prescriptions/preparation, informational soreness and
+  exhaustion self-reports, and schedule-aware planning remain unimplemented. Evidence logs are
+  `csv-duration-*.log` and `progress-duration-*.log` in the external artifact directory above.
+
 ### Manual shrug and neck additions — 2026-10-16
 
 - Main-agent implementation on `68e2dc07`: four shrug variants plus Forehead Neck Bridge
