@@ -2686,6 +2686,55 @@ sessions/3 sets on 2024-06-12), one imported routine, the two fixture CSVs and t
 No app data was cleared, nothing was uninstalled, and no release APK was installed.
 Still unverified: dark mode, larger text, rotation, TalkBack, app locale, and every iOS runtime surface.
 
+## 0.9.1 release publication and the `:shared` Main-dispatcher flake — 2026-10-16
+
+- **Published once, folded.** PR [#21](https://github.com/Hydraxon91/HydraFit/pull/21)
+  (`feature/0.9.1-data-freedom` → `main`) carried both scopes; PR Build and Test run `38902496751`
+  passed Lint (1m07s), Unit Tests (2m56s) and Assemble Debug APK (2m32s); merged as
+  `cc703db4b1feaf484884919056c26f2c415eb660` at `2026-10-16T12:46:29Z`. Annotated tag `v0.9.1` points
+  at that merge commit; Release run `38902923752` passed Lint, Unit Tests (with
+  `verifySqlDelightMigration`) and Build Signed Release APK (4m12s). A single tag, no renumbering of
+  the folded `0.9.2` scope.
+- **Artifact verified offline, never installed.** `androidApp-release.apk`, 25,086,188 bytes,
+  SHA-256 `3b31650c10157698732b8748e381c59c48befd71151a085dc975b1e4fe1074ae`;
+  `apksigner verify --print-certs` passed (signer certificate SHA-256
+  `af9cd73b3cc6842c7ab3c2f3cd572245826089aee863e9168a761a893c35a7e1`, matching earlier releases);
+  `aapt2 dump badging` (build-tools 36.0.0) reported `versionCode='90100'`, `versionName='0.9.1'` from
+  the tag. `gh api …/releases/latest` names `v0.9.1`, and the published body is the user notes from
+  `docs/release-notes/v0.9.1.md`, not GitHub's generated notes. The emulator stayed on the debug build.
+- **Post-merge run first failed, then passed on rerun.** Build and Test run `38902908463` for
+  `cc703db4` failed `Unit Tests` at `:shared:testAndroidHostTest`: 28 tests, 1 failed —
+  `KoinModulesVerificationTest.theOnboardingViewModelsResolveAtRuntime`, `IllegalStateException`
+  (`TestMainDispatcherJvm.kt:45`) → `MainDispatchers.kt:111` → `RuntimeException at Looper.java`.
+  `gh run rerun 38902908463 --failed` then passed all three jobs. This is the **third** recorded
+  occurrence of the same flake: 0.7.6 (`docs/qa.md`, "0.7.6 release integration", once) and 0.8.x
+  PR #16 (the `:shared` Unit Tests job needed two reruns), where it was left **unfixed by decision**.
+- **Root cause, audited.** The class had 15 tests and only 6 installed a test `Dispatchers.Main`
+  (`setMain`). Seven of the others resolved a ViewModel without it, and three of those resolved a
+  ViewModel that reads `viewModelScope` in its `init` (`ExercisePlanningSettingsViewModel`,
+  `BackupViewModel`, `RoutinesViewModel`). Coroutines resolves and **caches** `Dispatchers.Main` for
+  the JVM's lifetime; a first touch with no test dispatcher installed falls through to the platform
+  Android main dispatcher, which a plain host JVM cannot initialise (the stub `Looper` throws). The
+  cached failure then makes every later `Dispatchers.setMain` throw — reported against whichever test
+  installed a dispatcher next, which is why the named victim moved between runs and why a rerun in a
+  fresh JVM went green. No `testOptions`, `maxParallelForks` or `forkEvery` is configured anywhere, so
+  the class order Gradle discovers is the only ordering input, and it is not pinned.
+- **Fix.** Every test that resolves a ViewModel now installs a test dispatcher first (13 of 15; the
+  two `verify()`-only tests need none), matching the pattern the class already used elsewhere, plus a
+  class-level `@AfterTest` that resets it so one test's installation can never leak into the next.
+  Test-only change; no production code, no Gradle configuration, no dependency change.
+- **Verification of the fix.** `:shared:testAndroidHostTest --rerun` twice, each executing the task:
+  28 tests, 0 failures. Full local matrix on the fix `testAndroidHostTest`,
+  `:core:database:verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`: green, with
+  `:shared` re-executed and the aggregate at 250 classes / 2,235 tests / 0 failures/errors/skips.
+  Because this landed directly on `main` rather than through a PR, the push-triggered Build and Test
+  run is the gate and is watched to completion.
+- **Limit of the evidence.** The failure never reproduced on demand locally, so the fix is verified by
+  construction plus repeated fresh runs, not by reproducing the original ordering. If the flake
+  recurs, the remaining suspect is a Main touch outside this class (nothing in `:shared`'s host tests
+  other than `KoinModulesVerificationTest` touches `Dispatchers.Main`), and the class-level guard
+  should be extended to a module-wide one.
+
 ## 0.9.2 interchange and export checkpoint (2026-10-16; not release acceptance)
 
 - Scope: S1 (versioned prescription document + export), S2 (routine import preview + transactional
