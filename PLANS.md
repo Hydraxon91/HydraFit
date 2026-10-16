@@ -1095,11 +1095,12 @@ need it and a feature-local copy would duplicate it.
 
 **Recorded follow-ups (not blocking, not yet approved work):**
 
-- **F-06 (0.9.1 review):** `SqlDelightWorkoutImportRepository.commit` runs its transaction on the
-  caller's dispatcher, matching the existing repository convention; at the 250,000-row import limit a
-  main-thread commit could stall the UI. A dispatcher hop is a behaviour-preserving change that
-  deviates from the project-wide pattern, so it needs an explicit decision.
-- **F-01 (0.9.1 review):** the provider-layout evidence decision above.
+- **F-06 (0.9.1 review) — resolved 2026-10-16.** `SqlDelightWorkoutImportRepository.commit` now runs its
+  transaction under `withContext(Dispatchers.Default)` (`2ba40a1a`), the same write-path convention the
+  backup-staging and equipment-profile repositories already used, so a large import cannot stall the UI
+  thread. No regression test accompanies it: the change is behaviour-preserving and the commit path
+  keeps its existing repository coverage.
+- **F-01 (0.9.1 review) — resolved 2026-10-16.** The evidence gate below records the disposition.
 
 **Device-journey follow-ups (2026-10-16, from the pre-publication device checks):**
 

@@ -2768,6 +2768,11 @@ Still unverified: dark mode, larger text, rotation, TalkBack, app locale, and ev
   PLANS.md/roadmap status (boundary update), F-06 the commit runs a blocking transaction on the
   caller's dispatcher at a new scale (design observation, matches the existing pattern). Mechanical
   corrections are recorded in the next bullet; F-01 and F-06 return to the user.
+- F-01 and F-06 were resolved on 2026-10-16: F-01 by narrowing the provider-layout claims to the
+  publicly evidenced variants (the evidence section above), and F-06 by running the import commit
+  under `withContext(Dispatchers.Default)` (`2ba40a1a`), the same write-path convention the
+  backup-staging and equipment-profile repositories already use. F-06 ships without a new regression
+  test: the change is behaviour-preserving, and the commit path keeps its existing repository coverage.
 - Bounded read-only emulator evidence: `.maestro/settings-workout-import.yaml`, syntax-checked with
   Maestro 2.11.0 and run once on `emulator-5554` (debug build, 2026-10-15) at 13/13 steps, ~16 s,
   exit 0, with viewed screenshot
