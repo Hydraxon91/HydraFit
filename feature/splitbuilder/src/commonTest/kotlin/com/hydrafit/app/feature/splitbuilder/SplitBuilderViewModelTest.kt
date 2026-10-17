@@ -20,6 +20,7 @@ import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.ProgressWeightsUseCase
+import com.hydrafit.app.core.domain.engine.SetAcceptedExerciseMeasureUseCase
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SubstituteExerciseUseCase
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
@@ -939,6 +940,143 @@ class SplitBuilderViewModelTest {
         )
     }
 
+    @Test
+    fun draftMeasureEditIsStateOnlyAndCarriesIntoAcceptance() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            planHistory = history
+        )
+        advanceUntilIdle()
+
+        viewModel.onMeasureRequested(dayIndex = 0, position = 0)
+        viewModel.onMeasureMetricChanged(MeasureMetric.SECONDS)
+        viewModel.onMeasureValueChanged("45")
+        viewModel.onMeasureConfirmed()
+        advanceUntilIdle()
+
+        val draftSlot = viewModel.state.value.plan!!.days.first().exercises.first()
+        assertNull(draftSlot.reps)
+        assertEquals(45, draftSlot.durationSeconds)
+        // A draft edit is state-only: nothing is written until the plan is accepted.
+        assertNull(history.latest())
+
+        viewModel.onAcceptPlan()
+        advanceUntilIdle()
+
+        val acceptedSlot = history.latest()!!.days.first().exercises.first()
+        assertEquals(45, acceptedSlot.durationSeconds)
+        assertNull(acceptedSlot.reps)
+    }
+
+    @Test
+    fun acceptedPlanMeasureEditPersistsInPlace() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        history.accept(acceptedPlan().copy(id = 1L))
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            planHistory = history
+        )
+        advanceUntilIdle()
+
+        viewModel.onMeasureRequested(dayIndex = 0, position = 0)
+        viewModel.onMeasureMetricChanged(MeasureMetric.SECONDS)
+        viewModel.onMeasureValueChanged("45")
+        viewModel.onMeasureConfirmed()
+        advanceUntilIdle()
+
+        val shownSlot = viewModel.state.value.plan!!.days.single().exercises.single()
+        assertNull(shownSlot.reps)
+        assertEquals(45, shownSlot.durationSeconds)
+        // The persisted plan is updated in place: same id and acceptance time, new measure.
+        val persisted = history.latest()!!
+        assertEquals(1L, persisted.id)
+        assertEquals(0L, persisted.acceptedAtMillis)
+        assertEquals(45, persisted.days.single().exercises.single().durationSeconds)
+        assertNull(persisted.days.single().exercises.single().reps)
+    }
+
+    @Test
+    fun measureEditWritesNothingOnInvalidInput() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        history.accept(acceptedPlan().copy(id = 1L))
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            planHistory = history
+        )
+        advanceUntilIdle()
+
+        viewModel.onMeasureRequested(dayIndex = 0, position = 0)
+        viewModel.onMeasureMetricChanged(MeasureMetric.REPS)
+        viewModel.onMeasureValueChanged("0")
+        viewModel.onMeasureConfirmed()
+        advanceUntilIdle()
+
+        assertEquals(MeasureError.REPS_RANGE, viewModel.state.value.measureDialog?.error)
+        assertEquals(8, viewModel.state.value.plan!!.days.single().exercises.single().reps)
+        assertEquals(8, history.latest()!!.days.single().exercises.single().reps)
+
+        viewModel.onMeasureMetricChanged(MeasureMetric.SECONDS)
+        viewModel.onMeasureValueChanged("0")
+        viewModel.onMeasureConfirmed()
+        advanceUntilIdle()
+
+        assertEquals(MeasureError.SECONDS_RANGE, viewModel.state.value.measureDialog?.error)
+        assertEquals(8, viewModel.state.value.plan!!.days.single().exercises.single().reps)
+        assertEquals(8, history.latest()!!.days.single().exercises.single().reps)
+
+        // A digits-only value beyond the recordable range is rejected as too large, not as missing.
+        viewModel.onMeasureValueChanged("99999999999")
+        viewModel.onMeasureConfirmed()
+        advanceUntilIdle()
+
+        assertEquals(MeasureError.SECONDS_TOO_LARGE, viewModel.state.value.measureDialog?.error)
+        assertEquals(8, viewModel.state.value.plan!!.days.single().exercises.single().reps)
+        assertEquals(8, history.latest()!!.days.single().exercises.single().reps)
+    }
+
+    @Test
+    fun swapPreservesTheSlotsTimedMeasure() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        history.accept(timedAcceptedPlan().copy(id = 1L))
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL, EquipmentTag.BARBELL),
+            planHistory = history
+        )
+        advanceUntilIdle()
+
+        viewModel.onSwapRequested(dayIndex = 0, position = 0)
+        advanceUntilIdle()
+        viewModel.onSwapCandidateSelected("back-squat")
+        advanceUntilIdle()
+
+        val shownSlot = viewModel.state.value.plan!!.days.single().exercises.single()
+        assertEquals("back-squat", shownSlot.exerciseId)
+        assertNull(shownSlot.reps)
+        assertEquals(45, shownSlot.durationSeconds)
+    }
+
+    private fun timedAcceptedPlan() = AcceptedPlan(
+        engine = PlannerEngineId.DETERMINISTIC,
+        acceptedAtMillis = 0L,
+        days = listOf(
+            AcceptedDay(
+                dayIndex = 0,
+                focus = SplitFocus.PUSH,
+                exercises = listOf(
+                    AcceptedExercise(
+                        exerciseId = "goblet-squat",
+                        sets = 3,
+                        reps = null,
+                        durationSeconds = 45,
+                        name = "Goblet Squat",
+                        movementPattern = MovementPattern.SQUAT
+                    )
+                )
+            )
+        )
+    )
+
     private fun acceptedPlan() = AcceptedPlan(
         engine = PlannerEngineId.DETERMINISTIC,
         acceptedAtMillis = 0L,
@@ -1607,6 +1745,7 @@ class SplitBuilderViewModelTest {
                 history,
                 DeterministicWorkoutPlannerEngine(catalog)
             ),
+            setAcceptedExerciseMeasure = SetAcceptedExerciseMeasureUseCase(history),
             convertPlanToTemplate = ConvertPlanToTemplateUseCase(),
             saveRoutineTemplate = SaveRoutineTemplateUseCase(routineRepository, time),
             activateRoutine = ActivateRoutineUseCase(
@@ -1687,6 +1826,34 @@ class SplitBuilderViewModelTest {
             )
         }
 
+        override suspend fun setMeasure(
+            planId: Long,
+            dayIndex: Int,
+            position: Int,
+            reps: Int?,
+            durationSeconds: Int?
+        ) {
+            val plan = state.value ?: return
+            if (plan.id != planId) return
+            state.value = plan.copy(
+                days = plan.days.map { day ->
+                    if (day.dayIndex != dayIndex) {
+                        day
+                    } else {
+                        day.copy(
+                            exercises = day.exercises.mapIndexed { index, exercise ->
+                                if (index != position) {
+                                    exercise
+                                } else {
+                                    exercise.copy(reps = reps, durationSeconds = durationSeconds)
+                                }
+                            }
+                        )
+                    }
+                }
+            )
+        }
+
         override suspend fun delete(planId: Long) {
             if (state.value?.id == planId) state.value = null
         }
@@ -1738,6 +1905,14 @@ class SplitBuilderViewModelTest {
             newWeightKg: Double?,
             newLoadCapability: ExerciseLoadCapability,
             newLoadKind: LoadKind
+        ) = Unit
+
+        override suspend fun setMeasure(
+            planId: Long,
+            dayIndex: Int,
+            position: Int,
+            reps: Int?,
+            durationSeconds: Int?
         ) = Unit
 
         override suspend fun delete(planId: Long) = Unit

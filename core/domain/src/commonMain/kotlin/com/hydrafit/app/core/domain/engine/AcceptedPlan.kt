@@ -67,7 +67,13 @@ data class AcceptedDay(
 data class AcceptedExercise(
     val exerciseId: String,
     val sets: Int,
-    val reps: Int,
+    /** Repetitions for counted work, or null for a timed slot. Never a `0` sentinel. */
+    val reps: Int? = null,
+    /**
+     * Elapsed whole seconds for a timed slot, or null for counted work. Only ever set by the user's
+     * measure edit; the planner never invents a duration.
+     */
+    val durationSeconds: Int? = null,
     val name: String,
     val movementPattern: MovementPattern,
     val suggestedWeightKg: Double? = null,
@@ -80,7 +86,13 @@ data class AcceptedExercise(
      * invalidated by a confirmed substitution.
      */
     val explanation: ExerciseTargetExplanation? = null
-)
+) {
+    init {
+        require((reps == null) != (durationSeconds == null)) {
+            "An accepted exercise is either reps-based or timed"
+        }
+    }
+}
 
 /**
  * The frozen plan-level explanation context, persisted at acceptance. The deterministic
@@ -116,6 +128,7 @@ fun AcceptedPlan.toWeeklyPlan(): WeeklyPlan = WeeklyPlan(
                     exerciseId = exercise.exerciseId,
                     sets = exercise.sets,
                     reps = exercise.reps,
+                    durationSeconds = exercise.durationSeconds,
                     suggestedWeightKg = exercise.suggestedWeightKg,
                     loadKind = exercise.loadKind,
                     loadCapability = exercise.loadCapability,

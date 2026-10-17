@@ -284,6 +284,14 @@ class AcceptWeeklyPlanUseCaseTest {
             newLoadKind: LoadKind
         ) = Unit
 
+        override suspend fun setMeasure(
+            planId: Long,
+            dayIndex: Int,
+            position: Int,
+            reps: Int?,
+            durationSeconds: Int?
+        ) = Unit
+
         override suspend fun delete(planId: Long) {
             if (state.value?.id == planId) state.value = null
         }

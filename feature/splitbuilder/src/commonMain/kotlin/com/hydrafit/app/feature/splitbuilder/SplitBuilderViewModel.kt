@@ -14,9 +14,11 @@ import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
+import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WorkoutPlanInputs
 import com.hydrafit.app.core.domain.engine.toWeeklyPlan
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.schedule.ActivationRequest
 import com.hydrafit.app.core.domain.schedule.ScheduleException
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
@@ -510,6 +512,108 @@ class SplitBuilderViewModel(
         }
     }
 
+    /** Opens the measure dialog for one slot of the shown plan, seeded from its current measure. */
+    fun onMeasureRequested(dayIndex: Int, position: Int) {
+        val slot = _state.value.plan?.days
+            ?.firstOrNull { it.dayIndex == dayIndex }
+            ?.exercises
+            ?.getOrNull(position) ?: return
+        val timed = slot.durationSeconds != null
+        _state.update {
+            it.copy(
+                measureDialog = MeasureDialogState(
+                    dayIndex = dayIndex,
+                    position = position,
+                    metric = if (timed) MeasureMetric.SECONDS else MeasureMetric.REPS,
+                    value = (slot.durationSeconds ?: slot.reps)?.toString().orEmpty()
+                )
+            )
+        }
+    }
+
+    fun onMeasureMetricChanged(metric: MeasureMetric) {
+        _state.update { current ->
+            val dialog = current.measureDialog ?: return@update current
+            current.copy(measureDialog = dialog.copy(metric = metric, error = null))
+        }
+    }
+
+    /** Keeps only digits, so the field can never carry a sign, separator or decimal point. */
+    fun onMeasureValueChanged(value: String) {
+        _state.update { current ->
+            val dialog = current.measureDialog ?: return@update current
+            current.copy(
+                measureDialog = dialog.copy(value = value.filter(Char::isDigit), error = null)
+            )
+        }
+    }
+
+    fun onMeasureDialogDismissed() {
+        _state.update { it.copy(measureDialog = null) }
+    }
+
+    /**
+     * Applies the dialog's measure. Invalid input writes nothing and shows a specific reason. A draft
+     * edit is state-only and carries into acceptance; an accepted-plan edit persists in place, like a
+     * swap, and keeps the plan's id and acceptance time.
+     */
+    fun onMeasureConfirmed() {
+        val current = _state.value
+        val dialog = current.measureDialog ?: return
+        val entered = dialog.value.toIntOrNull()
+        val repBounds = PrescriptionBounds.MIN_REPS..PrescriptionBounds.MAX_REPS
+        val valid = when (dialog.metric) {
+            MeasureMetric.REPS -> entered != null && entered in repBounds
+            MeasureMetric.SECONDS -> entered != null && entered > 0
+        }
+        if (!valid) {
+            // A digits-only field that cannot be parsed as an Int is a value beyond the recordable
+            // range, not a missing one; an empty field is simply not a positive count yet.
+            val error = when {
+                dialog.metric == MeasureMetric.REPS -> MeasureError.REPS_RANGE
+                dialog.value.isNotEmpty() && entered == null -> MeasureError.SECONDS_TOO_LARGE
+                else -> MeasureError.SECONDS_RANGE
+            }
+            _state.update { it.copy(measureDialog = dialog.copy(error = error)) }
+            return
+        }
+        val value = requireNotNull(entered)
+        val reps = if (dialog.metric == MeasureMetric.REPS) value else null
+        val durationSeconds = if (dialog.metric == MeasureMetric.SECONDS) value else null
+        val accepted = shownPlan?.takeIf { current.isPlanAccepted }
+        if (accepted == null) {
+            _state.update { state ->
+                state.copy(
+                    plan = state.plan?.withMeasure(
+                        dialog.dayIndex,
+                        dialog.position,
+                        reps,
+                        durationSeconds
+                    ),
+                    measureDialog = null
+                )
+            }
+            return
+        }
+        viewModelScope.launch {
+            val updated = planBuilderActions.setMeasure(
+                accepted,
+                dialog.dayIndex,
+                dialog.position,
+                reps,
+                durationSeconds
+            )
+            if (updated == null) {
+                // The slot no longer exists: nothing was written, so close without a change.
+                _state.update { it.copy(measureDialog = null) }
+                return@launch
+            }
+            val edited = accepted.withMeasure(dialog.dayIndex, dialog.position, updated)
+            shownPlan = edited
+            _state.update { it.copy(plan = edited.toWeeklyPlan(), measureDialog = null) }
+        }
+    }
+
     fun onViewAcceptedPlan(accepted: AcceptedPlan) {
         viewModelScope.launch { showAccepted(accepted) }
     }
@@ -673,6 +777,53 @@ class SplitBuilderViewModel(
         armCoverage = emptyList(),
         volumeAttribution = null,
         volumeExplanationInvalidated = true,
+        days = days.map { day ->
+            if (day.dayIndex != dayIndex) {
+                day
+            } else {
+                day.copy(
+                    exercises = day.exercises.mapIndexed { index, exercise ->
+                        if (index == position) replacement else exercise
+                    }
+                )
+            }
+        }
+    )
+
+    /** Returns a copy of this draft with one slot's measure replaced; every other slot is untouched. */
+    private fun WeeklyPlan.withMeasure(
+        dayIndex: Int,
+        position: Int,
+        reps: Int?,
+        durationSeconds: Int?
+    ): WeeklyPlan = copy(
+        days = days.map { day ->
+            if (day.dayIndex != dayIndex) {
+                day
+            } else {
+                day.copy(
+                    exercises = day.exercises.mapIndexed { index, exercise ->
+                        if (index == position) {
+                            exercise.copy(reps = reps, durationSeconds = durationSeconds)
+                        } else {
+                            exercise
+                        }
+                    }
+                )
+            }
+        }
+    )
+
+    /**
+     * Returns a copy of this accepted plan with one slot's measure replaced. A measure edit changes
+     * only how the work is measured, so the frozen volume assessment and the slot's recorded reasons
+     * are deliberately left in place, unlike [replacingExercise], which replaces the exercise.
+     */
+    private fun AcceptedPlan.withMeasure(
+        dayIndex: Int,
+        position: Int,
+        replacement: AcceptedExercise
+    ): AcceptedPlan = copy(
         days = days.map { day ->
             if (day.dayIndex != dayIndex) {
                 day

@@ -36,6 +36,24 @@ data class PlanningDatesState(
     val error: String? = null
 )
 
+/** Which measure a slot's dialog edits: a rep count or elapsed whole seconds. */
+enum class MeasureMetric { REPS, SECONDS }
+
+/** Why a slot measure edit was rejected; the UI maps each to a specific message. */
+enum class MeasureError { REPS_RANGE, SECONDS_RANGE, SECONDS_TOO_LARGE }
+
+/**
+ * The open measure dialog for one slot of the shown plan. [value] is the raw field text; a non-null
+ * [error] means the last Confirm was rejected, so nothing was written.
+ */
+data class MeasureDialogState(
+    val dayIndex: Int,
+    val position: Int,
+    val metric: MeasureMetric,
+    val value: String,
+    val error: MeasureError? = null
+)
+
 data class SplitBuilderUiState(
     val daysPerWeek: Int = 4,
     val setsPerExercise: Int = 3,
@@ -75,7 +93,9 @@ data class SplitBuilderUiState(
     /** One-shot: true after "Save as routine" succeeds, until the screen shows the confirmation. */
     val routineSaved: Boolean = false,
     /** True after a confirmed swap invalidated the shown plan's persisted volume explanation. */
-    val volumeExplanationInvalidated: Boolean = false
+    val volumeExplanationInvalidated: Boolean = false,
+    /** The open per-slot measure dialog; null when closed. */
+    val measureDialog: MeasureDialogState? = null
 ) {
     val usedFallbackEngine: Boolean
         get() = plan != null && requestedEngine != null && plan.engine != requestedEngine

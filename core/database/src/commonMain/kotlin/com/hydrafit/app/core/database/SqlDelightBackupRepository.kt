@@ -41,6 +41,7 @@ import com.hydrafit.app.core.domain.backup.BackupSetupRecord
 import com.hydrafit.app.core.domain.backup.BackupTrainingGuidanceRecord
 import com.hydrafit.app.core.domain.backup.BackupVolumeExplanationRecord
 import com.hydrafit.app.core.domain.backup.BackupVolumeExplanationStateRecord
+import com.hydrafit.app.core.domain.backup.BackupWarmupPreparationOverrideRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutReminderRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSessionRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSetRecord
@@ -171,7 +172,8 @@ class SqlDelightBackupRepository(
                         position = it.position.toInt(),
                         exerciseId = it.exerciseId,
                         sets = it.sets.toInt(),
-                        reps = it.reps.toInt(),
+                        reps = it.reps?.toInt(),
+                        durationSeconds = it.durationSeconds?.toInt(),
                         exerciseName = it.exerciseName,
                         movementPattern = it.movementPattern,
                         suggestedWeightKg = it.suggestedWeightKg,
@@ -547,6 +549,14 @@ class SqlDelightBackupRepository(
                                 .sortedBy { it.ordinal }
                                 .map { it.importedSessionId }
                         )
+                    },
+                warmupPreparationOverrides = database.warmupPreparationOverrideQueries.selectAll()
+                    .executeAsList().map {
+                        BackupWarmupPreparationOverrideRecord(
+                            action = it.action,
+                            reps = it.reps?.toInt(),
+                            durationSeconds = it.durationSeconds?.toInt()
+                        )
                     }
             )
         }
@@ -578,6 +588,7 @@ class SqlDelightBackupRepository(
             database.exerciseExclusionQueries.deleteAll()
             database.exerciseNoteQueries.deleteAll()
             database.sessionNoteQueries.deleteAll()
+            database.warmupPreparationOverrideQueries.deleteAll()
             database.personalRecordQueries.deleteAll()
             database.workoutLogQueries.deleteAllSets()
             database.workoutSessionQueries.deleteAllSessions()
@@ -714,6 +725,13 @@ class SqlDelightBackupRepository(
             file.exerciseNotes.forEach {
                 database.exerciseNoteQueries.upsert(it.exerciseId, it.note)
             }
+            file.warmupPreparationOverrides.forEach {
+                database.warmupPreparationOverrideQueries.upsert(
+                    action = it.action,
+                    reps = it.reps?.toLong(),
+                    durationSeconds = it.durationSeconds?.toLong()
+                )
+            }
 
             file.plans.forEach { plan ->
                 database.planHistoryQueries.insertPlanWithId(
@@ -739,7 +757,8 @@ class SqlDelightBackupRepository(
                     position = entry.position.toLong(),
                     exerciseId = entry.exerciseId,
                     sets = entry.sets.toLong(),
-                    reps = entry.reps.toLong(),
+                    reps = entry.reps?.toLong(),
+                    durationSeconds = entry.durationSeconds?.toLong(),
                     exerciseName = entry.exerciseName,
                     movementPattern = entry.movementPattern,
                     suggestedWeightKg = entry.suggestedWeightKg,

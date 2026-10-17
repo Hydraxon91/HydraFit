@@ -68,6 +68,56 @@ class WarmupGuidanceTest {
     }
 
     @Test
+    fun aPersistedOverrideReplacesItsActionAndLeavesTheOthersDefault() {
+        val guidance = buildWarmupGuidance(
+            occurrenceWith(entry(0, MovementPattern.SQUAT)),
+            preparationOverrides = mapOf(
+                WarmupAction.LOWER_BODY_PRACTICE to
+                    WarmupPreparationItem(WarmupAction.LOWER_BODY_PRACTICE, reps = 18)
+            )
+        )
+
+        val practice = guidance.preparation.first { it.action == WarmupAction.LOWER_BODY_PRACTICE }
+        assertEquals(18, practice.reps)
+        assertNull(practice.durationSeconds)
+        // An action without an override keeps its built-in default.
+        val general = guidance.preparation.first { it.action == WarmupAction.EASY_GENERAL_MOVEMENT }
+        assertEquals(180, general.durationSeconds)
+        assertNull(general.reps)
+    }
+
+    @Test
+    fun aTimedOverrideReplacesTheBuiltInSeconds() {
+        val guidance = buildWarmupGuidance(
+            occurrenceWith(),
+            preparationOverrides = mapOf(
+                WarmupAction.EASY_GENERAL_MOVEMENT to
+                    WarmupPreparationItem(WarmupAction.EASY_GENERAL_MOVEMENT, durationSeconds = 300)
+            )
+        )
+
+        val general = guidance.preparation.single()
+        assertEquals(300, general.durationSeconds)
+        assertNull(general.reps)
+    }
+
+    @Test
+    fun anOverrideForAnActionTheWorkoutDoesNotOfferIsIgnored() {
+        val legDay = buildWarmupGuidance(
+            occurrenceWith(entry(0, MovementPattern.SQUAT)),
+            preparationOverrides = mapOf(
+                WarmupAction.LIGHT_PULL_PRACTICE to
+                    WarmupPreparationItem(WarmupAction.LIGHT_PULL_PRACTICE, reps = 25)
+            )
+        )
+
+        assertEquals(
+            listOf(WarmupAction.EASY_GENERAL_MOVEMENT, WarmupAction.LOWER_BODY_PRACTICE),
+            legDay.preparation.map { it.action }
+        )
+    }
+
+    @Test
     fun rampsAnExternalTargetAtTheProfilePercentages() {
         val guidance =
             buildWarmupGuidance(occurrenceWith(entry(0, MovementPattern.SQUAT, weightKg = 100.0)))

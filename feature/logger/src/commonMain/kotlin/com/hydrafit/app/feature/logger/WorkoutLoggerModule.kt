@@ -49,6 +49,7 @@ val loggerModule: Module = module {
             settings = get(),
             exerciseNoteRepository = get(),
             sessionNoteRepository = get(),
+            warmupOverrideRepository = get(),
             equipment = get()
         )
     }

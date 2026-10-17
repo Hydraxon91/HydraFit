@@ -10,9 +10,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -23,6 +25,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -39,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -103,6 +107,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_error_service_una
 import hydrafit.feature.splitbuilder.generated.resources.split_error_timeout
 import hydrafit.feature.splitbuilder.generated.resources.split_error_transient
 import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line
+import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line_timed
 import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_accepted
 import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_bounded_by_progression
 import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_capped_by_equipment
@@ -159,6 +164,13 @@ import hydrafit.feature.splitbuilder.generated.resources.split_history
 import hydrafit.feature.splitbuilder.generated.resources.split_history_entry
 import hydrafit.feature.splitbuilder.generated.resources.split_loading
 import hydrafit.feature.splitbuilder.generated.resources.split_loading_progress
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_action
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_dialog_title
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_error_reps
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_error_seconds
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_error_seconds_large
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_reps
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_seconds
 import hydrafit.feature.splitbuilder.generated.resources.split_muscle_biceps
 import hydrafit.feature.splitbuilder.generated.resources.split_muscle_triceps
 import hydrafit.feature.splitbuilder.generated.resources.split_plan_accepted
@@ -300,6 +312,11 @@ fun SplitBuilderRoute(
             onSwapRequested = viewModel::onSwapRequested,
             onSwapCandidateSelected = viewModel::onSwapCandidateSelected,
             onSwapDialogDismissed = viewModel::onSwapDialogDismissed,
+            onMeasureRequested = viewModel::onMeasureRequested,
+            onMeasureMetricChanged = viewModel::onMeasureMetricChanged,
+            onMeasureValueChanged = viewModel::onMeasureValueChanged,
+            onMeasureConfirmed = viewModel::onMeasureConfirmed,
+            onMeasureDialogDismissed = viewModel::onMeasureDialogDismissed,
             onRetry = viewModel::refresh,
             onReviewEquipment = { openTab(AppTab.EQUIPMENT) },
             exportState = exportState,
@@ -344,6 +361,11 @@ fun SplitBuilderScreen(
     onSwapRequested: (Int, Int) -> Unit,
     onSwapCandidateSelected: (String) -> Unit,
     onSwapDialogDismissed: () -> Unit,
+    onMeasureRequested: (Int, Int) -> Unit,
+    onMeasureMetricChanged: (MeasureMetric) -> Unit,
+    onMeasureValueChanged: (String) -> Unit,
+    onMeasureConfirmed: () -> Unit,
+    onMeasureDialogDismissed: () -> Unit,
     onRetry: () -> Unit,
     onReviewEquipment: () -> Unit = {},
     exportState: PlanExportUiState = PlanExportUiState(),
@@ -578,15 +600,26 @@ fun SplitBuilderScreen(
                             }.orEmpty()
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = stringResource(
-                                        Res.string.split_exercise_line,
-                                        name,
-                                        exercise.sets,
-                                        exercise.reps,
-                                        weight
+                                    text = exerciseLine(
+                                        name = name,
+                                        sets = exercise.sets,
+                                        reps = exercise.reps,
+                                        durationSeconds = exercise.durationSeconds,
+                                        weight = weight
                                     ),
                                     modifier = Modifier.weight(1f)
                                 )
+                                IconButton(
+                                    onClick = { onMeasureRequested(day.dayIndex, position) }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Timer,
+                                        contentDescription = stringResource(
+                                            Res.string.split_measure_action,
+                                            name
+                                        )
+                                    )
+                                }
                                 if (state.isPlanAccepted) {
                                     IconButton(
                                         onClick = { onSwapRequested(day.dayIndex, position) }
@@ -629,6 +662,23 @@ fun SplitBuilderScreen(
                 onDismiss = onSwapDialogDismissed
             )
         }
+        state.measureDialog?.let { dialog ->
+            val target = state.plan?.days
+                ?.firstOrNull { it.dayIndex == dialog.dayIndex }
+                ?.exercises
+                ?.getOrNull(dialog.position)
+            val targetName = target
+                ?.let { state.exerciseNames[it.exerciseId] ?: it.exerciseId }
+                .orEmpty()
+            MeasureDialog(
+                dialog = dialog,
+                targetName = targetName,
+                onMetricChanged = onMeasureMetricChanged,
+                onValueChanged = onMeasureValueChanged,
+                onConfirm = onMeasureConfirmed,
+                onDismiss = onMeasureDialogDismissed
+            )
+        }
         if (state.history.isNotEmpty()) {
             Text(
                 text = stringResource(Res.string.split_history),
@@ -657,6 +707,96 @@ fun SplitBuilderScreen(
             }
         }
     }
+}
+
+/**
+ * The slot line: `name  sets x reps  weight` for counted work and `name  sets × seconds s  weight`
+ * for a timed slot, so seconds are never shown as a rep count. A slot with no measure is impossible
+ * under the model's exactly-one invariant; it falls back to the bare name rather than a `0` sentinel.
+ */
+@Composable
+private fun exerciseLine(
+    name: String,
+    sets: Int,
+    reps: Int?,
+    durationSeconds: Int?,
+    weight: String
+): String = when {
+    durationSeconds != null -> stringResource(
+        Res.string.split_exercise_line_timed,
+        name,
+        sets,
+        durationSeconds,
+        weight
+    )
+    reps != null -> stringResource(Res.string.split_exercise_line, name, sets, reps, weight)
+    else -> name
+}
+
+@Composable
+private fun MeasureDialog(
+    dialog: MeasureDialogState,
+    targetName: String,
+    onMetricChanged: (MeasureMetric) -> Unit,
+    onValueChanged: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val metricLabel = if (dialog.metric == MeasureMetric.SECONDS) {
+        Res.string.split_measure_seconds
+    } else {
+        Res.string.split_measure_reps
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(Res.string.split_measure_dialog_title, targetName)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = dialog.metric == MeasureMetric.REPS,
+                        onClick = { onMetricChanged(MeasureMetric.REPS) },
+                        label = { Text(stringResource(Res.string.split_measure_reps)) }
+                    )
+                    FilterChip(
+                        selected = dialog.metric == MeasureMetric.SECONDS,
+                        onClick = { onMetricChanged(MeasureMetric.SECONDS) },
+                        label = { Text(stringResource(Res.string.split_measure_seconds)) }
+                    )
+                }
+                OutlinedTextField(
+                    value = dialog.value,
+                    onValueChange = onValueChanged,
+                    label = { Text(stringResource(metricLabel)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    isError = dialog.error != null
+                )
+                dialog.error?.let { error ->
+                    Text(
+                        text = stringResource(error.labelResource()),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(stringResource(Res.string.split_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(Res.string.split_cancel))
+            }
+        }
+    )
+}
+
+private fun MeasureError.labelResource(): StringResource = when (this) {
+    MeasureError.REPS_RANGE -> Res.string.split_measure_error_reps
+    MeasureError.SECONDS_RANGE -> Res.string.split_measure_error_seconds
+    MeasureError.SECONDS_TOO_LARGE -> Res.string.split_measure_error_seconds_large
 }
 
 @Composable

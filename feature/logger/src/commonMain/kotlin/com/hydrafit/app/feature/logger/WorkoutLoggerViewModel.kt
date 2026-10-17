@@ -30,6 +30,7 @@ import com.hydrafit.app.core.domain.workout.WarmupAction
 import com.hydrafit.app.core.domain.workout.WarmupEquipment
 import com.hydrafit.app.core.domain.workout.WarmupGuidance
 import com.hydrafit.app.core.domain.workout.WarmupPreparationItem
+import com.hydrafit.app.core.domain.workout.WarmupPreparationOverrideRepository
 import com.hydrafit.app.core.domain.workout.WarmupRampSet
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutSet
@@ -66,6 +67,7 @@ class WorkoutLoggerViewModel(
     private val settings: WorkoutLoggerSettings,
     private val exerciseNoteRepository: com.hydrafit.app.core.domain.workout.ExerciseNoteRepository,
     private val sessionNoteRepository: com.hydrafit.app.core.domain.workout.SessionNoteRepository,
+    private val warmupOverrideRepository: WarmupPreparationOverrideRepository,
     private val equipment: WorkoutLoggerEquipment
 ) : ViewModel() {
 
@@ -178,6 +180,15 @@ class WorkoutLoggerViewModel(
                 warmupEquipmentObserved = true
                 // A refresh may return without publishing when superseded. Visible readiness belongs
                 // to the successful guidance publication, not to this collector's completion.
+                refreshToday()
+            }
+        }
+        viewModelScope.launch {
+            // Preparation overrides are global, not per occurrence, so an edit made in an earlier
+            // workout still applies here: a change rebuilds the current guidance rather than waiting
+            // for the next occurrence.
+            warmupOverrideRepository.observeAll().collectLatest { overrides ->
+                _state.update { it.copy(warmupPreparationOverrides = overrides) }
                 refreshToday()
             }
         }
@@ -999,7 +1010,8 @@ class WorkoutLoggerViewModel(
                         weightKg = exercise.suggestedWeightKg,
                         loadKind = exercise.loadKind,
                         loadCapability = exercise.loadCapability,
-                        explanation = exercise.explanation
+                        explanation = exercise.explanation,
+                        durationSeconds = exercise.durationSeconds
                     )
                 },
                 nowMillis = nowMillis,
@@ -1846,7 +1858,11 @@ class WorkoutLoggerViewModel(
         // Transient per-workout state follows the same occurrence; switching away clears it.
         val sameOccurrence = previousOccurrenceId == occurrence.id
         val equipment = warmupEquipment
-        val nextGuidance = buildWarmupGuidance(occurrence, equipment)
+        val nextGuidance = buildWarmupGuidance(
+            occurrence,
+            equipment,
+            _state.value.warmupPreparationOverrides
+        )
         // A slot whose prescription changed loses its transient edits, so a value typed for the old
         // exercise can never be shown against the replacement.
         val previousRamps = _state.value.warmupGuidance?.ramps.orEmpty()
@@ -2543,75 +2559,118 @@ class WorkoutLoggerViewModel(
     }
 
     /**
-     * Applies the editor's value to the in-memory guidance. Nothing is written: a ramp still has to be
-     * logged through its own action to become a recorded warm-up. After Reset, Save applies the derived
-     * default instead of a typed value.
+     * Applies the editor's value to the in-memory guidance and, for a preparation row, persists it as
+     * the action's override. A ramp still has to be logged through its own action to become a recorded
+     * warm-up. After Reset, Save applies the derived default instead of a typed value.
      */
     fun saveWarmupEditor() {
         val editor = _state.value.warmupEditor ?: return
         if (!editor.canSave) return
-        _state.update { state ->
-            when (val target = editor.target) {
-                is WarmupEditTarget.Preparation -> {
-                    val edits = if (editor.resetsToDefault) {
-                        state.warmupPreparationEdits - target.action
-                    } else {
-                        val item = if (editor.timed) {
-                            WarmupPreparationItem(
-                                action = target.action,
-                                // Minutes are the entered unit; seconds are the stored unit. canSave
-                                // already guaranteed the product fits, so this never truncates.
-                                durationSeconds = editor.durationInput.toIntOrNull()
-                                    ?.toLong()
-                                    ?.times(60L)
-                                    ?.toInt()
-                            )
-                        } else {
-                            WarmupPreparationItem(
-                                action = target.action,
-                                reps = editor.repsInput.toIntOrNull()
-                            )
-                        }
-                        state.warmupPreparationEdits + (target.action to item)
-                    }
-                    state.copy(warmupPreparationEdits = edits, warmupEditor = null)
-                }
-
-                is WarmupEditTarget.Ramp -> {
-                    if (editor.resetsToDefault) {
-                        state.copy(
-                            warmupRampEdits = state.warmupRampEdits - target.key,
-                            warmupEditor = null
-                        )
-                    } else {
-                        val weightKg = editor.enteredWeightKg
-                        val default = state.warmupGuidance?.ramps
-                            ?.firstOrNull { it.occurrenceEntryId == target.key.occurrenceEntryId }
-                            ?.rampSets
-                            ?.getOrNull(target.key.rampIndex)
-                        // A collapsed default leaves no row at this position, so the edit keeps the
-                        // profile percentage it already carried instead of being discarded.
-                        val percent = default?.percentOfWorkingWeight
-                            ?: state.warmupRampEdits[target.key]?.percentOfWorkingWeight
-                        val reps = editor.repsInput.toIntOrNull()
-                        if (weightKg == null || reps == null || percent == null) {
-                            state.copy(warmupEditor = null)
-                        } else {
-                            state.copy(
-                                warmupRampEdits = state.warmupRampEdits + (
-                                    target.key to WarmupRampSet(
-                                        percentOfWorkingWeight = percent,
-                                        reps = reps,
-                                        weightKg = weightKg
-                                    )
-                                    ),
-                                warmupEditor = null
-                            )
-                        }
-                    }
-                }
+        when (val target = editor.target) {
+            is WarmupEditTarget.Preparation -> savePreparationEditor(editor, target.action)
+            is WarmupEditTarget.Ramp -> _state.update { state ->
+                applyRampEdit(state, target, editor)
             }
         }
+    }
+
+    /** Applies one ramp editor's value to [state], or drops its transient edit after Reset. */
+    private fun applyRampEdit(
+        state: WorkoutLoggerUiState,
+        target: WarmupEditTarget.Ramp,
+        editor: WarmupGuidanceEditor
+    ): WorkoutLoggerUiState {
+        if (editor.resetsToDefault) {
+            return state.copy(
+                warmupRampEdits = state.warmupRampEdits - target.key,
+                warmupEditor = null
+            )
+        }
+        val weightKg = editor.enteredWeightKg
+        val default = state.warmupGuidance?.ramps
+            ?.firstOrNull { it.occurrenceEntryId == target.key.occurrenceEntryId }
+            ?.rampSets
+            ?.getOrNull(target.key.rampIndex)
+        // A collapsed default leaves no row at this position, so the edit keeps the profile
+        // percentage it already carried instead of being discarded.
+        val percent = default?.percentOfWorkingWeight
+            ?: state.warmupRampEdits[target.key]?.percentOfWorkingWeight
+        val reps = editor.repsInput.toIntOrNull()
+        return if (weightKg == null || reps == null || percent == null) {
+            state.copy(warmupEditor = null)
+        } else {
+            state.copy(
+                warmupRampEdits = state.warmupRampEdits + (
+                    target.key to WarmupRampSet(
+                        percentOfWorkingWeight = percent,
+                        reps = reps,
+                        weightKg = weightKg
+                    )
+                    ),
+                warmupEditor = null
+            )
+        }
+    }
+
+    /**
+     * Applies a preparation editor's value to the guidance and persists it as the action's override.
+     * Reset drops the transient edit and clears the stored override, so the built-in default applies
+     * again; the store write is launched after the state update, so the row never waits for it.
+     */
+    private fun savePreparationEditor(editor: WarmupGuidanceEditor, action: WarmupAction) {
+        val item = when {
+            editor.resetsToDefault -> null
+            editor.timed -> WarmupPreparationItem(
+                action = action,
+                // Minutes are the entered unit; seconds are the stored unit. canSave already
+                // guaranteed the product fits, so this never truncates.
+                durationSeconds = editor.durationInput.toIntOrNull()
+                    ?.toLong()
+                    ?.times(60L)
+                    ?.toInt()
+            )
+            else -> WarmupPreparationItem(
+                action = action,
+                reps = editor.repsInput.toIntOrNull()
+            )
+        }
+        _state.update { state ->
+            val overrides = if (item == null) {
+                state.warmupPreparationOverrides - action
+            } else {
+                state.warmupPreparationOverrides + (action to item)
+            }
+            state.copy(
+                warmupPreparationEdits = if (item == null) {
+                    state.warmupPreparationEdits - action
+                } else {
+                    state.warmupPreparationEdits + (action to item)
+                },
+                warmupPreparationOverrides = overrides,
+                warmupGuidance = guidanceWithOverrides(state.warmupGuidance, overrides),
+                warmupEditor = null
+            )
+        }
+        viewModelScope.launch {
+            if (item == null) {
+                warmupOverrideRepository.clear(action)
+            } else {
+                warmupOverrideRepository.set(item)
+            }
+        }
+    }
+
+    /**
+     * Rebuilds [guidance] with [overrides] applied, keeping the occurrence and equipment it was
+     * derived from. A null guidance (no active occurrence) stays null.
+     */
+    private fun guidanceWithOverrides(
+        guidance: WarmupGuidance?,
+        overrides: Map<WarmupAction, WarmupPreparationItem>
+    ): WarmupGuidance? {
+        if (guidance == null) return null
+        val occurrence = currentOccurrence ?: return guidance
+        return buildWarmupGuidance(occurrence, warmupEquipment, overrides)
     }
 
     /**
@@ -2623,7 +2682,12 @@ class WorkoutLoggerViewModel(
         val state = _state.value
         when (val target = editor.target) {
             is WarmupEditTarget.Preparation -> {
-                val item = state.warmupGuidance?.preparation
+                // The built-in default, not the persisted override the row may currently show: the
+                // override is exactly what Save is about to clear.
+                val occurrence = currentOccurrence
+                val item = occurrence
+                    ?.let { buildWarmupGuidance(it, warmupEquipment) }
+                    ?.preparation
                     ?.firstOrNull { it.action == target.action }
                     ?: return
                 _state.update {

@@ -90,6 +90,43 @@ class SubstituteExerciseUseCaseTest {
     }
 
     @Test
+    fun preservesTheReplacedSlotsMeasure() = runTest {
+        val useCase = useCase(FakePlanHistoryRepository())
+        val timedPlan = plan().copy(
+            days = listOf(
+                AcceptedDay(
+                    dayIndex = 0,
+                    focus = SplitFocus.PUSH,
+                    exercises = listOf(
+                        AcceptedExercise(
+                            exerciseId = "barbell-bench",
+                            sets = 3,
+                            reps = null,
+                            durationSeconds = 45,
+                            name = "Barbell Bench",
+                            movementPattern = MovementPattern.HORIZONTAL_PUSH,
+                            suggestedWeightKg = 82.5
+                        )
+                    )
+                )
+            )
+        )
+
+        val result = useCase(
+            plan = timedPlan,
+            dayIndex = 0,
+            position = 0,
+            request = request(equipment = setOf(EquipmentTag.DUMBBELL)),
+            selectedExerciseId = "dumbbell-bench"
+        )
+
+        // A timed slot stays timed: the replacement inherits the seconds, not a rep count.
+        assertEquals("dumbbell-bench", result?.exerciseId)
+        assertNull(result?.reps)
+        assertEquals(45, result?.durationSeconds)
+    }
+
+    @Test
     fun rejectsWeightByEquipmentCeiling() = runTest {
         val repository = FakePlanHistoryRepository()
         val useCase = useCase(repository)
@@ -360,6 +397,14 @@ class SubstituteExerciseUseCaseTest {
                 newLoadKind = newLoadKind
             )
         }
+
+        override suspend fun setMeasure(
+            planId: Long,
+            dayIndex: Int,
+            position: Int,
+            reps: Int?,
+            durationSeconds: Int?
+        ) = Unit
 
         override suspend fun delete(planId: Long) = Unit
 

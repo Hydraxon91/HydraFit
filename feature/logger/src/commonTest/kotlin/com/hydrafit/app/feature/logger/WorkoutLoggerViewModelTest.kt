@@ -69,6 +69,8 @@ import com.hydrafit.app.core.domain.workout.SessionNoteRepository
 import com.hydrafit.app.core.domain.workout.SessionResegmenter
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.WarmupAction
+import com.hydrafit.app.core.domain.workout.WarmupPreparationItem
+import com.hydrafit.app.core.domain.workout.WarmupPreparationOverrideRepository
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
@@ -2423,6 +2425,7 @@ class WorkoutLoggerViewModelTest {
             ),
             exerciseNoteRepository = FakeExerciseNoteRepository(),
             sessionNoteRepository = FakeSessionNoteRepository(),
+            warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
             equipment = testEquipment()
         )
         advanceUntilIdle()
@@ -2512,6 +2515,7 @@ class WorkoutLoggerViewModelTest {
             ),
             exerciseNoteRepository = FakeExerciseNoteRepository(),
             sessionNoteRepository = FakeSessionNoteRepository(),
+            warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
             equipment = testEquipment()
         )
         advanceUntilIdle()
@@ -2543,6 +2547,7 @@ class WorkoutLoggerViewModelTest {
             ),
             exerciseNoteRepository = FakeExerciseNoteRepository(),
             sessionNoteRepository = FakeSessionNoteRepository(),
+            warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
             equipment = testEquipment()
         )
         advanceUntilIdle()
@@ -2605,6 +2610,7 @@ class WorkoutLoggerViewModelTest {
             ),
             exerciseNoteRepository = FakeExerciseNoteRepository(),
             sessionNoteRepository = FakeSessionNoteRepository(),
+            warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
             equipment = testEquipment()
         )
         advanceUntilIdle()
@@ -3622,6 +3628,7 @@ class WorkoutLoggerViewModelTest {
             ),
             exerciseNoteRepository = FakeExerciseNoteRepository(),
             sessionNoteRepository = FakeSessionNoteRepository(),
+            warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
             equipment = testEquipment()
         )
         advanceUntilIdle()
@@ -4289,6 +4296,7 @@ class WorkoutLoggerViewModelTest {
         ),
         exerciseNoteRepository = noteRepository,
         sessionNoteRepository = sessionNoteRepository,
+        warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
         equipment = testEquipment()
     )
 
@@ -4317,6 +4325,7 @@ class WorkoutLoggerViewModelTest {
         ),
         exerciseNoteRepository = noteRepository,
         sessionNoteRepository = sessionNoteRepository,
+        warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
         equipment = testEquipment()
     )
 
@@ -6030,6 +6039,115 @@ class WorkoutLoggerViewModelTest {
 
         viewModel.onWarmupEditorDurationChanged("35791394")
         assertTrue(assertNotNull(viewModel.state.value.warmupEditor).canSave)
+    }
+
+    @Test
+    fun savingAPreparationOverridePersistsItForAFreshOccurrence() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val overrides = FakeWarmupPreparationOverrideRepository()
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            warmupOverrides = overrides
+        )
+        advanceUntilIdle()
+
+        viewModel.editWarmupPreparation(WarmupAction.LOWER_BODY_PRACTICE)
+        viewModel.onWarmupEditorRepsChanged("14")
+        viewModel.saveWarmupEditor()
+        advanceUntilIdle()
+
+        // The edit is persisted, not only shown in the current session.
+        assertEquals(
+            WarmupPreparationItem(WarmupAction.LOWER_BODY_PRACTICE, reps = 14),
+            overrides.observeAll().first()[WarmupAction.LOWER_BODY_PRACTICE]
+        )
+
+        // A fresh ViewModel over the same store renders the persisted measure with its edited marker.
+        val restarted = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            warmupOverrides = overrides
+        )
+        advanceUntilIdle()
+
+        val row = preparationRow(restarted, WarmupAction.LOWER_BODY_PRACTICE)
+        assertEquals(14, row.reps)
+        assertTrue(row.edited)
+    }
+
+    @Test
+    fun resettingAPreparationOverrideClearsTheStoredOverrideAndRestoresTheDefault() =
+        runTest(dispatcher) {
+            val repository = FakeWorkoutLogRepository()
+            val schedule = MutableWorkoutScheduleRepository()
+            schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+            val overrides = FakeWarmupPreparationOverrideRepository()
+            val viewModel = occurrenceViewModel(
+                repository,
+                schedule,
+                guided = true,
+                warmupOverrides = overrides
+            )
+            advanceUntilIdle()
+
+            viewModel.editWarmupPreparation(WarmupAction.LOWER_BODY_PRACTICE)
+            viewModel.onWarmupEditorRepsChanged("14")
+            viewModel.saveWarmupEditor()
+            advanceUntilIdle()
+            assertTrue(overrides.observeAll().first().containsKey(WarmupAction.LOWER_BODY_PRACTICE))
+
+            viewModel.editWarmupPreparation(WarmupAction.LOWER_BODY_PRACTICE)
+            viewModel.resetWarmupEditor()
+            // Reset stages the default; Save is what applies it and clears the stored override.
+            viewModel.saveWarmupEditor()
+            advanceUntilIdle()
+
+            assertTrue(overrides.observeAll().first().isEmpty())
+            val row = preparationRow(viewModel, WarmupAction.LOWER_BODY_PRACTICE)
+            assertEquals(10, row.reps)
+            assertFalse(row.edited)
+        }
+
+    @Test
+    fun aTimedPreparationOverridePersistsItsSeconds() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val overrides = FakeWarmupPreparationOverrideRepository()
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            warmupOverrides = overrides
+        )
+        advanceUntilIdle()
+
+        viewModel.editWarmupPreparation(WarmupAction.EASY_GENERAL_MOVEMENT)
+        viewModel.onWarmupEditorDurationChanged("5")
+        viewModel.saveWarmupEditor()
+        advanceUntilIdle()
+
+        assertEquals(
+            WarmupPreparationItem(WarmupAction.EASY_GENERAL_MOVEMENT, durationSeconds = 300),
+            overrides.observeAll().first()[WarmupAction.EASY_GENERAL_MOVEMENT]
+        )
+
+        val restarted = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            warmupOverrides = overrides
+        )
+        advanceUntilIdle()
+
+        val row = preparationRow(restarted, WarmupAction.EASY_GENERAL_MOVEMENT)
+        assertEquals(300, row.durationSeconds)
+        assertTrue(row.edited)
     }
 
     @Test
@@ -8440,7 +8558,9 @@ class WorkoutLoggerViewModelTest {
         coaching: Boolean = false,
         equipment: WorkoutLoggerEquipment = testEquipment(),
         weightUnit: WeightUnit = WeightUnit.KG,
-        weightUnitFlow: MutableStateFlow<WeightUnit>? = null
+        weightUnitFlow: MutableStateFlow<WeightUnit>? = null,
+        warmupOverrides: FakeWarmupPreparationOverrideRepository =
+            FakeWarmupPreparationOverrideRepository()
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessions),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
@@ -8467,6 +8587,7 @@ class WorkoutLoggerViewModelTest {
         ),
         exerciseNoteRepository = FakeExerciseNoteRepository(),
         sessionNoteRepository = FakeSessionNoteRepository(),
+        warmupOverrideRepository = warmupOverrides,
         equipment = equipment
     ).also { timerViewModels.add(it) }
 
@@ -8723,6 +8844,14 @@ class WorkoutLoggerViewModelTest {
             newWeightKg: Double?,
             newLoadCapability: ExerciseLoadCapability,
             newLoadKind: LoadKind
+        ) = Unit
+
+        override suspend fun setMeasure(
+            planId: Long,
+            dayIndex: Int,
+            position: Int,
+            reps: Int?,
+            durationSeconds: Int?
         ) = Unit
 
         override suspend fun delete(planId: Long) {
@@ -9204,6 +9333,27 @@ class WorkoutLoggerViewModelTest {
             if (failClear) throw IllegalStateException("Clear failed")
             notes[sessionId] = ""
             saved.add(sessionId to "")
+        }
+    }
+
+    /** In-memory preparation overrides, shared across ViewModel instances to model a restart. */
+    class FakeWarmupPreparationOverrideRepository : WarmupPreparationOverrideRepository {
+        private val overrides =
+            MutableStateFlow<Map<WarmupAction, WarmupPreparationItem>>(emptyMap())
+
+        /** Pre-seeds a stored override, as if an earlier session had persisted it. */
+        fun seed(action: WarmupAction, item: WarmupPreparationItem) {
+            overrides.value = overrides.value + (action to item)
+        }
+
+        override fun observeAll(): Flow<Map<WarmupAction, WarmupPreparationItem>> = overrides
+
+        override suspend fun set(item: WarmupPreparationItem) {
+            overrides.value = overrides.value + (item.action to item)
+        }
+
+        override suspend fun clear(action: WarmupAction) {
+            overrides.value = overrides.value - action
         }
     }
 

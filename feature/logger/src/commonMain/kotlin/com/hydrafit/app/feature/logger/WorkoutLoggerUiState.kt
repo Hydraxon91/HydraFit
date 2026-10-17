@@ -315,6 +315,12 @@ data class WorkoutLoggerUiState(
     val warmupRampWriteFailed: Boolean = false,
     /** Transient preparation value edits for the current workout; never persisted. */
     val warmupPreparationEdits: Map<WarmupAction, WarmupPreparationItem> = emptyMap(),
+    /**
+     * The persisted preparation overrides, keyed by action. Global rather than per occurrence, so an
+     * edited measure survives the next occurrence and an app restart; an action absent here uses its
+     * built-in default.
+     */
+    val warmupPreparationOverrides: Map<WarmupAction, WarmupPreparationItem> = emptyMap(),
     /** Preparation items the user skipped for the current workout; never persisted. */
     val warmupPreparationSkipped: Set<WarmupAction> = emptySet(),
     /** Transient ramp value edits for the current workout, keyed by slot and row; never persisted. */
@@ -418,6 +424,7 @@ data class WorkoutLoggerUiState(
                     guidance.copy(ramps = emptyList())
                 },
                 preparationEdits = warmupPreparationEdits,
+                overridden = warmupPreparationOverrides.keys,
                 skipped = warmupPreparationSkipped,
                 rampEdits = warmupRampEdits
             ).takeIf { !it.isEmpty }

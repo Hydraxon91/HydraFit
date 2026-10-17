@@ -886,6 +886,14 @@ class ObserveWorkoutPlanInputsUseCaseTest {
             newLoadKind: LoadKind
         ) = Unit
 
+        override suspend fun setMeasure(
+            planId: Long,
+            dayIndex: Int,
+            position: Int,
+            reps: Int?,
+            durationSeconds: Int?
+        ) = Unit
+
         override suspend fun delete(planId: Long) = Unit
 
         override suspend fun clear() = Unit

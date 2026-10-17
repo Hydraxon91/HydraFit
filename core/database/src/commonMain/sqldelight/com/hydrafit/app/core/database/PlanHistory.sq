@@ -20,7 +20,8 @@ CREATE TABLE planHistoryEntry (
     position INTEGER NOT NULL,
     exerciseId TEXT NOT NULL,
     sets INTEGER NOT NULL,
-    reps INTEGER NOT NULL,
+    reps INTEGER,
+    durationSeconds INTEGER,
     exerciseName TEXT NOT NULL,
     movementPattern TEXT NOT NULL,
     suggestedWeightKg REAL,
@@ -40,8 +41,8 @@ insertDayWithId:
 INSERT INTO planHistoryDay(id, planId, dayIndex, focus) VALUES (?, ?, ?, ?);
 
 insertEntryWithId:
-INSERT INTO planHistoryEntry(id, dayId, position, exerciseId, sets, reps, exerciseName, movementPattern, suggestedWeightKg, loadCapability, loadKind)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO planHistoryEntry(id, dayId, position, exerciseId, sets, reps, durationSeconds, exerciseName, movementPattern, suggestedWeightKg, loadCapability, loadKind)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 lastInsertedPlanId:
 SELECT last_insert_rowid();
@@ -59,8 +60,8 @@ selectAllDays:
 SELECT * FROM planHistoryDay ORDER BY planId, dayIndex;
 
 insertEntry:
-INSERT INTO planHistoryEntry(dayId, position, exerciseId, sets, reps, exerciseName, movementPattern, suggestedWeightKg, loadCapability, loadKind)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO planHistoryEntry(dayId, position, exerciseId, sets, reps, durationSeconds, exerciseName, movementPattern, suggestedWeightKg, loadCapability, loadKind)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 selectAllEntries:
 SELECT * FROM planHistoryEntry ORDER BY dayId, position;
@@ -78,6 +79,14 @@ updateEntryExerciseIdAtPosition:
 UPDATE planHistoryEntry
 SET exerciseId = :newExerciseId, exerciseName = :newExerciseName, suggestedWeightKg = :newWeightKg,
     loadCapability = :newLoadCapability, loadKind = :newLoadKind
+WHERE position = :position
+  AND dayId IN (SELECT id FROM planHistoryDay WHERE planId = :planId AND dayIndex = :dayIndex);
+
+-- Sets one slot's measure in place. The exercise, sets and load are untouched; a timed slot stores
+-- NULL reps with its seconds, never both and never a zero sentinel.
+updateEntryMeasureAtPosition:
+UPDATE planHistoryEntry
+SET reps = :reps, durationSeconds = :durationSeconds
 WHERE position = :position
   AND dayId IN (SELECT id FROM planHistoryDay WHERE planId = :planId AND dayIndex = :dayIndex);
 

@@ -7,7 +7,8 @@ import app.cash.sqldelight.db.SqlSchema
 
 /**
  * The production schema entry point: the generated [HydraFitDatabase.Schema] plus one targeted
- * repair of the `52.sqm` workout-set and `53.sqm` prescription-entry rebuilds.
+ * repair of the `52.sqm` workout-set, `53.sqm` prescription-entry and `54.sqm` accepted-plan-entry
+ * rebuilds.
  *
  * `52.sqm` rebuilds `workoutSet` to make `reps` nullable and add `durationSeconds`. SQLite cannot
  * drop NOT NULL in place, so the migration copies the surviving rows into a new table and drops the
@@ -32,7 +33,8 @@ internal object HydraFitDatabaseSchema : SqlSchema<QueryResult.Value<Unit>> {
 
     private val rebuildTables = mapOf(
         TIMED_SET_REBUILD_VERSION to listOf(WORKOUT_SET),
-        53L to listOf("routineEntry", "activationEntry", "occurrenceEntry")
+        53L to listOf("routineEntry", "activationEntry", "occurrenceEntry"),
+        54L to listOf("planHistoryEntry")
     )
 
     override val version: Long get() = HydraFitDatabase.Schema.version

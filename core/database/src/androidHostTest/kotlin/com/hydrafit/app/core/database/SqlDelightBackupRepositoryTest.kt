@@ -9,9 +9,12 @@ import com.hydrafit.app.core.domain.backup.BackupJson
 import com.hydrafit.app.core.domain.backup.BackupValidator
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
+import com.hydrafit.app.core.domain.backup.WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.settings.WorkoutReminderPreferences
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.workout.WarmupAction
+import com.hydrafit.app.core.domain.workout.WarmupPreparationItem
 import com.hydrafit.app.core.domain.workout.unicodeCaseFold
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -21,6 +24,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 class SqlDelightBackupRepositoryTest {
@@ -264,6 +268,42 @@ class SqlDelightBackupRepositoryTest {
     }
 
     @Test
+    fun warmupPreparationOverridesRoundTripAndWholeReplacementDropsThem() = runTest {
+        val overrides = SqlDelightWarmupPreparationOverrideRepository(database)
+        overrides.set(WarmupPreparationItem(WarmupAction.LOWER_BODY_PRACTICE, reps = 15))
+        overrides.set(
+            WarmupPreparationItem(WarmupAction.EASY_GENERAL_MOVEMENT, durationSeconds = 300)
+        )
+
+        val exported = repository.export("test", 1L)
+        assertEquals(BACKUP_FORMAT_VERSION, exported.formatVersion)
+        assertEquals(
+            setOf(WarmupAction.LOWER_BODY_PRACTICE.name, WarmupAction.EASY_GENERAL_MOVEMENT.name),
+            exported.warmupPreparationOverrides.map { it.action }.toSet()
+        )
+
+        // A payload that carries no overrides whole-replaces the store, and re-restoring the exported
+        // file brings the persisted measure back.
+        repository.restore(exported.copy(warmupPreparationOverrides = emptyList()))
+        assertEquals(emptyMap(), overrides.observeAll().first())
+
+        repository.restore(exported)
+        assertEquals(
+            WarmupPreparationItem(WarmupAction.LOWER_BODY_PRACTICE, reps = 15),
+            overrides.observeAll().first()[WarmupAction.LOWER_BODY_PRACTICE]
+        )
+
+        // A file from before the section restores with no overrides rather than the current ones.
+        repository.restore(
+            exported.copy(
+                formatVersion = WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION - 1,
+                warmupPreparationOverrides = emptyList()
+            )
+        )
+        assertEquals(emptyMap(), overrides.observeAll().first())
+    }
+
+    @Test
     fun failedSessionNoteReplacementRollsBackSessionsAndSets() = runTest {
         seedRepresentativeData()
         val notes = SqlDelightSessionNoteRepository(database)
@@ -352,6 +392,37 @@ class SqlDelightBackupRepositoryTest {
         repository.restore(file)
         repository.restore(file)
 
+        assertEquals(file, repository.export(appVersion = "t", exportedAtMillis = 1L))
+    }
+
+    @Test
+    fun roundTripsATimedPlanEntryMeasure() = runTest {
+        seedRepresentativeData()
+        val dayId = database.planHistoryQueries.selectAllDays().executeAsOne().id
+        database.planHistoryQueries.insertEntry(
+            dayId = dayId,
+            position = 1,
+            exerciseId = "back-squat",
+            sets = 3,
+            reps = null,
+            durationSeconds = 45,
+            exerciseName = "Plank",
+            movementPattern = "CORE",
+            suggestedWeightKg = null,
+            loadCapability = "BODYWEIGHT_ONLY",
+            loadKind = "BODYWEIGHT"
+        )
+
+        val file = repository.export(appVersion = "t", exportedAtMillis = 1L)
+
+        val timed = file.planEntries.first { it.durationSeconds != null }
+        assertNull(timed.reps)
+        assertEquals(45, timed.durationSeconds)
+        assertEquals(BACKUP_FORMAT_VERSION, file.formatVersion)
+
+        repository.restore(file)
+
+        // A restore rebuilds the same timed slot: NULL reps with its stored seconds.
         assertEquals(file, repository.export(appVersion = "t", exportedAtMillis = 1L))
     }
 
@@ -945,6 +1016,7 @@ class SqlDelightBackupRepositoryTest {
             exerciseId = "back-squat",
             sets = 3,
             reps = 5,
+            durationSeconds = null,
             exerciseName = "Back Squat",
             movementPattern = "SQUAT",
             suggestedWeightKg = 100.0,

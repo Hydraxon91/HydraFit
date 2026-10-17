@@ -167,6 +167,103 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun acceptsATimedPlanEntryAtTheCurrentFormat() {
+        validator.validate(
+            planEntryFile(BACKUP_FORMAT_VERSION, reps = null, durationSeconds = 45)
+        )
+    }
+
+    @Test
+    fun acceptsALegacyPlanEntryWithoutADuration() {
+        validator.validate(
+            planEntryFile(
+                formatVersion = PLAN_ENTRY_DURATION_FORMAT_VERSION - 1,
+                reps = 5,
+                durationSeconds = null
+            )
+        )
+    }
+
+    @Test
+    fun rejectsAPlanEntryWithBothOrNeitherMeasure() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            planEntryFile(BACKUP_FORMAT_VERSION, reps = 5, durationSeconds = 45)
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            planEntryFile(BACKUP_FORMAT_VERSION, reps = null, durationSeconds = null)
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            planEntryFile(BACKUP_FORMAT_VERSION, reps = 0, durationSeconds = null)
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            planEntryFile(BACKUP_FORMAT_VERSION, reps = null, durationSeconds = 0)
+        }
+    }
+
+    @Test
+    fun rejectsAPlanEntryDurationInALegacyFormat() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            planEntryFile(
+                formatVersion = PLAN_ENTRY_DURATION_FORMAT_VERSION - 1,
+                reps = null,
+                durationSeconds = 45
+            )
+        }
+    }
+
+    @Test
+    fun acceptsCountedAndTimedWarmupPreparationOverridesAtTheCurrentFormat() {
+        validator.validate(
+            overrideFile(
+                BACKUP_FORMAT_VERSION,
+                prepOverride("LOWER_BODY_PRACTICE", reps = 15),
+                prepOverride("EASY_GENERAL_MOVEMENT", durationSeconds = 300)
+            )
+        )
+    }
+
+    @Test
+    fun rejectsWarmupPreparationOverridesInLegacyFormats() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            overrideFile(
+                WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION - 1,
+                prepOverride("LOWER_BODY_PRACTICE", reps = 15)
+            )
+        }
+    }
+
+    @Test
+    fun anEmptyWarmupPreparationOverrideSectionStaysValidForLegacyFormats() {
+        validator.validate(overrideFile(WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION - 1))
+    }
+
+    @Test
+    fun rejectsAnUnknownDuplicateOrInvalidWarmupPreparationOverride() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            overrideFile(BACKUP_FORMAT_VERSION, prepOverride("NOT_AN_ACTION", reps = 10))
+        }
+        assertFailure(BackupFailure.DUPLICATE_ID) {
+            overrideFile(
+                BACKUP_FORMAT_VERSION,
+                prepOverride("LOWER_BODY_PRACTICE", reps = 10),
+                prepOverride("LOWER_BODY_PRACTICE", reps = 12)
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            overrideFile(
+                BACKUP_FORMAT_VERSION,
+                prepOverride("LOWER_BODY_PRACTICE", reps = 5, durationSeconds = 60)
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            overrideFile(BACKUP_FORMAT_VERSION, prepOverride("LOWER_BODY_PRACTICE"))
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            overrideFile(BACKUP_FORMAT_VERSION, prepOverride("LOWER_BODY_PRACTICE", reps = 0))
+        }
+    }
+
+    @Test
     fun rejectsAnInvalidEnum() {
         assertFailure(BackupFailure.INVALID_VALUE) {
             validFile().copy(workoutSets = listOf(set(loadKind = "NOT_A_KIND")))
@@ -1006,6 +1103,38 @@ class BackupValidatorTest {
         ),
         activeEquipmentProfileId = 1L
     )
+
+    /** One accepted-plan slot, so a plan-entry duration test only exercises that section. */
+    private fun planEntryFile(formatVersion: Int, reps: Int?, durationSeconds: Int?) =
+        profiledFile(formatVersion).copy(
+            plans = listOf(BackupPlanRecord(7L, "DETERMINISTIC", 1L, 1, 1)),
+            planDays = listOf(BackupPlanDayRecord(70L, 7L, 0, "FULL_BODY")),
+            planEntries = listOf(
+                BackupPlanEntryRecord(
+                    id = 700L,
+                    dayId = 70L,
+                    position = 0,
+                    exerciseId = "back-squat",
+                    sets = 3,
+                    reps = reps,
+                    durationSeconds = durationSeconds,
+                    exerciseName = "Back Squat",
+                    movementPattern = "SQUAT",
+                    suggestedWeightKg = 100.0,
+                    loadCapability = "EXTERNAL",
+                    loadKind = "EXTERNAL"
+                )
+            )
+        )
+
+    /** One persisted warm-up preparation override, so that section is the only thing under test. */
+    private fun prepOverride(action: String, reps: Int? = null, durationSeconds: Int? = null) =
+        BackupWarmupPreparationOverrideRecord(action, reps, durationSeconds)
+
+    private fun overrideFile(
+        formatVersion: Int,
+        vararg overrides: BackupWarmupPreparationOverrideRecord
+    ) = profiledFile(formatVersion).copy(warmupPreparationOverrides = overrides.toList())
 
     private fun targetReasonFile() = validFile().copy(
         plans = listOf(BackupPlanRecord(7L, "DETERMINISTIC", 1L, 1, 1)),

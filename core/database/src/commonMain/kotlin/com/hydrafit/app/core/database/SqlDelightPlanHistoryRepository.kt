@@ -130,6 +130,25 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
         }
     }
 
+    override suspend fun setMeasure(
+        planId: Long,
+        dayIndex: Int,
+        position: Int,
+        reps: Int?,
+        durationSeconds: Int?
+    ) {
+        queries.transaction {
+            // A missing day/position updates no row and is a no-op, leaving the plan untouched.
+            queries.updateEntryMeasureAtPosition(
+                reps = reps?.toLong(),
+                durationSeconds = durationSeconds?.toLong(),
+                position = position.toLong(),
+                planId = planId,
+                dayIndex = dayIndex.toLong()
+            )
+        }
+    }
+
     override suspend fun delete(planId: Long) {
         queries.transaction {
             // An activation keeps its snapshot but loses the now-dangling source-plan provenance.
@@ -179,7 +198,8 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
                             AcceptedExercise(
                                 exerciseId = row.exerciseId,
                                 sets = row.sets.toInt(),
-                                reps = row.reps.toInt(),
+                                reps = row.reps?.toInt(),
+                                durationSeconds = row.durationSeconds?.toInt(),
                                 name = row.exerciseName,
                                 movementPattern = decodeMovementPattern(row.movementPattern),
                                 suggestedWeightKg = row.suggestedWeightKg,

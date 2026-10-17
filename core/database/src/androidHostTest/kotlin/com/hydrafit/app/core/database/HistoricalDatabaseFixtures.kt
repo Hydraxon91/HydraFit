@@ -95,8 +95,12 @@ internal object HistoricalDatabaseFixtures {
                 "shareWorkoutData INTEGER NOT NULL DEFAULT 0)",
             "CREATE TABLE planHistory (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, " +
                 "engineId TEXT NOT NULL, acceptedAt INTEGER NOT NULL)",
-            // Entries predate v13 and no migration in the range creates them; later migrations alter.
-            "CREATE TABLE planHistoryEntry (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT)"
+            // Plan entries predate v13; 7.sqm already added `suggestedWeightKg`. 54.sqm rebuilds this
+            // table, so the fixture must carry its real columns rather than a bare id.
+            "CREATE TABLE planHistoryEntry (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, " +
+                "dayId INTEGER NOT NULL, position INTEGER NOT NULL, exerciseId TEXT NOT NULL, " +
+                "sets INTEGER NOT NULL, reps INTEGER NOT NULL, exerciseName TEXT NOT NULL, " +
+                "movementPattern TEXT NOT NULL, suggestedWeightKg REAL)"
         )
     )
 
@@ -122,8 +126,12 @@ internal object HistoricalDatabaseFixtures {
                 "trainingGoal TEXT NOT NULL DEFAULT 'BALANCED', " +
                 "shareWorkoutData INTEGER NOT NULL DEFAULT 0, " +
                 "weightUnit TEXT NOT NULL DEFAULT 'KG')",
-            // See v13: plan entries predate the range and are altered by later migrations.
-            "CREATE TABLE planHistoryEntry (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT)"
+            // See v13: plan entries predate the range. 54.sqm rebuilds this table, so the fixture
+            // must carry its real columns rather than a bare id.
+            "CREATE TABLE planHistoryEntry (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, " +
+                "dayId INTEGER NOT NULL, position INTEGER NOT NULL, exerciseId TEXT NOT NULL, " +
+                "sets INTEGER NOT NULL, reps INTEGER NOT NULL, exerciseName TEXT NOT NULL, " +
+                "movementPattern TEXT NOT NULL, suggestedWeightKg REAL)"
         )
     )
 
@@ -168,8 +176,12 @@ internal object HistoricalDatabaseFixtures {
                 "trainingGoal TEXT NOT NULL DEFAULT 'BALANCED', " +
                 "shareWorkoutData INTEGER NOT NULL DEFAULT 0, " +
                 "weightUnit TEXT NOT NULL DEFAULT 'KG')",
-            // See v13: plan entries predate the range and are altered by later migrations.
-            "CREATE TABLE planHistoryEntry (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT)"
+            // See v13: plan entries predate the range. 54.sqm rebuilds this table, so the fixture
+            // must carry its real columns rather than a bare id.
+            "CREATE TABLE planHistoryEntry (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, " +
+                "dayId INTEGER NOT NULL, position INTEGER NOT NULL, exerciseId TEXT NOT NULL, " +
+                "sets INTEGER NOT NULL, reps INTEGER NOT NULL, exerciseName TEXT NOT NULL, " +
+                "movementPattern TEXT NOT NULL, suggestedWeightKg REAL)"
         )
     )
 

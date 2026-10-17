@@ -1022,6 +1022,7 @@ class CustomExerciseDedupeTest {
             exerciseId = exerciseId,
             sets = 3,
             reps = 5,
+            durationSeconds = null,
             exerciseName = "Trap Bar Deadlift",
             movementPattern = "HINGE",
             suggestedWeightKg = 100.0,

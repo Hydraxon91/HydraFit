@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.Flow
 class PlanBuilderActions(
     private val acceptWeeklyPlan: AcceptWeeklyPlanUseCase,
     private val substituteExercise: SubstituteExerciseUseCase,
+    private val setAcceptedExerciseMeasure: SetAcceptedExerciseMeasureUseCase,
     private val convertPlanToTemplate: ConvertPlanToTemplateUseCase,
     private val saveRoutineTemplate: SaveRoutineTemplateUseCase,
     private val activateRoutine: ActivateRoutineUseCase,
@@ -52,6 +53,19 @@ class PlanBuilderActions(
         selectedExerciseId: String
     ): AcceptedExercise? =
         substituteExercise.invoke(plan, dayIndex, position, request, selectedExerciseId)
+
+    /**
+     * Sets one accepted-plan slot's measure in place, returning the updated slot or null when the
+     * day/position is missing. Throws [IllegalArgumentException] on an out-of-bounds measure.
+     */
+    suspend fun setMeasure(
+        plan: AcceptedPlan,
+        dayIndex: Int,
+        position: Int,
+        reps: Int?,
+        durationSeconds: Int?
+    ): AcceptedExercise? =
+        setAcceptedExerciseMeasure.invoke(plan, dayIndex, position, reps, durationSeconds)
 
     /** Today as a local civil day, for the "start today" default. */
     fun todayEpochDay(): Long =

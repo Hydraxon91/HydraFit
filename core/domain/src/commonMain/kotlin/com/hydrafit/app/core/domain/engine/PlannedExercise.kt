@@ -6,7 +6,13 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 data class PlannedExercise(
     val exerciseId: String,
     val sets: Int,
-    val reps: Int,
+    /** Repetitions for counted work, or null for a timed slot. Never a `0` sentinel. */
+    val reps: Int? = null,
+    /**
+     * Elapsed whole seconds for a timed slot, or null for counted work. The engine never invents a
+     * duration: it is only ever set by the user's own measure edit.
+     */
+    val durationSeconds: Int? = null,
     val suggestedWeightKg: Double? = null,
     /** What [suggestedWeightKg] means; external for the common weighted prescription. */
     val loadKind: LoadKind = LoadKind.EXTERNAL,
@@ -17,4 +23,10 @@ data class PlannedExercise(
      * a slot built only as ranking context). Inert data: it never affects selection or prescription.
      */
     val explanation: ExerciseTargetExplanation? = null
-)
+) {
+    init {
+        require((reps == null) != (durationSeconds == null)) {
+            "A planned exercise is either reps-based or timed"
+        }
+    }
+}

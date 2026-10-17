@@ -161,12 +161,18 @@ private val UPPER_PULL_PATTERNS = setOf(
  * target the user is being asked to perform. [equipment] bounds ramp availability and load against
  * the user's current equipment; a null value means the constraints are not yet known, so ramps are
  * suggested from the frozen target alone.
+ *
+ * [preparationOverrides] replaces a preparation item's built-in measure with the user's persisted
+ * override for that action, so a later occurrence carries the edited value instead of the default.
+ * An action with no entry keeps its built-in default.
  */
 fun buildWarmupGuidance(
     occurrence: WorkoutOccurrence,
-    equipment: WarmupEquipment? = null
+    equipment: WarmupEquipment? = null,
+    preparationOverrides: Map<WarmupAction, WarmupPreparationItem> = emptyMap()
 ): WarmupGuidance = WarmupGuidance(
-    preparation = buildWarmupPreparation(occurrence.entries.map { it.movementPattern }),
+    preparation = buildWarmupPreparation(occurrence.entries.map { it.movementPattern })
+        .map { item -> preparationOverrides[item.action] ?: item },
     ramps = buildWarmupRamps(occurrence.entries.sortedBy { it.position }, equipment)
 )
 

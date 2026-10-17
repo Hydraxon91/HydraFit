@@ -164,10 +164,12 @@ class BuildPlannerLoadInputsUseCase(
         ?.mapNotNull { exercise ->
             if (exercise.loadKind != LoadKind.EXTERNAL) return@mapNotNull null
             val weight = exercise.suggestedWeightKg ?: return@mapNotNull null
+            // A timed slot has no rep target, so it has no rep-based prescription to progress from.
+            val reps = exercise.reps ?: return@mapNotNull null
             exercise.exerciseId to Prescription(
                 exerciseId = exercise.exerciseId,
                 sets = exercise.sets,
-                reps = exercise.reps,
+                reps = reps,
                 weightKg = weight
             )
         }
