@@ -3524,3 +3524,14 @@ modifying app-local state, which was not approved, so the re-entry UI stays devi
 TalkBack, larger payloads, a provider that syncs off-device, and iOS (compile-only; encrypted flows
 unsupported) remain unverified. Emulator state after acceptance: automation and encryption off, a
 stale folder handle, no encryption material, pre-existing Download files untouched.
+
+**Manual user verification (2026-10-17).** The user walked the release on `emulator-5554`: the
+automatic-backup flow, encrypted export/unlock (steps 9–12), the duration surfaces and cleanup all
+behaved as described; the keystore-key-loss re-entry remains the documented host-only limit. Two
+follow-ups came out of the pass and were implemented, device-checked and closed: the export dialog
+now says "Encrypt this file with a password" with the hint that automatic backups use their own
+password (a wording ambiguity, not a behavior defect — the separation is deliberate and unchanged),
+and the pre-existing vertically squeezed `Restore backup` button was repaired (equal-weight row;
+viewed screenshots `hf094-row-fixed`/`hf094-export-dialog` under `…/hf-094-d1d2/`). Final candidate
+matrix after the delta (`c0f4d186`): 2,511 host tests in 278 suites with 0 failures plus migration
+verification, full ktlint, debug assembly and both iOS compiles (`hf-094-final-matrix2.log`).

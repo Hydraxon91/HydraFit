@@ -38,6 +38,19 @@ collaborator count is a cohesion-check candidate if the surface grows, not a ref
 R094-02/03/04 CLOSED with code, test and gate evidence at `097e5998` (`hf-094-corrections.log`;
 encryption settings suite 7 tests, 0 failures); R094-01 recorded as accepted. No reopened concerns.
 
+## Post-closure delta (D1/D2) — closed 2026-10-17
+
+User manual verification on `emulator-5554` produced two approved corrections at `c0f4d186`
+(exactly two files: the export-dialog strings and `BackupSection.android.kt`): the dialog's
+checkbox now reads "Encrypt this file with a password" with a hint that automatic backups keep
+their own password (the separation itself is unchanged and deliberate — the automatic password is
+never stored or reused), and the pre-existing squeezed `Restore backup` button now shares the row
+with equal weights. Evidence: `hf-094-d1d2.log` (36 settings tests across the two suites, ktlint),
+the debug assembly, and viewed device screenshots of the repaired row and dialog (`…/hf-094-d1d2/`).
+The reviewer's targeted closure for this delta returned both changes matching the approved intent
+with no regressions or reopened concerns. Final candidate matrix at `c0f4d186`: 2,511 tests in 278
+suites with 0 failures (`hf-094-final-matrix2.log`).
+
 ## Evidence and limits
 
 Device acceptance and its limits: `docs/qa.md` ("0.9.4 encrypted backups — device acceptance").
