@@ -14,8 +14,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hydrafit.app.core.domain.backup.AutomaticBackupFailureKind
@@ -125,7 +123,7 @@ fun StorageDataRoute(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     Column(
-        modifier = modifier.fillMaxWidth().semantics { testTagsAsResourceId = true },
+        modifier = modifier.fillMaxWidth().storageTestTagsAsResourceId(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
@@ -320,7 +318,7 @@ private fun StorageRemoveDialog(
 ) {
     val confirmed = category != DataCategory.ALL_DATA || isTypedConfirmationValid(state)
     AlertDialog(
-        modifier = Modifier.semantics { testTagsAsResourceId = true },
+        modifier = Modifier.storageTestTagsAsResourceId(),
         onDismissRequest = viewModel::cancel,
         title = {
             Text(
@@ -332,7 +330,7 @@ private fun StorageRemoveDialog(
         },
         text = {
             Column(
-                modifier = Modifier.semantics { testTagsAsResourceId = true },
+                modifier = Modifier.storageTestTagsAsResourceId(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 ConfirmBody(state = state, category = category)
