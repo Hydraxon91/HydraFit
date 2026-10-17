@@ -14,6 +14,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hydrafit.app.core.domain.backup.AutomaticBackupFailureKind
@@ -63,7 +65,6 @@ import hydrafit.feature.settings.generated.resources.settings_storage_category_t
 import hydrafit.feature.settings.generated.resources.settings_storage_category_workout_history
 import hydrafit.feature.settings.generated.resources.settings_storage_confirm_all
 import hydrafit.feature.settings.generated.resources.settings_storage_confirm_all_kept
-import hydrafit.feature.settings.generated.resources.settings_storage_confirm_all_snapshots
 import hydrafit.feature.settings.generated.resources.settings_storage_confirm_category_kept
 import hydrafit.feature.settings.generated.resources.settings_storage_confirm_model
 import hydrafit.feature.settings.generated.resources.settings_storage_confirm_model_kept
@@ -123,7 +124,10 @@ fun StorageDataRoute(
     viewModel: StorageDataViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        modifier = modifier.fillMaxWidth().semantics { testTagsAsResourceId = true },
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         Text(
             text = stringResource(Res.string.settings_storage_section),
             style = MaterialTheme.typography.titleMedium
@@ -193,7 +197,13 @@ private fun SnapshotRow(usage: StorageUsage, enabled: Boolean, onRemove: () -> U
         )
         val fileCount = usage.automaticBackupFileCount
         if (fileCount != null && fileCount > 0) {
-            TextButton(onClick = onRemove, enabled = enabled) {
+            TextButton(
+                onClick = onRemove,
+                enabled = enabled,
+                modifier = Modifier.testTag(
+                    StorageDataTestTags.removeAction(DataCategory.BACKUP_FILES)
+                )
+            ) {
                 Text(stringResource(Res.string.settings_storage_remove))
             }
         }
@@ -218,7 +228,13 @@ private fun ModelStateRow(state: StorageDataUiState, onRemove: () -> Unit) {
             style = MaterialTheme.typography.bodySmall
         )
         if (state.modelInstalled) {
-            TextButton(onClick = onRemove, enabled = !state.inProgress) {
+            TextButton(
+                onClick = onRemove,
+                enabled = !state.inProgress,
+                modifier = Modifier.testTag(
+                    StorageDataTestTags.removeAction(DataCategory.ON_DEVICE_MODEL)
+                )
+            ) {
                 Text(stringResource(Res.string.settings_model_remove))
             }
         }
@@ -241,7 +257,11 @@ private fun CategoryRow(usage: DataCategoryUsage, enabled: Boolean, onRemove: ()
                 text = stringResource(usage.category.labelResource()),
                 style = MaterialTheme.typography.bodyMedium
             )
-            TextButton(onClick = onRemove, enabled = enabled) {
+            TextButton(
+                onClick = onRemove,
+                enabled = enabled,
+                modifier = Modifier.testTag(StorageDataTestTags.removeAction(usage.category))
+            ) {
                 Text(stringResource(Res.string.settings_storage_remove))
             }
         }
@@ -268,7 +288,11 @@ private fun AllDataRow(enabled: Boolean, onRemove: () -> Unit) {
             text = stringResource(Res.string.settings_storage_category_all_data),
             style = MaterialTheme.typography.bodyMedium
         )
-        TextButton(onClick = onRemove, enabled = enabled) {
+        TextButton(
+            onClick = onRemove,
+            enabled = enabled,
+            modifier = Modifier.testTag(StorageDataTestTags.removeAction(DataCategory.ALL_DATA))
+        ) {
             Text(stringResource(Res.string.settings_storage_remove_all))
         }
     }
@@ -296,6 +320,7 @@ private fun StorageRemoveDialog(
 ) {
     val confirmed = category != DataCategory.ALL_DATA || isTypedConfirmationValid(state)
     AlertDialog(
+        modifier = Modifier.semantics { testTagsAsResourceId = true },
         onDismissRequest = viewModel::cancel,
         title = {
             Text(
@@ -306,7 +331,10 @@ private fun StorageRemoveDialog(
             )
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.semantics { testTagsAsResourceId = true },
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 ConfirmBody(state = state, category = category)
                 if (category == DataCategory.ALL_DATA) {
                     Text(
@@ -389,16 +417,6 @@ private fun ConfirmBody(state: StorageDataUiState, category: DataCategory) {
             Text(stringResource(Res.string.settings_storage_confirm_all))
             state.usage?.categories?.forEach { categoryUsage ->
                 CountLines(categoryUsage.counts)
-            }
-            val snapshots = state.usage?.automaticBackupFileCount
-            if (snapshots != null && snapshots > 0) {
-                Text(
-                    text = stringResource(
-                        Res.string.settings_storage_confirm_all_snapshots,
-                        snapshots
-                    ),
-                    style = MaterialTheme.typography.bodySmall
-                )
             }
             Disclosure(Res.string.settings_storage_confirm_all_kept)
         }

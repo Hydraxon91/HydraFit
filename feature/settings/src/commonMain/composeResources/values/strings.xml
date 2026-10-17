@@ -305,7 +305,6 @@
     <string name="settings_storage_confirm_model">This removes the imported on-device model file. You can import it again later.</string>
     <string name="settings_storage_confirm_model_kept">Only the model file is deleted; other stored data isn’t affected.</string>
     <string name="settings_storage_confirm_all">This removes every category listed here.</string>
-    <string name="settings_storage_confirm_all_snapshots">It also removes %1$d recorded automatic snapshots.</string>
     <string name="settings_storage_confirm_all_kept">The exercise catalog, saved credentials, model files and backup files are kept.</string>
     <string name="settings_storage_confirm_category_kept">The exercise catalog, saved credentials, model files and backup files aren’t affected.</string>
     <string name="settings_storage_backup_disabled">Turn on automatic backups first.</string>

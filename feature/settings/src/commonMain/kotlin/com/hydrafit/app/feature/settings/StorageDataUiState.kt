@@ -61,4 +61,8 @@ internal object StorageDataTestTags {
     /** One tag per category row, derived from the category so the id stays stable. */
     fun categoryRow(category: DataCategory): String =
         "settings_storage_category_${category.name.lowercase()}"
+
+    /** One tag per row's removal action, derived from the category so the id stays stable. */
+    fun removeAction(category: DataCategory): String =
+        "settings_storage_remove_${category.name.lowercase()}"
 }
