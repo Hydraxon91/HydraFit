@@ -79,8 +79,10 @@ The parent must recommend an implementation owner with a brief risk/scope ration
 and obtain the user's approval before the chunk's first source or test edit. The
 implementation plan's explicit approval may cover both scope and ownership; do not
 require another approval when the approved plan already explicitly names `coder`.
-Require the brief to state that user-approved ownership, not merely the parent's
-selection. If it is missing, return the blocker before editing. For a delegated
+An accepted Authorized Autonomous Task or batch contract that names `coder` is that
+user-approved ownership; do not require a second approval for the same unchanged
+scope. Require the brief to state that user-approved ownership, not merely the
+parent's selection. If it is missing, return the blocker before editing. For a delegated
 chunk, own its entire approved
 implementation, tests and explicitly assigned feature documentation; the parent provides research
 and settled decisions, not a partially implemented chunk handed over silently.
@@ -159,7 +161,8 @@ temporary diagnostics before stopping; preserve legitimate implementation work.
 Report changed files, acceptance criteria covered, exact verification commands
 and results, artifact paths, remaining failures and unverified checks. Do not
 declare the work reviewed or approved. Independent post-execution review belongs
-to the parent/reviewer, only when the user requests it and Plan mode is active.
+to the parent/reviewer, only when the user requests it and Plan mode is active,
+or when an authorized task or batch contract pre-requests that checkpoint.
 Use completed, failed, unknown and unverified outcomes per acceptance criterion.
 Identify the revision/working-tree state covered by each check and what remains
 in progress when stopping. A successful command alone does not prove behavior;
@@ -172,9 +175,12 @@ Disagreement alone is not a finding; corrections must be evidence-backed and
 classified as mechanical fixes or design decisions under those guides.
 
 For reviewer-requested corrections, require a user-approved fix scope and Build
-mode before implementing. The parent must pass finding IDs, evidence, settled
+mode before implementing, except that an authorized task or batch contract's
+pre-authorized mechanical-correction category is that fix scope. Design decisions
+still require the user. The parent must pass finding IDs, evidence, settled
 decisions, exact affected files and required regression/downstream verification.
 Implement and verify only those approved corrections, then stop and report to the
-parent. The main reviewer performs targeted closure checks in Plan mode under the
-bounded review discipline. Do not start an automatic review/fix loop, issue your
-own closure verdict, or treat review approval as commit/push authorization.
+parent. The reviewer performs targeted closure checks under the bounded review
+discipline, in Plan mode for ordinary reviews or at the pre-requested task/batch
+checkpoint. Do not start an automatic review/fix loop, issue your own closure
+verdict, or treat review approval as commit/push authorization.

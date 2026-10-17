@@ -233,9 +233,10 @@ review from targeted closure. Missing scope, authorization or evidence returns t
 the parent; do not reconstruct it from an implementation summary.
 
 This profile does not create an exception to review ownership or mode rules.
-Use it for the independent checkpoints authorized by an explicitly activated
-Continuous Multi-Release Execution workflow. Ordinary reviews remain main-agent
-owned in Plan Mode unless the user separately approves different ownership.
+Use it for the independent checkpoints pre-requested by an explicitly activated
+Authorized Autonomous Task or Continuous Multi-Release Execution workflow.
+Ordinary reviews remain main-agent owned in Plan Mode unless the user separately
+approves different ownership.
 Never delegate to evade harness Plan-mode restrictions. The parent and other
 workers must finish writes before review and remain idle during the checkpoint.
 If the pinned revision or scoped working-tree state changes, stop and report the

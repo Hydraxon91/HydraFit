@@ -13,6 +13,9 @@ Use this procedure for code changes to make the approved scope and its evidence
 usable for implementation and any later post-execution review. Scale the detail
 to the risk: a localized change needs a concise plan; cross-cutting, persistent
 or asynchronous behavior needs explicit invariants and downstream coverage.
+Under an authorized autonomous task or batch, the accepted contract replaces
+repeated plan, owner and fix approvals; these readiness steps still apply and
+produce the evidence for the pre-requested independent checkpoint.
 
 ### Before implementation
 
@@ -78,7 +81,9 @@ Verification evidence applies only to the revision and state it actually covered
 rerun affected checks after subsequent edits. Say “Implementation verified against
 the approved contract; formal review pending” only when verification supports that
 claim, and qualify it when checks remain outstanding. This report is not a review
-verdict or commit/push authorization.
+verdict or commit/push authorization. Under an authorized task or batch, it feeds
+the pre-requested independent review; it does not pre-empt the reviewer's verdict
+or grant publication authority.
 
 ## Project Overview
 
@@ -157,7 +162,9 @@ RELEASE_KEY_PASSWORD=changeme
 Choose the tier from the changed behavior and its consumers, not the number
 of files. Chunk checks provide early feedback; the release integration gate
 still runs the full matrix on the final candidate. Docs-only changes need
-diff/whitespace and reference checks, not Gradle runs.
+diff/whitespace and reference checks, not Gradle runs; behavioral tooling changes
+(`AGENTS.md`, `.opencode/` agents/commands/skills and operational procedures) also
+need the consistency validation described in `docs/agent-ci-release.md`.
 
 | Tier | Scope | Chunk checks |
 | --- | --- | --- |

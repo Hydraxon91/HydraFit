@@ -19,11 +19,12 @@ what is missing; do not guess a range or launch an unbounded review. Finish all
 competing writes first and preserve pre-existing work.
 
 Ordinary reviews remain main-agent owned in Plan mode. In an explicitly activated
-continuous batch, use the separate read-only `reviewer` agent for its approved
-checkpoint, with the full Subagent brief contract and no model override unless
-the user requested one. Use a separate `general` agent only if `reviewer` is
-unavailable, carrying the same read-only scope and restrictions. This command
-does not activate a batch or broaden its review checkpoints.
+authorized autonomous task or continuous batch, use the separate read-only
+`reviewer` agent for its pre-requested checkpoint, with the full Subagent brief
+contract and no model override unless the user requested one. Use a separate
+`general` agent only if `reviewer` is unavailable, carrying the same read-only
+scope and restrictions. This command does not activate a task or batch or broaden
+its review checkpoints.
 
 Inspect actual source, consumers, tests and revision-specific evidence. Report
 the guide's verdict, evidence-backed findings and unverified checks in chat.

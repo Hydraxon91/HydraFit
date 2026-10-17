@@ -15,13 +15,13 @@ scope is unclear, clarify it before starting.
 is in Build Mode, stop and ask the user to switch to Plan Mode before
 reviewing; an approved implementation chunk does not waive this requirement.
 
-**Explicit continuous-execution exception:** when the user activates
-`AGENTS.md`'s Continuous Multi-Release Execution workflow for named scopes, its
-separate read-only reviewer may review and confirm closure while the parent
-remains in Build Mode. The invocation requests those checkpoints in advance.
-This also qualifies the Plan-mode references below; ordinary reviews retain the
-default rule. Harness-enforced restrictions and read-only review isolation remain
-mandatory. The parent performs authorized Git operations directly in that workflow.
+**Explicit continuous-execution exceptions:** when the user activates
+`AGENTS.md`'s Authorized Autonomous Task or Continuous Multi-Release Execution
+workflow, its accepted contract pre-requests the separate read-only reviewer
+checkpoints, which may run and confirm closure while the parent remains in Build
+Mode. This also qualifies the Plan-mode references below; ordinary reviews retain
+the default rule. Harness-enforced restrictions and read-only review isolation
+remain mandatory. Git ownership follows the activated workflow.
 
 ## Review, Rule-Setting and Fix Discipline
 
@@ -104,7 +104,7 @@ then wait for an explicit decision.
 Mechanical fixes still require the applicable approved fix scope. Neither
 classification authorizes silently fixing a finding during review.
 
-In the explicit continuous workflow, initial approval may cover the localized
+In the explicit continuous workflows, initial approval may cover the localized
 mechanical-correction category defined in `AGENTS.md`. After the read-only review
 ends, record finding IDs, classification, exact fix scope, owner and checks before
 implementing within that authorization. Design decisions and individually gated
@@ -136,15 +136,16 @@ review criteria and evidenced verification requirements. It does not
 authorize fixes, commits, pushes or another phase.
 
 A builder's verification of its own fixes is not a review verdict. Begin the
-bounded review only when the user requests it and Plan Mode is active; passing
+bounded review only when the user requests it and Plan Mode is active, or when an
+authorized task or batch contract already pre-requests that checkpoint; passing
 tests, a green build or a self-check of closed findings does not substitute for
 the review.
 
-In the explicit continuous workflow, independent review approval allows the next
-named step only under the user's existing execution authorization. It grants no
-new fix, commit, push or publication authority. Incomplete review or unresolved
-required findings prevent advancement; pre-authorized corrections still require
-verification and independent targeted closure.
+In the explicit continuous workflows, independent review approval allows the next
+named step only under the accepted task contract or existing release authorization.
+It grants no new fix, commit, push or publication authority. Incomplete review or
+unresolved required findings prevent advancement; pre-authorized corrections still
+require verification and independent targeted closure.
 
 Review documents, RG rule changes, RF triage documents and fix implementation
 follow the approval and commit discipline in `AGENTS.md`.
@@ -162,7 +163,8 @@ confirm closures with a targeted, read-only check of the fixes, affected
 consumers, regression tests and revision-specific verification evidence.
 Append closure evidence to the existing review snapshot; preserve its original
 findings and verdict as historical evidence. Closure confirmation is a reviewer
-activity in Plan Mode, not a builder self-check or a new full-range review.
+activity in Plan Mode, or at the pre-requested checkpoint of an authorized task or
+batch, not a builder self-check or a new full-range review.
 
 Reopen a full-range review only for a blocker, a finding with data-loss or
 corruption impact, or an unmet acceptance item whose evidence the builder

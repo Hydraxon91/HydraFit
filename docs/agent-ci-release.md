@@ -30,6 +30,16 @@ codebase must keep every required check green; an uploaded debug artifact is not
     - **Batch publication order (recorded 2026-10-15):** publishing several tags at once hazards both `versionCode` (the run number) and GitHub's "Latest release" badge, because both follow publish time, not version order — pushing `v0.8.1`–`v0.8.3` together produced codes 25/26/24 and marked `v0.8.2` as latest. Push tags oldest-first, and afterwards verify: `gh api repos/<owner>/<repo>/releases/latest --jq .tag_name` names the newest version and each APK's `versionCode` increases with its version (`aapt2 dump badging <apk> | head -1`). Correct a wrong badge with `gh release edit <tag> --latest`. A `versionCode` below an already-published release blocks Android upgrade installs; stable tags now derive their own code, so this cannot recur, and an already-published APK that carries a lower code needs a corrective release (the 0.8.x instance is corrected by `v0.8.4`).
     - **Required secrets:** `RELEASE_KEYSTORE_BASE64` (base64-encoded keystore) plus same-named `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD`. `GEMINI_API_KEY` is not a CI secret — no CI job calls the Gemini engine.
 
+### Behavioral tooling changes
+
+`AGENTS.md`, `.opencode/agents/`, `.opencode/commands/`, `.opencode/skills/` and
+operational procedure documents change how agents execute, so they are tooling
+changes even though they are Markdown. An app CI pass is not validation of them:
+validate their frontmatter, cross-references and affected workflow scenarios
+before committing, and record that evidence and its limits. A push containing
+behavioral tooling does not qualify for the documentation-only CI exception in
+`AGENTS.md` Commit Discipline.
+
 Release preparation, tagging and publication never authorize installing a release/minified APK on
 the development emulator. The emulator stays on debug builds: a release/signed install is refused
 regardless of approval. Verify the published artifact without installing it (download, checksum,
