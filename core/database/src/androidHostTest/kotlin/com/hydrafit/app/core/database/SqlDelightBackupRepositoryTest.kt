@@ -3,10 +3,21 @@ package com.hydrafit.app.core.database
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.backup.ApplyStagedBackupUseCase
 import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT_VERSION
+import com.hydrafit.app.core.domain.backup.BackupBodyWeightRecord
 import com.hydrafit.app.core.domain.backup.BackupException
+import com.hydrafit.app.core.domain.backup.BackupExclusionRecord
+import com.hydrafit.app.core.domain.backup.BackupExerciseNoteRecord
+import com.hydrafit.app.core.domain.backup.BackupExerciseOverrideRecord
+import com.hydrafit.app.core.domain.backup.BackupExerciseRecord
 import com.hydrafit.app.core.domain.backup.BackupFailure
 import com.hydrafit.app.core.domain.backup.BackupJson
+import com.hydrafit.app.core.domain.backup.BackupMergeSelection
+import com.hydrafit.app.core.domain.backup.BackupMergedSet
+import com.hydrafit.app.core.domain.backup.BackupPersonalRecordRecord
+import com.hydrafit.app.core.domain.backup.BackupPreferenceRecord
+import com.hydrafit.app.core.domain.backup.BackupSessionNoteRecord
 import com.hydrafit.app.core.domain.backup.BackupValidator
+import com.hydrafit.app.core.domain.backup.BackupWorkoutSessionRecord
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
 import com.hydrafit.app.core.domain.backup.WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION
@@ -79,6 +90,96 @@ class SqlDelightBackupRepositoryTest {
         assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "planTargetExplanationState"))
         // The plan itself is owned by the payload and is re-created from it.
         assertEquals(1L, HistoricalDatabaseFixtures.count(driver, "planHistory"))
+    }
+
+    @Test
+    fun mergeKeysReadLiveIdentities() = runTest {
+        seedRepresentativeData()
+        database.bodyWeightQueries.insertMeasurement(7L, 80.0)
+        database.personalRecordQueries.upsert("back-squat", 100.0, 5, 1L, "EXTERNAL")
+        database.exercisePreferenceQueries.upsert("back-squat", "PREFER")
+        database.exerciseExclusionQueries.upsert("back-squat", null)
+        database.exerciseNoteQueries.upsert("back-squat", "n")
+
+        val keys = repository.mergeKeys()
+
+        assertEquals(setOf("s1"), keys.sessionIds)
+        assertEquals(setOf(7L), keys.bodyWeightDays)
+        assertEquals(setOf("back-squat"), keys.personalRecordExerciseIds)
+        assertEquals(setOf("user-bicycle-crunch"), keys.customExerciseIds)
+        assertEquals(setOf("back-squat"), keys.exerciseOverrideIds)
+        assertEquals(setOf("back-squat"), keys.exerciseNoteIds)
+        assertEquals(setOf("back-squat"), keys.exercisePreferenceIds)
+        assertEquals(setOf("back-squat"), keys.exerciseExclusionIds)
+    }
+
+    @Test
+    fun mergeKeysAreEmptyOnAFreshInstall() = runTest {
+        val keys = repository.mergeKeys()
+
+        assertEquals(emptySet(), keys.sessionIds)
+        assertEquals(emptySet(), keys.bodyWeightDays)
+        assertEquals(emptySet(), keys.personalRecordExerciseIds)
+        assertEquals(emptySet(), keys.customExerciseIds)
+        assertEquals(emptySet(), keys.exerciseOverrideIds)
+        assertEquals(emptySet(), keys.exerciseNoteIds)
+        assertEquals(emptySet(), keys.exercisePreferenceIds)
+        assertEquals(emptySet(), keys.exerciseExclusionIds)
+    }
+
+    @Test
+    fun mergeAppliesAdditiveSelection() = runTest {
+        seedRepresentativeData()
+        val setsBefore = HistoricalDatabaseFixtures.count(driver, "workoutSet")
+        val exercisesBefore = HistoricalDatabaseFixtures.count(driver, "exercise")
+
+        repository.merge(mergedSelection())
+
+        assertEquals(setsBefore + 1, HistoricalDatabaseFixtures.count(driver, "workoutSet"))
+        assertEquals(exercisesBefore + 1, HistoricalDatabaseFixtures.count(driver, "exercise"))
+        assertEquals(
+            "note",
+            database.sessionNoteQueries.selectBySessionId("merged-s").executeAsOne().note
+        )
+        assertEquals(
+            82.5,
+            database.bodyWeightQueries.selectMeasurement(7L).executeAsOne().weightKg
+        )
+        assertEquals(
+            8L,
+            database.personalRecordQueries.selectById("user-merged").executeAsOne().reps
+        )
+        assertEquals(
+            "PREFER",
+            database.exercisePreferenceQueries.selectById("user-merged").executeAsOne()
+        )
+        // Existing rows stay untouched: the seeded session, its override and the set survive.
+        assertNotNull(database.workoutSessionQueries.selectSessionById("s1").executeAsOneOrNull())
+        assertEquals(
+            "Back Squat (edited)",
+            database.exerciseOverrideQueries.selectById("back-squat").executeAsOne().name
+        )
+        // The merge keys reflect the inserted rows, so re-merging the same selection adds nothing.
+        assertTrue(repository.mergeKeys().sessionIds.contains("merged-s"))
+        assertTrue(repository.mergeKeys().customExerciseIds.contains("user-merged"))
+    }
+
+    @Test
+    fun mergeRollsBackEntirelyOnConflict() = runTest {
+        seedRepresentativeData()
+        val setsBefore = HistoricalDatabaseFixtures.count(driver, "workoutSet")
+        val exercisesBefore = HistoricalDatabaseFixtures.count(driver, "exercise")
+        val conflicting = mergedSelection().copy(
+            sessionsToInsert = listOf(BackupWorkoutSessionRecord("s1", 1L, 2L, 1L, null))
+        )
+
+        assertFailsWith<Exception> { repository.merge(conflicting) }
+
+        assertEquals(setsBefore, HistoricalDatabaseFixtures.count(driver, "workoutSet"))
+        assertEquals(exercisesBefore, HistoricalDatabaseFixtures.count(driver, "exercise"))
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "sessionNote"))
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "bodyWeightMeasurement"))
+        assertNull(database.personalRecordQueries.selectById("user-merged").executeAsOneOrNull())
     }
 
     @Test
@@ -965,6 +1066,66 @@ class SqlDelightBackupRepositoryTest {
         assertNull(storedOccurrence.reps)
         assertEquals(90L, storedOccurrence.durationSeconds)
     }
+
+    private fun mergedSelection(): BackupMergeSelection = BackupMergeSelection(
+        customExercisesToInsert = listOf(
+            BackupExerciseRecord(
+                id = "user-merged",
+                name = "Merged Exercise",
+                requiredEquipment = "BARBELL",
+                movementPattern = "SQUAT",
+                isUnilateral = false,
+                loadCapability = "EXTERNAL",
+                involvements = null
+            )
+        ),
+        sessionsToInsert = listOf(
+            BackupWorkoutSessionRecord(
+                id = "merged-s",
+                startedAtMillis = 30L,
+                endedAtMillis = 40L,
+                localEpochDay = 2L,
+                occurrenceId = null
+            )
+        ),
+        sessionNotesToInsert = listOf(BackupSessionNoteRecord("merged-s", "note")),
+        setsToInsert = listOf(
+            BackupMergedSet(
+                exerciseId = "back-squat",
+                reps = 5,
+                weightKg = 90.0,
+                performedAtMillis = 35L,
+                isWarmup = false,
+                involvements = null,
+                weekNumber = null,
+                cycleNumber = null,
+                dayIndex = null,
+                rir = null,
+                sessionId = "merged-s",
+                loadKind = "EXTERNAL",
+                timingProvenance = "UNKNOWN",
+                startedAtElapsedMillis = null,
+                completedAtElapsedMillis = null,
+                durationSeconds = null
+            )
+        ),
+        bodyWeightToInsert = listOf(BackupBodyWeightRecord(7L, 82.5)),
+        personalRecordsToInsert = listOf(
+            BackupPersonalRecordRecord("user-merged", 50.0, 8, 60L, "EXTERNAL")
+        ),
+        preferencesToInsert = listOf(BackupPreferenceRecord("user-merged", "PREFER")),
+        exclusionsToInsert = listOf(BackupExclusionRecord("user-merged", null)),
+        exerciseNotesToInsert = listOf(BackupExerciseNoteRecord("user-merged", "n")),
+        overridesToInsert = listOf(
+            BackupExerciseOverrideRecord("user-merged", "Merged", null, null, null, null, null)
+        ),
+        keptLocalSessions = 0,
+        keptLocalRows = 0,
+        skippedOpenSessions = 0,
+        skippedUnattachedSets = 0,
+        setsWithDroppedOccurrenceLinks = 0,
+        excluded = emptyList()
+    )
 
     private fun seedRepresentativeData() {
         database.exerciseQueries.insertCustom(

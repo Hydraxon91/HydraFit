@@ -9,6 +9,8 @@ import com.hydrafit.app.core.domain.backup.BackupCatalog
 import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
 import com.hydrafit.app.core.domain.backup.BackupFailure
 import com.hydrafit.app.core.domain.backup.BackupFile
+import com.hydrafit.app.core.domain.backup.BackupMergeKeys
+import com.hydrafit.app.core.domain.backup.BackupMergeSelection
 import com.hydrafit.app.core.domain.backup.BackupRepository
 import com.hydrafit.app.core.domain.backup.BackupRestPreferenceRecord
 import com.hydrafit.app.core.domain.backup.BackupStagingRepository
@@ -174,6 +176,12 @@ class DatabaseStartupMaintenanceTest {
                 emptyBackupFile(appVersion, exportedAtMillis)
 
             override suspend fun restore(file: BackupFile) = Unit
+
+            override suspend fun mergeKeys(): BackupMergeKeys =
+                throw UnsupportedOperationException()
+
+            override suspend fun merge(selection: BackupMergeSelection) =
+                throw UnsupportedOperationException()
         },
         staging = object : BackupStagingRepository {
             override suspend fun stage(payload: String, appVersion: String, stagedAtMillis: Long) =
