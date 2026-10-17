@@ -952,6 +952,32 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   closure **approved TIME-01–04**. See [review and limits](review-timed-sets-2026-10-17.md).
   These checks do not resolve the unavailable emulator acceptance or unfinished requested work.
 
+### Accepted-plan durations and persisted preparation — 2026-10-17
+
+- Plan slots now carry a user-set measure: SplitBuilder's per-slot measure action edits reps or
+  whole seconds; a draft edit is state-only and carries into acceptance, an accepted-plan edit
+  persists in place like a swap (id and acceptance time kept, frozen volume assessment and slot
+  reasons untouched), swap preserves the replaced slot's measure, and plan-to-routine conversion
+  carries it. The engines still never invent durations, and regeneration yields a fresh rep-based
+  plan.
+- `54.sqm` rebuilds `planHistoryEntry` for nullable `reps` plus `durationSeconds` (allocation-history
+  repair registered in the schema wrapper); `55.sqm` adds the additive `warmupPreparationOverride`
+  table so a preparation edit persists per action, is applied by `buildWarmupGuidance`, and is
+  cleared by Reset to default. Backup formats 19 and 20 carry both.
+- **Passed** host verification: Tier A matrix green (783 tasks, `prep-persist-matrix.log`);
+  SplitBuilderViewModelTest 56/0/0, WorkoutLoggerViewModelTest 319/0/0, WarmupGuidanceTest 18/0/0,
+  the override repository 5/0/0, the plan-entry and preparation migrations 4/0/0 and 3/0/0,
+  `verifySqlDelightMigration` and root ktlint green.
+- **Passed on device** (`emulator-5554`, debug, 2026-10-17): the real 54→55→56 upgrade ran on
+  existing data (`PRAGMA user_version` = 56, `planHistoryEntry.durationSeconds` and
+  `warmupPreparationOverride` present) with no HydraFit crash or migration error in logcat, and the
+  app rendered normally (`chunk4-after-upgrade.png`, `chunk4-deploy.log`). The emulator's
+  `planHistoryEntry` held no rows at upgrade time, so on-device legacy-row preservation is not
+  demonstrated; the host migration tests cover it.
+- **Unverified:** the new measure dialog and the preparation persistence are not exercised on a
+  device (no interaction check), and large font, dark theme, locale, rotation and TalkBack are
+  unchecked.
+
 - Heatmap reflects logged sets per muscle; percentages shown; near-limit shows "99.9+%".
 - Decay over time and reset at session boundaries behave as expected.
 - Body map: Male/Female selection is independent of profile settings; Front initially, with a

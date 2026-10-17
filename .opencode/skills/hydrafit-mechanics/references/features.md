@@ -1,5 +1,15 @@
 # Feature and test implementation recipes
 
+## SplitBuilder plan-slot measure
+
+Each slot of the shown plan carries a measure action (`Measure <exercise>`) opening a small dialog
+with a Reps/Seconds choice and a value field, backed by `MeasureDialogState`. A timed slot renders
+`sets × seconds s`; a slot whose measure is somehow absent renders the bare name rather than a `0`
+sentinel. Invalid input writes nothing and reports a specific reason (rep range, non-positive
+seconds, or seconds beyond the recordable range). A draft edit is state-only and carries into
+acceptance; an accepted-plan edit persists through `SetAcceptedExerciseMeasureUseCase` in place, like
+a swap, and leaves the frozen volume assessment and the slot's recorded reasons untouched.
+
 ## SplitBuilder planning dates
 
 `SplitBuilderScreen` hosts a date editor separate from the Start-block schedule dialog, backed by
@@ -18,8 +28,11 @@ seconds into the recorded set rather than inventing reps. Guided completion stil
 Timed draft rows and their one-off editor display/edit seconds, preserving the metric through
 missing-load entry, failed-write retries and guided confirmation without changing frozen targets.
 Workout summaries and Progress display recorded seconds descriptively; timed work has no
-rep-derived strength record or modeled fatigue contribution. Preparation ramp sets remain counted;
-persisted timed preparation and accepted-plan duration editing are not yet implemented.
+rep-derived strength record or modeled fatigue contribution. Preparation ramp sets remain counted.
+A preparation edit persists as one global override per action in the additive
+`warmupPreparationOverride` table (reps XOR seconds, cleared by Reset to default), applied by
+`buildWarmupGuidance` so a later occurrence renders the persisted measure; a row showing a persisted
+override carries the same "(edited)" marker as a transient edit.
 
 Equipment exposes Trap isolation (manual only) and Neck isolation (manual only) in the
 existing non-compound pattern selector. All six manual shrug/neck seeds remain selectable

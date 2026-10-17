@@ -268,8 +268,11 @@ Generated files land under
 `AndroidDatabaseDriverFactory` and `NativeDatabaseDriverFactory` pass the commonMain
 `HydraFitDatabaseSchema` wrapper to their driver; the driver handles creation/upgrade.
 The wrapper delegates `version`/`create`/`migrate` to the generated `HydraFitDatabase.Schema`
-with allocation-history repairs at `52.sqm` (`workoutSet`) and `53.sqm`
-(`routineEntry`, `activationEntry`, `occurrenceEntry`). It captures each table's
+with allocation-history repairs at `52.sqm` (`workoutSet`), `53.sqm`
+(`routineEntry`, `activationEntry`, `occurrenceEntry`) and `54.sqm` (`planHistoryEntry`, rebuilt so
+an accepted-plan slot stores nullable `reps` plus `durationSeconds`). `55.sqm` adds the additive
+`warmupPreparationOverride` table (one persisted preparation measure per action); an additive table
+needs no repair. The wrapper captures each table's
 AUTOINCREMENT high-water mark from `sqlite_sequence` immediately before its rebuild and
 restores it immediately after, never below the rebuilt table's own mark, so a deleted id is not
 reissued. The mark is read at the rebuild, not at the migration start, so the earlier `20.sqm`
