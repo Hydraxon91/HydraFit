@@ -10,6 +10,20 @@
 
 ## Session rules (apply to every task)
 
+- **UI exploration and acceptance ownership:** before UI acceptance interaction,
+  identify parent-owned exploration and runner-owned prepared journeys. State the
+  exploration goal, allowed interactions, concrete time/tool-call budget and handoff
+  condition within the approved mutation, cleanup and evidence contract. Once flows,
+  selectors, assertions and that contract are ready, delegate acceptance execution
+  to `ui-runner`; exploration does not substitute for acceptance execution. Stop and
+  report an unresolved blocker at the exploration limit. Small flow fragments, new
+  filenames and delegation do not reset exploration, retry or recovery budgets.
+  If delegation is unavailable or conflicts with approved ownership, report the
+  blocker rather than silently running acceptance directly. Hand off fresh state
+  evidence and disclose prior interactions/writes; never replay completed writes
+  merely to demonstrate delegation. Delegate remaining coherent checks and report
+  coverage that cannot safely be obtained. Follow `docs/agent-ui-verification.md`.
+
 The explicitly activated Continuous Multi-Release Execution workflow below is
 the sole scoped exception to ordinary Git delegation, main-agent/Plan-mode review
 ownership, separately requested checkpoints and per-chunk continuation pauses.

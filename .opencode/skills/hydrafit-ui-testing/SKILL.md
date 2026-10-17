@@ -29,6 +29,23 @@ before another agent interacts, and never overlap another session's device work.
 
 ## Before interacting
 
+Before UI acceptance interaction, declare parent-owned exploration and runner-owned
+prepared journeys. Give exploration a goal, allowed interactions, concrete
+time/tool-call budget and handoff condition within the approved test contract.
+Once supplied flows, selectors, assertions and the contract are ready, delegate
+acceptance execution to `ui-runner`; exploration is not substitute acceptance.
+At the exploration limit, stop and report the unresolved blocker. Flow fragments,
+new filenames and delegation do not reset exploration, retry or recovery budgets;
+the existing 120s smoke-flow limit and retry restrictions still apply. Report
+unavailable delegation or conflicting approved ownership instead of silently
+executing acceptance directly.
+
+Hand off fresh state evidence, prior interactions/writes, remaining assertions,
+cleanup and remaining budget after parent interaction stops. Never replay completed
+writes merely to demonstrate delegation. Delegate remaining coherent checks from
+established state and report coverage that cannot safely be obtained. Wait for the
+runner to stop before parent diagnosis or interaction resumes.
+
 1. Read the current target and its resources; check `.maestro/README.md` for a
    reusable flow. Do not reinvent a journey already covered there.
 2. State a short contract: starting screen/data, test goal, allowed mutations,

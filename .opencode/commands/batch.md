@@ -91,6 +91,16 @@ Apply these standing defaults unless the user explicitly overrides them:
   without further approval), with disjointness evidence, a common baseline and
   Gradle lock, and a stable-tree verification join before Git or review. Release
   dependency order and all publication gates remain unchanged.
+- **UI verification ownership:** before UI acceptance interaction, identify bounded
+  parent-owned exploration and runner-owned prepared journeys, including a concrete
+  exploration time/tool-call budget and handoff condition. Once flows, selectors,
+  assertions and the approved test contract are ready, delegate acceptance execution
+  to `ui-runner` under `docs/agent-ui-verification.md`. Exploration cannot substitute
+  for acceptance. At its limit, report the blocker; fragments, new filenames and
+  delegation do not reset exploration, retry or recovery budgets. Report unavailable
+  delegation or ownership conflicts rather than silently taking over acceptance.
+  Hand off fresh state and prior writes, execute remaining coherent checks without
+  replaying completed writes, and report coverage that cannot safely be obtained.
 - **Verification/review:** verify each implementation chunk, then obtain one
   independent read-only full-range review per release from the separate `reviewer`
   agent, with targeted closure after corrections. Do not override its inherited

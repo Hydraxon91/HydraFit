@@ -28,6 +28,26 @@ Paths below are relative to the repository root.
   approved mutations, cleanup, evidence, timeouts and unknown-write stop rules.
   One controller owns the emulator at a time; finish direct interaction before
   handing off, and wait for the runner to stop before resuming it.
+- Before UI acceptance interaction, name the parent-owned exploration and the
+  prepared journeys assigned to `ui-runner`. For exploration, state the goal,
+  allowed interactions, concrete time/tool-call budget and observable handoff
+  condition within the approved starting-state, mutation, cleanup and evidence
+  contract. Use a task-specific budget, not an implicit extension of each flow's
+  timeout. Existing 120s smoke-flow limits and retry restrictions still apply.
+- When supplied flows, selectors, assertions and the contract are ready, hand
+  acceptance execution to `ui-runner`. Parent exploration does not replace that
+  execution. At the exploration limit, stop and report the unresolved selector or
+  navigation blocker; do not extend discovery through more fragments. Splitting
+  flows, changing filenames or delegating does not reset exploration, retry or
+  recovery budgets. If delegation is unavailable or conflicts with approved
+  ownership, report the blocker rather than silently executing acceptance directly.
+- Before handoff, finish parent interaction and provide fresh starting-state
+  evidence, prior interactions and persisted writes, remaining assertions, cleanup
+  and remaining budget. Do not replay completed writes merely to obtain delegated
+  evidence. Delegate the remaining coherent checks from established state and report
+  coverage that cannot safely be obtained. If a failure needs parent diagnosis,
+  wait for the runner to stop before resuming; any further execution retains the
+  original limits and unknown-write stop rules.
 - `.opencode/agents/ui-runner.md` is an execution-only subagent for prepared journeys.
   It is fenced by instructions and a few denies rather than sandboxed: `edit` is
   denied, and cloud tooling plus specific `maestro cloud`/`maestro start-device`
