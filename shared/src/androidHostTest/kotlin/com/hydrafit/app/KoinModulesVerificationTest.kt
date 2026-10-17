@@ -193,6 +193,7 @@ import com.hydrafit.app.feature.routines.RoutinesViewModel
 import com.hydrafit.app.feature.routines.WorkoutReminderCoordinator
 import com.hydrafit.app.feature.routines.routinesModule
 import com.hydrafit.app.feature.settings.AcknowledgmentsViewModel
+import com.hydrafit.app.feature.settings.AutomaticBackupSettingsViewModel
 import com.hydrafit.app.feature.settings.BackupViewModel
 import com.hydrafit.app.feature.settings.SettingsViewModel
 import com.hydrafit.app.feature.settings.TrainingGuidanceSettingsViewModel
@@ -597,6 +598,34 @@ class KoinModulesVerificationTest {
 
         try {
             assertNotNull(koin.get<BackupViewModel>())
+        } finally {
+            koin.close()
+        }
+    }
+
+    /**
+     * The automatic-backup ViewModel is a lambda `viewModel { }` over the automation use cases and
+     * the platform ports (folder/state/scheduler fakes in [testPlatformModule]); resolving it proves
+     * the constructor `get()` chain, including the fail-soft unsupported state store.
+     */
+    @Test
+    fun theAutomaticBackupSettingsViewModelResolvesAtRuntime() {
+        // Reads viewModelScope on init: install the test Main dispatcher before resolving it.
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        val koin = koinApplication {
+            modules(
+                module {
+                    single<BackupRepository> { FakeBackupRepository }
+                    single<BackupCatalog> { FakeBackupCatalog }
+                },
+                domainModule,
+                settingsModule,
+                testPlatformModule
+            )
+        }.koin
+
+        try {
+            assertNotNull(koin.get<AutomaticBackupSettingsViewModel>())
         } finally {
             koin.close()
         }
