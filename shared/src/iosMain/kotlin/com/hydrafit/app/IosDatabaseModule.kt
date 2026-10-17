@@ -2,6 +2,8 @@ package com.hydrafit.app
 
 import com.hydrafit.app.core.database.DatabaseDriverFactory
 import com.hydrafit.app.core.database.NativeDatabaseDriverFactory
+import com.hydrafit.app.core.domain.backup.AutomaticBackupStateStore
+import com.hydrafit.app.core.domain.backup.BackupFolderStore
 import com.hydrafit.app.core.domain.schedule.UnsupportedWorkoutReminderScheduler
 import com.hydrafit.app.core.domain.schedule.WorkoutReminderScheduler
 import com.hydrafit.app.core.domain.time.BootIdentityProvider
@@ -14,7 +16,9 @@ import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.core.llm.UnsupportedOnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.userdata.backup.BackupFileStore
+import com.hydrafit.app.core.userdata.backup.UnsupportedAutomaticBackupStateStore
 import com.hydrafit.app.core.userdata.backup.UnsupportedBackupFileStore
+import com.hydrafit.app.core.userdata.backup.UnsupportedBackupFolderStore
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
 import com.hydrafit.app.core.userdata.settings.IosAppVersionProvider
@@ -53,6 +57,8 @@ fun iosDatabaseModule(): Module = module {
     single<OnDeviceTextGenerator> { UnsupportedOnDeviceTextGenerator() }
     single<OnDevicePlannerLogger> { NoopOnDevicePlannerLogger }
     single<BackupFileStore> { UnsupportedBackupFileStore() }
+    single<BackupFolderStore> { UnsupportedBackupFolderStore() }
+    single<AutomaticBackupStateStore> { UnsupportedAutomaticBackupStateStore() }
     single<PrescriptionDocumentStore> { UnsupportedPrescriptionDocumentStore() }
     single<PrescriptionPdfRenderer> { UnsupportedPrescriptionPdfRenderer() }
 }

@@ -29,6 +29,9 @@ sealed interface FolderCapabilities {
  * so repeated pruning is safe.
  */
 interface BackupFolderStore {
+    /** False on platforms with no folder surface at all, mirroring the backup file store port. */
+    val isSupported: Boolean
+
     /** The current capabilities of [handle]; a normally unavailable folder is reported, not thrown. */
     suspend fun capabilities(handle: String): FolderCapabilities
 

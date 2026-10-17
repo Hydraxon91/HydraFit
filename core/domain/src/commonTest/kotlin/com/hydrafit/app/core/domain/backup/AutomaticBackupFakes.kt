@@ -7,6 +7,7 @@ import kotlinx.coroutines.CompletableDeferred
  * per-operation failures. Created documents get generated ids that never collide with seeded ids.
  */
 internal class FakeBackupFolderStore : BackupFolderStore {
+    override val isSupported: Boolean = true
     val documents = mutableMapOf<String, ByteArray>()
     val deletedIds = mutableListOf<String>()
     var capabilities: FolderCapabilities = FolderCapabilities.Ready

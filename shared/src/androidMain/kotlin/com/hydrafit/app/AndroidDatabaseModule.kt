@@ -5,6 +5,8 @@ import android.net.Uri
 import android.provider.Settings
 import com.hydrafit.app.core.database.AndroidDatabaseDriverFactory
 import com.hydrafit.app.core.database.DatabaseDriverFactory
+import com.hydrafit.app.core.domain.backup.AutomaticBackupStateStore
+import com.hydrafit.app.core.domain.backup.BackupFolderStore
 import com.hydrafit.app.core.domain.schedule.WorkoutReminderScheduler
 import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.TimeProvider
@@ -15,7 +17,9 @@ import com.hydrafit.app.core.llm.LiteRtLmTextGenerator
 import com.hydrafit.app.core.llm.OnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
+import com.hydrafit.app.core.userdata.backup.AndroidAutomaticBackupStateStore
 import com.hydrafit.app.core.userdata.backup.AndroidBackupFileStore
+import com.hydrafit.app.core.userdata.backup.AndroidBackupFolderStore
 import com.hydrafit.app.core.userdata.backup.BackupFileStore
 import com.hydrafit.app.core.userdata.llm.OnDeviceModelManager
 import com.hydrafit.app.core.userdata.settings.AndroidAppVersionProvider
@@ -83,6 +87,10 @@ fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = modu
     }
     single<OnDevicePlannerLogger> { AndroidOnDevicePlannerLogger() }
     single<BackupFileStore> { AndroidBackupFileStore(context.applicationContext) }
+    single<BackupFolderStore> { AndroidBackupFolderStore(context.applicationContext) }
+    single<AutomaticBackupStateStore> {
+        AndroidAutomaticBackupStateStore(context.applicationContext)
+    }
     single<PrescriptionDocumentStore> {
         AndroidPrescriptionDocumentStore(context.applicationContext)
     }
