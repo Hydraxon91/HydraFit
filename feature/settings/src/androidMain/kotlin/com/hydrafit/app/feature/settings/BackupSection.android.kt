@@ -33,6 +33,7 @@ import hydrafit.feature.settings.generated.resources.settings_backup_export_encr
 import hydrafit.feature.settings.generated.resources.settings_backup_export_encrypted_disclosure
 import hydrafit.feature.settings.generated.resources.settings_backup_export_history_csv
 import hydrafit.feature.settings.generated.resources.settings_backup_export_options_title
+import hydrafit.feature.settings.generated.resources.settings_backup_export_password_hint
 import hydrafit.feature.settings.generated.resources.settings_backup_export_plain_disclosure
 import hydrafit.feature.settings.generated.resources.settings_backup_password
 import hydrafit.feature.settings.generated.resources.settings_backup_password_confirm
@@ -75,19 +76,20 @@ actual fun BackupSection(
     ) { uri -> uri?.let { onImportFrom(it.toString()) } }
 
     Row(
-        modifier = modifier.guidanceTestTagsAsResourceId(),
+        modifier = modifier.fillMaxWidth().guidanceTestTagsAsResourceId(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Button(
             onClick = { showExportOptions = true },
-            enabled = isSupported && !busy
+            enabled = isSupported && !busy,
+            modifier = Modifier.weight(1f)
         ) {
             Text(stringResource(Res.string.settings_backup_export))
         }
         OutlinedButton(
             onClick = { csvPicker.launch("hydrafit-history.csv") },
             enabled = isSupported && !busy,
-            modifier = Modifier.testTag(BackupTestTags.EXPORT_CSV)
+            modifier = Modifier.weight(1f).testTag(BackupTestTags.EXPORT_CSV)
         ) {
             Text(stringResource(Res.string.settings_backup_export_history_csv))
         }
@@ -97,7 +99,8 @@ actual fun BackupSection(
                     arrayOf("application/json", "text/plain", "application/octet-stream", "*/*")
                 )
             },
-            enabled = isSupported && !busy
+            enabled = isSupported && !busy,
+            modifier = Modifier.weight(1f)
         ) {
             Text(stringResource(Res.string.settings_backup_restore))
         }
@@ -122,6 +125,12 @@ actual fun BackupSection(
                         Text(stringResource(Res.string.settings_backup_export_encrypt))
                     }
                     if (encrypt) {
+                        Text(
+                            text = stringResource(
+                                Res.string.settings_backup_export_password_hint
+                            ),
+                            style = MaterialTheme.typography.bodySmall
+                        )
                         OutlinedTextField(
                             value = password,
                             onValueChange = { password = it },

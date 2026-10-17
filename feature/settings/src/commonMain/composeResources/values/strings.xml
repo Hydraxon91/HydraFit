@@ -116,7 +116,8 @@
     <string name="settings_backup_error_encryption_failed">Couldn’t open the encrypted backup. Check the password and try again.</string>
     <string name="settings_backup_error_encryption_key_unavailable">This backup is encrypted and its key isn’t available here. Enter the backup password and try again.</string>
     <string name="settings_backup_export_options_title">Export backup</string>
-    <string name="settings_backup_export_encrypt">Encrypt with a password</string>
+    <string name="settings_backup_export_encrypt">Encrypt this file with a password</string>
+    <string name="settings_backup_export_password_hint">Automatic backups use their own password; this file gets the password you enter here.</string>
     <string name="settings_backup_export_plain_disclosure">Without encryption, anyone with the file can read your data.</string>
     <string name="settings_backup_export_encrypted_disclosure">You’ll need this password to open the file. It can’t be recovered.</string>
     <string name="settings_backup_password">Password</string>
