@@ -46,6 +46,45 @@ permissions:
     resource: "git remote -v"
     effect: allow
   - action: shell
+    resource: "git branch --show-current"
+    effect: allow
+  - action: shell
+    resource: "git branch --list *"
+    effect: allow
+  - action: shell
+    resource: "git range-diff *"
+    effect: allow
+  - action: shell
+    resource: "git switch -c feature/*"
+    effect: allow
+  - action: shell
+    resource: "git switch feature/*"
+    effect: allow
+  - action: shell
+    resource: "git switch main"
+    effect: allow
+  - action: shell
+    resource: "git switch -c feature/* -*"
+    effect: deny
+  - action: shell
+    resource: "git switch feature/* -*"
+    effect: deny
+  - action: shell
+    resource: "git fetch origin"
+    effect: allow
+  - action: shell
+    resource: "git fetch origin main"
+    effect: allow
+  - action: shell
+    resource: "git fetch origin main:main"
+    effect: allow
+  - action: shell
+    resource: "git rebase origin/main"
+    effect: allow
+  - action: shell
+    resource: "git merge --ff-only origin/main"
+    effect: allow
+  - action: shell
     resource: "git add *"
     effect: allow
   - action: shell
@@ -259,6 +298,21 @@ set that working directory, stop and report it rather than guessing another path
 GitHub CLI version and authentication-status checks are pre-approved; report only
 the status needed for the delegated operation, not unnecessary account details.
 Do not retrieve or print authentication tokens.
+
+Routine read-only inspection and the standard branch-sync spellings are
+pre-approved so they do not each raise a duplicate prompt: `git branch
+--show-current`, `git branch --list`, `git range-diff`, `git switch -c
+feature/<name>`, `git switch <branch>`, `git switch main`, `git fetch origin`,
+`git fetch origin main`, `git fetch origin main:main`, `git rebase origin/main`
+and `git merge --ff-only origin/main`. Use the ordinary command spelling: plain
+`git diff`, `git log` and `git show` without an added global `--no-pager`, and run
+in the repository working directory rather than `git -C`. An unknown spelling may
+still legitimately prompt; standardizing the spelling is not a permission bypass
+and does not relax review. Advance or refresh a local branch only through those
+fast-forward fetch/rebase/merge forms — do not rewrite branch refs with `git
+branch -f` or by forcing, and stop and report a conflict or non-fast-forward
+result instead of forcing it. These patterns reduce duplicate prompts only; they
+are not a sandbox and grant no operation.
 
 Check the parent's structured brief against AGENTS.md's Subagent brief contract.
 Require the bounded objective and operation-specific authorization, exact workdir

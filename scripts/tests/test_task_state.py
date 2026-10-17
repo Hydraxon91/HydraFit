@@ -1,0 +1,345 @@
+"""Hermetic durable-state tests: temporary Git checkouts, no network or devices."""
+
+import contextlib
+import importlib.util
+import io
+import json
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import unittest
+from unittest import mock
+
+sys.dont_write_bytecode = True
+SPEC = importlib.util.spec_from_file_location("task_state", Path(__file__).resolve().parents[1] / "task-state.py")
+ts = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = ts
+SPEC.loader.exec_module(ts)
+
+
+class TaskStateTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name).resolve()
+        self.repo = self.root / "repo"
+        self.repo.mkdir()
+        self.state = self.root / "state"
+        self.git("init", "-q")
+        self.git("config", "user.name", "Fixture")
+        self.git("config", "user.email", "fixture@example.invalid")
+        self.git("config", "commit.gpgsign", "false")
+        (self.repo / "file.txt").write_text("baseline\n")
+        self.git("add", "file.txt")
+        self.git("commit", "-qm", "baseline")
+        self.contract = {"objective": "test task", "owner": "main",
+                         "allowed_paths": ["file.txt", "new.txt"],
+                         "acceptance": ["fixture passes"], "approval_reference": "user message fixture"}
+        self.contract_file = self.root / "contract.json"
+        self.contract_file.write_text(json.dumps(self.contract))
+        self.event = self.root / "event.json"
+        self.record_path = self.state / "test.json"
+
+    def git(self, *args):
+        return subprocess.run(["git", "-C", str(self.repo), *args], check=True,
+                              capture_output=True, timeout=10).stdout
+
+    def cli(self, *args, directory=None):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = ts.main(["--dir", str(directory or self.state), "--task", "test", *args])
+        return code, out.getvalue(), err.getvalue()
+
+    def init(self, seconds="600"):
+        return self.cli("init", "--repo", str(self.repo), "--contract", str(self.contract_file),
+                        "--budget-seconds", seconds)
+
+    def record(self):
+        return json.loads(self.record_path.read_text())
+
+    def update(self, event, revision=None):
+        self.event.write_text(json.dumps(event))
+        revision = self.record()["revision"] if revision is None else revision
+        return self.cli("update", "--expect", str(revision), "--event", str(self.event))
+
+    def test_init_show_resume_and_duplicate_init(self):
+        self.assertEqual(0, self.init()[0])
+        record = self.record()
+        self.assertEqual(0, record["revision"])
+        self.assertEqual(self.contract, record["contract"])
+        self.assertEqual(str(self.repo), record["baseline"]["repo"])
+        self.assertEqual(0, self.cli("show")[0])
+        code, out, _ = self.cli("resume")
+        self.assertEqual(0, code)
+        self.assertFalse(json.loads(out)["drift"])
+        self.assertEqual(2, self.init()[0])
+        self.assertEqual(record, self.record())
+
+    def test_rejects_internal_state_directory_before_creating_it(self):
+        target = self.repo / "state"
+        result = self.cli("init", "--repo", str(self.repo), "--contract", str(self.contract_file),
+                          "--budget-seconds", "600", directory=target)
+        self.assertEqual(125, result[0])
+        self.assertFalse(target.exists())
+
+    def test_invalid_contract_and_nonfinite_budget(self):
+        for seconds in ("nan", "inf", "0", "-1"):
+            with self.subTest(seconds=seconds):
+                self.assertEqual(125, self.init(seconds)[0])
+                self.assertFalse(self.record_path.exists())
+        for path in ("../escape", "/absolute", ".git/config", "*.py", "a/../b"):
+            with self.subTest(path=path):
+                self.contract["allowed_paths"] = [path]
+                self.contract_file.write_text(json.dumps(self.contract))
+                self.assertEqual(125, self.init()[0])
+
+    def test_stale_update_preserves_first_writer(self):
+        self.init()
+        self.assertEqual(0, self.update({"type": "phase", "value": "implementing"}, 0)[0])
+        original = self.record_path.read_bytes()
+        self.assertEqual(2, self.update({"type": "phase", "value": "verifying"}, 0)[0])
+        self.assertEqual(original, self.record_path.read_bytes())
+
+    def test_competing_process_updates_have_one_winner(self):
+        self.init()
+        event_files = []
+        for value in ("implementing", "verifying"):
+            event = self.root / f"{value}.json"
+            event.write_text(json.dumps({"type": "phase", "value": value}))
+            event_files.append(event)
+        processes = []
+        try:
+            for event in event_files:
+                processes.append(subprocess.Popen(
+                    [sys.executable, "-B", str(SPEC.origin), "--dir", str(self.state),
+                     "--task", "test", "update", "--expect", "0", "--event", str(event)],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE))
+            for process in processes:
+                process.communicate(timeout=15)
+            self.assertEqual([0, 2], sorted(process.returncode for process in processes))
+            self.assertEqual(1, self.record()["revision"])
+        finally:
+            for process in processes:
+                if process.poll() is None:
+                    process.kill()
+                    process.communicate(timeout=5)
+
+    def test_writer_lock_contends_and_releases_after_close(self):
+        self.init()
+        # A second file descriptor must not acquire the same advisory lock.
+        with ts.locked(self.state, "test"):
+            self.assertEqual(2, self.update({"type": "phase", "value": "implementing"})[0])
+        self.assertEqual(0, self.update({"type": "phase", "value": "implementing"})[0])
+
+    def test_pending_operation_is_unknown_after_reload_and_not_replayed(self):
+        self.init()
+        event = {"type": "begin", "id": "save-1", "description": "observe synthetic save"}
+        self.assertEqual(0, self.update(event)[0])
+        code, out, _ = self.cli("resume")
+        self.assertEqual(2, code)
+        self.assertEqual(["save-1"], json.loads(out)["unknown_operations"])
+        self.assertEqual(2, self.update(event)[0])
+        self.assertEqual(2, self.update({"type": "checkpoint", "reason": "cannot hide pending"})[0])
+        self.assertEqual(125, self.update({"type": "resolve", "id": "save-1", "outcome": "failed"})[0])
+        self.assertEqual(0, self.update({"type": "resolve", "id": "save-1", "outcome": "completed",
+                                        "evidence": "explicit observation"})[0])
+        self.assertEqual(2, self.update(event)[0])
+        self.assertEqual(0, self.cli("resume")[0])
+
+    def test_drift_requires_explicit_checkpoint(self):
+        self.init()
+        (self.repo / "file.txt").write_text("changed\n")
+        self.assertEqual(2, self.cli("resume")[0])
+        self.assertEqual(2, self.update({"type": "begin", "id": "next", "description": "next"})[0])
+        self.assertEqual(0, self.update({"type": "checkpoint", "reason": "inspected expected edit"})[0])
+        self.assertEqual(0, self.cli("resume")[0])
+        self.assertNotEqual(self.record()["baseline"], self.record()["expected"])
+
+    def test_outside_scope_paths_cannot_be_checkpointed(self):
+        self.init()
+        (self.repo / "outside.txt").write_text("unexpected")
+        code, out, _ = self.cli("resume")
+        self.assertEqual(2, code)
+        self.assertEqual(["outside.txt"], json.loads(out)["outside_allowed_paths"])
+        self.assertEqual(2, self.update({"type": "checkpoint", "reason": "not authority"})[0])
+
+    def test_dirty_baseline_is_retained_and_untracked_content_is_hashed(self):
+        dirty = self.repo / "existing.txt"
+        dirty.write_text("user work")
+        self.init()
+        self.assertEqual(["existing.txt"], self.record()["baseline"]["changed_paths"])
+        dirty.write_text("user work changed, same path")
+        code, out, _ = self.cli("resume")
+        self.assertEqual(2, code)
+        self.assertTrue(json.loads(out)["drift"])
+
+    def test_staged_unstaged_renamed_and_untracked_states_differ(self):
+        first = ts.snapshot(self.repo)
+        (self.repo / "file.txt").write_text("edit")
+        second = ts.snapshot(self.repo)
+        self.git("add", "file.txt")
+        third = ts.snapshot(self.repo)
+        self.git("mv", "file.txt", "renamed.txt")
+        fourth = ts.snapshot(self.repo)
+        self.assertEqual(4, len({item["dirty_sha256"] for item in (first, second, third, fourth)}))
+        self.assertEqual(["file.txt", "renamed.txt"], fourth["changed_paths"])
+
+    def test_head_change_detected_even_with_clean_checkout(self):
+        self.init()
+        self.git("commit", "--allow-empty", "-qm", "new head")
+        self.assertEqual(2, self.cli("resume")[0])
+
+    def test_identity_mismatch_is_reported_not_checkpointed(self):
+        self.init()
+        current = ts.snapshot(self.repo)
+        current["common_dir"] += "-different"
+        report = ts.reconcile(self.record(), current, self.record()["accounted_at"])
+        self.assertFalse(report["identity_matches"])
+        with self.assertRaises(ts.Conflict):
+            ts.apply_event(self.record(), {"type": "checkpoint", "reason": "no"}, current, time_now(self.record()))
+
+    def test_evidence_is_tied_to_observed_snapshot(self):
+        self.init()
+        self.assertEqual(0, self.update({"type": "evidence", "description": "test check", "outcome": "passed",
+                                        "reference": "/external/test.log"})[0])
+        evidence = self.record()["evidence"][0]
+        self.assertEqual(ts.snapshot(self.repo), evidence["snapshot"])
+        self.assertEqual("passed", evidence["outcome"])
+
+    def test_expired_budget_persists_and_still_allows_recording_unknown_outcome(self):
+        with mock.patch.object(ts.time, "time", return_value=100):
+            self.init("5")
+            self.update({"type": "begin", "id": "op", "description": "operation"})
+        with mock.patch.object(ts.time, "time", return_value=110):
+            self.assertEqual(2, self.cli("resume")[0])
+            self.assertEqual(0, self.update({"type": "resolve", "id": "op", "outcome": "not-performed",
+                                            "evidence": "observed no execution"})[0])
+            self.assertEqual(2, self.update({"type": "phase", "value": "complete"})[0])
+            self.assertEqual(0, self.update({"type": "phase", "value": "blocked"})[0])
+        with mock.patch.object(ts.time, "time", return_value=90):
+            self.assertEqual(2, self.cli("resume")[0])
+            self.assertGreaterEqual(self.record()["used_seconds"], 10)
+
+    def test_resume_and_show_do_not_write_or_clear_pending(self):
+        self.init()
+        self.update({"type": "begin", "id": "op", "description": "operation"})
+        before = self.record_path.read_bytes()
+        self.cli("show")
+        self.cli("resume")
+        self.assertEqual(before, self.record_path.read_bytes())
+
+    def test_corrupt_and_unsupported_records_refused_without_overwrite(self):
+        self.init()
+        original = self.record()
+        cases = ["{broken", '{"version":1,"version":1}',
+                 json.dumps({**original, "version": 99}), json.dumps({**original, "revision": -1}),
+                 json.dumps({**original, "operations": {"op": {"outcome": "completed"}}})]
+        for raw in cases:
+            with self.subTest(raw=raw[:40]):
+                self.record_path.write_text(raw)
+                self.assertEqual(125, self.cli("resume")[0])
+                self.assertEqual(raw, self.record_path.read_text())
+
+    def test_operation_history_contradictions_fail_closed_on_all_commands(self):
+        self.init()
+        self.update({"type": "begin", "id": "save", "description": "pending save"})
+        pending = self.record()
+        self.update({"type": "resolve", "id": "save", "outcome": "completed", "evidence": "observed"})
+        resolved = self.record()
+        cases = []
+        missing_pending = json.loads(json.dumps(pending))
+        missing_pending["operations"] = {}
+        cases.append(missing_pending)
+        missing_resolution = json.loads(json.dumps(resolved))
+        missing_resolution["operations"]["save"] = pending["operations"]["save"]
+        cases.append(missing_resolution)
+        contradictory_resolution = json.loads(json.dumps(resolved))
+        contradictory_resolution["operations"]["save"]["evidence"] = "different evidence"
+        cases.append(contradictory_resolution)
+        false_resolution = json.loads(json.dumps(pending))
+        false_resolution["operations"] = resolved["operations"]
+        cases.append(false_resolution)
+        reuse = json.loads(json.dumps(resolved))
+        reuse["revision"] += 1
+        reuse["history"].append({"revision": 3, "event": {"type": "begin", "id": "save",
+                                                       "description": "replay"}, "at": reuse["accounted_at"]})
+        reuse["operations"] = {"save": {"description": "replay", "outcome": "pending"}}
+        cases.append(reuse)
+        phantom = json.loads(json.dumps(resolved))
+        phantom["operations"]["extra"] = {"description": "no begin", "outcome": "pending"}
+        cases.append(phantom)
+        self.event.write_text(json.dumps({"type": "begin", "id": "save", "description": "must not replay"}))
+        for index, record in enumerate(cases):
+            with self.subTest(case=index):
+                raw = json.dumps(record)
+                self.record_path.write_text(raw)
+                for arguments in (("show",), ("resume",),
+                                  ("update", "--expect", str(record["revision"]), "--event", str(self.event))):
+                    with self.subTest(command=arguments[0]):
+                        self.assertEqual(125, self.cli(*arguments)[0])
+                        self.assertEqual(raw, self.record_path.read_text())
+
+    def test_symlink_record_refused(self):
+        self.init()
+        original = self.record_path.read_bytes()
+        target = self.root / "other.json"
+        target.write_bytes(original)
+        self.record_path.unlink()
+        self.record_path.symlink_to(target)
+        self.assertEqual(125, self.cli("show")[0])
+        self.assertEqual(original, target.read_bytes())
+
+    def test_failed_replace_leaves_old_record_intact_and_no_partial_file(self):
+        self.init()
+        before = self.record_path.read_bytes()
+        with mock.patch.object(ts.os, "replace", side_effect=OSError("injected interruption")):
+            self.assertEqual(125, self.update({"type": "phase", "value": "implementing"})[0])
+        self.assertEqual(before, self.record_path.read_bytes())
+        self.assertEqual({"test.json", "test.lock"}, {path.name for path in self.state.iterdir()})
+
+    def test_process_crash_before_replace_preserves_unknown_operation(self):
+        self.init()
+        self.update({"type": "begin", "id": "write", "description": "synthetic side effect"})
+        self.event.write_text(json.dumps({"type": "resolve", "id": "write", "outcome": "completed",
+                                         "evidence": "should not reach persistent record"}))
+        before = self.record_path.read_bytes()
+        code = (
+            "import os, runpy, sys; module=runpy.run_path(sys.argv[1]); "
+            "module['os'].replace=lambda *args: os._exit(77); "
+            "module['main'](sys.argv[2:])"
+        )
+        result = subprocess.run(
+            [sys.executable, "-B", "-c", code, str(SPEC.origin), "--dir", str(self.state),
+             "--task", "test", "update", "--expect", "1", "--event", str(self.event)],
+            capture_output=True, timeout=15)
+        self.assertEqual(77, result.returncode)
+        self.assertEqual(before, self.record_path.read_bytes())
+        status, out, _ = self.cli("resume")
+        self.assertEqual(2, status)
+        self.assertEqual(["write"], json.loads(out)["unknown_operations"])
+        # The crashed writer's OS lock is gone; explicit observed resolution works.
+        self.assertEqual(0, self.update({"type": "resolve", "id": "write", "outcome": "not-performed",
+                                        "evidence": "fresh inspection after crash"})[0])
+
+    def test_failed_directory_sync_reports_uncertain_commit_and_does_not_replay(self):
+        self.init()
+        with mock.patch.object(ts.os, "fsync", side_effect=[None, OSError("directory sync failed")]):
+            self.assertEqual(125, self.update({"type": "phase", "value": "implementing"})[0])
+        # Replacement happened before failure; the caller must reload, never replay.
+        self.assertEqual(1, self.record()["revision"])
+        self.assertEqual(2, self.update({"type": "phase", "value": "verifying"}, revision=0)[0])
+
+    def test_init_never_executes_contract_command(self):
+        self.contract["command"] = "must never execute"
+        self.contract_file.write_text(json.dumps(self.contract))
+        self.assertEqual(0, self.init()[0])
+        self.assertEqual("must never execute", self.record()["contract"]["command"])
+
+
+def time_now(record):
+    return record["accounted_at"] + 1
+
+
+if __name__ == "__main__":
+    unittest.main()

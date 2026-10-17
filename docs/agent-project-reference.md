@@ -214,6 +214,150 @@ python3 scripts/validate-agent-tooling.py
 python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'
 ```
 
+### Durable task state
+
+`scripts/task-state.py` is stdlib-only POSIX bookkeeping for accepted `/task`
+contracts. It never runs recorded commands, grants approval, or performs recovery.
+Use an explicitly selected external directory (not the checkout or its Git
+directory) and a task id; record both in chat. Runtime JSON and logs are never
+committed. Contract/evidence text must not contain secrets or private data.
+
+Prepare a contract JSON object with `objective`, `owner`, `approval_reference`,
+`allowed_paths` (exact repository-relative file paths, no globs) and `acceptance`
+(nonempty string list). Additional JSON fields can retain budget/verification
+decisions, exclusions and other approved context. Approval references are audit
+context only: verify the real user authorization, not the record's assertion.
+
+```bash
+python3 scripts/task-state.py --dir <external-state-dir> --task <id> init --repo <checkout-root> --contract <contract.json> --budget-seconds 5400
+python3 scripts/task-state.py --dir <external-state-dir> --task <id> show
+python3 scripts/task-state.py --dir <external-state-dir> --task <id> resume
+python3 scripts/task-state.py --dir <external-state-dir> --task <id> update --expect <revision> --event <event.json>
+```
+
+The versioned record stores immutable contract and baseline, an explicitly
+acknowledged expected snapshot, phase, operation attempts (unique ids), evidence
+with source snapshots, append-only update history and budget accounting. Each
+accepted update increments the revision. Stale revisions and active writers fail
+with exit 2 rather than overwriting another writer. A cooperative POSIX lock
+releases on process exit; its permanent lock file must not be deleted. Atomic
+replace and file/directory fsync preserve whole records. If an I/O error occurs
+after replacement, the write outcome may be unknown: reload the record before
+another update. Abandoned temporary files after a process kill are not records
+and must not be promoted automatically. Corrupt or unsupported JSON fails closed
+(125), without repairing or recreating a record.
+
+Event JSON objects:
+
+- `{"type":"begin","id":"save-1","description":"..."}` records a pending
+  attempt **before** the side effect. IDs cannot be reused; one unknown operation
+  blocks another begin. This is a cooperative protocol, not a command wrapper.
+- `{"type":"resolve","id":"save-1","outcome":"completed","evidence":"..."}`
+  records an observed outcome (`completed`, `failed`, `not-performed`). A pending
+  attempt after interruption is unknown; never resolve from a guessed timeout
+  failure. Resolution does not automatically acknowledge repository drift.
+- `{"type":"checkpoint","reason":"inspected intended edits"}` explicitly
+  acknowledges the current snapshot after reconciliation; it cannot hide pending
+  operations, wrong repository identity or new out-of-scope paths. It does not
+  replace the baseline or extend approval.
+- `{"type":"evidence","description":"host tests","outcome":"passed","reference":"external log path"}`
+  records `passed`, `failed`, `unknown` or `unverified` evidence with the observed
+  source snapshot. A log reference is not proof the check ran; the reviewer must
+  inspect the artifact and its revision.
+- `{"type":"phase","value":"verifying"}` records a phase (`planned`,
+  `implementing`, `verifying`, `reviewing`, `correcting`, `ready`, `complete`,
+  `blocked`). This is a label, not a review verdict. Drift/pending outcomes or an
+  expired budget prevent advancing; recording `blocked` remains possible.
+
+`resume` does not write. It reports expected/current drift, identity, pending ids
+as unknown outcomes, new out-of-scope dirty paths, and remaining seconds. Exit 2
+means reconciliation or a budget stop is needed; exit 0 is not authorization to
+continue. Downtime consumes budget: wall-clock elapsed time and already-accounted
+usage are retained, without a reset option. A backward clock cannot reduce usage
+already persisted, but time lost before any update cannot be reconstructed; this
+is not a tamper-proof timer. Recovery evidence, resolution and blocked reporting
+remain recordable after expiry; new work does not.
+
+Fingerprints combine HEAD, Git common directory, porcelain status, staged/unstaged
+binary diffs, and untracked bytes/mode/symlink targets. They exclude ignored files
+and are not backups or a filesystem freeze; stop concurrent checkout writers
+before inspection. Pre-existing dirty paths are baseline context, not permission
+to change user work; compare the preserved-work baseline separately. Checksums and
+records are not an authentication boundary and do not replace independent review.
+
+### Opt-in model-tool guard pilot
+
+`scripts/opencode-task-guard` is a dependency-free local OpenCode V2 plugin
+prototype, deliberately **outside** automatic `.opencode/plugins/` discovery. It
+does not change the live project config. Node runs its offline wrapper checks via
+the Python test-discovery command above; the bridge uses Python's standard library
+and reuses `scripts/task-state.py` for authoritative record validation and writes.
+
+This pilot supports only registered `read`, `glob` and `grep` executors in an
+explicitly bound session. It canonicalizes the input path inside the bound
+repository and rejects outside/symlink-escaping paths. Other registered model
+tools are denied, including shell, edits, patching, device tools and unknown tool
+names. Unsupported tool advertisements are removed in bound model contexts;
+permission checks without a matching active executor are denied. No guard check
+upgrades an existing `ask` or configured `deny` to `allow`.
+
+Explicit activation is only for a separately approved isolated test location,
+using the plugin **directory**, not its JS file. Example config (not installed):
+
+```json
+{
+  "plugins": [{
+    "package": "/absolute/path/to/scripts/opencode-task-guard",
+    "options": {"bindingsFile": "/external/state/bindings.json"}
+  }]
+}
+```
+
+The operator-managed bindings file is JSON: `{"version":1,"sessions":{}}` for no
+bindings, or map a root session id to `{"repo":"/absolute/checkout",
+"stateDir":"/external/state","task":"task-id"}`. Bind only after actual user
+authorization and initialization of that S3-B task record; never derive bindings
+from a model's claim of approval. Bindings are runtime configuration, not secrets
+or proof of authorization. An unrelated session with valid, readable bindings is
+unchanged. A missing/corrupt bindings file blocks model tools in that plugin
+location because the guard cannot safely tell a formerly bound session from an
+unbound one. Keep the bindings file outside the checkout and protect it separately.
+Child sessions resolve their parent ancestry on each call, so root restrictions
+also apply to newly created children and survive guard reloads. Cyclic/unreadable
+ancestry fails closed. A binding to another plugin location is rejected.
+
+The wrapper persists a pending operation **before** entering a supported executor.
+Its id is derived from session id and tool-call id, so a repeated call cannot be
+silently admitted again after restart. Only that executor's in-memory admission
+token can pass permission checks while its attempt is pending. Calls sharing one
+task are serialized/refused, including across processes via the Python state lock.
+Successful executor return records observed tool completion, **not** business
+acceptance or review approval. A thrown error or cancellation leaves the attempt
+pending. An uncertain completion write may have landed atomically: reload before
+acting, never replay it or fabricate a failed/not-performed resolution. Inspect
+and resolve unknown outcomes outside the guarded model-tool path.
+Recording an observed completion remains possible after budget expiry; new work
+does not. The guard never resets budgets, repairs state or checkpoints source drift
+automatically. Manual task commands remain the recovery interface.
+
+**Boundary:** this is not a filesystem/network sandbox. Direct user/API shell,
+PTY, arbitrary trusted plugin code, host changes, later plugins replacing tool
+definitions, and tampering with bindings/state are outside it. Permission hooks
+cannot cover the explicit session-shell API: on 2.0.30 that route ran a synthetic
+sentinel despite a shell permission-hook deny, and its shell-creation event lacked
+session identity. The pilot does not cancel an already running native executor or
+make a read-only reviewer an isolated OS process. Ignored-file/clock limitations
+remain those of durable task state.
+
+Verification distinguishes three levels: hermetic wrapper/bridge tests; registered
+native-executor tests on a private OpenCode 2.0.30 server without model calls; and
+a complete model-generated tool loop. The first two are exercised locally. Native
+`read`, `glob`, `grep`, child binding and outside-path denial were checked live.
+The outer Code Mode gateway was absent from the live registry, so its removal/deny
+behavior is tested offline only. Full model-loop ordering, in-flight cancellation
+and hostile-plugin isolation remain **unverified**. Do not enable the pilot in a
+normal development session or describe those paths as proven enforcement.
+
 ## Project Structure & Conventions
 
 ### `androidApp/` and `shared/`

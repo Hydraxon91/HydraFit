@@ -48,6 +48,27 @@ implement; ask the user to switch to Build mode when they accept the contract.
 
 ## Execution
 
+- The model-tool guard in `scripts/opencode-task-guard` is an opt-in read-only
+  pilot, not the default `/task` executor. Do not enable it in the live checkout
+  or bind this session automatically. Its supported surface and exclusions are in
+  `docs/agent-project-reference.md` Opt-in model-tool guard pilot. When explicitly
+  bound, the guard owns admission/outcome records for supported tool calls; do not
+  also create a manual pending record around those same calls. Direct user/API
+  shell execution is outside this guard's boundary.
+- After contract acceptance, initialize `scripts/task-state.py` in an explicitly
+  selected directory outside the checkout and Git directory; see
+  `docs/agent-project-reference.md` Durable task state for the JSON/event format.
+  Record the state directory and task id in chat so a resumed session can find it.
+  Do not store secrets in the contract or evidence. The approval reference is audit
+  context, not authority; verify the accepted user contract independently.
+- Before a command with side effects, record a `begin` event with a unique operation
+  id. Record the observed outcome with `resolve` afterwards. A dropped call or
+  interruption leaves it pending/unknown; inspect before resolving, never replay.
+  Checkpoint inspected repository changes explicitly, preserving the original
+  baseline. Use revision-checked updates; a conflict means reload, not overwrite.
+- On resume, run the read-only `resume` report and reconcile repository drift,
+  pending operations and remaining budget before more work. An expired budget is
+  a stop, not a reset. These helpers do not execute the task or enforce a sandbox.
 - Work within the accepted contract; preserve pre-existing and concurrent work.
 - Implement file by file, with required tests and living docs in the same scope.
 - Verify each step with bounded commands and external logs, preferring
