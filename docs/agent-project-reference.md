@@ -214,10 +214,41 @@ python3 scripts/validate-agent-tooling.py
 python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'
 ```
 
+### Bounded command results
+
+`scripts/run-bounded.py` keeps the existing `<seconds> <log> -- <command>` form.
+Optionally prefix `--result-json <fresh-external-path>` to produce a version-1
+JSON result. An existing result path (including a symlink) or a result/log path
+alias is refused before launch. Missing/partial/malformed JSON is never success;
+inspect both wrapper exit status and the result. A result persistence failure
+returns 125 even if the child already completed: inspect before retrying.
+
+Fields: `version`, `outcome` (`completed`, `timeout`, `interrupted`,
+`startup-failure`), `exit`, `child_exit` (nullable), `elapsed` seconds, `pgid`
+(nullable), `sigkill`, `signal` (nullable), `diagnostic_errors` (cleanup-log error
+strings) and `termination` (`confirmed`,
+`not-guaranteed`, `not-started`). Ordinary completion propagates the child's
+status; timeout returns 124, startup/usage/result errors 125, and wrapper
+SIGINT/SIGTERM returns 130/143 after bounded cleanup. Invalid arguments or failure
+to reserve the result path may produce no result.
+
+On timeout or wrapper interruption, signal the group with SIGTERM, allow up to
+three seconds, then SIGKILL any remaining group and allow up to three more
+seconds for verification. Leader exit alone does not suppress escalation.
+Diagnostic-log failures are reported without bypassing signalling. A wrapper
+signal arriving during timeout cleanup is retained as interruption (130/143).
+Polling adds a small scheduling overhead; OS stalls are not a real-time guarantee.
+Normal completion does not kill background workers: `completed` describes the
+leader, and `termination` separately reports whether the group is gone. A remaining
+or uncertain worker blocks another build until inspected. Escaped process groups,
+SIGKILL of the wrapper, host failure and hostile processes are not contained.
+
 ### Durable task state
 
 `scripts/task-state.py` is stdlib-only POSIX bookkeeping for accepted `/task`
-contracts. It never runs recorded commands, grants approval, or performs recovery.
+contracts and accepted finite-budget `/batch` contracts. It never runs recorded
+commands, grants approval, or performs recovery. Batch integration is a cooperative
+procedure in `.opencode/commands/batch.md`, not mandatory tool interception.
 Use an explicitly selected external directory (not the checkout or its Git
 directory) and a task id; record both in chat. Runtime JSON and logs are never
 committed. Contract/evidence text must not contain secrets or private data.
@@ -232,6 +263,7 @@ context only: verify the real user authorization, not the record's assertion.
 python3 scripts/task-state.py --dir <external-state-dir> --task <id> init --repo <checkout-root> --contract <contract.json> --budget-seconds 5400
 python3 scripts/task-state.py --dir <external-state-dir> --task <id> show
 python3 scripts/task-state.py --dir <external-state-dir> --task <id> resume
+python3 scripts/task-state.py --dir <external-state-dir> --task <id> boundary --expect <revision> --require-evidence "host tests" --require-evidence "reviewer closure"
 python3 scripts/task-state.py --dir <external-state-dir> --task <id> update --expect <revision> --event <event.json>
 ```
 
@@ -277,6 +309,22 @@ usage are retained, without a reset option. A backward clock cannot reduce usage
 already persisted, but time lost before any update cannot be reconstructed; this
 is not a tamper-proof timer. Recovery evidence, resolution and blocked reporting
 remain recordable after expiry; new work does not.
+
+`boundary` is also read-only. It requires the observed revision, checks the resume
+preconditions and rejects blocked/complete phases. Each repeated
+`--require-evidence` description must have a latest `passed` evidence entry whose
+snapshot matches the current tree. A later failed/unknown entry supersedes an
+earlier pass; checkpointing a changed tree does not refresh old evidence. It
+returns 0 only when `boundary_clear` is true, 2 for a blocked boundary, or 125 for
+invalid input/state. It cannot verify artifact contents, infer the required check
+list, authenticate a reviewer or authorize execution. The operator supplies the
+accepted check list and inspects the evidence. No descriptions means only the
+base reconciliation checks, not acceptance coverage.
+
+Finite budgets stop new work even under "continue until finished". Extensions
+need a separately accepted contract preserving elapsed usage and history; there
+is no reset or extension command. Unlimited budgets are not represented by the
+current finite-budget state format; resolve that mismatch before implementation.
 
 Fingerprints combine HEAD, Git common directory, porcelain status, staged/unstaged
 binary diffs, and untracked bytes/mode/symlink targets. They exclude ignored files

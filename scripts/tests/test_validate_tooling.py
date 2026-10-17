@@ -181,6 +181,29 @@ class ReferenceTests(unittest.TestCase):
 
 
 class MainTests(unittest.TestCase):
+    def test_batch_lifecycle_structure_and_missing_steps_are_checked(self):
+        source = MODULE_PATH.parents[1] / ".opencode/commands/batch.md"
+        body = source.read_text()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            path = write(root, ".opencode/commands/batch.md", body)
+            self.assertEqual([], vt.batch_state_findings(root))
+            for label in ("Initialize", "Attempt", "Resume", "Boundary", "Review", "Budget stop", "Publication"):
+                with self.subTest(label=label):
+                    path.write_text(body.replace(f"- **{label}:**", f"- **Omitted {label}:**"))
+                    self.assertTrue(any(f"step {label}" in item for item in vt.batch_state_findings(root)))
+            path.write_text(body.replace("boundary --expect", "boundary without revision"))
+            self.assertTrue(any("boundary --expect" in item for item in vt.batch_state_findings(root)))
+            path.write_text(body.replace("### Durable batch state", "### Removed section"))
+            self.assertIn("missing durable batch state section", vt.batch_state_findings(root)[0])
+
+    def test_main_rejects_batch_without_state_protocol(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write(root, ".opencode/commands/batch.md", "---\ndescription: batch\n---\nNo protocol\n")
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(1, vt.main([str(root)]))
+
     def test_main_passes_a_clean_tree(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)

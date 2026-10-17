@@ -217,6 +217,26 @@ def reference_findings(root: pathlib.Path, path: pathlib.Path) -> list[str]:
     return findings
 
 
+def batch_state_findings(root: pathlib.Path) -> list[str]:
+    """Check the declared protocol's structure, not runtime compliance or prose semantics."""
+    path = root / ".opencode/commands/batch.md"
+    if not path.exists():
+        return []  # Small fixture/tooling trees need not provide the batch command.
+    body = path.read_text()
+    heading = "### Durable batch state"
+    if heading not in body:
+        return [f"{path}: missing durable batch state section"]
+    section = re.split(r"\n#{1,3} ", body.split(heading, 1)[1], maxsplit=1)[0]
+    labels = ("Initialize", "Attempt", "Resume", "Boundary", "Review", "Budget stop", "Publication")
+    findings = [f"{path}: durable state missing lifecycle step {label}"
+                for label in labels if f"- **{label}:**" not in section]
+    for token in ("scripts/task-state.py", "`begin`", "`resolve`", "`resume`", "`checkpoint`",
+                  "`evidence`", "boundary --expect", "--require-evidence"):
+        if token not in section:
+            findings.append(f"{path}: durable state missing protocol reference {token}")
+    return findings
+
+
 def main(argv: list[str] | None = None) -> int:
     arguments = sys.argv[1:] if argv is None else argv
     root = pathlib.Path(arguments[0]).resolve() if arguments else ROOT
@@ -227,6 +247,7 @@ def main(argv: list[str] | None = None) -> int:
     surface = surface_files(root)
     for path in surface:
         findings.extend(reference_findings(root, path))
+    findings.extend(batch_state_findings(root))
     for finding in findings:
         print(finding)
     print(

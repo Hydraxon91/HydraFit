@@ -206,3 +206,84 @@ boundaries.
   0.9.6 notes and limits on the same date.
 - 2026-10-17 — v0.9.5 published: merge, tag, release workflow and offline artifact
   verification recorded; batch closed.
+
+## Automation reliability task 01 (2026-10-17)
+
+Accepted scope: durable finite-budget batch state and bounded-run hardening,
+branch `tooling/automation-reliability-01`, base `47b82e0b`. Main-agent
+implementation; independent review before local commits; no publication.
+The earlier scorecard and batch entries remain historical evidence, not rewritten
+claims about this task.
+
+- **AR-01 [confirmed, mechanical]:** bounded-run escalated only while the group
+  leader was alive. A leader exiting on SIGTERM could leave a descendant that
+  ignored SIGTERM without SIGKILL escalation. Cleanup now probes the group and
+  bounds the final wait; regression verification pending.
+- **AR-02 [accepted integration decision]:** batch state was unused by the release
+  run. The command now specifies the existing cooperative state protocol and a
+  read-only evidence boundary. This is not enforced tool interception. Finite
+  expiry stops new work; an unqualified run-to-completion instruction is not an
+  extension. Unlimited-budget representation remains unsupported, explicitly
+  reported rather than silently mapped to a finite budget.
+- **Measurement correction:** the 0.9.5–0.9.6 batch used direct Git, so the Git
+  permission-fix datapoint remains unmeasured. Nothing in this task validates the
+  guard, lease contention, or UI acceptance improvements. No rating changes yet.
+
+### Task 01 boundary: implemented and verified, review pending
+
+- Offline command: `python3 -B -m unittest discover -s scripts/tests -p 'test_*.py' -v`
+  through bounded-run; **136 tests passed**, 30.130 seconds. External evidence:
+  `automation-reliability-01/suite-01.log` and `suite-01.json` under the agreed
+  OpenCode temporary root; wrapper exit 0, termination confirmed.
+- The real SIGKILL journey used a disposable repository and a worker that appended
+  once before acknowledgement. Resume retained the pending outcome, refused new
+  work, and fresh inspection resolved it without replay. Baseline and history
+  prefix were preserved; the sentinel remained exactly once.
+- New regressions cover surviving descendants, wrapper SIGINT/SIGTERM, bounded
+  uncertain cleanup, fresh JSON results and persistence failure, and read-only
+  revision/current-tree evidence boundaries. Validator: 13 definitions and 30
+  surface files, **0 findings**.
+- No live release batch has yet used the new protocol. The process-kill test is
+  supervised synthetic evidence, not an app interruption or an enforcement test.
+  Independent review and local commits pending; scores remain unchanged.
+
+### Task 01 independent review: corrections required
+
+Full-range reviewer verdict **REJECTED** on the nine-file implementation after
+the 136-test pass. Findings are confirmed by source tracing:
+
+- **AR-R01 (major, mechanical):** cleanup diagnostic writes could fail before
+  signalling, leaving a live group and misleading `not-started` termination.
+- **AR-R02 (minor, mechanical):** SIGINT/SIGTERM arriving during timeout cleanup
+  was latched but not reflected in the final exit/result.
+
+Main-agent corrections are covered by the accepted contract: source and regression
+tests in bounded-run, result-field documentation and this append-only record.
+Required verification: failures at both cleanup diagnostic points with a resistant
+descendant, both signals during cleanup, the full offline suite and validator,
+then targeted independent closure. No new full-range review or rating increase.
+
+### Task 01 closure: approved for local commit
+
+- Corrected verification: **138 offline tests passed**, 30.875 seconds
+  (`automation-reliability-01/suite-02.log` and `suite-02.json` under the agreed
+  external temporary root). Four subcases inject diagnostic write/flush failure
+  before TERM/KILL with a resistant descendant; both SIGINT and SIGTERM during
+  timeout cleanup retain interruption status. The prior SIGKILL/no-replay journey
+  passed again. Validator: 13 definitions/30 surface files, zero findings;
+  whitespace check clean.
+- Independent targeted closure **APPROVED**, reviewer session
+  `ses_eb464ea5dffeYhOPSxNMmr8x7l`: AR-R01 and AR-R02 closed, no required findings
+  remaining. Reviewed base `47b82e0b`, working-tree diff SHA-256
+  `55fe040a5ed99c92f2e0b7162334b2fdb689c7b9fba69c1b9e84da85d512ad31`.
+  Original rejection is retained above. This closure entry is subsequent
+  parent-owned evidence consolidation, not a new reviewer verdict.
+- AC1–AC9 are supported by the inspected implementation, offline tests and
+  supervised synthetic kill journey. Batch integration remains cooperative;
+  required evidence labels and their artifacts still need operator inspection.
+  No runtime guard, unlimited-budget encoding, process-escape containment or
+  automatic recovery was added.
+- Ratings remain at the historical scorecard pending real finite-budget batch
+  adoption and repeated interruption evidence. Lease contention, Git permission
+  prompt reduction and UI-acceptance improvements remain separate backlog work.
+  Local commit is authorized; push/publication is not.

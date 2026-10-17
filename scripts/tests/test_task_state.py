@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest import mock
 
@@ -335,6 +336,93 @@ class TaskStateTests(unittest.TestCase):
         self.contract_file.write_text(json.dumps(self.contract))
         self.assertEqual(0, self.init()[0])
         self.assertEqual("must never execute", self.record()["contract"]["command"])
+
+    def test_boundary_is_read_only_and_requires_latest_revision_specific_pass(self):
+        self.init()
+        args = ("boundary", "--expect", "0", "--require-evidence", "host tests")
+        before = self.record_path.read_bytes()
+        code, out, _ = self.cli(*args)
+        self.assertEqual(2, code)
+        self.assertEqual(["host tests"], json.loads(out)["missing_evidence"])
+        self.assertEqual(before, self.record_path.read_bytes())
+        event = {"type": "evidence", "description": "host tests", "outcome": "passed",
+                 "reference": "/external/host.log"}
+        self.assertEqual(0, self.update(event)[0])
+        self.assertEqual(2, self.cli(*args)[0], "old expected revision must fail")
+        self.assertEqual(0, self.cli("boundary", "--expect", "1", "--require-evidence", "host tests")[0])
+        self.update({**event, "outcome": "failed"})
+        self.assertEqual(2, self.cli("boundary", "--expect", "2", "--require-evidence", "host tests")[0])
+        self.update(event)
+        (self.repo / "file.txt").write_text("changed")
+        self.update({"type": "checkpoint", "reason": "inspected intended change"})
+        self.assertEqual(2, self.cli("boundary", "--expect", "4", "--require-evidence", "host tests")[0],
+                         "old tree's pass is not current evidence")
+
+    def test_boundary_blocks_terminal_phase_unknown_drift_scope_and_expiry(self):
+        with mock.patch.object(ts.time, "time", return_value=100):
+            self.init("5")
+        before = self.record_path.read_bytes()
+        with mock.patch.object(ts.time, "time", return_value=110):
+            self.assertEqual(2, self.cli("boundary", "--expect", "0")[0])
+            self.assertEqual(2, self.update({"type": "begin", "id": "expired", "description": "no"})[0])
+            self.assertEqual(before, self.record_path.read_bytes())
+            self.assertEqual(0, self.update({"type": "phase", "value": "blocked"})[0])
+        for phase in ("blocked", "complete"):
+            record = self.record()
+            record["phase"] = phase
+            report = ts.boundary_report(record, ts.snapshot(self.repo), 100, record["revision"], [])
+            self.assertFalse(report["boundary_clear"])
+        record = self.record()
+        current = ts.snapshot(self.repo)
+        current["changed_paths"] = ["outside.txt"]
+        report = ts.boundary_report(record, current, 100, record["revision"], [])
+        self.assertEqual(["outside.txt"], report["outside_allowed_paths"])
+        self.assertFalse(report["boundary_clear"])
+
+    def test_real_kill_after_side_effect_resumes_without_replay(self):
+        self.init()
+        baseline = self.record()["baseline"]
+        self.update({"type": "begin", "id": "sentinel-write", "description": "append sentinel once"})
+        prefix = self.record()["history"]
+        ready = self.root / "worker-ready"
+        worker = (
+            "import os,sys,time; "
+            "f=open(sys.argv[1],'a'); f.write('sentinel\\n'); f.flush(); os.fsync(f.fileno()); f.close(); "
+            "open(sys.argv[2],'w').close(); time.sleep(60)"
+        )
+        process = subprocess.Popen([sys.executable, "-B", "-c", worker,
+                                    str(self.repo / "file.txt"), str(ready)])
+        try:
+            deadline = time.monotonic() + 5
+            while not ready.exists() and time.monotonic() < deadline:
+                time.sleep(0.02)
+            self.assertTrue(ready.exists(), "worker must write before the real SIGKILL")
+            process.kill()
+            process.wait(timeout=5)
+            self.assertEqual(-9, process.returncode)
+            before = self.record_path.read_bytes()
+            code, out, _ = self.cli("resume")
+            self.assertEqual(2, code)
+            self.assertEqual(["sentinel-write"], json.loads(out)["unknown_operations"])
+            self.assertEqual(before, self.record_path.read_bytes())
+            self.assertEqual(2, self.cli("boundary", "--expect", "1")[0])
+            self.assertEqual(2, self.update({"type": "begin", "id": "replay", "description": "forbidden"})[0])
+            observed = (self.repo / "file.txt").read_text()
+            self.assertEqual("baseline\nsentinel\n", observed)
+            self.assertEqual(0, self.update({"type": "resolve", "id": "sentinel-write", "outcome": "completed",
+                                            "evidence": "fresh read: baseline plus exactly one sentinel"})[0])
+            self.assertEqual(0, self.update({"type": "checkpoint", "reason": "inspected single append after kill"})[0])
+            self.assertEqual(0, self.cli("boundary", "--expect", "3")[0])
+            self.assertEqual(0, self.update({"type": "phase", "value": "complete"})[0])
+            self.assertEqual(baseline, self.record()["baseline"])
+            self.assertEqual(prefix, self.record()["history"][:len(prefix)])
+            self.assertEqual(observed, (self.repo / "file.txt").read_text())
+            print("kill-journey: SIGKILL observed; pending retained; fresh inspection; sentinel count=1; "
+                  "no replay; baseline/history preserved; complete")
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait(timeout=5)
 
 
 def time_now(record):

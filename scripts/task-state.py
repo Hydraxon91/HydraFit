@@ -5,6 +5,7 @@ Usage: task-state.py --dir <external-directory> --task <id> <subcommand>
   init --repo <checkout> --contract <json-file> --budget-seconds <seconds>
   show
   resume
+  boundary --expect <revision> [--require-evidence <description> ...]
   update --expect <revision> --event <json-file>
 
 Events: begin (id, description), resolve (id, outcome, evidence), phase (value),
@@ -251,7 +252,23 @@ def reconcile(record: dict, current: dict, now: float) -> dict:
             "unknown_operations": pending, "outside_allowed_paths": outside,
             "remaining_seconds": remaining,
             "reconciliation_needed": drift or bool(pending) or bool(outside) or remaining <= 0,
-            "authorization": "recorded approval is audit context only; verify actual user authorization"}
+             "authorization": "recorded approval is audit context only; verify actual user authorization"}
+
+
+def boundary_report(record: dict, current: dict, now: float, expected: int, required: list[str]) -> dict:
+    """Read-only cooperative gate. Evidence labels are not a review or an approval."""
+    report = reconcile(record, current, now)
+    missing = []
+    for description in required:
+        matches = [item for item in record["evidence"] if item["description"] == description]
+        # A later failure/unknown supersedes an earlier pass. Pin evidence to this tree.
+        if not matches or matches[-1]["outcome"] != "passed" or matches[-1]["snapshot"] != current:
+            missing.append(description)
+    report.update(stale_revision=expected != record["revision"], missing_evidence=missing,
+                  terminal_phase=record["phase"] in ("blocked", "complete"))
+    report["boundary_clear"] = not (report["reconciliation_needed"] or report["stale_revision"] or
+                                     missing or report["terminal_phase"])
+    return report
 
 
 @contextlib.contextmanager
@@ -354,6 +371,9 @@ def main(argv: list[str] | None = None) -> int:
     init.add_argument("--budget-seconds", type=float, required=True)
     commands.add_parser("show")
     commands.add_parser("resume")
+    boundary = commands.add_parser("boundary")
+    boundary.add_argument("--expect", type=int, required=True)
+    boundary.add_argument("--require-evidence", action="append", default=[])
     update = commands.add_parser("update")
     update.add_argument("--expect", type=int, required=True)
     update.add_argument("--event", type=Path, required=True)
@@ -382,6 +402,12 @@ def main(argv: list[str] | None = None) -> int:
             report = reconcile(record, current, time.time())
             print(json.dumps(report, indent=2))
             return 2 if report["reconciliation_needed"] else 0
+        if args.command == "boundary":
+            if any(not text(item) for item in args.require_evidence):
+                raise Invalid("required evidence descriptions must be nonempty")
+            report = boundary_report(record, current, time.time(), args.expect, args.require_evidence)
+            print(json.dumps(report, indent=2))
+            return 0 if report["boundary_clear"] else 2
         directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         with locked(directory, args.task):
             if path.is_symlink():
