@@ -20,8 +20,9 @@ import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Platform controls for automatic backups: the folder picker, the enable switch, an explicit
- * "Back up now" and the resulting status. Android offers a persistable folder picker; a platform
- * with no folder surface renders nothing, and [AutomaticBackupRoute] shows a note instead.
+ * "Back up now", the encryption controls and the resulting status. Android offers a persistable
+ * folder picker; a platform with no folder surface renders nothing, and [AutomaticBackupRoute]
+ * shows a note instead.
  */
 @Composable
 expect fun AutomaticBackupSection(
@@ -29,6 +30,9 @@ expect fun AutomaticBackupSection(
     onChooseFolder: (String) -> Unit,
     onToggleEnabled: (Boolean) -> Unit,
     onRunNow: () -> Unit,
+    onEncrypt: (String) -> Unit,
+    onDisableEncryption: () -> Unit,
+    onRecoverEncryption: (String) -> Unit,
     modifier: Modifier = Modifier
 )
 
@@ -61,7 +65,10 @@ fun AutomaticBackupRoute(
                 state = state,
                 onChooseFolder = viewModel::chooseFolder,
                 onToggleEnabled = { enabled -> viewModel.setEnabled(enabled) },
-                onRunNow = viewModel::runNow
+                onRunNow = viewModel::runNow,
+                onEncrypt = viewModel::encryptWithPassword,
+                onDisableEncryption = viewModel::disableEncryption,
+                onRecoverEncryption = viewModel::recoverEncryption
             )
         } else {
             Text(

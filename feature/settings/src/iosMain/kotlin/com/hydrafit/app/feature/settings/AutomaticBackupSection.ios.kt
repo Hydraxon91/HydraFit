@@ -10,5 +10,8 @@ actual fun AutomaticBackupSection(
     onChooseFolder: (String) -> Unit,
     onToggleEnabled: (Boolean) -> Unit,
     onRunNow: () -> Unit,
+    onEncrypt: (String) -> Unit,
+    onDisableEncryption: () -> Unit,
+    onRecoverEncryption: (String) -> Unit,
     modifier: Modifier
 ) = Unit

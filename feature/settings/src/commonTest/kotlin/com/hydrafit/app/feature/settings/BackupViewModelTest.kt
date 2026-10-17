@@ -4,6 +4,10 @@ import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT
 import com.hydrafit.app.core.domain.backup.BackupApplyError
 import com.hydrafit.app.core.domain.backup.BackupCatalog
 import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
+import com.hydrafit.app.core.domain.backup.BackupCrypto
+import com.hydrafit.app.core.domain.backup.BackupEncryption
+import com.hydrafit.app.core.domain.backup.BackupEncryptionKeyStore
+import com.hydrafit.app.core.domain.backup.BackupException
 import com.hydrafit.app.core.domain.backup.BackupFailure
 import com.hydrafit.app.core.domain.backup.BackupFile
 import com.hydrafit.app.core.domain.backup.BackupJson
@@ -15,6 +19,8 @@ import com.hydrafit.app.core.domain.backup.ExportBackupUseCase
 import com.hydrafit.app.core.domain.backup.PendingBackup
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
+import com.hydrafit.app.core.domain.backup.StoredBackupKey
+import com.hydrafit.app.core.domain.backup.VerifyBackupSnapshotUseCase
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
@@ -145,18 +151,126 @@ class BackupViewModelTest {
         assertFalse(viewModel.state.value.isSupported)
     }
 
+    @Test
+    fun encryptedExportWritesASealedEnvelope() = runTest(dispatcher) {
+        val store = FakeBackupFileStore()
+        val encryption = testEncryption(FakeBackupEncryptionCrypto())
+        val viewModel = viewModel(store, FakeBackupRepository(), encryption = encryption)
+
+        viewModel.export("content://dest", encrypted = true, password = "pw")
+        advanceUntilIdle()
+
+        assertTrue(encryption.looksEncrypted(store.written.single()))
+        assertEquals(BackupStatus.Exported, viewModel.state.value.status)
+    }
+
+    @Test
+    fun anEncryptedExportWithoutAPasswordFailsWithoutWritingPlaintext() = runTest(dispatcher) {
+        val store = FakeBackupFileStore()
+        val viewModel = viewModel(store, FakeBackupRepository())
+
+        viewModel.export("content://dest", encrypted = true, password = null)
+        advanceUntilIdle()
+
+        assertTrue(store.written.isEmpty())
+        assertEquals(
+            BackupStatus.Failed(BackupFailure.ENCRYPTION_FAILED),
+            viewModel.state.value.status
+        )
+    }
+
+    @Test
+    fun anEncryptedImportPromptsAndThenUnlocksIntoAPreview() = runTest(dispatcher) {
+        val repository = FakeBackupRepository()
+        val encryption = testEncryption(FakeBackupEncryptionCrypto())
+        val payload = encryption.sealWithPassword(
+            BackupJson.encode(repository.exported),
+            "pw".toCharArray()
+        )
+        val viewModel = viewModel(
+            FakeBackupFileStore(content = payload),
+            repository,
+            encryption = encryption
+        )
+
+        viewModel.`import`("content://src")
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.unlocking)
+        assertNull(viewModel.state.value.preview)
+
+        viewModel.unlockImport("pw")
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.unlocking)
+        assertNotNull(viewModel.state.value.preview)
+        assertNull(viewModel.state.value.status)
+    }
+
+    @Test
+    fun aWrongUnlockPasswordReportsEncryptionFailure() = runTest(dispatcher) {
+        val repository = FakeBackupRepository()
+        val encryption = testEncryption(FakeBackupEncryptionCrypto())
+        val payload = encryption.sealWithPassword(
+            BackupJson.encode(repository.exported),
+            "right".toCharArray()
+        )
+        val viewModel = viewModel(
+            FakeBackupFileStore(content = payload),
+            repository,
+            encryption = encryption
+        )
+
+        viewModel.`import`("content://src")
+        advanceUntilIdle()
+        viewModel.unlockImport("wrong")
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.unlocking)
+        assertNull(viewModel.state.value.preview)
+        assertEquals(
+            BackupStatus.Failed(BackupFailure.ENCRYPTION_FAILED),
+            viewModel.state.value.status
+        )
+    }
+
+    @Test
+    fun cancelUnlockDiscardsTheHeldCiphertext() = runTest(dispatcher) {
+        val repository = FakeBackupRepository()
+        val encryption = testEncryption(FakeBackupEncryptionCrypto())
+        val payload = encryption.sealWithPassword(
+            BackupJson.encode(repository.exported),
+            "pw".toCharArray()
+        )
+        val viewModel = viewModel(
+            FakeBackupFileStore(content = payload),
+            repository,
+            encryption = encryption
+        )
+
+        viewModel.`import`("content://src")
+        advanceUntilIdle()
+        viewModel.cancelUnlock()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.unlocking)
+        assertNull(viewModel.state.value.preview)
+
+        viewModel.unlockImport("pw")
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.preview)
+        assertNull(viewModel.state.value.status)
+    }
+
     private fun viewModel(
         store: BackupFileStore,
         repository: BackupRepository,
         staging: BackupStagingRepository = FakeBackupStagingRepository(),
-        logs: WorkoutLogRepository = FakeWorkoutLogRepository()
+        logs: WorkoutLogRepository = FakeWorkoutLogRepository(),
+        encryption: BackupEncryption = testEncryption(FakeBackupEncryptionCrypto())
     ): BackupViewModel {
-        val catalog = object : BackupCatalog {
-            override fun seedExerciseIds(): Set<String> = emptySet()
-
-            override fun builtInEquipmentIds(): Set<String> = emptySet()
-        }
-        val preview = PreviewBackupUseCase(BackupValidator(catalog), dispatcher)
+        val preview = PreviewBackupUseCase(BackupValidator(testBackupCatalog()), dispatcher)
         return BackupViewModel(
             exportBackup = ExportBackupUseCase(repository, dispatcher),
             previewBackup = preview,
@@ -170,9 +284,17 @@ class BackupViewModelTest {
                 logs,
                 FakeWorkoutSessionRepository(),
                 FakeExerciseCatalog()
-            )
+            ),
+            encryption = encryption
         )
     }
+
+    private fun testEncryption(crypto: BackupCrypto): BackupEncryption = BackupEncryption(
+        crypto = crypto,
+        keyStore = NoStoredKeyStore(),
+        verifySnapshot = VerifyBackupSnapshotUseCase(BackupValidator(testBackupCatalog())),
+        dispatcher = dispatcher
+    )
 
     @Test
     fun historyExportWritesTheUseCaseTextUnchanged() = runTest(dispatcher) {
@@ -382,3 +504,65 @@ private fun emptyBackupFile(): BackupFile = BackupFile(
     exclusions = emptyList(),
     restPreferences = listOf(BackupRestPreferenceRecord(null, 120L))
 )
+
+/**
+ * Deterministic, key-dependent test cipher: the same password round-trips, while a different
+ * password derives a different key whose tag does not authenticate, mirroring the real primitive's
+ * wrong-password failure without any cryptographic strength.
+ */
+private class FakeBackupEncryptionCrypto : BackupCrypto {
+    override val isSupported: Boolean = true
+
+    override fun randomBytes(size: Int): ByteArray = ByteArray(size) { index -> index.toByte() }
+
+    override fun deriveKey(
+        password: CharArray,
+        salt: ByteArray,
+        iterations: Int,
+        keyBytes: Int
+    ): ByteArray = ByteArray(keyBytes) { index ->
+        val pass = password[index % password.size].code
+        (pass xor salt[index % salt.size].toInt() xor index).toByte()
+    }
+
+    override fun encrypt(key: ByteArray, nonce: ByteArray, plaintext: ByteArray): ByteArray =
+        ByteArray(plaintext.size + 1) { index ->
+            if (index == plaintext.size) {
+                tag(key)
+            } else {
+                val mixed = plaintext[index].toInt() xor key[index % key.size].toInt() xor
+                    nonce[index % nonce.size].toInt()
+                mixed.toByte()
+            }
+        }
+
+    override fun decrypt(key: ByteArray, nonce: ByteArray, ciphertext: ByteArray): ByteArray {
+        val bodySize = ciphertext.size - 1
+        if (bodySize < 0 || ciphertext[bodySize] != tag(key)) {
+            throw BackupException(BackupFailure.ENCRYPTION_FAILED, "tag mismatch")
+        }
+        return ByteArray(bodySize) { index ->
+            val mixed = ciphertext[index].toInt() xor key[index % key.size].toInt() xor
+                nonce[index % nonce.size].toInt()
+            mixed.toByte()
+        }
+    }
+
+    private fun tag(key: ByteArray): Byte =
+        key.fold(7) { acc, byte -> (acc * 31 + byte) % 251 }.toByte()
+}
+
+/** Manual export and import derive from the entered password, so no unattended key is stored. */
+private class NoStoredKeyStore : BackupEncryptionKeyStore {
+    override suspend fun load(): StoredBackupKey? = null
+
+    override suspend fun store(key: StoredBackupKey) = Unit
+
+    override suspend fun clear() = Unit
+}
+
+private fun testBackupCatalog(): BackupCatalog = object : BackupCatalog {
+    override fun seedExerciseIds(): Set<String> = emptySet()
+
+    override fun builtInEquipmentIds(): Set<String> = emptySet()
+}

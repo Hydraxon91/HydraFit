@@ -30,7 +30,9 @@ data class BackupUiState(
     val isSupported: Boolean = true,
     val inProgress: Boolean = false,
     val preview: BackupPreviewUi? = null,
-    val status: BackupStatus? = null
+    val status: BackupStatus? = null,
+    /** True while an imported file is waiting for the password that opens it. */
+    val unlocking: Boolean = false
 )
 
 /** Stable identities for the data-transfer controls; technical metadata, never spoken labels. */

@@ -2,6 +2,7 @@ package com.hydrafit.app.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hydrafit.app.core.domain.backup.BackupEncryption
 import com.hydrafit.app.core.domain.backup.BackupException
 import com.hydrafit.app.core.domain.backup.BackupFailure
 import com.hydrafit.app.core.domain.backup.BackupFile
@@ -22,8 +23,9 @@ import kotlinx.coroutines.launch
 /**
  * Drives the Settings backup flow: export writes a snapshot to a chosen document, import reads and
  * validates a file into a preview, and restore stages the validated file for the next process start.
- * A failure from a previous startup apply is surfaced once when the screen opens. Cancellation is
- * rethrown, never reported as an I/O failure.
+ * An export may seal the payload with a user password, and an import of an encrypted envelope holds
+ * the ciphertext until the password opens it. A failure from a previous startup apply is surfaced
+ * once when the screen opens. Cancellation is rethrown, never reported as an I/O failure.
  */
 class BackupViewModel(
     private val exportBackup: ExportBackupUseCase,
@@ -32,11 +34,15 @@ class BackupViewModel(
     private val fileStore: BackupFileStore,
     private val appVersionProvider: AppVersionProvider,
     private val timeProvider: TimeProvider,
-    private val exportWorkoutHistoryCsv: ExportWorkoutHistoryCsvUseCase
+    private val exportWorkoutHistoryCsv: ExportWorkoutHistoryCsvUseCase,
+    private val encryption: BackupEncryption
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(BackupUiState(isSupported = fileStore.isSupported))
     val state: StateFlow<BackupUiState> = _state.asStateFlow()
+
+    /** The imported ciphertext awaiting its password; never placed in the (observable) UI state. */
+    private var pendingEncryptedText: String? = null
 
     init {
         viewModelScope.launch {
@@ -46,13 +52,25 @@ class BackupViewModel(
         }
     }
 
-    fun export(handle: String) {
+    /**
+     * Exports a snapshot to the chosen document. Plaintext is the default; [encrypted] seals the
+     * payload with [password] instead, and an encrypted request without a password fails rather than
+     * silently writing readable plaintext.
+     */
+    fun export(handle: String, encrypted: Boolean = false, password: String? = null) {
         if (_state.value.inProgress) return
         _state.update { it.copy(inProgress = true, status = null) }
         viewModelScope.launch {
             try {
                 val text = exportBackup(appVersionProvider.versionName, timeProvider.nowMillis())
-                fileStore.write(handle, text)
+                val payload = if (encrypted) {
+                    val secret = password
+                        ?: throw BackupException(BackupFailure.ENCRYPTION_FAILED, "no password")
+                    encryption.sealWithPassword(text, secret.toCharArray())
+                } else {
+                    text
+                }
+                fileStore.write(handle, payload)
                 _state.update { it.copy(inProgress = false, status = BackupStatus.Exported) }
             } catch (cancellation: CancellationException) {
                 throw cancellation
@@ -89,14 +107,23 @@ class BackupViewModel(
         }
     }
 
+    /**
+     * Reads a file and either previews it or, when it is an encrypted envelope, holds it until
+     * [unlockImport] supplies the password. The ciphertext is never exposed in the UI state.
+     */
     fun `import`(handle: String) {
         if (_state.value.inProgress) return
         _state.update { it.copy(inProgress = true, status = null, preview = null) }
         viewModelScope.launch {
             try {
                 val text = fileStore.read(handle)
-                _state.update {
-                    it.copy(inProgress = false, preview = previewBackup(text).toPreview(text))
+                if (encryption.looksEncrypted(text)) {
+                    pendingEncryptedText = text
+                    _state.update { it.copy(inProgress = false, unlocking = true) }
+                } else {
+                    _state.update {
+                        it.copy(inProgress = false, preview = previewBackup(text).toPreview(text))
+                    }
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
@@ -106,6 +133,46 @@ class BackupViewModel(
                 }
             }
         }
+    }
+
+    /**
+     * Opens the held ciphertext with [password] and previews the decoded backup. A wrong password or
+     * damaged envelope clears the held text and reports it; nothing is staged.
+     */
+    fun unlockImport(password: String) {
+        val text = pendingEncryptedText ?: return
+        if (_state.value.inProgress) return
+        _state.update { it.copy(inProgress = true, status = null) }
+        viewModelScope.launch {
+            try {
+                val plain = encryption.unsealWithPassword(text, password.toCharArray())
+                pendingEncryptedText = null
+                _state.update {
+                    it.copy(
+                        inProgress = false,
+                        unlocking = false,
+                        preview = previewBackup(plain).toPreview(plain)
+                    )
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
+                pendingEncryptedText = null
+                _state.update {
+                    it.copy(
+                        inProgress = false,
+                        unlocking = false,
+                        status = BackupStatus.Failed(throwable.toFailure())
+                    )
+                }
+            }
+        }
+    }
+
+    /** Discards the held ciphertext and closes the unlock prompt without staging anything. */
+    fun cancelUnlock() {
+        pendingEncryptedText = null
+        _state.update { it.copy(unlocking = false) }
     }
 
     fun confirmRestore() {

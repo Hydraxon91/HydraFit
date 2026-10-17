@@ -12,20 +12,26 @@ import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
 import com.hydrafit.app.core.domain.backup.BackupCrypto
 import com.hydrafit.app.core.domain.backup.BackupEncryption
 import com.hydrafit.app.core.domain.backup.BackupEncryptionKeyStore
+import com.hydrafit.app.core.domain.backup.BackupException
+import com.hydrafit.app.core.domain.backup.BackupFailure
 import com.hydrafit.app.core.domain.backup.BackupFile
 import com.hydrafit.app.core.domain.backup.BackupFolderStore
 import com.hydrafit.app.core.domain.backup.BackupRepository
 import com.hydrafit.app.core.domain.backup.BackupRestPreferenceRecord
 import com.hydrafit.app.core.domain.backup.BackupValidator
 import com.hydrafit.app.core.domain.backup.ConfigureAutomaticBackupFolderUseCase
+import com.hydrafit.app.core.domain.backup.DisableAutomaticBackupEncryptionUseCase
+import com.hydrafit.app.core.domain.backup.EnableAutomaticBackupEncryptionUseCase
 import com.hydrafit.app.core.domain.backup.ExportBackupUseCase
 import com.hydrafit.app.core.domain.backup.FolderCapabilities
 import com.hydrafit.app.core.domain.backup.FolderUnavailableReason
 import com.hydrafit.app.core.domain.backup.RecordedBackupDocument
+import com.hydrafit.app.core.domain.backup.RecoverAutomaticBackupEncryptionUseCase
 import com.hydrafit.app.core.domain.backup.RunAutomaticBackupUseCase
 import com.hydrafit.app.core.domain.backup.SetAutomaticBackupsEnabledUseCase
 import com.hydrafit.app.core.domain.backup.StoredBackupDocument
 import com.hydrafit.app.core.domain.backup.StoredBackupKey
+import com.hydrafit.app.core.domain.backup.UnsupportedBackupCrypto
 import com.hydrafit.app.core.domain.backup.VerifyBackupSnapshotUseCase
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
@@ -34,6 +40,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellationException
@@ -290,17 +297,158 @@ class AutomaticBackupSettingsViewModelTest {
         assertNull(viewModel.state.value.status)
     }
 
+    @Test
+    fun enablingEncryptionStoresTheKeyAndReportsIt() = runTest(dispatcher) {
+        val keyStore = FakeBackupEncryptionKeyStore()
+        val store = FakeAutomaticBackupStateStore(
+            AutomaticBackupState(enabled = true, folderHandle = "content://f")
+        )
+        val viewModel = viewModel(stateStore = store, keyStore = keyStore)
+        advanceUntilIdle()
+
+        viewModel.encryptWithPassword("pw")
+        advanceUntilIdle()
+
+        assertEquals(AutomaticBackupStatus.EncryptionOn, viewModel.state.value.status)
+        assertTrue(store.state.encryptionEnabled)
+        assertFalse(viewModel.state.value.encryptionKeyMissing)
+    }
+
+    @Test
+    fun disablingEncryptionClearsTheStoredKey() = runTest(dispatcher) {
+        val keyStore = FakeBackupEncryptionKeyStore()
+        keyStore.store(StoredBackupKey(salt = ByteArray(16), key = ByteArray(32)))
+        val store = FakeAutomaticBackupStateStore(
+            AutomaticBackupState(
+                enabled = true,
+                encryptionEnabled = true,
+                folderHandle = "content://f"
+            )
+        )
+        val viewModel = viewModel(stateStore = store, keyStore = keyStore)
+        advanceUntilIdle()
+
+        viewModel.disableEncryption()
+        advanceUntilIdle()
+
+        assertEquals(AutomaticBackupStatus.EncryptionOff, viewModel.state.value.status)
+        assertFalse(store.state.encryptionEnabled)
+        assertNull(keyStore.load())
+    }
+
+    @Test
+    fun anUnsupportedPlatformRefusesEncryption() = runTest(dispatcher) {
+        val store = FakeAutomaticBackupStateStore(
+            AutomaticBackupState(enabled = true, folderHandle = "content://f")
+        )
+        val viewModel = viewModel(stateStore = store, crypto = UnsupportedBackupCrypto())
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.isEncryptionSupported)
+        viewModel.encryptWithPassword("pw")
+        advanceUntilIdle()
+
+        assertEquals(AutomaticBackupStatus.EncryptionUnsupported, viewModel.state.value.status)
+        assertFalse(store.state.encryptionEnabled)
+    }
+
+    @Test
+    fun encryptionKeyMissingWhenEnabledWithoutStoredMaterial() = runTest(dispatcher) {
+        val store = FakeAutomaticBackupStateStore(
+            AutomaticBackupState(
+                enabled = true,
+                encryptionEnabled = true,
+                folderHandle = "content://f"
+            )
+        )
+        val viewModel = viewModel(stateStore = store)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.encryptionEnabled)
+        assertTrue(viewModel.state.value.encryptionKeyMissing)
+    }
+
+    @Test
+    fun recoveryStoresTheKeyAgainAndReportsIt() = runTest(dispatcher) {
+        val crypto = FakeBackupCrypto()
+        val keyStore = FakeBackupEncryptionKeyStore()
+        val sealed = encryptionFor(crypto, keyStore)
+            .sealWithPassword("plain", "right".toCharArray())
+        val folderStore = snapshotFolderStore("doc-1", sealed)
+        val store = encryptedEnabledState()
+        val viewModel = viewModel(
+            stateStore = store,
+            folderStore = folderStore,
+            crypto = crypto,
+            keyStore = keyStore
+        )
+        advanceUntilIdle()
+
+        viewModel.recoverEncryption("right")
+        advanceUntilIdle()
+
+        assertEquals(AutomaticBackupStatus.EncryptionRecovered, viewModel.state.value.status)
+        assertFalse(viewModel.state.value.encryptionKeyMissing)
+        assertNotNull(keyStore.load())
+    }
+
+    @Test
+    fun recoveryWithAWrongPasswordReportsIt() = runTest(dispatcher) {
+        val crypto = FakeBackupCrypto()
+        val keyStore = FakeBackupEncryptionKeyStore()
+        val sealed = encryptionFor(crypto, keyStore)
+            .sealWithPassword("plain", "right".toCharArray())
+        val folderStore = snapshotFolderStore("doc-1", sealed)
+        val viewModel = viewModel(
+            stateStore = encryptedEnabledState(),
+            folderStore = folderStore,
+            crypto = crypto,
+            keyStore = keyStore
+        )
+        advanceUntilIdle()
+
+        viewModel.recoverEncryption("wrong")
+        advanceUntilIdle()
+
+        assertEquals(AutomaticBackupStatus.EncryptionWrongPassword, viewModel.state.value.status)
+        assertTrue(viewModel.state.value.encryptionKeyMissing)
+    }
+
+    @Test
+    fun recoveryWithoutAnEncryptedSnapshotReportsIt() = runTest(dispatcher) {
+        val viewModel = viewModel(stateStore = encryptedEnabledState())
+        advanceUntilIdle()
+
+        viewModel.recoverEncryption("pw")
+        advanceUntilIdle()
+
+        assertEquals(AutomaticBackupStatus.EncryptionNoSnapshot, viewModel.state.value.status)
+    }
+
+    private fun snapshotFolderStore(documentId: String, sealed: String): FakeBackupFolderStore =
+        FakeBackupFolderStore().apply { putDocument(documentId, sealed.encodeToByteArray()) }
+
+    private fun encryptedEnabledState(): FakeAutomaticBackupStateStore =
+        FakeAutomaticBackupStateStore(
+            AutomaticBackupState(
+                enabled = true,
+                encryptionEnabled = true,
+                folderHandle = "content://f",
+                documents = listOf(
+                    RecordedBackupDocument("doc-1", "auto.json", 1L, verified = true)
+                )
+            )
+        )
+
     private fun viewModel(
         stateStore: FakeAutomaticBackupStateStore = FakeAutomaticBackupStateStore(),
         folderStore: FakeBackupFolderStore = FakeBackupFolderStore(),
         scheduler: FakeAutomaticBackupScheduler = FakeAutomaticBackupScheduler(),
-        repository: BackupRepository = FakeAutomaticBackupRepository()
+        repository: BackupRepository = FakeAutomaticBackupRepository(),
+        crypto: BackupCrypto = FakeBackupCrypto(),
+        keyStore: BackupEncryptionKeyStore = FakeBackupEncryptionKeyStore()
     ): AutomaticBackupSettingsViewModel {
-        val catalog = object : BackupCatalog {
-            override fun seedExerciseIds(): Set<String> = emptySet()
-
-            override fun builtInEquipmentIds(): Set<String> = emptySet()
-        }
+        val encryption = encryptionFor(crypto, keyStore)
         return AutomaticBackupSettingsViewModel(
             stateStore = stateStore,
             folderStore = folderStore,
@@ -308,12 +456,7 @@ class AutomaticBackupSettingsViewModelTest {
             enableBackups = SetAutomaticBackupsEnabledUseCase(folderStore, stateStore, scheduler),
             runBackup = RunAutomaticBackupUseCase(
                 exportBackup = ExportBackupUseCase(repository, dispatcher),
-                encryption = BackupEncryption(
-                    crypto = FakeBackupCrypto(),
-                    keyStore = FakeBackupEncryptionKeyStore(),
-                    verifySnapshot = VerifyBackupSnapshotUseCase(BackupValidator(catalog)),
-                    dispatcher = dispatcher
-                ),
+                encryption = encryption,
                 folderStore = folderStore,
                 stateStore = stateStore,
                 timeProvider = TimeProvider { 1L },
@@ -321,9 +464,36 @@ class AutomaticBackupSettingsViewModelTest {
             ),
             appVersionProvider = object : AppVersionProvider {
                 override val versionName: String = "t"
-            }
+            },
+            encryption = encryption,
+            keyStore = keyStore,
+            enableEncryption = EnableAutomaticBackupEncryptionUseCase(
+                encryption,
+                keyStore,
+                stateStore
+            ),
+            disableEncryptionUseCase = DisableAutomaticBackupEncryptionUseCase(
+                keyStore,
+                stateStore
+            ),
+            recoverEncryptionUseCase = RecoverAutomaticBackupEncryptionUseCase(
+                encryption,
+                keyStore,
+                stateStore,
+                folderStore
+            )
         )
     }
+
+    private fun encryptionFor(
+        crypto: BackupCrypto,
+        keyStore: BackupEncryptionKeyStore
+    ): BackupEncryption = BackupEncryption(
+        crypto = crypto,
+        keyStore = keyStore,
+        verifySnapshot = VerifyBackupSnapshotUseCase(BackupValidator(emptyBackupCatalog())),
+        dispatcher = dispatcher
+    )
 }
 
 private class FakeAutomaticBackupStateStore(
@@ -347,6 +517,10 @@ private class FakeBackupFolderStore(
 ) : BackupFolderStore {
     private val documents = mutableMapOf<String, ByteArray>()
     var createCount: Int = 0
+
+    fun putDocument(documentId: String, bytes: ByteArray) {
+        documents[documentId] = bytes
+    }
 
     override suspend fun capabilities(handle: String): FolderCapabilities = capabilitiesResult
 
@@ -384,33 +558,66 @@ private class FakeAutomaticBackupScheduler : AutomaticBackupScheduler {
     }
 }
 
-/** Identity test cipher: the ViewModel tests exercise the plaintext paths only. */
+/**
+ * Deterministic, key-dependent test cipher: the same password round-trips, while a different
+ * password derives a different key whose tag does not authenticate, mirroring the real primitive's
+ * wrong-password failure without any cryptographic strength.
+ */
 private class FakeBackupCrypto : BackupCrypto {
     override val isSupported: Boolean = true
 
-    override fun randomBytes(size: Int): ByteArray = ByteArray(size)
+    override fun randomBytes(size: Int): ByteArray = ByteArray(size) { index -> index.toByte() }
 
     override fun deriveKey(
         password: CharArray,
         salt: ByteArray,
         iterations: Int,
         keyBytes: Int
-    ): ByteArray = ByteArray(keyBytes)
+    ): ByteArray = ByteArray(keyBytes) { index ->
+        val pass = password[index % password.size].code
+        (pass xor salt[index % salt.size].toInt() xor index).toByte()
+    }
 
     override fun encrypt(key: ByteArray, nonce: ByteArray, plaintext: ByteArray): ByteArray =
-        plaintext
+        ByteArray(plaintext.size + 1) { index ->
+            if (index == plaintext.size) {
+                tag(key)
+            } else {
+                val mixed = plaintext[index].toInt() xor key[index % key.size].toInt() xor
+                    nonce[index % nonce.size].toInt()
+                mixed.toByte()
+            }
+        }
 
-    override fun decrypt(key: ByteArray, nonce: ByteArray, ciphertext: ByteArray): ByteArray =
-        ciphertext
+    override fun decrypt(key: ByteArray, nonce: ByteArray, ciphertext: ByteArray): ByteArray {
+        val bodySize = ciphertext.size - 1
+        if (bodySize < 0 || ciphertext[bodySize] != tag(key)) {
+            throw BackupException(BackupFailure.ENCRYPTION_FAILED, "tag mismatch")
+        }
+        return ByteArray(bodySize) { index ->
+            val mixed = ciphertext[index].toInt() xor key[index % key.size].toInt() xor
+                nonce[index % nonce.size].toInt()
+            mixed.toByte()
+        }
+    }
+
+    private fun tag(key: ByteArray): Byte =
+        key.fold(7) { acc, byte -> (acc * 31 + byte) % 251 }.toByte()
 }
 
-/** Empty unattended material; the ViewModel tests keep encryption off. */
+/** In-memory unattended material; empty until a set-password or recovery flow stores it. */
 private class FakeBackupEncryptionKeyStore : BackupEncryptionKeyStore {
-    override suspend fun load(): StoredBackupKey? = null
+    private var stored: StoredBackupKey? = null
 
-    override suspend fun store(key: StoredBackupKey) = Unit
+    override suspend fun load(): StoredBackupKey? = stored
 
-    override suspend fun clear() = Unit
+    override suspend fun store(key: StoredBackupKey) {
+        stored = key
+    }
+
+    override suspend fun clear() {
+        stored = null
+    }
 }
 
 private class FakeAutomaticBackupRepository : BackupRepository {
@@ -418,6 +625,12 @@ private class FakeAutomaticBackupRepository : BackupRepository {
         validBackupFile(appVersion, exportedAtMillis)
 
     override suspend fun restore(file: BackupFile) = Unit
+}
+
+private fun emptyBackupCatalog(): BackupCatalog = object : BackupCatalog {
+    override fun seedExerciseIds(): Set<String> = emptySet()
+
+    override fun builtInEquipmentIds(): Set<String> = emptySet()
 }
 
 private fun validBackupFile(appVersion: String, exportedAtMillis: Long): BackupFile = BackupFile(
