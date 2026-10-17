@@ -1,5 +1,7 @@
 package com.hydrafit.app.core.database
 
+import com.hydrafit.app.core.domain.equipment.LoadingInventory
+import com.hydrafit.app.core.domain.equipment.LoadingInventoryJson
 import com.hydrafit.app.core.domain.schedule.WorkoutReminderDeliveryGate
 import com.hydrafit.app.core.domain.storage.DataCategory
 import com.hydrafit.app.core.domain.storage.DataCountKind
@@ -94,6 +96,7 @@ class SqlDelightDataManagementRepository(
         database.restCountdownQueries.deletePersisted()
         database.workoutReminderPreferenceQueries.deleteAll()
         SeedEquipmentCatalog(database).seed()
+        seedDefaultEquipmentProfile()
     }
 
     private fun clearExerciseData() {
@@ -151,7 +154,26 @@ class SqlDelightDataManagementRepository(
         resetPlannerPreferences(keepEngine = false)
         database.setupQueries.updateState(1L, "PENDING", "WELCOME", 0L)
         database.setupQueries.updateWeekdays(null)
+        // A reset never leaves a staged restore or its failure behind: applying it on the next start
+        // would resurrect data the user just removed.
+        database.backupStagingQueries.clearStagedBackup()
+        database.backupStagingQueries.clearApplyError()
         SeedEquipmentCatalog(database).seed()
+        seedDefaultEquipmentProfile()
+    }
+
+    /**
+     * Re-creates the schema's seeded equipment profile and state row after a reset deleted them.
+     * Every equipment/profile reader resolves the singleton row, so leaving the tables empty would
+     * break the equipment surface, the logger calculator and the onboarding equipment step.
+     */
+    private fun seedDefaultEquipmentProfile() {
+        database.equipmentProfileQueries.restoreProfile(
+            id = 1L,
+            name = "My equipment",
+            loadingInventory = LoadingInventoryJson.encode(LoadingInventory())
+        )
+        database.equipmentProfileQueries.restoreState(1L)
     }
 
     /** Restores the planner/unit defaults; the engine choice is kept unless a full reset asks. */

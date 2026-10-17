@@ -98,7 +98,16 @@ class SqlDelightDataManagementRepositoryTest {
         assertEquals("KG", database.plannerEngineQueries.selectWeightUnit().executeAsOne())
         assertEquals(4L, database.plannerEngineQueries.selectDaysPerWeek().executeAsOne())
         assertEquals(0L, database.plannerEngineQueries.selectGuidedWorkoutEnabled().executeAsOne())
-        assertEquals(0, repository.counts()[DataCountKind.EQUIPMENT_PROFILES])
+        // The reset re-creates the schema's seeded profile singleton instead of leaving it empty.
+        assertEquals(1, repository.counts()[DataCountKind.EQUIPMENT_PROFILES])
+        assertEquals(
+            1L,
+            database.equipmentProfileQueries.selectState().executeAsOne().activeProfileId
+        )
+        assertEquals(
+            "My equipment",
+            database.equipmentProfileQueries.selectProfile(1L).executeAsOne().name
+        )
     }
 
     @Test
@@ -106,6 +115,11 @@ class SqlDelightDataManagementRepositoryTest {
         seedAllCategories()
         database.setupQueries.updateState(1L, "COMPLETED", "FIRST_WORKOUT", 3L)
         database.setupQueries.updateWeekdays("MONDAY")
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT OR REPLACE INTO stagedBackup(id, payload, appVersion, stagedAtMillis) " +
+                "VALUES (0, 'pending', 't', 1)"
+        )
         val exercisesBefore = HistoricalDatabaseFixtures.count(driver, "exercise")
 
         repository.clear(DataCategory.ALL_DATA)
@@ -127,6 +141,15 @@ class SqlDelightDataManagementRepositoryTest {
         // The seeded catalog and the built-in equipment rows survive; only the custom row is gone.
         assertTrue(HistoricalDatabaseFixtures.count(driver, "exercise") >= exercisesBefore - 1)
         assertTrue(HistoricalDatabaseFixtures.count(driver, "equipment") > 0)
+        // The seeded profile singleton is re-created and no selection is left behind.
+        assertEquals(1, counts[DataCountKind.EQUIPMENT_PROFILES])
+        assertEquals(
+            1L,
+            database.equipmentProfileQueries.selectState().executeAsOne().activeProfileId
+        )
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "equipmentProfileEntry"))
+        // A staged restore never survives a full reset and cannot resurrect data on the next start.
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "stagedBackup"))
     }
 
     @Test
