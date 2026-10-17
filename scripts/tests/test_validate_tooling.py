@@ -156,6 +156,15 @@ class ReferenceTests(unittest.TestCase):
         self.assertEqual(1, len(findings))
         self.assertIn("dangling link to docs/missing.md", findings[0])
 
+    def test_gradle_and_iosapp_prefixes_are_checked(self):
+        root, agents = self._root_with_agents_md("See `gradle/libs.versions.toml`.\n")
+        write(root, "gradle/libs.versions.toml", "x\n")
+        self.assertEqual([], vt.reference_findings(root, agents))
+        broken = write(root, "AGENTS.md", "See `iosApp/missing.md`.\n")
+        findings = vt.reference_findings(root, broken)
+        self.assertEqual(1, len(findings))
+        self.assertIn("dangling reference to iosApp/missing.md", findings[0])
+
     def test_skill_relative_reference_is_checked(self):
         root = pathlib.Path(tempfile.mkdtemp())
         self.addCleanup(lambda: __import__("shutil").rmtree(root))

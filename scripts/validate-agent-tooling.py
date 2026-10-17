@@ -31,6 +31,8 @@ ROOT_RELATIVE_PREFIXES = (
     "feature/",
     "shared/",
     "androidApp/",
+    "gradle/",
+    "iosApp/",
 )
 
 # Tooling-surface documents whose references are checked.
