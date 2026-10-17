@@ -43,6 +43,7 @@ import hydrafit.feature.settings.generated.resources.settings_backup_history_csv
 import hydrafit.feature.settings.generated.resources.settings_backup_history_csv_exported
 import hydrafit.feature.settings.generated.resources.settings_backup_merge_action
 import hydrafit.feature.settings.generated.resources.settings_backup_merge_body
+import hydrafit.feature.settings.generated.resources.settings_backup_merge_dropped_links
 import hydrafit.feature.settings.generated.resources.settings_backup_merge_excluded_accepted_plans
 import hydrafit.feature.settings.generated.resources.settings_backup_merge_excluded_activations
 import hydrafit.feature.settings.generated.resources.settings_backup_merge_excluded_equipment_profiles
@@ -54,6 +55,7 @@ import hydrafit.feature.settings.generated.resources.settings_backup_merge_exclu
 import hydrafit.feature.settings.generated.resources.settings_backup_merge_excluded_title
 import hydrafit.feature.settings.generated.resources.settings_backup_merge_kept_local
 import hydrafit.feature.settings.generated.resources.settings_backup_merge_nothing_new
+import hydrafit.feature.settings.generated.resources.settings_backup_merge_other_setup
 import hydrafit.feature.settings.generated.resources.settings_backup_merge_skipped_open
 import hydrafit.feature.settings.generated.resources.settings_backup_merge_skipped_unattached
 import hydrafit.feature.settings.generated.resources.settings_backup_merge_staged
@@ -243,6 +245,15 @@ private fun MergePreviewSummary(merge: BackupMergePreviewUi) {
                 style = MaterialTheme.typography.bodySmall
             )
         }
+        if (merge.droppedOccurrenceLinks > 0) {
+            Text(
+                text = stringResource(
+                    Res.string.settings_backup_merge_dropped_links,
+                    merge.droppedOccurrenceLinks
+                ),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
         if (merge.excluded.isNotEmpty()) {
             Text(
                 text = stringResource(Res.string.settings_backup_merge_excluded_title),
@@ -259,6 +270,10 @@ private fun MergePreviewSummary(merge: BackupMergePreviewUi) {
                 )
             }
         }
+        Text(
+            text = stringResource(Res.string.settings_backup_merge_other_setup),
+            style = MaterialTheme.typography.bodySmall
+        )
     }
 }
 

@@ -1,6 +1,8 @@
 package com.hydrafit.app.feature.settings
 
 import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT
+import com.hydrafit.app.core.domain.backup.BackupActivationRecord
+import com.hydrafit.app.core.domain.backup.BackupActivationWorkoutRecord
 import com.hydrafit.app.core.domain.backup.BackupApplyError
 import com.hydrafit.app.core.domain.backup.BackupApplyMode
 import com.hydrafit.app.core.domain.backup.BackupCatalog
@@ -15,6 +17,8 @@ import com.hydrafit.app.core.domain.backup.BackupFile
 import com.hydrafit.app.core.domain.backup.BackupJson
 import com.hydrafit.app.core.domain.backup.BackupMergeKeys
 import com.hydrafit.app.core.domain.backup.BackupMergeSelection
+import com.hydrafit.app.core.domain.backup.BackupOccurrenceEntryRecord
+import com.hydrafit.app.core.domain.backup.BackupOccurrenceRecord
 import com.hydrafit.app.core.domain.backup.BackupRepository
 import com.hydrafit.app.core.domain.backup.BackupRestPreferenceRecord
 import com.hydrafit.app.core.domain.backup.BackupStagingRepository
@@ -291,6 +295,20 @@ class BackupViewModelTest {
     }
 
     @Test
+    fun aSetLinkedToAScheduledWorkoutShowsItsDroppedLinkInTheMergePreview() = runTest(dispatcher) {
+        val repository = FakeBackupRepository(exported = backupFileWithOneLinkedSet())
+        val store = FakeBackupFileStore(content = BackupJson.encode(repository.exported))
+        val viewModel = viewModel(store, repository)
+
+        viewModel.`import`("content://src")
+        advanceUntilIdle()
+
+        val merge = assertNotNull(viewModel.state.value.mergePreview)
+        assertEquals(1, merge.sets)
+        assertEquals(1, merge.droppedOccurrenceLinks)
+    }
+
+    @Test
     fun anEmptyBackupMarksTheMergeSelectionEmpty() = runTest(dispatcher) {
         val repository = FakeBackupRepository()
         val store = FakeBackupFileStore(content = BackupJson.encode(repository.exported))
@@ -394,7 +412,7 @@ class BackupViewModelTest {
         return BackupViewModel(
             exportBackup = ExportBackupUseCase(repository, dispatcher),
             previewBackup = preview,
-            previewMerge = PreviewMergeUseCase(preview, repository),
+            previewMerge = PreviewMergeUseCase(preview, repository, dispatcher),
             restoreBackup = RestoreBackupUseCase(preview, staging),
             fileStore = store,
             appVersionProvider = object : AppVersionProvider {
@@ -688,6 +706,77 @@ private fun backupFileWithOneSession(): BackupFile = emptyBackupFile().copy(
             loadKind = "EXTERNAL"
         )
     )
+)
+
+/**
+ * As [backupFileWithOneSession], but its set also links to a scheduled workout. Occurrences are
+ * excluded from a merge, so the preview counts the set as added without that link.
+ */
+private fun backupFileWithOneLinkedSet(): BackupFile = backupFileWithOneSession().copy(
+    activations = listOf(
+        BackupActivationRecord(
+            id = 1L,
+            templateId = null,
+            templateRevision = null,
+            sourcePlanId = null,
+            name = "Block",
+            createdAtMillis = 1L,
+            startEpochDay = 1L,
+            mode = "SEQUENCE",
+            weekdayMask = 0L,
+            status = "ACTIVE",
+            weekNumber = 1,
+            cycleNumber = 1,
+            endedAtMillis = null,
+            revision = 1
+        )
+    ),
+    activationWorkouts = listOf(
+        BackupActivationWorkoutRecord(
+            id = 1L,
+            activationId = 1L,
+            sourceWorkoutId = null,
+            position = 0,
+            name = "Day",
+            focus = "FULL_BODY"
+        )
+    ),
+    occurrences = listOf(
+        BackupOccurrenceRecord(
+            id = 1L,
+            activationId = 1L,
+            activationWorkoutId = 1L,
+            queuePosition = 0,
+            scheduledEpochDay = null,
+            notBeforeEpochDay = null,
+            startedAtMillis = null,
+            resolvedAtMillis = null,
+            status = "PENDING",
+            revision = 1
+        )
+    ),
+    occurrenceEntries = listOf(
+        BackupOccurrenceEntryRecord(
+            id = 1L,
+            occurrenceId = 1L,
+            sourceActivationEntryId = null,
+            position = 0,
+            exerciseId = "custom-1",
+            exerciseName = "Test curl",
+            movementPattern = "BICEPS_ISOLATION",
+            requiredEquipment = "",
+            involvements = null,
+            isUnilateral = false,
+            sets = 1,
+            reps = 10,
+            weightKg = 20.0,
+            loadCapability = "EXTERNAL",
+            loadKind = "EXTERNAL",
+            remainingDisposition = null,
+            terminalRemainingSets = null
+        )
+    ),
+    workoutSets = backupFileWithOneSession().workoutSets.map { it.copy(occurrenceId = 1L) }
 )
 
 /**

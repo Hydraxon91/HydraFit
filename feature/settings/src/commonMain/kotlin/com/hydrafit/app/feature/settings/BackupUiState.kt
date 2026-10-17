@@ -24,6 +24,7 @@ data class BackupMergePreviewUi(
     val keptLocalSessions: Int,
     val skippedOpenSessions: Int,
     val skippedUnattachedSets: Int,
+    val droppedOccurrenceLinks: Int,
     val excluded: List<BackupMergeExcludedCount>,
     val isEmpty: Boolean
 )
@@ -35,6 +36,7 @@ internal fun BackupMergeSelection.toPreviewUi(): BackupMergePreviewUi = BackupMe
     keptLocalSessions = keptLocalSessions,
     skippedOpenSessions = skippedOpenSessions,
     skippedUnattachedSets = skippedUnattachedSets,
+    droppedOccurrenceLinks = setsWithDroppedOccurrenceLinks,
     excluded = excluded,
     isEmpty = isEmpty
 )
