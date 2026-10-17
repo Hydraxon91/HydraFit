@@ -1096,6 +1096,7 @@ class CustomExerciseDedupeTest {
             exerciseId = exerciseId,
             sets = 3,
             reps = 12,
+            durationSeconds = null,
             weightKg = null,
             loadKind = "BODYWEIGHT"
         )
@@ -1139,6 +1140,7 @@ class CustomExerciseDedupeTest {
             isUnilateral = 0,
             sets = 3,
             reps = 12,
+            durationSeconds = null,
             weightKg = null,
             loadCapability = "BODYWEIGHT_ONLY",
             loadKind = "BODYWEIGHT"
@@ -1168,6 +1170,7 @@ class CustomExerciseDedupeTest {
             isUnilateral = 0,
             sets = 3,
             reps = 12,
+            durationSeconds = null,
             weightKg = null,
             loadCapability = "BODYWEIGHT_ONLY",
             loadKind = "BODYWEIGHT",

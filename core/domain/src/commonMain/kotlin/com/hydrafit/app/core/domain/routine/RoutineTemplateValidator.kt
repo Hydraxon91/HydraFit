@@ -39,7 +39,7 @@ internal object RoutineTemplateValidator {
         if (entry.exerciseId.isBlank()) {
             throw RoutineTemplateException("A slot needs an exercise")
         }
-        PrescriptionBounds.validate(entry.sets, entry.reps, entry.weightKg)
+        PrescriptionBounds.validate(entry.sets, entry.reps, entry.durationSeconds, entry.weightKg)
         // Capability compatibility is checked at activation (which has the catalog); here only the
         // shape that holds regardless of capability is enforced.
         if (entry.loadKind == LoadKind.BODYWEIGHT && entry.weightKg != null) {

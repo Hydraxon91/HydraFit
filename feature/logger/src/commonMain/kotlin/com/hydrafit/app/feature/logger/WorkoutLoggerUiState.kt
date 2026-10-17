@@ -143,7 +143,8 @@ data class DraftSet(
     val exerciseId: String,
     val name: String,
     val sets: Int,
-    val reps: Int,
+    /** Repetitions for counted work, or null for a timed slot. Never a `0` sentinel. */
+    val reps: Int? = null,
     val weightKg: Double?,
     val loadKind: LoadKind = LoadKind.EXTERNAL,
     /** Load semantics frozen with the prescription; the live catalog may have changed since. */
@@ -159,19 +160,37 @@ data class DraftSet(
     /**
      * Prescriptions default to working sets; guided confirmation freezes the user's Warm-up choice.
      */
-    val isWarmup: Boolean = false
+    val isWarmup: Boolean = false,
+    /** Elapsed whole seconds for a timed slot, or null for counted work. */
+    val durationSeconds: Int? = null
 )
 
-/** One-off values for the draft currently being edited; never written back to its prescription. */
+/**
+ * One-off values for the draft currently being edited; never written back to its prescription.
+ * The draft's own measure is frozen for the lifetime of this editor: a timed draft edits whole
+ * seconds and a counted draft edits repetitions, and only the frozen one is ever submitted.
+ */
 data class DraftEdit(
     val draft: DraftSet,
     val reps: String,
+    val durationSeconds: String = "",
     val weightInput: String,
     val rir: String,
     val weightRevealed: Boolean,
     val performedAtMillis: Long?,
     val performedAtExplicit: Boolean = false
-)
+) {
+    /** True when the frozen draft records elapsed seconds instead of repetitions. */
+    val isTimed: Boolean get() = draft.durationSeconds != null
+
+    /** True when the frozen measure's field holds a positive whole number. */
+    val enteredMetricIsPositive: Boolean
+        get() = if (isTimed) {
+            (durationSeconds.toIntOrNull() ?: 0) > 0
+        } else {
+            (reps.toIntOrNull() ?: 0) > 0
+        }
+}
 
 /**
  * A draft submission that stopped partway through. [source] is the pending row that was being

@@ -54,6 +54,8 @@ import hydrafit.feature.logger.generated.resources.logger_summary_status_finishe
 import hydrafit.feature.logger.generated.resources.logger_summary_status_partial
 import hydrafit.feature.logger.generated.resources.logger_summary_target_sets
 import hydrafit.feature.logger.generated.resources.logger_summary_target_sets_none
+import hydrafit.feature.logger.generated.resources.logger_summary_target_sets_none_timed
+import hydrafit.feature.logger.generated.resources.logger_summary_target_sets_timed
 import hydrafit.feature.logger.generated.resources.logger_summary_title
 import hydrafit.feature.logger.generated.resources.logger_summary_totals
 import hydrafit.feature.logger.generated.resources.logger_summary_unavailable
@@ -358,25 +360,48 @@ private fun SummarySetLine(
 }
 
 @Composable
-private fun prescribedTargetText(exercise: WorkoutSummaryExercise, weightUnit: WeightUnit): String =
-    if (exercise.prescribedWeightKg == null && exercise.prescribedLoadKind == LoadKind.BODYWEIGHT) {
-        stringResource(
-            Res.string.logger_summary_target_sets_none,
-            exercise.prescribedSets,
-            exercise.prescribedReps
-        )
-    } else {
-        stringResource(
-            Res.string.logger_summary_target_sets,
-            exercise.prescribedSets,
-            exercise.prescribedReps,
-            loadWeightText(
-                exercise.prescribedLoadKind,
-                exercise.prescribedWeightKg,
-                weightUnit
+private fun prescribedTargetText(exercise: WorkoutSummaryExercise, weightUnit: WeightUnit): String {
+    val seconds = exercise.prescribedDurationSeconds
+    val reps = exercise.prescribedReps ?: 0
+    return if (exercise.prescribedWeightKg == null &&
+        exercise.prescribedLoadKind == LoadKind.BODYWEIGHT
+    ) {
+        if (seconds != null) {
+            stringResource(
+                Res.string.logger_summary_target_sets_none_timed,
+                exercise.prescribedSets,
+                seconds
             )
+        } else {
+            stringResource(
+                Res.string.logger_summary_target_sets_none,
+                exercise.prescribedSets,
+                reps
+            )
+        }
+    } else {
+        val load = loadWeightText(
+            exercise.prescribedLoadKind,
+            exercise.prescribedWeightKg,
+            weightUnit
         )
+        if (seconds != null) {
+            stringResource(
+                Res.string.logger_summary_target_sets_timed,
+                exercise.prescribedSets,
+                seconds,
+                load
+            )
+        } else {
+            stringResource(
+                Res.string.logger_summary_target_sets,
+                exercise.prescribedSets,
+                reps,
+                load
+            )
+        }
     }
+}
 
 private fun instantLabel(epochMillis: Long, utcOffsetMillis: Long): String {
     val parts = localDateTimeParts(epochMillis, utcOffsetMillis)

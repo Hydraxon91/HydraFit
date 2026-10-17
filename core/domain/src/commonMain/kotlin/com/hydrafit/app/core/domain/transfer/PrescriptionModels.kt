@@ -12,7 +12,14 @@ import kotlinx.serialization.Serializable
 const val PRESCRIPTION_FORMAT: String = "hydrafit-routines"
 
 /** The interchange version this build writes. */
-const val PRESCRIPTION_FORMAT_VERSION: Int = 1
+const val PRESCRIPTION_FORMAT_VERSION: Int = 2
+
+/**
+ * The versions a reader accepts. Version 1 carries a rep-only slot; version 2 may carry a timed slot
+ * (positive whole seconds instead of a rep count). A duration in a version-1 document is rejected
+ * rather than read, so an older file is never reinterpreted.
+ */
+val PRESCRIPTION_SUPPORTED_VERSIONS: IntRange = 1..PRESCRIPTION_FORMAT_VERSION
 
 /** Resource safeguards for one prescription document; deliberately smaller than a full backup. */
 object PrescriptionLimits {
@@ -72,7 +79,10 @@ data class PrescriptionEntryRecord(
     val exerciseId: String,
     val exerciseName: String,
     val sets: Int,
-    val reps: Int,
+    /** Repetitions for counted work, or null for a timed slot (format 2 and later). */
+    val reps: Int? = null,
+    /** Elapsed whole seconds for a timed slot (format 2 and later), or null for counted work. */
+    val durationSeconds: Int? = null,
     val weightKg: Double? = null,
     val loadKind: String = "EXTERNAL",
     val movementPattern: String? = null,
@@ -111,7 +121,7 @@ object PrescriptionValidator {
 
     fun validate(document: PrescriptionDocument) {
         if (document.format != PRESCRIPTION_FORMAT ||
-            document.formatVersion != PRESCRIPTION_FORMAT_VERSION
+            document.formatVersion !in PRESCRIPTION_SUPPORTED_VERSIONS
         ) {
             fail(PrescriptionFailure.UNSUPPORTED_VERSION)
         }
@@ -152,8 +162,17 @@ object PrescriptionValidator {
                         // A weights-free document that carries a weight is not what it claims.
                         fail(PrescriptionFailure.INVALID_VALUE)
                     }
+                    if (document.formatVersion < 2 && entry.durationSeconds != null) {
+                        // A duration in a version-1 document is rejected, not read as a rep count.
+                        fail(PrescriptionFailure.INVALID_VALUE)
+                    }
                     if (runCatching {
-                            PrescriptionBounds.validate(entry.sets, entry.reps, entry.weightKg)
+                            PrescriptionBounds.validate(
+                                entry.sets,
+                                entry.reps,
+                                entry.durationSeconds,
+                                entry.weightKg
+                            )
                         }.isFailure
                     ) {
                         fail(PrescriptionFailure.INVALID_VALUE)

@@ -158,6 +158,7 @@ import hydrafit.feature.routines.generated.resources.routines_repeat_block
 import hydrafit.feature.routines.generated.resources.routines_reps_label
 import hydrafit.feature.routines.generated.resources.routines_save
 import hydrafit.feature.routines.generated.resources.routines_search_label
+import hydrafit.feature.routines.generated.resources.routines_seconds_label
 import hydrafit.feature.routines.generated.resources.routines_sets_label
 import hydrafit.feature.routines.generated.resources.routines_switch_mode
 import hydrafit.feature.routines.generated.resources.routines_title
@@ -735,6 +736,26 @@ private fun EntryRow(
                 Text(stringResource(Res.string.routines_remove))
             }
         }
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            FilterChip(
+                selected = entry.metric == EntryMetric.REPETITIONS,
+                onClick = {
+                    viewModel.onEntryMetricChanged(
+                        workoutIndex,
+                        entryIndex,
+                        EntryMetric.REPETITIONS
+                    )
+                },
+                label = { Text(stringResource(Res.string.routines_reps_label)) }
+            )
+            FilterChip(
+                selected = entry.metric == EntryMetric.DURATION,
+                onClick = {
+                    viewModel.onEntryMetricChanged(workoutIndex, entryIndex, EntryMetric.DURATION)
+                },
+                label = { Text(stringResource(Res.string.routines_seconds_label)) }
+            )
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = entry.sets,
@@ -743,13 +764,26 @@ private fun EntryRow(
                 singleLine = true,
                 modifier = Modifier.width(88.dp)
             )
-            OutlinedTextField(
-                value = entry.reps,
-                onValueChange = { viewModel.onEntryRepsChanged(workoutIndex, entryIndex, it) },
-                label = { Text(stringResource(Res.string.routines_reps_label)) },
-                singleLine = true,
-                modifier = Modifier.width(88.dp)
-            )
+            // Only the selected measurement is shown, so a slot can never carry both at once.
+            if (entry.metric == EntryMetric.DURATION) {
+                OutlinedTextField(
+                    value = entry.durationSeconds,
+                    onValueChange = {
+                        viewModel.onEntryDurationChanged(workoutIndex, entryIndex, it)
+                    },
+                    label = { Text(stringResource(Res.string.routines_seconds_label)) },
+                    singleLine = true,
+                    modifier = Modifier.width(88.dp)
+                )
+            } else {
+                OutlinedTextField(
+                    value = entry.reps,
+                    onValueChange = { viewModel.onEntryRepsChanged(workoutIndex, entryIndex, it) },
+                    label = { Text(stringResource(Res.string.routines_reps_label)) },
+                    singleLine = true,
+                    modifier = Modifier.width(88.dp)
+                )
+            }
             OutlinedTextField(
                 value = entry.weight,
                 onValueChange = { viewModel.onEntryWeightChanged(workoutIndex, entryIndex, it) },

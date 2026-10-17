@@ -7,7 +7,10 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 17
+const val BACKUP_FORMAT_VERSION: Int = 18
+
+/** The first backup format that carries a timed prescription slot's duration. */
+const val PRESCRIPTION_DURATION_FORMAT_VERSION: Int = 18
 
 const val EQUIPMENT_PROFILE_FORMAT_VERSION: Int = 14
 
@@ -480,7 +483,10 @@ data class BackupRoutineEntryRecord(
     val position: Int,
     val exerciseId: String,
     val sets: Int,
-    val reps: Int,
+    /** Repetitions for counted work, or null for a timed slot; formats before 18 always counted. */
+    val reps: Int? = null,
+    /** Elapsed whole seconds for a timed slot, format 18 and later; null for counted work. */
+    val durationSeconds: Int? = null,
     val weightKg: Double?,
     val loadKind: String
 )
@@ -525,7 +531,10 @@ data class BackupActivationEntryRecord(
     val involvements: String?,
     val isUnilateral: Boolean,
     val sets: Int,
-    val reps: Int,
+    /** Repetitions for counted work, or null for a timed slot; formats before 18 always counted. */
+    val reps: Int? = null,
+    /** Elapsed whole seconds for a timed slot, format 18 and later; null for counted work. */
+    val durationSeconds: Int? = null,
     val weightKg: Double?,
     val loadCapability: String,
     val loadKind: String
@@ -558,7 +567,10 @@ data class BackupOccurrenceEntryRecord(
     val involvements: String?,
     val isUnilateral: Boolean,
     val sets: Int,
-    val reps: Int,
+    /** Repetitions for counted work, or null for a timed slot; formats before 18 always counted. */
+    val reps: Int? = null,
+    /** Elapsed whole seconds for a timed slot, format 18 and later; null for counted work. */
+    val durationSeconds: Int? = null,
     val weightKg: Double?,
     val loadCapability: String,
     val loadKind: String,

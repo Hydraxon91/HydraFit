@@ -885,6 +885,98 @@ class BackupValidatorTest {
         }
     }
 
+    @Test
+    fun aTimedPrescriptionIsAcceptedAtFormatEighteenAndRefusedInEarlierFormats() {
+        fun file(
+            routine: BackupRoutineEntryRecord,
+            activation: BackupActivationEntryRecord,
+            occurrence: BackupOccurrenceEntryRecord
+        ) = profiledFile(BACKUP_FORMAT_VERSION).copy(
+            routines = listOf(
+                BackupRoutineRecord(1L, "Push", 1, 1L, 1L, null, null)
+            ),
+            routineWorkouts = listOf(BackupRoutineWorkoutRecord(10L, 1L, 0, "Day", null)),
+            routineEntries = listOf(routine),
+            activations = listOf(activation(1L)),
+            activationWorkouts = listOf(activationWorkout(10L, 1L)),
+            activationEntries = listOf(activation),
+            occurrences = listOf(occurrence(30L, 1L, 10L)),
+            occurrenceEntries = listOf(occurrence)
+        )
+
+        val timed = file(
+            routine = BackupRoutineEntryRecord(
+                id = 100L,
+                workoutId = 10L,
+                position = 0,
+                exerciseId = "back-squat",
+                sets = 3,
+                reps = null,
+                durationSeconds = 90,
+                weightKg = 100.0,
+                loadKind = "EXTERNAL"
+            ),
+            activation = activationEntry(200L, 10L).copy(reps = null, durationSeconds = 90),
+            occurrence = occurrenceEntry(300L, 30L).copy(reps = null, durationSeconds = 90)
+        )
+
+        assertEquals(BACKUP_FORMAT_VERSION, timed.formatVersion)
+        validator.validate(timed)
+
+        // The same payload written as the previous format has no field for a duration, so carrying
+        // one is a corrupt file rather than a value to reinterpret.
+        assertFailure(BackupFailure.INVALID_VALUE) { timed.copy(formatVersion = 17) }
+
+        // A reps-only payload stays valid at either format: the field's presence is what is gated.
+        val legacyCounted = timed.copy(
+            formatVersion = 17,
+            routineEntries = listOf(
+                timed.routineEntries.single().copy(reps = 5, durationSeconds = null)
+            ),
+            activationEntries = listOf(
+                timed.activationEntries.single().copy(reps = 5, durationSeconds = null)
+            ),
+            occurrenceEntries = listOf(
+                timed.occurrenceEntries.single().copy(reps = 5, durationSeconds = null)
+            )
+        )
+        validator.validate(legacyCounted)
+
+        // Every prescription section enforces the same exactly-one rule.
+        fun counted(entry: BackupRoutineEntryRecord) = entry.copy(reps = 5)
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            timed.copy(routineEntries = listOf(counted(timed.routineEntries.single())))
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            timed.copy(
+                activationEntries = listOf(
+                    timed.activationEntries.single().copy(reps = 5)
+                )
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            timed.copy(
+                occurrenceEntries = listOf(
+                    timed.occurrenceEntries.single().copy(reps = 5)
+                )
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            timed.copy(
+                routineEntries = listOf(
+                    timed.routineEntries.single().copy(reps = null, durationSeconds = null)
+                )
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            timed.copy(
+                occurrenceEntries = listOf(
+                    timed.occurrenceEntries.single().copy(durationSeconds = 0)
+                )
+            )
+        }
+    }
+
     private fun assertFailure(expected: BackupFailure, mutate: () -> BackupFile) {
         val failure = assertFailsWith<BackupException> { validator.validate(mutate()) }
         assertEquals(expected, failure.failure)

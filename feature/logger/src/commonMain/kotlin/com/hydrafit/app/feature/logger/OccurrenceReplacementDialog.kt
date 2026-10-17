@@ -18,6 +18,7 @@ import hydrafit.feature.logger.generated.resources.logger_replace_note
 import hydrafit.feature.logger.generated.resources.logger_replace_recorded
 import hydrafit.feature.logger.generated.resources.logger_replace_stale
 import hydrafit.feature.logger.generated.resources.logger_replace_target
+import hydrafit.feature.logger.generated.resources.logger_replace_target_timed
 import hydrafit.feature.logger.generated.resources.logger_replace_title
 import org.jetbrains.compose.resources.stringResource
 
@@ -53,14 +54,25 @@ fun OccurrenceReplacementDialog(
                             onClick = { onConfirm(entry.exerciseId) },
                             enabled = !state.saving
                         ) {
+                            val seconds = entry.durationSeconds
                             Text(
-                                stringResource(
-                                    Res.string.logger_replace_target,
-                                    entry.exerciseName,
-                                    entry.sets,
-                                    entry.reps,
-                                    loadWeightText(entry.loadKind, entry.weightKg, unit)
-                                )
+                                if (seconds != null) {
+                                    stringResource(
+                                        Res.string.logger_replace_target_timed,
+                                        entry.exerciseName,
+                                        entry.sets,
+                                        seconds,
+                                        loadWeightText(entry.loadKind, entry.weightKg, unit)
+                                    )
+                                } else {
+                                    stringResource(
+                                        Res.string.logger_replace_target,
+                                        entry.exerciseName,
+                                        entry.sets,
+                                        entry.reps ?: 0,
+                                        loadWeightText(entry.loadKind, entry.weightKg, unit)
+                                    )
+                                }
                             )
                         }
                     }

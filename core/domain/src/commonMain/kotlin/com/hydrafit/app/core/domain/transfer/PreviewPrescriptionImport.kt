@@ -153,6 +153,7 @@ object PreviewPrescriptionImport {
                         exerciseId = exercise.id,
                         sets = entry.sets,
                         reps = entry.reps,
+                        durationSeconds = entry.durationSeconds,
                         weightKg = weight,
                         loadKind = kind
                     )

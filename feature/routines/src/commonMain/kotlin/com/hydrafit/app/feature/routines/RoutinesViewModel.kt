@@ -264,6 +264,12 @@ class RoutinesViewModel(
     fun onEntryRepsChanged(workoutIndex: Int, entryIndex: Int, value: String) =
         updateEntry(workoutIndex, entryIndex) { it.copy(reps = value) }
 
+    fun onEntryMetricChanged(workoutIndex: Int, entryIndex: Int, metric: EntryMetric) =
+        updateEntry(workoutIndex, entryIndex) { it.copy(metric = metric) }
+
+    fun onEntryDurationChanged(workoutIndex: Int, entryIndex: Int, value: String) =
+        updateEntry(workoutIndex, entryIndex) { it.copy(durationSeconds = value) }
+
     fun onEntryWeightChanged(workoutIndex: Int, entryIndex: Int, value: String) =
         updateEntry(workoutIndex, entryIndex) { it.copy(weight = value) }
 
@@ -573,11 +579,17 @@ private fun RoutineTemplate.toEditor(
                     exerciseId = entry.exerciseId,
                     name = exerciseNames[entry.exerciseId] ?: entry.exerciseId,
                     sets = entry.sets.toString(),
-                    reps = entry.reps.toString(),
+                    reps = entry.reps?.toString() ?: "",
                     weight = entry.weightKg
                         ?.let { formatWeight(unit.kilogramsToDisplay(it)) }
                         ?: "",
-                    loadKind = entry.loadKind
+                    loadKind = entry.loadKind,
+                    metric = if (entry.durationSeconds != null) {
+                        EntryMetric.DURATION
+                    } else {
+                        EntryMetric.REPETITIONS
+                    },
+                    durationSeconds = entry.durationSeconds?.toString() ?: ""
                 )
             }
         )
@@ -601,7 +613,8 @@ private fun RoutineEditorState.toDraft(): RoutineTemplate = RoutineTemplate(
                     position = entryIndex,
                     exerciseId = entry.exerciseId,
                     sets = entry.sets.toIntOrNull() ?: 0,
-                    reps = entry.reps.toIntOrNull() ?: 0,
+                    reps = entry.repsValue,
+                    durationSeconds = entry.durationValue,
                     weightKg = if (entry.loadKind == LoadKind.BODYWEIGHT) {
                         null
                     } else {

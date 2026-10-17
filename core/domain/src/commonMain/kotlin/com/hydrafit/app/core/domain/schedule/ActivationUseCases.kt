@@ -96,6 +96,7 @@ class ActivateRoutineUseCase(
                         isUnilateral = exercise.isUnilateral,
                         sets = entry.sets,
                         reps = entry.reps,
+                        durationSeconds = entry.durationSeconds,
                         weightKg = weightKg,
                         loadCapability = exercise.loadCapability,
                         loadKind = kind

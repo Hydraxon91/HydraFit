@@ -84,7 +84,8 @@ class SqlDelightRoutineTemplateRepository(private val database: HydraFitDatabase
                             position = entryIndex.toLong(),
                             exerciseId = entry.exerciseId,
                             sets = entry.sets.toLong(),
-                            reps = entry.reps.toLong(),
+                            reps = entry.reps?.toLong(),
+                            durationSeconds = entry.durationSeconds?.toLong(),
                             weightKg = entry.weightKg,
                             loadKind = entry.loadKind.name
                         )
@@ -94,7 +95,8 @@ class SqlDelightRoutineTemplateRepository(private val database: HydraFitDatabase
                             position = entryIndex.toLong(),
                             exerciseId = entry.exerciseId,
                             sets = entry.sets.toLong(),
-                            reps = entry.reps.toLong(),
+                            reps = entry.reps?.toLong(),
+                            durationSeconds = entry.durationSeconds?.toLong(),
                             weightKg = entry.weightKg,
                             loadKind = entry.loadKind.name,
                             id = entry.id
@@ -156,7 +158,8 @@ class SqlDelightRoutineTemplateRepository(private val database: HydraFitDatabase
                                 position = entry.position.toInt(),
                                 exerciseId = entry.exerciseId,
                                 sets = entry.sets.toInt(),
-                                reps = entry.reps.toInt(),
+                                reps = entry.reps?.toInt(),
+                                durationSeconds = entry.durationSeconds?.toInt(),
                                 weightKg = entry.weightKg,
                                 loadKind = decodeLoadKind(entry.loadKind)
                             )

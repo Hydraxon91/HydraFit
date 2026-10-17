@@ -414,6 +414,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
             reference(entry.workoutId, routineWorkoutIds)
             exercise(entry.exerciseId, knownExercises)
             enum(entry.loadKind, LoadKind.entries)
+            prescriptionMetric(file.formatVersion, entry.reps, entry.durationSeconds)
             entry.weightKg?.let { value -> finite(value) }
         }
         file.activations.forEach {
@@ -431,6 +432,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
             enum(entry.loadCapability, ExerciseLoadCapability.entries)
             enum(entry.loadKind, LoadKind.entries)
             equipment(entry.requiredEquipment, knownEquipment)
+            prescriptionMetric(file.formatVersion, entry.reps, entry.durationSeconds)
             entry.weightKg?.let { value -> finite(value) }
             involvements(entry.involvements)
         }
@@ -451,6 +453,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
             enum(entry.loadKind, LoadKind.entries)
             enum(entry.remainingDisposition, RemainingDisposition.entries)
             equipment(entry.requiredEquipment, knownEquipment)
+            prescriptionMetric(file.formatVersion, entry.reps, entry.durationSeconds)
             entry.weightKg?.let { value -> finite(value) }
             involvements(entry.involvements)
         }
@@ -527,6 +530,22 @@ class BackupValidator(private val catalog: BackupCatalog) {
 
     private fun finite(value: Double) {
         if (!value.isFinite()) fail(BackupFailure.INVALID_VALUE)
+    }
+
+    /**
+     * A prescription slot is measured by positive reps or positive whole seconds, never both and
+     * never neither. A duration in a format that predates the field is rejected instead of being
+     * reinterpreted as a rep count.
+     */
+    private fun prescriptionMetric(version: Int, reps: Int?, durationSeconds: Int?) {
+        if (version < PRESCRIPTION_DURATION_FORMAT_VERSION && durationSeconds != null) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        val hasReps = reps != null && reps > 0
+        val hasDuration = durationSeconds != null && durationSeconds > 0
+        if (hasReps == hasDuration) fail(BackupFailure.INVALID_VALUE)
+        if (reps != null && reps <= 0) fail(BackupFailure.INVALID_VALUE)
+        durationSeconds?.let { if (it <= 0) fail(BackupFailure.INVALID_VALUE) }
     }
 
     private fun <E : Enum<E>> enum(value: String?, values: List<E>) {

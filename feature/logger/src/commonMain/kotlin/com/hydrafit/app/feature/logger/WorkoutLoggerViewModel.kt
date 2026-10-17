@@ -1104,7 +1104,8 @@ class WorkoutLoggerViewModel(
             it.copy(
                 draftEdit = DraftEdit(
                     draft = draft,
-                    reps = base.reps.toString(),
+                    reps = base.reps?.toString().orEmpty(),
+                    durationSeconds = base.durationSeconds?.toString().orEmpty(),
                     weightInput = weightInputFor(base.weightKg, current.weightUnit),
                     rir = retryEdit?.rir.orEmpty(),
                     weightRevealed = base.loadKind == LoadKind.ADDED,
@@ -1121,6 +1122,11 @@ class WorkoutLoggerViewModel(
 
     fun onDraftRepsChanged(value: String) = updateDraftEdit {
         copy(reps = value.filter(Char::isDigit))
+    }
+
+    /** Edits the frozen seconds of a timed draft; a counted draft never shows this field. */
+    fun onDraftDurationSecondsChanged(value: String) = updateDraftEdit {
+        copy(durationSeconds = value.filter(Char::isDigit))
     }
 
     fun onDraftWeightChanged(value: String) = updateDraftEdit {
@@ -1157,8 +1163,9 @@ class WorkoutLoggerViewModel(
     }
 
     fun confirmDraftEdit() {
-        val draft = _state.value.draftEdit?.draft ?: return
-        if (_state.value.draftEdit?.reps?.toIntOrNull()?.let { it > 0 } != true) return
+        val edit = _state.value.draftEdit ?: return
+        if (!edit.enteredMetricIsPositive) return
+        val draft = edit.draft
         val entryId = draft.occurrenceEntryId
         if (isGuidedActive && entryId != null) {
             confirmGuidedSet(entryId, liveCompletion = liveSetIntentEntryId == entryId)
@@ -1289,8 +1296,12 @@ class WorkoutLoggerViewModel(
             }
             ExerciseLoadCapability.UNSPECIFIED -> edit.draft.loadKind to edit.draft.weightKg
         }
+        val reps = if (edit.isTimed) null else edit.reps.toIntOrNull() ?: 0
+        val duration = if (edit.isTimed) edit.durationSeconds.toIntOrNull() ?: 0 else null
         return edit.draft.copy(
-            reps = edit.reps.toIntOrNull() ?: 0,
+            // The frozen measure alone is submitted, so the other field is always cleared.
+            reps = reps,
+            durationSeconds = duration,
             weightKg = weight,
             loadKind = kind
         )
@@ -1658,6 +1669,7 @@ class WorkoutLoggerViewModel(
                 WorkoutSet(
                     exerciseId = draft.exerciseId,
                     reps = draft.reps,
+                    durationSeconds = draft.durationSeconds,
                     weightKg = if (draft.loadKind == LoadKind.BODYWEIGHT) null else draft.weightKg,
                     loadKind = draft.loadKind,
                     performedAtMillis = if (liveCompletion) {
@@ -1814,7 +1826,8 @@ class WorkoutLoggerViewModel(
                     loadCapability = entry.loadCapability,
                     occurrenceId = occurrence.id,
                     occurrenceEntryId = entry.id,
-                    explanation = entry.explanation
+                    explanation = entry.explanation,
+                    durationSeconds = entry.durationSeconds
                 )
             }
         }

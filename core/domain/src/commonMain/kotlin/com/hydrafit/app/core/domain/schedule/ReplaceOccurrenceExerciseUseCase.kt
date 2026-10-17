@@ -89,14 +89,16 @@ class ReplaceOccurrenceExerciseUseCase(
             .sortedWith(compareBy<Exercise> { it.name }.thenBy { it.id })
             .map { candidate ->
                 val baseline = request.suggestedWeightsKg[candidate.id]
-                val weight = if (WorkoutLoadPolicy.allowsAutomaticLoad(candidate.loadCapability) &&
+                val reps = original.reps
+                val weight = if (reps != null &&
+                    WorkoutLoadPolicy.allowsAutomaticLoad(candidate.loadCapability) &&
                     baseline != null &&
                     candidate.id !in request.withheldWeightExerciseIds
                 ) {
                     EquipmentWeightLimit.clamp(
                         weights.workingWeightFor(
                             baseline,
-                            original.reps,
+                            reps,
                             if (deload) periodization.deloadIntensityScale else 1.0
                         ),
                         EquipmentWeightLimit.ceilingFor(candidate, request.equipmentMaxWeights)

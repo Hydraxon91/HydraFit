@@ -104,6 +104,7 @@ import hydrafit.feature.logger.generated.resources.logger_draft_load_use_last
 import hydrafit.feature.logger.generated.resources.logger_draft_load_without
 import hydrafit.feature.logger.generated.resources.logger_draft_more_options
 import hydrafit.feature.logger.generated.resources.logger_draft_reset
+import hydrafit.feature.logger.generated.resources.logger_draft_timed_line
 import hydrafit.feature.logger.generated.resources.logger_draft_write_none
 import hydrafit.feature.logger.generated.resources.logger_draft_write_partial
 import hydrafit.feature.logger.generated.resources.logger_edit_set
@@ -161,6 +162,7 @@ import hydrafit.feature.logger.generated.resources.logger_guided_set_failed
 import hydrafit.feature.logger.generated.resources.logger_guided_set_started
 import hydrafit.feature.logger.generated.resources.logger_guided_start_set
 import hydrafit.feature.logger.generated.resources.logger_guided_target
+import hydrafit.feature.logger.generated.resources.logger_guided_target_timed
 import hydrafit.feature.logger.generated.resources.logger_guided_title
 import hydrafit.feature.logger.generated.resources.logger_history_open
 import hydrafit.feature.logger.generated.resources.logger_history_set_duration_line
@@ -417,6 +419,7 @@ fun WorkoutLoggerRoute(
         onConfirmDraft = viewModel::confirmDraft,
         onEditDraft = viewModel::editDraft,
         onDraftRepsChanged = viewModel::onDraftRepsChanged,
+        onDraftDurationSecondsChanged = viewModel::onDraftDurationSecondsChanged,
         onDraftWeightChanged = viewModel::onDraftWeightChanged,
         onDraftRirChanged = viewModel::onDraftRirChanged,
         onDraftWeightRevealed = viewModel::onDraftWeightRevealed,
@@ -577,6 +580,7 @@ fun WorkoutLoggerScreen(
     onConfirmDraft: (DraftSet) -> Unit,
     onEditDraft: (DraftSet) -> Unit,
     onDraftRepsChanged: (String) -> Unit,
+    onDraftDurationSecondsChanged: (String) -> Unit,
     onDraftWeightChanged: (String) -> Unit,
     onDraftRirChanged: (String) -> Unit,
     onDraftWeightRevealed: () -> Unit,
@@ -1239,7 +1243,17 @@ fun WorkoutLoggerScreen(
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            text = "${draft.name}  ${draft.sets} x ${draft.reps} · ~$weight"
+                            text = if (draft.durationSeconds != null) {
+                                stringResource(
+                                    Res.string.logger_draft_timed_line,
+                                    draft.name,
+                                    draft.sets,
+                                    draft.durationSeconds,
+                                    weight
+                                )
+                            } else {
+                                "${draft.name}  ${draft.sets} x ${draft.reps} · ~$weight"
+                            }
                         )
                         TargetExplanationDisclosure(
                             key = draft.occurrenceEntryId ?: draft.exerciseId,
@@ -1570,6 +1584,7 @@ fun WorkoutLoggerScreen(
                     else -> true
                 },
                 onRepsChanged = onDraftRepsChanged,
+                onDurationSecondsChanged = onDraftDurationSecondsChanged,
                 onWeightChanged = onDraftWeightChanged,
                 onRirChanged = onDraftRirChanged,
                 onRevealWeight = onDraftWeightRevealed,
@@ -1627,6 +1642,7 @@ private fun DraftEditDialog(
     canRevealWeight: Boolean,
     showWeight: Boolean,
     onRepsChanged: (String) -> Unit,
+    onDurationSecondsChanged: (String) -> Unit,
     onWeightChanged: (String) -> Unit,
     onRirChanged: (String) -> Unit,
     onRevealWeight: () -> Unit,
@@ -1648,13 +1664,25 @@ private fun DraftEditDialog(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedTextField(
-                    value = edit.reps,
-                    onValueChange = onRepsChanged,
-                    label = { Text(stringResource(Res.string.logger_reps_label)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
-                )
+                // Only the draft's frozen measure is shown and submitted, so a timed draft
+                // edits seconds and a counted draft edits repetitions — never both.
+                if (edit.isTimed) {
+                    OutlinedTextField(
+                        value = edit.durationSeconds,
+                        onValueChange = onDurationSecondsChanged,
+                        label = { Text(stringResource(Res.string.logger_seconds_label)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = edit.reps,
+                        onValueChange = onRepsChanged,
+                        label = { Text(stringResource(Res.string.logger_reps_label)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                }
                 if (showWeight) {
                     OutlinedTextField(
                         value = edit.weightInput,
@@ -1693,7 +1721,7 @@ private fun DraftEditDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onConfirm, enabled = (edit.reps.toIntOrNull() ?: 0) > 0) {
+            TextButton(onClick = onConfirm, enabled = edit.enteredMetricIsPositive) {
                 Text(stringResource(Res.string.logger_confirm))
             }
         },
@@ -2559,12 +2587,29 @@ private fun GuidedWorkoutSection(
                                     Text(stringResource(Res.string.logger_replace))
                                 }
                             }
+                            val targetSeconds = exercise.durationSeconds
                             Text(
-                                text = stringResource(
-                                    Res.string.logger_guided_target,
-                                    exercise.reps,
-                                    loadWeightText(exercise.loadKind, exercise.weightKg, weightUnit)
-                                ),
+                                text = if (targetSeconds != null) {
+                                    stringResource(
+                                        Res.string.logger_guided_target_timed,
+                                        targetSeconds,
+                                        loadWeightText(
+                                            exercise.loadKind,
+                                            exercise.weightKg,
+                                            weightUnit
+                                        )
+                                    )
+                                } else {
+                                    stringResource(
+                                        Res.string.logger_guided_target,
+                                        exercise.reps ?: 0,
+                                        loadWeightText(
+                                            exercise.loadKind,
+                                            exercise.weightKg,
+                                            weightUnit
+                                        )
+                                    )
+                                },
                                 style = MaterialTheme.typography.bodySmall
                             )
                             if (loggerLoadingTargetEligible(exercise.loadKind, exercise.weightKg)) {

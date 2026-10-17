@@ -84,6 +84,27 @@ class PrescriptionPdfLayoutTest {
     }
 
     @Test
+    fun printsATimedSlotInSecondsWithoutItsAbsentRepCount() {
+        val pages = PrescriptionPdfLayout.build(
+            document(
+                listOf(
+                    routine(
+                        entry(name = "Plank", sets = 3, reps = 5).copy(
+                            reps = null,
+                            durationSeconds = 90,
+                            weightKg = null,
+                            loadKind = LoadKind.BODYWEIGHT.name
+                        )
+                    )
+                )
+            ),
+            linesPerPage = 100
+        )
+
+        assertEquals("  Plank: 3 × 90 s bodyweight", texts(pages).last())
+    }
+
+    @Test
     fun namesTheRoutineCountAndPrintsTheWorkoutFocus() {
         val pages = PrescriptionPdfLayout.build(
             document(

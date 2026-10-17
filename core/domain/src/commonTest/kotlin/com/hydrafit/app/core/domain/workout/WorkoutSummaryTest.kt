@@ -73,6 +73,34 @@ class WorkoutSummaryTest {
     }
 
     @Test
+    fun carriesATimedPrescriptionWithItsSecondsAndCountsItsRecordedSetsNotReps() {
+        val summary = buildWorkoutSummary(
+            occurrence = occurrence(
+                entry(id = 40, sets = 3).copy(reps = null, durationSeconds = 90)
+            ),
+            sets = listOf(
+                set(id = 1, occurrenceEntryId = 40, reps = null, durationSeconds = 90),
+                set(id = 2, occurrenceEntryId = 40, reps = null, durationSeconds = 60)
+            ),
+            sessions = emptyList(),
+            sessionNotes = emptyMap(),
+            activation = activation()
+        )
+
+        val exercise = summary.exercises.single()
+        assertEquals(3, exercise.prescribedSets)
+        assertNull(exercise.prescribedReps)
+        assertEquals(90, exercise.prescribedDurationSeconds)
+        assertEquals(2, exercise.recordedSets)
+        assertEquals(1, exercise.remainingSets)
+        // Both recorded sets count as working work; only the rep count is absent.
+        assertEquals(2, summary.recordedWorkingSets)
+        // Timed work is counted as recorded sets; it never contributes a rep count.
+        assertEquals(listOf(90, 60), exercise.performedSets.map { it.durationSeconds })
+        assertTrue(exercise.performedSets.all { it.reps == null })
+    }
+
+    @Test
     fun derivesRemainingWorkFromRecordedSetsAndCarriesTheOmittedDisposition() {
         val summary = buildWorkoutSummary(
             occurrence = occurrence(

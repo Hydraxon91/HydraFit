@@ -7,7 +7,7 @@ import app.cash.sqldelight.db.SqlSchema
 
 /**
  * The production schema entry point: the generated [HydraFitDatabase.Schema] plus one targeted
- * repair of the `52.sqm` `workoutSet` rebuild.
+ * repair of the `52.sqm` workout-set and `53.sqm` prescription-entry rebuilds.
  *
  * `52.sqm` rebuilds `workoutSet` to make `reps` nullable and add `durationSeconds`. SQLite cannot
  * drop NOT NULL in place, so the migration copies the surviving rows into a new table and drops the
@@ -18,7 +18,7 @@ import app.cash.sqldelight.db.SqlSchema
  * after, never lowering it below what the rebuilt table already holds.
  *
  * Everything else is delegated unchanged: [version] and [create] come straight from the generated
- * schema, and a migration that does not cross 52 -> 53 is passed through with its callbacks intact.
+ * schema, and migrations outside these rebuilds are passed through with their callbacks intact.
  * The repair reads and writes the `sqlite_sequence` internal table with raw SQL (SQLDelight's
  * resolver rejects that table inside a `.sqm`), so no generated query depends on the final columns,
  * and the caller's migration transaction and error propagation are preserved.
@@ -29,6 +29,11 @@ internal object HydraFitDatabaseSchema : SqlSchema<QueryResult.Value<Unit>> {
     private const val TIMED_SET_REBUILD_VERSION = 52L
 
     private const val WORKOUT_SET = "workoutSet"
+
+    private val rebuildTables = mapOf(
+        TIMED_SET_REBUILD_VERSION to listOf(WORKOUT_SET),
+        53L to listOf("routineEntry", "activationEntry", "occurrenceEntry")
+    )
 
     override val version: Long get() = HydraFitDatabase.Schema.version
 
@@ -41,36 +46,42 @@ internal object HydraFitDatabaseSchema : SqlSchema<QueryResult.Value<Unit>> {
         newVersion: Long,
         vararg callbacks: AfterVersion
     ): QueryResult.Value<Unit> {
-        if (oldVersion > TIMED_SET_REBUILD_VERSION || newVersion <= TIMED_SET_REBUILD_VERSION) {
-            return HydraFitDatabase.Schema.migrate(driver, oldVersion, newVersion, *callbacks)
+        var fromVersion = oldVersion
+        rebuildTables.forEach { (rebuildVersion, tables) ->
+            if (fromVersion <= rebuildVersion && newVersion > rebuildVersion) {
+                if (fromVersion < rebuildVersion) {
+                    HydraFitDatabase.Schema.migrate(
+                        driver,
+                        fromVersion,
+                        rebuildVersion,
+                        *callbacks.filter {
+                            it.afterVersion >= fromVersion && it.afterVersion < rebuildVersion
+                        }.toTypedArray()
+                    )
+                }
+                val marks = tables.associateWith { readAutoincrementMark(driver, it) }
+                HydraFitDatabase.Schema.migrate(
+                    driver,
+                    rebuildVersion,
+                    rebuildVersion + 1,
+                    AfterVersion(rebuildVersion) { restoringDriver ->
+                        marks.forEach { (table, mark) ->
+                            restoreAutoincrementMark(restoringDriver, table, mark)
+                        }
+                    },
+                    *callbacks.filter { it.afterVersion == rebuildVersion }.toTypedArray()
+                )
+                fromVersion = rebuildVersion + 1
+            }
         }
-
-        // Reach version 52 first: the mark must be read after every earlier migration, so a
-        // multi-hop upgrade captures the value at the rebuild rather than one from before the
-        // historical `20.sqm` rebuild, and `workoutSet` still has its pre-53 shape.
-        val beforeRebuild = callbacks.filter { it.afterVersion < TIMED_SET_REBUILD_VERSION }
-        if (oldVersion < TIMED_SET_REBUILD_VERSION) {
+        if (fromVersion < newVersion) {
             HydraFitDatabase.Schema.migrate(
                 driver,
-                oldVersion,
-                TIMED_SET_REBUILD_VERSION,
-                *beforeRebuild.toTypedArray()
+                fromVersion,
+                newVersion,
+                *callbacks.filter { it.afterVersion >= fromVersion }.toTypedArray()
             )
         }
-        val highWaterMark = readAutoincrementMark(driver)
-
-        // Run the rebuild (and any later migration) with a hook that restores the mark as soon as
-        // `52.sqm` has completed, ahead of the caller's own post-rebuild callbacks.
-        val afterRebuild = callbacks.filter { it.afterVersion >= TIMED_SET_REBUILD_VERSION }
-        HydraFitDatabase.Schema.migrate(
-            driver,
-            TIMED_SET_REBUILD_VERSION,
-            newVersion,
-            AfterVersion(TIMED_SET_REBUILD_VERSION) { restoringDriver ->
-                restoreAutoincrementMark(restoringDriver, highWaterMark)
-            },
-            *afterRebuild.toTypedArray()
-        )
         return QueryResult.Unit
     }
 
@@ -79,15 +90,16 @@ internal object HydraFitDatabaseSchema : SqlSchema<QueryResult.Value<Unit>> {
      * held a row (there is no `sqlite_sequence` entry to preserve). Read with raw SQL so no
      * generated query has to know the old column set.
      */
-    private fun readAutoincrementMark(driver: SqlDriver): Long? {
+    private fun readAutoincrementMark(driver: SqlDriver, table: String): Long? {
         if (!sqliteSequenceExists(driver)) return null
         return driver.executeQuery(
             identifier = null,
-            sql = "SELECT seq FROM sqlite_sequence WHERE name = '$WORKOUT_SET'",
+            sql = "SELECT seq FROM sqlite_sequence WHERE name = ?",
             mapper = { cursor ->
                 QueryResult.Value(if (cursor.next().value) cursor.getLong(0) else null)
             },
-            parameters = 0
+            parameters = 1,
+            binders = { bindString(0, table) }
         ).value
     }
 
@@ -96,15 +108,16 @@ internal object HydraFitDatabaseSchema : SqlSchema<QueryResult.Value<Unit>> {
      * already holds (for example, a copied row with a higher id). A `null` mark means there was
      * nothing to preserve.
      */
-    private fun restoreAutoincrementMark(driver: SqlDriver, highWaterMark: Long?) {
+    private fun restoreAutoincrementMark(driver: SqlDriver, table: String, highWaterMark: Long?) {
         if (highWaterMark == null || !sqliteSequenceExists(driver)) return
         val current = driver.executeQuery(
             identifier = null,
-            sql = "SELECT seq FROM sqlite_sequence WHERE name = '$WORKOUT_SET'",
+            sql = "SELECT seq FROM sqlite_sequence WHERE name = ?",
             mapper = { cursor ->
                 QueryResult.Value(if (cursor.next().value) cursor.getLong(0) else null)
             },
-            parameters = 0
+            parameters = 1,
+            binders = { bindString(0, table) }
         ).value
         if (current != null && current >= highWaterMark) return
         if (current == null) {
@@ -113,7 +126,7 @@ internal object HydraFitDatabaseSchema : SqlSchema<QueryResult.Value<Unit>> {
                 sql = "INSERT INTO sqlite_sequence(name, seq) VALUES (?, ?)",
                 parameters = 2,
                 binders = {
-                    bindString(0, WORKOUT_SET)
+                    bindString(0, table)
                     bindLong(1, highWaterMark)
                 }
             )
@@ -124,7 +137,7 @@ internal object HydraFitDatabaseSchema : SqlSchema<QueryResult.Value<Unit>> {
                 parameters = 2,
                 binders = {
                     bindLong(0, highWaterMark)
-                    bindString(1, WORKOUT_SET)
+                    bindString(1, table)
                 }
             )
         }

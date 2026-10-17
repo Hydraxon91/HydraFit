@@ -54,7 +54,10 @@ data class WorkoutSummaryExercise(
     /** The exercise name frozen into the occurrence entry at activation. */
     val exerciseName: String,
     val prescribedSets: Int,
-    val prescribedReps: Int,
+    /** Repetitions for counted work, or null for a timed slot. Never a `0` sentinel. */
+    val prescribedReps: Int? = null,
+    /** Elapsed whole seconds for a timed slot, or null for counted work. */
+    val prescribedDurationSeconds: Int? = null,
     /** The frozen target load; null means the prescription carried no numeric load. */
     val prescribedWeightKg: Double?,
     /** What the frozen target load means. */
@@ -197,6 +200,7 @@ fun buildWorkoutSummary(
                 exerciseName = entry.exerciseName,
                 prescribedSets = entry.sets,
                 prescribedReps = entry.reps,
+                prescribedDurationSeconds = entry.durationSeconds,
                 prescribedWeightKg = entry.weightKg,
                 prescribedLoadKind = entry.loadKind,
                 performedSets = performed,

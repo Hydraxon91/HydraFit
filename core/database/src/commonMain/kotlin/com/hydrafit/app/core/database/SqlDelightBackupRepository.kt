@@ -341,7 +341,8 @@ class SqlDelightBackupRepository(
                             position = it.position.toInt(),
                             exerciseId = it.exerciseId,
                             sets = it.sets.toInt(),
-                            reps = it.reps.toInt(),
+                            reps = it.reps?.toInt(),
+                            durationSeconds = it.durationSeconds?.toInt(),
                             weightKg = it.weightKg,
                             loadKind = it.loadKind
                         )
@@ -389,7 +390,8 @@ class SqlDelightBackupRepository(
                             involvements = it.involvements,
                             isUnilateral = it.isUnilateral != 0L,
                             sets = it.sets.toInt(),
-                            reps = it.reps.toInt(),
+                            reps = it.reps?.toInt(),
+                            durationSeconds = it.durationSeconds?.toInt(),
                             weightKg = it.weightKg,
                             loadCapability = it.loadCapability,
                             loadKind = it.loadKind
@@ -424,7 +426,8 @@ class SqlDelightBackupRepository(
                             involvements = it.involvements,
                             isUnilateral = it.isUnilateral != 0L,
                             sets = it.sets.toInt(),
-                            reps = it.reps.toInt(),
+                            reps = it.reps?.toInt(),
+                            durationSeconds = it.durationSeconds?.toInt(),
                             weightKg = it.weightKg,
                             loadCapability = it.loadCapability,
                             loadKind = it.loadKind,
@@ -896,7 +899,8 @@ class SqlDelightBackupRepository(
                     position = entry.position.toLong(),
                     exerciseId = entry.exerciseId,
                     sets = entry.sets.toLong(),
-                    reps = entry.reps.toLong(),
+                    reps = entry.reps?.toLong(),
+                    durationSeconds = entry.durationSeconds?.toLong(),
                     weightKg = entry.weightKg,
                     loadKind = entry.loadKind
                 )
@@ -942,7 +946,8 @@ class SqlDelightBackupRepository(
                     involvements = entry.involvements,
                     isUnilateral = if (entry.isUnilateral) 1L else 0L,
                     sets = entry.sets.toLong(),
-                    reps = entry.reps.toLong(),
+                    reps = entry.reps?.toLong(),
+                    durationSeconds = entry.durationSeconds?.toLong(),
                     weightKg = entry.weightKg,
                     loadCapability = entry.loadCapability,
                     loadKind = entry.loadKind
@@ -975,7 +980,8 @@ class SqlDelightBackupRepository(
                     involvements = entry.involvements,
                     isUnilateral = if (entry.isUnilateral) 1L else 0L,
                     sets = entry.sets.toLong(),
-                    reps = entry.reps.toLong(),
+                    reps = entry.reps?.toLong(),
+                    durationSeconds = entry.durationSeconds?.toLong(),
                     weightKg = entry.weightKg,
                     loadCapability = entry.loadCapability,
                     loadKind = entry.loadKind,

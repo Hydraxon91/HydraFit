@@ -31,7 +31,10 @@ data class ActivationRequest(
 data class OccurrenceEntryDraft(
     val exerciseId: String,
     val sets: Int,
-    val reps: Int,
+    /** Repetitions for counted work, or null for a timed slot. Never a `0` sentinel. */
+    val reps: Int? = null,
+    /** Elapsed whole seconds for a timed slot, or null for counted work. */
+    val durationSeconds: Int? = null,
     val weightKg: Double? = null,
     val loadKind: LoadKind = LoadKind.EXTERNAL
 )

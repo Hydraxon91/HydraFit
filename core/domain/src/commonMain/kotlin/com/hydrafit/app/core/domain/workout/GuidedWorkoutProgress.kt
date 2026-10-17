@@ -14,7 +14,10 @@ data class GuidedExerciseProgress(
     val exerciseName: String,
     val prescribedSets: Int,
     val performedWorkingSets: Int,
-    val reps: Int,
+    /** Repetitions for counted work, or null for a timed slot. Never a `0` sentinel. */
+    val reps: Int? = null,
+    /** Elapsed whole seconds for a timed slot, or null for counted work. */
+    val durationSeconds: Int? = null,
     val weightKg: Double?,
     val loadKind: LoadKind,
     val loadCapability: ExerciseLoadCapability,
@@ -66,6 +69,7 @@ fun buildGuidedWorkoutProgress(
                 prescribedSets = entry.sets,
                 performedWorkingSets = performedWorkingSetsByEntry[entry.id] ?: 0,
                 reps = entry.reps,
+                durationSeconds = entry.durationSeconds,
                 weightKg = entry.weightKg,
                 loadKind = entry.loadKind,
                 loadCapability = entry.loadCapability,

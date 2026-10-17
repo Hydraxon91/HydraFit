@@ -211,7 +211,8 @@ class SqlDelightWorkoutScheduleRepository(
                     involvements = entry.involvements?.let { encodeInvolvements(it) },
                     isUnilateral = if (entry.isUnilateral) 1L else 0L,
                     sets = entry.sets.toLong(),
-                    reps = entry.reps.toLong(),
+                    reps = entry.reps?.toLong(),
+                    durationSeconds = entry.durationSeconds?.toLong(),
                     weightKg = entry.weightKg,
                     loadCapability = entry.loadCapability.name,
                     loadKind = entry.loadKind.name
@@ -247,7 +248,8 @@ class SqlDelightWorkoutScheduleRepository(
                     involvements = entry.involvements?.let { encodeInvolvements(it) },
                     isUnilateral = if (entry.isUnilateral) 1L else 0L,
                     sets = entry.sets.toLong(),
-                    reps = entry.reps.toLong(),
+                    reps = entry.reps?.toLong(),
+                    durationSeconds = entry.durationSeconds?.toLong(),
                     weightKg = entry.weightKg,
                     loadCapability = entry.loadCapability.name,
                     loadKind = entry.loadKind.name,
@@ -389,7 +391,8 @@ class SqlDelightWorkoutScheduleRepository(
                 occurrence.revision != expectedRevision.toLong() ||
                 original.occurrenceId != occurrenceId ||
                 original.sets != replacement.sets.toLong() ||
-                original.reps != replacement.reps.toLong() ||
+                original.reps != replacement.reps?.toLong() ||
+                original.durationSeconds != replacement.durationSeconds?.toLong() ||
                 original.position != replacement.position.toLong() ||
                 original.sourceActivationEntryId != replacement.sourceActivationEntryId ||
                 original.remainingDisposition != null ||
@@ -528,7 +531,8 @@ class SqlDelightWorkoutScheduleRepository(
             involvements = involvements?.let { encodeInvolvements(it) },
             isUnilateral = if (isUnilateral) 1L else 0L,
             sets = sets.toLong(),
-            reps = reps.toLong(),
+            reps = reps?.toLong(),
+            durationSeconds = durationSeconds?.toLong(),
             weightKg = weightKg,
             loadCapability = loadCapability.name,
             loadKind = loadKind.name,
@@ -553,7 +557,8 @@ class SqlDelightWorkoutScheduleRepository(
             involvements = involvements?.let { encodeInvolvements(it) },
             isUnilateral = if (isUnilateral) 1L else 0L,
             sets = sets.toLong(),
-            reps = reps.toLong(),
+            reps = reps?.toLong(),
+            durationSeconds = durationSeconds?.toLong(),
             weightKg = weightKg,
             loadCapability = loadCapability.name,
             loadKind = loadKind.name,
@@ -628,7 +633,8 @@ class SqlDelightWorkoutScheduleRepository(
         involvements = involvements?.let { decodeInvolvements(it) },
         isUnilateral = isUnilateral != 0L,
         sets = sets.toInt(),
-        reps = reps.toInt(),
+        reps = reps?.toInt(),
+        durationSeconds = durationSeconds?.toInt(),
         weightKg = weightKg,
         loadCapability = decodeLoadCapability(loadCapability),
         loadKind = decodeLoadKind(loadKind),
@@ -667,7 +673,8 @@ class SqlDelightWorkoutScheduleRepository(
         involvements = involvements?.let { decodeInvolvements(it) },
         isUnilateral = isUnilateral != 0L,
         sets = sets.toInt(),
-        reps = reps.toInt(),
+        reps = reps?.toInt(),
+        durationSeconds = durationSeconds?.toInt(),
         weightKg = weightKg,
         loadCapability = decodeLoadCapability(loadCapability),
         loadKind = decodeLoadKind(loadKind),

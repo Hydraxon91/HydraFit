@@ -2,6 +2,7 @@ package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.backup.ApplyStagedBackupUseCase
+import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT_VERSION
 import com.hydrafit.app.core.domain.backup.BackupException
 import com.hydrafit.app.core.domain.backup.BackupFailure
 import com.hydrafit.app.core.domain.backup.BackupJson
@@ -853,6 +854,47 @@ class SqlDelightBackupRepositoryTest {
         )
     }
 
+    @Test
+    fun timedPrescriptionsRoundTripThroughBackupWithAnActiveOccurrence() = runTest {
+        seedRepresentativeData()
+        listOf("routineEntry", "activationEntry", "occurrenceEntry").forEach { table ->
+            HistoricalDatabaseFixtures.exec(
+                driver,
+                "UPDATE $table SET reps = NULL, durationSeconds = 90 WHERE position = 0"
+            )
+        }
+
+        val catalog = SqlDelightBackupCatalog()
+        val exported = repository.export("t", 1L)
+        assertEquals(BACKUP_FORMAT_VERSION, exported.formatVersion)
+        BackupValidator(catalog).validate(exported)
+
+        val routineEntry = exported.routineEntries.single()
+        assertNull(routineEntry.reps)
+        assertEquals(90, routineEntry.durationSeconds)
+        val activationEntry = exported.activationEntries.single()
+        assertNull(activationEntry.reps)
+        assertEquals(90, activationEntry.durationSeconds)
+        val occurrenceEntry = exported.occurrenceEntries.single()
+        assertNull(occurrenceEntry.reps)
+        assertEquals(90, occurrenceEntry.durationSeconds)
+
+        // The real restore path writes the stored shape back: NULL reps with the recorded seconds.
+        repository.restore(exported)
+        val storedRoutine = database.routineTemplateQueries.selectAllEntries().executeAsList()
+            .single()
+        assertNull(storedRoutine.reps)
+        assertEquals(90L, storedRoutine.durationSeconds)
+        val storedActivation = database.trainingScheduleQueries.selectAllActivationEntries()
+            .executeAsList().single()
+        assertNull(storedActivation.reps)
+        assertEquals(90L, storedActivation.durationSeconds)
+        val storedOccurrence = database.trainingScheduleQueries.selectAllOccurrenceEntries()
+            .executeAsList().single()
+        assertNull(storedOccurrence.reps)
+        assertEquals(90L, storedOccurrence.durationSeconds)
+    }
+
     private fun seedRepresentativeData() {
         database.exerciseQueries.insertCustom(
             id = "user-bicycle-crunch",
@@ -919,6 +961,7 @@ class SqlDelightBackupRepositoryTest {
             exerciseId = "back-squat",
             sets = 3,
             reps = 5,
+            durationSeconds = null,
             weightKg = 100.0,
             loadKind = "EXTERNAL"
         )
@@ -1017,6 +1060,7 @@ class SqlDelightBackupRepositoryTest {
             isUnilateral = 0,
             sets = 3,
             reps = 5,
+            durationSeconds = null,
             weightKg = 100.0,
             loadCapability = "EXTERNAL",
             loadKind = "EXTERNAL"
@@ -1055,6 +1099,7 @@ class SqlDelightBackupRepositoryTest {
             isUnilateral = 0,
             sets = 3,
             reps = 5,
+            durationSeconds = null,
             weightKg = 100.0,
             loadCapability = "EXTERNAL",
             loadKind = "EXTERNAL",

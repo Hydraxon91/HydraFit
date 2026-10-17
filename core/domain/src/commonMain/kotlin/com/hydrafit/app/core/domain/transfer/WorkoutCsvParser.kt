@@ -175,11 +175,13 @@ private val STRONG_OPTIONAL_COLUMNS = setOf(
     STRONG_WORKOUT_DURATION
 )
 
-// `Seconds` is absent here: it is the row's duration measurement, not unsupported metadata.
+// Counted rows retain their legacy metadata (including an explicit zero seconds value) because
+// canonical import identity includes diagnostics. Timed rows consume Seconds as their measurement.
 private val STRONG_METADATA_COLUMNS = listOf(
     STRONG_RPE,
     STRONG_DISTANCE,
     STRONG_DISTANCE_UNIT,
+    STRONG_SECONDS,
     STRONG_NOTES,
     STRONG_WORKOUT_NOTES,
     STRONG_WORKOUT_DURATION
@@ -232,7 +234,9 @@ private fun parseStrong(header: List<String>, records: List<CsvRecord>): ParsedW
         }
         if (unit == null) diagnostics.error(diagnostic(INVALID_UNIT, STRONG_WEIGHT_UNIT, unitText))
         for (column in STRONG_METADATA_COLUMNS) {
-            addMetadataNote(index, record, column, diagnostics)
+            if (column != STRONG_SECONDS || measurement?.reps != null) {
+                addMetadataNote(index, record, column, diagnostics)
+            }
         }
         if (diagnostics.hasError) {
             rejected += RejectedWorkoutCsvRow(record.sourceRowIndex, diagnostics.findings)
@@ -324,8 +328,7 @@ private fun parseHevy(header: List<String>, records: List<CsvRecord>): ParsedWor
         add(HEVY_SUPERSET)
         add(HEVY_EXERCISE_NOTES)
         if (distanceColumn != null) add(distanceColumn)
-        // `duration_seconds` is absent here: it is the row's duration measurement, not unsupported
-        // metadata.
+        add(HEVY_DURATION)
         add(HEVY_RPE)
     }
     val shapeColumns = buildList {
@@ -379,7 +382,9 @@ private fun parseHevy(header: List<String>, records: List<CsvRecord>): ParsedWor
             }
         }
         for (column in metadataColumns) {
-            addMetadataNote(index, record, column, diagnostics)
+            if (column != HEVY_DURATION || measurement?.reps != null) {
+                addMetadataNote(index, record, column, diagnostics)
+            }
         }
         if (diagnostics.hasError) {
             rejected += RejectedWorkoutCsvRow(record.sourceRowIndex, diagnostics.findings)
@@ -524,8 +529,13 @@ private fun resolveMeasurement(
     val repsText = index.value(record, repsColumn)
     val durationText = durationColumn?.let { index.value(record, it) }.orEmpty()
     val reps = parsePositiveInt(repsText)
-    val duration = parsePositiveInt(durationText)
-    if (durationText.trim().isNotEmpty() && parseNonNegativeInt(durationText) == null) {
+    val durationValue = digits(durationText.trim(), minLength = 1, maxLength = 10)
+    val duration = durationValue?.takeIf { it > 0 }
+    if (repsText.isNotBlank() && parseNonNegativeInt(repsText) == null) {
+        diagnostics.error(diagnostic(INVALID_REPS, repsColumn, repsText))
+        return null
+    }
+    if (durationText.isNotBlank() && durationValue == null) {
         diagnostics.error(diagnostic(INVALID_DURATION, durationColumn, durationText))
         return null
     }

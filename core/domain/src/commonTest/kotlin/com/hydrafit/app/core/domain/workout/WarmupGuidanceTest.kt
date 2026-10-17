@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class WarmupGuidanceTest {
@@ -204,6 +205,8 @@ class WarmupGuidanceTest {
         assertTrue(plan.matchesPrescription(entry))
         assertFalse(plan.matchesPrescription(entry.copy(exerciseId = "front-squat")))
         assertFalse(plan.matchesPrescription(entry.copy(reps = 5)))
+        // A slot that became timed is a different prescription, not the same work carried twice.
+        assertFalse(plan.matchesPrescription(entry.copy(reps = null, durationSeconds = 90)))
         assertFalse(plan.matchesPrescription(entry.copy(weightKg = 90.0)))
         assertFalse(plan.matchesPrescription(entry.copy(movementPattern = MovementPattern.HINGE)))
         assertFalse(
@@ -215,6 +218,19 @@ class WarmupGuidanceTest {
                 )
             )
         )
+    }
+
+    @Test
+    fun rampsATimedWorkingPrescriptionWithCountedRampSetsAndCarriesItsSeconds() {
+        val entry = entry(0, MovementPattern.SQUAT, weightKg = 100.0)
+            .copy(reps = null, durationSeconds = 90)
+        val ramp = buildWarmupGuidance(occurrenceWith(entry)).ramps.single()
+
+        assertNull(ramp.prescribedReps)
+        assertEquals(90, ramp.prescribedDurationSeconds)
+        assertTrue(ramp.matchesPrescription(entry))
+        // The ramp itself stays counted warm-up work, unchanged by the slot being timed.
+        assertEquals(listOf(8, 5, 3), ramp.rampSets.map { it.reps })
     }
 
     @Test

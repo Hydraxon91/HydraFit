@@ -15,6 +15,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -312,6 +313,111 @@ class PrescriptionInterchangeTest {
                 )
             }.failure
         )
+    }
+
+    @Test
+    fun exportsATimedSlotAsSecondsAtVersionTwoAndStillReadsRepOnlyVersionOneDocuments() =
+        runBlocking {
+            val timedRoutine = routine.copy(
+                workouts = listOf(
+                    RoutineWorkout(
+                        position = 0,
+                        name = "Day 1",
+                        entries = listOf(
+                            RoutineEntry(
+                                position = 0,
+                                exerciseId = "back-squat",
+                                sets = 3,
+                                reps = null,
+                                durationSeconds = 90,
+                                weightKg = 60.0,
+                                loadKind = LoadKind.EXTERNAL
+                            )
+                        )
+                    )
+                )
+            )
+            val timedRepository = object : RoutineTemplateRepository {
+                override fun observeAll(): Flow<List<RoutineTemplate>> =
+                    flowOf(listOf(timedRoutine))
+
+                override suspend fun get(id: Long): RoutineTemplate? =
+                    timedRoutine.takeIf { it.id == id }
+
+                override suspend fun save(template: RoutineTemplate): Long = 0L
+                override suspend fun setArchived(id: Long, archivedAtMillis: Long?) = Unit
+                override suspend fun isReferencedByActivation(id: Long): Boolean = false
+                override suspend fun delete(id: Long) = Unit
+            }
+
+            val document =
+                ExportPrescriptionsUseCase(timedRepository, catalog)(listOf(7L), true, "t", 1L)
+
+            assertEquals(2, document.formatVersion)
+            val timed = document.routines.single().allEntries().single()
+            assertNull(timed.reps)
+            assertEquals(90, timed.durationSeconds)
+            PrescriptionValidator.validate(document)
+            // The seconds are part of the version-2 JSON contract, not just the object graph.
+            assertEquals(document, PrescriptionJson.decode(PrescriptionJson.encode(document)))
+
+            // A version-1 document is rep-only: the same file read as version 1 is refused outright,
+            // rather than reinterpreting its seconds as a rep count.
+            assertEquals(
+                PrescriptionFailure.INVALID_VALUE,
+                assertFailsWith<PrescriptionException> {
+                    PrescriptionValidator.validate(document.copy(formatVersion = 1))
+                }.failure
+            )
+            val legacy = document.copy(
+                formatVersion = 1,
+                routines = document.routines.map { written ->
+                    written.copy(
+                        workouts = written.workouts.map { workout ->
+                            workout.copy(
+                                entries = workout.entries.map {
+                                    it.copy(reps = 8, durationSeconds = null)
+                                }
+                            )
+                        }
+                    )
+                }
+            )
+            assertEquals(1, legacy.formatVersion)
+            PrescriptionValidator.validate(legacy)
+        }
+
+    @Test
+    fun aCurrentDocumentRefusesASlotMeasuredByBothOrByNeither() {
+        fun document(entry: PrescriptionEntryRecord) = PrescriptionDocument(
+            format = PRESCRIPTION_FORMAT,
+            formatVersion = PRESCRIPTION_FORMAT_VERSION,
+            appVersion = "t",
+            exportedAtMillis = 1L,
+            routines = listOf(
+                PrescriptionRoutineRecord(
+                    "Push",
+                    workouts = listOf(PrescriptionWorkoutRecord("Day 1", entries = listOf(entry)))
+                )
+            )
+        )
+
+        PrescriptionValidator.validate(
+            document(entry("back-squat").copy(reps = null, durationSeconds = 90))
+        )
+        listOf(
+            entry("back-squat").copy(reps = 8, durationSeconds = 90),
+            entry("back-squat").copy(reps = null, durationSeconds = null),
+            entry("back-squat").copy(reps = null, durationSeconds = 0),
+            entry("back-squat").copy(reps = null, durationSeconds = -60)
+        ).forEach { invalid ->
+            assertEquals(
+                PrescriptionFailure.INVALID_VALUE,
+                assertFailsWith<PrescriptionException> {
+                    PrescriptionValidator.validate(document(invalid))
+                }.failure
+            )
+        }
     }
 
     private fun entry(exerciseId: String) = PrescriptionEntryRecord(
