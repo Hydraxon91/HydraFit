@@ -161,7 +161,16 @@ an explicit helper request. Require exclusive emulator control during execution;
 the parent and other sessions must not interact with the device concurrently.
 
 Check the parent's structured brief against AGENTS.md's Subagent brief contract.
-Require the objective/approved checks, exact targets, starting-state evidence,
+Require the objective/approved checks, exact targets and starting-state evidence.
+For prepared acceptance journeys, also require a parent-authored external JSON
+contract and successful `scripts/ui-journey-preflight.py`
+report with the accepted maximum baseline age. Follow the contract schema in
+`docs/agent-ui-verification.md` Prepared-journey preflight. Recheck fresh starting
+state within the same budget before writes; a passing declaration check cannot
+prove device facts, authorize mutations or count gating-only checks as execution.
+Return drift to the parent; never change assertions or replay completed writes.
+Inspection-only requests need a bounded read-only brief, not a prepared-flow JSON
+contract. They grant no writes or acceptance coverage. For all requests require
 allowed interactions and persisted writes, exact procedure/flow paths, assertions,
 budget/command caps, recovery limits and requested artifacts. Historical state is
 not a verified precondition. Resolve unknowns only through the explicitly allowed

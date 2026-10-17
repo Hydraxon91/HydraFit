@@ -287,3 +287,46 @@ then targeted independent closure. No new full-range review or rating increase.
   adoption and repeated interruption evidence. Lease contention, Git permission
   prompt reduction and UI-acceptance improvements remain separate backlog work.
   Local commit is authorized; push/publication is not.
+
+## UI preflight task 02 (2026-10-17)
+
+Accepted next chunk at base `99b77c32`, same tooling branch, main-agent ownership,
+three-hour cap; independent review before local commits; no emulator or publication.
+External state: `automation-ui-preflight-02` under the agreed OpenCode temp root.
+
+- **UI-P01:** F-06/F-11 fixture errors motivate timestamped, hashed baseline
+  evidence and explicitly matching fixture expectations before handoff.
+- **UI-P02:** F-14 motivates category-by-category planned/gating-only/unverified
+  coverage, with authorization, safeguard and recovery declarations for destructive
+  execution. The validator cannot discover an omitted category or authorize resets.
+- **UI-P03:** F-08/F-10/F-12/F-13 reuse semantic-container, platform-tag,
+  durable-postcondition and picker-scroll guidance; app changes remain excluded.
+  The helper does not parse arbitrary YAML or prove device state. Verification and
+  independent review pending; historical ratings unchanged.
+
+### UI task 02 verification and review corrections
+
+Initial suite: 148 tests passed in 31.420 seconds, wrapper exit 0/termination
+confirmed; validator 13 definitions/30 surface files, zero findings.
+Independent full-range review **REJECTED**, session
+`ses_eb4580cb9ffei0aZZQ76TpiQHe`, two confirmed minor mechanical findings:
+UI-PREF-001 conflated JSON booleans with numbers in fixture equality (including
+nested values); UI-PREF-002 made preflight unconditional in runner instructions
+despite the inspection-only exception. Main-agent corrections add recursive
+type-aware comparison with numeric int/float equivalence and qualify the runner
+requirement; source/test/instruction regressions and targeted closure required.
+No device interaction or rating change.
+
+### UI task 02 closure: approved
+
+Corrected suite: **150 tests passed**, 31.492 seconds, with actual artifacts
+`automation-ui-preflight-02/suite-02.log` and `suite-02.json` under the agreed
+external root. Validator raw output is captured in `validator.log/json`:
+13 definitions, 30 surface files, zero findings, wrapper exit 0/termination confirmed.
+Targeted reviewer closure initially reported INCOMPLETE for the missing raw
+validator artifact; after supplying it, final targeted closure **APPROVED** in
+session `ses_eb4580cb9ffei0aZZQ76TpiQHe`. Both UI-PREF findings are closed with
+no remaining required findings or evidence gaps. Original verdicts are preserved.
+All nine acceptance criteria have implementation/synthetic evidence; no live UI
+adoption was attempted. Existing scorecard ratings remain unchanged. No emulator,
+app data, permissions, models, dependencies or CI configuration changed.

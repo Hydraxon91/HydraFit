@@ -29,6 +29,14 @@ before another agent interacts, and never overlap another session's device work.
 
 ## Before interacting
 
+Prepared acceptance journeys require a parent-authored external JSON contract
+validated by `scripts/ui-journey-preflight.py` with an accepted maximum baseline
+age. Read `docs/agent-ui-verification.md` Prepared-journey preflight for its schema.
+Pin flow/evidence hashes, compare fixture expectations, classify every in-scope
+destructive category and require safeguard/recovery declarations before execution.
+A passed preflight checks declarations only: freshly confirm device state before
+writes; never equate planned or gating-only coverage with executed behavior.
+
 Before UI acceptance interaction, declare parent-owned exploration and runner-owned
 prepared journeys. Give exploration a goal, allowed interactions, concrete
 time/tool-call budget and handoff condition within the approved test contract.

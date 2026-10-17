@@ -245,6 +245,12 @@ SIGKILL of the wrapper, host failure and hostile processes are not contained.
 
 ### Durable task state
 
+Prepared UI journeys additionally use the read-only
+`scripts/ui-journey-preflight.py` contract validator. The complete JSON schema,
+CLI, exit codes and declaration-only boundary are documented in
+`docs/agent-ui-verification.md` Prepared-journey preflight. This adds no device
+execution or permission enforcement; inspect fresh state before allowed writes.
+
 `scripts/task-state.py` is stdlib-only POSIX bookkeeping for accepted `/task`
 contracts and accepted finite-budget `/batch` contracts. It never runs recorded
 commands, grants approval, or performs recovery. Batch integration is a cooperative
