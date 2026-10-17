@@ -346,8 +346,8 @@ Former slice ids are recorded in parentheses.
 | 0.9.2 | Anatomical body-map visual rework, brought forward from 0.13.x | OF-08 presentation only; male/female selector, front by default with Front/Back switching, monochrome neutral-to-red fatigue scale and no animation. Verify artwork provenance and obtain user approval of a labelled proof for both models before app integration; explicitly resolve shoulders, back and hip-abductor geometry. Preserve existing 21-group mapping, values, legend, accessible numeric access and fatigue/coverage/planner behaviour. No production dependency or schema change; the feature module gains test-only host-test dependencies only. |
 | 0.9.3 | Automatic rotating local backups (former `0.9.8`) | OF-01 extension; failure/recovery and retention contract. The `0.9.4` encryption scope folds into this publication (`v0.9.3`, one tag, 2026-10-17). |
 | 0.9.4 — folded into 0.9.3 | Encrypted backups (former `0.9.9`) | OF-01 extension; key/recovery and compatibility contract; encrypted creation and reading is Android 8+ only. |
-| 0.9.5 | Merge restore (former `0.9.10`) | OF-01 extension; atomicity, identity and conflict decisions |
-| 0.9.6 | Storage usage and scoped removal/reset controls (former `0.9.12`) | QL-02; confirmation, referential integrity and failure safety |
+| 0.9.5 | Merge restore (former `0.9.10`) | OF-01 extension; atomicity, identity and conflict decisions (published as `v0.9.5`, 2026-10-17). |
+| 0.9.6 — folded into 0.9.5 | Storage usage and scoped removal/reset controls (former `0.9.12`) | QL-02; confirmation, referential integrity and failure safety (v0.9.5, one tag, 2026-10-17). |
 
 Every importer/backup slice covers the stored data supported when it ships. Later
 metric and prescription releases extend these formats in their own scopes.

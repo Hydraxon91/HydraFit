@@ -196,3 +196,10 @@ boundaries.
 - 2026-10-17 — 0.9.6 implemented, device-accepted, reviewed (REJECTED for one
   major defect), corrected and device-reverified; F-10…F-14 recorded. Awaiting
   the folded `v0.9.5` publication approval.
+- 2026-10-17 — cadence note: the 0.9.6-A/B/C boundary rows were batched into a
+  single entry (added when D completed), and the two parent corrections during D
+  (`73da9115` dialog action ids + all-data copy, `6c7f88ca` platform test-tag
+  opt-in) were folded into that row and F-10 instead of getting separate entries.
+  The content is complete, but the update frequency for that stretch was below
+  the "every chunk and every finding" target. The user accepted the recorded
+  0.9.6 notes and limits on the same date.
