@@ -1,5 +1,26 @@
 # Feature and test implementation recipes
 
+## SplitBuilder planning dates
+
+`SplitBuilderScreen` hosts a date editor separate from the Start-block schedule dialog, backed by
+`PlanningDatesState`; `SplitBuilderViewModel` owns the dates flow and passes it to
+`ObserveWorkoutPlanInputsUseCase`. The dialog exposes weekday chips, the existing date picker,
+start-today, shift-one-week and clear-to-unknown, with an exact-date preview and the decay-only
+disclosure (built-in planner only, recorded-history decay only, no future workout assumed, same
+clock time and current offset, unknown dates keep prior behavior, and these dates do not move an
+existing block). UI strings live in the feature's `strings.xml`.
+
+## Timed prescription authoring
+
+Routines provides a repetitions/seconds choice per slot; only the selected measure is saved.
+Routine activation and occurrence edits preserve that choice, and Logger confirmation forwards
+seconds into the recorded set rather than inventing reps. Guided completion still counts sets.
+Timed draft rows and their one-off editor display/edit seconds, preserving the metric through
+missing-load entry, failed-write retries and guided confirmation without changing frozen targets.
+Workout summaries and Progress display recorded seconds descriptively; timed work has no
+rep-derived strength record or modeled fatigue contribution. Preparation ramp sets remain counted;
+persisted timed preparation and accepted-plan duration editing are not yet implemented.
+
 Equipment exposes Trap isolation (manual only) and Neck isolation (manual only) in the
 existing non-compound pattern selector. All six manual shrug/neck seeds remain selectable
 for manual logging/routines; the full catalog is not filtered by planner eligibility.

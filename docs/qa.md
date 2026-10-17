@@ -877,6 +877,68 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   write failures or pinned release upgrades on the emulator.
 
 ## 7. Fatigue
+
+### Confirmed planning dates (decay-only) — 2026-10-17
+
+- SplitBuilder now lets the user confirm the next N workout dates (weekday chips, start date,
+  shift one week, or clear to unknown) and discloses that only recorded-history decay is
+  projected: no hypothetical fatigue from earlier planned workouts is added, the same local clock
+  time and current UTC offset are assumed, and unknown dates keep the previous behavior.
+- Date, frequency or clock validity changes cancel in-flight generation and preserve the shown
+  draft/accepted plan; Regenerate → Accept stays explicit and stale-date Accept/schedule is
+  refused. Generation dates do not move an existing training block.
+- **Passed** module verification: `:core:domain:testAndroidHostTest` and
+  `:feature:splitbuilder:testAndroidHostTest` (49 SplitBuilder, 22 observer, 81 deterministic
+  engine tests), root `ktlintCheck` and `:androidApp:assembleDebug`
+  (`date-ui-tests2.log`, `date-ui-ktlint3.log`, `date-ui-assemble.log`).
+- **Passed on device** (`emulator-5554`, debug, 2026-10-17): the Plan tab shows the dates
+  section; the dialog rendered all four disclosure lines, the Mon–Sun chips, start-today,
+  the start date, Shift one week and Use unknown dates, with an exact-date preview
+  (`2026-10-17, 10-19, 10-20, 10-21` for Mon–Thu with start today). Confirming regenerated the
+  plan with those dates, and "Use unknown dates" restored the unknown-dates line with
+  `assertNotVisible` on the confirmed date. Screenshots viewed in the session.
+- **Unverified:** large font, TalkBack, dark theme and rotation for the dialog; no direct test of
+  the clock-invalidation cancel path in `refreshContext`; AI-engine paths ignore per-date
+  projection by design (disclosed in the UI).
+
+### Timed prescription stabilization — 2026-10-17
+
+- Working tree based on `9cfbb63e`: routine authoring, frozen activation/occurrence metrics,
+  backup 18 and prescription interchange v2 carry seconds. Regression coverage includes
+  activation, pending-occurrence edits, actual Logger confirmation and repeat submission,
+  count-based guided completion, summaries, backup roundtrip with an active occurrence,
+  legacy rejection and PDF seconds. Accepted-plan durations and persisted timed preparation
+  remain unfinished, as do informational self-reports and schedule-aware projection.
+- `53.sqm` rebuilds three prescription tables. A generated-schema-only test demonstrates
+  deleted allocation history being lost. The production wrapper preserves each mark before
+  callbacks and actual subsequent inserts (1001), for empty and surviving-row tables and
+  multi-hop upgrades. Existing row/snapshot/index tests and workout-set wrapper tests remain.
+- Full Tier A matrix **passed** against this source: `testAndroidHostTest`, migration
+  verification, root lint, debug assembly and both required iOS compiles. Domain: 852 tests.
+  Log: `prescription-final-matrix.log` in the external OpenCode artifact directory below.
+- Emulator acceptance completed on 2026-10-17 after an earlier empty-hierarchy block: the debug
+  APK was deployed to `emulator-5554`, performing the real 52→53→54 upgrade on existing device
+  data, and the app launched without a crash or migration error. Journeys (screenshots viewed):
+  routine authoring with a Reps/Seconds chooser saved `Plank 3 × 45 s` (reopened as Seconds 45,
+  not reps); activating it rendered the planned draft `Plank  3 x 45 s · ~Bodyweight`; `Confirm all`
+  recorded all three sets (`3 of 3 sets`, rows `Plank  45 s · Bodyweight`) and the set's edit dialog
+  opened as `Edit set: Plank` with 45 seconds. The three probe sets were then deleted
+  (`plank` sets: 0 in a read-only DB copy), the block cancelled and the referenced routine
+  archived — the documented residue for a routine a cancelled activation still references.
+  Probe flows live in the external artifact directory, not the repo.
+- Not exercised on the device: Settings import preview with durations, backup 18 round-trip,
+  prescription interchange v2 export/import and PDF seconds; large font, dark theme, locale,
+  TalkBack and rotation for the new timed controls.
+
+- Independent full-branch review rejected the first candidate with TIME-01–04: timed draft
+  editing, zero-duration counted-row dedup compatibility, the upper duration boundary and
+  malformed reps silently dropped on timed rows. Mechanical corrections now have actual
+  Logger edit/confirm/retry/context tests and Strong/Hevy literal canonical-byte, legacy/bucket
+  ledger, split-bucket and parser-boundary tests. The full Tier A matrix was rerun with
+  `--rerun-tasks` and **passed** (`time-csv-final-matrix.log`); independent targeted reviewer
+  closure **approved TIME-01–04**. See [review and limits](review-timed-sets-2026-10-17.md).
+  These checks do not resolve the unavailable emulator acceptance or unfinished requested work.
+
 - Heatmap reflects logged sets per muscle; percentages shown; near-limit shows "99.9+%".
 - Decay over time and reset at session boundaries behave as expected.
 - Body map: Male/Female selection is independent of profile settings; Front initially, with a

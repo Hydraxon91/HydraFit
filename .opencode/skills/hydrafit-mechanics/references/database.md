@@ -268,8 +268,9 @@ Generated files land under
 `AndroidDatabaseDriverFactory` and `NativeDatabaseDriverFactory` pass the commonMain
 `HydraFitDatabaseSchema` wrapper to their driver; the driver handles creation/upgrade.
 The wrapper delegates `version`/`create`/`migrate` to the generated `HydraFitDatabase.Schema`
-unchanged and only adds one repair: a migration crossing `52.sqm` captures the `workoutSet`
-AUTOINCREMENT high-water mark from `sqlite_sequence` immediately before that table rebuild and
+with allocation-history repairs at `52.sqm` (`workoutSet`) and `53.sqm`
+(`routineEntry`, `activationEntry`, `occurrenceEntry`). It captures each table's
+AUTOINCREMENT high-water mark from `sqlite_sequence` immediately before its rebuild and
 restores it immediately after, never below the rebuilt table's own mark, so a deleted id is not
 reissued. The mark is read at the rebuild, not at the migration start, so the earlier `20.sqm`
 rebuild is untouched. A `.sqm` cannot reference `sqlite_sequence` (SQLDelight's resolver rejects the

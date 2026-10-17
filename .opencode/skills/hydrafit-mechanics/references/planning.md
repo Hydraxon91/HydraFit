@@ -1,5 +1,37 @@
 # Planning mechanics
 
+User-authored routines and frozen activation/occurrence slots support exclusive reps or whole
+seconds. Engines and accepted-plan outputs still prescribe reps only; they never invent durations.
+Performed timed sets do not enter rep-derived fatigue/load inputs. Informational
+soreness/exhaustion storage is deferred; do not infer that the existing fatigue-based
+skip/reduce behavior consumes user reports.
+
+## Confirmed planning dates (decay-only projection)
+
+SplitBuilder's separate date editor lets the user confirm the exact next N workout civil dates
+from chosen weekdays plus a start date, shift them all by one week, or clear them to unknown.
+Confirmed dates travel as `PlanRequest.workoutEpochDays` with `fatigueByWorkout`, one recorded-
+history fatigue map per date, produced by `ObserveWorkoutPlanInputsUseCase` with the same local
+clock time as `nowMillis` and the current fixed UTC offset; recorded sets after `nowMillis` are
+excluded. Dates must be exactly `daysPerWeek`, strictly increasing, non-past and within the
+supported epoch-day range, or the observer falls back to undated planning.
+
+This is **decay only**: a later date sees the recorded history decayed further, and no
+hypothetical fatigue from earlier planned workouts is added. The deterministic engine reads
+`PlanRequest.fatigueForWorkout(dayIndex)` per day; AI prompts and every other consumer still use
+`muscleFatigue`, so projection must not be described as complete schedule simulation. Undated
+requests keep the previous behavior exactly.
+
+Date, frequency or clock validity changes cancel in-flight generation and preserve the displayed
+draft or accepted plan, setting `canRegenerate`; nothing regenerates or replaces a frozen plan
+automatically. Regenerate then Accept stays explicit, and Accept/schedule is refused while the
+shown draft's dates are stale. Generation dates are separate from a persistent training block's
+schedule: confirming dates never moves an existing block, the block dialog is seeded from the same
+configuration, and a preview that disagrees with the draft's dates requires Regenerate first.
+Showing a historical accepted plan resets the shown draft's date provenance to unknown rather
+than implying persisted dates. Per-date fatigue does not enter substitution, which keeps ranking
+against current fatigue.
+
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 

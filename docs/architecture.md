@@ -498,14 +498,30 @@ SQLDelight `.sq` files describe the current schema; every schema change ships a 
 migration, and released schemas are never edited in place.
 
 The production driver factories pass the commonMain `HydraFitDatabaseSchema` wrapper (not the
-generated `HydraFitDatabase.Schema`) to their driver. The wrapper delegates `version`, `create` and
-`migrate` unchanged and adds exactly one repair: a migration crossing the `52.sqm` `workoutSet`
-rebuild captures that table's AUTOINCREMENT high-water mark from `sqlite_sequence` immediately before
+generated `HydraFitDatabase.Schema`) to their driver. The wrapper delegates schema creation/version
+and runs generated migrations with allocation-history repairs at the `52.sqm` `workoutSet` rebuild
+and the `53.sqm` `routineEntry`/`activationEntry`/`occurrenceEntry` rebuilds.
+It captures each table's AUTOINCREMENT high-water mark from `sqlite_sequence` immediately before
 the rebuild and restores it immediately after, never below the mark the rebuilt table already holds,
 so an id that was allocated and later deleted is not reissued. The mark is read at the rebuild rather
 than at the migration's start, so it neither revives a mark the historical `20.sqm` rebuild already
 lost nor changes that migration's behavior. SQLDelight's resolver rejects `sqlite_sequence` inside a
 `.sqm`, so the wrapper does this with raw `SqlDriver` SQL and no generated query.
+
+Performed sets use exclusive nullable repetitions or positive whole `durationSeconds`; seconds
+are never encoded as reps. Migration `52.sqm` preserves existing counted sets. Timed working sets
+remain in history, coverage and count-based completion but do not enter rep-derived fatigue,
+strength records or planner load calculations. CSV export includes duration; Strong and Hevy import
+explicit seconds and reject rows with both positive measures. FitNotes remains rep-only.
+
+Migration `53.sqm` carries the same metric choice into user-authored routine slots and frozen
+activation/occurrence entries, preserving ids, snapshots and indexes. Authoring requires the user
+to choose seconds; automatic engines and accepted-plan output remain rep-only at present (the
+requested accepted-plan duration support is unfinished). Guided confirmation copies the prescribed
+metric into recorded sets. Completion still counts sets, and warm-up ramp sets remain counted.
+Backup format 18 carries prescription durations (17 introduced performed durations); prescription
+interchange v2 and PDF export carry seconds. Older versions reject durations they cannot represent.
+Self-report storage and schedule-aware deterministic projection remain unimplemented.
 
 The 0.9.0 profile foundation (`49.sqm`, schema 50) adds `equipmentProfile`,
 `equipmentProfileEntry` and singleton `equipmentProfileState`. Equipment IDs remain global;
