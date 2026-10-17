@@ -59,6 +59,8 @@ publication gate. Any stop records which condition triggered it.
 | 2026-10-17, 0.9.5-D journey attempt 1 | MCP device session died → documented CLI fallback used throughout (F-07); runner stopped at M1 on a parent flow-expectation error (baseline was 8 sessions, not 9) instead of adjusting or replaying (F-06). Flow fixed; no app defect, no writes from the attempt. | No rating changes. The runner's stop-not-adjust behavior is exactly the prepared-journey contract working; parent fixture ground truth must be logged before authoring flows. |
 | 2026-10-17, 0.9.5-D complete | Merge device journey passed on `emulator-5554` across three bounded runner attempts (1 stopped on the parent expectation error; 2 passed M1/M2; 3 finished M3–M5). Verified: additive merge (probe session with note in Workout history after apply), idempotence ("Nothing new to merge", disabled Merge with container evidence + viewed screenshot), replace staged+applied and probe gone. F-08 recorded. | Runner stop-not-adjust discipline held twice; fixture ground truth corrected before the retry. Optional encrypted-preview leg not executed (reported as a limit; the encrypted import path was device-verified in 0.9.4). |
 | 2026-10-17, 0.9.5 complete (implemented, verified, reviewed, committed) | Independent review APPROVED WITH FINDINGS → corrections `3702f61a`/`4497091b` → targeted closure APPROVED (all six closed). Device journey passed across three runner attempts; final gate green at `4497091b`; records in `docs/review-0.9.5-snapshot.md` and `docs/qa.md`. | F-09 recorded. Budget: the 5-hour split was passed under the user's explicit run-to-`0.9.6` instruction; per-command limits and stop conditions still apply. |
+| 2026-10-17, 0.9.6-A/B/C complete | Storage model + use cases (`0a08c452`), count queries + repository + ports + DI (`5127cbb7`), Settings storage UI (`8a8a70d9`) and the dialog-copy/identity correction (`73da9115`); module suites and ktlint green throughout. | Git-permission fix datapoint stays **unmeasured**: this batch performs Git directly per the batch workflow, so no `git-ops` delegation occurred. `run-bounded` gained ~25 further clean live runs. |
+| 2026-10-17, 0.9.6-D complete | Storage device journey on `emulator-5554` across four runner attempts: display values, history removal (8/24 → 0/0/0 asserted in-flow, history search returns no matches), All-app-data typed gating (disabled empty/NOPE, enabled on REMOVE, never executed), guarded "Back up now" path, restore-back to 8/24, and the two 0.9.5 disclosure lines. Findings F-10…F-13. | Runner stop-not-adjust held four times on flow/state defects; each defect was parent-authored flow error, not an app defect. Final gate green after the platform test-tag fix. |
 
 ### In-batch findings log
 
@@ -124,6 +126,25 @@ boundaries.
   main-owned change to an API used by another module's tests, run that module's
   tests before closing the correction instead of discovering it at the next
   delegation.
+- **F-10 [tooling] Compose test tags inside a dialog need their own opt-in, and
+  the opt-in is not common code.** `testTagsAsResourceId` exists only on Android;
+  tagging a dialog's body and its confirm slot requires an `expect`/`actual`
+  modifier applied to the dialog root (the Logger's pattern). The first attempt
+  compiled on Android and broke the iOS compile of the feature module — caught by
+  the release gate, not by the module tests.
+- **F-11 [process] Device fixture drift invalidated a delegation.** Two empty
+  sessions created by earlier failed logger attempts moved the count from 8 to
+  10 between runs, so prepared count assertions failed and the runner correctly
+  stopped. *Improvement:* re-read the device ground truth immediately before each
+  runner delegation instead of carrying counts from the brief that prepared the
+  journey.
+- **F-12 [flow design] Transient confirmation messages are not assertable.**
+  `"… removed."` was gone before an assertion could see it twice; the durable
+  state (counts going to zero) is the reliable assertion, and the message is
+  cosmetic. Flows should assert state, not transient toasts.
+- **F-13 [tooling] The SAF picker composes only visible rows.** A file whose card
+  is below the fold has no text node to tap until the picker is scrolled, so
+  picker legs need an explicit scroll before selection.
 
 ## Improvement backlog (prioritized)
 
