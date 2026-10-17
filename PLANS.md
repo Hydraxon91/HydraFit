@@ -1332,6 +1332,24 @@ independent review per scope, separate publication approval). The living
 scorecard for the automation tooling used by this batch and its improvement
 backlog is `docs/agent-automation-status.md`, updated at each release boundary.
 
+**0.9.5 status (2026-10-17).** Chunks A–D implemented (`65c8efac`, `54f1edbc`,
+`0904c743`, `68a4b460`, `1c7d51ac`, `600b18d4`) and accepted on `emulator-5554`:
+the additive merge, session-granular idempotence and the unchanged replace path
+were verified in Workout history with a synthetic probe session. The independent
+review returned APPROVED WITH FINDINGS (HF-095-01…06); corrections `3702f61a`
+(kept-local counting, exercise-id keys, off-main identity read) and `4497091b`
+(dropped-link and non-merge setup disclosure) were verified, and targeted
+closure at `4497091b` APPROVED with all six findings closed — snapshot in
+`docs/review-0.9.5-snapshot.md`, evidence in `docs/qa.md`. Final candidate
+`4497091b`: full host suite, `:core:database:verifySqlDelightMigration`, ktlint,
+debug assembly and both iOS compiles green (`integration-gate.log`). Review note:
+a file containing a set with no session is rejected by the pre-existing
+validator before merge selection, so the policy's skipped-unattached counter and
+its line are defense-in-depth and unreachable in the shipping flow. Limits
+carried: the two correction disclosure lines are device-checked in the 0.9.6
+pass, iOS is compile-only, and the encrypted-file merge preview is host-covered.
+0.9.6 implementation follows.
+
 **Scope and fold:**
 
 | Assigned scope | Included work | Former slice ids |

@@ -58,6 +58,7 @@ publication gate. Any stop records which condition triggered it.
 | 2026-10-17, autonomy target recorded | User requires continuous execution to `0.9.6` completion with no routine check-ins; see the new section above | Target: zero user interventions until the single publication gate; any stop must name its condition. |
 | 2026-10-17, 0.9.5-D journey attempt 1 | MCP device session died → documented CLI fallback used throughout (F-07); runner stopped at M1 on a parent flow-expectation error (baseline was 8 sessions, not 9) instead of adjusting or replaying (F-06). Flow fixed; no app defect, no writes from the attempt. | No rating changes. The runner's stop-not-adjust behavior is exactly the prepared-journey contract working; parent fixture ground truth must be logged before authoring flows. |
 | 2026-10-17, 0.9.5-D complete | Merge device journey passed on `emulator-5554` across three bounded runner attempts (1 stopped on the parent expectation error; 2 passed M1/M2; 3 finished M3–M5). Verified: additive merge (probe session with note in Workout history after apply), idempotence ("Nothing new to merge", disabled Merge with container evidence + viewed screenshot), replace staged+applied and probe gone. F-08 recorded. | Runner stop-not-adjust discipline held twice; fixture ground truth corrected before the retry. Optional encrypted-preview leg not executed (reported as a limit; the encrypted import path was device-verified in 0.9.4). |
+| 2026-10-17, 0.9.5 complete (implemented, verified, reviewed, committed) | Independent review APPROVED WITH FINDINGS → corrections `3702f61a`/`4497091b` → targeted closure APPROVED (all six closed). Device journey passed across three runner attempts; final gate green at `4497091b`; records in `docs/review-0.9.5-snapshot.md` and `docs/qa.md`. | F-09 recorded. Budget: the 5-hour split was passed under the user's explicit run-to-`0.9.6` instruction; per-command limits and stop conditions still apply. |
 
 ### In-batch findings log
 
@@ -115,6 +116,14 @@ boundaries.
   screenshot and a hierarchy note as the disabled-state evidence; exposing
   `testTagsAsResourceId` for these actions is a possible future improvement,
   not this batch's scope.
+- **F-09 [process] A main-owned API change rippled into a coder-owned test.**
+  HF-095-06's new dispatcher parameter left the coder-owned
+  `BackupViewModelTest` helper misaligned with the test scheduler (10 failing
+  tests), so the UI-correction chunk had to carry that mechanical fix, and its
+  coder exceeded the tool-call budget diagnosing it. *Improvement:* after a
+  main-owned change to an API used by another module's tests, run that module's
+  tests before closing the correction instead of discovering it at the next
+  delegation.
 
 ## Improvement backlog (prioritized)
 
@@ -152,3 +161,5 @@ boundaries.
 - 2026-10-17 — 0.9.5-D journey attempt 1: MCP→CLI fallback and a parent
   flow-expectation error recorded (F-06, F-07); flow corrected, journey
   re-delegated.
+- 2026-10-17 — 0.9.5 complete: review, corrections and closure recorded; F-09
+  added; budget note recorded.
