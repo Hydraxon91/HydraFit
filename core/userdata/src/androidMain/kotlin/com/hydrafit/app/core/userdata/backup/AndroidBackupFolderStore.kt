@@ -124,7 +124,13 @@ class AndroidBackupFolderStore(context: Context) : BackupFolderStore {
         }
 
     private fun folderFlags(tree: Uri): Int? = try {
-        resolver.query(tree, arrayOf(DocumentsContract.Document.COLUMN_FLAGS), null, null, null)
+        // The provider exposes the tree root as a document under the tree; querying the raw tree
+        // URI itself does not return a row on the platform providers.
+        val document = DocumentsContract.buildDocumentUriUsingTree(
+            tree,
+            DocumentsContract.getTreeDocumentId(tree)
+        )
+        resolver.query(document, arrayOf(DocumentsContract.Document.COLUMN_FLAGS), null, null, null)
             ?.use { cursor -> if (cursor.moveToFirst()) cursor.getInt(0) else null }
     } catch (_: Exception) {
         null
