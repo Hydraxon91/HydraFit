@@ -2,23 +2,31 @@ package com.hydrafit.app.feature.settings
 
 import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT
 import com.hydrafit.app.core.domain.backup.BackupApplyError
+import com.hydrafit.app.core.domain.backup.BackupApplyMode
 import com.hydrafit.app.core.domain.backup.BackupCatalog
 import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
 import com.hydrafit.app.core.domain.backup.BackupCrypto
 import com.hydrafit.app.core.domain.backup.BackupEncryption
 import com.hydrafit.app.core.domain.backup.BackupEncryptionKeyStore
 import com.hydrafit.app.core.domain.backup.BackupException
+import com.hydrafit.app.core.domain.backup.BackupExerciseRecord
 import com.hydrafit.app.core.domain.backup.BackupFailure
 import com.hydrafit.app.core.domain.backup.BackupFile
 import com.hydrafit.app.core.domain.backup.BackupJson
+import com.hydrafit.app.core.domain.backup.BackupMergeKeys
+import com.hydrafit.app.core.domain.backup.BackupMergeSelection
 import com.hydrafit.app.core.domain.backup.BackupRepository
 import com.hydrafit.app.core.domain.backup.BackupRestPreferenceRecord
 import com.hydrafit.app.core.domain.backup.BackupStagingRepository
 import com.hydrafit.app.core.domain.backup.BackupValidator
+import com.hydrafit.app.core.domain.backup.BackupWorkoutSessionRecord
+import com.hydrafit.app.core.domain.backup.BackupWorkoutSetRecord
 import com.hydrafit.app.core.domain.backup.ExportBackupUseCase
 import com.hydrafit.app.core.domain.backup.PendingBackup
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
+import com.hydrafit.app.core.domain.backup.PreviewMergeUseCase
 import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
+import com.hydrafit.app.core.domain.backup.StagedBackupDocumentJson
 import com.hydrafit.app.core.domain.backup.StoredBackupKey
 import com.hydrafit.app.core.domain.backup.VerifyBackupSnapshotUseCase
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
@@ -122,6 +130,8 @@ class BackupViewModelTest {
         advanceUntilIdle()
 
         assertNotNull(staging.staged.lastOrNull())
+        val staged = StagedBackupDocumentJson.decodeOrLegacy(staging.staged.single().payload)
+        assertEquals(BackupApplyMode.REPLACE, staged.mode)
         assertNull(viewModel.state.value.preview)
         assertEquals(BackupStatus.RestoreStaged, viewModel.state.value.status)
     }
@@ -263,6 +273,116 @@ class BackupViewModelTest {
         assertNull(viewModel.state.value.status)
     }
 
+    @Test
+    fun importProducesMergeSummaryForANewFile() = runTest(dispatcher) {
+        val repository = FakeBackupRepository(exported = backupFileWithOneSession())
+        val store = FakeBackupFileStore(content = BackupJson.encode(repository.exported))
+        val viewModel = viewModel(store, repository)
+
+        viewModel.`import`("content://src")
+        advanceUntilIdle()
+
+        val merge = assertNotNull(viewModel.state.value.mergePreview)
+        assertEquals(1, merge.sessions)
+        assertEquals(1, merge.sets)
+        assertEquals(3, merge.insertCount)
+        assertFalse(merge.isEmpty)
+        assertNotNull(viewModel.state.value.preview)
+    }
+
+    @Test
+    fun anEmptyBackupMarksTheMergeSelectionEmpty() = runTest(dispatcher) {
+        val repository = FakeBackupRepository()
+        val store = FakeBackupFileStore(content = BackupJson.encode(repository.exported))
+        val viewModel = viewModel(store, repository)
+
+        viewModel.`import`("content://src")
+        advanceUntilIdle()
+
+        val merge = assertNotNull(viewModel.state.value.mergePreview)
+        assertTrue(merge.isEmpty)
+        assertEquals(0, merge.insertCount)
+    }
+
+    @Test
+    fun confirmMergeStagesAMergeApplyOfTheOriginalPayload() = runTest(dispatcher) {
+        val repository = FakeBackupRepository(exported = backupFileWithOneSession())
+        val staging = FakeBackupStagingRepository()
+        val text = BackupJson.encode(repository.exported)
+        val viewModel = viewModel(FakeBackupFileStore(content = text), repository, staging)
+
+        viewModel.`import`("content://src")
+        advanceUntilIdle()
+        viewModel.confirmMerge()
+        advanceUntilIdle()
+
+        val staged = StagedBackupDocumentJson.decodeOrLegacy(staging.staged.single().payload)
+        assertEquals(BackupApplyMode.MERGE, staged.mode)
+        assertEquals(text, staged.payload)
+        assertNull(viewModel.state.value.preview)
+        assertNull(viewModel.state.value.mergePreview)
+        assertEquals(BackupStatus.MergeStaged, viewModel.state.value.status)
+    }
+
+    @Test
+    fun confirmMergeWithNothingNewStagesNothing() = runTest(dispatcher) {
+        val repository = FakeBackupRepository()
+        val staging = FakeBackupStagingRepository()
+        val store = FakeBackupFileStore(content = BackupJson.encode(repository.exported))
+        val viewModel = viewModel(store, repository, staging)
+
+        viewModel.`import`("content://src")
+        advanceUntilIdle()
+        viewModel.confirmMerge()
+        advanceUntilIdle()
+
+        assertTrue(staging.staged.isEmpty())
+        assertNull(viewModel.state.value.status)
+    }
+
+    @Test
+    fun aMergePreviewFailureReportsTheTypedFailureWithoutPreview() = runTest(dispatcher) {
+        val repository = FakeBackupRepository(
+            mergeKeysFailure = BackupException(BackupFailure.INVALID_REFERENCE, "broken")
+        )
+        val store = FakeBackupFileStore(content = BackupJson.encode(repository.exported))
+        val viewModel = viewModel(store, repository)
+
+        viewModel.`import`("content://src")
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.preview)
+        assertNull(viewModel.state.value.mergePreview)
+        assertEquals(
+            BackupStatus.Failed(BackupFailure.INVALID_REFERENCE),
+            viewModel.state.value.status
+        )
+    }
+
+    @Test
+    fun anEncryptedUnlockAlsoProducesTheMergeSummary() = runTest(dispatcher) {
+        val repository = FakeBackupRepository(exported = backupFileWithOneSession())
+        val encryption = testEncryption(FakeBackupEncryptionCrypto())
+        val payload = encryption.sealWithPassword(
+            BackupJson.encode(repository.exported),
+            "pw".toCharArray()
+        )
+        val viewModel = viewModel(
+            FakeBackupFileStore(content = payload),
+            repository,
+            encryption = encryption
+        )
+
+        viewModel.`import`("content://src")
+        advanceUntilIdle()
+        viewModel.unlockImport("pw")
+        advanceUntilIdle()
+
+        val merge = assertNotNull(viewModel.state.value.mergePreview)
+        assertEquals(1, merge.sessions)
+        assertEquals(1, merge.sets)
+    }
+
     private fun viewModel(
         store: BackupFileStore,
         repository: BackupRepository,
@@ -274,6 +394,7 @@ class BackupViewModelTest {
         return BackupViewModel(
             exportBackup = ExportBackupUseCase(repository, dispatcher),
             previewBackup = preview,
+            previewMerge = PreviewMergeUseCase(preview, repository),
             restoreBackup = RestoreBackupUseCase(preview, staging),
             fileStore = store,
             appVersionProvider = object : AppVersionProvider {
@@ -413,8 +534,11 @@ class BackupViewModelTest {
     }
 }
 
-private class FakeBackupRepository : BackupRepository {
-    var exported: BackupFile = emptyBackupFile()
+private class FakeBackupRepository(
+    var exported: BackupFile = emptyBackupFile(),
+    var mergeKeys: BackupMergeKeys = emptyMergeKeys(),
+    private val mergeKeysFailure: Throwable? = null
+) : BackupRepository {
     var restored: BackupFile? = null
 
     override suspend fun export(appVersion: String, exportedAtMillis: Long): BackupFile = exported
@@ -422,7 +546,25 @@ private class FakeBackupRepository : BackupRepository {
     override suspend fun restore(file: BackupFile) {
         restored = file
     }
+
+    override suspend fun mergeKeys(): BackupMergeKeys {
+        mergeKeysFailure?.let { throw it }
+        return mergeKeys
+    }
+
+    override suspend fun merge(selection: BackupMergeSelection) = Unit
 }
+
+private fun emptyMergeKeys(): BackupMergeKeys = BackupMergeKeys(
+    sessionIds = emptySet(),
+    bodyWeightDays = emptySet(),
+    personalRecordExerciseIds = emptySet(),
+    customExerciseIds = emptySet(),
+    exerciseOverrideIds = emptySet(),
+    exerciseNoteIds = emptySet(),
+    exercisePreferenceIds = emptySet(),
+    exerciseExclusionIds = emptySet()
+)
 
 private class FakeBackupStagingRepository : BackupStagingRepository {
     val staged = mutableListOf<PendingBackup>()
@@ -503,6 +645,49 @@ private fun emptyBackupFile(): BackupFile = BackupFile(
     preferences = emptyList(),
     exclusions = emptyList(),
     restPreferences = listOf(BackupRestPreferenceRecord(null, 120L))
+)
+
+/** One custom exercise, one finished session and one set, so a merge selection is non-empty. */
+private fun backupFileWithOneSession(): BackupFile = emptyBackupFile().copy(
+    customExercises = listOf(
+        BackupExerciseRecord(
+            id = "custom-1",
+            name = "Test curl",
+            requiredEquipment = "",
+            movementPattern = "BICEPS_ISOLATION",
+            isUnilateral = false,
+            loadCapability = "EXTERNAL",
+            involvements = null
+        )
+    ),
+    workoutSessions = listOf(
+        BackupWorkoutSessionRecord(
+            id = "session-1",
+            startedAtMillis = 1_000L,
+            endedAtMillis = 2_000L,
+            localEpochDay = 1L,
+            occurrenceId = null
+        )
+    ),
+    workoutSets = listOf(
+        BackupWorkoutSetRecord(
+            id = 1L,
+            exerciseId = "custom-1",
+            reps = 10,
+            weightKg = 20.0,
+            performedAtMillis = 1_500L,
+            isWarmup = false,
+            involvements = null,
+            weekNumber = null,
+            cycleNumber = null,
+            dayIndex = null,
+            rir = null,
+            sessionId = "session-1",
+            occurrenceId = null,
+            occurrenceEntryId = null,
+            loadKind = "EXTERNAL"
+        )
+    )
 )
 
 /**

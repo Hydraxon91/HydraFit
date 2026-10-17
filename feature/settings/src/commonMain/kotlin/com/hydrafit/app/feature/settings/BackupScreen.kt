@@ -2,6 +2,7 @@ package com.hydrafit.app.feature.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -14,10 +15,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hydrafit.app.core.domain.backup.BackupFailure
+import com.hydrafit.app.core.domain.backup.BackupMergeExcludedCategory
 import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.settings_backup_cancel
 import hydrafit.feature.settings.generated.resources.settings_backup_confirm
@@ -38,6 +41,23 @@ import hydrafit.feature.settings.generated.resources.settings_backup_error_unsup
 import hydrafit.feature.settings.generated.resources.settings_backup_exported
 import hydrafit.feature.settings.generated.resources.settings_backup_history_csv_description
 import hydrafit.feature.settings.generated.resources.settings_backup_history_csv_exported
+import hydrafit.feature.settings.generated.resources.settings_backup_merge_action
+import hydrafit.feature.settings.generated.resources.settings_backup_merge_body
+import hydrafit.feature.settings.generated.resources.settings_backup_merge_excluded_accepted_plans
+import hydrafit.feature.settings.generated.resources.settings_backup_merge_excluded_activations
+import hydrafit.feature.settings.generated.resources.settings_backup_merge_excluded_equipment_profiles
+import hydrafit.feature.settings.generated.resources.settings_backup_merge_excluded_import_ledger
+import hydrafit.feature.settings.generated.resources.settings_backup_merge_excluded_line
+import hydrafit.feature.settings.generated.resources.settings_backup_merge_excluded_occurrences
+import hydrafit.feature.settings.generated.resources.settings_backup_merge_excluded_routines
+import hydrafit.feature.settings.generated.resources.settings_backup_merge_excluded_settings
+import hydrafit.feature.settings.generated.resources.settings_backup_merge_excluded_title
+import hydrafit.feature.settings.generated.resources.settings_backup_merge_kept_local
+import hydrafit.feature.settings.generated.resources.settings_backup_merge_nothing_new
+import hydrafit.feature.settings.generated.resources.settings_backup_merge_skipped_open
+import hydrafit.feature.settings.generated.resources.settings_backup_merge_skipped_unattached
+import hydrafit.feature.settings.generated.resources.settings_backup_merge_staged
+import hydrafit.feature.settings.generated.resources.settings_backup_merge_title
 import hydrafit.feature.settings.generated.resources.settings_backup_password
 import hydrafit.feature.settings.generated.resources.settings_backup_preview_body
 import hydrafit.feature.settings.generated.resources.settings_backup_preview_title
@@ -87,6 +107,7 @@ fun BackupRoute(modifier: Modifier = Modifier, viewModel: BackupViewModel = koin
                     stringResource(Res.string.settings_backup_history_csv_exported)
 
                 BackupStatus.RestoreStaged -> stringResource(Res.string.settings_backup_restored)
+                BackupStatus.MergeStaged -> stringResource(Res.string.settings_backup_merge_staged)
                 is BackupStatus.Failed -> stringResource(status.failure.messageResource())
             }
             Text(text = message, style = MaterialTheme.typography.bodySmall)
@@ -98,18 +119,32 @@ fun BackupRoute(modifier: Modifier = Modifier, viewModel: BackupViewModel = koin
             onDismissRequest = viewModel::cancelPreview,
             title = { Text(stringResource(Res.string.settings_backup_preview_title)) },
             text = {
-                Text(
-                    stringResource(
-                        Res.string.settings_backup_preview_body,
-                        preview.totalRecords,
-                        preview.workoutSets,
-                        preview.customExercises
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        stringResource(
+                            Res.string.settings_backup_preview_body,
+                            preview.totalRecords,
+                            preview.workoutSets,
+                            preview.customExercises
+                        )
                     )
-                )
+                    state.mergePreview?.let { merge -> MergePreviewSummary(merge) }
+                }
             },
             confirmButton = {
-                TextButton(onClick = viewModel::confirmRestore, enabled = !state.inProgress) {
-                    Text(stringResource(Res.string.settings_backup_confirm))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = viewModel::confirmRestore, enabled = !state.inProgress) {
+                        Text(stringResource(Res.string.settings_backup_confirm))
+                    }
+                    state.mergePreview?.let { merge ->
+                        TextButton(
+                            onClick = viewModel::confirmMerge,
+                            enabled = !state.inProgress && !merge.isEmpty,
+                            modifier = Modifier.testTag(BackupTestTags.MERGE_ACTION)
+                        ) {
+                            Text(stringResource(Res.string.settings_backup_merge_action))
+                        }
+                    }
                 }
             },
             dismissButton = {
@@ -150,6 +185,100 @@ fun BackupRoute(modifier: Modifier = Modifier, viewModel: BackupViewModel = koin
             }
         )
     }
+}
+
+/**
+ * The add-only disclosure shown with the replace copy: what a merge would insert, what it keeps
+ * local, what it skips, and which collections it does not carry. It never mutates anything.
+ */
+@Composable
+private fun MergePreviewSummary(merge: BackupMergePreviewUi) {
+    Column(
+        modifier = Modifier.testTag(BackupTestTags.MERGE_SUMMARY),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = stringResource(Res.string.settings_backup_merge_title),
+            style = MaterialTheme.typography.titleSmall
+        )
+        Text(
+            text = stringResource(
+                Res.string.settings_backup_merge_body,
+                merge.sessions,
+                merge.sets,
+                merge.insertCount
+            ),
+            style = MaterialTheme.typography.bodySmall
+        )
+        if (merge.isEmpty) {
+            Text(
+                text = stringResource(Res.string.settings_backup_merge_nothing_new),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        if (merge.keptLocalSessions > 0) {
+            Text(
+                text = stringResource(
+                    Res.string.settings_backup_merge_kept_local,
+                    merge.keptLocalSessions
+                ),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        if (merge.skippedOpenSessions > 0) {
+            Text(
+                text = stringResource(
+                    Res.string.settings_backup_merge_skipped_open,
+                    merge.skippedOpenSessions
+                ),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        if (merge.skippedUnattachedSets > 0) {
+            Text(
+                text = stringResource(
+                    Res.string.settings_backup_merge_skipped_unattached,
+                    merge.skippedUnattachedSets
+                ),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        if (merge.excluded.isNotEmpty()) {
+            Text(
+                text = stringResource(Res.string.settings_backup_merge_excluded_title),
+                style = MaterialTheme.typography.bodySmall
+            )
+            merge.excluded.forEach { excluded ->
+                Text(
+                    text = stringResource(
+                        Res.string.settings_backup_merge_excluded_line,
+                        stringResource(excluded.category.labelResource()),
+                        excluded.count
+                    ),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+    }
+}
+
+private fun BackupMergeExcludedCategory.labelResource(): StringResource = when (this) {
+    BackupMergeExcludedCategory.ACCEPTED_PLANS ->
+        Res.string.settings_backup_merge_excluded_accepted_plans
+
+    BackupMergeExcludedCategory.ROUTINES -> Res.string.settings_backup_merge_excluded_routines
+    BackupMergeExcludedCategory.ACTIVATIONS ->
+        Res.string.settings_backup_merge_excluded_activations
+
+    BackupMergeExcludedCategory.OCCURRENCES ->
+        Res.string.settings_backup_merge_excluded_occurrences
+
+    BackupMergeExcludedCategory.EQUIPMENT_PROFILES ->
+        Res.string.settings_backup_merge_excluded_equipment_profiles
+
+    BackupMergeExcludedCategory.SETTINGS -> Res.string.settings_backup_merge_excluded_settings
+    BackupMergeExcludedCategory.IMPORT_LEDGER ->
+        Res.string.settings_backup_merge_excluded_import_ledger
 }
 
 private fun BackupFailure.messageResource(): StringResource = when (this) {
