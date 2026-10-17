@@ -304,6 +304,42 @@ class SchedulingUseCasesTest {
     }
 
     @Test
+    fun activatingATimedSlotSnapshotsItsSecondsOntoTheActivationAndItsOccurrence() = runTest {
+        val timed = routine().copy(
+            workouts = listOf(
+                RoutineWorkout(
+                    position = 0,
+                    name = "Upper",
+                    focus = SplitFocus.UPPER,
+                    entries = listOf(
+                        RoutineEntry(
+                            exerciseId = "bench-press",
+                            sets = 4,
+                            reps = null,
+                            durationSeconds = 90,
+                            weightKg = 80.0
+                        )
+                    )
+                )
+            )
+        )
+
+        val id = activateRoutine(timed, request(replaceActive = false))
+
+        val activationEntry = requireNotNull(scheduleRepository.getActivation(id))
+            .workouts[0].entries.single()
+        assertNull(activationEntry.reps)
+        assertEquals(90, activationEntry.durationSeconds)
+        assertEquals(80.0, activationEntry.weightKg)
+
+        // The occurrence copies the frozen slot, so its seconds travel with it.
+        val occurrenceEntry = scheduleRepository.occurrences(id).first().entries.single()
+        assertNull(occurrenceEntry.reps)
+        assertEquals(90, occurrenceEntry.durationSeconds)
+        assertEquals(80.0, occurrenceEntry.weightKg)
+    }
+
+    @Test
     fun freezesTheSourcePlansSlotReasoningOntoTheActivatedEntries() = runTest {
         val recorded = slotExplanation()
 
@@ -546,6 +582,44 @@ class SchedulingUseCasesTest {
         assertFailsWith<ScheduleException> {
             edit(occurrence.id, listOf(OccurrenceEntryDraft("bench-press", sets = 3, reps = 8)))
         }
+    }
+
+    @Test
+    fun editingAnUnstartedSlotKeepsATimedPrescriptionExpressedInSeconds() = runTest {
+        val activationId = activateRoutine(routine(), request(replaceActive = false))
+        val occurrence = scheduleRepository.occurrences(activationId).first()
+
+        edit(
+            occurrence.id,
+            listOf(
+                OccurrenceEntryDraft(
+                    exerciseId = "bench-press",
+                    sets = 3,
+                    reps = null,
+                    durationSeconds = 90,
+                    weightKg = 80.0
+                )
+            )
+        )
+
+        val stored = requireNotNull(scheduleRepository.getOccurrence(occurrence.id))
+            .entries.single()
+        assertNull(stored.reps)
+        assertEquals(90, stored.durationSeconds)
+        assertEquals(3, stored.sets)
+        assertEquals(80.0, stored.weightKg)
+
+        // A draft with both measurements, or with neither, is refused and leaves the slot alone.
+        listOf(
+            OccurrenceEntryDraft("bench-press", sets = 3, reps = 8, durationSeconds = 90),
+            OccurrenceEntryDraft("bench-press", sets = 3)
+        ).forEach { invalid ->
+            assertFailsWith<ScheduleException> { edit(occurrence.id, listOf(invalid)) }
+        }
+        val unchanged = requireNotNull(scheduleRepository.getOccurrence(occurrence.id))
+            .entries.single()
+        assertNull(unchanged.reps)
+        assertEquals(90, unchanged.durationSeconds)
     }
 
     @Test
@@ -793,6 +867,7 @@ private class FakeWorkoutScheduleRepository : WorkoutScheduleRepository {
                         isUnilateral = entry.isUnilateral,
                         sets = entry.sets,
                         reps = entry.reps,
+                        durationSeconds = entry.durationSeconds,
                         weightKg = entry.weightKg
                     )
                 }

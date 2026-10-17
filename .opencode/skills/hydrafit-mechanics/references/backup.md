@@ -3,8 +3,16 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 16), restored by whole replacement.
-The reader accepts versions 1–16; version 1 defaults the guided-workout preference to off.
+Logical, versioned JSON (`format` + `formatVersion` 20), restored by whole replacement.
+The reader accepts versions 1–20; version 1 defaults the guided-workout preference to off.
+Format 20 adds the warm-up preparation overrides (`warmupPreparationOverrides`), one persisted
+measure per preparation action; an unknown action name, a duplicate action or a non-exclusive
+measure is rejected rather than dropped. Format 19 adds an accepted plan slot's duration. Format 18
+adds exclusive nullable reps/durationSeconds to routine and frozen activation/occurrence
+slots; format 17 introduced performed-set duration. Legacy versions reject duration fields they
+cannot represent; valid counted histories retain their values. Prescription interchange v2 also
+carries duration, while v1 remains readable for counted slots only. PDF renders timed targets in
+seconds. A plan slot's seconds are user-set only: the engines still prescribe reps.
 Format 16 adds the bucket/partition import ledger `importBuckets`; versions 1–15 restore with the
 legacy provenance section only and cannot carry a split bucket.
 Format 15 adds the local workout-import provenance ledger; versions 1–14 restore with no
@@ -53,7 +61,7 @@ Formats 5–10 carry one global rest duration and optional per-exercise override
 default to a 120-second global duration with no overrides. Countdown state is deliberately
 excluded and cleared during restore. Formats 4–10 require per-set timing provenance and explicit nullable elapsed fields; format 3 requires
 and preserves timing provenance while elapsed fields default to null; formats 1–2 default timing
-provenance to `UNKNOWN` and elapsed fields to null. Exports use version 16.
+provenance to `UNKNOWN` and elapsed fields to null. Exports use version 20.
 Format 10 requires its session-note section. Unknown fields remain rejected.
 Domain `backup/` owns the payload records, the kotlinx-serialization codec, the
 validator, the limits and the export/preview/stage/apply use cases (bound in
@@ -206,12 +214,26 @@ times as `d MMM yyyy, HH:mm`). `set_type` accepts only `normal`/`warmup`; any ot
 value rejects the row. `CsvTableReader` is a strict RFC-4180-style scanner handling a
 BOM, LF/CRLF, and quoted delimiters, newlines and doubled quotes. Rows keep source order
 and duplicates; a blank weight and an unavailable warmup stay null, and no UTC instant,
-session id, RPE-to-RIR conversion, load-kind inference or set dedupe is produced. RPE,
-distance, duration, notes and superset values on otherwise valid rows are retained as
-per-row `UNSUPPORTED_METADATA` diagnostics; invalid date/time/reps/weight/unit values
-reject only that row with the row index retained. Header, CSV-structure and limit
+session id, RPE-to-RIR conversion, load-kind inference or set dedupe is produced.
+
+A parsed row is measured by a positive rep count or positive whole seconds, never both
+and never neither (`WorkoutCsvRow.reps` is nullable beside `durationSeconds`). Strong's
+`Seconds` and Hevy's `duration_seconds` produce a duration row when reps are absent, so
+an imported timed set stores seconds with NULL reps. A row carrying both a positive rep
+count and positive seconds is rejected as `AMBIGUOUS_ROW_SHAPE` rather than guessed, and a
+row with neither is rejected as before. FitNotes exposes no duration column, so its rows
+still require a positive rep count. Seconds are never inferred from source timestamps or
+encoded as reps. RPE, distance, notes and superset values on otherwise valid rows are
+retained as per-row `UNSUPPORTED_METADATA` diagnostics; invalid date/time/reps/duration/
+weight/unit values reject only that row with the row index retained. Header, CSV-structure and limit
 failures raise a typed `WorkoutCsvException` under 32 MiB UTF-8, 250,000 data rows,
 64 columns and 65,536 characters per field, matching `BackupLimits`.
+
+Counted Strong/Hevy rows retain their legacy diagnostic for an explicit zero-duration field,
+including its original ordering and source spelling: canonical identity includes diagnostics.
+Timed rows consume the field as their measurement instead. Duration parsing accepts positive
+whole seconds through `Int.MAX_VALUE`; nonblank malformed reps are rejected even when seconds
+are valid, rather than silently treating the reps as absent.
 
 ## Local import preview, commit and provenance (0.9.1-I2/I3)
 

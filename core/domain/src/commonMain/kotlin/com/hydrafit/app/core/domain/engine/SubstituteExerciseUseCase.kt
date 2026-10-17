@@ -97,6 +97,7 @@ class SubstituteExerciseUseCase(
             exerciseId = chosen.id,
             sets = context.entry.sets,
             reps = context.entry.reps,
+            durationSeconds = context.entry.durationSeconds,
             name = chosen.name,
             movementPattern = chosen.movementPattern,
             suggestedWeightKg = weight,
@@ -159,6 +160,7 @@ class SubstituteExerciseUseCase(
                             exerciseId = exercise.exerciseId,
                             sets = exercise.sets,
                             reps = exercise.reps,
+                            durationSeconds = exercise.durationSeconds,
                             suggestedWeightKg = exercise.suggestedWeightKg,
                             loadKind = exercise.loadKind,
                             loadCapability = exercise.loadCapability

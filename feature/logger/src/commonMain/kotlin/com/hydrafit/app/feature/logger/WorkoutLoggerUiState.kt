@@ -46,7 +46,8 @@ data class LoggedSetRow(
     val performedAtMillis: Long,
     val exerciseId: String,
     val exerciseName: String,
-    val reps: Int,
+    /** Repetitions for counted work, or null for a timed set. Never a `0` placeholder. */
+    val reps: Int?,
     val weightKg: Double?,
     val rir: Int? = null,
     val isWarmup: Boolean,
@@ -55,29 +56,56 @@ data class LoggedSetRow(
     /** What [weightKg] means, so the row can label added or unconfirmed load honestly. */
     val loadKind: LoadKind = LoadKind.LEGACY_UNSPECIFIED,
     val occurrenceId: Long? = null,
-    val sessionId: String? = null
+    val sessionId: String? = null,
+    /** Elapsed whole seconds for a timed set, or null for counted work. */
+    val durationSeconds: Int? = null
 )
 
 /** Null identity is unrecorded, never a shared session boundary. */
 internal fun LoggedSetRow.startsSessionAfter(previous: LoggedSetRow?): Boolean =
     sessionId != null && (previous == null || sessionId != previous.sessionId)
 
+/**
+ * Which single measurement a form records: repetitions or elapsed whole seconds. The two entry
+ * fields are mutually exclusive because the chosen metric alone is submitted, so a form can never
+ * write both.
+ */
+enum class SetMetric { REPETITIONS, DURATION }
+
 /** A correction of an existing row; unit is frozen for the lifetime of this editor. */
 data class LoggedSetEdit(
     val row: LoggedSetRow,
     val weightUnit: WeightUnit,
+    /** The metric being corrected; the other field is retained but never submitted. */
+    val metric: SetMetric,
     val reps: String,
+    val durationSeconds: String,
     val weightInput: String,
     val originalWeightInput: String,
     val rir: String,
     val performedAtMillis: Long
 ) {
-    val canSave: Boolean get() = (reps.toIntOrNull() ?: 0) > 0 &&
+    val canSave: Boolean get() = enteredMetricIsPositive &&
         (rir.isBlank() || rir.toIntOrNull()?.let { it in 0..10 } == true) &&
         (
             weightInput.isBlank() ||
                 weightInput.toDoubleOrNull()?.let { it.isFinite() && it >= 0 } == true
             )
+
+    /** True when the selected metric holds a positive whole number. */
+    val enteredMetricIsPositive: Boolean
+        get() = when (metric) {
+            SetMetric.REPETITIONS -> (reps.toIntOrNull() ?: 0) > 0
+            SetMetric.DURATION -> (durationSeconds.toIntOrNull() ?: 0) > 0
+        }
+
+    /** Repetitions to write, or null when this correction records seconds instead. */
+    val correctionReps: Int?
+        get() = if (metric == SetMetric.REPETITIONS) reps.toIntOrNull() else null
+
+    /** Whole seconds to write, or null when this correction records repetitions instead. */
+    val correctionDurationSeconds: Int?
+        get() = if (metric == SetMetric.DURATION) durationSeconds.toIntOrNull() else null
 }
 
 /**
@@ -115,7 +143,8 @@ data class DraftSet(
     val exerciseId: String,
     val name: String,
     val sets: Int,
-    val reps: Int,
+    /** Repetitions for counted work, or null for a timed slot. Never a `0` sentinel. */
+    val reps: Int? = null,
     val weightKg: Double?,
     val loadKind: LoadKind = LoadKind.EXTERNAL,
     /** Load semantics frozen with the prescription; the live catalog may have changed since. */
@@ -131,19 +160,37 @@ data class DraftSet(
     /**
      * Prescriptions default to working sets; guided confirmation freezes the user's Warm-up choice.
      */
-    val isWarmup: Boolean = false
+    val isWarmup: Boolean = false,
+    /** Elapsed whole seconds for a timed slot, or null for counted work. */
+    val durationSeconds: Int? = null
 )
 
-/** One-off values for the draft currently being edited; never written back to its prescription. */
+/**
+ * One-off values for the draft currently being edited; never written back to its prescription.
+ * The draft's own measure is frozen for the lifetime of this editor: a timed draft edits whole
+ * seconds and a counted draft edits repetitions, and only the frozen one is ever submitted.
+ */
 data class DraftEdit(
     val draft: DraftSet,
     val reps: String,
+    val durationSeconds: String = "",
     val weightInput: String,
     val rir: String,
     val weightRevealed: Boolean,
     val performedAtMillis: Long?,
     val performedAtExplicit: Boolean = false
-)
+) {
+    /** True when the frozen draft records elapsed seconds instead of repetitions. */
+    val isTimed: Boolean get() = draft.durationSeconds != null
+
+    /** True when the frozen measure's field holds a positive whole number. */
+    val enteredMetricIsPositive: Boolean
+        get() = if (isTimed) {
+            (durationSeconds.toIntOrNull() ?: 0) > 0
+        } else {
+            (reps.toIntOrNull() ?: 0) > 0
+        }
+}
 
 /**
  * A draft submission that stopped partway through. [source] is the pending row that was being
@@ -207,7 +254,10 @@ data class WorkoutLoggerUiState(
     val exercises: List<ExerciseOption> = emptyList(),
     val exerciseSearch: String = "",
     val selectedExerciseId: String? = null,
+    /** Which metric the manual form records; the other entry field is never submitted. */
+    val metric: SetMetric = SetMetric.REPETITIONS,
     val reps: String = "",
+    val durationSeconds: String = "",
     val weightInput: String = "",
     val rir: String = "",
     val isWarmup: Boolean = false,
@@ -265,6 +315,12 @@ data class WorkoutLoggerUiState(
     val warmupRampWriteFailed: Boolean = false,
     /** Transient preparation value edits for the current workout; never persisted. */
     val warmupPreparationEdits: Map<WarmupAction, WarmupPreparationItem> = emptyMap(),
+    /**
+     * The persisted preparation overrides, keyed by action. Global rather than per occurrence, so an
+     * edited measure survives the next occurrence and an app restart; an action absent here uses its
+     * built-in default.
+     */
+    val warmupPreparationOverrides: Map<WarmupAction, WarmupPreparationItem> = emptyMap(),
     /** Preparation items the user skipped for the current workout; never persisted. */
     val warmupPreparationSkipped: Set<WarmupAction> = emptySet(),
     /** Transient ramp value edits for the current workout, keyed by slot and row; never persisted. */
@@ -368,6 +424,7 @@ data class WorkoutLoggerUiState(
                     guidance.copy(ramps = emptyList())
                 },
                 preparationEdits = warmupPreparationEdits,
+                overridden = warmupPreparationOverrides.keys,
                 skipped = warmupPreparationSkipped,
                 rampEdits = warmupRampEdits
             ).takeIf { !it.isEmpty }
@@ -393,7 +450,14 @@ data class WorkoutLoggerUiState(
         }
 
     val canLog: Boolean
-        get() = selectedExerciseId != null && (reps.toIntOrNull() ?: 0) > 0
+        get() = selectedExerciseId != null && enteredMetricIsPositive
+
+    /** True when the metric selected in the manual form holds a positive whole number. */
+    val enteredMetricIsPositive: Boolean
+        get() = when (metric) {
+            SetMetric.REPETITIONS -> (reps.toIntOrNull() ?: 0) > 0
+            SetMetric.DURATION -> (durationSeconds.toIntOrNull() ?: 0) > 0
+        }
 
     /**
      * Whether the weight field is shown: always for weighted exercises, and for bodyweight

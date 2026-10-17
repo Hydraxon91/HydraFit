@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.domain.backup
 
+import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -162,6 +163,103 @@ class BackupValidatorTest {
                     )
                 )
             )
+        }
+    }
+
+    @Test
+    fun acceptsATimedPlanEntryAtTheCurrentFormat() {
+        validator.validate(
+            planEntryFile(BACKUP_FORMAT_VERSION, reps = null, durationSeconds = 45)
+        )
+    }
+
+    @Test
+    fun acceptsALegacyPlanEntryWithoutADuration() {
+        validator.validate(
+            planEntryFile(
+                formatVersion = PLAN_ENTRY_DURATION_FORMAT_VERSION - 1,
+                reps = 5,
+                durationSeconds = null
+            )
+        )
+    }
+
+    @Test
+    fun rejectsAPlanEntryWithBothOrNeitherMeasure() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            planEntryFile(BACKUP_FORMAT_VERSION, reps = 5, durationSeconds = 45)
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            planEntryFile(BACKUP_FORMAT_VERSION, reps = null, durationSeconds = null)
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            planEntryFile(BACKUP_FORMAT_VERSION, reps = 0, durationSeconds = null)
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            planEntryFile(BACKUP_FORMAT_VERSION, reps = null, durationSeconds = 0)
+        }
+    }
+
+    @Test
+    fun rejectsAPlanEntryDurationInALegacyFormat() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            planEntryFile(
+                formatVersion = PLAN_ENTRY_DURATION_FORMAT_VERSION - 1,
+                reps = null,
+                durationSeconds = 45
+            )
+        }
+    }
+
+    @Test
+    fun acceptsCountedAndTimedWarmupPreparationOverridesAtTheCurrentFormat() {
+        validator.validate(
+            overrideFile(
+                BACKUP_FORMAT_VERSION,
+                prepOverride("LOWER_BODY_PRACTICE", reps = 15),
+                prepOverride("EASY_GENERAL_MOVEMENT", durationSeconds = 300)
+            )
+        )
+    }
+
+    @Test
+    fun rejectsWarmupPreparationOverridesInLegacyFormats() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            overrideFile(
+                WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION - 1,
+                prepOverride("LOWER_BODY_PRACTICE", reps = 15)
+            )
+        }
+    }
+
+    @Test
+    fun anEmptyWarmupPreparationOverrideSectionStaysValidForLegacyFormats() {
+        validator.validate(overrideFile(WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION - 1))
+    }
+
+    @Test
+    fun rejectsAnUnknownDuplicateOrInvalidWarmupPreparationOverride() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            overrideFile(BACKUP_FORMAT_VERSION, prepOverride("NOT_AN_ACTION", reps = 10))
+        }
+        assertFailure(BackupFailure.DUPLICATE_ID) {
+            overrideFile(
+                BACKUP_FORMAT_VERSION,
+                prepOverride("LOWER_BODY_PRACTICE", reps = 10),
+                prepOverride("LOWER_BODY_PRACTICE", reps = 12)
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            overrideFile(
+                BACKUP_FORMAT_VERSION,
+                prepOverride("LOWER_BODY_PRACTICE", reps = 5, durationSeconds = 60)
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            overrideFile(BACKUP_FORMAT_VERSION, prepOverride("LOWER_BODY_PRACTICE"))
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            overrideFile(BACKUP_FORMAT_VERSION, prepOverride("LOWER_BODY_PRACTICE", reps = 0))
         }
     }
 
@@ -852,6 +950,130 @@ class BackupValidatorTest {
         }
     }
 
+    @Test
+    fun acceptsATimedSetInFormatSeventeenAndRejectsTheBothOrNeitherShapes() {
+        validator.validate(
+            profiledFile(BACKUP_FORMAT_VERSION)
+                .copy(workoutSets = listOf(set(reps = null, durationSeconds = 90)))
+        )
+
+        // Exactly one positive measurement: never reps and seconds together, never neither, and
+        // never a non-positive value.
+        listOf(
+            set(reps = 5, durationSeconds = 90),
+            set(reps = null, durationSeconds = null),
+            set(reps = 0, durationSeconds = null),
+            set(reps = null, durationSeconds = 0)
+        ).forEach { invalid ->
+            assertFailure(BackupFailure.INVALID_VALUE) {
+                profiledFile(BACKUP_FORMAT_VERSION).copy(workoutSets = listOf(invalid))
+            }
+        }
+    }
+
+    @Test
+    fun aLegacyRepsOnlySetStaysCountedAndRejectsADuration() {
+        // The format before the metrics field predates it, so its counted rows restore verbatim.
+        val legacy = profiledFile(WORKOUT_SET_METRICS_FORMAT_VERSION - 1)
+        validator.validate(legacy.copy(workoutSets = listOf(set(reps = 5))))
+        // A duration in a pre-17 file is rejected rather than read as extra reps.
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            legacy.copy(workoutSets = listOf(set(reps = null, durationSeconds = 90)))
+        }
+    }
+
+    @Test
+    fun aTimedPrescriptionIsAcceptedAtFormatEighteenAndRefusedInEarlierFormats() {
+        fun file(
+            routine: BackupRoutineEntryRecord,
+            activation: BackupActivationEntryRecord,
+            occurrence: BackupOccurrenceEntryRecord
+        ) = profiledFile(BACKUP_FORMAT_VERSION).copy(
+            routines = listOf(
+                BackupRoutineRecord(1L, "Push", 1, 1L, 1L, null, null)
+            ),
+            routineWorkouts = listOf(BackupRoutineWorkoutRecord(10L, 1L, 0, "Day", null)),
+            routineEntries = listOf(routine),
+            activations = listOf(activation(1L)),
+            activationWorkouts = listOf(activationWorkout(10L, 1L)),
+            activationEntries = listOf(activation),
+            occurrences = listOf(occurrence(30L, 1L, 10L)),
+            occurrenceEntries = listOf(occurrence)
+        )
+
+        val timed = file(
+            routine = BackupRoutineEntryRecord(
+                id = 100L,
+                workoutId = 10L,
+                position = 0,
+                exerciseId = "back-squat",
+                sets = 3,
+                reps = null,
+                durationSeconds = 90,
+                weightKg = 100.0,
+                loadKind = "EXTERNAL"
+            ),
+            activation = activationEntry(200L, 10L).copy(reps = null, durationSeconds = 90),
+            occurrence = occurrenceEntry(300L, 30L).copy(reps = null, durationSeconds = 90)
+        )
+
+        assertEquals(BACKUP_FORMAT_VERSION, timed.formatVersion)
+        validator.validate(timed)
+
+        // The same payload written as the previous format has no field for a duration, so carrying
+        // one is a corrupt file rather than a value to reinterpret.
+        assertFailure(BackupFailure.INVALID_VALUE) { timed.copy(formatVersion = 17) }
+
+        // A reps-only payload stays valid at either format: the field's presence is what is gated.
+        val legacyCounted = timed.copy(
+            formatVersion = 17,
+            routineEntries = listOf(
+                timed.routineEntries.single().copy(reps = 5, durationSeconds = null)
+            ),
+            activationEntries = listOf(
+                timed.activationEntries.single().copy(reps = 5, durationSeconds = null)
+            ),
+            occurrenceEntries = listOf(
+                timed.occurrenceEntries.single().copy(reps = 5, durationSeconds = null)
+            )
+        )
+        validator.validate(legacyCounted)
+
+        // Every prescription section enforces the same exactly-one rule.
+        fun counted(entry: BackupRoutineEntryRecord) = entry.copy(reps = 5)
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            timed.copy(routineEntries = listOf(counted(timed.routineEntries.single())))
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            timed.copy(
+                activationEntries = listOf(
+                    timed.activationEntries.single().copy(reps = 5)
+                )
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            timed.copy(
+                occurrenceEntries = listOf(
+                    timed.occurrenceEntries.single().copy(reps = 5)
+                )
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            timed.copy(
+                routineEntries = listOf(
+                    timed.routineEntries.single().copy(reps = null, durationSeconds = null)
+                )
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            timed.copy(
+                occurrenceEntries = listOf(
+                    timed.occurrenceEntries.single().copy(durationSeconds = 0)
+                )
+            )
+        }
+    }
+
     private fun assertFailure(expected: BackupFailure, mutate: () -> BackupFile) {
         val failure = assertFailsWith<BackupException> { validator.validate(mutate()) }
         assertEquals(expected, failure.failure)
@@ -868,6 +1090,51 @@ class BackupValidatorTest {
         workoutSessions = listOf(session("s1")),
         workoutSets = listOf(set())
     )
+
+    /**
+     * A file in a format that requires the equipment-profile section (>= 14), which `validFile()`
+     * deliberately leaves empty because it pins format 13. Tests about a later section use this base
+     * so the only thing under test is that section.
+     */
+    private fun profiledFile(formatVersion: Int) = validFile().copy(
+        formatVersion = formatVersion,
+        equipmentProfiles = listOf(
+            BackupEquipmentProfileRecord(1L, "Home", emptyList(), emptyList(), LoadingInventory())
+        ),
+        activeEquipmentProfileId = 1L
+    )
+
+    /** One accepted-plan slot, so a plan-entry duration test only exercises that section. */
+    private fun planEntryFile(formatVersion: Int, reps: Int?, durationSeconds: Int?) =
+        profiledFile(formatVersion).copy(
+            plans = listOf(BackupPlanRecord(7L, "DETERMINISTIC", 1L, 1, 1)),
+            planDays = listOf(BackupPlanDayRecord(70L, 7L, 0, "FULL_BODY")),
+            planEntries = listOf(
+                BackupPlanEntryRecord(
+                    id = 700L,
+                    dayId = 70L,
+                    position = 0,
+                    exerciseId = "back-squat",
+                    sets = 3,
+                    reps = reps,
+                    durationSeconds = durationSeconds,
+                    exerciseName = "Back Squat",
+                    movementPattern = "SQUAT",
+                    suggestedWeightKg = 100.0,
+                    loadCapability = "EXTERNAL",
+                    loadKind = "EXTERNAL"
+                )
+            )
+        )
+
+    /** One persisted warm-up preparation override, so that section is the only thing under test. */
+    private fun prepOverride(action: String, reps: Int? = null, durationSeconds: Int? = null) =
+        BackupWarmupPreparationOverrideRecord(action, reps, durationSeconds)
+
+    private fun overrideFile(
+        formatVersion: Int,
+        vararg overrides: BackupWarmupPreparationOverrideRecord
+    ) = profiledFile(formatVersion).copy(warmupPreparationOverrides = overrides.toList())
 
     private fun targetReasonFile() = validFile().copy(
         plans = listOf(BackupPlanRecord(7L, "DETERMINISTIC", 1L, 1, 1)),
@@ -1033,11 +1300,13 @@ class BackupValidatorTest {
         involvements: String? = null,
         sessionId: String? = "s1",
         occurrenceId: Long? = null,
-        occurrenceEntryId: Long? = null
+        occurrenceEntryId: Long? = null,
+        reps: Int? = 5,
+        durationSeconds: Int? = null
     ) = BackupWorkoutSetRecord(
         id = id,
         exerciseId = exerciseId,
-        reps = 5,
+        reps = reps,
         weightKg = weightKg,
         performedAtMillis = 1L,
         isWarmup = false,
@@ -1052,7 +1321,8 @@ class BackupValidatorTest {
         loadKind = loadKind,
         timingProvenance = timingProvenance,
         startedAtElapsedMillis = startedAtElapsedMillis,
-        completedAtElapsedMillis = completedAtElapsedMillis
+        completedAtElapsedMillis = completedAtElapsedMillis,
+        durationSeconds = durationSeconds
     )
 
     private fun session(id: String) = BackupWorkoutSessionRecord(

@@ -2,6 +2,7 @@ package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.time.localEpochDay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -20,17 +21,30 @@ class ObserveWorkoutPlanInputsUseCase(
     operator fun invoke(
         setsPerExercise: Flow<Int?> = flowOf(null),
         accessorySetsPerExercise: Flow<Int?> = flowOf(null),
-        refreshRequests: Flow<Unit> = emptyFlow()
+        refreshRequests: Flow<Unit> = emptyFlow(),
+        workoutEpochDays: Flow<List<Long>> = flowOf(emptyList())
     ): Flow<WorkoutPlanInputs> = combine(
         sources.observe().distinctUntilChanged(),
         setsPerExercise.distinctUntilChanged(),
         accessorySetsPerExercise.distinctUntilChanged(),
-        refreshRequests.onStart { emit(Unit) }
-    ) { current, sets, accessorySets, _ ->
+        refreshRequests.onStart { emit(Unit) },
+        workoutEpochDays.distinctUntilChanged()
+    ) { current, sets, accessorySets, _, requestedDates ->
         val nowMillis = timeProvider.nowMillis()
         val latestPlan = planHistoryRepository.latest()
         val (weekNumber, cycleNumber) = nextPeriodization(latestPlan)
         val utcOffsetMillis = timeProvider.utcOffsetMillis()
+        val today = localEpochDay(nowMillis, utcOffsetMillis)
+        // A changed frequency or an elapsed date requires new confirmation, never a guessed date.
+        val dates = requestedDates.takeIf { selected ->
+            selected.size == current.daysPerWeek &&
+                selected.all { it in today..Int.MAX_VALUE.toLong() } &&
+                selected.zipWithNext().all { (first, second) -> first < second }
+        }.orEmpty()
+        val recordedSets = current.loggedSets.filter { it.timestampMillis <= nowMillis }
+        val projectedFatigue = dates.map { date ->
+            calculateMuscleFatigue(recordedSets, nowMillis + (date - today) * 86_400_000L)
+        }
         val excludedExerciseIds = current.exerciseExclusions
             .filter { it.isActive(nowMillis) }
             .map { it.exerciseId }
@@ -74,7 +88,9 @@ class ObserveWorkoutPlanInputsUseCase(
                 weekNumber = weekNumber,
                 cycleNumber = cycleNumber,
                 isDeload = periodization.isDeload(weekNumber),
-                loadExplanations = loadInputs.loadExplanations
+                loadExplanations = loadInputs.loadExplanations,
+                workoutEpochDays = dates,
+                fatigueByWorkout = projectedFatigue
             ),
             requestedEngine = current.selectedEngine,
             exercisePreferences = current.exercisePreferences,

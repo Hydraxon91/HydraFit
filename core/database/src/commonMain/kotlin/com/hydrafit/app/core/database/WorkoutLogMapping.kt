@@ -6,7 +6,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutSet as DomainWorkoutSet
 internal fun WorkoutSet.toDomain(): DomainWorkoutSet = DomainWorkoutSet(
     id = id,
     exerciseId = exerciseId,
-    reps = reps.toInt(),
+    reps = reps?.toInt(),
     weightKg = weightKg,
     loadKind = decodeLoadKind(loadKind),
     performedAtMillis = performedAt,
@@ -20,7 +20,8 @@ internal fun WorkoutSet.toDomain(): DomainWorkoutSet = DomainWorkoutSet(
     occurrenceEntryId = occurrenceEntryId,
     timingProvenance = decodeWorkoutTimingProvenance(timingProvenance),
     startedAtElapsedMillis = startedAtElapsedMillis,
-    completedAtElapsedMillis = completedAtElapsedMillis
+    completedAtElapsedMillis = completedAtElapsedMillis,
+    durationSeconds = durationSeconds?.toInt()
 )
 
 internal fun WorkoutSession.toDomain(): DomainWorkoutSession = DomainWorkoutSession(

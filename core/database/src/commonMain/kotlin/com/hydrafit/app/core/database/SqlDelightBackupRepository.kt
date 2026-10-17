@@ -41,6 +41,7 @@ import com.hydrafit.app.core.domain.backup.BackupSetupRecord
 import com.hydrafit.app.core.domain.backup.BackupTrainingGuidanceRecord
 import com.hydrafit.app.core.domain.backup.BackupVolumeExplanationRecord
 import com.hydrafit.app.core.domain.backup.BackupVolumeExplanationStateRecord
+import com.hydrafit.app.core.domain.backup.BackupWarmupPreparationOverrideRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutReminderRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSessionRecord
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSetRecord
@@ -118,7 +119,7 @@ class SqlDelightBackupRepository(
                     BackupWorkoutSetRecord(
                         id = it.id,
                         exerciseId = it.exerciseId,
-                        reps = it.reps.toInt(),
+                        reps = it.reps?.toInt(),
                         weightKg = it.weightKg,
                         performedAtMillis = it.performedAt,
                         isWarmup = it.isWarmup != 0L,
@@ -133,7 +134,8 @@ class SqlDelightBackupRepository(
                         loadKind = it.loadKind,
                         timingProvenance = it.timingProvenance,
                         startedAtElapsedMillis = it.startedAtElapsedMillis,
-                        completedAtElapsedMillis = it.completedAtElapsedMillis
+                        completedAtElapsedMillis = it.completedAtElapsedMillis,
+                        durationSeconds = it.durationSeconds?.toInt()
                     )
                 },
                 workoutSessions = database.workoutSessionQueries.selectAllSessions()
@@ -170,7 +172,8 @@ class SqlDelightBackupRepository(
                         position = it.position.toInt(),
                         exerciseId = it.exerciseId,
                         sets = it.sets.toInt(),
-                        reps = it.reps.toInt(),
+                        reps = it.reps?.toInt(),
+                        durationSeconds = it.durationSeconds?.toInt(),
                         exerciseName = it.exerciseName,
                         movementPattern = it.movementPattern,
                         suggestedWeightKg = it.suggestedWeightKg,
@@ -340,7 +343,8 @@ class SqlDelightBackupRepository(
                             position = it.position.toInt(),
                             exerciseId = it.exerciseId,
                             sets = it.sets.toInt(),
-                            reps = it.reps.toInt(),
+                            reps = it.reps?.toInt(),
+                            durationSeconds = it.durationSeconds?.toInt(),
                             weightKg = it.weightKg,
                             loadKind = it.loadKind
                         )
@@ -388,7 +392,8 @@ class SqlDelightBackupRepository(
                             involvements = it.involvements,
                             isUnilateral = it.isUnilateral != 0L,
                             sets = it.sets.toInt(),
-                            reps = it.reps.toInt(),
+                            reps = it.reps?.toInt(),
+                            durationSeconds = it.durationSeconds?.toInt(),
                             weightKg = it.weightKg,
                             loadCapability = it.loadCapability,
                             loadKind = it.loadKind
@@ -423,7 +428,8 @@ class SqlDelightBackupRepository(
                             involvements = it.involvements,
                             isUnilateral = it.isUnilateral != 0L,
                             sets = it.sets.toInt(),
-                            reps = it.reps.toInt(),
+                            reps = it.reps?.toInt(),
+                            durationSeconds = it.durationSeconds?.toInt(),
                             weightKg = it.weightKg,
                             loadCapability = it.loadCapability,
                             loadKind = it.loadKind,
@@ -543,6 +549,14 @@ class SqlDelightBackupRepository(
                                 .sortedBy { it.ordinal }
                                 .map { it.importedSessionId }
                         )
+                    },
+                warmupPreparationOverrides = database.warmupPreparationOverrideQueries.selectAll()
+                    .executeAsList().map {
+                        BackupWarmupPreparationOverrideRecord(
+                            action = it.action,
+                            reps = it.reps?.toInt(),
+                            durationSeconds = it.durationSeconds?.toInt()
+                        )
                     }
             )
         }
@@ -574,6 +588,7 @@ class SqlDelightBackupRepository(
             database.exerciseExclusionQueries.deleteAll()
             database.exerciseNoteQueries.deleteAll()
             database.sessionNoteQueries.deleteAll()
+            database.warmupPreparationOverrideQueries.deleteAll()
             database.personalRecordQueries.deleteAll()
             database.workoutLogQueries.deleteAllSets()
             database.workoutSessionQueries.deleteAllSessions()
@@ -710,6 +725,13 @@ class SqlDelightBackupRepository(
             file.exerciseNotes.forEach {
                 database.exerciseNoteQueries.upsert(it.exerciseId, it.note)
             }
+            file.warmupPreparationOverrides.forEach {
+                database.warmupPreparationOverrideQueries.upsert(
+                    action = it.action,
+                    reps = it.reps?.toLong(),
+                    durationSeconds = it.durationSeconds?.toLong()
+                )
+            }
 
             file.plans.forEach { plan ->
                 database.planHistoryQueries.insertPlanWithId(
@@ -735,7 +757,8 @@ class SqlDelightBackupRepository(
                     position = entry.position.toLong(),
                     exerciseId = entry.exerciseId,
                     sets = entry.sets.toLong(),
-                    reps = entry.reps.toLong(),
+                    reps = entry.reps?.toLong(),
+                    durationSeconds = entry.durationSeconds?.toLong(),
                     exerciseName = entry.exerciseName,
                     movementPattern = entry.movementPattern,
                     suggestedWeightKg = entry.suggestedWeightKg,
@@ -895,7 +918,8 @@ class SqlDelightBackupRepository(
                     position = entry.position.toLong(),
                     exerciseId = entry.exerciseId,
                     sets = entry.sets.toLong(),
-                    reps = entry.reps.toLong(),
+                    reps = entry.reps?.toLong(),
+                    durationSeconds = entry.durationSeconds?.toLong(),
                     weightKg = entry.weightKg,
                     loadKind = entry.loadKind
                 )
@@ -941,7 +965,8 @@ class SqlDelightBackupRepository(
                     involvements = entry.involvements,
                     isUnilateral = if (entry.isUnilateral) 1L else 0L,
                     sets = entry.sets.toLong(),
-                    reps = entry.reps.toLong(),
+                    reps = entry.reps?.toLong(),
+                    durationSeconds = entry.durationSeconds?.toLong(),
                     weightKg = entry.weightKg,
                     loadCapability = entry.loadCapability,
                     loadKind = entry.loadKind
@@ -974,7 +999,8 @@ class SqlDelightBackupRepository(
                     involvements = entry.involvements,
                     isUnilateral = if (entry.isUnilateral) 1L else 0L,
                     sets = entry.sets.toLong(),
-                    reps = entry.reps.toLong(),
+                    reps = entry.reps?.toLong(),
+                    durationSeconds = entry.durationSeconds?.toLong(),
                     weightKg = entry.weightKg,
                     loadCapability = entry.loadCapability,
                     loadKind = entry.loadKind,
@@ -997,7 +1023,7 @@ class SqlDelightBackupRepository(
                 database.workoutLogQueries.insertSetWithIdAndTimingProvenance(
                     id = set.id,
                     exerciseId = set.exerciseId,
-                    reps = set.reps.toLong(),
+                    reps = set.reps?.toLong(),
                     weightKg = set.weightKg,
                     performedAt = set.performedAtMillis,
                     isWarmup = if (set.isWarmup) 1L else 0L,
@@ -1012,7 +1038,8 @@ class SqlDelightBackupRepository(
                     loadKind = set.loadKind,
                     timingProvenance = set.timingProvenance,
                     startedAtElapsedMillis = set.startedAtElapsedMillis,
-                    completedAtElapsedMillis = set.completedAtElapsedMillis
+                    completedAtElapsedMillis = set.completedAtElapsedMillis,
+                    durationSeconds = set.durationSeconds?.toLong()
                 )
             }
 

@@ -36,7 +36,8 @@ CREATE TABLE activationEntry (
     involvements TEXT,
     isUnilateral INTEGER NOT NULL DEFAULT 0,
     sets INTEGER NOT NULL,
-    reps INTEGER NOT NULL,
+    reps INTEGER,
+    durationSeconds INTEGER,
     weightKg REAL,
     loadCapability TEXT NOT NULL DEFAULT 'UNSPECIFIED',
     loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
@@ -69,7 +70,8 @@ CREATE TABLE occurrenceEntry (
     involvements TEXT,
     isUnilateral INTEGER NOT NULL DEFAULT 0,
     sets INTEGER NOT NULL,
-    reps INTEGER NOT NULL,
+    reps INTEGER,
+    durationSeconds INTEGER,
     weightKg REAL,
     remainingDisposition TEXT,
     terminalRemainingSets INTEGER,
@@ -147,8 +149,8 @@ selectAllActivationWorkouts:
 SELECT * FROM activationWorkout ORDER BY activationId, position;
 
 insertActivationEntry:
-INSERT INTO activationEntry(workoutId, position, exerciseId, exerciseName, movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, weightKg, loadCapability, loadKind)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO activationEntry(workoutId, position, exerciseId, exerciseName, movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, durationSeconds, weightKg, loadCapability, loadKind)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 lastInsertedActivationEntryId:
 SELECT last_insert_rowid();
@@ -187,15 +189,15 @@ deleteOccurrencesForActivation:
 DELETE FROM workoutOccurrence WHERE activationId = ?;
 
 insertOccurrenceEntry:
-INSERT INTO occurrenceEntry(occurrenceId, sourceActivationEntryId, position, exerciseId, exerciseName, movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, weightKg, loadCapability, loadKind, remainingDisposition, terminalRemainingSets)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO occurrenceEntry(occurrenceId, sourceActivationEntryId, position, exerciseId, exerciseName, movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, durationSeconds, weightKg, loadCapability, loadKind, remainingDisposition, terminalRemainingSets)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 lastInsertedOccurrenceEntryId:
 SELECT last_insert_rowid();
 
 updateOccurrenceEntry:
 UPDATE occurrenceEntry
-SET position = ?, exerciseId = ?, exerciseName = ?, movementPattern = ?, requiredEquipment = ?, involvements = ?, isUnilateral = ?, sets = ?, reps = ?, weightKg = ?, loadCapability = ?, loadKind = ?, remainingDisposition = ?, terminalRemainingSets = ?
+SET position = ?, exerciseId = ?, exerciseName = ?, movementPattern = ?, requiredEquipment = ?, involvements = ?, isUnilateral = ?, sets = ?, reps = ?, durationSeconds = ?, weightKg = ?, loadCapability = ?, loadKind = ?, remainingDisposition = ?, terminalRemainingSets = ?
 WHERE id = ?;
 
 selectOccurrenceEntriesForOccurrence:
@@ -236,16 +238,16 @@ INSERT INTO activationWorkout(id, activationId, sourceWorkoutId, position, name,
 VALUES (?, ?, ?, ?, ?, ?);
 
 insertActivationEntryWithId:
-INSERT INTO activationEntry(id, workoutId, position, exerciseId, exerciseName, movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, weightKg, loadCapability, loadKind)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO activationEntry(id, workoutId, position, exerciseId, exerciseName, movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, durationSeconds, weightKg, loadCapability, loadKind)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 insertOccurrenceWithId:
 INSERT INTO workoutOccurrence(id, activationId, activationWorkoutId, queuePosition, scheduledEpochDay, notBeforeEpochDay, startedAtMillis, resolvedAtMillis, status, revision)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 insertOccurrenceEntryWithId:
-INSERT INTO occurrenceEntry(id, occurrenceId, sourceActivationEntryId, position, exerciseId, exerciseName, movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, weightKg, loadCapability, loadKind, remainingDisposition, terminalRemainingSets)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO occurrenceEntry(id, occurrenceId, sourceActivationEntryId, position, exerciseId, exerciseName, movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, durationSeconds, weightKg, loadCapability, loadKind, remainingDisposition, terminalRemainingSets)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteAllOccurrenceEntries:
 DELETE FROM occurrenceEntry;

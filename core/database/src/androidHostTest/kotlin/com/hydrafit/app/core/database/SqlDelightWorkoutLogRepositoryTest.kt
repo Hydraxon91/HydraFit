@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.fatigue.FatigueCalculator
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.fatigue.MuscleInvolvement
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.SessionConfig
@@ -273,7 +274,8 @@ class SqlDelightWorkoutLogRepositoryTest {
             dayIndex = null,
             rir = null,
             sessionId = null,
-            loadKind = "EXTERNAL"
+            loadKind = "EXTERNAL",
+            durationSeconds = null
         )
 
         val logged = repository.loggedSets().single()
@@ -297,7 +299,8 @@ class SqlDelightWorkoutLogRepositoryTest {
             dayIndex = null,
             rir = null,
             sessionId = null,
-            loadKind = "EXTERNAL"
+            loadKind = "EXTERNAL",
+            durationSeconds = null
         )
 
         val logged = repository.loggedSets().single()
@@ -405,6 +408,31 @@ class SqlDelightWorkoutLogRepositoryTest {
         val logged = repository.loggedSets()
         assertEquals("session-a", logged.first { it.exerciseId == "back-squat" }.sessionId)
         assertNull(logged.first { it.exerciseId == "barbell-bench-press" }.sessionId)
+    }
+
+    @Test
+    fun storesATimedSetAsNullRepsWithItsDurationAndKeepsItOutOfFatigueReplay() = runTest {
+        repository.add(
+            DomainWorkoutSet(
+                exerciseId = "back-squat",
+                reps = null,
+                weightKg = null,
+                performedAtMillis = 1,
+                loadKind = LoadKind.BODYWEIGHT,
+                durationSeconds = 90
+            )
+        )
+        repository.add(set(exerciseId = "back-squat", performedAt = 2))
+
+        val stored = repository.all()
+        val timed = stored.first { it.durationSeconds != null }
+        assertNull(timed.reps)
+        assertEquals(90, timed.durationSeconds)
+        assertEquals(LoadKind.BODYWEIGHT, timed.loadKind)
+        assertEquals(5, stored.first { it.durationSeconds == null }.reps)
+
+        // A timed set is real recorded work but carries no rep count, so fatigue replay omits it.
+        assertEquals(listOf(2L), repository.loggedSets().map { it.timestampMillis })
     }
 
     @Test

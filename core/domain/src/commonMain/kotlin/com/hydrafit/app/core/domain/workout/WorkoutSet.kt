@@ -3,7 +3,11 @@ package com.hydrafit.app.core.domain.workout
 data class WorkoutSet(
     val id: Long = 0,
     val exerciseId: String,
-    val reps: Int,
+    /**
+     * Repetitions for counted work, or null for a timed set. A timed set stores null here rather
+     * than `0`, so an absent number is never read as a rep count.
+     */
+    val reps: Int? = null,
     val weightKg: Double?,
     /** What the recorded [weightKg] means (external, added, bodyweight, or legacy). */
     val loadKind: LoadKind = LoadKind.EXTERNAL,
@@ -25,5 +29,46 @@ data class WorkoutSet(
     val timingProvenance: WorkoutTimingProvenance = WorkoutTimingProvenance.UNKNOWN,
     /** Monotonic start/completion instants for an explicitly started live set; null otherwise. */
     val startedAtElapsedMillis: Long? = null,
-    val completedAtElapsedMillis: Long? = null
-)
+    val completedAtElapsedMillis: Long? = null,
+    /**
+     * Elapsed whole seconds for a timed set, or null for counted work. The stored duration is the
+     * value the user entered, never derived from [startedAtElapsedMillis]/[completedAtElapsedMillis]:
+     * monotonic timing is provenance, not a duration source.
+     */
+    val durationSeconds: Int? = null
+) {
+    /**
+     * The set's measurement when its stored shape is valid, or null when the row is neither a
+     * positive rep count nor a positive duration (including the both-present and empty shapes that
+     * [requireValidSetMeasurement] rejects at the write boundary).
+     */
+    val measurement: SetMeasurement?
+        get() = when {
+            durationSeconds != null && durationSeconds > 0 && reps == null ->
+                SetMeasurement.Duration(durationSeconds)
+
+            durationSeconds == null && reps != null && reps > 0 ->
+                SetMeasurement.Repetitions(reps)
+
+            else -> null
+        }
+}
+
+/**
+ * Requires exactly one positive measurement: a positive [reps] count or a positive
+ * [durationSeconds], never both, never neither, and never a non-positive value.
+ *
+ * Rejecting the empty shape is what keeps `0` from meaning "not applicable": the unused metric
+ * stays null rather than carrying a sentinel.
+ */
+fun requireValidSetMeasurement(reps: Int?, durationSeconds: Int?) {
+    val hasReps = reps != null && reps > 0
+    val hasDuration = durationSeconds != null && durationSeconds > 0
+    require(hasReps != hasDuration) {
+        "A set is measured by positive repetitions or positive whole seconds, exactly one of them"
+    }
+    require(reps == null || reps > 0) { "Reps must be positive when present" }
+    require(durationSeconds == null || durationSeconds > 0) {
+        "Duration must be positive whole seconds when present"
+    }
+}

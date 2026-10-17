@@ -2,7 +2,9 @@ package com.hydrafit.app.core.domain.transfer
 
 import com.hydrafit.app.core.domain.time.civilFromDays
 import com.hydrafit.app.core.domain.time.daysFromCivil
+import com.hydrafit.app.core.domain.transfer.WorkoutCsvDiagnosticCode.AMBIGUOUS_ROW_SHAPE
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvDiagnosticCode.INVALID_DATE
+import com.hydrafit.app.core.domain.transfer.WorkoutCsvDiagnosticCode.INVALID_DURATION
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvDiagnosticCode.INVALID_END_TIME
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvDiagnosticCode.INVALID_REPS
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvDiagnosticCode.INVALID_TIME
@@ -99,18 +101,21 @@ private fun parseFitNotes(header: List<String>, records: List<CsvRecord>): Parse
         val weightText = index.value(record, weightColumn)
         val exercise = exerciseText.trim()
         val day = parseIsoDate(dateText)
-        val reps = parsePositiveInt(index.value(record, FITNOTES_REPS))
         val weight = parseWeight(weightText)
         val diagnostics = RowDiagnostics()
         if (exercise.isEmpty()) {
             diagnostics.error(diagnostic(MISSING_EXERCISE_NAME, FITNOTES_EXERCISE, exerciseText))
         }
         if (day == null) diagnostics.error(diagnostic(INVALID_DATE, FITNOTES_DATE, dateText))
-        if (reps == null) {
-            diagnostics.error(
-                repsDiagnostic(index, record, FITNOTES_REPS, listOf(FITNOTES_DISTANCE))
-            )
-        }
+        // FitNotes exports no duration column, so a row without a positive rep count stays rejected.
+        val measurement = resolveMeasurement(
+            index = index,
+            record = record,
+            repsColumn = FITNOTES_REPS,
+            durationColumn = null,
+            shapeColumns = listOf(FITNOTES_DISTANCE),
+            diagnostics = diagnostics
+        )
         if (weight is WeightValue.Invalid) {
             diagnostics.error(diagnostic(INVALID_WEIGHT, weightColumn, weightText))
         }
@@ -120,6 +125,7 @@ private fun parseFitNotes(header: List<String>, records: List<CsvRecord>): Parse
         if (diagnostics.hasError) {
             rejected += RejectedWorkoutCsvRow(record.sourceRowIndex, diagnostics.findings)
         } else {
+            val resolved = checkNotNull(measurement)
             rows += WorkoutCsvRow(
                 sourceRowIndex = record.sourceRowIndex,
                 exerciseName = exerciseText,
@@ -131,7 +137,8 @@ private fun parseFitNotes(header: List<String>, records: List<CsvRecord>): Parse
                 groupHint = index.value(record, FITNOTES_CATEGORY).trim().ifBlank { null },
                 weight = (weight as? WeightValue.Measured)?.value,
                 unit = unit,
-                reps = checkNotNull(reps),
+                reps = resolved.reps,
+                durationSeconds = resolved.durationSeconds,
                 warmup = null,
                 diagnostics = diagnostics.findings
             )
@@ -168,6 +175,8 @@ private val STRONG_OPTIONAL_COLUMNS = setOf(
     STRONG_WORKOUT_DURATION
 )
 
+// Counted rows retain their legacy metadata (including an explicit zero seconds value) because
+// canonical import identity includes diagnostics. Timed rows consume Seconds as their measurement.
 private val STRONG_METADATA_COLUMNS = listOf(
     STRONG_RPE,
     STRONG_DISTANCE,
@@ -203,7 +212,6 @@ private fun parseStrong(header: List<String>, records: List<CsvRecord>): ParsedW
         val exercise = exerciseText.trim()
         val day = strongDay(dateText)
         val seconds = strongTimeSeconds(dateText)
-        val reps = parsePositiveInt(index.value(record, STRONG_REPS))
         val weightText = index.value(record, STRONG_WEIGHT)
         val weight = parseWeight(weightText)
         val unit = parseWeightUnit(unitText)
@@ -213,21 +221,27 @@ private fun parseStrong(header: List<String>, records: List<CsvRecord>): ParsedW
         }
         if (day == null) diagnostics.error(diagnostic(INVALID_DATE, STRONG_DATE, dateText))
         if (seconds == null) diagnostics.error(diagnostic(INVALID_TIME, STRONG_DATE, dateText))
-        if (reps == null) {
-            diagnostics.error(
-                repsDiagnostic(index, record, STRONG_REPS, listOf(STRONG_DISTANCE, STRONG_SECONDS))
-            )
-        }
+        val measurement = resolveMeasurement(
+            index = index,
+            record = record,
+            repsColumn = STRONG_REPS,
+            durationColumn = STRONG_SECONDS,
+            shapeColumns = listOf(STRONG_DISTANCE, STRONG_SECONDS),
+            diagnostics = diagnostics
+        )
         if (weight is WeightValue.Invalid) {
             diagnostics.error(diagnostic(INVALID_WEIGHT, STRONG_WEIGHT, weightText))
         }
         if (unit == null) diagnostics.error(diagnostic(INVALID_UNIT, STRONG_WEIGHT_UNIT, unitText))
         for (column in STRONG_METADATA_COLUMNS) {
-            addMetadataNote(index, record, column, diagnostics)
+            if (column != STRONG_SECONDS || measurement?.reps != null) {
+                addMetadataNote(index, record, column, diagnostics)
+            }
         }
         if (diagnostics.hasError) {
             rejected += RejectedWorkoutCsvRow(record.sourceRowIndex, diagnostics.findings)
         } else {
+            val resolved = checkNotNull(measurement)
             rows += WorkoutCsvRow(
                 sourceRowIndex = record.sourceRowIndex,
                 exerciseName = exerciseText,
@@ -239,7 +253,8 @@ private fun parseStrong(header: List<String>, records: List<CsvRecord>): ParsedW
                 groupHint = null,
                 weight = (weight as? WeightValue.Measured)?.value,
                 unit = checkNotNull(unit),
-                reps = checkNotNull(reps),
+                reps = resolved.reps,
+                durationSeconds = resolved.durationSeconds,
                 warmup = null,
                 diagnostics = diagnostics.findings
             )
@@ -333,7 +348,6 @@ private fun parseHevy(header: List<String>, records: List<CsvRecord>): ParsedWor
         val exercise = exerciseText.trim()
         val start = parseHevyDateTime(startText)
         val end = parseHevyDateTime(endText)
-        val reps = parsePositiveInt(index.value(record, HEVY_REPS))
         val weight = parseWeight(weightText)
         val warmup = when {
             setTypeText.isBlank() -> null
@@ -346,7 +360,14 @@ private fun parseHevy(header: List<String>, records: List<CsvRecord>): ParsedWor
             diagnostics.error(diagnostic(MISSING_EXERCISE_NAME, HEVY_EXERCISE, exerciseText))
         }
         if (start == null) diagnostics.error(diagnostic(INVALID_DATE, HEVY_START, startText))
-        if (reps == null) diagnostics.error(repsDiagnostic(index, record, HEVY_REPS, shapeColumns))
+        val measurement = resolveMeasurement(
+            index = index,
+            record = record,
+            repsColumn = HEVY_REPS,
+            durationColumn = HEVY_DURATION,
+            shapeColumns = shapeColumns,
+            diagnostics = diagnostics
+        )
         if (weight is WeightValue.Invalid) {
             diagnostics.error(diagnostic(INVALID_WEIGHT, weightColumn, weightText))
         }
@@ -361,12 +382,15 @@ private fun parseHevy(header: List<String>, records: List<CsvRecord>): ParsedWor
             }
         }
         for (column in metadataColumns) {
-            addMetadataNote(index, record, column, diagnostics)
+            if (column != HEVY_DURATION || measurement?.reps != null) {
+                addMetadataNote(index, record, column, diagnostics)
+            }
         }
         if (diagnostics.hasError) {
             rejected += RejectedWorkoutCsvRow(record.sourceRowIndex, diagnostics.findings)
         } else {
             val startTime = checkNotNull(start)
+            val resolved = checkNotNull(measurement)
             rows += WorkoutCsvRow(
                 sourceRowIndex = record.sourceRowIndex,
                 exerciseName = exerciseText,
@@ -378,7 +402,8 @@ private fun parseHevy(header: List<String>, records: List<CsvRecord>): ParsedWor
                 groupHint = null,
                 weight = (weight as? WeightValue.Measured)?.value,
                 unit = unit,
-                reps = checkNotNull(reps),
+                reps = resolved.reps,
+                durationSeconds = resolved.durationSeconds,
                 warmup = warmup,
                 diagnostics = diagnostics.findings
             )
@@ -418,6 +443,12 @@ private sealed interface WeightValue {
     data class Measured(val value: Double) : WeightValue
     data object Invalid : WeightValue
 }
+
+/**
+ * A row's exclusive measurement: a positive rep count for counted work, or a positive whole-second
+ * duration for a timed set. The parser records exactly one, never both and never neither.
+ */
+private data class RowMeasurement(val reps: Int?, val durationSeconds: Int?)
 
 private data class SourceDateTime(val day: SourceCivilDate, val secondsOfDay: Int) {
     fun isBefore(other: SourceDateTime): Boolean {
@@ -477,6 +508,52 @@ private fun addMetadataNote(
     }
 }
 
+/**
+ * Resolves the row's measurement from its rep and duration columns, recording a row diagnostic when
+ * it cannot. A recorded duration is a positive whole number of seconds; `0` and a blank mean the
+ * source recorded no duration, because vendors write `0` in the inapplicable numeric column. A value
+ * that is present but not a whole number is malformed and rejects the row rather than being dropped.
+ * A row recording both metrics is ambiguous; a row recording neither cannot be represented.
+ *
+ * [durationColumn] is null for a provider with no duration column (FitNotes), which keeps its rows
+ * rejected whenever the rep count is not positive.
+ */
+private fun resolveMeasurement(
+    index: HeaderIndex,
+    record: CsvRecord,
+    repsColumn: String,
+    durationColumn: String?,
+    shapeColumns: List<String>,
+    diagnostics: RowDiagnostics
+): RowMeasurement? {
+    val repsText = index.value(record, repsColumn)
+    val durationText = durationColumn?.let { index.value(record, it) }.orEmpty()
+    val reps = parsePositiveInt(repsText)
+    val durationValue = digits(durationText.trim(), minLength = 1, maxLength = 10)
+    val duration = durationValue?.takeIf { it > 0 }
+    if (repsText.isNotBlank() && parseNonNegativeInt(repsText) == null) {
+        diagnostics.error(diagnostic(INVALID_REPS, repsColumn, repsText))
+        return null
+    }
+    if (durationText.isNotBlank() && durationValue == null) {
+        diagnostics.error(diagnostic(INVALID_DURATION, durationColumn, durationText))
+        return null
+    }
+    return when {
+        reps != null && duration != null -> {
+            diagnostics.error(diagnostic(AMBIGUOUS_ROW_SHAPE, durationColumn, durationText))
+            null
+        }
+
+        reps != null -> RowMeasurement(reps = reps, durationSeconds = null)
+        duration != null -> RowMeasurement(reps = null, durationSeconds = duration)
+        else -> {
+            diagnostics.error(repsDiagnostic(index, record, repsColumn, shapeColumns))
+            null
+        }
+    }
+}
+
 private fun repsDiagnostic(
     index: HeaderIndex,
     record: CsvRecord,
@@ -513,12 +590,16 @@ private fun diagnostic(
             "End time is missing, malformed or earlier than the start time."
         INVALID_REPS ->
             "Field '$field' is not a positive whole number."
+        INVALID_DURATION ->
+            "Field '$field' is not a whole number of seconds."
         INVALID_WEIGHT ->
             "Field '$field' is not a finite, non-negative weight."
         INVALID_UNIT ->
             "Weight unit '$value' is not a known kg/lb value."
+        AMBIGUOUS_ROW_SHAPE ->
+            "Row records both a rep count and a duration; exactly one measurement is supported."
         UNSUPPORTED_ROW_SHAPE ->
-            "Row has no rep target; timed-only and distance-only sets are unsupported."
+            "Row has neither a rep count nor a recorded duration; distance-only and empty sets are unsupported."
     },
     field = field,
     value = value
@@ -541,10 +622,11 @@ private fun parseWeightUnit(text: String): WeightUnit? = when (text.trim().lower
     else -> null
 }
 
-private fun parsePositiveInt(text: String): Int? {
-    val parsed = digits(text.trim(), minLength = 1, maxLength = 9) ?: return null
-    return if (parsed > 0) parsed else null
-}
+private fun parsePositiveInt(text: String): Int? = parseNonNegativeInt(text)?.takeIf { it > 0 }
+
+/** A whole non-negative number of at most nine digits, or null when the text is blank or not one. */
+private fun parseNonNegativeInt(text: String): Int? =
+    digits(text.trim(), minLength = 1, maxLength = 9)
 
 private fun digits(text: String, minLength: Int, maxLength: Int): Int? {
     if (text.length !in minLength..maxLength) return null

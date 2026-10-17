@@ -1,0 +1,37 @@
+-- Accepted-plan slot duration. A plan slot is measured by repetitions or by elapsed whole seconds,
+-- never both: a timed slot stores NULL reps rather than a zero sentinel, so an absent number is
+-- never read as a rep count. Existing rows keep their stored reps verbatim and gain a NULL duration.
+--
+-- SQLite cannot drop NOT NULL with ALTER TABLE, so `reps` becomes nullable through a rebuild, exactly
+-- as 52.sqm did for workoutSet and 53.sqm did for the other prescription tables. The rebuild
+-- preserves row ids, every stored snapshot column and the day link; the table has no index to
+-- recreate. `HydraFitDatabaseSchema` repairs the AUTOINCREMENT high-water mark around this rebuild.
+
+CREATE TABLE planHistoryEntry_new (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    dayId INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    exerciseId TEXT NOT NULL,
+    sets INTEGER NOT NULL,
+    reps INTEGER,
+    durationSeconds INTEGER,
+    exerciseName TEXT NOT NULL,
+    movementPattern TEXT NOT NULL,
+    suggestedWeightKg REAL,
+    loadCapability TEXT NOT NULL DEFAULT 'UNSPECIFIED',
+    loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
+    FOREIGN KEY (dayId) REFERENCES planHistoryDay(id)
+);
+
+INSERT INTO planHistoryEntry_new (
+    id, dayId, position, exerciseId, sets, reps, exerciseName, movementPattern,
+    suggestedWeightKg, loadCapability, loadKind
+)
+SELECT
+    id, dayId, position, exerciseId, sets, reps, exerciseName, movementPattern,
+    suggestedWeightKg, loadCapability, loadKind
+FROM planHistoryEntry;
+
+DROP TABLE planHistoryEntry;
+
+ALTER TABLE planHistoryEntry_new RENAME TO planHistoryEntry;

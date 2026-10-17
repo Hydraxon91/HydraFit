@@ -1781,6 +1781,28 @@ class DeterministicWorkoutPlannerEngineTest {
         assertEquals(origin.progression, explanation.progression)
     }
 
+    @Test
+    fun usesEachDatesDecayedFatigueForThatDaysPrescription() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 2,
+                split = SplitType.FULL_BODY,
+                setsPerExercise = 4,
+                workoutEpochDays = listOf(0L, 7L),
+                fatigueByWorkout = listOf(
+                    mapOf(MuscleGroup.CHEST_UPPER to 0.7),
+                    mapOf(MuscleGroup.CHEST_UPPER to 0.0)
+                )
+            ),
+            listOf(
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+            )
+        )
+
+        // The first date carries the recorded fatigue; a week later it has decayed away.
+        assertEquals(listOf(3, 4), plan.days.map { day -> day.exercises.single().sets })
+    }
+
     private fun request(
         daysPerWeek: Int,
         equipment: Set<EquipmentTag> = emptySet(),
@@ -1795,7 +1817,9 @@ class DeterministicWorkoutPlannerEngineTest {
         exercisePreferences: Map<String, ExercisePreference> = emptyMap(),
         excludedExerciseIds: Set<String> = emptySet(),
         isDeload: Boolean = false,
-        loadExplanations: Map<String, LoadOriginExplanation> = emptyMap()
+        loadExplanations: Map<String, LoadOriginExplanation> = emptyMap(),
+        workoutEpochDays: List<Long> = emptyList(),
+        fatigueByWorkout: List<Map<MuscleGroup, Double>> = emptyList()
     ) = PlanRequest(
         daysPerWeek = daysPerWeek,
         availableEquipment = equipment,
@@ -1811,7 +1835,9 @@ class DeterministicWorkoutPlannerEngineTest {
         exercisePreferences = exercisePreferences,
         excludedExerciseIds = excludedExerciseIds,
         isDeload = isDeload,
-        loadExplanations = loadExplanations
+        loadExplanations = loadExplanations,
+        workoutEpochDays = workoutEpochDays,
+        fatigueByWorkout = fatigueByWorkout
     )
 
     private fun exercise(

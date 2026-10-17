@@ -499,6 +499,7 @@ class WorkoutImportViewModel(
                 weightText = row.weight?.let(::formatWeight),
                 unitLabel = row.unit.label,
                 reps = row.reps,
+                durationSeconds = row.durationSeconds,
                 warmup = row.warmup,
                 diagnostics = row.diagnostics,
                 included = row.sourceRowIndex !in excludedRows,

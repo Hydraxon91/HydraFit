@@ -150,7 +150,7 @@ class SqlDelightWorkoutImportRepository(private val database: HydraFitDatabase) 
                     val exercise = requireNotNull(session.exercises[set.exerciseId])
                     setQueries.insertSetWithTimingProvenance(
                         exerciseId = set.exerciseId,
-                        reps = set.reps.toLong(),
+                        reps = set.reps?.toLong(),
                         weightKg = set.weightKg,
                         performedAt = set.performedAtMillis,
                         isWarmup = if (set.isWarmup) 1L else 0L,
@@ -163,7 +163,8 @@ class SqlDelightWorkoutImportRepository(private val database: HydraFitDatabase) 
                         loadKind = set.loadKind.name,
                         timingProvenance = WorkoutTimingProvenance.CATCH_UP.name,
                         startedAtElapsedMillis = null,
-                        completedAtElapsedMillis = null
+                        completedAtElapsedMillis = null,
+                        durationSeconds = set.durationSeconds?.toLong()
                     )
                 }
                 if (preview.buckets.any { it.candidateKey == session.candidateKey }) {

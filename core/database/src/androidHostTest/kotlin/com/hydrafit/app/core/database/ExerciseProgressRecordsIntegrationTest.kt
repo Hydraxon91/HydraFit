@@ -132,7 +132,8 @@ class ExerciseProgressRecordsIntegrationTest {
                 null,
                 null,
                 null,
-                "EXTERNAL"
+                "EXTERNAL",
+                null
             )
             database.workoutLogQueries.insertSetWithId(
                 42L,
@@ -149,7 +150,8 @@ class ExerciseProgressRecordsIntegrationTest {
                 null,
                 OCCURRENCE,
                 null,
-                "EXTERNAL"
+                "EXTERNAL",
+                null
             )
         }
         val replaced = loadImprovements().single()

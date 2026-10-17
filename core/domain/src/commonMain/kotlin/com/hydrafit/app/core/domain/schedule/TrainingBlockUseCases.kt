@@ -259,7 +259,12 @@ class EditUnstartedOccurrenceUseCase(
         val byId = catalog.all().associateBy { it.id }
         val entries = drafts.mapIndexed { index, draft ->
             try {
-                PrescriptionBounds.validate(draft.sets, draft.reps, draft.weightKg)
+                PrescriptionBounds.validate(
+                    draft.sets,
+                    draft.reps,
+                    draft.durationSeconds,
+                    draft.weightKg
+                )
             } catch (error: RoutineTemplateException) {
                 throw ScheduleException(error.message ?: "Invalid prescription")
             }
@@ -281,6 +286,7 @@ class EditUnstartedOccurrenceUseCase(
                 isUnilateral = exercise.isUnilateral,
                 sets = draft.sets,
                 reps = draft.reps,
+                durationSeconds = draft.durationSeconds,
                 weightKg = weightKg,
                 loadCapability = exercise.loadCapability,
                 loadKind = kind

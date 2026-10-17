@@ -122,6 +122,52 @@ class RoutinesViewModelTest {
     }
 
     @Test
+    fun authoringATimedSlotSavesSecondsAndReloadsItAsATimedSlot() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onNewRoutine()
+        viewModel.onEditorNameChanged("Core")
+        viewModel.onAddWorkout()
+        viewModel.onWorkoutNameChanged(0, "Day 1")
+        viewModel.onAddExercise(0)
+        viewModel.onPickerQueryChanged("bench")
+        viewModel.onPickerExerciseSelected("bench-press", "Barbell Bench Press")
+        viewModel.onEntrySetsChanged(0, 0, "3")
+        viewModel.onEntryMetricChanged(0, 0, EntryMetric.DURATION)
+        viewModel.onEntryDurationChanged(0, 0, "90")
+        viewModel.onEntryWeightChanged(0, 0, "60")
+        viewModel.onSaveEditor()
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.editor)
+        val saved = viewModel.state.value.templates.single().workouts.single().entries.single()
+        assertNull(saved.reps)
+        assertEquals(90, saved.durationSeconds)
+        assertEquals(3, saved.sets)
+        assertEquals(60.0, saved.weightKg)
+
+        // Reopening the stored slot shows its seconds, not a rep count it never had.
+        viewModel.onEditRoutine(viewModel.state.value.templates.single())
+        val edited = requireNotNull(viewModel.state.value.editor)
+            .workouts.single().entries.single()
+        assertEquals(EntryMetric.DURATION, edited.metric)
+        assertEquals("90", edited.durationSeconds)
+        assertEquals("", edited.reps)
+        assertEquals("3", edited.sets)
+
+        // Switching back to repetitions saves reps and clears the seconds.
+        viewModel.onEntryMetricChanged(0, 0, EntryMetric.REPETITIONS)
+        viewModel.onEntryRepsChanged(0, 0, "12")
+        viewModel.onSaveEditor()
+        advanceUntilIdle()
+
+        val counted = viewModel.state.value.templates.single().workouts.single().entries.single()
+        assertEquals(12, counted.reps)
+        assertNull(counted.durationSeconds)
+    }
+
+    @Test
     fun anInvalidDraftKeepsTheEditorAndShowsAMessage() = runTest(dispatcher) {
         val viewModel = viewModel()
         advanceUntilIdle()

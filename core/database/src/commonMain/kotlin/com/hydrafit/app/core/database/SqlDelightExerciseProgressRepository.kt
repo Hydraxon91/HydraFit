@@ -115,46 +115,50 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
         id: Long,
         exerciseId: String,
         exerciseName: String?,
-        reps: Long,
+        reps: Long?,
         weightKg: Double?,
         loadKind: String,
         isWarmup: Long,
         rir: Long?,
         performedAt: Long,
         timingProvenance: String,
-        occurrenceId: Long?
+        occurrenceId: Long?,
+        durationSeconds: Long?
     ) = WorkoutHistorySet(
         id = id,
         exerciseId = exerciseId,
         exerciseName = exerciseName,
-        reps = reps.toInt(),
+        reps = reps?.toInt(),
         weightKg = weightKg,
         loadKind = decodeLoadKind(loadKind),
         isWarmup = isWarmup != 0L,
         rir = rir?.toInt(),
         performedAtMillis = performedAt,
         timingProvenance = decodeWorkoutTimingProvenance(timingProvenance),
+        durationSeconds = durationSeconds?.toInt(),
         occurrenceId = occurrenceId
     )
 
     private fun replaySet(
         id: Long,
         exerciseId: String,
-        reps: Long,
+        reps: Long?,
         weightKg: Double?,
         loadKind: String,
         performedAt: Long,
         isWarmup: Long,
-        occurrenceId: Long?
+        occurrenceId: Long?,
+        durationSeconds: Long?
     ) = WorkoutSet(
         id = id,
         exerciseId = exerciseId,
-        reps = reps.toInt(),
+        reps = reps?.toInt(),
         weightKg = weightKg,
         loadKind = decodeLoadKind(loadKind),
         performedAtMillis = performedAt,
         isWarmup = isWarmup != 0L,
-        occurrenceId = occurrenceId
+        occurrenceId = occurrenceId,
+        durationSeconds = durationSeconds?.toInt()
     )
 
     private companion object {

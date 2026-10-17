@@ -66,7 +66,7 @@ class DeterministicWorkoutPlannerEngine(
                     weeklyVolume,
                     directArmSets,
                     target,
-                    request.muscleFatigue,
+                    request.fatigueForWorkout(index),
                     request.setsPerExercise,
                     request.accessorySetsPerExercise,
                     request.goal,

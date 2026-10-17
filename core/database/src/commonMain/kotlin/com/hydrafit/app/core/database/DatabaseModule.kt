@@ -24,6 +24,7 @@ import com.hydrafit.app.core.domain.workout.ExerciseProgressRepository
 import com.hydrafit.app.core.domain.workout.RestCountdownRepository
 import com.hydrafit.app.core.domain.workout.SessionNoteRepository
 import com.hydrafit.app.core.domain.workout.SessionResegmenter
+import com.hydrafit.app.core.domain.workout.WarmupPreparationOverrideRepository
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryRepository
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
@@ -74,6 +75,9 @@ val databaseModule: Module = module {
     single<BodyWeightRepository> { SqlDelightBodyWeightRepository(get(), get()) }
     single<ExerciseNoteRepository> { SqlDelightExerciseNoteRepository(get()) }
     single<SessionNoteRepository> { SqlDelightSessionNoteRepository(get()) }
+    single<WarmupPreparationOverrideRepository> {
+        SqlDelightWarmupPreparationOverrideRepository(get())
+    }
     single<WorkoutSessionRepository> { SqlDelightWorkoutSessionRepository(get()) }
     single<SessionResegmenter> { SqlDelightSessionResegmenter(get()) }
     single<EnginePreferenceRepository> { SqlDelightEnginePreferenceRepository(get()) }

@@ -7,9 +7,21 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 16
+const val BACKUP_FORMAT_VERSION: Int = 20
+
+/** The first backup format that carries a timed prescription slot's duration. */
+const val PRESCRIPTION_DURATION_FORMAT_VERSION: Int = 18
+
+/** The first backup format that carries an accepted plan slot's duration. */
+const val PLAN_ENTRY_DURATION_FORMAT_VERSION: Int = 19
+
+/** The first backup format that carries persisted warm-up preparation overrides. */
+const val WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION: Int = 20
 
 const val EQUIPMENT_PROFILE_FORMAT_VERSION: Int = 14
+
+/** The first backup format that carries per-set performed metrics (reps or whole seconds). */
+const val WORKOUT_SET_METRICS_FORMAT_VERSION: Int = 17
 
 /** The first backup format that carries local workout-import provenance. */
 const val IMPORT_PROVENANCE_FORMAT_VERSION: Int = 15
@@ -50,7 +62,15 @@ const val EXERCISE_NOTES_FORMAT_VERSION: Int = 9
  * fabricated one. Version 6 adds alert/coaching opt-ins; earlier formats default them off. Version 5
  * adds rest durations; earlier formats use the global default. Version 15 adds local workout-import
  * provenance; earlier formats have none. Version 16 adds the bucket/partition import ledger; formats
- * 1-15 restore with provenance only and cannot carry a split bucket.
+ * 1-15 restore with provenance only and cannot carry a split bucket. Version 17 adds per-set
+ * performed metrics: a recorded set carries positive reps or positive whole seconds, never both.
+ * Formats 1-16 have no duration field, so every restored set is repetitions and a duration in a
+ * legacy file is rejected rather than reinterpreted. Version 18 adds a timed prescription slot's
+ * duration for routines and frozen work; formats 1-17 restore every prescription slot as
+ * rep-measured. Version 19 adds an accepted plan slot's duration; formats 1-18 restore every
+ * accepted-plan slot as rep-measured, and a duration in an older file is rejected rather than
+ * reinterpreted. Version 20 adds the persisted warm-up preparation overrides; formats 1-19 restore
+ * with none, so every preparation action uses its built-in default.
  */
 @Serializable
 data class BackupFile(
@@ -135,7 +155,23 @@ data class BackupFile(
      * carrying the complete canonical bucket, the approved partition of its rows into sessions and
      * the local session each partition member created. Absent in formats 1-15.
      */
-    val importBuckets: List<BackupImportBucketRecord> = emptyList()
+    val importBuckets: List<BackupImportBucketRecord> = emptyList(),
+    /**
+     * Persisted warm-up preparation overrides, format 20 and later: one record per preparation
+     * action. Absent in formats 1-19, which restore every preparation action to its built-in default.
+     */
+    val warmupPreparationOverrides: List<BackupWarmupPreparationOverrideRecord> = emptyList()
+)
+
+/**
+ * One preparation action's persisted override. [reps] and [durationSeconds] are exclusive — exactly
+ * one is positive — so a timed action is never restored as reps or vice versa.
+ */
+@Serializable
+data class BackupWarmupPreparationOverrideRecord(
+    val action: String,
+    val reps: Int? = null,
+    val durationSeconds: Int? = null
 )
 
 /**
@@ -269,7 +305,11 @@ data class BackupEquipmentRecord(
 data class BackupWorkoutSetRecord(
     val id: Long,
     val exerciseId: String,
-    val reps: Int,
+    /**
+     * Repetitions for counted work, or null for a timed set. Formats 1-16 always carried a count,
+     * which restores verbatim; a format-17 record may instead carry [durationSeconds].
+     */
+    val reps: Int? = null,
     val weightKg: Double?,
     val performedAtMillis: Long,
     val isWarmup: Boolean,
@@ -284,7 +324,9 @@ data class BackupWorkoutSetRecord(
     val loadKind: String,
     val timingProvenance: String = "UNKNOWN",
     val startedAtElapsedMillis: Long? = null,
-    val completedAtElapsedMillis: Long? = null
+    val completedAtElapsedMillis: Long? = null,
+    /** Elapsed whole seconds for a timed set, format 17 and later; null for counted work. */
+    val durationSeconds: Int? = null
 )
 
 @Serializable
@@ -315,7 +357,13 @@ data class BackupPlanEntryRecord(
     val position: Int,
     val exerciseId: String,
     val sets: Int,
-    val reps: Int,
+    /**
+     * Repetitions for counted work, or null for a timed slot. Formats 1-18 always carried a count,
+     * which restores verbatim; a format-19 record may instead carry [durationSeconds].
+     */
+    val reps: Int? = null,
+    /** Elapsed whole seconds for a timed slot, format 19 and later; null for counted work. */
+    val durationSeconds: Int? = null,
     val exerciseName: String,
     val movementPattern: String,
     val suggestedWeightKg: Double?,
@@ -468,7 +516,10 @@ data class BackupRoutineEntryRecord(
     val position: Int,
     val exerciseId: String,
     val sets: Int,
-    val reps: Int,
+    /** Repetitions for counted work, or null for a timed slot; formats before 18 always counted. */
+    val reps: Int? = null,
+    /** Elapsed whole seconds for a timed slot, format 18 and later; null for counted work. */
+    val durationSeconds: Int? = null,
     val weightKg: Double?,
     val loadKind: String
 )
@@ -513,7 +564,10 @@ data class BackupActivationEntryRecord(
     val involvements: String?,
     val isUnilateral: Boolean,
     val sets: Int,
-    val reps: Int,
+    /** Repetitions for counted work, or null for a timed slot; formats before 18 always counted. */
+    val reps: Int? = null,
+    /** Elapsed whole seconds for a timed slot, format 18 and later; null for counted work. */
+    val durationSeconds: Int? = null,
     val weightKg: Double?,
     val loadCapability: String,
     val loadKind: String
@@ -546,7 +600,10 @@ data class BackupOccurrenceEntryRecord(
     val involvements: String?,
     val isUnilateral: Boolean,
     val sets: Int,
-    val reps: Int,
+    /** Repetitions for counted work, or null for a timed slot; formats before 18 always counted. */
+    val reps: Int? = null,
+    /** Elapsed whole seconds for a timed slot, format 18 and later; null for counted work. */
+    val durationSeconds: Int? = null,
     val weightKg: Double?,
     val loadCapability: String,
     val loadKind: String,

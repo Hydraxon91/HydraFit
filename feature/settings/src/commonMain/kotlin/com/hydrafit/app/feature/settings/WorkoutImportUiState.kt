@@ -26,7 +26,10 @@ data class WorkoutImportRowUi(
     val timeText: String?,
     val weightText: String?,
     val unitLabel: String?,
-    val reps: Int,
+    /** Positive rep count for a counted row, or null when the row is measured by [durationSeconds]. */
+    val reps: Int?,
+    /** Positive whole seconds for a timed row, or null when the row is measured by [reps]. */
+    val durationSeconds: Int?,
     val warmup: Boolean?,
     val diagnostics: List<WorkoutCsvDiagnostic>,
     val included: Boolean,

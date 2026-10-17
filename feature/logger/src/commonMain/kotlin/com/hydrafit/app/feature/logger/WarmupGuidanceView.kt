@@ -70,7 +70,13 @@ fun buildWarmupGuidanceView(
     guidance: WarmupGuidance,
     preparationEdits: Map<WarmupAction, WarmupPreparationItem> = emptyMap(),
     skipped: Set<WarmupAction> = emptySet(),
-    rampEdits: Map<WarmupRampKey, WarmupRampSet> = emptyMap()
+    rampEdits: Map<WarmupRampKey, WarmupRampSet> = emptyMap(),
+    /**
+     * Actions whose shown value comes from a persisted override rather than the built-in default.
+     * They carry the same "(edited)" mark as a transient edit, because the shown measure is still not
+     * the default the app would otherwise offer.
+     */
+    overridden: Set<WarmupAction> = emptySet()
 ): WarmupGuidanceView = WarmupGuidanceView(
     preparation = guidance.preparation
         .filterNot { it.action in skipped }
@@ -80,7 +86,7 @@ fun buildWarmupGuidanceView(
                 action = item.action,
                 reps = edited?.reps ?: item.reps,
                 durationSeconds = edited?.durationSeconds ?: item.durationSeconds,
-                edited = edited != null
+                edited = edited != null || item.action in overridden
             )
         },
     ramps = guidance.ramps.mapNotNull { plan ->

@@ -54,7 +54,10 @@ data class WorkoutSummaryExercise(
     /** The exercise name frozen into the occurrence entry at activation. */
     val exerciseName: String,
     val prescribedSets: Int,
-    val prescribedReps: Int,
+    /** Repetitions for counted work, or null for a timed slot. Never a `0` sentinel. */
+    val prescribedReps: Int? = null,
+    /** Elapsed whole seconds for a timed slot, or null for counted work. */
+    val prescribedDurationSeconds: Int? = null,
     /** The frozen target load; null means the prescription carried no numeric load. */
     val prescribedWeightKg: Double?,
     /** What the frozen target load means. */
@@ -89,13 +92,15 @@ data class WorkoutSummarySet(
     val id: Long,
     val exerciseId: String,
     val exerciseName: String?,
-    val reps: Int,
+    val reps: Int?,
     val weightKg: Double?,
     val loadKind: LoadKind,
     val rir: Int?,
     val performedAtMillis: Long,
     val timingProvenance: WorkoutTimingProvenance,
     val isWarmup: Boolean,
+    /** Elapsed whole seconds for a timed set, or null for counted work. */
+    val durationSeconds: Int? = null,
     /** The recorded session this set belongs to; null for legacy or unsegmented rows. */
     val sessionId: String?
 )
@@ -174,6 +179,7 @@ fun buildWorkoutSummary(
         performedAtMillis = set.performedAtMillis,
         timingProvenance = set.timingProvenance,
         isWarmup = set.isWarmup,
+        durationSeconds = set.durationSeconds,
         sessionId = set.sessionId
     )
 
@@ -194,6 +200,7 @@ fun buildWorkoutSummary(
                 exerciseName = entry.exerciseName,
                 prescribedSets = entry.sets,
                 prescribedReps = entry.reps,
+                prescribedDurationSeconds = entry.durationSeconds,
                 prescribedWeightKg = entry.weightKg,
                 prescribedLoadKind = entry.loadKind,
                 performedSets = performed,

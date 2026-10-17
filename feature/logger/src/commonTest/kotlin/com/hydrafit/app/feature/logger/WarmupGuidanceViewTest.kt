@@ -63,6 +63,22 @@ class WarmupGuidanceViewTest {
     }
 
     @Test
+    fun aPersistedOverrideMarksItsRowEditedWithoutATransientEdit() {
+        val view = buildWarmupGuidanceView(
+            guidance,
+            overridden = setOf(WarmupAction.LOWER_BODY_PRACTICE)
+        )
+
+        val overridden = view.preparation.first { it.action == WarmupAction.LOWER_BODY_PRACTICE }
+        assertEquals(10, overridden.reps)
+        assertTrue(overridden.edited)
+        // An action with no persisted override keeps its unmarked default row.
+        assertFalse(
+            view.preparation.first { it.action == WarmupAction.EASY_GENERAL_MOVEMENT }.edited
+        )
+    }
+
+    @Test
     fun anEditedRampDropsItsDefaultPercentage() {
         val key = WarmupRampKey(occurrenceEntryId = 40L, rampIndex = 0)
         val view = buildWarmupGuidanceView(

@@ -1,0 +1,108 @@
+-- Timed prescriptions. A prescription slot is measured by repetitions or by elapsed whole seconds,
+-- never both: a timed slot stores NULL reps rather than a zero sentinel, so an absent number is
+-- never read as a rep count. Existing rows keep their stored reps verbatim and gain a NULL duration.
+--
+-- SQLite cannot drop NOT NULL with ALTER TABLE, so `reps` becomes nullable in the three prescription
+-- tables through a rebuild, exactly as 52.sqm did for workoutSet. Each rebuild preserves row ids,
+-- every stored snapshot column and the table's index.
+
+CREATE TABLE routineEntry_new (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    workoutId INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    exerciseId TEXT NOT NULL,
+    sets INTEGER NOT NULL,
+    reps INTEGER,
+    durationSeconds INTEGER,
+    weightKg REAL,
+    loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
+    FOREIGN KEY (workoutId) REFERENCES routineWorkout(id)
+);
+
+INSERT INTO routineEntry_new (id, workoutId, position, exerciseId, sets, reps, weightKg, loadKind)
+SELECT id, workoutId, position, exerciseId, sets, reps, weightKg, loadKind FROM routineEntry;
+
+DROP TABLE routineEntry;
+
+ALTER TABLE routineEntry_new RENAME TO routineEntry;
+
+DROP INDEX IF EXISTS routineEntry_workoutId;
+
+CREATE INDEX routineEntry_workoutId ON routineEntry(workoutId);
+
+CREATE TABLE activationEntry_new (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    workoutId INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    exerciseId TEXT NOT NULL,
+    exerciseName TEXT NOT NULL,
+    movementPattern TEXT NOT NULL,
+    requiredEquipment TEXT NOT NULL,
+    involvements TEXT,
+    isUnilateral INTEGER NOT NULL DEFAULT 0,
+    sets INTEGER NOT NULL,
+    reps INTEGER,
+    durationSeconds INTEGER,
+    weightKg REAL,
+    loadCapability TEXT NOT NULL DEFAULT 'UNSPECIFIED',
+    loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
+    FOREIGN KEY (workoutId) REFERENCES activationWorkout(id)
+);
+
+INSERT INTO activationEntry_new (
+    id, workoutId, position, exerciseId, exerciseName, movementPattern, requiredEquipment,
+    involvements, isUnilateral, sets, reps, weightKg, loadCapability, loadKind
+)
+SELECT
+    id, workoutId, position, exerciseId, exerciseName, movementPattern, requiredEquipment,
+    involvements, isUnilateral, sets, reps, weightKg, loadCapability, loadKind
+FROM activationEntry;
+
+DROP TABLE activationEntry;
+
+ALTER TABLE activationEntry_new RENAME TO activationEntry;
+
+DROP INDEX IF EXISTS activationEntry_workoutId;
+
+CREATE INDEX activationEntry_workoutId ON activationEntry(workoutId);
+
+CREATE TABLE occurrenceEntry_new (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    occurrenceId INTEGER NOT NULL,
+    sourceActivationEntryId INTEGER,
+    position INTEGER NOT NULL,
+    exerciseId TEXT NOT NULL,
+    exerciseName TEXT NOT NULL,
+    movementPattern TEXT NOT NULL,
+    requiredEquipment TEXT NOT NULL,
+    involvements TEXT,
+    isUnilateral INTEGER NOT NULL DEFAULT 0,
+    sets INTEGER NOT NULL,
+    reps INTEGER,
+    durationSeconds INTEGER,
+    weightKg REAL,
+    remainingDisposition TEXT,
+    terminalRemainingSets INTEGER,
+    loadCapability TEXT NOT NULL DEFAULT 'UNSPECIFIED',
+    loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
+    FOREIGN KEY (occurrenceId) REFERENCES workoutOccurrence(id)
+);
+
+INSERT INTO occurrenceEntry_new (
+    id, occurrenceId, sourceActivationEntryId, position, exerciseId, exerciseName,
+    movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, weightKg,
+    remainingDisposition, terminalRemainingSets, loadCapability, loadKind
+)
+SELECT
+    id, occurrenceId, sourceActivationEntryId, position, exerciseId, exerciseName,
+    movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, weightKg,
+    remainingDisposition, terminalRemainingSets, loadCapability, loadKind
+FROM occurrenceEntry;
+
+DROP TABLE occurrenceEntry;
+
+ALTER TABLE occurrenceEntry_new RENAME TO occurrenceEntry;
+
+DROP INDEX IF EXISTS occurrenceEntry_occurrenceId;
+
+CREATE INDEX occurrenceEntry_occurrenceId ON occurrenceEntry(occurrenceId);

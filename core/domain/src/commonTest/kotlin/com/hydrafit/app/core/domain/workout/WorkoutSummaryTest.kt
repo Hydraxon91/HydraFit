@@ -54,6 +54,53 @@ class WorkoutSummaryTest {
     }
 
     @Test
+    fun countsATimedSetAsRecordedWorkAndCarriesItsSeconds() {
+        val summary = buildWorkoutSummary(
+            occurrence = occurrence(entry(id = 40, sets = 3, reps = 8)),
+            sets = listOf(set(id = 1, occurrenceEntryId = 40, reps = null, durationSeconds = 60)),
+            sessions = emptyList(),
+            sessionNotes = emptyMap(),
+            activation = activation()
+        )
+
+        val exercise = summary.exercises.single()
+        assertEquals(1, exercise.recordedSets)
+        assertEquals(2, exercise.remainingSets)
+        assertEquals(1, summary.recordedWorkingSets)
+        val performed = exercise.performedSets.single()
+        assertNull(performed.reps)
+        assertEquals(60, performed.durationSeconds)
+    }
+
+    @Test
+    fun carriesATimedPrescriptionWithItsSecondsAndCountsItsRecordedSetsNotReps() {
+        val summary = buildWorkoutSummary(
+            occurrence = occurrence(
+                entry(id = 40, sets = 3).copy(reps = null, durationSeconds = 90)
+            ),
+            sets = listOf(
+                set(id = 1, occurrenceEntryId = 40, reps = null, durationSeconds = 90),
+                set(id = 2, occurrenceEntryId = 40, reps = null, durationSeconds = 60)
+            ),
+            sessions = emptyList(),
+            sessionNotes = emptyMap(),
+            activation = activation()
+        )
+
+        val exercise = summary.exercises.single()
+        assertEquals(3, exercise.prescribedSets)
+        assertNull(exercise.prescribedReps)
+        assertEquals(90, exercise.prescribedDurationSeconds)
+        assertEquals(2, exercise.recordedSets)
+        assertEquals(1, exercise.remainingSets)
+        // Both recorded sets count as working work; only the rep count is absent.
+        assertEquals(2, summary.recordedWorkingSets)
+        // Timed work is counted as recorded sets; it never contributes a rep count.
+        assertEquals(listOf(90, 60), exercise.performedSets.map { it.durationSeconds })
+        assertTrue(exercise.performedSets.all { it.reps == null })
+    }
+
+    @Test
     fun derivesRemainingWorkFromRecordedSetsAndCarriesTheOmittedDisposition() {
         val summary = buildWorkoutSummary(
             occurrence = occurrence(
@@ -338,12 +385,13 @@ class WorkoutSummaryTest {
     private fun set(
         id: Long,
         exerciseId: String = "back-squat",
-        reps: Int = 8,
+        reps: Int? = 8,
         performedAtMillis: Long = 1_000L + id,
         isWarmup: Boolean = false,
         sessionId: String? = "session-1",
         occurrenceId: Long? = 30L,
-        occurrenceEntryId: Long? = null
+        occurrenceEntryId: Long? = null,
+        durationSeconds: Int? = null
     ) = WorkoutSet(
         id = id,
         exerciseId = exerciseId,
@@ -354,7 +402,8 @@ class WorkoutSummaryTest {
         isWarmup = isWarmup,
         sessionId = sessionId,
         occurrenceId = occurrenceId,
-        occurrenceEntryId = occurrenceEntryId
+        occurrenceEntryId = occurrenceEntryId,
+        durationSeconds = durationSeconds
     )
 
     private fun activation(vararg entries: ActivationEntry, workoutName: String = "Workout A") =

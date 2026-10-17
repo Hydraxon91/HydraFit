@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.engine.AcceptedExercise
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.engine.toWeeklyPlan
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.time.TimeProvider
 import kotlin.test.Test
@@ -407,6 +408,41 @@ class RoutineTemplateUseCasesTest {
         assertEquals("bench-press", template.workouts[0].entries[0].exerciseId)
         assertEquals(82.5, template.workouts[0].entries[0].weightKg)
         assertTrue(template.workouts[1].entries.isEmpty())
+    }
+
+    @Test
+    fun conversionCarriesATimedSlotsMeasure() {
+        val plan = AcceptedPlan(
+            engine = PlannerEngineId.DETERMINISTIC,
+            acceptedAtMillis = 10L,
+            id = 7L,
+            days = listOf(
+                AcceptedDay(
+                    dayIndex = 0,
+                    focus = SplitFocus.PUSH,
+                    exercises = listOf(
+                        AcceptedExercise(
+                            exerciseId = "plank",
+                            sets = 3,
+                            reps = null,
+                            durationSeconds = 45,
+                            name = "Plank",
+                            movementPattern = MovementPattern.CORE
+                        )
+                    )
+                )
+            )
+        )
+
+        val acceptedEntry = ConvertPlanToTemplateUseCase()(plan, "My Plan")
+            .workouts[0].entries[0]
+        assertNull(acceptedEntry.reps)
+        assertEquals(45, acceptedEntry.durationSeconds)
+
+        val draftEntry = ConvertPlanToTemplateUseCase()(plan.toWeeklyPlan(), "Draft")
+            .workouts[0].entries[0]
+        assertNull(draftEntry.reps)
+        assertEquals(45, draftEntry.durationSeconds)
     }
 
     @Test

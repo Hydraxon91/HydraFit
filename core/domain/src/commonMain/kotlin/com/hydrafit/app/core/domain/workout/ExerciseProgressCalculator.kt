@@ -35,6 +35,10 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
         } else {
             null
         }
+        // A timed set is real recorded work for the day trend (count and seconds) but contributes
+        // no rep-derived record: its seconds are never read as reps and its null reps are never
+        // substituted with a placeholder.
+        if (set.durationSeconds != null) return
         candidates(set).forEach { candidate ->
             if (!earlier.containsKey(candidate.key)) {
                 earlier[candidate.key] = records[candidate.key]?.value
@@ -62,21 +66,22 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
 
     private fun candidates(set: WorkoutSet): List<ProgressRecord> {
         if (set.loadKind == LoadKind.LEGACY_UNSPECIFIED) return emptyList()
+        val repCount = set.reps ?: return emptyList()
         val load = set.weightKg
         val result = mutableListOf<ProgressRecord>()
         if (load != null) {
-            result += record(ProgressRecordType.LOAD_AT_REPS, set, load, reps = set.reps)
+            result += record(ProgressRecordType.LOAD_AT_REPS, set, load, reps = repCount)
         }
-        result += record(ProgressRecordType.REPS_AT_LOAD, set, set.reps.toDouble(), weightKg = load)
+        result += record(ProgressRecordType.REPS_AT_LOAD, set, repCount.toDouble(), weightKg = load)
         if (set.loadKind == LoadKind.EXTERNAL &&
             load != null &&
             load > 0.0 &&
-            estimatePolicy.hasUsableEstimate(set.reps)
+            estimatePolicy.hasUsableEstimate(repCount)
         ) {
             result += record(
                 ProgressRecordType.ESTIMATED_ONE_REP_MAX,
                 set,
-                OneRepMax.estimate(load, set.reps)
+                OneRepMax.estimate(load, repCount)
             )
         }
         return result
@@ -86,20 +91,27 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
         var count = 0
         var reps = 0L
         var volume: Double? = null
+        var durationSeconds = 0L
         val loads = linkedMapOf<ProgressRecordKey, Accumulator>()
         val repetitions = linkedMapOf<ProgressRecordKey, Accumulator>()
         val estimates = linkedMapOf<ProgressRecordKey, Accumulator>()
 
         fun add(set: WorkoutSet) {
             count++
-            reps += set.reps.toLong()
+            val timedSeconds = set.durationSeconds
+            if (timedSeconds != null) {
+                durationSeconds += timedSeconds
+                return
+            }
+            val repCount = set.reps ?: return
+            reps += repCount.toLong()
             if (set.loadKind == LoadKind.EXTERNAL && set.weightKg != null) {
-                volume = (volume ?: 0.0) + set.weightKg * set.reps
+                volume = (volume ?: 0.0) + set.weightKg * repCount
             }
             set.weightKg?.let {
                 loads.merge(record(ProgressRecordType.LOAD_AT_REPS, set, it))
             }
-            repetitions.merge(record(ProgressRecordType.REPS_AT_LOAD, set, set.reps.toDouble()))
+            repetitions.merge(record(ProgressRecordType.REPS_AT_LOAD, set, repCount.toDouble()))
         }
 
         fun result() = ProgressDay(
@@ -109,7 +121,8 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
             volume,
             loads.values.map { it.snapshot() },
             repetitions.values.map { it.snapshot() },
-            estimates.values.singleOrNull()?.snapshot()
+            estimates.values.singleOrNull()?.snapshot(),
+            durationSeconds
         )
     }
 

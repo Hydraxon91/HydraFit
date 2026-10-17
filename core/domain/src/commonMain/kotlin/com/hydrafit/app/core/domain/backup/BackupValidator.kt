@@ -27,6 +27,7 @@ import com.hydrafit.app.core.domain.transfer.WorkoutImportPartition
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
+import com.hydrafit.app.core.domain.workout.WarmupAction
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 
 /**
@@ -49,6 +50,11 @@ class BackupValidator(private val catalog: BackupCatalog) {
             fail(BackupFailure.INVALID_VALUE)
         }
         if (file.formatVersion < SESSION_NOTES_FORMAT_VERSION && file.sessionNotes.isNotEmpty()) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        if (file.formatVersion < WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION &&
+            file.warmupPreparationOverrides.isNotEmpty()
+        ) {
             fail(BackupFailure.INVALID_VALUE)
         }
         if (file.formatVersion < SETUP_FORMAT_VERSION &&
@@ -194,6 +200,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
         uniqueBy(file.entryTargetExplanations) { it.entryKind to it.entryId }
         uniqueBy(file.exerciseNotes) { it.exerciseId }
         uniqueBy(file.sessionNotes) { it.sessionId }
+        uniqueBy(file.warmupPreparationOverrides) { it.action }
         uniqueBy(file.selectedEquipment) { it }
 
         val customEquipmentIds = file.equipment.filter { !it.isBuiltIn }.map { it.id }.toSet()
@@ -268,6 +275,21 @@ class BackupValidator(private val catalog: BackupCatalog) {
             exercise(it.exerciseId, knownExercises)
             enum(it.loadKind, LoadKind.entries)
             enum(it.timingProvenance, WorkoutTimingProvenance.entries)
+            // A set is measured by positive reps or positive whole seconds, never both and never
+            // neither. A duration in a format that predates the field is rejected instead of being
+            // reinterpreted as a rep count.
+            if (file.formatVersion < WORKOUT_SET_METRICS_FORMAT_VERSION &&
+                it.durationSeconds != null
+            ) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            val hasReps = it.reps != null && it.reps > 0
+            val hasDuration = it.durationSeconds != null && it.durationSeconds > 0
+            if (hasReps == hasDuration) fail(BackupFailure.INVALID_VALUE)
+            if (it.reps != null && it.reps <= 0) fail(BackupFailure.INVALID_VALUE)
+            it.durationSeconds?.let { seconds ->
+                if (seconds <= 0) fail(BackupFailure.INVALID_VALUE)
+            }
             if ((it.startedAtElapsedMillis == null) != (it.completedAtElapsedMillis == null)) {
                 fail(BackupFailure.INVALID_VALUE)
             }
@@ -303,6 +325,12 @@ class BackupValidator(private val catalog: BackupCatalog) {
             enum(entry.movementPattern, MovementPattern.entries)
             enum(entry.loadCapability, ExerciseLoadCapability.entries)
             enum(entry.loadKind, LoadKind.entries)
+            prescriptionMetric(
+                file.formatVersion,
+                entry.reps,
+                entry.durationSeconds,
+                PLAN_ENTRY_DURATION_FORMAT_VERSION
+            )
             entry.suggestedWeightKg?.let { value -> finite(value) }
         }
         file.volumeExplanations.forEach {
@@ -399,6 +427,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
             reference(entry.workoutId, routineWorkoutIds)
             exercise(entry.exerciseId, knownExercises)
             enum(entry.loadKind, LoadKind.entries)
+            prescriptionMetric(file.formatVersion, entry.reps, entry.durationSeconds)
             entry.weightKg?.let { value -> finite(value) }
         }
         file.activations.forEach {
@@ -416,6 +445,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
             enum(entry.loadCapability, ExerciseLoadCapability.entries)
             enum(entry.loadKind, LoadKind.entries)
             equipment(entry.requiredEquipment, knownEquipment)
+            prescriptionMetric(file.formatVersion, entry.reps, entry.durationSeconds)
             entry.weightKg?.let { value -> finite(value) }
             involvements(entry.involvements)
         }
@@ -436,6 +466,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
             enum(entry.loadKind, LoadKind.entries)
             enum(entry.remainingDisposition, RemainingDisposition.entries)
             equipment(entry.requiredEquipment, knownEquipment)
+            prescriptionMetric(file.formatVersion, entry.reps, entry.durationSeconds)
             entry.weightKg?.let { value -> finite(value) }
             involvements(entry.involvements)
         }
@@ -461,6 +492,17 @@ class BackupValidator(private val catalog: BackupCatalog) {
         file.sessionNotes.forEach {
             reference(it.sessionId, sessionIds)
             if (it.note.length > NOTE_MAX_LENGTH) fail(BackupFailure.INVALID_VALUE)
+        }
+        file.warmupPreparationOverrides.forEach {
+            // An unknown action name is rejected rather than silently dropped, and the measure must be
+            // exactly one positive value, mirroring every other prescription slot.
+            enum(it.action, WarmupAction.entries)
+            prescriptionMetric(
+                file.formatVersion,
+                it.reps,
+                it.durationSeconds,
+                WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION
+            )
         }
 
         file.settings?.let { settings ->
@@ -512,6 +554,29 @@ class BackupValidator(private val catalog: BackupCatalog) {
 
     private fun finite(value: Double) {
         if (!value.isFinite()) fail(BackupFailure.INVALID_VALUE)
+    }
+
+    /**
+     * A prescription slot is measured by positive reps or positive whole seconds, never both and
+     * never neither. A duration in a format that predates the field is rejected instead of being
+     * reinterpreted as a rep count. [durationFormatVersion] is the first format that carries the
+     * duration for this record family, since a timed accepted-plan slot arrived one format later
+     * than a timed routine/frozen slot.
+     */
+    private fun prescriptionMetric(
+        version: Int,
+        reps: Int?,
+        durationSeconds: Int?,
+        durationFormatVersion: Int = PRESCRIPTION_DURATION_FORMAT_VERSION
+    ) {
+        if (version < durationFormatVersion && durationSeconds != null) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        val hasReps = reps != null && reps > 0
+        val hasDuration = durationSeconds != null && durationSeconds > 0
+        if (hasReps == hasDuration) fail(BackupFailure.INVALID_VALUE)
+        if (reps != null && reps <= 0) fail(BackupFailure.INVALID_VALUE)
+        durationSeconds?.let { if (it <= 0) fail(BackupFailure.INVALID_VALUE) }
     }
 
     private fun <E : Enum<E>> enum(value: String?, values: List<E>) {

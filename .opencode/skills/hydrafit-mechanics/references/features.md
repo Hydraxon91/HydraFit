@@ -1,5 +1,39 @@
 # Feature and test implementation recipes
 
+## SplitBuilder plan-slot measure
+
+Each slot of the shown plan carries a measure action (`Measure <exercise>`) opening a small dialog
+with a Reps/Seconds choice and a value field, backed by `MeasureDialogState`. A timed slot renders
+`sets × seconds s`; a slot whose measure is somehow absent renders the bare name rather than a `0`
+sentinel. Invalid input writes nothing and reports a specific reason (rep range, non-positive
+seconds, or seconds beyond the recordable range). A draft edit is state-only and carries into
+acceptance; an accepted-plan edit persists through `SetAcceptedExerciseMeasureUseCase` in place, like
+a swap, and leaves the frozen volume assessment and the slot's recorded reasons untouched.
+
+## SplitBuilder planning dates
+
+`SplitBuilderScreen` hosts a date editor separate from the Start-block schedule dialog, backed by
+`PlanningDatesState`; `SplitBuilderViewModel` owns the dates flow and passes it to
+`ObserveWorkoutPlanInputsUseCase`. The dialog exposes weekday chips, the existing date picker,
+start-today, shift-one-week and clear-to-unknown, with an exact-date preview and the decay-only
+disclosure (built-in planner only, recorded-history decay only, no future workout assumed, same
+clock time and current offset, unknown dates keep prior behavior, and these dates do not move an
+existing block). UI strings live in the feature's `strings.xml`.
+
+## Timed prescription authoring
+
+Routines provides a repetitions/seconds choice per slot; only the selected measure is saved.
+Routine activation and occurrence edits preserve that choice, and Logger confirmation forwards
+seconds into the recorded set rather than inventing reps. Guided completion still counts sets.
+Timed draft rows and their one-off editor display/edit seconds, preserving the metric through
+missing-load entry, failed-write retries and guided confirmation without changing frozen targets.
+Workout summaries and Progress display recorded seconds descriptively; timed work has no
+rep-derived strength record or modeled fatigue contribution. Preparation ramp sets remain counted.
+A preparation edit persists as one global override per action in the additive
+`warmupPreparationOverride` table (reps XOR seconds, cleared by Reset to default), applied by
+`buildWarmupGuidance` so a later occurrence renders the persisted measure; a row showing a persisted
+override carries the same "(edited)" marker as a transient edit.
+
 Equipment exposes Trap isolation (manual only) and Neck isolation (manual only) in the
 existing non-compound pattern selector. All six manual shrug/neck seeds remain selectable
 for manual logging/routines; the full catalog is not filtered by planner eligibility.
@@ -32,6 +66,14 @@ feathers; the numbers and fatigue inputs are never blended. Numeric descriptions
 are separate accessible text nodes, not mutually occluding bounds overlays.
 Existing refresh, coverage and planner contracts are unchanged. See
 `docs/architecture.md` for pinned provenance and the schematic limitations.
+
+The screen title, the always-visible note under it and the map legend call the scores an
+estimate: the note states that recorded working sets are the input, that this is not a
+measurement of soreness, exhaustion or readiness, that low values do not confirm recovery
+and that recorded muscle mappings may be incomplete. `fatigue_map_legend_low`/`_high` are the
+estimate-framed legend labels. Numbers, the 24 groups, artwork/coverage logic and the
+manual-only seeds are untouched; `FatigueEstimateCopyTest` guards the copy in the real
+resources and in the rendered screen and body-map dialog.
 
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.

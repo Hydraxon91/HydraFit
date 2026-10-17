@@ -1,0 +1,14 @@
+-- Warm-up preparation overrides. One row per preparation action, holding the measure the user last
+-- edited into that row: a positive rep count or positive whole seconds, never both and never a zero
+-- sentinel, exactly as the prescription tables encode it. The table is global (not scoped to an
+-- occurrence), so an edit survives the next occurrence and an app restart; a missing row means the
+-- built-in default still applies.
+--
+-- Additive table: no existing table is rebuilt, so no AUTOINCREMENT high-water mark needs repair and
+-- `HydraFitDatabaseSchema` needs no new registration.
+
+CREATE TABLE warmupPreparationOverride (
+    action TEXT NOT NULL PRIMARY KEY,
+    reps INTEGER,
+    durationSeconds INTEGER
+);

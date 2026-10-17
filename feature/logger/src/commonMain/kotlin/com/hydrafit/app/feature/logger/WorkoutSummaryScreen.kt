@@ -30,10 +30,12 @@ import com.hydrafit.app.core.domain.workout.WorkoutSummarySet
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.logger_edit_set
 import hydrafit.feature.logger.generated.resources.logger_history_exercise_missing
+import hydrafit.feature.logger.generated.resources.logger_history_set_duration_line
 import hydrafit.feature.logger.generated.resources.logger_history_set_line
 import hydrafit.feature.logger.generated.resources.logger_summary_close
 import hydrafit.feature.logger.generated.resources.logger_summary_done
 import hydrafit.feature.logger.generated.resources.logger_summary_edit_set_description
+import hydrafit.feature.logger.generated.resources.logger_summary_edit_set_duration_description
 import hydrafit.feature.logger.generated.resources.logger_summary_extra_sets
 import hydrafit.feature.logger.generated.resources.logger_summary_failed
 import hydrafit.feature.logger.generated.resources.logger_summary_loading
@@ -52,6 +54,8 @@ import hydrafit.feature.logger.generated.resources.logger_summary_status_finishe
 import hydrafit.feature.logger.generated.resources.logger_summary_status_partial
 import hydrafit.feature.logger.generated.resources.logger_summary_target_sets
 import hydrafit.feature.logger.generated.resources.logger_summary_target_sets_none
+import hydrafit.feature.logger.generated.resources.logger_summary_target_sets_none_timed
+import hydrafit.feature.logger.generated.resources.logger_summary_target_sets_timed
 import hydrafit.feature.logger.generated.resources.logger_summary_title
 import hydrafit.feature.logger.generated.resources.logger_summary_totals
 import hydrafit.feature.logger.generated.resources.logger_summary_unavailable
@@ -297,23 +301,50 @@ private fun SummarySetLine(
     weightUnit: WeightUnit,
     onEditSet: (WorkoutSummarySet) -> Unit
 ) {
-    val editDescription = stringResource(
-        Res.string.logger_summary_edit_set_description,
-        set.exerciseName ?: stringResource(Res.string.logger_history_exercise_missing),
-        position,
-        set.reps
-    )
+    val durationSeconds = set.durationSeconds
+    val reps = set.reps
+    val editDescription = when {
+        durationSeconds != null -> stringResource(
+            Res.string.logger_summary_edit_set_duration_description,
+            set.exerciseName ?: stringResource(Res.string.logger_history_exercise_missing),
+            position,
+            durationSeconds
+        )
+
+        reps != null -> stringResource(
+            Res.string.logger_summary_edit_set_description,
+            set.exerciseName ?: stringResource(Res.string.logger_history_exercise_missing),
+            position,
+            reps
+        )
+
+        else -> stringResource(
+            Res.string.logger_history_exercise_missing
+        )
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val durationSeconds = set.durationSeconds
+        val reps = set.reps
         Text(
-            text = stringResource(
-                Res.string.logger_history_set_line,
-                set.reps,
-                loadWeightText(set.loadKind, set.weightKg, weightUnit)
-            ),
+            text = when {
+                durationSeconds != null -> stringResource(
+                    Res.string.logger_history_set_duration_line,
+                    durationSeconds,
+                    loadWeightText(set.loadKind, set.weightKg, weightUnit)
+                )
+
+                reps != null -> stringResource(
+                    Res.string.logger_history_set_line,
+                    reps,
+                    loadWeightText(set.loadKind, set.weightKg, weightUnit)
+                )
+
+                else -> loadWeightText(set.loadKind, set.weightKg, weightUnit)
+            },
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.weight(1f)
         )
@@ -329,25 +360,48 @@ private fun SummarySetLine(
 }
 
 @Composable
-private fun prescribedTargetText(exercise: WorkoutSummaryExercise, weightUnit: WeightUnit): String =
-    if (exercise.prescribedWeightKg == null && exercise.prescribedLoadKind == LoadKind.BODYWEIGHT) {
-        stringResource(
-            Res.string.logger_summary_target_sets_none,
-            exercise.prescribedSets,
-            exercise.prescribedReps
-        )
-    } else {
-        stringResource(
-            Res.string.logger_summary_target_sets,
-            exercise.prescribedSets,
-            exercise.prescribedReps,
-            loadWeightText(
-                exercise.prescribedLoadKind,
-                exercise.prescribedWeightKg,
-                weightUnit
+private fun prescribedTargetText(exercise: WorkoutSummaryExercise, weightUnit: WeightUnit): String {
+    val seconds = exercise.prescribedDurationSeconds
+    val reps = exercise.prescribedReps ?: 0
+    return if (exercise.prescribedWeightKg == null &&
+        exercise.prescribedLoadKind == LoadKind.BODYWEIGHT
+    ) {
+        if (seconds != null) {
+            stringResource(
+                Res.string.logger_summary_target_sets_none_timed,
+                exercise.prescribedSets,
+                seconds
             )
+        } else {
+            stringResource(
+                Res.string.logger_summary_target_sets_none,
+                exercise.prescribedSets,
+                reps
+            )
+        }
+    } else {
+        val load = loadWeightText(
+            exercise.prescribedLoadKind,
+            exercise.prescribedWeightKg,
+            weightUnit
         )
+        if (seconds != null) {
+            stringResource(
+                Res.string.logger_summary_target_sets_timed,
+                exercise.prescribedSets,
+                seconds,
+                load
+            )
+        } else {
+            stringResource(
+                Res.string.logger_summary_target_sets,
+                exercise.prescribedSets,
+                reps,
+                load
+            )
+        }
     }
+}
 
 private fun instantLabel(epochMillis: Long, utcOffsetMillis: Long): String {
     val parts = localDateTimeParts(epochMillis, utcOffsetMillis)

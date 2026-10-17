@@ -25,6 +25,7 @@ import com.hydrafit.app.core.domain.engine.PersonalRecord
 import com.hydrafit.app.core.domain.engine.PlanBuilderActions
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.SetAcceptedExerciseMeasureUseCase
 import com.hydrafit.app.core.domain.engine.SubstituteExerciseUseCase
 import com.hydrafit.app.core.domain.engine.SuggestWeightsUseCase
 import com.hydrafit.app.core.domain.engine.TrainingGoal
@@ -119,6 +120,9 @@ import com.hydrafit.app.core.domain.workout.SessionNoteRepository
 import com.hydrafit.app.core.domain.workout.SessionResegmenter
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.UnsupportedRestAlertScheduler
+import com.hydrafit.app.core.domain.workout.WarmupAction
+import com.hydrafit.app.core.domain.workout.WarmupPreparationItem
+import com.hydrafit.app.core.domain.workout.WarmupPreparationOverrideRepository
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryEntry
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryPage
@@ -328,6 +332,7 @@ class KoinModulesVerificationTest {
             assertNotNull(koin.get<ObserveWorkoutPlanInputsUseCase>())
             assertNotNull(koin.get<AcceptWeeklyPlanUseCase>())
             assertNotNull(koin.get<SubstituteExerciseUseCase>())
+            assertNotNull(koin.get<SetAcceptedExerciseMeasureUseCase>())
             assertNotNull(koin.get<ReplaceOccurrenceExerciseUseCase>())
             assertNotNull(koin.get<PlanBuilderActions>())
             assertNotNull(koin.get<ObserveAcceptedPlanUseCase>())
@@ -881,6 +886,9 @@ class KoinModulesVerificationTest {
                     single<EquipmentProfileRepository> { FakeEquipmentProfiles }
                     single<ExerciseNoteRepository> { FakeExerciseNoteRepository }
                     single<SessionNoteRepository> { FakeSessionNoteRepository }
+                    single<WarmupPreparationOverrideRepository> {
+                        FakeWarmupPreparationOverrideRepository
+                    }
                     single<WorkoutHistoryRepository> { FakeWorkoutHistoryRepository }
                     single<ExerciseProgressRepository> { FakeExerciseProgressRepository }
                     single<WorkoutSessionRepository> { FakeWorkoutSessionRepository }
@@ -1129,6 +1137,14 @@ class KoinModulesVerificationTest {
             newLoadKind: LoadKind
         ) = Unit
 
+        override suspend fun setMeasure(
+            planId: Long,
+            dayIndex: Int,
+            position: Int,
+            reps: Int?,
+            durationSeconds: Int?
+        ) = Unit
+
         override suspend fun delete(planId: Long) = Unit
 
         override suspend fun clear() = Unit
@@ -1188,6 +1204,15 @@ class KoinModulesVerificationTest {
         override suspend fun save(sessionId: String, text: String) = Unit
 
         override suspend fun clear(sessionId: String) = Unit
+    }
+
+    private object FakeWarmupPreparationOverrideRepository : WarmupPreparationOverrideRepository {
+        override fun observeAll(): Flow<Map<WarmupAction, WarmupPreparationItem>> =
+            flowOf(emptyMap())
+
+        override suspend fun set(item: WarmupPreparationItem) = Unit
+
+        override suspend fun clear(action: WarmupAction) = Unit
     }
 
     private object FakeWorkoutHistoryRepository : WorkoutHistoryRepository {

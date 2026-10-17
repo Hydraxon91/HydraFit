@@ -30,6 +30,7 @@ import com.hydrafit.app.core.domain.workout.WarmupAction
 import com.hydrafit.app.core.domain.workout.WarmupEquipment
 import com.hydrafit.app.core.domain.workout.WarmupGuidance
 import com.hydrafit.app.core.domain.workout.WarmupPreparationItem
+import com.hydrafit.app.core.domain.workout.WarmupPreparationOverrideRepository
 import com.hydrafit.app.core.domain.workout.WarmupRampSet
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutSet
@@ -66,6 +67,7 @@ class WorkoutLoggerViewModel(
     private val settings: WorkoutLoggerSettings,
     private val exerciseNoteRepository: com.hydrafit.app.core.domain.workout.ExerciseNoteRepository,
     private val sessionNoteRepository: com.hydrafit.app.core.domain.workout.SessionNoteRepository,
+    private val warmupOverrideRepository: WarmupPreparationOverrideRepository,
     private val equipment: WorkoutLoggerEquipment
 ) : ViewModel() {
 
@@ -178,6 +180,15 @@ class WorkoutLoggerViewModel(
                 warmupEquipmentObserved = true
                 // A refresh may return without publishing when superseded. Visible readiness belongs
                 // to the successful guidance publication, not to this collector's completion.
+                refreshToday()
+            }
+        }
+        viewModelScope.launch {
+            // Preparation overrides are global, not per occurrence, so an edit made in an earlier
+            // workout still applies here: a change rebuilds the current guidance rather than waiting
+            // for the next occurrence.
+            warmupOverrideRepository.observeAll().collectLatest { overrides ->
+                _state.update { it.copy(warmupPreparationOverrides = overrides) }
                 refreshToday()
             }
         }
@@ -362,7 +373,10 @@ class WorkoutLoggerViewModel(
                 selectedExerciseId = exerciseId,
                 exerciseInstructions = null,
                 weightInput = planWeight,
-                reps = planReps ?: it.reps,
+                reps = planReps?.toString() ?: it.reps,
+                // A prescription target is a rep count, so a plan suggestion returns the form to reps.
+                metric = if (planReps != null) SetMetric.REPETITIONS else it.metric,
+                durationSeconds = if (planReps != null) "" else it.durationSeconds,
                 // Bodyweight exercises hide the weight field again on each selection.
                 weightRevealed = false,
                 // The previous set's failure messages described these replaced entries.
@@ -429,7 +443,13 @@ class WorkoutLoggerViewModel(
             val option = current.exercises.firstOrNull { it.id == exerciseId }
             current.copy(
                 weightInput = weightInputFor(last.weightKg, unit),
-                reps = last.reps.toString(),
+                metric = if (last.durationSeconds != null) {
+                    SetMetric.DURATION
+                } else {
+                    SetMetric.REPETITIONS
+                },
+                reps = last.reps?.toString().orEmpty(),
+                durationSeconds = last.durationSeconds?.toString().orEmpty(),
                 // An added-load history reveals the field on an addable bodyweight exercise.
                 weightRevealed = current.weightRevealed ||
                     (option?.canAddLoad == true && last.weightKg != null),
@@ -452,7 +472,13 @@ class WorkoutLoggerViewModel(
                 selectedExerciseId = row.exerciseId,
                 exerciseInstructions = null,
                 weightInput = weightInputFor(row.weightKg, unit),
-                reps = row.reps.toString(),
+                metric = if (row.durationSeconds != null) {
+                    SetMetric.DURATION
+                } else {
+                    SetMetric.REPETITIONS
+                },
+                reps = row.reps?.toString().orEmpty(),
+                durationSeconds = row.durationSeconds?.toString().orEmpty(),
                 // Reveal the weight field for a bodyweight exercise only when that row had a weight.
                 weightRevealed = row.weightKg != null,
                 isWarmup = row.isWarmup,
@@ -519,13 +545,21 @@ class WorkoutLoggerViewModel(
         _state.update {
             it.copy(
                 loggedSetEdit = LoggedSetEdit(
-                    row,
-                    unit,
-                    row.reps.toString(),
-                    weight,
-                    weight,
-                    row.rir?.toString().orEmpty(),
-                    row.performedAtMillis
+                    row = row,
+                    weightUnit = unit,
+                    // The editor opens on the metric the row was recorded with; the other field is
+                    // seeded but only submitted when the user switches to it.
+                    metric = if (row.durationSeconds != null) {
+                        SetMetric.DURATION
+                    } else {
+                        SetMetric.REPETITIONS
+                    },
+                    reps = row.reps?.toString().orEmpty(),
+                    durationSeconds = row.durationSeconds?.toString().orEmpty(),
+                    weightInput = weight,
+                    originalWeightInput = weight,
+                    rir = row.rir?.toString().orEmpty(),
+                    performedAtMillis = row.performedAtMillis
                 ),
                 loggedSetEditFailed = false
             )
@@ -533,6 +567,18 @@ class WorkoutLoggerViewModel(
     }
 
     fun onLoggedSetRepsChanged(value: String) = updateLoggedSetEdit { copy(reps = value) }
+
+    fun onLoggedSetDurationChanged(value: String) = updateLoggedSetEdit {
+        copy(durationSeconds = value.filter(Char::isDigit))
+    }
+
+    /** Switching the metric clears the field the user just left, so nothing stale is submitted. */
+    fun onLoggedSetMetricChanged(metric: SetMetric) = updateLoggedSetEdit {
+        when (metric) {
+            SetMetric.REPETITIONS -> copy(metric = metric, durationSeconds = "")
+            SetMetric.DURATION -> copy(metric = metric, reps = "")
+        }
+    }
 
     /**
      * Opens the existing set-correction editor for one set of the finished-workout summary. The
@@ -547,6 +593,7 @@ class WorkoutLoggerViewModel(
                 exerciseId = set.exerciseId,
                 exerciseName = set.exerciseName ?: set.exerciseId,
                 reps = set.reps,
+                durationSeconds = set.durationSeconds,
                 weightKg = set.weightKg,
                 rir = set.rir,
                 isWarmup = set.isWarmup,
@@ -599,10 +646,11 @@ class WorkoutLoggerViewModel(
                 logMutations.correctSet(
                     edit.row.id,
                     WorkoutSetCorrection(
-                        requireNotNull(edit.reps.toIntOrNull()),
-                        weight,
-                        edit.rir.toIntOrNull(),
-                        edit.performedAtMillis
+                        reps = edit.correctionReps,
+                        weightKg = weight,
+                        rir = edit.rir.toIntOrNull(),
+                        performedAtMillis = edit.performedAtMillis,
+                        durationSeconds = edit.correctionDurationSeconds
                     )
                 )
             } catch (cancelled: CancellationException) {
@@ -674,6 +722,22 @@ class WorkoutLoggerViewModel(
         _state.update { it.copy(reps = value.filter(Char::isDigit)) }
     }
 
+    fun onDurationSecondsChanged(value: String) {
+        manualInputGeneration++
+        _state.update { it.copy(durationSeconds = value.filter(Char::isDigit)) }
+    }
+
+    /** Switching the manual form's metric clears the other field, so only one can ever be submitted. */
+    fun onMetricChanged(metric: SetMetric) {
+        manualInputGeneration++
+        _state.update {
+            when (metric) {
+                SetMetric.REPETITIONS -> it.copy(metric = metric, durationSeconds = "")
+                SetMetric.DURATION -> it.copy(metric = metric, reps = "")
+            }
+        }
+    }
+
     fun onWeightChanged(value: String) {
         manualInputGeneration++
         _state.update {
@@ -724,8 +788,15 @@ class WorkoutLoggerViewModel(
         if (manualLogSubmissionInProgress) return
         val current = _state.value
         val exerciseId = current.selectedExerciseId ?: return
-        val reps = current.reps.toIntOrNull() ?: return
-        if (reps <= 0) return
+        // Exactly one metric is submitted, so the field the user did not select is never parsed: the
+        // selected one must be a positive whole number or the submission is refused outright.
+        val reps = if (current.metric == SetMetric.REPETITIONS) current.reps.toIntOrNull() else null
+        val durationSeconds = if (current.metric == SetMetric.DURATION) {
+            current.durationSeconds.toIntOrNull()
+        } else {
+            null
+        }
+        if ((reps ?: 0) <= 0 && (durationSeconds ?: 0) <= 0) return
         // A hidden weight field (bodyweight exercise not revealed) never logs a weight, even if a
         // value was retained from a previous exercise.
         val typedWeight = if (current.showWeightField) {
@@ -755,6 +826,7 @@ class WorkoutLoggerViewModel(
         val submittedSet = WorkoutSet(
             exerciseId = exerciseId,
             reps = reps,
+            durationSeconds = durationSeconds,
             weightKg = weightKg,
             loadKind = loadKind,
             performedAtMillis = current.performedAtMillis ?: runtime.nowMillis(),
@@ -938,7 +1010,8 @@ class WorkoutLoggerViewModel(
                         weightKg = exercise.suggestedWeightKg,
                         loadKind = exercise.loadKind,
                         loadCapability = exercise.loadCapability,
-                        explanation = exercise.explanation
+                        explanation = exercise.explanation,
+                        durationSeconds = exercise.durationSeconds
                     )
                 },
                 nowMillis = nowMillis,
@@ -1043,7 +1116,8 @@ class WorkoutLoggerViewModel(
             it.copy(
                 draftEdit = DraftEdit(
                     draft = draft,
-                    reps = base.reps.toString(),
+                    reps = base.reps?.toString().orEmpty(),
+                    durationSeconds = base.durationSeconds?.toString().orEmpty(),
                     weightInput = weightInputFor(base.weightKg, current.weightUnit),
                     rir = retryEdit?.rir.orEmpty(),
                     weightRevealed = base.loadKind == LoadKind.ADDED,
@@ -1060,6 +1134,11 @@ class WorkoutLoggerViewModel(
 
     fun onDraftRepsChanged(value: String) = updateDraftEdit {
         copy(reps = value.filter(Char::isDigit))
+    }
+
+    /** Edits the frozen seconds of a timed draft; a counted draft never shows this field. */
+    fun onDraftDurationSecondsChanged(value: String) = updateDraftEdit {
+        copy(durationSeconds = value.filter(Char::isDigit))
     }
 
     fun onDraftWeightChanged(value: String) = updateDraftEdit {
@@ -1096,8 +1175,9 @@ class WorkoutLoggerViewModel(
     }
 
     fun confirmDraftEdit() {
-        val draft = _state.value.draftEdit?.draft ?: return
-        if (_state.value.draftEdit?.reps?.toIntOrNull()?.let { it > 0 } != true) return
+        val edit = _state.value.draftEdit ?: return
+        if (!edit.enteredMetricIsPositive) return
+        val draft = edit.draft
         val entryId = draft.occurrenceEntryId
         if (isGuidedActive && entryId != null) {
             confirmGuidedSet(entryId, liveCompletion = liveSetIntentEntryId == entryId)
@@ -1228,8 +1308,12 @@ class WorkoutLoggerViewModel(
             }
             ExerciseLoadCapability.UNSPECIFIED -> edit.draft.loadKind to edit.draft.weightKg
         }
+        val reps = if (edit.isTimed) null else edit.reps.toIntOrNull() ?: 0
+        val duration = if (edit.isTimed) edit.durationSeconds.toIntOrNull() ?: 0 else null
         return edit.draft.copy(
-            reps = edit.reps.toIntOrNull() ?: 0,
+            // The frozen measure alone is submitted, so the other field is always cleared.
+            reps = reps,
+            durationSeconds = duration,
             weightKg = weight,
             loadKind = kind
         )
@@ -1597,6 +1681,7 @@ class WorkoutLoggerViewModel(
                 WorkoutSet(
                     exerciseId = draft.exerciseId,
                     reps = draft.reps,
+                    durationSeconds = draft.durationSeconds,
                     weightKg = if (draft.loadKind == LoadKind.BODYWEIGHT) null else draft.weightKg,
                     loadKind = draft.loadKind,
                     performedAtMillis = if (liveCompletion) {
@@ -1753,7 +1838,8 @@ class WorkoutLoggerViewModel(
                     loadCapability = entry.loadCapability,
                     occurrenceId = occurrence.id,
                     occurrenceEntryId = entry.id,
-                    explanation = entry.explanation
+                    explanation = entry.explanation,
+                    durationSeconds = entry.durationSeconds
                 )
             }
         }
@@ -1772,7 +1858,11 @@ class WorkoutLoggerViewModel(
         // Transient per-workout state follows the same occurrence; switching away clears it.
         val sameOccurrence = previousOccurrenceId == occurrence.id
         val equipment = warmupEquipment
-        val nextGuidance = buildWarmupGuidance(occurrence, equipment)
+        val nextGuidance = buildWarmupGuidance(
+            occurrence,
+            equipment,
+            _state.value.warmupPreparationOverrides
+        )
         // A slot whose prescription changed loses its transient edits, so a value typed for the old
         // exercise can never be shown against the replacement.
         val previousRamps = _state.value.warmupGuidance?.ramps.orEmpty()
@@ -2469,75 +2559,118 @@ class WorkoutLoggerViewModel(
     }
 
     /**
-     * Applies the editor's value to the in-memory guidance. Nothing is written: a ramp still has to be
-     * logged through its own action to become a recorded warm-up. After Reset, Save applies the derived
-     * default instead of a typed value.
+     * Applies the editor's value to the in-memory guidance and, for a preparation row, persists it as
+     * the action's override. A ramp still has to be logged through its own action to become a recorded
+     * warm-up. After Reset, Save applies the derived default instead of a typed value.
      */
     fun saveWarmupEditor() {
         val editor = _state.value.warmupEditor ?: return
         if (!editor.canSave) return
-        _state.update { state ->
-            when (val target = editor.target) {
-                is WarmupEditTarget.Preparation -> {
-                    val edits = if (editor.resetsToDefault) {
-                        state.warmupPreparationEdits - target.action
-                    } else {
-                        val item = if (editor.timed) {
-                            WarmupPreparationItem(
-                                action = target.action,
-                                // Minutes are the entered unit; seconds are the stored unit. canSave
-                                // already guaranteed the product fits, so this never truncates.
-                                durationSeconds = editor.durationInput.toIntOrNull()
-                                    ?.toLong()
-                                    ?.times(60L)
-                                    ?.toInt()
-                            )
-                        } else {
-                            WarmupPreparationItem(
-                                action = target.action,
-                                reps = editor.repsInput.toIntOrNull()
-                            )
-                        }
-                        state.warmupPreparationEdits + (target.action to item)
-                    }
-                    state.copy(warmupPreparationEdits = edits, warmupEditor = null)
-                }
-
-                is WarmupEditTarget.Ramp -> {
-                    if (editor.resetsToDefault) {
-                        state.copy(
-                            warmupRampEdits = state.warmupRampEdits - target.key,
-                            warmupEditor = null
-                        )
-                    } else {
-                        val weightKg = editor.enteredWeightKg
-                        val default = state.warmupGuidance?.ramps
-                            ?.firstOrNull { it.occurrenceEntryId == target.key.occurrenceEntryId }
-                            ?.rampSets
-                            ?.getOrNull(target.key.rampIndex)
-                        // A collapsed default leaves no row at this position, so the edit keeps the
-                        // profile percentage it already carried instead of being discarded.
-                        val percent = default?.percentOfWorkingWeight
-                            ?: state.warmupRampEdits[target.key]?.percentOfWorkingWeight
-                        val reps = editor.repsInput.toIntOrNull()
-                        if (weightKg == null || reps == null || percent == null) {
-                            state.copy(warmupEditor = null)
-                        } else {
-                            state.copy(
-                                warmupRampEdits = state.warmupRampEdits + (
-                                    target.key to WarmupRampSet(
-                                        percentOfWorkingWeight = percent,
-                                        reps = reps,
-                                        weightKg = weightKg
-                                    )
-                                    ),
-                                warmupEditor = null
-                            )
-                        }
-                    }
-                }
+        when (val target = editor.target) {
+            is WarmupEditTarget.Preparation -> savePreparationEditor(editor, target.action)
+            is WarmupEditTarget.Ramp -> _state.update { state ->
+                applyRampEdit(state, target, editor)
             }
         }
+    }
+
+    /** Applies one ramp editor's value to [state], or drops its transient edit after Reset. */
+    private fun applyRampEdit(
+        state: WorkoutLoggerUiState,
+        target: WarmupEditTarget.Ramp,
+        editor: WarmupGuidanceEditor
+    ): WorkoutLoggerUiState {
+        if (editor.resetsToDefault) {
+            return state.copy(
+                warmupRampEdits = state.warmupRampEdits - target.key,
+                warmupEditor = null
+            )
+        }
+        val weightKg = editor.enteredWeightKg
+        val default = state.warmupGuidance?.ramps
+            ?.firstOrNull { it.occurrenceEntryId == target.key.occurrenceEntryId }
+            ?.rampSets
+            ?.getOrNull(target.key.rampIndex)
+        // A collapsed default leaves no row at this position, so the edit keeps the profile
+        // percentage it already carried instead of being discarded.
+        val percent = default?.percentOfWorkingWeight
+            ?: state.warmupRampEdits[target.key]?.percentOfWorkingWeight
+        val reps = editor.repsInput.toIntOrNull()
+        return if (weightKg == null || reps == null || percent == null) {
+            state.copy(warmupEditor = null)
+        } else {
+            state.copy(
+                warmupRampEdits = state.warmupRampEdits + (
+                    target.key to WarmupRampSet(
+                        percentOfWorkingWeight = percent,
+                        reps = reps,
+                        weightKg = weightKg
+                    )
+                    ),
+                warmupEditor = null
+            )
+        }
+    }
+
+    /**
+     * Applies a preparation editor's value to the guidance and persists it as the action's override.
+     * Reset drops the transient edit and clears the stored override, so the built-in default applies
+     * again; the store write is launched after the state update, so the row never waits for it.
+     */
+    private fun savePreparationEditor(editor: WarmupGuidanceEditor, action: WarmupAction) {
+        val item = when {
+            editor.resetsToDefault -> null
+            editor.timed -> WarmupPreparationItem(
+                action = action,
+                // Minutes are the entered unit; seconds are the stored unit. canSave already
+                // guaranteed the product fits, so this never truncates.
+                durationSeconds = editor.durationInput.toIntOrNull()
+                    ?.toLong()
+                    ?.times(60L)
+                    ?.toInt()
+            )
+            else -> WarmupPreparationItem(
+                action = action,
+                reps = editor.repsInput.toIntOrNull()
+            )
+        }
+        _state.update { state ->
+            val overrides = if (item == null) {
+                state.warmupPreparationOverrides - action
+            } else {
+                state.warmupPreparationOverrides + (action to item)
+            }
+            state.copy(
+                warmupPreparationEdits = if (item == null) {
+                    state.warmupPreparationEdits - action
+                } else {
+                    state.warmupPreparationEdits + (action to item)
+                },
+                warmupPreparationOverrides = overrides,
+                warmupGuidance = guidanceWithOverrides(state.warmupGuidance, overrides),
+                warmupEditor = null
+            )
+        }
+        viewModelScope.launch {
+            if (item == null) {
+                warmupOverrideRepository.clear(action)
+            } else {
+                warmupOverrideRepository.set(item)
+            }
+        }
+    }
+
+    /**
+     * Rebuilds [guidance] with [overrides] applied, keeping the occurrence and equipment it was
+     * derived from. A null guidance (no active occurrence) stays null.
+     */
+    private fun guidanceWithOverrides(
+        guidance: WarmupGuidance?,
+        overrides: Map<WarmupAction, WarmupPreparationItem>
+    ): WarmupGuidance? {
+        if (guidance == null) return null
+        val occurrence = currentOccurrence ?: return guidance
+        return buildWarmupGuidance(occurrence, warmupEquipment, overrides)
     }
 
     /**
@@ -2549,7 +2682,12 @@ class WorkoutLoggerViewModel(
         val state = _state.value
         when (val target = editor.target) {
             is WarmupEditTarget.Preparation -> {
-                val item = state.warmupGuidance?.preparation
+                // The built-in default, not the persisted override the row may currently show: the
+                // override is exactly what Save is about to clear.
+                val occurrence = currentOccurrence
+                val item = occurrence
+                    ?.let { buildWarmupGuidance(it, warmupEquipment) }
+                    ?.preparation
                     ?.firstOrNull { it.action == target.action }
                     ?: return
                 _state.update {
@@ -2679,6 +2817,7 @@ class WorkoutLoggerViewModel(
                     exerciseId = set.exerciseId,
                     exerciseName = exerciseNames[set.exerciseId] ?: set.exerciseId,
                     reps = set.reps,
+                    durationSeconds = set.durationSeconds,
                     weightKg = set.weightKg,
                     rir = set.rir,
                     isWarmup = set.isWarmup,

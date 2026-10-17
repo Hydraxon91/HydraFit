@@ -307,6 +307,115 @@ class SqlDelightWorkoutImportRepositoryTest {
         assertEquals(0, repository.provenance(WorkoutCsvSource.FITNOTES, setOf("other")).size)
     }
 
+    @Test
+    fun commitWritesATimedSetWithItsDurationAndNoReps() = runBlocking {
+        val preview = timedPreview()
+
+        val result = repository.commit(preview)
+
+        assertEquals(1, result.importedSessions)
+        assertEquals(1, result.importedSets)
+        val set = database.workoutLogQueries.selectAllSets().executeAsList().single()
+        assertEquals(null, set.reps)
+        assertEquals(90L, set.durationSeconds)
+        assertEquals(press.id, set.exerciseId)
+        val session = database.workoutSessionQueries.selectAllSessions().executeAsOne()
+        assertTrue(session.endedAtMillis != null)
+        assertEquals("CHEST_UPPER:0.7,TRICEPS:0.5", set.involvements)
+        assertEquals(WorkoutTimingProvenance.CATCH_UP.name, set.timingProvenance)
+    }
+
+    @Test
+    fun aCountedRowWithZeroSecondsMatchesItsLegacyLedgerEntryAndSkips() = runBlocking {
+        val preview = strongZeroSecondsPreview()
+        // The exact bytes the parser wrote for this rep row before duration import existed: a source
+        // byte-identical to what the legacy ledger already holds must skip, never re-import.
+        assertEquals(LEGACY_STRONG_ZERO_SECONDS_CONTENT, preview.sessions.single().content)
+        database.workoutImportQueries.insertProvenance(
+            source = WorkoutCsvSource.STRONG.name,
+            candidateKey = preview.sessions.single().candidateKey,
+            content = LEGACY_STRONG_ZERO_SECONDS_CONTENT,
+            importedSessionId = "legacy"
+        )
+
+        val result = repository.commit(preview)
+
+        assertEquals(0, result.importedSessions)
+        assertEquals(1, result.skippedSessions)
+        assertEquals(0, database.workoutLogQueries.selectAllSets().executeAsList().size)
+        assertEquals(0, database.workoutSessionQueries.selectAllSessions().executeAsList().size)
+    }
+
+    private fun strongZeroSecondsPreview(): WorkoutImportPreview {
+        val parsed = WorkoutCsvParser.parse(
+            WorkoutCsvSource.STRONG,
+            """
+            Date;Workout Name;Exercise Name;Set Order;Weight;Weight Unit;Reps;Seconds
+            2024-07-02 10:03:07;Push;Bench Press;1;80;kg;5;0
+            """.trimIndent()
+        )
+        return PreviewWorkoutImport.build(
+            parsed = parsed,
+            choices = WorkoutImportChoices(
+                exercises = mapOf(
+                    "Bench Press" to WorkoutImportExerciseChoice(
+                        exerciseId = press.id,
+                        loadKind = LoadKind.EXTERNAL,
+                        useSourceWeight = true,
+                        confirmedLoadMeaning = true,
+                        unknownWarmupIsWorking = true
+                    )
+                ),
+                sessions = listOf(
+                    WorkoutImportSessionChoice(
+                        sourceRows = listOf(2),
+                        utcOffsetMinutes = 0,
+                        confirmedSession = true,
+                        confirmedInferredSetTimes = true
+                    )
+                ),
+                acknowledgedUnsupportedFields = true,
+                acknowledgedHistoryEffects = true
+            ),
+            catalog = listOf(press)
+        )
+    }
+
+    private fun timedPreview(): WorkoutImportPreview {
+        val parsed = WorkoutCsvParser.parse(
+            WorkoutCsvSource.STRONG,
+            """
+            Date;Workout Name;Exercise Name;Set Order;Weight;Weight Unit;Reps;Seconds
+            2024-01-02 10:00:00;Push;Bench Press;1;0;kg;0;90
+            """.trimIndent()
+        )
+        return PreviewWorkoutImport.build(
+            parsed = parsed,
+            choices = WorkoutImportChoices(
+                exercises = mapOf(
+                    "Bench Press" to WorkoutImportExerciseChoice(
+                        exerciseId = press.id,
+                        loadKind = LoadKind.EXTERNAL,
+                        useSourceWeight = true,
+                        confirmedLoadMeaning = true,
+                        unknownWarmupIsWorking = true
+                    )
+                ),
+                sessions = listOf(
+                    WorkoutImportSessionChoice(
+                        sourceRows = listOf(2),
+                        utcOffsetMinutes = 0,
+                        confirmedSession = true,
+                        confirmedInferredSetTimes = true
+                    )
+                ),
+                acknowledgedUnsupportedFields = true,
+                acknowledgedHistoryEffects = true
+            ),
+            catalog = listOf(press)
+        )
+    }
+
     private fun pressSession() = WorkoutImportSessionChoice(
         sourceRows = listOf(2, 3),
         utcOffsetMinutes = 0,
@@ -352,5 +461,15 @@ class SqlDelightWorkoutImportRepositoryTest {
             ),
             catalog = listOf(press, squat)
         )
+    }
+
+    private companion object {
+        /**
+         * The canonical bytes the parser wrote for a Strong rep row carrying an explicit `Seconds=0`
+         * before duration import existed. The legacy provenance ledger stores this exact string, so a
+         * byte-identical source must still dedupe against it.
+         */
+        const val LEGACY_STRONG_ZERO_SECONDS_CONTENT =
+            "138:11:Bench Press42:SourceCivilDate(year=2024, month=7, day=2)5:36187-1:-1:4:Push-1:4:80.02:KG1:5-1:38:35:20:UNSUPPORTED_METADATA7:Seconds1:0"
     }
 }

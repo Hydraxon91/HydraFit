@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class WarmupGuidanceTest {
@@ -64,6 +65,56 @@ class WarmupGuidanceTest {
         val practice = guidance.preparation.first { it.action == WarmupAction.LOWER_BODY_PRACTICE }
         assertEquals(10, practice.reps)
         assertEquals(null, practice.durationSeconds)
+    }
+
+    @Test
+    fun aPersistedOverrideReplacesItsActionAndLeavesTheOthersDefault() {
+        val guidance = buildWarmupGuidance(
+            occurrenceWith(entry(0, MovementPattern.SQUAT)),
+            preparationOverrides = mapOf(
+                WarmupAction.LOWER_BODY_PRACTICE to
+                    WarmupPreparationItem(WarmupAction.LOWER_BODY_PRACTICE, reps = 18)
+            )
+        )
+
+        val practice = guidance.preparation.first { it.action == WarmupAction.LOWER_BODY_PRACTICE }
+        assertEquals(18, practice.reps)
+        assertNull(practice.durationSeconds)
+        // An action without an override keeps its built-in default.
+        val general = guidance.preparation.first { it.action == WarmupAction.EASY_GENERAL_MOVEMENT }
+        assertEquals(180, general.durationSeconds)
+        assertNull(general.reps)
+    }
+
+    @Test
+    fun aTimedOverrideReplacesTheBuiltInSeconds() {
+        val guidance = buildWarmupGuidance(
+            occurrenceWith(),
+            preparationOverrides = mapOf(
+                WarmupAction.EASY_GENERAL_MOVEMENT to
+                    WarmupPreparationItem(WarmupAction.EASY_GENERAL_MOVEMENT, durationSeconds = 300)
+            )
+        )
+
+        val general = guidance.preparation.single()
+        assertEquals(300, general.durationSeconds)
+        assertNull(general.reps)
+    }
+
+    @Test
+    fun anOverrideForAnActionTheWorkoutDoesNotOfferIsIgnored() {
+        val legDay = buildWarmupGuidance(
+            occurrenceWith(entry(0, MovementPattern.SQUAT)),
+            preparationOverrides = mapOf(
+                WarmupAction.LIGHT_PULL_PRACTICE to
+                    WarmupPreparationItem(WarmupAction.LIGHT_PULL_PRACTICE, reps = 25)
+            )
+        )
+
+        assertEquals(
+            listOf(WarmupAction.EASY_GENERAL_MOVEMENT, WarmupAction.LOWER_BODY_PRACTICE),
+            legDay.preparation.map { it.action }
+        )
     }
 
     @Test
@@ -204,6 +255,8 @@ class WarmupGuidanceTest {
         assertTrue(plan.matchesPrescription(entry))
         assertFalse(plan.matchesPrescription(entry.copy(exerciseId = "front-squat")))
         assertFalse(plan.matchesPrescription(entry.copy(reps = 5)))
+        // A slot that became timed is a different prescription, not the same work carried twice.
+        assertFalse(plan.matchesPrescription(entry.copy(reps = null, durationSeconds = 90)))
         assertFalse(plan.matchesPrescription(entry.copy(weightKg = 90.0)))
         assertFalse(plan.matchesPrescription(entry.copy(movementPattern = MovementPattern.HINGE)))
         assertFalse(
@@ -215,6 +268,19 @@ class WarmupGuidanceTest {
                 )
             )
         )
+    }
+
+    @Test
+    fun rampsATimedWorkingPrescriptionWithCountedRampSetsAndCarriesItsSeconds() {
+        val entry = entry(0, MovementPattern.SQUAT, weightKg = 100.0)
+            .copy(reps = null, durationSeconds = 90)
+        val ramp = buildWarmupGuidance(occurrenceWith(entry)).ramps.single()
+
+        assertNull(ramp.prescribedReps)
+        assertEquals(90, ramp.prescribedDurationSeconds)
+        assertTrue(ramp.matchesPrescription(entry))
+        // The ramp itself stays counted warm-up work, unchanged by the slot being timed.
+        assertEquals(listOf(8, 5, 3), ramp.rampSets.map { it.reps })
     }
 
     @Test

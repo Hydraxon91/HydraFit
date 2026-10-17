@@ -10,9 +10,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -23,6 +25,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -39,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -103,6 +107,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_error_service_una
 import hydrafit.feature.splitbuilder.generated.resources.split_error_timeout
 import hydrafit.feature.splitbuilder.generated.resources.split_error_transient
 import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line
+import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line_timed
 import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_accepted
 import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_bounded_by_progression
 import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_capped_by_equipment
@@ -159,10 +164,31 @@ import hydrafit.feature.splitbuilder.generated.resources.split_history
 import hydrafit.feature.splitbuilder.generated.resources.split_history_entry
 import hydrafit.feature.splitbuilder.generated.resources.split_loading
 import hydrafit.feature.splitbuilder.generated.resources.split_loading_progress
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_action
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_dialog_title
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_error_reps
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_error_seconds
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_error_seconds_large
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_reps
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_seconds
 import hydrafit.feature.splitbuilder.generated.resources.split_muscle_biceps
 import hydrafit.feature.splitbuilder.generated.resources.split_muscle_triceps
 import hydrafit.feature.splitbuilder.generated.resources.split_plan_accepted
 import hydrafit.feature.splitbuilder.generated.resources.split_plan_export_unsupported
+import hydrafit.feature.splitbuilder.generated.resources.split_planning_dates_clear
+import hydrafit.feature.splitbuilder.generated.resources.split_planning_dates_clock
+import hydrafit.feature.splitbuilder.generated.resources.split_planning_dates_disclosure
+import hydrafit.feature.splitbuilder.generated.resources.split_planning_dates_edit
+import hydrafit.feature.splitbuilder.generated.resources.split_planning_dates_label
+import hydrafit.feature.splitbuilder.generated.resources.split_planning_dates_not_block
+import hydrafit.feature.splitbuilder.generated.resources.split_planning_dates_past
+import hydrafit.feature.splitbuilder.generated.resources.split_planning_dates_preview
+import hydrafit.feature.splitbuilder.generated.resources.split_planning_dates_rejected
+import hydrafit.feature.splitbuilder.generated.resources.split_planning_dates_shift
+import hydrafit.feature.splitbuilder.generated.resources.split_planning_dates_stale
+import hydrafit.feature.splitbuilder.generated.resources.split_planning_dates_title
+import hydrafit.feature.splitbuilder.generated.resources.split_planning_dates_unknown
+import hydrafit.feature.splitbuilder.generated.resources.split_planning_dates_unknown_note
 import hydrafit.feature.splitbuilder.generated.resources.split_regenerate
 import hydrafit.feature.splitbuilder.generated.resources.split_retry
 import hydrafit.feature.splitbuilder.generated.resources.split_review_equipment
@@ -170,6 +196,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_routine_saved
 import hydrafit.feature.splitbuilder.generated.resources.split_routine_saved_view
 import hydrafit.feature.splitbuilder.generated.resources.split_save_routine
 import hydrafit.feature.splitbuilder.generated.resources.split_schedule_choose_date
+import hydrafit.feature.splitbuilder.generated.resources.split_schedule_dates_stale
 import hydrafit.feature.splitbuilder.generated.resources.split_schedule_frequency
 import hydrafit.feature.splitbuilder.generated.resources.split_schedule_mode_sequence
 import hydrafit.feature.splitbuilder.generated.resources.split_schedule_mode_weekday
@@ -275,6 +302,7 @@ fun SplitBuilderRoute(
             onDaysPerWeekSelected = viewModel::onDaysPerWeekSelected,
             onSetsPerExerciseChanged = viewModel::onSetsPerExerciseChanged,
             onAccessorySetsPerExerciseChanged = viewModel::onAccessorySetsPerExerciseChanged,
+            onEditPlanningDates = viewModel::onPlanningDatesRequested,
             onAcceptPlan = viewModel::onAcceptPlan,
             onSchedulePlan = viewModel::onScheduleRequested,
             onSaveAsRoutine = { viewModel.onSaveAsRoutine(planTransferName()) },
@@ -284,6 +312,11 @@ fun SplitBuilderRoute(
             onSwapRequested = viewModel::onSwapRequested,
             onSwapCandidateSelected = viewModel::onSwapCandidateSelected,
             onSwapDialogDismissed = viewModel::onSwapDialogDismissed,
+            onMeasureRequested = viewModel::onMeasureRequested,
+            onMeasureMetricChanged = viewModel::onMeasureMetricChanged,
+            onMeasureValueChanged = viewModel::onMeasureValueChanged,
+            onMeasureConfirmed = viewModel::onMeasureConfirmed,
+            onMeasureDialogDismissed = viewModel::onMeasureDialogDismissed,
             onRetry = viewModel::refresh,
             onReviewEquipment = { openTab(AppTab.EQUIPMENT) },
             exportState = exportState,
@@ -305,6 +338,9 @@ fun SplitBuilderRoute(
     state.scheduleDialog?.let { dialog ->
         SplitScheduleDialog(dialog = dialog, viewModel = viewModel)
     }
+    state.planningDatesDialog?.let { dialog ->
+        PlanningDatesDialog(dialog = dialog, viewModel = viewModel)
+    }
 }
 
 @Composable
@@ -315,6 +351,7 @@ fun SplitBuilderScreen(
     onDaysPerWeekSelected: (Int) -> Unit,
     onSetsPerExerciseChanged: (Int) -> Unit,
     onAccessorySetsPerExerciseChanged: (Int) -> Unit,
+    onEditPlanningDates: () -> Unit,
     onAcceptPlan: () -> Unit,
     onSchedulePlan: () -> Unit,
     onSaveAsRoutine: () -> Unit,
@@ -324,6 +361,11 @@ fun SplitBuilderScreen(
     onSwapRequested: (Int, Int) -> Unit,
     onSwapCandidateSelected: (String) -> Unit,
     onSwapDialogDismissed: () -> Unit,
+    onMeasureRequested: (Int, Int) -> Unit,
+    onMeasureMetricChanged: (MeasureMetric) -> Unit,
+    onMeasureValueChanged: (String) -> Unit,
+    onMeasureConfirmed: () -> Unit,
+    onMeasureDialogDismissed: () -> Unit,
     onRetry: () -> Unit,
     onReviewEquipment: () -> Unit = {},
     exportState: PlanExportUiState = PlanExportUiState(),
@@ -373,6 +415,30 @@ fun SplitBuilderScreen(
                     label = { Text(sets.toString()) }
                 )
             }
+        }
+        Text(text = stringResource(Res.string.split_planning_dates_label))
+        if (state.planningDates.dates.isEmpty()) {
+            Text(
+                text = stringResource(Res.string.split_planning_dates_unknown),
+                style = MaterialTheme.typography.bodySmall
+            )
+        } else {
+            state.planningDates.dates.forEach { day ->
+                Text(
+                    text = isoDateUtc(day * MILLIS_PER_DAY),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+        if (state.planningDatesRejected) {
+            Text(
+                text = stringResource(Res.string.split_planning_dates_rejected),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+        TextButton(onClick = onEditPlanningDates) {
+            Text(stringResource(Res.string.split_planning_dates_edit))
         }
         if (state.isLoading) {
             Row(
@@ -461,12 +527,19 @@ fun SplitBuilderScreen(
                     style = MaterialTheme.typography.bodySmall
                 )
             } else {
-                Button(onClick = onAcceptPlan) {
+                Button(onClick = onAcceptPlan, enabled = !state.draftContextStale) {
                     Text(stringResource(Res.string.split_accept_plan))
                 }
             }
+            if (state.draftContextStale) {
+                Text(
+                    text = stringResource(Res.string.split_planning_dates_stale),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onSchedulePlan) {
+                Button(onClick = onSchedulePlan, enabled = !state.draftContextStale) {
                     Text(stringResource(Res.string.split_start_block))
                 }
                 TextButton(onClick = onSaveAsRoutine) {
@@ -527,15 +600,26 @@ fun SplitBuilderScreen(
                             }.orEmpty()
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = stringResource(
-                                        Res.string.split_exercise_line,
-                                        name,
-                                        exercise.sets,
-                                        exercise.reps,
-                                        weight
+                                    text = exerciseLine(
+                                        name = name,
+                                        sets = exercise.sets,
+                                        reps = exercise.reps,
+                                        durationSeconds = exercise.durationSeconds,
+                                        weight = weight
                                     ),
                                     modifier = Modifier.weight(1f)
                                 )
+                                IconButton(
+                                    onClick = { onMeasureRequested(day.dayIndex, position) }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Timer,
+                                        contentDescription = stringResource(
+                                            Res.string.split_measure_action,
+                                            name
+                                        )
+                                    )
+                                }
                                 if (state.isPlanAccepted) {
                                     IconButton(
                                         onClick = { onSwapRequested(day.dayIndex, position) }
@@ -578,6 +662,23 @@ fun SplitBuilderScreen(
                 onDismiss = onSwapDialogDismissed
             )
         }
+        state.measureDialog?.let { dialog ->
+            val target = state.plan?.days
+                ?.firstOrNull { it.dayIndex == dialog.dayIndex }
+                ?.exercises
+                ?.getOrNull(dialog.position)
+            val targetName = target
+                ?.let { state.exerciseNames[it.exerciseId] ?: it.exerciseId }
+                .orEmpty()
+            MeasureDialog(
+                dialog = dialog,
+                targetName = targetName,
+                onMetricChanged = onMeasureMetricChanged,
+                onValueChanged = onMeasureValueChanged,
+                onConfirm = onMeasureConfirmed,
+                onDismiss = onMeasureDialogDismissed
+            )
+        }
         if (state.history.isNotEmpty()) {
             Text(
                 text = stringResource(Res.string.split_history),
@@ -606,6 +707,96 @@ fun SplitBuilderScreen(
             }
         }
     }
+}
+
+/**
+ * The slot line: `name  sets x reps  weight` for counted work and `name  sets × seconds s  weight`
+ * for a timed slot, so seconds are never shown as a rep count. A slot with no measure is impossible
+ * under the model's exactly-one invariant; it falls back to the bare name rather than a `0` sentinel.
+ */
+@Composable
+private fun exerciseLine(
+    name: String,
+    sets: Int,
+    reps: Int?,
+    durationSeconds: Int?,
+    weight: String
+): String = when {
+    durationSeconds != null -> stringResource(
+        Res.string.split_exercise_line_timed,
+        name,
+        sets,
+        durationSeconds,
+        weight
+    )
+    reps != null -> stringResource(Res.string.split_exercise_line, name, sets, reps, weight)
+    else -> name
+}
+
+@Composable
+private fun MeasureDialog(
+    dialog: MeasureDialogState,
+    targetName: String,
+    onMetricChanged: (MeasureMetric) -> Unit,
+    onValueChanged: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val metricLabel = if (dialog.metric == MeasureMetric.SECONDS) {
+        Res.string.split_measure_seconds
+    } else {
+        Res.string.split_measure_reps
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(Res.string.split_measure_dialog_title, targetName)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = dialog.metric == MeasureMetric.REPS,
+                        onClick = { onMetricChanged(MeasureMetric.REPS) },
+                        label = { Text(stringResource(Res.string.split_measure_reps)) }
+                    )
+                    FilterChip(
+                        selected = dialog.metric == MeasureMetric.SECONDS,
+                        onClick = { onMetricChanged(MeasureMetric.SECONDS) },
+                        label = { Text(stringResource(Res.string.split_measure_seconds)) }
+                    )
+                }
+                OutlinedTextField(
+                    value = dialog.value,
+                    onValueChange = onValueChanged,
+                    label = { Text(stringResource(metricLabel)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    isError = dialog.error != null
+                )
+                dialog.error?.let { error ->
+                    Text(
+                        text = stringResource(error.labelResource()),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(stringResource(Res.string.split_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(Res.string.split_cancel))
+            }
+        }
+    )
+}
+
+private fun MeasureError.labelResource(): StringResource = when (this) {
+    MeasureError.REPS_RANGE -> Res.string.split_measure_error_reps
+    MeasureError.SECONDS_RANGE -> Res.string.split_measure_error_seconds
+    MeasureError.SECONDS_TOO_LARGE -> Res.string.split_measure_error_seconds_large
 }
 
 @Composable
@@ -1010,6 +1201,7 @@ private fun SplitScheduleDialog(
                         text = when (error) {
                             "frequency" -> stringResource(Res.string.split_schedule_frequency)
                             "weekdays" -> stringResource(Res.string.split_schedule_no_weekday)
+                            "dates" -> stringResource(Res.string.split_schedule_dates_stale)
                             else -> error
                         },
                         color = MaterialTheme.colorScheme.error
@@ -1039,6 +1231,131 @@ private fun SplitScheduleDialog(
                     onClick = {
                         pickerState.selectedDateMillis?.let { millis ->
                             viewModel.onScheduleStartDateChosen(millis / MILLIS_PER_DAY)
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text(stringResource(Res.string.split_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text(stringResource(Res.string.split_cancel))
+                }
+            }
+        ) {
+            DatePicker(state = pickerState)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun PlanningDatesDialog(dialog: PlanningDatesState, viewModel: SplitBuilderViewModel) {
+    var showDatePicker by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = viewModel::onPlanningDatesDialogDismissed,
+        title = { Text(stringResource(Res.string.split_planning_dates_title)) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = stringResource(Res.string.split_planning_dates_disclosure),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(
+                    text = stringResource(Res.string.split_planning_dates_clock),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(
+                    text = stringResource(Res.string.split_planning_dates_unknown_note),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(
+                    text = stringResource(Res.string.split_planning_dates_not_block),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(stringResource(Res.string.split_schedule_weekdays))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    DayOfWeek.entries.forEach { day ->
+                        FilterChip(
+                            selected = day in dialog.weekdays,
+                            onClick = { viewModel.onPlanningDatesWeekdayToggled(day) },
+                            label = { Text(weekdayLabel(day)) }
+                        )
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(stringResource(Res.string.split_schedule_start_today))
+                    Switch(
+                        checked = dialog.startToday,
+                        onCheckedChange = viewModel::onPlanningDatesStartTodayChanged
+                    )
+                    TextButton(onClick = { showDatePicker = true }) {
+                        Text(stringResource(Res.string.split_schedule_choose_date))
+                    }
+                }
+                Text(
+                    text = isoDateUtc(dialog.startEpochDay * MILLIS_PER_DAY),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = viewModel::onPlanningDatesShiftedOneWeek) {
+                        Text(stringResource(Res.string.split_planning_dates_shift))
+                    }
+                    TextButton(onClick = viewModel::onPlanningDatesCleared) {
+                        Text(stringResource(Res.string.split_planning_dates_clear))
+                    }
+                }
+                Text(
+                    text = stringResource(Res.string.split_planning_dates_preview),
+                    style = MaterialTheme.typography.labelMedium
+                )
+                dialog.preview.forEach { day ->
+                    Text(
+                        text = day?.let { isoDateUtc(it * MILLIS_PER_DAY) }.orEmpty(),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                dialog.error?.let { error ->
+                    Text(
+                        text = when (error) {
+                            "frequency" -> stringResource(Res.string.split_schedule_frequency)
+                            "past" -> stringResource(Res.string.split_planning_dates_past)
+                            else -> error
+                        },
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = viewModel::onPlanningDatesConfirmed) {
+                Text(stringResource(Res.string.split_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = viewModel::onPlanningDatesDialogDismissed) {
+                Text(stringResource(Res.string.split_cancel))
+            }
+        }
+    )
+    if (showDatePicker) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = dialog.startEpochDay * MILLIS_PER_DAY
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pickerState.selectedDateMillis?.let { millis ->
+                            viewModel.onPlanningDatesStartDateChosen(millis / MILLIS_PER_DAY)
                         }
                         showDatePicker = false
                     }

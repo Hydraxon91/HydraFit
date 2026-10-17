@@ -11,7 +11,8 @@ class WorkoutHistoryCsvWriterTest {
     private fun row(
         setId: Long = 1L,
         performedAt: Long = 0L,
-        reps: Int = 5,
+        reps: Int? = 5,
+        durationSeconds: Int? = null,
         weightKg: Double? = 100.0,
         name: String = "Back Squat",
         sessionId: String? = "s1",
@@ -26,6 +27,7 @@ class WorkoutHistoryCsvWriterTest {
         exerciseId = "back-squat",
         exerciseName = name,
         reps = reps,
+        durationSeconds = durationSeconds,
         weightKg = weightKg,
         loadKind = "EXTERNAL",
         isWarmup = isWarmup,
@@ -100,6 +102,24 @@ class WorkoutHistoryCsvWriterTest {
         val rirIndex = WorkoutHistoryCsvWriter.COLUMNS.indexOf("rir")
         // A recorded negative RIR is a number, not text; it is not formula-neutralized.
         assertEquals("-1", fields[rirIndex])
+    }
+
+    @Test
+    fun writesBlankRepsAndBlankSecondsForTheMeasurementASetDoesNotUse() {
+        val text = WorkoutHistoryCsvWriter.write(
+            listOf(
+                row(),
+                row(setId = 2L, reps = null, weightKg = null, durationSeconds = 90)
+            )
+        )
+        val rows = text.trimEnd().split("\r\n").drop(1)
+        val repsIndex = WorkoutHistoryCsvWriter.COLUMNS.indexOf("reps")
+        val durationIndex = WorkoutHistoryCsvWriter.COLUMNS.indexOf("durationSeconds")
+        // A counted set fills reps and leaves seconds blank; a timed set is the reverse.
+        assertEquals("5", rows[0].split(",")[repsIndex])
+        assertEquals("", rows[0].split(",")[durationIndex])
+        assertEquals("", rows[1].split(",")[repsIndex])
+        assertEquals("90", rows[1].split(",")[durationIndex])
     }
 
     @Test

@@ -177,7 +177,8 @@ class SqlDelightSessionResegmenterTest {
                 sessionId = "s1",
                 occurrenceId = 30,
                 occurrenceEntryId = 40,
-                loadKind = kind
+                loadKind = kind,
+                durationSeconds = null
             )
         }
         val bounds = sessions.all()
@@ -200,6 +201,64 @@ class SqlDelightSessionResegmenterTest {
             assertEquals(0.0, log.all().first { it.id == set.id }.weightKg)
         }
         assertEquals(bounds, sessions.all())
+    }
+
+    @Test
+    fun correctingATimedSetKeepsItsIdentityAndDuration() = runTest {
+        insertSession("s1", 100, 200, 0)
+        database.workoutLogQueries.insertSetWithId(
+            id = 1,
+            exerciseId = "exercise",
+            reps = null,
+            weightKg = null,
+            performedAt = 150,
+            isWarmup = 0,
+            involvements = "BICEPS:0.7",
+            weekNumber = null,
+            cycleNumber = null,
+            dayIndex = null,
+            rir = null,
+            sessionId = "s1",
+            occurrenceId = null,
+            occurrenceEntryId = null,
+            loadKind = "EXTERNAL",
+            durationSeconds = 120
+        )
+
+        // A weight-only correction keeps the stored identity and the timed measurement.
+        resegmenter.resegmentAfterSetCorrection(
+            1L,
+            WorkoutSetCorrection(
+                reps = null,
+                weightKg = 5.0,
+                rir = null,
+                performedAtMillis = 150L,
+                durationSeconds = 120
+            ),
+            0L
+        )
+        val rebalanced = log.all().single()
+        assertEquals(1L, rebalanced.id)
+        assertNull(rebalanced.reps)
+        assertEquals(120, rebalanced.durationSeconds)
+        assertEquals(5.0, rebalanced.weightKg)
+
+        // A duration correction rewrites the seconds on the same row.
+        resegmenter.resegmentAfterSetCorrection(
+            1L,
+            WorkoutSetCorrection(
+                reps = null,
+                weightKg = 5.0,
+                rir = null,
+                performedAtMillis = 150L,
+                durationSeconds = 90
+            ),
+            0L
+        )
+        val retimed = log.all().single()
+        assertEquals(1L, retimed.id)
+        assertNull(retimed.reps)
+        assertEquals(90, retimed.durationSeconds)
     }
 
     @Test
@@ -248,7 +307,8 @@ class SqlDelightSessionResegmenterTest {
             sessionId = null,
             occurrenceId = null,
             occurrenceEntryId = null,
-            loadKind = "BODYWEIGHT"
+            loadKind = "BODYWEIGHT",
+            durationSeconds = null
         )
         val before = log.all()
         assertFailsWith<IllegalArgumentException> {
@@ -290,7 +350,8 @@ class SqlDelightSessionResegmenterTest {
             dayIndex = null,
             rir = null,
             sessionId = sessionId,
-            loadKind = "EXTERNAL"
+            loadKind = "EXTERNAL",
+            durationSeconds = null
         )
     }
 }

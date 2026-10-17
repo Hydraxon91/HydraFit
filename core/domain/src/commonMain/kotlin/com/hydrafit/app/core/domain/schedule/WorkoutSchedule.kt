@@ -70,7 +70,10 @@ data class ActivationEntry(
     val involvements: Map<MuscleGroup, Double>? = null,
     val isUnilateral: Boolean = false,
     val sets: Int,
-    val reps: Int,
+    /** Repetitions for counted work, or null for a timed slot. Never a `0` sentinel. */
+    val reps: Int? = null,
+    /** Elapsed whole seconds for a timed slot, or null for counted work. */
+    val durationSeconds: Int? = null,
     val weightKg: Double? = null,
     /** The exercise's load capability frozen at activation. */
     val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL,
@@ -115,7 +118,10 @@ data class OccurrenceEntry(
     val involvements: Map<MuscleGroup, Double>? = null,
     val isUnilateral: Boolean = false,
     val sets: Int,
-    val reps: Int,
+    /** Repetitions for counted work, or null for a timed slot. Never a `0` sentinel. */
+    val reps: Int? = null,
+    /** Elapsed whole seconds for a timed slot, or null for counted work. */
+    val durationSeconds: Int? = null,
     val weightKg: Double? = null,
     /** The exercise's load capability frozen into this occurrence entry. */
     val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL,

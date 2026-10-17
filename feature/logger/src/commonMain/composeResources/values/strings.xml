@@ -6,6 +6,7 @@
     <string name="logger_title">Log workout</string>
     <string name="logger_search_label">Search exercises</string>
     <string name="logger_reps_label">Reps</string>
+    <string name="logger_seconds_label">Seconds</string>
     <string name="logger_weight_label">Weight (%1$s)</string>
     <string name="logger_add_weight">Add weight</string>
     <string name="logger_rir_label">RIR (optional)</string>
@@ -56,6 +57,7 @@
     <string name="logger_replace_recorded">This exercise slot already has recorded sets, including warm-ups. Its prescription cannot be replaced.</string>
     <string name="logger_replace_stale">The workout or available choices changed. Cancel and reopen the choices before trying again.</string>
     <string name="logger_replace_target">%1$s · %2$d sets × %3$d reps · %4$s</string>
+    <string name="logger_replace_target_timed">%1$s · %2$d sets × %3$d s · %4$s</string>
     <string name="logger_session_not_recorded">Session not recorded</string>
     <string name="logger_end_session">End session</string>
     <string name="logger_new_session">New session</string>
@@ -83,6 +85,7 @@
     <string name="logger_load_legacy">%1$s %2$s (recorded, unconfirmed)</string>
     <string name="logger_draft_edit">Edit draft</string>
     <string name="logger_draft_edit_title">Edit %1$s</string>
+    <string name="logger_draft_timed_line">%1$s  %2$d x %3$d s · ~%4$s</string>
     <string name="logger_draft_load_prompt_title">No recommended weight</string>
     <string name="logger_draft_load_prompt_body">No weight was recommended for %1$s. Choose how to log this draft.</string>
     <string name="logger_draft_load_use_last">Use last logged</string>
@@ -94,6 +97,7 @@
     <string name="logger_draft_write_none">The sets could not be saved. The remaining sets are still pending; retry to continue.</string>
     <string name="logger_guided_title">Guided workout</string>
     <string name="logger_guided_target">Target: %1$d × %2$s</string>
+    <string name="logger_guided_target_timed">Target: %1$d s × %2$s</string>
     <string name="logger_guided_all_done">All prescribed sets recorded</string>
     <string name="logger_guided_set_failed">That set was not saved. The set is still pending; try again.</string>
     <string name="logger_log_failed">That set could not be saved. Keep your entries and try again.</string>
@@ -187,6 +191,7 @@
     <string name="logger_history_load_more_failed">Could not load more history. Try again.</string>
     <string name="logger_history_set_count">Recorded sets: %1$d</string>
     <string name="logger_history_set_line">%1$d reps · %2$s</string>
+    <string name="logger_history_set_duration_line">%1$d s · %2$s</string>
     <string name="logger_history_no_sets">No recorded sets</string>
     <string name="logger_history_session_missing">Recorded session (session record missing)</string>
     <string name="logger_history_unassigned_set">Set with no session</string>
@@ -227,9 +232,12 @@
     <string name="logger_summary_resolved">Finished %1$s</string>
     <string name="logger_summary_target_sets">Target: %1$d × %2$d @ %3$s</string>
     <string name="logger_summary_target_sets_none">Target: %1$d × %2$d</string>
+    <string name="logger_summary_target_sets_timed">Target: %1$d × %2$d s @ %3$s</string>
+    <string name="logger_summary_target_sets_none_timed">Target: %1$d × %2$d s</string>
     <string name="logger_summary_totals">%1$d recorded sets · %2$d prescribed</string>
     <string name="logger_summary_close">Close</string>
     <string name="logger_summary_edit_set_description">Edit %1$s set %2$d, %3$d reps</string>
+    <string name="logger_summary_edit_set_duration_description">Edit %1$s set %2$d, %3$d seconds</string>
     <string name="logger_summary_remaining">%1$d not recorded</string>
     <string name="logger_summary_not_performed">Not performed</string>
     <string name="logger_summary_skipped">Skipped</string>

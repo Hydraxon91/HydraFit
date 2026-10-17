@@ -23,6 +23,7 @@
     <string name="routines_move_down">Move down</string>
     <string name="routines_sets_label">Sets</string>
     <string name="routines_reps_label">Reps</string>
+    <string name="routines_seconds_label">Seconds</string>
     <string name="routines_weight_label">Weight (%1$s)</string>
     <string name="routines_weight_optional">Optional</string>
     <string name="routines_workout_number">Workout %1$d</string>

@@ -14,9 +14,11 @@ import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
+import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WorkoutPlanInputs
 import com.hydrafit.app.core.domain.engine.toWeeklyPlan
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.schedule.ActivationRequest
 import com.hydrafit.app.core.domain.schedule.ScheduleException
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
@@ -48,6 +50,9 @@ class SplitBuilderViewModel(
 
     private val setsPerExercise = MutableStateFlow<Int?>(null)
     private val accessorySetsPerExercise = MutableStateFlow<Int?>(null)
+
+    /** The confirmed planning dates; empty keeps the undated planning behavior. */
+    private val planningDates = MutableStateFlow<List<Long>>(emptyList())
     private var generationJob: Job? = null
 
     /** Fingerprint of the request that produced the currently shown plan; null until one exists. */
@@ -76,7 +81,8 @@ class SplitBuilderViewModel(
             var previous: WorkoutPlanInputs? = null
             observeWorkoutPlanInputs(
                 setsPerExercise = setsPerExercise,
-                accessorySetsPerExercise = accessorySetsPerExercise
+                accessorySetsPerExercise = accessorySetsPerExercise,
+                workoutEpochDays = planningDates
             ).collect { inputs ->
                 val prior = previous
                 previous = inputs
@@ -88,16 +94,65 @@ class SplitBuilderViewModel(
                         )
                 val equipmentChanged = prior != null &&
                     prior.equipmentContext != inputs.equipmentContext
+                // A confirmed set the planner could not use reads as "no dates", so this also covers
+                // a frequency or clock change that invalidated the confirmed dates.
+                val datesChanged = prior != null &&
+                    prior.request.workoutEpochDays != inputs.request.workoutEpochDays
+                // The parameters the user sets explicitly, as opposed to a source-data refresh (a
+                // logged set moves fatigue and load inputs without touching these).
+                val planParametersChanged = prior != null &&
+                    (
+                        prior.request.daysPerWeek != inputs.request.daysPerWeek ||
+                            prior.request.setsPerExercise != inputs.request.setsPerExercise ||
+                            prior.request.accessorySetsPerExercise !=
+                            inputs.request.accessorySetsPerExercise
+                        )
                 if (equipmentChanged) {
                     generationJob?.cancel()
                     lastGeneratedFingerprint = null
-                    _state.update { it.copy(canRegenerate = true, isLoading = false) }
+                    _state.update {
+                        it.copy(
+                            canRegenerate = true,
+                            isLoading = false,
+                            appliedPlanningDates = inputs.request.workoutEpochDays
+                        )
+                    }
                 } else if (settingsChanged) {
                     // Standing exercise settings affect future picks, never the displayed plan.
                     // An in-flight generation also retains the request it started with.
-                    _state.update { it.copy(canRegenerate = true) }
+                    _state.update {
+                        it.copy(
+                            canRegenerate = true,
+                            appliedPlanningDates = inputs.request.workoutEpochDays
+                        )
+                    }
+                } else if (datesChanged) {
+                    // The date context moved: keep the displayed plan, cancel any stale in-flight
+                    // generation and let the explicit Regenerate apply the new dates.
+                    generationJob?.cancel()
+                    _state.update {
+                        it.copy(
+                            canRegenerate = true,
+                            isLoading = false,
+                            appliedPlanningDates = inputs.request.workoutEpochDays
+                        )
+                    }
+                } else if (_state.value.isPlanAccepted && !planParametersChanged) {
+                    // An accepted plan is frozen: an ordinary source refresh (a logged set moves
+                    // fatigue and load inputs) keeps it displayed and accepted, and Regenerate
+                    // applies the new inputs explicitly.
+                    _state.update {
+                        it.copy(
+                            canRegenerate = true,
+                            appliedPlanningDates = inputs.request.workoutEpochDays
+                        )
+                    }
                 } else if (prior != null || accepted == null) {
                     startGeneration(inputs)
+                } else {
+                    _state.update {
+                        it.copy(appliedPlanningDates = inputs.request.workoutEpochDays)
+                    }
                 }
             }
         }
@@ -118,6 +173,86 @@ class SplitBuilderViewModel(
         _state.update { it.copy(accessorySetsPerExercise = setsPerExercise) }
     }
 
+    /** Opens the planning-date editor, seeded from the confirmed dates or today's weekday pattern. */
+    fun onPlanningDatesRequested() {
+        _state.update { current ->
+            val confirmed = current.planningDates
+            val seeded = if (confirmed.dates.isNotEmpty()) {
+                confirmed
+            } else {
+                PlanningDatesState(
+                    weekdays = DayOfWeek.entries.take(current.daysPerWeek).toSet(),
+                    startEpochDay = planBuilderActions.todayEpochDay()
+                )
+            }
+            current.copy(
+                planningDatesDialog = seeded.copy(error = null)
+                    .withPlanningPreview(planBuilderActions, current.daysPerWeek)
+            )
+        }
+    }
+
+    fun onPlanningDatesWeekdayToggled(day: DayOfWeek) = updatePlanningDatesDialog { dialog ->
+        dialog.copy(
+            weekdays = if (day in dialog.weekdays) dialog.weekdays - day else dialog.weekdays + day
+        )
+    }
+
+    fun onPlanningDatesStartTodayChanged(startToday: Boolean) =
+        updatePlanningDatesDialog { it.copy(startToday = startToday) }
+
+    fun onPlanningDatesStartDateChosen(epochDay: Long) =
+        updatePlanningDatesDialog { it.copy(startEpochDay = epochDay, startToday = false) }
+
+    /** Moves the whole planned window one week later, keeping the chosen weekdays. */
+    fun onPlanningDatesShiftedOneWeek() =
+        updatePlanningDatesDialog { it.copy(startEpochDay = it.startEpochDay + 7) }
+
+    fun onPlanningDatesDialogDismissed() = _state.update { it.copy(planningDatesDialog = null) }
+
+    /** Returns to the undated planning behavior; the displayed plan is kept until Regenerate. */
+    fun onPlanningDatesCleared() {
+        planningDates.value = emptyList()
+        _state.update {
+            it.copy(planningDates = PlanningDatesState(), planningDatesDialog = null)
+        }
+    }
+
+    /** Confirms one date per workout; an unusable set stays in the editor with its reason. */
+    fun onPlanningDatesConfirmed() {
+        val current = _state.value
+        val dialog = current.planningDatesDialog ?: return
+        val dates = dialog.preview.filterNotNull()
+        val error = when {
+            dialog.weekdays.size != current.daysPerWeek || dates.size != current.daysPerWeek ->
+                "frequency"
+            dates.firstOrNull()?.let { it < planBuilderActions.todayEpochDay() } == true -> "past"
+            else -> null
+        }
+        if (error != null) {
+            _state.update { it.copy(planningDatesDialog = dialog.copy(error = error)) }
+            return
+        }
+        planningDates.value = dates
+        _state.update {
+            it.copy(
+                planningDates = dialog.copy(dates = dates, preview = dates, error = null),
+                planningDatesDialog = null,
+                appliedPlanningDates = dates
+            )
+        }
+    }
+
+    private fun updatePlanningDatesDialog(transform: (PlanningDatesState) -> PlanningDatesState) {
+        _state.update { current ->
+            val dialog = current.planningDatesDialog ?: return@update current
+            current.copy(
+                planningDatesDialog = transform(dialog)
+                    .withPlanningPreview(planBuilderActions, current.daysPerWeek)
+            )
+        }
+    }
+
     fun refresh() {
         viewModelScope.launch { startGeneration(currentInputs()) }
     }
@@ -128,13 +263,29 @@ class SplitBuilderViewModel(
             val current = currentInputs()
             val previous = lastRequest
             lastRequest = current.request
-            if (previous != current.request) _state.update { it.copy(canRegenerate = true) }
+            val datesChanged = previous != null &&
+                previous.workoutEpochDays != current.request.workoutEpochDays
+            if (datesChanged) {
+                // A confirmed date may have passed, or the frequency may have changed: an in-flight
+                // result would be planned for a date context that no longer exists.
+                generationJob?.cancel()
+            }
+            if (previous != current.request) {
+                _state.update {
+                    it.copy(
+                        canRegenerate = true,
+                        isLoading = if (datesChanged) false else it.isLoading,
+                        appliedPlanningDates = current.request.workoutEpochDays
+                    )
+                }
+            }
         }
     }
 
     private suspend fun currentInputs(): WorkoutPlanInputs = observeWorkoutPlanInputs(
         setsPerExercise = setsPerExercise,
-        accessorySetsPerExercise = accessorySetsPerExercise
+        accessorySetsPerExercise = accessorySetsPerExercise,
+        workoutEpochDays = planningDates
     ).first()
 
     private fun startGeneration(inputs: WorkoutPlanInputs) {
@@ -145,12 +296,16 @@ class SplitBuilderViewModel(
 
     fun onAcceptPlan() {
         val plan = _state.value.plan ?: return
+        // A draft planned for other dates than the ones now in force must be regenerated first.
+        if (_state.value.draftContextStale) return
         viewModelScope.launch {
             planBuilderActions.accept(plan)
             lastGeneratedFingerprint = null
             // The just-accepted plan is the persisted latest; remember it so a swap can target it.
             shownPlan = planHistory.latest()
-            _state.update { it.copy(isPlanAccepted = true, canRegenerate = true) }
+            _state.update {
+                it.copy(isPlanAccepted = true, canRegenerate = true, draftDates = null)
+            }
         }
     }
 
@@ -158,10 +313,15 @@ class SplitBuilderViewModel(
     fun onScheduleRequested() {
         val plan = _state.value.plan ?: return
         _state.update { current ->
+            val dates = current.planningDates
+            // Seed the block schedule from the same configuration that shaped the plan's dates, so
+            // the two do not silently disagree; a plan whose weekday count differs keeps the default.
+            val seed = dates.takeIf { it.dates.isNotEmpty() && it.weekdays.size == plan.days.size }
             current.copy(
                 scheduleDialog = SplitScheduleDialogState(
-                    weekdays = DayOfWeek.entries.take(plan.days.size).toSet(),
-                    startEpochDay = planBuilderActions.todayEpochDay(),
+                    weekdays = seed?.weekdays ?: DayOfWeek.entries.take(plan.days.size).toSet(),
+                    startEpochDay = seed?.startEpochDay ?: planBuilderActions.todayEpochDay(),
+                    startToday = seed?.startToday ?: true,
                     hasActiveBlock = current.hasActiveBlock,
                     replaceActive = current.hasActiveBlock
                 ).withPreview(planBuilderActions, plan.days.size)
@@ -199,6 +359,12 @@ class SplitBuilderViewModel(
             _state.update { it.copy(scheduleDialog = dialog.copy(error = "frequency")) }
             return
         }
+        // A context refresh may have invalidated the confirmed dates since the dialog opened;
+        // re-check against the current request so Confirm cannot activate a stale date context.
+        if (_state.value.draftContextStale || blockDatesDifferFromTheDraft(dialog)) {
+            _state.update { it.copy(scheduleDialog = dialog.copy(error = "dates")) }
+            return
+        }
         val request = ActivationRequest(
             name = "Generated plan",
             startEpochDay = dialog.startEpochDay,
@@ -218,7 +384,12 @@ class SplitBuilderViewModel(
                 lastGeneratedFingerprint = null
                 shownPlan = planHistory.latest()
                 _state.update {
-                    it.copy(isPlanAccepted = true, canRegenerate = true, scheduleDialog = null)
+                    it.copy(
+                        isPlanAccepted = true,
+                        canRegenerate = true,
+                        scheduleDialog = null,
+                        draftDates = null
+                    )
                 }
             } catch (error: ScheduleException) {
                 _state.update { state ->
@@ -226,6 +397,18 @@ class SplitBuilderViewModel(
                 }
             }
         }
+    }
+
+    /**
+     * A draft planned for confirmed dates must be scheduled on those same dates; otherwise the block
+     * would claim a date context the plan was never generated for. An accepted plan keeps its own
+     * frozen context, and an undated draft keeps the existing undated scheduling behavior.
+     */
+    private fun blockDatesDifferFromTheDraft(dialog: SplitScheduleDialogState): Boolean {
+        val state = _state.value
+        val draftDates = state.draftDates ?: return false
+        if (state.isPlanAccepted || draftDates.isEmpty()) return false
+        return dialog.mode != ScheduleMode.WEEKDAY || dialog.preview.filterNotNull() != draftDates
     }
 
     /** Copies the shown plan into a new editable routine without accepting the plan. */
@@ -329,6 +512,108 @@ class SplitBuilderViewModel(
         }
     }
 
+    /** Opens the measure dialog for one slot of the shown plan, seeded from its current measure. */
+    fun onMeasureRequested(dayIndex: Int, position: Int) {
+        val slot = _state.value.plan?.days
+            ?.firstOrNull { it.dayIndex == dayIndex }
+            ?.exercises
+            ?.getOrNull(position) ?: return
+        val timed = slot.durationSeconds != null
+        _state.update {
+            it.copy(
+                measureDialog = MeasureDialogState(
+                    dayIndex = dayIndex,
+                    position = position,
+                    metric = if (timed) MeasureMetric.SECONDS else MeasureMetric.REPS,
+                    value = (slot.durationSeconds ?: slot.reps)?.toString().orEmpty()
+                )
+            )
+        }
+    }
+
+    fun onMeasureMetricChanged(metric: MeasureMetric) {
+        _state.update { current ->
+            val dialog = current.measureDialog ?: return@update current
+            current.copy(measureDialog = dialog.copy(metric = metric, error = null))
+        }
+    }
+
+    /** Keeps only digits, so the field can never carry a sign, separator or decimal point. */
+    fun onMeasureValueChanged(value: String) {
+        _state.update { current ->
+            val dialog = current.measureDialog ?: return@update current
+            current.copy(
+                measureDialog = dialog.copy(value = value.filter(Char::isDigit), error = null)
+            )
+        }
+    }
+
+    fun onMeasureDialogDismissed() {
+        _state.update { it.copy(measureDialog = null) }
+    }
+
+    /**
+     * Applies the dialog's measure. Invalid input writes nothing and shows a specific reason. A draft
+     * edit is state-only and carries into acceptance; an accepted-plan edit persists in place, like a
+     * swap, and keeps the plan's id and acceptance time.
+     */
+    fun onMeasureConfirmed() {
+        val current = _state.value
+        val dialog = current.measureDialog ?: return
+        val entered = dialog.value.toIntOrNull()
+        val repBounds = PrescriptionBounds.MIN_REPS..PrescriptionBounds.MAX_REPS
+        val valid = when (dialog.metric) {
+            MeasureMetric.REPS -> entered != null && entered in repBounds
+            MeasureMetric.SECONDS -> entered != null && entered > 0
+        }
+        if (!valid) {
+            // A digits-only field that cannot be parsed as an Int is a value beyond the recordable
+            // range, not a missing one; an empty field is simply not a positive count yet.
+            val error = when {
+                dialog.metric == MeasureMetric.REPS -> MeasureError.REPS_RANGE
+                dialog.value.isNotEmpty() && entered == null -> MeasureError.SECONDS_TOO_LARGE
+                else -> MeasureError.SECONDS_RANGE
+            }
+            _state.update { it.copy(measureDialog = dialog.copy(error = error)) }
+            return
+        }
+        val value = requireNotNull(entered)
+        val reps = if (dialog.metric == MeasureMetric.REPS) value else null
+        val durationSeconds = if (dialog.metric == MeasureMetric.SECONDS) value else null
+        val accepted = shownPlan?.takeIf { current.isPlanAccepted }
+        if (accepted == null) {
+            _state.update { state ->
+                state.copy(
+                    plan = state.plan?.withMeasure(
+                        dialog.dayIndex,
+                        dialog.position,
+                        reps,
+                        durationSeconds
+                    ),
+                    measureDialog = null
+                )
+            }
+            return
+        }
+        viewModelScope.launch {
+            val updated = planBuilderActions.setMeasure(
+                accepted,
+                dialog.dayIndex,
+                dialog.position,
+                reps,
+                durationSeconds
+            )
+            if (updated == null) {
+                // The slot no longer exists: nothing was written, so close without a change.
+                _state.update { it.copy(measureDialog = null) }
+                return@launch
+            }
+            val edited = accepted.withMeasure(dialog.dayIndex, dialog.position, updated)
+            shownPlan = edited
+            _state.update { it.copy(plan = edited.toWeeklyPlan(), measureDialog = null) }
+        }
+    }
+
     fun onViewAcceptedPlan(accepted: AcceptedPlan) {
         viewModelScope.launch { showAccepted(accepted) }
     }
@@ -357,6 +642,8 @@ class SplitBuilderViewModel(
         _state.update {
             it.copy(
                 plan = accepted.toWeeklyPlan(),
+                // A persisted plan carries no date provenance: never claim it used the dates now in force.
+                draftDates = null,
                 exerciseNames = snapshotNames + catalogNames,
                 isLoading = false,
                 isPlanAccepted = true,
@@ -401,7 +688,9 @@ class SplitBuilderViewModel(
                 daysPerWeek = request.daysPerWeek,
                 setsPerExercise = request.setsPerExercise,
                 accessorySetsPerExercise = request.accessorySetsPerExercise,
-                requestedEngine = inputs.requestedEngine
+                requestedEngine = inputs.requestedEngine,
+                appliedPlanningDates = request.workoutEpochDays,
+                draftDates = null
             )
         }
         try {
@@ -433,6 +722,8 @@ class SplitBuilderViewModel(
                     plan = plan,
                     exerciseNames = names,
                     isLoading = false,
+                    // Provenance for the draft: these are the dates its per-day fatigue was built for.
+                    draftDates = request.workoutEpochDays,
                     canRegenerate = inputs.requestedEngine != PlannerEngineId.DETERMINISTIC ||
                         lastRequest?.let { fingerprintOf(it, catalog) != fingerprint } == true,
                     volumeExplanationInvalidated = false,
@@ -499,6 +790,53 @@ class SplitBuilderViewModel(
         }
     )
 
+    /** Returns a copy of this draft with one slot's measure replaced; every other slot is untouched. */
+    private fun WeeklyPlan.withMeasure(
+        dayIndex: Int,
+        position: Int,
+        reps: Int?,
+        durationSeconds: Int?
+    ): WeeklyPlan = copy(
+        days = days.map { day ->
+            if (day.dayIndex != dayIndex) {
+                day
+            } else {
+                day.copy(
+                    exercises = day.exercises.mapIndexed { index, exercise ->
+                        if (index == position) {
+                            exercise.copy(reps = reps, durationSeconds = durationSeconds)
+                        } else {
+                            exercise
+                        }
+                    }
+                )
+            }
+        }
+    )
+
+    /**
+     * Returns a copy of this accepted plan with one slot's measure replaced. A measure edit changes
+     * only how the work is measured, so the frozen volume assessment and the slot's recorded reasons
+     * are deliberately left in place, unlike [replacingExercise], which replaces the exercise.
+     */
+    private fun AcceptedPlan.withMeasure(
+        dayIndex: Int,
+        position: Int,
+        replacement: AcceptedExercise
+    ): AcceptedPlan = copy(
+        days = days.map { day ->
+            if (day.dayIndex != dayIndex) {
+                day
+            } else {
+                day.copy(
+                    exercises = day.exercises.mapIndexed { index, exercise ->
+                        if (index == position) replacement else exercise
+                    }
+                )
+            }
+        }
+    )
+
     /**
      * Fingerprint of the inputs that shape a deterministic plan. `nowMillis` is excluded because the
      * engine never reads it directly, and fatigue is quantized because it decays with wall-clock time
@@ -537,6 +875,12 @@ class SplitBuilderViewModel(
             request.exercisePreferences.entries.sortedBy { it.key }.map { it.key to it.value },
             request.excludedExerciseIds.sorted(),
             fatigue,
+            // Dates and their projected fatigue are generation inputs: a changed date context must
+            // unlock Regenerate even though the catalog and muscle fatigue map are unchanged.
+            request.workoutEpochDays,
+            request.fatigueByWorkout.map { perDate ->
+                perDate.entries.sortedBy { it.key.name }.map { it.key to (it.value * 1000).toInt() }
+            },
             catalogSignature
         ).hashCode()
     }
@@ -549,6 +893,20 @@ private fun SplitScheduleDialogState.withPreview(
     if (count <= 0) return copy(preview = emptyList())
     val dates = try {
         actions.previewSchedule(count, startEpochDay, mode, weekdays, startToday)
+    } catch (_: ScheduleException) {
+        emptyList()
+    }
+    return copy(preview = dates)
+}
+
+/** Recomputes the planned civil dates for the editor's chosen weekdays and start date. */
+private fun PlanningDatesState.withPlanningPreview(
+    actions: PlanBuilderActions,
+    count: Int
+): PlanningDatesState {
+    if (count <= 0) return copy(preview = emptyList())
+    val dates = try {
+        actions.previewSchedule(count, startEpochDay, ScheduleMode.WEEKDAY, weekdays, startToday)
     } catch (_: ScheduleException) {
         emptyList()
     }

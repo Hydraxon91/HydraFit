@@ -42,6 +42,7 @@ import hydrafit.feature.progress.generated.resources.progress_exercise_empty
 import hydrafit.feature.progress.generated.resources.progress_exercise_missing_name
 import hydrafit.feature.progress.generated.resources.progress_exercise_none_selected
 import hydrafit.feature.progress.generated.resources.progress_exercise_search_label
+import hydrafit.feature.progress.generated.resources.progress_history_duration_line
 import hydrafit.feature.progress.generated.resources.progress_history_empty
 import hydrafit.feature.progress.generated.resources.progress_history_failed
 import hydrafit.feature.progress.generated.resources.progress_history_line
@@ -381,8 +382,20 @@ private fun SupportingSetDetail(
     } else {
         "${loadKindLabel(set.loadKind)} ${displayWeight(load, weightUnit)}"
     }
+    val durationSeconds = set.durationSeconds
+    val reps = set.reps
     Text(
-        text = stringResource(Res.string.progress_history_line, set.reps, loadText),
+        text = when {
+            durationSeconds != null -> stringResource(
+                Res.string.progress_history_duration_line,
+                durationSeconds,
+                loadText
+            )
+
+            reps != null -> stringResource(Res.string.progress_history_line, reps, loadText)
+
+            else -> loadText
+        },
         style = MaterialTheme.typography.bodyMedium
     )
     if (set.isWarmup) {
@@ -449,8 +462,20 @@ private fun HistorySetRow(set: WorkoutHistorySet, weightUnit: WeightUnit) {
     )
     val loadText = set.weightKg?.let { displayWeight(it, weightUnit) }
         ?: stringResource(Res.string.progress_weight_none)
+    val durationSeconds = set.durationSeconds
+    val reps = set.reps
     Text(
-        text = "$role · " + stringResource(Res.string.progress_history_line, set.reps, loadText),
+        text = "$role · " + when {
+            durationSeconds != null -> stringResource(
+                Res.string.progress_history_duration_line,
+                durationSeconds,
+                loadText
+            )
+
+            reps != null -> stringResource(Res.string.progress_history_line, reps, loadText)
+
+            else -> loadText
+        },
         style = MaterialTheme.typography.bodySmall
     )
 }

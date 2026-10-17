@@ -97,7 +97,8 @@ class SqlDelightPrescriptionImportRepository(
                     position = entryIndex.toLong(),
                     exerciseId = entry.exerciseId,
                     sets = entry.sets.toLong(),
-                    reps = entry.reps.toLong(),
+                    reps = entry.reps?.toLong(),
+                    durationSeconds = entry.durationSeconds?.toLong(),
                     weightKg = entry.weightKg,
                     loadKind = entry.loadKind.name
                 )

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources>
-    <string name="fatigue_heatmap_title">Muscle fatigue</string>
+    <string name="fatigue_heatmap_title">Estimated muscle fatigue</string>
+    <string name="fatigue_estimate_note">Estimated from recorded working sets. This is not a measurement of soreness, exhaustion or readiness. Low values do not confirm recovery; recorded muscle mappings may be incomplete.</string>
     <string name="fatigue_percentage">%1$d.%2$d%</string>
     <string name="fatigue_percentage_near_limit">99.9+%</string>
     <string name="nav_label">Fatigue</string>
@@ -35,8 +36,8 @@
     <string name="fatigue_map_load_failed">The body map could not be loaded. Muscle values are still available below.</string>
     <string name="fatigue_map_retry">Retry</string>
     <string name="fatigue_map_figure_description">%1$s, %2$s — estimated muscle fatigue</string>
-    <string name="fatigue_map_legend_low">No fatigue</string>
-    <string name="fatigue_map_legend_high">High fatigue</string>
+    <string name="fatigue_map_legend_low">Low estimated fatigue</string>
+    <string name="fatigue_map_legend_high">High estimated fatigue</string>
     <string name="fatigue_map_schematic_note">Schematic anatomy — boundaries and softened colour transitions are approximate. Values are estimates, not measurements. Artwork adapted from MuscleMap (Melih Colpan) and react-native-body-highlighter (ELABBASSI Hicham), both MIT-licensed.</string>
     <string name="fatigue_map_region_description">%1$s, %2$s</string>
     <string name="fatigue_map_open">Body map</string>

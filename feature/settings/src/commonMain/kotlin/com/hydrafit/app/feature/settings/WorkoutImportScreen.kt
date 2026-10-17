@@ -94,6 +94,7 @@ import hydrafit.feature.settings.generated.resources.settings_workout_import_pro
 import hydrafit.feature.settings.generated.resources.settings_workout_import_rejected_title
 import hydrafit.feature.settings.generated.resources.settings_workout_import_reset
 import hydrafit.feature.settings.generated.resources.settings_workout_import_review_title
+import hydrafit.feature.settings.generated.resources.settings_workout_import_row_duration
 import hydrafit.feature.settings.generated.resources.settings_workout_import_row_session
 import hydrafit.feature.settings.generated.resources.settings_workout_import_section
 import hydrafit.feature.settings.generated.resources.settings_workout_import_session_confirm
@@ -701,7 +702,16 @@ private fun WorkoutImportRowUi.detailText(): String {
         false -> stringResource(Res.string.settings_workout_import_working)
         null -> stringResource(Res.string.settings_workout_import_unknown_set_type)
     }
-    return "$time · $weight · $reps · $warmupLabel"
+    val duration = durationSeconds
+    val countedReps = reps
+    val measurement = when {
+        duration != null ->
+            stringResource(Res.string.settings_workout_import_row_duration, duration)
+
+        countedReps != null -> countedReps.toString()
+        else -> ""
+    }
+    return "$time · $weight · $measurement · $warmupLabel"
 }
 
 private fun WorkoutCsvSource.testTag(): String = when (this) {

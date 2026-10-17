@@ -368,6 +368,24 @@ class WorkoutImportViewModelTest {
     }
 
     @Test
+    fun countedRowsKeepRepsAndTimedRowsCarryTheirDurationInThePreview() = runTest(dispatcher) {
+        val csv = "title,start_time,exercise_title,set_type,weight_kg,reps,duration_seconds\n" +
+            "Push,\"01 Jan 2024, 07:30\",Bench Press,normal,80,8,\n" +
+            "Push,\"01 Jan 2024, 07:35\",Bench Press,normal,0,,300\n"
+        val viewModel = viewModel(store = FakeFileStore(content = csv), catalog = benchCatalog())
+
+        viewModel.chooseHevyFile()
+        advanceUntilIdle()
+
+        val rows = review(viewModel).rows
+        assertEquals(2, rows.size)
+        assertEquals(8, rows[0].reps)
+        assertNull(rows[0].durationSeconds)
+        assertNull(rows[1].reps)
+        assertEquals(300, rows[1].durationSeconds)
+    }
+
+    @Test
     fun successfulCommitReportsCountsAndClearsTheReview() = runTest(dispatcher) {
         val repository = FakeImportRepository()
         repository.result = WorkoutImportResult(

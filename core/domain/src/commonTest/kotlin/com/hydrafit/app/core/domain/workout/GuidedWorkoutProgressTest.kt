@@ -10,6 +10,7 @@ import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class GuidedWorkoutProgressTest {
@@ -115,6 +116,26 @@ class GuidedWorkoutProgressTest {
         assertEquals(recorded, progress.exercises[1].explanation)
         assertEquals(2, progress.exercises[0].remainingSets)
         assertEquals(2, progress.exercises[1].remainingSets)
+    }
+
+    @Test
+    fun carriesATimedSlotAsSecondsWhileCompletionStaysCountedBySets() {
+        val occurrence = occurrenceWith(
+            entry(id = 40, position = 0, sets = 3).copy(reps = null, durationSeconds = 90)
+        )
+
+        val progress = buildGuidedWorkoutProgress(
+            occurrence,
+            performedWorkingSetsByEntry = mapOf(40L to 2)
+        )
+
+        val exercise = progress.exercises.single()
+        assertNull(exercise.reps)
+        assertEquals(90, exercise.durationSeconds)
+        assertEquals(3, progress.prescribedSets)
+        assertEquals(2, progress.performedSets)
+        assertEquals(1, exercise.remainingSets)
+        assertFalse(exercise.isComplete)
     }
 
     private fun occurrenceWith(vararg entries: OccurrenceEntry) = WorkoutOccurrence(

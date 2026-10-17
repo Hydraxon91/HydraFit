@@ -41,6 +41,7 @@ import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_coverage_sect
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_coverage_sets
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_coverage_unclassified_window_note
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_coverage_unknown_history
+import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_estimate_note
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_heatmap_title
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_map_close
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_map_open
@@ -126,6 +127,10 @@ fun FatigueHeatmapScreen(state: FatigueHeatmapUiState, modifier: Modifier = Modi
                 Text(text = stringResource(Res.string.fatigue_map_open))
             }
         }
+        Text(
+            text = stringResource(Res.string.fatigue_estimate_note),
+            style = MaterialTheme.typography.bodySmall
+        )
         if (state.coverageComputed) {
             FatigueCoverageHeading(state = state)
         }

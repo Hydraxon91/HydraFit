@@ -265,8 +265,21 @@ database.workoutLogQueries.selectAllSets().executeAsList()
 
 Generated files land under
 `core/database/build/generated/sqldelight/code/HydraFitDatabase/commonMain/`.
-`AndroidDatabaseDriverFactory` and `NativeDatabaseDriverFactory` pass
-`HydraFitDatabase.Schema` to their driver; the driver handles creation/upgrade.
+`AndroidDatabaseDriverFactory` and `NativeDatabaseDriverFactory` pass the commonMain
+`HydraFitDatabaseSchema` wrapper to their driver; the driver handles creation/upgrade.
+The wrapper delegates `version`/`create`/`migrate` to the generated `HydraFitDatabase.Schema`
+with allocation-history repairs at `52.sqm` (`workoutSet`), `53.sqm`
+(`routineEntry`, `activationEntry`, `occurrenceEntry`) and `54.sqm` (`planHistoryEntry`, rebuilt so
+an accepted-plan slot stores nullable `reps` plus `durationSeconds`). `55.sqm` adds the additive
+`warmupPreparationOverride` table (one persisted preparation measure per action); an additive table
+needs no repair. The wrapper captures each table's
+AUTOINCREMENT high-water mark from `sqlite_sequence` immediately before its rebuild and
+restores it immediately after, never below the rebuilt table's own mark, so a deleted id is not
+reissued. The mark is read at the rebuild, not at the migration start, so the earlier `20.sqm`
+rebuild is untouched. A `.sqm` cannot reference `sqlite_sequence` (SQLDelight's resolver rejects the
+internal table), so the wrapper uses raw `SqlDriver` SQL and no generated query. Keep new
+timed-set-semantics tests on the wrapper; historical `.sqm`-only tests can stay on the generated
+schema.
 The default database filename is `hydrafit.db`.
 
 For a repository test, create `JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)`,

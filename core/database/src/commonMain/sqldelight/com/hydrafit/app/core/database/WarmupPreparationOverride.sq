@@ -1,0 +1,18 @@
+CREATE TABLE warmupPreparationOverride (
+    action TEXT NOT NULL PRIMARY KEY,
+    reps INTEGER,
+    durationSeconds INTEGER
+);
+
+selectAll:
+SELECT action, reps, durationSeconds FROM warmupPreparationOverride ORDER BY action;
+
+upsert:
+INSERT OR REPLACE INTO warmupPreparationOverride(action, reps, durationSeconds)
+VALUES (?, ?, ?);
+
+deleteByAction:
+DELETE FROM warmupPreparationOverride WHERE action = ?;
+
+deleteAll:
+DELETE FROM warmupPreparationOverride;

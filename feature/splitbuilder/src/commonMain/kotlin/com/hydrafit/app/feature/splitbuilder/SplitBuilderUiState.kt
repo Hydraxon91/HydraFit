@@ -21,6 +21,39 @@ data class SplitScheduleDialogState(
     val error: String? = null
 )
 
+/**
+ * The planning-date configuration: chosen weekdays plus a start date, previewed as civil dates.
+ * An empty [dates] list means unknown dates, which keeps the undated planning behavior.
+ */
+data class PlanningDatesState(
+    /** The confirmed civil dates sent to generation; empty means unknown dates. */
+    val dates: List<Long> = emptyList(),
+    val weekdays: Set<DayOfWeek> = setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY),
+    val startToday: Boolean = true,
+    val startEpochDay: Long = 0L,
+    /** The live preview while the editor is open; the confirmed [dates] once confirmed. */
+    val preview: List<Long?> = emptyList(),
+    val error: String? = null
+)
+
+/** Which measure a slot's dialog edits: a rep count or elapsed whole seconds. */
+enum class MeasureMetric { REPS, SECONDS }
+
+/** Why a slot measure edit was rejected; the UI maps each to a specific message. */
+enum class MeasureError { REPS_RANGE, SECONDS_RANGE, SECONDS_TOO_LARGE }
+
+/**
+ * The open measure dialog for one slot of the shown plan. [value] is the raw field text; a non-null
+ * [error] means the last Confirm was rejected, so nothing was written.
+ */
+data class MeasureDialogState(
+    val dayIndex: Int,
+    val position: Int,
+    val metric: MeasureMetric,
+    val value: String,
+    val error: MeasureError? = null
+)
+
 data class SplitBuilderUiState(
     val daysPerWeek: Int = 4,
     val setsPerExercise: Int = 3,
@@ -49,11 +82,36 @@ data class SplitBuilderUiState(
     val hasActiveBlock: Boolean = false,
     /** The schedule dialog shown when starting the plan as a block; null when closed. */
     val scheduleDialog: SplitScheduleDialogState? = null,
+    /** The confirmed planning dates and the weekday/start-date configuration behind them. */
+    val planningDates: PlanningDatesState = PlanningDatesState(),
+    /** The open planning-date editor; null when closed. */
+    val planningDatesDialog: PlanningDatesState? = null,
+    /** The dates the planner actually used in the latest request; empty when unknown or rejected. */
+    val appliedPlanningDates: List<Long> = emptyList(),
+    /** The dates the shown draft was generated with; null when no draft provenance is tracked. */
+    val draftDates: List<Long>? = null,
     /** One-shot: true after "Save as routine" succeeds, until the screen shows the confirmation. */
     val routineSaved: Boolean = false,
     /** True after a confirmed swap invalidated the shown plan's persisted volume explanation. */
-    val volumeExplanationInvalidated: Boolean = false
+    val volumeExplanationInvalidated: Boolean = false,
+    /** The open per-slot measure dialog; null when closed. */
+    val measureDialog: MeasureDialogState? = null
 ) {
     val usedFallbackEngine: Boolean
         get() = plan != null && requestedEngine != null && plan.engine != requestedEngine
+
+    /**
+     * True when the shown draft was planned under different dates than the current request, so its
+     * per-day fatigue belongs to another date context. Accepting or scheduling it would present a
+     * plan that was never generated for the dates now in force; Regenerate is the way forward.
+     */
+    val draftContextStale: Boolean
+        get() = plan != null &&
+            !isPlanAccepted &&
+            draftDates != null &&
+            draftDates != appliedPlanningDates
+
+    /** True when dates are confirmed but the planner could not use them (frequency, order or past). */
+    val planningDatesRejected: Boolean
+        get() = planningDates.dates.isNotEmpty() && appliedPlanningDates.isEmpty()
 }

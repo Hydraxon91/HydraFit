@@ -398,7 +398,8 @@ class CustomExerciseDedupeTest {
             dayIndex = null,
             rir = null,
             sessionId = null,
-            loadKind = "EXTERNAL"
+            loadKind = "EXTERNAL",
+            durationSeconds = null
         )
 
         CustomExerciseDedupe(database).run()
@@ -428,7 +429,8 @@ class CustomExerciseDedupeTest {
             dayIndex = null,
             rir = null,
             sessionId = null,
-            loadKind = "EXTERNAL"
+            loadKind = "EXTERNAL",
+            durationSeconds = null
         )
         database.personalRecordQueries.upsert(
             exerciseId = "user-trap-bar-deadlift",
@@ -792,7 +794,8 @@ class CustomExerciseDedupeTest {
             dayIndex = null,
             rir = null,
             sessionId = null,
-            loadKind = "EXTERNAL"
+            loadKind = "EXTERNAL",
+            durationSeconds = null
         )
         database.personalRecordQueries.upsert(
             exerciseId = "user-trap-bar-deadlift",
@@ -1019,6 +1022,7 @@ class CustomExerciseDedupeTest {
             exerciseId = exerciseId,
             sets = 3,
             reps = 5,
+            durationSeconds = null,
             exerciseName = "Trap Bar Deadlift",
             movementPattern = "HINGE",
             suggestedWeightKg = 100.0,
@@ -1051,7 +1055,8 @@ class CustomExerciseDedupeTest {
             dayIndex = null,
             rir = null,
             sessionId = null,
-            loadKind = "BODYWEIGHT"
+            loadKind = "BODYWEIGHT",
+            durationSeconds = null
         )
         insertPlanHistoryEntry(exerciseId)
         insertRoutineEntry(exerciseId)
@@ -1092,6 +1097,7 @@ class CustomExerciseDedupeTest {
             exerciseId = exerciseId,
             sets = 3,
             reps = 12,
+            durationSeconds = null,
             weightKg = null,
             loadKind = "BODYWEIGHT"
         )
@@ -1135,6 +1141,7 @@ class CustomExerciseDedupeTest {
             isUnilateral = 0,
             sets = 3,
             reps = 12,
+            durationSeconds = null,
             weightKg = null,
             loadCapability = "BODYWEIGHT_ONLY",
             loadKind = "BODYWEIGHT"
@@ -1164,6 +1171,7 @@ class CustomExerciseDedupeTest {
             isUnilateral = 0,
             sets = 3,
             reps = 12,
+            durationSeconds = null,
             weightKg = null,
             loadCapability = "BODYWEIGHT_ONLY",
             loadKind = "BODYWEIGHT",

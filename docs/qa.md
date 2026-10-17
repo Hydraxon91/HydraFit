@@ -877,12 +877,194 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   write failures or pinned release upgrades on the emulator.
 
 ## 7. Fatigue
+
+### Confirmed planning dates (decay-only) — 2026-10-17
+
+- SplitBuilder now lets the user confirm the next N workout dates (weekday chips, start date,
+  shift one week, or clear to unknown) and discloses that only recorded-history decay is
+  projected: no hypothetical fatigue from earlier planned workouts is added, the same local clock
+  time and current UTC offset are assumed, and unknown dates keep the previous behavior.
+- Date, frequency or clock validity changes cancel in-flight generation and preserve the shown
+  draft/accepted plan; Regenerate → Accept stays explicit and stale-date Accept/schedule is
+  refused. Generation dates do not move an existing training block.
+- **Passed** module verification: `:core:domain:testAndroidHostTest` and
+  `:feature:splitbuilder:testAndroidHostTest` (49 SplitBuilder at that revision, now 52; 22
+  observer, 81 deterministic engine tests), root `ktlintCheck` and `:androidApp:assembleDebug`
+  (`date-ui-tests2.log`, `date-ui-ktlint3.log`, `date-ui-assemble.log`).
+- **Passed on device** (`emulator-5554`, debug, 2026-10-17): the Plan tab shows the dates
+  section; the dialog rendered all four disclosure lines, the Mon–Sun chips, start-today,
+  the start date, Shift one week and Use unknown dates, with an exact-date preview
+  (`2026-10-17, 10-19, 10-20, 10-21` for Mon–Thu with start today). Confirming closed the dialog
+  and the section then listed those dates; confirming does not itself regenerate — the displayed
+  plan is kept and Regenerate applies the dates (host-covered). "Use unknown dates" restored the
+  unknown-dates line with `assertNotVisible` on the confirmed date. Screenshots viewed in the
+  session.
+- **Post-execution review (Plan Mode) REJECTED** this delta on DATE-01–03: an ordinary source
+  refresh replaced a displayed accepted plan; an already-open schedule dialog could still confirm
+  a stale date context after `refreshContext()` invalidated the applied dates; and the earlier
+  wording here claimed confirming regenerated the plan. DATE-01/02 are fixed with behavioral
+  regressions (`acceptedPlanIsPreservedWhenLoggedSetsChange`,
+  `anOlderAcceptedPlanIsPreservedWhenLoggedSetsChange`, and
+  `aStaleDraftCannotBeScheduledUntilItIsRegenerated` with recorded activation counts 0/0/1);
+  DATE-03 is this correction. Targeted closure **APPROVED for DATE-01–03** against this working
+  tree: Tier A matrix green (783 tasks, `date-closure-matrix.log`), SplitBuilderViewModelTest
+  52 tests / 0 failures, and `ktlintCommonTestSourceSetCheck --rerun-tasks` executed clean
+  (`date-closure-ktlint-rerun.log`).
+- **Unverified:** large font, TalkBack, dark theme and rotation for the dialog; the clock-driven
+  in-flight cancellation inside `refreshContext` (the refusal path itself is now host-covered);
+  AI-engine paths ignore per-date projection by design (disclosed in the UI).
+
+### Timed prescription stabilization — 2026-10-17
+
+- Working tree based on `9cfbb63e`: routine authoring, frozen activation/occurrence metrics,
+  backup 18 and prescription interchange v2 carry seconds. Regression coverage includes
+  activation, pending-occurrence edits, actual Logger confirmation and repeat submission,
+  count-based guided completion, summaries, backup roundtrip with an active occurrence,
+  legacy rejection and PDF seconds. Accepted-plan durations and persisted timed preparation
+  remain unfinished, as do informational self-reports and schedule-aware projection.
+- `53.sqm` rebuilds three prescription tables. A generated-schema-only test demonstrates
+  deleted allocation history being lost. The production wrapper preserves each mark before
+  callbacks and actual subsequent inserts (1001), for empty and surviving-row tables and
+  multi-hop upgrades. Existing row/snapshot/index tests and workout-set wrapper tests remain.
+- Full Tier A matrix **passed** against this source: `testAndroidHostTest`, migration
+  verification, root lint, debug assembly and both required iOS compiles. Domain: 852 tests.
+  Log: `prescription-final-matrix.log` in the external OpenCode artifact directory below.
+- Emulator acceptance completed on 2026-10-17 after an earlier empty-hierarchy block: the debug
+  APK was deployed to `emulator-5554`, performing the real 52→53→54 upgrade on existing device
+  data, and the app launched without a crash or migration error. Journeys (screenshots viewed):
+  routine authoring with a Reps/Seconds chooser saved `Plank 3 × 45 s` (reopened as Seconds 45,
+  not reps); activating it rendered the planned draft `Plank  3 x 45 s · ~Bodyweight`; `Confirm all`
+  recorded all three sets (`3 of 3 sets`, rows `Plank  45 s · Bodyweight`) and the set's edit dialog
+  opened as `Edit set: Plank` with 45 seconds. The three probe sets were then deleted
+  (`plank` sets: 0 in a read-only DB copy), the block cancelled and the referenced routine
+  archived — the documented residue for a routine a cancelled activation still references.
+  Probe flows live in the external artifact directory, not the repo.
+- Not exercised on the device: Settings import preview with durations, backup 18 round-trip,
+  prescription interchange v2 export/import and PDF seconds; large font, dark theme, locale,
+  TalkBack and rotation for the new timed controls.
+
+- Independent full-branch review rejected the first candidate with TIME-01–04: timed draft
+  editing, zero-duration counted-row dedup compatibility, the upper duration boundary and
+  malformed reps silently dropped on timed rows. Mechanical corrections now have actual
+  Logger edit/confirm/retry/context tests and Strong/Hevy literal canonical-byte, legacy/bucket
+  ledger, split-bucket and parser-boundary tests. The full Tier A matrix was rerun with
+  `--rerun-tasks` and **passed** (`time-csv-final-matrix.log`); independent targeted reviewer
+  closure **approved TIME-01–04**. See [review and limits](review-timed-sets-2026-10-17.md).
+  These checks do not resolve the unavailable emulator acceptance or unfinished requested work.
+
+### Accepted-plan durations and persisted preparation — 2026-10-17
+
+- Plan slots now carry a user-set measure: SplitBuilder's per-slot measure action edits reps or
+  whole seconds; a draft edit is state-only and carries into acceptance, an accepted-plan edit
+  persists in place like a swap (id and acceptance time kept, frozen volume assessment and slot
+  reasons untouched), swap preserves the replaced slot's measure, and plan-to-routine conversion
+  carries it. The engines still never invent durations, and regeneration yields a fresh rep-based
+  plan.
+- `54.sqm` rebuilds `planHistoryEntry` for nullable `reps` plus `durationSeconds` (allocation-history
+  repair registered in the schema wrapper); `55.sqm` adds the additive `warmupPreparationOverride`
+  table so a preparation edit persists per action, is applied by `buildWarmupGuidance`, and is
+  cleared by Reset to default. Backup formats 19 and 20 carry both.
+- **Passed** host verification: Tier A matrix green (783 tasks, `prep-persist-matrix.log`);
+  SplitBuilderViewModelTest 56/0/0, WorkoutLoggerViewModelTest 319/0/0, WarmupGuidanceTest 18/0/0,
+  the override repository 5/0/0, the plan-entry and preparation migrations 4/0/0 and 3/0/0,
+  `verifySqlDelightMigration` and root ktlint green.
+- **Passed on device** (`emulator-5554`, debug, 2026-10-17): the real 54→55→56 upgrade ran on
+  existing data (`PRAGMA user_version` = 56, `planHistoryEntry.durationSeconds` and
+  `warmupPreparationOverride` present) with no HydraFit crash or migration error in logcat, and the
+  app rendered normally (`chunk4-after-upgrade.png`, `chunk4-deploy.log`). The emulator's
+  `planHistoryEntry` held no rows at upgrade time, so on-device legacy-row preservation is not
+  demonstrated; the host migration tests cover it.
+- **Unverified:** the new measure dialog and the preparation persistence are not exercised on a
+  device (no interaction check), and large font, dark theme, locale, rotation and TalkBack are
+  unchecked.
+
 - Heatmap reflects logged sets per muscle; percentages shown; near-limit shows "99.9+%".
 - Decay over time and reset at session boundaries behave as expected.
 - Body map: Male/Female selection is independent of profile settings; Front initially, with a
   Front/Back button. Both models must render offline in both views. Every muscle retains its own
   numeric estimate; only narrow approved shoulder/upper-back boundaries soften visually. Full
   figures, legend, attribution and numeric descriptions must stay reachable in the scrollable dialog.
+
+### Fatigue estimate framing — 2026-10-16
+
+- Based on `2c440e33`, the screen title and map legend explicitly label estimated fatigue.
+  A note below the title distinguishes the score from measured soreness, exhaustion or readiness,
+  warns that low values do not confirm recovery, and acknowledges incomplete recorded mappings.
+  Calculations, history, all 24 muscle groups and coverage accounting are unchanged.
+- DeepSeek coding verification passed: `:feature:fatigueheatmap:testAndroidHostTest`
+  (45 tests, including three new rendered/resource checks), module `ktlintCheck` and
+  `:androidApp:assembleDebug`. The updated `.maestro/fatigue-body-map.yaml` passed
+  `check-syntax`; it now asserts the note and captures the numeric screen too.
+- Initial emulator acceptance was blocked by an open Setup notes editor; it was left
+  untouched. After the user resolved that precondition, fresh hierarchy inspection confirmed
+  Equipment selected and no editor/dialog/keyboard. The runner installed the debug build,
+  foregrounded without an intentional restart, and passed all 24 flow steps in one invocation
+  under a 120-second cap, returning to Equipment without training-data writes.
+- The numeric estimate note and all four model/view descriptions were asserted. Five
+  screenshots were captured and viewed, including the numeric-screen image inspected by
+  the parent. Artifacts are under `fatigue-clarity-ui/2026-10-16_225326/` in the external
+  directory below. Larger-font, dark-theme, locale, measured contrast and accessibility
+  traversal remain unverified; no formal review or commit was performed.
+- External artifacts: `fatigue-clarity-*.log` and `fatigue-clarity-hierarchy.csv` under
+  `/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/`.
+
+### Performed timed-set slice — incomplete, 2026-10-16
+
+- Uncommitted work following `2c440e33` adds exclusive nullable reps/duration fields to
+  performed records, manual metric selection/correction, duration-aware history/summary text,
+  backup format 17 and CSV duration export. Rep-derived fatigue, records and planner load
+  inputs exclude timed records. This is a partial slice, not accepted duration support.
+- Domain contract tests and the Android debug build passed. A full host run after fixture
+  adaptation had only an outdated schema-version assertion failing; that assertion was fixed.
+  Migration schema verification passes, but does not establish allocation-history preservation.
+- **Migration regression fixed (2026-10-17):** the generated `52.sqm` rebuild alone loses
+  deleted-row AUTOINCREMENT history. The approved `HydraFitDatabaseSchema` wrapper now captures
+  the mark immediately before that rebuild and restores it before caller post-rebuild callbacks.
+  Both production driver factories use it; generated DDL and historical migrations are unchanged.
+  The retained regressions assert actual subsequent insert IDs 1001 and 501, including the
+  empty-after-deletion case. All 459 database tests passed in `schema-wrapper-matrix2.log`.
+- An attempted SQL-only sequence-preservation fix could not compile: SQLDelight rejects
+  `sqlite_sequence` references in `.sqm`. That attempt was restored; no temporary diagnostic
+  source change remains. The Kotlin wrapper supplies the needed raw-driver access; wrapper tests
+  cover fresh creation, multi-hop upgrades, callback ordering, no-op migrations and factory wiring.
+  Platform-driver runtime upgrades remain unverified. No duration build has been deployed.
+- Root `ktlintCheck`, debug assembly, migration verification and both required iOS compiles
+  passed. A full host run passed in `schema-wrapper-all-host.log`. After formatting-only
+  closure, a further combined run failed in
+  `ExerciseProgressRecordsIntegrationTest.multiExerciseOccurrenceKeepsStableIdentityOrderAndEarlierBaselines`
+  with a nested SQLite transaction error; its isolated three-test class passed afterwards.
+  Treat this as an intermittent integration failure, not proof of a pre-existing baseline issue
+  or a fully green final matrix. Duration UI journeys remain open.
+  CSV duration import, duration trends, timed prescriptions/preparation, self-reports and
+  schedule-aware planning are not complete. Owning architecture/mechanics duration docs
+  still require integration updates; do not describe this candidate as production-ready.
+- Evidence: `timed-integration-host.log`, `timed-storage-tests-full.log`,
+  `timed-sequence-{red,green,full,verify-rerun,ktlint}.log`, `schema-wrapper-matrix2.log`,
+  `schema-wrapper-all-host.log`, `duration-domain-lint-closure.log`, `duration-final-check.log`
+  and `duration-epri-rerun.log` in the external artifact directory listed above.
+  All work remains uncommitted; there is no formal review verdict.
+
+### Timed-set import and progress display — 2026-10-17
+
+- Completes the duration consumers left open by `232ac9cc`. Strong's `Seconds` and Hevy's
+  `duration_seconds` now produce duration-measured rows when reps are absent, so an imported
+  timed set stores seconds with null reps; a row carrying both a positive rep count and positive
+  seconds is rejected as an ambiguous shape rather than guessed, and FitNotes still requires a
+  positive rep count because its export has no duration column. Rep-only rows keep their exact
+  previous canonical dedup identity, so history imported earlier still dedupes.
+- The Settings import preview shows a recorded duration for timed rows instead of a rep count.
+  Exercise Progress adds a per-day recorded-duration total to its accessible numeric day table
+  only when that day actually has timed work, so existing rep and volume text is unchanged.
+- **Passed:** `:core:domain:testAndroidHostTest` (840 tests), `:core:database:testAndroidHostTest`
+  (460), `:feature:settings:testAndroidHostTest` (64), `:feature:progress:testAndroidHostTest`,
+  root `ktlintCheck`, `:androidApp:assembleDebug` and a full `testAndroidHostTest` run
+  (`csv-progress-integration-host.log`, BUILD SUCCESSFUL). The previously intermittent
+  `ExerciseProgressRecordsIntegrationTest` failure did not recur.
+- **Limits:** the resolved localized duration strings are asserted at the resource-selection
+  level, not with a Compose-resource reader, and no emulator journey covered the import preview
+  or the Progress duration line. Timed prescriptions/preparation, informational soreness and
+  exhaustion self-reports, and schedule-aware planning remain unimplemented. Evidence logs are
+  `csv-duration-*.log` and `progress-duration-*.log` in the external artifact directory above.
 
 ### Manual shrug and neck additions — 2026-10-16
 

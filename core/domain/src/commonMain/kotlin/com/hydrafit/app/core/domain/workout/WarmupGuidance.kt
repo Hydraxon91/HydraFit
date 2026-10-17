@@ -72,7 +72,10 @@ data class WarmupRampPlan(
     val exerciseName: String,
     val movementPattern: MovementPattern,
     val workingWeightKg: Double,
-    val prescribedReps: Int,
+    /** Repetitions for counted work, or null for a timed slot. Never a `0` sentinel. */
+    val prescribedReps: Int? = null,
+    /** Elapsed whole seconds for a timed slot, or null for counted work. */
+    val prescribedDurationSeconds: Int? = null,
     val loadKind: LoadKind,
     val loadCapability: ExerciseLoadCapability,
     val rampSets: List<WarmupRampSet>,
@@ -84,6 +87,7 @@ data class WarmupRampPlan(
         movementPattern == entry.movementPattern &&
         workingWeightKg == entry.weightKg &&
         prescribedReps == entry.reps &&
+        prescribedDurationSeconds == entry.durationSeconds &&
         loadKind == entry.loadKind &&
         loadCapability == entry.loadCapability
 
@@ -94,6 +98,7 @@ data class WarmupRampPlan(
             movementPattern == other.movementPattern &&
             workingWeightKg == other.workingWeightKg &&
             prescribedReps == other.prescribedReps &&
+            prescribedDurationSeconds == other.prescribedDurationSeconds &&
             loadKind == other.loadKind &&
             loadCapability == other.loadCapability
 }
@@ -156,12 +161,18 @@ private val UPPER_PULL_PATTERNS = setOf(
  * target the user is being asked to perform. [equipment] bounds ramp availability and load against
  * the user's current equipment; a null value means the constraints are not yet known, so ramps are
  * suggested from the frozen target alone.
+ *
+ * [preparationOverrides] replaces a preparation item's built-in measure with the user's persisted
+ * override for that action, so a later occurrence carries the edited value instead of the default.
+ * An action with no entry keeps its built-in default.
  */
 fun buildWarmupGuidance(
     occurrence: WorkoutOccurrence,
-    equipment: WarmupEquipment? = null
+    equipment: WarmupEquipment? = null,
+    preparationOverrides: Map<WarmupAction, WarmupPreparationItem> = emptyMap()
 ): WarmupGuidance = WarmupGuidance(
-    preparation = buildWarmupPreparation(occurrence.entries.map { it.movementPattern }),
+    preparation = buildWarmupPreparation(occurrence.entries.map { it.movementPattern })
+        .map { item -> preparationOverrides[item.action] ?: item },
     ramps = buildWarmupRamps(occurrence.entries.sortedBy { it.position }, equipment)
 )
 
@@ -223,6 +234,7 @@ internal fun buildWarmupRamps(
             movementPattern = entry.movementPattern,
             workingWeightKg = working,
             prescribedReps = entry.reps,
+            prescribedDurationSeconds = entry.durationSeconds,
             loadKind = entry.loadKind,
             loadCapability = entry.loadCapability,
             rampSets = rampSets,

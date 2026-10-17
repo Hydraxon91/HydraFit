@@ -588,6 +588,81 @@ class SqlDelightPlanHistoryRepositoryTest {
         )
     )
 
+    @Test
+    fun roundTripsATimedSlotMeasure() = runTest {
+        repository.accept(
+            plan(engine = PlannerEngineId.DETERMINISTIC, acceptedAt = 1L).copy(
+                days = listOf(
+                    AcceptedDay(
+                        dayIndex = 0,
+                        focus = SplitFocus.PUSH,
+                        exercises = listOf(
+                            AcceptedExercise(
+                                exerciseId = "plank",
+                                sets = 3,
+                                reps = null,
+                                durationSeconds = 45,
+                                name = "Plank",
+                                movementPattern = MovementPattern.CORE
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        val slot = requireNotNull(repository.latest()).days.single().exercises.single()
+
+        assertNull(slot.reps)
+        assertEquals(45, slot.durationSeconds)
+    }
+
+    @Test
+    fun setMeasureUpdatesOneSlotInPlace() = runTest {
+        repository.accept(plan(engine = PlannerEngineId.DETERMINISTIC, acceptedAt = 1L))
+        val planId = requireNotNull(repository.latest()).id
+
+        repository.setMeasure(
+            planId = planId,
+            dayIndex = 0,
+            position = 0,
+            reps = null,
+            durationSeconds = 45
+        )
+
+        val timed = requireNotNull(repository.latest()).days.first().exercises.first()
+        assertNull(timed.reps)
+        assertEquals(45, timed.durationSeconds)
+        // The plan keeps its id and acceptance time: an UPDATE, not a re-accept.
+        assertEquals(planId, requireNotNull(repository.latest()).id)
+        assertEquals(1L, requireNotNull(repository.latest()).acceptedAtMillis)
+
+        repository.setMeasure(
+            planId = planId,
+            dayIndex = 0,
+            position = 0,
+            reps = 12,
+            durationSeconds = null
+        )
+
+        val counted = requireNotNull(repository.latest()).days.first().exercises.first()
+        assertEquals(12, counted.reps)
+        assertNull(counted.durationSeconds)
+    }
+
+    @Test
+    fun setMeasureOnAMissingSlotIsANoOp() = runTest {
+        repository.accept(plan(engine = PlannerEngineId.DETERMINISTIC, acceptedAt = 1L))
+        val planId = requireNotNull(repository.latest()).id
+
+        repository.setMeasure(planId, dayIndex = 5, position = 0, reps = 12, durationSeconds = null)
+        repository.setMeasure(planId, dayIndex = 0, position = 9, reps = null, durationSeconds = 45)
+
+        val slot = requireNotNull(repository.latest()).days.first().exercises.first()
+        assertEquals(8, slot.reps)
+        assertNull(slot.durationSeconds)
+    }
+
     private fun plan(
         engine: PlannerEngineId,
         acceptedAt: Long,

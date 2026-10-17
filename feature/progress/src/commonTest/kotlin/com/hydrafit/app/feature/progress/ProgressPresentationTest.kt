@@ -2,11 +2,15 @@ package com.hydrafit.app.feature.progress
 
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.ProgressDay
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
+import hydrafit.feature.progress.generated.resources.Res
+import hydrafit.feature.progress.generated.resources.progress_table_duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ProgressPresentationTest {
@@ -83,6 +87,17 @@ class ProgressPresentationTest {
     }
 
     @Test
+    fun durationTotalAppearsOnlyForDaysWithRecordedTimedWork() {
+        val timed = progressDayForTest(localEpochDay = 1L, totalDurationSeconds = 90L)
+        val untimed = progressDayForTest(localEpochDay = 0L, totalDurationSeconds = 0L)
+
+        // A day with timed work carries the localized duration line; a day without shows no total,
+        // not a misleading zero.
+        assertEquals(Res.string.progress_table_duration, progressDayDurationResource(timed))
+        assertNull(progressDayDurationResource(untimed))
+    }
+
+    @Test
     fun chartMarksStayInsideTheCanvasEdges() {
         val radius = 3f
         val width = 100f
@@ -106,6 +121,17 @@ class ProgressPresentationTest {
         assertEquals(height - radius, progressMarkY(-1.0, 10.0, height, radius))
     }
 }
+
+private fun progressDayForTest(localEpochDay: Long, totalDurationSeconds: Long) = ProgressDay(
+    localEpochDay = localEpochDay,
+    workingSets = 3,
+    totalReps = 30L,
+    externalVolumeKg = 1000.0,
+    bestLoads = emptyList(),
+    bestReps = emptyList(),
+    estimatedOneRepMax = null,
+    totalDurationSeconds = totalDurationSeconds
+)
 
 private fun historySetForTest(setId: Long) = WorkoutHistorySet(
     id = setId,

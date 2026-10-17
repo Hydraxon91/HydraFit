@@ -37,7 +37,10 @@ data class RoutineEntry(
     val position: Int = 0,
     val exerciseId: String,
     val sets: Int,
-    val reps: Int,
+    /** Repetitions for counted work, or null for a timed slot. Never a `0` sentinel. */
+    val reps: Int? = null,
+    /** Elapsed whole seconds for a timed slot, or null for counted work. */
+    val durationSeconds: Int? = null,
     /** null = unspecified load; 0.0 = an explicit zero load; positive = stored kilograms. */
     val weightKg: Double? = null,
     /** What [weightKg] means under the exercise's capability. */

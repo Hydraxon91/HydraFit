@@ -13,6 +13,9 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 /** A catalog exercise the routine editor can pick; [isExcluded] marks an EX-01 exclusion. */
 data class RoutineExerciseOption(val id: String, val name: String, val isExcluded: Boolean = false)
 
+/** Which measurement a slot is prescribed in; the two are exclusive, never both and never neither. */
+enum class EntryMetric { REPETITIONS, DURATION }
+
 /** One editable prescription slot; numbers stay as text until save so partial input is allowed. */
 data class EditorEntry(
     val id: Long = 0,
@@ -22,8 +25,20 @@ data class EditorEntry(
     val reps: String,
     val weight: String,
     /** What the weight means under the exercise's capability; drives save and display. */
-    val loadKind: LoadKind = LoadKind.EXTERNAL
-)
+    val loadKind: LoadKind = LoadKind.EXTERNAL,
+    /** The selected measurement; only its field is shown and only its value is saved. */
+    val metric: EntryMetric = EntryMetric.REPETITIONS,
+    /** Whole seconds as text, used when [metric] is [EntryMetric.DURATION]. */
+    val durationSeconds: String = ""
+) {
+    /** The prescribed rep count, or null when the slot is timed. */
+    val repsValue: Int?
+        get() = if (metric == EntryMetric.REPETITIONS) reps.toIntOrNull() else null
+
+    /** The prescribed whole seconds, or null when the slot is counted. */
+    val durationValue: Int?
+        get() = if (metric == EntryMetric.DURATION) durationSeconds.toIntOrNull() else null
+}
 
 data class EditorWorkout(
     val id: Long = 0,
