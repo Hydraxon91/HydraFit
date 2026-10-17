@@ -1,0 +1,195 @@
+"""Offline tests for scripts/validate-agent-tooling.py.
+
+Standard library only; every test builds a throwaway tree under a temporary
+directory, so repository state, the emulator and external tools are untouched.
+
+Run: python3 scripts/tests/test_validate_tooling.py
+"""
+
+import contextlib
+import importlib.util
+import io
+import pathlib
+import sys
+import tempfile
+import unittest
+
+MODULE_PATH = pathlib.Path(__file__).resolve().parents[1] / "validate-agent-tooling.py"
+# Loading the helper by path would otherwise drop a __pycache__ directory into scripts/.
+sys.dont_write_bytecode = True
+_spec = importlib.util.spec_from_file_location("validate_agent_tooling", MODULE_PATH)
+vt = importlib.util.module_from_spec(_spec)
+assert _spec.loader is not None
+sys.modules["validate_agent_tooling"] = vt
+_spec.loader.exec_module(vt)
+
+VALID_AGENT = """---
+description: Does a bounded thing
+mode: subagent
+permissions:
+  - action: read
+    resource: "*"
+    effect: allow
+---
+
+Body text.
+"""
+
+
+def write(root: pathlib.Path, relative: str, text: str) -> pathlib.Path:
+    path = root / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+    return path
+
+
+class DefinitionTests(unittest.TestCase):
+    def test_valid_agent_passes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = write(pathlib.Path(tmp), ".opencode/agents/worker.md", VALID_AGENT)
+            self.assertEqual([], vt.definition_findings(path, "agents"))
+
+    def test_missing_delimiters_is_reported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = write(pathlib.Path(tmp), ".opencode/agents/worker.md", "description: x\n")
+            findings = vt.definition_findings(path, "agents")
+            self.assertEqual(1, len(findings))
+            self.assertIn("missing frontmatter delimiters", findings[0])
+
+    def test_missing_mode_is_reported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            text = VALID_AGENT.replace("mode: subagent\n", "")
+            path = write(pathlib.Path(tmp), ".opencode/agents/worker.md", text)
+            findings = vt.definition_findings(path, "agents")
+            self.assertIn("missing required key 'mode'", findings[0])
+
+    def test_empty_description_is_reported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            text = VALID_AGENT.replace("description: Does a bounded thing", "description:")
+            path = write(pathlib.Path(tmp), ".opencode/agents/worker.md", text)
+            findings = vt.definition_findings(path, "agents")
+            self.assertIn("required key 'description' is empty", findings[0])
+
+    def test_bad_effect_is_reported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            text = VALID_AGENT.replace("effect: allow", "effect: maybe")
+            path = write(pathlib.Path(tmp), ".opencode/agents/worker.md", text)
+            findings = vt.definition_findings(path, "agents")
+            self.assertEqual(1, len(findings))
+            self.assertIn("effect 'maybe'", findings[0])
+
+    def test_missing_rule_field_is_reported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            text = VALID_AGENT.replace('    resource: "*"\n', "")
+            path = write(pathlib.Path(tmp), ".opencode/agents/worker.md", text)
+            findings = vt.definition_findings(path, "agents")
+            self.assertIn("permission rule 1 missing resource", findings[0])
+
+    def test_comments_inside_the_permissions_list_are_skipped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            text = VALID_AGENT.replace(
+                "permissions:\n",
+                "permissions:\n  # - action: deny inside a comment\n",
+            )
+            path = write(pathlib.Path(tmp), ".opencode/agents/worker.md", text)
+            self.assertEqual([], vt.definition_findings(path, "agents"))
+            frontmatter = vt.read_frontmatter(path)
+            self.assertEqual(1, len(vt.permission_rules(frontmatter)))
+
+    def test_inline_comments_and_quotes_are_accepted_in_effects(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for effect in ("allow # explained", '"deny"', "'ask'"):
+                with self.subTest(effect=effect):
+                    text = VALID_AGENT.replace("effect: allow", f"effect: {effect}")
+                    path = write(pathlib.Path(tmp), ".opencode/agents/worker.md", text)
+                    self.assertEqual([], vt.definition_findings(path, "agents"))
+
+    def test_commented_problem_value_is_still_reported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            text = VALID_AGENT.replace("effect: allow", "effect: maybe # note")
+            path = write(pathlib.Path(tmp), ".opencode/agents/worker.md", text)
+            findings = vt.definition_findings(path, "agents")
+            self.assertEqual(1, len(findings))
+            self.assertIn("effect 'maybe'", findings[0])
+
+    def test_command_and_skill_require_description(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            command = write(root, ".opencode/commands/run.md", "---\nsubagent: false\n---\n")
+            skill = write(root, ".opencode/skills/demo/SKILL.md", "---\nname: demo\n---\n")
+            self.assertIn("missing required key 'description'", vt.definition_findings(command, "commands")[0])
+            self.assertIn("missing required key 'description'", vt.definition_findings(skill, "skills")[0])
+
+
+class ReferenceTests(unittest.TestCase):
+    def _root_with_agents_md(self, body: str) -> tuple[pathlib.Path, pathlib.Path]:
+        root = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(root))
+        agents = write(root, "AGENTS.md", body)
+        return root, agents
+
+    def test_existing_root_relative_reference_passes(self):
+        root, agents = self._root_with_agents_md("See `docs/notes.md`.\n")
+        write(root, "docs/notes.md", "notes\n")
+        self.assertEqual([], vt.reference_findings(root, agents))
+
+    def test_dangling_root_relative_reference_is_reported(self):
+        root, agents = self._root_with_agents_md("See `docs/missing.md`.\n")
+        findings = vt.reference_findings(root, agents)
+        self.assertEqual(1, len(findings))
+        self.assertIn("dangling reference to docs/missing.md", findings[0])
+
+    def test_dangling_markdown_link_is_reported(self):
+        root, agents = self._root_with_agents_md("See [notes](docs/missing.md).\n")
+        findings = vt.reference_findings(root, agents)
+        self.assertEqual(1, len(findings))
+        self.assertIn("dangling link to docs/missing.md", findings[0])
+
+    def test_markdown_link_anchors_and_titles_are_checked(self):
+        root, agents = self._root_with_agents_md(
+            "See [a](docs/notes.md#section) and [b](docs/notes.md \"Title\").\n"
+        )
+        write(root, "docs/notes.md", "notes\n")
+        self.assertEqual([], vt.reference_findings(root, agents))
+        broken = write(root, "AGENTS.md", "See [a](docs/missing.md#section).\n")
+        findings = vt.reference_findings(root, broken)
+        self.assertEqual(1, len(findings))
+        self.assertIn("dangling link to docs/missing.md", findings[0])
+
+    def test_skill_relative_reference_is_checked(self):
+        root = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(root))
+        skill = write(root, ".opencode/skills/demo/SKILL.md", "See `references/topic.md`.\n")
+        self.assertEqual(1, len(vt.reference_findings(root, skill)))
+        write(root, ".opencode/skills/demo/references/topic.md", "topic\n")
+        self.assertEqual([], vt.reference_findings(root, skill))
+
+    def test_urls_and_unknown_forms_are_ignored(self):
+        root, agents = self._root_with_agents_md(
+            "See https://example.com/docs/x.md and `settings.gradle.kts`.\n"
+        )
+        self.assertEqual([], vt.reference_findings(root, agents))
+
+
+class MainTests(unittest.TestCase):
+    def test_main_passes_a_clean_tree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write(root, "AGENTS.md", "See `docs/notes.md`.\n")
+            write(root, "docs/notes.md", "notes\n")
+            write(root, ".opencode/agents/worker.md", VALID_AGENT)
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(0, vt.main([str(root)]))
+
+    def test_main_reports_findings_for_a_broken_tree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write(root, "AGENTS.md", "See `docs/missing.md`.\n")
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(1, vt.main([str(root)]))
+            self.assertIn("dangling reference", output.getvalue())
+
+
+if __name__ == "__main__":
+    unittest.main()

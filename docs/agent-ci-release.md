@@ -15,12 +15,13 @@ codebase must keep every required check green; an uploaded debug artifact is not
 1. **`build-and-test.yml` (primary pipeline, on pushes/PRs to `main`):**
     - **Immediate parallel execution (15-minute timeout per job):**
         - `lint` — runs `./gradlew ktlintCheck` (no dependencies; starts immediately).
+        - `tooling` — runs the automation checks: shell syntax plus ShellCheck on `scripts/*.sh`, `scripts/validate-agent-tooling.py`, and the offline Python tests under `scripts/tests/` (10-minute timeout; no Gradle dependency; starts immediately).
         - `unit-tests` — runs `./gradlew testAndroidHostTest` across `:core:domain`, `:core:userdata`, `:core:database`, and `:feature:*`, then `verifySqlDelightMigration` (no dependencies; starts immediately).
         - `ios-compile` — **temporarily disabled 2026-10-13.** It ran on `macos-latest`, but the runner queue exceeded the job's 15-minute limit and cancelled run `38452768212` on PR #11. HydraFit is Android-first and iOS is not yet a development target, so iOS targets are not compiled in CI. Run `:shared:compileKotlinIosSimulatorArm64` and `:core:network:compileKotlinIosSimulatorArm64` locally at the release integration gate instead (see `docs/agent-project-reference.md` Key Commands) and re-enable this job when iOS development starts. The job is kept commented out in `build-and-test.yml` and `nightly.yml` with the same note.
         - `assemble-debug-apk` — starts immediately; runs `./gradlew :androidApp:assembleDebug :androidApp:lintVitalRelease`, then uploads the `androidApp-debug-apk` artifact (14-day retention). Release-specific Android lint runs before tagging without signing or publishing a release. Concurrent assembly reduces serial waiting but may build a debug artifact when another check fails; all existing checks remain required.
 
 2. **`nightly.yml` (scheduled `0 3 * * *` UTC, plus manual `workflow_dispatch`):**
-    - Mirrors the primary jobs (`lint`, `unit-tests` including `verifySqlDelightMigration`, `assemble-debug-apk` including `lintVitalRelease`); the `ios-compile` job is temporarily disabled as above. Concurrency group `nightly-${{ github.ref }}` with `cancel-in-progress: false`.
+    - Mirrors the primary jobs (`lint`, `tooling`, `unit-tests` including `verifySqlDelightMigration`, `assemble-debug-apk` including `lintVitalRelease`); the `ios-compile` job is temporarily disabled as above. Concurrency group `nightly-${{ github.ref }}` with `cancel-in-progress: false`.
 
 3. **`release.yml` (on `v*.*.*` tags):**
     - `lint` and `unit-tests` (including explicit `verifySqlDelightMigration`) gate the `build-release` job (job-scoped `permissions: contents: write`); concurrency group `release-${{ github.ref }}` with `cancel-in-progress: false`. Verification jobs have 15-minute limits; signed assembly/publication has a 20-minute limit.
@@ -92,7 +93,7 @@ Every PR description should follow this format (template at `.github/PULL_REQUES
 ## Release notes
 
 Every published release ships user-facing notes committed at
-`docs/release-notes/<tag>.md` — for example `docs/release-notes/v0.8.4.md`. The
+`docs/release-notes/<tag>.md` — for example `docs/release-notes/v0.9.3.md`. The
 file name is the exact tag being published, including the leading `v`, so a batch
 that folds several versions writes one file for its folded target. The
 `build-release` job reads that file with `gh release create --notes-file` (and

@@ -164,7 +164,8 @@ of files. Chunk checks provide early feedback; the release integration gate
 still runs the full matrix on the final candidate. Docs-only changes need
 diff/whitespace and reference checks, not Gradle runs; behavioral tooling changes
 (`AGENTS.md`, `.opencode/` agents/commands/skills and operational procedures) also
-need the consistency validation described in `docs/agent-ci-release.md`.
+need the agent tooling checks under Key Commands and the consistency validation
+described in `docs/agent-ci-release.md`.
 
 | Tier | Scope | Chunk checks |
 | --- | --- | --- |
@@ -205,6 +206,13 @@ perl -e 'alarm 600; exec @ARGV' ./gradlew detekt > detekt-output.log 2>&1
 
 # Clean build (reserve for dependency/config changes, not routine edits)
 perl -e 'alarm 600; exec @ARGV' ./gradlew clean build > build-output.log 2>&1
+
+# Agent tooling checks (no Gradle run needed; ShellCheck via brew or apt)
+for f in scripts/*.sh; do bash -n "$f" || exit 1; done
+shellcheck --severity=warning scripts/*.sh
+python3 scripts/validate-agent-tooling.py
+python3 scripts/tests/test_validate_tooling.py
+python3 scripts/tests/test_maestro_scroll.py
 ```
 
 ## Project Structure & Conventions

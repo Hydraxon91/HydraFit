@@ -31,6 +31,26 @@ jobs:
       - name: Run ktlint
         run: ./gradlew ktlintCheck
 
+  tooling:
+    name: Agent tooling checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+      - name: Check shell syntax
+        run: for f in scripts/*.sh; do bash -n "$f" || exit 1; done
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Run ShellCheck
+        run: shellcheck --severity=warning scripts/*.sh
+      - name: Validate agent tooling definitions and references
+        run: python3 scripts/validate-agent-tooling.py
+      - name: Run agent tooling tests
+        run: python3 scripts/tests/test_validate_tooling.py
+      - name: Run scrolling helper tests
+        run: python3 scripts/tests/test_maestro_scroll.py
+
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
