@@ -367,6 +367,23 @@ permitted corrections, or when no approved work remains. Report a blocker confin
 to part of the scope as blocked or partial without concealing it; do not advance
 dependent work or mark it complete.
 
+**Durable task record.** After contract acceptance, use `scripts/task-state.py`
+with an explicitly selected state directory outside the checkout and Git directory.
+Record its location and task id in chat. Keep the accepted contract and its approval
+reference, baseline and expected repository fingerprints, phase, evidence,
+operation attempts and budget there, never in a committed task-state file. Before
+a side-effecting operation record a unique pending attempt; resolve only from an
+observed outcome with evidence. Pending after interruption means unknown, not
+failed or safe to retry. Resume is a read-only reconciliation report, never an
+executor, authorization source, or permission to restore/clear/replay anything.
+Check actual user authorization, repository state and unknown outcomes before
+continuing; explicitly checkpoint inspected changes without replacing the baseline.
+Revision conflicts require reload; corrupt/unsupported records require a stop, not
+automatic reconstruction. Fingerprints are not backups and exclude ignored files.
+The helper uses cooperative POSIX locks, not the resource-lease CLI: an exited
+writer releases its OS lock without stealing a live holder's resource lease.
+See `docs/agent-project-reference.md` Durable task state for commands and limits.
+
 **Completion.** Report the accepted contract, base and final revision, actual
 changed paths, per-criterion completed/failed/unknown/unverified outcomes, review
 verdict and closure, commits, budget used and remaining blockers. Do not publish

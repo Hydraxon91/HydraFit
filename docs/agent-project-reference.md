@@ -214,6 +214,77 @@ python3 scripts/validate-agent-tooling.py
 python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'
 ```
 
+### Durable task state
+
+`scripts/task-state.py` is stdlib-only POSIX bookkeeping for accepted `/task`
+contracts. It never runs recorded commands, grants approval, or performs recovery.
+Use an explicitly selected external directory (not the checkout or its Git
+directory) and a task id; record both in chat. Runtime JSON and logs are never
+committed. Contract/evidence text must not contain secrets or private data.
+
+Prepare a contract JSON object with `objective`, `owner`, `approval_reference`,
+`allowed_paths` (exact repository-relative file paths, no globs) and `acceptance`
+(nonempty string list). Additional JSON fields can retain budget/verification
+decisions, exclusions and other approved context. Approval references are audit
+context only: verify the real user authorization, not the record's assertion.
+
+```bash
+python3 scripts/task-state.py --dir <external-state-dir> --task <id> init --repo <checkout-root> --contract <contract.json> --budget-seconds 5400
+python3 scripts/task-state.py --dir <external-state-dir> --task <id> show
+python3 scripts/task-state.py --dir <external-state-dir> --task <id> resume
+python3 scripts/task-state.py --dir <external-state-dir> --task <id> update --expect <revision> --event <event.json>
+```
+
+The versioned record stores immutable contract and baseline, an explicitly
+acknowledged expected snapshot, phase, operation attempts (unique ids), evidence
+with source snapshots, append-only update history and budget accounting. Each
+accepted update increments the revision. Stale revisions and active writers fail
+with exit 2 rather than overwriting another writer. A cooperative POSIX lock
+releases on process exit; its permanent lock file must not be deleted. Atomic
+replace and file/directory fsync preserve whole records. If an I/O error occurs
+after replacement, the write outcome may be unknown: reload the record before
+another update. Abandoned temporary files after a process kill are not records
+and must not be promoted automatically. Corrupt or unsupported JSON fails closed
+(125), without repairing or recreating a record.
+
+Event JSON objects:
+
+- `{"type":"begin","id":"save-1","description":"..."}` records a pending
+  attempt **before** the side effect. IDs cannot be reused; one unknown operation
+  blocks another begin. This is a cooperative protocol, not a command wrapper.
+- `{"type":"resolve","id":"save-1","outcome":"completed","evidence":"..."}`
+  records an observed outcome (`completed`, `failed`, `not-performed`). A pending
+  attempt after interruption is unknown; never resolve from a guessed timeout
+  failure. Resolution does not automatically acknowledge repository drift.
+- `{"type":"checkpoint","reason":"inspected intended edits"}` explicitly
+  acknowledges the current snapshot after reconciliation; it cannot hide pending
+  operations, wrong repository identity or new out-of-scope paths. It does not
+  replace the baseline or extend approval.
+- `{"type":"evidence","description":"host tests","outcome":"passed","reference":"external log path"}`
+  records `passed`, `failed`, `unknown` or `unverified` evidence with the observed
+  source snapshot. A log reference is not proof the check ran; the reviewer must
+  inspect the artifact and its revision.
+- `{"type":"phase","value":"verifying"}` records a phase (`planned`,
+  `implementing`, `verifying`, `reviewing`, `correcting`, `ready`, `complete`,
+  `blocked`). This is a label, not a review verdict. Drift/pending outcomes or an
+  expired budget prevent advancing; recording `blocked` remains possible.
+
+`resume` does not write. It reports expected/current drift, identity, pending ids
+as unknown outcomes, new out-of-scope dirty paths, and remaining seconds. Exit 2
+means reconciliation or a budget stop is needed; exit 0 is not authorization to
+continue. Downtime consumes budget: wall-clock elapsed time and already-accounted
+usage are retained, without a reset option. A backward clock cannot reduce usage
+already persisted, but time lost before any update cannot be reconstructed; this
+is not a tamper-proof timer. Recovery evidence, resolution and blocked reporting
+remain recordable after expiry; new work does not.
+
+Fingerprints combine HEAD, Git common directory, porcelain status, staged/unstaged
+binary diffs, and untracked bytes/mode/symlink targets. They exclude ignored files
+and are not backups or a filesystem freeze; stop concurrent checkout writers
+before inspection. Pre-existing dirty paths are baseline context, not permission
+to change user work; compare the preserved-work baseline separately. Checksums and
+records are not an authentication boundary and do not replace independent review.
+
 ## Project Structure & Conventions
 
 ### `androidApp/` and `shared/`
