@@ -79,6 +79,75 @@ internal class FakeAutomaticBackupScheduler : AutomaticBackupScheduler {
     }
 }
 
+/**
+ * Deterministic, reversible test cipher: content bytes are XORed with the key and nonce and a
+ * key-derived tag is appended, so a wrong password fails authentication exactly like the real AEAD
+ * does — without pretending to be cryptography.
+ */
+internal class FakeBackupCrypto : BackupCrypto {
+    override val isSupported: Boolean = true
+
+    override fun randomBytes(size: Int): ByteArray = ByteArray(size) { (it + 1).toByte() }
+
+    override fun deriveKey(
+        password: CharArray,
+        salt: ByteArray,
+        iterations: Int,
+        keyBytes: Int
+    ): ByteArray = ByteArray(keyBytes) { index ->
+        val passwordByte = password[index % password.size].code
+        val saltByte = salt[index % salt.size].toInt()
+        (passwordByte xor saltByte xor index).toByte()
+    }
+
+    override fun encrypt(key: ByteArray, nonce: ByteArray, plaintext: ByteArray): ByteArray =
+        ByteArray(plaintext.size + 1) { index ->
+            if (index == plaintext.size) {
+                tag(key)
+            } else {
+                (
+                    plaintext[index].toInt() xor key[index % key.size].toInt() xor
+                        nonce[index % nonce.size].toInt()
+                    ).toByte()
+            }
+        }
+
+    override fun decrypt(key: ByteArray, nonce: ByteArray, ciphertext: ByteArray): ByteArray {
+        if (ciphertext.isEmpty() || ciphertext.last() != tag(key)) {
+            throw BackupException(BackupFailure.ENCRYPTION_FAILED)
+        }
+        val payload = ciphertext.copyOf(ciphertext.size - 1)
+        return ByteArray(payload.size) { index ->
+            (
+                payload[index].toInt() xor key[index % key.size].toInt() xor
+                    nonce[index % nonce.size].toInt()
+                ).toByte()
+        }
+    }
+
+    private fun tag(key: ByteArray): Byte =
+        key.fold(7) { acc, byte -> (acc * 31 + byte) % 251 }.toByte()
+}
+
+/** In-memory unattended encryption material. */
+internal class FakeBackupEncryptionKeyStore(var stored: StoredBackupKey? = null) :
+    BackupEncryptionKeyStore {
+    var storeCalls = 0
+    var clearCalls = 0
+
+    override suspend fun load(): StoredBackupKey? = stored
+
+    override suspend fun store(key: StoredBackupKey) {
+        stored = key
+        storeCalls++
+    }
+
+    override suspend fun clear() {
+        stored = null
+        clearCalls++
+    }
+}
+
 /** A repository that always exports the same file. */
 internal class StaticBackupRepository(private val file: BackupFile) : BackupRepository {
     override suspend fun export(appVersion: String, exportedAtMillis: Long): BackupFile = file

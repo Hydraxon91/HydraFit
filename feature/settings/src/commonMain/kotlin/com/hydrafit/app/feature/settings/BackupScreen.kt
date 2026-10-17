@@ -19,6 +19,8 @@ import hydrafit.feature.settings.generated.resources.settings_backup_confirm
 import hydrafit.feature.settings.generated.resources.settings_backup_description
 import hydrafit.feature.settings.generated.resources.settings_backup_error_catalog_mismatch
 import hydrafit.feature.settings.generated.resources.settings_backup_error_duplicate_id
+import hydrafit.feature.settings.generated.resources.settings_backup_error_encryption_failed
+import hydrafit.feature.settings.generated.resources.settings_backup_error_encryption_key_unavailable
 import hydrafit.feature.settings.generated.resources.settings_backup_error_invalid_reference
 import hydrafit.feature.settings.generated.resources.settings_backup_error_invalid_value
 import hydrafit.feature.settings.generated.resources.settings_backup_error_io
@@ -122,5 +124,9 @@ private fun BackupFailure.messageResource(): StringResource = when (this) {
     BackupFailure.DUPLICATE_ID -> Res.string.settings_backup_error_duplicate_id
     BackupFailure.INVALID_REFERENCE -> Res.string.settings_backup_error_invalid_reference
     BackupFailure.INVALID_VALUE -> Res.string.settings_backup_error_invalid_value
+    BackupFailure.ENCRYPTION_FAILED -> Res.string.settings_backup_error_encryption_failed
+    BackupFailure.ENCRYPTION_KEY_UNAVAILABLE ->
+        Res.string.settings_backup_error_encryption_key_unavailable
+
     BackupFailure.IO -> Res.string.settings_backup_error_io
 }

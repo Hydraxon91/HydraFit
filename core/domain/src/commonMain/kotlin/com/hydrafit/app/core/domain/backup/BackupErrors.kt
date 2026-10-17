@@ -38,6 +38,12 @@ enum class BackupFailure {
     /** A value is not a legal enum, is non-finite, or otherwise cannot be restored. */
     INVALID_VALUE,
 
+    /** An encrypted backup could not be opened or sealed: wrong password, damaged file or key. */
+    ENCRYPTION_FAILED,
+
+    /** The unattended encryption material is missing (for example after keystore key loss). */
+    ENCRYPTION_KEY_UNAVAILABLE,
+
     /** The file could not be read from or written to the chosen location. */
     IO
 }

@@ -18,6 +18,8 @@ data class AutomaticBackupState(
     val format: String = AUTOMATIC_BACKUP_STATE_FORMAT,
     val formatVersion: Int = AUTOMATIC_BACKUP_STATE_FORMAT_VERSION,
     val enabled: Boolean = false,
+    /** Whether automatic snapshots are sealed as encrypted envelopes (manual exports always choose). */
+    val encryptionEnabled: Boolean = false,
     /** The chosen folder's document handle; null until the user selects one. */
     val folderHandle: String? = null,
     /** When the last snapshot's write verified, or null when none succeeded yet. */
@@ -74,6 +76,12 @@ enum class AutomaticBackupFailureKind(val retryable: Boolean) {
 
     /** The written snapshot could not be read back intact; it stays unverified and unpruned. */
     WRITE_UNVERIFIED(false),
+
+    /** Encryption is on but the unattended key is missing; re-entering the password recovers it. */
+    ENCRYPTION_KEY_UNAVAILABLE(false),
+
+    /** Sealing the snapshot failed. */
+    ENCRYPTION_FAILED(false),
 
     /** An unexpected failure the classification does not cover. */
     UNKNOWN(true)

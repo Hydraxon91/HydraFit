@@ -24,6 +24,8 @@ import com.hydrafit.app.core.domain.backup.FolderUnavailableReason
 import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.settings_automatic_backup_choose_folder
 import hydrafit.feature.settings.generated.resources.settings_automatic_backup_enable
+import hydrafit.feature.settings.generated.resources.settings_automatic_backup_failed_encryption
+import hydrafit.feature.settings.generated.resources.settings_automatic_backup_failed_encryption_key
 import hydrafit.feature.settings.generated.resources.settings_automatic_backup_failed_export_failed
 import hydrafit.feature.settings.generated.resources.settings_automatic_backup_failed_folder_not_configured
 import hydrafit.feature.settings.generated.resources.settings_automatic_backup_failed_folder_unavailable
@@ -161,6 +163,12 @@ private fun AutomaticBackupFailureKind.messageResource(): StringResource = when 
         Res.string.settings_automatic_backup_failed_export_failed
 
     AutomaticBackupFailureKind.TOO_LARGE -> Res.string.settings_automatic_backup_failed_too_large
+    AutomaticBackupFailureKind.ENCRYPTION_FAILED ->
+        Res.string.settings_automatic_backup_failed_encryption
+
+    AutomaticBackupFailureKind.ENCRYPTION_KEY_UNAVAILABLE ->
+        Res.string.settings_automatic_backup_failed_encryption_key
+
     AutomaticBackupFailureKind.WRITE_FAILED ->
         Res.string.settings_automatic_backup_failed_write_failed
 

@@ -4,8 +4,12 @@ import com.hydrafit.app.core.database.DatabaseDriverFactory
 import com.hydrafit.app.core.database.NativeDatabaseDriverFactory
 import com.hydrafit.app.core.domain.backup.AutomaticBackupScheduler
 import com.hydrafit.app.core.domain.backup.AutomaticBackupStateStore
+import com.hydrafit.app.core.domain.backup.BackupCrypto
+import com.hydrafit.app.core.domain.backup.BackupEncryptionKeyStore
 import com.hydrafit.app.core.domain.backup.BackupFolderStore
 import com.hydrafit.app.core.domain.backup.UnsupportedAutomaticBackupScheduler
+import com.hydrafit.app.core.domain.backup.UnsupportedBackupCrypto
+import com.hydrafit.app.core.domain.backup.UnsupportedBackupEncryptionKeyStore
 import com.hydrafit.app.core.domain.schedule.UnsupportedWorkoutReminderScheduler
 import com.hydrafit.app.core.domain.schedule.WorkoutReminderScheduler
 import com.hydrafit.app.core.domain.time.BootIdentityProvider
@@ -62,6 +66,8 @@ fun iosDatabaseModule(): Module = module {
     single<OnDevicePlannerLogger> { NoopOnDevicePlannerLogger }
     single<BackupFileStore> { UnsupportedBackupFileStore() }
     single<BackupFolderStore> { UnsupportedBackupFolderStore() }
+    single<BackupCrypto> { UnsupportedBackupCrypto() }
+    single<BackupEncryptionKeyStore> { UnsupportedBackupEncryptionKeyStore() }
     single<AutomaticBackupStateStore> { UnsupportedAutomaticBackupStateStore() }
     single<AutomaticBackupScheduler> { UnsupportedAutomaticBackupScheduler() }
     single(createdAtStart = true) {

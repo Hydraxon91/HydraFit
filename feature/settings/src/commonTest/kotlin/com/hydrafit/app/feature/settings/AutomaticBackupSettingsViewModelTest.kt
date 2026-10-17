@@ -9,6 +9,9 @@ import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT
 import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT_VERSION
 import com.hydrafit.app.core.domain.backup.BackupCatalog
 import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
+import com.hydrafit.app.core.domain.backup.BackupCrypto
+import com.hydrafit.app.core.domain.backup.BackupEncryption
+import com.hydrafit.app.core.domain.backup.BackupEncryptionKeyStore
 import com.hydrafit.app.core.domain.backup.BackupFile
 import com.hydrafit.app.core.domain.backup.BackupFolderStore
 import com.hydrafit.app.core.domain.backup.BackupRepository
@@ -22,6 +25,7 @@ import com.hydrafit.app.core.domain.backup.RecordedBackupDocument
 import com.hydrafit.app.core.domain.backup.RunAutomaticBackupUseCase
 import com.hydrafit.app.core.domain.backup.SetAutomaticBackupsEnabledUseCase
 import com.hydrafit.app.core.domain.backup.StoredBackupDocument
+import com.hydrafit.app.core.domain.backup.StoredBackupKey
 import com.hydrafit.app.core.domain.backup.VerifyBackupSnapshotUseCase
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
@@ -304,7 +308,12 @@ class AutomaticBackupSettingsViewModelTest {
             enableBackups = SetAutomaticBackupsEnabledUseCase(folderStore, stateStore, scheduler),
             runBackup = RunAutomaticBackupUseCase(
                 exportBackup = ExportBackupUseCase(repository, dispatcher),
-                verifySnapshot = VerifyBackupSnapshotUseCase(BackupValidator(catalog)),
+                encryption = BackupEncryption(
+                    crypto = FakeBackupCrypto(),
+                    keyStore = FakeBackupEncryptionKeyStore(),
+                    verifySnapshot = VerifyBackupSnapshotUseCase(BackupValidator(catalog)),
+                    dispatcher = dispatcher
+                ),
                 folderStore = folderStore,
                 stateStore = stateStore,
                 timeProvider = TimeProvider { 1L },
@@ -373,6 +382,35 @@ private class FakeAutomaticBackupScheduler : AutomaticBackupScheduler {
     override fun cancel() {
         cancelCount++
     }
+}
+
+/** Identity test cipher: the ViewModel tests exercise the plaintext paths only. */
+private class FakeBackupCrypto : BackupCrypto {
+    override val isSupported: Boolean = true
+
+    override fun randomBytes(size: Int): ByteArray = ByteArray(size)
+
+    override fun deriveKey(
+        password: CharArray,
+        salt: ByteArray,
+        iterations: Int,
+        keyBytes: Int
+    ): ByteArray = ByteArray(keyBytes)
+
+    override fun encrypt(key: ByteArray, nonce: ByteArray, plaintext: ByteArray): ByteArray =
+        plaintext
+
+    override fun decrypt(key: ByteArray, nonce: ByteArray, ciphertext: ByteArray): ByteArray =
+        ciphertext
+}
+
+/** Empty unattended material; the ViewModel tests keep encryption off. */
+private class FakeBackupEncryptionKeyStore : BackupEncryptionKeyStore {
+    override suspend fun load(): StoredBackupKey? = null
+
+    override suspend fun store(key: StoredBackupKey) = Unit
+
+    override suspend fun clear() = Unit
 }
 
 private class FakeAutomaticBackupRepository : BackupRepository {

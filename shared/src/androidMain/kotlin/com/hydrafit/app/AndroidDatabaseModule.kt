@@ -7,6 +7,8 @@ import com.hydrafit.app.core.database.AndroidDatabaseDriverFactory
 import com.hydrafit.app.core.database.DatabaseDriverFactory
 import com.hydrafit.app.core.domain.backup.AutomaticBackupScheduler
 import com.hydrafit.app.core.domain.backup.AutomaticBackupStateStore
+import com.hydrafit.app.core.domain.backup.BackupCrypto
+import com.hydrafit.app.core.domain.backup.BackupEncryptionKeyStore
 import com.hydrafit.app.core.domain.backup.BackupFolderStore
 import com.hydrafit.app.core.domain.schedule.WorkoutReminderScheduler
 import com.hydrafit.app.core.domain.time.BootIdentityProvider
@@ -19,6 +21,8 @@ import com.hydrafit.app.core.llm.OnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.userdata.backup.AndroidAutomaticBackupStateStore
+import com.hydrafit.app.core.userdata.backup.AndroidBackupCrypto
+import com.hydrafit.app.core.userdata.backup.AndroidBackupEncryptionKeyStore
 import com.hydrafit.app.core.userdata.backup.AndroidBackupFileStore
 import com.hydrafit.app.core.userdata.backup.AndroidBackupFolderStore
 import com.hydrafit.app.core.userdata.backup.BackupFileStore
@@ -92,6 +96,8 @@ fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = modu
     single<OnDevicePlannerLogger> { AndroidOnDevicePlannerLogger() }
     single<BackupFileStore> { AndroidBackupFileStore(context.applicationContext) }
     single<BackupFolderStore> { AndroidBackupFolderStore(context.applicationContext) }
+    single<BackupCrypto> { AndroidBackupCrypto() }
+    single<BackupEncryptionKeyStore> { AndroidBackupEncryptionKeyStore(context.applicationContext) }
     single<AutomaticBackupStateStore> {
         AndroidAutomaticBackupStateStore(context.applicationContext)
     }

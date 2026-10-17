@@ -113,6 +113,8 @@
     <string name="settings_backup_error_invalid_reference">That backup has broken links.</string>
     <string name="settings_backup_error_invalid_value">That backup contains an unsupported value.</string>
     <string name="settings_backup_error_io">Couldn’t read or write the file. Please try again.</string>
+    <string name="settings_backup_error_encryption_failed">Couldn’t open the encrypted backup. Check the password and try again.</string>
+    <string name="settings_backup_error_encryption_key_unavailable">This backup is encrypted and its key isn’t available here. Enter the backup password and try again.</string>
     <string name="settings_automatic_backup_section">Automatic backups</string>
     <string name="settings_automatic_backup_description">Saves a backup to a folder you choose about once a day and keeps only the most recent ones.</string>
     <string name="settings_automatic_backup_provider_disclosure">Files are written to the folder you choose; your file provider may upload or sync that folder.</string>
@@ -131,6 +133,8 @@
     <string name="settings_automatic_backup_failed_folder_not_configured">Choose a folder before backing up.</string>
     <string name="settings_automatic_backup_failed_folder_unavailable">The chosen folder isn’t available right now. Choose it again.</string>
     <string name="settings_automatic_backup_failed_folder_unsupported">This provider can’t create and delete files, which automatic backups need. Choose another folder.</string>
+    <string name="settings_automatic_backup_failed_encryption">Couldn’t write the encrypted backup. Please try again.</string>
+    <string name="settings_automatic_backup_failed_encryption_key">Encryption needs the backup password re-entered in data transfer.</string>
     <string name="settings_automatic_backup_failed_export_failed">Couldn’t build a backup from your data. Please try again.</string>
     <string name="settings_automatic_backup_failed_too_large">Your data is too large for one backup file.</string>
     <string name="settings_automatic_backup_failed_write_failed">Couldn’t write the backup file. Please try again.</string>

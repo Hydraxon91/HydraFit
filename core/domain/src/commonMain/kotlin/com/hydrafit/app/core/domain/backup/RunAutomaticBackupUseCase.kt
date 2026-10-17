@@ -27,7 +27,7 @@ import kotlinx.coroutines.withContext
  */
 class RunAutomaticBackupUseCase(
     private val exportBackup: ExportBackupUseCase,
-    private val verifySnapshot: VerifyBackupSnapshotUseCase,
+    private val encryption: BackupEncryption,
     private val folderStore: BackupFolderStore,
     private val stateStore: AutomaticBackupStateStore,
     private val timeProvider: TimeProvider,
@@ -66,8 +66,8 @@ class RunAutomaticBackupUseCase(
             FolderCapabilities.Ready -> Unit
         }
 
-        val bytes = try {
-            exportBackup(appVersion, now).encodeToByteArray()
+        val plaintext = try {
+            exportBackup(appVersion, now)
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (tooLarge: BackupException) {
@@ -80,6 +80,27 @@ class RunAutomaticBackupUseCase(
         } catch (_: Throwable) {
             return fail(AutomaticBackupFailureKind.EXPORT_FAILED, now)
         }
+        val text = if (state.encryptionEnabled) {
+            try {
+                encryption.sealUnattended(plaintext)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (e: BackupException) {
+                val kind = when (e.failure) {
+                    BackupFailure.TOO_LARGE -> AutomaticBackupFailureKind.TOO_LARGE
+                    BackupFailure.ENCRYPTION_KEY_UNAVAILABLE ->
+                        AutomaticBackupFailureKind.ENCRYPTION_KEY_UNAVAILABLE
+
+                    else -> AutomaticBackupFailureKind.ENCRYPTION_FAILED
+                }
+                return fail(kind, now)
+            } catch (_: Throwable) {
+                return fail(AutomaticBackupFailureKind.ENCRYPTION_FAILED, now)
+            }
+        } else {
+            plaintext
+        }
+        val bytes = text.encodeToByteArray()
 
         val document = try {
             folderStore.create(handle, displayName(now), bytes)
@@ -161,7 +182,7 @@ class RunAutomaticBackupUseCase(
             } catch (_: Throwable) {
                 continue
             }
-            if (verifySnapshot(text)) {
+            if (encryption.verifyStored(text)) {
                 stateStore.update { current ->
                     if (current.folderHandle != handle) {
                         current

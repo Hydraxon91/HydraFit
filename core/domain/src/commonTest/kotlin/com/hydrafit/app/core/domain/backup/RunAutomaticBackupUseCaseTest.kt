@@ -287,9 +287,93 @@ class RunAutomaticBackupUseCaseTest {
         assertNull(state.lastSuccessMillis)
     }
 
+    @Test
+    fun sealsSnapshotsWhenEncryptionIsEnabled() = runTest {
+        val keyStore = FakeBackupEncryptionKeyStore()
+        val materialSource = BackupEncryption(
+            crypto = FakeBackupCrypto(),
+            keyStore = keyStore,
+            verifySnapshot = VerifyBackupSnapshotUseCase(
+                BackupValidator(automaticBackupTestCatalog())
+            )
+        )
+        keyStore.stored = materialSource.createUnattendedKey("pw".toCharArray())
+        val harness = harness(
+            state = enabledState().copy(encryptionEnabled = true),
+            keyStore = keyStore
+        )
+
+        val outcome = harness.useCase("1.0")
+
+        assertIs<AutomaticBackupOutcome.Created>(outcome)
+        assertTrue(
+            BackupEnvelopeJson.isEnvelope(harness.folder.documents.values.single().decodeToString())
+        )
+        assertTrue(harness.stateStore.state.documents.single().verified)
+    }
+
+    @Test
+    fun failsWhenEncryptionIsEnabledButTheUnattendedKeyIsMissing() = runTest {
+        val harness = harness(state = enabledState().copy(encryptionEnabled = true))
+
+        val outcome = harness.useCase("1.0")
+
+        assertEquals(
+            AutomaticBackupOutcome.Failed(AutomaticBackupFailureKind.ENCRYPTION_KEY_UNAVAILABLE),
+            outcome
+        )
+        assertEquals(0, harness.folder.createCalls)
+        assertEquals(
+            AutomaticBackupFailureKind.ENCRYPTION_KEY_UNAVAILABLE,
+            harness.stateStore.state.lastFailure?.kind
+        )
+    }
+
+    @Test
+    fun reconcilesAnEncryptedSnapshotOnlyWithTheMatchingStoredKey() = runTest {
+        val keyStore = FakeBackupEncryptionKeyStore()
+        val materialSource = BackupEncryption(
+            crypto = FakeBackupCrypto(),
+            keyStore = keyStore,
+            verifySnapshot = VerifyBackupSnapshotUseCase(
+                BackupValidator(automaticBackupTestCatalog())
+            )
+        )
+        val envelope = materialSource.sealWithPassword(
+            validAutomaticBackupText(),
+            "pw".toCharArray()
+        )
+        val folder = FakeBackupFolderStore()
+        folder.documents["doc-old"] = envelope.encodeToByteArray()
+        val harness = harness(
+            state = enabledState(
+                lastSuccessMillis = TEST_NOW - 2 * AutomaticBackupPolicy.INTERVAL_MILLIS,
+                documents = listOf(unverified("doc-old", 0L))
+            ),
+            folder = folder,
+            keyStore = keyStore
+        )
+
+        val first = harness.useCase("1.0")
+
+        assertIs<AutomaticBackupOutcome.Created>(first)
+        assertFalse(
+            harness.stateStore.state.documents.first { it.documentId == "doc-old" }.verified
+        )
+
+        keyStore.stored = materialSource.deriveKeyForStoredFile(envelope, "pw".toCharArray())
+        val second = harness.useCase("1.0", force = true)
+
+        assertIs<AutomaticBackupOutcome.Created>(second)
+        assertTrue(
+            harness.stateStore.state.documents.first { it.documentId == "doc-old" }.verified
+        )
+    }
+
     private fun TestScope.harness(
         state: AutomaticBackupState = AutomaticBackupState(),
         folder: FakeBackupFolderStore = FakeBackupFolderStore(),
+        keyStore: FakeBackupEncryptionKeyStore = FakeBackupEncryptionKeyStore(),
         file: BackupFile = emptyBackupFile(),
         now: Long = TEST_NOW
     ): Harness {
@@ -297,8 +381,13 @@ class RunAutomaticBackupUseCaseTest {
         val dispatcher = UnconfinedTestDispatcher(testScheduler)
         val useCase = RunAutomaticBackupUseCase(
             exportBackup = ExportBackupUseCase(StaticBackupRepository(file), dispatcher),
-            verifySnapshot = VerifyBackupSnapshotUseCase(
-                BackupValidator(automaticBackupTestCatalog())
+            encryption = BackupEncryption(
+                crypto = FakeBackupCrypto(),
+                keyStore = keyStore,
+                verifySnapshot = VerifyBackupSnapshotUseCase(
+                    BackupValidator(automaticBackupTestCatalog())
+                ),
+                dispatcher = dispatcher
             ),
             folderStore = folder,
             stateStore = stateStore,
