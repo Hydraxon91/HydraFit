@@ -85,6 +85,37 @@ verdict or commit/push authorization. Under an authorized task or batch, it feed
 the pre-requested independent review; it does not pre-empt the reviewer's verdict
 or grant publication authority.
 
+### Delegated coder workflow
+
+When an approved chunk is delegated to `coder`, its brief and implementation
+report follow the workflow in `.opencode/agents/coder.md`. Scale the detail to the
+chunk; this extends the procedure above rather than replacing it.
+
+- **Style sources:** name the affected module's `.editorconfig` and a nearby
+  example file as the style references. `.editorconfig` selects
+  `ktlint_code_style = android_studio` and sets no explicit maximum line length, so
+  a universal 100-character limit must not be claimed. Cite any further style
+  source the chunk relies on.
+- **Lint-first order:** for Kotlin changes, run the affected module's ktlint
+  before the heavier test task, then the module host tests. Agent-tooling-only
+  changes (Python scripts, docs) use the offline validator and unittest commands
+  and add no Gradle tasks. State when a lint or test check is unavailable or not
+  applicable instead of implying it passed.
+- **Changed-API consumer map:** the brief and report trace each changed API through
+  producer → consumers → checks, including affected consumer tests. When an API has
+  no consumer or check, give the justification rather than omitting the map. A
+  changed constructor or dispatcher also inspects the affected tests for
+  scheduler/clock consistency and runs them before closure.
+- **Structured report:** classify correction rounds (mechanical, product, tool or
+  budget) with counts, and record elapsed and remaining budget. Stop at the brief's
+  caps.
+
+A compact map is sufficient:
+
+| Changed API | Producer | Consumers (including tests) | Check |
+| --- | --- | --- | --- |
+| The signature, binding or behavior that changed | Where the changed value originates | Every reader of it, plus test doubles and scheduler setup | Test or lint command that exercises the change |
+
 ## Project Overview
 
 HydraFit is an **open-source, offline-first fitness planning app** built with Kotlin Multiplatform and Compose Multiplatform, Android-first with iOS as a future target. Its core feature is a swappable workout-planning strategy engine (Deterministic / Gemini API / Local On-Device LLM) sitting behind a single `WorkoutPlannerEngine` interface, combined with equipment-based filtering and a muscle fatigue tracking system.
