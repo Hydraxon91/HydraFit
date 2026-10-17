@@ -1367,8 +1367,10 @@ both iOS compiles green (`integration-gate.log`); device evidence in
 `docs/qa.md`. Accepted notes: Workout-history removal keeps import provenance
 (a repeated import of the same file skips; disclosed), snapshot size is a full
 read-back with an unknown fallback, and the Android database file name is a
-duplicated constant. The folded `v0.9.5` publication awaits the single user
-approval.
+duplicated constant. **Published 2026-10-17 as `v0.9.5`** — PR #28 merged as
+`67d3f800`, tag `v0.9.5`, release workflow run `39066296505`, signed APK
+verified offline (versionName 0.9.5, versionCode 90500); 0.9.6 is recorded as
+folded into this publication.
 
 **Scope and fold:**
 
