@@ -191,28 +191,27 @@ check is unavailable. CI requirements are unchanged.
 
 ```bash
 # Build debug APK
-perl -e 'alarm 600; exec @ARGV' ./gradlew :androidApp:assembleDebug > assemble-output.log 2>&1
+python3 scripts/run-bounded.py 600 assemble-output.log -- ./gradlew :androidApp:assembleDebug
 
 # Run all unit tests, redirect output
-perl -e 'alarm 600; exec @ARGV' ./gradlew testAndroidHostTest > test-output.log 2>&1
+python3 scripts/run-bounded.py 600 test-output.log -- ./gradlew testAndroidHostTest
 
 # Run tests for a single module
-perl -e 'alarm 600; exec @ARGV' ./gradlew :core:domain:testAndroidHostTest > domain-test-output.log 2>&1
+python3 scripts/run-bounded.py 600 domain-test-output.log -- ./gradlew :core:domain:testAndroidHostTest
 
 # Run lint/static analysis
-perl -e 'alarm 600; exec @ARGV' ./gradlew ktlintCheck > lint-output.log 2>&1
+python3 scripts/run-bounded.py 600 lint-output.log -- ./gradlew ktlintCheck
 # Also run detekt if configured; it does not replace ktlint
-perl -e 'alarm 600; exec @ARGV' ./gradlew detekt > detekt-output.log 2>&1
+python3 scripts/run-bounded.py 600 detekt-output.log -- ./gradlew detekt
 
 # Clean build (reserve for dependency/config changes, not routine edits)
-perl -e 'alarm 600; exec @ARGV' ./gradlew clean build > build-output.log 2>&1
+python3 scripts/run-bounded.py 600 build-output.log -- ./gradlew clean build
 
 # Agent tooling checks (no Gradle run needed; ShellCheck via brew or apt)
 for f in scripts/*.sh; do bash -n "$f" || exit 1; done
 shellcheck --severity=warning scripts/*.sh
 python3 scripts/validate-agent-tooling.py
-python3 scripts/tests/test_validate_tooling.py
-python3 scripts/tests/test_maestro_scroll.py
+python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'
 ```
 
 ## Project Structure & Conventions
