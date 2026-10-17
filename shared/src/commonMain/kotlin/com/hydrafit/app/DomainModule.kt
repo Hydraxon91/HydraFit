@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.backup.DisableAutomaticBackupEncryptionUseCa
 import com.hydrafit.app.core.domain.backup.EnableAutomaticBackupEncryptionUseCase
 import com.hydrafit.app.core.domain.backup.ExportBackupUseCase
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
+import com.hydrafit.app.core.domain.backup.PreviewMergeUseCase
 import com.hydrafit.app.core.domain.backup.RecoverAutomaticBackupEncryptionUseCase
 import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
 import com.hydrafit.app.core.domain.backup.RunAutomaticBackupUseCase
@@ -90,6 +91,7 @@ val domainModule: Module = module {
     single { ExportBackupUseCase(get(), Dispatchers.Default) }
     singleOf(::BackupValidator)
     single { PreviewBackupUseCase(get(), Dispatchers.Default) }
+    singleOf(::PreviewMergeUseCase)
     singleOf(::RestoreBackupUseCase)
     singleOf(::ApplyStagedBackupUseCase)
     singleOf(::VerifyBackupSnapshotUseCase)

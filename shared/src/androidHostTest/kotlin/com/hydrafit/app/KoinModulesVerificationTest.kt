@@ -14,6 +14,8 @@ import com.hydrafit.app.core.domain.backup.BackupEncryption
 import com.hydrafit.app.core.domain.backup.BackupEncryptionKeyStore
 import com.hydrafit.app.core.domain.backup.BackupFile
 import com.hydrafit.app.core.domain.backup.BackupFolderStore
+import com.hydrafit.app.core.domain.backup.BackupMergeKeys
+import com.hydrafit.app.core.domain.backup.BackupMergeSelection
 import com.hydrafit.app.core.domain.backup.BackupRepository
 import com.hydrafit.app.core.domain.backup.BackupRestPreferenceRecord
 import com.hydrafit.app.core.domain.backup.BackupStagingRepository
@@ -688,6 +690,11 @@ class KoinModulesVerificationTest {
             emptyBackupFile(appVersion, exportedAtMillis)
 
         override suspend fun restore(file: BackupFile) = Unit
+
+        override suspend fun mergeKeys(): BackupMergeKeys = throw UnsupportedOperationException()
+
+        override suspend fun merge(selection: BackupMergeSelection) =
+            throw UnsupportedOperationException()
     }
 
     private object FakeBackupCatalog : BackupCatalog {
