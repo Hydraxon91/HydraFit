@@ -888,18 +888,31 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   draft/accepted plan; Regenerate → Accept stays explicit and stale-date Accept/schedule is
   refused. Generation dates do not move an existing training block.
 - **Passed** module verification: `:core:domain:testAndroidHostTest` and
-  `:feature:splitbuilder:testAndroidHostTest` (49 SplitBuilder, 22 observer, 81 deterministic
-  engine tests), root `ktlintCheck` and `:androidApp:assembleDebug`
+  `:feature:splitbuilder:testAndroidHostTest` (49 SplitBuilder at that revision, now 52; 22
+  observer, 81 deterministic engine tests), root `ktlintCheck` and `:androidApp:assembleDebug`
   (`date-ui-tests2.log`, `date-ui-ktlint3.log`, `date-ui-assemble.log`).
 - **Passed on device** (`emulator-5554`, debug, 2026-10-17): the Plan tab shows the dates
   section; the dialog rendered all four disclosure lines, the Mon–Sun chips, start-today,
   the start date, Shift one week and Use unknown dates, with an exact-date preview
-  (`2026-10-17, 10-19, 10-20, 10-21` for Mon–Thu with start today). Confirming regenerated the
-  plan with those dates, and "Use unknown dates" restored the unknown-dates line with
-  `assertNotVisible` on the confirmed date. Screenshots viewed in the session.
-- **Unverified:** large font, TalkBack, dark theme and rotation for the dialog; no direct test of
-  the clock-invalidation cancel path in `refreshContext`; AI-engine paths ignore per-date
-  projection by design (disclosed in the UI).
+  (`2026-10-17, 10-19, 10-20, 10-21` for Mon–Thu with start today). Confirming closed the dialog
+  and the section then listed those dates; confirming does not itself regenerate — the displayed
+  plan is kept and Regenerate applies the dates (host-covered). "Use unknown dates" restored the
+  unknown-dates line with `assertNotVisible` on the confirmed date. Screenshots viewed in the
+  session.
+- **Post-execution review (Plan Mode) REJECTED** this delta on DATE-01–03: an ordinary source
+  refresh replaced a displayed accepted plan; an already-open schedule dialog could still confirm
+  a stale date context after `refreshContext()` invalidated the applied dates; and the earlier
+  wording here claimed confirming regenerated the plan. DATE-01/02 are fixed with behavioral
+  regressions (`acceptedPlanIsPreservedWhenLoggedSetsChange`,
+  `anOlderAcceptedPlanIsPreservedWhenLoggedSetsChange`, and
+  `aStaleDraftCannotBeScheduledUntilItIsRegenerated` with recorded activation counts 0/0/1);
+  DATE-03 is this correction. Targeted closure **APPROVED for DATE-01–03** against this working
+  tree: Tier A matrix green (783 tasks, `date-closure-matrix.log`), SplitBuilderViewModelTest
+  52 tests / 0 failures, and `ktlintCommonTestSourceSetCheck --rerun-tasks` executed clean
+  (`date-closure-ktlint-rerun.log`).
+- **Unverified:** large font, TalkBack, dark theme and rotation for the dialog; the clock-driven
+  in-flight cancellation inside `refreshContext` (the refusal path itself is now host-covered);
+  AI-engine paths ignore per-date projection by design (disclosed in the UI).
 
 ### Timed prescription stabilization — 2026-10-17
 

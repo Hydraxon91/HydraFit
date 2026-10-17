@@ -24,13 +24,17 @@ requests keep the previous behavior exactly.
 
 Date, frequency or clock validity changes cancel in-flight generation and preserve the displayed
 draft or accepted plan, setting `canRegenerate`; nothing regenerates or replaces a frozen plan
-automatically. Regenerate then Accept stays explicit, and Accept/schedule is refused while the
-shown draft's dates are stale. Generation dates are separate from a persistent training block's
-schedule: confirming dates never moves an existing block, the block dialog is seeded from the same
-configuration, and a preview that disagrees with the draft's dates requires Regenerate first.
-Showing a historical accepted plan resets the shown draft's date provenance to unknown rather
-than implying persisted dates. Per-date fatigue does not enter substitution, which keeps ranking
-against current fatigue.
+automatically — an ordinary source refresh (a logged set moves fatigue and load inputs) keeps an
+accepted plan displayed and accepted, while an explicit frequency or sets change still regenerates
+and resets the displayed plan; Regenerate applies refreshed inputs on demand. Regenerate then Accept
+stays explicit, and Accept/schedule is refused while the shown draft's dates are stale,
+re-checked when Confirm is pressed so a schedule dialog opened before the context changed cannot
+activate it; an undated draft becomes stale once dates are confirmed. Generation dates are separate
+from a persistent training block's schedule: confirming dates never moves an existing block, the
+block dialog is seeded from the same configuration, and a preview that disagrees with the draft's
+dates requires Regenerate first. Showing a historical accepted plan resets the shown draft's date
+provenance to unknown rather than implying persisted dates. Per-date fatigue does not enter
+substitution, which keeps ranking against current fatigue.
 
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.

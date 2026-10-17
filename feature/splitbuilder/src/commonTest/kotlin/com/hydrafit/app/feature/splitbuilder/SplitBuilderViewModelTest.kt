@@ -491,6 +491,97 @@ class SplitBuilderViewModelTest {
     }
 
     @Test
+    fun acceptedPlanIsPreservedWhenLoggedSetsChange() = runTest(dispatcher) {
+        val requests = mutableListOf<PlanRequest>()
+        val workoutLog = FakeWorkoutLogRepository()
+        val history = FakePlanHistoryRepository()
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = recordingEngine(requests),
+            workoutLogRepository = workoutLog,
+            planHistory = history
+        )
+        advanceUntilIdle()
+        viewModel.onAcceptPlan()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.isPlanAccepted)
+        val accepted = assertNotNull(viewModel.state.value.plan)
+        val generated = requests.size
+
+        workoutLog.setLoggedSets(
+            List(12) {
+                LoggedSet(
+                    timestampMillis = 0L,
+                    targets = listOf(
+                        MuscleTarget(MuscleGroup.QUADS, MuscleInvolvement.PRIMARY.volumeWeight)
+                    ),
+                    isWarmup = false
+                )
+            }
+        )
+        advanceUntilIdle()
+
+        // A source refresh must not replace a displayed accepted plan: Regenerate stays explicit.
+        assertEquals(accepted, viewModel.state.value.plan)
+        assertTrue(viewModel.state.value.isPlanAccepted)
+        assertEquals(generated, requests.size)
+        assertTrue(viewModel.state.value.canRegenerate)
+
+        viewModel.refresh()
+        advanceUntilIdle()
+        assertTrue(requests.size > generated)
+        assertFalse(viewModel.state.value.isPlanAccepted)
+    }
+
+    @Test
+    fun anOlderAcceptedPlanIsPreservedWhenLoggedSetsChange() = runTest(dispatcher) {
+        val requests = mutableListOf<PlanRequest>()
+        val workoutLog = FakeWorkoutLogRepository()
+        val history = FakePlanHistoryRepository()
+        // History holds a newer plan while the user is browsing an older persisted one.
+        history.accept(acceptedPlan().copy(id = 2L))
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = recordingEngine(requests),
+            // The stored accepted plans have one day, so the frequency preference matches them.
+            preference = FakeEnginePreferenceRepository(
+                PlannerEngineId.DETERMINISTIC,
+                storedDaysPerWeek = 1
+            ),
+            workoutLogRepository = workoutLog,
+            planHistory = history
+        )
+        advanceUntilIdle()
+        assertEquals(2L, history.latest()?.id)
+        val generated = requests.size
+
+        viewModel.onViewAcceptedPlan(acceptedPlan().copy(id = 1L))
+        advanceUntilIdle()
+        val displayed = assertNotNull(viewModel.state.value.plan)
+        assertTrue(viewModel.state.value.isPlanAccepted)
+
+        workoutLog.setLoggedSets(
+            List(12) {
+                LoggedSet(
+                    timestampMillis = 0L,
+                    targets = listOf(
+                        MuscleTarget(MuscleGroup.QUADS, MuscleInvolvement.PRIMARY.volumeWeight)
+                    ),
+                    isWarmup = false
+                )
+            }
+        )
+        advanceUntilIdle()
+
+        // A source refresh keeps the older plan the user is viewing, and never touches history.
+        assertEquals(displayed, viewModel.state.value.plan)
+        assertTrue(viewModel.state.value.isPlanAccepted)
+        assertEquals(generated, requests.size)
+        assertTrue(viewModel.state.value.canRegenerate)
+        assertEquals(2L, history.latest()?.id)
+    }
+
+    @Test
     fun acceptingThePlanPersistsIt() = runTest(dispatcher) {
         val history = FakePlanHistoryRepository()
         val viewModel = viewModel(
@@ -1320,6 +1411,63 @@ class SplitBuilderViewModelTest {
             assertNull(history.latest())
         }
 
+    @Test
+    fun aStaleDraftCannotBeScheduledUntilItIsRegenerated() = runTest(dispatcher) {
+        var now = 0L
+        var activations = 0
+        val requests = mutableListOf<PlanRequest>()
+        val history = FakePlanHistoryRepository()
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = recordingEngine(requests),
+            planHistory = history,
+            timeProvider = TimeProvider { now },
+            onActivation = { activations++ }
+        )
+        advanceUntilIdle()
+        viewModel.onPlanningDatesRequested()
+        viewModel.onPlanningDatesConfirmed()
+        advanceUntilIdle()
+        viewModel.refresh()
+        advanceUntilIdle()
+        val draftDates = assertNotNull(viewModel.state.value.draftDates)
+
+        viewModel.onScheduleRequested()
+        val dialog = assertNotNull(viewModel.state.value.scheduleDialog)
+        assertEquals(draftDates, dialog.preview.filterNotNull())
+
+        // The first confirmed date passes, so the observer can no longer use the dates and the
+        // dialog no longer matches the context the shown draft was planned for.
+        now = 86_400_000L
+        viewModel.refreshContext()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.draftContextStale)
+        assertEquals(0, activations)
+
+        viewModel.onConfirmSchedule()
+        advanceUntilIdle()
+
+        assertEquals("dates", viewModel.state.value.scheduleDialog?.error)
+        assertFalse(viewModel.state.value.isPlanAccepted)
+        assertNull(history.latest())
+        // The rejected Confirm must not have reached the schedule repository at all.
+        assertEquals(0, activations)
+
+        // Regenerating for the current context makes the same schedule valid again.
+        viewModel.refresh()
+        advanceUntilIdle()
+        assertFalse(viewModel.state.value.draftContextStale)
+
+        viewModel.onScheduleRequested()
+        viewModel.onConfirmSchedule()
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.scheduleDialog)
+        assertTrue(viewModel.state.value.isPlanAccepted)
+        // Only the regenerated, valid Confirm activates the block, exactly once.
+        assertEquals(1, activations)
+    }
+
     private fun recordingEngine(requests: MutableList<PlanRequest>): WorkoutPlannerEngine =
         object : WorkoutPlannerEngine {
             override val id: PlannerEngineId = PlannerEngineId.DETERMINISTIC
@@ -1341,7 +1489,8 @@ class SplitBuilderViewModelTest {
         workoutLogRepository: FakeWorkoutLogRepository = FakeWorkoutLogRepository(),
         planHistory: FakePlanHistoryRepository = FakePlanHistoryRepository(),
         sourcesRepository: WorkoutPlanSourcesRepository? = null,
-        timeProvider: TimeProvider = TimeProvider { 0L }
+        timeProvider: TimeProvider = TimeProvider { 0L },
+        onActivation: () -> Unit = {}
     ): SplitBuilderViewModel {
         val catalog = FakeExerciseCatalog()
         val sources = sourcesRepository ?: FakeWorkoutPlanSourcesRepository(
@@ -1359,7 +1508,11 @@ class SplitBuilderViewModelTest {
                     engine ?: DeterministicWorkoutPlannerEngine(catalog)
                 }
             ),
-            planBuilderActions = planBuilderActions(history = planHistory, catalog = catalog),
+            planBuilderActions = planBuilderActions(
+                history = planHistory,
+                catalog = catalog,
+                onActivation = onActivation
+            ),
             planHistory = planHistory,
             exerciseCatalog = catalog,
             enginePreference = preference
@@ -1368,7 +1521,8 @@ class SplitBuilderViewModelTest {
 
     private fun planBuilderActions(
         history: PlanHistoryRepository,
-        catalog: ExerciseCatalog
+        catalog: ExerciseCatalog,
+        onActivation: () -> Unit = {}
     ): PlanBuilderActions {
         val time = TimeProvider { 0L }
         val preview = PreviewWorkoutScheduleUseCase()
@@ -1399,7 +1553,10 @@ class SplitBuilderViewModelTest {
                 activation: TrainingActivation,
                 scheduledEpochDays: List<Long?>,
                 replaceActive: Boolean
-            ): Long = 1L
+            ): Long {
+                onActivation()
+                return 1L
+            }
 
             override suspend fun resolveOccurrence(
                 occurrenceId: Long,

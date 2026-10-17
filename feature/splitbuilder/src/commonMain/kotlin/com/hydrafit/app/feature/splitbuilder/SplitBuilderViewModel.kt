@@ -96,6 +96,15 @@ class SplitBuilderViewModel(
                 // a frequency or clock change that invalidated the confirmed dates.
                 val datesChanged = prior != null &&
                     prior.request.workoutEpochDays != inputs.request.workoutEpochDays
+                // The parameters the user sets explicitly, as opposed to a source-data refresh (a
+                // logged set moves fatigue and load inputs without touching these).
+                val planParametersChanged = prior != null &&
+                    (
+                        prior.request.daysPerWeek != inputs.request.daysPerWeek ||
+                            prior.request.setsPerExercise != inputs.request.setsPerExercise ||
+                            prior.request.accessorySetsPerExercise !=
+                            inputs.request.accessorySetsPerExercise
+                        )
                 if (equipmentChanged) {
                     generationJob?.cancel()
                     lastGeneratedFingerprint = null
@@ -123,6 +132,16 @@ class SplitBuilderViewModel(
                         it.copy(
                             canRegenerate = true,
                             isLoading = false,
+                            appliedPlanningDates = inputs.request.workoutEpochDays
+                        )
+                    }
+                } else if (_state.value.isPlanAccepted && !planParametersChanged) {
+                    // An accepted plan is frozen: an ordinary source refresh (a logged set moves
+                    // fatigue and load inputs) keeps it displayed and accepted, and Regenerate
+                    // applies the new inputs explicitly.
+                    _state.update {
+                        it.copy(
+                            canRegenerate = true,
                             appliedPlanningDates = inputs.request.workoutEpochDays
                         )
                     }
@@ -338,7 +357,9 @@ class SplitBuilderViewModel(
             _state.update { it.copy(scheduleDialog = dialog.copy(error = "frequency")) }
             return
         }
-        if (blockDatesDifferFromTheDraft(dialog)) {
+        // A context refresh may have invalidated the confirmed dates since the dialog opened;
+        // re-check against the current request so Confirm cannot activate a stale date context.
+        if (_state.value.draftContextStale || blockDatesDifferFromTheDraft(dialog)) {
             _state.update { it.copy(scheduleDialog = dialog.copy(error = "dates")) }
             return
         }
