@@ -39,6 +39,7 @@ grant no permission beyond the standing AGENTS.md gates.
 | Date / boundary | Evidence | Rating deltas / notes |
 | --- | --- | --- |
 | 2026-10-17, pre-flight accepted | Batch contract accepted; branch `feature/0.9.5-data-management` from `94f36361` | Baseline scorecard above. Git-permission fix measurement starts with this batch. |
+| 2026-10-17, 0.9.5-A complete | Batch docs committed (`8913d9f1`, `d147bf3f`); merge selection policy + host tests committed `65c8efac`. New suite 7/7 green; `:core:domain` tests + ktlint green. 3 fix rounds (2 ktlint style, 1 test-assertion authoring error); 4 bounded runs (13–48 s, all terminated cleanly). | No rating changes yet — `run-bounded` and the validator gained further clean live runs. Zero permission prompts and zero verification interventions needed so far. |
 
 ## Improvement backlog (prioritized)
 
@@ -59,3 +60,6 @@ grant no permission beyond the standing AGENTS.md gates.
 
 - 2026-10-17 — document created before the 0.9.5–0.9.6 batch start; initial
   scorecard and backlog recorded.
+- 2026-10-17 — first batch update: 0.9.5-A (merge selection policy) implemented,
+  tested and committed; live-log row added. Update cadence: each chunk boundary
+  and each release boundary.
