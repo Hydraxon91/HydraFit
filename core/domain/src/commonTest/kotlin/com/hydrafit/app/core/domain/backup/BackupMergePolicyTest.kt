@@ -61,7 +61,31 @@ class BackupMergePolicyTest {
         assertEquals(0, selection.setsToInsert.size)
         assertEquals(0, selection.sessionNotesToInsert.size)
         assertEquals(1, selection.skippedOpenSessions)
+        assertEquals(0, selection.keptLocalSessions)
         assertTrue(selection.isEmpty)
+    }
+
+    @Test
+    fun keptLocalCountsOnlySessionsAlreadyPresent() {
+        val selection = BackupMergePolicy.select(
+            file(sessions = listOf(session("closed"), session("open", endedAtMillis = null))),
+            noLocalKeys().copy(sessionIds = setOf("closed"))
+        )
+
+        assertEquals(0, selection.sessionsToInsert.size)
+        assertEquals(1, selection.skippedOpenSessions)
+        assertEquals(1, selection.keptLocalSessions)
+    }
+
+    @Test
+    fun fileCustomCollidingWithALocalSeededIdKeepsTheLocalRow() {
+        val selection = BackupMergePolicy.select(
+            file(customExercises = listOf(customExercise("back-squat"))),
+            noLocalKeys().copy(customExerciseIds = setOf("back-squat"))
+        )
+
+        assertEquals(0, selection.customExercisesToInsert.size)
+        assertEquals(1, selection.keptLocalRows)
     }
 
     @Test

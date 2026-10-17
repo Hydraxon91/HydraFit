@@ -577,7 +577,6 @@ class SqlDelightBackupRepository(
             personalRecordExerciseIds = database.personalRecordQueries.selectAll().executeAsList()
                 .mapTo(mutableSetOf()) { it.exerciseId },
             customExerciseIds = database.exerciseQueries.selectAll().executeAsList()
-                .filter { it.isCustom == 1L }
                 .mapTo(mutableSetOf()) { it.id },
             exerciseOverrideIds = database.exerciseOverrideQueries.selectAll().executeAsList()
                 .mapTo(mutableSetOf()) { it.exerciseId },

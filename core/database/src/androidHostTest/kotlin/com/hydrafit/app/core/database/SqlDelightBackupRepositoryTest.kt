@@ -11,6 +11,7 @@ import com.hydrafit.app.core.domain.backup.BackupExerciseOverrideRecord
 import com.hydrafit.app.core.domain.backup.BackupExerciseRecord
 import com.hydrafit.app.core.domain.backup.BackupFailure
 import com.hydrafit.app.core.domain.backup.BackupJson
+import com.hydrafit.app.core.domain.backup.BackupMergePolicy
 import com.hydrafit.app.core.domain.backup.BackupMergeSelection
 import com.hydrafit.app.core.domain.backup.BackupMergedSet
 import com.hydrafit.app.core.domain.backup.BackupPersonalRecordRecord
@@ -106,7 +107,8 @@ class SqlDelightBackupRepositoryTest {
         assertEquals(setOf("s1"), keys.sessionIds)
         assertEquals(setOf(7L), keys.bodyWeightDays)
         assertEquals(setOf("back-squat"), keys.personalRecordExerciseIds)
-        assertEquals(setOf("user-bicycle-crunch"), keys.customExerciseIds)
+        assertTrue(keys.customExerciseIds.contains("user-bicycle-crunch"))
+        assertTrue(keys.customExerciseIds.contains("back-squat"))
         assertEquals(setOf("back-squat"), keys.exerciseOverrideIds)
         assertEquals(setOf("back-squat"), keys.exerciseNoteIds)
         assertEquals(setOf("back-squat"), keys.exercisePreferenceIds)
@@ -114,13 +116,14 @@ class SqlDelightBackupRepositoryTest {
     }
 
     @Test
-    fun mergeKeysAreEmptyOnAFreshInstall() = runTest {
+    fun mergeKeysOnAFreshInstallHoldOnlyTheSeededCatalog() = runTest {
         val keys = repository.mergeKeys()
 
         assertEquals(emptySet(), keys.sessionIds)
         assertEquals(emptySet(), keys.bodyWeightDays)
         assertEquals(emptySet(), keys.personalRecordExerciseIds)
-        assertEquals(emptySet(), keys.customExerciseIds)
+        // Seeded catalog rows are local exercise ids too; no custom row exists yet.
+        assertTrue(keys.customExerciseIds.contains("back-squat"))
         assertEquals(emptySet(), keys.exerciseOverrideIds)
         assertEquals(emptySet(), keys.exerciseNoteIds)
         assertEquals(emptySet(), keys.exercisePreferenceIds)
@@ -180,6 +183,32 @@ class SqlDelightBackupRepositoryTest {
         assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "sessionNote"))
         assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "bodyWeightMeasurement"))
         assertNull(database.personalRecordQueries.selectById("user-merged").executeAsOneOrNull())
+    }
+
+    @Test
+    fun mergeKeepsTheLocalRowWhenAFileCustomCollidesWithASeededId() = runTest {
+        seedRepresentativeData()
+        val exercisesBefore = HistoricalDatabaseFixtures.count(driver, "exercise")
+        val file = repository.export(appVersion = "t", exportedAtMillis = 1L).copy(
+            customExercises = listOf(
+                BackupExerciseRecord(
+                    id = "back-squat",
+                    name = "Colliding custom",
+                    requiredEquipment = "BARBELL",
+                    movementPattern = "SQUAT",
+                    isUnilateral = false,
+                    loadCapability = "EXTERNAL",
+                    involvements = null
+                )
+            )
+        )
+
+        val selection = BackupMergePolicy.select(file, repository.mergeKeys())
+        repository.merge(selection)
+
+        assertEquals(0, selection.customExercisesToInsert.size)
+        assertEquals(exercisesBefore, HistoricalDatabaseFixtures.count(driver, "exercise"))
+        assertEquals(0L, database.exerciseQueries.selectById("back-squat").executeAsOne().isCustom)
     }
 
     @Test

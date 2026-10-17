@@ -91,7 +91,7 @@ val domainModule: Module = module {
     single { ExportBackupUseCase(get(), Dispatchers.Default) }
     singleOf(::BackupValidator)
     single { PreviewBackupUseCase(get(), Dispatchers.Default) }
-    singleOf(::PreviewMergeUseCase)
+    single { PreviewMergeUseCase(get(), get(), Dispatchers.Default) }
     singleOf(::RestoreBackupUseCase)
     singleOf(::ApplyStagedBackupUseCase)
     singleOf(::VerifyBackupSnapshotUseCase)

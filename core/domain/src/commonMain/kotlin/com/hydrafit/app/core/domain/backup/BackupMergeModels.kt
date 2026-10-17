@@ -21,6 +21,10 @@ data class BackupMergeKeys(
     val sessionIds: Set<String>,
     val bodyWeightDays: Set<Long>,
     val personalRecordExerciseIds: Set<String>,
+    /**
+     * Every local exercise id, seeded and custom. A file custom row colliding with any local row
+     * keeps the local row instead of aborting the merge on a primary-key conflict.
+     */
     val customExerciseIds: Set<String>,
     val exerciseOverrideIds: Set<String>,
     val exerciseNoteIds: Set<String>,

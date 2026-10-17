@@ -82,7 +82,7 @@ object BackupMergePolicy {
             exerciseNotesToInsert = exerciseNotes,
             overridesToInsert = overrides,
             customExercisesToInsert = customExercises,
-            keptLocalSessions = file.workoutSessions.size - newSessions.size,
+            keptLocalSessions = file.workoutSessions.size - sessionsNotLocal.size,
             keptLocalRows = keptLocalRows,
             skippedOpenSessions = sessionsNotLocal.size - newSessions.size,
             skippedUnattachedSets = file.workoutSets.count { it.sessionId == null },
