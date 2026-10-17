@@ -1,8 +1,10 @@
 package com.hydrafit.app.core.userdata.backup
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.net.Uri
 import android.provider.DocumentsContract
+import android.util.Log
 import com.hydrafit.app.core.domain.backup.BackupException
 import com.hydrafit.app.core.domain.backup.BackupFailure
 import com.hydrafit.app.core.domain.backup.BackupFolderStore
@@ -25,7 +27,10 @@ import kotlinx.coroutines.withContext
  * runs; a failed delete keeps the file and is reported, never guessed away.
  */
 class AndroidBackupFolderStore(context: Context) : BackupFolderStore {
-    private val resolver = context.applicationContext.contentResolver
+    private val appContext = context.applicationContext
+    private val resolver = appContext.contentResolver
+    private val debugLogging =
+        appContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
     override val isSupported: Boolean = true
 
@@ -57,20 +62,33 @@ class AndroidBackupFolderStore(context: Context) : BackupFolderStore {
         if (bytes.size.toLong() > BackupLimits.MAX_BYTES) {
             throw BackupException(BackupFailure.TOO_LARGE)
         }
+        val tree = Uri.parse(handle)
+        // `createDocument` reads the parent's document id from the URI, which a bare tree URI does
+        // not provide on the platform providers; derive the tree root's document URI first.
+        val parent = DocumentsContract.buildDocumentUriUsingTree(
+            tree,
+            DocumentsContract.getTreeDocumentId(tree)
+        )
         val document = try {
-            DocumentsContract.createDocument(resolver, Uri.parse(handle), MIME_TYPE, displayName)
+            DocumentsContract.createDocument(resolver, parent, MIME_TYPE, displayName)
         } catch (e: Exception) {
+            logCreateFailure("createDocument", e)
             throw BackupException(BackupFailure.IO, e.message)
-        } ?: throw BackupException(BackupFailure.IO, "The folder refused a new document")
+        } ?: run {
+            logCreateFailure("createDocument returned null", null)
+            throw BackupException(BackupFailure.IO, "The folder refused a new document")
+        }
         try {
             val stream = resolver.openOutputStream(document, "w")
                 ?: throw BackupException(BackupFailure.IO, "The snapshot could not be opened")
             stream.use { it.write(bytes) }
         } catch (e: BackupException) {
             removeFailedWrite(document)
+            logCreateFailure("open or write", e)
             throw e
         } catch (e: Exception) {
             removeFailedWrite(document)
+            logCreateFailure("open or write", e)
             throw BackupException(BackupFailure.IO, e.message)
         }
         StoredBackupDocument(DocumentsContract.getDocumentId(document), displayName)
@@ -154,6 +172,16 @@ class AndroidBackupFolderStore(context: Context) : BackupFolderStore {
     /** Removes a just-created partial document so a failed write is not left behind as junk. */
     private fun removeFailedWrite(document: Uri) {
         runCatching { DocumentsContract.deleteDocument(resolver, document) }
+    }
+
+    /** Debug-only diagnosis for a failed write; carries the exception class and message only. */
+    private fun logCreateFailure(stage: String, error: Throwable?) {
+        if (debugLogging) {
+            Log.d(
+                "HydraFitAutomaticBackup",
+                "$stage failed: ${error?.javaClass?.simpleName}: ${error?.message}"
+            )
+        }
     }
 
     private companion object {
