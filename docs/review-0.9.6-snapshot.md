@@ -34,12 +34,24 @@ reviewer could trace was otherwise implemented with the stated wording and scope
 - Device acceptance: `docs/qa.md` ("0.9.6 storage and reset controls — device
   acceptance"), artifacts under `…/T/opencode/hf-storage-runner{,2..8}/`.
 
+## Targeted closure (independent, read-only)
+
+**CLOSED WITH NOTE** at `e519150b`: HF-096-01 CLOSED (both reset paths re-create the seeded
+profile and state row in the same transaction; the tests assert the invariant; device evidence from
+the corrected build), HF-096-02 CLOSED WITH NOTE (a staged restore is discarded on All app data; a
+*scoped* removal while a restore is staged will still let that announced restore apply at the next
+start — accepted edge, not resurrection), HF-096-03 CLOSED WITH NOTE (provenance tradeoff accepted
+and disclosed), HF-096-04 CLOSED WITH NOTE (the boundary docs exist and match the code), HF-096-05
+and HF-096-06 CLOSED (accepted). One new minor documentation finding, **HF-096-07** (the release
+notes listed a non-existent "settings" count group and said "custom exercises" where the UI says
+"Exercise data") was fixed in `docs/release-notes/v0.9.5.md`; wording only. No new code finding and
+no reopened concern.
+
 ## Limits
 
 - All-app-data removal was never executed on device (typed-gating dialog only,
   then Cancel); its behaviour is host-tested and shares the repository path with
-  the executed Training-setup reset.
-- Automatic backups were off during the journey, so the snapshot-deleting
+  the executed Training-setup reset.- Automatic backups were off during the journey, so the snapshot-deleting
   Backups category and the enabled "Back up now" success path were not
   re-exercised (the success path was device-verified in the 0.9.3 journey).
 - The transient "… removed." outcome string is asserted only by
