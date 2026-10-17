@@ -1,0 +1,101 @@
+package com.hydrafit.app.core.domain.backup
+
+/**
+ * Which apply path a staged payload takes at the next process start. [REPLACE] is the existing
+ * whole-file restore; [MERGE] adds a [BackupMergeSelection]'s records to the live install instead of
+ * replacing it.
+ */
+enum class BackupApplyMode {
+    REPLACE,
+    MERGE
+}
+
+/**
+ * The identities already present in the live install, read before merge selection runs. Each set
+ * drives insert-if-absent filtering for its collection; [sessionIds] additionally gates the
+ * session-granular skip that makes a repeated merge of the same file idempotent.
+ *
+ * All fields are required on purpose: an omitted key set would silently treat local rows as new.
+ */
+data class BackupMergeKeys(
+    val sessionIds: Set<String>,
+    val bodyWeightDays: Set<Long>,
+    val personalRecordExerciseIds: Set<String>,
+    val customExerciseIds: Set<String>,
+    val exerciseOverrideIds: Set<String>,
+    val exerciseNoteIds: Set<String>,
+    val exercisePreferenceIds: Set<String>,
+    val exerciseExclusionIds: Set<String>
+)
+
+/**
+ * One workout set a merge inserts. The persisted row id is deliberately absent: merged rows get
+ * fresh local ids, and the occurrence links are dropped because a v1 merge does not carry
+ * occurrences. A merge insertion therefore never depends on foreign row identities it does not own.
+ */
+data class BackupMergedSet(
+    val exerciseId: String,
+    val reps: Int?,
+    val weightKg: Double?,
+    val performedAtMillis: Long,
+    val isWarmup: Boolean,
+    val involvements: String?,
+    val weekNumber: Int?,
+    val cycleNumber: Int?,
+    val dayIndex: Int?,
+    val rir: Int?,
+    val sessionId: String,
+    val loadKind: String,
+    val timingProvenance: String,
+    val startedAtElapsedMillis: Long?,
+    val completedAtElapsedMillis: Long?,
+    val durationSeconds: Int?
+)
+
+/** Collections a v1 merge deliberately leaves with the live install; counts are disclosed in the preview. */
+enum class BackupMergeExcludedCategory {
+    ACCEPTED_PLANS,
+    ROUTINES,
+    ACTIVATIONS,
+    OCCURRENCES,
+    EQUIPMENT_PROFILES,
+    SETTINGS,
+    IMPORT_LEDGER
+}
+
+/** How many rows of an excluded collection the file carries; zero-count categories are not listed. */
+data class BackupMergeExcludedCount(val category: BackupMergeExcludedCategory, val count: Int)
+
+/**
+ * The add-only record selection a merge inserts — not a workout plan. Nothing here replaces or
+ * deletes existing data: rows whose identity already exists locally are skipped and counted in
+ * [keptLocalSessions]/[keptLocalRows], and [excluded] lists the collections the merge does not
+ * carry. The database layer applies this selection in one transaction.
+ */
+data class BackupMergeSelection(
+    val sessionsToInsert: List<BackupWorkoutSessionRecord>,
+    val setsToInsert: List<BackupMergedSet>,
+    val sessionNotesToInsert: List<BackupSessionNoteRecord>,
+    val bodyWeightToInsert: List<BackupBodyWeightRecord>,
+    val personalRecordsToInsert: List<BackupPersonalRecordRecord>,
+    val preferencesToInsert: List<BackupPreferenceRecord>,
+    val exclusionsToInsert: List<BackupExclusionRecord>,
+    val exerciseNotesToInsert: List<BackupExerciseNoteRecord>,
+    val overridesToInsert: List<BackupExerciseOverrideRecord>,
+    val customExercisesToInsert: List<BackupExerciseRecord>,
+    val keptLocalSessions: Int,
+    val keptLocalRows: Int,
+    val skippedUnattachedSets: Int,
+    val setsWithDroppedOccurrenceLinks: Int,
+    val excluded: List<BackupMergeExcludedCount>
+) {
+    /** Rows this selection inserts in total, across every collection. */
+    val insertCount: Int
+        get() = sessionsToInsert.size + setsToInsert.size + sessionNotesToInsert.size +
+            bodyWeightToInsert.size + personalRecordsToInsert.size + preferencesToInsert.size +
+            exclusionsToInsert.size + exerciseNotesToInsert.size + overridesToInsert.size +
+            customExercisesToInsert.size
+
+    /** Whether the merge would add nothing because every supported record already exists locally. */
+    val isEmpty: Boolean get() = insertCount == 0
+}
