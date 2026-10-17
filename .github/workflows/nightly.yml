@@ -46,9 +46,7 @@ jobs:
       - name: Validate agent tooling definitions and references
         run: python3 scripts/validate-agent-tooling.py
       - name: Run agent tooling tests
-        run: python3 scripts/tests/test_validate_tooling.py
-      - name: Run scrolling helper tests
-        run: python3 scripts/tests/test_maestro_scroll.py
+        run: python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'
 
   unit-tests:
     name: Unit Tests

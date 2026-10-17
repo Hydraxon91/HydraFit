@@ -198,10 +198,13 @@ other gates remain in force, including harness restrictions.
   involved in unfinished edits. Treat the summary as navigation, not proof
   of current source or authorization. If a required decision or approval is
   missing or ambiguous, ask rather than reconstruct it.
-- Gradle: wrap every run in a hard time limit (e.g. `perl -e 'alarm 600;
-  exec @ARGV' ./gradlew ... > run.log 2>&1`), then read the result with
-  grep/tail afterwards; never block on a run with no timeout. If a run
-  hangs, jstack the test executor and report; don't retry blindly.
+- Gradle: wrap every run in a hard time limit (e.g. `python3
+  scripts/run-bounded.py 600 run.log -- ./gradlew ...`), then read the result
+  with grep/tail afterwards; never block on a run with no timeout. On timeout
+  the wrapper exits 124 and reports whether termination of the child's process
+  group is confirmed — termination is not guaranteed while the group may still
+  exist. If a run hangs, jstack the test executor and report; don't retry
+  blindly.
 - Verification covers downstream consumers, not just the module you
   edited: select the risk tier in `docs/agent-project-reference.md` Key
   Commands. Tier A changes run the full matrix at their chunk boundary;
@@ -680,7 +683,7 @@ Some models occasionally emit a tool call as plain text instead of a real tool c
 - **`koin-test` is a test-scope dependency only.** Adding it to `libs.versions.toml` and the relevant module's test source set is a dependency change: propose the version and the modules it goes in, and wait for approval. Never add it to a main/production source set.
 - **Run tests with output redirected to a file, not chained into filters:**
   ```bash
-  perl -e 'alarm 600; exec @ARGV' ./gradlew :core:domain:testAndroidHostTest > test-output.log 2>&1
+  python3 scripts/run-bounded.py 600 test-output.log -- ./gradlew :core:domain:testAndroidHostTest
   ```
   If you need a different view (failures only, full stack traces), grep/cat `test-output.log` — do not re-run the suite just to change how you're viewing the same results.
 - **Look for a shared root cause before treating failures as independent.** If several tests fail with the same underlying exception (e.g. a Koin binding missing in test setup), fix the shared cause once and re-run, rather than debugging each test in isolation.

@@ -50,7 +50,8 @@ implement; ask the user to switch to Build mode when they accept the contract.
 
 - Work within the accepted contract; preserve pre-existing and concurrent work.
 - Implement file by file, with required tests and living docs in the same scope.
-- Verify each step with bounded commands and external logs. Report unavailable
+- Verify each step with bounded commands and external logs, preferring
+  `python3 scripts/run-bounded.py <seconds> <log> -- <command>`. Report unavailable
   checks instead of implying success.
 - When implementation is verified, finish writes and hand the pinned revision to
   `reviewer` with the full Subagent brief contract. Do not review your own work.
