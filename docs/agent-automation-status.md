@@ -106,6 +106,14 @@ boundaries.
   fallback took over inspection and execution for the whole journey, with no
   driver reinstall and no MCP re-probe. *Disposition:* existing README guidance
   worked as written; no change needed beyond noting the live occurrence.
+- **F-08 [testing] Compose disabled buttons expose no `enabled=false` on their
+  text node.** `assertVisible: { text: '^Merge$', enabled: false }` failed while
+  the action was visibly disabled: the flag lives on the clickable container
+  (no `enabled` attribute), and the text node reports `enabled=true`.
+  *Disposition:* the journey keeps `Nothing new to merge…` plus a viewed
+  screenshot and a hierarchy note as the disabled-state evidence; exposing
+  `testTagsAsResourceId` for these actions is a possible future improvement,
+  not this batch's scope.
 
 ## Improvement backlog (prioritized)
 
