@@ -79,10 +79,16 @@ class AutomaticBackupSettingsUseCasesTest {
     @Test
     fun enablingRequiresAConfiguredFolder() = runTest {
         val stateStore = FakeAutomaticBackupStateStore()
-        val enable = SetAutomaticBackupsEnabledUseCase(FakeBackupFolderStore(), stateStore)
+        val scheduler = FakeAutomaticBackupScheduler()
+        val enable = SetAutomaticBackupsEnabledUseCase(
+            FakeBackupFolderStore(),
+            stateStore,
+            scheduler
+        )
 
         assertEquals(AutomaticBackupEnableResult.FolderNotConfigured, enable(true))
         assertFalse(stateStore.state.enabled)
+        assertEquals(0, scheduler.scheduleCalls)
     }
 
     @Test
@@ -93,36 +99,52 @@ class AutomaticBackupSettingsUseCasesTest {
         val folderStore = FakeBackupFolderStore().apply {
             capabilities = FolderCapabilities.Unavailable(FolderUnavailableReason.FOLDER_MISSING)
         }
-        val enable = SetAutomaticBackupsEnabledUseCase(folderStore, stateStore)
+        val scheduler = FakeAutomaticBackupScheduler()
+        val enable = SetAutomaticBackupsEnabledUseCase(folderStore, stateStore, scheduler)
 
         assertEquals(
             AutomaticBackupEnableResult.FolderUnavailable(FolderUnavailableReason.FOLDER_MISSING),
             enable(true)
         )
         assertFalse(stateStore.state.enabled)
+        assertEquals(0, scheduler.scheduleCalls)
     }
 
     @Test
-    fun enablingWithAReadyFolderTurnsAutomationOn() = runTest {
+    fun enablingWithAReadyFolderTurnsAutomationOnAndSchedules() = runTest {
         val stateStore = FakeAutomaticBackupStateStore(
             AutomaticBackupState(folderHandle = "tree://a")
         )
-        val enable = SetAutomaticBackupsEnabledUseCase(FakeBackupFolderStore(), stateStore)
+        val scheduler = FakeAutomaticBackupScheduler()
+        val enable = SetAutomaticBackupsEnabledUseCase(
+            FakeBackupFolderStore(),
+            stateStore,
+            scheduler
+        )
 
         assertEquals(AutomaticBackupEnableResult.Enabled, enable(true))
         assertTrue(stateStore.state.enabled)
+        assertEquals(1, scheduler.scheduleCalls)
+        assertEquals(0, scheduler.cancelCalls)
     }
 
     @Test
-    fun disablingKeepsEveryRecordedDocument() = runTest {
+    fun disablingKeepsEveryRecordedDocumentAndCancels() = runTest {
         val documents = listOf(RecordedBackupDocument("d1", "a.json", 1L, verified = true))
         val stateStore = FakeAutomaticBackupStateStore(
             AutomaticBackupState(enabled = true, folderHandle = "tree://a", documents = documents)
         )
-        val enable = SetAutomaticBackupsEnabledUseCase(FakeBackupFolderStore(), stateStore)
+        val scheduler = FakeAutomaticBackupScheduler()
+        val enable = SetAutomaticBackupsEnabledUseCase(
+            FakeBackupFolderStore(),
+            stateStore,
+            scheduler
+        )
 
         assertEquals(AutomaticBackupEnableResult.Disabled, enable(false))
         assertFalse(stateStore.state.enabled)
         assertEquals(documents, stateStore.state.documents)
+        assertEquals(1, scheduler.cancelCalls)
+        assertEquals(0, scheduler.scheduleCalls)
     }
 }

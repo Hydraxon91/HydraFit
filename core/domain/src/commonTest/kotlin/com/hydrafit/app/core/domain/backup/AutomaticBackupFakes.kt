@@ -62,6 +62,20 @@ internal class FakeAutomaticBackupStateStore(
     }
 }
 
+/** Records scheduler calls; no timer or job actually runs. */
+internal class FakeAutomaticBackupScheduler : AutomaticBackupScheduler {
+    var scheduleCalls = 0
+    var cancelCalls = 0
+
+    override fun schedule() {
+        scheduleCalls++
+    }
+
+    override fun cancel() {
+        cancelCalls++
+    }
+}
+
 /** A repository that always exports the same file. */
 internal class StaticBackupRepository(private val file: BackupFile) : BackupRepository {
     override suspend fun export(appVersion: String, exportedAtMillis: Long): BackupFile = file

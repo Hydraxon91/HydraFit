@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.Settings
 import com.hydrafit.app.core.database.AndroidDatabaseDriverFactory
 import com.hydrafit.app.core.database.DatabaseDriverFactory
+import com.hydrafit.app.core.domain.backup.AutomaticBackupScheduler
 import com.hydrafit.app.core.domain.backup.AutomaticBackupStateStore
 import com.hydrafit.app.core.domain.backup.BackupFolderStore
 import com.hydrafit.app.core.domain.schedule.WorkoutReminderScheduler
@@ -33,7 +34,10 @@ import com.hydrafit.app.core.userdata.transfer.PrescriptionPdfRenderer
 import com.hydrafit.app.feature.logger.AndroidRestAlertScheduler
 import com.hydrafit.app.feature.routines.AndroidWorkoutReminderScheduler
 import com.hydrafit.app.feature.routines.localMinuteEpochMillis
+import com.hydrafit.app.feature.settings.AndroidAutomaticBackupScheduler
+import com.hydrafit.app.feature.settings.AutomaticBackupCoordinator
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.onClose
 import org.koin.dsl.module
 
 fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = module {
@@ -91,6 +95,15 @@ fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = modu
     single<AutomaticBackupStateStore> {
         AndroidAutomaticBackupStateStore(context.applicationContext)
     }
+    single { AndroidAutomaticBackupScheduler(context.applicationContext) }
+    single<AutomaticBackupScheduler> { get<AndroidAutomaticBackupScheduler>() }
+    single(createdAtStart = true) {
+        AutomaticBackupCoordinator(
+            stateStore = get(),
+            scheduler = get(),
+            readiness = get()
+        ).also { it.start() }
+    }.factory.beanDefinition.onClose { it?.close() }
     single<PrescriptionDocumentStore> {
         AndroidPrescriptionDocumentStore(context.applicationContext)
     }

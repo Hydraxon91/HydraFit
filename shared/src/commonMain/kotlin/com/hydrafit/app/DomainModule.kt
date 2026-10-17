@@ -2,9 +2,13 @@ package com.hydrafit.app
 
 import com.hydrafit.app.core.domain.backup.ApplyStagedBackupUseCase
 import com.hydrafit.app.core.domain.backup.BackupValidator
+import com.hydrafit.app.core.domain.backup.ConfigureAutomaticBackupFolderUseCase
 import com.hydrafit.app.core.domain.backup.ExportBackupUseCase
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
+import com.hydrafit.app.core.domain.backup.RunAutomaticBackupUseCase
+import com.hydrafit.app.core.domain.backup.SetAutomaticBackupsEnabledUseCase
+import com.hydrafit.app.core.domain.backup.VerifyBackupSnapshotUseCase
 import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
 import com.hydrafit.app.core.domain.engine.BuildPlannerLoadInputsUseCase
 import com.hydrafit.app.core.domain.engine.BuildRecentWeightsUseCase
@@ -84,6 +88,10 @@ val domainModule: Module = module {
     single { PreviewBackupUseCase(get(), Dispatchers.Default) }
     singleOf(::RestoreBackupUseCase)
     singleOf(::ApplyStagedBackupUseCase)
+    singleOf(::VerifyBackupSnapshotUseCase)
+    single { RunAutomaticBackupUseCase(get(), get(), get(), get(), get()) }
+    singleOf(::ConfigureAutomaticBackupFolderUseCase)
+    singleOf(::SetAutomaticBackupsEnabledUseCase)
     single { DeterministicWorkoutPlannerEngine(get(), weightConfig = get(), periodization = get()) }
     single { WeeklyPlanSanitizer(get(), periodization = get(), weightConfig = get()) }
     single<OnDevicePlanProgressReporter> { DefaultOnDevicePlanProgressReporter() }
