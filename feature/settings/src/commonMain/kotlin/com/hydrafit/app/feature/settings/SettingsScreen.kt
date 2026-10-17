@@ -339,6 +339,8 @@ fun SettingsScreen(
 
         BackupRoute()
 
+        AutomaticBackupRoute()
+
         WorkoutImportRoute()
 
         OutlinedButton(onClick = onOpenAcknowledgments) {
