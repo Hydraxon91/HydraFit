@@ -294,8 +294,9 @@ operation requires:
   and a bounded timeout. Resolve a supplied branch to its pushed SHA before watching.
 
 Authorization follows AGENTS.md's Commit Discipline. A commit authorized by an
-approved work chunk, or by an explicit ad-hoc commit approval, is valid; do not
-treat one mode as the other, and never push on a commit or chunk approval alone.
+approved work chunk, an accepted Authorized Autonomous Task or batch contract, or
+an explicit ad-hoc commit approval is valid; do not treat one mode as another, and
+never push on a commit, chunk or task approval alone.
 If an input the requested operation needs is missing, stop and report what is
 missing instead of acting.
 

@@ -24,10 +24,12 @@
   merely to demonstrate delegation. Delegate remaining coherent checks and report
   coverage that cannot safely be obtained. Follow `docs/agent-ui-verification.md`.
 
-The explicitly activated Continuous Multi-Release Execution workflow below is
-the sole scoped exception to ordinary Git delegation, main-agent/Plan-mode review
-ownership, separately requested checkpoints and per-chunk continuation pauses.
-All other gates remain in force, including harness restrictions.
+The explicitly activated Authorized Autonomous Task and Continuous Multi-Release
+Execution workflows below are scoped exceptions to ordinary main-agent/Plan-mode
+review ownership, separately requested checkpoints and per-chunk continuation
+pauses. An authorized task replaces repeated plan, owner and fix approvals with
+one accepted contract; Batch additionally authorizes direct Git ownership. All
+other gates remain in force, including harness restrictions.
 
 - **Subagent brief contract:** children start with fresh context; do not assume
   they know the conversation or infer authorization from tool permissions. Give
@@ -111,19 +113,24 @@ All other gates remain in force, including harness restrictions.
   assigned feature docs. State these document owners in the approved brief.
   This approved documentation split does not split implementation ownership or
   relax the `PLANS.md` status-lines-only authorization.
-  The coder must not commit, push or issue a review verdict. Independently
-  inspect the actual diff, consumers and test evidence during a separately requested
-  post-execution review in Plan Mode; never substitute the child's summary for that
-  review or start one automatically after implementation.
-  The main agent owns that review under `docs/post-execution-review.md` and
-  `docs/review-discipline.md`, recording evidence-backed findings and their
-  mechanical/design classifications rather than treating disagreement as a fix
-  mandate. After the user approves the fix scope and switches to Build mode,
-  delegate corrections to `coder` with finding IDs, evidence, settled decisions,
-  affected files and required regression/downstream verification. The coder
-  implements and verifies, then stops; the main reviewer performs targeted closure
-  checks in Plan Mode under the bounded review discipline. No automatic review/fix
-  loop, self-issued coder verdict, commit or push is authorized by this workflow.
+  The coder must not commit, push or issue a review verdict. Outside an explicitly
+  authorized autonomous task or batch, inspect the actual diff, consumers and test
+  evidence only during a separately requested post-execution review in Plan Mode;
+  never substitute the child's summary for that review or start one automatically
+  after implementation. An authorized task or batch contract pre-requests its
+  independent checkpoint: the separate read-only reviewer performs that review and
+  targeted closure under `docs/review-discipline.md` and
+  `docs/post-execution-review.md`, and the parent consolidates evidence.
+  Outside that checkpoint, the main agent owns review under those guides, recording
+  evidence-backed findings and their mechanical/design classifications rather than
+  treating disagreement as a fix mandate. Except for corrections pre-authorized by
+  an accepted task contract, after the user approves the fix scope and switches to
+  Build mode, delegate corrections to `coder` with finding IDs, evidence, settled
+  decisions, affected files and required regression/downstream verification. The
+  coder implements and verifies, then stops; the reviewer performs targeted closure
+  checks under the bounded review discipline. No automatic review/fix loop,
+  self-issued coder verdict, or unapproved commit or push is authorized by this
+  workflow.
 
 - **Parallel bounded delegation (disjoint write sets):** the approved plan may
   name up to two concurrent `coder` workers for independent chunks in the same
@@ -171,7 +178,7 @@ All other gates remain in force, including harness restrictions.
     failure or unknown write never authorizes replay or marks its sibling complete
     or failed. Follow existing scoped-blocker and failure rules. Commit only verified
     logical changes with exact-path staging; review and publication rules, including
-    the explicitly activated batch exceptions, remain unchanged.
+    the explicitly activated task and batch exceptions, remain unchanged.
 
 - **Plan gate.** For any task that changes code, config, or data: give a
   short plan first (files, decisions, any deviation from PLANS.md), then
@@ -229,7 +236,8 @@ All other gates remain in force, including harness restrictions.
   targeted reads needed for safe implementation, and implements and verifies only
   the approved scope. Do not repeat broad exploration without new evidence; do not
   prohibit necessary reads or treat the plan as a substitute for current source.
-  Review remains separately requested and requires Plan Mode.
+  Review remains separately requested and requires Plan Mode, except at the
+  pre-requested checkpoint of an activated task or batch contract.
 - **Builder reasoning:** the user switches models/settings manually. Low reasoning
   is suitable for localized, unambiguous edits and may be tried for routine feature
   work; thinking-off is an experiment for mechanical changes, not a general
@@ -300,6 +308,66 @@ While executing an approved chunk:
 **Covered by an approved chunk** (when enumerated): creating/editing files, creating modules and registering them in `settings.gradle.kts`, and running builds/tests.
 
 **Still individually gated, even inside a chunk:** file deletions, large refactors, dependency additions/upgrades/downgrades, new `local.properties`/`BuildConfig`/secret keys, CI/CD or signing changes, `git push`, and anything not listed in the chunk.
+
+## Authorized Autonomous Tasks (Explicit Opt-In)
+
+**Activation:** `/task <objective>` or plain `task: <objective>` applies this
+workflow to one bounded, non-release objective; named releases use Continuous
+Multi-Release Execution. The command procedure is in
+`.opencode/commands/task.md`. A question, investigation request or approved work
+chunk does not activate it, and it never overrides harness Plan-mode restrictions
+or the individually gated items below.
+
+**One acceptance, one contract.** The pre-flight plan states the objective,
+starting revision and baseline; exact allowed paths and exclusions; observable
+acceptance criteria and invariants; affected tests, downstream checks and living
+docs; implementation owner; independent reviewer checkpoint; local commit scope;
+budget; stop conditions; and every individually gated item the user must approve.
+Accepting that plan authorizes, without further confirmation and only within the
+unchanged contract:
+
+- targeted reads, implementation and required tests;
+- the listed verification and living-doc updates;
+- one independent read-only full-range review by `reviewer`, plus targeted
+  reviewer closure after corrections;
+- localized, evidence-backed mechanical corrections that restore already-approved
+  behavior, including their regression tests and required living-doc updates,
+  after recording each finding ID, classification, exact fix scope, owner and
+  checks;
+- verified atomic local commits under the approved-chunk row of Commit Discipline,
+  performed through `git-ops` with exact-path staging.
+
+**Still requires the user's explicit decision or approval:** unspecified product
+behavior; scope expansion or files outside the accepted contract; architectural
+substitutions; changed persistence, backup or data guarantees; unavailable
+required verification that changes completion expectations; unresolved required
+review findings; individually gated items not enumerated in the accepted plan
+(dependency changes, schema/migration, module graph, secrets, CI/CD or signing);
+file deletion; and every publication step (push, PR creation or merge, tag,
+release, artifact upload). Do not request a second approval for an action already
+covered by the unchanged accepted contract; a changed action, revision or scope
+does not inherit its authorization.
+
+**Review and ownership.** The parent may remain in Build Mode while the separate
+read-only `reviewer` performs the pre-requested checkpoint and targeted closure.
+The implementation agent must not issue its own review verdict. Finish writes
+before review and keep the pinned revision stable; drift returns to the parent.
+Review approval permits the next named step only within the accepted contract and
+grants no new fix, commit, push or publication authority. The parent owns scope,
+evidence consolidation and continuation decisions, not a substitute self-review.
+
+**Limits and stops.** Existing data safeguards, unknown-outcome handling, emulator
+rules and the builder failure limit remain in force. Stop for a design decision,
+missing permission, unexpected writes, unsafe data effects, exhausted budget,
+unavailable required verification, unresolved required findings after the
+permitted corrections, or when no approved work remains. Report a blocker confined
+to part of the scope as blocked or partial without concealing it; do not advance
+dependent work or mark it complete.
+
+**Completion.** Report the accepted contract, base and final revision, actual
+changed paths, per-criterion completed/failed/unknown/unverified outcomes, review
+verdict and closure, commits, budget used and remaining blockers. Do not publish
+or start follow-up work without new approval.
 
 ## Continuous Multi-Release Execution (Explicit Opt-In)
 
@@ -533,13 +601,15 @@ bounded post-execution review) in Plan Mode. If the session is in Build Mode,
 stop and ask the user to switch to Plan Mode before reviewing; an approved
 implementation chunk does not waive this requirement.
 
-The sole scoped exception is an explicitly activated **Continuous Multi-Release
-Execution** workflow above: its independent read-only reviewer checkpoints may
-run while the parent remains in Build Mode. Its pre-authorized mechanical
-corrections and continuation rules apply only within the approved release list.
+The scoped exceptions are an explicitly activated **Authorized Autonomous Task**
+or **Continuous Multi-Release Execution** workflow above: their accepted contract
+pre-requests the independent read-only reviewer checkpoints, which may run while
+the parent remains in Build Mode. Their pre-authorized mechanical corrections and
+continuation rules apply only within the approved task contract or release list.
 
 **Verification is not approval.** A builder may verify its own fixes, but begin
-the bounded review only when the user requests it and Plan Mode is active.
+the bounded review only when the user requests it and Plan Mode is active, or when
+an authorized task or batch contract already pre-requests that checkpoint.
 Passing tests, a green build, or a self-check of closed findings is not a review
 verdict, and it does not authorize a commit, push, tag or release.
 
@@ -617,16 +687,17 @@ Some models occasionally emit a tool call as plain text instead of a real tool c
 
 ## Commit Discipline
 
-This table is the authoritative commit workflow; approval to edit files alone is not an approved work chunk.
+This table is the authoritative commit workflow; approval to edit files alone is not an approved work chunk or authorized task contract.
 
 | Work mode | Commit authorization and order |
 | --- | --- |
 | Ad-hoc task / approved edit scope | Verify → show `git status`, intended diff/stat, verification results and proposed message → wait for explicit commit approval → commit. One approval covers one commit. |
 | Explicitly approved work chunk (ordered steps, as defined above) | Verify the steps → inspect `git status`, intended diff and recent log → create atomic commits without another commit confirmation → report results, status/stat and commit list at the chunk boundary. Do not commit failing work unless asked. |
-| Push, in either mode | Propose the push and wait for its own explicit approval. A commit or chunk approval does not authorize pushing. |
+| Authorized autonomous task or batch (accepted contract) | Verify the accepted contract and obtain the pre-requested reviewer closure → inspect `git status`, intended diff and recent log → create atomic, exact-path commits without another confirmation, using the workflow's stated Git owner → report results, status/stat and commit list. Do not commit failing work unless asked. |
+| Push, in any mode | Propose the push and wait for its own explicit approval. A commit, chunk or task approval does not authorize pushing. |
 
 - **Monitor CI after code pushes.** After a push containing code, tests, build configuration or tooling changes, identify the GitHub Actions runs for the pushed HEAD and watch them until completion within a bounded timeout. Report success, failure, cancellation or pending status explicitly. A successful `git push` is not evidence that CI passed. On failure, inspect and report the failing job; fixes remain separately approval-gated.
-- **Docs-only pushes don't need a CI wait.** If a push contains only edits to Markdown files (e.g. `AGENTS.md`, `PLANS.md`, or other `.md` docs), do not wait for GitHub Actions to report green — there is no code change, so the run should pass if the previous push passed. Report the push and move on; still treat any unexpected failure as a signal to investigate.
+- **Documentation-only pushes don't need a CI wait.** Apply this exception only when the push changes no code, tests, build configuration, tooling or behavioral instructions. Ordinary prose and release notes qualify. `AGENTS.md`, `.opencode/agents/`, `.opencode/commands/`, `.opencode/skills/` and operational procedure docs are behavioral tooling even though they are Markdown: validate their frontmatter, cross-references and affected workflow scenarios before pushing, and do not describe an app CI pass as validation of them. Report the push and move on for genuine documentation-only changes; still treat any unexpected failure as a signal to investigate.
 - **Never churn code to force a perfect commit split.** If cleanly separating logical changes would mean deleting and re-adding (or temporarily reverting) code just to keep a shared file out of a commit, don't do it. Keep every commit compiling and prefer a slightly broader but honest grouping (e.g. a single "persistence-layer support for X and Y" commit) over mechanical revert/restore cycles. Atomicity means one clear intent per commit, not a self-inflicted edit dance.
 - **One commit per logical change — never bundle unrelated changes into a single commit.** Follow the authorization/order table above and stage only files required for that change.
 - Related mechanical review fixes in the same file area may share one commit

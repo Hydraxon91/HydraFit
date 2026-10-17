@@ -16,6 +16,12 @@ create one release per version unless the user explicitly overrides that. Omitti
 `--budget` is valid: the pre-flight plan then proposes one for acceptance. This is
 a prompt template, not a shell command or permission bypass.
 
+An accepted batch pre-flight plan is also the accepted contract for AGENTS.md's
+Authorized Autonomous Tasks: it supplies the implementation owner, independent
+review, pre-authorized mechanical corrections and local-commit approvals, so do
+not re-ask for those or duplicate them in a separate `/task` contract. Release
+sequencing, folding and publication remain batch-specific.
+
 ## Pre-flight plan (required unless bypassed)
 
 - **Plan:** before any edit, inspect the current plans, source and working-tree

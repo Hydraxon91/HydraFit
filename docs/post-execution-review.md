@@ -22,10 +22,11 @@ unclear, clarify it before starting.
 
 ## Mandatory discipline
 
-**Scoped exception:** an explicitly activated Continuous Multi-Release Execution
-workflow in `AGENTS.md` pre-requests its named review checkpoints. A separate
-read-only reviewer may perform them and targeted closure while the parent remains
-in Build Mode; this qualifies the Plan-mode/user-request references below. The
+**Scoped exception:** an explicitly activated Authorized Autonomous Task or
+Continuous Multi-Release Execution workflow in `AGENTS.md` pre-requests its review
+checkpoints. A separate read-only reviewer may perform them and targeted closure
+while the parent remains in Build Mode; this qualifies the Plan-mode/user-request
+references below. The
 reviewer never implements fixes or performs Git mutations. After review ends, the
 approved implementation owner may apply only pre-authorized mechanical corrections,
 then obtain independent closure. The parent may continue only under the existing
@@ -33,8 +34,9 @@ approved release sequence and handles authorized Git operations directly.
 All other review discipline, evidence requirements and harness restrictions remain.
 
 - Read `AGENTS.md` and `docs/review-discipline.md` before reviewing.
-- **Plan Mode is required.** Perform post-execution reviews in Plan Mode. If the
-  session is in Build Mode, stop and ask the user to switch to Plan Mode before
+- **Plan Mode is required.** Perform post-execution reviews in Plan Mode, except
+  for the pre-requested checkpoint above. If the session is in Build Mode without
+  such a checkpoint, stop and ask the user to switch to Plan Mode before
   reviewing; an approved implementation chunk does not waive this requirement.
 - **Stop at the review boundary.** A builder may verify its own fixes, but that
   verification is not a review approval. Begin the bounded review only when the
@@ -53,7 +55,8 @@ the approved contract, affected consumers, tests and verification evidence clear
 before implementation. This preparation is not a formal review, does not issue a
 verdict and does not replace the reviewer's independent inspection of the full
 declared scope. Formal review still begins only when the user requests it and
-Plan Mode is active.
+Plan Mode is active, or at the pre-requested checkpoint of an authorized task or
+batch.
 
 For corrective work, retain traceability to the original approved scope and
 verification evidence. Closing individual findings does not by itself approve the
@@ -195,9 +198,9 @@ For each actionable finding, propose the smallest fix scope and meaningful
 verification. Explicitly require approval before implementation.
 
 For an activated continuous workflow, identify whether each mechanical correction
-is covered by the initial authorization and record its exact scope, owner and
-checks. Require new approval for uncovered fixes, design decisions or individually
-gated actions. Do not implement while acting as reviewer.
+is covered by the accepted task contract or initial authorization and record its
+exact scope, owner and checks. Require new approval for uncovered fixes, design
+decisions or individually gated actions. Do not implement while acting as reviewer.
 
 If approved, state: "No blocking findings in the reviewed scope. Follow the
 existing commit and push approval rules."

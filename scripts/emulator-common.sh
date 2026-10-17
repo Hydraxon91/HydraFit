@@ -2,7 +2,9 @@
 # Shared targeting for emulator-only UI tooling; source from the command scripts.
 
 HYDRAFIT_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC2034  # consumed by the command scripts that source this file
 HYDRAFIT_ROOT="$(cd "$HYDRAFIT_SCRIPT_DIR/.." && pwd)"
+# shellcheck disable=SC2034  # consumed by the command scripts that source this file
 HYDRAFIT_PACKAGE="com.hydrafit.app"
 
 emulator_adb() {
