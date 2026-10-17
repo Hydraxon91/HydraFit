@@ -3,8 +3,8 @@
 Living record of the agent-automation tooling built in the 2026-10-17 sessions
 (PRs #25–#27, merged through `94f36361`), its honest confidence ratings, the
 evidence behind each one, and the improvement backlog. Update this document at
-each batch release boundary and whenever a claim's evidence changes; never
-retro-edit an old entry — add a new one.
+each chunk boundary and whenever a finding that should be improved is discovered
+(or a claim's evidence changes); never retro-edit an old entry — add a new one.
 
 **How to read the ratings:** a rating is confidence to rely on the tool in a
 real unattended run (1–10), judged from offline test coverage, live/CI use and
@@ -40,6 +40,37 @@ grant no permission beyond the standing AGENTS.md gates.
 | --- | --- | --- |
 | 2026-10-17, pre-flight accepted | Batch contract accepted; branch `feature/0.9.5-data-management` from `94f36361` | Baseline scorecard above. Git-permission fix measurement starts with this batch. |
 | 2026-10-17, 0.9.5-A complete | Batch docs committed (`8913d9f1`, `d147bf3f`); merge selection policy + host tests committed `65c8efac`. New suite 7/7 green; `:core:domain` tests + ktlint green. 3 fix rounds (2 ktlint style, 1 test-assertion authoring error); 4 bounded runs (13–48 s, all terminated cleanly). | No rating changes yet — `run-bounded` and the validator gained further clean live runs. Zero permission prompts and zero verification interventions needed so far. |
+| 2026-10-17, in-flight (0.9.5-B) | Chunk B (database merge + staged apply) analysis; chunk A correction rounds; findings F-01…F-04 below | No rating changes. `run-bounded` and the validator remain clean in live use. |
+
+### In-batch findings log
+
+Findings discovered during the batch, each with its disposition. This log is
+ongoing — an entry is added when something should be improved, not only at
+boundaries.
+
+- **F-01 [authoring] 0.9.5-A needed 3 correction rounds** — two ktlint rounds
+  (a 100-char line limit the author assumed was 120, plus parameter-list
+  wrapping) and one authored test-assertion error. The standard loop caught all
+  of it in ≈80 s of extra build time. *Improvement:* add a short style primer
+  (100-char max, wrapping/argument-per-line rules) to coder briefs, and run
+  module ktlint before the heavier test task so style failures fail fast.
+- **F-02 [design] Staged merge mode has no schema column to live in.** The
+  `stagedBackup` table is a single row with no mode field and `.sqm` changes are
+  gated, so the apply mode travels inside a small wrapper document
+  (`hydrafit-staged-apply`, version 1, payload text carried verbatim) with a
+  legacy raw-payload fallback for rows staged by older versions.
+  *Disposition:* chosen mechanism for chunk B; backward compatible, no schema
+  change.
+- **F-03 [product edge] A snapshot can capture an open session.** Automatic
+  backups are best-effort and may run mid-workout (`endedAtMillis == null`);
+  v1 merge skips those sessions together with their sets and note and discloses
+  the count, avoiding a phantom open session on the receiving install.
+  *Disposition:* policy + tests updated in-batch (disclosure-only, conservative).
+- **F-04 [port decision] Merge extends `BackupRepository`** with
+  `mergeKeys()`/`merge(selection)` instead of adding a second port — one
+  cohesive backup capability, at the cost of mechanical stubs in ≈6 existing
+  test doubles across 4 modules. *Disposition:* accepted; kept the port count
+  honest rather than optimizing for a smaller diff.
 
 ## Improvement backlog (prioritized)
 
@@ -55,6 +86,9 @@ grant no permission beyond the standing AGENTS.md gates.
    against pre-fix behavior.
 5. **Automate the intervention-rate metric** so each batch boundary reports it
    without manual counting.
+6. **Cut authoring correction rounds** for delegated chunks: style primer in
+   briefs (100-char lines, wrapping rules) and module ktlint before tests —
+   measure against the F-01 baseline.
 
 ## Revision log
 
@@ -63,3 +97,6 @@ grant no permission beyond the standing AGENTS.md gates.
 - 2026-10-17 — first batch update: 0.9.5-A (merge selection policy) implemented,
   tested and committed; live-log row added. Update cadence: each chunk boundary
   and each release boundary.
+- 2026-10-17 — cadence refined by user request: update on every chunk **and**
+  whenever a finding that should be improved is discovered. In-batch findings
+  log added (F-01…F-04).
