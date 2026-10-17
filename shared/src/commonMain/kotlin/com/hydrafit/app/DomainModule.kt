@@ -3,6 +3,7 @@ package com.hydrafit.app
 import com.hydrafit.app.core.domain.backup.ApplyStagedBackupUseCase
 import com.hydrafit.app.core.domain.backup.BackupEncryption
 import com.hydrafit.app.core.domain.backup.BackupValidator
+import com.hydrafit.app.core.domain.backup.ClearAutomaticBackupFilesUseCase
 import com.hydrafit.app.core.domain.backup.ConfigureAutomaticBackupFolderUseCase
 import com.hydrafit.app.core.domain.backup.DisableAutomaticBackupEncryptionUseCase
 import com.hydrafit.app.core.domain.backup.EnableAutomaticBackupEncryptionUseCase
@@ -62,6 +63,8 @@ import com.hydrafit.app.core.domain.settings.ObserveGlobalRestDurationUseCase
 import com.hydrafit.app.core.domain.settings.ResolveRestDurationUseCase
 import com.hydrafit.app.core.domain.settings.SetExerciseRestDurationUseCase
 import com.hydrafit.app.core.domain.settings.SetGlobalRestDurationUseCase
+import com.hydrafit.app.core.domain.storage.ClearDataCategoryUseCase
+import com.hydrafit.app.core.domain.storage.StorageUsageUseCase
 import com.hydrafit.app.core.domain.transfer.ExportPrescriptionPdfUseCase
 import com.hydrafit.app.core.domain.transfer.ExportPrescriptionsUseCase
 import com.hydrafit.app.core.domain.transfer.ExportWorkoutHistoryCsvUseCase
@@ -102,6 +105,9 @@ val domainModule: Module = module {
     singleOf(::RecoverAutomaticBackupEncryptionUseCase)
     singleOf(::ConfigureAutomaticBackupFolderUseCase)
     singleOf(::SetAutomaticBackupsEnabledUseCase)
+    singleOf(::ClearAutomaticBackupFilesUseCase)
+    singleOf(::StorageUsageUseCase)
+    singleOf(::ClearDataCategoryUseCase)
     single { DeterministicWorkoutPlannerEngine(get(), weightConfig = get(), periodization = get()) }
     single { WeeklyPlanSanitizer(get(), periodization = get(), weightConfig = get()) }
     single<OnDevicePlanProgressReporter> { DefaultOnDevicePlanProgressReporter() }

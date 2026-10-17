@@ -103,6 +103,7 @@ import com.hydrafit.app.core.domain.setup.SetupCommit
 import com.hydrafit.app.core.domain.setup.SetupState
 import com.hydrafit.app.core.domain.setup.SetupWriteRepository
 import com.hydrafit.app.core.domain.startup.StartupReadiness
+import com.hydrafit.app.core.domain.storage.StorageUsagePort
 import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.TimeProvider
@@ -179,6 +180,7 @@ import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
 import com.hydrafit.app.core.userdata.settings.SetupRepository
 import com.hydrafit.app.core.userdata.settings.TrainingGoalRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
+import com.hydrafit.app.core.userdata.storage.UnsupportedStorageUsagePort
 import com.hydrafit.app.core.userdata.transfer.PrescriptionDocumentStore
 import com.hydrafit.app.core.userdata.transfer.PrescriptionPdfRenderer
 import com.hydrafit.app.core.userdata.transfer.UnsupportedPrescriptionDocumentStore
@@ -274,6 +276,7 @@ class KoinModulesVerificationTest {
         single<OnDevicePlannerLogger> { NoopOnDevicePlannerLogger }
         single<BackupFileStore> { UnsupportedBackupFileStore() }
         single<BackupFolderStore> { UnsupportedBackupFolderStore() }
+        single<StorageUsagePort> { UnsupportedStorageUsagePort() }
         single<AutomaticBackupStateStore> { UnsupportedAutomaticBackupStateStore() }
         single<AutomaticBackupScheduler> { UnsupportedAutomaticBackupScheduler() }
         single<BackupCrypto> { UnsupportedBackupCrypto() }

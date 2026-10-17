@@ -1,0 +1,33 @@
+-- QL-02 storage usage: read-only counts over existing tables. Queries only — no schema change.
+countSessions:
+SELECT COUNT(*) FROM workoutSession;
+
+countSets:
+SELECT COUNT(*) FROM workoutSet;
+
+countSessionNotes:
+SELECT COUNT(*) FROM sessionNote;
+
+countPlans:
+SELECT COUNT(*) FROM planHistory;
+
+countRoutines:
+SELECT COUNT(*) FROM routineTemplate;
+
+countActivations:
+SELECT COUNT(*) FROM trainingActivation;
+
+countOccurrences:
+SELECT COUNT(*) FROM workoutOccurrence;
+
+countBodyWeightMeasurements:
+SELECT COUNT(*) FROM bodyWeightMeasurement;
+
+countPersonalRecords:
+SELECT COUNT(*) FROM personalRecord;
+
+countEquipmentProfiles:
+SELECT COUNT(*) FROM equipmentProfile;
+
+countCustomExercises:
+SELECT COUNT(*) FROM exercise WHERE isCustom = 1;
