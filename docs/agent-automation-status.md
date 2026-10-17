@@ -41,6 +41,7 @@ grant no permission beyond the standing AGENTS.md gates.
 | 2026-10-17, pre-flight accepted | Batch contract accepted; branch `feature/0.9.5-data-management` from `94f36361` | Baseline scorecard above. Git-permission fix measurement starts with this batch. |
 | 2026-10-17, 0.9.5-A complete | Batch docs committed (`8913d9f1`, `d147bf3f`); merge selection policy + host tests committed `65c8efac`. New suite 7/7 green; `:core:domain` tests + ktlint green. 3 fix rounds (2 ktlint style, 1 test-assertion authoring error); 4 bounded runs (13–48 s, all terminated cleanly). | No rating changes yet — `run-bounded` and the validator gained further clean live runs. Zero permission prompts and zero verification interventions needed so far. |
 | 2026-10-17, in-flight (0.9.5-B) | Chunk B (database merge + staged apply) analysis; chunk A correction rounds; findings F-01…F-04 below | No rating changes. `run-bounded` and the validator remain clean in live use. |
+| 2026-10-17, 0.9.5-B complete | Staged-mode wrapper + merge dispatch committed `0904c743`; database `mergeKeys`/`merge` with additivity and rollback tests committed `68a4b460`; `core:domain` + `core:database` suites and ktlint green; 6 bounded runs total, all terminated cleanly (13–48 s). | No rating changes. Pending cross-module test-double stubs (feature/settings ×2, shared ×1) with the UI/DI chunk; tracked so they land before the integration gate. |
 
 ### In-batch findings log
 
@@ -71,6 +72,12 @@ boundaries.
   cohesive backup capability, at the cost of mechanical stubs in ≈6 existing
   test doubles across 4 modules. *Disposition:* accepted; kept the port count
   honest rather than optimizing for a smaller diff.
+- **F-05 [authoring] A second style-guide correction in chunk B** — ktlint
+  required an expression-body return on one line after it had been wrapped; the
+  same family as F-01. *Disposition:* fixed; reinforces backlog item 6 rather
+  than adding a new item. Three test doubles outside `core` (feature/settings
+  ×2, shared ×1) still need merge stubs during the UI/DI chunk — recorded in the
+  live log so it is not missed before the integration gate.
 
 ## Improvement backlog (prioritized)
 
@@ -100,3 +107,5 @@ boundaries.
 - 2026-10-17 — cadence refined by user request: update on every chunk **and**
   whenever a finding that should be improved is discovered. In-batch findings
   log added (F-01…F-04).
+- 2026-10-17 — chunk 0.9.5-B complete (staged apply mode + database merge);
+  live-log row and F-05 recorded.
