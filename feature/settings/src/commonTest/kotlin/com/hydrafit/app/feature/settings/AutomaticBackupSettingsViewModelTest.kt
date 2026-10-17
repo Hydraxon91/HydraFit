@@ -322,8 +322,11 @@ private class FakeAutomaticBackupStateStore(
 ) : AutomaticBackupStateStore {
     override suspend fun load(): AutomaticBackupState = state
 
-    override suspend fun save(state: AutomaticBackupState) {
-        this.state = state
+    override suspend fun update(
+        change: (AutomaticBackupState) -> AutomaticBackupState
+    ): AutomaticBackupState {
+        state = change(state)
+        return state
     }
 }
 

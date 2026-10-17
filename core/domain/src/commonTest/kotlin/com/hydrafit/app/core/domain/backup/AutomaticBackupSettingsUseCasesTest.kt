@@ -147,4 +147,31 @@ class AutomaticBackupSettingsUseCasesTest {
         assertEquals(1, scheduler.cancelCalls)
         assertEquals(0, scheduler.scheduleCalls)
     }
+
+    @Test
+    fun configureRefusesAProviderThatCannotDeleteItsProbe() = runTest {
+        val stateStore = FakeAutomaticBackupStateStore()
+        val folderStore = FakeBackupFolderStore().apply { failDeletes = true }
+        val configure = ConfigureAutomaticBackupFolderUseCase(folderStore, stateStore)
+
+        val result = configure("tree://a")
+
+        assertEquals(
+            FolderCapabilities.Unavailable(FolderUnavailableReason.UNSUPPORTED_PROVIDER),
+            result
+        )
+        assertNull(stateStore.state.folderHandle)
+    }
+
+    @Test
+    fun configureRemovesItsProbeDocument() = runTest {
+        val folderStore = FakeBackupFolderStore()
+        val stateStore = FakeAutomaticBackupStateStore()
+        val configure = ConfigureAutomaticBackupFolderUseCase(folderStore, stateStore)
+
+        assertEquals(FolderCapabilities.Ready, configure("tree://a"))
+
+        assertEquals(emptyList(), folderStore.documents.keys.toList())
+        assertEquals("tree://a", stateStore.state.folderHandle)
+    }
 }

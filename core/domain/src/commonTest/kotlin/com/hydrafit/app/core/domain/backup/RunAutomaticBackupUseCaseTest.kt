@@ -244,6 +244,49 @@ class RunAutomaticBackupUseCaseTest {
         assertEquals(1, folder.documents.size)
     }
 
+    @Test
+    fun disableDuringARunIsNotClobberedByTheRun() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val folder = FakeBackupFolderStore().apply { readGate = gate }
+        val harness = harness(state = enabledState(), folder = folder)
+        val scheduler = FakeAutomaticBackupScheduler()
+
+        val run = async { harness.useCase("1.0") }
+        runCurrent()
+        val enable = SetAutomaticBackupsEnabledUseCase(folder, harness.stateStore, scheduler)
+        assertEquals(AutomaticBackupEnableResult.Disabled, enable(false))
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertIs<AutomaticBackupOutcome.Created>(run.await())
+        val state = harness.stateStore.state
+        assertFalse(state.enabled)
+        assertEquals(1, scheduler.cancelCalls)
+        assertEquals(TEST_NOW, state.lastSuccessMillis)
+        assertTrue(state.documents.single().verified)
+    }
+
+    @Test
+    fun aFolderChangeDuringARunKeepsTheTwoLedgersApart() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val folder = FakeBackupFolderStore().apply { readGate = gate }
+        val harness = harness(state = enabledState(handle = "tree://old"), folder = folder)
+
+        val run = async { harness.useCase("1.0") }
+        runCurrent()
+        val configure = ConfigureAutomaticBackupFolderUseCase(folder, harness.stateStore)
+        assertEquals(FolderCapabilities.Ready, configure("tree://new"))
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertIs<AutomaticBackupOutcome.Created>(run.await())
+        val state = harness.stateStore.state
+        assertEquals("tree://new", state.folderHandle)
+        // The old folder's write is neither recorded nor promoted into the new folder's ledger.
+        assertEquals(emptyList(), state.documents)
+        assertNull(state.lastSuccessMillis)
+    }
+
     private fun TestScope.harness(
         state: AutomaticBackupState = AutomaticBackupState(),
         folder: FakeBackupFolderStore = FakeBackupFolderStore(),

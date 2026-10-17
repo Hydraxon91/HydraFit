@@ -36,6 +36,8 @@ class UnsupportedBackupFolderStore : BackupFolderStore {
 class UnsupportedAutomaticBackupStateStore : AutomaticBackupStateStore {
     override suspend fun load(): AutomaticBackupState = AutomaticBackupState()
 
-    override suspend fun save(state: AutomaticBackupState) =
+    override suspend fun update(
+        change: (AutomaticBackupState) -> AutomaticBackupState
+    ): AutomaticBackupState =
         throw UnsupportedOperationException("Automatic backups are not supported on this platform")
 }

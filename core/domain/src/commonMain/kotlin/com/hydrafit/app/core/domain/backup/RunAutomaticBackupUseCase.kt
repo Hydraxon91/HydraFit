@@ -19,6 +19,11 @@ import kotlinx.coroutines.withContext
  * is read back byte-identical before it counts as a success; pruning runs only after a new verified
  * success and deletes only recorded identities. Cancellation is rethrown, never recorded as a
  * failure.
+ *
+ * Every stored-state change goes through [AutomaticBackupStateStore.update], so a user's disable or
+ * folder change landing while a run is in flight is never clobbered by the run's save; the run's
+ * own writes additionally apply only while the folder still matches the one it wrote to, so an old
+ * folder's file is never attributed to a new folder's ledger.
  */
 class RunAutomaticBackupUseCase(
     private val exportBackup: ExportBackupUseCase,
@@ -50,14 +55,14 @@ class RunAutomaticBackupUseCase(
         val now = timeProvider.nowMillis()
         if (!force && !AutomaticBackupPolicy.isDue(state, now)) return AutomaticBackupOutcome.NotDue
 
-        val reconciled = reconcileUnverified(state)
-        val handle = reconciled.folderHandle
-            ?: return fail(reconciled, AutomaticBackupFailureKind.FOLDER_NOT_CONFIGURED, now)
+        reconcileUnverified(state)
+        val handle = stateStore.load().folderHandle
+            ?: return fail(AutomaticBackupFailureKind.FOLDER_NOT_CONFIGURED, now)
 
         when (val capabilities = probeCapabilities(handle)) {
-            null -> return fail(reconciled, AutomaticBackupFailureKind.FOLDER_UNAVAILABLE, now)
+            null -> return fail(AutomaticBackupFailureKind.FOLDER_UNAVAILABLE, now)
             is FolderCapabilities.Unavailable ->
-                return fail(reconciled, capabilities.reason.toFailureKind(), now)
+                return fail(capabilities.reason.toFailureKind(), now)
             FolderCapabilities.Ready -> Unit
         }
 
@@ -71,9 +76,9 @@ class RunAutomaticBackupUseCase(
             } else {
                 AutomaticBackupFailureKind.EXPORT_FAILED
             }
-            return fail(reconciled, kind, now)
+            return fail(kind, now)
         } catch (_: Throwable) {
-            return fail(reconciled, AutomaticBackupFailureKind.EXPORT_FAILED, now)
+            return fail(AutomaticBackupFailureKind.EXPORT_FAILED, now)
         }
 
         val document = try {
@@ -81,20 +86,26 @@ class RunAutomaticBackupUseCase(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (_: Throwable) {
-            return fail(reconciled, AutomaticBackupFailureKind.WRITE_FAILED, now)
+            return fail(AutomaticBackupFailureKind.WRITE_FAILED, now)
         }
 
-        // Record the identity before verification so an interrupted run leaves a settled trail: the
-        // document is known, unverified, and beyond pruning until reconciliation proves it usable.
-        var updated = reconciled.copy(
-            documents = reconciled.documents + RecordedBackupDocument(
-                documentId = document.documentId,
-                displayName = document.displayName,
-                createdAtMillis = now,
-                verified = false
-            )
-        )
-        stateStore.save(updated)
+        // Record the identity before verification so an interrupted run leaves a settled trail:
+        // the document is known, unverified, and beyond pruning until reconciliation proves it
+        // usable. The record applies only while the folder is still the one this write targeted.
+        stateStore.update { current ->
+            if (current.folderHandle != handle) {
+                current
+            } else {
+                current.copy(
+                    documents = current.documents + RecordedBackupDocument(
+                        documentId = document.documentId,
+                        displayName = document.displayName,
+                        createdAtMillis = now,
+                        verified = false
+                    )
+                )
+            }
+        }
 
         val readBack = try {
             folderStore.read(handle, document.documentId)
@@ -104,19 +115,28 @@ class RunAutomaticBackupUseCase(
             null
         }
         if (readBack == null || !readBack.contentEquals(bytes)) {
-            return fail(updated, AutomaticBackupFailureKind.WRITE_UNVERIFIED, now)
+            return fail(AutomaticBackupFailureKind.WRITE_UNVERIFIED, now)
         }
 
-        updated = updated.copy(
-            lastSuccessMillis = now,
-            lastFailure = null,
-            documents = updated.documents.map {
-                if (it.documentId == document.documentId) it.copy(verified = true) else it
+        val verified = stateStore.update { current ->
+            if (current.folderHandle != handle) {
+                current
+            } else {
+                current.copy(
+                    lastSuccessMillis = now,
+                    lastFailure = null,
+                    documents = current.documents.map {
+                        if (it.documentId == document.documentId) {
+                            it.copy(verified = true)
+                        } else {
+                            it
+                        }
+                    }
+                )
             }
-        )
-        stateStore.save(updated)
+        }
 
-        val pruneResult = prune(handle, updated)
+        val pruneResult = prune(handle, verified)
         return AutomaticBackupOutcome.Created(
             displayName = document.displayName,
             prunedCount = pruneResult.prunedCount,
@@ -129,11 +149,10 @@ class RunAutomaticBackupUseCase(
      * that now read back as complete restorable snapshots. A read or validation failure leaves the
      * record unverified: it is retried on a later run and is never pruned meanwhile.
      */
-    private suspend fun reconcileUnverified(state: AutomaticBackupState): AutomaticBackupState {
-        val handle = state.folderHandle ?: return state
+    private suspend fun reconcileUnverified(state: AutomaticBackupState) {
+        val handle = state.folderHandle ?: return
         val unverified = state.documents.filterNot { it.verified }
-        if (unverified.isEmpty()) return state
-        var updated = state
+        if (unverified.isEmpty()) return
         for (document in unverified.sortedByDescending { it.createdAtMillis }) {
             val text = try {
                 folderStore.read(handle, document.documentId).decodeToString()
@@ -143,24 +162,27 @@ class RunAutomaticBackupUseCase(
                 continue
             }
             if (verifySnapshot(text)) {
-                updated = updated.copy(
-                    documents = updated.documents.map {
-                        if (it.documentId == document.documentId) {
-                            it.copy(verified = true)
-                        } else {
-                            it
-                        }
+                stateStore.update { current ->
+                    if (current.folderHandle != handle) {
+                        current
+                    } else {
+                        current.copy(
+                            documents = current.documents.map {
+                                if (it.documentId == document.documentId) {
+                                    it.copy(verified = true)
+                                } else {
+                                    it
+                                }
+                            }
+                        )
                     }
-                )
+                }
             }
         }
-        if (updated != state) stateStore.save(updated)
-        return updated
     }
 
     /** Deletes recorded documents beyond the retention window; deletion is idempotent per document. */
     private suspend fun prune(handle: String, state: AutomaticBackupState): PruneResult {
-        var updated = state
         var prunedCount = 0
         var pendingCount = 0
         for (documentId in AutomaticBackupPolicy.documentsToPrune(state)) {
@@ -174,14 +196,15 @@ class RunAutomaticBackupUseCase(
             }
             if (deleted) {
                 prunedCount++
-                updated = updated.copy(
-                    documents = updated.documents.filterNot { it.documentId == documentId }
-                )
+                stateStore.update { current ->
+                    current.copy(
+                        documents = current.documents.filterNot { it.documentId == documentId }
+                    )
+                }
             } else {
                 pendingCount++
             }
         }
-        if (prunedCount > 0) stateStore.save(updated)
         return PruneResult(prunedCount, pendingCount)
     }
 
@@ -194,11 +217,10 @@ class RunAutomaticBackupUseCase(
     }
 
     private suspend fun fail(
-        state: AutomaticBackupState,
         kind: AutomaticBackupFailureKind,
         nowMillis: Long
     ): AutomaticBackupOutcome.Failed {
-        stateStore.save(state.copy(lastFailure = AutomaticBackupFailureRecord(kind, nowMillis)))
+        stateStore.update { it.copy(lastFailure = AutomaticBackupFailureRecord(kind, nowMillis)) }
         return AutomaticBackupOutcome.Failed(kind)
     }
 

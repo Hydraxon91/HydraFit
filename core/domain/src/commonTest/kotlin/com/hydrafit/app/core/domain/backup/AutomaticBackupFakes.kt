@@ -47,7 +47,7 @@ internal class FakeBackupFolderStore : BackupFolderStore {
     }
 }
 
-/** In-memory state store; counts saves so tests can tell a no-op from a persisted update. */
+/** In-memory state store; counts mutations so tests can tell a no-op from a persisted update. */
 internal class FakeAutomaticBackupStateStore(
     initial: AutomaticBackupState = AutomaticBackupState()
 ) : AutomaticBackupStateStore {
@@ -56,9 +56,12 @@ internal class FakeAutomaticBackupStateStore(
 
     override suspend fun load(): AutomaticBackupState = state
 
-    override suspend fun save(state: AutomaticBackupState) {
-        this.state = state
+    override suspend fun update(
+        change: (AutomaticBackupState) -> AutomaticBackupState
+    ): AutomaticBackupState {
+        state = change(state)
         saves++
+        return state
     }
 }
 

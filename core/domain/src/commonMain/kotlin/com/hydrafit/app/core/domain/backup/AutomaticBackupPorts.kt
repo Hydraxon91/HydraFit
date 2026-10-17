@@ -49,5 +49,11 @@ interface BackupFolderStore {
 interface AutomaticBackupStateStore {
     suspend fun load(): AutomaticBackupState
 
-    suspend fun save(state: AutomaticBackupState)
+    /**
+     * Applies [change] to the currently stored state, persists the result and returns it. All
+     * mutations go through `update` so writers that overlap in time — the scheduled run and the
+     * settings screen — merge field by field instead of replacing the whole document; the store is
+     * responsible for serializing the read-modify-write.
+     */
+    suspend fun update(change: (AutomaticBackupState) -> AutomaticBackupState): AutomaticBackupState
 }
