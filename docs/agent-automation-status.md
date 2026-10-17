@@ -63,6 +63,7 @@ publication gate. Any stop records which condition triggered it.
 | 2026-10-17, 0.9.6-D complete | Storage device journey on `emulator-5554` across four runner attempts: display values, history removal (8/24 → 0/0/0 asserted in-flow, history search returns no matches), All-app-data typed gating (disabled empty/NOPE, enabled on REMOVE, never executed), guarded "Back up now" path, restore-back to 8/24, and the two 0.9.5 disclosure lines. Findings F-10…F-13. | Runner stop-not-adjust held four times on flow/state defects; each defect was parent-authored flow error, not an app defect. Final gate green after the platform test-tag fix. |
 | 2026-10-17, 0.9.6 review and correction | Independent review REJECTED: HF-096-01 (major — both resets deleted the seeded equipment-profile singleton, breaking every profile reader) plus five minor/nit findings. Correction `882c5bdd` re-seeds the profile in both resets, discards a staged restore on All app data, and device-verification followed (Training-setup reset → Equipment shows the default profile). | **F-14 recorded.** The defect lived in the one destructive category the prepared journey never executed: coverage planning must run every destructive category at least once (safeguard-backup pattern), not just one. |
 | 2026-10-17, 0.9.6 closed | Targeted closure CLOSED WITH NOTE at `e519150b`: HF-096-01/02 fixed with code, tests and device evidence; 03–06 closed/accepted; one new docs nit (HF-096-07, release-note wording) fixed. Batch reaches the publication gate. | All approved work is implemented, verified, reviewed and committed; the only remaining step is the single folded `v0.9.5` publication approval. |
+| 2026-10-17, v0.9.5 published | PR #28 merged as `67d3f800`; PR CI run `39066056184` (4/4 pass) and merged-main run `39066287803` green; tag `v0.9.5`; release run `39066296505` success; signed APK verified offline (versionName 0.9.5, versionCode 90500, SHA-256 `ac312a1c…`, marked latest). | Batch complete. Four run-related user messages during the batch, none a verification intervention; the git-ops permission datapoint stayed unmeasured (Git performed directly); guard and task-state remain inactive/unwired. |
 
 ### In-batch findings log
 
@@ -203,3 +204,5 @@ boundaries.
   The content is complete, but the update frequency for that stretch was below
   the "every chunk and every finding" target. The user accepted the recorded
   0.9.6 notes and limits on the same date.
+- 2026-10-17 — v0.9.5 published: merge, tag, release workflow and offline artifact
+  verification recorded; batch closed.
