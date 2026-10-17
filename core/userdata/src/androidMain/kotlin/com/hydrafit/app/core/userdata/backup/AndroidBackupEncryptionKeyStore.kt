@@ -43,13 +43,13 @@ class AndroidBackupEncryptionKeyStore(context: Context) : BackupEncryptionKeySto
             preferences.edit()
                 .putString(KEY_IV, cipher.iv.encode())
                 .putString(KEY_VALUE, cipherText.encode())
-                .apply()
+                .commit()
         }
     }
 
     override suspend fun clear() {
         withContext(Dispatchers.IO) {
-            preferences.edit().clear().apply()
+            preferences.edit().clear().commit()
         }
     }
 

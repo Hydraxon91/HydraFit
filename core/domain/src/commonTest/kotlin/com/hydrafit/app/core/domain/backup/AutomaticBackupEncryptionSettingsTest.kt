@@ -111,6 +111,42 @@ class AutomaticBackupEncryptionSettingsTest {
     }
 
     @Test
+    fun recoveryContinuesPastADamagedSnapshotToAnOlderIntactOne() = runTest {
+        val password = "pw".toCharArray()
+        val good = encryption.sealWithPassword(validAutomaticBackupText(), password)
+        val decoded = BackupEnvelopeJson.decode(good)
+        val tampered = BackupEnvelopeJson.ciphertextBytes(decoded)
+            .also { it[it.size - 1] = (it.last().toInt() xor 1).toByte() }
+        val damaged = good.replace(
+            decoded.ciphertext,
+            BackupEnvelopeJson.toBase64(tampered)
+        )
+        val folder = FakeBackupFolderStore()
+        folder.documents["doc-new"] = damaged.encodeToByteArray()
+        folder.documents["doc-old"] = good.encodeToByteArray()
+        stateStore.update {
+            it.copy(
+                folderHandle = "tree://folder",
+                documents = listOf(
+                    RecordedBackupDocument("doc-new", "new.json", 2L, verified = true),
+                    RecordedBackupDocument("doc-old", "old.json", 1L, verified = true)
+                )
+            )
+        }
+        val recover = RecoverAutomaticBackupEncryptionUseCase(
+            encryption,
+            keyStore,
+            stateStore,
+            folder
+        )
+
+        assertEquals(AutomaticBackupEncryptionResult.Recovered, recover(password))
+
+        assertNotNull(keyStore.stored)
+        assertEquals(true, stateStore.state.encryptionEnabled)
+    }
+
+    @Test
     fun recoveryWithoutAnEncryptedSnapshotReportsIt() = runTest {
         val folder = FakeBackupFolderStore()
         val recover = RecoverAutomaticBackupEncryptionUseCase(

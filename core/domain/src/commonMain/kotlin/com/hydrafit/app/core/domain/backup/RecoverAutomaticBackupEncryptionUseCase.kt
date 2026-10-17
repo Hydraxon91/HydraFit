@@ -4,10 +4,12 @@ import kotlinx.coroutines.CancellationException
 
 /**
  * Restores unattended encryption after keystore key loss: re-entering the backup password is
- * authenticated against the newest readable encrypted snapshot, and only then is the material
- * stored again under the (new) keystore key. Scans at most the retention window's newest recorded
- * snapshots, newest first. Plain snapshots are skipped; nothing is stored unless the password
- * actually opens an encrypted file.
+ * authenticated against a readable encrypted snapshot, and only then is the material stored again
+ * under the (new) keystore key. Scans at most the retention window's newest recorded snapshots,
+ * newest first, continuing past snapshots this password cannot open (a damaged file, or one sealed
+ * with a previous password) until one authenticates. Plain snapshots are skipped; nothing is stored
+ * unless the password actually opens an encrypted file, and only that file's own salt and key are
+ * stored.
  */
 class RecoverAutomaticBackupEncryptionUseCase(
     private val encryption: BackupEncryption,
@@ -23,6 +25,7 @@ class RecoverAutomaticBackupEncryptionUseCase(
             .filter { it.verified }
             .sortedByDescending { it.createdAtMillis }
             .take(AutomaticBackupPolicy.RETAINED_SNAPSHOTS)
+        var sawEncrypted = false
         for (document in candidates) {
             val text = try {
                 folderStore.read(handle, document.documentId).decodeToString()
@@ -32,15 +35,22 @@ class RecoverAutomaticBackupEncryptionUseCase(
                 continue
             }
             if (!encryption.looksEncrypted(text)) continue
+            sawEncrypted = true
             val key = try {
                 encryption.deriveKeyForStoredFile(text, password)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
             } catch (_: BackupException) {
-                return AutomaticBackupEncryptionResult.WrongPassword
+                continue
             }
             keyStore.store(key)
             stateStore.update { it.copy(encryptionEnabled = true) }
             return AutomaticBackupEncryptionResult.Recovered
         }
-        return AutomaticBackupEncryptionResult.NoEncryptedSnapshot
+        return if (sawEncrypted) {
+            AutomaticBackupEncryptionResult.WrongPassword
+        } else {
+            AutomaticBackupEncryptionResult.NoEncryptedSnapshot
+        }
     }
 }
