@@ -69,8 +69,10 @@ data class BackupMergeExcludedCount(val category: BackupMergeExcludedCategory, v
 /**
  * The add-only record selection a merge inserts — not a workout plan. Nothing here replaces or
  * deletes existing data: rows whose identity already exists locally are skipped and counted in
- * [keptLocalSessions]/[keptLocalRows], and [excluded] lists the collections the merge does not
- * carry. The database layer applies this selection in one transaction.
+ * [keptLocalSessions]/[keptLocalRows], in-progress sessions (`endedAtMillis == null`, possible in a
+ * best-effort snapshot) are skipped and counted in [skippedOpenSessions], and [excluded] lists the
+ * collections the merge does not carry. The database layer applies this selection in one
+ * transaction.
  */
 data class BackupMergeSelection(
     val sessionsToInsert: List<BackupWorkoutSessionRecord>,
@@ -85,6 +87,7 @@ data class BackupMergeSelection(
     val customExercisesToInsert: List<BackupExerciseRecord>,
     val keptLocalSessions: Int,
     val keptLocalRows: Int,
+    val skippedOpenSessions: Int,
     val skippedUnattachedSets: Int,
     val setsWithDroppedOccurrenceLinks: Int,
     val excluded: List<BackupMergeExcludedCount>

@@ -7,14 +7,16 @@ package com.hydrafit.app.core.domain.backup
  * deleted. Re-merging the same file therefore adds nothing.
  *
  * Full-graph id remapping (plans, routines, activations, occurrences, equipment profiles, singleton
- * settings) is out of v1 scope and disclosed through [BackupMergeSelection.excluded]. The selection
- * is a pure computation over an already-validated [BackupFile]; the database layer applies it in
- * one transaction.
+ * settings) is out of v1 scope and disclosed through [BackupMergeSelection.excluded]. An in-progress
+ * session (`endedAtMillis == null`, possible in a best-effort automatic snapshot) is skipped whole
+ * and counted, so a merge never creates a phantom open session. The selection is a pure computation
+ * over an already-validated [BackupFile]; the database layer applies it in one transaction.
  */
 object BackupMergePolicy {
 
     fun select(file: BackupFile, local: BackupMergeKeys): BackupMergeSelection {
-        val newSessions = file.workoutSessions.filterNot { it.id in local.sessionIds }
+        val sessionsNotLocal = file.workoutSessions.filterNot { it.id in local.sessionIds }
+        val newSessions = sessionsNotLocal.filter { it.endedAtMillis != null }
         val newSessionIds = newSessions.mapTo(mutableSetOf()) { it.id }
 
         val setsToInsert = file.workoutSets.mapNotNull { set ->
@@ -82,6 +84,7 @@ object BackupMergePolicy {
             customExercisesToInsert = customExercises,
             keptLocalSessions = file.workoutSessions.size - newSessions.size,
             keptLocalRows = keptLocalRows,
+            skippedOpenSessions = sessionsNotLocal.size - newSessions.size,
             skippedUnattachedSets = file.workoutSets.count { it.sessionId == null },
             setsWithDroppedOccurrenceLinks = droppedOccurrenceLinks,
             excluded = excludedCounts(file)

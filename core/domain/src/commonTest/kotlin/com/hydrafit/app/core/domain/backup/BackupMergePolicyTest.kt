@@ -47,6 +47,24 @@ class BackupMergePolicyTest {
     }
 
     @Test
+    fun skipsInProgressSessionsWithoutInserting() {
+        val selection = BackupMergePolicy.select(
+            file(
+                sessions = listOf(session("open", endedAtMillis = null)),
+                sets = listOf(set(sessionId = "open", id = 1L)),
+                sessionNotes = listOf(BackupSessionNoteRecord("open", "n"))
+            ),
+            noLocalKeys()
+        )
+
+        assertEquals(0, selection.sessionsToInsert.size)
+        assertEquals(0, selection.setsToInsert.size)
+        assertEquals(0, selection.sessionNotesToInsert.size)
+        assertEquals(1, selection.skippedOpenSessions)
+        assertTrue(selection.isEmpty)
+    }
+
+    @Test
     fun countsUnattachedLegacySetsWithoutInserting() {
         val selection = BackupMergePolicy.select(
             file(
@@ -236,10 +254,10 @@ private fun file(
     importProvenance = importProvenance
 )
 
-private fun session(id: String) = BackupWorkoutSessionRecord(
+private fun session(id: String, endedAtMillis: Long? = 2L) = BackupWorkoutSessionRecord(
     id = id,
     startedAtMillis = 1L,
-    endedAtMillis = 2L,
+    endedAtMillis = endedAtMillis,
     localEpochDay = 1L,
     occurrenceId = null
 )
