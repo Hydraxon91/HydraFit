@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.backup.BackupFailure
 import com.hydrafit.app.core.domain.backup.BackupFile
 import com.hydrafit.app.core.domain.backup.ExportBackupUseCase
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
+import com.hydrafit.app.core.domain.backup.PreviewMergeUseCase
 import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.transfer.ExportWorkoutHistoryCsvUseCase
@@ -23,13 +24,16 @@ import kotlinx.coroutines.launch
 /**
  * Drives the Settings backup flow: export writes a snapshot to a chosen document, import reads and
  * validates a file into a preview, and restore stages the validated file for the next process start.
- * An export may seal the payload with a user password, and an import of an encrypted envelope holds
- * the ciphertext until the password opens it. A failure from a previous startup apply is surfaced
- * once when the screen opens. Cancellation is rethrown, never reported as an I/O failure.
+ * A valid file is previewed for both a whole-file replacement and an add-only merge, so the user can
+ * choose either action before anything is staged. An export may seal the payload with a user
+ * password, and an import of an encrypted envelope holds the ciphertext until the password opens it.
+ * A failure from a previous startup apply is surfaced once when the screen opens. Cancellation is
+ * rethrown, never reported as an I/O failure.
  */
 class BackupViewModel(
     private val exportBackup: ExportBackupUseCase,
     private val previewBackup: PreviewBackupUseCase,
+    private val previewMerge: PreviewMergeUseCase,
     private val restoreBackup: RestoreBackupUseCase,
     private val fileStore: BackupFileStore,
     private val appVersionProvider: AppVersionProvider,
@@ -113,7 +117,9 @@ class BackupViewModel(
      */
     fun `import`(handle: String) {
         if (_state.value.inProgress) return
-        _state.update { it.copy(inProgress = true, status = null, preview = null) }
+        _state.update {
+            it.copy(inProgress = true, status = null, preview = null, mergePreview = null)
+        }
         viewModelScope.launch {
             try {
                 val text = fileStore.read(handle)
@@ -121,8 +127,10 @@ class BackupViewModel(
                     pendingEncryptedText = text
                     _state.update { it.copy(inProgress = false, unlocking = true) }
                 } else {
+                    val preview = previewBackup(text).toPreview(text)
+                    val mergePreview = previewMerge(text).toPreviewUi()
                     _state.update {
-                        it.copy(inProgress = false, preview = previewBackup(text).toPreview(text))
+                        it.copy(inProgress = false, preview = preview, mergePreview = mergePreview)
                     }
                 }
             } catch (cancellation: CancellationException) {
@@ -147,11 +155,14 @@ class BackupViewModel(
             try {
                 val plain = encryption.unsealWithPassword(text, password.toCharArray())
                 pendingEncryptedText = null
+                val preview = previewBackup(plain).toPreview(plain)
+                val mergePreview = previewMerge(plain).toPreviewUi()
                 _state.update {
                     it.copy(
                         inProgress = false,
                         unlocking = false,
-                        preview = previewBackup(plain).toPreview(plain)
+                        preview = preview,
+                        mergePreview = mergePreview
                     )
                 }
             } catch (cancellation: CancellationException) {
@@ -162,6 +173,8 @@ class BackupViewModel(
                     it.copy(
                         inProgress = false,
                         unlocking = false,
+                        preview = null,
+                        mergePreview = null,
                         status = BackupStatus.Failed(throwable.toFailure())
                     )
                 }
@@ -187,7 +200,46 @@ class BackupViewModel(
                     stagedAtMillis = timeProvider.nowMillis()
                 )
                 _state.update {
-                    it.copy(inProgress = false, preview = null, status = BackupStatus.RestoreStaged)
+                    it.copy(
+                        inProgress = false,
+                        preview = null,
+                        mergePreview = null,
+                        status = BackupStatus.RestoreStaged
+                    )
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
+                _state.update {
+                    it.copy(inProgress = false, status = BackupStatus.Failed(throwable.toFailure()))
+                }
+            }
+        }
+    }
+
+    /**
+     * Stages the previewed file as an add-only merge of its records. A selection that would add
+     * nothing is never staged; the dialog disables this action and reports it as empty.
+     */
+    fun confirmMerge() {
+        val preview = _state.value.preview ?: return
+        val mergePreview = _state.value.mergePreview ?: return
+        if (_state.value.inProgress || mergePreview.isEmpty) return
+        _state.update { it.copy(inProgress = true, status = null) }
+        viewModelScope.launch {
+            try {
+                restoreBackup.stageMerge(
+                    text = preview.pendingText,
+                    appVersion = appVersionProvider.versionName,
+                    stagedAtMillis = timeProvider.nowMillis()
+                )
+                _state.update {
+                    it.copy(
+                        inProgress = false,
+                        preview = null,
+                        mergePreview = null,
+                        status = BackupStatus.MergeStaged
+                    )
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
@@ -200,7 +252,7 @@ class BackupViewModel(
     }
 
     fun cancelPreview() {
-        _state.update { it.copy(preview = null) }
+        _state.update { it.copy(preview = null, mergePreview = null) }
     }
 
     fun dismissStatus() {

@@ -12,6 +12,7 @@ import com.hydrafit.app.core.domain.backup.UnsupportedBackupCrypto
 import com.hydrafit.app.core.domain.backup.UnsupportedBackupEncryptionKeyStore
 import com.hydrafit.app.core.domain.schedule.UnsupportedWorkoutReminderScheduler
 import com.hydrafit.app.core.domain.schedule.WorkoutReminderScheduler
+import com.hydrafit.app.core.domain.storage.StorageUsagePort
 import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.RestAlertScheduler
@@ -29,6 +30,7 @@ import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
 import com.hydrafit.app.core.userdata.settings.IosAppVersionProvider
 import com.hydrafit.app.core.userdata.settings.NoopApiKeyStore
+import com.hydrafit.app.core.userdata.storage.UnsupportedStorageUsagePort
 import com.hydrafit.app.core.userdata.transfer.PrescriptionDocumentStore
 import com.hydrafit.app.core.userdata.transfer.PrescriptionPdfRenderer
 import com.hydrafit.app.core.userdata.transfer.UnsupportedPrescriptionDocumentStore
@@ -66,6 +68,7 @@ fun iosDatabaseModule(): Module = module {
     single<OnDevicePlannerLogger> { NoopOnDevicePlannerLogger }
     single<BackupFileStore> { UnsupportedBackupFileStore() }
     single<BackupFolderStore> { UnsupportedBackupFolderStore() }
+    single<StorageUsagePort> { UnsupportedStorageUsagePort() }
     single<BackupCrypto> { UnsupportedBackupCrypto() }
     single<BackupEncryptionKeyStore> { UnsupportedBackupEncryptionKeyStore() }
     single<AutomaticBackupStateStore> { UnsupportedAutomaticBackupStateStore() }

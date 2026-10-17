@@ -1321,6 +1321,179 @@ scopes and the duration features, and request the single separate approval for
 push → PR → green CI → merge → one `v0.9.3` tag → Release workflow → offline
 artifact verification.
 
+### 0.9.5–0.9.6 — Continuous execution plan
+
+**Status — recorded 2026-10-17 after the accepted pre-flight.** Branch
+`feature/0.9.5-data-management` (from `94f36361`) carries the batch; the assigned
+`0.9.5` and `0.9.6` scopes publish once as `v0.9.5` (the folded `0.9.6` is
+recorded as folded into `0.9.5` at publication). Implementation follows the
+chunk table below under the batch standing defaults (continuous execution, one
+independent review per scope, separate publication approval). The living
+scorecard for the automation tooling used by this batch and its improvement
+backlog is `docs/agent-automation-status.md`, updated at each release boundary.
+
+**0.9.5 status (2026-10-17).** Chunks A–D implemented (`65c8efac`, `54f1edbc`,
+`0904c743`, `68a4b460`, `1c7d51ac`, `600b18d4`) and accepted on `emulator-5554`:
+the additive merge, session-granular idempotence and the unchanged replace path
+were verified in Workout history with a synthetic probe session. The independent
+review returned APPROVED WITH FINDINGS (HF-095-01…06); corrections `3702f61a`
+(kept-local counting, exercise-id keys, off-main identity read) and `4497091b`
+(dropped-link and non-merge setup disclosure) were verified, and targeted
+closure at `4497091b` APPROVED with all six findings closed — snapshot in
+`docs/review-0.9.5-snapshot.md`, evidence in `docs/qa.md`. Final candidate
+`4497091b`: full host suite, `:core:database:verifySqlDelightMigration`, ktlint,
+debug assembly and both iOS compiles green (`integration-gate.log`). Review note:
+a file containing a set with no session is rejected by the pre-existing
+validator before merge selection, so the policy's skipped-unattached counter and
+its line are defense-in-depth and unreachable in the shipping flow. Limits
+carried: the two correction disclosure lines are device-checked in the 0.9.6
+pass, iOS is compile-only, and the encrypted-file merge preview is host-covered.
+0.9.6 implementation follows.
+
+**0.9.6 status (2026-10-17).** Chunks A–D implemented (`0a08c452`, `5127cbb7`,
+`8a8a70d9`, `73da9115`, `6c7f88ca`) and device-accepted on `emulator-5554`: the
+usage display, scoped Workout-history removal (8/24 → 0/0/0, reflected in the
+history browser), the safeguard restore-back to 8/24, the All-app-data typed
+gating (cancelled, never executed), the guarded "Back up now" path and the 0.9.5
+disclosure lines. The independent review returned **REJECTED** for one major
+defect (HF-096-01: the resets deleted the seeded equipment-profile singleton
+without re-creating it, breaking every profile reader) plus five minor/nit
+findings. Correction `882c5bdd` re-creates the seeded profile and state row in
+both resets, discards a staged restore on All app data (HF-096-02) and updates
+the tests; the repaired Training-setup reset was device-verified. Targeted
+closure at `882c5bdd` is recorded in `docs/review-0.9.6-snapshot.md`. Final
+candidate: full host suite, migration verification, ktlint, debug assembly and
+both iOS compiles green (`integration-gate.log`); device evidence in
+`docs/qa.md`. Accepted notes: Workout-history removal keeps import provenance
+(a repeated import of the same file skips; disclosed), snapshot size is a full
+read-back with an unknown fallback, and the Android database file name is a
+duplicated constant. The folded `v0.9.5` publication awaits the single user
+approval.
+
+**Scope and fold:**
+
+| Assigned scope | Included work | Former slice ids |
+| --- | --- | --- |
+| 0.9.5 | Merge restore (OF-01 extension): additive merge of a backup's workout history into the current install | `0.9.10` |
+| 0.9.6 — folded into 0.9.5 | Storage usage and scoped removal/reset controls (QL-02) | `0.9.12` |
+
+#### Approved contracts (user-approved 2026-10-17)
+
+**Merge restore (0.9.5):**
+
+- Additive merge of a backup's recorded history into the current install;
+  nothing existing is modified or deleted. V1 inventory: new workout sessions
+  and their sets (sets inserted with fresh local ids), session notes, body-weight
+  days, personal records, exercise notes/preferences/exclusions/overrides and
+  custom exercises — all insert-if-absent. Excluded from v1 merge: plans/days/
+  entries, routines, activations/occurrences, equipment profiles and singleton
+  settings/schedule (they stay local; full migration remains replace-restore
+  territory). Full-graph id-remapping merge is a separately scoped follow-up.
+- Identity/conflict: sessions match on their TEXT id; a session already present
+  is skipped together with its sets and note (session-granular idempotence —
+  re-merging the same file adds nothing). TEXT-key collisions for other entities
+  keep the local row. Sets without a session are skipped and disclosed.
+- Merged sets drop `occurrenceId`/`occurrenceEntryId` (nulls), disclosed in the
+  preview; session-based fatigue segmentation is unaffected.
+- Apply path: reuse validate → stage → apply-at-next-startup, in one
+  transaction; the staged document carries the merge mode; no schema change.
+- UX: "Merge" alongside "Replace" in the Settings backup section; the preview
+  shows exact added counts, conflicts kept local and the excluded categories;
+  encrypted files reuse the existing unlock flow.
+
+**Storage usage and reset controls (0.9.6, folded into 0.9.5):**
+
+- V1 categories: Workout history; Planning data (accepted plans including
+  explanations, routines, activations, schedule); Body & records (weight, PRs);
+  Training setup (equipment, profile/units/goals, reminders/rest/guidance);
+  Custom exercises & exercise settings; Backup files (documents/ledger; config
+  retained); On-device model (reuses the existing removal); All app data
+  (returns to onboarding). Final coverage and wording are refined in chunk A.
+- Usage display: accurate database file bytes plus exact per-category counts;
+  automatic-backup folder size where the provider reports it, otherwise a
+  labeled estimate; no per-category byte breakdown in v1.
+- Confirmations: preview with counts → two-step confirm per category; typed
+  confirmation for All app data; "Back up now" offered first (always for
+  all-data).
+- Reset semantics: All app data clears user data/settings only — the seeded
+  catalog and app code remain; automatic-backup configuration is retained;
+  external files are untouched unless the Backups category is chosen.
+- Destructive emulator acceptance: safeguard backup → destructive checks on
+  synthetic data → restore the safeguard back, preserving the pre-existing
+  emulator state.
+
+**Recorded design decisions:**
+
+- No schema/`.sqm` change is planned for either scope (merge reuses existing
+  tables and staging; QL-02 reuses existing delete queries). Any becoming
+  necessary stops the run for approval. No dependency, module-graph, secret or
+  CI change is planned. Encryption parameters are unchanged.
+- Exclusions: full-graph merge (id remapping), vendor APIs, new progression
+  policies, iOS runtime support and release-APK installs on the development
+  emulator.
+
+#### Ordered implementation chunks
+
+Serial writers only; no parallel coding is proposed. Owners are stated per
+chunk; before each delegation, capture HEAD and a preserved-work baseline and
+give the AGENTS.md structured brief. Main owns PLANS.md status, `docs/qa.md`
+consolidation, the review snapshots and `docs/agent-automation-status.md`
+updates; coders edit only their assigned feature UI, strings and tests.
+
+| Chunk | Owner | Outcome / acceptance |
+| --- | --- | --- |
+| 0.9.5-A — merge contract & domain policy | Main | Merge inventory/conflict policy, preview and outcome models, failure taxonomy, staging mode as pure domain code with host tests. |
+| 0.9.5-B — database merge + staged apply | Main | Insert-if-absent queries, fresh set ids, one transaction, rollback/failure tests, staging-mode integration; repository-level tests. |
+| 0.9.5-C — Settings merge UI | coder | Merge choice, preview/confirm, outcome/error states, strings; ViewModel tests over settled states. |
+| 0.9.5-D — device journey | ui-runner | Export → mutate → merge (counts, no duplicates, idempotence), replace still works, encrypted-file merge; screenshots viewed. |
+| 0.9.6-A — usage/category model + ports | Main | Category definitions, count queries, database-byte-size port plus actual(s), coverage tests. |
+| 0.9.6-B — scoped delete/reset operations | Main | Ordered atomic deletes with referential integrity, injected-failure tests, model-removal reuse. |
+| 0.9.6-C — Settings storage UI | coder | Usage panel, category explanations, confirmation flows, strings; ViewModel tests. |
+| 0.9.6-D — device journey | ui-runner | Counts displayed, cancel paths, one approved destructive category delete with others intact; safeguard backup/restore around it. |
+
+Likely homes: `core/domain` `backup/` (models, policy, merge plan),
+`core/database` (merge queries/apply, category counts), `core/userdata`
+(byte-size actuals), `feature/settings` (UI, strings), `shared` wiring and the
+Koin verification test; `shared` stays aggregation/wiring only.
+
+#### Verification, review and reporting
+
+Verification tier: **A for both scopes** (backup encoding and destructive
+cross-cutting write paths; no schema or module-graph change is expected). Chunk
+boundaries: affected-module host tests plus ktlint. Each scope's integration
+gate runs the full host suite, `:core:database:verifySqlDelightMigration`,
+`ktlintCheck`, `:androidApp:assembleDebug`, both iOS simulator compiles and the
+changed Koin graph checks, plus bounded emulator acceptance on the debug build
+with screenshots captured and viewed. Unavailable checks are reported, not
+waived.
+
+One independent full-range read-only review per scope (`reviewer`, inherited
+model/variant), then targeted closure under both review guides; snapshots at
+`docs/review-0.9.5-snapshot.md` and `docs/review-0.9.6-snapshot.md`; evidence
+consolidated in `docs/qa.md`; the reviewer remains read-only. Findings are
+classified before any correction, and only localized evidence-backed mechanical
+corrections restoring approved behavior are pre-authorized.
+
+#### Budget, gates and completion boundary
+
+**Accepted execution budget: 5 hours** from the accepted plan: ≈25 min
+pre-flight/contract pass (done), ≈1h50 for 0.9.5 (implementation, verification,
+review), ≈1h40 for 0.9.6, ≈45 min final integration, release-notes draft,
+snapshot consolidation and reporting, ≈20 min contingency. Per-command limits,
+the two-unsuccessful-fixes stop and the ~30-tool-call rule stay in force; the
+budget is not permission to skip checks.
+
+Individually gated operations remain gated: any schema/`.sqm` change,
+dependency, module-graph, secret or CI change stops the run for approval; the
+destructive emulator checks follow the approved safeguard-backup sequence; and
+publication is a separate approval.
+
+End at implemented, verified, independently reviewed and locally committed;
+then report the folded target `v0.9.5`, the final candidate revision, both scope
+verdicts, evidence and limits, the drafted user-facing notes covering both
+scopes, and request the single separate approval for push → PR → green CI →
+merge → one `v0.9.5` tag → Release workflow → offline artifact verification.
+
 ### OF-05 — Local workout CSV imports
 
 **0.9.1 planning update:** the batch contract above supersedes the unresolved policy proposals below

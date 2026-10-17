@@ -11,6 +11,7 @@ import com.hydrafit.app.core.domain.backup.BackupCrypto
 import com.hydrafit.app.core.domain.backup.BackupEncryptionKeyStore
 import com.hydrafit.app.core.domain.backup.BackupFolderStore
 import com.hydrafit.app.core.domain.schedule.WorkoutReminderScheduler
+import com.hydrafit.app.core.domain.storage.StorageUsagePort
 import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.RestAlertScheduler
@@ -31,6 +32,7 @@ import com.hydrafit.app.core.userdata.settings.AndroidAppVersionProvider
 import com.hydrafit.app.core.userdata.settings.AndroidKeystoreApiKeyStore
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
+import com.hydrafit.app.core.userdata.storage.AndroidStorageUsagePort
 import com.hydrafit.app.core.userdata.transfer.AndroidPrescriptionDocumentStore
 import com.hydrafit.app.core.userdata.transfer.AndroidPrescriptionPdfRenderer
 import com.hydrafit.app.core.userdata.transfer.PrescriptionDocumentStore
@@ -96,6 +98,9 @@ fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = modu
     single<OnDevicePlannerLogger> { AndroidOnDevicePlannerLogger() }
     single<BackupFileStore> { AndroidBackupFileStore(context.applicationContext) }
     single<BackupFolderStore> { AndroidBackupFolderStore(context.applicationContext) }
+    single<StorageUsagePort> {
+        AndroidStorageUsagePort(context.applicationContext, get(), get())
+    }
     single<BackupCrypto> { AndroidBackupCrypto() }
     single<BackupEncryptionKeyStore> { AndroidBackupEncryptionKeyStore(context.applicationContext) }
     single<AutomaticBackupStateStore> {

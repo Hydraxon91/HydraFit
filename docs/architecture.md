@@ -587,7 +587,7 @@ Compose `expect`/`actual` APIs where a platform-specific UI or clock is needed.
   `OnDeviceModelSection`, backup UI (`BackupSection`), monotonic elapsed time
   (`elapsedRealtimeMillis`), and rest-alert permission (`rememberRestAlertPermission`) each have
   `commonMain` declarations with Android/iOS implementations. Settings also uses a narrow
-  modifier adapter to expose guidance test tags as Android resource IDs, with a no-op on iOS.
+  modifier adapter to expose guidance and storage test tags as Android resource IDs, with a no-op on iOS.
 - **Consistency:** high; `:core:domain` stays platform-free.
 - **Theme:** the shared app shell follows the system theme using Material3's standard light/dark
   palettes, preserving the default light palette. Android's `enableEdgeToEdge()` follows system
@@ -825,7 +825,12 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   consistent read; explicit-id transactional write), `SqlDelightBackupStagingRepository`
   and `SqlDelightBackupCatalog`; the `:core:userdata` `BackupFileStore` port
   (`AndroidBackupFileStore` SAF implementation, `UnsupportedBackupFileStore` on
-  iOS); the Settings `BackupRoute`/`BackupViewModel`.
+  iOS); the Settings `BackupRoute`/`BackupViewModel`; the storage surface
+  (`StorageDataRoute`/`StorageDataViewModel`, `DataManagementRepository` and
+  `StorageUsagePort` with `SqlDelightDataManagementRepository` in
+  `:core:database`, `StorageUsageUseCase`/`ClearDataCategoryUseCase`/
+  `ClearAutomaticBackupFilesUseCase` in `:core:domain`, and the platform usage
+  port in `:core:userdata`).
 - **Rules:** the file is logical (`format` + `formatVersion` 13), independent of the
   SQLite schema and the app version. Every envelope field is required, so a file
   that omits one is rejected as malformed rather than read as an empty snapshot;

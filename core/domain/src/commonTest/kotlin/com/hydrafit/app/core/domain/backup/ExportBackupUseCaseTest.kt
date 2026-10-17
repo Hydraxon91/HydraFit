@@ -58,6 +58,11 @@ private class FakeBackupRepository(private val file: BackupFile) : BackupReposit
     override suspend fun export(appVersion: String, exportedAtMillis: Long): BackupFile = file
 
     override suspend fun restore(file: BackupFile) = throw UnsupportedOperationException()
+
+    override suspend fun mergeKeys(): BackupMergeKeys = throw UnsupportedOperationException()
+
+    override suspend fun merge(selection: BackupMergeSelection) =
+        throw UnsupportedOperationException()
 }
 
 internal fun emptyBackupFile(): BackupFile = BackupFile(

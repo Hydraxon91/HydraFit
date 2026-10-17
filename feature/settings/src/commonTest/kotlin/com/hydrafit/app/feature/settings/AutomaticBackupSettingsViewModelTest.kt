@@ -16,6 +16,8 @@ import com.hydrafit.app.core.domain.backup.BackupException
 import com.hydrafit.app.core.domain.backup.BackupFailure
 import com.hydrafit.app.core.domain.backup.BackupFile
 import com.hydrafit.app.core.domain.backup.BackupFolderStore
+import com.hydrafit.app.core.domain.backup.BackupMergeKeys
+import com.hydrafit.app.core.domain.backup.BackupMergeSelection
 import com.hydrafit.app.core.domain.backup.BackupRepository
 import com.hydrafit.app.core.domain.backup.BackupRestPreferenceRecord
 import com.hydrafit.app.core.domain.backup.BackupValidator
@@ -625,7 +627,22 @@ private class FakeAutomaticBackupRepository : BackupRepository {
         validBackupFile(appVersion, exportedAtMillis)
 
     override suspend fun restore(file: BackupFile) = Unit
+
+    override suspend fun mergeKeys(): BackupMergeKeys = emptyMergeKeys()
+
+    override suspend fun merge(selection: BackupMergeSelection) = Unit
 }
+
+private fun emptyMergeKeys(): BackupMergeKeys = BackupMergeKeys(
+    sessionIds = emptySet(),
+    bodyWeightDays = emptySet(),
+    personalRecordExerciseIds = emptySet(),
+    customExerciseIds = emptySet(),
+    exerciseOverrideIds = emptySet(),
+    exerciseNoteIds = emptySet(),
+    exercisePreferenceIds = emptySet(),
+    exerciseExclusionIds = emptySet()
+)
 
 private fun emptyBackupCatalog(): BackupCatalog = object : BackupCatalog {
     override fun seedExerciseIds(): Set<String> = emptySet()

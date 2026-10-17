@@ -19,6 +19,8 @@ import com.hydrafit.app.core.domain.backup.BackupExerciseRecord
 import com.hydrafit.app.core.domain.backup.BackupFile
 import com.hydrafit.app.core.domain.backup.BackupImportBucketRecord
 import com.hydrafit.app.core.domain.backup.BackupImportProvenanceRecord
+import com.hydrafit.app.core.domain.backup.BackupMergeKeys
+import com.hydrafit.app.core.domain.backup.BackupMergeSelection
 import com.hydrafit.app.core.domain.backup.BackupOccurrenceEntryRecord
 import com.hydrafit.app.core.domain.backup.BackupOccurrenceRecord
 import com.hydrafit.app.core.domain.backup.BackupPersonalRecordRecord
@@ -563,6 +565,120 @@ class SqlDelightBackupRepository(
 
     override suspend fun restore(file: BackupFile) = gate.mutate {
         restoreLocked(file)
+    }
+
+    /** Reads the live identities for merge selection inside one read transaction. */
+    override suspend fun mergeKeys(): BackupMergeKeys = database.transactionWithResult {
+        BackupMergeKeys(
+            sessionIds = database.workoutSessionQueries.selectAllSessions().executeAsList()
+                .mapTo(mutableSetOf()) { it.id },
+            bodyWeightDays = database.bodyWeightQueries.selectAllMeasurements().executeAsList()
+                .mapTo(mutableSetOf()) { it.localEpochDay },
+            personalRecordExerciseIds = database.personalRecordQueries.selectAll().executeAsList()
+                .mapTo(mutableSetOf()) { it.exerciseId },
+            customExerciseIds = database.exerciseQueries.selectAll().executeAsList()
+                .mapTo(mutableSetOf()) { it.id },
+            exerciseOverrideIds = database.exerciseOverrideQueries.selectAll().executeAsList()
+                .mapTo(mutableSetOf()) { it.exerciseId },
+            exerciseNoteIds = database.exerciseNoteQueries.selectAll().executeAsList()
+                .mapTo(mutableSetOf()) { it.exerciseId },
+            exercisePreferenceIds = database.exercisePreferenceQueries.selectAll().executeAsList()
+                .mapTo(mutableSetOf()) { it.exerciseId },
+            exerciseExclusionIds = database.exerciseExclusionQueries.selectAll().executeAsList()
+                .mapTo(mutableSetOf()) { it.exerciseId }
+        )
+    }
+
+    /** Applies an add-only merge selection in one transaction; nothing existing is modified. */
+    override suspend fun merge(selection: BackupMergeSelection) = gate.mutate {
+        database.transaction {
+            selection.customExercisesToInsert.forEach {
+                database.exerciseQueries.insertCustom(
+                    id = it.id,
+                    name = it.name,
+                    requiredEquipment = it.requiredEquipment,
+                    movementPattern = it.movementPattern,
+                    isUnilateral = if (it.isUnilateral) 1L else 0L,
+                    loadCapability = it.loadCapability,
+                    involvements = it.involvements
+                )
+            }
+            selection.sessionsToInsert.forEach {
+                database.workoutSessionQueries.insertSession(
+                    id = it.id,
+                    startedAtMillis = it.startedAtMillis,
+                    endedAtMillis = it.endedAtMillis,
+                    localEpochDay = it.localEpochDay
+                )
+            }
+            selection.sessionNotesToInsert.forEach {
+                database.sessionNoteQueries.upsert(sessionId = it.sessionId, note = it.note)
+            }
+            selection.setsToInsert.forEach {
+                database.workoutLogQueries.insertSetWithTimingProvenance(
+                    exerciseId = it.exerciseId,
+                    reps = it.reps?.toLong(),
+                    weightKg = it.weightKg,
+                    performedAt = it.performedAtMillis,
+                    isWarmup = if (it.isWarmup) 1L else 0L,
+                    involvements = it.involvements,
+                    weekNumber = it.weekNumber?.toLong(),
+                    cycleNumber = it.cycleNumber?.toLong(),
+                    dayIndex = it.dayIndex?.toLong(),
+                    rir = it.rir?.toLong(),
+                    sessionId = it.sessionId,
+                    loadKind = it.loadKind,
+                    timingProvenance = it.timingProvenance,
+                    startedAtElapsedMillis = it.startedAtElapsedMillis,
+                    completedAtElapsedMillis = it.completedAtElapsedMillis,
+                    durationSeconds = it.durationSeconds?.toLong()
+                )
+            }
+            selection.bodyWeightToInsert.forEach {
+                database.bodyWeightQueries.insertMeasurement(
+                    localEpochDay = it.localEpochDay,
+                    weightKg = it.weightKg
+                )
+            }
+            selection.personalRecordsToInsert.forEach {
+                database.personalRecordQueries.upsert(
+                    exerciseId = it.exerciseId,
+                    weightKg = it.weightKg,
+                    reps = it.reps.toLong(),
+                    updatedAt = it.updatedAt,
+                    loadKind = it.loadKind
+                )
+            }
+            selection.preferencesToInsert.forEach {
+                database.exercisePreferenceQueries.upsert(
+                    exerciseId = it.exerciseId,
+                    preference = it.preference
+                )
+            }
+            selection.exclusionsToInsert.forEach {
+                database.exerciseExclusionQueries.upsert(
+                    exerciseId = it.exerciseId,
+                    expiresAt = it.expiresAt
+                )
+            }
+            selection.exerciseNotesToInsert.forEach {
+                database.exerciseNoteQueries.upsert(
+                    exerciseId = it.exerciseId,
+                    note = it.note
+                )
+            }
+            selection.overridesToInsert.forEach {
+                database.exerciseOverrideQueries.upsert(
+                    exerciseId = it.exerciseId,
+                    name = it.name,
+                    requiredEquipment = it.requiredEquipment,
+                    movementPattern = it.movementPattern,
+                    isUnilateral = it.isUnilateral?.let { v -> if (v) 1L else 0L },
+                    loadCapability = it.loadCapability,
+                    involvements = it.involvements
+                )
+            }
+        }
     }
 
     private fun restoreLocked(file: BackupFile) {

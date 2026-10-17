@@ -153,6 +153,11 @@ internal class StaticBackupRepository(private val file: BackupFile) : BackupRepo
     override suspend fun export(appVersion: String, exportedAtMillis: Long): BackupFile = file
 
     override suspend fun restore(file: BackupFile) = throw UnsupportedOperationException()
+
+    override suspend fun mergeKeys(): BackupMergeKeys = throw UnsupportedOperationException()
+
+    override suspend fun merge(selection: BackupMergeSelection) =
+        throw UnsupportedOperationException()
 }
 
 /** A receiver catalog that knows no seeds, matching the minimal `emptyBackupFile()` payload. */

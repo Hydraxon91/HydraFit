@@ -75,8 +75,36 @@ class RestoreBackupUseCaseTest {
         useCase(BackupJson.encode(current), appVersion = "t", stagedAtMillis = 1L)
 
         assertEquals(1, staging.staged.size)
-        val staged = BackupJson.decode(staging.staged.single().payload)
+        val staged = BackupJson.decode(
+            StagedBackupDocumentJson.decodeOrLegacy(staging.staged.single().payload).payload
+        )
         assertEquals(current.trainingGuidance, staged.trainingGuidance)
+    }
+
+    @Test
+    fun stagesReplaceDocumentWithTheOriginalPayload() = runTest {
+        val staging = RecordingBackupStagingRepository()
+        val useCase = RestoreBackupUseCase(preview, staging)
+        val text = BackupJson.encode(emptyBackupFile())
+
+        useCase(text, appVersion = "t", stagedAtMillis = 1L)
+
+        val document = StagedBackupDocumentJson.decodeOrLegacy(staging.staged.single().payload)
+        assertEquals(BackupApplyMode.REPLACE, document.mode)
+        assertEquals(text, document.payload)
+    }
+
+    @Test
+    fun stagesMergeDocumentWithTheOriginalPayload() = runTest {
+        val staging = RecordingBackupStagingRepository()
+        val useCase = RestoreBackupUseCase(preview, staging)
+        val text = BackupJson.encode(emptyBackupFile())
+
+        useCase.stageMerge(text, appVersion = "t", stagedAtMillis = 1L)
+
+        val document = StagedBackupDocumentJson.decodeOrLegacy(staging.staged.single().payload)
+        assertEquals(BackupApplyMode.MERGE, document.mode)
+        assertEquals(text, document.payload)
     }
 
     @Test
