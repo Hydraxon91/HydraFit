@@ -367,3 +367,40 @@ supported within the declared structural/tooling boundary. This parent-owned
 closure entry follows that review; no source/test changes followed verification.
 Local commit authorized, no push. Live Kotlin cross-module and correction-rate
 claims remain unverified; historical scores unchanged.
+
+## Next-session priorities (2026-10-17)
+
+Requested notes, not an accepted execution contract. Recheck repository state and
+obtain the next bounded contract's approval before implementation or live trials.
+
+1. **Prepare a supervised lease-validation contract.** Exercise `scripts/lease.py`
+   with two competing workers on a disposable resource: exclusive acquisition,
+   bounded contention, wrong-owner release refusal, and interrupted-holder
+   handling without automatic stealing or clearing. Capture actual timing and
+   contention evidence. Any defect needs evidence-backed classification and an
+   approved fix scope. A disposable-resource trial is not proof of concurrent
+   coder/Gradle integration; that requires a separate bounded live-use contract.
+2. **Adopt the new workflows on the next genuine app task.** Use finite-budget
+   batch state, prepared-journey UI preflight and delegation consumer checks where
+   applicable. Do not invent app changes merely to demonstrate the tooling.
+   Measure interruption recovery, handoff drift and correction rounds; retain
+   unknown outcomes and safety/approval gates. Synthetic tests and structural
+   checks are not live adoption or enforcement evidence.
+3. **Measure Git permission prompts explicitly.** Record actual observations for
+   the git-ops helper without widening permissions. The release batch used direct
+   Git; subsequent local commit delegations alone do not establish prompt reduction
+   against a measured baseline. Missing observations remain unknown, not zero.
+4. **Investigate the guard boundary last.** Keep it inactive and a pilot until the
+   model-loop, shell/API, Code Mode, child-session and cancellation boundaries are
+   verified under a separately approved scope. Do not treat it as a general sandbox.
+
+Completed local commits on `tooling/automation-reliability-01`:
+
+- `99b77c32` — bounded execution and durable batch recovery.
+- `cf7472f7` — prepared UI journey preflight.
+- `f4c6caa4` — delegated verification workflow; latest suite: 157 tests passed.
+
+All three received independent approval. At this note's creation they remain
+local/unpushed; push, PR and any later publication require separate approval.
+Historical ratings remain unchanged pending stronger live evidence. This note
+does not authorize the next task or automatically generate another handoff.
