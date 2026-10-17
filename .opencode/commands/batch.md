@@ -20,7 +20,11 @@ a prompt template, not a shell command or permission bypass.
 
 - **Plan:** before any edit, inspect the current plans, source and working-tree
   state, then present one consolidated plan in chat. Per release, in order: scope
-  and former slice ids; owner per chunk; acceptance criteria and verification tier;
+  and former slice ids; an owner per chunk, presented as the planned work split:
+  which chunks the main agent implements, which go to `coder`, which device checks
+  to `ui-runner` and which checkpoints to `reviewer`, each with a one-line
+  rationale so the user can reassign before the first edit; acceptance criteria
+  and verification tier;
   review checkpoint and reviewer; report paths; unresolved decisions with your
   recommendation; individually gated items needing separate approval (schema and
   `.sqm`, module graph, dependencies, secrets, CI); exclusions and stop conditions;
@@ -87,6 +91,16 @@ Apply these standing defaults unless the user explicitly overrides them:
   without further approval), with disjointness evidence, a common baseline and
   Gradle lock, and a stable-tree verification join before Git or review. Release
   dependency order and all publication gates remain unchanged.
+- **UI verification ownership:** before UI acceptance interaction, identify bounded
+  parent-owned exploration and runner-owned prepared journeys, including a concrete
+  exploration time/tool-call budget and handoff condition. Once flows, selectors,
+  assertions and the approved test contract are ready, delegate acceptance execution
+  to `ui-runner` under `docs/agent-ui-verification.md`. Exploration cannot substitute
+  for acceptance. At its limit, report the blocker; fragments, new filenames and
+  delegation do not reset exploration, retry or recovery budgets. Report unavailable
+  delegation or ownership conflicts rather than silently taking over acceptance.
+  Hand off fresh state and prior writes, execute remaining coherent checks without
+  replaying completed writes, and report coverage that cannot safely be obtained.
 - **Verification/review:** verify each implementation chunk, then obtain one
   independent read-only full-range review per release from the separate `reviewer`
   agent, with targeted closure after corrections. Do not override its inherited

@@ -302,3 +302,111 @@ bucket plus each link. `BackupJson` requires each section from its introducing f
 ignoring the key for older versions, matching the both-directions gate used by the note sections.
 Read-only device verification of any of this remains pending; `docs/qa.md` records the host and
 emulator evidence actually gathered.
+
+## Automatic rotating backups (0.9.3)
+
+Opt-in local snapshots: while enabled, a background job exports the same logical backup payload as a
+manual export into a user-picked folder roughly once a day, keeps the seven newest **verified**
+snapshots and prunes older ones only after a newer success. The automation state (folder grant,
+ledger, last outcome) is device-local: it never enters a backup payload, adds no schema or format
+change, and is deliberately not restored onto another device. Manual and automatic flows share the
+`ExportBackupUseCase`/`BackupValidator` acceptance, so a written snapshot is usable by the manual
+import path.
+
+Domain (`core/domain/.../backup/`): `AutomaticBackupPolicy` (`INTERVAL_MILLIS` 24 h,
+`RETAINED_SNAPSHOTS` 7, due check on the last verified success, prune list = verified only,
+oldest-first with a `documentId` tie-break); ports `BackupFolderStore` (`isSupported`,
+`capabilities(handle)`, `create`, `read`, idempotent `delete`; an unavailable folder reports
+`PERMISSION_LOST`/`FOLDER_MISSING`/`UNSUPPORTED_PROVIDER`), `AutomaticBackupStateStore` (`load`, and
+an atomic `update(change)` every writer must use so overlapping writers merge field by field), and
+`AutomaticBackupScheduler` (`schedule`/`cancel`, with an unsupported no-op for iOS). The state
+document is `hydrafit-automatic-backup-state` format v1, encoded by `AutomaticBackupStateJson` with
+strict unknown-field rejection; a corrupt or unknown-version document reads as the disabled default
+— fail-safe, because nothing is ever deleted from a ledger that cannot be read.
+
+`RunAutomaticBackupUseCase` is the single-flight runner (process-lifetime mutex): enabled/due gate,
+reconciliation of earlier unverified writes (read back and re-validate through
+`VerifyBackupSnapshotUseCase`, i.e. strict decode + full `BackupValidator` acceptance), folder
+capability probe, export, `create`, **record the identity before verification** (so an interrupted
+run leaves a settled trail), byte-identical read-back, promote with `lastSuccessMillis` and a
+cleared failure, then prune recorded-and-verified documents beyond retention through idempotent
+deletes (a failed delete counts as `prunePendingCount` and keeps its ledger entry). All state writes
+go through `update`, and the run's own writes apply only while the stored folder still matches the
+one it wrote to, so a disable or folder change landing mid-run is never clobbered and one folder's
+file is never attributed to another folder's ledger. Failures are typed
+(`FOLDER_NOT_CONFIGURED`/`FOLDER_UNAVAILABLE`/`FOLDER_UNSUPPORTED`/`EXPORT_FAILED`/`TOO_LARGE`/
+`WRITE_FAILED`/`WRITE_UNVERIFIED`/`UNKNOWN`; only `WRITE_FAILED` and `UNKNOWN` retry with job
+backoff), stored as the last outcome and surfaced in Settings until the next success; cancellation
+is rethrown and never recorded as a failure.
+
+Selection and toggling: `ConfigureAutomaticBackupFolderUseCase` probes the whole retention contract
+once — capabilities plus a create+delete probe document (`hydrafit-probe.json`; if the provider
+refuses the delete the probe may remain, never recorded, and the folder is refused
+`UNSUPPORTED_PROVIDER`) — and on a different folder resets the ledger while a refusal keeps the
+previous selection. `SetAutomaticBackupsEnabledUseCase` requires a currently usable folder to
+enable, schedules or cancels the job, and disabling keeps every existing file.
+
+Android (`core/userdata` androidMain, `feature/settings`): `AndroidBackupFolderStore` resolves the
+persisted SAF tree grant, queries the folder's flags through the tree **document** URI
+(`buildDocumentUriUsingTree(tree, getTreeDocumentId(tree))` — a bare tree URI is not a document URI
+for provider calls), creates under that document URI, caps reads at `BackupLimits.MAX_BYTES`,
+deletes idempotently (an already-missing document counts as deleted) and removes a partially written
+document after a failed stream; create failures are logged at debug level with the exception
+class/message. `AndroidAutomaticBackupStateStore` persists the state in the
+`hydrafit_automatic_backup` preferences with committed writes under a mutex.
+`AndroidAutomaticBackupScheduler` registers a persisted ~daily `JobScheduler` job (id 4001) that the
+system re-arms after reboot (`RECEIVE_BOOT_COMPLETED`; no boot receiver);
+`AutomaticBackupJobService` waits for `StartupReadiness`, runs the runner off the main thread,
+reports a retry only for retryable kinds and cancels the attempt on a system stop;
+`AutomaticBackupCoordinator` reconciles enabled ⇔ scheduled at app start. iOS binds the unsupported
+stores/scheduler (a load reads as disabled, writes throw) and the coordinator no-ops.
+
+Settings surface: the data-transfer area gains an Automatic backups section — provider-sync
+disclosure, folder picker (Android), enable switch, Back up now, action status, and the persisted
+last-failure line shown whenever no fresher action status is present; copy lives in the
+`settings_automatic_backup_*` strings. Evidence and limits: `docs/qa.md` (0.9.3 device acceptance).
+
+## Encrypted backups (0.9.4)
+
+Portable password-based envelopes around the same logical payload. Envelope format
+`hydrafit-backup-encrypted` v1 is a base64 JSON document (`format`, `envelopeVersion`, `kdf`
+{algorithm, salt, iterations}, `nonce`, `ciphertext`); the ciphertext is AES-256-GCM (128-bit tag)
+over the whole payload under a PBKDF2-HMAC-SHA256 key (600,000 iterations, 32 bytes) derived from
+the password and the per-file random 16-byte salt. `BackupEnvelopeJson` requires every field,
+rejects unknown fields, accepts exactly the recorded algorithm/iterations and salt/nonce sizes,
+rejects an empty ciphertext, and enforces the shared 32 MiB text bound (so the encryptable payload
+is roughly 24 MiB); `isEnvelope` is a cheap prefix check, and the envelope version evolves
+independently of the backup format version. The password is never stored.
+
+`BackupCrypto` is the platform primitive port (`SecureRandom`, PBKDF2, AES-GCM) with an
+`isSupported` flag; `AndroidBackupCrypto` uses the JCE providers only and reports false below
+Android 8.0 (native PBKDF2-HMAC-SHA256), so encrypted flows refuse explicitly instead of
+substituting anything weaker. No third-party crypto is introduced; the userdata host test pins a
+PBKDF2 vector generated by an independent implementation and covers GCM round-trip plus
+wrong-key/tamper rejection.
+
+`BackupEncryption` is the domain facade: `sealWithPassword`/`unsealWithPassword` serve the manual
+flows (fresh random salt per file; wrong password or damage throws ENCRYPTION_FAILED);
+`createUnattendedKey` derives fresh material for the settings; `sealUnattended` seals automatic
+snapshots with material from `BackupEncryptionKeyStore` (missing material throws
+ENCRYPTION_KEY_UNAVAILABLE, never a plaintext fallback); `deriveKeyForStoredFile` authenticates a
+password against a stored file's own salt and returns reusable material without storing it; and
+`verifyStored` reconciles by content — plaintext goes through the strict validator, an envelope is
+opened only when the stored salt matches, and anything unreadable stays unverified. All heavy
+derivation/cipher work hops to a dispatcher.
+
+Unattended material: `AndroidBackupEncryptionKeyStore` stores the derived key plus its salt,
+AES-GCM-wrapped under the dedicated Keystore alias `hydrafit_backup_key` in the
+`hydrafit_backup_secure` preferences — never the password; a corrupt entry or a lost Keystore key
+reads as absent, and `RecoverAutomaticBackupEncryptionUseCase` then re-authenticates the password
+against the newest readable encrypted snapshot (newest-first, within the retention window) before
+storing material again. `EnableAutomaticBackupEncryptionUseCase`/
+`DisableAutomaticBackupEncryptionUseCase` manage the material and the additive
+`AutomaticBackupState.encryptionEnabled` flag (absent in older state v1 documents ⇒ false); iOS
+binds unsupported crypto/key-store stubs and refuses encrypted flows. The runner seals when the
+flag is set (typed ENCRYPTION_KEY_UNAVAILABLE/ENCRYPTION_FAILED failures) and reconciles sealed or
+plain snapshots by content. Settings flows: the manual export dialog offers plain (labeled) or
+encrypted with password + confirmation; importing an envelope prompts for the password before any
+preview; the automatic section carries the encrypt toggle, the set-password dialog, the
+re-enter-password recovery action when the stored material is missing, the Android-8 note and the
+encryption status lines. Evidence and limits: `docs/qa.md` (0.9.4 device acceptance).

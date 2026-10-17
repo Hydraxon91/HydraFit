@@ -5,11 +5,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hydrafit.app.core.domain.backup.BackupFailure
@@ -19,6 +24,8 @@ import hydrafit.feature.settings.generated.resources.settings_backup_confirm
 import hydrafit.feature.settings.generated.resources.settings_backup_description
 import hydrafit.feature.settings.generated.resources.settings_backup_error_catalog_mismatch
 import hydrafit.feature.settings.generated.resources.settings_backup_error_duplicate_id
+import hydrafit.feature.settings.generated.resources.settings_backup_error_encryption_failed
+import hydrafit.feature.settings.generated.resources.settings_backup_error_encryption_key_unavailable
 import hydrafit.feature.settings.generated.resources.settings_backup_error_invalid_reference
 import hydrafit.feature.settings.generated.resources.settings_backup_error_invalid_value
 import hydrafit.feature.settings.generated.resources.settings_backup_error_io
@@ -31,10 +38,13 @@ import hydrafit.feature.settings.generated.resources.settings_backup_error_unsup
 import hydrafit.feature.settings.generated.resources.settings_backup_exported
 import hydrafit.feature.settings.generated.resources.settings_backup_history_csv_description
 import hydrafit.feature.settings.generated.resources.settings_backup_history_csv_exported
+import hydrafit.feature.settings.generated.resources.settings_backup_password
 import hydrafit.feature.settings.generated.resources.settings_backup_preview_body
 import hydrafit.feature.settings.generated.resources.settings_backup_preview_title
 import hydrafit.feature.settings.generated.resources.settings_backup_restored
 import hydrafit.feature.settings.generated.resources.settings_backup_section
+import hydrafit.feature.settings.generated.resources.settings_backup_unlock
+import hydrafit.feature.settings.generated.resources.settings_backup_unlock_title
 import hydrafit.feature.settings.generated.resources.settings_backup_unsupported
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -109,6 +119,37 @@ fun BackupRoute(modifier: Modifier = Modifier, viewModel: BackupViewModel = koin
             }
         )
     }
+
+    if (state.unlocking) {
+        var unlockPassword by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = viewModel::cancelUnlock,
+            title = { Text(stringResource(Res.string.settings_backup_unlock_title)) },
+            text = {
+                OutlinedTextField(
+                    value = unlockPassword,
+                    onValueChange = { unlockPassword = it },
+                    label = { Text(stringResource(Res.string.settings_backup_password)) },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { viewModel.unlockImport(unlockPassword) },
+                    enabled = unlockPassword.isNotEmpty() && !state.inProgress
+                ) {
+                    Text(stringResource(Res.string.settings_backup_unlock))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::cancelUnlock) {
+                    Text(stringResource(Res.string.settings_backup_cancel))
+                }
+            }
+        )
+    }
 }
 
 private fun BackupFailure.messageResource(): StringResource = when (this) {
@@ -122,5 +163,9 @@ private fun BackupFailure.messageResource(): StringResource = when (this) {
     BackupFailure.DUPLICATE_ID -> Res.string.settings_backup_error_duplicate_id
     BackupFailure.INVALID_REFERENCE -> Res.string.settings_backup_error_invalid_reference
     BackupFailure.INVALID_VALUE -> Res.string.settings_backup_error_invalid_value
+    BackupFailure.ENCRYPTION_FAILED -> Res.string.settings_backup_error_encryption_failed
+    BackupFailure.ENCRYPTION_KEY_UNAVAILABLE ->
+        Res.string.settings_backup_error_encryption_key_unavailable
+
     BackupFailure.IO -> Res.string.settings_backup_error_io
 }

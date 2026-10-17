@@ -8,7 +8,7 @@ import androidx.compose.ui.Modifier
 actual fun BackupSection(
     isSupported: Boolean,
     busy: Boolean,
-    onExportTo: (String) -> Unit,
+    onExportTo: (handle: String, encrypted: Boolean, password: String?) -> Unit,
     onExportCsvTo: (String) -> Unit,
     onImportFrom: (String) -> Unit,
     modifier: Modifier

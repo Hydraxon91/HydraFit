@@ -2,16 +2,32 @@ package com.hydrafit.app
 
 import com.hydrafit.app.core.database.DatabaseDriverFactory
 import com.hydrafit.app.core.database.databaseModule
+import com.hydrafit.app.core.domain.backup.AutomaticBackupScheduler
+import com.hydrafit.app.core.domain.backup.AutomaticBackupStateStore
 import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT
 import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT_VERSION
 import com.hydrafit.app.core.domain.backup.BackupApplyError
 import com.hydrafit.app.core.domain.backup.BackupCatalog
 import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
+import com.hydrafit.app.core.domain.backup.BackupCrypto
+import com.hydrafit.app.core.domain.backup.BackupEncryption
+import com.hydrafit.app.core.domain.backup.BackupEncryptionKeyStore
 import com.hydrafit.app.core.domain.backup.BackupFile
+import com.hydrafit.app.core.domain.backup.BackupFolderStore
 import com.hydrafit.app.core.domain.backup.BackupRepository
 import com.hydrafit.app.core.domain.backup.BackupRestPreferenceRecord
 import com.hydrafit.app.core.domain.backup.BackupStagingRepository
+import com.hydrafit.app.core.domain.backup.ConfigureAutomaticBackupFolderUseCase
+import com.hydrafit.app.core.domain.backup.DisableAutomaticBackupEncryptionUseCase
+import com.hydrafit.app.core.domain.backup.EnableAutomaticBackupEncryptionUseCase
 import com.hydrafit.app.core.domain.backup.PendingBackup
+import com.hydrafit.app.core.domain.backup.RecoverAutomaticBackupEncryptionUseCase
+import com.hydrafit.app.core.domain.backup.RunAutomaticBackupUseCase
+import com.hydrafit.app.core.domain.backup.SetAutomaticBackupsEnabledUseCase
+import com.hydrafit.app.core.domain.backup.UnsupportedAutomaticBackupScheduler
+import com.hydrafit.app.core.domain.backup.UnsupportedBackupCrypto
+import com.hydrafit.app.core.domain.backup.UnsupportedBackupEncryptionKeyStore
+import com.hydrafit.app.core.domain.backup.VerifyBackupSnapshotUseCase
 import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.BuildPlannerLoadInputsUseCase
@@ -142,7 +158,9 @@ import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.network.GeminiWorkoutPlannerEngine
 import com.hydrafit.app.core.userdata.backup.BackupFileStore
+import com.hydrafit.app.core.userdata.backup.UnsupportedAutomaticBackupStateStore
 import com.hydrafit.app.core.userdata.backup.UnsupportedBackupFileStore
+import com.hydrafit.app.core.userdata.backup.UnsupportedBackupFolderStore
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentProfileRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
@@ -183,6 +201,7 @@ import com.hydrafit.app.feature.routines.RoutinesViewModel
 import com.hydrafit.app.feature.routines.WorkoutReminderCoordinator
 import com.hydrafit.app.feature.routines.routinesModule
 import com.hydrafit.app.feature.settings.AcknowledgmentsViewModel
+import com.hydrafit.app.feature.settings.AutomaticBackupSettingsViewModel
 import com.hydrafit.app.feature.settings.BackupViewModel
 import com.hydrafit.app.feature.settings.SettingsViewModel
 import com.hydrafit.app.feature.settings.TrainingGuidanceSettingsViewModel
@@ -252,6 +271,11 @@ class KoinModulesVerificationTest {
         single<OnDeviceTextGenerator> { FakeOnDeviceTextGenerator }
         single<OnDevicePlannerLogger> { NoopOnDevicePlannerLogger }
         single<BackupFileStore> { UnsupportedBackupFileStore() }
+        single<BackupFolderStore> { UnsupportedBackupFolderStore() }
+        single<AutomaticBackupStateStore> { UnsupportedAutomaticBackupStateStore() }
+        single<AutomaticBackupScheduler> { UnsupportedAutomaticBackupScheduler() }
+        single<BackupCrypto> { UnsupportedBackupCrypto() }
+        single<BackupEncryptionKeyStore> { UnsupportedBackupEncryptionKeyStore() }
         single<PrescriptionDocumentStore> { UnsupportedPrescriptionDocumentStore() }
         single<PrescriptionPdfRenderer> { UnsupportedPrescriptionPdfRenderer() }
         single<RestAlertScheduler> { UnsupportedRestAlertScheduler() }
@@ -290,6 +314,12 @@ class KoinModulesVerificationTest {
             extraTypes = listOf(
                 DatabaseDriverFactory::class,
                 GeminiWorkoutPlannerEngine::class,
+                // Automatic-backup ports are bound by the platform modules.
+                AutomaticBackupScheduler::class,
+                AutomaticBackupStateStore::class,
+                BackupCrypto::class,
+                BackupEncryptionKeyStore::class,
+                BackupFolderStore::class,
                 // The onboarding ViewModels default their dispatcher; verify still checks the type.
                 CoroutineDispatcher::class
             )
@@ -319,6 +349,8 @@ class KoinModulesVerificationTest {
                     single<RoutineTemplateRepository> { FakeRoutineTemplateRepository }
                     single<WorkoutScheduleRepository> { FakeWorkoutScheduleRepository }
                     single<SessionNoteRepository> { FakeSessionNoteRepository }
+                    single<BackupCatalog> { FakeBackupCatalog }
+                    single<BackupRepository> { FakeBackupRepository }
                 },
                 domainModule,
                 testPlatformModule
@@ -328,6 +360,14 @@ class KoinModulesVerificationTest {
         try {
             assertNotNull(koin.get<BuildPlannerLoadInputsUseCase>())
             assertNotNull(koin.get<DeterministicWorkoutPlannerEngine>())
+            assertNotNull(koin.get<VerifyBackupSnapshotUseCase>())
+            assertNotNull(koin.get<RunAutomaticBackupUseCase>())
+            assertNotNull(koin.get<ConfigureAutomaticBackupFolderUseCase>())
+            assertNotNull(koin.get<SetAutomaticBackupsEnabledUseCase>())
+            assertNotNull(koin.get<BackupEncryption>())
+            assertNotNull(koin.get<EnableAutomaticBackupEncryptionUseCase>())
+            assertNotNull(koin.get<DisableAutomaticBackupEncryptionUseCase>())
+            assertNotNull(koin.get<RecoverAutomaticBackupEncryptionUseCase>())
             assertNotNull(koin.get<WeeklyPlanSanitizer>())
             assertNotNull(koin.get<ObserveWorkoutPlanInputsUseCase>())
             assertNotNull(koin.get<AcceptWeeklyPlanUseCase>())
@@ -574,6 +614,34 @@ class KoinModulesVerificationTest {
 
         try {
             assertNotNull(koin.get<BackupViewModel>())
+        } finally {
+            koin.close()
+        }
+    }
+
+    /**
+     * The automatic-backup ViewModel is a lambda `viewModel { }` over the automation use cases and
+     * the platform ports (folder/state/scheduler fakes in [testPlatformModule]); resolving it proves
+     * the constructor `get()` chain, including the fail-soft unsupported state store.
+     */
+    @Test
+    fun theAutomaticBackupSettingsViewModelResolvesAtRuntime() {
+        // Reads viewModelScope on init: install the test Main dispatcher before resolving it.
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        val koin = koinApplication {
+            modules(
+                module {
+                    single<BackupRepository> { FakeBackupRepository }
+                    single<BackupCatalog> { FakeBackupCatalog }
+                },
+                domainModule,
+                settingsModule,
+                testPlatformModule
+            )
+        }.koin
+
+        try {
+            assertNotNull(koin.get<AutomaticBackupSettingsViewModel>())
         } finally {
             koin.close()
         }
