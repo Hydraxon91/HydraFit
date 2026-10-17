@@ -7,6 +7,60 @@ Paths below are relative to the repository root.
 
 ## Visual Verification
 
+### Prepared-journey preflight
+
+Before handing a prepared acceptance journey to the runner, validate an external
+version-1 JSON contract with `scripts/ui-journey-preflight.py`:
+
+```sh
+python3 -B scripts/ui-journey-preflight.py <contract.json> --max-age-seconds <accepted-baseline-age>
+```
+
+Use an explicitly accepted positive maximum baseline age, in seconds. JSON output
+`preflight_clear` and exit 0 mean declarations passed, not approval or device-state
+verification. Exit 2 lists findings; 125 reports invalid input/I/O (argument-parser
+errors use 2). Never execute the journey after a failed preflight.
+
+Required fields:
+- `version`: 1; `device`: exact running emulator serial; `build`: debug build identity.
+- `starting_state`, `approval_reference`, `allowed_interactions`, `prior_writes`,
+  `safeguard`, `cleanup`, `restoration`, `screenshot_checkpoints`: nonempty strings;
+  explicitly say `none` when inapplicable, not when a safeguard is required.
+- `baseline`: `observed_at` (Unix seconds), `artifact` and nonempty `facts` object.
+  An artifact is `{ "path": "/absolute/path", "sha256": "hex digest" }`.
+- `fixture_expectations`: nonempty facts object agreeing with the baseline facts
+  used to author assertions, e.g. `{"sessions":8,"sets":24}`. The validator
+  compares declarations, not the artifact's arbitrary content or YAML assertions.
+- `flows`: nonempty artifact list pinning the prepared files' bytes.
+- `budgets`: positive `exploration` and `execution` seconds. Existing per-flow
+  caps and shared retry limits remain applicable, regardless of declared totals.
+- `planned_writes` and `unknown_writes`: explicit string lists (empty when none).
+  Unknown writes prohibit planned writes; inspection-only reconciliation remains
+  possible under the existing one-inspection and stop rules.
+- `assertions`: nonempty objects with `kind: "durable"`, `expected` and
+  `downstream_check`. Describe actual postconditions, not removal toasts.
+- `destructive_categories`: explicit list, empty for unrelated journeys. Each
+  has a unique `name`, `reason`, and `coverage` of `execution-planned`,
+  `gating-only`, or `unverified`. Execution-planned entries also need a `write`
+  present in planned_writes, `authorization_reference`, `safeguard`, `recovery`,
+  and `postcondition`. Planned execution is never a completed result.
+
+Include every destructive category in the accepted acceptance scope; list skipped
+ones honestly. Execution requires actual user authorization, verified safeguards
+and downstream restoration checks. No blanket permission to reset all app data.
+For disabled controls use observed container semantics, not the text child's
+enabled value; screenshots supplement semantic evidence. SAF legs must establish
+visible rows using bounded scrolling. Dialog test tags require Android-specific
+exposure; adding them remains a separate app change with iOS compile coverage.
+
+The parent owns contract/flow authoring, baseline observation, approved mutation
+scope and selector diagnosis. The runner requires a successful preflight and then
+fresh starting-state confirmation within the same budget before any write. Drift
+returns to the parent; do not adjust counts, replay prior writes or regenerate
+evidence to obtain a pass. Hashes do not authenticate approval, freeze a device,
+parse YAML, discover omitted categories, or prove fixture facts. This helper is
+read-only and performs no ADB/Maestro calls or artifact uploads.
+
 - For approved Compose UI design or implementation, load
   `.opencode/skills/hydrafit-ui-quality/SKILL.md` alongside AGENTS.md. For
   user-facing copy, living documentation, or code comments, load

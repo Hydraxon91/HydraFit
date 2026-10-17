@@ -206,3 +206,201 @@ boundaries.
   0.9.6 notes and limits on the same date.
 - 2026-10-17 — v0.9.5 published: merge, tag, release workflow and offline artifact
   verification recorded; batch closed.
+
+## Automation reliability task 01 (2026-10-17)
+
+Accepted scope: durable finite-budget batch state and bounded-run hardening,
+branch `tooling/automation-reliability-01`, base `47b82e0b`. Main-agent
+implementation; independent review before local commits; no publication.
+The earlier scorecard and batch entries remain historical evidence, not rewritten
+claims about this task.
+
+- **AR-01 [confirmed, mechanical]:** bounded-run escalated only while the group
+  leader was alive. A leader exiting on SIGTERM could leave a descendant that
+  ignored SIGTERM without SIGKILL escalation. Cleanup now probes the group and
+  bounds the final wait; regression verification pending.
+- **AR-02 [accepted integration decision]:** batch state was unused by the release
+  run. The command now specifies the existing cooperative state protocol and a
+  read-only evidence boundary. This is not enforced tool interception. Finite
+  expiry stops new work; an unqualified run-to-completion instruction is not an
+  extension. Unlimited-budget representation remains unsupported, explicitly
+  reported rather than silently mapped to a finite budget.
+- **Measurement correction:** the 0.9.5–0.9.6 batch used direct Git, so the Git
+  permission-fix datapoint remains unmeasured. Nothing in this task validates the
+  guard, lease contention, or UI acceptance improvements. No rating changes yet.
+
+### Task 01 boundary: implemented and verified, review pending
+
+- Offline command: `python3 -B -m unittest discover -s scripts/tests -p 'test_*.py' -v`
+  through bounded-run; **136 tests passed**, 30.130 seconds. External evidence:
+  `automation-reliability-01/suite-01.log` and `suite-01.json` under the agreed
+  OpenCode temporary root; wrapper exit 0, termination confirmed.
+- The real SIGKILL journey used a disposable repository and a worker that appended
+  once before acknowledgement. Resume retained the pending outcome, refused new
+  work, and fresh inspection resolved it without replay. Baseline and history
+  prefix were preserved; the sentinel remained exactly once.
+- New regressions cover surviving descendants, wrapper SIGINT/SIGTERM, bounded
+  uncertain cleanup, fresh JSON results and persistence failure, and read-only
+  revision/current-tree evidence boundaries. Validator: 13 definitions and 30
+  surface files, **0 findings**.
+- No live release batch has yet used the new protocol. The process-kill test is
+  supervised synthetic evidence, not an app interruption or an enforcement test.
+  Independent review and local commits pending; scores remain unchanged.
+
+### Task 01 independent review: corrections required
+
+Full-range reviewer verdict **REJECTED** on the nine-file implementation after
+the 136-test pass. Findings are confirmed by source tracing:
+
+- **AR-R01 (major, mechanical):** cleanup diagnostic writes could fail before
+  signalling, leaving a live group and misleading `not-started` termination.
+- **AR-R02 (minor, mechanical):** SIGINT/SIGTERM arriving during timeout cleanup
+  was latched but not reflected in the final exit/result.
+
+Main-agent corrections are covered by the accepted contract: source and regression
+tests in bounded-run, result-field documentation and this append-only record.
+Required verification: failures at both cleanup diagnostic points with a resistant
+descendant, both signals during cleanup, the full offline suite and validator,
+then targeted independent closure. No new full-range review or rating increase.
+
+### Task 01 closure: approved for local commit
+
+- Corrected verification: **138 offline tests passed**, 30.875 seconds
+  (`automation-reliability-01/suite-02.log` and `suite-02.json` under the agreed
+  external temporary root). Four subcases inject diagnostic write/flush failure
+  before TERM/KILL with a resistant descendant; both SIGINT and SIGTERM during
+  timeout cleanup retain interruption status. The prior SIGKILL/no-replay journey
+  passed again. Validator: 13 definitions/30 surface files, zero findings;
+  whitespace check clean.
+- Independent targeted closure **APPROVED**, reviewer session
+  `ses_eb464ea5dffeYhOPSxNMmr8x7l`: AR-R01 and AR-R02 closed, no required findings
+  remaining. Reviewed base `47b82e0b`, working-tree diff SHA-256
+  `55fe040a5ed99c92f2e0b7162334b2fdb689c7b9fba69c1b9e84da85d512ad31`.
+  Original rejection is retained above. This closure entry is subsequent
+  parent-owned evidence consolidation, not a new reviewer verdict.
+- AC1–AC9 are supported by the inspected implementation, offline tests and
+  supervised synthetic kill journey. Batch integration remains cooperative;
+  required evidence labels and their artifacts still need operator inspection.
+  No runtime guard, unlimited-budget encoding, process-escape containment or
+  automatic recovery was added.
+- Ratings remain at the historical scorecard pending real finite-budget batch
+  adoption and repeated interruption evidence. Lease contention, Git permission
+  prompt reduction and UI-acceptance improvements remain separate backlog work.
+  Local commit is authorized; push/publication is not.
+
+## UI preflight task 02 (2026-10-17)
+
+Accepted next chunk at base `99b77c32`, same tooling branch, main-agent ownership,
+three-hour cap; independent review before local commits; no emulator or publication.
+External state: `automation-ui-preflight-02` under the agreed OpenCode temp root.
+
+- **UI-P01:** F-06/F-11 fixture errors motivate timestamped, hashed baseline
+  evidence and explicitly matching fixture expectations before handoff.
+- **UI-P02:** F-14 motivates category-by-category planned/gating-only/unverified
+  coverage, with authorization, safeguard and recovery declarations for destructive
+  execution. The validator cannot discover an omitted category or authorize resets.
+- **UI-P03:** F-08/F-10/F-12/F-13 reuse semantic-container, platform-tag,
+  durable-postcondition and picker-scroll guidance; app changes remain excluded.
+  The helper does not parse arbitrary YAML or prove device state. Verification and
+  independent review pending; historical ratings unchanged.
+
+### UI task 02 verification and review corrections
+
+Initial suite: 148 tests passed in 31.420 seconds, wrapper exit 0/termination
+confirmed; validator 13 definitions/30 surface files, zero findings.
+Independent full-range review **REJECTED**, session
+`ses_eb4580cb9ffei0aZZQ76TpiQHe`, two confirmed minor mechanical findings:
+UI-PREF-001 conflated JSON booleans with numbers in fixture equality (including
+nested values); UI-PREF-002 made preflight unconditional in runner instructions
+despite the inspection-only exception. Main-agent corrections add recursive
+type-aware comparison with numeric int/float equivalence and qualify the runner
+requirement; source/test/instruction regressions and targeted closure required.
+No device interaction or rating change.
+
+### UI task 02 closure: approved
+
+Corrected suite: **150 tests passed**, 31.492 seconds, with actual artifacts
+`automation-ui-preflight-02/suite-02.log` and `suite-02.json` under the agreed
+external root. Validator raw output is captured in `validator.log/json`:
+13 definitions, 30 surface files, zero findings, wrapper exit 0/termination confirmed.
+Targeted reviewer closure initially reported INCOMPLETE for the missing raw
+validator artifact; after supplying it, final targeted closure **APPROVED** in
+session `ses_eb4580cb9ffei0aZZQ76TpiQHe`. Both UI-PREF findings are closed with
+no remaining required findings or evidence gaps. Original verdicts are preserved.
+All nine acceptance criteria have implementation/synthetic evidence; no live UI
+adoption was attempted. Existing scorecard ratings remain unchanged. No emulator,
+app data, permissions, models, dependencies or CI configuration changed.
+
+## Delegation-quality task 03 (2026-10-17)
+
+Accepted scope: F-01/F-05/F-09 delegation workflow, base `cf7472f7`, same tooling
+branch, two-hour cap. Coder owns four implementation/test/reference paths; parent
+owns this status record. No app, emulator, permissions/model, dependency, CI or
+publication changes. External evidence/state: `automation-delegation-03` under
+the agreed OpenCode temporary root.
+
+- Source-backed style guidance replaces the unsupported universal 100-character
+  assertion; lint-first order and explicit producer/consumer/check maps are now
+  declared, including constructor/dispatcher scheduler/clock checks.
+- Validator checks coder-section structure only, not runtime compliance or the
+  correctness of a supplied consumer map. Missing sections/tokens have regressions.
+- Supervised coder journey: four approved paths modified, no crossing edits.
+  One mechanical/authoring correction round fixed newly authored test assertions
+  and an inconsistent plural-token fixture. Initial failed log retained; no
+  reported product/tool failures or budget overruns. Child estimated 12 minutes
+  of its 40-minute cap; timing is an estimate, not an automated metric.
+- `coder-01-suite-02.log/json`: **157 tests passed**, 31.652 seconds, wrapper
+  exit 0/termination confirmed. `coder-01-validator.log/json`: 13 definitions,
+  30 surface files, zero findings. Whitespace check clean. Independent review
+  pending. This proves a tooling delegation, not live Kotlin/Gradle cross-module
+  verification or a measured reduction against the batch correction baseline.
+  Ratings unchanged.
+
+### Delegation task 03 closure
+
+Independent full-range review **APPROVED**, session
+`ses_eb44c8866ffecSQPOjPy6jPoSq`, base `cf7472f7`, five declared dirty paths;
+no required findings or design decisions. Reviewer inspected actual source,
+consumer tests/configuration and the 157-test/zero-findings artifacts. No further
+implementation correction was required. All seven contract criteria are
+supported within the declared structural/tooling boundary. This parent-owned
+closure entry follows that review; no source/test changes followed verification.
+Local commit authorized, no push. Live Kotlin cross-module and correction-rate
+claims remain unverified; historical scores unchanged.
+
+## Next-session priorities (2026-10-17)
+
+Requested notes, not an accepted execution contract. Recheck repository state and
+obtain the next bounded contract's approval before implementation or live trials.
+
+1. **Prepare a supervised lease-validation contract.** Exercise `scripts/lease.py`
+   with two competing workers on a disposable resource: exclusive acquisition,
+   bounded contention, wrong-owner release refusal, and interrupted-holder
+   handling without automatic stealing or clearing. Capture actual timing and
+   contention evidence. Any defect needs evidence-backed classification and an
+   approved fix scope. A disposable-resource trial is not proof of concurrent
+   coder/Gradle integration; that requires a separate bounded live-use contract.
+2. **Adopt the new workflows on the next genuine app task.** Use finite-budget
+   batch state, prepared-journey UI preflight and delegation consumer checks where
+   applicable. Do not invent app changes merely to demonstrate the tooling.
+   Measure interruption recovery, handoff drift and correction rounds; retain
+   unknown outcomes and safety/approval gates. Synthetic tests and structural
+   checks are not live adoption or enforcement evidence.
+3. **Measure Git permission prompts explicitly.** Record actual observations for
+   the git-ops helper without widening permissions. The release batch used direct
+   Git; subsequent local commit delegations alone do not establish prompt reduction
+   against a measured baseline. Missing observations remain unknown, not zero.
+4. **Investigate the guard boundary last.** Keep it inactive and a pilot until the
+   model-loop, shell/API, Code Mode, child-session and cancellation boundaries are
+   verified under a separately approved scope. Do not treat it as a general sandbox.
+
+Completed local commits on `tooling/automation-reliability-01`:
+
+- `99b77c32` — bounded execution and durable batch recovery.
+- `cf7472f7` — prepared UI journey preflight.
+- `f4c6caa4` — delegated verification workflow; latest suite: 157 tests passed.
+
+All three received independent approval. At this note's creation they remain
+local/unpushed; push, PR and any later publication require separate approval.
+Historical ratings remain unchanged pending stronger live evidence. This note
+does not authorize the next task or automatically generate another handoff.

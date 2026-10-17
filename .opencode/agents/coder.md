@@ -184,3 +184,28 @@ parent. The reviewer performs targeted closure checks under the bounded review
 discipline, in Plan mode for ordinary reviews or at the pre-requested task/batch
 checkpoint. Do not start an automatic review/fix loop, issue your own closure
 verdict, or treat review approval as commit/push authorization.
+
+### Coder workflow
+
+Follow this order for every approved chunk; the brief supplies the chunk-specific
+paths, style sources and checks.
+
+- **Style sources:** before authoring Kotlin, read the affected module's
+  `.editorconfig` and a nearby existing file in the same package, and follow the
+  repository's ktlint configuration. `.editorconfig` sets
+  `ktlint_code_style = android_studio` and no explicit maximum line length, so do
+  not assume a universal 100-character limit; cite the source of any style
+  constraint the brief states.
+- **Lint first:** for Kotlin changes, run the affected module's ktlint before the
+  heavier test task so style failures fail fast, then run the module host tests.
+  This adds no Gradle tasks: agent-tooling-only changes (Python, docs) use the
+  offline validator and unittest commands instead. If a lint or test check is
+  unavailable or not applicable, report that rather than implying it ran.
+- **Consumer map:** for each changed API, trace producer → consumers → checks and
+  verify the affected consumers, including their tests. If an API has no consumer
+  or check, justify that in the report instead of omitting the map. For a changed
+  constructor or dispatcher, inspect the affected tests for scheduler/clock
+  consistency and run those checks before reporting closure.
+- **Structured report:** classify each correction round (mechanical, product,
+  tool or budget) and record elapsed and remaining budget; stop at the brief's
+  caps rather than extending silently.

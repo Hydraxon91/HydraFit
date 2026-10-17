@@ -53,6 +53,22 @@ REQUIRED_KEYS = {
 }
 VALID_EFFECTS = ("allow", "deny", "ask")
 
+# Required structure of the coder workflow section in .opencode/agents/coder.md.
+CODER_WORKFLOW_HEADING = "### Coder workflow"
+CODER_WORKFLOW_STEPS = ("Style sources", "Lint first", "Consumer map", "Structured report")
+CODER_WORKFLOW_TOKENS = (
+    "android_studio",
+    "no explicit maximum line length",
+    "ktlint before",
+    "no Gradle tasks",
+    "producer",
+    "consumers",
+    "scheduler/clock",
+    "elapsed",
+    "remaining",
+    "correction round",
+)
+
 TOP_LEVEL_KEY_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(.*)$")
 PERMISSION_RULE_RE = re.compile(r"^\s*-\s+([A-Za-z_]+)\s*:\s*(.*)$")
 PERMISSION_FIELD_RE = re.compile(r"^\s+([A-Za-z_]+)\s*:\s*(.*)$")
@@ -217,6 +233,43 @@ def reference_findings(root: pathlib.Path, path: pathlib.Path) -> list[str]:
     return findings
 
 
+def batch_state_findings(root: pathlib.Path) -> list[str]:
+    """Check the declared protocol's structure, not runtime compliance or prose semantics."""
+    path = root / ".opencode/commands/batch.md"
+    if not path.exists():
+        return []  # Small fixture/tooling trees need not provide the batch command.
+    body = path.read_text()
+    heading = "### Durable batch state"
+    if heading not in body:
+        return [f"{path}: missing durable batch state section"]
+    section = re.split(r"\n#{1,3} ", body.split(heading, 1)[1], maxsplit=1)[0]
+    labels = ("Initialize", "Attempt", "Resume", "Boundary", "Review", "Budget stop", "Publication")
+    findings = [f"{path}: durable state missing lifecycle step {label}"
+                for label in labels if f"- **{label}:**" not in section]
+    for token in ("scripts/task-state.py", "`begin`", "`resolve`", "`resume`", "`checkpoint`",
+                  "`evidence`", "boundary --expect", "--require-evidence"):
+        if token not in section:
+            findings.append(f"{path}: durable state missing protocol reference {token}")
+    return findings
+
+
+def coder_workflow_findings(root: pathlib.Path) -> list[str]:
+    """Check the coder workflow section's structure, not runtime brief compliance."""
+    path = root / ".opencode/agents/coder.md"
+    if not path.exists():
+        return []  # Small fixture/tooling trees need not provide the coder agent.
+    body = path.read_text()
+    if CODER_WORKFLOW_HEADING not in body:
+        return [f"{path}: missing coder workflow section"]
+    section = re.split(r"\n#{1,3} ", body.split(CODER_WORKFLOW_HEADING, 1)[1], maxsplit=1)[0]
+    findings = [f"{path}: coder workflow missing step {step}"
+                for step in CODER_WORKFLOW_STEPS if f"- **{step}:**" not in section]
+    for token in CODER_WORKFLOW_TOKENS:
+        if token not in section:
+            findings.append(f"{path}: coder workflow missing protocol reference {token}")
+    return findings
+
+
 def main(argv: list[str] | None = None) -> int:
     arguments = sys.argv[1:] if argv is None else argv
     root = pathlib.Path(arguments[0]).resolve() if arguments else ROOT
@@ -227,6 +280,8 @@ def main(argv: list[str] | None = None) -> int:
     surface = surface_files(root)
     for path in surface:
         findings.extend(reference_findings(root, path))
+    findings.extend(batch_state_findings(root))
+    findings.extend(coder_workflow_findings(root))
     for finding in findings:
         print(finding)
     print(

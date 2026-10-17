@@ -82,6 +82,51 @@ sequencing, folding and publication remain batch-specific.
 
 ## Standing defaults
 
+### Durable batch state
+
+This is a cooperative protocol, not tool interception or an execution sandbox.
+The command is a prompt template; the validator checks its structure, not runtime
+compliance. Never infer approval or an independent review verdict from a record.
+
+- **Initialize:** after acceptance and before implementation, initialize
+  `scripts/task-state.py` with the accepted contract, exact allowed paths,
+  approval reference, owner, baseline and finite budget. Select an external state
+  directory, record it and the task id in chat, and retain the original baseline.
+  See `docs/agent-project-reference.md` Durable task state for command examples.
+  An accepted unlimited budget is not currently representable by this helper;
+  stop and resolve that contract mismatch rather than inventing a finite cap.
+- **Attempt:** before a side effect, persist a unique `begin`; afterward use
+  `resolve` with the observed outcome and evidence. One attempt can describe one
+  bounded implementation chunk or delegated journey, but must not conceal an
+  unknown intermediate write. Do not wrap state bookkeeping in recursive attempts.
+  Use a new attempt for verification, corrections and Git mutations.
+- **Resume:** run the read-only `resume` report after interruption. Pending means
+  unknown, not failed: inspect the actual outcome without replay, resolve from
+  evidence, and explicitly `checkpoint` inspected drift. Neither resume nor
+  checkpoint runs commands, restores files, replaces the baseline or grants approval.
+- **Boundary:** before the next chunk, reconcile and checkpoint intended changes,
+  record `evidence` for the required checks, then run `boundary --expect <revision>`
+  with a repeated `--require-evidence <description>` for every required check.
+  Inspect exit status and JSON; exit 0 is a clear bookkeeping report, not permission.
+  Missing state, stale revisions, pending outcomes, drift, out-of-scope paths,
+  blocked/complete phases, expired budgets and missing/current-tree evidence stop
+  continuation. Evidence references must be inspected, not trusted by label.
+- **Review:** at each release boundary, include independent reviewer closure in
+  the required evidence descriptions. Record its actual verdict and reviewed tree;
+  a phase label is not closure. Record verification and findings at every chunk
+  boundary, without rewriting historical entries.
+- **Budget stop:** a finite accepted budget is a hard stop for new work;
+  "continue until finished" is not an extension. After expiry, read-only inspection,
+  outcome reconciliation, necessary safety cleanup and blocked reporting remain
+  allowed. No reset/extension API is provided. A separately accepted extension
+  contract must preserve prior usage and unknown outcomes; do not initialize a
+  replacement record to bypass expiry.
+- **Publication:** record readiness and the exact candidate/approval scope; retain
+  the separate user approval gate. After approval, record unique attempts and
+  evidence for the authorized publication operations. Approval text in a state
+  record is audit context only. Record completion only after required evidence
+  and outcomes are reconciled; terminal records cannot admit more work.
+
 Apply these standing defaults unless the user explicitly overrides them:
 
 - **Scope:** use the named releases in order and their existing approved plans,

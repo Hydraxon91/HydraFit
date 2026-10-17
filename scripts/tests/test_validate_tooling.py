@@ -35,6 +35,26 @@ permissions:
 Body text.
 """
 
+VALID_CODER_WORKFLOW = """---
+description: Implements a bounded chunk
+mode: subagent
+permissions:
+  - action: read
+    resource: "*"
+    effect: allow
+---
+
+Intro text.
+
+### Coder workflow
+
+- **Style sources:** follow `.editorconfig` with `ktlint_code_style = android_studio`
+  and no explicit maximum line length.
+- **Lint first:** run ktlint before the heavier test task; agent tooling adds no Gradle tasks.
+- **Consumer map:** trace producer to consumers and their tests; check scheduler/clock.
+- **Structured report:** classify each correction round and record elapsed and remaining.
+"""
+
 
 def write(root: pathlib.Path, relative: str, text: str) -> pathlib.Path:
     path = root / relative
@@ -180,7 +200,77 @@ class ReferenceTests(unittest.TestCase):
         self.assertEqual([], vt.reference_findings(root, agents))
 
 
+class CoderWorkflowTests(unittest.TestCase):
+    def _root_with_coder(self, body: str) -> pathlib.Path:
+        root = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(root))
+        write(root, ".opencode/agents/coder.md", body)
+        return root
+
+    def test_complete_coder_workflow_passes(self):
+        root = self._root_with_coder(VALID_CODER_WORKFLOW)
+        self.assertEqual([], vt.coder_workflow_findings(root))
+
+    def test_absent_coder_agent_is_not_a_finding(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual([], vt.coder_workflow_findings(pathlib.Path(tmp)))
+
+    def test_missing_section_is_reported(self):
+        root = self._root_with_coder(VALID_CODER_WORKFLOW.replace("### Coder workflow", "### Notes"))
+        self.assertIn("missing coder workflow section", vt.coder_workflow_findings(root)[0])
+
+    def test_each_required_step_removal_is_reported(self):
+        for step in vt.CODER_WORKFLOW_STEPS:
+            with self.subTest(step=step):
+                body = VALID_CODER_WORKFLOW.replace(f"- **{step}:**", f"- **Omitted {step}:**")
+                root = self._root_with_coder(body)
+                self.assertTrue(any(f"step {step}" in item for item in vt.coder_workflow_findings(root)))
+
+    def test_each_required_token_removal_is_reported(self):
+        for token in vt.CODER_WORKFLOW_TOKENS:
+            with self.subTest(token=token):
+                root = self._root_with_coder(VALID_CODER_WORKFLOW.replace(token, ""))
+                self.assertTrue(
+                    any(f"missing protocol reference {token}" in item
+                        for item in vt.coder_workflow_findings(root))
+                )
+
+    def test_no_consumer_justification_is_declaration_only(self):
+        # Structural coverage, not runtime compliance: a brief that justifies an
+        # absent consumer and one that simply omits the justification both pass as
+        # long as the required labels and protocol tokens are present.
+        justified = VALID_CODER_WORKFLOW.replace(
+            "trace producer to consumers and their tests; check scheduler/clock.",
+            "no consumers or checks exist; producer-side only; scheduler/clock N/A.",
+        )
+        self.assertEqual([], vt.coder_workflow_findings(self._root_with_coder(justified)))
+        self.assertEqual([], vt.coder_workflow_findings(self._root_with_coder(VALID_CODER_WORKFLOW)))
+
+
 class MainTests(unittest.TestCase):
+    def test_batch_lifecycle_structure_and_missing_steps_are_checked(self):
+        source = MODULE_PATH.parents[1] / ".opencode/commands/batch.md"
+        body = source.read_text()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            path = write(root, ".opencode/commands/batch.md", body)
+            self.assertEqual([], vt.batch_state_findings(root))
+            for label in ("Initialize", "Attempt", "Resume", "Boundary", "Review", "Budget stop", "Publication"):
+                with self.subTest(label=label):
+                    path.write_text(body.replace(f"- **{label}:**", f"- **Omitted {label}:**"))
+                    self.assertTrue(any(f"step {label}" in item for item in vt.batch_state_findings(root)))
+            path.write_text(body.replace("boundary --expect", "boundary without revision"))
+            self.assertTrue(any("boundary --expect" in item for item in vt.batch_state_findings(root)))
+            path.write_text(body.replace("### Durable batch state", "### Removed section"))
+            self.assertIn("missing durable batch state section", vt.batch_state_findings(root)[0])
+
+    def test_main_rejects_batch_without_state_protocol(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write(root, ".opencode/commands/batch.md", "---\ndescription: batch\n---\nNo protocol\n")
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(1, vt.main([str(root)]))
+
     def test_main_passes_a_clean_tree(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
@@ -198,6 +288,16 @@ class MainTests(unittest.TestCase):
             with contextlib.redirect_stdout(output):
                 self.assertEqual(1, vt.main([str(root)]))
             self.assertIn("dangling reference", output.getvalue())
+
+    def test_main_reports_missing_coder_workflow_section(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write(root, "AGENTS.md", "text\n")
+            write(root, ".opencode/agents/coder.md", VALID_AGENT)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(1, vt.main([str(root)]))
+            self.assertIn("missing coder workflow section", output.getvalue())
 
 
 if __name__ == "__main__":
