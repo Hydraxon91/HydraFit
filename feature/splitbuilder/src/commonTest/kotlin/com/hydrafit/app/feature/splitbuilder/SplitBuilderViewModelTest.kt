@@ -1073,6 +1073,264 @@ class SplitBuilderViewModelTest {
             )
         }
 
+    @Test
+    fun confirmedPlanDatesReachTheRequestAndDecayPerDate() = runTest(dispatcher) {
+        val requests = mutableListOf<PlanRequest>()
+        val workoutLog = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = recordingEngine(requests),
+            workoutLogRepository = workoutLog
+        )
+        advanceUntilIdle()
+        assertTrue(requests.last().workoutEpochDays.isEmpty())
+        assertTrue(requests.last().fatigueByWorkout.isEmpty())
+
+        workoutLog.setLoggedSets(
+            List(12) {
+                LoggedSet(
+                    timestampMillis = 0L,
+                    targets = listOf(
+                        MuscleTarget(MuscleGroup.QUADS, MuscleInvolvement.PRIMARY.volumeWeight)
+                    ),
+                    isWarmup = false
+                )
+            }
+        )
+        advanceUntilIdle()
+
+        viewModel.onPlanningDatesRequested()
+        viewModel.onPlanningDatesConfirmed()
+        advanceUntilIdle()
+        // Confirming dates never replaces the displayed plan: Regenerate stays the explicit step.
+        assertTrue(viewModel.state.value.canRegenerate)
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        // Today is epoch day 0 for the fake clock: today plus the next three chosen weekdays.
+        val request = requests.last()
+        assertEquals(listOf(0L, 4L, 5L, 6L), request.workoutEpochDays)
+        assertEquals(request.workoutEpochDays, viewModel.state.value.draftDates)
+        val perDate = request.fatigueByWorkout
+        assertEquals(request.workoutEpochDays.size, perDate.size)
+        assertTrue(perDate.first().getValue(MuscleGroup.QUADS) >= 0.65)
+        assertTrue(
+            perDate.last().getValue(MuscleGroup.QUADS) <
+                perDate.first().getValue(MuscleGroup.QUADS)
+        )
+    }
+
+    @Test
+    fun shiftingThePlanWeekUnlocksRegenerationWithoutReplacingThePlan() = runTest(dispatcher) {
+        val requests = mutableListOf<PlanRequest>()
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = recordingEngine(requests)
+        )
+        advanceUntilIdle()
+        val draft = assertNotNull(viewModel.state.value.plan)
+        assertFalse(viewModel.state.value.canRegenerate)
+        val generated = requests.size
+
+        viewModel.onPlanningDatesRequested()
+        viewModel.onPlanningDatesShiftedOneWeek()
+        viewModel.onPlanningDatesConfirmed()
+        advanceUntilIdle()
+
+        assertEquals(draft, viewModel.state.value.plan)
+        assertEquals(generated, requests.size)
+        assertTrue(viewModel.state.value.canRegenerate)
+        assertTrue(viewModel.state.value.draftContextStale)
+
+        viewModel.refresh()
+        advanceUntilIdle()
+        assertFalse(viewModel.state.value.draftContextStale)
+        assertEquals(listOf(7L, 11L, 12L, 13L), requests.last().workoutEpochDays)
+
+        viewModel.onAcceptPlan()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.isPlanAccepted)
+    }
+
+    @Test
+    fun aStaleDraftCannotBeAcceptedUntilItIsRegenerated() = runTest(dispatcher) {
+        val requests = mutableListOf<PlanRequest>()
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = recordingEngine(requests)
+        )
+        advanceUntilIdle()
+        assertFalse(viewModel.state.value.draftContextStale)
+
+        viewModel.onPlanningDatesRequested()
+        viewModel.onPlanningDatesConfirmed()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.draftContextStale)
+
+        viewModel.onAcceptPlan()
+        advanceUntilIdle()
+        assertFalse(viewModel.state.value.isPlanAccepted)
+
+        viewModel.refresh()
+        advanceUntilIdle()
+        assertFalse(viewModel.state.value.draftContextStale)
+        viewModel.onAcceptPlan()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.isPlanAccepted)
+    }
+
+    @Test
+    fun dateChangesPreserveAFrozenAcceptedPlanUntilExplicitRegeneration() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        history.accept(acceptedPlan().copy(id = 1L))
+        val requests = mutableListOf<PlanRequest>()
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = recordingEngine(requests),
+            // The stored accepted plan has one day, so the frequency preference matches it.
+            preference = FakeEnginePreferenceRepository(
+                PlannerEngineId.DETERMINISTIC,
+                storedDaysPerWeek = 1
+            ),
+            planHistory = history
+        )
+        advanceUntilIdle()
+        val shown = assertNotNull(viewModel.state.value.plan)
+        assertTrue(viewModel.state.value.isPlanAccepted)
+        assertEquals(0, requests.size)
+
+        viewModel.onPlanningDatesRequested()
+        viewModel.onPlanningDatesConfirmed()
+        advanceUntilIdle()
+        viewModel.refreshContext()
+        advanceUntilIdle()
+
+        assertEquals(shown, viewModel.state.value.plan)
+        assertTrue(viewModel.state.value.isPlanAccepted)
+        assertEquals(0, requests.size)
+        assertTrue(viewModel.state.value.canRegenerate)
+        // A persisted plan never claims the dates now in force as its own.
+        assertNull(viewModel.state.value.draftDates)
+        assertFalse(viewModel.state.value.draftContextStale)
+    }
+
+    @Test
+    fun unknownPlanDatesKeepTheUndatedPlanningBehavior() = runTest(dispatcher) {
+        val requests = mutableListOf<PlanRequest>()
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = recordingEngine(requests)
+        )
+        advanceUntilIdle()
+        assertTrue(requests.last().workoutEpochDays.isEmpty())
+        assertFalse(viewModel.state.value.planningDatesRejected)
+        assertFalse(viewModel.state.value.draftContextStale)
+
+        // A frequency change with unknown dates keeps regenerating immediately, as before.
+        val generated = requests.size
+        viewModel.onDaysPerWeekSelected(5)
+        advanceUntilIdle()
+        assertTrue(requests.size > generated)
+        assertTrue(requests.last().workoutEpochDays.isEmpty())
+
+        viewModel.onPlanningDatesRequested()
+        viewModel.onPlanningDatesConfirmed()
+        advanceUntilIdle()
+        viewModel.onPlanningDatesCleared()
+        advanceUntilIdle()
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertTrue(requests.last().workoutEpochDays.isEmpty())
+        assertEquals(PlanningDatesState(), viewModel.state.value.planningDates)
+    }
+
+    @Test
+    fun aFrequencyChangeThatInvalidatesTheDatesCancelsAnInFlightGeneration() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        var calls = 0
+        val engine = object : WorkoutPlannerEngine {
+            override val id = PlannerEngineId.DETERMINISTIC
+            override suspend fun generatePlan(request: PlanRequest): WeeklyPlan {
+                calls++
+                if (calls > 1) gate.await()
+                return DeterministicWorkoutPlannerEngine(FakeExerciseCatalog())
+                    .generatePlan(request)
+            }
+        }
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = engine
+        )
+        advanceUntilIdle()
+        viewModel.onPlanningDatesRequested()
+        viewModel.onPlanningDatesConfirmed()
+        advanceUntilIdle()
+
+        viewModel.refresh()
+        runCurrent()
+        assertTrue(viewModel.state.value.isLoading)
+        val inFlight = calls
+
+        // Five days per week no longer matches the four confirmed dates, so they are dropped and
+        // the in-flight generation planned for them is cancelled rather than shown.
+        viewModel.onDaysPerWeekSelected(5)
+        runCurrent()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(inFlight, calls)
+        assertNull(viewModel.state.value.plan)
+        assertFalse(viewModel.state.value.isLoading)
+        assertTrue(viewModel.state.value.canRegenerate)
+        assertTrue(viewModel.state.value.planningDatesRejected)
+    }
+
+    @Test
+    fun theScheduleDialogIsSeededFromThePlanDatesAndRefusesAnotherBlockSchedule() =
+        runTest(dispatcher) {
+            val requests = mutableListOf<PlanRequest>()
+            val history = FakePlanHistoryRepository()
+            val viewModel = viewModel(
+                availableEquipment = setOf(EquipmentTag.DUMBBELL),
+                engine = recordingEngine(requests),
+                planHistory = history
+            )
+            advanceUntilIdle()
+            viewModel.onPlanningDatesRequested()
+            viewModel.onPlanningDatesConfirmed()
+            advanceUntilIdle()
+            viewModel.refresh()
+            advanceUntilIdle()
+            val dates = assertNotNull(viewModel.state.value.draftDates)
+
+            viewModel.onScheduleRequested()
+            val dialog = assertNotNull(viewModel.state.value.scheduleDialog)
+            assertEquals(dates, dialog.preview.filterNotNull())
+            assertEquals(dates.size, dialog.weekdays.size)
+
+            // A block on other dates would claim a date context this draft was never planned for.
+            viewModel.onScheduleStartDateChosen(20L)
+            viewModel.onConfirmSchedule()
+            advanceUntilIdle()
+
+            assertEquals("dates", viewModel.state.value.scheduleDialog?.error)
+            assertFalse(viewModel.state.value.isPlanAccepted)
+            assertNull(history.latest())
+        }
+
+    private fun recordingEngine(requests: MutableList<PlanRequest>): WorkoutPlannerEngine =
+        object : WorkoutPlannerEngine {
+            override val id: PlannerEngineId = PlannerEngineId.DETERMINISTIC
+
+            override suspend fun generatePlan(request: PlanRequest): WeeklyPlan {
+                requests += request
+                val planner = DeterministicWorkoutPlannerEngine(FakeExerciseCatalog())
+                return planner.generatePlan(request)
+            }
+        }
+
     private fun viewModel(
         availableEquipment: Set<EquipmentTag>,
         engine: WorkoutPlannerEngine? = null,

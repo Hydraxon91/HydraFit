@@ -48,5 +48,18 @@ data class PlanRequest(
      * [BuildPlannerLoadInputsUseCase]. Inert data: engines record it on their output explanations
      * and it never affects selection or prescription.
      */
-    val loadExplanations: Map<String, LoadOriginExplanation> = emptyMap()
-)
+    val loadExplanations: Map<String, LoadOriginExplanation> = emptyMap(),
+    /** Confirmed civil dates in workout order; empty preserves the undated planning behavior. */
+    val workoutEpochDays: List<Long> = emptyList(),
+    /** Recorded-history decay only, calculated at each date; no hypothetical training is added. */
+    val fatigueByWorkout: List<Map<MuscleGroup, Double>> = emptyList()
+) {
+    init {
+        require(workoutEpochDays.isEmpty() || workoutEpochDays.size == daysPerWeek)
+        require(fatigueByWorkout.size == workoutEpochDays.size)
+        require(workoutEpochDays.zipWithNext().all { (first, second) -> first < second })
+    }
+
+    fun fatigueForWorkout(dayIndex: Int): Map<MuscleGroup, Double> =
+        fatigueByWorkout.getOrNull(dayIndex) ?: muscleFatigue
+}

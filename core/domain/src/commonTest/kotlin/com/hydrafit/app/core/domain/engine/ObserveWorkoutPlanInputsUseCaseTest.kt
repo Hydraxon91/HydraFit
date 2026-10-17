@@ -6,8 +6,11 @@ import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
+import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.fatigue.MuscleTarget
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.Test
@@ -670,6 +673,154 @@ class ObserveWorkoutPlanInputsUseCaseTest {
             request.recentExerciseIdsByPattern[MovementPattern.HORIZONTAL_PUSH]
         )
         assertTrue(request.recentExerciseIdsByPattern.keys.none { !it.isCompound })
+    }
+
+    @Test
+    fun projectsRecordedHistoryDecayAtEachConfirmedDate() = runTest {
+        val millisPerDay = 24L * 60L * 60L * 1000L
+        val now = 3L * millisPerDay
+        val sets = listOf(
+            LoggedSet(
+                timestampMillis = now,
+                targets = listOf(MuscleTarget(MuscleGroup.QUADS, 1.0)),
+                isWarmup = false
+            )
+        )
+        val today = localEpochDay(now, 0L)
+        val useCase = useCase(
+            sources = FakeWorkoutPlanSourcesRepository(
+                WorkoutPlanSources(
+                    availableEquipment = setOf(EquipmentTag.BARBELL),
+                    selectedEngine = PlannerEngineId.DETERMINISTIC,
+                    daysPerWeek = 2,
+                    loggedSets = sets
+                )
+            ),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { now },
+            planHistoryRepository = FakePlanHistoryRepository()
+        )
+
+        val request = useCase(workoutEpochDays = flowOf(listOf(today, today + 3))).first().request
+
+        assertEquals(listOf(today, today + 3), request.workoutEpochDays)
+        assertEquals(2, request.fatigueByWorkout.size)
+        // Each date projects the same recorded sets forward; no planned workout in between adds work.
+        val calculator = CalculateMuscleFatigueUseCase()
+        assertEquals(calculator(sets, now), request.fatigueByWorkout[0])
+        assertEquals(calculator(sets, now + 3 * millisPerDay), request.fatigueByWorkout[1])
+        assertTrue(
+            request.fatigueByWorkout[0].getValue(MuscleGroup.QUADS) >
+                request.fatigueByWorkout[1].getValue(MuscleGroup.QUADS)
+        )
+    }
+
+    @Test
+    fun projectsEachDateAtTheSameClockTimeUsingTheCurrentUtcOffset() = runTest {
+        val millisPerDay = 24L * 60L * 60L * 1000L
+        val utcOffsetMillis = 2L * 60L * 60L * 1000L
+        // 23:00 UTC is already the next local day at UTC+2, so "today" comes from the offset.
+        val now = 2L * millisPerDay + 23L * 60L * 60L * 1000L
+        val sets = listOf(
+            LoggedSet(
+                timestampMillis = now - millisPerDay,
+                targets = listOf(MuscleTarget(MuscleGroup.QUADS, 1.0)),
+                isWarmup = false
+            )
+        )
+        val today = localEpochDay(now, utcOffsetMillis)
+        assertEquals(3L, today)
+        val useCase = useCase(
+            sources = FakeWorkoutPlanSourcesRepository(
+                WorkoutPlanSources(
+                    availableEquipment = setOf(EquipmentTag.BARBELL),
+                    selectedEngine = PlannerEngineId.DETERMINISTIC,
+                    daysPerWeek = 2,
+                    loggedSets = sets
+                )
+            ),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = object : TimeProvider {
+                override fun nowMillis(): Long = now
+                override fun utcOffsetMillis(): Long = utcOffsetMillis
+            },
+            planHistoryRepository = FakePlanHistoryRepository()
+        )
+
+        val request = useCase(workoutEpochDays = flowOf(listOf(today, today + 2))).first().request
+
+        val calculator = CalculateMuscleFatigueUseCase()
+        assertEquals(calculator(sets, now), request.fatigueByWorkout[0])
+        assertEquals(calculator(sets, now + 2 * millisPerDay), request.fatigueByWorkout[1])
+    }
+
+    @Test
+    fun excludesSetsRecordedAfterNowFromThePerDateProjection() = runTest {
+        val millisPerDay = 24L * 60L * 60L * 1000L
+        val now = 2L * millisPerDay
+        val today = localEpochDay(now, 0L)
+        val recorded = LoggedSet(
+            timestampMillis = now - millisPerDay,
+            targets = listOf(MuscleTarget(MuscleGroup.QUADS, 1.0)),
+            isWarmup = false
+        )
+        val future = LoggedSet(
+            timestampMillis = now + millisPerDay,
+            targets = listOf(MuscleTarget(MuscleGroup.CHEST_UPPER, 1.0)),
+            isWarmup = false
+        )
+        val useCase = useCase(
+            sources = FakeWorkoutPlanSourcesRepository(
+                WorkoutPlanSources(
+                    availableEquipment = setOf(EquipmentTag.BARBELL),
+                    selectedEngine = PlannerEngineId.DETERMINISTIC,
+                    daysPerWeek = 2,
+                    loggedSets = listOf(recorded, future)
+                )
+            ),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { now },
+            planHistoryRepository = FakePlanHistoryRepository()
+        )
+
+        val request = useCase(workoutEpochDays = flowOf(listOf(today, today + 2))).first().request
+
+        // A set recorded after now never contributes to a projected date.
+        assertEquals(0.0, request.fatigueByWorkout[0].getValue(MuscleGroup.CHEST_UPPER))
+        assertEquals(0.0, request.fatigueByWorkout[1].getValue(MuscleGroup.CHEST_UPPER))
+        assertTrue(request.fatigueByWorkout[0].getValue(MuscleGroup.QUADS) > 0.0)
+    }
+
+    @Test
+    fun fallsBackToUnknownDatesWhenTheConfirmedSetIsUnusable() = runTest {
+        val now = 0L
+        val today = localEpochDay(now, 0L)
+        val useCase = useCase(
+            sources = FakeWorkoutPlanSourcesRepository(
+                WorkoutPlanSources(
+                    availableEquipment = setOf(EquipmentTag.BARBELL),
+                    selectedEngine = PlannerEngineId.DETERMINISTIC,
+                    daysPerWeek = 2,
+                    loggedSets = emptyList()
+                )
+            ),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { now },
+            planHistoryRepository = FakePlanHistoryRepository()
+        )
+        suspend fun requestFor(dates: List<Long>) =
+            useCase(workoutEpochDays = flowOf(dates)).first().request
+
+        // Too few dates for the frequency, a repeat instead of an increase, and a past date.
+        assertTrue(requestFor(listOf(today)).workoutEpochDays.isEmpty())
+        assertTrue(requestFor(listOf(today, today)).workoutEpochDays.isEmpty())
+        assertTrue(requestFor(listOf(today - 1, today)).workoutEpochDays.isEmpty())
+        assertTrue(requestFor(listOf(today)).fatigueByWorkout.isEmpty())
+        // A usable set is kept as confirmed.
+        assertEquals(
+            listOf(today, today + 1),
+            requestFor(listOf(today, today + 1)).workoutEpochDays
+        )
     }
 
     private fun useCase(
