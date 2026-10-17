@@ -20,7 +20,11 @@ a prompt template, not a shell command or permission bypass.
 
 - **Plan:** before any edit, inspect the current plans, source and working-tree
   state, then present one consolidated plan in chat. Per release, in order: scope
-  and former slice ids; owner per chunk; acceptance criteria and verification tier;
+  and former slice ids; an owner per chunk, presented as the planned work split:
+  which chunks the main agent implements, which go to `coder`, which device checks
+  to `ui-runner` and which checkpoints to `reviewer`, each with a one-line
+  rationale so the user can reassign before the first edit; acceptance criteria
+  and verification tier;
   review checkpoint and reviewer; report paths; unresolved decisions with your
   recommendation; individually gated items needing separate approval (schema and
   `.sqm`, module graph, dependencies, secrets, CI); exclusions and stop conditions;
