@@ -34,6 +34,19 @@ grant no permission beyond the standing AGENTS.md gates.
   metric), permission prompts observed, retry/correction counts, review
   findings by classification, and budget adherence.
 
+## Batch autonomy target (user requirement, 2026-10-17)
+
+The run must continue **without stopping until `0.9.6` is finished** — every
+chunk of both folded scopes implemented, verified, independently reviewed and
+committed — and stop only for a standing stop condition (a design decision, a
+missing approval/permission, unexpected writes, unsafe data effects,
+unavailable required verification, unresolved required findings after the
+permitted corrections, an exhausted budget or the two-attempt builder limit).
+Routine progress check-ins are not stop points; the only planned pause is the
+single publication approval after both scopes are complete. Measured as **user
+interventions** per boundary; the target is zero between batch start and the
+publication gate. Any stop records which condition triggered it.
+
 ## Live log
 
 | Date / boundary | Evidence | Rating deltas / notes |
@@ -42,6 +55,7 @@ grant no permission beyond the standing AGENTS.md gates.
 | 2026-10-17, 0.9.5-A complete | Batch docs committed (`8913d9f1`, `d147bf3f`); merge selection policy + host tests committed `65c8efac`. New suite 7/7 green; `:core:domain` tests + ktlint green. 3 fix rounds (2 ktlint style, 1 test-assertion authoring error); 4 bounded runs (13–48 s, all terminated cleanly). | No rating changes yet — `run-bounded` and the validator gained further clean live runs. Zero permission prompts and zero verification interventions needed so far. |
 | 2026-10-17, in-flight (0.9.5-B) | Chunk B (database merge + staged apply) analysis; chunk A correction rounds; findings F-01…F-04 below | No rating changes. `run-bounded` and the validator remain clean in live use. |
 | 2026-10-17, 0.9.5-B complete | Staged-mode wrapper + merge dispatch committed `0904c743`; database `mergeKeys`/`merge` with additivity and rollback tests committed `68a4b460`; `core:domain` + `core:database` suites and ktlint green; 6 bounded runs total, all terminated cleanly (13–48 s). | No rating changes. Pending cross-module test-double stubs (feature/settings ×2, shared ×1) with the UI/DI chunk; tracked so they land before the integration gate. |
+| 2026-10-17, autonomy target recorded | User requires continuous execution to `0.9.6` completion with no routine check-ins; see the new section above | Target: zero user interventions until the single publication gate; any stop must name its condition. |
 
 ### In-batch findings log
 
@@ -109,3 +123,6 @@ boundaries.
   log added (F-01…F-04).
 - 2026-10-17 — chunk 0.9.5-B complete (staged apply mode + database merge);
   live-log row and F-05 recorded.
+- 2026-10-17 — user requirement recorded: run continuously until `0.9.6` is
+  finished; only standing stop conditions pause the run. Added the batch
+  autonomy target section and a live-log row.
