@@ -113,6 +113,15 @@ actual fun AutomaticBackupSection(
                 style = MaterialTheme.typography.bodySmall
             )
         }
+        // A scheduled run's failure stays stored until the next verified success clears it, so it
+        // belongs on screen whenever no fresher action status is shown.
+        val lastFailure = state.lastFailure
+        if (state.status == null && lastFailure != null) {
+            Text(
+                text = stringResource(lastFailure.messageResource()),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
     }
 }
 
