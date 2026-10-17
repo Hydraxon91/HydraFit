@@ -19,6 +19,7 @@
 | 0.9.1–0.9.2 — workout imports, prescription interchange and exports | **PUBLISHED** 2026-10-16 as `v0.9.1` at `cc703db4` (PR #21; Release run `38902923752`) — folded; the `:shared` Main-dispatcher flake is fixed on `main` | Single publication target `v0.9.1`; assigned scope `0.9.2` folds into `0.9.1`. See [batch plan](#091092--continuous-execution-plan). 0.9.1 landed on `feature/0.9.1-data-freedom` (`a568764f`…`ca9b19ce`): parsing, preview, transactional ledger, backup format 15 and the Settings import UI, with 2,152 host tests green, migration verification, ktlint, debug assembly, both iOS compiles and one bounded read-only emulator check; review APPROVED WITH FINDINGS, corrected, closure `docs/review-0.9.1-snapshot.md`. 0.9.2 landed on the same branch (`a296fa4b`…`f7ab7d0d`): prescription document/export, routine-import preview with a transactional append (no schema change), the binary document port with the Android PDF renderer, and the Routines/Split Builder/Settings surfaces; review REJECTED on F2-01/F2-02, corrected and closed at `df9bb92d` (`docs/review-0.9.2-snapshot.md`), nits `f7ab7d0d`. Final matrix 2,202 host tests in 246 classes with 0 failures, migration verification, ktlint, debug assembly and both iOS compiles green, and no emulator evidence for the 0.9.2 surfaces at that point. A post-execution review of the final candidate returned REJECTED on PE-01..PE-05; PE-03 (no way to split same-day sessions) is fixed by the bucket/partition ledger (`51.sqm`, backup format 16) plus editable session drafts, PE-05 (a false "no migration" release-note claim) is corrected, and PE-01 (custom-id conflict detection), PE-02 (commit-time overlap revalidation) and PE-04 (PDF line wrapping) are implemented. Evidence and limits in `docs/qa.md`. The remaining findings are now resolved: F-01 (narrow the provider-layout claims to the publicly evidenced variants), F-06 (run the import commit off the caller's dispatcher), F2-04 (accept an equipment gap together with creating the definition) and F2-09 (bind the unsupported iOS document store directly). A second read-only review of that revision returned REJECTED on PE3-R1 (a previously split bucket could never be re-imported), PE3-R2, PE4-R1, F2-04-R1 and two nits; all are corrected and their targeted closure returned APPROVED (`docs/qa.md`, "Closure corrections after the second post-execution review" and the device-journey section below it, which also covers the 0.9.2 plan-PDF and routine-transfer surfaces). No publication started. The `0.9.2` in this row's label is the **folded interchange/export** scope; that label was deliberately reassigned afterwards to the anatomical body-map release (see the body-map item below and `docs/roadmap.md`), and the original `0.9.2` slice ids here are unchanged. |
 | 0.9.2 — anatomical body map | **PUBLISHED** 2026-10-16 as `v0.9.2` at `b66e59ff` (PR #22; PR run `38941093176`, post-merge main run `38941872330`, Release run `38941912167`) | Anatomical male/female muscle map replacing the 0.8.2 placeholder: Male/Female selector independent of profile settings, Front by default with Front/Back switching, monochrome neutral-to-red colouring, no animation. Pinned MIT artwork (MuscleMap — Melih Colpan; react-native-body-highlighter — ELABBASSI Hicham) under `composeResources/files/bodymap/` with both notices, credited on Settings → Acknowledgments with source links and in `README.md`. No production dependency, schema, DI or planner change; the 21 muscle groups, region-to-score meaning, numeric values and legend are preserved. Local matrix before the release commits: 2,246 host tests in 254 classes with 0 failures, `verifySqlDelightMigration`, `ktlintCheck`, debug assembly with `lintVitalRelease` and both iOS simulator compiles (`bm-r092-matrix.log`). A bounded post-execution review returned INCOMPLETE (BM-01…BM-03), all corrected the same day; the follow-up full-range review returned **APPROVED WITH FINDINGS** — the retired `FatigueMapGeometry.kt` and its 8 tests are left in place by user decision, the documentation corrections are applied, and the two coverage-test limits (no proof of visibility after paint order; partition side assignment not pinned) are recorded in `docs/qa.md` §7 and carried into the 0.13.x plan. Artifact verified offline only: 25,150,162 bytes, SHA-256 `4e13a456…`, `versionName=0.9.2`, `versionCode=90200`, `apksigner` signer SHA-256 `af9cd73b…` matching earlier releases; never installed on the emulator. Extended UI checks (zero/mid/high fixtures, dark theme, font scaling, locale, TalkBack, numeric-description scrolling, map-refresh journeys, isolated non-zero colouring of the partitioned regions) are deferred to the 0.13.x UX pass by user decision 2026-10-16. Notes at `docs/release-notes/v0.9.2.md`; evidence in `docs/qa.md`. |
 | Unversioned duration merge — no release | **MERGED TO `main` 2026-10-17** — no tag, no version, no release notes; CI via PR only | Timed sets end-to-end, timed prescriptions (routines, frozen slots, Logger confirmation/editing, backup 18, interchange v2, PDF), date-aware decay-only planning in SplitBuilder, accepted-plan slot durations (`54.sqm`, backup 19) and persisted timed preparation (`55.sqm`, backup 20). Tier A matrix green (783 tasks) with both iOS compiles; independent review closed DATE-01–03 and approved the duration chunks with nits; the real 54→55→56 device upgrade was verified on `emulator-5554`. Limits and evidence in `docs/qa.md`; the measure dialog and preparation persistence are not device-exercised. **The next tagged release's notes must cover these user-facing features**, since users first see them in that build. |
+| 0.9.3–0.9.4 — automatic backup rotation and encrypted backups | IN PROGRESS — batch pre-flight accepted 2026-10-17; plan recorded; branch `feature/0.9.3-backup-security` (from `9c81ae67`) | Single folded publication target **`v0.9.3`**; the former `0.9.9` encryption scope (`0.9.4`) folds into it. See [batch plan](#093094--continuous-execution-plan). The `v0.9.3` notes must also cover the unversioned duration features (row above). |
 | Release 0.2.0 | SHIPPED | `v0.2.0` signed release published; [history](docs/plans-archive.md#2026-10-09-completed-status-rows). Stale `v0.1.0` validation pre-release cleanup remains optional. |
 | Release 0.2.1 | SHIPPED | `v0.2.1`; [Q1–Q6 history](docs/plans-archive.md#2026-10-09-completed-status-rows). Q4e remains user-side, not shipped code; local AI remains experimental/non-functional, with optional M8 follow-up. |
 | Release 0.2.2 — code review & architecture | SHIPPED | `v0.2.2`; R0–RG/RF complete, CI green; [fix/commit history](docs/plans-archive.md#2026-10-09-completed-status-rows). |
@@ -1155,6 +1156,149 @@ then request separate approval for push → PR → green CI → merge → one `v
 → offline artifact verification. Do not push, open PRs, merge, tag, build/upload release artifacts or
 publish before that approval. Do not install release APKs on the development emulator. Do not
 automatically generate a handoff/starter or clean up unrelated branches/files.
+
+### 0.9.3–0.9.4 — Continuous execution plan
+
+**Status — recorded 2026-10-17 after the accepted pre-flight.** Branch
+`feature/0.9.3-backup-security` (from `9c81ae67`) carries the batch; the assigned
+`0.9.3` and `0.9.4` scopes publish once as `v0.9.3`. Implementation follows the
+chunk table below under the batch standing defaults (continuous execution, one
+independent review per scope, separate publication approval). The published
+`v0.9.3` notes must also cover the unversioned duration features merged to `main`
+on 2026-10-17 (timed sets, timed prescriptions, accepted-plan slot durations,
+persisted timed preparation, date-aware decay-only planning), since users first
+see them in that build.
+
+**Scope and fold:**
+
+| Assigned scope | Included work | Former slice ids |
+| --- | --- | --- |
+| 0.9.3 | Automatic rotating local backups (OF-01 extension) | `0.9.8` |
+| 0.9.4 — folded into 0.9.3 | Encrypted backups (OF-01 extension) | `0.9.9` |
+
+#### Approved contracts (user-approved 2026-10-17)
+
+**Automatic rotating backups (0.9.3):**
+
+- Opt-in and off by default. Destination is a user-chosen folder through the
+  Android Storage Access Framework with persisted read/write permission; the
+  disclosure states that a provider may sync that folder off-device.
+- Scheduling uses Android's built-in `JobScheduler` (persisted across reboot via
+  `RECEIVE_BOOT_COMPLETED`, roughly daily); delivery is best-effort and delays
+  are normal. No new dependency.
+- Retention keeps the 7 newest verified snapshots and prunes only after a new
+  snapshot is written and verified. Only documents this app created and recorded
+  are ever deleted; filenames alone never authorize deletion. A provider that
+  cannot read, create and delete cannot enable automatic backups (explicit
+  unsupported state).
+- Failure recovery: permission loss, storage exhaustion and incomplete or
+  unverifiable writes keep every existing snapshot and surface a failure state;
+  an uncertain write's outcome is established before any retry or prune.
+  Disabling automatic backups keeps existing files. "Back up now" runs the same
+  pipeline as the scheduled job.
+
+**Encrypted backups (0.9.4, folded into 0.9.3):**
+
+- Portable password-based format: AES-256-GCM content encryption under a random
+  data key; the data key is wrapped per file with PBKDF2-HMAC-SHA256
+  (600,000-iteration OWASP baseline, recorded in the envelope; a parameter change
+  is a versioned decision, never a silent rewrite) over a random salt. The
+  envelope carries its own version, separate from backup format 20, with strict
+  unknown-field rejection. Writes verify by decrypting and validating before
+  reporting success; wrong password, tampered, truncated or oversized input
+  fails before any restore staging.
+- Plaintext backups remain readable, and plaintext export stays an explicit,
+  labeled choice. A forgotten password is unrecoverable and is disclosed.
+- Unattended encryption stores only the random data key, encrypted under a
+  separate Android Keystore alias — never the password. Keystore-key loss pauses
+  automation with a re-enter-password recovery (the data key is unwrapped from
+  an existing encrypted file); portable files remain recoverable with their
+  password.
+- Creating and reading encrypted backups requires Android 8+ (API 26; native
+  PBKDF2-HMAC-SHA256). Android 7 keeps plaintext manual and automatic backups; no
+  weaker fallback, no custom cryptography, no new dependency.
+- Encrypted envelopes stay within the existing 32 MiB read bound, so the
+  encryptable payload is ≈24 MiB; larger payloads report too-large and suggest
+  plaintext export.
+
+**Recorded design decisions:**
+
+- Auto-backup configuration and its ledger are device-local operational state
+  (folder grant, Keystore-wrapped key, last outcomes) and are deliberately not
+  part of the backup payload: **no schema change, no `.sqm`, no backup-format
+  bump** in this batch.
+- The existing `BackupFileStore` stays the single-document text port for manual
+  flows; a separate folder port carries automation.
+
+#### Ordered implementation chunks
+
+Serial writers only; no parallel coding is proposed. Owners are stated per
+chunk; before each delegation, capture HEAD and a preserved-work baseline and
+give the AGENTS.md structured brief. Main owns PLANS.md status, `docs/qa.md`
+consolidation and the review snapshots; coders edit only their assigned feature
+UI, strings and tests.
+
+| Chunk | Owner | Outcome / acceptance |
+| --- | --- | --- |
+| 0.9.3-A — automation core | Main | Domain models, ports and policy: due-time decision, retention math, failure classification, single-flight and reconciliation of an uncertain write; host tests for the policy edges. |
+| 0.9.3-B — Android folder + settings adapters | Main | SAF folder store (create, verify, delete against recorded identity), device-local settings/ledger persistence, iOS unsupported actuals, platform bindings. |
+| 0.9.3-C — scheduler + shell wiring | Main | Persisted daily job with boot-completed rescheduling, startup-readiness gating, cancellation safety, Koin graph updates and verification. |
+| 0.9.3-D — Settings UI | coder | Automatic-backup section: enable/disable, folder selection with disclosure, status/last-run/failure states, run-now; strings and ViewModel tests over settled states. |
+| 0.9.4-A — envelope + crypto core | Main | Envelope codec/validator, PBKDF2/AES-GCM adapter with pinned published vectors, Keystore data-key store, export/import integration and negative tests. |
+| 0.9.4-B — Settings encryption UI | coder | Manual-export encryption choice, import password prompt, auto-backup encryption toggle and re-enter-password recovery states; strings and ViewModel tests. |
+
+Likely homes: `core/domain` `backup/` (models, policy, ports, envelope),
+`core/userdata` `androidMain`/`iosMain` (folder store, device-local settings,
+crypto, Keystore), `feature/settings` (scheduler service, UI, resources),
+`shared` platform/DI modules and the Koin verification test, `androidApp`
+manifest only if needed; `shared` stays aggregation/wiring only.
+
+#### Verification, review and reporting
+
+Verification tier: **A for both scopes** (cross-cutting storage, crypto,
+concurrency and portability contracts; no schema or module-graph change is
+expected). Chunk boundaries: affected-module host tests plus ktlint. Each scope's
+integration gate runs the full host suite, `:core:database:verifySqlDelightMigration`,
+`ktlintCheck`, `:androidApp:assembleDebug`, both iOS simulator compiles and the
+changed Koin graph checks, plus bounded emulator acceptance on the debug build:
+folder pick plus run-now plus restoring the written file; dumpsys job
+registration and reboot persistence; encryption round-trip, wrong-password and
+tamper rejection, and recovery via a re-entered password. Screenshots are
+captured and viewed. If exercising the keystore-key-loss recovery state would
+require modifying app-local emulator state, that mutation needs its own approval
+first and the state is otherwise reported host-verified only. Unavailable checks
+are reported, not waived.
+
+One independent full-range read-only review per scope (`reviewer`, inherited
+model/variant), then targeted closure under both review guides; findings are
+classified before any correction, and only localized evidence-backed mechanical
+corrections restoring approved behavior are pre-authorized. Main consolidates
+`docs/review-0.9.3-snapshot.md` and `docs/review-0.9.4-snapshot.md` and the
+`docs/qa.md` evidence without rewriting history; affected living docs (roadmap,
+the mechanics backup reference) update with their owning change.
+
+#### Budget, gates and completion boundary
+
+**Accepted execution budget: 4 hours** from the accepted plan: ≈30 min
+pre-flight/contract pass (done), ≈80 min for 0.9.3 (implementation, verification,
+review), ≈90 min for 0.9.4, ≈40 min final integration, release-notes draft and
+reporting. Per-command limits, the two-unsuccessful-fixes stop and the
+~30-tool-call rule stay in force; the budget is not permission to skip checks.
+
+No schema/`.sqm` migration, no dependency, module-graph, secret or CI change is
+planned; any becoming necessary stops the run for approval. Explicit exclusions:
+merge restore (`0.9.5`), storage/reset controls (`0.9.6`), vendor APIs, new
+progression policies, iOS runtime support and release-APK installs on the
+development emulator. Stop for unsafe data effects, unexpected writes,
+unresolved behavior, unavailable mandatory verification, unresolved required
+findings, exhausted budget or the builder failure limit.
+
+End at implemented, verified, independently reviewed and locally committed; then
+report the folded target `v0.9.3`, the final candidate revision, both scope
+verdicts, evidence and limits, and the drafted user-facing notes covering both
+scopes and the duration features, and request the single separate approval for
+push → PR → green CI → merge → one `v0.9.3` tag → Release workflow → offline
+artifact verification.
 
 ### OF-05 — Local workout CSV imports
 
