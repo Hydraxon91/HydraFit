@@ -285,6 +285,79 @@ before inspection. Pre-existing dirty paths are baseline context, not permission
 to change user work; compare the preserved-work baseline separately. Checksums and
 records are not an authentication boundary and do not replace independent review.
 
+### Opt-in model-tool guard pilot
+
+`scripts/opencode-task-guard` is a dependency-free local OpenCode V2 plugin
+prototype, deliberately **outside** automatic `.opencode/plugins/` discovery. It
+does not change the live project config. Node runs its offline wrapper checks via
+the Python test-discovery command above; the bridge uses Python's standard library
+and reuses `scripts/task-state.py` for authoritative record validation and writes.
+
+This pilot supports only registered `read`, `glob` and `grep` executors in an
+explicitly bound session. It canonicalizes the input path inside the bound
+repository and rejects outside/symlink-escaping paths. Other registered model
+tools are denied, including shell, edits, patching, device tools and unknown tool
+names. Unsupported tool advertisements are removed in bound model contexts;
+permission checks without a matching active executor are denied. No guard check
+upgrades an existing `ask` or configured `deny` to `allow`.
+
+Explicit activation is only for a separately approved isolated test location,
+using the plugin **directory**, not its JS file. Example config (not installed):
+
+```json
+{
+  "plugins": [{
+    "package": "/absolute/path/to/scripts/opencode-task-guard",
+    "options": {"bindingsFile": "/external/state/bindings.json"}
+  }]
+}
+```
+
+The operator-managed bindings file is JSON: `{"version":1,"sessions":{}}` for no
+bindings, or map a root session id to `{"repo":"/absolute/checkout",
+"stateDir":"/external/state","task":"task-id"}`. Bind only after actual user
+authorization and initialization of that S3-B task record; never derive bindings
+from a model's claim of approval. Bindings are runtime configuration, not secrets
+or proof of authorization. An unrelated session with valid, readable bindings is
+unchanged. A missing/corrupt bindings file blocks model tools in that plugin
+location because the guard cannot safely tell a formerly bound session from an
+unbound one. Keep the bindings file outside the checkout and protect it separately.
+Child sessions resolve their parent ancestry on each call, so root restrictions
+also apply to newly created children and survive guard reloads. Cyclic/unreadable
+ancestry fails closed. A binding to another plugin location is rejected.
+
+The wrapper persists a pending operation **before** entering a supported executor.
+Its id is derived from session id and tool-call id, so a repeated call cannot be
+silently admitted again after restart. Only that executor's in-memory admission
+token can pass permission checks while its attempt is pending. Calls sharing one
+task are serialized/refused, including across processes via the Python state lock.
+Successful executor return records observed tool completion, **not** business
+acceptance or review approval. A thrown error or cancellation leaves the attempt
+pending. An uncertain completion write may have landed atomically: reload before
+acting, never replay it or fabricate a failed/not-performed resolution. Inspect
+and resolve unknown outcomes outside the guarded model-tool path.
+Recording an observed completion remains possible after budget expiry; new work
+does not. The guard never resets budgets, repairs state or checkpoints source drift
+automatically. Manual task commands remain the recovery interface.
+
+**Boundary:** this is not a filesystem/network sandbox. Direct user/API shell,
+PTY, arbitrary trusted plugin code, host changes, later plugins replacing tool
+definitions, and tampering with bindings/state are outside it. Permission hooks
+cannot cover the explicit session-shell API: on 2.0.30 that route ran a synthetic
+sentinel despite a shell permission-hook deny, and its shell-creation event lacked
+session identity. The pilot does not cancel an already running native executor or
+make a read-only reviewer an isolated OS process. Ignored-file/clock limitations
+remain those of durable task state.
+
+Verification distinguishes three levels: hermetic wrapper/bridge tests; registered
+native-executor tests on a private OpenCode 2.0.30 server without model calls; and
+a complete model-generated tool loop. The first two are exercised locally. Native
+`read`, `glob`, `grep`, child binding and outside-path denial were checked live.
+The outer Code Mode gateway was absent from the live registry, so its removal/deny
+behavior is tested offline only. Full model-loop ordering, in-flight cancellation
+and hostile-plugin isolation remain **unverified**. Do not enable the pilot in a
+normal development session or describe those paths as proven enforcement.
+
 ## Project Structure & Conventions
 
 ### `androidApp/` and `shared/`
