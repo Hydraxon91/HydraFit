@@ -56,6 +56,7 @@ publication gate. Any stop records which condition triggered it.
 | 2026-10-17, in-flight (0.9.5-B) | Chunk B (database merge + staged apply) analysis; chunk A correction rounds; findings F-01…F-04 below | No rating changes. `run-bounded` and the validator remain clean in live use. |
 | 2026-10-17, 0.9.5-B complete | Staged-mode wrapper + merge dispatch committed `0904c743`; database `mergeKeys`/`merge` with additivity and rollback tests committed `68a4b460`; `core:domain` + `core:database` suites and ktlint green; 6 bounded runs total, all terminated cleanly (13–48 s). | No rating changes. Pending cross-module test-double stubs (feature/settings ×2, shared ×1) with the UI/DI chunk; tracked so they land before the integration gate. |
 | 2026-10-17, autonomy target recorded | User requires continuous execution to `0.9.6` completion with no routine check-ins; see the new section above | Target: zero user interventions until the single publication gate; any stop must name its condition. |
+| 2026-10-17, 0.9.5-D journey attempt 1 | MCP device session died → documented CLI fallback used throughout (F-07); runner stopped at M1 on a parent flow-expectation error (baseline was 8 sessions, not 9) instead of adjusting or replaying (F-06). Flow fixed; no app defect, no writes from the attempt. | No rating changes. The runner's stop-not-adjust behavior is exactly the prepared-journey contract working; parent fixture ground truth must be logged before authoring flows. |
 
 ### In-batch findings log
 
@@ -92,6 +93,19 @@ boundaries.
   than adding a new item. Three test doubles outside `core` (feature/settings
   ×2, shared ×1) still need merge stubs during the UI/DI chunk — recorded in the
   live log so it is not missed before the integration gate.
+- **F-06 [process] The parent-authored M1 flow carried a wrong count** — the
+  craft script's printed totals were read as pre-append (8 baseline sessions,
+  not 9), so the flow expected "Keeps 9" while the app correctly showed
+  "Keeps 8". The runner stopped on the mismatch instead of adjusting or
+  replaying, exactly as the prepared-journey contract requires.
+  *Improvement:* write fixture ground truth (baseline counts) into the brief
+  before authoring assertions; the parent corrected the flow and re-delegated.
+  No app defect.
+- **F-07 [environment] The Maestro MCP device session died** on the first
+  `inspect_screen` (`deviceInfo ... UNAVAILABLE`). The documented bounded CLI
+  fallback took over inspection and execution for the whole journey, with no
+  driver reinstall and no MCP re-probe. *Disposition:* existing README guidance
+  worked as written; no change needed beyond noting the live occurrence.
 
 ## Improvement backlog (prioritized)
 
@@ -126,3 +140,6 @@ boundaries.
 - 2026-10-17 — user requirement recorded: run continuously until `0.9.6` is
   finished; only standing stop conditions pause the run. Added the batch
   autonomy target section and a live-log row.
+- 2026-10-17 — 0.9.5-D journey attempt 1: MCP→CLI fallback and a parent
+  flow-expectation error recorded (F-06, F-07); flow corrected, journey
+  re-delegated.
