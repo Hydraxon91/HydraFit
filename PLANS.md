@@ -1350,6 +1350,26 @@ carried: the two correction disclosure lines are device-checked in the 0.9.6
 pass, iOS is compile-only, and the encrypted-file merge preview is host-covered.
 0.9.6 implementation follows.
 
+**0.9.6 status (2026-10-17).** Chunks A–D implemented (`0a08c452`, `5127cbb7`,
+`8a8a70d9`, `73da9115`, `6c7f88ca`) and device-accepted on `emulator-5554`: the
+usage display, scoped Workout-history removal (8/24 → 0/0/0, reflected in the
+history browser), the safeguard restore-back to 8/24, the All-app-data typed
+gating (cancelled, never executed), the guarded "Back up now" path and the 0.9.5
+disclosure lines. The independent review returned **REJECTED** for one major
+defect (HF-096-01: the resets deleted the seeded equipment-profile singleton
+without re-creating it, breaking every profile reader) plus five minor/nit
+findings. Correction `882c5bdd` re-creates the seeded profile and state row in
+both resets, discards a staged restore on All app data (HF-096-02) and updates
+the tests; the repaired Training-setup reset was device-verified. Targeted
+closure at `882c5bdd` is recorded in `docs/review-0.9.6-snapshot.md`. Final
+candidate: full host suite, migration verification, ktlint, debug assembly and
+both iOS compiles green (`integration-gate.log`); device evidence in
+`docs/qa.md`. Accepted notes: Workout-history removal keeps import provenance
+(a repeated import of the same file skips; disclosed), snapshot size is a full
+read-back with an unknown fallback, and the Android database file name is a
+duplicated constant. The folded `v0.9.5` publication awaits the single user
+approval.
+
 **Scope and fold:**
 
 | Assigned scope | Included work | Former slice ids |

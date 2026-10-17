@@ -61,6 +61,7 @@ publication gate. Any stop records which condition triggered it.
 | 2026-10-17, 0.9.5 complete (implemented, verified, reviewed, committed) | Independent review APPROVED WITH FINDINGS → corrections `3702f61a`/`4497091b` → targeted closure APPROVED (all six closed). Device journey passed across three runner attempts; final gate green at `4497091b`; records in `docs/review-0.9.5-snapshot.md` and `docs/qa.md`. | F-09 recorded. Budget: the 5-hour split was passed under the user's explicit run-to-`0.9.6` instruction; per-command limits and stop conditions still apply. |
 | 2026-10-17, 0.9.6-A/B/C complete | Storage model + use cases (`0a08c452`), count queries + repository + ports + DI (`5127cbb7`), Settings storage UI (`8a8a70d9`) and the dialog-copy/identity correction (`73da9115`); module suites and ktlint green throughout. | Git-permission fix datapoint stays **unmeasured**: this batch performs Git directly per the batch workflow, so no `git-ops` delegation occurred. `run-bounded` gained ~25 further clean live runs. |
 | 2026-10-17, 0.9.6-D complete | Storage device journey on `emulator-5554` across four runner attempts: display values, history removal (8/24 → 0/0/0 asserted in-flow, history search returns no matches), All-app-data typed gating (disabled empty/NOPE, enabled on REMOVE, never executed), guarded "Back up now" path, restore-back to 8/24, and the two 0.9.5 disclosure lines. Findings F-10…F-13. | Runner stop-not-adjust held four times on flow/state defects; each defect was parent-authored flow error, not an app defect. Final gate green after the platform test-tag fix. |
+| 2026-10-17, 0.9.6 review and correction | Independent review REJECTED: HF-096-01 (major — both resets deleted the seeded equipment-profile singleton, breaking every profile reader) plus five minor/nit findings. Correction `882c5bdd` re-seeds the profile in both resets, discards a staged restore on All app data, and device-verification followed (Training-setup reset → Equipment shows the default profile). | **F-14 recorded.** The defect lived in the one destructive category the prepared journey never executed: coverage planning must run every destructive category at least once (safeguard-backup pattern), not just one. |
 
 ### In-batch findings log
 
@@ -145,6 +146,13 @@ boundaries.
 - **F-13 [tooling] The SAF picker composes only visible rows.** A file whose card
   is below the fold has no text node to tap until the picker is scrolled, so
   picker legs need an explicit scroll before selection.
+- **F-14 [coverage] The journey skipped a destructive category, and that is where
+  the major defect lived.** Only Workout history was removed; the Training-setup
+  and All-app-data resets were gated but never executed. HF-096-01 (resets leaving
+  the equipment-profile singleton empty) was invisible to module tests, to the
+  executed device leg and to the flow assertions. *Improvement:* a prepared
+  journey must execute every destructive category at least once under the
+  safeguard-backup pattern; gating-only checks are not behavioural coverage.
 
 ## Improvement backlog (prioritized)
 
@@ -184,3 +192,6 @@ boundaries.
   re-delegated.
 - 2026-10-17 — 0.9.5 complete: review, corrections and closure recorded; F-09
   added; budget note recorded.
+- 2026-10-17 — 0.9.6 implemented, device-accepted, reviewed (REJECTED for one
+  major defect), corrected and device-reverified; F-10…F-14 recorded. Awaiting
+  the folded `v0.9.5` publication approval.

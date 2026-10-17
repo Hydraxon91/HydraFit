@@ -3569,3 +3569,33 @@ the journey's flows are scratch, not repository regressions.
 Post-review corrections `3702f61a` and `4497091b` were verified by the module suites and the full
 gate (`integration-gate.log`) and closed by the independent reviewer at `4497091b`; findings,
 closure and limits are in `docs/review-0.9.5-snapshot.md`.
+
+## 0.9.6 storage and reset controls — device acceptance (2026-10-17)
+
+Debug candidate on `emulator-5554`; the Maestro MCP device session was dead, so every checkpoint
+used the documented bounded CLI fallback (`--no-reinstall-driver`, `hierarchy --compact`, 120 s
+alarms) for inspection and flow execution. Journeys and artifacts: `…/T/opencode/hf-storage-runner{,2..8}/`
+with the `hf-storage-f*.yaml` scratch flows beside them (not checked in).
+
+Verified with assertions, hierarchies and viewed screenshots: the usage display (`Database: 388 KB`,
+`Automatic snapshots: 1 files · size unavailable`, `On-device model: not installed`, and the exact
+per-category counts); scoped Workout-history removal asserted in-flow (`Sessions: 8` /
+`Logged sets: 24` → `Sessions: 0` / `Logged sets: 0` / `Session notes: 0`) and reflected in the
+history browser (search "back squat" → "No recorded session matches these filters."); the safeguard
+restore-back staged, applied at the single prescribed restart and asserted at `Sessions: 8` /
+`Logged sets: 24`; the All-app-data typed confirmation (confirm disabled with an empty field and
+with `NOPE`, enabled after typing `REMOVE`, dialog then cancelled — never executed); the guarded
+"Back up now" inside the removal dialog (`Turn on automatic backups first.` while automatic backups
+were off); the two 0.9.5 disclosure lines in the merge preview ("Adds 1 sets without their link to a
+scheduled workout.", "Equipment, reminders and other setup preferences also stay as they are."); and,
+after the review correction, the Training-setup reset re-creating the seeded profile
+(`Equipment profiles: 1`, outcome "Training setup removed.") with the Equipment tab rendering
+`Active profile: My equipment`, followed by the baseline restore returning 8 sessions / 24 sets.
+
+Limits: All-app-data removal was gated but never executed on device; automatic backups were off, so
+the snapshot-deleting Backups category and the enabled "Back up now" success path were not
+re-exercised (the success path was device-verified in the 0.9.3 journey); the transient
+"… removed." outcome is evidenced by hierarchy/screenshot rather than an in-flow assertion; model
+removal, TalkBack, dark mode, larger text, locale and rotation were not exercised; the storage flows
+are scratch, not repository regressions.
+
