@@ -3435,3 +3435,57 @@ parser was widened.
   `docs/review-0.7.1-snapshot.md` §5 (larger text, dark mode, locale, TalkBack, date-picker filtering,
   loading/error states, very large result sets, the C3 editor's 2,000-character and failed-save paths,
   and process-death restoration).
+
+## 0.9.3 automatic backups — device acceptance and correction verification (2026-10-17)
+
+Debug-build acceptance on `emulator-5554` for the folded 0.9.3–0.9.4 batch's automatic-backup
+scope; no release build was installed. Journeys were parent-authored and executed through the
+delegated `ui-runner` in bounded, syntax-checked flows; required screenshots were captured and
+viewed by the parent.
+
+**Host gates.** Scope matrix at the pre-correction candidate (`39ab3cc6`): 2,471 host tests across
+274 suites, 0 failures/errors, `verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`
+and both iOS simulator compiles (`hf-093-integration.log`). Final-candidate matrix after the review
+corrections (`4e662acb`/`b8510d38`): 2,475 host tests, 0 failures/errors with the same task set
+(`hf-093-integration2.log`).
+
+**Device journeys (all completed).**
+- Section smoke: the Automatic backups section renders with description, provider-sync disclosure,
+  Choose folder and the off toggle (`hf093-section-smoke`; screenshot viewed).
+- Folder pick: picking a folder through the DocumentsUI tree flow configured it and showed
+  `Folder chosen.` (`hf093-pick`; screenshot viewed).
+- Enable + job: enabling showed `Automatic backups are on.` and registered one PERSISTED periodic
+  job `#u0a300/4001` (`hf093-enable-run`, `dumpsys`); the job survived a bounded emulator reboot
+  (same job registered after `boot_completed`).
+- Manual snapshot: `Back up now` wrote and verified snapshots (`Backup saved.`); two 54,008-byte
+  `hydrafit-auto-*.json` files existed afterwards (the manual run plus one scheduled firing — the
+  job's own write path is therefore device-exercised too) (`hf093-run`; screenshot viewed).
+- Restore readability: a written file was selected in the real restore picker and previewed
+  (`Restore this backup?`) then cancelled; nothing was staged (`hf093-restore-preview`; screenshot
+  viewed).
+- Cleanup: automation disabled (`Automatic backups are off.`), the job left the Registered set
+  (`Pending queue: None`, `Active jobs: N/A` — the raw whole-dump `grep -c` includes retained job
+  history and is not the check), and the scratch folder with its files was deleted.
+
+**Device-found defects, fixed in the candidate.** (1) The folder capability probe queried
+`COLUMN_FLAGS` on the raw tree URI, which the platform providers do not answer, so a granted folder
+reported as missing (`606c9eb7`). (2) `createDocument` was passed a bare tree URI, which rejects with
+`Invalid URI` — captured through a debug-automation logcat line from a declared diagnostic attempt
+(`hf-093-diag.log`) — so every write failed as `WRITE_FAILED` (`b05968b6`); both now derive the tree
+root's document URI first.
+
+**Review corrections re-verified (correction build; flows `hf0932-*`).** The selection probe
+accepted a freshly created scratch folder (`Folder chosen.`); a forced missing-folder run surfaced
+the failure phrase transiently and — after an app restart with no action run — the persisted
+last-failure line was still on screen; disabling left the job unregistered and the scratch folder
+removed. Screenshots viewed: `hf0932-persisted-failure.png`, `hf0932-run-failed.png`,
+`hf0932-folder-chosen.png`, `hf0932-enabled.png`, `hf0932-disabled.png` (under
+`/private/var/folders/hc/1f1kkpq52q93p0bwfqr9zbrr0000gn/T/opencode/hf-093-d3/`).
+
+**Limits.** iOS paths are compile-only (unsupported stores/scheduler); the restore picker was
+exercised through its Recent view only; larger datasets, provider edge cases, background delivery
+timing and TalkBack remain unverified. The emulator is left with automation disabled, a stale stored
+folder handle pointing at a deleted scratch folder and the recorded last failure; two orphan ledger
+records from earlier acceptance have no files. A pre-existing, out-of-scope UI defect was observed
+unchanged: the data-transfer row's `Restore backup` button renders vertically squeezed on narrow
+screens.
