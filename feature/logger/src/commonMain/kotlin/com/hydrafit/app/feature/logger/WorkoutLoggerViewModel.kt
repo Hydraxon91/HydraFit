@@ -6,6 +6,7 @@ import com.hydrafit.app.core.domain.engine.AcceptedDay
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.EquipmentWeightLimit
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.PeriodizationConfig
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.fatigue.FatigueConfig
@@ -33,6 +34,7 @@ import com.hydrafit.app.core.domain.workout.WarmupPreparationItem
 import com.hydrafit.app.core.domain.workout.WarmupPreparationOverrideRepository
 import com.hydrafit.app.core.domain.workout.WarmupRampSet
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
+import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
 import com.hydrafit.app.core.domain.workout.WorkoutSummary
@@ -837,6 +839,13 @@ class WorkoutLoggerViewModel(
             rir = current.rir.toIntOrNull(),
             occurrenceId = link?.first,
             occurrenceEntryId = link?.second,
+            prescriptionSnapshot = capturePrescription(
+                exerciseId,
+                loadKind,
+                link,
+                current.performedAtMillis != null,
+                durationSeconds
+            ),
             timingProvenance = if (current.performedAtMillis != null) {
                 WorkoutTimingProvenance.CATCH_UP
             } else {
@@ -1666,6 +1675,13 @@ class WorkoutLoggerViewModel(
         // Attribution is captured here, under the same context revision each write below re-checks.
         val dayIndex = dayIndexFor(link?.first)
         var sessionId: String? = null
+        val target = capturePrescription(
+            draft.exerciseId,
+            draft.loadKind,
+            link,
+            edit?.performedAtExplicit == true || _state.value.performedAtMillis != null,
+            draft.durationSeconds
+        )
         repeat(draft.sets.coerceAtLeast(1)) {
             if (contextRevision != draftContextRevision) {
                 throw CancellationException("Draft context changed")
@@ -1695,6 +1711,7 @@ class WorkoutLoggerViewModel(
                     dayIndex = dayIndex,
                     occurrenceId = link?.first,
                     occurrenceEntryId = link?.second,
+                    prescriptionSnapshot = target,
                     rir = edit?.rir?.toIntOrNull(),
                     timingProvenance = when {
                         liveCompletion -> WorkoutTimingProvenance.LIVE
@@ -1984,6 +2001,62 @@ class WorkoutLoggerViewModel(
     /** The day a new set is attributed to: its occurrence's block position, else the plan calendar. */
     private fun dayIndexFor(occurrenceId: Long?): Int? =
         blockDayIndex(occurrenceId) ?: acceptedToday?.dayIndex
+
+    /** Capture the submitted slot, never the edited performance or a calendar guess for past work. */
+    private fun capturePrescription(
+        exerciseId: String,
+        kind: LoadKind,
+        link: Pair<Long, Long?>?,
+        backdated: Boolean,
+        durationSeconds: Int?
+    ): WorkoutPrescriptionSnapshot? {
+        val captured = captureSlotPrescription(exerciseId, kind, link, backdated) ?: return null
+        // A reps/duration switch is a legitimate edit, but the captured slot keeps its own measure.
+        // Recording the slot's target against a differently measured set would contradict itself, so
+        // the set simply carries no target and its exposure stays unjudgeable.
+        val sameMeasurement = (captured.reps != null) == (durationSeconds == null)
+        return captured.takeIf { sameMeasurement }
+    }
+
+    private fun captureSlotPrescription(
+        exerciseId: String,
+        kind: LoadKind,
+        link: Pair<Long, Long?>?,
+        backdated: Boolean
+    ): WorkoutPrescriptionSnapshot? {
+        if (link != null) {
+            val occurrence = currentOccurrence?.takeIf { it.id == link.first } ?: return null
+            val entry = occurrence.entries.singleOrNull {
+                it.id == link.second && it.exerciseId == exerciseId && it.loadKind == kind
+            } ?: return null
+            return WorkoutPrescriptionSnapshot(
+                exerciseId = exerciseId,
+                sets = entry.sets,
+                reps = entry.reps,
+                durationSeconds = entry.durationSeconds,
+                loadKind = entry.loadKind,
+                weightKg = entry.weightKg,
+                isDeload = isDeloadWeek(activeActivation?.weekNumber)
+            )
+        }
+        if (backdated || activeActivation != null) return null
+        val entry = acceptedToday?.exercises?.singleOrNull {
+            it.exerciseId == exerciseId && it.loadKind == kind
+        } ?: return null
+        return WorkoutPrescriptionSnapshot(
+            exerciseId = exerciseId,
+            sets = entry.sets,
+            reps = entry.reps,
+            durationSeconds = entry.durationSeconds,
+            loadKind = entry.loadKind,
+            weightKg = entry.suggestedWeightKg,
+            isDeload = isDeloadWeek(acceptedPlan?.weekNumber)
+        )
+    }
+
+    /** The periodization cycle is accept-ordinal based; a missing week is not a deload. */
+    private fun isDeloadWeek(weekNumber: Int?): Boolean =
+        weekNumber?.let(PeriodizationConfig()::isDeload) == true
 
     /**
      * One read of the current occurrence's recorded sets, returning the working-set count by entry

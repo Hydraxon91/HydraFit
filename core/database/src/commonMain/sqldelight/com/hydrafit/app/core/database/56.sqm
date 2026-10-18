@@ -1,0 +1,2 @@
+-- Existing work has no recorded target; keep it unknown rather than copying today's plan.
+ALTER TABLE workoutSet ADD COLUMN prescriptionSnapshot TEXT;

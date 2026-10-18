@@ -164,7 +164,9 @@ class SqlDelightWorkoutImportRepository(private val database: HydraFitDatabase) 
                         timingProvenance = WorkoutTimingProvenance.CATCH_UP.name,
                         startedAtElapsedMillis = null,
                         completedAtElapsedMillis = null,
-                        durationSeconds = set.durationSeconds?.toLong()
+                        durationSeconds = set.durationSeconds?.toLong(),
+                        // Imported provider history carries no recorded target, so it stays unknown.
+                        prescriptionSnapshot = null
                     )
                 }
                 if (preview.buckets.any { it.candidateKey == session.candidateKey }) {

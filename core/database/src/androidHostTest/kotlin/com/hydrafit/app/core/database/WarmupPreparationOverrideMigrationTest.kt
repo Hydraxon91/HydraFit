@@ -24,8 +24,9 @@ class WarmupPreparationOverrideMigrationTest {
     @Test
     fun migratingFromV55CreatesAnEmptyOverrideTable() {
         driver = HistoricalDatabaseFixtures.empty()
-        // 55 is the pre-override schema: the table does not exist yet.
-        HydraFitDatabaseSchema.migrate(driver, 55, HydraFitDatabaseSchema.version)
+        // 55 is the pre-override schema: the table does not exist yet. This test is scoped to 55.sqm,
+        // so it pins its end version rather than following the current schema.
+        HydraFitDatabaseSchema.migrate(driver, 55, 56)
 
         assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "warmupPreparationOverride"))
     }

@@ -280,6 +280,22 @@ Model-proposed loads remain gated by `includeWorkoutData`. Yang et al. (2022,
 https://doi.org/10.1123/japa.2020-0493) concerns lower-limb strength retention in middle-aged and
 older adults and does not validate this horizon, sample threshold or load prescription.
 
+**Progression integrity (implemented, 0.10.0 / LT-10 / OF-10A-P0).** Progression no longer compares
+recorded work against today's accepted plan. Each logged set carries the target it was performed
+against (`WorkoutSet.prescriptionSnapshot`, backup format 21), captured at submission and written in
+the same statement as the set; a correction rewrites performance only. `ProgressionHistory` groups
+one exercise's non-warmup work by **explicit session** and classifies each exposure against its own
+recorded target as success, miss, or unknown. Unknown covers an open session, incomplete work, a
+blank or explicit-zero recorded load (which cannot establish weighted target success or failure),
+mixed or absent targets, and legacy/bodyweight/timed/deload targets; it **breaks the streak without
+counting as a miss**, so missing evidence never becomes demonstrated failure and no reduction is
+applied. A changed comparable target also restarts the streak, and two sessions on one local day are
+never combined. Legacy rows stay unknown rather than inheriting a plan; pre-format-21 rows may use an
+unambiguously attributed frozen occurrence target, and that derivation is rejected when the entry,
+exercise or occurrence disagree. The recent-estimate window, manual-PR floor, deload pause and the
+streak thresholds are unchanged. Remaining 0.10.x **policy** (stall handling, return-to-training
+reduction) stays open in PLANS.md.
+
 **Exercise preference (implemented, C2G).** An explicit, user-set tri-state
 (`ExercisePreference`: Prefer / Neutral / Prefer-less) is stored per exercise id in a dedicated
 `exercisePreference` table behind `ExercisePreferenceRepository` (`:core:userdata`, implemented by
@@ -633,9 +649,9 @@ fatigue is segmented by.
   so a routine saved from SplitBuilder is never stale; a feature asks the shell to switch top-level
   tabs through `LocalAppTabNavigator`/`AppTab` (`:core:navigation`), so no feature imports another
   feature's route.
-- **Violations / tensions:** progression eligibility is still computed from date-grouped sets against
-  the latest accepted prescription (not occurrence-aware); that reconciliation is deferred to
-  OF-10A-P0.
+- **Violations / tensions:** the earlier date-grouped, latest-accepted-prescription progression
+  eligibility was replaced by recorded-target/session-based replay in 0.10.0 (`docs/architecture.md`
+  §1.7, "Progression integrity"); remaining progression *policy* decisions stay open in PLANS.md.
 
 ### 1.12 Exercise load semantics (EX-02)
 
@@ -1337,7 +1353,7 @@ No rationale is invented; unrecorded items are listed as questions in §2.1.
 | D18 | On-device model imported in-app; no binary bundled; Android-only; NPU libs unbundled | PLANS.md lines 278-286, 293 | MediaPipe deprecated → migrated to LiteRT-LM | Current |
 | D19 | Gemini model `gemini-3.1-flash-lite`; sampling params omitted | PLANS.md line 282 | None recorded | Current |
 | D20 | Editable routine templates vs frozen activations and occurrences; one active finite block at a time | PLANS.md "Decisions Made" (2026-10-07 routine/scheduling contract) | Shared references and endless recurrence considered; copy semantics chosen | Current |
-| D21 | Explicit Finish/Skip advances the queue; logging a set, End/New session, expiry and midnight do not; progression stays the accepted-plan ordinal | PLANS.md "Decisions Made" (2026-10-07) | Occurrence-aware progression eligibility deferred to OF-10A-P0 | Current |
+| D21 | Explicit Finish/Skip advances the queue; logging a set, End/New session, expiry and midnight do not; progression stays the accepted-plan ordinal | PLANS.md "Decisions Made" (2026-10-07) | Occurrence-aware progression eligibility implemented in 0.10.0 via recorded targets | Current |
 | D22 | Exercise load capability vs recorded load kind; external-only generation; legacy contributes to the planner only when external today; added/bodyweight are neutral for relative load | PLANS.md "Decisions Made" (2026-10-07 live-testing) + "EX-02 — exercise load semantics" | Collapse-to-zero, equipment-derived capability and blanket historical reinterpretation rejected | Current |
 | D23 | OF-01 backup is logical versioned JSON restored by whole replacement, not a database snapshot or merge | PLANS.md "Decisions Made" (2026-10-09 OF-01 contract) | Database snapshot and merge restore recorded but excluded from v1 | Current (v1: validates, stages, applies at next process start) |
 

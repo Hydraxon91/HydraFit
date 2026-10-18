@@ -25,8 +25,11 @@ import com.hydrafit.app.core.domain.backup.WARMUP_PREPARATION_OVERRIDE_FORMAT_VE
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.settings.WorkoutReminderPreferences
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WarmupAction
 import com.hydrafit.app.core.domain.workout.WarmupPreparationItem
+import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
+import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshotJson
 import com.hydrafit.app.core.domain.workout.unicodeCaseFold
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -165,6 +168,13 @@ class SqlDelightBackupRepositoryTest {
         // The merge keys reflect the inserted rows, so re-merging the same selection adds nothing.
         assertTrue(repository.mergeKeys().sessionIds.contains("merged-s"))
         assertTrue(repository.mergeKeys().customExerciseIds.contains("user-merged"))
+        // A merged set keeps its recorded target verbatim even though the merge drops scheduling links.
+        assertEquals(
+            MERGED_TARGET,
+            database.workoutLogQueries.selectAllSets().executeAsList()
+                .single { it.sessionId == "merged-s" }
+                .prescriptionSnapshot
+        )
     }
 
     @Test
@@ -512,6 +522,45 @@ class SqlDelightBackupRepositoryTest {
 
         assertEquals(file, repository.export(appVersion = "t", exportedAtMillis = 1L))
         assertNull(countdownRepository.load())
+    }
+
+    @Test
+    fun recordedTargetsSurviveReplaceRestore() = runTest {
+        seedRepresentativeData()
+        database.workoutSessionQueries.insertSession("target-s", 30, 40, 2)
+        database.workoutLogQueries.insertSetWithTimingProvenance(
+            exerciseId = "back-squat",
+            reps = 5,
+            weightKg = 100.0,
+            performedAt = 35,
+            isWarmup = 0,
+            involvements = "QUADS:1.0",
+            weekNumber = null,
+            cycleNumber = null,
+            dayIndex = null,
+            rir = null,
+            sessionId = "target-s",
+            loadKind = "EXTERNAL",
+            timingProvenance = "LIVE",
+            startedAtElapsedMillis = null,
+            completedAtElapsedMillis = null,
+            durationSeconds = null,
+            prescriptionSnapshot = MERGED_TARGET
+        )
+        val file = repository.export(appVersion = "t", exportedAtMillis = 1L)
+        BackupValidator(SqlDelightBackupCatalog()).validate(file)
+        database.workoutLogQueries.deleteAllSets()
+
+        repository.restore(file)
+
+        val restored = database.workoutLogQueries.selectAllSets().executeAsList()
+            .single { it.sessionId == "target-s" }
+        assertEquals(MERGED_TARGET, restored.prescriptionSnapshot)
+        assertEquals(
+            MERGED_TARGET,
+            repository.export("t", 1L).workoutSets.single { it.sessionId == "target-s" }
+                .prescriptionSnapshot
+        )
     }
 
     @Test
@@ -1000,7 +1049,8 @@ class SqlDelightBackupRepositoryTest {
             timingProvenance = "LIVE",
             startedAtElapsedMillis = null,
             completedAtElapsedMillis = null,
-            durationSeconds = 90
+            durationSeconds = 90,
+            prescriptionSnapshot = null
         )
         val timedSetId = database.workoutLogQueries.selectAllSets().executeAsList()
             .first { it.durationSeconds != null }
@@ -1135,7 +1185,8 @@ class SqlDelightBackupRepositoryTest {
                 timingProvenance = "UNKNOWN",
                 startedAtElapsedMillis = null,
                 completedAtElapsedMillis = null,
-                durationSeconds = null
+                durationSeconds = null,
+                prescriptionSnapshot = MERGED_TARGET
             )
         ),
         bodyWeightToInsert = listOf(BackupBodyWeightRecord(7L, 82.5)),
@@ -1194,7 +1245,8 @@ class SqlDelightBackupRepositoryTest {
             timingProvenance = "LIVE",
             startedAtElapsedMillis = 100,
             completedAtElapsedMillis = 150,
-            durationSeconds = null
+            durationSeconds = null,
+            prescriptionSnapshot = null
         )
         database.planHistoryQueries.insertPlan("deterministic", 1, 1, 1)
         val planId = database.planHistoryQueries.lastInsertedPlanId().executeAsOne()
@@ -1388,5 +1440,19 @@ class SqlDelightBackupRepositoryTest {
         database.plannerEngineQueries.insertIgnoreRow("DETERMINISTIC")
         database.plannerEngineQueries.updateDaysPerWeek(3)
         database.plannerEngineQueries.updateWeightUnit("LB")
+    }
+
+    private companion object {
+        /** A merged set keeps its target even though the merge drops its scheduling links. */
+        val MERGED_TARGET = WorkoutPrescriptionSnapshotJson.encode(
+            WorkoutPrescriptionSnapshot(
+                exerciseId = "back-squat",
+                sets = 5,
+                reps = 5,
+                loadKind = LoadKind.EXTERNAL,
+                weightKg = 90.0,
+                isDeload = false
+            )
+        )
     }
 }

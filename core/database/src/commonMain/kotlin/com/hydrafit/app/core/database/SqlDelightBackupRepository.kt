@@ -137,7 +137,8 @@ class SqlDelightBackupRepository(
                         timingProvenance = it.timingProvenance,
                         startedAtElapsedMillis = it.startedAtElapsedMillis,
                         completedAtElapsedMillis = it.completedAtElapsedMillis,
-                        durationSeconds = it.durationSeconds?.toInt()
+                        durationSeconds = it.durationSeconds?.toInt(),
+                        prescriptionSnapshot = it.prescriptionSnapshot
                     )
                 },
                 workoutSessions = database.workoutSessionQueries.selectAllSessions()
@@ -631,7 +632,8 @@ class SqlDelightBackupRepository(
                     timingProvenance = it.timingProvenance,
                     startedAtElapsedMillis = it.startedAtElapsedMillis,
                     completedAtElapsedMillis = it.completedAtElapsedMillis,
-                    durationSeconds = it.durationSeconds?.toLong()
+                    durationSeconds = it.durationSeconds?.toLong(),
+                    prescriptionSnapshot = it.prescriptionSnapshot
                 )
             }
             selection.bodyWeightToInsert.forEach {
@@ -1155,7 +1157,8 @@ class SqlDelightBackupRepository(
                     timingProvenance = set.timingProvenance,
                     startedAtElapsedMillis = set.startedAtElapsedMillis,
                     completedAtElapsedMillis = set.completedAtElapsedMillis,
-                    durationSeconds = set.durationSeconds?.toLong()
+                    durationSeconds = set.durationSeconds?.toLong(),
+                    prescriptionSnapshot = set.prescriptionSnapshot
                 )
             }
 

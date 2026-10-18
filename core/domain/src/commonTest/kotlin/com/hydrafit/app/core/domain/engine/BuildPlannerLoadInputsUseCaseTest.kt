@@ -5,6 +5,8 @@ import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
+import com.hydrafit.app.core.domain.workout.WorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -14,8 +16,8 @@ import kotlinx.coroutines.test.runTest
 
 /**
  * The load half of a plan request: only external resistance (or a legacy number on an exercise that
- * is external today) seeds the baseline; progression needs a typed external prescription, so a
- * pre-EX-02 accepted plan seeds the baseline but never fabricates a streak.
+ * is external today) seeds the baseline. Progression reads each exercise's recorded comparable
+ * targets, so a legacy or missing recorded target seeds the baseline but never fabricates a streak.
  */
 class BuildPlannerLoadInputsUseCaseTest {
 
@@ -39,7 +41,6 @@ class BuildPlannerLoadInputsUseCaseTest {
                     set("bench-press", day = 100, kind = LoadKind.LEGACY_UNSPECIFIED)
                 )
             ),
-            latestPlan = null,
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -51,25 +52,26 @@ class BuildPlannerLoadInputsUseCaseTest {
 
     @Test
     fun aLegacyPrescriptionSeedsTheBaselineButDoesNotEarnAStreak() = runTest {
-        val completed = completedExternalSessions("bench-press")
+        val completed = completedExternalSessions(
+            "bench-press",
+            target(kind = LoadKind.LEGACY_UNSPECIFIED)
+        )
         val result = useCase(
             sources = sources(completed),
-            latestPlan = plan("bench-press", weightKg = 80.0, kind = LoadKind.LEGACY_UNSPECIFIED),
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
         )
 
-        // Three completed external sessions, but the accepted plan is legacy: no increment.
+        // Three completed external sessions, but the recorded target is legacy: no increment.
         assertEquals(126.66666666666667, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
     }
 
     @Test
     fun aTypedExternalPrescriptionEarnsAStreak() = runTest {
-        val completed = completedExternalSessions("bench-press")
+        val completed = completedExternalSessions("bench-press", target())
         val result = useCase(
             sources = sources(completed),
-            latestPlan = plan("bench-press", weightKg = 80.0, kind = LoadKind.EXTERNAL),
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -82,7 +84,6 @@ class BuildPlannerLoadInputsUseCaseTest {
     fun legacyLoadOnABodyweightOnlyExerciseIsExcluded() = runTest {
         val result = useCase(
             sources = sources(listOf(set("ab-roll", day = 1, weightKg = 32.5))),
-            latestPlan = null,
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -100,7 +101,6 @@ class BuildPlannerLoadInputsUseCaseTest {
 
         val result = useCase(
             sources = sources(sets),
-            latestPlan = null,
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -122,7 +122,6 @@ class BuildPlannerLoadInputsUseCaseTest {
 
         val result = useCase(
             sources = sources(sets),
-            latestPlan = null,
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -141,7 +140,6 @@ class BuildPlannerLoadInputsUseCaseTest {
                     set("bench-press", day = 92, weightKg = 100.0, kind = LoadKind.EXTERNAL)
                 )
             ),
-            latestPlan = null,
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -163,7 +161,6 @@ class BuildPlannerLoadInputsUseCaseTest {
                 listOf(set("bench-press", day = 1, weightKg = 120.0, kind = LoadKind.EXTERNAL)) +
                     lightDeloadSets
             ),
-            latestPlan = null,
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -184,7 +181,6 @@ class BuildPlannerLoadInputsUseCaseTest {
 
         val result = useCase(
             sources = withRecord,
-            latestPlan = null,
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -203,7 +199,6 @@ class BuildPlannerLoadInputsUseCaseTest {
         )
         val result = useCase(
             sources = sources(sets),
-            latestPlan = null,
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -221,7 +216,6 @@ class BuildPlannerLoadInputsUseCaseTest {
         )
         val result = useCase(
             sources = sources(sets),
-            latestPlan = null,
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -233,11 +227,10 @@ class BuildPlannerLoadInputsUseCaseTest {
 
     @Test
     fun aHeavierFutureSetCannotRaiseTheEstimateOrProgression() = runTest {
-        val sets = completedExternalSessions("bench-press") +
+        val sets = completedExternalSessions("bench-press", target()) +
             set("bench-press", day = 101, weightKg = 500.0, kind = LoadKind.EXTERNAL)
         val result = useCase(
             sources = sources(sets),
-            latestPlan = plan("bench-press", weightKg = 80.0, kind = LoadKind.EXTERNAL),
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -263,7 +256,6 @@ class BuildPlannerLoadInputsUseCaseTest {
 
         val result = narrow(
             sources = sources(sets),
-            latestPlan = null,
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -284,7 +276,6 @@ class BuildPlannerLoadInputsUseCaseTest {
 
         val result = useCase(
             sources = source,
-            latestPlan = null,
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -310,7 +301,6 @@ class BuildPlannerLoadInputsUseCaseTest {
 
         val result = useCase(
             sources = sources(sets),
-            latestPlan = null,
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -336,7 +326,6 @@ class BuildPlannerLoadInputsUseCaseTest {
             sources = sources(logged).copy(
                 personalRecords = listOf(PersonalRecord("bench-press", 50.0, 1))
             ),
-            latestPlan = null,
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -351,7 +340,6 @@ class BuildPlannerLoadInputsUseCaseTest {
             sources = sources(
                 listOf(set("bench-press", day = 1, weightKg = 120.0, kind = LoadKind.EXTERNAL))
             ).copy(personalRecords = listOf(PersonalRecord("bench-press", 100.0, 16))),
-            latestPlan = null,
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -372,7 +360,6 @@ class BuildPlannerLoadInputsUseCaseTest {
             ).copy(
                 personalRecords = listOf(PersonalRecord("bench-press", weightKg = 120.0, reps = 8))
             ),
-            latestPlan = null,
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -392,7 +379,6 @@ class BuildPlannerLoadInputsUseCaseTest {
     fun recordsTheRecentPerformanceBaselineAndItsQualifyingSetCount() = runTest {
         val result = useCase(
             sources = sources(completedExternalSessions("bench-press")),
-            latestPlan = null,
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -412,7 +398,6 @@ class BuildPlannerLoadInputsUseCaseTest {
             sources = sources(sets = emptyList()).copy(
                 personalRecords = listOf(PersonalRecord("bench-press", weightKg = 100.0, reps = 8))
             ),
-            latestPlan = null,
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -430,8 +415,7 @@ class BuildPlannerLoadInputsUseCaseTest {
     @Test
     fun theRecordedBaselinePlusDeltaAlwaysMatchesTheSuggestedWeight() = runTest {
         val result = useCase(
-            sources = sources(completedExternalSessions("bench-press")),
-            latestPlan = plan("bench-press", weightKg = 80.0, kind = LoadKind.EXTERNAL),
+            sources = sources(completedExternalSessions("bench-press", target())),
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -455,7 +439,6 @@ class BuildPlannerLoadInputsUseCaseTest {
                     set("bench-press", day = 90, weightKg = 100.0, kind = LoadKind.EXTERNAL)
                 )
             ),
-            latestPlan = null,
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
@@ -465,22 +448,37 @@ class BuildPlannerLoadInputsUseCaseTest {
         assertTrue("bench-press" !in result.loadExplanations)
     }
 
-    private fun completedExternalSessions(exerciseId: String): List<WorkoutSet> =
-        listOf(100L, 99L, 98L).flatMap { day ->
-            List(3) { set(exerciseId, day = day, kind = LoadKind.EXTERNAL) }
-        }
+    private fun completedExternalSessions(
+        exerciseId: String,
+        target: WorkoutPrescriptionSnapshot? = null
+    ): List<WorkoutSet> = listOf(100L, 99L, 98L).flatMap { day ->
+        List(3) { set(exerciseId, day = day, kind = LoadKind.EXTERNAL, target = target) }
+    }
+
+    private fun target(weightKg: Double = 80.0, kind: LoadKind = LoadKind.EXTERNAL) =
+        WorkoutPrescriptionSnapshot(
+            exerciseId = "bench-press",
+            sets = 3,
+            reps = 8,
+            loadKind = kind,
+            weightKg = weightKg,
+            isDeload = false
+        )
 
     private fun set(
         exerciseId: String,
         day: Long,
         weightKg: Double = 100.0,
-        kind: LoadKind = LoadKind.LEGACY_UNSPECIFIED
+        kind: LoadKind = LoadKind.LEGACY_UNSPECIFIED,
+        target: WorkoutPrescriptionSnapshot? = null
     ) = WorkoutSet(
         exerciseId = exerciseId,
         reps = 8,
         weightKg = weightKg,
         loadKind = kind,
-        performedAtMillis = day * DAY_MILLIS
+        performedAtMillis = day * DAY_MILLIS,
+        sessionId = "s$day",
+        prescriptionSnapshot = target
     )
 
     private fun sources(sets: List<WorkoutSet>) = WorkoutPlanSources(
@@ -488,32 +486,21 @@ class BuildPlannerLoadInputsUseCaseTest {
         selectedEngine = PlannerEngineId.DETERMINISTIC,
         daysPerWeek = 3,
         loggedSets = emptyList(),
-        loggedWorkoutSets = sets
+        loggedWorkoutSets = sets,
+        progressionHistory = ProgressionHistory(sets, sessionsOf(sets))
     )
 
-    private fun plan(exerciseId: String, weightKg: Double, kind: LoadKind) = AcceptedPlan(
-        engine = PlannerEngineId.DETERMINISTIC,
-        acceptedAtMillis = 0L,
-        id = 1L,
-        days = listOf(
-            AcceptedDay(
-                dayIndex = 0,
-                focus = SplitFocus.FULL_BODY,
-                exercises = listOf(
-                    AcceptedExercise(
-                        exerciseId = exerciseId,
-                        sets = 3,
-                        reps = 8,
-                        name = "Bench",
-                        movementPattern = MovementPattern.HORIZONTAL_PUSH,
-                        suggestedWeightKg = weightKg,
-                        loadCapability = ExerciseLoadCapability.EXTERNAL,
-                        loadKind = kind
-                    )
-                )
+    private fun sessionsOf(sets: List<WorkoutSet>) = sets
+        .mapNotNull { set -> set.sessionId?.let { it to set } }
+        .groupBy({ it.first }, { it.second })
+        .map { (id, group) ->
+            WorkoutSession(
+                id = id,
+                startedAtMillis = group.minOf { it.performedAtMillis },
+                endedAtMillis = group.maxOf { it.performedAtMillis },
+                localEpochDay = 0
             )
-        )
-    )
+        }
 
     private fun exercise(id: String, capability: ExerciseLoadCapability) = Exercise(
         id = id,

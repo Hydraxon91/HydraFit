@@ -28,6 +28,7 @@ import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.WarmupAction
+import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshotJson
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 
 /**
@@ -275,6 +276,14 @@ class BackupValidator(private val catalog: BackupCatalog) {
             exercise(it.exerciseId, knownExercises)
             enum(it.loadKind, LoadKind.entries)
             enum(it.timingProvenance, WorkoutTimingProvenance.entries)
+            // A recorded target does not exist before format 21, so its presence in an older file is
+            // a signal the file is not what it claims rather than a value to reinterpret.
+            if (file.formatVersion < PRESCRIPTION_SNAPSHOT_FORMAT_VERSION &&
+                it.prescriptionSnapshot != null
+            ) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            it.prescriptionSnapshot?.let { encoded -> prescriptionSnapshot(encoded, it) }
             // A set is measured by positive reps or positive whole seconds, never both and never
             // neither. A duration in a format that predates the field is rejected instead of being
             // reinterpreted as a rep count.
@@ -577,6 +586,24 @@ class BackupValidator(private val catalog: BackupCatalog) {
         if (hasReps == hasDuration) fail(BackupFailure.INVALID_VALUE)
         if (reps != null && reps <= 0) fail(BackupFailure.INVALID_VALUE)
         durationSeconds?.let { if (it <= 0) fail(BackupFailure.INVALID_VALUE) }
+    }
+
+    /**
+     * A recorded target must decode, must belong to the same exercise and load meaning as the set it
+     * is attached to, and must not contradict the set's own measurement.
+     */
+    private fun prescriptionSnapshot(encoded: String, set: BackupWorkoutSetRecord) {
+        val snapshot = try {
+            WorkoutPrescriptionSnapshotJson.decode(encoded)
+        } catch (_: IllegalArgumentException) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        if (snapshot.exerciseId != set.exerciseId) fail(BackupFailure.INVALID_REFERENCE)
+        if (snapshot.loadKind.name != set.loadKind) fail(BackupFailure.INVALID_VALUE)
+        if ((snapshot.reps == null) != (set.durationSeconds != null)) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        snapshot.weightKg?.let { value -> finite(value) }
     }
 
     private fun <E : Enum<E>> enum(value: String?, values: List<E>) {

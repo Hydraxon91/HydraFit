@@ -3599,3 +3599,49 @@ re-exercised (the success path was device-verified in the 0.9.3 journey); the tr
 removal, TalkBack, dark mode, larger text, locale and rotation were not exercised; the storage flows
 are scratch, not repository regressions.
 
+
+## 0.10.0 — progression integrity (LT-10 / OF-10A-P0)
+
+Implementation evidence: host suite, `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+`:androidApp:assembleDebug` and both iOS simulator compiles green at the candidate revision
+(`full-matrix-01.log`, 57.4s, wrapper exit 0/termination confirmed). New regressions:
+`WorkoutPrescriptionSnapshotTest` (snapshot round-trip including absent/zero/positive targets,
+three closed sessions on one date earning one increment, incomplete sessions unable to combine into a
+success, unknown and changed targets breaking a streak without a miss, open-session and
+partial-workout behaviour, correction/deletion replay, warm-up/future/deload/blank/mixed-target
+exclusion), `ProgressWeightsUseCaseTest` (recorded-target semantics for every previous streak case),
+`BuildPlannerLoadInputsUseCaseTest` and `PlannerLoadPolicyParityTest` (producer→consumer: recorded
+targets drive the same engine/sanitizer bound; a missing target keeps the unprogressed bound),
+`SqlDelightWorkoutLogRepositoryTest` (a target persists in the same insert as its set, survives a
+performance correction, and a rejected insert leaves no row), `SqlDelightWorkoutPlanSourcesRepositoryTest`
+(coherent history read reflects session closure and the recorded target),
+`WorkoutPrescriptionSnapshotMigrationTest` (1→56→current preserves stored values and never invents a
+target), `SqlDelightBackupRepositoryTest` (recorded targets survive replace-restore and a merge keeps
+them verbatim while dropping scheduling links), and `BackupValidatorTest` (a pre-21 file carrying a
+target is rejected; a target contradicting its set's exercise, load kind or measurement is rejected).
+
+Device evidence: the debug build was installed on `emulator-5554` and launched against the existing
+populated database; migration 56 applied with no SQLite or migration error in logcat, the app
+displayed (`Displayed com.hydrafit.app/.MainActivity`), and the Equipment screen rendered the
+existing "My equipment" profile with its loading configuration and equipment list unchanged
+(screenshot inspected).
+
+Limits: no set was logged on device, so on-device target capture, in-app correction/deletion and the
+backup/restore round trip were not exercised through the UI — those paths are covered by host tests
+and the repository/validator regressions above. Legacy occurrence-derived target recovery was not
+exercised against real pre-format-21 device data. The migration was not verified as an upgrade from a
+pinned shipped tag on device.
+Post-review corrections (same release, before commit): `SqlDelightWorkoutLogRepositoryTest.rejectsATargetWhoseMeasurementDisagreesWithItsSet`
+(a target whose measurement kind contradicts its set is rejected and no row is written),
+`CustomExerciseDedupeTest.mergingACustomIdentityRemapsTheRecordedTargetSoTheBackupStaysRestorable`
+(merging a custom identity remaps the recorded target's exercise id, and the resulting export still
+passes `BackupValidator`), `SqlDelightWorkoutPlanSourcesRepositoryTest.derivesALegacyTargetOnlyFromUnambiguousFrozenOccurrenceWork`
+and `derivesNoLegacyTargetWithoutAnActivationWeek` (the pre-format-21 occurrence-target derivation and
+its refusal cases), and `ProgressWeightsUseCaseTest.anUnknownExposureDoesNotCountTowardTheFailureStreak`
+(an unjudgeable exposure does not advance the failure streak, which distinguishes UNKNOWN from MISS).
+The blank/zero-load rule was corrected to UNKNOWN during the same round.
+
+Known pre-existing flake, not fixed and out of scope: `ExerciseProgressRecordsIntegrationTest.multiExerciseOccurrenceKeepsStableIdentityOrderAndEarlierBaselines`
+intermittently throws `cannot start a transaction within a transaction`; it passes in isolation and on
+a full rerun. Diagnosis: the progress repository's flow runs `transactionWithResult` and `first()`
+cancels it mid-transaction.

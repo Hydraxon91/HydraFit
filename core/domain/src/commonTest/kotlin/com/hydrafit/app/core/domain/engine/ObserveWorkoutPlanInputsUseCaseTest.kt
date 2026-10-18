@@ -12,6 +12,8 @@ import com.hydrafit.app.core.domain.fatigue.MuscleTarget
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
+import com.hydrafit.app.core.domain.workout.WorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -445,13 +447,24 @@ class ObserveWorkoutPlanInputsUseCaseTest {
                 )
             )
         )
+        val target = WorkoutPrescriptionSnapshot(
+            exerciseId = "bench-press",
+            sets = 3,
+            reps = 8,
+            loadKind = LoadKind.EXTERNAL,
+            weightKg = 100.0,
+            isDeload = false
+        )
         val completedDays = (3 downTo 1).flatMap { day ->
-            List(3) {
+            List(3) { index ->
                 WorkoutSet(
+                    id = day * 10L + index,
                     exerciseId = "bench-press",
                     reps = 8,
                     weightKg = 100.0,
-                    performedAtMillis = day.toLong() * 24L * 60L * 60L * 1000L
+                    performedAtMillis = day.toLong() * 24L * 60L * 60L * 1000L,
+                    sessionId = "s$day",
+                    prescriptionSnapshot = target
                 )
             }
         }
@@ -461,7 +474,18 @@ class ObserveWorkoutPlanInputsUseCaseTest {
                 selectedEngine = PlannerEngineId.DETERMINISTIC,
                 daysPerWeek = 3,
                 loggedSets = emptyList(),
-                loggedWorkoutSets = completedDays
+                loggedWorkoutSets = completedDays,
+                progressionHistory = ProgressionHistory(
+                    completedDays,
+                    completedDays.map { set ->
+                        WorkoutSession(
+                            id = requireNotNull(set.sessionId),
+                            startedAtMillis = set.performedAtMillis,
+                            endedAtMillis = set.performedAtMillis,
+                            localEpochDay = 0
+                        )
+                    }.distinctBy { it.id }
+                )
             )
         )
         val useCase = useCase(

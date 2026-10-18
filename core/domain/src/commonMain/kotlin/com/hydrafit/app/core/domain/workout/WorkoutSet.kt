@@ -35,7 +35,9 @@ data class WorkoutSet(
      * value the user entered, never derived from [startedAtElapsedMillis]/[completedAtElapsedMillis]:
      * monotonic timing is provenance, not a duration source.
      */
-    val durationSeconds: Int? = null
+    val durationSeconds: Int? = null,
+    /** Immutable prescribed target, not the actual performance or a reference to today's plan. */
+    val prescriptionSnapshot: WorkoutPrescriptionSnapshot? = null
 ) {
     /**
      * The set's measurement when its stored shape is valid, or null when the row is neither a

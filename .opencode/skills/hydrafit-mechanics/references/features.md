@@ -146,6 +146,13 @@ refresh and is retried through the normal confirm path. Retry state is in memory
 restart starts over. A Confirm-all batch is scoped to its plan/occurrence context and stops
 continuing when that context changes, without undoing successful writes. A legacy resolution dialog
 takes precedence over an open draft editor, which remains in state until resolution is dismissed.
+
+Each written set also carries the **recorded target** it was performed against, captured once at
+submission (`WorkoutLoggerViewModel.capturePrescription`): the tapped occurrence entry when the set
+is attributed to a frozen slot, else today's accepted-plan slot, else nothing. The capture refuses
+to guess — an ambiguous slot, a backdated set with no attributable slot, or an active block with no
+matching entry records no target. The value is written by the same insert as the set, so a set is
+never stored without its target, and a later correction changes performance only.
 Cancel leaves the draft pending and discards any live-set start/completion event so a later live
 completion requires a fresh Start action; canceling the editor discards its in-memory edits.
 "Use last logged" retains the live event when it finds no load and opens the editor; only a successful

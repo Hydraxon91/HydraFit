@@ -78,7 +78,19 @@ algorithm; otherwise the lookup is bounded and session bounds stay untouched. No
 migration is needed; all snapshots, load kind and occurrence links are retained. A missing row fails
 instead of recreating a deleted set.
 
-`N.sqm` migrates from version N to N+1. `45.sqm` adds the two default-off rest-presentation
+`N.sqm` migrates from version N to N+1. `56.sqm` adds the nullable
+`workoutSet.prescriptionSnapshot` text column that records the target a set was
+performed against (additive `ALTER TABLE`, no rebuild and no high-water repair);
+existing rows keep `NULL`, which stays "unknown target" rather than inheriting
+today's accepted plan. `ProgressionHistory.sq` is query-only: it registers
+`workoutSet`, `workoutSession`, `occurrenceEntry`, `workoutOccurrence` and
+`trainingActivation` as one invalidation anchor, so a set write, a session
+boundary, a replacement or an activation change re-emits. `SqlDelightWorkoutPlanSourcesRepository`
+reads sets, sessions and unambiguously attributed occurrence targets in one
+off-main transaction and hands `WorkoutPlanSources.progressionHistory` to the
+planner. `insertSetWithTimingProvenance` and `insertSetWithIdAndTimingProvenance`
+carry the column, so a set and its target are written by one statement; restore and
+merge pass the stored value through unchanged. `45.sqm` adds the two default-off rest-presentation
 opt-ins to `trainingGuidancePreference` (added without a CHECK constraint, like the earlier
 `workoutSet` columns), creates `workoutReminderPreference` (singleton row: reminders opt-in, a
 nullable minutes-past-local-midnight reminder time, and quiet hours) and creates the device-local

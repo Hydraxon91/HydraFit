@@ -36,7 +36,6 @@ class BuildPlannerLoadInputsUseCase(
 ) {
     suspend operator fun invoke(
         sources: WorkoutPlanSources,
-        latestPlan: AcceptedPlan?,
         pauseIncrements: Boolean,
         utcOffsetMillis: Long,
         nowMillis: Long
@@ -97,10 +96,9 @@ class BuildPlannerLoadInputsUseCase(
 
         val resolved = progressWeights.resolve(
             baseline = baseline,
-            prescriptions = externalPrescriptions(latestPlan),
-            sets = loadSets.filter { it.loadKind == LoadKind.EXTERNAL },
+            history = sources.progressionHistory,
             pauseIncrements = pauseIncrements,
-            utcOffsetMillis = utcOffsetMillis
+            nowMillis = nowMillis
         )
         val progressed = resolved.mapValues { (_, value) -> value.progressedKg }
         val loadExplanations = baselineExplanations.mapValues { (exerciseId, explanation) ->
@@ -153,28 +151,6 @@ class BuildPlannerLoadInputsUseCase(
             }
             .groupBy { it.exerciseId }
     }
-
-    /**
-     * The typed external targets each exercise was prescribed in the most recent accepted plan.
-     * Pre-EX-02 (legacy) prescriptions are excluded, so they cannot fabricate a completed streak.
-     */
-    private fun externalPrescriptions(plan: AcceptedPlan?): Map<String, Prescription> = plan
-        ?.days
-        ?.flatMap { it.exercises }
-        ?.mapNotNull { exercise ->
-            if (exercise.loadKind != LoadKind.EXTERNAL) return@mapNotNull null
-            val weight = exercise.suggestedWeightKg ?: return@mapNotNull null
-            // A timed slot has no rep target, so it has no rep-based prescription to progress from.
-            val reps = exercise.reps ?: return@mapNotNull null
-            exercise.exerciseId to Prescription(
-                exerciseId = exercise.exerciseId,
-                sets = exercise.sets,
-                reps = reps,
-                weightKg = weight
-            )
-        }
-        ?.toMap()
-        .orEmpty()
 
     companion object {
         /** Product default recent-performance window; not a research-derived prescription horizon. */

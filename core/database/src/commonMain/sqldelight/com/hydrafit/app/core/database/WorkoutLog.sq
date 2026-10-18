@@ -18,6 +18,7 @@ CREATE TABLE workoutSet (
     startedAtElapsedMillis INTEGER,
     completedAtElapsedMillis INTEGER,
     durationSeconds INTEGER,
+    prescriptionSnapshot TEXT,
     FOREIGN KEY (exerciseId) REFERENCES exercise(id)
 );
 
@@ -26,8 +27,8 @@ INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, involv
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 insertSetWithTimingProvenance:
-INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber, dayIndex, rir, sessionId, loadKind, timingProvenance, startedAtElapsedMillis, completedAtElapsedMillis, durationSeconds)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber, dayIndex, rir, sessionId, loadKind, timingProvenance, startedAtElapsedMillis, completedAtElapsedMillis, durationSeconds, prescriptionSnapshot)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 lastInsertedSetId:
 SELECT last_insert_rowid();
@@ -38,8 +39,8 @@ INSERT INTO workoutSet(id, exerciseId, reps, weightKg, performedAt, isWarmup, in
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 insertSetWithIdAndTimingProvenance:
-INSERT INTO workoutSet(id, exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber, dayIndex, rir, sessionId, occurrenceId, occurrenceEntryId, loadKind, timingProvenance, startedAtElapsedMillis, completedAtElapsedMillis, durationSeconds)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO workoutSet(id, exerciseId, reps, weightKg, performedAt, isWarmup, involvements, weekNumber, cycleNumber, dayIndex, rir, sessionId, occurrenceId, occurrenceEntryId, loadKind, timingProvenance, startedAtElapsedMillis, completedAtElapsedMillis, durationSeconds, prescriptionSnapshot)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 selectAllSets:
 SELECT * FROM workoutSet ORDER BY performedAt, id;
@@ -79,6 +80,9 @@ WHERE id = ?;
 
 updateSetExerciseId:
 UPDATE workoutSet SET exerciseId = :newId WHERE exerciseId = :oldId;
+
+updatePrescriptionSnapshot:
+UPDATE workoutSet SET prescriptionSnapshot = ? WHERE id = ?;
 
 selectUnsegmentedSets:
 SELECT * FROM workoutSet WHERE sessionId IS NULL ORDER BY performedAt, id;

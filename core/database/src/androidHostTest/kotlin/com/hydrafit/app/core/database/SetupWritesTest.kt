@@ -88,7 +88,8 @@ class SetupWritesTest {
             SqlDelightTrainingGoalRepository(database),
             SqlDelightPersonalRecordRepository(database, TimeProvider { 100L }),
             SqlDelightExercisePreferenceRepository(database),
-            SqlDelightExerciseExclusionRepository(database)
+            SqlDelightExerciseExclusionRepository(database),
+            database
         ).observe().first()
         assertEquals(2, sources.daysPerWeek)
         assertEquals(TrainingGoal.STRENGTH, sources.goal)
@@ -100,7 +101,6 @@ class SetupWritesTest {
             ProgressWeightsUseCase()
         )(
             sources,
-            latestPlan = null,
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = 100L

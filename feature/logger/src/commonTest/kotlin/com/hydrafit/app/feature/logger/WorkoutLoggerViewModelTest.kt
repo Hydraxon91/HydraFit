@@ -770,6 +770,10 @@ class WorkoutLoggerViewModelTest {
 
         assertEquals(3, repository.all().size)
         assertTrue(viewModel.state.value.draftSets.isEmpty())
+        val targets = repository.all().map { it.prescriptionSnapshot }
+        assertEquals(1, targets.distinct().size)
+        assertEquals(100.0, assertNotNull(targets.first()).weightKg)
+        assertEquals(3, assertNotNull(targets.first()).sets)
     }
 
     @Test
@@ -798,6 +802,7 @@ class WorkoutLoggerViewModelTest {
             assertEquals(3, repository.all().size)
             assertTrue(viewModel.state.value.draftSets.isEmpty())
             assertTrue(viewModel.state.value.draftWriteRetries.isEmpty())
+            assertTrue(repository.all().all { it.prescriptionSnapshot?.sets == 3 })
         }
 
     @Test
@@ -2658,6 +2663,7 @@ class WorkoutLoggerViewModelTest {
         val set = repository.all().single()
         assertEquals(30L, set.occurrenceId)
         assertEquals(0, set.dayIndex)
+        assertEquals("back-squat", assertNotNull(set.prescriptionSnapshot).exerciseId)
     }
 
     @Test

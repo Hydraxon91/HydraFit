@@ -1,8 +1,11 @@
 package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.hydrafit.app.core.domain.backup.BackupValidator
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
+import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshotJson
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -31,6 +34,53 @@ class CustomExerciseDedupeTest {
     @AfterTest
     fun tearDown() {
         driver.close()
+    }
+
+    @Test
+    fun mergingACustomIdentityRemapsTheRecordedTargetSoTheBackupStaysRestorable() = runTest {
+        insertCustom(id = "user-trap-bar-deadlift", name = "Trap Bar Deadlift")
+        val target = WorkoutPrescriptionSnapshot(
+            exerciseId = "user-trap-bar-deadlift",
+            sets = 3,
+            reps = 5,
+            loadKind = LoadKind.EXTERNAL,
+            weightKg = 100.0,
+            isDeload = false
+        )
+        database.workoutSessionQueries.insertSession("s1", 1, 2, 0)
+        database.workoutLogQueries.insertSetWithTimingProvenance(
+            exerciseId = "user-trap-bar-deadlift",
+            reps = 5,
+            weightKg = 100.0,
+            performedAt = 1,
+            isWarmup = 0,
+            involvements = null,
+            weekNumber = null,
+            cycleNumber = null,
+            dayIndex = null,
+            rir = null,
+            sessionId = "s1",
+            loadKind = "EXTERNAL",
+            timingProvenance = "UNKNOWN",
+            startedAtElapsedMillis = null,
+            completedAtElapsedMillis = null,
+            durationSeconds = null,
+            prescriptionSnapshot = WorkoutPrescriptionSnapshotJson.encode(target)
+        )
+
+        CustomExerciseDedupe(database).run()
+
+        val stored = database.workoutLogQueries.selectAllSets().executeAsList()
+            .single { it.exerciseId == "trap-bar-deadlift" }
+        assertEquals(
+            target.copy(exerciseId = "trap-bar-deadlift"),
+            WorkoutPrescriptionSnapshotJson.decode(requireNotNull(stored.prescriptionSnapshot))
+        )
+        // The set and its target now agree, so the export the user takes is still restorable.
+        val exported = SqlDelightBackupRepository(database, SqlDelightBackupCatalog())
+        BackupValidator(SqlDelightBackupCatalog()).validate(
+            exported.export(appVersion = "t", exportedAtMillis = 1L)
+        )
     }
 
     @Test
