@@ -87,7 +87,9 @@ data class AcceptedExercise(
      */
     val explanation: ExerciseTargetExplanation? = null,
     /** The slot's approved progression policy, or null when the user has not configured one. */
-    val progressionPolicy: SlotProgressionPolicy? = null
+    val progressionPolicy: SlotProgressionPolicy? = null,
+    /** The slot's ordered per-set targets, or null when its sets share one repeated prescription. */
+    val setTargets: SlotSetTargets? = null
 ) {
     init {
         require((reps == null) != (durationSeconds == null)) {
@@ -135,7 +137,8 @@ fun AcceptedPlan.toWeeklyPlan(): WeeklyPlan = WeeklyPlan(
                     loadKind = exercise.loadKind,
                     loadCapability = exercise.loadCapability,
                     explanation = exercise.explanation,
-                    progressionPolicy = exercise.progressionPolicy
+                    progressionPolicy = exercise.progressionPolicy,
+                    setTargets = exercise.setTargets
                 )
             }
         )

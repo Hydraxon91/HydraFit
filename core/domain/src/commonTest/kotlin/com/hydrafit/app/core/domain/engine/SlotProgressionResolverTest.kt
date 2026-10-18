@@ -17,6 +17,22 @@ private const val EXERCISE = "bench-press"
 /** The policy both the request and its recorded targets share, unless a test names its own. */
 private val DEFAULT_POLICY = SlotProgressionPolicy(minReps = 5, maxReps = 8, incrementKg = 2.5)
 
+/** A range wide enough for an ordered prescription to advance without immediately hitting the top. */
+private val ORDERED_POLICY = SlotProgressionPolicy(minReps = 6, maxReps = 10, incrementKg = 2.5)
+
+private fun orderedTargets(
+    reps: Int = 8,
+    loads: List<Double> = listOf(60.0, 65.0, 70.0)
+): SlotSetTargets = SlotSetTargets.of(
+    loads.map { SetTarget(reps = reps, loadKind = LoadKind.EXTERNAL, weightKg = it) }
+)
+
+private fun orderedRequest(targets: SlotSetTargets) = OrderedSlotProgressionRequest(
+    exerciseId = EXERCISE,
+    targets = targets,
+    policy = ORDERED_POLICY
+)
+
 private fun recordedTarget(
     reps: Int,
     weightKg: Double,
@@ -88,6 +104,54 @@ private class RecordedHistory {
             performedAtMillis = end - 1_800_000L,
             sessionId = sessionId
         )
+        endedAt += 86_400_000L
+        return this
+    }
+
+    /**
+     * One closed ordered session: every prescribed set logged against its own slot index, with
+     * [satisfied] of them reaching their own target. The snapshot records the prescribed target and
+     * the set records the performance, exactly as the write path does.
+     */
+    fun orderedExposure(
+        targets: SlotSetTargets,
+        satisfied: Int,
+        policy: SlotProgressionPolicy? = null
+    ): RecordedHistory {
+        val end = endedAt
+        val sessionId = "session-$end"
+        sessions += WorkoutSession(
+            id = sessionId,
+            startedAtMillis = end - 3_600_000L,
+            endedAtMillis = end,
+            localEpochDay = 0
+        )
+        targets.targets.forEachIndexed { index, target ->
+            val reached = index < satisfied
+            sets += WorkoutSet(
+                id = nextSetId++,
+                exerciseId = EXERCISE,
+                reps = if (reached) target.reps else requireNotNull(target.reps) - 1,
+                weightKg = if (reached) {
+                    target.weightKg
+                } else {
+                    requireNotNull(target.weightKg) - 1.0
+                },
+                performedAtMillis = end - 1_800_000L + index,
+                sessionId = sessionId,
+                prescriptionSnapshot = WorkoutPrescriptionSnapshot(
+                    exerciseId = EXERCISE,
+                    sets = targets.sets,
+                    reps = target.reps,
+                    loadKind = target.loadKind,
+                    weightKg = target.weightKg,
+                    isDeload = false,
+                    progressionPolicy = policy,
+                    setIndex = index,
+                    targetRir = target.targetRir
+                )
+            )
+        }
         endedAt += 86_400_000L
         return this
     }
@@ -348,5 +412,109 @@ class SlotProgressionResolverTest {
         assertEquals(SlotProgressionReason.INSUFFICIENT_COMPARABLE_WORK, suggestion.reason)
         assertEquals(2, suggestion.comparableSuccesses)
         assertEquals(false, suggestion.changesTarget)
+    }
+
+    @Test
+    fun everyOrderedSlotSatisfiedEarnsAnAdvanceOnEverySet() {
+        val targets = orderedTargets()
+        val history = RecordedHistory()
+            .orderedExposure(targets, satisfied = 3)
+            .orderedExposure(targets, satisfied = 3)
+            .orderedExposure(targets, satisfied = 3)
+            .build()
+
+        val suggestion = useCase.resolveOrdered(orderedRequest(targets), history, NOW)
+
+        assertEquals(SlotProgressionAction.ADVANCE_REPS, suggestion.action)
+        assertEquals(listOf(9, 9, 9), suggestion.suggested?.targets?.map { it.reps })
+        assertEquals(listOf(60.0, 65.0, 70.0), suggestion.suggested?.targets?.map { it.weightKg })
+    }
+
+    @Test
+    fun anOrderedPrescriptionAtTheTopOfTheRangeTakesTheLoadStep() {
+        val targets = orderedTargets(reps = 10)
+        val history = RecordedHistory()
+            .orderedExposure(targets, satisfied = 3)
+            .orderedExposure(targets, satisfied = 3)
+            .orderedExposure(targets, satisfied = 3)
+            .build()
+
+        val suggestion = useCase.resolveOrdered(orderedRequest(targets), history, NOW)
+
+        assertEquals(SlotProgressionAction.ADVANCE_LOAD, suggestion.action)
+        assertEquals(listOf(6, 6, 6), suggestion.suggested?.targets?.map { it.reps })
+        assertEquals(listOf(62.5, 67.5, 72.5), suggestion.suggested?.targets?.map { it.weightKg })
+    }
+
+    @Test
+    fun aSurplusSetCannotSubstituteForAMissedOrderedSlot() {
+        val targets = orderedTargets()
+        val history = RecordedHistory()
+            .orderedExposure(targets, satisfied = 2)
+            .orderedExposure(targets, satisfied = 2)
+            .orderedExposure(targets, satisfied = 2)
+            .build()
+
+        val suggestion = useCase.resolveOrdered(orderedRequest(targets), history, NOW)
+
+        assertEquals(SlotProgressionAction.REVIEW, suggestion.action)
+        assertEquals(SlotProgressionReason.MISS_STREAK, suggestion.reason)
+        assertEquals(3, suggestion.comparableMisses)
+    }
+
+    @Test
+    fun aSessionLoggedWithoutSlotIndicesIsNotComparable() {
+        val targets = orderedTargets()
+        val history = RecordedHistory()
+            .orderedExposure(targets, satisfied = 3)
+            .orderedExposure(targets, satisfied = 3)
+            .orderedExposure(targets, satisfied = 3)
+            .untargetedExposure()
+            .orderedExposure(targets, satisfied = 3)
+            .orderedExposure(targets, satisfied = 3)
+            .build()
+
+        val suggestion = useCase.resolveOrdered(orderedRequest(targets), history, NOW)
+
+        assertEquals(SlotProgressionAction.HOLD, suggestion.action)
+        assertEquals(SlotProgressionReason.INSUFFICIENT_COMPARABLE_WORK, suggestion.reason)
+        assertEquals(2, suggestion.comparableSuccesses)
+    }
+
+    @Test
+    fun aChangedOrderedPrescriptionRestartsTheRun() {
+        val targets = orderedTargets()
+        val other = orderedTargets(loads = listOf(60.0, 62.5, 65.0))
+        val history = RecordedHistory()
+            .orderedExposure(targets, satisfied = 3)
+            .orderedExposure(targets, satisfied = 3)
+            .orderedExposure(other, satisfied = 3)
+            .orderedExposure(targets, satisfied = 3)
+            .orderedExposure(targets, satisfied = 3)
+            .build()
+
+        val suggestion = useCase.resolveOrdered(orderedRequest(targets), history, NOW)
+
+        assertEquals(SlotProgressionAction.HOLD, suggestion.action)
+        assertEquals(2, suggestion.comparableSuccesses)
+    }
+
+    @Test
+    fun aTimedOrderedPrescriptionIsNotEligible() {
+        val targets = SlotSetTargets.of(
+            listOf(
+                SetTarget(durationSeconds = 30, loadKind = LoadKind.BODYWEIGHT, weightKg = null),
+                SetTarget(durationSeconds = 45, loadKind = LoadKind.BODYWEIGHT, weightKg = null)
+            )
+        )
+
+        val suggestion = useCase.resolveOrdered(
+            orderedRequest(targets),
+            RecordedHistory().build(),
+            NOW
+        )
+
+        assertEquals(SlotProgressionAction.HOLD, suggestion.action)
+        assertEquals(SlotProgressionReason.NOT_ELIGIBLE, suggestion.reason)
     }
 }

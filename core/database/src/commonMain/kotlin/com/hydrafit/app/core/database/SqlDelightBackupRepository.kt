@@ -182,7 +182,8 @@ class SqlDelightBackupRepository(
                         suggestedWeightKg = it.suggestedWeightKg,
                         loadCapability = it.loadCapability,
                         loadKind = it.loadKind,
-                        progressionPolicy = it.progressionPolicy
+                        progressionPolicy = it.progressionPolicy,
+                        setTargets = it.setTargets
                     )
                 },
                 volumeExplanations = database.planVolumeExplanationQueries.selectAll()
@@ -351,7 +352,8 @@ class SqlDelightBackupRepository(
                             durationSeconds = it.durationSeconds?.toInt(),
                             weightKg = it.weightKg,
                             loadKind = it.loadKind,
-                            progressionPolicy = it.progressionPolicy
+                            progressionPolicy = it.progressionPolicy,
+                            setTargets = it.setTargets
                         )
                     },
                 activations = database.trainingScheduleQueries.selectAllActivations()
@@ -402,7 +404,8 @@ class SqlDelightBackupRepository(
                             weightKg = it.weightKg,
                             loadCapability = it.loadCapability,
                             loadKind = it.loadKind,
-                            progressionPolicy = it.progressionPolicy
+                            progressionPolicy = it.progressionPolicy,
+                            setTargets = it.setTargets
                         )
                     },
                 occurrences = database.trainingScheduleQueries.selectAllOccurrences()
@@ -441,7 +444,8 @@ class SqlDelightBackupRepository(
                             loadKind = it.loadKind,
                             remainingDisposition = it.remainingDisposition,
                             terminalRemainingSets = it.terminalRemainingSets?.toInt(),
-                            progressionPolicy = it.progressionPolicy
+                            progressionPolicy = it.progressionPolicy,
+                            setTargets = it.setTargets
                         )
                     },
                 scheduleState = database.trainingScheduleQueries.selectScheduleState()
@@ -886,7 +890,8 @@ class SqlDelightBackupRepository(
                     suggestedWeightKg = entry.suggestedWeightKg,
                     loadCapability = entry.loadCapability,
                     loadKind = entry.loadKind,
-                    progressionPolicy = entry.progressionPolicy
+                    progressionPolicy = entry.progressionPolicy,
+                    setTargets = entry.setTargets
                 )
             }
             file.volumeExplanations.forEach { explanation ->
@@ -1045,7 +1050,8 @@ class SqlDelightBackupRepository(
                     durationSeconds = entry.durationSeconds?.toLong(),
                     weightKg = entry.weightKg,
                     loadKind = entry.loadKind,
-                    progressionPolicy = entry.progressionPolicy
+                    progressionPolicy = entry.progressionPolicy,
+                    setTargets = entry.setTargets
                 )
             }
 
@@ -1094,7 +1100,8 @@ class SqlDelightBackupRepository(
                     weightKg = entry.weightKg,
                     loadCapability = entry.loadCapability,
                     loadKind = entry.loadKind,
-                    progressionPolicy = entry.progressionPolicy
+                    progressionPolicy = entry.progressionPolicy,
+                    setTargets = entry.setTargets
                 )
             }
             file.occurrences.forEach { occurrence ->
@@ -1131,7 +1138,8 @@ class SqlDelightBackupRepository(
                     loadKind = entry.loadKind,
                     remainingDisposition = entry.remainingDisposition,
                     terminalRemainingSets = entry.terminalRemainingSets?.toLong(),
-                    progressionPolicy = entry.progressionPolicy
+                    progressionPolicy = entry.progressionPolicy,
+                    setTargets = entry.setTargets
                 )
             }
             val state = file.scheduleState

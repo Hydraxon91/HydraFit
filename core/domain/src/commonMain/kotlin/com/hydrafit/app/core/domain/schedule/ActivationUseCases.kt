@@ -100,7 +100,8 @@ class ActivateRoutineUseCase(
                         weightKg = weightKg,
                         loadCapability = exercise.loadCapability,
                         loadKind = kind,
-                        progressionPolicy = entry.progressionPolicy
+                        progressionPolicy = entry.progressionPolicy,
+                        setTargets = entry.setTargets
                     )
                 }
             )

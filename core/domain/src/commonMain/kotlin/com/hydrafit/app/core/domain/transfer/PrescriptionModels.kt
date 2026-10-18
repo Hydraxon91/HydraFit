@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.domain.transfer
 
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
+import com.hydrafit.app.core.domain.engine.SlotSetTargetsJson
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
@@ -13,18 +14,22 @@ import kotlinx.serialization.Serializable
 const val PRESCRIPTION_FORMAT: String = "hydrafit-routines"
 
 /** The interchange version this build writes. */
-const val PRESCRIPTION_FORMAT_VERSION: Int = 3
+const val PRESCRIPTION_FORMAT_VERSION: Int = 4
 
 /**
  * The versions a reader accepts. Version 1 carries a rep-only slot; version 2 may carry a timed slot
  * (positive whole seconds instead of a rep count); version 3 may additionally carry a slot's approved
- * progression policy. A duration in a version-1 document, or a policy before version 3, is rejected
- * rather than read, so an older file is never reinterpreted.
+ * progression policy; version 4 may additionally carry its ordered per-set targets. A duration in a
+ * version-1 document, or a policy or ordered targets before their own version, is rejected rather
+ * than read, so an older file is never reinterpreted.
  */
 val PRESCRIPTION_SUPPORTED_VERSIONS: IntRange = 1..PRESCRIPTION_FORMAT_VERSION
 
 /** The first interchange version that may carry a slot's approved progression policy. */
 const val PRESCRIPTION_POLICY_FORMAT_VERSION: Int = 3
+
+/** The first interchange version that may carry a slot's ordered per-set targets. */
+const val PRESCRIPTION_SET_TARGETS_FORMAT_VERSION: Int = 4
 
 /** Resource safeguards for one prescription document; deliberately smaller than a full backup. */
 object PrescriptionLimits {
@@ -96,7 +101,12 @@ data class PrescriptionEntryRecord(
      * The encoded approved progression policy for this slot (format 3 and later), or null when the
      * user configured none. Earlier formats must not carry one.
      */
-    val progressionPolicy: String? = null
+    val progressionPolicy: String? = null,
+    /**
+     * The encoded ordered per-set targets for this slot (format 4 and later), or null when its sets
+     * share one repeated prescription. Earlier formats must not carry one.
+     */
+    val setTargets: String? = null
 )
 
 /** A custom exercise definition the document's routines need, in resolved form (not a stored blob). */
@@ -184,6 +194,20 @@ object PrescriptionValidator {
                     }
                     entry.progressionPolicy?.let { encoded ->
                         if (runCatching { SlotProgressionPolicyJson.decode(encoded) }.isFailure) {
+                            fail(PrescriptionFailure.INVALID_VALUE)
+                        }
+                    }
+                    if (document.formatVersion < PRESCRIPTION_SET_TARGETS_FORMAT_VERSION &&
+                        entry.setTargets != null
+                    ) {
+                        // Ordered targets in a document that predates them are not what it claims.
+                        fail(PrescriptionFailure.INVALID_VALUE)
+                    }
+                    entry.setTargets?.let { encoded ->
+                        val targets = runCatching { SlotSetTargetsJson.decode(encoded) }.getOrNull()
+                            ?: fail(PrescriptionFailure.INVALID_VALUE)
+                        // One target per prescribed set: a mismatch would address the wrong slot.
+                        if (targets.sets != entry.sets) {
                             fail(PrescriptionFailure.INVALID_VALUE)
                         }
                     }

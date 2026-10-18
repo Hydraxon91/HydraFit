@@ -68,6 +68,24 @@ data class SlotProgressionRequest(
     val isDeload: Boolean = false
 )
 
+/** One ordered prescription and the policy that governs how it advances. */
+data class OrderedSlotProgressionRequest(
+    val exerciseId: String,
+    val targets: SlotSetTargets,
+    val policy: SlotProgressionPolicy,
+    /** A deload week pauses advances; recorded deload targets are never eligible history. */
+    val isDeload: Boolean = false
+)
+
+/** An ordered prescription's evaluated suggestion. A hold or review carries no replacement. */
+data class OrderedSlotProgressionSuggestion(
+    val action: SlotProgressionAction,
+    val reason: SlotProgressionReason,
+    val suggested: SlotSetTargets?,
+    val comparableSuccesses: Int,
+    val comparableMisses: Int
+)
+
 /**
  * Streak thresholds for one slot. The defaults mirror the existing load-progression rule and remain
  * product defaults, not physiological findings.
@@ -129,6 +147,120 @@ class ResolveSlotProgressionUseCase(
             )
         }
     }
+
+    /**
+     * Evaluates an ordered prescription: a session counts as a success only when every prescribed slot
+     * satisfied its own target, so a surplus set can never substitute for a missed one. The advance
+     * mirrors the scalar rule — one more repetition on every set while the whole prescription stays
+     * inside the policy's range, then the chosen load step with reps back at the range floor.
+     */
+    fun resolveOrdered(
+        request: OrderedSlotProgressionRequest,
+        history: ProgressionHistory,
+        nowMillis: Long
+    ): OrderedSlotProgressionSuggestion {
+        if (request.isDeload) return orderedHold(request, SlotProgressionReason.PAUSED_DELOAD)
+        if (request.targets.targets.any { it.reps == null }) {
+            // Timed or duration-only ordered work has no rep-derived target to advance.
+            return orderedHold(request, SlotProgressionReason.NOT_ELIGIBLE)
+        }
+        val run = trailingOrderedRun(request, history, nowMillis)
+        return when {
+            run.successes >= config.successStreak -> advanceOrdered(request, run)
+            run.misses >= config.failureStreak -> orderedHold(
+                request,
+                SlotProgressionReason.MISS_STREAK
+            ).copy(
+                action = SlotProgressionAction.REVIEW,
+                comparableSuccesses = run.successes,
+                comparableMisses = run.misses
+            )
+
+            else -> orderedHold(request, SlotProgressionReason.INSUFFICIENT_COMPARABLE_WORK).copy(
+                comparableSuccesses = run.successes,
+                comparableMisses = run.misses
+            )
+        }
+    }
+
+    /** The trailing comparable run over ordered sessions, reset by any unjudgeable exposure. */
+    private fun trailingOrderedRun(
+        request: OrderedSlotProgressionRequest,
+        history: ProgressionHistory,
+        nowMillis: Long
+    ): Run {
+        var successes = 0
+        var misses = 0
+        val exposures = history.orderedExposures(request.exerciseId, request.targets, nowMillis)
+        for (exposure in exposures) {
+            when (exposure.outcome) {
+                ProgressionExposureOutcome.SUCCESS -> {
+                    successes++
+                    misses = 0
+                }
+
+                ProgressionExposureOutcome.MISS -> {
+                    misses++
+                    successes = 0
+                }
+
+                ProgressionExposureOutcome.UNKNOWN -> {
+                    successes = 0
+                    misses = 0
+                }
+            }
+        }
+        return Run(successes, misses)
+    }
+
+    private fun advanceOrdered(
+        request: OrderedSlotProgressionRequest,
+        run: Run
+    ): OrderedSlotProgressionSuggestion {
+        val targets = request.targets.targets
+        val atTop = targets.all { requireNotNull(it.reps) >= request.policy.maxReps }
+        if (atTop && targets.any { it.weightKg == null }) {
+            // The step needs a numeric load on every set; a blank load has nothing to step from.
+            return orderedHold(request, SlotProgressionReason.NOT_ELIGIBLE).copy(
+                comparableSuccesses = run.successes,
+                comparableMisses = run.misses
+            )
+        }
+        val advanced = if (atTop) {
+            targets.map { target ->
+                target.copy(
+                    reps = request.policy.minReps,
+                    weightKg = roundToGram(
+                        requireNotNull(target.weightKg) + request.policy.incrementKg
+                    )
+                )
+            }
+        } else {
+            targets.map { target -> target.copy(reps = requireNotNull(target.reps) + 1) }
+        }
+        return OrderedSlotProgressionSuggestion(
+            action = if (atTop) {
+                SlotProgressionAction.ADVANCE_LOAD
+            } else {
+                SlotProgressionAction.ADVANCE_REPS
+            },
+            reason = SlotProgressionReason.SUCCESS_STREAK,
+            suggested = SlotSetTargets.of(advanced),
+            comparableSuccesses = run.successes,
+            comparableMisses = run.misses
+        )
+    }
+
+    private fun orderedHold(
+        request: OrderedSlotProgressionRequest,
+        reason: SlotProgressionReason
+    ): OrderedSlotProgressionSuggestion = OrderedSlotProgressionSuggestion(
+        action = SlotProgressionAction.HOLD,
+        reason = reason,
+        suggested = null,
+        comparableSuccesses = 0,
+        comparableMisses = 0
+    )
 
     /** The trailing comparable run, reset by any non-comparable or unjudgeable exposure. */
     private fun trailingRun(

@@ -7,6 +7,7 @@ import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.EquipmentWeightLimit
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PeriodizationConfig
+import com.hydrafit.app.core.domain.engine.SetTarget
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.fatigue.FatigueConfig
@@ -1011,16 +1012,19 @@ class WorkoutLoggerViewModel(
         val rebuiltDrafts = if (rebuildDrafts) {
             satisfiedDraftFree(
                 drafts = acceptedToday?.exercises.orEmpty().map { exercise ->
+                    val prefill = exercise.setTargets?.targets?.firstOrNull()
                     DraftSet(
                         exerciseId = exercise.exerciseId,
                         name = exercise.name,
                         sets = exercise.sets,
-                        reps = exercise.reps,
-                        weightKg = exercise.suggestedWeightKg,
-                        loadKind = exercise.loadKind,
+                        reps = prefill?.reps ?: exercise.reps,
+                        weightKg = prefill?.weightKg ?: exercise.suggestedWeightKg,
+                        loadKind = prefill?.loadKind ?: exercise.loadKind,
                         loadCapability = exercise.loadCapability,
                         explanation = exercise.explanation,
-                        durationSeconds = exercise.durationSeconds
+                        durationSeconds = prefill?.durationSeconds ?: exercise.durationSeconds,
+                        setTargets = exercise.setTargets,
+                        orderedPrefill = prefill
                     )
                 },
                 nowMillis = nowMillis,
@@ -1675,17 +1679,28 @@ class WorkoutLoggerViewModel(
         // Attribution is captured here, under the same context revision each write below re-checks.
         val dayIndex = dayIndexFor(link?.first)
         var sessionId: String? = null
-        val target = capturePrescription(
-            draft.exerciseId,
-            draft.loadKind,
-            link,
-            edit?.performedAtExplicit == true || _state.value.performedAtMillis != null,
-            draft.durationSeconds
-        )
-        repeat(draft.sets.coerceAtLeast(1)) {
+        val backdated = edit?.performedAtExplicit == true || _state.value.performedAtMillis != null
+        // An ordered slot logs each set against its own prescribed target. A draft-level reps/load edit
+        // is an explicit override and applies to every set; otherwise each set follows its own target.
+        val ordered = draft.setTargets?.takeIf { !draft.isWarmup && it.sets >= draft.sets }
+        // An explicit one-off edit is detected against the target the draft was actually seeded from,
+        // so an untouched draft always follows its own per-set targets.
+        val prefill = draft.orderedPrefill
+        val overridden = ordered != null &&
+            prefill != null &&
+            (draft.reps != prefill.reps || draft.weightKg != prefill.weightKg)
+        // Sets already recorded for this slot were the earlier ordered entries.
+        val orderedOffset = if (ordered == null) 0 else (ordered.sets - draft.sets).coerceAtLeast(0)
+        repeat((ordered?.sets?.minus(orderedOffset) ?: draft.sets).coerceAtLeast(1)) { index ->
             if (contextRevision != draftContextRevision) {
                 throw CancellationException("Draft context changed")
             }
+            val prescribed = ordered?.targets?.getOrNull(orderedOffset + index)
+            // A target is followed only when the draft was not edited and the slot's own load kind
+            // matches it; a bodyweight draft never adopts an external target's kind.
+            val followsTarget = prescribed != null &&
+                !overridden &&
+                prescribed.loadKind == draft.loadKind
             val current = _state.value.copy(
                 performedAtMillis = if (edit?.performedAtExplicit == true) {
                     edit.performedAtMillis
@@ -1696,10 +1711,22 @@ class WorkoutLoggerViewModel(
             sessionId = logResolved(
                 WorkoutSet(
                     exerciseId = draft.exerciseId,
-                    reps = draft.reps,
-                    durationSeconds = draft.durationSeconds,
-                    weightKg = if (draft.loadKind == LoadKind.BODYWEIGHT) null else draft.weightKg,
-                    loadKind = draft.loadKind,
+                    reps = if (followsTarget) prescribed?.reps else draft.reps,
+                    durationSeconds = if (followsTarget) {
+                        prescribed?.durationSeconds
+                    } else {
+                        draft.durationSeconds
+                    },
+                    weightKg = when {
+                        draft.loadKind == LoadKind.BODYWEIGHT -> null
+                        followsTarget -> prescribed?.weightKg
+                        else -> draft.weightKg
+                    },
+                    loadKind = if (followsTarget) {
+                        requireNotNull(prescribed).loadKind
+                    } else {
+                        draft.loadKind
+                    },
                     performedAtMillis = if (liveCompletion) {
                         liveSetCompletedAtWallMillis ?: runtime.nowMillis()
                     } else {
@@ -1711,7 +1738,23 @@ class WorkoutLoggerViewModel(
                     dayIndex = dayIndex,
                     occurrenceId = link?.first,
                     occurrenceEntryId = link?.second,
-                    prescriptionSnapshot = target,
+                    prescriptionSnapshot = if (followsTarget) {
+                        captureOrderedPrescription(
+                            draft,
+                            link,
+                            orderedOffset + index,
+                            requireNotNull(prescribed),
+                            backdated
+                        )
+                    } else {
+                        capturePrescription(
+                            draft.exerciseId,
+                            draft.loadKind,
+                            link,
+                            backdated,
+                            draft.durationSeconds
+                        )
+                    },
                     rir = edit?.rir?.toIntOrNull(),
                     timingProvenance = when {
                         liveCompletion -> WorkoutTimingProvenance.LIVE
@@ -1845,18 +1888,23 @@ class WorkoutLoggerViewModel(
             if (remaining <= 0) {
                 null
             } else {
+                // An ordered slot seeds the draft from its first remaining target, so an untouched
+                // draft matches what it will log and is never misread as an explicit override.
+                val prefill = entry.setTargets?.targets?.getOrNull(entry.sets - remaining)
                 DraftSet(
                     entry.exerciseId,
                     entry.exerciseName,
                     remaining,
-                    entry.reps,
-                    entry.weightKg,
-                    entry.loadKind,
+                    prefill?.reps ?: entry.reps,
+                    prefill?.weightKg ?: entry.weightKg,
+                    prefill?.loadKind ?: entry.loadKind,
                     loadCapability = entry.loadCapability,
                     occurrenceId = occurrence.id,
                     occurrenceEntryId = entry.id,
                     explanation = entry.explanation,
-                    durationSeconds = entry.durationSeconds
+                    durationSeconds = prefill?.durationSeconds ?: entry.durationSeconds,
+                    setTargets = entry.setTargets,
+                    orderedPrefill = prefill
                 )
             }
         }
@@ -2016,6 +2064,49 @@ class WorkoutLoggerViewModel(
         // the set simply carries no target and its exposure stays unjudgeable.
         val sameMeasurement = (captured.reps != null) == (durationSeconds == null)
         return captured.takeIf { sameMeasurement }
+    }
+
+    /**
+     * The recorded target for one set of an ordered slot. The slot's own frozen targets are the
+     * prescription, so the snapshot is taken from them and carries this set's index; a set that is
+     * not attributable to a slot records no target, exactly as the repeated path does.
+     */
+    private fun captureOrderedPrescription(
+        draft: DraftSet,
+        link: Pair<Long, Long?>?,
+        setIndex: Int,
+        prescribed: SetTarget,
+        backdated: Boolean
+    ): WorkoutPrescriptionSnapshot? {
+        val targets = draft.setTargets ?: return null
+        if (setIndex !in targets.targets.indices) return null
+        val (policy, isDeload) = if (link != null) {
+            val occurrence = currentOccurrence?.takeIf { it.id == link.first } ?: return null
+            val entry = occurrence.entries.singleOrNull {
+                it.id == link.second && it.exerciseId == draft.exerciseId
+            } ?: return null
+            if (entry.setTargets != targets) return null
+            entry.progressionPolicy to isDeloadWeek(activeActivation?.weekNumber)
+        } else {
+            if (backdated || activeActivation != null) return null
+            val entry = acceptedToday?.exercises?.singleOrNull {
+                it.exerciseId == draft.exerciseId
+            } ?: return null
+            if (entry.setTargets != targets) return null
+            entry.progressionPolicy to isDeloadWeek(acceptedPlan?.weekNumber)
+        }
+        return WorkoutPrescriptionSnapshot(
+            exerciseId = draft.exerciseId,
+            sets = targets.sets,
+            reps = prescribed.reps,
+            durationSeconds = prescribed.durationSeconds,
+            loadKind = prescribed.loadKind,
+            weightKg = prescribed.weightKg,
+            isDeload = isDeload,
+            progressionPolicy = policy,
+            setIndex = setIndex,
+            targetRir = prescribed.targetRir
+        )
     }
 
     private fun captureSlotPrescription(

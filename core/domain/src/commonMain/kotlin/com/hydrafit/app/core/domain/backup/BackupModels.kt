@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 22
+const val BACKUP_FORMAT_VERSION: Int = 23
 
 /**
  * Format 22 adds a prescription slot's approved progression policy to routine, accepted-plan,
@@ -15,6 +15,13 @@ const val BACKUP_FORMAT_VERSION: Int = 22
  * pre-22 file must not carry either, so an older reader never receives a rule it cannot evaluate.
  */
 const val PROGRESSION_POLICY_FORMAT_VERSION: Int = 22
+
+/**
+ * Format 23 adds a prescription slot's ordered per-set targets and permits a format-3 recorded target
+ * that carries a slot index and a prescribed RIR. A pre-23 file must not carry either, so no
+ * historical set is given an invented slot identity by a reader that predates ordered prescriptions.
+ */
+const val SET_TARGETS_FORMAT_VERSION: Int = 23
 
 /** The first backup format that carries a performed set's recorded prescription target. */
 const val PRESCRIPTION_SNAPSHOT_FORMAT_VERSION: Int = 21
@@ -389,7 +396,9 @@ data class BackupPlanEntryRecord(
      * The encoded slot progression policy, format 22 and later. Absent in earlier formats, which
      * restore the slot with no policy configured rather than with an inherited rule.
      */
-    val progressionPolicy: String? = null
+    val progressionPolicy: String? = null,
+    /** The encoded ordered per-set targets, format 23 and later; null when the sets repeat. */
+    val setTargets: String? = null
 )
 
 @Serializable
@@ -547,7 +556,9 @@ data class BackupRoutineEntryRecord(
      * The encoded slot progression policy, format 22 and later. Absent in earlier formats, which
      * restore the slot with no policy configured rather than with an inherited rule.
      */
-    val progressionPolicy: String? = null
+    val progressionPolicy: String? = null,
+    /** The encoded ordered per-set targets, format 23 and later; null when the sets repeat. */
+    val setTargets: String? = null
 )
 
 @Serializable
@@ -598,7 +609,9 @@ data class BackupActivationEntryRecord(
     val loadCapability: String,
     val loadKind: String,
     /** The encoded slot progression policy, format 22 and later; null when none is configured. */
-    val progressionPolicy: String? = null
+    val progressionPolicy: String? = null,
+    /** The encoded ordered per-set targets, format 23 and later; null when the sets repeat. */
+    val setTargets: String? = null
 )
 
 @Serializable
@@ -638,7 +651,9 @@ data class BackupOccurrenceEntryRecord(
     val remainingDisposition: String?,
     val terminalRemainingSets: Int?,
     /** The encoded slot progression policy, format 22 and later; null when none is configured. */
-    val progressionPolicy: String? = null
+    val progressionPolicy: String? = null,
+    /** The encoded ordered per-set targets, format 23 and later; null when the sets repeat. */
+    val setTargets: String? = null
 )
 
 @Serializable

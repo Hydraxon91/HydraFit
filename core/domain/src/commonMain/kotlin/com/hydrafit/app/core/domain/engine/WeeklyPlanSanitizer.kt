@@ -15,7 +15,9 @@ class WeeklyPlanSanitizer(
     private val volumeAwareReps: VolumeAwareReps = VolumeAwareReps(),
     private val varietyEnforcer: PlanVarietyEnforcer = PlanVarietyEnforcer(),
     private val periodization: PeriodizationConfig = PeriodizationConfig(),
-    private val weightConfig: SuggestedWeightConfig = SuggestedWeightConfig()
+    private val weightConfig: SuggestedWeightConfig = SuggestedWeightConfig(),
+    private val applySetPrescription: ApplySetPrescriptionRecipeUseCase =
+        ApplySetPrescriptionRecipeUseCase()
 ) {
 
     suspend fun sanitize(plan: WeeklyPlan, request: PlanRequest): WeeklyPlan? {
@@ -90,17 +92,33 @@ class WeeklyPlanSanitizer(
                         proposed == null -> LoadUnavailableReason.AI_PROPOSAL_REJECTED
                         else -> null
                     }
+                    val slotKind = if (suggestedWeightKg != null) {
+                        LoadKind.EXTERNAL
+                    } else {
+                        WorkoutLoadPolicy.defaultKind(capability)
+                    }
+                    // The app's own ordered-prescription stage runs after the model's numbers are
+                    // settled, so every engine reaches the same shape and a model cannot bypass it.
+                    val setTargets = request.automaticSetPrescription?.let { automatic ->
+                        applySetPrescription(
+                            AutomaticSetPrescriptionRequest(
+                                automatic = automatic,
+                                sets = sets,
+                                reps = reps,
+                                loadKind = slotKind,
+                                estimatedOneRepMaxKg = request.recentWeightCaps[exercise.id],
+                                intensityScale = intensityScale
+                            )
+                        )
+                    }
                     PlannedExercise(
                         exerciseId = exercise.id,
                         sets = sets,
                         reps = reps,
                         suggestedWeightKg = suggestedWeightKg,
-                        loadKind = if (suggestedWeightKg != null) {
-                            LoadKind.EXTERNAL
-                        } else {
-                            WorkoutLoadPolicy.defaultKind(capability)
-                        },
+                        loadKind = slotKind,
                         loadCapability = capability,
+                        setTargets = setTargets,
                         explanation = ExerciseTargetExplanation(
                             // The model chose the number; the app only scaled and bounded it, so the
                             // app's adjustments are recorded as separate operations rather than as a

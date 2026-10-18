@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.engine.PlanAttribution
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.ProgressionOutcome
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
+import com.hydrafit.app.core.domain.engine.SlotSetTargetsJson
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
@@ -74,6 +75,20 @@ class BackupValidator(private val catalog: BackupCatalog) {
                 fail(BackupFailure.INVALID_VALUE)
             }
         }
+        // Ordered per-set targets arrive with format 23. A pre-23 file that carries them is not what
+        // it claims, and a present list must decode so a corrupt prescription is rejected before any
+        // write rather than becoming an approved plan.
+        val orderedTargets = file.routineEntries.map { it.setTargets } +
+            file.planEntries.map { it.setTargets } +
+            file.activationEntries.map { it.setTargets } +
+            file.occurrenceEntries.map { it.setTargets }
+        if (file.formatVersion < SET_TARGETS_FORMAT_VERSION && orderedTargets.any { it != null }) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        file.routineEntries.forEach { checkOrderedTargets(it.sets, it.setTargets) }
+        file.planEntries.forEach { checkOrderedTargets(it.sets, it.setTargets) }
+        file.activationEntries.forEach { checkOrderedTargets(it.sets, it.setTargets) }
+        file.occurrenceEntries.forEach { checkOrderedTargets(it.sets, it.setTargets) }
         if (file.formatVersion < SETUP_FORMAT_VERSION &&
             (file.setup != BackupSetupRecord() || file.preferredWeekdays != null)
         ) {
@@ -610,6 +625,14 @@ class BackupValidator(private val catalog: BackupCatalog) {
      * A recorded target must decode, must belong to the same exercise and load meaning as the set it
      * is attached to, and must not contradict the set's own measurement.
      */
+    private fun checkOrderedTargets(sets: Int, encoded: String?) {
+        if (encoded == null) return
+        val targets = runCatching { SlotSetTargetsJson.decode(encoded) }.getOrNull()
+            ?: fail(BackupFailure.INVALID_VALUE)
+        // One target per prescribed set: a mismatch would address the wrong slot on restore.
+        if (targets.sets != sets) fail(BackupFailure.INVALID_VALUE)
+    }
+
     private fun prescriptionSnapshot(
         encoded: String,
         set: BackupWorkoutSetRecord,
@@ -624,6 +647,12 @@ class BackupValidator(private val catalog: BackupCatalog) {
         // legitimately carry one.
         if (formatVersion < PROGRESSION_POLICY_FORMAT_VERSION &&
             snapshot.progressionPolicy != null
+        ) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        // A slot index or a prescribed RIR belongs to a format-3 target.
+        if (formatVersion < SET_TARGETS_FORMAT_VERSION &&
+            (snapshot.setIndex != null || snapshot.targetRir != null)
         ) {
             fail(BackupFailure.INVALID_VALUE)
         }

@@ -1,0 +1,10 @@
+-- 58 -> 59: a prescription slot's ordered per-set targets.
+--
+-- Additive nullable columns on all four prescription stores: no rebuild, no backfill and no
+-- high-water repair. Existing rows keep NULL, which stays "this slot's sets share one repeated
+-- prescription" rather than being reinterpreted as an ordered one, so no historical set is given an
+-- invented slot identity.
+ALTER TABLE routineEntry ADD COLUMN setTargets TEXT;
+ALTER TABLE planHistoryEntry ADD COLUMN setTargets TEXT;
+ALTER TABLE activationEntry ADD COLUMN setTargets TEXT;
+ALTER TABLE occurrenceEntry ADD COLUMN setTargets TEXT;

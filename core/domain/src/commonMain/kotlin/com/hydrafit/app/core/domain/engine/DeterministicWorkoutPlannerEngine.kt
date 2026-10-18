@@ -14,7 +14,9 @@ class DeterministicWorkoutPlannerEngine(
     private val catalog: ExerciseCatalog,
     private val volumeAwareReps: VolumeAwareReps = VolumeAwareReps(),
     private val weightConfig: SuggestedWeightConfig = SuggestedWeightConfig(),
-    private val periodization: PeriodizationConfig = PeriodizationConfig()
+    private val periodization: PeriodizationConfig = PeriodizationConfig(),
+    private val applySetPrescription: ApplySetPrescriptionRecipeUseCase =
+        ApplySetPrescriptionRecipeUseCase()
 ) : WorkoutPlannerEngine {
 
     override val id: PlannerEngineId = PlannerEngineId.DETERMINISTIC
@@ -78,7 +80,8 @@ class DeterministicWorkoutPlannerEngine(
                     request.exercisePreferences,
                     request.loadExplanations,
                     skippedForSoreness,
-                    isDeload
+                    isDeload,
+                    request.automaticSetPrescription
                 )
             )
         }
@@ -130,7 +133,8 @@ class DeterministicWorkoutPlannerEngine(
         exercisePreferences: Map<String, ExercisePreference>,
         loadExplanations: Map<String, LoadOriginExplanation>,
         skippedForSoreness: MutableSet<String>,
-        isDeload: Boolean
+        isDeload: Boolean,
+        automaticSetPrescription: AutomaticSetPrescription? = null
     ): List<PlannedExercise> {
         val used = mutableSetOf<String>()
         val picks = mutableListOf<PlannedExercise>()
@@ -163,7 +167,8 @@ class DeterministicWorkoutPlannerEngine(
                 withheldWeightExerciseIds,
                 equipmentMaxWeights,
                 loadExplanations,
-                isDeload
+                isDeload,
+                automaticSetPrescription
             )
             used += candidate.id
             weekUsed += candidate.id
@@ -287,7 +292,8 @@ class DeterministicWorkoutPlannerEngine(
         withheldWeightExerciseIds: Set<String>,
         equipmentMaxWeights: Map<EquipmentTag, Double>,
         loadExplanations: Map<String, LoadOriginExplanation>,
-        isDeload: Boolean
+        isDeload: Boolean,
+        automaticSetPrescription: AutomaticSetPrescription? = null
     ): PlannedExercise {
         val isCompound = candidate.movementPattern.isCompound
         val baseSets = if (isCompound) setsPerExercise else accessorySetsPerExercise
@@ -317,17 +323,33 @@ class DeterministicWorkoutPlannerEngine(
         val ceiling = EquipmentWeightLimit.ceilingFor(candidate, equipmentMaxWeights)
         val working = oneRepMax?.let { weightConfig.workingWeightFor(it, reps, scale) }
         val suggestedWeightKg = working?.let { EquipmentWeightLimit.clamp(it, ceiling) }
+        val slotKind = if (suggestedWeightKg != null) {
+            LoadKind.EXTERNAL
+        } else {
+            WorkoutLoadPolicy.defaultKind(capability)
+        }
+        // The app's own ordered-prescription stage, shared with the sanitizer so both engines reach
+        // the same shape from the same conversion.
+        val setTargets = automaticSetPrescription?.let { automatic ->
+            applySetPrescription(
+                AutomaticSetPrescriptionRequest(
+                    automatic = automatic,
+                    sets = sets,
+                    reps = reps,
+                    loadKind = slotKind,
+                    estimatedOneRepMaxKg = oneRepMax,
+                    intensityScale = scale
+                )
+            )
+        }
         return PlannedExercise(
             exerciseId = candidate.id,
             sets = sets,
             reps = reps,
             suggestedWeightKg = suggestedWeightKg,
-            loadKind = if (suggestedWeightKg != null) {
-                LoadKind.EXTERNAL
-            } else {
-                WorkoutLoadPolicy.defaultKind(capability)
-            },
+            loadKind = slotKind,
             loadCapability = capability,
+            setTargets = setTargets,
             explanation = ExerciseTargetExplanation(
                 baseline = loadExplanations[candidate.id]?.baseline,
                 progression = loadExplanations[candidate.id]?.progression,

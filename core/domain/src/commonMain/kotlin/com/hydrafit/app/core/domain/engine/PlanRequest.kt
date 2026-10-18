@@ -52,7 +52,12 @@ data class PlanRequest(
     /** Confirmed civil dates in workout order; empty preserves the undated planning behavior. */
     val workoutEpochDays: List<Long> = emptyList(),
     /** Recorded-history decay only, calculated at each date; no hypothetical training is added. */
-    val fatigueByWorkout: List<Map<MuscleGroup, Double>> = emptyList()
+    val fatigueByWorkout: List<Map<MuscleGroup, Double>> = emptyList(),
+    /**
+     * The user's opt-in for generating ordered per-set prescriptions at plan time, or null for none.
+     * Absent leaves every existing plan shape exactly as it was.
+     */
+    val automaticSetPrescription: AutomaticSetPrescription? = null
 ) {
     init {
         require(workoutEpochDays.isEmpty() || workoutEpochDays.size == daysPerWeek)

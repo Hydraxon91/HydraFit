@@ -25,7 +25,21 @@ class WorkoutPrescriptionSnapshotTest {
             val encoded = WorkoutPrescriptionSnapshotJson.encode(snapshot)
             assertEquals(snapshot, WorkoutPrescriptionSnapshotJson.decode(encoded))
         }
-        assertFailsWith<IllegalArgumentException> { target.copy(version = 3).requireValid() }
+        assertFailsWith<IllegalArgumentException> { target.copy(version = 4).requireValid() }
+        // An ordered slot index and a prescribed RIR belong to format 3; earlier formats reject them.
+        assertFailsWith<IllegalArgumentException> {
+            target.copy(version = 2, setIndex = 0).requireValid()
+        }
+        assertFailsWith<IllegalArgumentException> {
+            target.copy(version = 2, targetRir = 2).requireValid()
+        }
+        // An ordered index must address one of the slot's own sets.
+        assertFailsWith<IllegalArgumentException> {
+            target.copy(version = 3, setIndex = 3).requireValid()
+        }
+        assertFailsWith<IllegalArgumentException> {
+            target.copy(version = 3, targetRir = 5).requireValid()
+        }
         assertFailsWith<IllegalArgumentException> { target.copy(reps = null).requireValid() }
         assertFailsWith<IllegalArgumentException> { target.copy(sets = 0).requireValid() }
         assertFailsWith<IllegalArgumentException> {

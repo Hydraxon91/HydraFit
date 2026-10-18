@@ -14,6 +14,7 @@ import com.hydrafit.app.core.domain.engine.PlanAttribution
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
+import com.hydrafit.app.core.domain.engine.SlotSetTargetsJson
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
@@ -214,7 +215,8 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
                                     ]?.toExplanation()
                                 },
                                 progressionPolicy = row.progressionPolicy
-                                    ?.let(SlotProgressionPolicyJson::decode)
+                                    ?.let(SlotProgressionPolicyJson::decode),
+                                setTargets = row.setTargets?.let(SlotSetTargetsJson::decode)
                             )
                         }
                 )

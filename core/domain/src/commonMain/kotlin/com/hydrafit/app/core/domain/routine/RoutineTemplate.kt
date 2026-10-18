@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.domain.routine
 
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
+import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.workout.LoadKind
 
@@ -50,5 +51,7 @@ data class RoutineEntry(
      * The slot's approved progression policy, or null when the user has not configured one. A slot
      * without a policy never receives an automatic progression suggestion.
      */
-    val progressionPolicy: SlotProgressionPolicy? = null
+    val progressionPolicy: SlotProgressionPolicy? = null,
+    /** The slot's ordered per-set targets, or null when its sets share one repeated prescription. */
+    val setTargets: SlotSetTargets? = null
 )

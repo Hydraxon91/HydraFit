@@ -43,7 +43,7 @@ class EquipmentProfileMigrationTest {
         driver = HistoricalDatabaseFixtures.empty()
         HydraFitDatabase.Schema.create(driver)
         val state = SqlDelightEquipmentProfileRepository(HydraFitDatabase(driver)).current()
-        assertEquals(58L, HydraFitDatabase.Schema.version)
+        assertEquals(59L, HydraFitDatabase.Schema.version)
         assertEquals(1L, state.active.id)
         assertEquals(emptySet(), state.active.selected)
         assertEquals(emptyMap(), state.active.maxWeightsKg)

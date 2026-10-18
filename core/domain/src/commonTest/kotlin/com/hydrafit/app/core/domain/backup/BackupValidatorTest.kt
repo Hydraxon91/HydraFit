@@ -1,7 +1,10 @@
 package com.hydrafit.app.core.domain.backup
 
+import com.hydrafit.app.core.domain.engine.SetTarget
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
+import com.hydrafit.app.core.domain.engine.SlotSetTargets
+import com.hydrafit.app.core.domain.engine.SlotSetTargetsJson
 import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
@@ -1171,6 +1174,74 @@ class BackupValidatorTest {
         }
     }
 
+    @Test
+    fun orderedTargetsInAPreFormat23FileAreRejectedRatherThanAdopted() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            orderedFile(SET_TARGETS_FORMAT_VERSION - 1, encodedOrderedTargets())
+        }
+    }
+
+    @Test
+    fun orderedTargetsAtTheirOwnFormatAreAccepted() {
+        validator.validate(orderedFile(SET_TARGETS_FORMAT_VERSION, encodedOrderedTargets()))
+    }
+
+    @Test
+    fun anUndecodableOrderedPrescriptionIsRejectedBeforeAnyWrite() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            orderedFile(SET_TARGETS_FORMAT_VERSION, """{"version":1,"targets":[]}""")
+        }
+    }
+
+    @Test
+    fun aSlotIndexInsideARecordedTargetIsRejectedInAPreFormat23File() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            profiledFile(SET_TARGETS_FORMAT_VERSION - 1).copy(
+                workoutSets = listOf(set(prescriptionSnapshot = snapshot(setIndex = 0)))
+            )
+        }
+    }
+
+    @Test
+    fun aSlotIndexInsideARecordedTargetIsAcceptedAtItsOwnFormat() {
+        validator.validate(
+            profiledFile(SET_TARGETS_FORMAT_VERSION).copy(
+                workoutSets = listOf(set(prescriptionSnapshot = snapshot(setIndex = 0)))
+            )
+        )
+    }
+
+    private fun encodedOrderedTargets() = SlotSetTargetsJson.encode(
+        SlotSetTargets.of(
+            listOf(
+                SetTarget(reps = 10, loadKind = LoadKind.EXTERNAL, weightKg = 60.0),
+                SetTarget(reps = 8, loadKind = LoadKind.EXTERNAL, weightKg = 70.0)
+            )
+        )
+    )
+
+    /** One routine slot carrying ordered targets, so the format gate is the only variable. */
+    private fun orderedFile(formatVersion: Int, encoded: String?) =
+        profiledFile(formatVersion).copy(
+            routines = listOf(BackupRoutineRecord(1L, "Block", 1, 1, 1, null, null)),
+            routineWorkouts = listOf(BackupRoutineWorkoutRecord(10L, 1L, 0, "Day", "FULL_BODY")),
+            routineEntries = listOf(
+                BackupRoutineEntryRecord(
+                    id = 100L,
+                    workoutId = 10L,
+                    position = 0,
+                    exerciseId = "back-squat",
+                    sets = 2,
+                    reps = 10,
+                    durationSeconds = null,
+                    weightKg = 60.0,
+                    loadKind = "EXTERNAL",
+                    progressionPolicy = null,
+                    setTargets = encoded
+                )
+            )
+        )
+
     private fun policy() = SlotProgressionPolicy(minReps = 5, maxReps = 8, incrementKg = 2.5)
 
     private fun encodedPolicy() = SlotProgressionPolicyJson.encode(policy())
@@ -1461,7 +1532,9 @@ class BackupValidatorTest {
         exerciseId: String = "back-squat",
         loadKind: String = "EXTERNAL",
         weightKg: Double? = 100.0,
-        policy: SlotProgressionPolicy? = null
+        policy: SlotProgressionPolicy? = null,
+        setIndex: Int? = null,
+        targetRir: Int? = null
     ) = WorkoutPrescriptionSnapshotJson.encode(
         WorkoutPrescriptionSnapshot(
             exerciseId = exerciseId,
@@ -1470,7 +1543,9 @@ class BackupValidatorTest {
             loadKind = LoadKind.valueOf(loadKind),
             weightKg = weightKg,
             isDeload = false,
-            progressionPolicy = policy
+            progressionPolicy = policy,
+            setIndex = setIndex,
+            targetRir = targetRir
         )
     )
     private fun activation(id: Long) = BackupActivationRecord(

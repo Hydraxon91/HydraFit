@@ -27,7 +27,12 @@ data class PlannedExercise(
      * The slot's approved progression policy, or null when none applies. Carried so an accepted plan
      * keeps the rule the user approved for that slot.
      */
-    val progressionPolicy: SlotProgressionPolicy? = null
+    val progressionPolicy: SlotProgressionPolicy? = null,
+    /**
+     * The slot's ordered per-set targets, or null when its sets share one repeated prescription. An
+     * ordered slot's [sets] always equals [SlotSetTargets.sets].
+     */
+    val setTargets: SlotSetTargets? = null
 ) {
     init {
         require((reps == null) != (durationSeconds == null)) {

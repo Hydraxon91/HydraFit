@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.database
 
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
+import com.hydrafit.app.core.domain.engine.SlotSetTargetsJson
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.transfer.PrescriptionImportCommitFailure
@@ -103,7 +104,8 @@ class SqlDelightPrescriptionImportRepository(
                     weightKg = entry.weightKg,
                     loadKind = entry.loadKind.name,
                     progressionPolicy = entry.progressionPolicy
-                        ?.let(SlotProgressionPolicyJson::encode)
+                        ?.let(SlotProgressionPolicyJson::encode),
+                    setTargets = entry.setTargets?.let(SlotSetTargetsJson::encode)
                 )
             }
         }

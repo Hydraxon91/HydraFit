@@ -2,6 +2,7 @@ package com.hydrafit.app.core.domain.schedule
 
 import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
+import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
@@ -86,7 +87,9 @@ data class ActivationEntry(
      */
     val explanation: ExerciseTargetExplanation? = null,
     /** The slot's approved progression policy, frozen with the rest of the prescription. */
-    val progressionPolicy: SlotProgressionPolicy? = null
+    val progressionPolicy: SlotProgressionPolicy? = null,
+    /** The slot's ordered per-set targets, frozen with the rest of the prescription. */
+    val setTargets: SlotSetTargets? = null
 )
 
 data class WorkoutOccurrence(
@@ -138,6 +141,8 @@ data class OccurrenceEntry(
     val explanation: ExerciseTargetExplanation? = null,
     /** The slot's approved progression policy, copied with the rest of the frozen prescription. */
     val progressionPolicy: SlotProgressionPolicy? = null,
+    /** The slot's ordered per-set targets, copied with the rest of the frozen prescription. */
+    val setTargets: SlotSetTargets? = null,
     val remainingDisposition: RemainingDisposition? = null,
     val terminalRemainingSets: Int? = null
 )

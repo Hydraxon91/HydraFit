@@ -1,6 +1,8 @@
 package com.hydrafit.app.feature.logger
 
 import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
+import com.hydrafit.app.core.domain.engine.SetTarget
+import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
@@ -162,7 +164,19 @@ data class DraftSet(
      */
     val isWarmup: Boolean = false,
     /** Elapsed whole seconds for a timed slot, or null for counted work. */
-    val durationSeconds: Int? = null
+    val durationSeconds: Int? = null,
+    /**
+     * The slot's frozen ordered per-set targets, or null when its sets share one repeated
+     * prescription. A guided or planned draft keeps them so each logged set records the target it
+     * actually followed, rather than the slot's single repeated values.
+     */
+    val setTargets: SlotSetTargets? = null,
+    /**
+     * The ordered target this draft's scalar reps/load were seeded from, or null when the slot has no
+     * ordered targets. Comparing the draft against it is how an explicit one-off edit is told apart
+     * from an untouched draft, so a slot's per-set targets are never discarded as a false override.
+     */
+    val orderedPrefill: SetTarget? = null
 )
 
 /**
