@@ -378,7 +378,7 @@ Former slice ids are recorded in parentheses.
 
 | Version | Reviewable scope | Dependencies / references |
 | --- | --- | --- |
-| 0.10.0 | Historical-target and comparable-work integrity (former `0.10.0`) | LT-10 / OF-10A-P0 implemented 2026-10-18: recorded per-set targets, session-based like-for-like replay, unknown-breaks-streak, backup format 21. Independent review, commits and the single `v0.10.0` publication approval remain. Historical day-label repair stays separately gated and excluded. |
+| 0.10.0 | Historical-target and comparable-work integrity (former `0.10.0`) | LT-10 / OF-10A-P0 **published 2026-10-18 as `v0.10.0`** (PR #31, merge `b4020920`): recorded per-set targets, session-based like-for-like replay, unknown-breaks-streak, backup format 21. Independent review rejected on LT10-01…LT10-08; both design decisions were resolved by the user and the corrections closed. Historical day-label repair stays separately gated and excluded. |
 | 0.10.1 | Approved progression and stall-handling policies (former `0.10.1`) | OF-10A; integrity first; equipment/periodization decisions and preserved NSCA/e1RM unless explicitly changed |
 | 0.10.2 | Ordered manual per-set prescriptions; pyramid presets; automatic per-set/pyramid generation; prescribed RIR and approved equivalent RPE presentation (former `0.10.2`–`0.10.4`, `0.10.7`) | PYR-01; Item 9 B2 / LT-07; targets preserved through routines, activation, logging and interchange; targets never recorded as actual effort |
 | 0.10.3 | Manual two-entry supersets; curated opt-in planner superset pairing (former `0.10.5`–`0.10.6`) | OF-10B; transition/pair rest, unequal counts, skip/resume/unpairing; manual lifecycle first, separate pairing policy |
