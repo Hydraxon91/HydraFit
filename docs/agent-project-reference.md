@@ -96,8 +96,8 @@ chunk; this extends the procedure above rather than replacing it.
   `ktlint_code_style = android_studio` and sets no explicit maximum line length, so
   a universal 100-character limit must not be claimed. Cite any further style
   source the chunk relies on.
-- **Lint-first order:** for Kotlin changes, run the affected module's ktlint
-  before the heavier test task, then the module host tests. Agent-tooling-only
+- **Lint-first order:** for Kotlin changes, run `ktlintFormat` and then the affected
+  module's ktlint before the heavier test task, then the module host tests. Agent-tooling-only
   changes (Python scripts, docs) use the offline validator and unittest commands
   and add no Gradle tasks. State when a lint or test check is unavailable or not
   applicable instead of implying it passed.
@@ -230,6 +230,9 @@ python3 scripts/run-bounded.py 600 test-output.log -- ./gradlew testAndroidHostT
 # Run tests for a single module
 python3 scripts/run-bounded.py 600 domain-test-output.log -- ./gradlew :core:domain:testAndroidHostTest
 
+# Mechanical format pass for Kotlin changes (run before the first test run)
+python3 scripts/run-bounded.py 600 format-output.log -- ./gradlew ktlintFormat
+
 # Run lint/static analysis
 python3 scripts/run-bounded.py 600 lint-output.log -- ./gradlew ktlintCheck
 # Also run detekt if configured; it does not replace ktlint
@@ -244,6 +247,14 @@ shellcheck --severity=warning scripts/*.sh
 python3 scripts/validate-agent-tooling.py
 python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'
 ```
+
+`ktlintFormat` is the mechanical pre-pass: it rewrites imports and expression-body
+wrapping, which are the two defects that otherwise cost repeated correction rounds.
+It runs before the first test run and its own diff is inspected, then `ktlintCheck`
+confirms. A task reported `UP-TO-DATE` was not executed in that run — re-run it with
+`--rerun-tasks` or report the result as inherited, naming the inputs it came from.
+`run-bounded.py` records Gradle's executed/up-to-date split in its result JSON
+(`gradle_tasks`) and summary line whenever the log carries one.
 
 ### Bounded command results
 
@@ -306,7 +317,8 @@ python3 scripts/task-state.py --dir <external-state-dir> --task <id> update --ex
 
 The versioned record stores immutable contract and baseline, an explicitly
 acknowledged expected snapshot, phase, operation attempts (unique ids), evidence
-with source snapshots, append-only update history and budget accounting. Each
+with source snapshots, append-only approved amendments, append-only update history
+and budget accounting. Each
 accepted update increments the revision. Stale revisions and active writers fail
 with exit 2 rather than overwriting another writer. A cooperative POSIX lock
 releases on process exit; its permanent lock file must not be deleted. Atomic
@@ -329,6 +341,20 @@ Event JSON objects:
   acknowledges the current snapshot after reconciliation; it cannot hide pending
   operations, wrong repository identity or new out-of-scope paths. It does not
   replace the baseline or extend approval.
+- `{"type":"amend","approval_reference":"...","note":"...","add_allowed_paths":["exact/path"],"add_acceptance":["..."]}`
+  records an approved scope expansion without rewriting the contract. The added exact
+  paths join the effective allowed set that `resume`, `checkpoint`, `phase` and
+  `boundary` use, while the contract object stays byte-identical. `add_acceptance` is
+  optional; `add_allowed_paths` may list an already-allowed path, which is recorded as
+  redundant rather than added. Each amendment also stores `covered_dirty_paths`: the
+  paths it legitimized that were already dirty when it was applied, so an amendment
+  written after the observation stays visible instead of being laundered by it.
+  Amendments add scope only. They never extend the budget, are refused while an
+  outcome is pending or the phase is `complete`/`blocked`, and are validated against
+  the update history: a stored amendment that does not restate its recorded event, or
+  that contradicts it, fails closed (125). The record has no hash chain, so a
+  consistent rewrite of the contract, an amendment and its event together is not
+  detectable — the record is audit context, not a security boundary.
 - `{"type":"evidence","description":"host tests","outcome":"passed","reference":"external log path"}`
   records `passed`, `failed`, `unknown` or `unverified` evidence with the observed
   source snapshot. A log reference is not proof the check ran; the reviewer must
@@ -339,7 +365,8 @@ Event JSON objects:
   expired budget prevent advancing; recording `blocked` remains possible.
 
 `resume` does not write. It reports expected/current drift, identity, pending ids
-as unknown outcomes, new out-of-scope dirty paths, and remaining seconds. Exit 2
+as unknown outcomes, new out-of-scope dirty paths, the amended paths now in scope,
+and remaining seconds. Exit 2
 means reconciliation or a budget stop is needed; exit 0 is not authorization to
 continue. Downtime consumes budget: wall-clock elapsed time and already-accounted
 usage are retained, without a reset option. A backward clock cannot reduce usage
