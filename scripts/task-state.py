@@ -9,9 +9,13 @@ Usage: task-state.py --dir <external-directory> --task <id> <subcommand>
   update --expect <revision> --event <json-file>
 
 Events: begin (id, description), resolve (id, outcome, evidence), phase (value),
-evidence (description, outcome, reference), checkpoint (reason). Contract fields:
+evidence (description, outcome, reference), checkpoint (reason), amend
+(approval_reference, note, add_allowed_paths, add_acceptance). Contract fields:
 objective, allowed_paths (exact repo-relative files), acceptance (string list),
 owner, approval_reference. Other JSON fields are retained as contract context.
+The contract object is never rewritten; an approved scope expansion is an appended
+amend event whose paths join the effective allowed set. Amendments add scope only,
+never budget, and they record which already-dirty paths they legitimized.
 
 Atomic JSON replacement plus a nonblocking POSIX advisory lock serialize cooperating
 writers. Locks release on process exit; the permanent lock file is never removed.
@@ -87,6 +91,13 @@ def read_json(path: Path) -> dict:
     return result
 
 
+def validate_exact_path(path) -> None:
+    if (not text(path) or PurePosixPath(path).is_absolute() or
+            any(part in ("", ".", "..", ".git") for part in path.split("/")) or
+            any(char in path for char in "*?[]\\")):
+        raise Invalid(f"invalid exact allowed path: {path!r}")
+
+
 def validate_contract(contract: dict) -> None:
     for key in ("objective", "owner", "approval_reference"):
         if not text(contract.get(key)):
@@ -98,10 +109,15 @@ def validate_contract(contract: dict) -> None:
     if not isinstance(paths, list) or not paths:
         raise Invalid("contract requires exact allowed_paths")
     for path in paths:
-        if (not text(path) or PurePosixPath(path).is_absolute() or
-                any(part in ("", ".", "..", ".git") for part in path.split("/")) or
-                any(char in path for char in "*?[]\\")):
-            raise Invalid(f"invalid exact allowed path: {path!r}")
+        validate_exact_path(path)
+
+
+def effective_allowed_paths(record: dict) -> set:
+    """Contract paths plus every approved amendment; the contract itself is never rewritten."""
+    allowed = set(record["contract"]["allowed_paths"])
+    for amendment in record.get("amendments", []):
+        allowed.update(amendment["add_allowed_paths"])
+    return allowed
 
 
 def git(repo: Path, *args: str) -> bytes:
@@ -202,6 +218,7 @@ def validate_record(record: dict) -> None:
                 not isinstance(entry.get("event"), dict) or not number(entry.get("at"))):
             raise Invalid("invalid history entry")
     validate_operation_history(record)
+    validate_amendments(record)
 
 
 def validate_operation_history(record: dict) -> None:
@@ -230,10 +247,62 @@ def validate_operation_history(record: dict) -> None:
                     not text(event.get("evidence"))):
                 raise Invalid("invalid resolution in history")
             operation.update(outcome=event["outcome"], evidence=event["evidence"])
-        elif kind not in ("phase", "checkpoint", "evidence"):
+        elif kind not in ("phase", "checkpoint", "evidence", "amend"):
             raise Invalid("unknown event type in history")
     if operations != record["operations"]:
         raise Invalid("operations/history mismatch; unknown outcomes cannot be discarded")
+
+
+def validate_amendments(record: dict) -> None:
+    """Amendments are append-only and must restate their recorded history event."""
+    amendments = record.get("amendments", [])
+    if not isinstance(amendments, list):
+        raise Invalid("invalid amendments")
+    entries = [entry for entry in record["history"] if entry["event"].get("type") == "amend"]
+    if len(amendments) != len(entries):
+        raise Invalid("amendments/history mismatch")
+    previous = 0
+    for amendment, entry in zip(amendments, entries):
+        event = entry["event"]
+        if not isinstance(amendment, dict):
+            raise Invalid("invalid amendment")
+        if amendment.get("revision") != entry["revision"] or entry["revision"] <= previous:
+            raise Invalid("amendment revision mismatch")
+        previous = entry["revision"]
+        if not text(amendment.get("approval_reference")) or not text(amendment.get("note")):
+            raise Invalid("amendment lacks an approval reference or note")
+        if not number(amendment.get("at")) or amendment["at"] != entry["at"]:
+            raise Invalid("amendment timestamp does not match the recorded event")
+        for key in ("add_allowed_paths", "already_allowed_paths", "add_acceptance"):
+            value = amendment.get(key)
+            if not isinstance(value, list) or not all(text(item) for item in value):
+                raise Invalid(f"invalid amendment {key}")
+        covered = amendment.get("covered_dirty_paths")
+        if not isinstance(covered, list) or not all(text(path) for path in covered):
+            raise Invalid("invalid amendment covered_dirty_paths")
+        for path in amendment["add_allowed_paths"] + amendment["already_allowed_paths"]:
+            validate_exact_path(path)
+        if not amendment["add_allowed_paths"] and not amendment["add_acceptance"]:
+            raise Invalid("amendment adds neither a path nor an acceptance item")
+        # The stored split must restate exactly what the recorded event requested,
+        # so a hand-edited amendment cannot widen the effective set on its own.
+        requested = event.get("add_allowed_paths", [])
+        if not isinstance(requested, list) or not all(text(path) for path in requested):
+            raise Invalid("invalid amend event in history")
+        added = set(amendment["add_allowed_paths"])
+        redundant = set(amendment["already_allowed_paths"])
+        if added | redundant != set(requested) or added & redundant:
+            raise Invalid("amendment paths do not match the recorded event")
+        acceptance = event.get("add_acceptance", [])
+        if not isinstance(acceptance, list) or not all(text(item) for item in acceptance):
+            raise Invalid("invalid amend event in history")
+        if amendment["add_acceptance"] != list(acceptance):
+            raise Invalid("amendment acceptance does not match the recorded event")
+        if (amendment["approval_reference"] != event.get("approval_reference")
+                or amendment["note"] != event.get("note")):
+            raise Invalid("amendment text does not match the recorded event")
+        if not set(covered) <= added:
+            raise Invalid("amendment covered paths must be among the added paths")
 
 
 def used_seconds(record: dict, now: float) -> float:
@@ -245,11 +314,13 @@ def reconcile(record: dict, current: dict, now: float) -> dict:
     identity = all(current[key] == record["expected"][key] for key in ("repo", "common_dir"))
     drift = current != record["expected"]
     remaining = max(0, record["budget_seconds"] - used_seconds(record, now))
+    allowed = effective_allowed_paths(record)
     # Baseline dirt is preserved context, not authority to modify it.
-    outside = sorted(set(current["changed_paths"]) - set(record["baseline"]["changed_paths"]) - set(record["contract"]["allowed_paths"]))
+    outside = sorted(set(current["changed_paths"]) - set(record["baseline"]["changed_paths"]) - allowed)
     return {"revision": record["revision"], "phase": record["phase"],
             "identity_matches": identity, "drift": drift,
             "unknown_operations": pending, "outside_allowed_paths": outside,
+            "amended_paths": sorted(allowed - set(record["contract"]["allowed_paths"])),
             "remaining_seconds": remaining,
             "reconciliation_needed": drift or bool(pending) or bool(outside) or remaining <= 0,
              "authorization": "recorded approval is audit context only; verify actual user authorization"}
@@ -334,6 +405,36 @@ def apply_event(record: dict, event: dict, current: dict, now: float) -> dict:
         if report["unknown_operations"] or not report["identity_matches"] or report["outside_allowed_paths"]:
             raise Conflict("cannot checkpoint unknown outcomes, wrong repository or out-of-scope paths")
         result["expected"] = current
+    elif kind == "amend":
+        if not text(event.get("approval_reference")) or not text(event.get("note")):
+            raise Invalid("amend requires an approval reference and a note")
+        if not report["identity_matches"]:
+            raise Conflict("cannot amend a contract against a different repository")
+        if report["unknown_operations"]:
+            raise Conflict("resolve unknown outcomes before amending scope")
+        if record["phase"] in ("complete", "blocked"):
+            raise Conflict("a terminal record cannot admit more work")
+        requested = event.get("add_allowed_paths", [])
+        if not isinstance(requested, list) or not all(text(path) for path in requested):
+            raise Invalid("amend requires a list of exact allowed paths")
+        for path in requested:
+            validate_exact_path(path)
+        acceptance = event.get("add_acceptance", [])
+        if not isinstance(acceptance, list) or not all(text(item) for item in acceptance):
+            raise Invalid("amend acceptance additions must be nonempty strings")
+        allowed = effective_allowed_paths(record)
+        added = sorted(set(requested) - allowed)
+        if not added and not acceptance:
+            raise Invalid("amend adds no new allowed path or acceptance item")
+        # Record what this amendment legitimizes that was already dirty, so an
+        # amendment written after the fact stays visible in the record.
+        covered = sorted(set(added) & set(current["changed_paths"]))
+        result.setdefault("amendments", []).append(
+            {"revision": record["revision"] + 1, "at": now,
+             "approval_reference": event["approval_reference"], "note": event["note"],
+             "add_allowed_paths": added, "add_acceptance": list(acceptance),
+             "already_allowed_paths": sorted(set(requested) & allowed),
+             "covered_dirty_paths": covered})
     elif kind == "phase":
         if event.get("value") not in PHASES:
             raise Invalid("invalid phase")
@@ -423,7 +524,8 @@ def main(argv: list[str] | None = None) -> int:
                 record = {"version": VERSION, "revision": 0, "contract": contract,
                           "baseline": current, "expected": current, "phase": "planned",
                           "budget_seconds": args.budget_seconds, "used_seconds": 0,
-                          "accounted_at": now, "operations": {}, "evidence": [], "history": []}
+                          "accounted_at": now, "operations": {}, "evidence": [],
+                          "amendments": [], "history": []}
             else:
                 record = read_json(path)
                 validate_record(record)

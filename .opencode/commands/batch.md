@@ -95,6 +95,14 @@ compliance. Never infer approval or an independent review verdict from a record.
   See `docs/agent-project-reference.md` Durable task state for command examples.
   An accepted unlimited budget is not currently representable by this helper;
   stop and resolve that contract mismatch rather than inventing a finite cap.
+- **Scope amendment:** a scope expansion needs the user's explicit approval and is
+  recorded as an `amend` event against the existing record — never by editing the
+  contract and never by initializing a replacement record. The contract stays
+  byte-identical, the amended exact paths join the effective allowed set used by
+  `resume`, `checkpoint`, `phase` and `boundary`, and the event records which
+  already-dirty paths it legitimized so an amendment written after the observation
+  stays visible. An amendment adds scope only and never extends the budget. See
+  `docs/agent-project-reference.md` Durable task state.
 - **Attempt:** before a side effect, persist a unique `begin`; afterward use
   `resolve` with the observed outcome and evidence. One attempt can describe one
   bounded implementation chunk or delegated journey, but must not conceal an

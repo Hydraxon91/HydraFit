@@ -424,6 +424,137 @@ class TaskStateTests(unittest.TestCase):
                 process.kill()
                 process.wait(timeout=5)
 
+    def amendment(self, **overrides):
+        event = {"type": "amend", "approval_reference": "user message fixture",
+                 "note": "approved extra.txt after the contract was accepted",
+                 "add_allowed_paths": ["extra.txt"]}
+        event.update(overrides)
+        return event
+
+    def test_amendment_widens_scope_without_rewriting_the_contract(self):
+        self.init()
+        (self.repo / "extra.txt").write_text("approved after the contract\n")
+        code, out, _ = self.cli("resume")
+        self.assertEqual(2, code)
+        self.assertEqual(["extra.txt"], json.loads(out)["outside_allowed_paths"])
+        contract_before = json.dumps(self.record()["contract"], sort_keys=True)
+        self.assertEqual(2, self.update({"type": "checkpoint", "reason": "no amendment yet"})[0])
+        self.assertEqual(0, self.update(self.amendment())[0])
+        record = self.record()
+        self.assertEqual(contract_before, json.dumps(record["contract"], sort_keys=True))
+        self.assertEqual(["extra.txt"], record["amendments"][0]["add_allowed_paths"])
+        code, out, _ = self.cli("resume")
+        self.assertEqual(2, code, "the tree is still unacknowledged drift")
+        self.assertEqual([], json.loads(out)["outside_allowed_paths"])
+        self.assertEqual(["extra.txt"], json.loads(out)["amended_paths"])
+        self.assertEqual(0, self.update({"type": "checkpoint", "reason": "inspected the approved addition"})[0])
+        self.assertEqual(0, self.cli("resume")[0])
+
+    def test_boundary_clears_for_amended_scope_and_still_blocks_other_paths(self):
+        self.init()
+        (self.repo / "extra.txt").write_text("approved\n")
+        self.update(self.amendment())
+        self.update({"type": "checkpoint", "reason": "inspected the approved addition"})
+        self.update({"type": "evidence", "description": "host tests", "outcome": "passed",
+                     "reference": "/external/host.log"})
+        args = ("boundary", "--expect", str(self.record()["revision"]), "--require-evidence", "host tests")
+        self.assertEqual(0, self.cli(*args)[0])
+        (self.repo / "other.txt").write_text("never approved\n")
+        code, out, _ = self.cli(*args)
+        self.assertEqual(2, code)
+        self.assertEqual(["other.txt"], json.loads(out)["outside_allowed_paths"])
+
+    def test_amendment_records_the_paths_it_legitimized_after_observation(self):
+        self.init()
+        (self.repo / "extra.txt").write_text("written before the amendment\n")
+        self.update(self.amendment())
+        record = self.record()
+        amendment = record["amendments"][0]
+        self.assertEqual(["extra.txt"], amendment["covered_dirty_paths"])
+        self.assertEqual(record["revision"], amendment["revision"])
+        self.assertEqual("amend", record["history"][-1]["event"]["type"])
+        self.assertEqual("user message fixture", amendment["approval_reference"])
+
+    def test_amendment_does_not_cover_a_path_it_did_not_name(self):
+        self.init()
+        (self.repo / "extra.txt").write_text("approved\n")
+        (self.repo / "other.txt").write_text("not approved\n")
+        self.update(self.amendment())
+        code, out, _ = self.cli("resume")
+        self.assertEqual(["other.txt"], json.loads(out)["outside_allowed_paths"])
+        self.assertEqual(2, self.update({"type": "checkpoint", "reason": "still out of scope"})[0])
+
+    def test_amendment_validation_and_acceptance_only_additions(self):
+        self.init()
+        cases = [self.amendment(approval_reference=""),
+                 self.amendment(note="   "),
+                 self.amendment(add_allowed_paths=["../escape"]),
+                 self.amendment(add_allowed_paths=["*.py"]),
+                 self.amendment(add_allowed_paths=["file.txt"]),
+                 self.amendment(add_allowed_paths=["file.txt", "new.txt"]),
+                 {"type": "amend", "approval_reference": "user message fixture", "note": "nothing added"}]
+        for case in cases:
+            with self.subTest(case=str(case)[:60]):
+                self.assertEqual(125, self.update(case)[0])
+        self.assertEqual([], self.record()["amendments"])
+        self.assertEqual(0, self.update({"type": "amend", "approval_reference": "user message fixture",
+                                        "note": "extra acceptance only", "add_acceptance": ["extra check"]})[0])
+        amendment = self.record()["amendments"][0]
+        self.assertEqual([], amendment["add_allowed_paths"])
+        self.assertEqual(["extra check"], amendment["add_acceptance"])
+
+    def test_amendment_refused_with_pending_outcome_or_terminal_phase(self):
+        self.init()
+        self.update({"type": "begin", "id": "op", "description": "pending side effect"})
+        self.assertEqual(2, self.update(self.amendment())[0])
+        self.assertEqual(0, self.update({"type": "resolve", "id": "op", "outcome": "completed",
+                                         "evidence": "observed"})[0])
+        self.assertEqual(0, self.update({"type": "phase", "value": "complete"})[0])
+        self.assertEqual(2, self.update(self.amendment())[0])
+        self.assertEqual([], self.record()["amendments"])
+
+    def test_amendment_never_extends_the_budget(self):
+        with mock.patch.object(ts.time, "time", return_value=100):
+            self.init("5")
+            self.assertEqual(0, self.update({"type": "phase", "value": "implementing"})[0])
+        with mock.patch.object(ts.time, "time", return_value=110):
+            self.assertEqual(0, self.update(self.amendment(note="scope only, no budget"))[0])
+            self.assertEqual(5, self.record()["budget_seconds"])
+            self.assertEqual(2, self.update({"type": "begin", "id": "later", "description": "expired"})[0])
+
+    def test_amendment_history_contradictions_fail_closed(self):
+        self.init()
+        self.update(self.amendment())
+        record = self.record()
+        dropped = json.loads(json.dumps(record))
+        dropped["amendments"] = []
+        phantom = json.loads(json.dumps(record))
+        phantom["amendments"].append({**record["amendments"][0], "revision": 99})
+        renumbered = json.loads(json.dumps(record))
+        renumbered["amendments"][0]["revision"] = 99
+        widened = json.loads(json.dumps(record))
+        widened["amendments"][0]["add_allowed_paths"] = ["*.py"]
+        valid_widened = json.loads(json.dumps(record))
+        valid_widened["amendments"][0]["add_allowed_paths"] = ["secret.txt"]
+        smuggled = json.loads(json.dumps(record))
+        smuggled["amendments"][0]["add_allowed_paths"] = []
+        smuggled["amendments"][0]["already_allowed_paths"] = ["secret.txt"]
+        retexted = json.loads(json.dumps(record))
+        retexted["amendments"][0]["note"] = "a different reason"
+        unreferenced = json.loads(json.dumps(record))
+        unreferenced["amendments"][0]["approval_reference"] = ""
+        self.event.write_text(json.dumps({"type": "phase", "value": "implementing"}))
+        for index, tampered in enumerate((dropped, phantom, renumbered, widened, valid_widened,
+                                          smuggled, retexted, unreferenced)):
+            with self.subTest(case=index):
+                raw = json.dumps(tampered)
+                self.record_path.write_text(raw)
+                for arguments in (("show",), ("resume",),
+                                  ("update", "--expect", str(tampered["revision"]), "--event", str(self.event))):
+                    with self.subTest(command=arguments[0]):
+                        self.assertEqual(125, self.cli(*arguments)[0])
+                        self.assertEqual(raw, self.record_path.read_text())
+
 
 def time_now(record):
     return record["accounted_at"] + 1

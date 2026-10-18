@@ -264,6 +264,20 @@ class MainTests(unittest.TestCase):
             path.write_text(body.replace("### Durable batch state", "### Removed section"))
             self.assertIn("missing durable batch state section", vt.batch_state_findings(root)[0])
 
+    def test_each_durable_state_token_removal_is_reported(self):
+        source = MODULE_PATH.parents[1] / ".opencode/commands/batch.md"
+        body = source.read_text()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            path = write(root, ".opencode/commands/batch.md", body)
+            self.assertEqual([], vt.batch_state_findings(root))
+            for token in ("scripts/task-state.py", "`amend`", "`checkpoint`", "`resume`",
+                          "boundary --expect", "--require-evidence"):
+                with self.subTest(token=token):
+                    path.write_text(body.replace(token, "removed reference"))
+                    self.assertTrue(any(f"missing protocol reference {token}" in item
+                                        for item in vt.batch_state_findings(root)))
+
     def test_main_rejects_batch_without_state_protocol(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
