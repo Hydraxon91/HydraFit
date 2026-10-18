@@ -492,3 +492,29 @@ evidence in `batch-0.10.0` under the agreed OpenCode temporary root.
 Ratings unchanged: this run proves the protocol works on a real scope and that the
 out-of-scope gate is not decorative, but it also shows a five-hour-plus authoring
 cost that a formatting pre-pass should remove.
+
+### 0.10.0 batch close-out findings
+
+- **B010-05 [protocol, confirmed]:** the state record could not advance past the
+  approved scope amendment. The contract is immutable, so the eight (plus two copy)
+  approved consumer paths still appear in `outside_allowed_paths`, and `checkpoint`
+  refuses for exactly that reason — the same gate that correctly caught the
+  unapproved delta now blocks the *approved* one. Continuing required either a
+  second record with an amended contract (which the docs discourage as a bypass) or
+  accepting a permanently drifting record. The gap is real: an amendment needs a
+  supported way to record the new approval against the existing history, not a new
+  record. Until then, an amended-scope run cannot produce a clean boundary.
+- **B010-06 [bookkeeping, confirmed]:** the backup/portability attempt id was
+  written but never applied, so that stretch ran without a pending attempt. The work
+  is verified; the begin-before-side-effect ordering was not followed and is
+  disclosed rather than backfilled.
+- **B010-07 [evidence, confirmed]:** a full-suite claim rested on Gradle
+  `UP-TO-DATE` inheritance rather than a fresh execution. The independent reviewer
+  caught it, and a forced rerun (`full-matrix-04.log`, 203 s) then executed the host
+  suite, migration verification and lint on the final inputs. Task-level up-to-date
+  is not the same evidence as a fresh run and should not be reported as one.
+- **B010-08 [pre-existing, confirmed]:** `ExerciseProgressRecordsIntegrationTest.multiExerciseOccurrenceKeepsStableIdentityOrderAndEarlierBaselines`
+  intermittently throws `cannot start a transaction within a transaction`; it passes
+  in isolation and on a full rerun. The progress repository's flow opens
+  `transactionWithResult` and `first()` cancels it mid-transaction. Untouched by
+  0.10.0 and left unfixed; the reviewer accepted it as pre-existing and out of scope.
