@@ -3,8 +3,17 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 21), restored by whole replacement.
-The reader accepts versions 1–21; version 1 defaults the guided-workout preference to off.
+Logical, versioned JSON (`format` + `formatVersion` 22), restored by whole replacement.
+The reader accepts versions 1–22; version 1 defaults the guided-workout preference to off.
+Format 22 adds a prescription slot's approved progression policy
+(`progressionPolicy` on `routineEntries`, `planEntries`, `activationEntries` and
+`occurrenceEntries`) and permits a format-2 recorded target that carries the same policy.
+A pre-22 file must not carry a policy on a slot or on a recorded target, and a policy that
+is present must decode, so a corrupt or mislabelled rule is rejected before any write;
+formats 1–21 restore every slot with no policy configured. Whole replacement carries a
+slot's policy verbatim. Merge is add-only and inserts no routine, plan, activation or
+occurrence slots, so a slot-level policy travels only through restore; a merged set's own
+recorded target still carries its policy.
 Format 21 adds a performed set's recorded prescription target
 (`workoutSets[].prescriptionSnapshot`, the encoded `WorkoutPrescriptionSnapshot`).
 The validator rejects a target in a pre-21 file rather than reinterpreting it, and
@@ -128,8 +137,11 @@ Unknown exercise/equipment references and other invalid sections remain rejected
 ## Prescription interchange (0.9.2-S1)
 
 `transfer/PrescriptionModels.kt` + `PrescriptionJson` in `:core/domain` define the versioned
-`hydrafit-routines` document (`PRESCRIPTION_FORMAT_VERSION = 1`) used to share plans/routines between
-installs or people. It carries ordered routines and the custom exercise definitions they reference —
+`hydrafit-routines` document (`PRESCRIPTION_FORMAT_VERSION = 3`) used to share plans/routines between
+installs or people. Version 3 adds a slot's encoded approved progression policy; version 2 added
+timed slots and version 1 remains readable for counted slots with no policy, so a policy in a
+document that predates version 3 is rejected rather than read. It carries ordered routines and the
+custom exercise definitions they reference —
 nothing else. The codec encodes defaults, rejects unknown fields, and enforces `PrescriptionLimits`
 (2 MiB, depth 24, 16 KiB per string, 20,000 records). `PrescriptionValidator` enforces the format and
 version, the shared `PrescriptionBounds` per slot, valid movement/load/kind/focus enums, valid

@@ -82,7 +82,11 @@ instead of recreating a deleted set.
 `workoutSet.prescriptionSnapshot` text column that records the target a set was
 performed against (additive `ALTER TABLE`, no rebuild and no high-water repair);
 existing rows keep `NULL`, which stays "unknown target" rather than inheriting
-today's accepted plan. `ProgressionHistory.sq` is query-only: it registers
+today's accepted plan. `57.sqm` adds the nullable `progressionPolicy` text column to
+`routineEntry`, `planHistoryEntry`, `activationEntry` and `occurrenceEntry` (additive
+`ALTER TABLE` on all four, no rebuild and no high-water repair); existing rows keep `NULL`,
+which stays "no policy configured" rather than adopting a rule the user never approved.
+`ProgressionHistory.sq` is query-only: it registers
 `workoutSet`, `workoutSession`, `occurrenceEntry`, `workoutOccurrence` and
 `trainingActivation` as one invalidation anchor, so a set write, a session
 boundary, a replacement or an activation change re-emits. `SqlDelightWorkoutPlanSourcesRepository`

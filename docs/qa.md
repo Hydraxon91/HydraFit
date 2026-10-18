@@ -3645,3 +3645,77 @@ Known pre-existing flake, not fixed and out of scope: `ExerciseProgressRecordsIn
 intermittently throws `cannot start a transaction within a transaction`; it passes in isolation and on
 a full rerun. Diagnosis: the progress repository's flow runs `transactionWithResult` and `first()`
 cancels it mid-transaction.
+
+## 0.10.1 — approved progression and stall-handling policies (OF-10A)
+
+Implemented on `feature/0.10.1-progression-policies` (base `45ac019d`) and verified at the chunk and
+release-integration boundaries. Independent review and the folded `v0.10.1` publication were still
+pending at this entry.
+
+**What was built.** A `SlotProgressionPolicy` (rep range, load step, optional explicit bar/dumbbell
+identity) authored per routine slot and stored on `routineEntry`, `planHistoryEntry`,
+`activationEntry` and `occurrenceEntry`; additive migration `57.sqm` (schema 57→58, four nullable
+`ALTER TABLE` columns, no rebuild); recorded-target snapshot format 2; backup format 22;
+prescription interchange v3. `ResolveSlotProgressionUseCase` is a pure evaluator over each slot's own
+comparable history and returns `ADVANCE_REPS`, `ADVANCE_LOAD`, `HOLD` or `REVIEW` with a reason.
+
+**Host evidence.** Fresh full matrix `full-matrix-04.log` with `--rerun-tasks`: **787 tasks executed,
+0 up-to-date**, exit 0, 119.2 s — host suite, `verifySqlDelightMigration`, `ktlintCheck`, debug
+assembly, `:shared:compileKotlinIosSimulatorArm64` and `:core:network:compileKotlinIosSimulatorArm64`.
+Earlier runs are retained but are not the acceptance evidence: `full-matrix-01.log` was green with
+three key tasks inherited, and `full-matrix-02.log` predates the review corrections.
+`ktlintFormat` was run as the pre-pass (`format-04.log`).
+
+**New coverage.** Domain: 8 `SlotProgressionPolicyTest` cases (strict round-trip, inverted bounds,
+non-positive/NaN increment, blank or untrimmed equipment id, unsupported version, corrupt text failing
+closed) and 13 `SlotProgressionResolverTest` cases (advance inside the range, load step at the top,
+review on three misses, an untargeted exposure breaking the run, a changed comparable target
+restarting it, a changed approved policy restarting it, a recorded deload target never comparable,
+non-eligible shapes, deload pause, an unknown named identity holding, the grid snapping 22.5 kg to the
+next loadable 25 kg, a ceiling blocking the step, and a below-threshold hold carrying its observed
+run). Two further `WorkoutPrescriptionSnapshotTest` cases cover a format-1 target being forbidden from
+carrying a policy and a format-2 target round-tripping with one. Database:
+`SlotProgressionPolicyMigrationTest` (existing rows survive with no policy; a stored policy
+round-trips through the column) and
+`SqlDelightBackupRepositoryTest.aSlotProgressionPolicySurvivesExportAndRestore`. Domain portability:
+five `BackupValidatorTest` cases (a slot-level policy in a pre-22 file rejected, a policy at 22
+accepted, an undecodable policy rejected before any write, and a policy inside a recorded target
+rejected at 21 and accepted at 22) plus a `PrescriptionInterchangeTest` case rejecting a policy in a
+pre-v3 document. Feature: 10 new `RoutinesViewModelTest` cases for the policy dialog (empty when
+unset, pre-filled when set, valid save, each invalid input keeping the dialog open and writing
+nothing, clear, dismiss, the policy surviving routine save, and a stored fractional increment
+reopening and resaving without being rounded).
+
+**Review corrections.** The independent review returned APPROVED with six minor/nit findings. Four
+were corrected under the pre-authorized mechanical scope: F-01 seeded the dialog's increment field
+through `formatWeight`, which rounds to one decimal and silently rewrote a stored 1.25 kg step as 1.3
+(fixed with a lossless renderer and a regression test); F-02 narrowed a `backup.md` sentence that
+claimed merge carries slot policies, when merge inserts no slots; F-04 added the four missing
+coverage tests above; F-06 relabelled an unreachable-grid step as `NO_REACHABLE_INCREMENT` instead
+of `EQUIPMENT_UNRESOLVED`. F-03 was a contract-record gap (two version-pinned schema assertions
+outside the enumerated path list) and is recorded as a second amendment. F-05 — a slot whose stored
+reps exceed its policy's `maxReps` is treated as at the top of the range — is a **deferred design
+decision**, not fixed, and nothing applies suggestions today. Targeted closure returned **CLOSED**;
+the closure check noted that F-06's relabelled branch has no dedicated test and remains
+code-inspected only.
+
+**Verification limits — not established by the above.**
+- The next-target suggestion is computed and unit-tested but has **no UI surface**. The Routines
+  editor authors the policy only; a user cannot yet see or apply a suggested next target.
+- `equipmentCeilingKg` is honoured only by callers that already hold ceiling context. The authoring UI
+  passes none, so a ceiling does not bound a suggestion reached from that path.
+- The new progression dialog, its summary line and its error text have **no device or Compose-UI
+  acceptance**. They are code-inspected only; the rendered localized message is unverified.
+- Grid resolution runs only when the active inventory's unit is kilograms. A pound-configured
+  inventory falls back to the plain numeric step.
+- No on-device migration was exercised for `57.sqm`; the column is covered by a host migration test
+  and `verifySqlDelightMigration`, not by an upgrade on the emulator.
+- 0.10.2 (ordered per-set prescriptions, pyramid presets, prescribed effort targets) is folded into
+  `v0.10.1` for this batch but is **not implemented**.
+- The Logger's `capturePrescription` path carrying a frozen entry's policy into the recorded target
+  is **code-inspected only**. `WorkoutLoggerViewModelTest.kt` was outside the contract's enumerated
+  paths, so no test covers it; the independent closure check accepted it as disclosed because the
+  path is two lines and both branches read an existing entry's policy. F-06's relabelled
+  unreachable-grid branch is likewise code-inspected only.
+- The pre-existing `ExerciseProgressRecordsIntegrationTest` transaction flake remains unfixed and out
+  of scope.

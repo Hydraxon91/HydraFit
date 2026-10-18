@@ -258,6 +258,51 @@ Sources: domain `engine/OneRepMax.kt`, `SuggestedWeightConfig.kt`,
 `VolumeAwareReps.kt`, `TrainingGoal.kt`, `ProgressionConfig.kt`,
 `ProgressionHistory.kt`; `workout/WorkoutPrescriptionSnapshot.kt`.
 
+### Approved slot progression policy (0.10.1)
+
+A prescription slot may carry a user-authored `SlotProgressionPolicy`
+(`engine/SlotProgressionPolicy.kt`, strict versioned JSON): `minReps`, `maxReps`, an
+`incrementKg` load step and an optional `equipmentId`. Both numbers are user inputs — the
+app never invents a rep range or an increment, and no range here is claimed optimal. The
+policy is stored on `routineEntry`, `planHistoryEntry`, `activationEntry` and
+`occurrenceEntry` (additive migration `57.sqm`), travels into the recorded target as
+snapshot format 2, and is carried by backup format 22 and prescription interchange v3.
+
+`ResolveSlotProgressionUseCase` (`engine/SlotProgressionResolver.kt`) evaluates one slot
+against its own recorded history and returns `ADVANCE_REPS`, `ADVANCE_LOAD`, `HOLD` or
+`REVIEW` with a recorded reason. Comparability is the slot's current prescription: an
+exposure counts only when its recorded target names the same exercise, set count, rep
+count and load, is a typed external rep target, is not a deload, and carries the same
+approved policy. Any other exposure — a changed prescription or policy, a legacy row with
+no target, a bodyweight or timed target, an unjudgeable session — breaks the run without
+counting as a miss.
+
+- `ADVANCE_REPS` after `successStreak` (3) comparable successes while `reps < maxReps`.
+- `ADVANCE_LOAD` after the same run at `maxReps`: the load takes `incrementKg` and reps
+  return to `minReps`.
+- `REVIEW` after `failureStreak` (3) comparable misses. A miss run never removes load
+  automatically.
+- `HOLD` for anything else, with `NOT_ELIGIBLE` (timed, non-external, blank or zero
+  load), `PAUSED_DELOAD`, `INSUFFICIENT_COMPARABLE_WORK`, `EQUIPMENT_UNRESOLVED`,
+  `NO_REACHABLE_INCREMENT` or `LOAD_CEILING_REACHED`.
+
+A named `equipmentId` resolves the step onto that bar's or dumbbell's real grid using the
+existing `calculatePlateLoading`/`calculateDumbbellLoading` helpers, and only when the
+active inventory's unit is kilograms; the exact weight is used when loadable, otherwise
+the nearest loadable weight above it. An identity absent from the inventory holds rather
+than borrowing another grid. Without an identity the numeric step applies directly. A
+known `equipmentCeilingKg` blocks any increase the equipment cannot provide.
+
+The resolver changes nothing by itself: no frozen occurrence, activation, accepted plan or
+recorded history is rewritten, and applying a suggestion is a separate explicit edit. The
+existing NSCA/e1RM load math, the manual-PR floor, the recent-window baseline, the deload
+pause and automatic-load withholding are unchanged; the policy never feeds
+`PlanRequest.suggestedWeightsKg`.
+
+Limits for 0.10.1: the suggestion is computed and unit-tested but has no UI surface — the
+Routines editor authors the policy only, and `equipmentCeilingKg` is supplied by callers
+that already hold ceiling context, which the authoring UI does not.
+
 ### Selection, schedule, and periodization
 
 Deterministic candidate ordering: explicit user preference (`PlanRequest.exercisePreferences`,
