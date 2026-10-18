@@ -188,11 +188,16 @@ Apply these standing defaults unless the user explicitly overrides them:
   push/PR/merge/tag/Release-workflow/artifact steps. Until approved, do not
   push, open a PR, merge, tag, build/upload a release artifact or run a publication
   workflow. Required debug builds and non-publishing verification remain allowed.
-  A single approval covers the enumerated sequence; do not re-ask unless
-  scope/revisions change, a failure occurs or another approval is missing. Execute
-  the approved steps with applicable CI and artifact checks and stop on failure. If
-  the user explicitly overrides folding and requests several publications, publish
-  in version order, oldest first, and stop before subsequent releases if a step
+  The approval must follow that report rather than replace it: a general instruction
+  to publish ("you can push", "publish them together as Y") asks for the report, it is
+  not the approval, so present the steps as a list and wait. A single approval then
+  covers the enumerated sequence; do not re-ask unless scope/revisions change, a
+  failure occurs or another approval is missing. Unless the user explicitly asks for
+  the sequence to run unattended, the user is present for the publication steps:
+  execute them one at a time, report each result, and let the user review before the
+  next. Execute the approved steps with applicable CI and artifact checks and stop on
+  failure. If the user explicitly overrides folding and requests several publications,
+  publish in version order, oldest first, and stop before subsequent releases if a step
   fails.
 - **Reports:** authorize the parent to consolidate per-release review evidence in
   `docs/review-<release>-snapshot.md`, substituting the actual agreed version.

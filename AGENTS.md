@@ -506,12 +506,19 @@ any approved review-report paths before starting.
   `docs/agent-ci-release.md` Release notes), then request one explicit user approval
   of that single publication. Before that approval, do not push, open PRs, merge,
   tag, build/upload release artifacts or run publication workflows; required debug
-  builds and non-publishing checks remain allowed. One approval can cover the exact
-  enumerated operations, including pushes; changes to scope/revisions or uncovered
-  gates require new approval. This does not waive CI monitoring, artifact checks or
-  failure stops: stop on failure. If the user explicitly overrides folding and
-  requests several publications, publish in version order oldest-first and stop
-  before subsequent releases if a step fails. A batch invocation alone never
+  builds and non-publishing checks remain allowed. The approval must follow that
+  report rather than replace it: a general instruction to publish (for example "you
+  can push", or "finish X and publish them together as Y") is the user asking for the
+  report, not the approval itself, so present the enumerated operations as a list and
+  wait. One approval can then cover those exact enumerated operations, including
+  pushes; changes to scope/revisions or uncovered gates require new approval. Unless
+  the user explicitly asks for the whole sequence to run unattended, the user is
+  present for the publication steps: execute them one at a time, report each result,
+  and let the user review before the next, rather than treating the approval as a
+  licence to run push-to-artifact in one pass. This does not waive CI monitoring,
+  artifact checks or failure stops: stop on failure. If the user explicitly overrides
+  folding and requests several publications, publish in version order oldest-first and
+  stop before subsequent releases if a step fails. A batch invocation alone never
   authorizes publication.
 - **Scoped blockers:** a blocker confined to part of the approved scope does not
   stop the whole run. Record the failure, evidence, affected acceptance criteria and
