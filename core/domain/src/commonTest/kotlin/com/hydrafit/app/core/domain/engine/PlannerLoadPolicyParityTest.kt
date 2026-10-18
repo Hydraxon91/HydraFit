@@ -6,6 +6,8 @@ import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
+import com.hydrafit.app.core.domain.workout.WorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -31,16 +33,17 @@ class PlannerLoadPolicyParityTest {
 
     @Test
     fun deterministicAndSanitizerAgreeWithoutProgression() = runTest {
-        val inputs = builder(build = sources(completedSets()), nowMillis = NOW)
+        val inputs = builder(build = sources(legacySets()), nowMillis = NOW)
 
-        // Epley(100 x 8) = 126.667; BALANCED compound 6 reps -> 126.667 x 0.765 = 96.9 -> 97.5 kg.
+        // No recorded target, so no increment: Epley(100 x 8) = 126.667;
+        // BALANCED compound 6 reps -> 126.667 x 0.765 = 96.9 -> 97.5 kg.
         assertEquals(97.5, deterministicWeight(inputs))
         assertEquals(97.5, sanitizedWeight(inputs))
     }
 
     @Test
     fun deterministicAndSanitizerAgreeWithEarnedProgression() = runTest {
-        val inputs = builder(build = sources(completedSets()), latestPlan = acceptedPrescription())
+        val inputs = builder(build = sources(completedSets()))
 
         // Baseline + one earned increment = 129.167; x 0.765 = 98.8125 -> 100 kg.
         assertEquals(100.0, deterministicWeight(inputs))
@@ -49,7 +52,7 @@ class PlannerLoadPolicyParityTest {
 
     @Test
     fun deterministicAndSanitizerAgreeOnADeloadWeek() = runTest {
-        val inputs = builder(build = sources(completedSets()), latestPlan = acceptedPrescription())
+        val inputs = builder(build = sources(completedSets()))
 
         // 129.167 x 0.765 x 0.8 = 79.05 -> 80 kg.
         assertEquals(80.0, deterministicWeight(inputs, isDeload = true))
@@ -83,11 +86,9 @@ class PlannerLoadPolicyParityTest {
 
     private suspend fun builder(
         build: WorkoutPlanSources,
-        latestPlan: AcceptedPlan? = null,
         nowMillis: Long = NOW
     ): PlannerLoadInputs = builder(
         sources = build,
-        latestPlan = latestPlan,
         pauseIncrements = false,
         utcOffsetMillis = 0L,
         nowMillis = nowMillis
@@ -174,9 +175,13 @@ class PlannerLoadPolicyParityTest {
         isDeload = isDeload
     )
 
-    /** Three completed external sessions inside the window, then an accepted external prescription. */
+    /** Three completed external sessions inside the window, each carrying its own recorded target. */
     private fun completedSets(): List<WorkoutSet> =
         listOf(98L, 99L, 100L).flatMap { day -> List(3) { set(day) } }
+
+    /** The same history without any recorded target, so progression has nothing to progress from. */
+    private fun legacySets(): List<WorkoutSet> =
+        listOf(98L, 99L, 100L).flatMap { day -> List(3) { set(day, withTarget = false) } }
 
     private fun acceptedPrescription(): AcceptedPlan = AcceptedPlan(
         engine = PlannerEngineId.DETERMINISTIC,
@@ -207,15 +212,41 @@ class PlannerLoadPolicyParityTest {
         selectedEngine = PlannerEngineId.DETERMINISTIC,
         daysPerWeek = 3,
         loggedSets = emptyList(),
-        loggedWorkoutSets = sets
+        loggedWorkoutSets = sets,
+        progressionHistory = ProgressionHistory(sets, sessionsOf(sets))
     )
 
-    private fun set(day: Long): WorkoutSet = WorkoutSet(
+    private fun sessionsOf(sets: List<WorkoutSet>) = sets
+        .mapNotNull { set -> set.sessionId?.let { it to set } }
+        .groupBy({ it.first }, { it.second })
+        .map { (id, group) ->
+            WorkoutSession(
+                id = id,
+                startedAtMillis = group.minOf { it.performedAtMillis },
+                endedAtMillis = group.maxOf { it.performedAtMillis },
+                localEpochDay = 0
+            )
+        }
+
+    private fun set(day: Long, withTarget: Boolean = true): WorkoutSet = WorkoutSet(
         exerciseId = EXERCISE,
         reps = 8,
         weightKg = 100.0,
         loadKind = LoadKind.EXTERNAL,
-        performedAtMillis = day * DAY_MILLIS
+        performedAtMillis = day * DAY_MILLIS,
+        sessionId = "s$day",
+        prescriptionSnapshot = if (withTarget) {
+            WorkoutPrescriptionSnapshot(
+                exerciseId = EXERCISE,
+                sets = 3,
+                reps = 8,
+                loadKind = LoadKind.EXTERNAL,
+                weightKg = 80.0,
+                isDeload = false
+            )
+        } else {
+            null
+        }
     )
 
     private object FakeCatalog : ExerciseCatalog {

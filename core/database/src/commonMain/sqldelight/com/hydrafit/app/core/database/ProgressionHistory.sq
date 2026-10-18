@@ -1,0 +1,8 @@
+-- An invalidation anchor, not a count/revision: corrections and session closure must emit too.
+selectProgressionInvalidation:
+SELECT workoutSet.id
+FROM workoutSet
+LEFT JOIN workoutSession ON workoutSession.id = workoutSet.sessionId
+LEFT JOIN occurrenceEntry ON occurrenceEntry.id = workoutSet.occurrenceEntryId
+LEFT JOIN workoutOccurrence ON workoutOccurrence.id = occurrenceEntry.occurrenceId
+LEFT JOIN trainingActivation ON trainingActivation.id = workoutOccurrence.activationId;

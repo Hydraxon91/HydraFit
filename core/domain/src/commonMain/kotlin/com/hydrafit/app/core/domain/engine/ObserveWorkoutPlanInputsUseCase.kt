@@ -51,7 +51,6 @@ class ObserveWorkoutPlanInputsUseCase(
             .toSet()
         val loadInputs = buildPlannerLoadInputs(
             sources = current,
-            latestPlan = latestPlan,
             pauseIncrements = latestPlan?.let { periodization.isDeload(it.weekNumber) } ?: false,
             utcOffsetMillis = utcOffsetMillis,
             nowMillis = nowMillis

@@ -22,7 +22,9 @@ data class WorkoutPlanSources(
     /** EX-01 exclusions with their expiry; the observer keeps only the currently active ones. */
     val exerciseExclusions: List<ExerciseExclusion> = emptyList(),
     /** Profile/revision identity is presentation context, never a historical prescription field. */
-    val equipmentContext: String? = null
+    val equipmentContext: String? = null,
+    /** Coherent recorded targets/session closure; never reconstructed from the latest plan. */
+    val progressionHistory: ProgressionHistory = ProgressionHistory()
 )
 
 interface WorkoutPlanSourcesRepository {

@@ -1,5 +1,8 @@
 package com.hydrafit.app.core.domain.engine
 
+import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
+import com.hydrafit.app.core.domain.workout.WorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -8,16 +11,21 @@ import kotlin.test.assertTrue
 class ProgressWeightsUseCaseTest {
 
     private val useCase = ProgressWeightsUseCase()
-    private val prescription = mapOf(
-        "bench-press" to Prescription("bench-press", sets = 3, reps = 8, weightKg = 80.0)
+    private val target = WorkoutPrescriptionSnapshot(
+        exerciseId = "bench-press",
+        sets = 3,
+        reps = 8,
+        loadKind = LoadKind.EXTERNAL,
+        weightKg = 80.0,
+        isDeload = false
     )
 
     @Test
-    fun leavesTheBaselineAloneWithoutAPrescription() {
+    fun leavesTheBaselineAloneWithoutARecordedTarget() {
         val result = useCase(
             baseline = mapOf("bench-press" to 80.0),
-            prescriptions = emptyMap(),
-            sets = completed(day = 1)
+            history = history(work(1, target = null)),
+            nowMillis = NOW
         )
 
         assertEquals(80.0, result.getValue("bench-press"))
@@ -27,8 +35,8 @@ class ProgressWeightsUseCaseTest {
     fun leavesTheBaselineAloneBelowTheSuccessStreak() {
         val result = useCase(
             baseline = mapOf("bench-press" to 80.0),
-            prescriptions = prescription,
-            sets = completed(day = 3) + completed(day = 2)
+            history = history(completed(day = 3), completed(day = 2)),
+            nowMillis = NOW
         )
 
         assertEquals(80.0, result.getValue("bench-press"))
@@ -38,8 +46,8 @@ class ProgressWeightsUseCaseTest {
     fun addsOneIncrementAfterThreeCompletedSessions() {
         val result = useCase(
             baseline = mapOf("bench-press" to 80.0),
-            prescriptions = prescription,
-            sets = completed(day = 3) + completed(day = 2) + completed(day = 1)
+            history = history(completed(day = 3), completed(day = 2), completed(day = 1)),
+            nowMillis = NOW
         )
 
         assertEquals(82.5, result.getValue("bench-press"))
@@ -49,8 +57,8 @@ class ProgressWeightsUseCaseTest {
     fun addsOneIncrementPerCompletedBlock() {
         val result = useCase(
             baseline = mapOf("bench-press" to 80.0),
-            prescriptions = prescription,
-            sets = (6 downTo 1).flatMap { completed(day = it) }
+            history = history(*(6 downTo 1).map { completed(day = it) }.toTypedArray()),
+            nowMillis = NOW
         )
 
         assertEquals(85.0, result.getValue("bench-press"))
@@ -60,8 +68,8 @@ class ProgressWeightsUseCaseTest {
     fun doesNotExceedTheIncrementCap() {
         val result = useCase(
             baseline = mapOf("bench-press" to 80.0),
-            prescriptions = prescription,
-            sets = (100 downTo 1).flatMap { completed(day = it) }
+            history = history(*(100 downTo 1).map { completed(day = it) }.toTypedArray()),
+            nowMillis = NOW
         )
 
         assertEquals(92.5, result.getValue("bench-press"))
@@ -71,22 +79,25 @@ class ProgressWeightsUseCaseTest {
     fun deloadsAfterThreeMissedSessionsButNeverBelowTheBaseline() {
         val progressed = useCase(
             baseline = mapOf("bench-press" to 80.0),
-            prescriptions = prescription,
-            sets = (6 downTo 1).flatMap { completed(day = it) }
+            history = history(*(6 downTo 1).map { completed(day = it) }.toTypedArray()),
+            nowMillis = NOW
         )
         assertEquals(85.0, progressed.getValue("bench-press"))
 
         val deloaded = useCase(
             baseline = mapOf("bench-press" to 80.0),
-            prescriptions = prescription,
-            sets = (9 downTo 1).flatMap { if (it <= 3) missed(day = it) else completed(day = it) }
+            history = history(
+                *((9 downTo 1).map { if (it <= 3) missed(day = it) else completed(day = it) })
+                    .toTypedArray()
+            ),
+            nowMillis = NOW
         )
         assertEquals(82.5, deloaded.getValue("bench-press"))
 
         val floored = useCase(
             baseline = mapOf("bench-press" to 80.0),
-            prescriptions = prescription,
-            sets = missed(day = 3) + missed(day = 2) + missed(day = 1)
+            history = history(missed(day = 3), missed(day = 2), missed(day = 1)),
+            nowMillis = NOW
         )
         assertEquals(80.0, floored.getValue("bench-press"))
     }
@@ -95,51 +106,121 @@ class ProgressWeightsUseCaseTest {
     fun aMissBetweenSessionsBreaksTheSuccessStreak() {
         val result = useCase(
             baseline = mapOf("bench-press" to 80.0),
-            prescriptions = prescription,
-            sets = completed(day = 5) + completed(day = 4) +
-                missed(day = 3) +
-                completed(day = 2) + completed(day = 1)
+            history = history(
+                completed(day = 5),
+                completed(day = 4),
+                missed(day = 3),
+                completed(day = 2),
+                completed(day = 1)
+            ),
+            nowMillis = NOW
         )
 
         assertEquals(80.0, result.getValue("bench-press"))
     }
 
     @Test
-    fun ignoresUnweightedSets() {
+    fun anIneligibleExposureBreaksTheStreakWithoutBecomingAMiss() {
         val result = useCase(
             baseline = mapOf("bench-press" to 80.0),
-            prescriptions = prescription,
-            sets = (6 downTo 1).map { day ->
+            history = history(
+                completed(day = 4),
+                completed(day = 3),
+                work(2, target = null),
+                completed(day = 1)
+            ),
+            nowMillis = NOW
+        )
+
+        assertEquals(80.0, result.getValue("bench-press"))
+        val explanation = useCase.explain(
+            baseline = mapOf("bench-press" to 80.0),
+            history = history(
+                completed(day = 4),
+                completed(day = 3),
+                work(2, target = null),
+                completed(day = 1)
+            ),
+            nowMillis = NOW
+        ).getValue("bench-press")
+        assertEquals(0, explanation.increments)
+    }
+
+    @Test
+    fun blankLoadsCannotBeJudgedAndNeverBecomeAMiss() {
+        val unweighted = (6 downTo 1).flatMap { day ->
+            List(3) { index ->
                 WorkoutSet(
+                    id = day * 10L + index,
                     exerciseId = "bench-press",
                     reps = 8,
                     weightKg = null,
-                    performedAtMillis = millisOf(day)
+                    performedAtMillis = millisOf(day),
+                    sessionId = "s$day",
+                    prescriptionSnapshot = target
                 )
             }
+        }
+        val history = history(unweighted)
+
+        assertEquals(
+            80.0,
+            useCase(mapOf("bench-press" to 80.0), history, nowMillis = NOW)
+                .getValue("bench-press")
+        )
+        // A blank load cannot establish weighted target failure, so six unjudgeable sessions must
+        // not remove an increment the way six misses would.
+        val explanation = useCase.explain(
+            baseline = mapOf("bench-press" to 80.0),
+            history = history,
+            nowMillis = NOW
+        ).getValue("bench-press")
+        assertEquals(ProgressionOutcome.NONE_NO_TYPED_PRESCRIPTION, explanation.outcome)
+        assertEquals(0, explanation.increments)
+    }
+
+    @Test
+    fun incompleteWorkIsUnknownAndNeverAMiss() {
+        // Three sessions, one of which recorded only two of the three prescribed sets: the short
+        // session cannot be judged, so it breaks the streak without removing an increment.
+        val result = useCase(
+            baseline = mapOf("bench-press" to 80.0),
+            history = history(
+                completed(day = 3),
+                completed(day = 2),
+                completed(day = 1).dropLast(1)
+            ),
+            nowMillis = NOW
         )
 
         assertEquals(80.0, result.getValue("bench-press"))
     }
 
     @Test
-    fun countsUnderTargetSetsAsAMiss() {
-        val result = useCase(
+    fun anUnknownExposureDoesNotCountTowardTheFailureStreak() {
+        // Two misses, then an unjudgeable session, then another miss. If the unknown exposure were
+        // treated as a miss the failure streak would reach three and remove an increment.
+        val sets = missed(day = 4) + missed(day = 3) +
+            work(2, target = null, weightKg = 70.0) +
+            missed(day = 1)
+        val explanation = useCase.explain(
             baseline = mapOf("bench-press" to 80.0),
-            prescriptions = prescription,
-            sets = completed(day = 3) + completed(day = 2) + completed(day = 1).dropLast(1)
-        )
+            history = history(sets),
+            nowMillis = NOW
+        ).getValue("bench-press")
 
-        assertEquals(80.0, result.getValue("bench-press"))
+        assertEquals(0, explanation.increments)
+        assertEquals(0.0, explanation.deltaKg)
+        assertEquals(ProgressionOutcome.NONE_NO_STREAK_YET, explanation.outcome)
     }
 
     @Test
     fun pausesIncrementsWhenRequested() {
         val result = useCase(
             baseline = mapOf("bench-press" to 80.0),
-            prescriptions = prescription,
-            sets = (6 downTo 1).flatMap { completed(day = it) },
-            pauseIncrements = true
+            history = history(*(6 downTo 1).map { completed(day = it) }.toTypedArray()),
+            pauseIncrements = true,
+            nowMillis = NOW
         )
 
         assertEquals(80.0, result.getValue("bench-press"))
@@ -149,8 +230,8 @@ class ProgressWeightsUseCaseTest {
     fun omitsExercisesWithoutABaseline() {
         val result = useCase(
             baseline = emptyMap(),
-            prescriptions = prescription,
-            sets = (3 downTo 1).flatMap { completed(day = it) }
+            history = history(completed(day = 3), completed(day = 2), completed(day = 1)),
+            nowMillis = NOW
         )
 
         assertTrue(result.isEmpty())
@@ -160,8 +241,8 @@ class ProgressWeightsUseCaseTest {
     fun explainsAnAppliedAdjustmentWithTheRuleThatProducedIt() {
         val explanation = useCase.explain(
             baseline = mapOf("bench-press" to 80.0),
-            prescriptions = prescription,
-            sets = (3 downTo 1).flatMap { completed(day = it) }
+            history = history(completed(day = 3), completed(day = 2), completed(day = 1)),
+            nowMillis = NOW
         ).getValue("bench-press")
 
         assertEquals(ProgressionOutcome.APPLIED, explanation.outcome)
@@ -176,16 +257,16 @@ class ProgressWeightsUseCaseTest {
     fun explainsWhyProgressionDidNotApply() {
         val incomplete = useCase.explain(
             baseline = mapOf("bench-press" to 80.0),
-            prescriptions = emptyMap(),
-            sets = completed(day = 1)
+            history = history(work(1, target = null)),
+            nowMillis = NOW
         ).getValue("bench-press")
         assertEquals(ProgressionOutcome.NONE_NO_TYPED_PRESCRIPTION, incomplete.outcome)
         assertEquals(0, incomplete.increments)
 
         val belowThreshold = useCase.explain(
             baseline = mapOf("bench-press" to 80.0),
-            prescriptions = prescription,
-            sets = completed(day = 2) + completed(day = 1)
+            history = history(completed(day = 2), completed(day = 1)),
+            nowMillis = NOW
         ).getValue("bench-press")
         assertEquals(ProgressionOutcome.NONE_NO_STREAK_YET, belowThreshold.outcome)
         assertEquals(0.0, belowThreshold.deltaKg)
@@ -195,8 +276,8 @@ class ProgressWeightsUseCaseTest {
     fun aHoldCausedByMissedSessionsIsNotReportedAsThinEvidence() {
         val hold = useCase.explain(
             baseline = mapOf("bench-press" to 80.0),
-            prescriptions = prescription,
-            sets = missed(day = 3) + missed(day = 2) + missed(day = 1)
+            history = history(missed(day = 3), missed(day = 2), missed(day = 1)),
+            nowMillis = NOW
         ).getValue("bench-press")
 
         assertEquals(ProgressionOutcome.HELD_AFTER_MISSED_SESSIONS, hold.outcome)
@@ -208,9 +289,9 @@ class ProgressWeightsUseCaseTest {
     fun aDeloadPauseIsReportedRatherThanReconstructedAsNoEvidence() {
         val resolved = useCase.resolve(
             baseline = mapOf("bench-press" to 80.0),
-            prescriptions = prescription,
-            sets = (6 downTo 1).flatMap { completed(day = it) },
-            pauseIncrements = true
+            history = history(*(6 downTo 1).map { completed(day = it) }.toTypedArray()),
+            pauseIncrements = true,
+            nowMillis = NOW
         ).getValue("bench-press")
 
         assertEquals(ProgressionOutcome.PAUSED_DELOAD, resolved.explanation.outcome)
@@ -221,10 +302,10 @@ class ProgressWeightsUseCaseTest {
     @Test
     fun theRecordedReasonAlwaysMatchesTheReturnedValue() {
         val baseline = mapOf("bench-press" to 80.0)
-        val sets = (6 downTo 1).flatMap { completed(day = it) }
+        val sessions = history(*(6 downTo 1).map { completed(day = it) }.toTypedArray())
 
-        val values = useCase(baseline, prescription, sets)
-        val resolved = useCase.resolve(baseline, prescription, sets).getValue("bench-press")
+        val values = useCase(baseline, sessions, nowMillis = NOW)
+        val resolved = useCase.resolve(baseline, sessions, nowMillis = NOW).getValue("bench-press")
 
         assertEquals(values.getValue("bench-press"), resolved.progressedKg)
         assertEquals(
@@ -233,23 +314,45 @@ class ProgressWeightsUseCaseTest {
         )
     }
 
-    private fun completed(day: Int): List<WorkoutSet> = List(3) {
+    private fun completed(day: Int): List<WorkoutSet> = work(day, target = target, weightKg = 80.0)
+
+    private fun missed(day: Int): List<WorkoutSet> = work(day, target = target, weightKg = 70.0)
+
+    private fun work(
+        day: Int,
+        target: WorkoutPrescriptionSnapshot?,
+        weightKg: Double = 80.0
+    ): List<WorkoutSet> = List(3) { index ->
         WorkoutSet(
+            id = day * 10L + index,
             exerciseId = "bench-press",
             reps = 8,
-            weightKg = 80.0,
-            performedAtMillis = millisOf(day)
+            weightKg = weightKg,
+            performedAtMillis = millisOf(day),
+            sessionId = "s$day",
+            prescriptionSnapshot = target
         )
     }
 
-    private fun missed(day: Int): List<WorkoutSet> = List(3) {
-        WorkoutSet(
-            exerciseId = "bench-press",
-            reps = 8,
-            weightKg = 70.0,
-            performedAtMillis = millisOf(day)
-        )
+    private fun history(vararg groups: List<WorkoutSet>): ProgressionHistory {
+        val sets = groups.toList().flatten()
+        val sessions = sets
+            .mapNotNull { set -> set.sessionId?.let { it to set } }
+            .groupBy({ it.first }, { it.second })
+            .map { (id, group) ->
+                WorkoutSession(
+                    id = id,
+                    startedAtMillis = group.minOf { it.performedAtMillis },
+                    endedAtMillis = group.maxOf { it.performedAtMillis },
+                    localEpochDay = 0
+                )
+            }
+        return ProgressionHistory(sets, sessions)
     }
 
     private fun millisOf(day: Int): Long = day.toLong() * 24L * 60L * 60L * 1000L
+
+    private companion object {
+        val NOW = 100L * 24L * 60L * 60L * 1000L
+    }
 }
