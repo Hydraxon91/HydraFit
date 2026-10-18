@@ -10,7 +10,10 @@ unknown focus to FULL_BODY. Parsing success is not plan validation.
 
 The sanitizer removes unknown/unavailable exercises, applies app-controlled
 sets and reps, gates suggested weights, scales deload loads, clamps equipment
-ceilings, and stamps request week/cycle values. Suggested weights must be
+ceilings, and stamps request week/cycle values. It also applies the app's own ordered
+per-set prescription stage when the plan request carries one, overwriting anything a
+model returned, so no engine can bypass the same shape the deterministic engine
+produces. Suggested weights must be
 positive and at most `1_000.0` kg before scaling/clamping.
 Shared `PlannerCandidateEligibility` also removes the manual-only trap/neck isolation
 patterns and six canonical shrug/neck IDs. Both engines use this guard for prompt catalogs;

@@ -303,6 +303,59 @@ Limits for 0.10.1: the suggestion is computed and unit-tested but has no UI surf
 Routines editor authors the policy only, and `equipmentCeilingKg` is supplied by callers
 that already hold ceiling context, which the authoring UI does not.
 
+### Ordered per-set prescriptions (0.10.2)
+
+A slot may carry an ordered per-set target list instead of one repeated prescription.
+`SlotSetTargets` (`engine/SlotSetTargets.kt`) holds an ordered `List<SetTarget>` plus an
+optional `SetPrescriptionRecipeSnapshot` describing the manual recipe that produced it. `SetTarget` carries its own reps or
+seconds, load kind, load and optional `targetRir`; `equivalentRpe` is the derived
+presentation of the same target (`RPE = 10 − RIR`), never a second stored value. A slot
+with no ordered list keeps its existing single repeated target, so a legacy or simply
+repeated prescription is never reinterpreted as an ordered one.
+
+**The list and the set count are one value.** `SlotSetTargets.sets` is always the list size,
+and `RoutineTemplateValidator`, `PrescriptionValidator` and `BackupValidator` all reject a
+slot whose `setTargets.sets` disagrees with its `sets`; `RoutineTemplateValidator`
+additionally rejects targets whose load kind differs from the slot's, since the routine
+editor is the authoring path for that pair. The Logger derives a set's slot index from the
+count agreement, so a mismatch would address the wrong slot.
+
+Storage is additive migration `58.sqm` (nullable `setTargets` on the four prescription
+stores, schema 58→59). The recorded target is snapshot format 3, which adds `setIndex` and
+`targetRir`; formats 1 and 2 stay readable and reject the new fields. Backup format 23 and
+prescription interchange v4 carry the ordered list, and pre-format carriers are rejected.
+
+**Manual recipes.** `BuildSetPrescriptionUseCase` turns a `SetPrescriptionRequest` (shape,
+sets, start/end reps, start/end loads, rounding step, optional RIR) into ordered targets and
+records the recipe, so reopening a slot shows what the user entered rather than an inferred
+shape. Shapes are `STRAIGHT`, `ASCENDING_LOAD`, `DESCENDING_LOAD` and `PYRAMID`; the pyramid
+places the peak load and trough reps at the middle set. They are configurable recipes, not
+claims of superiority.
+
+**Automatic generation.** `ApplySetPrescriptionRecipeUseCase` builds a slot's ordered targets
+from an `AutomaticSetPrescription` (the user's shape, `minReps`/`maxReps` and optional RIR)
+using the planner's existing estimated-1RM conversion for each set's reps — never an
+arbitrary percentage ladder. It is external-load-only and produces nothing without a rep
+count, an external slot or an estimated-1RM bound. `PlanRequest.automaticSetPrescription`
+carries the opt-in (absent means no automatic ordered prescription, so every existing plan
+shape is unchanged), `ObserveWorkoutPlanInputsUseCase` assembles it, and **both** the
+deterministic engine and `WeeklyPlanSanitizer` apply the same stage, so no engine can bypass
+it. SplitBuilder owns the opt-in UI.
+
+An automatically generated prescription records **no** `SetPrescriptionRecipeSnapshot`: a
+recipe describes the manual builder's own inputs, and the manual builder interpolates loads
+between endpoints while this path converts each set's own reps, so a recorded recipe would
+promise a reopen it cannot reproduce. The editor shows a recipe-less slot's stored targets
+with empty inputs rather than inventing a shape.
+
+**Ordered progression.** `ProgressionHistory.orderedExposures` judges a session slot by slot.
+A session is comparable only when every recorded set names one of that prescription's own
+slots exactly once and its recorded target matches that slot (loads compared on the gram);
+success requires **every** prescribed slot to have reached its own reps and load, so a
+surplus set can never substitute for a missed one. `ResolveSlotProgressionUseCase.resolveOrdered`
+advances every set by one rep while the whole prescription stays inside the policy's range,
+then takes the policy's load step with reps back at the floor; misses ask for review.
+
 ### Selection, schedule, and periodization
 
 Deterministic candidate ordering: explicit user preference (`PlanRequest.exercisePreferences`,

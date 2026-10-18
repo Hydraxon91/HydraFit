@@ -86,8 +86,11 @@ today's accepted plan. `57.sqm` adds the nullable `progressionPolicy` text colum
 `routineEntry`, `planHistoryEntry`, `activationEntry` and `occurrenceEntry` (additive
 `ALTER TABLE` on all four, no rebuild and no high-water repair); existing rows keep `NULL`,
 which stays "no policy configured" rather than adopting a rule the user never approved.
-`ProgressionHistory.sq` is query-only: it registers
-`workoutSet`, `workoutSession`, `occurrenceEntry`, `workoutOccurrence` and
+`58.sqm` adds the nullable `setTargets` text column to the same four tables (again additive
+`ALTER TABLE`, no rebuild); existing rows keep `NULL`, which stays "this slot's sets share
+one repeated prescription" rather than being read as an ordered one, so no historical set is
+given an invented slot identity.
+`ProgressionHistory.sq` is query-only: it registers `workoutSet`, `workoutSession`, `occurrenceEntry`, `workoutOccurrence` and
 `trainingActivation` as one invalidation anchor, so a set write, a session
 boundary, a replacement or an activation change re-emits. `SqlDelightWorkoutPlanSourcesRepository`
 reads sets, sessions and unambiguously attributed occurrence targets in one

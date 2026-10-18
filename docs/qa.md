@@ -3711,7 +3711,8 @@ code-inspected only.
 - No on-device migration was exercised for `57.sqm`; the column is covered by a host migration test
   and `verifySqlDelightMigration`, not by an upgrade on the emulator.
 - 0.10.2 (ordered per-set prescriptions, pyramid presets, prescribed effort targets) is folded into
-  `v0.10.1` for this batch but is **not implemented**.
+  `v0.10.1` for this batch and is implemented; see the 0.10.2 section below for its evidence and
+  limits.
 - The Logger's `capturePrescription` path carrying a frozen entry's policy into the recorded target
   is **code-inspected only**. `WorkoutLoggerViewModelTest.kt` was outside the contract's enumerated
   paths, so no test covers it; the independent closure check accepted it as disclosed because the
@@ -3719,3 +3720,65 @@ code-inspected only.
   unreachable-grid branch is likewise code-inspected only.
 - The pre-existing `ExerciseProgressRecordsIntegrationTest` transaction flake remains unfixed and out
   of scope.
+
+## 0.10.2 — ordered per-set prescriptions, presets and prescribed effort (PYR-01, Item 9 B2)
+
+Implemented on the same branch and verified at the release-integration gate. Independent review and
+closure are recorded in `docs/review-0.10.2-snapshot.md`; the folded `v0.10.1` publication was still
+pending at this entry.
+
+**What was built.** A slot may carry an ordered `SlotSetTargets` — per-set reps or seconds, load kind,
+load and optional prescribed RIR, plus an **optional** `SetPrescriptionRecipeSnapshot` recorded only
+for the manual builder's own inputs; an automatically generated prescription records none, because the
+manual builder interpolates loads between endpoints while the automatic path converts each set's own
+reps, so no manual recipe could reproduce it. Storage is on
+`routineEntry`, `planHistoryEntry`, `activationEntry` and `occurrenceEntry` through additive `58.sqm`
+(schema 58→59, four nullable columns, no rebuild). The list and the slot's set count are one enforced
+value. The recorded target is snapshot format 3, adding `setIndex` and `targetRir`; backup format 23
+and prescription interchange v4 carry the list. Manual shapes (straight, ascending load, descending
+load, pyramid) build targets from the user's own endpoints and record the recipe, so reopening shows
+what was entered rather than an inferred shape. Automatic generation uses the user's range and the
+planner's existing estimated-1RM conversion, is external-load-only, and is applied by **both** the
+deterministic engine and `WeeklyPlanSanitizer`, so no engine can bypass it. Ordered progression judges
+a session slot by slot and requires every prescribed slot to satisfy its own target. Prescribed RIR
+(0–4) is stored separately from actual effort, with `equivalentRpe` as a derived presentation.
+
+**Host evidence.** Fresh full matrix `d102-full-matrix-10.log` with `--rerun-tasks`: **787 tasks
+executed, 0 up-to-date**, exit 0, zero failures — host suite, `verifySqlDelightMigration`,
+`ktlintCheck`, debug assembly and both iOS simulator compiles. Earlier attempts are retained but are
+not the acceptance evidence: `d102-full-matrix-02.log` failed on a corrected test assertion,
+`d102-full-matrix-03.log` and `-06.log`/`-07.log` failed only on documented pre-existing flakes, and
+`-04.log`/`-05.log`/`-08.log`/`-09.log` predate the final corrections.
+
+**Review.** Independent full-range review returned **REJECTED** with seven findings. F-01 (automatic
+generation absent) was implemented with its SplitBuilder opt-in; F-02 (unenforced set-count invariant)
+and F-03 (the logger override baseline discarding ordered targets) were corrected with the invariant
+enforced across the routine, interchange and backup validators and the draft seeded from the first
+remaining ordered target; F-04 (bodyweight slot adopting an external target), F-05 (unlabelled and
+recomputed RPE, effort missing from the per-set summary) and F-07 (raw float load comparison,
+`-0.0` accepted) were corrected; F-06 is this documentation. Three further paths were recorded as
+amendments for the F-01 wiring, two of which the boundary gate itself caught.
+
+**New coverage.** `SlotSetTargetsTest` (strict encoding, RPE derivation, RIR bounds, one-or-more sets,
+exactly one positive measure, corrupt text failing closed, recipe round-trip, out-of-range index),
+`SetPrescriptionRecipeTest` (each shape's concrete rep and load ladder, the user's rounding step,
+single-set recipes, prescribed effort on every set, unspecified loads staying unspecified,
+out-of-range rejection, recipe recording, and the automatic builder's range-and-conversion output and
+its refusal cases), seven ordered-progression cases in `SlotProgressionResolverTest` (advance, load
+step, surplus set cannot substitute, non-comparable session, changed prescription, timed slot), the
+snapshot format-3 gates, five `BackupValidatorTest` format-23 cases, an interchange v4 round-trip and
+pre-v4 rejection, `SlotSetTargetsMigrationTest`, a backup round-trip of ordered targets, 12 Routines
+editor cases and 3 SplitBuilder opt-in cases.
+
+**Verification limits — not established by the above.**
+- The Compose surfaces — the Routines Per-set targets dialog, the SplitBuilder opt-in and the Logger
+  prescribed-effort display — have **no device or Compose-UI acceptance**. They are code-inspected
+  only.
+- `57.sqm` and `58.sqm` have no on-device upgrade exercise; both are covered by host migration tests
+  and `verifySqlDelightMigration`.
+- `ResolveSlotProgressionUseCase.resolveOrdered` has **no production consumer**: ordered progression is
+  a tested domain contract, not yet a suggestion a user sees.
+- `resolveOrdered` advances a prescription without its recipe, so a slot advanced through it would
+  reopen with empty recipe inputs rather than its original endpoints.
+- The pre-existing `ExerciseProgressRecordsIntegrationTest` flake remains unfixed; it failed two
+  release-gate attempts during this release and passed on rerun.
