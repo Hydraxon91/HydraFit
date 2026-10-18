@@ -230,6 +230,9 @@ python3 scripts/run-bounded.py 600 test-output.log -- ./gradlew testAndroidHostT
 # Run tests for a single module
 python3 scripts/run-bounded.py 600 domain-test-output.log -- ./gradlew :core:domain:testAndroidHostTest
 
+# Surface an intermittent failure: repeat a command in a fresh sweep directory
+python3 scripts/flake-repeat.py 300 3 /external/sweep-dir -- ./gradlew :core:database:testAndroidHostTest --rerun-tasks
+
 # Mechanical format pass for Kotlin changes (run before the first test run)
 python3 scripts/run-bounded.py 600 format-output.log -- ./gradlew ktlintFormat
 
@@ -255,6 +258,16 @@ confirms. A task reported `UP-TO-DATE` was not executed in that run — re-run i
 `--rerun-tasks` or report the result as inherited, naming the inputs it came from.
 `run-bounded.py` records Gradle's executed/up-to-date split in its result JSON
 (`gradle_tasks`) and summary line whenever the log carries one.
+
+`flake-repeat.py` repeats a bounded command in a fresh sweep directory to surface an
+intermittent failure. Each run inherits `run-bounded.py`'s wall-clock limit,
+termination guarantee and result JSON; `--rerun-tasks` (or an equivalent) is what
+makes a Gradle repeat do real work, and a sweep where every run reported tasks but
+none executed exits 3 as inconclusive rather than passing. Exit 2 lists the distinct
+failing tests, and a sweep directory that already holds results is refused, so an
+earlier sweep's pass is never consumed as this one's. It reports an observation, not
+a verdict about a flake's existence: failing to reproduce one proves only that it did
+not occur in those runs.
 
 ### Bounded command results
 
