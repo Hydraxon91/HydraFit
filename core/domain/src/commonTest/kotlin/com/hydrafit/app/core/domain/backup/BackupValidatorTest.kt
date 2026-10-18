@@ -1,7 +1,10 @@
 package com.hydrafit.app.core.domain.backup
 
 import com.hydrafit.app.core.domain.equipment.LoadingInventory
+import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
+import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
+import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshotJson
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -65,6 +68,54 @@ class BackupValidatorTest {
         assertFailure(BackupFailure.UNSUPPORTED_VERSION) {
             validFile().copy(formatVersion = BACKUP_FORMAT_VERSION + 1)
         }
+    }
+
+    @Test
+    fun rejectsAPrescriptionSnapshotInAPre21File() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            profiledFile(PRESCRIPTION_SNAPSHOT_FORMAT_VERSION - 1).copy(
+                workoutSets = listOf(set(prescriptionSnapshot = snapshot()))
+            )
+        }
+    }
+
+    @Test
+    fun rejectsAPrescriptionSnapshotThatContradictsItsSet() {
+        assertFailure(BackupFailure.INVALID_REFERENCE) {
+            profiledFile(BACKUP_FORMAT_VERSION).copy(
+                workoutSets = listOf(
+                    set(prescriptionSnapshot = snapshot(exerciseId = "front-squat"))
+                )
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            profiledFile(BACKUP_FORMAT_VERSION).copy(
+                workoutSets = listOf(
+                    set(prescriptionSnapshot = snapshot(loadKind = "BODYWEIGHT", weightKg = null))
+                )
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            profiledFile(BACKUP_FORMAT_VERSION).copy(
+                workoutSets = listOf(
+                    set(
+                        reps = null,
+                        durationSeconds = 30,
+                        weightKg = null,
+                        prescriptionSnapshot = snapshot()
+                    )
+                )
+            )
+        }
+    }
+
+    @Test
+    fun acceptsAWellFormedPrescriptionSnapshot() {
+        validator.validate(
+            profiledFile(BACKUP_FORMAT_VERSION).copy(
+                workoutSets = listOf(set(prescriptionSnapshot = snapshot()))
+            )
+        )
     }
 
     @Test
@@ -1302,7 +1353,8 @@ class BackupValidatorTest {
         occurrenceId: Long? = null,
         occurrenceEntryId: Long? = null,
         reps: Int? = 5,
-        durationSeconds: Int? = null
+        durationSeconds: Int? = null,
+        prescriptionSnapshot: String? = null
     ) = BackupWorkoutSetRecord(
         id = id,
         exerciseId = exerciseId,
@@ -1322,7 +1374,8 @@ class BackupValidatorTest {
         timingProvenance = timingProvenance,
         startedAtElapsedMillis = startedAtElapsedMillis,
         completedAtElapsedMillis = completedAtElapsedMillis,
-        durationSeconds = durationSeconds
+        durationSeconds = durationSeconds,
+        prescriptionSnapshot = prescriptionSnapshot
     )
 
     private fun session(id: String) = BackupWorkoutSessionRecord(
@@ -1333,6 +1386,20 @@ class BackupValidatorTest {
         occurrenceId = null
     )
 
+    private fun snapshot(
+        exerciseId: String = "back-squat",
+        loadKind: String = "EXTERNAL",
+        weightKg: Double? = 100.0
+    ) = WorkoutPrescriptionSnapshotJson.encode(
+        WorkoutPrescriptionSnapshot(
+            exerciseId = exerciseId,
+            sets = 3,
+            reps = 5,
+            loadKind = LoadKind.valueOf(loadKind),
+            weightKg = weightKg,
+            isDeload = false
+        )
+    )
     private fun activation(id: Long) = BackupActivationRecord(
         id = id,
         templateId = null,

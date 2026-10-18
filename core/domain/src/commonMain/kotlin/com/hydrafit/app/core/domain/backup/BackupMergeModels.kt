@@ -53,7 +53,9 @@ data class BackupMergedSet(
     val timingProvenance: String,
     val startedAtElapsedMillis: Long?,
     val completedAtElapsedMillis: Long?,
-    val durationSeconds: Int?
+    val durationSeconds: Int?,
+    /** The recorded target, carried verbatim so a merge never reinterprets it. */
+    val prescriptionSnapshot: String?
 )
 
 /** Collections a v1 merge deliberately leaves with the live install; counts are disclosed in the preview. */

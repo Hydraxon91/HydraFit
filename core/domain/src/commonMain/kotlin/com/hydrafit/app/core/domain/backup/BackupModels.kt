@@ -7,7 +7,10 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 20
+const val BACKUP_FORMAT_VERSION: Int = 21
+
+/** The first backup format that carries a performed set's recorded prescription target. */
+const val PRESCRIPTION_SNAPSHOT_FORMAT_VERSION: Int = 21
 
 /** The first backup format that carries a timed prescription slot's duration. */
 const val PRESCRIPTION_DURATION_FORMAT_VERSION: Int = 18
@@ -326,7 +329,13 @@ data class BackupWorkoutSetRecord(
     val startedAtElapsedMillis: Long? = null,
     val completedAtElapsedMillis: Long? = null,
     /** Elapsed whole seconds for a timed set, format 17 and later; null for counted work. */
-    val durationSeconds: Int? = null
+    val durationSeconds: Int? = null,
+    /**
+     * The recorded prescription target this set was performed against, format 21 and later, encoded
+     * by [WorkoutPrescriptionSnapshotJson]. Formats 1-20 have no target, so a restored legacy set
+     * reports "unknown target" rather than inheriting today's accepted plan.
+     */
+    val prescriptionSnapshot: String? = null
 )
 
 @Serializable

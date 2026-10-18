@@ -38,7 +38,8 @@ object BackupMergePolicy {
                 timingProvenance = set.timingProvenance,
                 startedAtElapsedMillis = set.startedAtElapsedMillis,
                 completedAtElapsedMillis = set.completedAtElapsedMillis,
-                durationSeconds = set.durationSeconds
+                durationSeconds = set.durationSeconds,
+                prescriptionSnapshot = set.prescriptionSnapshot
             )
         }
 
