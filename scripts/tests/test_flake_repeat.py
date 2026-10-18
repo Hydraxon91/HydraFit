@@ -15,6 +15,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "flake-repeat.py"
 # Loading the helper by path would otherwise drop a __pycache__ directory into scripts/.
@@ -48,7 +49,7 @@ class FlakeRepeatTests(unittest.TestCase):
     def test_passing_command_repeated_passes_and_persists_a_summary(self):
         code, out, _ = self.run_main(self.sweep_args(3, [sys.executable, "-c", "pass"]))
         self.assertEqual(0, code)
-        self.assertIn("runs=3 failed=0 fresh=true", out)
+        self.assertIn("runs=3 attempted=3 failed=0 fresh=true", out)
         summary = self.summary()
         self.assertEqual(3, summary["runs"])
         self.assertEqual([], summary["failed_runs"])
@@ -62,7 +63,7 @@ class FlakeRepeatTests(unittest.TestCase):
                    "raise SystemExit(1)"]
         code, out, _ = self.run_main(self.sweep_args(2, command))
         self.assertEqual(2, code)
-        self.assertIn("runs=2 failed=2", out)
+        self.assertIn("runs=2 attempted=2 failed=2", out)
         self.assertIn("aCase", out)
         summary = self.summary()
         self.assertEqual([1, 2], summary["failed_runs"])
@@ -84,6 +85,83 @@ class FlakeRepeatTests(unittest.TestCase):
         self.assertIn("fresh=true", out)
         self.assertEqual(7, self.summary()["results"][1]["executed"])
 
+    def test_unconfirmed_termination_stops_the_sweep_without_starting_more(self):
+        records = [{"run": 1, "wrapper_exit": 0, "exit": 0, "outcome": "timeout",
+                    "termination": "not-guaranteed", "executed": 1, "up_to_date": 0,
+                    "log_match": None, "failures": []}]
+        with mock.patch.object(fr, "run_once", side_effect=records) as run_once:
+            code, out, _ = self.run_main(self.sweep_args(3, ["true"]))
+        self.assertEqual(1, run_once.call_count, "no run may start after an uncertain one")
+        self.assertEqual(3, code)
+        self.assertIn("aborted_at=1", out)
+        summary = self.summary()
+        self.assertEqual(1, summary["runs_attempted"])
+        self.assertFalse(summary["complete"])
+        self.assertFalse(summary["fresh"])
+
+    def test_missing_result_is_unconfirmed_and_aborts_the_sweep(self):
+        records = [{"run": 1, "wrapper_exit": 125, "exit": None, "outcome": None,
+                    "termination": None, "executed": None, "up_to_date": None,
+                    "log_match": None, "failures": []}]
+        with mock.patch.object(fr, "run_once", side_effect=records) as run_once:
+            code, _, _ = self.run_main(self.sweep_args(2, ["true"]))
+        self.assertEqual(1, run_once.call_count)
+        self.assertEqual(2, code, "a wrapper failure is still a failed run")
+
+    def test_one_fresh_run_with_cached_repeats_is_not_fresh(self):
+        base = {"wrapper_exit": 0, "exit": 0, "outcome": "completed",
+                "termination": "confirmed", "up_to_date": 0, "log_match": None,
+                "failures": []}
+        records = [{**base, "run": 1, "executed": 1}, {**base, "run": 2, "executed": 0}]
+        with mock.patch.object(fr, "run_once", side_effect=records):
+            code, out, _ = self.run_main(self.sweep_args(2, ["true"]))
+        self.assertEqual(3, code)
+        self.assertIn("fresh=false", out)
+        self.assertTrue(self.summary()["complete"])
+
+    def test_required_log_marker_must_appear_in_every_run(self):
+        command = [sys.executable, "-c", "print('TARGET-CHECK-RAN')"]
+        code, out, _ = self.run_main(
+            ["--require-log-match", "TARGET-CHECK-RAN", *self.sweep_args(2, command)])
+        self.assertEqual(0, code)
+        self.assertIn("fresh=true", out)
+        self.assertEqual("TARGET-CHECK-RAN", self.summary()["required_log_match"])
+        self.assertTrue(all(record["log_match"] for record in self.summary()["results"]))
+
+    def test_missing_required_log_marker_is_inconclusive(self):
+        command = [sys.executable, "-c", "print('something unrelated')"]
+        code, out, _ = self.run_main(
+            ["--require-log-match", "TARGET-CHECK-RAN", *self.sweep_args(2, command)])
+        self.assertEqual(3, code)
+        self.assertIn("fresh=false", out)
+        self.assertEqual([False, False],
+                         [record["log_match"] for record in self.summary()["results"]])
+
+    def test_invalid_required_log_match_regex_returns_125(self):
+        code, _, err = self.run_main(
+            ["--require-log-match", "[", *self.sweep_args(1, ["true"])])
+        self.assertEqual(125, code)
+        self.assertIn("not a valid regex", err)
+
+    def test_target_task_marker_rejects_nonexecuted_task_statuses(self):
+        for index, status in enumerate(("UP-TO-DATE", "FROM-CACHE", "SKIPPED", "NO-SOURCE")):
+            with self.subTest(status=status):
+                self.sweep = self.root / f"cached-{index}"
+                output = (f"> Task :module:test {status}\n"
+                          "2 actionable tasks: 1 executed, 1 up-to-date\n")
+                command = [sys.executable, "-c", f"print({output!r})"]
+                code, _, _ = self.run_main(
+                    ["--require-log-match", ":module:test", *self.sweep_args(2, command)])
+                self.assertEqual(3, code)
+                self.assertFalse(self.summary()["fresh"])
+
+    def test_target_task_marker_accepts_executed_task(self):
+        command = [sys.executable, "-c",
+                   "print('> Task :module:test\\n1 actionable task: 1 executed')"]
+        code, _, _ = self.run_main(
+            ["--require-log-match", ":module:test", *self.sweep_args(2, command)])
+        self.assertEqual(0, code)
+
     def test_stale_sweep_directory_is_refused_without_running_anything(self):
         self.sweep.mkdir(parents=True)
         (self.sweep / "run-1.json").write_text('{"old":true}')
@@ -99,6 +177,7 @@ class FlakeRepeatTests(unittest.TestCase):
                  ["nope", "2", str(self.sweep), "--", "true"],
                  ["30", "0", str(self.sweep), "--", "true"],
                  ["0", "2", str(self.sweep), "--", "true"],
+                 ["--require-log-match"],
                  ["30", "2", str(self.root / "missing" / ".."), "--", "true"]]
         for arguments in cases:
             with self.subTest(arguments=arguments):
