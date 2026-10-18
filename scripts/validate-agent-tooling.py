@@ -247,7 +247,7 @@ def batch_state_findings(root: pathlib.Path) -> list[str]:
     findings = [f"{path}: durable state missing lifecycle step {label}"
                 for label in labels if f"- **{label}:**" not in section]
     for token in ("scripts/task-state.py", "`begin`", "`resolve`", "`resume`", "`checkpoint`",
-                  "`evidence`", "boundary --expect", "--require-evidence"):
+                  "`evidence`", "`amend`", "boundary --expect", "--require-evidence"):
         if token not in section:
             findings.append(f"{path}: durable state missing protocol reference {token}")
     return findings

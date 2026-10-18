@@ -17,6 +17,10 @@ Exit codes:
     124                  the command exceeded the time limit
     125                  usage/start error or result persistence failure
     130 / 143            wrapper interrupted by SIGINT / SIGTERM (bounded cleanup)
+
+When the log ends with Gradle's own task summary, the result JSON and the summary
+line also report the executed/up-to-date split, so inherited task state stays visible
+instead of being read as a fresh check.
 """
 
 from __future__ import annotations
@@ -24,6 +28,7 @@ from __future__ import annotations
 import math
 import json
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -35,6 +40,8 @@ USAGE_EXIT = 125
 SUMMARY_PREFIX = "[run-bounded]"
 POLL_INTERVAL_SECONDS = 0.05
 KILL_GRACE_SECONDS = 3.0
+GRADLE_SUMMARY_RE = re.compile(r"(\d+) actionable tasks?: (.+)")
+GRADLE_COUNT_RE = re.compile(r"(\d+) (executed|up-to-date)")
 
 
 def _fail(message: str) -> int:
@@ -48,6 +55,31 @@ def _fail(message: str) -> int:
 
 def _summary(text: str) -> None:
     print(f"{SUMMARY_PREFIX} {text}")
+
+
+def gradle_task_summary(logfile: str) -> dict | None:
+    """Report Gradle's own executed/up-to-date split; None when the log has no summary.
+
+    Gradle omits a zero count, so an all-inherited run reads `7 actionable tasks: 7
+    up-to-date` with no `executed` term; both counts default to zero.
+    """
+    try:
+        with open(logfile, "rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            handle.seek(max(0, handle.tell() - 8192))
+            text = handle.read().decode("utf-8", "replace")
+    except OSError:
+        return None
+    match = None
+    for match in GRADLE_SUMMARY_RE.finditer(text):
+        pass
+    if match is None:
+        return None
+    counts = {kind: int(count) for count, kind in GRADLE_COUNT_RE.findall(match.group(2))}
+    if not counts:
+        return None  # An unrecognised summary must not read as "nothing executed".
+    return {"actionable": int(match.group(1)), "executed": counts.get("executed", 0),
+            "up_to_date": counts.get("up-to-date", 0)}
 
 
 def parse_args(argv: list[str]) -> tuple[float, str, list[str]]:
@@ -206,6 +238,9 @@ def main(argv: list[str] | None = None) -> int:
         for signum, handler in handlers.items():
             signal.signal(signum, handler)
         result["elapsed"] = round(time.monotonic() - start, 3)
+        tasks = gradle_task_summary(logfile)
+        if tasks is not None:
+            result["gradle_tasks"] = tasks
         if result_file is not None:
             try:
                 with result_file:
@@ -216,8 +251,11 @@ def main(argv: list[str] | None = None) -> int:
             except OSError as error:
                 _fail(f"result write failed; inspect command outcome before retry: {error}")
                 result["exit"] = USAGE_EXIT
+        task_note = "" if tasks is None else (f" gradle_tasks={tasks['executed']}executed"
+                                              f"/{tasks['up_to_date']}up-to-date")
         _summary(" ".join(f"{key}={result[key]}" for key in
                           ("outcome", "elapsed", "exit", "sigkill", "termination")) +
+                 task_note +
                  f" log={logfile} diagnostic_errors={len(result['diagnostic_errors'])}")
     return result["exit"]
 

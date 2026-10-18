@@ -66,6 +66,11 @@ implement; ask the user to switch to Build mode when they accept the contract.
   interruption leaves it pending/unknown; inspect before resolving, never replay.
   Checkpoint inspected repository changes explicitly, preserving the original
   baseline. Use revision-checked updates; a conflict means reload, not overwrite.
+- Record an approved scope expansion as an `amend` event rather than editing the
+  contract or initializing a replacement record: the accepted contract stays
+  byte-identical, the approved exact paths join the effective allowed set, the event
+  records any already-dirty path it legitimized, and it never extends the budget.
+  See `docs/agent-project-reference.md` Durable task state.
 - On resume, run the read-only `resume` report and reconcile repository drift,
   pending operations and remaining budget before more work. An expired budget is
   a stop, not a reset. These helpers do not execute the task or enforce a sandbox.

@@ -205,6 +205,17 @@ other gates remain in force, including harness restrictions.
   group is confirmed — termination is not guaranteed while the group may still
   exist. If a run hangs, jstack the test executor and report; don't retry
   blindly.
+- Kotlin changes: run the mechanical format pass before the first test run.
+  `./gradlew ktlintFormat` rewrites imports and wrapping — the two problems that
+  otherwise cost several correction rounds — then `ktlintCheck`, or the affected
+  module's `ktlint<SourceSet>Check`, confirms. This applies to main-agent and
+  delegated work alike, and the format pass's own diff is inspected like any other
+  edit.
+- Report a check as passed only when it executed in that run. A Gradle task reported
+  `UP-TO-DATE`, or otherwise inherited, is not fresh verification: re-run it with
+  `--rerun-tasks` or state plainly that the result was inherited and from which
+  inputs. `run-bounded.py` prints the executed/up-to-date split whenever Gradle
+  provides one, so the distinction is visible without extra work.
 - Verification covers downstream consumers, not just the module you
   edited: select the risk tier in `docs/agent-project-reference.md` Key
   Commands. Tier A changes run the full matrix at their chunk boundary;
@@ -350,6 +361,12 @@ file deletion; and every publication step (push, PR creation or merge, tag,
 release, artifact upload). Do not request a second approval for an action already
 covered by the unchanged accepted contract; a changed action, revision or scope
 does not inherit its authorization.
+
+An approved scope expansion is recorded, not assumed. Append an `amend` event to the
+durable record (`docs/agent-project-reference.md` Durable task state) so the accepted
+contract stays byte-identical and the expanded paths join the effective allowed set;
+never edit the contract or initialize a replacement record to widen scope, and never
+treat an amendment as a budget extension.
 
 **Review and ownership.** The parent may remain in Build Mode while the separate
 read-only `reviewer` performs the pre-requested checkpoint and targeted closure.

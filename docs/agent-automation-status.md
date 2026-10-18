@@ -518,3 +518,62 @@ cost that a formatting pre-pass should remove.
   in isolation and on a full rerun. The progress repository's flow opens
   `transactionWithResult` and `first()` cancels it mid-transaction. Untouched by
   0.10.0 and left unfixed; the reviewer accepted it as pre-existing and out of scope.
+
+### Automation reliability — contract amendment path (B010-05 closed)
+
+- **B010-05 [protocol, fixed]:** `scripts/task-state.py` now accepts an `amend`
+  event. An approved scope expansion is appended to the record instead of rewriting
+  the contract: the contract object stays byte-identical, the amended exact paths
+  join the effective allowed set used by `resume`, `checkpoint`, `phase` and
+  `boundary`, and the event stores the paths it legitimized that were already dirty,
+  so an amendment written after the observation stays visible in the record. An
+  amendment carries its own approval reference and note, adds scope only (never
+  budget), is refused with a pending outcome or a `complete`/`blocked` phase, and is
+  validated against the update history so a tampered record still fails closed.
+  Verified by the offline suite (`scripts/tests/test_task_state.py`) and the
+  `Agent tooling checks` job, which now requires the `amend` protocol reference in
+  `.opencode/commands/batch.md`.
+- **Rating:** task state moves to 9/10. The amendment path removes the only blocker
+  to finishing a real amended-scope run; the residual gap is that the tool still
+  cannot verify that the recorded approval was actually given.
+
+### Automation reliability — evidence, cost and the lease (items 2–4)
+
+- **B010-03 [cost, fixed]:** the ~10 authoring correction rounds in 0.10.0 were
+  dominated by unused imports and expression-body wrapping, both mechanically
+  fixable. `ktlintFormat` is now the mandated pre-pass before the first Kotlin test
+  run, in `AGENTS.md` and in the project reference's Key Commands, for main-agent and
+  delegated work alike. Not yet exercised on a real Kotlin chunk, so the saving is
+  expected rather than measured.
+- **B010-07 [evidence, fixed]:** `run-bounded.py` now reports Gradle's own
+  executed/up-to-date split in its result JSON (`gradle_tasks`) and in its summary
+  line, so inherited task state is visible at the point of decision. Live proof: an
+  all-inherited `:core:domain:ktlintCheck` printed
+  `gradle_tasks=0executed/7up-to-date` — the exact shape previously reported as a
+  fresh full-matrix pass. The rule that an `UP-TO-DATE` task is not fresh verification
+  is now in `AGENTS.md`. The first parser version missed that shape because Gradle
+  omits a zero count; live verification caught it and the regression has a test.
+- **B010-09 [lease, verified]:** the cooperative lease was trialled with two workers
+  contending for the same `hydrafit-gradle.lock.d`, each running a real bounded
+  `:core:domain:ktlintCheck` while holding it. Worker B waited 4.60 s and acquired only
+  after worker A released: overlap 0.000 s, both builds exit 0, and the lease was free
+  afterwards with no orphaned lock. A disclosed 4 s artificial hold was added so
+  contention was observable regardless of Gradle's own duration. The trial's own output
+  is persisted (`lease-trial/trial-result.log`) beside `trial.py` and both worker build
+  logs, so the numbers can be re-checked rather than taken from a transcript. This is
+  the first live evidence for the lease, which previously had offline tests only; it
+  still has not run with two real coder sessions.
+- **Review:** an independent read-only review returned APPROVED with four mechanical
+  findings, all corrected in the same change. R-01: `validate_amendments` now restates a
+  stored amendment against its history event, closing the one falsification that
+  succeeded — a hand-edited `add_allowed_paths` naming a valid but never-requested path
+  used to widen the effective set. R-02: the lease trial output is persisted instead of
+  quoted from stdout. R-03: an unparsable Gradle summary now reports nothing rather than
+  "0 executed". R-04: the reference doc's record-field list includes the amendments
+  array. Laundering, `already_allowed_paths` smuggling, gate weakening, contract
+  immutability and run-bounded regressions were all attempted and did not pass.
+- **Ratings:** bounded-run 8.5 → 9 (freshness now visible; a live timeout containment
+  is still unproven). Lease 6.5 → 8 (live two-worker serialization proven; not yet
+  under real concurrent sessions). Evidence discipline 6.5 → 8.5 (rule plus a tool
+  that shows the split). Authoring cost is unrated until the format pass is used on a
+  real Kotlin chunk.
