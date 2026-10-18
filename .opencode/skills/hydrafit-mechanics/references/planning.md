@@ -214,12 +214,49 @@ DEFAULT_SETS_PER_EXERCISE = 3  // declared in PlanRequest.kt
 | ENDURANCE | 2 | 1 | 15 | 15 |
 
 Progression defaults: `successStreak = 3`, `failureStreak = 3`,
-`roundToKg = 2.5`, `maxIncrements = 5`. Completion is judged against the latest
-accepted prescription, not merely the heaviest logged set.
-The success grouping is by exercise/local calendar day, not explicit session id;
-historical sets are compared with the latest accepted prescription. Missing
-quality/effort data is not execution verification. Planned improvements are in
-PLANS.md (LT-10 / OF-10A-P0), not part of the current calculation.
+`roundToKg = 2.5`, `maxIncrements = 5`. Completion is judged against each set's own
+**recorded target**, never merely the heaviest logged set and never today's accepted
+plan.
+
+`WorkoutSet.prescriptionSnapshot` carries the target captured at submission
+(`WorkoutPrescriptionSnapshotJson`, version 1: exercise, prescribed sets, reps or
+duration, load kind, nullable target load, deload flag). The Logger captures the
+tapped occurrence entry, else today's accepted-plan slot, and writes it in the same
+statement as the set; a backdated set with no attributable slot records no target.
+Corrections rewrite performance only — a target is never rewritten.
+
+`ProgressionHistory` (`engine/ProgressionHistory.kt`) groups one exercise's
+non-warmup recorded work by **explicit session**, orders sessions by earliest
+performed time, and classifies each exposure against its own target:
+
+- `SUCCESS` — the session is closed at or before `nowMillis`, every set in it names
+  the same comparable target, the target is a non-deload typed external rep target
+  with a positive load, and at least `sets` recorded sets reached both the target
+  reps and load.
+- `MISS` — the same, but fewer sets reached the target.
+- `UNKNOWN` — an open session, a session not fully recorded, a blank or
+  explicit-zero recorded load (which cannot establish weighted target success or
+  failure), mixed or absent targets, a legacy/bodyweight/timed target, or a deload
+  target.
+
+An `UNKNOWN` exposure **breaks the streak without counting as a miss**: missing
+evidence never becomes demonstrated failure, and no reduction is applied. A change
+of comparable target also restarts the streak, so work performed against a different
+prescription is never stitched into one block. Two sessions on the same local day
+stay separate; they are never combined into one success.
+
+Legacy rows have no recorded target and stay `UNKNOWN`. `SqlDelightWorkoutPlanSourcesRepository`
+supplies one coherent `ProgressionHistory` (sets, sessions, and occurrence-derived
+targets for rows written before format 21) and invalidates on set, session,
+occurrence and activation writes. Occurrence-derived targets are used only when the
+attribution is unambiguous (matching entry, exercise and occurrence), so a
+replacement or an unattributed row is never guessed. The 2026-10-15 narrowing that
+let 0.8.0 charts ship independently is now superseded: the integrity contract is
+implemented, and remaining 0.10.x progression **policy** stays in PLANS.md.
+
+Sources: domain `engine/OneRepMax.kt`, `SuggestedWeightConfig.kt`,
+`VolumeAwareReps.kt`, `TrainingGoal.kt`, `ProgressionConfig.kt`,
+`ProgressionHistory.kt`; `workout/WorkoutPrescriptionSnapshot.kt`.
 
 ### Selection, schedule, and periodization
 

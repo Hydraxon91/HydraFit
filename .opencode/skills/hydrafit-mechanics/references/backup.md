@@ -3,8 +3,15 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 20), restored by whole replacement.
-The reader accepts versions 1–20; version 1 defaults the guided-workout preference to off.
+Logical, versioned JSON (`format` + `formatVersion` 21), restored by whole replacement.
+The reader accepts versions 1–21; version 1 defaults the guided-workout preference to off.
+Format 21 adds a performed set's recorded prescription target
+(`workoutSets[].prescriptionSnapshot`, the encoded `WorkoutPrescriptionSnapshot`).
+The validator rejects a target in a pre-21 file rather than reinterpreting it, and
+rejects a target whose exercise, load kind or measurement contradicts the set it is
+attached to. Formats 1–20 restore every set with no recorded target, so a restored
+legacy set reports "unknown target" and never inherits today's accepted plan; a
+merge carries the target verbatim even though it drops the scheduling links.
 Format 20 adds the warm-up preparation overrides (`warmupPreparationOverrides`), one persisted
 measure per preparation action; an unknown action name, a duplicate action or a non-exclusive
 measure is rejected rather than dropped. Format 19 adds an accepted plan slot's duration. Format 18
@@ -61,7 +68,7 @@ Formats 5–10 carry one global rest duration and optional per-exercise override
 default to a 120-second global duration with no overrides. Countdown state is deliberately
 excluded and cleared during restore. Formats 4–10 require per-set timing provenance and explicit nullable elapsed fields; format 3 requires
 and preserves timing provenance while elapsed fields default to null; formats 1–2 default timing
-provenance to `UNKNOWN` and elapsed fields to null. Exports use version 20.
+provenance to `UNKNOWN` and elapsed fields to null. Exports use version 21.
 Format 10 requires its session-note section. Unknown fields remain rejected.
 Domain `backup/` owns the payload records, the kotlinx-serialization codec, the
 validator, the limits and the export/preview/stage/apply use cases (bound in

@@ -94,7 +94,7 @@
     <string name="split_explanation_progression_failure_streak_size">Missed-session streak threshold</string>
     <string name="split_explanation_progression_none_no_streak">No completed streak yet, so the baseline is unchanged.</string>
     <string name="split_explanation_progression_held_after_misses">Increments were removed for missed sessions; the load held at the baseline.</string>
-    <string name="split_explanation_progression_none_no_prescription">No typed prescription to progress from.</string>
+    <string name="split_explanation_progression_none_no_prescription">No recorded target to progress from.</string>
     <string name="split_explanation_progression_paused_deload">Progression paused for the deload week.</string>
     <string name="split_explanation_conversion_reps">Reps used</string>
     <string name="split_explanation_conversion_intensity">Intensity from the rep curve</string>

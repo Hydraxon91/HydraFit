@@ -404,3 +404,91 @@ All three received independent approval. At this note's creation they remain
 local/unpushed; push, PR and any later publication require separate approval.
 Historical ratings remain unchanged pending stronger live evidence. This note
 does not authorize the next task or automatically generate another handoff.
+
+## 0.10.0 first live batch attempt (2026-10-18)
+
+Accepted four-hour contract, base `08ba103d`, branch
+`feature/0.10.0-progression-integrity`. Main owns progression/persistence;
+prepared acceptance belongs to ui-runner, independent checkpoint to reviewer.
+State/evidence: `batch-0.10.0` under the agreed OpenCode temporary root. The two
+pre-existing roadmap/PLANS corrections are preserved in the recorded baseline.
+
+- **B010-01 [authoring, confirmed]:** first domain chunk failed module ktlint.
+  Actual diagnostics establish a 100-character maximum for these Kotlin files,
+  together with multiline argument/expression rules. Two manual correction
+  attempts reduced the errors but did not resolve the same lint blocker. Latest
+  `domain-lint-03.log` leaves the test helper at line 123 nonconforming. Standing
+  two-attempt stop triggered: no additional fix or unchanged retry was made.
+- Partial work: immutable snapshot encoding, nullable WorkoutSet snapshot field,
+  pure session/comparability exposure model and synthetic tests. Planner still
+  uses the old progression path; no schema, database or backup-format change has
+  been implemented. Host tests/full matrix, independent review and UI acceptance
+  have not run. No commit or publication; no emulator/phone interaction.
+- **B010-02 [process evidence]:** durable state initialized and attempt outcomes
+  tracked. Verification corrections were made inside the pending verification
+  attempt rather than separate correction attempts; this falls short of the new
+  per-correction attempt procedure and is disclosed, not retroactively repaired.
+  Parent has no completed-boundary or rating-improvement claim. New evidence is
+  a bounded failed authoring journey and an observed stop, not release acceptance.
+
+Resume requires an explicit decision on the exhausted authoring-fix allowance;
+inspect the existing changes/state first. Do not treat pending or failed work as
+safe to replay, discard partial implementation, or infer publication approval.
+
+### 0.10.0 domain boundary: verified after explicit correction approval
+
+User explicitly authorized the remaining formatting correction ("fix it"). Only
+the helper's wrapping changed; `domain-lint-04.log` passed. The original failed
+attempts remain above and in external state. `domain-matrix-01.log` then passed
+the full host suite, migration verification, root ktlint, debug assembly and both
+iOS compiles (147.706 seconds; termination confirmed). No planner behavior switch,
+persistence or portability implementation at this boundary; review remains pending.
+New evidence: module lint-first ordering and bounded full-matrix execution worked,
+but the initial authoring round still required a user intervention. No rating increase.
+
+## 0.10.0 progression integrity — first full batch run (2026-10-18)
+
+First live use of the durable batch-state protocol on a real release scope. Base
+`08ba103d`, branch `feature/0.10.0-progression-integrity`, four-hour cap, state and
+evidence in `batch-0.10.0` under the agreed OpenCode temporary root.
+
+### What the protocol caught
+
+- **B010-01 [process, confirmed]:** the state boundary refused a `checkpoint` while
+  eight modified files sat outside the contract's `allowed_paths`. The gate worked:
+  it named every path and blocked the checkpoint instead of silently accepting the
+  delta. The user approved the amendment; it is recorded as evidence.
+- **B010-02 [contract quality]:** the approved path list was written before the
+  migration's consumer set was known. A schema/constructor change predictably ripples
+  into version-pinned migration tests and constructor call sites, so an
+  implementation contract should pre-list those consumer files or state that
+  mechanical consumer updates are pre-approved with disclosure. Recorded as a
+  contract-authoring lesson, not an execution failure.
+- **B010-03 [process]:** six authoring correction rounds were needed across the two
+  implementation chunks (module ktlint on the domain chunk; module ktlint and three
+  test-fixture corrections on persistence/integration; two on the validator tests).
+  Almost all were the same family — expression-body wrapping and the 100-character
+  limit in new Kotlin — and each was resolved by one targeted edit. This is the same
+  class as the earlier F-01/F-05 findings and confirms that the style primer alone
+  did not prevent it; the durable fix is mechanical formatting before the first test
+  run, not more prose.
+- **B010-04 [verification design, confirmed]:** a real-time flow test that wrote to
+  the database from inside its own collector was flaky (one `TimeoutCancellationException`).
+  The generated query registers all five joined tables, so invalidation itself is
+  structurally correct; the test was replaced with a deterministic two-read
+  assertion. Live re-emission while a collector is active remains an unverified
+  limit, disclosed rather than papered over.
+
+### Boundary evidence
+
+- `persistence-matrix-04.log` and `full-matrix-01.log`: host suite, migration
+  verification, `ktlintCheck`, debug assembly and both iOS simulator compiles green
+  (57.4 s, wrapper exit 0, termination confirmed).
+- Device: debug build installed on `emulator-5554` and launched against the existing
+  populated database; migration 56 applied with no SQLite/migration error and the
+  Equipment screen rendered the pre-existing profile unchanged.
+- Independent review, commits and publication were still pending at this entry.
+
+Ratings unchanged: this run proves the protocol works on a real scope and that the
+out-of-scope gate is not decorative, but it also shows a five-hour-plus authoring
+cost that a formatting pre-pass should remove.
