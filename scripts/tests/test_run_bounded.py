@@ -72,6 +72,48 @@ class RunBoundedTests(unittest.TestCase):
         self.assertIn("hello bounded", log.read_text())
         self.assertIn("outcome=completed", out)
 
+    def test_gradle_task_split_is_reported_when_the_log_has_it(self):
+        body = "> Task :x:y\nBUILD SUCCESSFUL in 1s\n7 actionable tasks: 7 up-to-date\n"
+        code, out, _ = self.run_main(
+            ["5", str(self.tmp / "gradle.log"), "--", sys.executable, "-c",
+             f"import sys; sys.stdout.write({body!r})"])
+        self.assertEqual(0, code)
+        self.assertIn("gradle_tasks=0executed/7up-to-date", out)
+
+    def test_gradle_task_split_reports_up_to_date_and_lands_in_result_json(self):
+        result = self.tmp / "result.json"
+        body = "787 actionable tasks: 36 executed, 751 up-to-date\n"
+        code, out, _ = self.run_main(
+            ["--result-json", str(result), "5", str(self.tmp / "gradle.log"), "--",
+             sys.executable, "-c", f"import sys; sys.stdout.write({body!r})"])
+        self.assertEqual(0, code)
+        self.assertIn("gradle_tasks=36executed/751up-to-date", out)
+        self.assertEqual({"actionable": 787, "executed": 36, "up_to_date": 751},
+                         json.loads(result.read_text())["gradle_tasks"])
+
+    def test_gradle_task_split_is_absent_for_non_gradle_output(self):
+        result = self.tmp / "result.json"
+        code, out, _ = self.run_main(
+            ["--result-json", str(result), "5", str(self.tmp / "plain.log"), "--",
+             sys.executable, "-c", "print('no task summary here')"])
+        self.assertEqual(0, code)
+        self.assertNotIn("gradle_tasks", out)
+        self.assertNotIn("gradle_tasks", json.loads(result.read_text()))
+
+    def test_gradle_task_split_unit_cases(self):
+        cases = [("1 actionable task: 1 executed", {"actionable": 1, "executed": 1, "up_to_date": 0}),
+                 ("7 actionable tasks: 7 up-to-date", {"actionable": 7, "executed": 0, "up_to_date": 7}),
+                 ("5 actionable tasks: 2 executed, 3 up-to-date",
+                  {"actionable": 5, "executed": 2, "up_to_date": 3}),
+                 ("3 actionable tasks: 3 from cache", None),
+                 ("nothing to report", None)]
+        for text, expected in cases:
+            with self.subTest(text=text):
+                path = self.tmp / "unit.log"
+                path.write_text(text)
+                self.assertEqual(expected, rb.gradle_task_summary(str(path)))
+        self.assertIsNone(rb.gradle_task_summary(str(self.tmp / "missing.log")))
+
     def test_nonzero_child_code_is_propagated(self):
         log = self.tmp / "fail.log"
         code, _, _ = self.run_main(
