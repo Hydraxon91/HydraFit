@@ -626,3 +626,114 @@ cost that a formatting pre-pass should remove.
   under real concurrent sessions). Evidence discipline 6.5 → 8.5 (rule plus a tool
   that shows the split). Authoring cost is unrated until the format pass is used on a
   real Kotlin chunk.
+
+## 0.10.1 batch — first boundary (2026-10-18)
+
+First boundary of the `0.10.1-0.10.2` batch (folded target `v0.10.1`), base
+`45ac019d`, branch `feature/0.10.1-progression-policies`. State and evidence:
+`batch-0.10.1-0.10.2` under the agreed OpenCode temporary root, task
+`batch-0.10.1-0.10.2`. Entry covers 0.10.1 only; 0.10.2 is not implemented.
+
+### What this boundary actually exercised
+
+- **Durable state, live, including the new amendment path.** `init` with a 14,400-second
+  budget, then `begin`/`resolve` around the domain chunk, then an `amend` for four
+  version-pinned migration tests the approved schema change mechanically touches. The
+  amendment was **refused** with `resolve unknown outcomes before amending scope` because
+  the domain attempt was still pending — the first live exercise of that guard, and it
+  worked exactly as designed. After `resolve`, the same amendment applied.
+- **The fresh-run rule (B010-07 fix), live on a real release.** `full-matrix-01.log` was
+  green, but its summary read 82 executed / 704 up-to-date and three key tasks —
+  `:core:domain:testAndroidHostTest`, `:feature:routines:testAndroidHostTest` and
+  `:androidApp:assembleDebug` — were `UP-TO-DATE`. Re-running with `--rerun-tasks` produced
+  `full-matrix-02.log`: **787 executed / 0 up-to-date**, exit 0, 133.2 s. Without the rule
+  and the `gradle_tasks` field, a mostly-inherited run would have been reported as the
+  release gate.
+- **The `ktlintFormat` pre-pass (B010-03 fix), measured at last.** It ran three times. It
+  did auto-correct imports and wrapping, but it **could not complete** on the first attempt
+  because of a 101-character line in a new file, and again on the delegated chunk for the
+  same reason in another new file. Each remaining violation was a line-length case that is
+  explicitly not auto-correctable.
+- **Delegation scope containment.** The `coder` brief named five exact paths; the child
+  modified exactly those five, refused to touch a main-owned file that blocked its
+  repo-wide format pass, and reported that refusal as a blocker instead of editing it.
+- **Not exercised:** `git-ops` (this batch performs Git directly, so the permission-prompt
+  datapoint stays unmeasured), the lease (all writes were serialized), and the UI preflight
+  (no device acceptance ran in this boundary). Missing observations remain unknown, not zero.
+
+### Findings
+
+- **B011-01 [tooling, confirmed] — the repo-wide format pre-pass is unsafe on a dirty tree.**
+  `./gradlew ktlintFormat` runs over the whole working tree, aborts on a non-auto-correctable
+  violation in **any** file, and rewrites files outside the current chunk. On a shared tree
+  with pre-existing changes this both blocks the step (a file the chunk does not own) and
+  risks unattributable formatting edits. Observed twice, in two different files.
+  *Improvement:* scope the pre-pass to the affected modules, or require a clean tree first;
+  and treat "the pass could not complete" as a distinct outcome from "my files had
+  violations". Today both surface as the same non-zero exit.
+- **B011-02 [delegation, confirmed] — the brief's tool-call cap was exceeded.** The child
+  reported roughly 25+ calls against a 25-call cap, honestly and without silently
+  extending. The cap is advisory in practice; it did not change behaviour, only the report.
+  *Improvement:* state the cap as a soft target with an explicit stop condition, or set it
+  from the observed cost of comparable chunks.
+- **B011-03 [protocol, verified] — the amendment guard works.** See above: a pending
+  outcome correctly blocked a scope amendment.
+- **B011-04 [evidence, verified] — the freshness rule earns its rating.** See above.
+- **B011-05 [contract, confirmed] — the same under-listing as B010-02 recurred, three times.**
+  The approved `allowed_paths` did not name files the approved change mechanically touches.
+  **Seven** files needed three amendment rounds: four found by the parent while compiling
+  (`CustomExerciseDedupeTest.kt`, `PrescriptionDurationMigrationTest.kt`,
+  `PlanEntryDurationMigrationTest.kt`, `SqlDelightWorkoutPlanSourcesRepositoryTest.kt` —
+  SQLDelight's generated insert functions take every column without a default); two found by
+  the independent reviewer (`BodyWeightMigrationTest.kt`, `EquipmentProfileMigrationTest.kt`,
+  both pinning `HydraFitDatabase.Schema.version` to 57); and one caught by the **boundary gate
+  itself** (`TrainingBlockUseCases.kt`, which re-prescribes occurrence slots and therefore had
+  to preserve an approved policy). Two things are worth separating here: the manifest class
+  was under-enumerated, and the gate is what found the last instance — `resume` reported the
+  path as outside the allowed set and refused the checkpoint, so the miss surfaced before the
+  commit rather than after it.
+  *Improvement:* when an accepted contract includes a schema or stored-encoding change,
+  enumerate the generated-query consumers, every test pinning the schema version, and the
+  domain use cases that rewrite the affected records — or state up front that mechanical
+  consumer, version-pin and re-prescription-path updates are pre-approved with disclosure.
+- **B011-06 [flake, new] — `test_run_bounded` has its own sentinel race.** The full offline
+  suite failed once on `test_cleanup_log_failures_do_not_skip_signals_to_resistant_descendant`
+  (`step=2, method='flush'`): `ready.exists()` was false, so the child's readiness sentinel
+  never appeared within the test's window. The same test passed in a re-run of its module
+  (17 tests OK) and the full suite then passed (185 tests OK). Nothing in this batch touched
+  `run-bounded.py`, so this is an independent timing-sensitive flake in the harness's own
+  test, most likely load-dependent — it surfaced immediately after a 133-second Gradle
+  matrix. Left unfixed and out of scope. This is exactly the class `flake-repeat.py` exists
+  to measure, and it is a candidate for that harness rather than for a speculative fix.
+- **B011-07 [flake recurrence, confirmed] — the known app flake reached a release gate.** The
+  fresh `--rerun-tasks` release matrix failed once on the documented pre-existing
+  `ExerciseProgressRecordsIntegrationTest.multiExerciseOccurrenceKeepsStableIdentityOrderAndEarlierBaselines`
+  (`org.sqlite.SQLiteException`, the `cannot start a transaction within a transaction` class
+  already recorded as B010-08). The immediate rerun on the identical tree passed with 787
+  executed / 0 up-to-date. This is the first observed occurrence in a release-gate run, and it
+  cost one full 118-second re-run plus the diagnosis. Still unfixed and out of scope, but the
+  cost estimate in B010-08 ("passes in isolation and on a full rerun") should now include
+  "and can invalidate a gate run, so budget one re-run at a release boundary". A future
+  dedicated fix would need its own approved scope; `flake-repeat.py` can now measure it on
+  demand rather than waiting for it to appear.
+
+### Ratings at this boundary
+
+- **Task state 9 → 9 (held).** The amendment path, the pending-outcome guard and the
+  begin/resolve cycle all worked live on a real scope. Held rather than raised because the
+  tool still cannot verify that a recorded approval was actually given, and this boundary
+  needed an amendment at all.
+- **Bounded-run 9 → 9 (held).** The `gradle_tasks` field did the job it was added for. No
+  timeout or interruption path was exercised, so the unproven live timeout containment
+  remains the limit.
+- **Evidence discipline 8.5 → 9.** The fresh-run rule converted a misleading green run into
+  an explicit one, on a release gate, and the boundary recorded the distinction instead of
+  the headline. Raised on that observed use, not on intent.
+- **Authoring cost — now measured, and the expected saving did not appear.** The format
+  pre-pass converted a long tail of style corrections into one bounded pass, but it did not
+  remove them: two of the three passes still needed a manual line-length fix, and one of
+  those cost a blocked delegation round. B010-03's "expected rather than measured" saving is
+  therefore **not confirmed** at this boundary.
+- **Unchanged and unmeasured:** `git-ops` 7.5, lease 8, UI preflight 6.5, coder workflow 6,
+  validator 8.5 (not yet run this boundary), batch workflow 9, review discipline 9.
+- **Guard pilot 3.5 — untouched.** Nothing in this boundary exercised it.
